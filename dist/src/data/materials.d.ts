@@ -8286,6 +8286,31 @@ export declare const proceduralMaterialPresets: Readonly<{
         wireRoughness: 0.3;
         matRoughness: 0.9;
     }>;
+    tictactoegames: Readonly<{
+        dark: readonly [20, 22, 34];
+        light: readonly [250, 246, 232];
+        roughness: 0.6;
+        relief: 0.002;
+        minPlies: 3;
+        maxPlies: 9;
+        markInset: 0.2;
+        markHalf: 0.065;
+        ringRadius: 0.29;
+        ringHalf: 0.06;
+        lineHalf: 0.022;
+        edgeSoft: 0.02;
+        grainCells: 192;
+        paperTone: 0.95;
+        lineTone: 0.4;
+        crossTone: 0.1;
+        noughtTone: 0.18;
+        grainTone: 0.03;
+        markHeight: 0.58;
+        lineHeight: 0.4;
+        paperHeight: 0.3;
+        markRoughness: 0.4;
+        paperRoughness: 0.72;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -14771,6 +14796,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    tictactoegames: 0.3;
     dartboardsectors: 0.5;
     featherbarbs: 0.25;
     amidakuji: 0.3;

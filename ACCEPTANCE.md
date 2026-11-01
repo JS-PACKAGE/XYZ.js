@@ -11891,3 +11891,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 真實缺陷與修正：（1）第一版預覽中，紅／綠兩個灰階（0.42／0.66）與鋼絲色調（0.74）太接近，雙倍環與三倍環幾乎看不出來；改為紅0.34、綠0.58、鋼絲0.97。（2）測試端第一次在半徑180 mm取「數字環」暗色，但左右方向扇區的兩位數數字會向內延伸到約182 mm，使取樣點落在白色數字上而失敗；改為175 mm（測試錯誤，不是取樣器問題）。
 - 實測：`tests/procedural-material-motifs.test.ts`四百六十三項（本材質八項）全過。三seed（0、7、4294967295）：沿20個扇區中心射線，在單倍內區（57 mm）、三倍環（103）、單倍外區（134）、雙倍環（166）取樣，黑扇區（偶數編號）與白扇區的色調與預期相差＜0.07，雙倍／三倍環在黑扇區為紅、白扇區為綠，數字環（175 mm）為暗色，靶外（240 mm）為墊面色，紅心與外紅心的色調正確；每個扇區的號碼以測試端獨立的0至9字型逐像素解碼（單位數置中、兩位數並排），與測試端獨立寫的標準順序完全一致；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "dartboardsectors|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`dartboardsectors`：option 953個、status為952 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的飛鏢靶。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：井字遊戲（tictactoegames）
+
+- 目錄952→953，含plain的gallery為954項。每tile四塊3×3井字棋盤（6×6格），各為一局隨機對弈的局面：X先手、依seed的隨機順序輪流下，遇第一條連線即停，否則3至9手（每塊各自隨機）後停。Metallic／mortar為0，預設tile0.3 m、0.002 UV-relative relief、metallic factor 0。不標出連線與順序，四塊棋盤之間無分隔線；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 實測：`tests/procedural-material-motifs.test.ts`四百八十項（本材質十七項）全過，第一次執行即通過。十五個seed（0、7、4294967295、1至6、8至13）×四塊棋盤：由格中心的色調判斷X（中心暗）、O（中心亮、半徑0.29格處暗）、空格（兩處皆亮，且對角探測點也亮）；X的數量等於O或多一、已下子數不少於3手、不會雙方都連成線、X連線時X比O多一、O連線時兩者相等；另一項在40個seed×4塊共160個棋盤中，已分勝負與未分勝負的局面各超過20個（兩種情形都出現）；通道範圍、metallic／mortar 0、wrap與seed差異。注意：這些是局面「可能出現」的必要條件，不是完整的博弈樹驗證（例如沒有檢查「連線者的最後一手是否剛好完成連線」）。`tests/procedural-material.test.ts`以`-t "tictactoegames|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`tictactoegames`：option 954個、status為953 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的棋盤。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

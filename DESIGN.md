@@ -1375,6 +1375,10 @@
 
 數據來源要誠實說明：靶的總直徑451 mm與20個扇區，在本次實作中從Wikipedia〈Darts〉確認；各環的半徑（紅心6.35、外紅心15.9、三倍環99至107、雙倍環162至170 mm）與扇區數字順序是照記憶輸入的標準規格，沒有逐項對照WDF／DRA規格全文；順序有一項已知性質作為自我檢查——相鄰數字差的絕對值總和為198（測試中計算，吻合），且20個數字互不相同、總和210。這是作者設計的示意：顏色是亮度（紅／綠只是兩個不同的灰階），沒有靶面纖維、飛鏢孔、號碼環的圓弧擺放（數字不隨角度旋轉）或鋼絲的立體陰影，鋼絲的寬度（約0.0016 tile）為示意而非實際線徑。預設0.5 m nominal tile、0.0028 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`tictactoegames`（井字遊戲）使目前目錄952→953種，含plain的gallery為954項。每tile四塊3×3的井字棋盤（共6×6格），每塊畫的是一局隨機對弈的局面：X先手，兩方輪流把9個格子依seed決定的隨機順序下滿，遇到第一條連線就停止，否則在3至9手之間（每塊各自隨機）停下，因此每個局面都是實際對弈中可能出現的：X與O的數量相等或X多一，不會同時有兩方連線，連線時剛好是該方剛下完最後一手。格線只畫在同一塊棋盤的格子之間；X是兩條對角線，O是圓環，皆為近黑墨線。Metallic與mortar為0。
+
+這是作者設計的示意：沒有標出勝利連線、下棋順序或對弈者；四塊棋盤之間沒有分隔線，在6×6的格線上會連成一片（每塊棋盤的邊緣格子沒有外框）；X與O的顏色只差0.08的亮度；「可能出現」是依照上述必要條件，不是對每個局面做過完整的博弈樹驗證。預設0.3 m nominal tile、0.002 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上（每格約85 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

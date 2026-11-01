@@ -22091,6 +22091,105 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'tictactoegames': {
+        const p = proceduralMaterialPresets.tictactoegames,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x28301),
+          // Four boards (quadrants) of 3 x 3 cells, each holding the position after a random game.
+          boards = new Int8Array(4 * 9),
+          lines = [
+            [0, 1, 2],
+            [3, 4, 5],
+            [6, 7, 8],
+            [0, 3, 6],
+            [1, 4, 7],
+            [2, 5, 8],
+            [0, 4, 8],
+            [2, 4, 6],
+          ],
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          won = (board: Int8Array, offset: number, who: number): boolean =>
+            lines.some((line) =>
+              line.every((cell) => board[offset + cell] === who),
+            );
+        // Each board is a game of X (1) and O (2) moves in random order, X first, stopped at the
+        // first win or after a random number of plies, so the position is always one reachable in play.
+        for (let board = 0; board < 4; board++) {
+          const order = Array.from({ length: 9 }, (_, i) => i).sort(
+              (a, b) =>
+                hash(a, board, seed ^ 0x28303) - hash(b, board, seed ^ 0x28303),
+            ),
+            plies =
+              p.minPlies +
+              Math.min(
+                p.maxPlies - p.minPlies,
+                Math.floor(
+                  hash(board, 9, seed ^ 0x28305) *
+                    (p.maxPlies - p.minPlies + 1),
+                ),
+              );
+          for (let ply = 0; ply < plies; ply++) {
+            const who = ply % 2 === 0 ? 1 : 2;
+            boards[board * 9 + order[ply]] = who;
+            if (won(boards, board * 9, who)) break;
+          }
+        }
+        return () => {
+          const gx = u * 6,
+            gy = v * 6,
+            col = Math.min(5, Math.floor(gx)),
+            row = Math.min(5, Math.floor(gy)),
+            board = (col >= 3 ? 1 : 0) + (row >= 3 ? 2 : 0),
+            cellX = col % 3,
+            cellY = row % 3,
+            fx = gx - col - 0.5,
+            fy = gy - row - 0.5,
+            mark = boards[board * 9 + cellY * 3 + cellX];
+          // Grid lines between the cells of a board (the board's outer edges have none).
+          const lineX = cellX > 0 ? cover(p.lineHalf - Math.abs(fx + 0.5)) : 0,
+            lineX2 = cellX < 2 ? cover(p.lineHalf - Math.abs(fx - 0.5)) : 0,
+            lineY = cellY > 0 ? cover(p.lineHalf - Math.abs(fy + 0.5)) : 0,
+            lineY2 = cellY < 2 ? cover(p.lineHalf - Math.abs(fy - 0.5)) : 0,
+            line = Math.max(lineX, lineX2, lineY, lineY2);
+          let ink = 0,
+            level: number = p.crossTone;
+          if (mark === 1) {
+            const inside = 0.5 - p.markInset;
+            if (
+              Math.abs(fx) <= inside + p.markHalf &&
+              Math.abs(fy) <= inside + p.markHalf
+            )
+              ink =
+                Math.max(
+                  cover(p.markHalf - Math.abs(fx - fy) / Math.SQRT2),
+                  cover(p.markHalf - Math.abs(fx + fy) / Math.SQRT2),
+                ) *
+                cover(
+                  inside + p.markHalf - Math.max(Math.abs(fx), Math.abs(fy)),
+                );
+          } else if (mark === 2) {
+            ink = cover(
+              p.ringHalf - Math.abs(Math.hypot(fx, fy) - p.ringRadius),
+            );
+            level = p.noughtTone;
+          }
+          const base = p.paperTone + (p.lineTone - p.paperTone) * line;
+          color = clamp(
+            base +
+              p.grainTone * (grainField(u, v) - 0.5) +
+              (level - base) * ink,
+          );
+          height = clamp(
+            p.paperHeight +
+              (p.lineHeight - p.paperHeight) * line +
+              (p.markHeight - p.lineHeight) * ink,
+          );
+          roughness =
+            p.paperRoughness + (p.markRoughness - p.paperRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -49620,6 +49719,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'tictactoegames' ||
     kind === 'dartboardsectors' ||
     kind === 'featherbarbs' ||
     kind === 'amidakuji' ||

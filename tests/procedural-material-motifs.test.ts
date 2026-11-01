@@ -8655,3 +8655,131 @@ describe('dartboardsectors: the standard board layout', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('tictactoegames: positions reachable in a game of noughts and crosses', () => {
+  const p = proceduralMaterialPresets.tictactoegames;
+  const lines = [
+    [0, 1, 2],
+    [3, 4, 5],
+    [6, 7, 8],
+    [0, 3, 6],
+    [1, 4, 7],
+    [2, 5, 8],
+    [0, 4, 8],
+    [2, 4, 6],
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13])(
+    'shows legal positions: X moved first, at most one side has won (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('tictactoegames', seed),
+        out = empty(),
+        tone = (u: number, v: number): number => {
+          sample(u, v, out);
+          return out.color;
+        };
+      for (let board = 0; board < 4; board++) {
+        const cells: string[] = [];
+        for (let y = 0; y < 3; y++)
+          for (let x = 0; x < 3; x++) {
+            const cx = ((board & 1) * 3 + x + 0.5) / 6,
+              cy = ((board >> 1) * 3 + y + 0.5) / 6;
+            // X is dark through the centre; O is a ring (centre bright, dark at radius 0.29 cells).
+            if (tone(cx, cy) < 0.3) cells.push('X');
+            else if (tone(cx + 0.29 / 6, cy) < 0.3) cells.push('O');
+            else {
+              // Empty cell: also bright on the diagonal and ring positions away from lines.
+              expect(tone(cx + 0.29 / 6, cy)).toBeGreaterThan(0.85);
+              expect(tone(cx + 0.2 / 6, cy + 0.2 / 6)).toBeGreaterThan(0.85);
+              cells.push('.');
+            }
+          }
+        const x = cells.filter((c) => c === 'X').length,
+          o = cells.filter((c) => c === 'O').length,
+          wins = (who: string): number =>
+            lines.filter((line) => line.every((cell) => cells[cell] === who))
+              .length;
+        // X moves first, so X has as many marks as O or one more.
+        expect(x - o === 0 || x - o === 1).toBe(true);
+        expect(x + o).toBeGreaterThanOrEqual(p.minPlies);
+        // Never both sides with a line; a winning X has just moved (one more mark than O), a winning O
+        // has matched it.
+        expect(wins('X') > 0 && wins('O') > 0).toBe(false);
+        if (wins('X') > 0) expect(x - o).toBe(1);
+        if (wins('O') > 0) expect(x - o).toBe(0);
+      }
+    },
+  );
+
+  it('shows a mix of finished and unfinished games across seeds', () => {
+    let won = 0,
+      open = 0;
+    for (let seed = 0; seed < 40; seed++) {
+      const sample = createSurfaceSampler('tictactoegames', seed),
+        out = empty();
+      for (let board = 0; board < 4; board++) {
+        const cells: string[] = [];
+        for (let y = 0; y < 3; y++)
+          for (let x = 0; x < 3; x++) {
+            sample(
+              ((board & 1) * 3 + x + 0.5) / 6,
+              ((board >> 1) * 3 + y + 0.5) / 6,
+              out,
+            );
+            const centre = out.color;
+            sample(
+              ((board & 1) * 3 + x + 0.5) / 6 + 0.29 / 6,
+              ((board >> 1) * 3 + y + 0.5) / 6,
+              out,
+            );
+            cells.push(centre < 0.3 ? 'X' : out.color < 0.3 ? 'O' : '.');
+          }
+        const winner = lines.some(
+          (line) =>
+            line.every((cell) => cells[cell] === 'X') ||
+            line.every((cell) => cells[cell] === 'O'),
+        );
+        won += Number(winner);
+        open += Number(!winner);
+      }
+    }
+    expect(won).toBeGreaterThan(20);
+    expect(open).toBeGreaterThan(20);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('tictactoegames', 0),
+      b = createSurfaceSampler('tictactoegames', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
