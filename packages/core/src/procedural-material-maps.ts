@@ -38767,6 +38767,76 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'jerky': {
+        const p = proceduralMaterialPresets.jerky,
+          count = p.pepperCells * p.pepperCells,
+          pepperX = new Float64Array(count),
+          pepperY = new Float64Array(count),
+          pepperOn = new Uint8Array(count),
+          fiberField = cachedNoise(
+            p.fiberColumns,
+            p.fiberRows,
+            seed ^ p.seedSalt,
+          ),
+          sheenField = cachedNoise(
+            p.sheenColumns,
+            p.sheenRows,
+            seed ^ (p.seedSalt + 1),
+          ),
+          broadField = cachedNoise(
+            p.broadColumns,
+            p.broadRows,
+            seed ^ (p.seedSalt + 2),
+          ),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 3),
+          ),
+          inversePepper2 = 1 / (p.pepperRadius * p.pepperRadius);
+        for (let row = 0; row < p.pepperCells; row++)
+          for (let col = 0; col < p.pepperCells; col++) {
+            const i = row * p.pepperCells + col,
+              salt = seed ^ (p.seedSalt + 4);
+            pepperX[i] = p.pepperJitter * 2 * (hash(col, row, salt) - 0.5);
+            pepperY[i] = p.pepperJitter * 2 * (hash(col, row, salt + 1) - 0.5);
+            pepperOn[i] = hash(col, row, salt + 2) < p.pepperChance ? 1 : 0;
+          }
+        return () => {
+          // Dried meat strip: dense fibre noise elongated along u, a
+          // broad tone field and a glossy sheen field, plus cracked-pepper
+          // flecks that are smooth(1 - q) discs inside their own cell (radius plus
+          // jitter under half a cell, so no per-cell lookup creates a jump).
+          const px = fract(u) * p.pepperCells,
+            py = fract(v) * p.pepperCells,
+            col = Math.floor(px),
+            row = Math.floor(py),
+            i = row * p.pepperCells + col,
+            dx = px - col - 0.5 - pepperX[i],
+            dy = py - row - 0.5 - pepperY[i],
+            pepper = pepperOn[i]
+              ? smooth(clamp(1 - (dx * dx + dy * dy) * inversePepper2))
+              : 0,
+            fiber = fiberField(u, v),
+            sheen = sheenField(u, v),
+            broad = broadField(u, v),
+            grain = grainField(u, v);
+          // The pepper multiplies the meat colour so a fleck on a dark fibre can never
+          // push the colour below zero.
+          color =
+            (p.baseTone +
+              p.fiberTone * (fiber - 0.5) +
+              p.broadTone * (broad - 0.5) +
+              p.grainTone * (grain - 0.5)) *
+            (1 - p.pepperDrop * pepper);
+          height =
+            p.fiberHeight * fiber +
+            p.pepperHeight * (1 - pepper) +
+            p.grainHeight * grain;
+          roughness -= p.sheenRoughness * (sheen - 0.5);
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -46515,6 +46585,7 @@ export function createSurfaceSampler(
     kind === 'kawung' ||
     kind === 'pancake' ||
     kind === 'garlicskin' ||
+    kind === 'jerky' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

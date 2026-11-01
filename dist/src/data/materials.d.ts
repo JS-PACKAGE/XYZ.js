@@ -13209,6 +13209,33 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.15;
         streakRoughness: -0.1;
     }>;
+    jerky: Readonly<{
+        dark: readonly [26, 12, 8];
+        light: readonly [164, 92, 54];
+        roughness: 0.5;
+        relief: 0.004;
+        seedSalt: 32289;
+        fiberColumns: 14;
+        fiberRows: 240;
+        sheenColumns: 6;
+        sheenRows: 36;
+        broadColumns: 4;
+        broadRows: 8;
+        pepperCells: 36;
+        pepperChance: 0.14;
+        pepperRadius: 0.22;
+        pepperJitter: 0.26;
+        grainCells: 128;
+        baseTone: 0.34;
+        fiberTone: 0.28;
+        broadTone: 0.2;
+        pepperDrop: 0.85;
+        grainTone: 0.03;
+        fiberHeight: 0.45;
+        pepperHeight: 0.15;
+        grainHeight: 0.4;
+        sheenRoughness: 0.2;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -14528,4 +14555,5 @@ export declare const proceduralTileMeters: Readonly<{
     kawung: 0.3;
     pancake: 0.25;
     garlicskin: 0.1;
+    jerky: 0.12;
 }>;

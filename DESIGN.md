@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`jerky`（牛肉乾）使目前目錄940→941種，含plain的gallery為942項。風乾牛肉條表面：深紅褐色底上沿u方向延伸的細密肌纖維、沿同方向的寬低頻色調變化、逐處變化的光澤（roughness）與零星的近黑胡椒碎粒。不是真實肉乾的皺縮輪廓、脂肪粒、鹽結晶或油亮度，預覽也容易被看成髮絲拋光的深色木紋。
+
+此材質是作者依一般牛肉乾外觀所作示意，沒有引用特定來源文件、照片或量測，也沒有對照照片；纖維與色調雜訊的格數、胡椒密度與大小、紅褐色調、roughness與0.12 m nominal tile皆作者設定，不宣稱符合任何實際肉乾。
+
+新增專用sampler：14×240的纖維雜訊（沿u方向拉長）、4×8的寬低頻色調雜訊、6×36的光澤雜訊（roughness ± 0.1）與128²細grain；胡椒碎粒是36×36格、約14%機率、半徑0.22格、中心抖動0.26的`smooth(1 − q)`圓點（半徑加抖動小於半格，完全留在自己的格內），並以**乘法**壓暗肉色（`color = 肉色 × (1 − 0.85·胡椒)`）；cache合計2,592＋3,360＋216＋32＋16,384 = 22,584個Float64（180,672 B）＋1,296 B Uint8的胡椒存在表 = 181,968 B lattice算術預算（非總RAM）。顏色是顏料，height以纖維0.45 relief、胡椒0.15、grain 0.4組成；金屬factor為0、無mortar、AO 1。預設0.12 m nominal tile與0.004 UV-relative relief（非公尺位移）。實測（工具實跑，seed 0／1／0xffffffff，512²取樣）：color<0.14的近黑胡椒占0.84–0.95%，color 0.020–0.562，全圖平均0.336–0.343，roughness 0.40–0.60，height至多0.970–0.979 relief；沿v方向的逐像素色差約為沿u方向的7.3–7.5倍（纖維沿u拉長）；seed 0與1沿一條水平線取樣的色差平均約0.127；seed 7的512²maps平均r／g／b約(73, 39, 24)、法線tilt²最大約0.297。我實看了預覽：深紅褐色的水平纖維與細小黑點，像牛肉乾也像髮絲拋光的暗色木紋，缺乏真實肉乾的形狀與起伏。未新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `garlicskin`（蒜皮）使目前目錄939→940種，含plain的gallery為941項。大蒜外皮：奶油白的紙質底上，約11條沿v方向延伸、被低頻雜訊扭曲且寬窄隨位置變化的淡紫色縱向條紋（實測占36–40%），帶縱向纖維、柔和皺褶與細grain；條紋處略凹且較光滑。不是真實蒜皮的剝離邊緣、破損、泥土、蒜瓣輪廓或半透明感，預覽看起來比較像波浪紫條紋紙，而不太像蒜皮。
 
 此材質是作者依一般大蒜外皮外觀所作示意，沒有引用特定來源文件、照片或量測，也沒有對照照片；條紋數（每tile 11）、扭曲與寬度變化量、紫色門檻與濃度、纖維與皺褶強度、紙白與紫色的色調、roughness與0.1 m nominal tile皆作者設定，不宣稱符合任何真實蒜種。

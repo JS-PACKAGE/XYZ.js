@@ -11974,3 +11974,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增7項（三seed統計與纖維方向、seed差異與決定性、C1＋有符號UV週期、actual512 maps），`-t "Garlic skin|garlicskin"`通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`（含上述文件修正後再跑一次）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Garlic skin|garlicskin|kinds|catalog|distinct|periodic"`定向測試**2165項通過／3735項未選**。
 - 未驗證：本材質未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：牛肉乾（jerky）
+
+- 範圍：新增`jerky`（目前目錄940→941種，含plain的gallery 942項）：深紅褐色底上沿u方向的14×240纖維雜訊、4×8寬低頻色調、6×36光澤（roughness ± 0.1）與128²細grain，加36×36格的近黑胡椒碎粒（完全留在自己的格內）；預設0.12 m nominal tile、0.004 UV-relative relief。作者示意，沒有引用特定來源、**沒有對照照片**；預覽也像髮絲拋光的暗色木紋，缺乏真實肉乾的形狀與起伏。
+- 實作過程的錯誤（誠實紀錄）：第一版把胡椒寫成「從顏色減去0.28」，探測時發現color最小值為−0.149（暗纖維上的胡椒把顏色推到負值，超出[0,1]）；改成乘法壓暗`color = 肉色 × (1 − 0.85·胡椒)`後，最小值回到0.020–0.025。這是在寫測試之前由探測發現的，沒有進入commit。第一版的說明文字（程式註解）也把纖維方向寫成沿v，與實際沿u不符，已更正。
+- 實測（工具實跑）：三seed 512²取樣近黑胡椒（color<0.14）占0.84–0.95%、color 0.020–0.562、平均0.336–0.343、roughness 0.40–0.60、height至多0.970–0.979 relief；沿v／沿u的逐像素色差比約7.3–7.5；seed 0與1沿一條水平線的色差平均約0.127；seed 7的512²maps平均r／g／b約(73, 39, 24)、法線tilt²最大約0.297、z分量最小234。
+- 測試：新增7項（三seed統計與纖維方向、seed差異與決定性、C1＋有符號UV週期、actual512 maps），`-t "Beef jerky|jerky"`通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Beef jerky|jerky|kinds|catalog|distinct|periodic"`定向測試**2167項通過／3740項未選**。
+- 未驗證：本材質未跑完整suite與瀏覽器gallery（garlicskin亦未做）；不push。
