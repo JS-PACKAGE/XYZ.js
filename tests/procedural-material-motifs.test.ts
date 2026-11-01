@@ -1714,3 +1714,153 @@ describe('celticplait: carved two-ribbon interlace bands', () => {
     expect(different).toBeGreaterThan(100);
   });
 });
+
+describe('garnetschist: foliated schist with faceted garnets', () => {
+  const p = proceduralMaterialPresets.garnetschist;
+  const size = 768;
+
+  it.each(seeds)(
+    'keeps garnets hexagonal and inside their own cells, with horizontal foliation and sparse mica (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('garnetschist', seed),
+        out = empty(),
+        color = new Float64Array(size * size);
+      let invalid = 0;
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          sample((x + 0.5) / size, (y + 0.5) / size, out);
+          invalid += Number(out.metallic !== 0 || out.mortar !== 0);
+          for (const value of [
+            out.color,
+            out.height / p.relief,
+            out.roughness,
+            out.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+          color[y * size + x] = out.color;
+        }
+      expect(invalid).toBe(0);
+      // Garnets are far darker (<0.25) than the darkest foliation layer (about 0.31).
+      const dark = color.map((c) => Number(c < 0.25)),
+        seen = new Uint8Array(dark.length),
+        cell = size / p.cells,
+        owners = new Set<number>(),
+        centers: { x: number; y: number }[] = [];
+      for (let first = 0; first < dark.length; first++) {
+        if (!dark[first] || seen[first]) continue;
+        const queue = [first];
+        seen[first] = 1;
+        let sx = 0,
+          sy = 0;
+        for (let read = 0; read < queue.length; read++) {
+          const i = queue[read],
+            x = i % size,
+            y = Math.floor(i / size);
+          sx += x + 0.5;
+          sy += y + 0.5;
+          for (const [dx, dy] of [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ]) {
+            const j =
+              ((y + dy + size) % size) * size + ((x + dx + size) % size);
+            if (dark[j] && !seen[j]) {
+              seen[j] = 1;
+              queue.push(j);
+            }
+          }
+        }
+        if (queue.length < 30) continue;
+        const cx = sx / queue.length,
+          cy = sy / queue.length;
+        centers.push({ x: cx, y: cy });
+        const owner = Math.floor(cy / cell) * p.cells + Math.floor(cx / cell);
+        expect(owners.has(owner)).toBe(false);
+        owners.add(owner);
+        // Cast rays to find the outline radius at 360 angles.
+        const outline: number[] = [];
+        for (let a = 0; a < 360; a++) {
+          const angle = (a * Math.PI) / 180;
+          let r = 0;
+          while (r < 60) {
+            const px = Math.round(cx + (r + 1) * Math.cos(angle) - 0.5),
+              py = Math.round(cy + (r + 1) * Math.sin(angle) - 0.5);
+            if (
+              !(
+                color[((py + size) % size) * size + ((px + size) % size)] < 0.25
+              )
+            )
+              break;
+            r++;
+          }
+          outline.push(r);
+        }
+        // A regular hexagon's outline radius oscillates six times per revolution.
+        let best = 0,
+          bestPower = 0;
+        for (let k = 2; k <= 12; k++) {
+          let re = 0,
+            im = 0;
+          for (let a = 0; a < 360; a++) {
+            re += outline[a] * Math.cos((2 * Math.PI * k * a) / 360);
+            im += outline[a] * Math.sin((2 * Math.PI * k * a) / 360);
+          }
+          if (re * re + im * im > bestPower) {
+            bestPower = re * re + im * im;
+            best = k;
+          }
+        }
+        expect(best).toBe(6);
+      }
+      expect(centers.length).toBeGreaterThanOrEqual(8);
+      expect(centers.length).toBeLessThanOrEqual(p.cells * p.cells);
+      // Foliation: color changes across the layers (v) much faster than along them (u).
+      let acrossV = 0,
+        acrossU = 0,
+        count = 0;
+      for (let y = 0; y < size - 4; y++)
+        for (let x = 0; x < size - 4; x++) {
+          const here = color[y * size + x],
+            right = color[y * size + x + 4],
+            down = color[(y + 4) * size + x];
+          if (here < 0.25 || right < 0.25 || down < 0.25) continue;
+          // Ignore mica flecks, which are isotropic.
+          if (here > 0.8 || right > 0.8 || down > 0.8) continue;
+          acrossU += Math.abs(right - here);
+          acrossV += Math.abs(down - here);
+          count++;
+        }
+      expect(count).toBeGreaterThan(size * size * 0.5);
+      expect(acrossV / acrossU).toBeGreaterThan(1.8);
+      // Mica sparkle is sparse.
+      const sparkle = color.filter((c) => c > 0.85).length / color.length;
+      expect(sparkle).toBeGreaterThan(0.002);
+      expect(sparkle).toBeLessThan(0.05);
+    },
+  );
+
+  it('wraps seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('garnetschist', 0),
+      b = createSurfaceSampler('garnetschist', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        expect(two.height).toBeCloseTo(one.height, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(100);
+  });
+});

@@ -17313,6 +17313,129 @@ export function createSurfaceSampler(
           occlusion = clamp(1 - p.shadowAO * shadow);
         };
       }
+      case 'garnetschist': {
+        const p = proceduralMaterialPresets.garnetschist,
+          garnets = new Float64Array(p.cells * p.cells * 5),
+          facets = new Float64Array(6),
+          warpField = cachedNoise(p.warpCells, p.warpCells, seed ^ 0x24d01),
+          layerField = cachedNoise(p.layerCells, p.layers, seed ^ 0x24d03),
+          fineField = cachedNoise(
+            p.layerCells * 2,
+            p.fineLayers,
+            seed ^ 0x24d05,
+          ),
+          sparkleField = cachedNoise(
+            p.sparkleCells,
+            p.sparkleCells,
+            seed ^ 0x24d07,
+          ),
+          inverseEdge = 1 / p.edgeSoft;
+        for (let k = 0; k < 6; k++)
+          facets[k] = hash(k, 0, seed ^ 0x24d09) - 0.5;
+        // Per cell: present, center x, center y (cell units), apothem (UV) and crystal rotation.
+        // Circumradius 1.155 * maxRadius and the tail (tailLength * maxRadius) plus jitter stay
+        // below half a cell, so a point only ever queries its own cell.
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 5;
+            garnets[i] =
+              hash(col, row, seed ^ 0x24d0b) < p.garnetChance ? 1 : 0;
+            garnets[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x24d0d) - 1);
+            garnets[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x24d0f) - 1);
+            garnets[i + 3] =
+              (p.minRadius +
+                (p.maxRadius - p.minRadius) * hash(col, row, seed ^ 0x24d11)) /
+              p.cells;
+            garnets[i + 4] = (Math.PI / 3) * hash(col, row, seed ^ 0x24d13);
+          }
+        return () => {
+          // Foliation: wavy layers across v at two scales, plus a mica sparkle.
+          const yy = v + p.warp * (2 * warpField(u, v) - 1),
+            layer = layerField(u, yy),
+            fine = fineField(u, yy),
+            sparkle = smooth(
+              clamp((sparkleField(u, v) - p.sparkleThreshold) * p.sparkleSharp),
+            );
+          color = clamp(
+            p.baseTone +
+              p.layerTone * (layer - 0.5) +
+              p.fineTone * (fine - 0.5) +
+              p.sparkleTone * sparkle,
+          );
+          height = clamp(
+            p.baseHeight +
+              p.layerHeight * (layer - 0.5) +
+              p.sparkleHeight * sparkle,
+          );
+          roughness =
+            p.roughness +
+            p.layerRoughness * (layer - 0.5) -
+            p.sparkleRoughness * sparkle;
+          occlusion = 1;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 5;
+          if (garnets[i] === 0) return;
+          const dx = (uc - col - garnets[i + 1]) / p.cells,
+            dy = (vc - row - garnets[i + 2]) / p.cells,
+            radius = garnets[i + 3],
+            turn = garnets[i + 4],
+            // Quartz-rich pressure shadow: an ellipse stretched along the foliation (u).
+            tail = smooth(
+              clamp(
+                1 -
+                  Math.sqrt(
+                    (dx / (radius * p.tailLength)) ** 2 +
+                      (dy / (radius * p.tailWidth)) ** 2,
+                  ),
+              ),
+            );
+          color = clamp(color + p.tailTone * tail);
+          height = clamp(height + p.tailHeight * tail);
+          // Hexagonal crystal outline: the largest of three face-normal projections.
+          const hex = Math.max(
+              Math.abs(dx * Math.cos(turn) + dy * Math.sin(turn)),
+              Math.abs(
+                dx * Math.cos(turn + Math.PI / 3) +
+                  dy * Math.sin(turn + Math.PI / 3),
+              ),
+              Math.abs(
+                dx * Math.cos(turn + (2 * Math.PI) / 3) +
+                  dy * Math.sin(turn + (2 * Math.PI) / 3),
+              ),
+            ),
+            cover = smooth(
+              clamp(((radius - hex) / radius) * inverseEdge + 0.5),
+            ),
+            // Six pyramid faces, each centered on a face normal.
+            sector =
+              ((Math.floor(
+                (Math.atan2(dy, dx) - turn + Math.PI / 6) / (Math.PI / 3),
+              ) %
+                6) +
+                6) %
+              6,
+            crown = 1 - Math.min(1, hex / radius);
+          if (cover === 0) return;
+          color = clamp(
+            color +
+              cover *
+                (p.garnetTone +
+                  p.facetVariation * facets[sector] +
+                  p.crownTone * crown -
+                  color),
+          );
+          height = clamp(
+            height + cover * (p.garnetHeight + p.crownHeight * crown),
+          );
+          roughness += cover * (p.garnetRoughness - roughness);
+          occlusion = clamp(1 - cover * (1 - p.garnetAO) * (1 - crown));
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -44842,6 +44965,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'garnetschist' ||
     kind === 'celticplait' ||
     kind === 'atomicboomerang' ||
     kind === 'lawnstripes' ||
