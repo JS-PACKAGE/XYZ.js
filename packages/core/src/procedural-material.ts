@@ -921,7 +921,8 @@ export type ProceduralMaterialKind =
   | 'sitkaspruce'
   | 'monitorlizardskin'
   | 'shagbarkhickory'
-  | 'europeanlarch';
+  | 'europeanlarch'
+  | 'lenticularsheet';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2077,6 +2078,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'monitorlizardskin',
   'shagbarkhickory',
   'europeanlarch',
+  'lenticularsheet',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

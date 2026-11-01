@@ -948,6 +948,7 @@ const kinds: ProceduralMaterialKind[] = [
   'monitorlizardskin',
   'shagbarkhickory',
   'europeanlarch',
+  'lenticularsheet',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -138258,5 +138259,184 @@ describe('Flatsawn European larch with pale pink-tan earlywood and flowing reddi
       }
     }
     expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Lenticular print sheet with parallel glossy cylindrical lenses over a blue-silver diagonal flip image', () => {
+  const p = proceduralMaterialPresets.lenticularsheet;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'raises a glossy unoccluded crest in every lens and a lower rougher occluded groove at every seam, with a wide color flip along the lens for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('lenticularsheet', seed),
+        crest = empty(),
+        groove = empty(),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let across = 0,
+        along = 0,
+        low = 1,
+        high = 0,
+        invalid = 0,
+        flipLow = 1,
+        flipHigh = 0;
+      for (let lens = 0; lens < p.lenses; lens++) {
+        sample((lens + 0.5) / p.lenses, 0.3, crest);
+        sample(lens / p.lenses, 0.3, groove);
+        expect(crest.height).toBeCloseTo(
+          p.relief * (p.baseHeight + p.lensHeight),
+          12,
+        );
+        expect(groove.height).toBeCloseTo(p.relief * p.baseHeight, 12);
+        expect(crest.occlusion).toBeCloseTo(1, 12);
+        expect(groove.occlusion).toBeLessThan(0.7);
+        expect(groove.roughness).toBeGreaterThan(crest.roughness + 0.25);
+      }
+      for (let i = 0; i < 64; i++) {
+        sample(0.5 / p.lenses, (i + 0.5) / 64, a);
+        flipLow = Math.min(flipLow, a.color);
+        flipHigh = Math.max(flipHigh, a.color);
+      }
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          const u = (x + 0.5) / 256,
+            v = (y + 0.5) / 256;
+          sample(u, v, a);
+          sample(u + 1 / 1024, v, b);
+          sample(u, v + 1 / 1024, c);
+          across += Math.abs(a.color - b.color);
+          along += Math.abs(a.color - c.color);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          invalid += Number(a.metallic !== 0 || a.mortar !== 0);
+          for (const key of keys)
+            invalid += Number(
+              !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+            );
+        }
+      expect(low).toBeLessThan(0.15);
+      expect(high).toBeGreaterThan(0.85);
+      expect(high).toBeLessThan(0.95);
+      expect(flipHigh - flipLow).toBeGreaterThan(0.45);
+      expect(across).toBeGreaterThan(15 * along);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('differs between seeds only in the low-frequency print image', () => {
+    const first = createSurfaceSampler('lenticularsheet', 0),
+      second = createSurfaceSampler('lenticularsheet', 1),
+      a = empty(),
+      b = empty();
+    let colorDifference = 0,
+      heightDifference = 0;
+    for (let i = 0; i < 64; i++) {
+      first(0.5 / p.lenses, (i + 0.5) / 64, a);
+      second(0.5 / p.lenses, (i + 0.5) / 64, b);
+      colorDifference += Math.abs(a.color - b.color) / 64;
+      heightDifference += Math.abs(a.height - b.height);
+    }
+    expect(colorDifference).toBeGreaterThan(0.04);
+    expect(heightDifference).toBe(0);
+  });
+  it('keeps lens crests, grooves and the print image C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('lenticularsheet', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.lenses, 2 * p.lenses, p.imageCells, 64])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 8192; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 blue-silver dielectric maps with strong lens normals and a third of the surface in occluded seams', () => {
+    const maps = generateProceduralMaps('lenticularsheet', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let blue = 0,
+      occluded = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      blue += maps.baseColor[i + 2];
+      occluded += Number(maps.occlusion[i] < 230);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2] ||
+          maps.baseColor[i + 2] < maps.baseColor[i] ||
+          maps.normal[i + 2] < 200,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(blue / (512 * 512)).toBeGreaterThan(150);
+    expect(blue / (512 * 512)).toBeLessThan(200);
+    expect(occluded / (512 * 512)).toBeGreaterThan(0.3);
+    expect(occluded / (512 * 512)).toBeLessThan(0.45);
+    expect(maxTilt).toBeGreaterThan(0.2);
+    expect(maxTilt).toBeLessThan(0.45);
+    expect(invalid).toBe(0);
   });
 });

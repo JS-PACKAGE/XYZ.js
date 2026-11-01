@@ -12394,6 +12394,25 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainRoughness: 0.03;
         earlyOcclusion: 0.04;
     }>;
+    lenticularsheet: Readonly<{
+        dark: readonly [34, 62, 112];
+        light: readonly [214, 232, 246];
+        roughness: 0.2;
+        relief: 0.008;
+        lenses: 32;
+        verticalBands: 3;
+        imageCells: 8;
+        imageSeedSalt: 16871;
+        baseTone: 0.5;
+        flipTone: 0.26;
+        imageTone: 0.2;
+        lensTone: 0.1;
+        baseHeight: 0.1;
+        lensHeight: 0.9;
+        lensRoughness: -0.1;
+        grooveRoughness: 0.2;
+        grooveOcclusion: 0.35;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -13679,4 +13698,5 @@ export declare const proceduralTileMeters: Readonly<{
     monitorlizardskin: 0.14;
     shagbarkhickory: 0.18;
     europeanlarch: 0.2;
+    lenticularsheet: 0.1;
 }>;

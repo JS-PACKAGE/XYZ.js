@@ -11605,3 +11605,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增4項永久測試（`European larch`：三seed外觀與各向異性、C1掃描、actual512五maps、帶號UV週期），並加入通用kinds清單；名稱篩選7項通過（9.44s）。
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "European larch|europeanlarch|kinds|catalog|distinct|periodic"`定向測試，**2104項通過／3544項未選**。
 - 本功能未重跑完整179檔suite、未開瀏覽器gallery；不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：柱狀透鏡印刷片（lenticularsheet）
+
+- 目錄906→907，含plain的gallery為908項。每tile 32條平行圓柱透鏡，頂亮而光滑、縫低且較粗糙並帶AO，藍銀底色由斜向翻轉條紋與8×8低頻印刷影像疊成。這是作者依柱狀透鏡印刷片一般結構所作示意，**沒有**引用特定來源，不宣稱符合任何產品或光學規格，也不含真實多幀交錯影像、視角動畫或折射。
+- 專用sampler：透鏡高度`0.5−0.5·cos(2πf)`（頂與縫斜率0，跨透鏡C1）、翻轉條紋`sin(2π(2f+3v))`（整數週期隨tile wrap）、8×8低頻影像（64 Float64／512 B）。預設0.1 m tile、0.008 UV-relative relief（非公尺位移）、metallic factor0；不新增API或依賴。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）256²取樣頂高度1.0 relief、縫0.1、頂roughness 0.1、縫0.4、頂AO 1、縫0.65；color域約0.094–0.902；橫／縱色差比約21.0–21.1；沿透鏡頂的翻轉色幅0.25–0.30到0.87–0.90；seed 0與1影像色差平均0.070；seed7的512²藍通道平均179.1、AO<230占37.5%、法線max tilt²約0.323。以Bun產生512 seed7四圖並實看：細密垂直條紋、藍銀斜向色變與隱約低頻影像；法線圖週期性明顯。
+- 開發中實際修正：首版測試把sampler的height誤當作已除以relief的值（回傳0.008而非1），3項失敗；確認height單位為relief倍數後，改以`p.relief·(baseHeight+lensHeight)`比較並全數通過。
+- 新增4項永久測試（`Lenticular`：三seed頂／縫幾何與翻轉色幅、seed只改影像不改高度、C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選7項通過（7.84s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Lenticular|lenticularsheet|kinds|catalog|distinct|periodic"`定向測試，**2105項通過／3550項未選**。
+- 本功能未重跑完整179檔suite、未開瀏覽器gallery；不宣稱跨瀏覽器／backend或效能驗證；不push。

@@ -1095,6 +1095,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`lenticularsheet`（柱狀透鏡印刷片）使目前目錄906→907種，含plain的gallery為908項。每tile 32條平行的圓柱透鏡（沿v方向的長條），透鏡頂高亮光滑、透鏡間接縫低且較粗糙並帶AO（0.65）；底色為藍銀漸層，由斜向「翻轉」條紋（每透鏡2個週期、沿v 3個週期）與8×8低頻印刷影像疊成。不是真實的多幀交錯影像、隨視角變化的動畫、透鏡折射或可讀的圖案。
+
+此材質是作者依「柱狀透鏡印刷片」一般結構所作的示意，沒有引用特定來源文件、照片或量測；透鏡數、色調、翻轉條紋、roughness、AO與0.1 m nominal tile皆作者設定，不宣稱符合任何實際產品或光學規格。
+
+新增專用sampler：每透鏡f = fract(u·32)，透鏡高度 = 0.5 − 0.5·cos(2πf)（頂與縫的斜率皆0，故跨透鏡C1），翻轉條紋 = sin(2π(2f + 3v))（整數週期故隨tile wrap），再加8×8 cachedNoise低頻影像（64 Float64／512 B lattice算術預算，非總RAM）。顏色是顏料，height只用於法線與AO；金屬factor為0、無mortar。預設0.1 m nominal tile與0.008 UV-relative relief（非公尺位移）。三seed（0／1／0xffffffff）、256²取樣：頂高度1.0 relief、縫0.1、頂roughness 0.1、縫0.4、頂AO 1、縫0.65；color域約0.094–0.902；橫／縱色差比約21.0–21.1；沿透鏡頂沿v的翻轉色幅0.25–0.30到0.87–0.90；seed 0與1的影像色差平均0.070；seed7的512²中藍通道平均179.1、AO<230占37.5%、法線max tilt²約0.323。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `europeanlarch`（歐洲落葉松）使目前目錄905→906種，含plain的gallery為907項。近似Larix decidua未塗裝弦切面：淡粉紅褐／淡黃褐的早材底，12條流動的紅褐晚材年輪線（中等偏寬、約占面積四分之一、彎曲起伏並有拱形），帶細縱向纖維紋。不是樹脂囊、節、窄而近白的邊材與心材界線、螺旋紋或塗層。
 
 外觀依據實際閱讀的[Wood Database European Larch](https://www.wood-database.com/european-larch/)（Color／Appearance：心材由黃到中等紅褐、窄邊材近白且與心材分明、弦切面生長輪呈現許多特色紋樣；Grain／Texture：多直紋或螺旋紋、中到細質地、帶油脂感）與實際下載並實看的[弦切面照片](https://www.wood-database.com/wp-content/uploads/european-larch-s-400x400.jpg)（淡粉褐面、流動的紅褐年輪線與拱形）；僅作配色與紋理形態參考，不重現邊／心材界線、節或油脂光澤，不打包來源圖，也不由照片反推真色、roughness或實際尺寸。開發中我先把warp設為1.4，渲染成封閉的漩渦環，與照片不符；實看後降到0.55、年輪數12、arch 2.2，波動仍偏規律但接近照片的流動拱形。

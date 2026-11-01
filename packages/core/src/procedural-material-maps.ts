@@ -37191,6 +37191,41 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'lenticularsheet': {
+        const p = proceduralMaterialPresets.lenticularsheet,
+          image = cachedNoise(
+            p.imageCells,
+            p.imageCells,
+            seed ^ p.imageSeedSalt,
+          );
+        return () => {
+          // Parallel cylindrical lenses: a raised-cosine profile has zero slope at
+          // both the crest and the groove, so the surface is C1 across lens seams.
+          // The colour is the interlaced print seen through the lens: a diagonal
+          // flip stripe running 2 cycles across each lens plus a tiled low-frequency
+          // image; the stripe uses integer cycles so everything wraps with the tile.
+          const f = fract(u * p.lenses),
+            lens = 0.5 - 0.5 * Math.cos(TAU * f),
+            flip = Math.sin(TAU * (2 * f + p.verticalBands * v));
+          color =
+            p.baseTone +
+            p.flipTone * flip +
+            p.imageTone * (image(u, v) - 0.5) +
+            p.lensTone * (lens - 0.5);
+          height = p.baseHeight + p.lensHeight * lens;
+          roughness +=
+            p.lensRoughness * lens +
+            p.grooveRoughness * (1 - lens) * (1 - lens);
+          occlusion =
+            1 -
+            p.grooveOcclusion *
+              (1 - lens) *
+              (1 - lens) *
+              (1 - lens) *
+              (1 - lens);
+          return;
+        };
+      }
       case 'woodenpalletdeck': {
         const p = proceduralMaterialPresets.woodenpalletdeck,
           tones = new Float64Array(p.boards),
@@ -44786,6 +44821,7 @@ export function createSurfaceSampler(
     kind === 'honduranmahogany' ||
     kind === 'shagbarkhickory' ||
     kind === 'europeanlarch' ||
+    kind === 'lenticularsheet' ||
     kind === 'sitkaspruce' ||
     kind === 'monitorlizardskin' ||
     kind === 'kilimdiamonds' ||
