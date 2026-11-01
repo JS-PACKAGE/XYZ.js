@@ -904,7 +904,8 @@ export type ProceduralMaterialKind =
   | 'cupwashers'
   | 'blackwalnut'
   | 'douglasfir'
-  | 'longleafpine';
+  | 'longleafpine'
+  | 'chesterfieldleather';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2043,6 +2044,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'blackwalnut',
   'douglasfir',
   'longleafpine',
+  'chesterfieldleather',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

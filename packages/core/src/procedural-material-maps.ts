@@ -37050,6 +37050,52 @@ export function createSurfaceSampler(
           occlusion = 0.8 + 0.2 * smooth(height);
           return;
         };
+      case 'chesterfieldleather': {
+        const p = proceduralMaterialPresets.chesterfieldleather,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x26101),
+          creaseField = cachedNoise(
+            p.creaseCells,
+            p.creaseCells,
+            seed ^ 0x26103,
+          ),
+          inverseSoft = 1 / p.buttonSoft,
+          inverseSpan = 1 / p.pillowSpan;
+        return () => {
+          // Buttons sit on a diamond lattice (every other cell center); a, b are the
+          // two diagonal coordinates, so da/db are signed distances to the fold lines.
+          // smooth(clamp(|d|/span)) has zero slope at the fold, keeping cushions C1.
+          const a = u * p.cells + v * p.cells - 1,
+            b = u * p.cells - v * p.cells,
+            da = a - 2 * Math.round(a / 2),
+            db = b - 2 * Math.round(b / 2),
+            pillow =
+              smooth(clamp(Math.abs(da) * inverseSpan)) *
+              smooth(clamp(Math.abs(db) * inverseSpan)),
+            button = smooth(
+              clamp(
+                (p.buttonRadius - Math.sqrt((da * da + db * db) * 0.5)) *
+                  inverseSoft,
+              ),
+            ),
+            crease = creaseField(u, v),
+            grain = grainField(u, v);
+          color =
+            p.baseTone +
+            p.pillowTone * pillow +
+            p.buttonTone * button +
+            p.creaseTone * (crease - 0.5) +
+            p.grainTone * grain;
+          height =
+            p.baseHeight +
+            p.pillowHeight * pillow +
+            p.buttonHeight * button +
+            p.creaseHeight * (crease - 0.5) * pillow +
+            p.grainHeight * grain;
+          roughness += p.pillowRoughness * pillow + p.grainRoughness * grain;
+          occlusion = 1 - p.foldOcclusion * (1 - pillow);
+          return;
+        };
+      }
       case 'douglasfir':
       case 'longleafpine': {
         const p =
@@ -44217,6 +44263,7 @@ export function createSurfaceSampler(
     kind === 'blackwalnut' ||
     kind === 'douglasfir' ||
     kind === 'longleafpine' ||
+    kind === 'chesterfieldleather' ||
     kind === 'thomsonite' ||
     kind === 'dalmatianstone' ||
     kind === 'basswood' ||

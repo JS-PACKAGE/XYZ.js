@@ -11446,3 +11446,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增4項永久測試（`Longleaf pine`：三seed顏色比例／各向異性／高度差、C1、actual512五maps、帶號UV週期），並加入通用kinds清單；Longleaf名稱篩選7項通過（9.28s）。
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 versioned consumers）、distribution（367 exports）與`-t "Longleaf|longleafpine|kinds|catalog|distinct|periodic"`定向測試；皆實際通過（定向測試2084項通過／3446項未選）。
 - 本功能未重跑完整179檔suite、未開瀏覽器gallery，也不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-01 程序材質：Chesterfield菱格縫釦棕色皮革（chesterfieldleather）
+
+- 目錄889→890，含plain的gallery為891項。6×6格tile每隔一格中心一顆小釦（每tile 18顆），斜向折線包圍鼓起的菱形軟墊，棕色皮革細grain與低頻皺紋。這是作者依一般菱格縫釦皮革所作示意，**沒有**引用特定來源文件、產品照片或量測，不宣稱符合任何真實家具、釦距或皮革種類。
+- 專用sampler：對角座標到最近偶數的有號距離經`smooth(clamp(|d|/pillowSpan))`相乘構成C1菱形軟墊，釦為smoothstep圓頂；N須為偶數才週期對齊。預設0.5 m tile、0.012 UV-relative relief（非公尺位移）、metallic factor0；2個cache共16,960 Float64／135,680 B；不新增API、依賴或每點配置。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）軟墊頂高度0.688–0.717 relief、折線約0.08、釦約0.30；折線AO0.5、墊頂AO1；seed7的512² base color平均約(108,55,33)，AO<160占35.3%，法線max tilt²約0.040。以Bun產生512 seed7的四圖並實看：首版`smooth(|d|)`使軟墊只剩小圓丘、折線不明顯，新增`pillowSpan`0.55後才呈現填滿菱形的軟墊與折線、釦凹點可見。
+- 新增4項永久測試（`Chesterfield`：三seed逐格釦／軟墊／折線幾何、C1掃描、actual512五maps、帶號UV週期），並加入通用kinds清單。首次實跑有2項因我寫錯「釦與折線色差」斷言而失敗（0.108與0.102大於寫死的0.1），已改為對釦與折線各自絕對色值及軟墊相對釦的高度／色差的有意義斷言，之後7項Chesterfield測試通過（9.91s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility、distribution與`-t "Chesterfield|chesterfieldleather|Longleaf|longleafpine|Douglas-fir|douglasfir|kinds|catalog|distinct|periodic"`定向測試；結果皆實際通過：API compatibility 737 exports／2810 contracts／710 historical namespaces／5 consumers、distribution 367 exports，定向測試**2091項通過／3446項未選**。
+- 本功能未重跑完整179檔suite、未開瀏覽器gallery，也不宣稱跨瀏覽器／backend或效能驗證；不push。
+- 補記：先前blackwalnut commit（f7c23bb5b）已在凍結的乾淨worktree實跑完整suite，**179檔／9,445項全部通過（1223.01s，v26.7.0）**；該結果只對應當時HEAD，不涵蓋後續douglasfir／longleafpine／chesterfieldleather。

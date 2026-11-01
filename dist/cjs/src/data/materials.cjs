@@ -19727,6 +19727,39 @@ var proceduralMaterialPresets = Object.freeze({
 		grainRoughness: .03,
 		earlyOcclusion: .06
 	}),
+	chesterfieldleather: Object.freeze({
+		dark: [
+			42,
+			16,
+			12
+		],
+		light: [
+			164,
+			88,
+			50
+		],
+		roughness: .58,
+		relief: .012,
+		cells: 6,
+		grainCells: 128,
+		creaseCells: 24,
+		pillowSpan: .55,
+		buttonRadius: .2,
+		buttonSoft: .12,
+		baseHeight: .08,
+		pillowHeight: .62,
+		buttonHeight: .22,
+		creaseHeight: .03,
+		grainHeight: .004,
+		baseTone: .3,
+		pillowTone: .42,
+		buttonTone: .06,
+		creaseTone: .05,
+		grainTone: .04,
+		pillowRoughness: -.12,
+		grainRoughness: .06,
+		foldOcclusion: .5
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -21113,7 +21146,8 @@ var proceduralTileMeters = Object.freeze({
 	cupwashers: .1,
 	blackwalnut: .16,
 	douglasfir: .2,
-	longleafpine: .12
+	longleafpine: .12,
+	chesterfieldleather: .5
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

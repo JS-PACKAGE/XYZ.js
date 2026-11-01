@@ -931,6 +931,7 @@ const kinds: ProceduralMaterialKind[] = [
   'blackwalnut',
   'douglasfir',
   'longleafpine',
+  'chesterfieldleather',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -135143,6 +135144,165 @@ describe('Longleaf pine with pale yellow earlywood and narrow high-contrast oran
     let worst = 0;
     for (const seed of [0, 1, 0xffffffff]) {
       const sample = createSurfaceSampler('longleafpine', seed);
+      for (let i = 0; i < 8192; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 7, v + 11, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+    }
+    expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Chesterfield diamond-tufted brown leather with button-pinched folds and puffed cushions', () => {
+  const p = proceduralMaterialPresets.chesterfieldleather;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'puts buttons on every other cell centre, cushions on the rest and sharp dark folds on the diagonals between buttons for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('chesterfieldleather', seed),
+        a = empty(),
+        n = p.cells;
+      let invalid = 0,
+        checked = 0;
+      for (let i = 0; i < n; i++)
+        for (let j = 0; j < n; j++) {
+          sample((i + 0.5) / n, (j + 0.5) / n, a);
+          const centre = { ...a };
+          if ((i + j) % 2 === 0) {
+            // Button: between fold floor and cushion crown, with the fold midpoint to the diagonal neighbour.
+            sample((i + 1) / n, (j + 1) / n, a);
+            expect(centre.height - a.height).toBeGreaterThan(0.15 * p.relief);
+            expect(centre.height).toBeLessThan(0.45 * p.relief);
+            expect(a.occlusion).toBeLessThan(0.6);
+            expect(centre.color).toBeLessThan(0.5);
+            expect(a.color).toBeLessThan(0.4);
+            checked++;
+          } else {
+            // Cushion crown: tall, unoccluded and lighter than the neighbouring button.
+            sample((i + 1.5) / n, (j + 0.5) / n, a);
+            expect(centre.height).toBeGreaterThan(0.6 * p.relief);
+            expect(centre.occlusion).toBeGreaterThan(0.99);
+            expect(centre.color).toBeGreaterThan(0.65);
+            expect(centre.height - a.height).toBeGreaterThan(0.25 * p.relief);
+            expect(centre.color - a.color).toBeGreaterThan(0.2);
+            checked++;
+          }
+          invalid += Number(
+            centre.metallic !== 0 ||
+              centre.mortar !== 0 ||
+              keys.some(
+                (key) =>
+                  !Number.isFinite(centre[key]) ||
+                  centre[key] < 0 ||
+                  centre[key] > 1,
+              ),
+          );
+        }
+      expect(checked).toBe(n * n);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('keeps cushions, fold lines, button domes, crease and grain lattices C1', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('chesterfieldleather', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.cells * 2, p.cells, p.creaseCells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      // Dense diagonal sweep crosses every fold, button rim and cushion shoulder.
+      for (let i = 0; i < 4096; i++) check(i / 4096, (i / 4096) * 0.97);
+      for (let i = 0; i < 8192; i++)
+        check((i * 0.61803398875) % 1, (i * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('writes actual512 brown dielectric leather maps with a large folded fraction and moderate normals', () => {
+    const maps = generateProceduralMaps('chesterfieldleather', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let brown = 0,
+      folded = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      brown += Number(r > g && g > b && r - b > 20);
+      folded += Number(maps.occlusion[i] < 160);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2] ||
+          maps.normal[i + 2] < 200,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(brown / (512 * 512)).toBeGreaterThan(0.99);
+    expect(folded / (512 * 512)).toBeGreaterThan(0.25);
+    expect(folded / (512 * 512)).toBeLessThan(0.45);
+    expect(maxTilt).toBeGreaterThan(0.01);
+    expect(maxTilt).toBeLessThan(0.1);
+    expect(invalid).toBe(0);
+  });
+  it('repeats over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    let worst = 0;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('chesterfieldleather', seed);
       for (let i = 0; i < 8192; i++) {
         const u = (i * 0.61803398875) % 1,
           v = (i * 0.41421356237) % 1;

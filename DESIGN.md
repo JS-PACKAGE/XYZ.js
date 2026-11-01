@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`chesterfieldleather`（Chesterfield菱格縫釦棕色皮革）使目前目錄889→890種，含plain的gallery為891項。6×6格的每隔一格中心有一顆小釦（每tile 18顆），釦與釦之間以斜向折線連接，其間為鼓起的菱形軟墊；折線處深暗且AO低，軟墊頂較亮、較光滑。棕色皮革細grain與低頻皺紋。不是真實家具尺寸或特定產品的幾何，沒有釦面金屬、縫線、皮革破裂或透明孔洞。
+
+此材質是作者依一般菱格縫釦（diamond-tufted）皮革外觀所作的示意，沒有引用特定來源文件、產品照片或量測，因此不宣稱符合任何實際家具、釦距、皮革種類或顏色；色彩、roughness、AO、層高與0.5 m nominal tile皆作者設定。
+
+新增專用sampler：兩個對角座標`a=u·N+v·N−1`、`b=u·N−v·N`各取到最近偶數的有號距離`da`／`db`；`smooth(clamp(|d|/pillowSpan))`在折線上的斜率為0，兩者相乘即菱形軟墊並維持C1；釦以到最近偶數格點的距離做smoothstep圓頂。N必須為偶數，tile才會週期對齊。constructor快取128² grain與24²皺紋共16,960 Float64／135,680 B lattice算術預算（非總RAM）。金屬factor為0、無mortar；預設0.5 m nominal tile、0.012 UV-relative relief（非公尺位移）。三seed（0／1／0xffffffff）量測：軟墊頂高度為0.688–0.717 relief、折線高度約0.08、釦高度約0.30；折線AO為0.5、軟墊頂AO為1；seed7的512²平均base color約(108,55,33)、AO<160占35.3%、法線max tilt²約0.040。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `longleafpine`（長葉松縱向年輪紋）使目前目錄888→889種，含plain的gallery為890項。近似Pinus palustris未塗裝木面：淡黃白早材與窄而高對比的橙褐色晚材條紋，年輪近乎平行、輕微起伏。不是樹脂道、節疤、紅褐心材整面、塗層或Douglas-fir式的大型尖拱。
 
 外觀依據實際閱讀的[Wood Database Longleaf Pine](https://www.wood-database.com/longleaf-pine/)（Color／Appearance：心材紅褐、邊材黃白；Grain／Texture：直紋、細到中等質地；Endgrain：大型樹脂道多而均勻，早晚材過渡abrupt、色差高）與實際下載並實看的[木面照片](https://www.wood-database.com/wp-content/uploads/longleaf-pine.jpg)（淡黃白底與平行橙褐晚材條紋）；僅作配色與條紋形態參考，不打包來源圖，也不由照片反推真色、roughness或實際尺寸。

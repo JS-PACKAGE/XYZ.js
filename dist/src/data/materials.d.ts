@@ -11974,6 +11974,31 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainRoughness: 0.03;
         earlyOcclusion: 0.06;
     }>;
+    chesterfieldleather: Readonly<{
+        dark: readonly [42, 16, 12];
+        light: readonly [164, 88, 50];
+        roughness: 0.58;
+        relief: 0.012;
+        cells: 6;
+        grainCells: 128;
+        creaseCells: 24;
+        pillowSpan: 0.55;
+        buttonRadius: 0.2;
+        buttonSoft: 0.12;
+        baseHeight: 0.08;
+        pillowHeight: 0.62;
+        buttonHeight: 0.22;
+        creaseHeight: 0.03;
+        grainHeight: 0.004;
+        baseTone: 0.3;
+        pillowTone: 0.42;
+        buttonTone: 0.06;
+        creaseTone: 0.05;
+        grainTone: 0.04;
+        pillowRoughness: -0.12;
+        grainRoughness: 0.06;
+        foldOcclusion: 0.5;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -13242,4 +13267,5 @@ export declare const proceduralTileMeters: Readonly<{
     blackwalnut: 0.16;
     douglasfir: 0.2;
     longleafpine: 0.12;
+    chesterfieldleather: 0.5;
 }>;
