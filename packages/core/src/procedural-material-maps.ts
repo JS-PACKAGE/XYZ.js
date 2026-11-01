@@ -15889,6 +15889,145 @@ export function createSurfaceSampler(
           // Recessed opaque female socket floor, not a male pin or transmission hole.
         };
       }
+      case 'f05opticalfaces': {
+        const p = proceduralMaterialPresets.f05opticalfaces,
+          poses = new Float64Array(p.cells * p.cells * 4),
+          grainField = cachedNoise(96, 96, seed ^ 0x22b01),
+          bodyStraightX = p.bodyHalfWidth - p.bodyCorner,
+          bodyStraightY = p.bodyHalfHeight - p.bodyCorner,
+          bodySquared = p.bodyCorner * p.bodyCorner,
+          bodyCore = p.bodyCorner - p.bodyBevel,
+          inverseBody = 1 / (bodySquared - bodyCore * bodyCore),
+          grooveStraightX = p.grooveHalfWidth - p.grooveCorner,
+          grooveStraightY = p.grooveHalfHeight - p.grooveCorner,
+          grooveSquared = p.grooveCorner * p.grooveCorner,
+          grooveCore = p.grooveCorner - p.grooveBevel,
+          inverseGroove = 1 / (grooveSquared - grooveCore * grooveCore),
+          earSquared = p.earRadius * p.earRadius,
+          earCore = p.earRadius - p.earBevel,
+          inverseEar = 1 / (earSquared - earCore * earCore),
+          boreSquared = p.boreRadius * p.boreRadius,
+          boreCore = p.boreRadius - p.boreBevel,
+          inverseBore = 1 / (boreSquared - boreCore * boreCore),
+          inverseCollar = 1 / p.collarBevel,
+          inverseMouth = 1 / p.mouthBevel,
+          collarBoundX = Math.max(p.collarHalfWidth, p.earX + p.earRadius),
+          collarBoundY = Math.max(p.collarHalfHeight, p.earRadius),
+          bodyTone = p.polymerTone - p.backingTone,
+          bodyHeight = p.bodyHeight - p.backingHeight,
+          bodyRoughness = p.roughness - p.backingRoughness,
+          bodyAO = p.bodyAO - p.backingAO,
+          collarHeight = p.collarHeight - p.bodyHeight,
+          collarRoughness = p.collarRoughness - p.roughness,
+          collarAO = p.collarAO - p.bodyAO,
+          grooveTone = p.grooveTone - p.polymerTone,
+          grooveHeight = p.grooveHeight - p.bodyHeight,
+          grooveRoughness = p.grooveRoughness - p.roughness,
+          grooveAO = p.grooveAO - p.bodyAO,
+          wellTone = p.wellTone - p.polymerTone,
+          wellHeight = p.wellHeight - p.collarHeight,
+          wellRoughness = p.wellRoughness - p.collarRoughness,
+          wellAO = p.wellAO - p.collarAO,
+          boreTone = p.boreTone - p.wellTone,
+          boreHeight = p.boreHeight - p.wellHeight,
+          boreRoughness = p.boreRoughness - p.wellRoughness,
+          boreAO = p.boreAO - p.wellAO;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4,
+              scale =
+                p.minScale +
+                (p.maxScale - p.minScale) * hash(col, row, seed ^ 0x22b03),
+              angle = TAU * hash(col, row, seed ^ 0x22b05);
+            poses[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x22b07) - 1);
+            poses[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x22b09) - 1);
+            poses[i + 2] = Math.cos(angle) / scale;
+            poses[i + 3] = Math.sin(angle) / scale;
+          }
+        return () => {
+          color = p.backingTone;
+          height = p.backingHeight;
+          roughness = p.backingRoughness;
+          occlusion = p.backingAO;
+          metallic = 0;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 4,
+            dx = uc - col - poses[i],
+            dy = vc - row - poses[i + 1],
+            x = dx * poses[i + 2] + dy * poses[i + 3],
+            y = dy * poses[i + 2] - dx * poses[i + 3],
+            ax = Math.abs(x),
+            ay = Math.abs(y);
+          if (ax >= p.bodyHalfWidth || ay >= p.bodyHalfHeight) return;
+          const bx = Math.max(0, ax - bodyStraightX),
+            by = Math.max(0, ay - bodyStraightY),
+            body = smooth(
+              clamp((bodySquared - bx * bx - by * by) * inverseBody),
+            );
+          if (body === 0) return;
+          const grain = grainField(u, v);
+          color += body * (bodyTone + p.grainTone * grain);
+          height += body * (bodyHeight + p.grainHeight * grain);
+          roughness += body * (bodyRoughness + p.grainRoughness * grain);
+          occlusion += body * bodyAO - p.edgeAO * body * (1 - body);
+          const gx = Math.abs(ax - p.grooveX);
+          if (gx < p.grooveHalfWidth && ay < p.grooveHalfHeight) {
+            const gqx = Math.max(0, gx - grooveStraightX),
+              gqy = Math.max(0, ay - grooveStraightY),
+              groove = smooth(
+                clamp((grooveSquared - gqx * gqx - gqy * gqy) * inverseGroove),
+              );
+            color += groove * grooveTone;
+            height += groove * grooveHeight;
+            roughness += groove * grooveRoughness;
+            occlusion += groove * grooveAO - p.edgeAO * groove * (1 - groove);
+          }
+          if (ax >= collarBoundX || ay >= collarBoundY) return;
+          // Product planes keep the keyed six-sided guide smooth at its corners.
+          const core =
+              ax < p.collarHalfWidth && ay < p.collarHalfHeight
+                ? smooth(clamp((p.collarHalfWidth - ax) * inverseCollar)) *
+                  smooth(clamp((p.collarHalfHeight - ay) * inverseCollar)) *
+                  smooth(clamp((p.collarCut - ax + y) * inverseCollar))
+                : 0,
+            ex = ax - p.earX,
+            exx = ex * ex,
+            yy = y * y,
+            earQ = exx + yy,
+            ear =
+              earQ < earSquared
+                ? smooth(clamp((earSquared - exx - yy) * inverseEar))
+                : 0,
+            collar = core + ear - core * ear;
+          if (collar === 0) return;
+          height += collar * collarHeight;
+          roughness += collar * collarRoughness;
+          occlusion += collar * collarAO - p.edgeAO * collar * (1 - collar);
+          if (ax >= p.mouthHalfWidth || ay >= p.mouthHalfHeight) return;
+          const mouth =
+            smooth(clamp((p.mouthHalfWidth - ax) * inverseMouth)) *
+            smooth(clamp((p.mouthHalfHeight - ay) * inverseMouth)) *
+            smooth(clamp((p.mouthCut - ax + y) * inverseMouth));
+          if (mouth === 0) return;
+          color += mouth * wellTone;
+          height += mouth * wellHeight;
+          roughness += mouth * wellRoughness;
+          occlusion += mouth * wellAO - p.edgeAO * mouth * (1 - mouth);
+          const xx = x * x;
+          if (xx + yy >= boreSquared) return;
+          const bore = smooth(clamp((boreSquared - xx - yy) * inverseBore));
+          color += bore * boreTone;
+          height += bore * boreHeight;
+          roughness += bore * boreRoughness;
+          occlusion += bore * boreAO - p.edgeAO * bore * (1 - bore);
+          // Opaque alignment-well depiction, not a metallic pin, emitting LED or refractive lens.
+        };
+      }
       case 'usbcfemalefaces': {
         const p = proceduralMaterialPresets.usbcfemalefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -42875,6 +43014,7 @@ export function createSurfaceSampler(
     kind === 'fennelseeds' ||
     kind === 'rj45femalefaces' ||
     kind === 'rcafemalefaces' ||
+    kind === 'f05opticalfaces' ||
     kind === 'usbcfemalefaces' ||
     kind === 'iecc6inlets' ||
     kind === 'iecc8inlets' ||

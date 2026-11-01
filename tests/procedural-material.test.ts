@@ -669,6 +669,7 @@ const kinds: ProceduralMaterialKind[] = [
   'fennelseeds',
   'rj45femalefaces',
   'rcafemalefaces',
+  'f05opticalfaces',
   'usbcfemalefaces',
   'iecc6inlets',
   'iecc8inlets',
@@ -86461,6 +86462,7 @@ describe('procedural preset acquisition and ownership', () => {
     'ceramiccapacitors',
     'rj45femalefaces',
     'rcafemalefaces',
+    'f05opticalfaces',
     'usbcfemalefaces',
     'iecc6inlets',
     'iecc8inlets',
@@ -128616,6 +128618,884 @@ describe('RCA female faces with small six-flat front barrels, round shoulders an
       expect(p.minLuma).toBeLessThan(80);
       expect(p.maxLuma).toBeGreaterThan(150);
       expect(p.maxLuma).toBeLessThan(255);
+    },
+  );
+});
+describe('F05 optical receiver faces with dielectric keyed guides, paired rails and round alignment wells', () => {
+  const preset = proceduralMaterialPresets.f05opticalfaces;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+    centers: readonly { u: number; v: number }[],
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines + centers.length; line++) {
+        const fixed =
+          line < lines
+            ? (line + 0.37) / lines
+            : axis
+              ? centers[line - lines].u
+              : centers[line - lines].v;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed shoulders instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const regions = (
+    mask: Uint8Array,
+    size: number,
+    queue: Int32Array,
+    labels: Int32Array,
+    sign: 1 | -1,
+  ) => {
+    const result = [] as {
+      area: number;
+      cx: number;
+      cy: number;
+      xx: number;
+      yy: number;
+      xy: number;
+    }[];
+    for (let first = 0; first < mask.length; first++) {
+      if (!mask[first]) continue;
+      let read = 0,
+        write = 1,
+        sx = 0,
+        sy = 0,
+        sxx = 0,
+        syy = 0,
+        sxy = 0;
+      queue[0] = first;
+      mask[first] = 0;
+      const label = sign * (result.length + 1);
+      while (read < write) {
+        const at = queue[read++],
+          ix = at % size,
+          iy = Math.floor(at / size),
+          x = (ix + 0.5) / size,
+          y = (iy + 0.5) / size;
+        labels[at] = label;
+        sx += x;
+        sy += y;
+        sxx += x * x;
+        syy += y * y;
+        sxy += x * y;
+        for (let d = 0; d < 8; d++) {
+          const ox = d < 4 ? (d === 0 ? 1 : d === 1 ? -1 : 0) : d % 2 ? 1 : -1,
+            oy = d < 4 ? (d === 2 ? 1 : d === 3 ? -1 : 0) : d < 6 ? -1 : 1,
+            nx = (ix + ox + size) % size,
+            ny = (iy + oy + size) % size,
+            next = ny * size + nx;
+          if (mask[next]) {
+            mask[next] = 0;
+            queue[write++] = next;
+          }
+        }
+      }
+      const cx = sx / write,
+        cy = sy / write;
+      result.push({
+        area: write,
+        cx,
+        cy,
+        xx: sxx / write - cx * cx,
+        yy: syy / write - cy * cy,
+        xy: sxy / write - cx * cy,
+      });
+    }
+    return result;
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      buffers = Object.values(maps);
+    let minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      fullMetal = 0,
+      transitions = 0,
+      maxTilt = 0,
+      normalLengthError = 0,
+      backFacing = 0,
+      invalidAlpha = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        nz = maps.normal[j + 2] / 127.5 - 1,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      fullMetal += Number(maps.metallicRoughness[j + 2] === 255);
+      transitions += Number(
+        maps.metallicRoughness[j + 2] > 0 &&
+          maps.metallicRoughness[j + 2] < 255,
+      );
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      normalLengthError = Math.max(
+        normalLengthError,
+        Math.abs(nx * nx + ny * ny + nz * nz - 1),
+      );
+      backFacing += Number(nz <= 0);
+      for (const buffer of buffers)
+        invalidAlpha += Number(buffer[j + 3] !== 255);
+    }
+    return {
+      metallicPixels,
+      fullMetal,
+      transitions,
+      maxTilt,
+      minLuma,
+      maxLuma,
+      normalLengthError,
+      backFacing,
+      invalidAlpha,
+    };
+  };
+
+  const field = (seed: number) => {
+    const size = Math.max(768, 384 * preset.cells),
+      total = size * size,
+      sample = createSurfaceSampler('f05opticalfaces', seed),
+      probe = empty(),
+      colors = new Float64Array(total),
+      heights = new Float64Array(total),
+      queue = new Int32Array(total),
+      bodyLabels = new Int32Array(total),
+      bodyVoidLabels = new Int32Array(total),
+      upperLabels = new Int32Array(total),
+      lowerLabels = new Int32Array(total),
+      scratch = new Int32Array(total);
+    let invalid = 0,
+      minColor = Infinity,
+      maxColor = -Infinity,
+      minimumHeight = Infinity;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        const at = y * size + x;
+        sample((x + 0.5) / size, (y + 0.5) / size, probe);
+        for (const key of keys)
+          invalid += Number(
+            !Number.isFinite(probe[key]) || probe[key] < 0 || probe[key] > 1,
+          );
+        invalid += Number(probe.metallic !== 0 || probe.mortar !== 0);
+        colors[at] = probe.color;
+        heights[at] = probe.height / preset.relief;
+        invalid += Number(
+          !Number.isFinite(heights[at]) || heights[at] < 0 || heights[at] > 1,
+        );
+        minColor = Math.min(minColor, probe.color);
+        maxColor = Math.max(maxColor, probe.color);
+        minimumHeight = Math.min(minimumHeight, heights[at]);
+      }
+    const level = (minColor + maxColor) * 0.5,
+      bodyMask = Uint8Array.from(colors, (c) => Number(c > level)),
+      bodies = regions(bodyMask.slice(), size, queue, bodyLabels, 1),
+      bodyVoids = regions(
+        Uint8Array.from(bodyMask, (c) => 1 - c),
+        size,
+        queue,
+        bodyVoidLabels,
+        -1,
+      );
+    let minBodyHeight = Infinity,
+      maxBodyHeight = -Infinity,
+      bodyCount = 0;
+    for (let at = 0; at < total; at++)
+      if (bodyMask[at]) {
+        minBodyHeight = Math.min(minBodyHeight, heights[at]);
+        maxBodyHeight = Math.max(maxBodyHeight, heights[at]);
+        bodyCount++;
+      }
+    // A dominant flat plate is observed, not a copied preset height or seeded pose.
+    const bins = new Uint32Array(256),
+      span = maxBodyHeight - minBodyHeight;
+    for (let at = 0; at < total; at++)
+      if (bodyMask[at])
+        bins[
+          Math.min(
+            255,
+            Math.floor((255 * (heights[at] - minBodyHeight)) / (span || 1)),
+          )
+        ]++;
+    let cumulative = 0,
+      medianBin = 0;
+    for (; medianBin < 255; medianBin++) {
+      cumulative += bins[medianBin];
+      if (cumulative >= bodyCount / 2) break;
+    }
+    const medianBodyHeight = minBodyHeight + (medianBin / 255) * span,
+      upperLevel = (medianBodyHeight + maxBodyHeight) / 2,
+      lowerLevel = (minimumHeight + medianBodyHeight) / 2,
+      upperMask = Uint8Array.from(heights, (h) => Number(h > upperLevel)),
+      lowerMask = Uint8Array.from(heights, (h) => Number(h > lowerLevel)),
+      uppers = regions(upperMask.slice(), size, queue, upperLabels, 1),
+      upperBasins = regions(
+        Uint8Array.from(upperMask, (c) => 1 - c),
+        size,
+        queue,
+        scratch,
+        -1,
+      ),
+      lowers = regions(lowerMask.slice(), size, queue, lowerLabels, 1),
+      lowerBasins = regions(
+        Uint8Array.from(lowerMask, (c) => 1 - c),
+        size,
+        queue,
+        scratch,
+        -1,
+      );
+    return {
+      seed,
+      size,
+      invalid,
+      level,
+      bodies,
+      bodyVoids,
+      uppers,
+      upperBasins,
+      lowers,
+      lowerBasins,
+      minimumHeight,
+      medianBodyHeight,
+      upperLevel,
+      lowerLevel,
+      sample,
+      colors,
+      heights,
+      bodyMask,
+      upperMask,
+      lowerMask,
+      bodyLabels,
+      bodyVoidLabels,
+      upperLabels,
+      lowerLabels,
+    };
+  };
+
+  const check = (value: boolean): void => {
+    expect(value).toBe(true);
+  };
+  const regionAxes = (q: ReturnType<typeof regions>[number]) => {
+    const gap = Math.hypot(q.xx - q.yy, 2 * q.xy),
+      major = (q.xx + q.yy + gap) / 2,
+      minor = (q.xx + q.yy - gap) / 2;
+    return {
+      aspect: Math.sqrt(major / minor),
+      angle: 0.5 * Math.atan2(2 * q.xy, q.xx - q.yy),
+      major,
+      minor,
+    };
+  };
+  const observeNative = (d: ReturnType<typeof field>) => {
+    const n = preset.cells ** 2,
+      voids = d.bodyVoids
+        .slice()
+        .sort((a, b) => a.area - b.area)
+        .slice(0, -1),
+      mouths = voids
+        .slice()
+        .sort((a, b) => b.area - a.area)
+        .slice(0, n),
+      rails = voids.filter((q) => !mouths.includes(q)),
+      boundaries: {
+        u: number;
+        v: number;
+      }[] = [];
+    const owners = d.bodies.map((body) => {
+      const principal = regionAxes(body);
+      let ex = { x: Math.cos(principal.angle), y: Math.sin(principal.angle) },
+        ey = { x: -ex.y, y: ex.x },
+        { cx, cy } = body;
+      const out = empty(),
+        value = (x: number, y: number, key: keyof SurfaceSample) => {
+          d.sample(cx + x * ex.x + y * ey.x, cy + x * ex.y + y * ey.y, out);
+          return key === 'height' ? out.height / preset.relief : out[key];
+        };
+      const edge = (axis: number, sign: number, offset: number = 0) => {
+        const start =
+          1.45 * Math.sqrt(axis ? principal.minor : principal.major);
+        let a = start,
+          b = start * 1.25;
+        const read = (r: number) =>
+          value(axis ? offset : sign * r, axis ? sign * r : offset, 'color');
+        check(read(a) > d.level && read(b) < d.level);
+        for (let i = 0; i < 52; i++) {
+          const m = (a + b) / 2;
+          if (read(m) > d.level) a = m;
+          else b = m;
+        }
+        return (a + b) / 2;
+      };
+      let hx = (edge(0, 1) + edge(0, -1)) / 2,
+        hy = (edge(1, 1) + edge(1, -1)) / 2;
+      const deltaX = (edge(0, 1) - edge(0, -1)) / 2,
+        deltaY = (edge(1, 1) - edge(1, -1)) / 2;
+      cx += deltaX * ex.x + deltaY * ey.x;
+      cy += deltaX * ex.y + deltaY * ey.y;
+      const span = 0.4 * hy,
+        slope = (edge(0, 1, span) - edge(0, 1, -span)) / (2 * span),
+        length = Math.hypot(1, slope),
+        oldEx = ex;
+      ex = {
+        x: (ex.x - slope * ey.x) / length,
+        y: (ex.y - slope * ey.y) / length,
+      };
+      ey = {
+        x: (ey.x + slope * oldEx.x) / length,
+        y: (ey.y + slope * oldEx.y) / length,
+      };
+      hx = (edge(0, 1) + edge(0, -1)) / 2;
+      hy = (edge(1, 1) + edge(1, -1)) / 2;
+      const bodyFar = (angle: number) =>
+          Math.min(
+            hx / Math.max(Math.abs(Math.cos(angle)), 0.000000000001),
+            hy / Math.max(Math.abs(Math.sin(angle)), 0.000000000001),
+          ),
+        mouthRadius = (angle: number) => {
+          let a = 0,
+            b = 0.7 * bodyFar(angle);
+          const c = Math.cos(angle),
+            s = Math.sin(angle);
+          check(
+            value(0, 0, 'color') < d.level &&
+              value(b * c, b * s, 'color') > d.level,
+          );
+          for (let i = 0; i < 52; i++) {
+            const m = (a + b) / 2;
+            if (value(m * c, m * s, 'color') < d.level) a = m;
+            else b = m;
+          }
+          return (a + b) / 2;
+        };
+      const mouthX = (mouthRadius(0) + mouthRadius(Math.PI)) / 2,
+        mouthY = (mouthRadius(Math.PI / 2) + mouthRadius(-Math.PI / 2)) / 2,
+        cutWidth = (sign: number) => {
+          const y = sign * 0.8 * mouthY;
+          let a = 0,
+            b = 0.7 * hx;
+          check(
+            value(a, y, 'color') < d.level && value(b, y, 'color') > d.level,
+          );
+          for (let k = 0; k < 52; k++) {
+            const m = (a + b) / 2;
+            if (value(m, y, 'color') < d.level) a = m;
+            else b = m;
+          }
+          return (a + b) / 2;
+        },
+        wplus = cutWidth(1),
+        wminus = cutWidth(-1);
+      if (wplus > wminus) ey = { x: -ey.x, y: -ey.y };
+      const upperRadius = (angle: number) => {
+        const c = Math.cos(angle),
+          s = Math.sin(angle);
+        let a = mouthRadius(angle) + hx * 0.04,
+          b = bodyFar(angle) * 0.9;
+        check(
+          value(a * c, a * s, 'height') > d.upperLevel &&
+            value(b * c, b * s, 'height') < d.upperLevel,
+        );
+        for (let i = 0; i < 52; i++) {
+          const m = (a + b) / 2;
+          if (value(m * c, m * s, 'height') > d.upperLevel) a = m;
+          else b = m;
+        }
+        return (a + b) / 2;
+      };
+      const collarY =
+        (upperRadius(Math.PI / 2) + upperRadius(-Math.PI / 2)) / 2;
+      const boreLevel =
+          (value(0, 0, 'height') + value(mouthX * 0.7, 0, 'height')) / 2,
+        boreRoot = (angle: number) => {
+          let a = 0,
+            b = 0.7 * Math.min(mouthX, mouthY);
+          const c = Math.cos(angle),
+            s = Math.sin(angle);
+          check(
+            value(0, 0, 'height') < boreLevel &&
+              value(b * c, b * s, 'height') > boreLevel,
+          );
+          for (let k = 0; k < 52; k++) {
+            const m = (a + b) / 2;
+            if (value(m * c, m * s, 'height') < boreLevel) a = m;
+            else b = m;
+          }
+          return (a + b) / 2;
+        },
+        boreRadii = Array.from({ length: 24 }, (_, k) =>
+          boreRoot((k * Math.PI) / 12),
+        ),
+        boreMean = boreRadii.reduce((s, r) => s + r, 0) / 24;
+      for (let k = 0; k < 24; k += 2) {
+        const angle = (k * Math.PI) / 12,
+          c = Math.cos(angle),
+          s = Math.sin(angle);
+        for (const r of [
+          mouthRadius(angle),
+          upperRadius(angle),
+          boreRoot(angle),
+        ])
+          boundaries.push({
+            u: cx + r * (c * ex.x + s * ey.x),
+            v: cy + r * (c * ex.y + s * ey.y),
+          });
+      }
+      const ownRails = rails
+        .slice()
+        .sort(
+          (a, b) =>
+            (a.cx - cx) ** 2 +
+            (a.cy - cy) ** 2 -
+            ((b.cx - cx) ** 2 + (b.cy - cy) ** 2),
+        )
+        .slice(0, 2);
+      const pushBoundary = (x: number, y: number): void => {
+        boundaries.push({
+          u: cx + x * ex.x + y * ey.x,
+          v: cy + x * ex.y + y * ey.y,
+        });
+      };
+      const colourWidth = (y: number, side = 1): number => {
+        let a = 0,
+          b = 0.7 * hx;
+        check(
+          value(0, y, 'color') < d.level &&
+            value(side * b, y, 'color') > d.level,
+        );
+        for (let k = 0; k < 52; k++) {
+          const m = (a + b) / 2;
+          if (value(side * m, y, 'color') < d.level) a = m;
+          else b = m;
+        }
+        return (a + b) / 2;
+      };
+      const upperSideWidth = (y: number, side = 1): number => {
+        let a = colourWidth(y, side) + hx * 0.04,
+          b = hx * 0.9;
+        check(
+          value(side * a, y, 'height') > d.upperLevel &&
+            value(side * b, y, 'height') < d.upperLevel,
+        );
+        for (let k = 0; k < 52; k++) {
+          const m = (a + b) / 2;
+          if (value(side * m, y, 'height') > d.upperLevel) a = m;
+          else b = m;
+        }
+        return (a + b) / 2;
+      };
+      const cutWidthPair = [-1, 1].map(
+        (side) =>
+          colourWidth(0.8 * mouthY, side) / colourWidth(-0.8 * mouthY, side),
+      );
+      const earPair = [-1, 1].map(
+        (side) =>
+          upperRadius(side > 0 ? 0 : Math.PI) /
+          upperSideWidth(-0.45 * collarY, side),
+      );
+      // Intersect observed straight contours so the C1 probe also crosses each polygon corner.
+      for (const side of [-1, 1]) {
+        const mx = mouthRadius(side > 0 ? 0 : Math.PI),
+          my = mouthY,
+          mc = colourWidth(0.8 * my, side) + 0.8 * my,
+          uy = collarY,
+          ux = upperSideWidth(-0.45 * uy, side),
+          uc = upperSideWidth(0.75 * uy, side) + 0.75 * uy;
+        for (const [x, y] of [
+          [mx, -my],
+          [mx, mc - mx],
+          [mc - my, my],
+          [ux, -uy],
+          [ux, uc - ux],
+          [uc - uy, uy],
+        ])
+          pushBoundary(side * x, y);
+      }
+      // Find both native ear/flat joins; a max-union crease need not land on a global raster line.
+      for (const side of [-1, 1])
+        for (const sign of [-1, 1]) {
+          const flatY = collarY * 0.45,
+            flat = upperSideWidth(sign * flatY, side),
+            tip = upperRadius(side > 0 ? 0 : Math.PI),
+            target = flat + 0.01 * (tip - flat);
+          let a = 0,
+            b = flatY;
+          for (let k = 0; k < 48; k++) {
+            const m = (a + b) / 2;
+            if (upperSideWidth(sign * m, side) > target) a = m;
+            else b = m;
+          }
+          const y = (sign * (a + b)) / 2;
+          pushBoundary(side * upperSideWidth(y, side), y);
+        }
+      for (const axis of [0, 1])
+        for (const side of [-1, 1]) {
+          const r = edge(axis, side);
+          pushBoundary(axis ? 0 : side * r, axis ? side * r : 0);
+        }
+      const localRails = ownRails
+        .map((q) => ({
+          q,
+          x: (q.cx - cx) * ex.x + (q.cy - cy) * ex.y,
+          y: (q.cx - cx) * ey.x + (q.cy - cy) * ey.y,
+        }))
+        .sort((a, b) => a.x - b.x);
+      for (const rail of localRails) {
+        const axes = regionAxes(rail.q);
+        for (const axis of [0, 1])
+          for (const side of [-1, 1]) {
+            let a = 0,
+              b = 2 * Math.sqrt(axis ? axes.major : axes.minor);
+            const read = (r: number): number =>
+              value(
+                rail.x + (axis ? 0 : side * r),
+                rail.y + (axis ? side * r : 0),
+                'color',
+              );
+            check(read(0) < d.level && read(b) > d.level);
+            for (let k = 0; k < 52; k++) {
+              const m = (a + b) / 2;
+              if (read(m) < d.level) a = m;
+              else b = m;
+            }
+            const r = (a + b) / 2;
+            pushBoundary(
+              rail.x + (axis ? 0 : side * r),
+              rail.y + (axis ? side * r : 0),
+            );
+          }
+      }
+      const surfaceAt = (x: number, y: number): SurfaceSample => {
+        d.sample(cx + x * ex.x + y * ey.x, cy + x * ex.y + y * ey.y, out);
+        return { ...out, height: out.height / preset.relief };
+      };
+      const locations = [
+        ['backing', hx * 1.15, 0],
+        ['plate', 0, hy * 0.9],
+        ['guide', 0, (mouthY + collarY) / 2],
+        ['leftRail', localRails[0].x, localRails[0].y],
+        ['rightRail', localRails[1].x, localRails[1].y],
+        ['well', mouthX * 0.7, 0],
+        ['bore', 0, 0],
+      ] as const;
+      const surfaces = Object.fromEntries(
+        locations.map(([name, x, y]) => [name, surfaceAt(x, y)]),
+      ) as Record<(typeof locations)[number][0], SurfaceSample>;
+      const step = Math.min(hx, hy, mouthX, mouthY, boreMean) * 0.005;
+      let flatness = 0;
+      for (const [, x, y] of locations) {
+        const h = [
+          surfaceAt(x, y).height,
+          surfaceAt(x - step, y).height,
+          surfaceAt(x + step, y).height,
+          surfaceAt(x, y - step).height,
+          surfaceAt(x, y + step).height,
+        ];
+        flatness = Math.max(flatness, Math.max(...h) - Math.min(...h));
+      }
+      const railBalance = Math.abs(localRails[0].x + localRails[1].x) / hx,
+        railMidline = Math.max(...localRails.map((q) => Math.abs(q.y))) / hy,
+        railPlacement = localRails.map((q) => Math.abs(q.x) / hx);
+      const guideCutPair = [-1, 1].map(
+        (side) =>
+          upperSideWidth(0.75 * collarY, side) /
+          upperSideWidth(-0.75 * collarY, side),
+      );
+      return {
+        cx,
+        cy,
+        ex,
+        ey,
+        hx,
+        hy,
+        bodyAspect: hx / hy,
+        mouthAspect: mouthX / mouthY,
+        boreRoundness:
+          (Math.max(...boreRadii) - Math.min(...boreRadii)) / boreMean,
+        boreToMouth: boreMean / Math.min(mouthX, mouthY),
+        railAspects: ownRails.map((q) => regionAxes(q).aspect),
+        railAlignment: ownRails.map((q) => {
+          const angle = regionAxes(q).angle;
+          return Math.abs(Math.cos(angle) * ey.x + Math.sin(angle) * ey.y);
+        }),
+        cutWidthPair,
+        earPair,
+        surfaces,
+        flatness,
+        railBalance,
+        railMidline,
+        railPlacement,
+        guideCutPair,
+      };
+    });
+    return { owners, boundaries };
+  };
+
+  const fields = new Map<number, ReturnType<typeof field>>(),
+    natives = new Map<number, ReturnType<typeof observeNative>>();
+  const measuredField = (seed: number) => {
+    let d = fields.get(seed);
+    if (!d) {
+      d = field(seed);
+      fields.set(seed, d);
+    }
+    return d;
+  };
+  const native = (seed: number) => {
+    let g = natives.get(seed);
+    if (!g) {
+      g = observeNative(measuredField(seed));
+      natives.set(seed, g);
+    }
+    return g;
+  };
+  it.each([0, 7, 0xffffffff])(
+    'keeps opaque dielectric plates with two rail holes and a closed keyed guide at seed %s',
+    (seed) => {
+      const d = measuredField(seed),
+        n = preset.cells * preset.cells;
+      expect(d.invalid).toBe(0);
+      expect(d.bodies.length).toBe(n);
+      expect(d.bodyVoids.length).toBe(3 * n + 1);
+      expect(d.uppers.length).toBe(n);
+      expect(d.upperBasins.length).toBe(n + 1);
+      expect(d.lowers.length).toBe(n);
+      expect(d.lowerBasins.length).toBe(3 * n + 1);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'recovers one-ended paired chamfers, both rounded bosses, parallel side rails and round wells at seed %s',
+    (seed) => {
+      for (const o of native(seed).owners) {
+        expect(o.bodyAspect).toBeGreaterThan(1.35);
+        expect(o.bodyAspect).toBeLessThan(1.75);
+        expect(o.mouthAspect).toBeGreaterThan(0.8);
+        expect(o.mouthAspect).toBeLessThan(1.2);
+        for (const ratio of o.guideCutPair) {
+          expect(ratio).toBeGreaterThan(0.65);
+          expect(ratio).toBeLessThan(0.95);
+        }
+        expect(Math.abs(o.guideCutPair[0] - o.guideCutPair[1])).toBeLessThan(
+          0.02,
+        );
+        for (const ratio of o.cutWidthPair) {
+          expect(ratio).toBeGreaterThan(0.6);
+          expect(ratio).toBeLessThan(0.9);
+        }
+        expect(Math.abs(o.cutWidthPair[0] - o.cutWidthPair[1])).toBeLessThan(
+          0.02,
+        );
+        for (const ratio of o.earPair) {
+          expect(ratio).toBeGreaterThan(1.15);
+          expect(ratio).toBeLessThan(1.45);
+        }
+        expect(Math.abs(o.earPair[0] - o.earPair[1])).toBeLessThan(0.02);
+        expect(o.boreRoundness).toBeLessThan(0.01);
+        expect(o.boreToMouth).toBeGreaterThan(0.2);
+        expect(o.boreToMouth).toBeLessThan(0.6);
+        for (const ratio of o.railAspects) {
+          expect(ratio).toBeGreaterThan(8);
+          expect(ratio).toBeLessThan(25);
+        }
+        for (const alignment of o.railAlignment)
+          expect(alignment).toBeGreaterThan(0.99);
+        expect(o.railBalance).toBeLessThan(0.01);
+        expect(o.railMidline).toBeLessThan(0.02);
+        for (const ratio of o.railPlacement) {
+          expect(ratio).toBeGreaterThan(0.7);
+          expect(ratio).toBeLessThan(0.95);
+        }
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps the black body matte and every guide, recess and optical floor nonconducting at seed %s',
+    (seed) => {
+      for (const o of native(seed).owners) {
+        const s = o.surfaces;
+        for (const q of Object.values(s)) {
+          expect(q.metallic).toBe(0);
+          expect(q.mortar).toBe(0);
+        }
+        for (const q of [s.plate, s.guide]) {
+          expect(q.color).toBeGreaterThan(0.12);
+          expect(q.color).toBeLessThan(0.4);
+          expect(q.roughness).toBeGreaterThan(0.6);
+          expect(q.occlusion).toBeGreaterThan(0.8);
+        }
+        expect(Math.abs(s.plate.color - s.guide.color)).toBeLessThan(0.02);
+        expect(s.guide.height).toBeGreaterThan(s.plate.height);
+        for (const rail of [s.leftRail, s.rightRail]) {
+          expect(rail.color).toBeLessThan(s.plate.color * 0.6);
+          expect(rail.height).toBeLessThan(s.plate.height);
+          expect(rail.height).toBeGreaterThan(s.well.height);
+          expect(rail.roughness).toBeGreaterThan(s.plate.roughness);
+          expect(rail.occlusion).toBeLessThan(s.plate.occlusion);
+          expect(rail.occlusion).toBeGreaterThan(s.well.occlusion);
+        }
+        expect(s.well.color).toBeLessThan(0.1);
+        expect(s.bore.color).toBeLessThan(s.well.color);
+        expect(s.well.height).toBeGreaterThan(s.bore.height);
+        expect(s.bore.height).toBeGreaterThan(s.backing.height);
+        expect(s.well.roughness).toBeGreaterThan(0.7);
+        expect(s.bore.roughness).toBeLessThan(s.well.roughness);
+        expect(s.well.occlusion).toBeLessThan(0.45);
+        expect(s.bore.occlusion).toBeLessThan(s.well.occlusion);
+        expect(o.flatness).toBeLessThan(0.002);
+      }
+    },
+  );
+  it('varies actual plate, guide and recess footprints rather than pigment grain alone', () => {
+    const masks = [7, 0xffffffff].map((seed) => {
+      const d = measuredField(seed);
+      return Uint8Array.from(
+        d.bodyMask,
+        (m, i) =>
+          Number(m > 0) |
+          (Number(d.upperMask[i] > 0) << 1) |
+          (Number(d.lowerMask[i] > 0) << 2),
+      );
+    });
+    let changed = 0;
+    for (let i = 0; i < masks[0].length; i++)
+      changed += Number(masks[0][i] !== masks[1][i]);
+    expect(changed / masks[0].length).toBeGreaterThan(0.02);
+  });
+  it.each([0, 7, 0xffffffff])(
+    'keeps signed periodicity and C1 channels across native corners, ear joins and slot edges at seed %s',
+    (seed) => {
+      const d = measuredField(seed),
+        a = empty(),
+        b = empty();
+      let period = 0;
+      for (let i = 0; i < 4096; i++) {
+        const u = (i * 0.7548776662466927) % 1,
+          v = (i * 0.5698402909980532) % 1;
+        d.sample(u, v, a);
+        d.sample(u - 2, v + 3, b);
+        for (const key of keys)
+          period = Math.max(
+            period,
+            Math.abs(a[key] - b[key]) / (key === 'height' ? preset.relief : 1),
+          );
+      }
+      expect(period).toBeLessThan(1e-12);
+      expect(
+        refineCurvature(d.sample, preset.relief, native(seed).boundaries),
+      ).toBeLessThan(0.1);
+    },
+  );
+  it.each([32, 512])(
+    'packs bounded opaque dielectric normals and black nonemitting faces at size %s',
+    (size) => {
+      const p = observePixels(
+        generateProceduralMaps('f05opticalfaces', size, 7, { heightMap: true }),
+      );
+      expect(p.invalidAlpha).toBe(0);
+      expect(p.backFacing).toBe(0);
+      expect(p.metallicPixels).toBe(0);
+      expect(p.fullMetal).toBe(0);
+      expect(p.transitions).toBe(0);
+      expect(p.normalLengthError).toBeLessThan(0.02);
+      expect(p.maxTilt).toBeLessThan(0.8);
+      expect(p.minLuma).toBeGreaterThan(0);
+      expect(p.minLuma).toBeLessThan(50);
+      expect(p.maxLuma).toBeGreaterThan(40);
+      expect(p.maxLuma).toBeLessThan(130);
     },
   );
 });

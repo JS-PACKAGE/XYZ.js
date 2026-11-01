@@ -706,6 +706,7 @@ try {
     'fennelseeds',
     'rj45femalefaces',
     'rcafemalefaces',
+    'f05opticalfaces',
     'usbcfemalefaces',
     'iecc6inlets',
     'iecc8inlets',

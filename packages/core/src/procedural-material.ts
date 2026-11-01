@@ -643,6 +643,7 @@ export type ProceduralMaterialKind =
   | 'fennelseeds'
   | 'rj45femalefaces'
   | 'rcafemalefaces'
+  | 'f05opticalfaces'
   | 'usbcfemalefaces'
   | 'iecc6inlets'
   | 'iecc8inlets'
@@ -1771,6 +1772,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'fennelseeds',
   'rj45femalefaces',
   'rcafemalefaces',
+  'f05opticalfaces',
   'usbcfemalefaces',
   'iecc6inlets',
   'iecc8inlets',
