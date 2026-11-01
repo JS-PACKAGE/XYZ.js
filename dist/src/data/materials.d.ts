@@ -7631,6 +7631,35 @@ export declare const proceduralMaterialPresets: Readonly<{
         emptyAO: 0.5;
         edgeAO: 0.55;
     }>;
+    battleshipgrid: Readonly<{
+        dark: readonly [26, 40, 62];
+        light: readonly [210, 224, 238];
+        roughness: 0.5;
+        relief: 0.003;
+        cells: 10;
+        fleet: readonly [5, 4, 3, 3, 2];
+        attempts: 400;
+        shotChance: 0.32;
+        gridHalf: 0.02;
+        hullInset: 0.1;
+        edgeSoft: 0.03;
+        pegRadius: 0.2;
+        grainCells: 192;
+        waterTone: 0.72;
+        gridTone: 0.5;
+        hullTone: 0.3;
+        hitTone: 0.08;
+        missTone: 0.97;
+        grainTone: 0.04;
+        waterHeight: 0.3;
+        hullHeight: 0.62;
+        pegHeight: 0.8;
+        gridDrop: 0.08;
+        waterRoughness: 0.35;
+        hullRoughness: 0.55;
+        pegRoughness: 0.4;
+        hullAO: 0.8;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -14116,6 +14145,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    battleshipgrid: 0.4;
     tetrisstack: 0.4;
     minesweeperboard: 0.4;
     flipdotdisplay: 0.5;

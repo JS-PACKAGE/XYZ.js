@@ -19753,6 +19753,114 @@ export function createSurfaceSampler(
           occlusion = clamp(1 - (1 - p.edgeAO) * line);
         };
       }
+      case 'battleshipgrid': {
+        const p = proceduralMaterialPresets.battleshipgrid,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x26a01),
+          n = p.cells,
+          ship = new Int8Array(n * n).fill(-1),
+          shot = new Uint8Array(n * n),
+          // Place the fleet one ship at a time; ships may not touch, even at corners.
+          free = (x: number, y: number): boolean => {
+            for (let dy = -1; dy <= 1; dy++)
+              for (let dx = -1; dx <= 1; dx++) {
+                const nx = x + dx,
+                  ny = y + dy;
+                if (
+                  nx >= 0 &&
+                  ny >= 0 &&
+                  nx < n &&
+                  ny < n &&
+                  ship[ny * n + nx] >= 0
+                )
+                  return false;
+              }
+            return true;
+          };
+        let attempt = 0;
+        p.fleet.forEach((length, index) => {
+          for (; attempt < p.attempts; attempt++) {
+            const horizontal = hash(attempt, 1, seed ^ 0x26a03) < 0.5,
+              x = Math.floor(
+                hash(attempt, 2, seed ^ 0x26a05) *
+                  (horizontal ? n - length + 1 : n),
+              ),
+              y = Math.floor(
+                hash(attempt, 3, seed ^ 0x26a07) *
+                  (horizontal ? n : n - length + 1),
+              ),
+              cells: number[] = [];
+            let ok = true;
+            for (let i = 0; i < length && ok; i++) {
+              const cx = horizontal ? x + i : x,
+                cy = horizontal ? y : y + i;
+              ok = free(cx, cy);
+              cells.push(cy * n + cx);
+            }
+            if (!ok) continue;
+            cells.forEach((cell) => (ship[cell] = index));
+            attempt++;
+            return;
+          }
+        });
+        for (let i = 0; i < n * n; i++)
+          shot[i] = hash(i, 9, seed ^ 0x26a09) < p.shotChance ? 1 : 0;
+        const inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5));
+        return () => {
+          const gx = u * n,
+            gy = v * n,
+            col = Math.min(n - 1, Math.floor(gx)),
+            row = Math.min(n - 1, Math.floor(gy)),
+            fx = gx - col - 0.5,
+            fy = gy - row - 0.5,
+            cell = row * n + col,
+            id = ship[cell],
+            grain = grainField(u, v) - 0.5,
+            line = Math.max(
+              cover(p.gridHalf - Math.abs(gx - Math.round(gx))),
+              cover(p.gridHalf - Math.abs(gy - Math.round(gy))),
+            ),
+            at = (x: number, y: number): number =>
+              x < 0 || y < 0 || x >= n || y >= n ? -1 : ship[y * n + x];
+          // Hull: the ship's cells merge into one rounded plank, inset from the cell edge where no
+          // neighboring cell belongs to the same ship.
+          let hull = 0;
+          if (id >= 0) {
+            const left = at(col - 1, row) === id ? 1 : 0.5 - p.hullInset + fx,
+              right = at(col + 1, row) === id ? 1 : 0.5 - p.hullInset - fx,
+              top = at(col, row - 1) === id ? 1 : 0.5 - p.hullInset + fy,
+              bottom = at(col, row + 1) === id ? 1 : 0.5 - p.hullInset - fy;
+            hull = cover(Math.min(left, right, top, bottom));
+          }
+          const peg =
+              shot[cell] === 1
+                ? cover(p.pegRadius - Math.sqrt(fx * fx + fy * fy))
+                : 0,
+            pegTone = id >= 0 ? p.hitTone : p.missTone,
+            base =
+              p.waterTone -
+              (p.waterTone - p.gridTone) * line * (1 - hull) +
+              p.grainTone * grain,
+            body = base + (p.hullTone - base) * hull;
+          color = clamp(body + (pegTone - body) * peg);
+          height = clamp(
+            p.waterHeight -
+              p.gridDrop * line * (1 - hull) +
+              (p.hullHeight - p.waterHeight) * hull +
+              (p.pegHeight - p.hullHeight * hull - p.waterHeight * (1 - hull)) *
+                peg,
+          );
+          roughness =
+            p.waterRoughness +
+            (p.hullRoughness - p.waterRoughness) * hull +
+            (p.pegRoughness -
+              (p.waterRoughness +
+                (p.hullRoughness - p.waterRoughness) * hull)) *
+              peg;
+          occlusion = clamp(1 - (1 - p.hullAO) * hull * (1 - peg));
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -47282,6 +47390,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'battleshipgrid' ||
     kind === 'tetrisstack' ||
     kind === 'minesweeperboard' ||
     kind === 'flipdotdisplay' ||

@@ -13678,6 +13678,49 @@ var proceduralMaterialPresets = Object.freeze({
 		emptyAO: .5,
 		edgeAO: .55
 	}),
+	battleshipgrid: Object.freeze({
+		dark: [
+			26,
+			40,
+			62
+		],
+		light: [
+			210,
+			224,
+			238
+		],
+		roughness: .5,
+		relief: .003,
+		cells: 10,
+		fleet: [
+			5,
+			4,
+			3,
+			3,
+			2
+		],
+		attempts: 400,
+		shotChance: .32,
+		gridHalf: .02,
+		hullInset: .1,
+		edgeSoft: .03,
+		pegRadius: .2,
+		grainCells: 192,
+		waterTone: .72,
+		gridTone: .5,
+		hullTone: .3,
+		hitTone: .08,
+		missTone: .97,
+		grainTone: .04,
+		waterHeight: .3,
+		hullHeight: .62,
+		pegHeight: .8,
+		gridDrop: .08,
+		waterRoughness: .35,
+		hullRoughness: .55,
+		pegRoughness: .4,
+		hullAO: .8
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -22359,6 +22402,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	battleshipgrid: .4,
 	tetrisstack: .4,
 	minesweeperboard: .4,
 	flipdotdisplay: .5,

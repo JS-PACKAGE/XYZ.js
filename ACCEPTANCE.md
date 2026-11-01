@@ -11701,3 +11701,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 目錄926→927，含plain的gallery為928項。每tile一個16×16方塊井，隨機（雜湊驅動）嘗試放置七種四格方塊（I、O、T、S、Z、J、L）的隨機旋轉，只接受完全在井內且不重疊的放置；每種方塊一個色調（七階亮度）、有斜角高光與深色輪廓，未佔用格為深洞。Metallic／mortar為0，預設tile0.4 m、0.0035 UV-relative relief、metallic factor 0。無重力與消行，非真實遊戲盤面；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
 - 實測：`tests/procedural-material-motifs.test.ts`二百五十一項（本材質七項）全過。六個seed（0、7、4294967295、1、2、3）：格中心色調分出佔用格（占比＞0.4）；以格緣中點是否有輪廓線（顏色高於相鄰格較低中心色的0.6倍視為相連）合併相鄰格，每一組恰好4格；每組的形狀以測試端獨立寫出的七種四格方塊在四個旋轉下的標準形（不含鏡像，故S／Z、J／L視為不同）分類，全數屬於七種之一；同形狀的各組平均色調差＜0.07、不同形狀的色調差＞0.06，每個seed至少出現5種形狀；通道範圍、metallic／mortar 0、wrap與seed差異。這驗證「每塊都是真正的四格方塊且同種同色」，沒有驗證遊戲規則（重力、消行）。`tests/procedural-material.test.ts`以`-t "tetrisstack|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`tetrisstack`：option 928個、status為927 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的方塊、輪廓與深洞。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：海戰棋盤（battleshipgrid）
+
+- 目錄927→928，含plain的gallery為929項。每tile一個10×10棋盤：藍灰水面與細格線、5／4／3／3／2格的直線艦隊（相鄰格合併成圓角板、船與船即使在角落也不相接），約32%的格子被射擊：射中船為深色圓釘（命中）、射中水面為近白圓釘（落空）。Metallic／mortar為0，預設tile0.4 m、0.003 UV-relative relief、metallic factor 0。無座標標示、射擊記錄為隨機；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 設計記錄：船隻在sampler建立時依雜湊逐艘嘗試放置（共400次嘗試），每個候選位置檢查3×3鄰域不得已有其他船，所以「不相接（含對角）」是放置規則，不是事後篩選。
+- 測試記錄：第一版測試對命中數的註解寫成「命中只在船格上（由上方的構造保證）」——這其實是同義反覆（命中的定義就是船格上的暗釘），所以已刪掉該句，只保留有意義的檢查（兩種圓釘皆出現、射擊比例接近設定值）。
+- 實測：`tests/procedural-material-motifs.test.ts`二百六十項（本材質九項）全過。八個seed（0、7、4294967295、1、2、3、4、5）：在格中心取樣，色調＜0.45為船、＞0.9為落空圓釘、其餘為水面；船格以8連通分組恰為5組（所以不相接，含角落）；每組是無間隙的直線（寬或高為1、另一邊等於格數），長度排序後恰為2、3、3、4、5；命中與落空兩種圓釘皆出現、被射擊的比例與0.32相差＜0.15；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "battleshipgrid|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`battleshipgrid`：option 929個、status為928 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的船體、圓釘與格線。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

@@ -5586,3 +5586,111 @@ describe('tetrisstack: pieces that are real tetrominoes with one tone per kind',
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('battleshipgrid: a legal fleet on a 10 x 10 board with shot pegs', () => {
+  const p = proceduralMaterialPresets.battleshipgrid;
+  const n = p.cells;
+
+  it.each([...seeds, 1, 2, 3, 4, 5])(
+    'lays out the five standard ships as straight, separate lines with hits only on ships (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('battleshipgrid', seed),
+        out = empty(),
+        kind: ('water' | 'ship' | 'miss')[] = [];
+      let hits = 0,
+        misses = 0;
+      for (let row = 0; row < n; row++)
+        for (let col = 0; col < n; col++) {
+          sample((col + 0.5) / n, (row + 0.5) / n, out);
+          const tone = out.color;
+          // Water is mid-light, hull dark (a hit peg is darker still), a miss peg nearly white.
+          const isShip = tone < 0.45,
+            isMiss = tone > 0.9;
+          kind.push(isShip ? 'ship' : isMiss ? 'miss' : 'water');
+          hits += Number(tone < 0.15);
+          misses += Number(isMiss);
+        }
+      // Hull cells separate into exactly five 8-connected groups: ships never touch, even at corners.
+      const group = new Array<number>(n * n).fill(-1);
+      const groups: number[][] = [];
+      for (let start = 0; start < n * n; start++) {
+        if (kind[start] !== 'ship' || group[start] >= 0) continue;
+        const members: number[] = [],
+          stack = [start];
+        group[start] = groups.length;
+        while (stack.length) {
+          const cell = stack.pop() as number;
+          members.push(cell);
+          const x = cell % n,
+            y = Math.floor(cell / n);
+          for (let dy = -1; dy <= 1; dy++)
+            for (let dx = -1; dx <= 1; dx++) {
+              const nx = x + dx,
+                ny = y + dy;
+              if (nx < 0 || ny < 0 || nx >= n || ny >= n) continue;
+              const next = ny * n + nx;
+              if (kind[next] === 'ship' && group[next] < 0) {
+                group[next] = groups.length;
+                stack.push(next);
+              }
+            }
+        }
+        groups.push(members);
+      }
+      expect(groups.length).toBe(5);
+      // Each ship is a straight, gap-free line; the lengths are the classic 5, 4, 3, 3, 2.
+      const lengths = groups.map((members) => {
+        const xs = members.map((c) => c % n),
+          ys = members.map((c) => Math.floor(c / n)),
+          width = Math.max(...xs) - Math.min(...xs) + 1,
+          height = Math.max(...ys) - Math.min(...ys) + 1;
+        expect(Math.min(width, height)).toBe(1);
+        expect(Math.max(width, height)).toBe(members.length);
+        return members.length;
+      });
+      expect(lengths.sort((a, b) => a - b)).toEqual([2, 3, 3, 4, 5]);
+      // Both kinds of peg appear, and shots cover roughly the authored share of cells.
+      expect(hits).toBeGreaterThan(0);
+      expect(misses).toBeGreaterThan(0);
+      expect(Math.abs((hits + misses) / (n * n) - p.shotChance)).toBeLessThan(
+        0.15,
+      );
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('battleshipgrid', 0),
+      b = createSurfaceSampler('battleshipgrid', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
