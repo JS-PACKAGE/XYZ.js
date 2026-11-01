@@ -11959,3 +11959,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Pancake|pancake|kinds|catalog|distinct|periodic"`定向測試**2163項通過／3730項未選**。
 - 完整suite（工具實跑，新建的乾淨worktree `/private/tmp/xyz-ct-suite`於`047b7f742`「Add raspberry material」，與granola、kawung、pancake的gates同時執行）：**179檔／9,801項全數通過**，Duration 1466.74s。涵蓋`50bbdf7da`之後的merbau、windowpane、crosswordgrid、sweetcorn、baconstrips、salami、raspberry；granola、kawung、pancake則只有定向測試與gates，尚未再跑完整suite。
 - 未驗證：本材質未跑瀏覽器gallery（merbau之後新增的sweetcorn、baconstrips、salami、raspberry、granola、kawung、pancake皆尚未做）；不push。
+
+## 2026-11-02 瀏覽器gallery驗證：sweetcorn至pancake
+
+- 範圍：補做`sweetcorn`、`baconstrips`、`salami`、`raspberry`、`granola`、`kawung`、`pancake`七個材質的`/examples/pbr3d/`瀏覽器gallery檢查（這些材質先前只有定向測試與gates）。
+- 方法（工具實跑）：與前一次gallery驗證相同——spawned Google Chrome headless（`--enable-unsafe-webgpu --use-angle=metal`）開啟vite dev server（服務`54a86c2ba`狀態的乾淨worktree）上的範例頁，等待`Material `讀數後，逐一以`#material`的`input`事件選取七個kind並等待讀數更新為`Material <kind> `；WebGPU與`?renderer=webgl2`各跑一次，兩次結束時`tab.errors()`的`entries`皆為0筆（dropped 0）；狀態列顯示`939 procedural material presets + plain`。
+- 限制：同前次，只涵蓋「能選取、讀數更新、console沒有錯誤」，**沒有**逐材質視覺比對、跨瀏覽器／跨GPU或Windows／Linux驗證；最近一次完整suite為`047b7f742`的179檔／9,801項通過（granola、kawung、pancake之後尚未重跑）；不push。
