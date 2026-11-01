@@ -955,6 +955,7 @@ const kinds: ProceduralMaterialKind[] = [
   'ledmatrix',
   'tapemeasure',
   'metalflakepaint',
+  'poolcaustics',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -139582,6 +139583,182 @@ describe('Metal-flake paint with random tilted metallic flakes sparkling in a de
     expect(metalHigh / (512 * 512)).toBeLessThan(0.25);
     expect(maxTilt).toBeGreaterThan(0.3);
     expect(maxTilt).toBeLessThan(0.4);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Pool caustics with a bright branching light network on a blue pool floor', () => {
+  const p = proceduralMaterialPresets.poolcaustics;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const brightMask = (seed: number): boolean[] => {
+    const sample = createSurfaceSampler('poolcaustics', seed),
+      out = empty(),
+      mask: boolean[] = [];
+    for (let y = 0; y < 512; y++)
+      for (let x = 0; x < 512; x++) {
+        sample((x + 0.5) / 512, (y + 0.5) / 512, out);
+        mask.push(out.color > 0.55);
+      }
+    return mask;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'splits the floor into a bright light network and dim blue pools with caustic light lowering roughness for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('poolcaustics', seed),
+        a = empty();
+      let bright = 0,
+        dim = 0,
+        low = 1,
+        high = 0,
+        mean = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 512; y++)
+        for (let x = 0; x < 512; x++) {
+          sample((x + 0.5) / 512, (y + 0.5) / 512, a);
+          bright += Number(a.color > 0.55);
+          dim += Number(a.color < 0.3);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          mean += a.color;
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(bright / 262144).toBeGreaterThan(0.31);
+      expect(bright / 262144).toBeLessThan(0.39);
+      expect(dim / 262144).toBeGreaterThan(0.2);
+      expect(dim / 262144).toBeLessThan(0.27);
+      expect(low).toBeGreaterThan(0.13);
+      expect(low).toBeLessThan(0.16);
+      expect(high).toBeGreaterThan(0.77);
+      expect(high).toBeLessThan(0.81);
+      expect(mean / 262144).toBeGreaterThan(0.43);
+      expect(mean / 262144).toBeLessThan(0.48);
+      expect(roughLow).toBeLessThan(p.roughness - 0.1);
+      expect(roughHigh).toBeLessThanOrEqual(p.roughness);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('moves the light network with the seed and is deterministic for one seed', () => {
+    const first = brightMask(0),
+      second = brightMask(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.3);
+    expect(brightMask(0)).toEqual(first);
+  });
+  it('keeps the bent line families, glow sum and floor grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('poolcaustics', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.floorCells, 2 * p.floorCells, 6])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 blue-cyan dielectric maps with a light network and shallow floor-grain normals', () => {
+    const maps = generateProceduralMaps('poolcaustics', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.baseColor[i] > maps.baseColor[i + 1] ||
+          maps.baseColor[i + 1] > maps.baseColor[i + 2] ||
+          maps.normal[i + 2] < 240,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(90);
+    expect(red / (512 * 512)).toBeLessThan(110);
+    expect(green / (512 * 512)).toBeGreaterThan(128);
+    expect(green / (512 * 512)).toBeLessThan(150);
+    expect(blue / (512 * 512)).toBeGreaterThan(155);
+    expect(blue / (512 * 512)).toBeLessThan(175);
+    expect(maxTilt).toBeGreaterThan(0.04);
+    expect(maxTilt).toBeLessThan(0.1);
     expect(invalid).toBe(0);
   });
 });

@@ -12553,6 +12553,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         flakeRoughness: -0.1;
         flakeOcclusion: 0.1;
     }>;
+    poolcaustics: Readonly<{
+        dark: readonly [6, 52, 96];
+        light: readonly [214, 244, 250];
+        roughness: 0.7;
+        relief: 0.002;
+        seedSalt: 51799;
+        families: readonly [readonly [6, 0], readonly [3, 5], readonly [-3, 5]];
+        warps: readonly [readonly [1, 1], readonly [2, -1], readonly [1, 2]];
+        warpAmplitude: 0.45;
+        lineWidth: 0.42;
+        gain: 0.9;
+        baseTone: 0.16;
+        floorCells: 96;
+        floorTone: 0.05;
+        floorHeight: 1;
+        causticHeight: 0.15;
+        causticRoughness: -0.2;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -13845,4 +13863,5 @@ export declare const proceduralTileMeters: Readonly<{
     ledmatrix: 0.16;
     tapemeasure: 0.1;
     metalflakepaint: 0.1;
+    poolcaustics: 0.5;
 }>;

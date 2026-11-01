@@ -11678,3 +11678,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增4項永久測試（`Metal-flake`：三seed覆蓋率／metallic與color相關性／通道範圍、seed移動片與確定性、重疊圓頂與隨機傾斜的C1及帶號UV週期、actual512五maps含metallic通道），並加入通用kinds清單；名稱篩選7項通過（5.40s）。
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Metal-flake|metalflakepaint|kinds|catalog|distinct|periodic"`定向測試，**2116項通過／3584項未選**。
 - 因本功能改動了metallic清單這類跨kind的共用判斷，已另在凍結worktree對本commit啟動完整suite，結果另記於後續section；本section撰寫時未取得該結果。未開瀏覽器gallery；不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：泳池焦散（poolcaustics）
+
+- 目錄913→914，含plain的gallery為915項。藍色池底上由三組彎曲線族疊成的明亮分岔光網與深藍網眼（約三分之一面積偏亮），光網處roughness略低，池底有細微顆粒起伏。這是作者設計的**視覺近似**，不是物理焦散模型，**沒有**引用特定來源；不含時間流動、折射光線追蹤、池磚縫、水面反射或深度漸層。
+- 專用sampler：三組整數波數線族`(6,0)`、`(3,5)`、`(−3,5)`，相位各被三個整數波數正弦彎曲，每族`exp(−sin²(π·相位)/w²)`（C∞），加總後`S/(1+S)`飽和映射到color／roughness。cache為96² grain＋3相位＋3偏移共9,222 Float64／73,776 B。預設0.5 m tile、0.002 UV-relative relief（非公尺位移）、metallic factor0、AO 1；不新增API或依賴。
+- 開發中實際調整：首版（warpAmplitude 0.9、lineWidth 0.2、gain 0.9）實看是纏繞的細線圈、不像焦散；第二版lineWidth 0.55、降低彎曲與增益，成為軟光網但對比低；最終lineWidth 0.42、gain 0.9、baseTone 0.16，實看確認為有深色網眼的亮色分岔網後才寫測試。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）512²取樣color>0.55占33.3–36.9%、color<0.3占22.3–24.3%、color 0.144–0.793、平均0.449–0.461、roughness 0.554–0.698、AO 1；seed 0與1的亮區遮罩有43.9%像素不同；seed7的512² r／g／b平均約(99,138,165)、法線max tilt²約0.066。
+- 新增4項永久測試（`Pool caustics`：三seed亮／暗比例與色域、seed移動光網與確定性、C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選7項通過（9.01s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Pool caustics|poolcaustics|kinds|catalog|distinct|periodic"`定向測試，**2118項通過／3589項未選**。
+- 本功能未重跑完整179檔suite（metalflakepaint commit的完整suite仍在凍結worktree執行，結果另記）、未開瀏覽器gallery；不宣稱跨瀏覽器／backend或效能驗證；不push。

@@ -1095,6 +1095,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`poolcaustics`（泳池焦散）使目前目錄913→914種，含plain的gallery為915項。藍色池底上有一張明亮、分岔的細光網，網眼間是較暗的深藍色塊；約三分之一面積偏亮，光網處roughness略低，池底有細微顆粒起伏。不是隨時間流動的焦散、真實折射光線追蹤、池磚縫、水面反射或深度漸層。
+
+此材質是作者依「泳池底焦散光網」一般印象所作示意，沒有引用特定來源文件、照片或量測；光網由我自行設計的三組彎曲線族疊成，只在視覺上近似光網，並非物理上的焦散模型。線族方向、寬度、增益、色調、roughness與0.5 m nominal tile皆作者設定，不宣稱符合任何真實水池或光學規格。
+
+新增專用sampler：三組整數波數線族`(6,0)`、`(3,5)`、`(−3,5)`，各自的相位再被三個整數波數正弦（含seed相位）彎曲，每族貢獻`exp(−sin²(π·相位)/w²)`（C∞），加總後以`S/(1+S)`飽和映射到color與roughness；線被彎曲擠在一起處光暈疊加，形成較亮較細的分岔網。cache為96²池底grain（9,216 Float64）加3相位與3偏移共9,222 Float64／73,776 B lattice算術預算（非總RAM）。顏色是顏料，height只用於法線；金屬factor為0、無mortar、AO 1。預設0.5 m nominal tile與0.002 UV-relative relief（非公尺位移）皆作者設定。調整過程：首版（warpAmplitude 0.9、lineWidth 0.2、gain 0.9）渲染成纏繞的細線圈，不像焦散；第二版放寬線寬（0.55）、降低彎曲與增益後成為軟光網但對比偏低；最後把lineWidth設0.42、gain 0.9、baseTone 0.16以提高對比，並實看確認呈現有深色網眼的亮色分岔網。三seed（0／1／0xffffffff）、512²取樣：color>0.55占33.3–36.9%、color<0.3占22.3–24.3%、color 0.144–0.793、平均0.449–0.461、roughness 0.554–0.698、AO 1；seed 0與1的亮區遮罩有43.9%像素不同；seed7的512² r／g／b平均約(99,138,165)、法線max tilt²約0.066。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `metalflakepaint`（金屬片漆）使目前目錄912→913種，含plain的gallery為914項。深藍清漆底色上散布隨機位置、隨機傾斜與亮度的圓形金屬片（64×64格、約半數格有片），約21–22%的面積被片覆蓋；片本身淡薰衣草銀色，在metallic通道中形成部分金屬遮罩（最高約0.68，不是全金屬），片的小傾斜使法線閃爍，清漆底則為非金屬。不是珠光／變色（多色）、片的多邊形形狀、各片獨立反射方向或清漆層厚度。
 
 此材質是作者依一般金屬片車漆外觀所作示意，沒有引用特定來源文件、照片或量測；片大小、密度、色調、metallic覆蓋、roughness與0.1 m nominal tile皆作者設定，不宣稱符合任何實際塗料或色號。

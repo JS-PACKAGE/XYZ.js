@@ -12750,6 +12750,32 @@ export const proceduralMaterialPresets = Object.freeze({
     flakeRoughness: -0.1,
     flakeOcclusion: 0.1,
   }),
+  poolcaustics: Object.freeze({
+    dark: [6, 52, 96] as const,
+    light: [214, 244, 250] as const,
+    roughness: 0.7,
+    relief: 0.002,
+    seedSalt: 0xca57,
+    families: [
+      [6, 0],
+      [3, 5],
+      [-3, 5],
+    ] as const,
+    warps: [
+      [1, 1],
+      [2, -1],
+      [1, 2],
+    ] as const,
+    warpAmplitude: 0.45,
+    lineWidth: 0.42,
+    gain: 0.9,
+    baseTone: 0.16,
+    floorCells: 96,
+    floorTone: 0.05,
+    floorHeight: 1,
+    causticHeight: 0.15,
+    causticRoughness: -0.2,
+  }),
   makore: Object.freeze({
     dark: [76, 31, 18] as const,
     light: [205, 139, 93] as const,
@@ -14043,4 +14069,5 @@ export const proceduralTileMeters = Object.freeze({
   ledmatrix: 0.16,
   tapemeasure: 0.1,
   metalflakepaint: 0.1,
+  poolcaustics: 0.5,
 });

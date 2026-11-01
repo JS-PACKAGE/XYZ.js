@@ -20544,6 +20544,40 @@ var proceduralMaterialPresets = Object.freeze({
 		flakeRoughness: -.1,
 		flakeOcclusion: .1
 	}),
+	poolcaustics: Object.freeze({
+		dark: [
+			6,
+			52,
+			96
+		],
+		light: [
+			214,
+			244,
+			250
+		],
+		roughness: .7,
+		relief: .002,
+		seedSalt: 51799,
+		families: [
+			[6, 0],
+			[3, 5],
+			[-3, 5]
+		],
+		warps: [
+			[1, 1],
+			[2, -1],
+			[1, 2]
+		],
+		warpAmplitude: .45,
+		lineWidth: .42,
+		gain: .9,
+		baseTone: .16,
+		floorCells: 96,
+		floorTone: .05,
+		floorHeight: 1,
+		causticHeight: .15,
+		causticRoughness: -.2
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -21954,7 +21988,8 @@ var proceduralTileMeters = Object.freeze({
 	barcodelabel: .14,
 	ledmatrix: .16,
 	tapemeasure: .1,
-	metalflakepaint: .1
+	metalflakepaint: .1,
+	poolcaustics: .5
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

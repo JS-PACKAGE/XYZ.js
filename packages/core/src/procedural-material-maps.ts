@@ -37510,6 +37510,44 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'poolcaustics': {
+        const p = proceduralMaterialPresets.poolcaustics,
+          floorField = cachedNoise(p.floorCells, p.floorCells, seed ^ 0xca58),
+          phases = p.warps.map((_, i) => TAU * hash(i, 0, seed ^ p.seedSalt)),
+          offsets = p.families.map((_, i) => hash(i, 1, seed ^ p.seedSalt)),
+          inverseWidth2 = 1 / (p.lineWidth * p.lineWidth);
+        return () => {
+          // Three families of integer-wavenumber lines, each phase bent by a few
+          // integer-wavenumber sinusoids, glow where the phase crosses an integer:
+          // exp(-sin^2(pi phase) / w^2) is C-infinity, and where the bending squeezes
+          // the lines together the glows pile up into the bright, thin, branching
+          // network a pool floor shows. S / (1 + S) keeps the sum smooth and bounded.
+          let bend = 0;
+          for (let i = 0; i < p.warps.length; i++)
+            bend += Math.sin(
+              TAU * (p.warps[i][0] * u + p.warps[i][1] * v) + phases[i],
+            );
+          let glow = 0;
+          for (let i = 0; i < p.families.length; i++) {
+            const phase =
+                p.families[i][0] * u +
+                p.families[i][1] * v +
+                offsets[i] +
+                (p.warpAmplitude * bend * (i % 2 === 0 ? 1 : -1)) / (i + 1),
+              sine = Math.sin(Math.PI * phase);
+            glow += Math.exp(-sine * sine * inverseWidth2);
+          }
+          const caustic = (p.gain * glow) / (1 + p.gain * glow),
+            floor = floorField(u, v);
+          color =
+            p.baseTone +
+            p.floorTone * (floor - 0.5) +
+            (1 - p.baseTone) * caustic;
+          height = p.floorHeight * floor + p.causticHeight * caustic;
+          roughness += p.causticRoughness * caustic;
+          return;
+        };
+      }
       case 'woodenpalletdeck': {
         const p = proceduralMaterialPresets.woodenpalletdeck,
           tones = new Float64Array(p.boards),
@@ -45110,6 +45148,7 @@ export function createSurfaceSampler(
     kind === 'ledmatrix' ||
     kind === 'tapemeasure' ||
     kind === 'metalflakepaint' ||
+    kind === 'poolcaustics' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
     kind === 'sitkaspruce' ||
