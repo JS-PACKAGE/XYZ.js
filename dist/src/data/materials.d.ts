@@ -13325,6 +13325,31 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.15;
         groundOcclusion: 0.6;
     }>;
+    redalder: Readonly<{
+        dark: readonly [178, 124, 80];
+        light: readonly [246, 204, 150];
+        roughness: 0.5;
+        relief: 0.002;
+        columns: 36;
+        rows: 12;
+        widthMinimum: 0.018;
+        widthVariation: 0.014;
+        lengthMinimum: 0.1;
+        lengthVariation: 0.16;
+        poreChance: 0.12;
+        centerMinimum: 0.35;
+        centerRange: 0.3;
+        poreShoulder: 0.5;
+        poreDepth: 0.05;
+        bands: 2;
+        bandWarp: 0.8;
+        bandRadius: 0.5;
+        bandCore: 0.2;
+        bandContrast: 0.1;
+        fiberColumns: 220;
+        fiberRows: 9;
+        fiberContrast: 0.1;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -14648,4 +14673,5 @@ export declare const proceduralTileMeters: Readonly<{
     heatsinkfins: 0.1;
     tilledsoil: 0.4;
     sherpafleece: 0.15;
+    redalder: 0.18;
 }>;

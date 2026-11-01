@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`redalder`（紅赤楊／北美西部赤楊）使目前目錄944→945種，含plain的gallery為946項。近似Alnus rubra未塗裝縱向木面：淡黃褐到略帶紅的均勻底色、細而均勻的質地、2條很淡的暗帶、縱向纖維與極少量（約0.15%）的細暗短痕（對應偶爾出現的聚合木射線）。不是邊材與心材的區別、聚合木射線的寬大條紋、節疤、波浪紋或塗層。
+
+外觀依據實際閱讀的[Wood Database Red Alder](https://www.wood-database.com/red-alder/)（Color／Appearance：淡黃褐到略帶紅的褐色，隨時間變深變紅，邊材與心材無明顯差別，偶爾有聚合木射線形成的小條紋；Grain／Texture：紋理通常平直、質地中等偏細而均勻；Endgrain：散孔材，導管小到中等且很多）與實際下載並實看的[木面照片](https://www.wood-database.com/wp-content/uploads/alnus-rubra.jpg)（淡黃褐的均勻面、極淡的縱向色變、零星細小的暗色短痕）；僅作配色與紋理形態參考，**不**重現聚合木射線的寬大條紋、節疤或波浪紋，不打包來源圖，也不由照片反推真色、roughness或實際尺寸；導管（散孔、很多）在本材質中因為過小而不可見，只以少量暗痕代表偶爾可見的木射線。
+
+直接fallthrough重用既有Padauk／Bloodwood系細長橢圓導管sampler（與`blackwalnut`、`teak`、`honduranmahogany`、`shagbarkhickory`、`eastindianrosewood`、`bubinga`、`jarrah`、`merbau`同路徑），constructor只選preset：36×12個導管site（pose表13,824 B）、2條起伏（bandWarp 0.8）且對比很低（bandContrast 0.1）的暗帶、220×9縱向fiber、128²細grain與固定3×4 warp，共20,104個Float64／160,832 B lattice算術預算（非總RAM）。金屬factor為0；暗痕是真的height凹陷，色紋只是顏料。預設0.18 m nominal tile與0.002 UV-relative relief（非公尺位移）皆作者設定。因為共用sampler的本體色被限制在palette的約0.25–0.46處，我把palette選成較亮的暖褐（dark (178, 124, 80)／light (246, 204, 150)）才讓本體色接近照片的淡黃褐。實測（工具實跑，三seed 0／1／0xffffffff、256²取樣）：暗痕（AO<0.9）占0.12–0.15%，無凹陷的本體占99.8%，本體色0.254–0.459，橫／縱色差比9.98–10.64，roughness 0.50–0.602、height 0.45–0.503 relief、最低AO 0.75；seed 7的512²maps平均r／g／b約(204, 155, 107)、AO<230占0.147%、法線tilt²最大約0.0008。我實看了預覽：淡黃褐的均勻面、極淡的暗帶與零星細暗痕，與照片的整體色調與均勻感相近；照片更細緻、更偏橙黃（照片肉眼估計約(215, 170, 120)，這只是目視估計，不是量測）。未新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `sherpafleece`（雪帕／泰迪絨刷毛布）使目前目錄943→944種，含plain的gallery為945項。奶油白的捲曲絨毛布面：大量任意旋轉、邊緣不規則的奶油色團塊彼此疊成蓬鬆的捲簇，簇間偶有受遮蔽的淺褐色縫（約1%），每個團塊帶有各自的明暗與穹頂高光。不是真實刷毛布的纖維、捲曲的立體感、織底或毛向，預覽比較像凹凸的奶油色碎屑或爆米花，只是勉強近似。
 
 此材質是作者依一般雪帕刷毛布外觀所作示意，沒有引用特定來源文件、照片或量測，也沒有對照照片；兩層團塊的格數、機率、大小、長寬比、邊緣雜訊、色調、roughness與0.15 m nominal tile皆作者設定，不宣稱符合任何實際織物。

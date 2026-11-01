@@ -12025,3 +12025,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 範圍：補做`garlicskin`、`jerky`、`heatsinkfins`、`tilledsoil`、`sherpafleece`五個材質的`/examples/pbr3d/`瀏覽器gallery檢查（其中`heatsinkfins`是整面金屬，是第二個走金屬factor清單的整面金屬kind，值得在WebGPU與webgl2兩條路徑都選一次）。
 - 方法（工具實跑）：與前兩次gallery驗證相同——spawned Google Chrome headless（`--enable-unsafe-webgpu --use-angle=metal`）開啟vite dev server（服務`ec567825a`狀態的乾淨worktree）上的範例頁，等待`Material `讀數後逐一以`#material`的`input`事件選取五個kind並等待讀數更新；WebGPU與`?renderer=webgl2`各跑一次，兩次結束時`tab.errors()`的`entries`皆為0筆（dropped 0）；狀態列顯示`944 procedural material presets + plain`。
 - 限制：同前次，只涵蓋「能選取、讀數更新、console沒有錯誤」，**沒有**逐材質視覺比對，也沒有跨瀏覽器、跨GPU或Windows／Linux驗證；最近一次完整suite為`9a1be8a97`的179檔／9,843項通過（tilledsoil、5×5修正、sherpafleece之後尚未重跑）；不push。
+
+## 2026-11-02 新增材質：紅赤楊（redalder）
+
+- 範圍：新增`redalder`（目前目錄944→945種，含plain的gallery 946項）：近似Alnus rubra未塗裝縱向木面——淡黃褐到略帶紅的均勻底、細而均勻的質地、2條很淡的暗帶、縱向纖維與極少量細暗短痕（代表偶爾出現的聚合木射線）。外觀依據實際閱讀的Wood Database Red Alder頁面與實際下載並實看的木面照片，僅作配色與紋理形態參考；不重現聚合木射線的寬條紋、節疤或波浪紋；散孔的大量細小導管因為過小而不可見。直接fallthrough重用既有導管sampler（只新增preset），預設0.18 m nominal tile、0.002 UV-relative relief。
+- 調整紀錄（誠實紀錄）：共用sampler的本體色被限制在palette的約0.25–0.46，因此要得到淡黃褐必須把palette選得較亮（dark (178, 124, 80)／light (246, 204, 150)）；我的目視估計照片約(215, 170, 120)、渲染的512² maps平均(204, 155, 107)，這只是目視與計算值的比較，不是量測。
+- 測試過程的疏失（誠實紀錄）：以merbau的測試為範本改寫時，第一次跑有三項失敗，原因是我沿用的「導管凹陷與本體高度差 > 0.05 relief」門檻對這個導管很淺的材質太高（實測約0.045–0.047 relief），改為0.04 relief；範本中的`it`標題也沿用了jarrah的「brick-red brown board」字樣，我同時更正了merbau（以及新的紅赤楊）的測試標題（只改文字，不改斷言）。
+- 實測（工具實跑）：三seed 256²取樣暗痕（AO<0.9）占0.12–0.15%、無凹陷本體占99.8%、本體色0.254–0.459、橫／縱色差比9.98–10.64、roughness 0.50–0.602、height 0.45–0.503 relief、最低AO 0.75；seed 7的512²maps平均r／g／b約(204, 155, 107)、AO<230占0.147%、法線tilt²最大約0.0008。
+- 測試：新增7項（三seed統計與幾何、C1、actual512 maps、有符號UV週期），`-t "Red alder|redalder"`通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Red alder|redalder|Merbau|kinds|catalog|distinct|periodic"`定向測試**2181項通過／3754項未選**。
+- 未驗證：本材質未跑完整suite與瀏覽器gallery；與真實紅赤楊的外觀比對只有我對一張照片的主觀目視；不push。

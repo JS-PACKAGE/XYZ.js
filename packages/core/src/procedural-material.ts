@@ -959,7 +959,8 @@ export type ProceduralMaterialKind =
   | 'jerky'
   | 'heatsinkfins'
   | 'tilledsoil'
-  | 'sherpafleece';
+  | 'sherpafleece'
+  | 'redalder';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2153,6 +2154,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'heatsinkfins',
   'tilledsoil',
   'sherpafleece',
+  'redalder',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

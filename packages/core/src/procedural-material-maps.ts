@@ -2207,6 +2207,7 @@ export function createSurfaceSampler(
       case 'honduranmahogany':
       case 'jarrah':
       case 'merbau':
+      case 'redalder':
       case 'bubinga':
       case 'eastindianrosewood':
       case 'shagbarkhickory':
@@ -2226,7 +2227,8 @@ export function createSurfaceSampler(
             kind === 'eastindianrosewood' ||
             kind === 'bubinga' ||
             kind === 'jarrah' ||
-            kind === 'merbau'
+            kind === 'merbau' ||
+            kind === 'redalder'
               ? proceduralMaterialPresets[kind]
               : undefined,
           sparse = kind === 'padauk' ? proceduralMaterialPresets.padauk : fine,
@@ -46636,6 +46638,7 @@ export function createSurfaceSampler(
     kind === 'heatsinkfins' ||
     kind === 'tilledsoil' ||
     kind === 'sherpafleece' ||
+    kind === 'redalder' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

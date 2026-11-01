@@ -21581,6 +21581,39 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: .15,
 		groundOcclusion: .6
 	}),
+	redalder: Object.freeze({
+		dark: [
+			178,
+			124,
+			80
+		],
+		light: [
+			246,
+			204,
+			150
+		],
+		roughness: .5,
+		relief: .002,
+		columns: 36,
+		rows: 12,
+		widthMinimum: .018,
+		widthVariation: .014,
+		lengthMinimum: .1,
+		lengthVariation: .16,
+		poreChance: .12,
+		centerMinimum: .35,
+		centerRange: .3,
+		poreShoulder: .5,
+		poreDepth: .05,
+		bands: 2,
+		bandWarp: .8,
+		bandRadius: .5,
+		bandCore: .2,
+		bandContrast: .1,
+		fiberColumns: 220,
+		fiberRows: 9,
+		fiberContrast: .1
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -23022,7 +23055,8 @@ var proceduralTileMeters = Object.freeze({
 	jerky: .12,
 	heatsinkfins: .1,
 	tilledsoil: .4,
-	sherpafleece: .15
+	sherpafleece: .15,
+	redalder: .18
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;
