@@ -16247,6 +16247,135 @@ export function createSurfaceSampler(
           // Opaque female wells; internal silver contacts are not visible front annuli.
         };
       }
+      case 'dcbarreljackfaces': {
+        const p = proceduralMaterialPresets.dcbarreljackfaces,
+          poses = new Float64Array(p.cells * p.cells * 4),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x22d01),
+          ownerBound =
+            p.maxScale *
+            Math.sqrt(
+              p.bodyHalfWidth * p.bodyHalfWidth +
+                p.bodyHalfHeight * p.bodyHalfHeight,
+            ),
+          bodyStraightX = p.bodyHalfWidth - p.bodyCorner,
+          bodyStraightY = p.bodyHalfHeight - p.bodyCorner,
+          bodySquared = p.bodyCorner * p.bodyCorner,
+          bodyCore = p.bodyCorner - p.bodyBevel,
+          inverseBody = 1 / (bodySquared - bodyCore * bodyCore),
+          boreSquared = p.boreRadius * p.boreRadius,
+          boreCore = p.boreRadius - p.boreBevel,
+          inverseBore = 1 / (boreSquared - boreCore * boreCore),
+          pinSquared = p.pinRadius * p.pinRadius,
+          pinCore = p.pinRadius - p.pinBevel,
+          inversePin = 1 / (pinSquared - pinCore * pinCore),
+          springSquaredX = p.springHalfWidth * p.springHalfWidth,
+          springSquaredY = p.springHalfHeight * p.springHalfHeight,
+          springCoreX = p.springHalfWidth - p.springBevelX,
+          springCoreY = p.springHalfHeight - p.springBevelY,
+          inverseSpringX = 1 / (springSquaredX - springCoreX * springCoreX),
+          inverseSpringY = 1 / (springSquaredY - springCoreY * springCoreY),
+          bodyTone = p.bodyTone - p.backingTone,
+          bodyHeight = p.bodyHeight - p.backingHeight,
+          bodyRoughness = p.roughness - p.backingRoughness,
+          bodyAO = p.bodyAO - p.backingAO,
+          boreTone = p.boreTone - p.bodyTone,
+          boreHeight = p.boreHeight - p.bodyHeight,
+          boreRoughness = p.boreRoughness - p.roughness,
+          boreAO = p.boreAO - p.bodyAO,
+          pinTone = p.pinTone - p.boreTone,
+          pinHeight = p.pinHeight - p.boreHeight,
+          pinRoughness = p.pinRoughness - p.boreRoughness,
+          pinAO = p.pinAO - p.boreAO,
+          springTone = p.springTone - p.boreTone,
+          springHeight = p.springHeight - p.boreHeight,
+          springRoughness = p.springRoughness - p.boreRoughness,
+          springAO = p.springAO - p.boreAO;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4,
+              scale =
+                p.minScale +
+                (p.maxScale - p.minScale) * hash(col, row, seed ^ 0x22d03),
+              angle =
+                TAU *
+                p.rotationTurns *
+                (2 * hash(col, row, seed ^ 0x22d05) - 1);
+            poses[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x22d07) - 1);
+            poses[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x22d09) - 1);
+            poses[i + 2] = Math.cos(angle) / scale;
+            poses[i + 3] = Math.sin(angle) / scale;
+          }
+        return () => {
+          color = p.backingTone;
+          height = p.backingHeight;
+          roughness = p.backingRoughness;
+          occlusion = p.backingAO;
+          metallic = 0;
+          // Shared wrapping can round tiny negative UVs to one; keep owner indices bounded.
+          const uc = fract(u) * p.cells,
+            vc = fract(v) * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 4,
+            dx = uc - col - poses[i],
+            dy = vc - row - poses[i + 1];
+          // The rotated carrier fits a disc strictly inside its own cell.
+          if (Math.abs(dx) >= ownerBound || Math.abs(dy) >= ownerBound) return;
+          const x = dx * poses[i + 2] + dy * poses[i + 3],
+            y = dy * poses[i + 2] - dx * poses[i + 3],
+            ax = Math.abs(x),
+            ay = Math.abs(y);
+          if (ax >= p.bodyHalfWidth || ay >= p.bodyHalfHeight) return;
+          const bx = Math.max(0, ax - bodyStraightX),
+            by = Math.max(0, ay - bodyStraightY),
+            body = smooth(
+              clamp((bodySquared - bx * bx - by * by) * inverseBody),
+            );
+          if (body === 0) return;
+          color += body * bodyTone;
+          height += body * bodyHeight;
+          roughness += body * bodyRoughness;
+          occlusion += body * bodyAO - p.edgeAO * body * (1 - body);
+          const fy = y - p.boreCenterY,
+            xx = x * x,
+            q = xx + fy * fy,
+            bore =
+              q < boreSquared
+                ? smooth(clamp((boreSquared - q) * inverseBore))
+                : 0,
+            grain = bore < 1 ? grainField(u, v) * body * (1 - bore) : 0;
+          color += bore * boreTone + p.grainTone * grain;
+          height += bore * boreHeight + p.grainHeight * grain;
+          roughness += bore * boreRoughness + p.grainRoughness * grain;
+          occlusion += bore * boreAO - p.edgeAO * bore * (1 - bore);
+          if (bore === 0) return;
+          if (q < pinSquared) {
+            // A full disc, never an annulus or hollow female socket.
+            const pin = smooth(clamp((pinSquared - q) * inversePin));
+            color += pin * pinTone;
+            height += pin * pinHeight;
+            roughness += pin * pinRoughness;
+            occlusion += pin * pinAO - p.edgeAO * pin * (1 - pin);
+            metallic = pin;
+            return;
+          }
+          const sy = fy - p.springCenterY;
+          if (ax >= p.springHalfWidth || Math.abs(sy) >= p.springHalfHeight)
+            return;
+          // Independent smooth axis gates multiply the circular mouth gate.
+          const spring =
+            bore *
+            smooth(clamp((springSquaredX - xx) * inverseSpringX)) *
+            smooth(clamp((springSquaredY - sy * sy) * inverseSpringY));
+          color += spring * springTone;
+          height += spring * springHeight;
+          roughness += spring * springRoughness;
+          occlusion += spring * springAO - p.edgeAO * spring * (1 - spring);
+          metallic = spring;
+        };
+      }
       case 'usbcfemalefaces': {
         const p = proceduralMaterialPresets.usbcfemalefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -43235,6 +43364,7 @@ export function createSurfaceSampler(
     kind === 'rcafemalefaces' ||
     kind === 'f05opticalfaces' ||
     kind === 'minidin4femalefaces' ||
+    kind === 'dcbarreljackfaces' ||
     kind === 'usbcfemalefaces' ||
     kind === 'iecc6inlets' ||
     kind === 'iecc8inlets' ||

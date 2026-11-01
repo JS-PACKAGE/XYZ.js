@@ -671,6 +671,7 @@ const kinds: ProceduralMaterialKind[] = [
   'rcafemalefaces',
   'f05opticalfaces',
   'minidin4femalefaces',
+  'dcbarreljackfaces',
   'usbcfemalefaces',
   'iecc6inlets',
   'iecc8inlets',
@@ -76988,6 +76989,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'rj45femalefaces' &&
           kind !== 'rcafemalefaces' &&
           kind !== 'minidin4femalefaces' &&
+          kind !== 'dcbarreljackfaces' &&
           kind !== 'usbcfemalefaces' &&
           kind !== 'iecc6inlets' &&
           kind !== 'iecc8inlets' &&
@@ -86466,6 +86468,7 @@ describe('procedural preset acquisition and ownership', () => {
     'rcafemalefaces',
     'f05opticalfaces',
     'minidin4femalefaces',
+    'dcbarreljackfaces',
     'usbcfemalefaces',
     'iecc6inlets',
     'iecc8inlets',
@@ -86599,6 +86602,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'rj45femalefaces' ||
           kind === 'rcafemalefaces' ||
           kind === 'minidin4femalefaces' ||
+          kind === 'dcbarreljackfaces' ||
           kind === 'usbcfemalefaces' ||
           kind === 'iecc6inlets' ||
           kind === 'iecc8inlets' ||
@@ -130372,6 +130376,878 @@ describe('mini-DIN four-female faces: native earth rings, keyed inserts and diel
       expect(plasticPixels).toBeGreaterThan(size * size * 0.8);
       expect(transitions).toBeGreaterThan(0);
       if (size === 512) expect(fullMetal).toBeGreaterThan(0);
+    },
+  );
+});
+
+describe('DC barrel jack faces: independent native solid pin, lower spring and recessed round mouth', () => {
+  const preset = proceduralMaterialPresets.dcbarreljackfaces;
+  const seeds = [0, 7, 0xffffffff] as const;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  type Sample = {
+    color: number;
+    height: number;
+    roughness: number;
+    occlusion: number;
+    metallic: number;
+    mortar: number;
+  };
+  type Point = { u: number; v: number };
+  type Region = Point & { pixels: number[]; elongation: number; axis: Point };
+  type Line = { a: Point; b: Point };
+  interface Face {
+    pinCenter: Point;
+    pinRadius: number;
+    pinEdges: Point[];
+    mouthCenter: Point;
+    mouthEdges: Point[];
+    radius: number;
+    world: (x: number, y: number) => Point;
+    local: (p: Point) => { x: number; y: number };
+    carrierCenter: Point;
+    width: number;
+    height: number;
+    x0: number;
+    x1: number;
+    y0: number;
+    y1: number;
+    springTop: number;
+    springBottom: number;
+    springY: number;
+    springWidth: number;
+    springLeft: number;
+    springRight: number;
+    thickness: number;
+    topRows: number[];
+    offAxisCarrier: number[];
+    bore: Sample;
+    body: Sample;
+    bodySides: Sample[];
+    back: Sample;
+    springCore: Sample;
+    pinCore: Sample;
+    lowMask: Uint8Array;
+    closedMask: Uint8Array;
+  }
+  interface Observation {
+    sample: (u: number, v: number, out: Sample) => void;
+    at: (p: Point) => Sample;
+    size: number;
+    invalid: number;
+    metals: Uint8Array;
+    regions: Region[];
+    metalVoids: Region[];
+    faces: Face[];
+    lines: Line[];
+    components: (mask: Uint8Array, value: number) => Region[];
+  }
+  const empty = (): Sample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const mix = (a: Point, b: Point, t: number): Point => ({
+    u: a.u + (b.u - a.u) * t,
+    v: a.v + (b.v - a.v) * t,
+  });
+  const distance = (a: Point, b: Point): number =>
+    Math.hypot(a.u - b.u, a.v - b.v);
+  const moved = (p: Point, axis: Point, t: number): Point => ({
+    u: p.u + axis.u * t,
+    v: p.v + axis.v * t,
+  });
+  const components = (
+    mask: Uint8Array,
+    size: number,
+    value: number,
+  ): Region[] => {
+    const seen = new Uint8Array(mask.length),
+      queue = new Int32Array(mask.length),
+      regions: Region[] = [];
+    for (let first = 0; first < mask.length; first++) {
+      if (seen[first] || mask[first] !== value) continue;
+      let read = 0,
+        count = 1,
+        u = 0,
+        v = 0;
+      const pixels: number[] = [];
+      queue[0] = first;
+      seen[first] = 1;
+      while (read < count) {
+        const i = queue[read++],
+          x = i % size,
+          y = Math.floor(i / size);
+        pixels.push(i);
+        u += (x + 0.5) / size;
+        v += (y + 0.5) / size;
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const j = ((y + dy + size) % size) * size + ((x + dx + size) % size);
+          if (!seen[j] && mask[j] === value) {
+            seen[j] = 1;
+            queue[count++] = j;
+          }
+        }
+      }
+      u /= count;
+      v /= count;
+      let xx = 0,
+        xy = 0,
+        yy = 0;
+      for (const i of pixels) {
+        const x = ((i % size) + 0.5) / size - u,
+          y = (Math.floor(i / size) + 0.5) / size - v;
+        xx += x * x;
+        xy += x * y;
+        yy += y * y;
+      }
+      const discriminant = Math.hypot(xx - yy, 2 * xy),
+        angle = Math.atan2(2 * xy, xx - yy) / 2;
+      regions.push({
+        u,
+        v,
+        pixels,
+        elongation:
+          (xx + yy + discriminant) / Math.max(xx + yy - discriminant, 1e-20),
+        axis: { u: Math.cos(angle), v: Math.sin(angle) },
+      });
+    }
+    return regions.sort((a, b) => b.pixels.length - a.pixels.length);
+  };
+  const observe = (seed: number): Observation => {
+    const size = Math.max(768, 384 * preset.cells),
+      sample = createSurfaceSampler('dcbarreljackfaces', seed);
+    const at = (p: Point): Sample => {
+      const out = empty();
+      sample(p.u, p.v, out);
+      out.height /= preset.relief;
+      return out;
+    };
+    const metals = new Uint8Array(size * size),
+      heights = new Float64Array(size * size),
+      raw = empty();
+    let invalid = 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        const i = y * size + x;
+        sample((x + 0.5) / size, (y + 0.5) / size, raw);
+        for (const key of keys) {
+          const value = raw[key] / (key === 'height' ? preset.relief : 1);
+          invalid += Number(!Number.isFinite(value) || value < 0 || value > 1);
+        }
+        heights[i] = raw.height / preset.relief;
+        metals[i] = Number(raw.metallic > 0.5);
+      }
+    const sorted = heights.slice().sort(),
+      backHeight = sorted[Math.floor(sorted.length * 0.05)],
+      bodyHeight = sorted[Math.floor(sorted.length * 0.97)];
+    const regions = components(metals, size, 1),
+      metalVoids = components(metals, size, 0);
+    const pins = regions.filter((r) => r.elongation < 1.6),
+      springs = regions.filter((r) => r.elongation >= 1.6);
+    const count = preset.cells * preset.cells;
+    expect(pins.length).toBe(count);
+    expect(springs.length).toBe(count);
+    const root = (
+      a: Point,
+      b: Point,
+      read: (p: Point) => number,
+      level: number,
+    ): Point => {
+      const side = read(a) > level;
+      expect(read(b) > level !== side).toBe(true);
+      let lo = a,
+        hi = b;
+      for (let i = 0; i < 42; i++) {
+        const mid = mix(lo, hi, 0.5);
+        if (read(mid) > level === side) lo = mid;
+        else hi = mid;
+      }
+      return mix(lo, hi, 0.5);
+    };
+    const crossing = (
+      start: Point,
+      end: Point,
+      read: (p: Point) => number,
+      level: number,
+    ): Point => {
+      let previous = start,
+        found: Point | undefined;
+      const side = read(start) > level;
+      for (let i = 1; i <= 512; i++) {
+        const p = mix(start, end, i / 512);
+        if (read(p) > level !== side) {
+          found = root(previous, p, read, level);
+          break;
+        }
+        previous = p;
+      }
+      expect(found !== undefined).toBe(true);
+      return found ?? start;
+    };
+    const lines: Line[] = [],
+      claimed = new Set<Region>();
+    const faces = pins.map((pin) => {
+      const spring = [...springs].sort(
+        (a, b) => distance(a, pin) - distance(b, pin),
+      )[0];
+      expect(spring !== undefined).toBe(true);
+      expect(claimed.has(spring)).toBe(false);
+      claimed.add(spring);
+      let ex = spring.axis,
+        ey = { u: -ex.v, v: ex.u };
+      if ((spring.u - pin.u) * ey.u + (spring.v - pin.v) * ey.v < 0) {
+        ex = { u: -ex.u, v: -ex.v };
+        ey = { u: -ey.u, v: -ey.v };
+      }
+      const metal = (p: Point): number => at(p).metallic;
+      const span = 0.49 / preset.cells;
+      let pinCenter: Point = { u: pin.u, v: pin.v };
+      for (let pass = 0; pass < 3; pass++)
+        for (const axis of [ex, ey]) {
+          const a = crossing(
+              pinCenter,
+              moved(pinCenter, axis, -span),
+              metal,
+              0.5,
+            ),
+            b = crossing(pinCenter, moved(pinCenter, axis, span), metal, 0.5);
+          pinCenter = mix(a, b, 0.5);
+        }
+      const pinEdges = Array.from({ length: 32 }, (_, i) => {
+        const angle = ((i + 0.23) * Math.PI) / 16,
+          axis = { u: Math.cos(angle), v: Math.sin(angle) };
+        return crossing(pinCenter, moved(pinCenter, axis, span), metal, 0.5);
+      });
+      const pinRadius =
+        pinEdges.reduce((s, p) => s + distance(p, pinCenter), 0) /
+        pinEdges.length;
+      const worldPin = (x: number, y: number): Point =>
+        moved(moved(pinCenter, ex, x), ey, y);
+      const bore = at(worldPin(-pinRadius * 1.7, 0));
+      const mouthLevel = (bodyHeight + bore.height) / 2;
+      const mouthEdge = (center: Point, axis: Point): Point =>
+        crossing(
+          moved(center, axis, pinRadius * 1.4),
+          moved(center, axis, span),
+          (p) => at(p).height,
+          mouthLevel,
+        );
+      let mouthCenter = pinCenter;
+      for (let pass = 0; pass < 3; pass++)
+        for (const axis of [ex, ey])
+          mouthCenter = mix(
+            mouthEdge(mouthCenter, moved({ u: 0, v: 0 }, axis, -1)),
+            mouthEdge(mouthCenter, axis),
+            0.5,
+          );
+      const mouthEdges = Array.from({ length: 48 }, (_, i) => {
+        const angle = ((i + 0.31) * Math.PI) / 24;
+        return mouthEdge(mouthCenter, {
+          u: Math.cos(angle),
+          v: Math.sin(angle),
+        });
+      });
+      const radius =
+        mouthEdges.reduce((s, p) => s + distance(p, mouthCenter), 0) /
+        mouthEdges.length;
+      const world = (x: number, y: number): Point =>
+        moved(moved(mouthCenter, ex, x), ey, y);
+      const local = (p: Point): { x: number; y: number } => ({
+        x: (p.u - mouthCenter.u) * ex.u + (p.v - mouthCenter.v) * ex.v,
+        y: (p.u - mouthCenter.u) * ey.u + (p.v - mouthCenter.v) * ey.v,
+      });
+      const low = (backHeight + bore.height) / 2;
+      const carrierEdge = (p: Point, axis: Point): Point =>
+        crossing(p, moved(p, axis, span), (q) => at(q).height, low);
+      let carrierCenter = mouthCenter;
+      for (let pass = 0; pass < 3; pass++)
+        for (const axis of [ex, ey])
+          carrierCenter = mix(
+            carrierEdge(carrierCenter, moved({ u: 0, v: 0 }, axis, -1)),
+            carrierEdge(carrierCenter, axis),
+            0.5,
+          );
+      const x0 = local(
+          carrierEdge(carrierCenter, moved({ u: 0, v: 0 }, ex, -1)),
+        ).x,
+        x1 = local(carrierEdge(carrierCenter, ex)).x;
+      const y0 = local(
+          carrierEdge(carrierCenter, moved({ u: 0, v: 0 }, ey, -1)),
+        ).y,
+        y1 = local(carrierEdge(carrierCenter, ey)).y;
+      const width = x1 - x0,
+        height = y1 - y0;
+      const springStart: Point = { u: spring.u, v: spring.v };
+      const springTop = local(
+        crossing(springStart, moved(springStart, ey, -radius), metal, 0.5),
+      ).y;
+      const springBottom = local(
+        crossing(springStart, moved(springStart, ey, radius), metal, 0.5),
+      ).y;
+      const springY = (springTop + springBottom) / 2,
+        thickness = springBottom - springTop;
+      const springLeft = local(
+        crossing(world(0, springY), world(-radius, springY), metal, 0.5),
+      ).x;
+      const springRight = local(
+        crossing(world(0, springY), world(radius, springY), metal, 0.5),
+      ).x;
+      const springWidth = springRight - springLeft;
+      const springCore = at(world(0, springY)),
+        pinCore = at(pinCenter),
+        body = at(world(0, (y1 + radius) / 2)),
+        back = at(world(x1 + width * 0.12, 0));
+      const bodySides = [
+        at(world((x0 - radius) / 2, 0)),
+        at(world((x1 + radius) / 2, 0)),
+        body,
+      ];
+      const lowMask = Uint8Array.from(heights, (h) => Number(h > low));
+      // Closed aperture topology is measured above every recessed contact, not through the pin.
+      const closedLevel =
+        (body.height +
+          Math.max(pinCore.height, springCore.height, bore.height)) /
+        2;
+      const closedMask = Uint8Array.from(heights, (h) =>
+        Number(h > closedLevel),
+      );
+      const offAxisCarrier: number[] = [];
+      for (const fraction of [-0.5, 0.5]) {
+        for (const axis of [ex, ey]) {
+          const p = moved(
+            carrierCenter,
+            axis === ex ? ey : ex,
+            (fraction * (axis === ex ? height : width)) / 2,
+          );
+          const a = local(carrierEdge(p, moved({ u: 0, v: 0 }, axis, -1))),
+            b = local(carrierEdge(p, axis));
+          offAxisCarrier.push(
+            axis === ex
+              ? Math.abs(a.x - x0) / width
+              : Math.abs(a.y - y0) / height,
+          );
+          offAxisCarrier.push(
+            axis === ex
+              ? Math.abs(b.x - x1) / width
+              : Math.abs(b.y - y1) / height,
+          );
+        }
+      }
+      const topRows = [-0.45, 0.45].map((f) => {
+        const x = (f * springWidth) / 2,
+          p = world(x, springY);
+        return local(crossing(p, moved(p, ey, -thickness * 3), metal, 0.5)).y;
+      });
+      const boundaryLines = (p: Point, normal: Point, scale: number): void => {
+        lines.push({ a: moved(p, normal, -scale), b: moved(p, normal, scale) });
+      };
+      for (const p of pinEdges) {
+        const r = distance(p, pinCenter);
+        boundaryLines(
+          p,
+          { u: (p.u - pinCenter.u) / r, v: (p.v - pinCenter.v) / r },
+          pinRadius * 0.3,
+        );
+      }
+      for (const p of mouthEdges) {
+        const r = distance(p, mouthCenter);
+        boundaryLines(
+          p,
+          { u: (p.u - mouthCenter.u) / r, v: (p.v - mouthCenter.v) / r },
+          radius * 0.15,
+        );
+      }
+      // Entire native strip/circle intersections, including tangencies and clipped ends.
+      for (const f of [
+        -1.08, -1.01, -0.99, -0.9, -0.5, 0, 0.5, 0.9, 0.99, 1.01, 1.08,
+      ]) {
+        lines.push({
+          a: world((f * springWidth) / 2, springTop - thickness),
+          b: world((f * springWidth) / 2, springBottom + thickness),
+        });
+        lines.push({
+          a: world(springLeft - thickness, springY + (f * thickness) / 2),
+          b: world(springRight + thickness, springY + (f * thickness) / 2),
+        });
+      }
+      // Recover top/circle join locations from actual native metal roots, not a copied radius equation.
+      for (const f of [0.001, 0.01, 0.05, 0.95, 0.99])
+        for (const sign of [-1, 1]) {
+          const y = springTop + f * thickness,
+            p = world(0, y);
+          if (metal(p) > 0.5) {
+            const edge = crossing(p, world(sign * radius * 1.1, y), metal, 0.5);
+            for (const axis of [
+              ex,
+              ey,
+              { u: (ex.u + ey.u) / Math.SQRT2, v: (ex.v + ey.v) / Math.SQRT2 },
+            ])
+              boundaryLines(edge, axis, thickness * 0.7);
+          }
+        }
+      for (const f of [-1.05, -0.99, -0.9, -0.5, 0, 0.5, 0.9, 0.99, 1.05]) {
+        const c = local(carrierCenter);
+        lines.push({
+          a: world(x0 - width * 0.1, c.y + (f * height) / 2),
+          b: world(x1 + width * 0.1, c.y + (f * height) / 2),
+        });
+        lines.push({
+          a: world(c.x + (f * width) / 2, y0 - height * 0.1),
+          b: world(c.x + (f * width) / 2, y1 + height * 0.1),
+        });
+      }
+      return {
+        pinCenter,
+        pinRadius,
+        pinEdges,
+        mouthCenter,
+        mouthEdges,
+        radius,
+        world,
+        local,
+        carrierCenter,
+        width,
+        height,
+        x0,
+        x1,
+        y0,
+        y1,
+        springTop,
+        springBottom,
+        springY,
+        springWidth,
+        springLeft,
+        springRight,
+        thickness,
+        topRows,
+        offAxisCarrier,
+        bore,
+        body,
+        bodySides,
+        back,
+        springCore,
+        pinCore,
+        lowMask,
+        closedMask,
+      };
+    });
+    return {
+      sample,
+      at,
+      size,
+      invalid,
+      metals,
+      regions,
+      metalVoids,
+      faces,
+      lines,
+      components: (m: Uint8Array, value: number) => components(m, size, value),
+    };
+  };
+  const cache = new Map<number, Observation>();
+  const native = (seed: number): Observation => {
+    let found = cache.get(seed);
+    if (!found) {
+      found = observe(seed);
+      cache.set(seed, found);
+    }
+    return found;
+  };
+  // Follow observed second-difference maxima down to one-sided derivative jumps.
+  const refineCurvature = (d: Observation): number => {
+    const probes = [empty(), empty(), empty(), empty(), empty()];
+    const curvature = (a: Sample, b: Sample, c: Sample): number => {
+      let out = 0;
+      for (const key of keys)
+        out = Math.max(
+          out,
+          Math.abs(a[key] - 2 * b[key] + c[key]) /
+            (key === 'height' ? preset.relief : 1),
+        );
+      return out;
+    };
+    let worst = 0;
+    const lines = [...d.lines];
+    for (let axis = 0; axis < 2; axis++)
+      for (let j = 0; j < 12; j++) {
+        const t = (j + 0.37) / 12;
+        lines.push({
+          a: { u: axis ? t : 0, v: axis ? 0 : t },
+          b: { u: axis ? t : 1, v: axis ? 1 : t },
+        });
+      }
+    for (const line of lines) {
+      const n = 128,
+        values: Sample[] = [],
+        scores = new Float64Array(n + 1),
+        length = distance(line.a, line.b);
+      const read = (t: number, out: Sample): void => {
+        const p = mix(line.a, line.b, t);
+        d.sample(p.u, p.v, out);
+      };
+      for (let i = 0; i <= n; i++) {
+        const out = empty();
+        read(i / n, out);
+        values.push(out);
+      }
+      for (let i = 1; i < n; i++)
+        scores[i] = curvature(values[i - 1], values[i], values[i + 1]);
+      for (let i = 2; i < n - 1; i++) {
+        if (
+          scores[i] < 1e-5 ||
+          scores[i] < scores[i - 1] ||
+          scores[i] < scores[i + 1]
+        )
+          continue;
+        let lo = (i - 1) / n,
+          span = 2 / n,
+          at = 0,
+          h = 0;
+        for (let step = 0; step < 24; step++) {
+          const q = span / 4;
+          for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+          const s = [
+            curvature(probes[0], probes[1], probes[2]),
+            curvature(probes[1], probes[2], probes[3]),
+            curvature(probes[2], probes[3], probes[4]),
+          ];
+          let best = s[1] > s[0] ? 1 : 0;
+          if (s[2] > s[best]) best = 2;
+          at = lo + (best + 1) * q;
+          h = q;
+          lo += best * q;
+          span = 2 * q;
+        }
+        read(at - h, probes[0]);
+        read(at, probes[1]);
+        read(at + h, probes[2]);
+        worst = Math.max(
+          worst,
+          curvature(probes[0], probes[1], probes[2]) / (h * length),
+        );
+      }
+    }
+    return worst;
+  };
+  it.each(seeds)(
+    'recovers per-carrier disconnected solid circular pin and separate thin spring at seed %s',
+    (seed) => {
+      const d = native(seed),
+        n = preset.cells * preset.cells;
+      expect(d.invalid).toBe(0);
+      expect(d.regions.length).toBe(2 * n);
+      expect(d.metalVoids.length).toBe(1);
+      for (const f of d.faces) {
+        const radii = f.pinEdges.map((p) => distance(p, f.pinCenter));
+        expect(Math.max(...radii) - Math.min(...radii)).toBeLessThan(
+          f.pinRadius * 0.025,
+        );
+        expect(f.springWidth / f.thickness).toBeGreaterThan(3);
+        expect(f.springWidth).toBeLessThan(f.radius * 1.9);
+        expect(f.springTop).toBeGreaterThan(f.pinRadius * 1.2);
+        expect(f.springBottom).toBeLessThan(f.radius * 0.85);
+        expect(f.springBottom).toBeGreaterThan(f.radius * 0.6);
+        // The drawing has flat top/bottom lips; only the strip ends meet the circular mouth.
+        for (const fraction of [-0.7, 0, 0.7]) {
+          const x = (fraction * f.springWidth) / 2;
+          let lo = f.springY,
+            hi = f.radius * 1.1;
+          expect(d.at(f.world(x, lo)).metallic).toBeGreaterThan(0.5);
+          expect(d.at(f.world(x, hi)).metallic).toBeLessThan(0.5);
+          for (let i = 0; i < 42; i++) {
+            const y = (lo + hi) / 2;
+            if (d.at(f.world(x, y)).metallic > 0.5) lo = y;
+            else hi = y;
+          }
+          expect(Math.abs((lo + hi) / 2 - f.springBottom)).toBeLessThan(
+            f.thickness * 0.12,
+          );
+        }
+        const mouthOuterRadius = Math.max(
+          ...f.mouthEdges.map((p) => distance(p, f.mouthCenter)),
+        );
+        const springRegion = d.regions
+          .filter((r) => r.elongation >= 1.6)
+          .sort(
+            (a, b) =>
+              distance(a, f.world(0, f.springY)) -
+              distance(b, f.world(0, f.springY)),
+          )[0]!;
+        // Extrapolated rectangular corners would leave the bore, but actual contact pixels may not.
+        expect(
+          Math.hypot(
+            Math.max(Math.abs(f.springLeft), Math.abs(f.springRight)),
+            f.springBottom,
+          ),
+        ).toBeGreaterThan(mouthOuterRadius * 1.001);
+        for (const i of springRegion.pixels) {
+          const p = {
+            u: ((i % d.size) + 0.5) / d.size,
+            v: (Math.floor(i / d.size) + 0.5) / d.size,
+          };
+          expect(distance(p, f.mouthCenter)).toBeLessThan(
+            mouthOuterRadius * 1.003,
+          );
+        }
+        for (const y of f.topRows)
+          expect(Math.abs(y - f.springTop)).toBeLessThan(f.thickness * 0.12);
+        expect(Math.abs(f.springLeft + f.springRight)).toBeLessThan(
+          f.springWidth * 0.04,
+        );
+        for (let i = 0; i < 32; i++) {
+          const angle = ((i + 0.17) * Math.PI) / 16;
+          for (const r of [0, 0.35, 0.75]) {
+            const p = {
+              u: f.pinCenter.u + Math.cos(angle) * f.pinRadius * r,
+              v: f.pinCenter.v + Math.sin(angle) * f.pinRadius * r,
+            };
+            expect(d.at(p).metallic).toBeGreaterThan(0.99);
+          }
+        }
+        expect(d.at(f.world(0, (f.pinRadius + f.springTop) / 2)).metallic).toBe(
+          0,
+        );
+      }
+    },
+  );
+  it.each(seeds)(
+    'measures tall rectangular carriers and closed round up-offset mouths independently at seed %s',
+    (seed) => {
+      const d = native(seed),
+        n = preset.cells * preset.cells;
+      for (const f of d.faces) {
+        expect(d.components(f.lowMask, 1).length).toBe(n);
+        expect(d.components(f.lowMask, 0).length).toBe(1);
+        expect(d.components(f.closedMask, 1).length).toBe(n);
+        expect(d.components(f.closedMask, 0).length).toBe(n + 1);
+        expect(f.width / f.height).toBeGreaterThan(0.75);
+        expect(f.width / f.height).toBeLessThan(0.89);
+        for (const error of f.offAxisCarrier) expect(error).toBeLessThan(0.025);
+        const radii = f.mouthEdges.map((p) => distance(p, f.mouthCenter));
+        expect(Math.max(...radii) - Math.min(...radii)).toBeLessThan(
+          f.radius * 0.025,
+        );
+        expect(distance(f.pinCenter, f.mouthCenter)).toBeLessThan(
+          f.radius * 0.025,
+        );
+        const c = f.local(f.carrierCenter);
+        expect(c.y / f.height).toBeGreaterThan(0.045);
+        expect(c.y / f.height).toBeLessThan(0.14);
+        expect(Math.abs(c.x)).toBeLessThan(f.width * 0.025);
+        expect(f.pinRadius / f.radius).toBeGreaterThan(0.27);
+        expect(f.pinRadius / f.radius).toBeLessThan(0.36);
+        expect((2 * f.radius) / f.width).toBeGreaterThan(0.65);
+        expect((2 * f.radius) / f.width).toBeLessThan(0.78);
+        // These off-axis bands do not reuse the opposed rays that refined centers.
+        for (let i = 0; i < 40; i++) {
+          const angle = ((i + 0.47) * Math.PI) / 20;
+          const outside = d.at(
+            f.world(
+              Math.cos(angle) * f.radius * 1.08,
+              Math.sin(angle) * f.radius * 1.08,
+            ),
+          );
+          expect(outside.metallic).toBe(0);
+          expect(Math.abs(outside.height - f.body.height)).toBeLessThan(
+            (f.body.height - f.bore.height) * 0.06,
+          );
+          const p = f.world(
+              Math.cos(angle) * f.radius * 0.72,
+              Math.sin(angle) * f.radius * 0.72,
+            ),
+            inside = d.at(p);
+          if (f.local(p).y < f.springTop - f.thickness * 0.3) {
+            expect(inside.metallic).toBe(0);
+            expect(inside.height).toBeLessThan(
+              (f.bore.height + f.pinCore.height) / 2,
+            );
+          }
+        }
+      }
+    },
+  );
+  it.each(seeds)(
+    'assigns physical dielectric, polished contact, occlusion and depth roles at seed %s',
+    (seed) => {
+      const d = native(seed);
+      for (const f of d.faces) {
+        for (const p of [f.back, f.bore, ...f.bodySides]) {
+          expect(p.metallic).toBe(0);
+          expect(p.mortar).toBe(0);
+          expect(p.color).toBeLessThan(0.4);
+          expect(p.roughness).toBeGreaterThan(0.6);
+        }
+        expect(f.back.height).toBeLessThan(f.bore.height);
+        expect(f.bore.height).toBeLessThan(f.springCore.height);
+        expect(f.springCore.height).toBeLessThan(f.pinCore.height);
+        expect(f.pinCore.height).toBeLessThan(f.body.height);
+        expect(f.bore.occlusion).toBeLessThan(f.body.occlusion);
+        expect(f.bore.occlusion).toBeLessThan(f.springCore.occlusion);
+        expect(f.bore.color).toBeLessThan(f.body.color);
+        for (const contact of [f.pinCore, f.springCore]) {
+          expect(contact.metallic).toBeGreaterThan(0.99);
+          expect(contact.mortar).toBe(0);
+          expect(contact.color).toBeGreaterThan(f.body.color + 0.15);
+          expect(contact.roughness).toBeLessThan(f.body.roughness - 0.2);
+          expect(contact.occlusion).toBeGreaterThan(f.bore.occlusion);
+        }
+      }
+    },
+  );
+  it.each(seeds)(
+    'converges native body, mouth, pin, spring and circle joins and repeats signed UV at seed %s',
+    (seed) => {
+      const d = native(seed),
+        a = empty(),
+        b = empty();
+      let error = 0;
+      for (let i = 0; i < 4096; i++) {
+        const u = (i * 0.7548776662466927) % 1,
+          v = (i * 0.5698402909980532) % 1;
+        d.sample(u, v, a);
+        d.sample(u - 2, v + 3, b);
+        for (const key of keys)
+          error = Math.max(
+            error,
+            Math.abs(a[key] - b[key]) / (key === 'height' ? preset.relief : 1),
+          );
+      }
+      // IEEE-754 can round the shared wrap of a tiny negative to exactly one.
+      for (const tiny of [-Number.MIN_VALUE, -Number.EPSILON / 4])
+        for (const axis of [0, 1]) {
+          d.sample(axis ? 0.37 : tiny, axis ? tiny : 0.37, a);
+          d.sample(axis ? 0.37 : 0, axis ? 0 : 0.37, b);
+          for (const key of keys) {
+            expect(Number.isFinite(a[key])).toBe(true);
+            expect(a[key]).toBe(b[key]);
+          }
+        }
+      expect(error).toBeLessThan(1e-12);
+      expect(refineCurvature(d)).toBeLessThan(0.1);
+    },
+  );
+  it('changes actual carrier and contact geometry between seed seven and maximum unsigned seed', () => {
+    const a = native(7),
+      b = native(0xffffffff);
+    let changed = 0;
+    for (let i = 0; i < a.metals.length; i++)
+      changed += Number(
+        a.metals[i] !== b.metals[i] ||
+          a.faces[0].lowMask[i] !== b.faces[0].lowMask[i],
+      );
+    expect(changed / a.metals.length).toBeGreaterThan(0.003);
+  });
+  it.each([32, 512])(
+    'packs opaque maps, positive unit normals and actual contact metallic at size %s',
+    (size) => {
+      const d = native(7),
+        maps = generateProceduralMaps('dcbarreljackfaces', size, 7, {
+          heightMap: true,
+        });
+      let invalidAlpha = 0,
+        invalidNormal = 0,
+        maxError = 0,
+        metalPixels = 0,
+        plasticPixels = 0,
+        nonzeroHeight = 0,
+        nonzeroRoughness = 0;
+      const pinHits = new Uint32Array(d.faces.length),
+        springHits = new Uint32Array(d.faces.length);
+      const nativeHeights = new Float64Array(size * size);
+      let minimumHeight = Infinity,
+        maximumHeight = -Infinity;
+      expect(maps.height !== undefined).toBe(true);
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          const i = (y * size + x) * 4,
+            p = { u: (x + 0.5) / size, v: (y + 0.5) / size },
+            nativeSample = d.at(p);
+          nativeHeights[i / 4] = nativeSample.height;
+          minimumHeight = Math.min(minimumHeight, nativeSample.height);
+          maximumHeight = Math.max(maximumHeight, nativeSample.height);
+          for (const buffer of Object.values(maps))
+            invalidAlpha += Number(buffer[i + 3] !== 255);
+          const nx = maps.normal[i] / 127.5 - 1,
+            ny = maps.normal[i + 1] / 127.5 - 1,
+            nz = maps.normal[i + 2] / 127.5 - 1;
+          invalidNormal += Number(!Number.isFinite(nx + ny + nz) || nz <= 0);
+          maxError = Math.max(
+            maxError,
+            Math.abs(nx * nx + ny * ny + nz * nz - 1),
+          );
+          const m = maps.metallicRoughness[i + 2];
+          expect(
+            Math.abs(m - Math.round(nativeSample.metallic * 255)),
+          ).toBeLessThan(2);
+          expect(
+            Math.abs(
+              maps.metallicRoughness[i + 1] -
+                Math.round(nativeSample.roughness * 255),
+            ),
+          ).toBeLessThan(2);
+          expect(
+            Math.abs(
+              maps.occlusion[i] - Math.round(nativeSample.occlusion * 255),
+            ),
+          ).toBeLessThan(2);
+          metalPixels += Number(m > 0);
+          plasticPixels += Number(m === 0);
+          nonzeroHeight += Number(maps.height![i] > 0);
+          nonzeroRoughness += Number(maps.metallicRoughness[i + 1] > 0);
+          if (m > 0) {
+            let nearContact = false;
+            for (let j = 0; j < d.faces.length; j++) {
+              const f = d.faces[j],
+                q = f.local(p),
+                pad = 2 / size;
+              const pin = distance(p, f.pinCenter) < f.pinRadius + pad;
+              const spring =
+                q.x > f.springLeft - pad &&
+                q.x < f.springRight + pad &&
+                q.y > f.springTop - pad &&
+                q.y < f.springBottom + pad;
+              nearContact ||= pin || spring;
+              if (pin) pinHits[j]++;
+              if (spring) springHits[j]++;
+            }
+            expect(nearContact).toBe(true);
+          }
+        }
+      expect(maximumHeight).toBeGreaterThan(minimumHeight);
+      for (let i = 0; i < nativeHeights.length; i++) {
+        const expected = Math.round(
+          (255 * (nativeHeights[i] - minimumHeight)) /
+            (maximumHeight - minimumHeight),
+        );
+        expect(Math.abs(maps.height![i * 4] - expected)).toBeLessThan(2);
+      }
+      expect(invalidAlpha).toBe(0);
+      expect(invalidNormal).toBe(0);
+      expect(maxError).toBeLessThan(0.02);
+      expect(metalPixels).toBeGreaterThan(0);
+      expect(plasticPixels).toBeGreaterThan(size * size * 0.8);
+      expect(nonzeroHeight).toBeGreaterThan(0);
+      expect(nonzeroRoughness).toBeGreaterThan(0);
+      if (size === 512)
+        for (let i = 0; i < d.faces.length; i++) {
+          expect(pinHits[i]).toBeGreaterThan(0);
+          expect(springHits[i]).toBeGreaterThan(0);
+        }
     },
   );
 });
