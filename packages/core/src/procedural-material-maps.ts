@@ -16402,6 +16402,121 @@ export function createSurfaceSampler(
           roughness += p.grainRoughness * grain;
         };
       }
+      case 'mudcloth': {
+        const p = proceduralMaterialPresets.mudcloth,
+          rowPhase = new Float64Array(p.bands),
+          rowWidth = new Float64Array(p.bands),
+          wobbleX = cachedNoise(p.wobbleCells, p.wobbleCells, seed ^ 0x24101),
+          wobbleY = cachedNoise(p.wobbleCells, p.wobbleCells, seed ^ 0x24103),
+          stainField = cachedNoise(p.stainCells, p.stainCells, seed ^ 0x24105),
+          grainField = cachedNoise(192, 192, seed ^ 0x24107),
+          inverseSoft = 1 / p.edgeSoft,
+          // The vertical offset of a +-4A slope zigzag is divided by sqrt(1+(4A)^2) to
+          // approximate the perpendicular distance to the stroke centerline.
+          slopeNorm =
+            1 / Math.sqrt(1 + 16 * p.zigzagAmplitude * p.zigzagAmplitude),
+          motifTone = p.motifTone - p.groundTone,
+          motifRoughness = p.motifRoughness - p.groundRoughness,
+          // 1 inside the half width, 0 one soft width farther out; C1 across the edge.
+          cover = (distance: number, half: number): number =>
+            smooth(clamp((half - distance) * inverseSoft + 0.5));
+        for (let row = 0; row < p.bands; row++) {
+          rowPhase[row] = hash(row, 0, seed ^ 0x24109);
+          rowWidth[row] =
+            1 + p.widthJitter * (2 * hash(row, 1, seed ^ 0x2410b) - 1);
+        }
+        return () => {
+          // Hand-painted wobble is periodic noise in band units, so the tile still wraps.
+          const yy = v * p.bands + p.wobble * (2 * wobbleY(u, v) - 1),
+            row = Math.floor(yy),
+            r = ((row % p.bands) + p.bands) % p.bands,
+            y = yy - row - 0.5,
+            ay = Math.abs(y),
+            x = u * p.bands + p.wobble * (2 * wobbleX(u, v) - 1) + rowPhase[r],
+            half = p.strokeHalf * rowWidth[r];
+          let stroke: number;
+          switch (r & 3) {
+            case 0:
+              // Zigzag: triangle wave of period one band unit.
+              stroke = cover(
+                Math.abs(
+                  y - p.zigzagAmplitude * (2 * Math.abs(2 * fract(x) - 1) - 1),
+                ) * slopeNorm,
+                half,
+              );
+              break;
+            case 1: {
+              // Dots every half band unit; alternate dots are slightly smaller.
+              const cell = Math.floor(2 * x),
+                dx = (2 * x - cell - 0.5) * 0.5;
+              stroke = cover(
+                Math.sqrt(dx * dx + y * y),
+                p.dotRadius * (1 - 0.15 * (cell & 1)),
+              );
+              break;
+            }
+            case 2: {
+              // Diamond outline with a small center dot.
+              const dx = fract(x) - 0.5;
+              stroke = Math.max(
+                cover(
+                  Math.abs(Math.abs(dx) + ay - p.diamondRadius) * Math.SQRT1_2,
+                  half,
+                ),
+                cover(Math.sqrt(dx * dx + y * y), p.diamondDotRadius),
+              );
+              break;
+            }
+            default: {
+              // Two rails and a rung every quarter band unit, rungs only between the rails.
+              const rung =
+                cover(Math.abs(fract(4 * x) - 0.5) * 0.25, p.rungHalf) *
+                smooth(clamp((p.ladderOffset - ay) * inverseSoft + 0.5));
+              stroke = Math.max(
+                cover(Math.abs(ay - p.ladderOffset), half),
+                rung,
+              );
+            }
+          }
+          const paint = Math.max(stroke, cover(0.5 - ay, p.separatorHalf)),
+            nu = u * p.threads,
+            nv = v * p.threads,
+            ix = Math.floor(nu),
+            iy = Math.floor(nv),
+            a = nu - ix,
+            b = nv - iy,
+            pa = 4 * a * (1 - a),
+            pb = 4 * b * (1 - b),
+            // Plain weave: the over/under parity flips each thread, period two threads.
+            over = ((ix + iy) & 1) === 0,
+            warp = pa * (over ? 0.62 + 0.38 * pb : 0.3),
+            weft = pb * (over ? 0.3 : 0.62 + 0.38 * pa),
+            weave = Math.max(warp, weft),
+            threadVariation =
+              warp >= weft
+                ? hash(ix, 0, seed ^ 0x2410d)
+                : hash(0, iy, seed ^ 0x2410f),
+            grain = grainField(u, v);
+          color = clamp(
+            p.groundTone +
+              motifTone * paint +
+              p.stain * (stainField(u, v) - 0.5) * (1 - paint) +
+              p.threadTone * (threadVariation - 0.5) +
+              p.fiberTone * (weave - 0.5),
+          );
+          height =
+            p.weaveHeight * weave +
+            p.dyeCrust * (1 - paint) +
+            p.grainHeight * grain;
+          roughness =
+            p.groundRoughness +
+            motifRoughness * paint +
+            p.grainRoughness * (grain - 0.5);
+          occlusion = clamp(
+            p.aoFloor + (1 - p.aoFloor) * weave + p.motifAO * paint,
+          );
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -43929,6 +44044,7 @@ export function createSurfaceSampler(
     kind === 'minidin4femalefaces' ||
     kind === 'dcbarreljackfaces' ||
     kind === 'stfiberadapterfaces' ||
+    kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
     kind === 'to220packagefaces' ||
     kind === 'ftypefemalefaces' ||

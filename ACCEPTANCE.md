@@ -11419,3 +11419,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 目錄885→886，含plain的gallery為887項。外觀參考onsemi P2N2222A/D（2013年1月 Rev.7）第6頁TO-92封裝圖，已正常下載並實看；僅作形狀與尺寸參考，不宣稱精確CAD、材料化學或電氣行為。2×2四個正面各有霧黑D形塑封本體與三支等距平行中性金屬直腳；腳M1，本體／背底M0，邊界C1混合。預設tile0.08m、0.0042 UV-relative relief、metallic factor1。
 - 實測：目標測試11pass；built ESM 512 seed7 packing M0／M255／transition為255,280／5,210／1,654；format:check、API（737 exports／2810 contracts）、distribution、lint、strict typecheck皆過；完整suite 179檔／9,438項全過（1072.69s，Node v26.7.0）。
 - 本次未重做瀏覽器gallery／shipped-root／matrix缺陷對照，不宣稱已驗證；僅由built Node smoke與完整suite支持。沒有force push，保留使用者原有ACCEPTANCE hunk未提交。
+
+## 2026-11-01 程序材質：手繪泥染布條帶紋（mudcloth）
+
+- 目錄886→887，含plain的gallery為888項。依使用者「新增更多貼圖材質並依功能提交」要求新增；在獨立worktree分支`materials/more-textures`作業，因為主工作樹同時有他處未提交的`blackwalnut`變更，不混入。八條橫帶循環折線、相間大小點列、菱形套小圓點、雙軌梯形橫檔，帶界連續淺色分隔線，週期雜訊做手繪式座標微擺動；深褐黑染底＋奶油筆畫（單一色階，染底≈0.10、筆畫≈0.84）疊在64×64緯經紗平紋織物上。Metallic／mortar皆0，預設tile0.5 m、0.0008 UV-relative relief、metallic factor 0。靈感來自西非泥染布外觀，母題皆作者自訂，不宣稱特定紋樣或文化意涵，未打包外部圖樣。
+- 實測：新增`tests/procedural-material-motifs.test.ts`九項（三seed通道範圍／非金屬、四種帶的中線筆畫段數16／16／24／32且seed 0／7／12345／0xffffffff皆同、八條帶界分隔線連續、平紋上下交替週期為兩根紗、wrap與seed差異）全過；`tests/procedural-material.test.ts`與其合併重跑5519項全過（1233.02s），其中含`kinds`清單帶入的既有通用週期／範圍／擁有權檢查。strict typecheck、eslint（變更的source／test）、`prettier --check .`、build（tsc／minify／vendor／cjs）、API structural compatibility（737 exports／2810 contracts）與distribution（367 exports）皆實際通過；built ESM `generateProceduralMaps('mudcloth', 64, 7, { heightMap: true })`可執行。
+- 實看512 seed7 baseColor 2×2拼貼：無可見接縫，四種母題可辨。真實dev server的pbr3d頁（WebGPU）選取`mudcloth`後`#material`有888個option、status為887 presets＋plain，球體貼圖渲染且`tab.errors()`為空；WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache在本次未重新驗證，不宣稱已認證。

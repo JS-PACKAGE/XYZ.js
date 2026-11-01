@@ -6423,6 +6423,40 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.0004;
         grainRoughness: 0.012;
     }>;
+    mudcloth: Readonly<{
+        dark: readonly [31, 20, 14];
+        light: readonly [232, 214, 180];
+        roughness: 0.88;
+        relief: 0.0008;
+        threads: 64;
+        bands: 8;
+        wobbleCells: 24;
+        wobble: 0.035;
+        strokeHalf: 0.055;
+        widthJitter: 0.18;
+        edgeSoft: 0.03;
+        separatorHalf: 0.03;
+        zigzagAmplitude: 0.2;
+        dotRadius: 0.13;
+        diamondRadius: 0.3;
+        diamondDotRadius: 0.075;
+        ladderOffset: 0.22;
+        rungHalf: 0.04;
+        groundTone: 0.1;
+        motifTone: 0.84;
+        stainCells: 16;
+        stain: 0.07;
+        threadTone: 0.06;
+        fiberTone: 0.06;
+        weaveHeight: 0.8;
+        dyeCrust: 0.15;
+        grainHeight: 0.05;
+        groundRoughness: 0.86;
+        motifRoughness: 0.96;
+        grainRoughness: 0.03;
+        aoFloor: 0.7;
+        motifAO: 0.04;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -12908,6 +12942,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    mudcloth: 0.5;
     to220packagefaces: 0.08;
     ftypefemalefaces: 0.04;
     usbcfemalefaces: 0.032;
