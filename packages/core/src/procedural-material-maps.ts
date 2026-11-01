@@ -21982,6 +21982,115 @@ export function createSurfaceSampler(
           occlusion = clamp(p.gapAO + (1 - p.gapAO) * lit);
         };
       }
+      case 'dartboardsectors': {
+        const p = proceduralMaterialPresets.dartboardsectors,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x28201),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          sectors = p.order.length,
+          step = TAU / sectors,
+          boundaries = [
+            p.outerBull,
+            p.trebleInner,
+            p.trebleOuter,
+            p.doubleInner,
+            p.doubleOuter,
+          ];
+        // A standard dartboard (radii in millimetres, scaled to the tile): bull, outer bull, then
+        // twenty sectors in the usual order clockwise from the top, each with a treble ring and a
+        // double ring. Sectors alternate black and cream; the double and treble of a black sector
+        // are red, those of a cream sector green; wires mark every boundary.
+        return () => {
+          const dx = u - 0.5,
+            dy = v - 0.5,
+            mm = Math.sqrt(dx * dx + dy * dy) / p.millimeters,
+            turn = Math.atan2(dx, -dy),
+            shifted = (turn + step / 2 + TAU) % TAU,
+            sector = Math.min(sectors - 1, Math.floor(shifted / step)),
+            across = shifted - sector * step,
+            even = sector % 2 === 0;
+          let face: number;
+          if (mm < p.bull) face = p.redTone;
+          else if (mm < p.outerBull) face = p.greenTone;
+          else if (mm < p.trebleInner) face = even ? p.blackTone : p.creamTone;
+          else if (mm < p.trebleOuter) face = even ? p.redTone : p.greenTone;
+          else if (mm < p.doubleInner) face = even ? p.blackTone : p.creamTone;
+          else if (mm < p.doubleOuter) face = even ? p.redTone : p.greenTone;
+          else if (mm < p.boardOuter) face = p.ringTone;
+          else face = p.matTone;
+          // Wires: concentric at each ring boundary (and the bull), radial at every sector edge.
+          let wire = 0;
+          for (const radius of boundaries)
+            wire = Math.max(
+              wire,
+              cover(p.wireHalf - Math.abs(mm - radius) * p.millimeters),
+            );
+          wire = Math.max(
+            wire,
+            cover(p.wireHalf - Math.abs(mm - p.bull) * p.millimeters),
+          );
+          if (mm > p.outerBull && mm < p.doubleOuter)
+            wire = Math.max(
+              wire,
+              cover(
+                p.wireHalf -
+                  Math.min(across, step - across) * mm * p.millimeters,
+              ),
+            );
+          // The sector number as upright 3x5 digits on the outer ring.
+          let digit = 0;
+          if (mm >= p.doubleOuter && mm < p.boardOuter) {
+            const angle = (sector * TAU) / sectors,
+              cx = 0.5 + Math.sin(angle) * p.numberRadius * p.millimeters,
+              cy = 0.5 - Math.cos(angle) * p.numberRadius * p.millimeters,
+              label = p.order[sector],
+              digits = label >= 10 ? 2 : 1,
+              left = cx - ((digits * 3 + digits - 1) / 2) * p.digitPixel,
+              top = cy - 2.5 * p.digitPixel,
+              x = Math.floor((u - left) / p.digitPixel),
+              y = Math.floor((v - top) / p.digitPixel);
+            if (
+              y >= 0 &&
+              y < 5 &&
+              x >= 0 &&
+              x < digits * 4 - 1 &&
+              x % 4 !== 3
+            ) {
+              const value =
+                digits === 2
+                  ? x < 3
+                    ? Math.floor(label / 10)
+                    : label % 10
+                  : label;
+              if (glyphs[value][y * 3 + (x % 4)] === '1') digit = 1;
+            }
+          }
+          const base = face + (p.wireTone - face) * wire,
+            tone = base + (p.numberTone - base) * digit;
+          color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(
+            (mm < p.boardOuter ? p.faceHeight : p.matHeight) +
+              (p.wireHeight - p.faceHeight) * wire +
+              (p.digitHeight - p.faceHeight) * digit,
+          );
+          roughness =
+            p.faceRoughness + (p.wireRoughness - p.faceRoughness) * wire;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -49511,6 +49620,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'dartboardsectors' ||
     kind === 'featherbarbs' ||
     kind === 'amidakuji' ||
     kind === 'code39barcodes' ||

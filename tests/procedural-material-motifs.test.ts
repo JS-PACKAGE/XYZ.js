@@ -8517,3 +8517,141 @@ describe('featherbarbs: barbs sweep tailward at a fixed slope from the shaft', (
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('dartboardsectors: the standard board layout', () => {
+  const p = proceduralMaterialPresets.dartboardsectors;
+  // Standard clockwise order from the top (written independently of the preset) and the real
+  // board radii in millimetres; the tile radius of the playing area is 0.47 for 225 mm.
+  const order = [
+    20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5,
+  ];
+  const mm = 0.47 / 225;
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+
+  it('the reference order keeps the known property: adjacent differences sum to 198', () => {
+    let total = 0;
+    for (let i = 0; i < 20; i++)
+      total += Math.abs(order[i] - order[(i + 1) % 20]);
+    expect(total).toBe(198);
+    expect(new Set(order).size).toBe(20);
+  });
+
+  it.each(seeds)(
+    'colors every ring of every sector as a dartboard does (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('dartboardsectors', seed),
+        out = empty();
+      const toneAt = (angle: number, radiusMm: number): number => {
+        sample(
+          0.5 + Math.sin(angle) * radiusMm * mm,
+          0.5 - Math.cos(angle) * radiusMm * mm,
+          out,
+        );
+        return out.color;
+      };
+      // Region mid-radii and the tone each should have: [radius mm, black-sector tone, cream-sector tone].
+      const regions: [number, number, number][] = [
+        [57, 0.1, 0.86],
+        [103, 0.34, 0.58],
+        [134, 0.1, 0.86],
+        [166, 0.34, 0.58],
+      ];
+      for (let sector = 0; sector < 20; sector++) {
+        const angle = (sector * Math.PI * 2) / 20,
+          even = sector % 2 === 0;
+        for (const [radius, black, cream] of regions)
+          expect(
+            Math.abs(toneAt(angle, radius) - (even ? black : cream)),
+          ).toBeLessThan(0.07);
+        // Beyond the double ring is the dark number ring; outside 225 mm is the mid-tone mat.
+        expect(toneAt(angle, 175)).toBeLessThan(0.15);
+        expect(Math.abs(toneAt(angle, 240) - 0.3)).toBeLessThan(0.07);
+      }
+      // The bull is the red tone and the outer bull the green tone, shared by all sectors.
+      expect(Math.abs(toneAt(0.3, 3) - 0.34)).toBeLessThan(0.07);
+      expect(Math.abs(toneAt(0.3, 11) - 0.58)).toBeLessThan(0.07);
+    },
+  );
+
+  it.each(seeds)(
+    'prints the numbers in the standard order around the board (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('dartboardsectors', seed),
+        out = empty(),
+        pixel = p.digitPixel;
+      for (let sector = 0; sector < 20; sector++) {
+        const angle = (sector * Math.PI * 2) / 20,
+          cx = 0.5 + Math.sin(angle) * 197 * mm,
+          cy = 0.5 - Math.cos(angle) * 197 * mm;
+        // Read a window wide enough for two digits (7 columns) and 5 rows around the center.
+        const bits: boolean[][] = [];
+        for (let y = 0; y < 5; y++) {
+          const line: boolean[] = [];
+          for (let x = 0; x < 7; x++) {
+            sample(cx + (x - 3) * pixel, cy + (y - 2) * pixel, out);
+            line.push(out.color > 0.6);
+          }
+          bits.push(line);
+        }
+        const glyphAt = (offset: number): number =>
+          art.findIndex((rows) =>
+            rows.every((text, y) =>
+              [...text].every((ch, x) => bits[y][offset + x] === (ch === '#')),
+            ),
+          );
+        // A one-digit number is centered (columns 2-4, ink in column 3); two digits leave column 3 empty.
+        const value = bits.some((line) => line[3])
+          ? glyphAt(2)
+          : glyphAt(0) * 10 + glyphAt(4);
+        expect(value).toBe(order[sector]);
+      }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('dartboardsectors', 0),
+      b = createSurfaceSampler('dartboardsectors', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
