@@ -38275,6 +38275,121 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'salami': {
+        const p = proceduralMaterialPresets.salami,
+          fatCount = p.fatCells * p.fatCells,
+          fatX = new Float64Array(fatCount),
+          fatY = new Float64Array(fatCount),
+          fatSize = new Float64Array(fatCount),
+          fatStretch = new Float64Array(fatCount),
+          pepperCount = p.pepperCells * p.pepperCells,
+          pepperX = new Float64Array(pepperCount),
+          pepperY = new Float64Array(pepperCount),
+          pepperOn = new Uint8Array(pepperCount),
+          mottleField = cachedNoise(
+            p.mottleCells,
+            p.mottleCells,
+            seed ^ p.seedSalt,
+          ),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 1),
+          );
+        for (let row = 0; row < p.fatCells; row++)
+          for (let col = 0; col < p.fatCells; col++) {
+            const i = row * p.fatCells + col,
+              salt = seed ^ (p.seedSalt + 2);
+            fatX[i] = p.fatJitter * 2 * (hash(col, row, salt) - 0.5);
+            fatY[i] = p.fatJitter * 2 * (hash(col, row, salt + 1) - 0.5);
+            // A zero size means no fat fleck in this cell; the stretch skews the disc into
+            // an ellipse (semi-axes size*stretch and size*(2 - stretch)).
+            fatStretch[i] =
+              1 + p.fatAspect * 2 * (hash(col, row, salt + 4) - 0.5);
+            fatSize[i] =
+              hash(col, row, salt + 2) < p.fatChance
+                ? p.fatRadiusMinimum +
+                  p.fatRadiusVariation * hash(col, row, salt + 3)
+                : 0;
+          }
+        for (let row = 0; row < p.pepperCells; row++)
+          for (let col = 0; col < p.pepperCells; col++) {
+            const i = row * p.pepperCells + col,
+              salt = seed ^ (p.seedSalt + 3);
+            pepperX[i] = p.pepperJitter * 2 * (hash(col, row, salt) - 0.5);
+            pepperY[i] = p.pepperJitter * 2 * (hash(col, row, salt + 1) - 0.5);
+            pepperOn[i] = hash(col, row, salt + 2) < p.pepperChance ? 1 : 0;
+          }
+        // Fat flecks are discs that may spill into neighbouring cells, so each pixel
+        // joins the flecks owned by its 3x3 cells with the union 1 - prod(1 - x).
+        const fatCover = (
+          fx: number,
+          fy: number,
+          fcol: number,
+          frow: number,
+        ): number => {
+          let rest = 1;
+          for (let dr = -1; dr <= 1; dr++)
+            for (let dc = -1; dc <= 1; dc++) {
+              const i =
+                  ((frow + dr + p.fatCells) % p.fatCells) * p.fatCells +
+                  ((fcol + dc + p.fatCells) % p.fatCells),
+                size = fatSize[i];
+              if (!size) continue;
+              const dx = fx - (fcol + dc) - 0.5 - fatX[i],
+                dy = fy - (frow + dr) - 0.5 - fatY[i],
+                sx = size * fatStretch[i],
+                sy = size * (2 - fatStretch[i]);
+              rest *=
+                1 -
+                smooth(
+                  clamp(1 - (dx * dx) / (sx * sx) - (dy * dy) / (sy * sy)),
+                );
+            }
+          return 1 - rest;
+        };
+        return () => {
+          // Two independent layers of flecks on a mottled red meat. Fat flecks are
+          // smooth(1 - q) ellipses joined over a 3x3 cell neighbourhood; each
+          // peppercorn is a smooth(1 - q) disc kept inside its own cell (radius plus
+          // jitter under half a cell), so no per-cell lookup creates a jump. Fat blends toward cream, then
+          // peppercorns blend toward near-black on top (a convex mix, still C1).
+          const fx = fract(u) * p.fatCells,
+            fy = fract(v) * p.fatCells,
+            fcol = Math.floor(fx),
+            frow = Math.floor(fy),
+            fat = fatCover(fx, fy, fcol, frow),
+            px = fract(u) * p.pepperCells,
+            py = fract(v) * p.pepperCells,
+            pcol = Math.floor(px),
+            prow = Math.floor(py),
+            pi = prow * p.pepperCells + pcol,
+            pdx = px - pcol - 0.5 - pepperX[pi],
+            pdy = py - prow - 0.5 - pepperY[pi],
+            pepper = pepperOn[pi]
+              ? smooth(
+                  clamp(
+                    1 -
+                      (pdx * pdx + pdy * pdy) /
+                        (p.pepperRadius * p.pepperRadius),
+                  ),
+                )
+              : 0,
+            grain = grainField(u, v),
+            meat = p.meatTone + p.mottleTone * (mottleField(u, v) - 0.5),
+            fatted = meat + (p.fatTone - meat) * fat;
+          color =
+            fatted * (1 - pepper) +
+            p.pepperTone * pepper +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.fatHeight * fat +
+            p.pepperHeight * (1 - pepper) +
+            p.grainHeight * grain;
+          roughness -= p.fatRoughness * fat;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -46017,6 +46132,7 @@ export function createSurfaceSampler(
     kind === 'crosswordgrid' ||
     kind === 'sweetcorn' ||
     kind === 'baconstrips' ||
+    kind === 'salami' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

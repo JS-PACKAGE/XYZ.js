@@ -1013,6 +1013,7 @@ try {
     'crosswordgrid',
     'sweetcorn',
     'baconstrips',
+    'salami',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

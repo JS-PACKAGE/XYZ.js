@@ -21221,6 +21221,42 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: .2,
 		fatRoughness: .14
 	}),
+	salami: Object.freeze({
+		dark: [
+			96,
+			6,
+			8
+		],
+		light: [
+			240,
+			198,
+			172
+		],
+		roughness: .6,
+		relief: .002,
+		seedSalt: 23066,
+		fatCells: 11,
+		fatChance: .55,
+		fatRadiusMinimum: .2,
+		fatRadiusVariation: .25,
+		fatJitter: .45,
+		fatAspect: .3,
+		pepperCells: 40,
+		pepperChance: .14,
+		pepperRadius: .22,
+		pepperJitter: .26,
+		mottleCells: 6,
+		grainCells: 128,
+		meatTone: .28,
+		mottleTone: .08,
+		fatTone: .9,
+		pepperTone: .02,
+		grainTone: .03,
+		fatHeight: .4,
+		pepperHeight: .2,
+		grainHeight: .4,
+		fatRoughness: .12
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -22652,7 +22688,8 @@ var proceduralTileMeters = Object.freeze({
 	windowpane: .3,
 	crosswordgrid: .3,
 	sweetcorn: .13,
-	baconstrips: .2
+	baconstrips: .2,
+	salami: .12
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

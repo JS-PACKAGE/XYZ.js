@@ -13045,6 +13045,34 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.2;
         fatRoughness: 0.14;
     }>;
+    salami: Readonly<{
+        dark: readonly [96, 6, 8];
+        light: readonly [240, 198, 172];
+        roughness: 0.6;
+        relief: 0.002;
+        seedSalt: 23066;
+        fatCells: 11;
+        fatChance: 0.55;
+        fatRadiusMinimum: 0.2;
+        fatRadiusVariation: 0.25;
+        fatJitter: 0.45;
+        fatAspect: 0.3;
+        pepperCells: 40;
+        pepperChance: 0.14;
+        pepperRadius: 0.22;
+        pepperJitter: 0.26;
+        mottleCells: 6;
+        grainCells: 128;
+        meatTone: 0.28;
+        mottleTone: 0.08;
+        fatTone: 0.9;
+        pepperTone: 0.02;
+        grainTone: 0.03;
+        fatHeight: 0.4;
+        pepperHeight: 0.2;
+        grainHeight: 0.4;
+        fatRoughness: 0.12;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -14358,4 +14386,5 @@ export declare const proceduralTileMeters: Readonly<{
     crosswordgrid: 0.3;
     sweetcorn: 0.13;
     baconstrips: 0.2;
+    salami: 0.12;
 }>;

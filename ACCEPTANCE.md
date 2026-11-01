@@ -11910,3 +11910,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增7項（三seed統計與纖維方向、seed差異與決定性、C1＋有符號UV週期、actual512 maps），`-t "Bacon strips|baconstrips"`通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Bacon strips|baconstrips|kinds|catalog|distinct|periodic"`定向測試**2153項通過／3705項未選**。
 - 未驗證：本材質未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：薩拉米（salami）
+
+- 範圍：新增`salami`（目前目錄934→935種，含plain的gallery 936項）：帶6×6低頻斑駁的深紅色醃肉切面，散布11×11格的乳白橢圓脂肪斑（半軸0.2–0.45格×0.7–1.3長寬比、中心抖動±0.45，以3×3鄰格聯集`1 − Π(1 − smooth(1 − q))`合併）與40×40格的近黑胡椒粒（完全留在自己的格內）；預設0.12 m nominal tile、0.002 UV-relative relief。作者示意，沒有引用特定來源、**沒有對照照片**，比真實薩拉米規則許多。
+- 調整紀錄（誠實紀錄）：第一版（24×24格、半徑0.14–0.32格、單格擁有權）在預覽上是明顯的格點狀、像穿孔板；第二版加入橢圓長寬比與較大抖動後斑塊又太小太疏（約3%面積）；第三版改成脂肪斑溢出鄰格並以3×3聯集合併，才得到不規則、偶爾相連的斑塊。這是我對預覽的主觀判斷。
+- 實測（工具實跑）：三seed 512²取樣脂肪（color>0.6）占7.6–9.6%、胡椒（color<0.12）占0.83–0.91%、肉（0.12–0.45）占86.4–89.0%（平均0.281–0.285）、color 0.0066–0.914、平均0.326–0.339、roughness 0.48–0.60、height至多0.98–0.99 relief；seed 0與1的脂肪遮罩16.3%像素不同；seed 7的512²maps平均r／g／b約(143, 69, 62)、法線tilt²最大約0.063、z分量最小251。
+- 測試：新增7項（三seed統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps），`-t "Salami|salami"`通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Salami|salami|kinds|catalog|distinct|periodic"`定向測試**2155項通過／3710項未選**。
+- 未驗證：本材質未跑完整suite與瀏覽器gallery；不push。
