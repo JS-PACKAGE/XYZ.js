@@ -949,6 +949,7 @@ const kinds: ProceduralMaterialKind[] = [
   'shagbarkhickory',
   'europeanlarch',
   'lenticularsheet',
+  'eastindianrosewood',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -138438,5 +138439,187 @@ describe('Lenticular print sheet with parallel glossy cylindrical lenses over a 
     expect(maxTilt).toBeGreaterThan(0.2);
     expect(maxTilt).toBeLessThan(0.45);
     expect(invalid).toBe(0);
+  });
+});
+
+describe('Deep purplish-brown East Indian Rosewood with darker blackish streaks and fine open pores', () => {
+  const p = proceduralMaterialPresets.eastindianrosewood;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps a deep purplish-brown board with darker wavy streaks, scattered recessed pores and strongly longitudinal color change for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('eastindianrosewood', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let pits = 0,
+        solid = 0,
+        pitHeight = 0,
+        bodyHeight = 0,
+        across = 0,
+        along = 0,
+        lowBody = 1,
+        highBody = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          const u = (x + 0.5) / 256,
+            v = (y + 0.5) / 256;
+          sample(u, v, a);
+          sample(u + 1 / 1024, v, b);
+          sample(u, v + 1 / 1024, c);
+          across += Math.abs(a.color - b.color);
+          along += Math.abs(a.color - c.color);
+          if (a.occlusion < 0.9) {
+            pits++;
+            pitHeight += a.height;
+          }
+          if (a.occlusion === 1) {
+            solid++;
+            bodyHeight += a.height;
+            lowBody = Math.min(lowBody, a.color);
+            highBody = Math.max(highBody, a.color);
+          }
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness < 0.45 ||
+              a.roughness > 0.57 ||
+              a.height < 0.41 * p.relief ||
+              a.height > 0.504 * p.relief,
+          );
+          for (const key of keys)
+            invalid += Number(
+              !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+            );
+        }
+      expect(pits / 65536).toBeGreaterThan(0.01);
+      expect(pits / 65536).toBeLessThan(0.014);
+      expect(solid / 65536).toBeGreaterThan(0.98);
+      expect(bodyHeight / solid - pitHeight / pits).toBeGreaterThan(
+        0.05 * p.relief,
+      );
+      expect(lowBody).toBeLessThan(0.3);
+      expect(highBody).toBeGreaterThan(0.88);
+      expect(highBody).toBeLessThan(0.93);
+      expect(across).toBeGreaterThan(7 * along);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('keeps vessel owners, pore shoulders, band, fiber and grain lattices C1', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('eastindianrosewood', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [
+        p.columns,
+        p.rows,
+        3,
+        4,
+        p.fiberColumns,
+        p.fiberRows,
+        128,
+      ])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 8192; i++)
+        check((i * 0.61803398875) % 1, (i * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('writes actual512 deep purplish-brown dielectric maps with shallow pore normals and about one percent pore occlusion', () => {
+    const maps = generateProceduralMaps('eastindianrosewood', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let brown = 0,
+      pits = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      brown += Number(
+        r > 60 && r < 160 && r > g && g > b && r - b > 15 && r - b < 70,
+      );
+      pits += Number(maps.occlusion[i] < 230);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2] ||
+          maps.normal[i + 2] < 254,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(brown / (512 * 512)).toBeGreaterThan(0.95);
+    expect(pits / (512 * 512)).toBeGreaterThan(0.01);
+    expect(pits / (512 * 512)).toBeLessThan(0.014);
+    expect(maxTilt).toBeGreaterThan(0.002);
+    expect(maxTilt).toBeLessThan(0.012);
+    expect(invalid).toBe(0);
+  });
+  it('repeats over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    let worst = 0;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('eastindianrosewood', seed);
+      for (let i = 0; i < 8192; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 7, v + 11, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+    }
+    expect(worst).toBeLessThan(5e-10);
   });
 });

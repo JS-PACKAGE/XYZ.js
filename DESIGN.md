@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`eastindianrosewood`（東印度黃檀）使目前目錄907→908種，含plain的gallery為909項。近似Dalbergia latifolia未塗裝縱向木面：深紫褐底色、5條較暗近黑的起伏條紋、細縱向纖維紋與散布短小開放導管凹點（約1.2%）。不是金褐色淺色面、白色邊材、拋光面、交錯／波浪紋或油脂光澤。
+
+外觀依據實際閱讀的[Wood Database East Indian Rosewood](https://www.wood-database.com/east-indian-rosewood/)（Color／Appearance：心材由金褐到深紫褐，帶更暗近黑的條紋，隨時間變深、通常成深褐）與實際下載並實看的[木面照片](https://www.wood-database.com/wp-content/uploads/dalbergia-latifolia-1-300x600.jpg)（深褐帶紫調的縱向木面、較暗條紋與細孔）；僅作配色與紋理形態參考，不重現金褐淺色變化、淺色邊材或真實導管分布，不打包來源圖，也不由照片反推真色、roughness或實際尺寸。
+
+直接fallthrough重用既有Padauk／Bloodwood系細長橢圓導管sampler（與`blackwalnut`、`teak`、`honduranmahogany`、`shagbarkhickory`同路徑），constructor只選preset：40×14個導管site（pose表17,920 B）、5條起伏明顯（bandWarp 0.8）且對比高（bandContrast 0.45）的暗帶、220×9縱向fiber、128²細grain與固定3×4 warp，共20,616 Float64／164,928 B lattice算術預算（非總RAM）。金屬factor為0；導管凹點是真的height凹陷，色紋只是顏料。預設0.18 m nominal tile與0.0025 UV-relative relief（非公尺位移）皆作者設定。三seed（0／1／0xffffffff）、256²取樣：導管占1.18–1.22%，本體色0.255–0.908，橫／縱色差比8.6–10.2，roughness 0.460–0.564，高度0.42–0.503 relief；seed7的512²平均base color約(97,61,49)、導管占1.18%、法線max tilt²約0.0052。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `lenticularsheet`（柱狀透鏡印刷片）使目前目錄906→907種，含plain的gallery為908項。每tile 32條平行的圓柱透鏡（沿v方向的長條），透鏡頂高亮光滑、透鏡間接縫低且較粗糙並帶AO（0.65）；底色為藍銀漸層，由斜向「翻轉」條紋（每透鏡2個週期、沿v 3個週期）與8×8低頻印刷影像疊成。不是真實的多幀交錯影像、隨視角變化的動畫、透鏡折射或可讀的圖案。
 
 此材質是作者依「柱狀透鏡印刷片」一般結構所作的示意，沒有引用特定來源文件、照片或量測；透鏡數、色調、翻轉條紋、roughness、AO與0.1 m nominal tile皆作者設定，不宣稱符合任何實際產品或光學規格。

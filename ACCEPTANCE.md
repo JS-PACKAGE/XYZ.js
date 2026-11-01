@@ -11615,3 +11615,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增4項永久測試（`Lenticular`：三seed頂／縫幾何與翻轉色幅、seed只改影像不改高度、C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選7項通過（7.84s）。
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Lenticular|lenticularsheet|kinds|catalog|distinct|periodic"`定向測試，**2105項通過／3550項未選**。
 - 本功能未重跑完整179檔suite、未開瀏覽器gallery；不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：東印度黃檀縱向面（eastindianrosewood）
+
+- 目錄907→908，含plain的gallery為909項。近似Dalbergia latifolia未塗裝縱向木面：深紫褐底、5條較暗近黑的起伏條紋、縱向纖維與散布短小開放導管凹點（約1.2%）。外觀依據實際閱讀的[Wood Database East Indian Rosewood](https://www.wood-database.com/east-indian-rosewood/)與實看的[木面照片](https://www.wood-database.com/wp-content/uploads/dalbergia-latifolia-1-300x600.jpg)；僅作配色與紋理形態參考，不重現金褐淺色變化、淺色邊材、拋光或交錯紋。我先試`/indian-rosewood/`得到404，改用實際存在的`/east-indian-rosewood/`。
+- 直接fallthrough重用Padauk／Bloodwood系導管sampler（與`blackwalnut`、`teak`、`honduranmahogany`、`shagbarkhickory`同路徑），constructor只選新preset；導管pose表17,920 B，總lattice預算20,616 Float64／164,928 B（固定3×4 warp＋220×9 fiber＋128² grain）。預設0.18 m tile、0.0025 UV-relative relief（非公尺位移）、metallic factor0；不新增API或依賴。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）256²取樣導管占1.18–1.22%，本體色0.255–0.908，橫／縱色差比8.6–10.2，roughness 0.460–0.564，高度0.42–0.503 relief，metallic／mortar皆0；seed7的512² base color平均約(97,61,49)，導管占1.18%，法線max tilt²約0.0052。以Bun產生512 seed7排列圖並實看：深紫褐面、規律起伏的暗條紋與散布短導管點；暗條紋比照片更規律。
+- 新增4項永久測試（`Rosewood`：三seed外觀與縱向各向異性、C1掃描、actual512五maps、帶號UV週期），並加入通用kinds清單；名稱篩選7項通過（8.49s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Rosewood|eastindianrosewood|kinds|catalog|distinct|periodic"`定向測試，**2107項通過／3555項未選**。
+- 補記（完整suite）：先前在凍結worktree於monitorlizardskin commit `66ba515b5`實跑完整`vitest run`，**179檔／9,563項全部通過**（1262.80s，wall約21分）；該commit之後的shagbarkhickory、europeanlarch、lenticularsheet與本功能沒有重跑完整suite，僅有各自的定向測試與gates。
+- 未開瀏覽器gallery（monitorlizardskin、shagbarkhickory、europeanlarch、lenticularsheet與本功能均未在gallery驗證內）；不宣稱跨瀏覽器／backend或效能驗證；不push。

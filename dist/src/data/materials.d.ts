@@ -12413,6 +12413,31 @@ export declare const proceduralMaterialPresets: Readonly<{
         grooveRoughness: 0.2;
         grooveOcclusion: 0.35;
     }>;
+    eastindianrosewood: Readonly<{
+        dark: readonly [46, 24, 24];
+        light: readonly [124, 80, 62];
+        roughness: 0.46;
+        relief: 0.0025;
+        columns: 40;
+        rows: 14;
+        widthMinimum: 0.04;
+        widthVariation: 0.03;
+        lengthMinimum: 0.1;
+        lengthVariation: 0.14;
+        poreChance: 0.5;
+        centerMinimum: 0.35;
+        centerRange: 0.3;
+        poreShoulder: 0.5;
+        poreDepth: 0.08;
+        bands: 5;
+        bandWarp: 0.8;
+        bandRadius: 0.46;
+        bandCore: 0.16;
+        bandContrast: 0.45;
+        fiberColumns: 220;
+        fiberRows: 9;
+        fiberContrast: 0.2;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -13699,4 +13724,5 @@ export declare const proceduralTileMeters: Readonly<{
     shagbarkhickory: 0.18;
     europeanlarch: 0.2;
     lenticularsheet: 0.1;
+    eastindianrosewood: 0.18;
 }>;

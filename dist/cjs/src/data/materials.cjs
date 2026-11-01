@@ -20320,6 +20320,39 @@ var proceduralMaterialPresets = Object.freeze({
 		grooveRoughness: .2,
 		grooveOcclusion: .35
 	}),
+	eastindianrosewood: Object.freeze({
+		dark: [
+			46,
+			24,
+			24
+		],
+		light: [
+			124,
+			80,
+			62
+		],
+		roughness: .46,
+		relief: .0025,
+		columns: 40,
+		rows: 14,
+		widthMinimum: .04,
+		widthVariation: .03,
+		lengthMinimum: .1,
+		lengthVariation: .14,
+		poreChance: .5,
+		centerMinimum: .35,
+		centerRange: .3,
+		poreShoulder: .5,
+		poreDepth: .08,
+		bands: 5,
+		bandWarp: .8,
+		bandRadius: .46,
+		bandCore: .16,
+		bandContrast: .45,
+		fiberColumns: 220,
+		fiberRows: 9,
+		fiberContrast: .2
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -21724,7 +21757,8 @@ var proceduralTileMeters = Object.freeze({
 	monitorlizardskin: .14,
 	shagbarkhickory: .18,
 	europeanlarch: .2,
-	lenticularsheet: .1
+	lenticularsheet: .1,
+	eastindianrosewood: .18
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;
