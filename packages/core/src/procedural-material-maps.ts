@@ -18766,6 +18766,86 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'ecgpaper': {
+        const p = proceduralMaterialPresets.ecgpaper,
+          inkField = cachedNoise(p.inkCells, p.inkCells, seed ^ 0x26001),
+          paperField = cachedNoise(p.paperCells, p.paperCells, seed ^ 0x26003),
+          beats = Math.round(p.millimeters / p.beat),
+          rowMillimeters = p.millimeters / p.rows,
+          inverseSoft = 1 / p.lineSoft,
+          // Per-beat amplitude jitter so the beats are alike but not identical.
+          gains = new Float64Array(p.rows * beats);
+        for (let row = 0; row < p.rows; row++)
+          for (let beat = 0; beat < beats; beat++)
+            gains[row * beats + beat] =
+              1 +
+              p.amplitudeJitter * (hash(beat, row, seed ^ 0x26005) - 0.5) * 2;
+        // Distance (mm) from a grid line at integer multiples of "step", half width "half".
+        const gridLine = (
+          value: number,
+          step: number,
+          half: number,
+        ): number => {
+          const t = value / step,
+            off = Math.abs(t - Math.round(t)) * step;
+          return smooth(clamp((half - off) * inverseSoft + 0.5));
+        };
+        return () => {
+          const x = u * p.millimeters,
+            y = v * p.millimeters,
+            row = Math.min(p.rows - 1, Math.floor(y / rowMillimeters)),
+            baseline = (row + 0.5) * rowMillimeters,
+            beat = Math.min(beats - 1, Math.floor(x / p.beat)),
+            local = x - beat * p.beat,
+            gain = gains[row * beats + beat];
+          // ECG curve (mm above baseline) as a sum of Gaussian waves, with its slope.
+          let value = p.wanderAmplitude * Math.sin((TAU * x) / p.millimeters),
+            slope =
+              ((p.wanderAmplitude * TAU) / p.millimeters) *
+              Math.cos((TAU * x) / p.millimeters);
+          for (const [center, amplitude, width] of p.waves) {
+            const z = (local - center) / width,
+              g = amplitude * gain * Math.exp(-0.5 * z * z);
+            value += g;
+            slope += (-g * z) / width;
+          }
+          // Screen y grows downward, so the trace sits at baseline - value; first-order distance
+          // to the curve is the vertical offset divided by sqrt(1 + slope^2).
+          const offset =
+              Math.abs(y - (baseline - value)) / Math.sqrt(1 + slope * slope),
+            trace = smooth(
+              clamp((p.traceHalfWidth - offset) * inverseSoft + 0.5),
+            ),
+            minor = Math.max(
+              gridLine(x, 1, p.minorHalfWidth),
+              gridLine(y, 1, p.minorHalfWidth),
+            ),
+            major = Math.max(
+              gridLine(x, p.major, p.majorHalfWidth),
+              gridLine(y, p.major, p.majorHalfWidth),
+            ),
+            gainInk = inkField(u, v) - 0.5,
+            grain = paperField(u, v) - 0.5,
+            ruled =
+              p.paperTone +
+              p.paperGrain * grain +
+              (p.minorTone - p.paperTone) * minor,
+            paper = ruled + (p.majorTone - ruled) * major;
+          color = clamp(
+            paper + (p.inkTone + p.inkGain * gainInk - paper) * trace,
+          );
+          height = clamp(
+            p.paperHeight +
+              (p.lineHeight - p.paperHeight) *
+                Math.max(minor, major) *
+                (1 - trace) +
+              (p.inkHeight - p.paperHeight) * trace,
+          );
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * trace;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -46295,6 +46375,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'ecgpaper' ||
     kind === 'datamatrixcodes' ||
     kind === 'frostpolygons' ||
     kind === 'sandripples' ||

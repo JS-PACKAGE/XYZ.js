@@ -1231,6 +1231,10 @@
 
 這是作者設計的示意：finder與clock track依Data Matrix的結構繪製，但資料區是隨機位元，不是依ECC 200編碼出的碼字（沒有資料、Reed-Solomon糾錯或碼字擺放），因此不可被掃描解碼，也沒有用任何掃描器或解碼函式庫驗證；測試只驗證finder／clock／空白區與資料區大致密度。預設0.4 m nominal tile、0.0012 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上讓每個模組約17 px；512時約8.5 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`ecgpaper`（心電圖記錄紙）使目前目錄917→918種，含plain的gallery為919項。每tile 80 mm見方的粉紅記錄紙：1 mm細格線與每5 mm的粗格線（紙面色調0.96、細線0.84、粗線0.68），以及4行心電圖描線，每行高20 mm、含4個心搏（每搏20 mm，以25 mm/s計約0.8 s、75 bpm）。每搏由P波、Q波、R波、S波與T波的高斯和構成（P＋0.9 mm、Q −0.8 mm、R ＋7 mm、S −1.8 mm、T ＋1.7 mm），每搏振幅有±6%抖動，另有0.25 mm、整個tile一個週期的基線漂移。描線為深色墨線，半寬0.2 mm，線寬以「垂直偏移除以√(1＋斜率²)」的一階近似計算，所以在R波這種極陡的尖峰處，墨線在垂直方向會比0.2 mm粗得多（實測R波墨跡頂端約高出基線8.3 mm，高於7 mm的設定振幅）。Metallic與mortar為0。
+
+這是作者設計的示意，不是任何真實心電圖的記錄或診斷資料；沒有導程標籤、校準方波、心率變異、雜訊或病理波形，十二導程排版也未模擬。預設0.08 m nominal tile（80 mm見方，剛好對應記錄紙的實際毫米）、0.0012 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上讓1 mm格約12.8 px；512時約6.4 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

@@ -4189,3 +4189,147 @@ describe('datamatrixcodes: ECC 200 finder and clock patterns', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('ecgpaper: millimeter grid with PQRST heartbeat traces', () => {
+  const p = proceduralMaterialPresets.ecgpaper;
+  const rowMillimeters = p.millimeters / p.rows,
+    beats = Math.round(p.millimeters / p.beat);
+
+  it.each(seeds)(
+    'rules a 1 mm grid with heavier 5 mm lines and draws four beats per row with R, S and T waves (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('ecgpaper', seed),
+        out = empty(),
+        at = (x: number, y: number): number => {
+          sample(x / p.millimeters, y / p.millimeters, out);
+          return out.color;
+        };
+      // Grid: sample just above the row's lower edge, where no trace reaches. A line center is
+      // darker than the paper midway between lines, and every fifth line is darker still.
+      const yClear = rowMillimeters * 0.97;
+      let minorOk = 0,
+        majorOk = 0,
+        majors = 0;
+      for (let k = 0; k < p.millimeters; k++) {
+        const line = at(k, yClear),
+          between = at(k + 0.5, yClear);
+        minorOk += Number(line < between - 0.05);
+        if (k % p.major === 0) {
+          majors++;
+          const neighbor = at(k + 1, yClear);
+          majorOk += Number(line < neighbor - 0.05);
+        }
+      }
+      expect(minorOk).toBe(p.millimeters);
+      expect(majorOk).toBe(majors);
+      // Horizontal rules, sampled where the flat start of a beat keeps the trace clear.
+      let ruled = 0,
+        ruledMajor = 0,
+        checked = 0,
+        checkedMajor = 0;
+      for (let k = 1; k < rowMillimeters; k++) {
+        if (Math.abs(k - rowMillimeters / 2) < 2) continue;
+        checked++;
+        ruled += Number(at(0.5, k) < at(0.5, k + 0.5) - 0.05);
+        if (k % p.major === 0) {
+          checkedMajor++;
+          ruledMajor += Number(at(0.5, k) < at(0.5, k + 1) - 0.05);
+        }
+      }
+      expect(ruled).toBe(checked);
+      expect(ruledMajor).toBe(checkedMajor);
+      // Trace: scan each row at 8 samples per mm and keep the highest and lowest ink per column.
+      const res = 8,
+        width = p.millimeters * res;
+      for (let row = 0; row < p.rows; row++) {
+        const baseline = (row + 0.5) * rowMillimeters,
+          top = new Float64Array(width).fill(NaN),
+          bottom = new Float64Array(width).fill(NaN);
+        for (let xi = 0; xi < width; xi++)
+          for (let yi = 0; yi < rowMillimeters * res; yi++) {
+            const y = row * rowMillimeters + (yi + 0.5) / res;
+            if (at((xi + 0.5) / res, y) < 0.3) {
+              if (Number.isNaN(top[xi])) top[xi] = baseline - y;
+              bottom[xi] = baseline - y;
+            }
+          }
+        let rWaves = 0;
+        for (let beat = 0; beat < beats; beat++) {
+          let rHeight = -Infinity,
+            rAt = 0,
+            sDepth = Infinity,
+            sAt = 0,
+            tHeight = -Infinity,
+            tAt = 0;
+          for (
+            let xi = beat * p.beat * res;
+            xi < (beat + 1) * p.beat * res;
+            xi++
+          ) {
+            const x = (xi + 0.5) / res - beat * p.beat;
+            if (top[xi] > rHeight) {
+              rHeight = top[xi];
+              rAt = x;
+            }
+            if (bottom[xi] < sDepth) {
+              sDepth = bottom[xi];
+              sAt = x;
+            }
+            if (x > 12 && x < 18 && top[xi] > tHeight) {
+              tHeight = top[xi];
+              tAt = x;
+            }
+          }
+          // The spike is a thin line, so its inked height overshoots the authored amplitude a bit.
+          expect(rHeight).toBeGreaterThan(6.5);
+          expect(rHeight).toBeLessThan(10);
+          expect(Math.abs(rAt - p.waves[2][0])).toBeLessThan(0.5);
+          expect(sDepth).toBeLessThan(-1.2);
+          expect(sDepth).toBeGreaterThan(-3.2);
+          expect(Math.abs(sAt - p.waves[3][0])).toBeLessThan(0.7);
+          expect(tHeight).toBeGreaterThan(1.1);
+          expect(tHeight).toBeLessThan(2.8);
+          expect(Math.abs(tAt - p.waves[4][0])).toBeLessThan(0.8);
+          rWaves++;
+        }
+        expect(rWaves).toBe(beats);
+      }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('ecgpaper', 0),
+      b = createSurfaceSampler('ecgpaper', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

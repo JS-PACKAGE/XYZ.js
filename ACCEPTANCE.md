@@ -11631,3 +11631,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 調整記錄：第一版每個模組是帶圓角的獨立方塊，預覽中相鄰深色模組之間有一格格的淡色縫，不像印刷的二維碼；改為只在與不同狀態的鄰格共用的邊緣做柔化，深色模組連成實心後才像Data Matrix。同時移除了不再使用的圓角參數。
 - 實測：`tests/procedural-material-motifs.test.ts`一百八十六項（本材質四項）全過。三seed對9個符號、在模組中心取樣：左欄與底列18個模組全為深色；上列為偶數欄深、奇數欄淺；右欄由底往上偶數步為深（上右角為淺）；資料區深色比例與0.5相差＜0.12；9個符號的資料位元圖樣互不相同；符號四周的空白區全為淺色；通道範圍、metallic／mortar 0、wrap與seed差異。只驗證結構，沒有掃描器或解碼函式庫，也不宣稱資料可解碼。`tests/procedural-material.test.ts`以`-t "datamatrixcodes|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`datamatrixcodes`：option 918個、status為917 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的符號與接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：心電圖記錄紙（ecgpaper）
+
+- 目錄917→918，含plain的gallery為919項。每tile 80 mm見方粉紅紙面：1 mm細格線與每5 mm粗格線，4行描線，每行4個心搏（P、Q、R、S、T高斯波，每搏振幅±6%抖動，另有基線漂移）。Metallic／mortar為0，預設tile0.08 m、0.0012 UV-relative relief、metallic factor 0。作者設計的示意，非真實心電資料；仍在獨立worktree分支`materials/more-textures`作業。
+- 已知限制：墨線寬度以一階近似（垂直偏移÷√(1＋斜率²)）計算，R波這種極陡尖峰處墨跡在垂直方向偏粗（實測R波墨跡頂端比基線高約8.3 mm，設定振幅為7 mm）；測試的R波高度範圍（6.5–10 mm）已包含這個偏差，並如實註明，而非把振幅假稱為精準量測。
+- 測試修正：第一版橫向格線檢查寫得不對（在垂直線上取樣、比較邏輯錯誤），三個seed都失敗（有效列數只有3）；改成在每搏起點（x=0.5 mm）避開基線±2 mm，比較整數毫米線與半毫米處、及整5 mm的粗線與下一條細線，才反映真實的格線結構。
+- 實測：`tests/procedural-material-motifs.test.ts`一百九十項（本材質四項）全過。三seed：垂直格線在0–79 mm每條細線都比兩線之間暗0.05以上（80/80）、每5 mm粗線比相鄰細線暗0.05以上（16/16）；橫向細／粗線同理；以每mm 8個樣本掃描4行：每行4個心搏，每搏R波頂端高出基線6.5–10 mm、位置與設定的8.4 mm相差＜0.5、S波低於基線1.2–3.2 mm、位置與9.3 mm相差＜0.7、T波高1.1–2.8 mm、位置與14.5 mm相差＜0.8；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "ecgpaper|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`ecgpaper`：option 919個、status為918 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的格線與心搏連續無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
