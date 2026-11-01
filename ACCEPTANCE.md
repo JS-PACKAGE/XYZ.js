@@ -11480,3 +11480,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試修正：第一版「陡降與陰影」測試用固定的瓦舌中心位置，但各列偏移是隨機的半片寬倍數，探針有時落在狹縫內（陡降比例只有0.75／0.83而非≥0.95）；改為先沿該列量到狹縫中心，再在兩個相鄰狹縫的正中央取樣。這是測試量測位置的錯，不是材質缺陷，也沒有放寬門檻。
 - 實測：`tests/procedural-material-motifs.test.ts`七十五項（本材質十項：三seed每列狹縫數＝6、寬度＝2×slotHalf±0.004、相鄰間距＝1/6±0.002、偏移為半片寬整數倍、列上段無狹縫；三seed陡降≥0.15 relief、陰影AO差＞0.25、瓦舌色調分散＞0.03；通道範圍；wrap／seed差異）全過。`tests/procedural-material.test.ts`以`-t "asphaltshingle|every preset"`定向跑3項通過，沒有重跑該檔其餘5515項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`asphaltshingle`：option 896個、status為895 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼無接縫、各列狹縫偏移可辨。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：修剪草坪條紋（lawnstripes）
+
+- 目錄895→896，含plain的gallery為897項。每tile 8條明暗交替的割草條紋（邊界以週期雜訊微擺），草葉細絲由沿v拉長的兩層value noise經整數剪切 u + lean·v 產生，相鄰條紋草葉向相反方向傾斜（兩軸仍週期）；另有緩變草叢明暗與谷底AO。Metallic／mortar為0，預設tile2.0 m、0.0028 UV-relative relief、metallic factor 0。傾斜角固定45°（整數剪切限制），不模擬單片草葉、枯草或土斑；作者設計的示意，未打包外部圖樣。仍在獨立worktree分支`materials/more-textures`作業。
+- 測試以獨立量測驗證主要性質：每條紋（避開邊界20%）的平均色與相鄰條紋差大於stripeTone，且梯度共變異數 Σ gx·gy 的正負號偶數條紋為＋、奇數條紋為−（草葉傾斜方向確實交替）；三seed 512²取樣皆通過，另含通道範圍與wrap／seed差異。
+- 實測：`tests/procedural-material-motifs.test.ts`七十九項（本材質四項）全過。`tests/procedural-material.test.ts`以`-t "lawnstripes|every preset"`定向跑3項通過，沒有重跑該檔其餘5516項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過（此輪與另一個完整測試背景工作同時跑，因此耗時較長）。
+- 真實dev server的pbr3d頁（WebGPU）選取`lawnstripes`：option 897個、status為896 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼無接縫、條紋明暗與傾斜可辨。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

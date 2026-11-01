@@ -17133,6 +17133,44 @@ export function createSurfaceSampler(
           );
         };
       }
+      case 'lawnstripes': {
+        const p = proceduralMaterialPresets.lawnstripes,
+          clumpField = cachedNoise(p.clumpCells, p.clumpCells, seed ^ 0x24a01),
+          wobbleField = cachedNoise(
+            p.wobbleCells,
+            p.wobbleCells,
+            seed ^ 0x24a03,
+          );
+        return () => {
+          // Mowing stripes alternate the lean of the blades; the integer shear keeps both
+          // axes periodic (u + lean * v advances by an integer when either coordinate wraps).
+          const sv = v + p.wobble * (2 * wobbleField(u, v) - 1),
+            band = Math.floor(sv * p.stripes),
+            dir = (band & 1) === 0 ? 1 : -1,
+            x = u + dir * p.lean * v,
+            strand = noise(x, v, p.strandColumns, p.strandRows, seed ^ 0x24a05),
+            detail = noise(x, v, p.detailColumns, p.detailRows, seed ^ 0x24a07),
+            clump = clumpField(u, v);
+          color = clamp(
+            p.baseTone +
+              p.stripeTone * dir +
+              p.strandTone * (strand - 0.5) +
+              p.detailTone * (detail - 0.5) +
+              p.clumpTone * (clump - 0.5),
+          );
+          height = clamp(
+            p.baseHeight +
+              p.strandHeight * strand +
+              p.detailHeight * (detail - 0.5) +
+              p.clumpHeight * (clump - 0.5),
+          );
+          roughness =
+            p.roughness -
+            p.strandRoughness * (strand - 0.5) -
+            p.stripeRoughness * dir;
+          occlusion = clamp(1 - p.valleyAO * (1 - strand) * (1 - strand));
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -44662,6 +44700,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'lawnstripes' ||
     kind === 'asphaltshingle' ||
     kind === 'expandedpolystyrene' ||
     kind === 'octopussuckers' ||

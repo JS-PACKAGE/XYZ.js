@@ -12450,6 +12450,41 @@ var proceduralMaterialPresets = Object.freeze({
 		shadowReach: .3,
 		slotAO: .2
 	}),
+	lawnstripes: Object.freeze({
+		dark: [
+			22,
+			62,
+			20
+		],
+		light: [
+			158,
+			204,
+			82
+		],
+		roughness: .9,
+		relief: .0028,
+		stripes: 8,
+		lean: 1,
+		strandColumns: 192,
+		strandRows: 48,
+		detailColumns: 384,
+		detailRows: 96,
+		clumpCells: 10,
+		wobbleCells: 12,
+		wobble: .006,
+		baseTone: .5,
+		stripeTone: .14,
+		strandTone: .34,
+		detailTone: .12,
+		clumpTone: .12,
+		baseHeight: .35,
+		strandHeight: .4,
+		detailHeight: .1,
+		clumpHeight: .1,
+		strandRoughness: .06,
+		stripeRoughness: .05,
+		valleyAO: .55
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -21131,6 +21166,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	lawnstripes: 2,
 	asphaltshingle: 1,
 	expandedpolystyrene: .12,
 	octopussuckers: .4,

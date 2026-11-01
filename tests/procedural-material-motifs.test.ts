@@ -1361,3 +1361,84 @@ describe('asphaltshingle: staggered three-tab courses', () => {
     expect(different).toBeGreaterThan(100);
   });
 });
+
+describe('lawnstripes: mown stripes with alternating blade lean', () => {
+  const p = proceduralMaterialPresets.lawnstripes;
+  const size = 512;
+  const read = (seed: number): Float64Array => {
+    const sample = createSurfaceSampler('lawnstripes', seed),
+      out = empty(),
+      color = new Float64Array(size * size);
+    let invalid = 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        invalid += Number(out.metallic !== 0 || out.mortar !== 0);
+        for (const value of [
+          out.color,
+          out.height / p.relief,
+          out.roughness,
+          out.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+        color[y * size + x] = out.color;
+      }
+    expect(invalid).toBe(0);
+    return color;
+  };
+
+  it.each(seeds)(
+    'alternates tone and blade lean stripe by stripe (seed %i)',
+    (seed) => {
+      const color = read(seed),
+        band = size / p.stripes,
+        // Stay clear of the wobbling stripe borders.
+        margin = Math.ceil(band * 0.2);
+      const means: number[] = [];
+      for (let b = 0; b < p.stripes; b++) {
+        let sum = 0,
+          count = 0,
+          covariance = 0;
+        for (let y = b * band + margin; y < (b + 1) * band - margin; y++)
+          for (let x = 0; x < size; x++) {
+            sum += color[y * size + x];
+            count++;
+            // Central-difference gradient; the strand lean makes gx and gy correlate.
+            const gx =
+                color[y * size + ((x + 1) % size)] -
+                color[y * size + ((x + size - 1) % size)],
+              gy = color[(y + 1) * size + x] - color[(y - 1) * size + x];
+            covariance += gx * gy;
+          }
+        means.push(sum / count);
+        // Even stripes lean along +lean (gradient along (1, +lean)), odd stripes the other way.
+        expect(Math.sign(covariance)).toBe(b % 2 === 0 ? 1 : -1);
+      }
+      for (let b = 1; b < p.stripes; b++)
+        expect(Math.abs(means[b] - means[b - 1])).toBeGreaterThan(p.stripeTone);
+    },
+  );
+
+  it('wraps seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('lawnstripes', 0),
+      b = createSurfaceSampler('lawnstripes', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        expect(two.height).toBeCloseTo(one.height, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(100);
+  });
+});

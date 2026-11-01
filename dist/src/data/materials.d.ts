@@ -6712,6 +6712,33 @@ export declare const proceduralMaterialPresets: Readonly<{
         shadowReach: 0.3;
         slotAO: 0.2;
     }>;
+    lawnstripes: Readonly<{
+        dark: readonly [22, 62, 20];
+        light: readonly [158, 204, 82];
+        roughness: 0.9;
+        relief: 0.0028;
+        stripes: 8;
+        lean: 1;
+        strandColumns: 192;
+        strandRows: 48;
+        detailColumns: 384;
+        detailRows: 96;
+        clumpCells: 10;
+        wobbleCells: 12;
+        wobble: 0.006;
+        baseTone: 0.5;
+        stripeTone: 0.14;
+        strandTone: 0.34;
+        detailTone: 0.12;
+        clumpTone: 0.12;
+        baseHeight: 0.35;
+        strandHeight: 0.4;
+        detailHeight: 0.1;
+        clumpHeight: 0.1;
+        strandRoughness: 0.06;
+        stripeRoughness: 0.05;
+        valleyAO: 0.55;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -13197,6 +13224,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    lawnstripes: 2;
     asphaltshingle: 1;
     expandedpolystyrene: 0.12;
     octopussuckers: 0.4;
