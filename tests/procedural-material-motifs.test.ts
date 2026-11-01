@@ -4333,3 +4333,147 @@ describe('ecgpaper: millimeter grid with PQRST heartbeat traces', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('sheetmusic: five-line staves with notes on the staff grid', () => {
+  const p = proceduralMaterialPresets.sheetmusic;
+  const s = p.spacing,
+    pitch = 1 / p.staves;
+
+  /** Scan down one column; returns ink runs as [startUnits, endUnits] in staff spacings above the bottom line. */
+  const runsAt = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    u: number,
+    staff: number,
+    from = -3.5,
+    to = 7,
+    step = 1 / 32,
+  ): [number, number][] => {
+    const out = empty(),
+      bottomV = (staff + 0.5) * pitch + 2 * s,
+      runs: [number, number][] = [];
+    let start: number | undefined;
+    for (let y = from; y <= to; y += step) {
+      sample(u, bottomV - y * s, out);
+      if (out.color < 0.35) start ??= y;
+      else if (start !== undefined) {
+        runs.push([start, y - step]);
+        start = undefined;
+      }
+    }
+    if (start !== undefined) runs.push([start, to]);
+    return runs;
+  };
+
+  it.each(seeds)(
+    'rules five equal lines, barlines at measure edges and stems that follow the notation rule (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('sheetmusic', seed),
+        out = empty(),
+        positions = new Set<number>();
+      let ups = 0,
+        downs = 0;
+      for (let staff = 0; staff < p.staves; staff++) {
+        // Staff lines: a column midway between two notes (not on a barline) crosses five short runs.
+        const lines = runsAt(
+          sample,
+          1.5 / p.beats + 2 * s,
+          staff,
+          -1,
+          5,
+          1 / 64,
+        );
+        expect(lines.length).toBe(5);
+        lines.forEach(([a, b], i) => {
+          expect(Math.abs((a + b) / 2 - i)).toBeLessThan(0.06);
+          expect(b - a).toBeLessThan(0.35);
+        });
+        // Barlines run the staff height at the measure edges; probe their ends and the gap above.
+        for (let bar = 0; bar < p.beats / p.barBeats; bar++) {
+          const column = (bar * p.barBeats) / p.beats,
+            ends = runsAt(sample, column, staff, -1, 5, 1 / 64);
+          expect(ends.length).toBe(1);
+          expect(ends[0][0]).toBeLessThan(-0.05);
+          expect(ends[0][1]).toBeGreaterThan(4.05);
+          expect(runsAt(sample, column, staff, 4.5, 7, 1 / 32).length).toBe(0);
+        }
+        for (let beat = 0; beat < p.beats; beat++) {
+          const centerU = (beat + 0.5) / p.beats,
+            right = runsAt(sample, centerU + 0.6072 * s, staff),
+            left = runsAt(sample, centerU - 0.6072 * s, staff),
+            longest = (runs: [number, number][]): [number, number] =>
+              runs.reduce(
+                (a, b) => (b[1] - b[0] > a[1] - a[0] ? b : a),
+                [0, 0],
+              );
+          const r = longest(right),
+            l = longest(left);
+          const stemOnRight = r[1] - r[0] > 3,
+            stemOnLeft = l[1] - l[0] > 3;
+          // Exactly one stem per note.
+          expect(stemOnRight !== stemOnLeft).toBe(true);
+          // An up stem (right side) ends 3.5 spacings above the head center; a down stem
+          // (left side) ends 3.5 below it. Head centers sit on the half-spacing grid.
+          const center = stemOnRight
+              ? r[1] - p.stemLength
+              : l[0] + p.stemLength,
+            position = center / 0.5;
+          expect(Math.abs(position - Math.round(position))).toBeLessThan(0.2);
+          const rounded = Math.round(position);
+          expect(rounded).toBeGreaterThanOrEqual(0);
+          expect(rounded).toBeLessThanOrEqual(p.maxPosition);
+          positions.add(rounded);
+          // Notation rule: notes below the middle line have stems up, the rest stems down.
+          expect(stemOnRight).toBe(rounded < p.middlePosition);
+          if (stemOnRight) ups++;
+          else downs++;
+          // The head's far flank is inked (ring or filled), on the side opposite the stem.
+          sample(
+            centerU + (stemOnRight ? -0.55 : 0.55) * s,
+            (staff + 0.5) * pitch + 2 * s - rounded * 0.5 * s,
+            out,
+          );
+          expect(out.color).toBeLessThan(0.35);
+        }
+      }
+      expect(positions.size).toBeGreaterThanOrEqual(7);
+      expect(ups).toBeGreaterThan(20);
+      expect(downs).toBeGreaterThan(20);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('sheetmusic', 0),
+      b = createSurfaceSampler('sheetmusic', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(30);
+  });
+});

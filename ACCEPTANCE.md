@@ -11639,3 +11639,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試修正：第一版橫向格線檢查寫得不對（在垂直線上取樣、比較邏輯錯誤），三個seed都失敗（有效列數只有3）；改成在每搏起點（x=0.5 mm）避開基線±2 mm，比較整數毫米線與半毫米處、及整5 mm的粗線與下一條細線，才反映真實的格線結構。
 - 實測：`tests/procedural-material-motifs.test.ts`一百九十項（本材質四項）全過。三seed：垂直格線在0–79 mm每條細線都比兩線之間暗0.05以上（80/80）、每5 mm粗線比相鄰細線暗0.05以上（16/16）；橫向細／粗線同理；以每mm 8個樣本掃描4行：每行4個心搏，每搏R波頂端高出基線6.5–10 mm、位置與設定的8.4 mm相差＜0.5、S波低於基線1.2–3.2 mm、位置與9.3 mm相差＜0.7、T波高1.1–2.8 mm、位置與14.5 mm相差＜0.8；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "ecgpaper|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`ecgpaper`：option 919個、status為918 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的格線與心搏連續無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：樂譜（sheetmusic）
+
+- 目錄918→919，含plain的gallery為920項。每tile 8行五線譜（線距1/64 tile）、每行16拍、每4拍一條小節線，每拍一個音符（9個半線距位置、傾斜橢圓符頭、約30%空心），符桿依記譜規則：位置＜4（低於第三線）向上畫在符頭右側，其餘向下畫在左側，長3.5線距。Metallic／mortar為0，預設tile0.3 m、0.0014 UV-relative relief、metallic factor 0。不含譜號、拍號、符尾、連桁、休止符，不可演奏；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 調整記錄：預覽中五線譜線太細太淡（半寬0.04線距），調到0.07。測試第一版在小節線上方4.5–9線距掃描「應無墨」時失敗：掃描範圍夠到上一行五線譜（行距8線距）的線，是測試範圍錯，不是材質問題；範圍縮為−3.5至7線距，亦避免把相鄰行的符桿誤認為本行的符桿。
+- 實測：`tests/procedural-material-motifs.test.ts`一百九十四項（本材質四項）全過。三seed、8行×16拍：兩個音符之間的欄位恰有5條線段，中心在0、1、2、3、4線距±0.06、單條粗度＜0.35線距；每個小節線欄位只有一段連續墨跡，涵蓋整個五線譜高度（−0.05至4.05線距以外），上方4.5–7線距無墨；每個音符恰有一支符桿（右或左側長墨跡＞3線距，且只在一側），由符桿末端扣除3.5線距得到的符頭中心落在半線距格點上（±0.2個半線距）、範圍0–8；符桿方向符合規則（位置＜4時向上、其餘向下），每seed向上與向下的音符都各超過20個，且至少用到7種不同位置；符頭遠離符桿的一側（距中心0.55線距）一律有墨。通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "sheetmusic|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`sheetmusic`：option 920個、status為919 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的五線譜與音符連續無接縫（512下符桿偏淡，已在文件註明建議1024）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

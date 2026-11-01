@@ -18846,6 +18846,86 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'sheetmusic': {
+        const p = proceduralMaterialPresets.sheetmusic,
+          inkField = cachedNoise(p.inkCells, p.inkCells, seed ^ 0x26101),
+          paperField = cachedNoise(p.paperCells, p.paperCells, seed ^ 0x26103),
+          positions = new Uint8Array(p.staves * p.beats),
+          hollow = new Uint8Array(p.staves * p.beats),
+          staffPitch = 1 / p.staves,
+          s = p.spacing,
+          inverseSoft = 1 / p.edgeSoft,
+          cosTilt = Math.cos(p.headTilt),
+          sinTilt = Math.sin(p.headTilt),
+          // Soft inside test: distance (in staff spacings) is negative inside the shape.
+          cover = (outside: number): number =>
+            smooth(clamp(0.5 - outside * inverseSoft));
+        for (let staff = 0; staff < p.staves; staff++)
+          for (let beat = 0; beat < p.beats; beat++) {
+            positions[staff * p.beats + beat] = Math.min(
+              p.maxPosition,
+              Math.floor(
+                hash(beat, staff, seed ^ 0x26105) * (p.maxPosition + 1),
+              ),
+            );
+            hollow[staff * p.beats + beat] =
+              hash(beat, staff, seed ^ 0x26107) < p.holeChance ? 1 : 0;
+          }
+        return () => {
+          const staff = Math.min(p.staves - 1, Math.floor(v * p.staves)),
+            // Bottom staff line sits two spacings below the row center; "position" counts half spacings up.
+            bottomV = (staff + 0.5) * staffPitch + 2 * s,
+            yUnits = (bottomV - v) / s,
+            beat = Math.min(p.beats - 1, Math.floor(u * p.beats)),
+            centerU = (beat + 0.5) / p.beats,
+            position = positions[staff * p.beats + beat],
+            dx = (u - centerU) / s,
+            dy = yUnits - position * 0.5;
+          // Staff lines: five lines, two position steps apart, within the staff's extent.
+          const lineIndex = Math.round(yUnits),
+            lineOffset = Math.abs(yUnits - lineIndex),
+            lines =
+              lineIndex >= 0 && lineIndex <= 4
+                ? cover(lineOffset - p.lineHalf)
+                : 0,
+            // Barlines span the staff at every measure boundary.
+            barU = u * (p.beats / p.barBeats),
+            barOffset =
+              (Math.abs(barU - Math.round(barU)) * (p.barBeats / p.beats)) / s,
+            bar =
+              yUnits >= -p.lineHalf && yUnits <= 4 + p.lineHalf
+                ? cover(barOffset - p.barHalf)
+                : 0,
+            // Notehead: tilted ellipse; half notes are rings.
+            rx = dx * cosTilt + dy * sinTilt,
+            ry = -dx * sinTilt + dy * cosTilt,
+            outer = Math.sqrt((rx / p.headA) ** 2 + (ry / p.headB) ** 2) - 1,
+            hole = Math.sqrt((rx / p.holeA) ** 2 + (ry / p.holeB) ** 2) - 1,
+            head = hollow[staff * p.beats + beat]
+              ? cover(outer * p.headB) * (1 - cover(hole * p.holeB))
+              : cover(outer * p.headB),
+            // Stem: up on the right of the head below the middle line, down on the left otherwise.
+            up = position < p.middlePosition,
+            stemX = up ? p.headA * 0.92 : -p.headA * 0.92,
+            stemAlong = up ? dy : -dy,
+            stem =
+              stemAlong >= 0 && stemAlong <= p.stemLength
+                ? cover(Math.abs(dx - stemX) - p.stemHalf)
+                : 0,
+            ink = Math.max(lines, bar, head, stem),
+            gain = inkField(u, v) - 0.5,
+            grain = paperField(u, v) - 0.5;
+          color = clamp(
+            p.paperTone +
+              p.paperGrain * grain +
+              (p.inkTone + p.inkGain * gain - p.paperTone) * ink,
+          );
+          height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * ink);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -46375,6 +46455,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'sheetmusic' ||
     kind === 'ecgpaper' ||
     kind === 'datamatrixcodes' ||
     kind === 'frostpolygons' ||
