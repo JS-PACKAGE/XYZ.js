@@ -38710,6 +38710,63 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'garlicskin': {
+        const p = proceduralMaterialPresets.garlicskin,
+          warpField = cachedNoise(p.warpColumns, p.warpRows, seed ^ p.seedSalt),
+          widthField = cachedNoise(
+            p.widthColumns,
+            p.widthRows,
+            seed ^ (p.seedSalt + 1),
+          ),
+          fiberField = cachedNoise(
+            p.fiberColumns,
+            p.fiberRows,
+            seed ^ (p.seedSalt + 2),
+          ),
+          wrinkleField = cachedNoise(
+            p.wrinkleColumns,
+            p.wrinkleRows,
+            seed ^ (p.seedSalt + 3),
+          ),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 4),
+          );
+        return () => {
+          // Papery bulb skin: lengthwise purple streaks (an integer count of bands
+          // along u, phase warped by periodic noise, widths varied by a second noise
+          // field; tanh of a sine is a smooth, C-infinity square wave) over a
+          // cream-white paper with lengthwise fibres, soft wrinkles and fine grain.
+          const phase = p.streaks * u + p.warp * (warpField(u, v) - 0.5),
+            streak =
+              0.5 +
+              0.5 *
+                Math.tanh(
+                  p.sharpness *
+                    (Math.sin(2 * Math.PI * phase) -
+                      p.threshold -
+                      p.widthVariation * (widthField(u, v) - 0.5)),
+                ),
+            ridge = 0.5 + 0.5 * Math.sin(2 * Math.PI * phase),
+            fiber = fiberField(u, v),
+            wrinkle = wrinkleField(u, v),
+            grain = grainField(u, v);
+          color =
+            p.paperTone -
+            p.streakDrop * streak +
+            p.fiberTone * (fiber - 0.5) +
+            p.wrinkleTone * (wrinkle - 0.5) +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.ridgeHeight * ridge +
+            p.wrinkleHeight * wrinkle +
+            p.fiberHeight * fiber +
+            p.grainHeight * grain;
+          roughness += p.streakRoughness * streak;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -46457,6 +46514,7 @@ export function createSurfaceSampler(
     kind === 'granola' ||
     kind === 'kawung' ||
     kind === 'pancake' ||
+    kind === 'garlicskin' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

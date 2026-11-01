@@ -13178,6 +13178,37 @@ export declare const proceduralMaterialPresets: Readonly<{
         poreRoughness: 0.08;
         poreOcclusion: 0.3;
     }>;
+    garlicskin: Readonly<{
+        dark: readonly [96, 40, 104];
+        light: readonly [248, 242, 230];
+        roughness: 0.55;
+        relief: 0.003;
+        streaks: 11;
+        seedSalt: 27169;
+        warpColumns: 4;
+        warpRows: 6;
+        warp: 0.9;
+        widthColumns: 5;
+        widthRows: 12;
+        widthVariation: 1.1;
+        threshold: 0.35;
+        sharpness: 2.5;
+        fiberColumns: 220;
+        fiberRows: 10;
+        wrinkleColumns: 24;
+        wrinkleRows: 40;
+        grainCells: 128;
+        paperTone: 0.92;
+        streakDrop: 0.4;
+        fiberTone: 0.05;
+        wrinkleTone: 0.06;
+        grainTone: 0.02;
+        ridgeHeight: 0.35;
+        wrinkleHeight: 0.35;
+        fiberHeight: 0.15;
+        grainHeight: 0.15;
+        streakRoughness: -0.1;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -14496,4 +14527,5 @@ export declare const proceduralTileMeters: Readonly<{
     granola: 0.2;
     kawung: 0.3;
     pancake: 0.25;
+    garlicskin: 0.1;
 }>;

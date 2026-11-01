@@ -981,6 +981,7 @@ const kinds: ProceduralMaterialKind[] = [
   'granola',
   'kawung',
   'pancake',
+  'garlicskin',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -144761,6 +144762,209 @@ describe('Pancake with a golden surface, lacy brown patches and small pores', ()
     expect(pores / (512 * 512)).toBeLessThan(0.052);
     expect(maxTilt).toBeGreaterThan(0.3);
     expect(maxTilt).toBeLessThan(0.4);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Garlic skin with lengthwise purple streaks on papery cream-white', () => {
+  const p = proceduralMaterialPresets.garlicskin;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const streakMask = (seed: number): boolean[] => {
+    const sample = createSurfaceSampler('garlicskin', seed),
+      out = empty(),
+      mask: boolean[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        mask.push(out.color < 0.7);
+      }
+    return mask;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'covers about two fifths with purple streaks over cream-white paper with lengthwise fibres for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('garlicskin', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let streak = 0,
+        paper = 0,
+        low = 1,
+        high = 0,
+        mean = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        heightHigh = 0,
+        alongU = 0,
+        alongV = 0,
+        invalid = 0;
+      for (let y = 0; y < 512; y++)
+        for (let x = 0; x < 512; x++) {
+          const u = (x + 0.5) / 512,
+            v = (y + 0.5) / 512;
+          sample(u, v, a);
+          streak += Number(a.color < 0.7);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          mean += a.color;
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+          if (a.color > 0.82) {
+            paper++;
+            // Streaks and fibres run along v, so the colour changes more along u.
+            sample(u + 1 / 512, v, b);
+            sample(u, v + 1 / 512, c);
+            alongU += Math.abs(a.color - b.color);
+            alongV += Math.abs(a.color - c.color);
+          }
+        }
+      expect(streak / 262144).toBeGreaterThan(0.35);
+      expect(streak / 262144).toBeLessThan(0.41);
+      expect(paper / 262144).toBeGreaterThan(0.5);
+      expect(paper / 262144).toBeLessThan(0.56);
+      expect(low).toBeGreaterThan(0.46);
+      expect(low).toBeLessThan(0.49);
+      expect(high).toBeGreaterThan(0.97);
+      expect(high).toBeLessThan(0.98);
+      expect(mean / 262144).toBeGreaterThan(0.75);
+      expect(mean / 262144).toBeLessThan(0.78);
+      expect(roughLow).toBeCloseTo(p.roughness + p.streakRoughness, 2);
+      expect(roughHigh).toBeLessThanOrEqual(p.roughness);
+      expect(heightHigh).toBeGreaterThan(0.9);
+      expect(heightHigh).toBeLessThan(0.95);
+      expect(alongU).toBeGreaterThan(3 * alongV);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('re-draws the streak warp and widths per seed and is deterministic for one seed', () => {
+    const first = streakMask(0),
+      second = streakMask(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.3);
+    expect(streakMask(0)).toEqual(first);
+  });
+  it('keeps the streak warp, widths, fibres and wrinkles C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('garlicskin', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [
+        p.streaks,
+        p.warpColumns,
+        p.warpRows,
+        p.widthColumns,
+        p.widthRows,
+        p.fiberColumns,
+        p.fiberRows,
+        p.wrinkleColumns,
+        p.wrinkleRows,
+        p.grainCells,
+      ])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 pale lilac-white dielectric maps with very shallow normals', () => {
+    const maps = generateProceduralMaps('garlicskin', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.normal[i + 2] < 248,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(208);
+    expect(red / (512 * 512)).toBeLessThan(218);
+    expect(green / (512 * 512)).toBeGreaterThan(190);
+    expect(green / (512 * 512)).toBeLessThan(201);
+    expect(blue / (512 * 512)).toBeGreaterThan(196);
+    expect(blue / (512 * 512)).toBeLessThan(206);
+    expect(maxTilt).toBeGreaterThan(0.025);
+    expect(maxTilt).toBeLessThan(0.05);
     expect(invalid).toBe(0);
   });
 });

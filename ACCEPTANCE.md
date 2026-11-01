@@ -11965,3 +11965,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 範圍：補做`sweetcorn`、`baconstrips`、`salami`、`raspberry`、`granola`、`kawung`、`pancake`七個材質的`/examples/pbr3d/`瀏覽器gallery檢查（這些材質先前只有定向測試與gates）。
 - 方法（工具實跑）：與前一次gallery驗證相同——spawned Google Chrome headless（`--enable-unsafe-webgpu --use-angle=metal`）開啟vite dev server（服務`54a86c2ba`狀態的乾淨worktree）上的範例頁，等待`Material `讀數後，逐一以`#material`的`input`事件選取七個kind並等待讀數更新為`Material <kind> `；WebGPU與`?renderer=webgl2`各跑一次，兩次結束時`tab.errors()`的`entries`皆為0筆（dropped 0）；狀態列顯示`939 procedural material presets + plain`。
 - 限制：同前次，只涵蓋「能選取、讀數更新、console沒有錯誤」，**沒有**逐材質視覺比對、跨瀏覽器／跨GPU或Windows／Linux驗證；最近一次完整suite為`047b7f742`的179檔／9,801項通過（granola、kawung、pancake之後尚未重跑）；不push。
+
+## 2026-11-02 新增材質：蒜皮（garlicskin）
+
+- 範圍：新增`garlicskin`（目前目錄939→940種，含plain的gallery 941項）：奶油白紙質底上約11條沿v方向、相位由4×6週期雜訊扭曲且寬窄隨5×12雜訊變化的淡紫色縱向條紋（`tanh`的正弦平滑方波），帶220×10縱向纖維、24×40皺褶與128²細grain；預設0.1 m nominal tile、0.003 UV-relative relief。作者示意，沒有引用特定來源、**沒有對照照片**。
+- 外觀限制與調整紀錄（誠實紀錄）：第一版（14條、淡灰紫）太規則像波浪細條紋；第二版把紫色加深、覆蓋加大後像斑馬紋；第三版降低濃度與覆蓋才採用，但預覽仍像條紋紙而不太像真實蒜皮，我認為只是勉強近似。另外，我在撰寫zh文件時一度寫出一句不通且無依據的說明（「約三分之二的占比像是細紋」），在commit前閱讀文件時發現並刪除，現在文件只留實測占比。
+- 實測（工具實跑）：三seed 512²取樣紫色條紋區（color<0.7）占36.0–40.3%、紙面（color>0.82）占51.0–54.9%、color 0.467–0.978、平均0.756–0.774、roughness 0.45–0.55、height至多0.917–0.939 relief；紙面上沿u／沿v的逐像素色差比約3.9–4.5；seed 0與1的條紋遮罩39.4%像素不同；seed 7的512²maps平均r／g／b約(213, 196, 201)、法線tilt²最大約0.038、z分量最小253。
+- 測試：新增7項（三seed統計與纖維方向、seed差異與決定性、C1＋有符號UV週期、actual512 maps），`-t "Garlic skin|garlicskin"`通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`（含上述文件修正後再跑一次）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Garlic skin|garlicskin|kinds|catalog|distinct|periodic"`定向測試**2165項通過／3735項未選**。
+- 未驗證：本材質未跑完整suite與瀏覽器gallery；不push。

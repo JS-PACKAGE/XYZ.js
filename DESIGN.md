@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`garlicskin`（蒜皮）使目前目錄939→940種，含plain的gallery為941項。大蒜外皮：奶油白的紙質底上，約11條沿v方向延伸、被低頻雜訊扭曲且寬窄隨位置變化的淡紫色縱向條紋（實測占36–40%），帶縱向纖維、柔和皺褶與細grain；條紋處略凹且較光滑。不是真實蒜皮的剝離邊緣、破損、泥土、蒜瓣輪廓或半透明感，預覽看起來比較像波浪紫條紋紙，而不太像蒜皮。
+
+此材質是作者依一般大蒜外皮外觀所作示意，沒有引用特定來源文件、照片或量測，也沒有對照照片；條紋數（每tile 11）、扭曲與寬度變化量、紫色門檻與濃度、纖維與皺褶強度、紙白與紫色的色調、roughness與0.1 m nominal tile皆作者設定，不宣稱符合任何真實蒜種。
+
+新增專用sampler：相位 = `11·u + 0.9·(warp(u, v) − 0.5)`（`warp`為4×6週期雜訊），紫色權重 = `0.5 + 0.5·tanh(2.5·(sin(2π·相位) − 0.35 − 1.1·(width(u, v) − 0.5)))`（`tanh`的正弦是平滑方波，C∞；`width`為5×12週期雜訊使條紋寬窄與出現位置平滑變化；整數條紋數隨tile wrap）；紙質另有220×10沿v方向的纖維雜訊、24×40的柔和皺褶雜訊與128²細grain；cache合計24＋60＋2,200＋960＋16,384 = 19,628個Float64／157,024 B lattice算術預算（非總RAM）。顏色是顏料，紫色使color降低0.4，條紋脊的height約0.35 relief、皺褶0.35、纖維0.15、grain 0.15，紫色處roughness降低0.1；金屬factor為0、無mortar、AO 1。預設0.1 m nominal tile與0.003 UV-relative relief（非公尺位移）。實測（工具實跑，seed 0／1／0xffffffff，512²取樣）：color<0.7的紫色條紋區占36.0–40.3%，color>0.82的紙面占51.0–54.9%，color 0.467–0.978，全圖平均0.756–0.774，roughness 0.45–0.55，height至多0.917–0.939 relief；在紙面上沿u方向的逐像素色差約為沿v方向的3.9–4.5倍；seed 0與1的條紋遮罩有39.4%像素不同；seed 7的512²maps平均r／g／b約(213, 196, 201)、法線tilt²最大約0.038。我實看了預覽：淡紫色波浪縱條紋疊在奶油白紙面上，但太規則而像條紋紙，不太像真實蒜皮；我曾兩次調淡條紋濃度與覆蓋（第一版太像斑馬紋）仍只是勉強接近。未新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `pancake`（鬆餅／煎餅）使目前目錄938→939種，含plain的gallery為940項。煎餅表面：金黃色底上有低頻、邊緣帶蕾絲狀不規則的焦褐色斑塊（面積隨seed差異很大，約25–63%），散布著微小的氣孔凹洞；表面略粗糙。不是真實煎餅的邊緣、厚度、焦糖光澤、奶油或糖漿，也不是特定的鬆餅、可麗餅或薄餅。
 
 此材質是作者依一般煎餅表面外觀所作示意，沒有引用特定來源文件、照片或量測，也沒有對照照片；兩層雜訊的格數與權重、焦褐色的門檻與銳度、氣孔密度與大小、金黃與焦褐的色調、roughness與0.25 m nominal tile皆作者設定，不宣稱符合任何實際煎餅。
