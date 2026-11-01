@@ -950,6 +950,7 @@ const kinds: ProceduralMaterialKind[] = [
   'europeanlarch',
   'lenticularsheet',
   'eastindianrosewood',
+  'topographicmap',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -138621,5 +138622,188 @@ describe('Deep purplish-brown East Indian Rosewood with darker blackish streaks 
       }
     }
     expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Topographic map paper with constant-width brown contour lines, heavier index contours and faint elevation tint', () => {
+  const p = proceduralMaterialPresets.topographicmap;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const inkMask = (seed: number): boolean[] => {
+    const sample = createSurfaceSampler('topographicmap', seed),
+      out = empty(),
+      mask: boolean[] = [];
+    for (let y = 0; y < 512; y++)
+      for (let x = 0; x < 512; x++) {
+        sample((x + 0.5) / 512, (y + 0.5) / 512, out);
+        mask.push(out.color < 0.7);
+      }
+    return mask;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'prints thin raised brown contours on warm pale paper with darker index lines and no metal or occlusion for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('topographicmap', seed),
+        a = empty();
+      let ink = 0,
+        strong = 0,
+        paper = 0,
+        inkHeight = 0,
+        paperHeight = 0,
+        low = 1,
+        high = 0,
+        mean = 0,
+        invalid = 0;
+      for (let y = 0; y < 512; y++)
+        for (let x = 0; x < 512; x++) {
+          sample((x + 0.5) / 512, (y + 0.5) / 512, a);
+          mean += a.color;
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          if (a.color < 0.7) {
+            ink++;
+            inkHeight += a.height;
+          } else {
+            paper++;
+            paperHeight += a.height;
+          }
+          strong += Number(a.color < 0.45);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              a.roughness < 0.7 ||
+              a.roughness > 0.86,
+          );
+          for (const key of keys)
+            invalid += Number(
+              !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+            );
+        }
+      expect(ink / 262144).toBeGreaterThan(0.085);
+      expect(ink / 262144).toBeLessThan(0.115);
+      expect(strong / 262144).toBeGreaterThan(0.06);
+      expect(strong / 262144).toBeLessThan(0.085);
+      expect(low).toBeGreaterThan(p.indexInkTone - 0.001);
+      expect(low).toBeLessThan(p.indexInkTone + 0.01);
+      expect(high).toBeGreaterThan(0.915);
+      expect(high).toBeLessThan(0.945);
+      expect(mean / 262144).toBeGreaterThan(0.82);
+      expect(mean / 262144).toBeLessThan(0.87);
+      expect(inkHeight / ink - paperHeight / paper).toBeGreaterThan(
+        0.45 * p.relief,
+      );
+      expect(invalid).toBe(0);
+    },
+  );
+  it('moves the contour field with the seed and is deterministic for one seed', () => {
+    const first = inkMask(0),
+      second = inkMask(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.1);
+    expect(inkMask(0)).toEqual(first);
+  });
+  it('keeps contour lines, index emphasis, summits and the paper grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('topographicmap', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.grainCells, 64])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (const y of [0.05, 0.31, 0.5, 0.77])
+        for (let i = 0; i < 8192; i++) check(i / 8192, y);
+      for (let i = 0; i < 8192; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 warm pale paper maps with about a tenth of the surface in brown contour ink and shallow normals', () => {
+    const maps = generateProceduralMaps('topographicmap', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      ink = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      ink += Number(maps.baseColor[i + 2] < 170);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.baseColor[i] < maps.baseColor[i + 1] ||
+          maps.baseColor[i + 1] < maps.baseColor[i + 2] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(210);
+    expect(red / (512 * 512)).toBeLessThan(235);
+    expect(ink / (512 * 512)).toBeGreaterThan(0.095);
+    expect(ink / (512 * 512)).toBeLessThan(0.125);
+    expect(maxTilt).toBeGreaterThan(0.08);
+    expect(maxTilt).toBeLessThan(0.15);
+    expect(invalid).toBe(0);
   });
 });

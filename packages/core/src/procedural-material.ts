@@ -923,7 +923,8 @@ export type ProceduralMaterialKind =
   | 'shagbarkhickory'
   | 'europeanlarch'
   | 'lenticularsheet'
-  | 'eastindianrosewood';
+  | 'eastindianrosewood'
+  | 'topographicmap';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2081,6 +2082,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'europeanlarch',
   'lenticularsheet',
   'eastindianrosewood',
+  'topographicmap',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

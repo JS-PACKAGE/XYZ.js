@@ -1095,6 +1095,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`topographicmap`（等高線地形圖紙）使目前目錄908→909種，含plain的gallery為910項。暖米白紙面上以定值寬度的棕色等高線印出一塊由7個整數波數正弦疊成的地形（16個等高階、每5條一條較粗較深的計曲線），紙面隨高度有極淡的色調變化與細紙纖維grain；墨線略高於紙面。不是真實地形資料、標高註記、水系、道路、網格或圖例文字。
+
+此材質是作者依「等高線地形圖」一般樣式所作示意，沒有引用特定來源文件、照片或量測；等高階數、計曲線間隔、線寬、墨色、紙色與0.3 m nominal tile皆作者設定，不宣稱符合任何實際地圖規格或比例尺。
+
+新增專用sampler：以7個整數波數、含seed決定相位與±20%振幅抖動的正弦疊成週期解析地形（C∞），等高線距離以`sin²(πd)/π² ÷ (levels·|∇|)²`換算成UV空間距離平方（|∇|加下限0.4使山頂與鞍部平滑），因此線寬不隨坡度變寬；線 = `smooth(1 − 距離²/寬²)`，計曲線權重 = `((1+cos(2πd/5))/2)^6`，故線寬與墨色皆C∞。cache為128²紙纖維grain加7相位與7振幅，共16,398 Float64／131,184 B lattice算術預算（非總RAM）。顏色是顏料，墨線height 0.6 relief、紙面grain至多0.15；金屬factor為0、無mortar、AO 1。預設0.3 m nominal tile與0.0015 UV-relative relief（非公尺位移）皆作者設定。三seed（0／1／0xffffffff）、512²取樣：color<0.7（含邊緣漸層）占9.3–10.5%、color<0.45占6.7–7.6%、最低color 0.14（計曲線墨色）、最高0.925–0.930、平均0.839–0.846、墨線平均高度約0.575 relief對紙面約0.077；seed 0與1的墨線遮罩有17.6%像素不同；seed7的512² base color平均約(222,206,180)、b<170占10.9%、法線max tilt²約0.111。我先實看了首版渲染，確認線寬在平坦與陡峭區都大致一致後才定稿。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `eastindianrosewood`（東印度黃檀）使目前目錄907→908種，含plain的gallery為909項。近似Dalbergia latifolia未塗裝縱向木面：深紫褐底色、5條較暗近黑的起伏條紋、細縱向纖維紋與散布短小開放導管凹點（約1.2%）。不是金褐色淺色面、白色邊材、拋光面、交錯／波浪紋或油脂光澤。
 
 外觀依據實際閱讀的[Wood Database East Indian Rosewood](https://www.wood-database.com/east-indian-rosewood/)（Color／Appearance：心材由金褐到深紫褐，帶更暗近黑的條紋，隨時間變深、通常成深褐）與實際下載並實看的[木面照片](https://www.wood-database.com/wp-content/uploads/dalbergia-latifolia-1-300x600.jpg)（深褐帶紫調的縱向木面、較暗條紋與細孔）；僅作配色與紋理形態參考，不重現金褐淺色變化、淺色邊材或真實導管分布，不打包來源圖，也不由照片反推真色、roughness或實際尺寸。

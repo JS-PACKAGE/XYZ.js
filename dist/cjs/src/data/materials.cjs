@@ -20353,6 +20353,73 @@ var proceduralMaterialPresets = Object.freeze({
 		fiberRows: 9,
 		fiberContrast: .2
 	}),
+	topographicmap: Object.freeze({
+		dark: [
+			118,
+			70,
+			40
+		],
+		light: [
+			242,
+			232,
+			206
+		],
+		roughness: .82,
+		relief: .0015,
+		waves: [
+			[
+				1,
+				0,
+				1
+			],
+			[
+				0,
+				1,
+				.9
+			],
+			[
+				1,
+				1,
+				.7
+			],
+			[
+				2,
+				1,
+				.45
+			],
+			[
+				1,
+				-2,
+				.4
+			],
+			[
+				3,
+				2,
+				.22
+			],
+			[
+				2,
+				-3,
+				.18
+			]
+		],
+		seedSalt: 28816,
+		levels: 16,
+		indexEvery: 5,
+		lineWidth: .0028,
+		indexExtraWidth: .0016,
+		gradientFloor: .4,
+		grainCells: 128,
+		paperTone: .93,
+		elevationTint: .07,
+		grainTone: .03,
+		inkTone: .34,
+		indexInkTone: .14,
+		inkHeight: .6,
+		grainHeight: .15,
+		inkRoughness: -.08,
+		grainRoughness: .04
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -21758,7 +21825,8 @@ var proceduralTileMeters = Object.freeze({
 	shagbarkhickory: .18,
 	europeanlarch: .2,
 	lenticularsheet: .1,
-	eastindianrosewood: .18
+	eastindianrosewood: .18,
+	topographicmap: .3
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

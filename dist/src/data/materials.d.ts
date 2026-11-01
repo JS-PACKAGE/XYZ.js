@@ -12438,6 +12438,29 @@ export declare const proceduralMaterialPresets: Readonly<{
         fiberRows: 9;
         fiberContrast: 0.2;
     }>;
+    topographicmap: Readonly<{
+        dark: readonly [118, 70, 40];
+        light: readonly [242, 232, 206];
+        roughness: 0.82;
+        relief: 0.0015;
+        waves: readonly [readonly [1, 0, 1], readonly [0, 1, 0.9], readonly [1, 1, 0.7], readonly [2, 1, 0.45], readonly [1, -2, 0.4], readonly [3, 2, 0.22], readonly [2, -3, 0.18]];
+        seedSalt: 28816;
+        levels: 16;
+        indexEvery: 5;
+        lineWidth: 0.0028;
+        indexExtraWidth: 0.0016;
+        gradientFloor: 0.4;
+        grainCells: 128;
+        paperTone: 0.93;
+        elevationTint: 0.07;
+        grainTone: 0.03;
+        inkTone: 0.34;
+        indexInkTone: 0.14;
+        inkHeight: 0.6;
+        grainHeight: 0.15;
+        inkRoughness: -0.08;
+        grainRoughness: 0.04;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -13725,4 +13748,5 @@ export declare const proceduralTileMeters: Readonly<{
     europeanlarch: 0.2;
     lenticularsheet: 0.1;
     eastindianrosewood: 0.18;
+    topographicmap: 0.3;
 }>;

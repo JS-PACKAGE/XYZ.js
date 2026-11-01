@@ -37228,6 +37228,56 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'topographicmap': {
+        const p = proceduralMaterialPresets.topographicmap,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x7091),
+          phases = p.waves.map((_, i) => TAU * hash(i, 0, seed ^ p.seedSalt)),
+          amplitudes = p.waves.map(
+            (wave, i) => wave[2] * (0.8 + 0.4 * hash(i, 1, seed ^ p.seedSalt)),
+          ),
+          amplitudeSum = amplitudes.reduce((sum, value) => sum + value, 0),
+          floor2 = p.gradientFloor * p.gradientFloor,
+          indexPeriod = p.indexEvery;
+        return () => {
+          // A terrain made of a few integer-wavenumber sinusoids (periodic and
+          // analytic) is contoured at constant levels. Dividing the squared level
+          // distance sin^2(pi d) / pi^2 by (levels * |grad|)^2 turns it into a squared
+          // UV-space distance, so line width stays constant instead of widening on
+          // flat ground; the floored gradient keeps summits and saddles smooth.
+          let elevation = 0,
+            gradientU = 0,
+            gradientV = 0;
+          for (let i = 0; i < p.waves.length; i++) {
+            const [m, n] = p.waves[i],
+              phase = TAU * (m * u + n * v) + phases[i],
+              slope = amplitudes[i] * TAU * Math.cos(phase);
+            elevation += amplitudes[i] * Math.sin(phase);
+            gradientU += slope * m;
+            gradientV += slope * n;
+          }
+          const level = 0.5 + (0.5 * elevation) / amplitudeSum,
+            scale = (0.5 * p.levels) / amplitudeSum,
+            speed2 =
+              (gradientU * gradientU + gradientV * gradientV) * scale * scale +
+              floor2,
+            d = level * p.levels,
+            sine = Math.sin(Math.PI * d),
+            distance2 = (sine * sine) / (Math.PI * Math.PI * speed2),
+            index = ((1 + Math.cos((TAU * d) / indexPeriod)) / 2) ** 6,
+            width = p.lineWidth + index * p.indexExtraWidth,
+            line = smooth(clamp(1 - distance2 / (width * width))),
+            grain = grainField(u, v),
+            paper =
+              p.paperTone -
+              p.elevationTint * level +
+              p.grainTone * (grain - 0.5),
+            ink = p.inkTone + (p.indexInkTone - p.inkTone) * index;
+          color = paper * (1 - line) + ink * line;
+          height = p.grainHeight * grain + p.inkHeight * line;
+          roughness += p.inkRoughness * line + p.grainRoughness * (grain - 0.5);
+          return;
+        };
+      }
       case 'woodenpalletdeck': {
         const p = proceduralMaterialPresets.woodenpalletdeck,
           tones = new Float64Array(p.boards),
@@ -44823,6 +44873,7 @@ export function createSurfaceSampler(
     kind === 'honduranmahogany' ||
     kind === 'shagbarkhickory' ||
     kind === 'eastindianrosewood' ||
+    kind === 'topographicmap' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
     kind === 'sitkaspruce' ||

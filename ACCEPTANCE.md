@@ -11625,3 +11625,14 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Rosewood|eastindianrosewood|kinds|catalog|distinct|periodic"`定向測試，**2107項通過／3555項未選**。
 - 補記（完整suite）：先前在凍結worktree於monitorlizardskin commit `66ba515b5`實跑完整`vitest run`，**179檔／9,563項全部通過**（1262.80s，wall約21分）；該commit之後的shagbarkhickory、europeanlarch、lenticularsheet與本功能沒有重跑完整suite，僅有各自的定向測試與gates。
 - 未開瀏覽器gallery（monitorlizardskin、shagbarkhickory、europeanlarch、lenticularsheet與本功能均未在gallery驗證內）；不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：等高線地形圖紙（topographicmap）
+
+- 目錄908→909，含plain的gallery為910項。暖米白紙面上以定值寬度的棕色等高線印出由7個整數波數正弦疊成的地形（16階、每5條一條較粗較深的計曲線），極淡的高度色調與紙纖維grain，墨線略高於紙面。這是作者依一般等高線地形圖樣式所作示意，**沒有**引用特定來源，不宣稱符合任何地圖規格或比例尺，也不含真實地形、標高註記、水系、道路或圖例。
+- 專用sampler：週期解析（C∞）的正弦地形，等高線距離以`sin²(πd)/π² ÷ (levels·|∇|)²`換算成UV空間距離平方（|∇|下限0.4）使線寬不隨坡度變寬；線與計曲線權重皆為C∞函數。cache為128² grain＋7相位＋7振幅共16,398 Float64／131,184 B。預設0.3 m tile、0.0015 UV-relative relief（非公尺位移）、metallic factor0、AO 1；不新增API或依賴。
+- 設計取捨：我最初考慮用既有`cachedNoise`值雜訊當高度，但它只有C1的一階導數連續，以梯度正規化的線寬會在格線處產生折角、依推論無法通過二階差分C1測試（此推論未實際嘗試），所以直接改用整數波數正弦（解析、週期）。首版渲染實看後確認線寬在平坦與陡峭區大致一致、計曲線較粗較深。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）512²取樣color<0.7占9.3–10.5%、color<0.45占6.7–7.6%、最低color 0.14（計曲線墨色）、最高0.925–0.930、平均0.839–0.846、墨線平均高度約0.575 relief對紙面約0.077；seed 0與1的墨線遮罩有17.6%像素不同；seed7的512² base color平均約(222,206,180)、b<170占10.9%、法線max tilt²約0.111。
+- 新增4項永久測試（`Topographic`：三seed墨線／紙面統計、seed移動等高場與同seed確定性、含密集掃描的C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選7項通過（7.38s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Topographic|topographicmap|kinds|catalog|distinct|periodic"`定向測試，**2108項通過／3561項未選**。
+- 補記（瀏覽器gallery）：從乾淨worktree啟動vite（5391埠），以spawned Google Chrome headless在WebGPU與`?renderer=webgl2`兩條路徑，逐一以`#material`的`input`事件選取monitorlizardskin、shagbarkhickory、europeanlarch、lenticularsheet、eastindianrosewood與topographicmap，並等待readout出現`Material <kind> `，**6種全部成功**，狀態列為「909 procedural material presets + plain」，`errors()`為空。第一次執行時WebGPU路徑的monitorlizardskin逾時；原因是我在頁面初始化完成前就送出了第一次選取，等待初始readout後重跑即通過（同樣的事件順序），不是材質本身失敗。此驗證只涵蓋「能選取、無console錯誤、readout更新」，**不是**逐材質的視覺比對或跨瀏覽器／GPU驗證。
+- 補記（完整suite）：先前在凍結worktree於rosewood commit `f6b828f76`的完整suite正在執行，結果另記於後續section；本功能沒有重跑完整179檔suite；不push。
