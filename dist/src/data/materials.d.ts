@@ -8580,6 +8580,38 @@ export declare const proceduralMaterialPresets: Readonly<{
         liveRoughness: 0.4;
         paperRoughness: 0.72;
     }>;
+    mastermindboard: Readonly<{
+        dark: readonly [30, 18, 10];
+        light: readonly [236, 214, 170];
+        roughness: 0.45;
+        relief: 0.004;
+        columns: 6;
+        rows: 9;
+        pegCount: 4;
+        colorCount: 6;
+        holeRadius: 0.036;
+        pegRadius: 0.032;
+        smallHoleRadius: 0.014;
+        smallPegRadius: 0.012;
+        edgeSoft: 0.003;
+        dividerHalf: 0.004;
+        grainCells: 192;
+        grainStretch: 10;
+        boardTone: 0.42;
+        boardVariation: 0.06;
+        holeTone: 0.14;
+        pegTones: readonly [0.34, 0.46, 0.58, 0.7, 0.82, 0.9];
+        exactTone: 0.98;
+        partialTone: 0.04;
+        shineTone: 0.1;
+        dividerTone: 0.2;
+        boardHeight: 0.5;
+        holeHeight: 0.15;
+        pegHeight: 0.85;
+        boardRoughness: 0.5;
+        pegRoughness: 0.25;
+        holeAO: 0.5;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -15065,6 +15097,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    mastermindboard: 0.35;
     elementaryautomata: 0.4;
     bluenoisemask: 0.2;
     fibonaccisquares: 0.4;

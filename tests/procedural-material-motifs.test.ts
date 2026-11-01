@@ -10127,3 +10127,127 @@ describe('elementaryautomata: every row follows from the previous one by the pan
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('mastermindboard: feedback pegs score each guess against the revealed code', () => {
+  const p = proceduralMaterialPresets.mastermindboard;
+  const columns = 6,
+    rows = 9;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'scores every guess with exact and partial pegs by the game rules (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('mastermindboard', seed),
+        out = empty(),
+        toneAt = (x: number, y: number): number => {
+          sample(x, y, out);
+          return out.color;
+        },
+        colorOf = (tone: number): number => {
+          let best = 0;
+          for (let i = 1; i < p.pegTones.length; i++)
+            if (
+              Math.abs(p.pegTones[i] - tone) < Math.abs(p.pegTones[best] - tone)
+            )
+              best = i;
+          // The peg tones are 0.12 apart and the highlight at the exact centre adds at most 0.01.
+          expect(Math.abs(p.pegTones[best] - tone)).toBeLessThan(0.04);
+          return best;
+        };
+      const code = (row: number): number[] => {
+        const colors: number[] = [];
+        for (let i = 0; i < 4; i++)
+          colors.push(colorOf(toneAt((i + 0.5) / columns, (row + 0.5) / rows)));
+        return colors;
+      };
+      const secret = code(0);
+      const distinctGuesses = new Set<string>();
+      let informative = 0;
+      for (let row = 1; row < rows; row++) {
+        const guess = code(row);
+        distinctGuesses.add(guess.join(''));
+        // Decode the feedback block: slot order is left-right, top-bottom over the two last columns.
+        let exact = 0,
+          partial = 0,
+          seenEmpty = false;
+        for (let slot = 0; slot < 4; slot++) {
+          const x = (4.5 + (slot % 2)) / columns,
+            y = (row + 0.5 + (slot < 2 ? -0.25 : 0.25)) / rows,
+            tone = toneAt(x, y);
+          if (tone > 0.9) {
+            exact++;
+            expect(seenEmpty).toBe(false);
+          } else if (tone < 0.09) {
+            partial++;
+          } else {
+            seenEmpty = true;
+            expect(Math.abs(tone - p.holeTone)).toBeLessThan(0.03);
+          }
+        }
+        // Pegs are placed exact first, then partial, then the empty holes.
+        let order = 0;
+        for (let slot = 0; slot < 4; slot++) {
+          const tone = toneAt(
+              (4.5 + (slot % 2)) / columns,
+              (row + 0.5 + (slot < 2 ? -0.25 : 0.25)) / rows,
+            ),
+            rank = tone > 0.9 ? 0 : tone < 0.09 ? 1 : 2;
+          expect(rank).toBeGreaterThanOrEqual(order);
+          order = rank;
+        }
+        // Independent scoring: exact = same colour in the same place; the total of shared colours
+        // (counted with multiplicity) minus the exact ones gives the partial ones.
+        const expectedExact = guess.filter(
+          (color, i) => color === secret[i],
+        ).length;
+        let shared = 0;
+        for (let color = 0; color < p.colorCount; color++)
+          shared += Math.min(
+            secret.filter((c) => c === color).length,
+            guess.filter((c) => c === color).length,
+          );
+        expect(exact).toBe(expectedExact);
+        expect(partial).toBe(shared - expectedExact);
+        informative += Number(exact + partial > 0);
+      }
+      // Eight random guesses are mostly not all misses, and not all identical.
+      expect(informative).toBeGreaterThanOrEqual(3);
+      expect(distinctGuesses.size).toBeGreaterThanOrEqual(4);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('mastermindboard', 0),
+      b = createSurfaceSampler('mastermindboard', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

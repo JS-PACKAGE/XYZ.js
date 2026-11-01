@@ -1425,6 +1425,10 @@
 
 這是作者設計的示意：只有四種規則、固定31格寬與31列；環狀邊界，所以圖樣會在左右邊緣繞接（與tile相鄰面板之間不相連）；起始列含隨機點，因此不是典型的「單一種子」三角形（想看單一種子可把seedDensity設為0）；「奇數環不會歸零」是在目前這些seed上觀察到的結果，沒有數學證明；顏色是亮度（近黑墨、淺灰格線、米白紙）。預設0.4 m nominal tile、0.0014 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上（每格約8 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`mastermindboard`（珠璣妙算／Mastermind棋盤）使目前目錄964→965種，含plain的gallery為966項。每tile是一塊6欄×9列的棋盤：最上面一列是公開的密碼（4顆釘子，從6種顏色中隨機選出），其下8列各是一次隨機猜測的4顆釘子；每個猜測右側的兩欄是2×2的回饋釘孔，依規則計分——位置與顏色都對的「準確釘」（亮色，0.98）先填，只有顏色對但位置錯的「部分釘」（近黑，0.04）接著填，其餘是空孔——填入順序為左到右、上到下。6種釘子顏色以六個亮度（0.34至0.9，間隔0.12）表示，孔是暗褐色，棋盤是木質褐色並帶沿垂直方向拉長的木紋，密碼列與猜測列之間有一條橫線分隔。Metallic與mortar為0。
+
+這是作者設計的示意：猜測是隨機的，不是玩家根據前面的回饋做出的推理（所以後面的猜測不一定與前面的回饋一致，也不保證有任何一列猜中全部）；沒有遮蓋密碼的蓋板；顏色只是亮度，六種釘子在小尺寸下不易分辨；回饋釘的「黑／白」依慣例是「準確／部分」，這裡以亮／暗表示。預設0.35 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

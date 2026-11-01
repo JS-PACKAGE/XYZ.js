@@ -23093,6 +23093,109 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'mastermindboard': {
+        const p = proceduralMaterialPresets.mastermindboard,
+          grainField = cachedNoise(
+            p.grainStretch,
+            p.grainCells,
+            seed ^ 0x28f01,
+          ),
+          columns = p.columns,
+          rows = p.rows,
+          width = 1 / columns,
+          rowHeight = 1 / rows,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // Row 0 is the revealed secret code; rows 1 to rows - 1 are random guesses.
+          codes = new Uint8Array(rows * p.pegCount),
+          // Feedback per guess row: pegs for right color in the right place, and for right color
+          // in the wrong place.
+          exact = new Uint8Array(rows),
+          partial = new Uint8Array(rows);
+        for (let row = 0; row < rows; row++)
+          for (let i = 0; i < p.pegCount; i++)
+            codes[row * p.pegCount + i] = Math.min(
+              p.colorCount - 1,
+              Math.floor(hash(i, row, seed ^ 0x28f03) * p.colorCount),
+            );
+        for (let row = 1; row < rows; row++) {
+          // Mastermind scoring of the guess against the secret.
+          const secretLeft = new Array<number>(p.colorCount).fill(0),
+            guessLeft = new Array<number>(p.colorCount).fill(0);
+          let blacks = 0,
+            whites = 0;
+          for (let i = 0; i < p.pegCount; i++) {
+            const secret = codes[i],
+              guess = codes[row * p.pegCount + i];
+            if (secret === guess) blacks++;
+            else {
+              secretLeft[secret]++;
+              guessLeft[guess]++;
+            }
+          }
+          for (let c = 0; c < p.colorCount; c++)
+            whites += Math.min(secretLeft[c], guessLeft[c]);
+          exact[row] = blacks;
+          partial[row] = whites;
+        }
+        return () => {
+          const row = Math.min(rows - 1, Math.floor(v * rows)),
+            col = Math.min(columns - 1, Math.floor(u * columns)),
+            fx = (u * columns - col - 0.5) * width,
+            fy = (v * rows - row - 0.5) * rowHeight,
+            grain = grainField(u * p.grainStretch, v) - 0.5,
+            divider = cover(p.dividerHalf - Math.abs(v - rowHeight)),
+            board = p.boardTone + p.boardVariation * grain;
+          let tone: number = board,
+            hole = 0,
+            peg = 0,
+            gloss = 0;
+          if (col < p.pegCount) {
+            // A big hole at the center of the cell holding a colored peg.
+            const distance = Math.hypot(fx, fy);
+            hole = cover(p.holeRadius - distance);
+            peg = cover(p.pegRadius - distance);
+            tone += (p.holeTone - tone) * hole;
+            tone += (p.pegTones[codes[row * p.pegCount + col]] - tone) * peg;
+            gloss =
+              peg * smooth(clamp(1 - Math.hypot(fx + 0.01, fy + 0.01) / 0.02));
+          } else if (row > 0) {
+            // Feedback: a 2 x 2 block of small holes over the last two columns, the exact pegs
+            // first and then the partial ones, in reading order.
+            const slotX = col - p.pegCount,
+              slotY = fy > 0 ? 1 : 0,
+              slot = slotY * 2 + slotX,
+              distance = Math.hypot(
+                fx,
+                fy - (slotY === 0 ? -rowHeight / 4 : rowHeight / 4),
+              ),
+              state =
+                slot < exact[row]
+                  ? 1
+                  : slot < exact[row] + partial[row]
+                    ? 2
+                    : 0;
+            hole = cover(p.smallHoleRadius - distance);
+            peg = state > 0 ? cover(p.smallPegRadius - distance) : 0;
+            tone += (p.holeTone - tone) * hole;
+            if (state > 0)
+              tone +=
+                ((state === 1 ? p.exactTone : p.partialTone) - tone) * peg;
+          }
+          color = clamp(
+            tone + p.shineTone * gloss + (p.dividerTone - tone) * divider,
+          );
+          height = clamp(
+            p.boardHeight +
+              (p.holeHeight - p.boardHeight) * hole +
+              (p.pegHeight - p.holeHeight) * peg,
+          );
+          roughness =
+            p.boardRoughness + (p.pegRoughness - p.boardRoughness) * peg;
+          occlusion = clamp(1 - (1 - p.holeAO) * hole * (1 - peg));
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -50622,6 +50725,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'mastermindboard' ||
     kind === 'elementaryautomata' ||
     kind === 'bluenoisemask' ||
     kind === 'fibonaccisquares' ||
