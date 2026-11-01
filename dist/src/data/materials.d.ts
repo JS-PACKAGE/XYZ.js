@@ -7554,6 +7554,31 @@ export declare const proceduralMaterialPresets: Readonly<{
         inkRoughness: 0.44;
         paperRoughness: 0.76;
     }>;
+    flipdotdisplay: Readonly<{
+        dark: readonly [10, 10, 12];
+        light: readonly [236, 214, 54];
+        roughness: 0.5;
+        relief: 0.003;
+        dots: 48;
+        digitColumns: 12;
+        digitRows: 8;
+        discRadius: 0.42;
+        edgeSoft: 0.06;
+        pivotRadius: 0.08;
+        grainCells: 256;
+        panelTone: 0.02;
+        offTone: 0.14;
+        onTone: 0.92;
+        grainTone: 0.03;
+        panelHeight: 0.1;
+        offHeight: 0.46;
+        onHeight: 0.62;
+        shineHeight: 0.06;
+        onRoughness: 0.34;
+        offRoughness: 0.62;
+        panelRoughness: 0.9;
+        panelAO: 0.45;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -14039,6 +14064,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    flipdotdisplay: 0.5;
     crosswordgrid: 0.3;
     fretboard: 0.32;
     calendarpage: 0.3;

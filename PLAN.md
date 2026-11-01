@@ -1251,6 +1251,10 @@
 
 這是作者設計的示意：格子只是空白填字格，沒有答案字母、提示文字或粗外框，也不保證有可填入的詞表；規則與編號只在單一tile內成立，tile重複時相鄰tile邊緣的白格連續段會跨過tile邊界，所以重複後並不是一個合規的大型填字格。預設0.3 m nominal tile、0.0014 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上讓每格約68 px（編號像素約3.4 px）；512時每格約34 px，編號會相當小；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`flipdotdisplay`（翻轉點陣顯示器）使目前目錄924→925種，含plain的gallery為926項。每tile 48×48個圓盤，黑色面板上每個圓盤半徑0.42格：亮起的為黃色（tone 0.92，較光滑、略凸並帶左上高光與中心軸點），熄滅的為深灰黑（0.14）。整個盤面是12欄×8列的數字，每個數字佔4×6個點，以3×5點陣字型亮起並在右側與下側各留一點空白，數字內容由seed決定（0–9）。面板有細微顆粒、圓盤之間有較暗的AO。Metallic與mortar為0。
+
+這是作者設計的示意：沒有翻盤動畫、磁性翻轉的雙穩態、盤面反面（黑／黃）的厚度或機械間隙的細節；數字只是隨機序列，沒有時鐘、站名或其他語意。預設0.5 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上讓每個圓盤約21 px；512時約11 px，高光與軸點會很小；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

@@ -5163,3 +5163,103 @@ describe('crosswordgrid: a rule-abiding symmetric grid with standard numbering',
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('flipdotdisplay: a dot matrix spelling a grid of digits', () => {
+  const p = proceduralMaterialPresets.flipdotdisplay;
+  const cellColumns = p.dots / p.digitColumns,
+    cellRows = p.dots / p.digitRows;
+  // 3x5 pixel glyphs for 0-9, written out independently of the sampler.
+  const glyphs = [
+    '111101101101111',
+    '010110010010111',
+    '111001111100111',
+    '111001111001111',
+    '101101111001001',
+    '111100111001111',
+    '111100111101111',
+    '111001001010010',
+    '111101111101111',
+    '111101111001111',
+  ];
+
+  it.each(seeds)(
+    'lights discs that decode to a digit in every cell with an unlit margin (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('flipdotdisplay', seed),
+        out = empty(),
+        lit = (col: number, row: number): boolean => {
+          sample((col + 0.5) / p.dots, (row + 0.5) / p.dots, out);
+          return out.color > 0.5;
+        },
+        seen = new Set<number>();
+      for (let dr = 0; dr < p.digitRows; dr++)
+        for (let dc = 0; dc < p.digitColumns; dc++) {
+          let bits = '';
+          for (let y = 0; y < cellRows; y++)
+            for (let x = 0; x < cellColumns; x++) {
+              const on = lit(dc * cellColumns + x, dr * cellRows + y);
+              if (x < 3 && y < 5) bits += on ? '1' : '0';
+              else expect(on).toBe(false);
+            }
+          const digit = glyphs.indexOf(bits);
+          expect(digit).toBeGreaterThanOrEqual(0);
+          seen.add(digit);
+        }
+      expect(seen.size).toBeGreaterThanOrEqual(8);
+      // A lit disc is round with the authored radius: measure its width and height through the center.
+      const start = (() => {
+        for (let row = 0; row < p.dots; row++)
+          for (let col = 0; col < p.dots; col++)
+            if (lit(col, row)) return { col, row };
+        return { col: 0, row: 0 };
+      })();
+      for (const alongU of [true, false]) {
+        let width = 0;
+        const step = 0.001;
+        for (let t = -0.5; t <= 0.5; t += step) {
+          const gu = alongU ? start.col + 0.5 + t : start.col + 0.5,
+            gv = alongU ? start.row + 0.5 : start.row + 0.5 + t;
+          sample(gu / p.dots, gv / p.dots, out);
+          width += Number(out.color > 0.5) * step;
+        }
+        expect(Math.abs(width - 2 * p.discRadius)).toBeLessThan(0.05);
+      }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('flipdotdisplay', 0),
+      b = createSurfaceSampler('flipdotdisplay', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

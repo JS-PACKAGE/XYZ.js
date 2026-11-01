@@ -13569,6 +13569,39 @@ var proceduralMaterialPresets = Object.freeze({
 		inkRoughness: .44,
 		paperRoughness: .76
 	}),
+	flipdotdisplay: Object.freeze({
+		dark: [
+			10,
+			10,
+			12
+		],
+		light: [
+			236,
+			214,
+			54
+		],
+		roughness: .5,
+		relief: .003,
+		dots: 48,
+		digitColumns: 12,
+		digitRows: 8,
+		discRadius: .42,
+		edgeSoft: .06,
+		pivotRadius: .08,
+		grainCells: 256,
+		panelTone: .02,
+		offTone: .14,
+		onTone: .92,
+		grainTone: .03,
+		panelHeight: .1,
+		offHeight: .46,
+		onHeight: .62,
+		shineHeight: .06,
+		onRoughness: .34,
+		offRoughness: .62,
+		panelRoughness: .9,
+		panelAO: .45
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -22250,6 +22283,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	flipdotdisplay: .5,
 	crosswordgrid: .3,
 	fretboard: .32,
 	calendarpage: .3,

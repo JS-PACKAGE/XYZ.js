@@ -11682,3 +11682,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 設計記錄：sampler建立時（非每個取樣點）以雜湊驅動的隨機增補黑格對，每次檢查規則後才接受；規則檢查包含整行／整列的白格連續段長度與白格連通性（洪水填充）。另外整理了第一版尾段重複的ink／base算式。
 - 實測：`tests/procedural-material-motifs.test.ts`二百三十三項（本材質九項）全過。八個seed（0、7、4294967295、1、2、3、4、5）：在格中心取樣分出黑白格，黑格比例在0.10與目標0.17＋0.06之間；每格都與其180°對點同色（15×15全檢）；每個橫向與縱向白格連續段≥3；白格洪水填充後全部相連；標號以測試端獨立寫出的字型解碼，起始單字（左或上為黑／邊界、右或下為白）的白格依閱讀順序恰為1、2、3…，其餘白格無號碼；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "crosswordgrid|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`crosswordgrid`：option 925個、status為924 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的黑格、編號與格線連續。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：翻轉點陣顯示器（flipdotdisplay）
+
+- 目錄924→925，含plain的gallery為926項。每tile 48×48個黑底圓盤（半徑0.42格），亮起黃色（較光滑、略凸、有高光與軸點）、熄滅深灰黑，組成12欄×8列由seed決定的0–9數字（3×5點陣字型，右側與下側各留一點空白）。Metallic／mortar為0，預設tile0.5 m、0.003 UV-relative relief、metallic factor 0。無翻轉動畫與雙穩態機構，數字為隨機序列；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 實測：`tests/procedural-material-motifs.test.ts`二百三十七項（本材質四項）全過。三seed：12×8個數字格逐點（4×6個點）取圓盤中心的亮暗，3×5範圍內的位元皆唯一匹配測試端獨立寫出的0–9字型、右側與下側的空白點全部熄滅；96個數字至少用到8種不同值；找出第一個亮起的圓盤，沿u與沿v通過中心量得亮區寬度與2×設定半徑（0.84格）相差＜0.05；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "flipdotdisplay|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`flipdotdisplay`：option 926個、status為925 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的圓盤陣列與數字連續無接縫（高光與軸點在512下很小，已在文件註明建議1024）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

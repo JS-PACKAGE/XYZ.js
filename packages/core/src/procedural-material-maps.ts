@@ -19445,6 +19445,75 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'flipdotdisplay': {
+        const p = proceduralMaterialPresets.flipdotdisplay,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x26701),
+          // 3x5 pixel glyphs for 0-9 (15 bits, rows top to bottom), shown with a one-dot margin.
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001001010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          digits = new Uint8Array(p.digitColumns * p.digitRows),
+          inverseSoft = 1 / p.edgeSoft,
+          cellColumns = p.dots / p.digitColumns,
+          cellRows = p.dots / p.digitRows;
+        for (let i = 0; i < digits.length; i++)
+          digits[i] = Math.min(9, Math.floor(hash(i, 3, seed ^ 0x26703) * 10));
+        return () => {
+          const gx = u * p.dots,
+            gy = v * p.dots,
+            col = Math.min(p.dots - 1, Math.floor(gx)),
+            row = Math.min(p.dots - 1, Math.floor(gy)),
+            dx = gx - col - 0.5,
+            dy = gy - row - 0.5,
+            // Which digit cell and which dot inside its 3x5 glyph (offset by a one-dot margin) this dot is.
+            digitColumn = Math.floor(col / cellColumns),
+            digitRow = Math.floor(row / cellRows),
+            localX = (col % cellColumns) - Math.floor((cellColumns - 3) / 2),
+            localY = (row % cellRows) - Math.floor((cellRows - 5) / 2),
+            on =
+              localX >= 0 &&
+              localX < 3 &&
+              localY >= 0 &&
+              localY < 5 &&
+              glyphs[digits[digitRow * p.digitColumns + digitColumn]][
+                localY * 3 + localX
+              ] === '1'
+                ? 1
+                : 0,
+            radius = Math.sqrt(dx * dx + dy * dy),
+            disc = smooth(clamp((p.discRadius - radius) * inverseSoft + 0.5)),
+            grain = grainField(u, v) - 0.5,
+            // A small pivot mark and a highlight on the upper left of each disc.
+            pivot = smooth(clamp((p.pivotRadius - radius) * inverseSoft + 0.5)),
+            shine = smooth(
+              clamp(1 - Math.sqrt((dx + 0.15) ** 2 + (dy + 0.15) ** 2) / 0.22),
+            );
+          color = clamp(
+            p.panelTone +
+              ((on ? p.onTone : p.offTone) - p.panelTone) * disc +
+              p.grainTone * grain -
+              0.05 * pivot * (on ? 1 : 0),
+          );
+          height = clamp(
+            p.panelHeight +
+              ((on ? p.onHeight : p.offHeight) - p.panelHeight) * disc +
+              p.shineHeight * shine * disc * (on ? 1 : 0),
+          );
+          roughness =
+            p.panelRoughness +
+            ((on ? p.onRoughness : p.offRoughness) - p.panelRoughness) * disc;
+          occlusion = clamp(1 - (1 - p.panelAO) * (1 - disc));
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -46974,6 +47043,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'flipdotdisplay' ||
     kind === 'crosswordgrid' ||
     kind === 'fretboard' ||
     kind === 'calendarpage' ||
