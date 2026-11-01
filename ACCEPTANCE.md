@@ -10979,3 +10979,51 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 關閉gallery採外層raw portal，不在CDP wrapper內close，沒有重演detach-after-close；最後gallery累計errors[]，兩個SDK handles均釋放，owned Chrome TERM後exit143，保留19660／19662。實讀一次完整stderr仍有allocator、CVDisplayLink -6670、updater／Crashpad及helper sandbox-extension permission訊息，不冒稱warning-free。原廠PDF已close，15個實際列名的本輪scratch files及唯一owned profile已移除；未認證Node22、其他browser、實體硬體、電氣／USB合規或FPS，沒有push。
 
 - 九份文件目前387個relative links實查missing0；歷史驗收與使用者先前獨立hunk原樣保留，僅本feature EOF段落納入提交。
+
+## 2026-11-01 程序材質：八接點屏蔽模組母座與階梯卡扣凹腔正面（rj45femalefaces）
+
+- 目錄877→878。實讀[TE 1734795-6原廠產品資料](https://www.te.com/en/product-1734795-6.html)及其實際產品照片：8 positions／8 loaded、無indicator、黑色PA9TGF30、鍍金磷青銅contact與鍍鎳黃銅shell。僅採八接點模組母座家族的薄矩形屏蔽口、黑色liner、單排長接點與相反端卡扣凹腔；內部輪廓、座標、尺度及0.054m tile均為作者示意，不宣稱精確TE CAD、公差或料號認證。中性灰不模擬金鍍層光譜，沒有LED、magnetics、Ethernet／PoE／Cat／速率、電氣、EMC或安全認證。
+
+- TE drawing的正常下載實際403，沒有繞過存取控制；Farnell正常下載的197,647B／5頁PDF實為TE 1734795-1產品頁print，不是mechanical drawing；實讀全頁文字但未把其render當已看過的圖面。RS另一產品print亦非本料號drawing。不得以搜尋摘要或其他suffix產品頁冒充已量測正面圖；未隨套件附帶參考照片／PDF。
+
+- 四組2×2母座是既有四接點rectangle與USB-C雙列母座的不同家族變體，不是改名／換色，也不宣稱新技術類別。省略panel EMI tabs、焊尾、PCB與機械卡扣行為；凹腔仍是opaque PBR端面，不新增透明洞、mesh或碰撞。
+
+- 55-field frozen preset與tile集中src/data；sampler建構時計算5組squared-distance profile係數、15個channel差量與最近接點索引係數。四組四欄pose128B加96² Float64 grain73,728B，共73,856B typed-array payload；不是總RAM或FPS量測。每點僅單一owner pose及最近finger候選，不逐八接點loop、不配置array、hash、trig或sqrt；owner支撐界0.3821966684720111<0.5。
+
+- Main well與窄key extension採main + key - main * key乘積聯集，不用max；兩者共用plastic pigment、低height及AO。只有新kind加入detail bypass；公開union、runtime validation、default metallic1、preset／tile、gallery selector／preload及generic測試矩陣同步。Root／core、request、原生module Worker、cache、repeats及ownership沿既有中央架構，沒有新增入口、alias、依賴或修改其他kernel。
+
+- 2026-11-01針對性Vitest：17passed／5368skipped／5385total，10:02:09開始、5.72s（wall6.53s）。15個新增semantic callbacks涵蓋三seed topology、三native geometry、三surface、seed footprint、三seed signed-period／C1及32／512 packing；其餘兩項來自generic矩陣。Fresh Node v26.7.0另在實際built ESM執行相同15callbacks，不以describe／it僅註冊充數。
+
+- 三seed 0／7／0xffffffff的768²六channel raster均invalid0、4個colour bodies／1外void、36個metal components（4閉環＋32個finger）、5個phase voids、36個高區與5個低basins。Geometry只取實際connected regions、native contour及opposed-ray二分，不複製private seeded poses、profile座標或接點位置。每面8個長接點同列、等距，窄key位於相反端且確實伸出main well。
+
+- 初始thin-ring raster PCA在MAX seed有0.0217815 row error、0.013985 straightness；不是producer接點歪斜，也沒有放寬界限。改由native外框對向直邊切線修正觀察軸，實查最大row error3.378278753205633e-14、shield straightness1.693985753262361e-14；opening aspect約1.43143409、finger長寬比約7.526281、key extension比例0.4842692–0.4842784、key寬比例0.3124042–0.3124080。
+
+- 實查liner／main／key共用plastic albedo、深well與AO、matte insulation／polished shell及contacts，well低於finger、finger低於liner及shell；最大flat-core height spread0.0003816233525305579。196個native boundary centers明含concave join；三seed六channel relief-normalized C1 worst0.007227188／0.007609910／0.007895715（<0.1），4096個signed-UV period probes各0。
+
+- 完整controls實跑486.88s：108資料合法變體（52個可調numeric各低／高、兩palette、共同height affine與窄key耦合）＋5個source替代（0／π/2朝向、明確quintic、常grain、有限seed0=7碰撞）各15callbacks全過。選定8P8C的contacts8不作可變規格。15資料＋16source故障全以ERR_ASSERTION拒絕，accepted0；語法／TypeError等非assertion會讓harness失敗，不算negative通過。
+
+- 故障涵蓋6接點、缺key／key錯邊／過寬、圓點／錯列／接點相黏、錯phase、染亮／鏡面plastic、粉筆metal、未遮蔽well、錯height與僅finish seed。Finish-only footprint最大變化0.000014163503484221857由>0.02界限拒絕；五profile線性版本C1分別754.4098／782.5009／1082.0658／985.6664／3162.3340，hard版本≥6.356551598e9。
+
+- 獨立max-union故障仍保持三seed finite、4 bodies、36 phases／highs、5 basins與signed period0，卻在concave join產生C1 worst1621.124990／1329.546339／1638.430367，確由連續性拒絕，不拿連通數假裝抓到接縫。
+
+- 另證明C1 height-only缺口：三seed其他五channel在各24,576 signed samples逐值Object.is差異0，height僅改61／65／59點；invalid0、4 bodies、36 phases／highs、5 phase voids保留，只有低basins5→1。256個native＋缺口肩部centers的C1仍分別0.007227188／0.007609910／0.007895715；真正由topology的1≠5拒絕，不靠C0或metal-mask改動。
+
+- 實際32／512五maps alpha皆255、normal Z皆正；metal nonzero53／13,425、full39／10,360、transition14／3,065。最大normal length²量化誤差0.003721646／0.011349481、max tilt²0.003721646／0.527950788，luma17.5788–230.5066／231.5066。32僅保留低解析巨觀，不保證32個獨立finger均可辨。
+
+- Source gates實跑131.44s：14 owned files Prettier、repository lint／format:check、strict typecheck、ESM／CJS build通過；376JS minify6,076,930→2,840,337B、370CJS modules、vendor不變。結構API gate737 exports／2810 directional contracts、710 historical namespaces／5 versioned consumers；distribution367 exports及既有class identity規則通過，不把宣告檢查當runtime認證。
+
+- 2026-11-01完整Vitest：179files／9,314tests全過；10:08:16開始、970.04s（wall971.21s）。測試期間repo source／tests／docs保持不變；下一項RCA僅private記憶體試作與本機暫存參考／preview，未混入本feature。其後僅補本驗收與文件格式，不冒稱收尾後重跑runtime。
+
+- Fresh Node釘選d3f69ce7：舊877種×4seed×7points＝24,556samples／147,336channel值Object.is差異0，舊877preset／tile不變；USB-C／C6／C8／DIN／XLR／BNC／C14／Dsub／trimmer／四接點rectangle十近似種類，32／512×三seed共60sets／300buffers逐byte差異0。
+
+- Private source／final ESM／CJS三方73,728 signed samples／442,368channel comparisons差異0；新prototype30buffers相同，新＋十近似種類66sets／330ESM/CJS buffers差異0，兩制878preset／tile相同、舊877相對順序保留。Fresh Node整組semantic／compat／distribution鏈實跑12.26s；數量由實際runtime取得，未沿用舊hardcoded目錄標籤。
+
+- Owned正常security HeadlessChrome156／19747，無unsafe GPU、no-sandbox、TLS、RAF或visibility bypass。同一真實gallery page先WebGL2再fresh導航WebGPU，各實見3 native RAF、animate off、新kind選取、25球及878＋plain共879選項；兩張PNG實際讀圖。Native GL draw30且未lost、GPUQueue.submit1；CSS960×540、DPR1.25、backing1200×675，不冒稱normal OS window、Canvas2D3D或FPS認證。
+
+- 實讀published-root404的完整default-none／script-self／worker-self CSP及nosniff後，真正callable跑512／seed7／tint[.9,1,1.1]／height／repeats3；sync、single原生module Worker及cache-hit五streams各1,048,576B逐byte相同，三preset textures兩兩隔離、default metallic1／explicit0、五UV transforms均[3,0,0,3,0,0]。Metal mask248,719zero／10,360full／3,065transition。
+
+- Cache1entry／5,242,880B、hit1／miss1；pool1worker／completed1，其餘running／queued／admittedBytes／cancelled／failed全0。三preset均destroy後，同借用pool32／seed8完成completed2／failed0且borrowed preset destroyed；cache clear後0／0B、明確caller-owned pool.destroy。另32／seed123、124 public factory實見499個baseColor bytes不同並cleanup；strict errors／console entries0、dropped0。另實讀published-root1024²四panel maps並destroy preset；404底頁只是harness，不假冒發佈UI。
+
+- Gallery於外層raw portal關閉、累計errors[]，兩個SDK handles已釋放；owned Chrome TERM／exit143。實讀完整stderr仍有allocator、CVDisplayLink -6670、missing Crashpad及helper sandbox-extension permission，不宣稱warning-free。PDF已close、14個實際列名scratch files與唯一owned profile已移除，保留19660／19662及下一feature私有檔。README中／英／日、PLAN、DESIGN、CURRENT完整878-kind union、TECHNICAL／USAGE雙語同步；歷史459基底與驗收日期／數量不改。不認證Node22、其他browser、實體硬體、電氣／網路合規或FPS，沒有push。
+
+- 九文件387個relative links已實查missing0；使用者先前獨立hunk保留，僅本feature EOF段落納入提交。

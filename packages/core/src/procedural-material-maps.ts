@@ -15600,6 +15600,149 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'rj45femalefaces': {
+        const p = proceduralMaterialPresets.rj45femalefaces,
+          poses = new Float64Array(p.cells * p.cells * 4),
+          grainField = cachedNoise(96, 96, seed ^ 0x22801),
+          outerStraightX = p.halfWidth - p.outerCorner,
+          outerStraightY = p.halfHeight - p.outerCorner,
+          outerSquared = p.outerCorner * p.outerCorner,
+          outerCore = p.outerCorner - p.outerBevel,
+          inverseOuter = 1 / (outerSquared - outerCore * outerCore),
+          linerStraightX = p.linerHalfWidth - p.linerCorner,
+          linerStraightY = p.linerHalfHeight - p.linerCorner,
+          linerSquared = p.linerCorner * p.linerCorner,
+          linerCore = p.linerCorner - p.linerBevel,
+          inverseLiner = 1 / (linerSquared - linerCore * linerCore),
+          mouthStraightX = p.mouthHalfWidth - p.mouthCorner,
+          mouthStraightY = p.mouthHalfHeight - p.mouthCorner,
+          mouthSquared = p.mouthCorner * p.mouthCorner,
+          mouthCore = p.mouthCorner - p.mouthBevel,
+          inverseMouth = 1 / (mouthSquared - mouthCore * mouthCore),
+          keyStraightX = p.keyHalfWidth - p.keyCorner,
+          keyStraightY = p.keyHalfHeight - p.keyCorner,
+          keySquared = p.keyCorner * p.keyCorner,
+          keyCore = p.keyCorner - p.keyBevel,
+          inverseKey = 1 / (keySquared - keyCore * keyCore),
+          pinStraightX = p.pinHalfWidth - p.pinCorner,
+          pinStraightY = p.pinHalfHeight - p.pinCorner,
+          pinSquared = p.pinCorner * p.pinCorner,
+          pinCore = p.pinCorner - p.pinBevel,
+          inversePin = 1 / (pinSquared - pinCore * pinCore),
+          inversePitch = 1 / p.pitch,
+          firstX = -(p.contacts - 1) * p.pitch * 0.5,
+          contactBoundX = -firstX + p.pinHalfWidth,
+          shellTone = p.shellTone - p.backingTone,
+          shellHeight = p.shellHeight - p.backingHeight,
+          shellRoughness = p.roughness - p.backingRoughness,
+          shellAO = p.shellAO - p.backingAO,
+          linerTone = p.plasticTone - p.shellTone,
+          linerHeight = p.linerHeight - p.shellHeight,
+          linerRoughness = p.linerRoughness - p.roughness,
+          linerAO = p.linerAO - p.shellAO,
+          wellHeight = p.wellHeight - p.linerHeight,
+          wellRoughness = p.wellRoughness - p.linerRoughness,
+          wellAO = p.wellAO - p.linerAO,
+          pinTone = p.pinTone - p.plasticTone,
+          pinHeight = p.pinHeight - p.wellHeight,
+          pinRoughness = p.pinRoughness - p.wellRoughness,
+          pinAO = p.pinAO - p.wellAO;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4,
+              scale =
+                p.minScale +
+                (p.maxScale - p.minScale) * hash(col, row, seed ^ 0x22803),
+              angle = TAU * hash(col, row, seed ^ 0x22805);
+            poses[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x22807) - 1);
+            poses[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x22809) - 1);
+            poses[i + 2] = Math.cos(angle) / scale;
+            poses[i + 3] = Math.sin(angle) / scale;
+          }
+        return () => {
+          color = p.backingTone;
+          height = p.backingHeight;
+          roughness = p.backingRoughness;
+          occlusion = p.backingAO;
+          metallic = 0;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 4,
+            dx = uc - col - poses[i],
+            dy = vc - row - poses[i + 1],
+            x = dx * poses[i + 2] + dy * poses[i + 3],
+            y = dy * poses[i + 2] - dx * poses[i + 3],
+            ax = Math.abs(x),
+            ay = Math.abs(y);
+          if (ax >= p.halfWidth || ay >= p.halfHeight) return;
+          const ox = Math.max(0, ax - outerStraightX),
+            oy = Math.max(0, ay - outerStraightY),
+            outer = smooth(
+              clamp((outerSquared - ox * ox - oy * oy) * inverseOuter),
+            );
+          if (outer === 0) return;
+          const grain = grainField(u, v);
+          color += outer * (shellTone + p.grainTone * grain);
+          height += outer * (shellHeight + p.grainHeight * grain);
+          roughness += outer * (shellRoughness + p.grainRoughness * grain);
+          occlusion += outer * shellAO - p.edgeAO * outer * (1 - outer);
+          metallic = outer;
+          if (ax >= p.linerHalfWidth || ay >= p.linerHalfHeight) return;
+          const lx = Math.max(0, ax - linerStraightX),
+            ly = Math.max(0, ay - linerStraightY),
+            liner = smooth(
+              clamp((linerSquared - lx * lx - ly * ly) * inverseLiner),
+            );
+          if (liner === 0) return;
+          color += liner * linerTone;
+          height += liner * linerHeight;
+          roughness += liner * linerRoughness;
+          occlusion += liner * linerAO - p.edgeAO * liner * (1 - liner);
+          metallic -= liner;
+          let main = 0,
+            key = 0;
+          const my = Math.abs(y - p.mouthY),
+            ky = Math.abs(y - p.keyY);
+          if (ax < p.mouthHalfWidth && my < p.mouthHalfHeight) {
+            const mx = Math.max(0, ax - mouthStraightX),
+              yy = Math.max(0, my - mouthStraightY);
+            main = smooth(
+              clamp((mouthSquared - mx * mx - yy * yy) * inverseMouth),
+            );
+          }
+          if (ax < p.keyHalfWidth && ky < p.keyHalfHeight) {
+            const kx = Math.max(0, ax - keyStraightX),
+              yy = Math.max(0, ky - keyStraightY);
+            key = smooth(clamp((keySquared - kx * kx - yy * yy) * inverseKey));
+          }
+          // The latch recess joins the main well with a C1 product union, not a max seam.
+          const well = main + key - main * key;
+          if (well === 0) return;
+          height += well * wellHeight;
+          roughness += well * wellRoughness;
+          occlusion += well * wellAO - p.edgeAO * well * (1 - well);
+          const py = Math.abs(y - p.contactY);
+          if (py >= p.pinHalfHeight || ax >= contactBoundX) return;
+          const owner = Math.round((x - firstX) * inversePitch);
+          if (owner < 0 || owner >= p.contacts) return;
+          const px = Math.max(
+              0,
+              Math.abs(x - firstX - owner * p.pitch) - pinStraightX,
+            ),
+            yy = Math.max(0, py - pinStraightY),
+            pin = smooth(clamp((pinSquared - px * px - yy * yy) * inversePin));
+          if (pin === 0) return;
+          color += pin * pinTone;
+          height += pin * pinHeight;
+          roughness += pin * pinRoughness;
+          occlusion += pin * pinAO - p.edgeAO * pin * (1 - pin);
+          metallic = pin;
+        };
+      }
       case 'usbcfemalefaces': {
         const p = proceduralMaterialPresets.usbcfemalefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -42584,6 +42727,7 @@ export function createSurfaceSampler(
     kind === 'lathplaster' ||
     kind === 'ceramiccapacitors' ||
     kind === 'fennelseeds' ||
+    kind === 'rj45femalefaces' ||
     kind === 'usbcfemalefaces' ||
     kind === 'iecc6inlets' ||
     kind === 'iecc8inlets' ||
