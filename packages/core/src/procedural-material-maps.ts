@@ -16818,6 +16818,93 @@ export function createSurfaceSampler(
           occlusion = clamp(1 - p.bubbleAO * rim);
         };
       }
+      case 'ammonitestone': {
+        const p = proceduralMaterialPresets.ammonitestone,
+          cells = p.cells * p.cells,
+          centers = new Float64Array(cells * 4),
+          mottleField = cachedNoise(
+            p.mottleCells,
+            p.mottleCells,
+            seed ^ 0x24601,
+          ),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x24603),
+          inverseEdge = 1 / p.edgeSoft,
+          inverseLog = 1 / Math.log(p.growth),
+          inverseFade = 1 / (p.innerRadius * p.ribFade),
+          inverseKeel = 1 / p.keelWidth;
+        // Cell layout: center x, center y, inverse scale, spiral phase. The shell radius plus
+        // the jitter stays below half a cell, so a point only ever belongs to its own cell.
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4;
+            centers[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x24605) - 1);
+            centers[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x24607) - 1);
+            centers[i + 2] =
+              1 /
+              (p.minScale +
+                (p.maxScale - p.minScale) * hash(col, row, seed ^ 0x24609));
+            centers[i + 3] = TAU * hash(col, row, seed ^ 0x2460b);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 4,
+            // In-cell units normalized by the pose scale; radius in [0, .5].
+            dx = (uc - col - centers[i]) * centers[i + 2],
+            dy = (vc - row - centers[i + 1]) * centers[i + 2],
+            rho = Math.sqrt(dx * dx + dy * dy),
+            grain = grainField(u, v),
+            mottle = mottleField(u, v);
+          color =
+            p.matrixTone +
+            p.mottleTone * (mottle - 0.5) +
+            p.grainTone * (grain - 0.5);
+          height = p.matrixHeight + p.grainHeight * (grain - 0.5);
+          roughness = p.matrixRoughness + p.grainRoughness * (grain - 0.5);
+          occlusion = 1;
+          if (rho >= p.outerRadius + p.edgeSoft || rho <= p.innerRadius * 0.5)
+            return;
+          const shell =
+            smooth(clamp((p.outerRadius - rho) * inverseEdge + 0.5)) *
+            smooth(clamp((rho - p.innerRadius) * inverseEdge + 0.5));
+          if (shell === 0) return;
+          const theta = Math.atan2(dy, dx) + centers[i + 3],
+            // Whorl coordinate: integer values lie on the logarithmic spiral (the suture).
+            whorl = Math.log(rho / p.innerRadius) * inverseLog - theta / TAU,
+            s = whorl - Math.floor(whorl),
+            tube = Math.sin(Math.PI * s),
+            keel = Math.exp(-(((s - 0.5) * inverseKeel * 0.5) ** 2)),
+            fade = smooth(clamp((rho - p.innerRadius) * inverseFade)),
+            rib =
+              (0.5 +
+                0.5 *
+                  Math.cos(
+                    p.ribs *
+                      (theta + p.ribCurve * Math.log(rho / p.innerRadius)),
+                  )) **
+                p.ribPower *
+              fade;
+          color +=
+            shell *
+            (p.shellTone -
+              p.matrixTone +
+              p.ribTone * rib -
+              p.sutureTone * (1 - tube) ** 2);
+          height +=
+            shell *
+            (p.shellHeight -
+              p.matrixHeight +
+              p.tubeHeight * tube +
+              p.ribHeight * rib * tube +
+              p.keelHeight * keel);
+          roughness += shell * (p.shellRoughness - p.matrixRoughness);
+          occlusion = 1 - shell * (1 - p.shellAO) * (1 - tube);
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -44347,6 +44434,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'ammonitestone' ||
     kind === 'amberresin' ||
     kind === 'patchworkquilt' ||
     kind === 'bayerdither' ||

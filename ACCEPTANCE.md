@@ -11452,3 +11452,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 設計取捨與修正：氣泡環最初同時有AO與裂紋AO，導致以AO偵測的環與放射裂紋互相連通、無法獨立量測；移除裂紋的AO，使occlusion<0.95只剩氣泡環，測試才能以八連通區（含wrap）計環。第一次`eslint`抓到`tone`應為const（prefer-const），已改後重跑typecheck、eslint與44項。
 - 實測：`tests/procedural-material-motifs.test.ts`四十四項（本材質十項：三seed範圍、三seed氣泡環、三seed流動各向異性與裂紋、wrap／seed差異）全過。氣泡環檢查以768²取樣：三seed皆為18–21個環（上限36格），每個外接框近似正方形、直徑落在[2×bubbleMin−0.005, 2×(bubbleMax+rim)+0.01]、完整落在單一格內且每格至多一個，環內中心較環更亮；沿v／沿u（lag 1/56）色差比實測2.4–2.7（門檻1.8）、裂紋像素佔0.018–0.0285（門檻0.005–0.06）。`tests/procedural-material.test.ts`以`-t "amberresin|every preset"`定向跑3項通過，沒有重跑該檔其餘5511項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過（lint修正後重新build並重跑API與distribution）。
 - 真實dev server的pbr3d頁（WebGPU）選取`amberresin`：option 892個、status為891 presets＋plain，25球渲染、金色帶與反光可見且`tab.errors()`空；實看512 seed7 2×2拼貼無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：菊石化石灰岩（ammonitestone）
+
+- 目錄891→892，含plain的gallery為893項。2×2格各一枚對數螺線圓盤化石（生長比2.3、外半徑0.4格、約3.1圈），縫合線為凹槽使AO變暗，螺管中段隆起帶中央龍骨，每圈18條弧形肋紋（內圈淡出避免混疊）；基質灰褐石灰岩（斑駁＋細粒），殼奶油色且較光滑。Metallic／mortar為0，預設tile0.5 m、0.0026 UV-relative relief、metallic factor 0。作者設計的示意，不重建特定種屬，未打包外部圖樣。仍在獨立worktree分支`materials/more-textures`作業。
+- 實際抓到的缺陷：第一版範圍測試對三個seed皆失敗——height最大約1.08（基質.22＋殼.08＋管.5＋肋.18＋龍骨.1 超過1），由新測試的「所有通道落在0..1」抓出；把tubeHeight／ribHeight／keelHeight降為.42／.14／.06後通過。調整成長比（1.9→2.3）與肋數（22→18）是看512預覽後的外觀決定：原版縫合線像同心環、看不出螺旋。
+- 實測：`tests/procedural-material-motifs.test.ts`五十四項（本材質十項：三seed化石位置／大小與通道範圍、三seed沿三個方向射線上的縫合線半徑比＝生長比±0.2、三seed繞圈肋數＝18±2、wrap／seed差異）全過；化石以高度>0.27的像素重心與面積獨立定位，縫合線用occlusion區域極小值（隨射線方向不同都需出現≥2個外圈縫合線），肋數以環形色彩減去一個肋週期移動平均後的上升零交叉計。`tests/procedural-material.test.ts`以`-t "ammonitestone|every preset"`定向跑3項通過，沒有重跑該檔其餘5512項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`ammonitestone`：option 893個、status為892 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼為16枚（4×4拼貼）螺旋化石且無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

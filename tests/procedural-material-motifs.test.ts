@@ -745,3 +745,173 @@ describe('amberresin: polished resin with flow bands, bubbles and spangle cracks
     expect(different).toBeGreaterThan(100);
   });
 });
+
+describe('ammonitestone: logarithmic-spiral fossils in limestone', () => {
+  const p = proceduralMaterialPresets.ammonitestone;
+  type Fossil = { x: number; y: number; radius: number };
+  /** Finds each fossil disc as a connected component of raised pixels in its own cell. */
+  const locate = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+  ): Fossil[] => {
+    const size = 512,
+      out = empty(),
+      cell = size / p.cells,
+      found: Fossil[] = [];
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        let count = 0,
+          sx = 0,
+          sy = 0;
+        for (let y = 0; y < cell; y++)
+          for (let x = 0; x < cell; x++) {
+            const px = col * cell + x,
+              py = row * cell + y;
+            sample((px + 0.5) / size, (py + 0.5) / size, out);
+            // Matrix height stays below 0.27 relief units; the shell is at least 0.3.
+            if (out.height / p.relief > 0.27) {
+              count++;
+              sx += (px + 0.5) / size;
+              sy += (py + 0.5) / size;
+            }
+          }
+        found.push({
+          x: sx / count,
+          y: sy / count,
+          radius: Math.sqrt(count / Math.PI) / size,
+        });
+      }
+    return found;
+  };
+
+  it.each(seeds)(
+    'puts one disc fossil of the authored size in every cell (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('ammonitestone', seed),
+        out = empty();
+      for (let i = 0; i < 20_000; i++) {
+        sample((i * 0.6180339887) % 1, (i * 0.7548776662) % 1, out);
+        expect(out.metallic).toBe(0);
+        expect(out.mortar).toBe(0);
+        for (const value of [
+          out.color,
+          out.height / p.relief,
+          out.roughness,
+          out.occlusion,
+        ])
+          if (!(value >= 0 && value <= 1))
+            throw new Error(`ammonitestone channel ${value} out of range`);
+      }
+      const fossils = locate(sample);
+      expect(fossils.length).toBe(p.cells * p.cells);
+      for (const [index, fossil] of fossils.entries()) {
+        const col = index % p.cells,
+          row = Math.floor(index / p.cells);
+        expect(Math.floor(fossil.x * p.cells)).toBe(col);
+        expect(Math.floor(fossil.y * p.cells)).toBe(row);
+        expect(fossil.radius).toBeGreaterThan(
+          (p.outerRadius * p.minScale * 0.9) / p.cells,
+        );
+        expect(fossil.radius).toBeLessThan((p.outerRadius * 1.02) / p.cells);
+      }
+    },
+  );
+
+  it.each(seeds)(
+    'spaces the sutures geometrically by the growth ratio along any ray (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('ammonitestone', seed),
+        out = empty();
+      for (const fossil of locate(sample))
+        for (const angle of [0.3, 2.1, 4.4]) {
+          const steps = 6000,
+            reach = fossil.radius * 0.97,
+            ao: number[] = [];
+          for (let i = 0; i < steps; i++) {
+            const r = (reach * (i + 0.5)) / steps;
+            sample(
+              fossil.x + r * Math.cos(angle),
+              fossil.y + r * Math.sin(angle),
+              out,
+            );
+            ao.push(out.occlusion);
+          }
+          // Suture = local occlusion minimum deep inside the shell tone range.
+          const radii: number[] = [];
+          for (let i = 2; i < steps - 2; i++)
+            if (
+              ao[i] < 0.7 &&
+              ao[i] <= ao[i - 1] &&
+              ao[i] < ao[i + 1] &&
+              ao[i] <= ao[i - 2] &&
+              ao[i] < ao[i + 2]
+            )
+              radii.push((reach * (i + 0.5)) / steps);
+          // Skip the innermost, centroid-error-sensitive suture.
+          const outer = radii.filter((r) => r > 0.03);
+          expect(outer.length).toBeGreaterThanOrEqual(2);
+          for (let i = 1; i < outer.length; i++)
+            expect(Math.abs(outer[i] / outer[i - 1] - p.growth)).toBeLessThan(
+              0.2,
+            );
+        }
+    },
+  );
+
+  it.each(seeds)(
+    'carries the authored rib count around each whorl (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('ammonitestone', seed),
+        out = empty(),
+        steps = 2048,
+        window = steps / p.ribs;
+      for (const fossil of locate(sample)) {
+        const radius = fossil.radius * 0.6,
+          color: number[] = [];
+        for (let i = 0; i < steps; i++) {
+          const a = (2 * Math.PI * i) / steps;
+          sample(
+            fossil.x + radius * Math.cos(a),
+            fossil.y + radius * Math.sin(a),
+            out,
+          );
+          color.push(out.color);
+        }
+        // One rib period of moving average removes the ribs and keeps the slow whorl trend.
+        const residual = color.map((value, i) => {
+          let sum = 0;
+          for (let k = 0; k < window; k++)
+            sum += color[(i + k - Math.floor(window / 2) + steps) % steps];
+          return value - sum / window;
+        });
+        let crossings = 0;
+        for (let i = 0; i < steps; i++)
+          if (residual[i] > 0 && residual[(i + steps - 1) % steps] <= 0)
+            crossings++;
+        expect(Math.abs(crossings - p.ribs)).toBeLessThanOrEqual(2);
+      }
+    },
+  );
+
+  it('wraps seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('ammonitestone', 0),
+      b = createSurfaceSampler('ammonitestone', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        expect(two.height).toBeCloseTo(one.height, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(100);
+  });
+});
