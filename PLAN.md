@@ -1383,6 +1383,10 @@
 
 這是作者設計的示意：沒有角度或半徑的刻度數字、沒有座標軸箭頭；線寬是固定的相對寬度（細0.0011、粗0.0021、軸0.0032 tile），不隨解析度調整，所以在32這種極低解析度下細線會消失；圖紙正好是tile內的一個圓，tile接縫處沒有線。顏色是亮度插值（深青綠到近白）。預設0.3 m nominal tile、0.0012 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上（細線約2 px）；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`chesterfieldtufting`（Chesterfield菱格縫釦皮革）使目前目錄956→957種，含plain的gallery為958項。每tile是4×4個網格點中「索引和為偶數」的8個點各釘一顆圓釦，鄰近的釦子之間沿對角線拉出深色縫褶，縫褶圍成的菱形各自鼓起成軟墊；在旋轉座標 s = 4(u + v)、t = 4(u − v) 中，釦子落在偶數整數上、縫褶是 s = 2m 與 t = 2m 的直線，每個菱形內的高度是 (sin(πs/2)·sin(πt/2))^0.7，菱形中央最高、縫褶為0。亮度隨高度由縫褶的近黑逐漸變為皮革的暖褐色，皮面有細小的皺紋與顆粒，釦子是較亮的小圓（帶一圈邊緣）。Metallic與mortar為0。
+
+這是作者設計的示意：只有菱形（鑽石形）縫釦，不含紐扣的孔洞與縫線、不含皺褶從釦子放射的更細致皺紋；縫褶線在釦子之間是完美的直線；皮革紋路是亮度雜訊而不是真實皮革的毛孔；顏色是亮度插值（近黑褐到磚紅褐），不代表特定皮革。預設0.5 m nominal tile、0.02 UV-relative relief（非公尺位移，起伏較大）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

@@ -8381,6 +8381,33 @@ export declare const proceduralMaterialPresets: Readonly<{
         lineRoughness: 0.45;
         paperRoughness: 0.74;
     }>;
+    chesterfieldtufting: Readonly<{
+        dark: readonly [26, 8, 6];
+        light: readonly [150, 66, 34];
+        roughness: 0.45;
+        relief: 0.02;
+        period: 4;
+        puff: 0.7;
+        buttonRadius: 0.022;
+        buttonRim: 0.006;
+        edgeSoft: 0.004;
+        grainCells: 256;
+        wrinkleCells: 48;
+        creaseTone: 0.1;
+        faceTone: 0.62;
+        faceGain: 0.34;
+        buttonTone: 0.82;
+        buttonShade: 0.25;
+        wrinkleTone: 0.06;
+        grainTone: 0.05;
+        buttonHeight: 0.96;
+        creaseHeight: 0.04;
+        faceHeight: 0.8;
+        faceRoughness: 0.42;
+        creaseRoughness: 0.75;
+        buttonRoughness: 0.18;
+        creaseAO: 0.45;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -14866,6 +14893,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    chesterfieldtufting: 0.5;
     polargraphpaper: 0.3;
     tallymarks: 0.3;
     quasicrystalwaves: 0.4;

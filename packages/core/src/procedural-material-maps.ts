@@ -22406,6 +22406,61 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'chesterfieldtufting': {
+        const p = proceduralMaterialPresets.chesterfieldtufting,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x28701),
+          wrinkleField = cachedNoise(
+            p.wrinkleCells,
+            p.wrinkleCells,
+            seed ^ 0x28703,
+          ),
+          n = p.period,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5));
+        // Diamond (Chesterfield) tufting: buttons on the checkerboard sublattice of an n x n grid
+        // (grid points with an even index sum). In the rotated coordinates s = n (u + v) and
+        // t = n (u - v) the buttons sit at even integers, so the creases between neighboring
+        // buttons are the lines s = 2m and t = 2m, and each diamond between them puffs up.
+        return () => {
+          const s = n * (u + v),
+            t = n * (u - v),
+            // Position inside the diamond cell [0, 2) x [0, 2) in (s, t).
+            a = ((s % 2) + 2) % 2,
+            b = ((t % 2) + 2) % 2,
+            pillow = Math.pow(
+              Math.sin((Math.PI * a) / 2) * Math.sin((Math.PI * b) / 2),
+              p.puff,
+            ),
+            crease = (1 - pillow) * (1 - pillow),
+            // Distance (in tile units) to the nearest button, i.e. the nearest even (s, t) corner.
+            cornerS = a < 1 ? a : 2 - a,
+            cornerT = b < 1 ? b : 2 - b,
+            toButton = Math.hypot(cornerS, cornerT) / (n * Math.SQRT2),
+            button = cover(p.buttonRadius - toButton),
+            rim = cover(p.buttonRim - Math.abs(toButton - p.buttonRadius)),
+            face =
+              p.faceTone +
+              p.faceGain * (pillow - 0.5) +
+              p.wrinkleTone * (wrinkleField(u, v) - 0.5) * pillow +
+              p.grainTone * (grainField(u, v) - 0.5),
+            leather = face + (p.creaseTone - face) * crease;
+          color = clamp(
+            leather + (p.buttonTone - p.buttonShade * rim - leather) * button,
+          );
+          const pillowHeight =
+              p.creaseHeight + (p.faceHeight - p.creaseHeight) * pillow,
+            pillowRoughness =
+              p.faceRoughness + (p.creaseRoughness - p.faceRoughness) * crease;
+          height = clamp(
+            pillowHeight + (p.buttonHeight - pillowHeight) * button,
+          );
+          roughness = clamp(
+            pillowRoughness + (p.buttonRoughness - pillowRoughness) * button,
+          );
+          occlusion = clamp(1 - (1 - p.creaseAO) * crease * (1 - button));
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -49935,6 +49990,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'chesterfieldtufting' ||
     kind === 'polargraphpaper' ||
     kind === 'tallymarks' ||
     kind === 'quasicrystalwaves' ||

@@ -9167,3 +9167,104 @@ describe('polargraphpaper: rings at equal spacing and spokes every ten degrees',
     expect(different).toBeGreaterThan(20);
   });
 });
+
+describe('chesterfieldtufting: buttons on the even grid points, creases between them', () => {
+  const p = proceduralMaterialPresets.chesterfieldtufting;
+  const n = 4;
+
+  it.each(seeds)(
+    'puts a raised button at every even grid point, a puffy diamond centre at every odd one and a crease between neighbours (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('chesterfieldtufting', seed),
+        out = empty(),
+        heightAt = (x: number, y: number): number => {
+          sample(x / n, y / n, out);
+          return out.height / p.relief;
+        };
+      let buttons = 0,
+        centres = 0,
+        creases = 0;
+      for (let j = 0; j < n; j++)
+        for (let i = 0; i < n; i++) {
+          if ((i + j) % 2 === 0) {
+            buttons++;
+            expect(heightAt(i, j)).toBeGreaterThan(0.9);
+            sample(i / n, j / n, out);
+            expect(out.color).toBeGreaterThan(0.6);
+          } else {
+            centres++;
+            // The middle of a diamond is the puffy face at its full height.
+            expect(Math.abs(heightAt(i, j) - 0.8)).toBeLessThan(0.02);
+          }
+          // The midpoint of the diagonal between two neighbouring buttons lies on a crease.
+          creases++;
+          expect(heightAt(i + 0.5, j + 0.5)).toBeLessThan(0.08);
+          sample((i + 0.5) / n, (j + 0.5) / n, out);
+          expect(out.color).toBeLessThan(0.15);
+        }
+      expect(buttons).toBe(8);
+      expect(centres).toBe(8);
+      expect(creases).toBe(16);
+    },
+  );
+
+  it('rises monotonically from a crease to the centre of the diamond and is mirror symmetric', () => {
+    const sample = createSurfaceSampler('chesterfieldtufting', 7),
+      out = empty();
+    // From the midpoint of a crease (0.5, 0.5) toward the diamond centre (1, 0), in grid units.
+    let previous = -1;
+    for (let i = 0; i <= 40; i++) {
+      const f = i / 40;
+      sample((0.5 + 0.5 * f) / n, (0.5 - 0.5 * f) / n, out);
+      expect(out.height / p.relief).toBeGreaterThanOrEqual(previous - 1e-9);
+      previous = out.height / p.relief;
+    }
+    // Reflection across a diamond's diagonal leaves the height unchanged.
+    let asymmetric = 0;
+    for (let i = 0; i < 300; i++) {
+      const a = ((i * 0.6180339887) % 1) * 0.5,
+        b = ((i * 0.7548776662) % 1) * 0.5;
+      sample(0.25 + a, 0.25 + b, out);
+      const first = out.height;
+      sample(0.25 + b, 0.25 + a, out);
+      asymmetric += Number(Math.abs(out.height - first) > 1e-9);
+    }
+    expect(asymmetric).toBe(0);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('chesterfieldtufting', 0),
+      b = createSurfaceSampler('chesterfieldtufting', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

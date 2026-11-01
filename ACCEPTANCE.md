@@ -11919,3 +11919,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試修正：放射線測試第一版的索引錯位（掃描起點偏5°後，位於0°的軸線變成最後一個run，其餘每個run的索引要加一），導致最大角度誤差報成約10°而失敗；是測試端的索引錯誤，改為用`(k + 35) % 36`對應後通過。取樣器沒有改。
 - 實測：`tests/procedural-material-motifs.test.ts`五百零三項（本材質七項）全過。三seed（0、7、4294967295）：沿兩條放射線之間的射線（偏離5°）掃描8000點，數到12個圈，中心半徑與0.04 k相差＜0.0006，第5、10與最外圈的寬度大於細圈的1.4倍、其餘圈小於粗圈的0.85倍；沿著兩圈中間的圓（半徑0.3）掃描20000點，數到36條放射線，角度與k×10°相差＜0.2°，軸線（每90°）寬度＞細線的2.2倍、每30°的＞1.5倍、其餘與細線相差＜25%；第一圈內側與最外圈外側沒有任何墨線；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "polargraphpaper|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`polargraphpaper`：option 957個、status為956 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的極座標圖。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：Chesterfield菱格縫釦皮革（chesterfieldtufting）
+
+- 目錄956→957，含plain的gallery為958項。每tile 4×4網格點中索引和為偶數的8點各釘一顆圓釦，釦子間沿對角線拉出縫褶，縫褶圍成的菱形鼓成軟墊（高度 (sin(πs/2)·sin(πt/2))^0.7，旋轉座標 s = 4(u + v)、t = 4(u − v)）。Metallic／mortar為0，預設tile0.5 m、0.02 UV-relative relief、metallic factor 0。無釦孔與縫線；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 真實缺陷與修正（測試先失敗）：第一版的高度公式把釦子的貢獻寫成「縫褶高度＋（面高−縫褶高）×墊＋（釦高−面高）×釦」，在釦子中心（墊＝0）得到0.04 + 0 + (0.96 − 0.8) = 0.2，而不是預期的0.96——釦子在高度圖裡其實比周圍的軟墊還低；預覽的顏色看起來正常所以沒有發現，是測試在三個seed都抓到。改為先算出軟墊高度，再以釦子係數朝0.96內插；粗糙度同樣改為朝釦子的粗糙度內插。
+- 實測：`tests/procedural-material-motifs.test.ts`五百零八項（本材質五項）全過。三seed：8個「偶數」網格點（釦子）的高度＞0.9、顏色＞0.6；8個「奇數」網格點（菱形中央）的高度與0.8相差＜0.02；16個對角線中點（縫褶）的高度＜0.08、顏色＜0.15；從縫褶中點走向菱形中央，高度單調不降（41個取樣點）；沿菱形對角線鏡像，高度完全相同（300點，無不對稱）；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "chesterfieldtufting|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`chesterfieldtufting`：option 958個、status為957 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的菱格軟墊與釦子。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
