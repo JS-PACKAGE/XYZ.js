@@ -6734,3 +6734,112 @@ describe('bingocard: a standard BINGO card', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('pegsolitaire: a solvable position on the English board', () => {
+  const p = proceduralMaterialPresets.pegsolitaire;
+  const n = p.size;
+  const onBoard = (x: number, y: number): boolean =>
+    x >= 0 &&
+    y >= 0 &&
+    x < n &&
+    y < n &&
+    ((x >= 2 && x < n - 2) || (y >= 2 && y < n - 2));
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6, 7, 8])(
+    'cuts the 33-hole cross and places pegs that can be jumped down to a single peg (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('pegsolitaire', seed),
+        out = empty(),
+        pegs: boolean[] = [];
+      let holes = 0;
+      for (let row = 0; row < n; row++)
+        for (let col = 0; col < n; col++) {
+          sample((col + 0.5) / n, (row + 0.5) / n, out);
+          const tone = out.color;
+          // Wood is mid-tone, an empty hole nearly black and a peg light.
+          const isHole = tone < 0.15,
+            isPeg = tone > 0.7;
+          // Holes and pegs exist exactly on the cross-shaped board.
+          expect(isHole || isPeg).toBe(onBoard(col, row));
+          holes += Number(isHole || isPeg);
+          pegs.push(isPeg);
+        }
+      expect(holes).toBe(33);
+      const count = pegs.filter(Boolean).length;
+      expect(count).toBeGreaterThanOrEqual(5);
+      expect(count).toBeLessThanOrEqual(p.reverseMoves + 1);
+      // Solve by depth-first search over jumps (peg, peg, empty in a line); the position was
+      // built by reverse play, so a solution to a single peg must exist.
+      const seen = new Set<string>();
+      const solve = (state: boolean[]): boolean => {
+        const key = state.map((peg) => (peg ? '1' : '0')).join('');
+        if (seen.has(key)) return false;
+        seen.add(key);
+        if (state.filter(Boolean).length === 1) return true;
+        for (let y = 0; y < n; y++)
+          for (let x = 0; x < n; x++)
+            for (const [dx, dy] of [
+              [1, 0],
+              [-1, 0],
+              [0, 1],
+              [0, -1],
+            ]) {
+              const bx = x + dx,
+                by = y + dy,
+                cx = x + 2 * dx,
+                cy = y + 2 * dy;
+              if (!onBoard(cx, cy) || !onBoard(bx, by)) continue;
+              if (
+                !state[y * n + x] ||
+                !state[by * n + bx] ||
+                state[cy * n + cx]
+              )
+                continue;
+              const next = [...state];
+              next[y * n + x] = false;
+              next[by * n + bx] = false;
+              next[cy * n + cx] = true;
+              if (solve(next)) return true;
+            }
+        return false;
+      };
+      expect(solve(pegs)).toBe(true);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('pegsolitaire', 0),
+      b = createSurfaceSampler('pegsolitaire', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

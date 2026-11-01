@@ -11778,3 +11778,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 設計記錄：第一版草稿的格線運算寫得太繞，且留有許多`void`的暫時變數，在寫入前重寫；預覽中圓圈標記（半徑0.43格）與兩位數字的角落相交（字型角落距中心約0.43格），把字型像素由0.1縮為0.09格、圓圈半徑加大到0.45格，圓圈與數字之間才有空隙。
 - 實測：`tests/procedural-material-motifs.test.ts`三百二十二項（本材質九項）全過。八個seed（0、7、4294967295、1至5）：標題五格解碼為B、I、N、G、O；每個數字格以測試端獨立寫出的3×5字型解碼（單一數字置中、兩位數字並排間隔4像素），每個值都落在其欄的標準範圍內、同欄內不重複、每欄恰5個（N欄4個加中央空格）；中央空格沒有數字但中心有標記；右側空白欄（紙面）亮度＞0.8；圓圈標記占比＜0.55（寬鬆上限，因為只有24格，統計上隨機）；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "bingocard|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`bingocard`：option 938個、status為937 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的卡片、標題與圓圈標記。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：單人跳棋（pegsolitaire）
+
+- 目錄937→938，含plain的gallery為939項。每tile一張7×7英式十字棋盤（33孔、四個2×2角落為實木），孔內為深色空孔或淺色圓頭木釘；局面由終局（中心只剩一釘）倒推8步產生（倒推的跳躍把「釘、空、空」變成「空、釘、釘」），因此必定可解到只剩一釘。Metallic／mortar為0，預設tile0.35 m、0.004 UV-relative relief、metallic factor 0。只畫英式33孔盤；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 設計記錄：第一版草稿在木釘高光處留有`p.shineTone * 0 * shine`的無效算式與硬編碼0.12，寫入前已改為直接使用`shineTone`。
+- 實測：`tests/procedural-material-motifs.test.ts`三百三十四項（本材質十二項）全過。十一個seed（0、7、4294967295、1至8）：49個格中心取樣，色調＜0.15為空孔、＞0.7為木釘；孔或釘恰好出現在十字形棋盤上（33格，四個角落無孔）；木釘數在5至9之間；測試端對解碼後的局面做深度優先搜尋（水平與垂直的跳躍，並以狀態集合去重），每個seed都找到跳到只剩一顆的解；通道範圍、metallic／mortar 0、wrap與seed差異。可解性是由構造（倒推）保證，測試以實際求解再確認一次。`tests/procedural-material.test.ts`以`-t "pegsolitaire|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 另外，在上一輪（bingocard之前、connectfourboard提交時的整體狀態，共49種新材質）以`vitest run tests/procedural-material.test.ts tests/procedural-material-motifs.test.ts`完整跑過：兩檔共5860項全過（約1325 s）；之後新增的connectfourboard、bingocard、本材質只做了定向測試。
+- 真實dev server的pbr3d頁（WebGPU）選取`pegsolitaire`：option 939個、status為938 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的十字棋盤、孔與木釘。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

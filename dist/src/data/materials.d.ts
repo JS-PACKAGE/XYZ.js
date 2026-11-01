@@ -7892,6 +7892,35 @@ export declare const proceduralMaterialPresets: Readonly<{
         inkRoughness: 0.44;
         paperRoughness: 0.76;
     }>;
+    pegsolitaire: Readonly<{
+        dark: readonly [30, 16, 8];
+        light: readonly [236, 190, 120];
+        roughness: 0.48;
+        relief: 0.004;
+        size: 7;
+        reverseMoves: 8;
+        reverseAttempts: 400;
+        holeRadius: 0.36;
+        pegRadius: 0.31;
+        shineRadius: 0.1;
+        edgeSoft: 0.03;
+        grainCellsU: 24;
+        grainCellsV: 192;
+        woodTone: 0.46;
+        woodVariation: 0.1;
+        holeTone: 0.04;
+        pegTone: 0.92;
+        shineTone: 0.12;
+        rimTone: 0.3;
+        woodHeight: 0.5;
+        holeHeight: 0.08;
+        pegHeight: 0.8;
+        pegDome: 0.1;
+        grainHeight: 0.03;
+        woodRoughness: 0.55;
+        pegRoughness: 0.28;
+        holeAO: 0.45;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -14377,6 +14406,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    pegsolitaire: 0.35;
     bingocard: 0.3;
     connectfourboard: 0.5;
     ramennoodles: 0.3;

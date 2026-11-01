@@ -14036,6 +14036,43 @@ var proceduralMaterialPresets = Object.freeze({
 		inkRoughness: .44,
 		paperRoughness: .76
 	}),
+	pegsolitaire: Object.freeze({
+		dark: [
+			30,
+			16,
+			8
+		],
+		light: [
+			236,
+			190,
+			120
+		],
+		roughness: .48,
+		relief: .004,
+		size: 7,
+		reverseMoves: 8,
+		reverseAttempts: 400,
+		holeRadius: .36,
+		pegRadius: .31,
+		shineRadius: .1,
+		edgeSoft: .03,
+		grainCellsU: 24,
+		grainCellsV: 192,
+		woodTone: .46,
+		woodVariation: .1,
+		holeTone: .04,
+		pegTone: .92,
+		shineTone: .12,
+		rimTone: .3,
+		woodHeight: .5,
+		holeHeight: .08,
+		pegHeight: .8,
+		pegDome: .1,
+		grainHeight: .03,
+		woodRoughness: .55,
+		pegRoughness: .28,
+		holeAO: .45
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -22717,6 +22754,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	pegsolitaire: .35,
 	bingocard: .3,
 	connectfourboard: .5,
 	ramennoodles: .3,

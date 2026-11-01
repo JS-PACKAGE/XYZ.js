@@ -1303,6 +1303,10 @@
 
 這是作者設計的示意：卡上的數字不代表任何實際叫號的狀態（圓圈標記是隨機的，不保證與任何叫號序列一致，也不判斷是否已連線）；字型是3×5點陣，沒有印刷的圖案、卡號或廣告。標題的字母B、I、N、G、O在字型中以點陣近似。預設0.3 m nominal tile、0.0014 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上讓每格約85 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`pegsolitaire`（單人跳棋／孔明棋）使目前目錄937→938種，含plain的gallery為939項。每tile一張7×7格的英式十字棋盤：四個2×2角落是無孔的實木，其餘33格是孔，孔內為深色（空）或淺色的圓頭木釘（有高光與小圓頂）。盤面由seed從「中心只剩一顆木釘」的終局出發，隨機倒著玩8步（每次倒推的跳躍把「釘、空、空」的直線變成「空、釘、釘」）：因此畫面上的局面（9顆木釘，若嘗試次數用完則較少）必定可由正向跳躍解到只剩一顆。木板有沿u方向拉長的木紋。Metallic與mortar為0。
+
+這是作者設計的示意：局面只保證「可解」（由倒推產生），不保證是最短解或具代表性的謎題；只畫英式33孔棋盤，不含法式37孔或其他變體；顏色是由dark／light兩端線性插值的亮度，所以木釘是淺黃褐色而不是特定顏色。預設0.35 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上讓每格約73 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

@@ -20704,6 +20704,99 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'pegsolitaire': {
+        const p = proceduralMaterialPresets.pegsolitaire,
+          grainField = cachedNoise(
+            p.grainCellsU,
+            p.grainCellsV,
+            seed ^ 0x27401,
+          ),
+          n = p.size,
+          // The English board: a 7x7 grid with the four 2x2 corners removed.
+          valid = (x: number, y: number): boolean =>
+            x >= 0 &&
+            y >= 0 &&
+            x < n &&
+            y < n &&
+            ((x >= 2 && x < n - 2) || (y >= 2 && y < n - 2)),
+          pegs = new Uint8Array(n * n),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5));
+        // Play the game backwards from the solved state (one peg in the center): a reverse jump
+        // turns "peg, empty, empty" in a line into "empty, peg, peg", so the resulting position can
+        // always be solved by playing those jumps forward again.
+        pegs[3 * n + 3] = 1;
+        let played = 0;
+        for (
+          let attempt = 0;
+          played < p.reverseMoves && attempt < p.reverseAttempts;
+          attempt++
+        ) {
+          const x = Math.min(
+              n - 1,
+              Math.floor(hash(attempt, 1, seed ^ 0x27403) * n),
+            ),
+            y = Math.min(
+              n - 1,
+              Math.floor(hash(attempt, 2, seed ^ 0x27405) * n),
+            ),
+            direction = Math.min(
+              3,
+              Math.floor(hash(attempt, 3, seed ^ 0x27407) * 4),
+            ),
+            dx = [1, -1, 0, 0][direction],
+            dy = [0, 0, 1, -1][direction],
+            bx = x + dx,
+            by = y + dy,
+            ax = x + 2 * dx,
+            ay = y + 2 * dy;
+          if (!valid(x, y) || !valid(bx, by) || !valid(ax, ay)) continue;
+          if (!pegs[y * n + x] || pegs[by * n + bx] || pegs[ay * n + ax])
+            continue;
+          pegs[y * n + x] = 0;
+          pegs[by * n + bx] = 1;
+          pegs[ay * n + ax] = 1;
+          played++;
+        }
+        return () => {
+          const gx = u * n,
+            gy = v * n,
+            col = Math.min(n - 1, Math.floor(gx)),
+            row = Math.min(n - 1, Math.floor(gy)),
+            fx = gx - col - 0.5,
+            fy = gy - row - 0.5,
+            grain = grainField(u, v) - 0.5,
+            wood = p.woodTone + p.woodVariation * grain;
+          if (!valid(col, row)) {
+            color = clamp(wood);
+            height = clamp(p.woodHeight + p.grainHeight * grain);
+            roughness = p.woodRoughness;
+            occlusion = 1;
+            return;
+          }
+          const r = Math.sqrt(fx * fx + fy * fy),
+            hole = cover(p.holeRadius - r),
+            peg = pegs[row * n + col] ? cover(p.pegRadius - r) : 0,
+            shine =
+              peg *
+              smooth(clamp(1 - Math.hypot(fx + 0.1, fy + 0.1) / p.shineRadius)),
+            rim = cover(0.04 - Math.abs(r - p.holeRadius));
+          let tone = wood + (p.holeTone - wood) * hole;
+          tone += (p.pegTone - tone) * peg;
+          tone += (p.rimTone - tone) * rim * (1 - peg) * 0.5;
+          color = clamp(tone + p.shineTone * shine);
+          height = clamp(
+            p.woodHeight +
+              (p.holeHeight - p.woodHeight) * hole +
+              (p.pegHeight + p.pegDome * (1 - r / p.pegRadius) - p.holeHeight) *
+                peg,
+          );
+          roughness =
+            p.woodRoughness + (p.pegRoughness - p.woodRoughness) * peg;
+          occlusion = clamp(1 - (1 - p.holeAO) * hole * (1 - peg));
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -48233,6 +48326,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'pegsolitaire' ||
     kind === 'bingocard' ||
     kind === 'connectfourboard' ||
     kind === 'ramennoodles' ||
