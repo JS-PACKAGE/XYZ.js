@@ -1295,6 +1295,10 @@
 
 這是作者設計的示意：棋子是「合法的隨機擺放」，不是標準開局或任何實際對局的局面，也沒有骰子、倍率骰、被吃掉棋子放在隔條上或已移出棋盤的棋子；總數固定為每方15顆，因此每個seed中棋子都全部在點上。tile重複時每張棋盤是獨立的一盤。預設0.6 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上讓棋子約34 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`jigsawpuzzle`（拼圖）使目前目錄933→934種，含plain的gallery為935項。每tile一幅6×6片的環面拼圖：每片以格為基礎，格與格之間的每條邊各有一個圓形凸塊（bulb，半徑0.115格、頸部半寬0.05格、凸出0.15格），凸塊屬於哪一邊由seed隨機決定、嵌入另一邊，因此相鄰的兩片必然一凸一凹地咬合；邊緣在tile邊界環繞，所以重複的拼圖是連續的。每片以細線與微小斜角分隔，畫面是低頻雲狀「圖像」明暗（6×6格）加48×48格的細節與逐片±0.06的色調差、顆粒。Metallic與mortar為0。
+
+這是作者設計的示意：凸塊形狀是圓形加直頸，不是真實拼圖刀模的曲線；沒有卡紙厚度、印刷圖案內容或背面。每片的面積因凸塊與凹槽而略有不同（凸塊、凹槽成對抵消時與一格相同）。預設0.5 m nominal tile、0.0026 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上讓每片約170 px、切線約5 px；512時切線約2 px；每個取樣點要做約40次擁有者判定，成本較高：單次本機Bun量測512²取樣約226 ms（同次量測lissajousgrid約122 ms、tumblingblocks約45 ms、brick約16 ms；非基準測試，未量測瀏覽器或Worker）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

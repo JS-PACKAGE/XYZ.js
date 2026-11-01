@@ -13890,6 +13890,41 @@ var proceduralMaterialPresets = Object.freeze({
 		checkerRoughness: .3,
 		feltRoughness: .75
 	}),
+	jigsawpuzzle: Object.freeze({
+		dark: [
+			34,
+			40,
+			58
+		],
+		light: [
+			240,
+			226,
+			196
+		],
+		roughness: .58,
+		relief: .0026,
+		cells: 6,
+		bulbRadius: .115,
+		bulbOffset: .15,
+		neckHalf: .05,
+		lineHalf: .02,
+		bevelWidth: .045,
+		pictureCells: 6,
+		detailCells: 48,
+		grainCells: 192,
+		pieceVariation: .06,
+		pictureTone: .55,
+		pictureRange: .35,
+		detailTone: .08,
+		lineTone: .1,
+		grainTone: .03,
+		pieceHeight: .6,
+		lineHeight: .3,
+		bevelDrop: .08,
+		pieceRoughness: .5,
+		lineRoughness: .8,
+		lineAO: .5
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -22571,6 +22606,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	jigsawpuzzle: .5,
 	backgammonboard: .6,
 	zoneplates: .2,
 	lissajousgrid: .4,

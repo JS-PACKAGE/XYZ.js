@@ -20294,6 +20294,123 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'jigsawpuzzle': {
+        const p = proceduralMaterialPresets.jigsawpuzzle,
+          pictureField = cachedNoise(
+            p.pictureCells,
+            p.pictureCells,
+            seed ^ 0x27001,
+          ),
+          detailField = cachedNoise(
+            p.detailCells,
+            p.detailCells,
+            seed ^ 0x27003,
+          ),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x27005),
+          n = p.cells,
+          pieceTone = new Float64Array(n * n),
+          // For the vertical edge right of cell (x, y) and the horizontal edge below it:
+          // 0 = the first cell (left or upper) owns the bulb, 1 = the second cell does. The bulb
+          // protrudes into the other cell.
+          verticalSide = new Uint8Array(n * n),
+          horizontalSide = new Uint8Array(n * n),
+          wrap = (value: number): number => ((value % n) + n) % n;
+        for (let i = 0; i < n * n; i++) {
+          pieceTone[i] = hash(i, 11, seed ^ 0x27007) - 0.5;
+          verticalSide[i] = hash(i, 13, seed ^ 0x27009) < 0.5 ? 0 : 1;
+          horizontalSide[i] = hash(i, 15, seed ^ 0x2700b) < 0.5 ? 0 : 1;
+        }
+        // Whether the point (fx, fy) of a cell lies in a bulb or neck centered on (cx, cy), with the
+        // neck running from the edge point (ex, ey).
+        const inTab = (
+          fx: number,
+          fy: number,
+          cx: number,
+          cy: number,
+          horizontal: boolean,
+        ): boolean => {
+          if (Math.hypot(fx - cx, fy - cy) < p.bulbRadius) return true;
+          return horizontal
+            ? Math.abs(fy - cy) < p.neckHalf &&
+                fx >= Math.min(cx, cx < 0.5 ? 0 : 1) &&
+                fx <= Math.max(cx, cx < 0.5 ? 0 : 1)
+            : Math.abs(fx - cx) < p.neckHalf &&
+                fy >= Math.min(cy, cy < 0.5 ? 0 : 1) &&
+                fy <= Math.max(cy, cy < 0.5 ? 0 : 1);
+        };
+        // The piece (cell index) a point belongs to, in cell units on the torus. A point in cell B
+        // can only belong to B or to a neighbor whose bulb protrudes into B.
+        const owner = (x: number, y: number): number => {
+          const col = Math.floor(x),
+            row = Math.floor(y),
+            fx = x - col,
+            fy = y - row,
+            c = wrap(col),
+            r = wrap(row);
+          if (
+            verticalSide[r * n + wrap(c - 1)] === 0 &&
+            inTab(fx, fy, p.bulbOffset, 0.5, true)
+          )
+            return r * n + wrap(c - 1);
+          if (
+            verticalSide[r * n + c] === 1 &&
+            inTab(fx, fy, 1 - p.bulbOffset, 0.5, true)
+          )
+            return r * n + wrap(c + 1);
+          if (
+            horizontalSide[wrap(r - 1) * n + c] === 0 &&
+            inTab(fx, fy, 0.5, p.bulbOffset, false)
+          )
+            return wrap(r - 1) * n + c;
+          if (
+            horizontalSide[r * n + c] === 1 &&
+            inTab(fx, fy, 0.5, 1 - p.bulbOffset, false)
+          )
+            return wrap(r + 1) * n + c;
+          return r * n + c;
+        };
+        return () => {
+          const x = u * n,
+            y = v * n,
+            here = owner(x, y),
+            // Fraction of eight points on a ring of the given radius that belong to another piece:
+            // a soft measure of how close the boundary is.
+            nearOther = (radius: number): number => {
+              let other = 0;
+              for (let k = 0; k < 8; k++) {
+                const angle = (k * Math.PI) / 4;
+                other +=
+                  owner(
+                    x + radius * Math.cos(angle),
+                    y + radius * Math.sin(angle),
+                  ) !== here
+                    ? 1
+                    : 0;
+              }
+              return other / 8;
+            },
+            line = Math.min(1, nearOther(p.lineHalf) * 2),
+            bevel = nearOther(p.bevelWidth),
+            picture = pictureField(u, v) - 0.5,
+            detail = detailField(u, v) - 0.5,
+            grain = grainField(u, v) - 0.5,
+            tone =
+              p.pictureTone +
+              p.pictureRange * 2 * picture +
+              p.pieceVariation * pieceTone[here] +
+              p.detailTone * detail +
+              p.grainTone * grain;
+          color = clamp(tone + (p.lineTone - tone) * line);
+          height = clamp(
+            p.pieceHeight -
+              p.bevelDrop * bevel -
+              (p.pieceHeight - p.lineHeight) * line,
+          );
+          roughness =
+            p.pieceRoughness + (p.lineRoughness - p.pieceRoughness) * line;
+          occlusion = clamp(1 - (1 - p.lineAO) * line);
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -47823,6 +47940,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'jigsawpuzzle' ||
     kind === 'backgammonboard' ||
     kind === 'zoneplates' ||
     kind === 'lissajousgrid' ||

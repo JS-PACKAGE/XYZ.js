@@ -7782,6 +7782,33 @@ export declare const proceduralMaterialPresets: Readonly<{
         checkerRoughness: 0.3;
         feltRoughness: 0.75;
     }>;
+    jigsawpuzzle: Readonly<{
+        dark: readonly [34, 40, 58];
+        light: readonly [240, 226, 196];
+        roughness: 0.58;
+        relief: 0.0026;
+        cells: 6;
+        bulbRadius: 0.115;
+        bulbOffset: 0.15;
+        neckHalf: 0.05;
+        lineHalf: 0.02;
+        bevelWidth: 0.045;
+        pictureCells: 6;
+        detailCells: 48;
+        grainCells: 192;
+        pieceVariation: 0.06;
+        pictureTone: 0.55;
+        pictureRange: 0.35;
+        detailTone: 0.08;
+        lineTone: 0.1;
+        grainTone: 0.03;
+        pieceHeight: 0.6;
+        lineHeight: 0.3;
+        bevelDrop: 0.08;
+        pieceRoughness: 0.5;
+        lineRoughness: 0.8;
+        lineAO: 0.5;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -14267,6 +14294,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    jigsawpuzzle: 0.5;
     backgammonboard: 0.6;
     zoneplates: 0.2;
     lissajousgrid: 0.4;

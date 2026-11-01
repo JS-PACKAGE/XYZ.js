@@ -6260,3 +6260,106 @@ describe('backgammonboard: twenty-four alternating points and legal checker stac
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('jigsawpuzzle: interlocking pieces on a torus', () => {
+  const p = proceduralMaterialPresets.jigsawpuzzle;
+  const cells = p.cells;
+
+  it.each([...seeds, 1, 2, 3])(
+    'cuts the surface into exactly one piece per cell, each of about equal area, with bulbs that shift area between neighbors (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('jigsawpuzzle', seed),
+        out = empty(),
+        n = 480,
+        solid = new Uint8Array(n * n);
+      let invalid = 0;
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          sample((x + 0.5) / n, (y + 0.5) / n, out);
+          invalid += Number(out.metallic !== 0 || out.mortar !== 0);
+          for (const value of [
+            out.color,
+            out.height / p.relief,
+            out.roughness,
+            out.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+          // Cut lines sit low; piece faces stand high.
+          solid[y * n + x] = Number(out.height / p.relief > 0.45);
+        }
+      expect(invalid).toBe(0);
+      const id = new Int32Array(n * n).fill(-1),
+        areas: number[] = [];
+      for (let first = 0; first < n * n; first++) {
+        if (!solid[first] || id[first] >= 0) continue;
+        const piece = areas.length,
+          queue = [first];
+        id[first] = piece;
+        for (let read = 0; read < queue.length; read++) {
+          const i = queue[read],
+            x = i % n,
+            y = Math.floor(i / n);
+          for (const [dx, dy] of [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ]) {
+            const j = ((y + dy + n) % n) * n + ((x + dx + n) % n);
+            if (solid[j] && id[j] < 0) {
+              id[j] = piece;
+              queue.push(j);
+            }
+          }
+        }
+        areas.push(queue.length);
+      }
+      // One piece per cell on the torus, and the cell centers all belong to different pieces.
+      expect(areas.length).toBe(cells * cells);
+      const centers = new Set<number>();
+      for (let row = 0; row < cells; row++)
+        for (let col = 0; col < cells; col++)
+          centers.add(
+            id[
+              Math.floor(((row + 0.5) * n) / cells) * n +
+                Math.floor(((col + 0.5) * n) / cells)
+            ],
+          );
+      expect(centers.size).toBe(cells * cells);
+      // Bulbs move area between neighbors but keep every piece close to one cell. A piece whose
+      // bulbs and sockets cancel (two out, two in) keeps its plain cell area, which happens for
+      // about 38% of pieces, so well over a third of them must differ visibly.
+      const mean = areas.reduce((a, b) => a + b, 0) / areas.length;
+      for (const area of areas) {
+        expect(area / mean).toBeGreaterThan(0.7);
+        expect(area / mean).toBeLessThan(1.3);
+      }
+      expect(
+        areas.filter((area) => Math.abs(area / mean - 1) > 0.03).length,
+      ).toBeGreaterThan(12);
+    },
+  );
+
+  it('keeps repeating seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('jigsawpuzzle', 0),
+      b = createSurfaceSampler('jigsawpuzzle', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        expect(two.height).toBeCloseTo(one.height, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

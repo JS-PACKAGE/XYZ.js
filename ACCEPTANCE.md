@@ -11746,3 +11746,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 發現並修正：（1）第一次驗證時`tsc`報三個型別錯誤（`let tone = p.feltTone`等被推論成字面型別），改為明確標註`number`；（2）上一輪就發現我的`verify.sh`在`tsc`失敗後仍繼續往下跑（`cmd && echo`在`set -e`下不會中止），這次起改為`set -eo pipefail`並把`tsc`、`eslint`與建置各自獨立成一行，任何一步失敗就立即中止，之後的材質都用新腳本；前面已提交的材質當時的輸出都有`TSC_OK`，不受影響；（3）測試第一版在三角形上取樣色調的位置（深度30%）被5顆棋子疊成的高疊蓋住（seed 1失敗），改為深度36%（高於五顆疊的頂端）。
 - 實測：`tests/procedural-material-motifs.test.ts`二百九十項（本材質九項）全過。八個seed（0、7、4294967295、1、2、3、4、5）：對24個點、每點6個疊位（含一個超過上限的位置）在棋子圓心取樣，分成淺色棋子（色調＞0.75）、深色棋子（＜0.18）、空；每個點的棋子從棋盤邊緣開始、中間沒有空隙、同一種顏色、數量≤5；全盤淺色與深色棋子各恰15顆；沿三角形中線在尖端附近取樣：同一排相鄰點的色調差＞0.1、上下兩排的對應點色調差＞0.1，而上排第c點與下排第c+1點色調相差＜0.06；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "backgammonboard|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`backgammonboard`：option 934個、status為933 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的棋盤與棋子。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：拼圖（jigsawpuzzle）
+
+- 目錄933→934，含plain的gallery為935項。每tile一幅6×6片的環面拼圖：每條邊一個圓形凸塊（半徑0.115格、頸半寬0.05格、凸出0.15格，屬於哪一邊由seed決定、嵌入另一邊，相鄰兩片必然一凸一凹咬合），以細線與斜角分隔，畫面為低頻雲狀圖像明暗＋逐片色調差。Metallic／mortar為0，預設tile0.5 m、0.0026 UV-relative relief、metallic factor 0。凸塊是圓加直頸，非真實刀模；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 效能記錄：每個取樣點約40次擁有者判定（1次本身＋切線8點＋斜角8點，每點最多檢查4條邊）；單次本機Bun量測512²取樣約226 ms，同次量測lissajousgrid約122 ms、tumblingblocks約45 ms、brick約16 ms，非基準測試，未量測瀏覽器、Worker或GPU呈現。
+- 設計記錄：第一版草稿的擁有者判定邏輯過於繞（把「本格的凸塊」與「鄰格凸塊嵌入」混在同一組邊上判斷），在寫入前重新設計為：本格內的點只可能屬於本格或「鄰格凸塊嵌入本格」的那一格，所以只要檢查四條邊上「嵌入本格」的凸塊。第一版切線以4個取樣方向估計，預覽中呈虛線狀，改為8個方向並加粗後才連續。
+- 測試記錄：以顏色判定切線不可靠（圖像暗部的色調與切線接近），改用高度（切線低、片面高）；「面積與一格明顯不同的片數」我最初要求＞20，三個seed中兩個剛好失敗（實測19、20）：一片的兩個凸塊與兩個凹槽互相抵消時面積與一格相同，機率約38%，所以36片中約22片不同，改成＞12並在測試註解中寫明理由。
+- 實測：`tests/procedural-material-motifs.test.ts`二百九十七項（本材質七項）全過。六個seed（0、7、4294967295、1、2、3）480²取樣：把高度高於0.45的像素以環面4連通分組，恰好36（6×6）片，且36個格中心分屬36個不同的片；每片面積在平均的0.7–1.3倍之間，面積與平均相差＞3%的片至少13片；通道範圍、metallic／mortar 0、wrap（含高度）與seed差異。`tests/procedural-material.test.ts`以`-t "jigsawpuzzle|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`jigsawpuzzle`：option 935個、status為934 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的拼圖片與凸塊連續無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
