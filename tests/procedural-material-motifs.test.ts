@@ -10040,3 +10040,90 @@ describe('bluenoisemask: a void-and-cluster dither mask', () => {
     expect(different).toBeGreaterThan(50);
   }, 30000);
 });
+
+describe('elementaryautomata: every row follows from the previous one by the panel rule', () => {
+  const p = proceduralMaterialPresets.elementaryautomata;
+  const rules = [90, 110, 150, 184];
+  const n = 31;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'applies Wolfram rules 90, 110, 150 and 184 on a ring of 31 cells (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('elementaryautomata', seed),
+        out = empty();
+      for (let panel = 0; panel < 4; panel++) {
+        const ox = (panel & 1) * 0.5,
+          oy = (panel >> 1) * 0.5,
+          cells: number[][] = [];
+        for (let row = 0; row < n; row++) {
+          const line: number[] = [];
+          for (let col = 0; col < n; col++) {
+            sample(
+              ox + ((col + 0.5) / n) * 0.5,
+              oy + ((row + 0.5) / n) * 0.5,
+              out,
+            );
+            line.push(out.color < 0.4 ? 1 : 0);
+          }
+          cells.push(line);
+        }
+        // The first row holds the middle cell and a sparse random scatter.
+        expect(cells[0][15]).toBe(1);
+        const first = cells[0].reduce((a, b) => a + b, 0);
+        expect(first).toBeGreaterThanOrEqual(1);
+        expect(first).toBeLessThanOrEqual(12);
+        let wrong = 0;
+        for (let row = 1; row < n; row++)
+          for (let col = 0; col < n; col++) {
+            const left = cells[row - 1][(col + n - 1) % n],
+              middle = cells[row - 1][col],
+              right = cells[row - 1][(col + 1) % n],
+              neighbourhood = left * 4 + middle * 2 + right;
+            wrong += Number(
+              cells[row][col] !==
+                Math.floor(rules[panel] / 2 ** neighbourhood) % 2,
+            );
+          }
+        expect(wrong).toBe(0);
+        // Something is still alive in the last row (the odd ring keeps rule 90 from dying out).
+        expect(cells[n - 1].some((cell) => cell === 1)).toBe(true);
+      }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('elementaryautomata', 0),
+      b = createSurfaceSampler('elementaryautomata', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

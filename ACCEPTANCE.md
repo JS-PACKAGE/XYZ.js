@@ -11969,3 +11969,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 一次性量測（seed 0）：功率比（相對白雜訊的預期值）——半徑1至5：藍噪聲0.000、同變異數的隨機排列（白雜訊）1.208；半徑8至12：0.003對1.138；半徑24至31：1.611對0.960。這個量測也順便確認了測試對白雜訊有鑑別力（白雜訊在低頻約1，無法通過＜0.1的門檻）。單次建立約66 ms（一次性量測，不是基準）。
 - 實測：`tests/procedural-material-motifs.test.ts`五百五十一項（本材質七項）全過。三seed（0、7、4294967295）：64×64個名次互不相同、最小0、最大4095（直方圖完全平坦）；功率譜相對白雜訊，低頻（半徑1至5）平均＜0.1、高頻（半徑24至31）＞1.2；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "bluenoisemask|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`bluenoisemask`：option 964個、status為963 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼（每texel 8×8 px方塊）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：一維基本細胞自動機（elementaryautomata）
+
+- 目錄963→964，含plain的gallery為965項。每tile 2×2個31×31格的面板，由上而下演化Wolfram規則90（左上）、110（右上）、150（左下）、184（右下），第0列是中央一格加約12%依seed隨機的點，31格環狀邊界；活格近黑、死格淺灰。Metallic／mortar為0，預設tile0.4 m、0.0014 UV-relative relief、metallic factor 0。固定四種規則；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 設計修正：第一版格數是32，預覽中規則90（左上）在幾步之後全部歸零，下半面板是一整片空白（在2的冪次格數的環上，規則90從任何初始列都會歸零，是已知性質，我事先沒有想到）；改為31格。第一版草稿也留有`*0`的無效項與`void`暫存變數，寫入前重寫。
+- 實測：`tests/procedural-material-motifs.test.ts`五百六十一項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）×四個面板：每一格以色調判斷活／死（＜0.4為活），第0列的中央格為活、其餘活格數在1至12之間，且從第1列起，每一列的每一格都等於「以測試端獨立的算術（取規則數的第 4左＋2中＋右 位元）從上一列算出」的結果，錯誤數為0（環狀邊界）；最後一列仍有活格（在這些seed上觀察到，不是證明）；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "elementaryautomata|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 完整測試的補記：對sundialplate提交（`1b1cfddcf`）以`git archive`匯出的乾淨副本（`/private/tmp/xyz-suite`）跑完整的`vitest run tests/procedural-material.test.ts tests/procedural-material-motifs.test.ts`：`2 passed`、**6116項全過**（約1283 s）。這是繼`9ee096f9a`（6064項）之後的第二次對確定commit的完整驗證；其後新增的doubleslitfringes、fibonaccisquares、bluenoisemask與本材質仍只做了定向測試。
+- 真實dev server的pbr3d頁（WebGPU）選取`elementaryautomata`：option 965個、status為964 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的自動機面板。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

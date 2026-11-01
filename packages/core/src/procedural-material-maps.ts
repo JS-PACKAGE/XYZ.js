@@ -23034,6 +23034,65 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'elementaryautomata': {
+        const p = proceduralMaterialPresets.elementaryautomata,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x28e01),
+          n = p.cells,
+          panels = p.rules.length,
+          // Four panels (2 x 2), each n x n cells: row 0 is a sparse random row plus the middle
+          // cell, and every next row applies the Wolfram rule to the previous one on a ring.
+          grid = new Uint8Array(panels * n * n),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          half = 0.5 - p.inset;
+        for (let panel = 0; panel < panels; panel++) {
+          const base = panel * n * n,
+            rule = p.rules[panel];
+          for (let x = 0; x < n; x++)
+            grid[base + x] =
+              x === n >> 1 || hash(x, panel, seed ^ 0x28e03) < p.seedDensity
+                ? 1
+                : 0;
+          for (let row = 1; row < n; row++)
+            for (let x = 0; x < n; x++) {
+              const left = grid[base + (row - 1) * n + ((x + n - 1) % n)],
+                middle = grid[base + (row - 1) * n + x],
+                right = grid[base + (row - 1) * n + ((x + 1) % n)];
+              grid[base + row * n + x] =
+                (rule >> (left * 4 + middle * 2 + right)) & 1;
+            }
+        }
+        return () => {
+          const panel = (u >= 0.5 ? 1 : 0) + (v >= 0.5 ? 2 : 0),
+            px = (u * 2) % 1,
+            py = (v * 2) % 1,
+            gx = px * n,
+            gy = py * n,
+            col = Math.min(n - 1, Math.floor(gx)),
+            row = Math.min(n - 1, Math.floor(gy)),
+            square =
+              cover(half - Math.abs(gx - col - 0.5)) *
+              cover(half - Math.abs(gy - row - 0.5)),
+            live = grid[panel * n * n + row * n + col] === 1,
+            panelEdge = Math.max(
+              cover(p.panelLine - Math.min(px, 1 - px) / 2),
+              cover(p.panelLine - Math.min(py, 1 - py) / 2),
+            ),
+            base = p.paperTone + (p.lineTone - p.paperTone) * panelEdge,
+            cell = base + ((live ? p.liveTone : p.deadTone) - base) * square;
+          color = clamp(cell + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(
+            p.paperHeight +
+              (p.lineHeight - p.paperHeight) * panelEdge +
+              (p.liveHeight - p.paperHeight) * (live ? square : 0),
+          );
+          roughness =
+            p.paperRoughness +
+            (p.liveRoughness - p.paperRoughness) * (live ? square : 0);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -50563,6 +50622,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'elementaryautomata' ||
     kind === 'bluenoisemask' ||
     kind === 'fibonaccisquares' ||
     kind === 'doubleslitfringes' ||
