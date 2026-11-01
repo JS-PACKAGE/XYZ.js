@@ -925,7 +925,8 @@ export type ProceduralMaterialKind =
   | 'lenticularsheet'
   | 'eastindianrosewood'
   | 'topographicmap'
-  | 'barcodelabel';
+  | 'barcodelabel'
+  | 'ledmatrix';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2085,6 +2086,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'eastindianrosewood',
   'topographicmap',
   'barcodelabel',
+  'ledmatrix',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

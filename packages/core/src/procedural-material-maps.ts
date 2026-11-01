@@ -37343,6 +37343,71 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'ledmatrix': {
+        const p = proceduralMaterialPresets.ledmatrix,
+          cellColumns = p.charColumns * (p.glyphWidth + 1),
+          cellRows = p.charRows * (p.glyphHeight + 1),
+          lit = new Uint8Array(cellColumns * cellRows),
+          brightness = new Float64Array(cellColumns * cellRows),
+          inverseRadius2 = 1 / (p.lensRadius * p.lensRadius);
+        // Pseudo-glyphs: each character cell (glyphWidth x glyphHeight LEDs plus one
+        // blank column and row) lights a few random horizontal, vertical or diagonal
+        // strokes. It is not a font; it only gives the clustered look of a display.
+        for (let cy = 0; cy < p.charRows; cy++)
+          for (let cx = 0; cx < p.charColumns; cx++) {
+            const strokes =
+              p.strokesMinimum +
+              Math.floor(
+                p.strokesVariation * hash(cx, cy * 16, seed ^ p.seedSalt),
+              );
+            for (let s = 0; s < strokes; s++) {
+              const key = (cy * p.charColumns + cx) * 8 + s,
+                kind = Math.floor(3 * hash(key, 1, seed ^ p.seedSalt)),
+                x0 = Math.floor(p.glyphWidth * hash(key, 2, seed ^ p.seedSalt)),
+                y0 = Math.floor(
+                  p.glyphHeight * hash(key, 3, seed ^ p.seedSalt),
+                ),
+                length = 2 + Math.floor(3 * hash(key, 4, seed ^ p.seedSalt));
+              for (let i = 0; i < length; i++) {
+                const lx = x0 + (kind === 1 ? 0 : i),
+                  ly = y0 + (kind === 0 ? 0 : i);
+                if (lx < p.glyphWidth && ly < p.glyphHeight)
+                  lit[
+                    (cy * (p.glyphHeight + 1) + ly) * cellColumns +
+                      cx * (p.glyphWidth + 1) +
+                      lx
+                  ] = 1;
+              }
+            }
+          }
+        for (let row = 0; row < cellRows; row++)
+          for (let column = 0; column < cellColumns; column++)
+            brightness[row * cellColumns + column] =
+              p.litJitter * (hash(column, row, seed ^ (p.seedSalt + 1)) - 0.5);
+        return () => {
+          // Each LED owns its square cell; the lens dome smooth(1 - q / r^2) is zero
+          // (value and slope) at r = lensRadius < 0.5, so lit/unlit tone changes never
+          // meet at a seam and the black plate shows between lenses.
+          const x = fract(u) * cellColumns,
+            y = fract(v) * cellRows,
+            column = Math.floor(x),
+            row = Math.floor(y),
+            dx = x - column - 0.5,
+            dy = y - row - 0.5,
+            index = row * cellColumns + column,
+            dome = smooth(clamp(1 - (dx * dx + dy * dy) * inverseRadius2)),
+            tone = lit[index]
+              ? p.litTone + brightness[index]
+              : p.unlitTone + 0.25 * brightness[index];
+          color =
+            p.plateTone * (1 - dome) +
+            (tone + p.lensGlow * dome * lit[index]) * dome;
+          height = p.plateHeight + p.lensHeight * dome;
+          roughness += p.lensRoughness * dome;
+          occlusion = 1 - p.plateOcclusion * (1 - dome);
+          return;
+        };
+      }
       case 'woodenpalletdeck': {
         const p = proceduralMaterialPresets.woodenpalletdeck,
           tones = new Float64Array(p.boards),
@@ -44940,6 +45005,7 @@ export function createSurfaceSampler(
     kind === 'eastindianrosewood' ||
     kind === 'topographicmap' ||
     kind === 'barcodelabel' ||
+    kind === 'ledmatrix' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
     kind === 'sitkaspruce' ||

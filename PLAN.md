@@ -1095,6 +1095,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`ledmatrix`（LED點陣面板）使目前目錄910→911種，含plain的gallery為912項。48×48顆圓形LED，分成8×6個字元格（每格5×7顆LED加一欄一列空白）；每格隨seed點亮2–4條隨機的水平、垂直或斜向短筆畫（偽字形，不是字型），亮的LED為紅橘色高亮、暗的為暗紅，LED透鏡光滑而略凸，黑色底板較粗糙、帶AO。不是真實字型或可讀文字、捲動動畫、發光（emission）、混色或RGB子像素。
+
+此材質是作者依一般LED點陣顯示面板結構所作示意，沒有引用特定來源文件、照片或量測；LED數、字元格大小、筆畫產生規則、色調、roughness、AO與0.16 m nominal tile皆作者設定，不宣稱符合任何實際產品。
+
+新增專用sampler：建構時依seed以`hash`為每個字元格抽出筆畫並寫入2,304項Uint8亮燈表，另有2,304項Float64亮度抖動（共2,304 B＋18,432 B = 20,736 B lattice算術預算，非總RAM）。採樣時每顆LED擁有自己的方格，透鏡 = `smooth(1 − q/r²)`且r = 0.46 < 0.5，於格界歸零（值與斜率），因此亮暗色調不會在格界跳變；底板在透鏡之間露出。顏色是顏料（沒有emission），亮LED再加0.1的透鏡高光色調；height只用於法線與AO；金屬factor為0、無mortar。預設0.16 m nominal tile與0.004 UV-relative relief（非公尺位移）皆作者設定。我先把litTone設為0.88，探測發現亮LED的color最高達1.0199（超出[0,1]），改為0.84後亮LED color為0.900–0.980。三seed（0／1／0xffffffff）量測：亮燈比例12.9–14.1%、亮LED color 0.900–0.980、暗LED 0.150–0.170、透鏡高度1.0 relief／底板0、透鏡roughness 0.17／底板0.62、底板AO 0.55／透鏡1、底板color 0.02；seed 0與1的亮燈遮罩有21.5%的LED不同；seed7的512²中r平均48.0、r>160占3.07%、AO<200占67.6%、法線max tilt²約0.413。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `barcodelabel`（條碼標籤）使目前目錄909→910種，含plain的gallery為911項。一個tile是一張完整標籤寬度：左右各10模組靜區、Code 128 Start B 起始樣式（11模組）、9個資料符號（每個為6段交替的條／空寬度，各1–4模組、合計11模組）與13模組停止樣式，共143模組；條只佔v 0.1–0.9的標籤帶，上下是留白。黑色近黑碳粉（略高、略平滑）印在偏白粗糙紙面上，並有細紙纖維grain。不是可解碼的Code 128：資料符號是隨seed抽出的隨機寬度，沒有檢查碼、沒有奇偶（條寬和為偶、空寬和為奇）限制，也沒有人眼可讀文字、其他標籤元素或曲面。
 
 結構依據實際閱讀的[Wikipedia「Code 128」](https://en.wikipedia.org/wiki/Code_128)：每個符號為三條黑條與三條空白、各1–4模組、合計11模組，且以條起、以空結束；停止樣式為13模組（含結尾2模組條）；左右靜區至少10模組。我使用的Start B位元樣式`11010010000`與停止樣式`1100011101011`來自我對標準樣式表的記憶，該頁擷取到的文字沒有包含這些表格，所以這兩串位元**未由該頁驗證**。外觀（黑條白紙、0.14 m tile、碳粉高度、roughness、紙色）皆作者設定，沒有引用特定標籤照片或量測。

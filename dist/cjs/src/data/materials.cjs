@@ -20450,6 +20450,37 @@ var proceduralMaterialPresets = Object.freeze({
 		inkRoughness: -.08,
 		grainRoughness: .05
 	}),
+	ledmatrix: Object.freeze({
+		dark: [
+			26,
+			8,
+			8
+		],
+		light: [
+			255,
+			118,
+			64
+		],
+		roughness: .62,
+		relief: .004,
+		charColumns: 8,
+		charRows: 6,
+		glyphWidth: 5,
+		glyphHeight: 7,
+		strokesMinimum: 2,
+		strokesVariation: 3,
+		seedSalt: 7893,
+		lensRadius: .46,
+		plateTone: .02,
+		litTone: .84,
+		litJitter: .08,
+		unlitTone: .16,
+		lensGlow: .1,
+		plateHeight: 0,
+		lensHeight: 1,
+		lensRoughness: -.45,
+		plateOcclusion: .45
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -21857,7 +21888,8 @@ var proceduralTileMeters = Object.freeze({
 	lenticularsheet: .1,
 	eastindianrosewood: .18,
 	topographicmap: .3,
-	barcodelabel: .14
+	barcodelabel: .14,
+	ledmatrix: .16
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

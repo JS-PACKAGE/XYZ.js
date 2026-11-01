@@ -12483,6 +12483,29 @@ export declare const proceduralMaterialPresets: Readonly<{
         inkRoughness: -0.08;
         grainRoughness: 0.05;
     }>;
+    ledmatrix: Readonly<{
+        dark: readonly [26, 8, 8];
+        light: readonly [255, 118, 64];
+        roughness: 0.62;
+        relief: 0.004;
+        charColumns: 8;
+        charRows: 6;
+        glyphWidth: 5;
+        glyphHeight: 7;
+        strokesMinimum: 2;
+        strokesVariation: 3;
+        seedSalt: 7893;
+        lensRadius: 0.46;
+        plateTone: 0.02;
+        litTone: 0.84;
+        litJitter: 0.08;
+        unlitTone: 0.16;
+        lensGlow: 0.1;
+        plateHeight: 0;
+        lensHeight: 1;
+        lensRoughness: -0.45;
+        plateOcclusion: 0.45;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -13772,4 +13795,5 @@ export declare const proceduralTileMeters: Readonly<{
     eastindianrosewood: 0.18;
     topographicmap: 0.3;
     barcodelabel: 0.14;
+    ledmatrix: 0.16;
 }>;

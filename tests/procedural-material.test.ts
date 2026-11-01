@@ -952,6 +952,7 @@ const kinds: ProceduralMaterialKind[] = [
   'eastindianrosewood',
   'topographicmap',
   'barcodelabel',
+  'ledmatrix',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -139018,6 +139019,180 @@ describe('Barcode label with black Code 128-style bars, start and stop patterns 
     expect(ink / (512 * 512)).toBeLessThan(0.34);
     expect(maxTilt).toBeGreaterThan(0.001);
     expect(maxTilt).toBeLessThan(0.01);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('LED dot-matrix panel with glossy red-orange LED lenses on a black plate and pseudo-glyph clusters lit', () => {
+  const p = proceduralMaterialPresets.ledmatrix;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const columns = p.charColumns * (p.glyphWidth + 1),
+    rows = p.charRows * (p.glyphHeight + 1);
+  const litMask = (seed: number): string => {
+    const sample = createSurfaceSampler('ledmatrix', seed),
+      out = empty();
+    let mask = '';
+    for (let row = 0; row < rows; row++)
+      for (let column = 0; column < columns; column++) {
+        sample((column + 0.5) / columns, (row + 0.5) / rows, out);
+        mask += out.color > 0.5 ? '1' : '0';
+      }
+    return mask;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'gives every LED a glossy raised lens over a rough low occluded black plate, lights only glyph cells and about an eighth of them for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('ledmatrix', seed),
+        lens = empty(),
+        plate = empty();
+      let lit = 0,
+        invalid = 0;
+      for (let row = 0; row < rows; row++)
+        for (let column = 0; column < columns; column++) {
+          sample((column + 0.5) / columns, (row + 0.5) / rows, lens);
+          sample(column / columns, row / rows, plate);
+          const isLit = lens.color > 0.5;
+          lit += Number(isLit);
+          if (isLit) {
+            expect(lens.color).toBeGreaterThan(0.89);
+            expect(lens.color).toBeLessThan(0.99);
+            expect(column % (p.glyphWidth + 1)).toBeLessThan(p.glyphWidth);
+            expect(row % (p.glyphHeight + 1)).toBeLessThan(p.glyphHeight);
+          } else {
+            expect(lens.color).toBeGreaterThan(0.14);
+            expect(lens.color).toBeLessThan(0.18);
+          }
+          expect(lens.height).toBeCloseTo(p.relief * p.lensHeight, 12);
+          expect(plate.height).toBeCloseTo(p.relief * p.plateHeight, 12);
+          expect(lens.occlusion).toBeCloseTo(1, 12);
+          expect(plate.occlusion).toBeCloseTo(1 - p.plateOcclusion, 12);
+          expect(plate.color).toBeCloseTo(p.plateTone, 12);
+          expect(plate.roughness - lens.roughness).toBeGreaterThan(0.4);
+          for (const s of [lens, plate])
+            invalid += Number(
+              s.metallic !== 0 ||
+                s.mortar !== 0 ||
+                keys.some(
+                  (key) => !Number.isFinite(s[key]) || s[key] < 0 || s[key] > 1,
+                ),
+            );
+        }
+      expect(lit / (rows * columns)).toBeGreaterThan(0.1);
+      expect(lit / (rows * columns)).toBeLessThan(0.18);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('moves the lit glyph clusters with the seed and is deterministic for one seed', () => {
+    const first = litMask(0),
+      second = litMask(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.15);
+    expect(litMask(0)).toBe(first);
+  });
+  it('keeps lens rims, domes and the black plate C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('ledmatrix', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [columns, rows, 2 * columns])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 8192; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 dark red-orange dielectric maps with a few percent bright LEDs, strongly occluded plate and strong lens normals', () => {
+    const maps = generateProceduralMaps('ledmatrix', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      bright = 0,
+      occluded = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      bright += Number(maps.baseColor[i] > 160);
+      occluded += Number(maps.occlusion[i] < 200);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2] ||
+          maps.baseColor[i] < maps.baseColor[i + 2] ||
+          maps.normal[i + 2] < 200,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(40);
+    expect(red / (512 * 512)).toBeLessThan(56);
+    expect(bright / (512 * 512)).toBeGreaterThan(0.02);
+    expect(bright / (512 * 512)).toBeLessThan(0.045);
+    expect(occluded / (512 * 512)).toBeGreaterThan(0.6);
+    expect(occluded / (512 * 512)).toBeLessThan(0.75);
+    expect(maxTilt).toBeGreaterThan(0.35);
+    expect(maxTilt).toBeLessThan(0.5);
     expect(invalid).toBe(0);
   });
 });

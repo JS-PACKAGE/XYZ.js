@@ -11646,3 +11646,15 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增5項永久測試（`Barcode label`：三seed的靜區／Start B／9個符號6 runs（各1–4）／停止樣式逐模組解析、seed只改資料符號且條只在標籤帶內、碳粉／紙面統計、含條邊與標籤帶上下緣的C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選10項通過（9.25s）。
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Barcode label|barcodelabel|kinds|catalog|distinct|periodic"`定向測試，**2113項通過／3566項未選**。
 - 本功能未重跑完整179檔suite（rosewood commit的完整suite仍在凍結worktree執行，結果另記）、未開瀏覽器gallery；不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：LED點陣面板（ledmatrix）
+
+- 目錄910→911，含plain的gallery為912項。48×48顆圓形LED，分成8×6個5×7字元格（各加一欄一列空白）；每格隨seed點亮2–4條隨機的水平／垂直／斜向短筆畫（偽字形，不是字型），亮LED紅橘高亮、暗LED暗紅，透鏡光滑略凸，黑色底板較粗糙帶AO。這是作者依一般LED點陣面板結構所作示意，**沒有**引用特定來源，不含emission、捲動動畫、混色或RGB子像素。
+- 專用sampler：建構時依seed抽筆畫寫入2,304項Uint8亮燈表，另有2,304項Float64亮度抖動（共20,736 B）；每顆LED擁有自己的方格，透鏡`smooth(1−q/r²)`且r=0.46<0.5，於格界歸零（值與斜率），亮暗色調不會在格界跳變。預設0.16 m tile、0.004 UV-relative relief（非公尺位移）、metallic factor0；不新增API或依賴。
+- 開發中實際修正：首版litTone 0.88，探測發現亮LED的color最高達1.0199（超出[0,1]），改為0.84後為0.900–0.980，之後才寫測試。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）亮燈比例12.9–14.1%、亮LED color 0.900–0.980、暗LED 0.150–0.170、透鏡高度1.0 relief／底板0、透鏡roughness 0.17／底板0.62、底板AO 0.55／透鏡1、底板color 0.02，空白欄／列從不點亮；seed 0與1的亮燈遮罩有21.5%的LED不同；seed7的512² r平均48.0、r>160占3.07%、AO<200占67.6%、法線max tilt²約0.413。以Bun產生512 seed7四圖並實看：暗底板上整齊的圓形LED網格、成簇的紅橘亮點呈偽筆畫、法線圖每顆LED有球面斜率。
+- 新增4項永久測試（`LED dot-matrix`：三seed逐LED透鏡／底板幾何與亮暗色域、亮燈只在字形格內且比例10–18%、seed移動亮燈遮罩與同seed確定性、C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選7項通過（10.98s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "LED dot-matrix|ledmatrix|kinds|catalog|distinct|periodic"`定向測試，**2112項通過／3574項未選**。
+- 補記（完整suite）：在凍結worktree於rosewood commit `f6b828f76`實跑完整`vitest run`，**179檔／9,591項全部通過**（1407.42s，wall約23.5分）；該commit之後的topographicmap、barcodelabel與本功能沒有重跑完整suite，僅有各自的定向測試與gates（topographicmap在其section另有瀏覽器gallery選取檢查）。
+- 補記（捨棄的嘗試）：本輪在barcodelabel之後曾嘗試「fingerprintwhorl（指紋渦紋）」，以週期距離代理`sin²(2πd)/(2π)²`產生2×2個渦紋；實看渲染後發現是同心菱形的op-art圖案而非指紋，也在鞍點處出現過寬的脊，所以整個捨棄、未提交（以`git checkout`丟棄我自己尚未提交的變更），不計入目錄。
+- 未開瀏覽器gallery（barcodelabel與本功能未在gallery驗證內）；不宣稱跨瀏覽器／backend或效能驗證；不push。
