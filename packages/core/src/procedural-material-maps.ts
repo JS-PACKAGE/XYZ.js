@@ -37823,6 +37823,66 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'pomegranatearils': {
+        const p = proceduralMaterialPresets.pomegranatearils,
+          arils = new Float64Array(p.cells * p.cells * 4),
+          inverseRadius2 = 1 / (p.radius * p.radius),
+          glintRadius2 = p.glintRadius * p.glintRadius;
+        // Per cell: jittered centre (x, y), relative size and tone.
+        for (let cy = 0; cy < p.cells; cy++)
+          for (let cx = 0; cx < p.cells; cx++) {
+            const at = (cy * p.cells + cx) * 4,
+              salt = seed ^ p.seedSalt;
+            arils[at] = p.jitter * (2 * hash(cx, cy * 4, salt) - 1);
+            arils[at + 1] = p.jitter * (2 * hash(cx, cy * 4 + 1, salt) - 1);
+            arils[at + 2] =
+              p.sizeMinimum + (1 - p.sizeMinimum) * hash(cx, cy * 4 + 2, salt);
+            arils[at + 3] =
+              p.toneMinimum + (1 - p.toneMinimum) * hash(cx, cy * 4 + 3, salt);
+          }
+        return () => {
+          // Packed ruby arils: each is a smooth(1 - q / (size * r)^2) dome summed over the
+          // 3 x 3 neighbour cells, with its own tone and a small glint dome shifted
+          // up-left on it. Colour is the dome-weighted tone saturated by S / (1 + S);
+          // all parts are C1, and gaps between arils fall to the dark seam tone.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            cx = Math.floor(x),
+            cy = Math.floor(y);
+          let weight = 0,
+            toneSum = 0,
+            glint = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const wx = (((cx + ox) % p.cells) + p.cells) % p.cells,
+                wy = (((cy + oy) % p.cells) + p.cells) % p.cells,
+                at = (wy * p.cells + wx) * 4,
+                size = arils[at + 2],
+                dx = x - (cx + ox + 0.5 + arils[at]),
+                dy = y - (cy + oy + 0.5 + arils[at + 1]),
+                dome = smooth(
+                  clamp(
+                    1 - ((dx * dx + dy * dy) * inverseRadius2) / (size * size),
+                  ),
+                );
+              if (dome === 0) continue;
+              weight += dome;
+              toneSum += dome * arils[at + 3];
+              const gx = dx - p.glintShiftX * size,
+                gy = dy - p.glintShiftY * size;
+              glint +=
+                dome * smooth(clamp(1 - (gx * gx + gy * gy) / glintRadius2));
+            }
+          const cover = (p.toneGain * weight) / (1 + p.toneGain * weight),
+            tone = weight > 0 ? toneSum / (weight + 1e-6) : 0;
+          color =
+            p.seamTone * (1 - cover) + (tone + p.glintTone * glint) * cover;
+          height = p.heightGain * cover * (1 + 0.5 * glint);
+          roughness += p.seamRoughness * (1 - cover) - 0.1 * glint * cover;
+          occlusion = 1 - p.seamOcclusion * (1 - cover) * (1 - cover);
+          return;
+        };
+      }
       case 'woodenpalletdeck': {
         const p = proceduralMaterialPresets.woodenpalletdeck,
           tones = new Float64Array(p.boards),
@@ -45432,6 +45492,7 @@ export function createSurfaceSampler(
     kind === 'coirdoormat' ||
     kind === 'citruspeel' ||
     kind === 'pumpkinskin' ||
+    kind === 'pomegranatearils' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

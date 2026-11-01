@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`pomegranatearils`（石榴籽囊）使目前目錄921→922種，含plain的gallery為923項。20×20格、每格一個抖動位置、大小與色調各異的圓形紅寶石色籽囊緊密堆疊並互相重疊，每顆上有偏左上的小高光，籽囊光滑、略高、無遮蔽；籽囊之間的縫隙很暗、較粗糙並帶AO（AO<0.5約占面積8.7%）。不是半透明（次表面）、果肉汁液、白色隔膜、果皮或籽的內部結構。
+
+此材質是作者依一般石榴籽囊（紅色圓粒緊密堆疊）外觀所作示意，沒有引用特定來源文件、照片或量測；籽囊大小、色調、高光、縫隙色、roughness與0.12 m nominal tile皆作者設定，不宣稱符合任何石榴品種，也不模擬半透明。
+
+新增專用sampler：每格存4個Float64（抖動位置x、y，相對大小與色調），20²格共1,600 Float64／12,800 B lattice算術預算（非總RAM）。每顆籽囊是`smooth(1 − q/(size·r)²)`圓頂（r = 0.78格）加總於3×3鄰格；覆蓋度為`g·W/(1+g·W)`（W為圓頂權重和、g = 1.3），顏色取圓頂加權的色調平均，再加上各顆偏左上的小圓頂高光；縫隙處覆蓋度小，退回很暗的縫隙色並提高roughness與AO遮蔽。全部為C1。顏色是顏料，height只用於法線與AO；金屬factor為0、無mortar。預設0.12 m nominal tile與0.01 UV-relative relief（非公尺位移）皆作者設定。三seed（0／1／0xffffffff）、512²取樣：AO<0.5占8.67–8.84%、AO<0.7占20.3–20.5%、color 0.06（縫隙色）到0.815–0.880、平均0.373–0.382、roughness 0.230–0.238到0.58、最低AO 0.30、高度0到0.510–0.519 relief；seed 0與1的AO<0.5遮罩有14.0%像素不同；seed7的512² r／g／b平均約(129,26,41)、AO<230占95.4%、法線max tilt²約0.102。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `pumpkinskin`（南瓜皮）使目前目錄920→921種，含plain的gallery為922項。橙色果皮上有8條沿v方向縱貫的隆起稜（稜相位被低頻場輕微彎曲），稜間溝槽較暗、較粗糙並帶AO（約四成面積在溝槽中），稜上有細縱向皮紋與約三分之一格有的小疣點。不是果蒂、果瓣曲面、白斑、傷痕或塗層。
 
 此材質是作者依一般南瓜皮縱稜外觀所作示意，沒有引用特定來源文件、照片或量測；稜數、彎曲量、疣點密度、色調、roughness與0.4 m nominal tile皆作者設定，不宣稱符合任何南瓜品種。

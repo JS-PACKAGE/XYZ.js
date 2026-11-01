@@ -20796,6 +20796,35 @@ var proceduralMaterialPresets = Object.freeze({
 		grooveOcclusion: .4,
 		grooveRoughness: .12
 	}),
+	pomegranatearils: Object.freeze({
+		dark: [
+			62,
+			4,
+			14
+		],
+		light: [
+			238,
+			62,
+			84
+		],
+		roughness: .18,
+		relief: .01,
+		cells: 20,
+		seedSalt: 37018,
+		jitter: .22,
+		radius: .78,
+		sizeMinimum: .75,
+		toneMinimum: .45,
+		seamTone: .06,
+		toneGain: 1.3,
+		glintTone: .28,
+		glintRadius: .32,
+		glintShiftX: -.2,
+		glintShiftY: -.2,
+		heightGain: .5,
+		seamRoughness: .4,
+		seamOcclusion: .7
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -22214,7 +22243,8 @@ var proceduralTileMeters = Object.freeze({
 	europeanyew: .18,
 	coirdoormat: .3,
 	citruspeel: .12,
-	pumpkinskin: .4
+	pumpkinskin: .4,
+	pomegranatearils: .12
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

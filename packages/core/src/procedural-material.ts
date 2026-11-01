@@ -936,7 +936,8 @@ export type ProceduralMaterialKind =
   | 'europeanyew'
   | 'coirdoormat'
   | 'citruspeel'
-  | 'pumpkinskin';
+  | 'pumpkinskin'
+  | 'pomegranatearils';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2107,6 +2108,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'coirdoormat',
   'citruspeel',
   'pumpkinskin',
+  'pomegranatearils',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

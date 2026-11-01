@@ -11758,3 +11758,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Pumpkin skin|pumpkinskin|kinds|catalog|distinct|periodic"`定向測試，**2130項通過／3626項未選**。
 - 補記（完整suite）：在凍結worktree於raindropripples commit `96f009884`實跑完整`vitest run`，**179檔／9,657項全部通過**（1384.39s，wall約23分）；該commit之後的europeanyew、coirdoormat、citruspeel與本功能沒有重跑完整suite，僅有各自的定向測試與gates。
 - 未開瀏覽器gallery（raindropripples、europeanyew、coirdoormat、citruspeel與本功能未在gallery驗證內）；不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：石榴籽囊（pomegranatearils）
+
+- 目錄921→922，含plain的gallery為923項。20×20格、每格一個抖動位置／大小／色調各異的圓形紅寶石色籽囊緊密堆疊並互相重疊，每顆上有偏左上的小高光，籽囊光滑、略高、無遮蔽；籽囊之間的縫隙很暗、較粗糙並帶AO。這是作者依一般石榴籽囊外觀所作示意，**沒有**引用特定來源，不宣稱符合任何品種，也不含半透明、汁液、白色隔膜或果皮。
+- 專用sampler：每格4個Float64（20²共1,600／12,800 B）；籽囊為`smooth(1−q/(size·r)²)`圓頂（r=0.78格）加總於3×3鄰格，覆蓋度`gW/(1+gW)`，顏色取圓頂加權的色調平均再加各顆小高光，縫隙處退回暗縫隙色並提高roughness／AO遮蔽，皆C1。預設0.12 m tile、0.01 UV-relative relief（非公尺位移）、metallic factor0；不新增API或依賴。
+- 開發中實際修正（測試設計）：我最初以AO<0.9當作「縫隙」指標，探測發現約95%的面積都滿足（因為覆蓋度很少接近1），這個指標沒有鑑別力，改用AO<0.5（8.7%）與AO<0.7（約20%）兩個門檻，並以AO<0.5遮罩比較seed差異。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）512²取樣AO<0.5占8.67–8.84%、AO<0.7占20.3–20.5%、color 0.06（縫隙色）到0.815–0.880、平均0.373–0.382、roughness 0.230–0.238到0.58、最低AO 0.30、高度0到0.510–0.519 relief；seed 0與1的AO<0.5遮罩有14.0%像素不同；seed7的512² r／g／b平均約(129,26,41)、AO<230占95.4%、法線max tilt²約0.102。以Bun產生512 seed7四圖並實看：緊密堆疊、有高光與暗縫的紅寶石色圓粒，法線圖呈圓粒起伏。
+- 新增4項永久測試（`Pomegranate arils`：三seed縫隙／高光／粗糙度／AO／高度統計、seed差異與確定性、C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選7項通過（10.13s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Pomegranate arils|pomegranatearils|kinds|catalog|distinct|periodic"`定向測試，**2132項通過／3631項未選**。
+- 本功能未重跑完整179檔suite（pumpkinskin commit的完整suite仍在凍結worktree執行，結果另記）、未開瀏覽器gallery；不宣稱跨瀏覽器／backend或效能驗證；不push。

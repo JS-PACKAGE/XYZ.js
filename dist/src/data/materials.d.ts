@@ -12733,6 +12733,27 @@ export declare const proceduralMaterialPresets: Readonly<{
         grooveOcclusion: 0.4;
         grooveRoughness: 0.12;
     }>;
+    pomegranatearils: Readonly<{
+        dark: readonly [62, 4, 14];
+        light: readonly [238, 62, 84];
+        roughness: 0.18;
+        relief: 0.01;
+        cells: 20;
+        seedSalt: 37018;
+        jitter: 0.22;
+        radius: 0.78;
+        sizeMinimum: 0.75;
+        toneMinimum: 0.45;
+        seamTone: 0.06;
+        toneGain: 1.3;
+        glintTone: 0.28;
+        glintRadius: 0.32;
+        glintShiftX: -0.2;
+        glintShiftY: -0.2;
+        heightGain: 0.5;
+        seamRoughness: 0.4;
+        seamOcclusion: 0.7;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -14033,4 +14054,5 @@ export declare const proceduralTileMeters: Readonly<{
     coirdoormat: 0.3;
     citruspeel: 0.12;
     pumpkinskin: 0.4;
+    pomegranatearils: 0.12;
 }>;
