@@ -12485,6 +12485,43 @@ var proceduralMaterialPresets = Object.freeze({
 		stripeRoughness: .05,
 		valleyAO: .55
 	}),
+	atomicboomerang: Object.freeze({
+		dark: [
+			34,
+			84,
+			90
+		],
+		light: [
+			240,
+			232,
+			204
+		],
+		roughness: .34,
+		relief: 8e-4,
+		cells: 5,
+		boomerangChance: .62,
+		starChance: .7,
+		jitter: .06,
+		halfLength: .32,
+		rise: .4,
+		halfWidth: .085,
+		taper: 3,
+		edgeSoft: .012,
+		minScale: .8,
+		maxScale: 1,
+		starRadius: .2,
+		starPower: .55,
+		speckleCells: 160,
+		speckleThreshold: .8,
+		speckleSharp: 10,
+		baseTone: .56,
+		lightTone: .94,
+		darkTone: .2,
+		speckleTone: .22,
+		printHeight: .1,
+		baseHeight: .45,
+		printRoughness: .05
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -21166,6 +21203,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	atomicboomerang: .6,
 	lawnstripes: 2,
 	asphaltshingle: 1,
 	expandedpolystyrene: .12,

@@ -6739,6 +6739,35 @@ export declare const proceduralMaterialPresets: Readonly<{
         stripeRoughness: 0.05;
         valleyAO: 0.55;
     }>;
+    atomicboomerang: Readonly<{
+        dark: readonly [34, 84, 90];
+        light: readonly [240, 232, 204];
+        roughness: 0.34;
+        relief: 0.0008;
+        cells: 5;
+        boomerangChance: 0.62;
+        starChance: 0.7;
+        jitter: 0.06;
+        halfLength: 0.32;
+        rise: 0.4;
+        halfWidth: 0.085;
+        taper: 3;
+        edgeSoft: 0.012;
+        minScale: 0.8;
+        maxScale: 1;
+        starRadius: 0.2;
+        starPower: 0.55;
+        speckleCells: 160;
+        speckleThreshold: 0.8;
+        speckleSharp: 10;
+        baseTone: 0.56;
+        lightTone: 0.94;
+        darkTone: 0.2;
+        speckleTone: 0.22;
+        printHeight: 0.1;
+        baseHeight: 0.45;
+        printRoughness: 0.05;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -13224,6 +13253,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    atomicboomerang: 0.6;
     lawnstripes: 2;
     asphaltshingle: 1;
     expandedpolystyrene: 0.12;

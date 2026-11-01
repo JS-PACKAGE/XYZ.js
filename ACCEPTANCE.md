@@ -11487,3 +11487,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試以獨立量測驗證主要性質：每條紋（避開邊界20%）的平均色與相鄰條紋差大於stripeTone，且梯度共變異數 Σ gx·gy 的正負號偶數條紋為＋、奇數條紋為−（草葉傾斜方向確實交替）；三seed 512²取樣皆通過，另含通道範圍與wrap／seed差異。
 - 實測：`tests/procedural-material-motifs.test.ts`七十九項（本材質四項）全過。`tests/procedural-material.test.ts`以`-t "lawnstripes|every preset"`定向跑3項通過，沒有重跑該檔其餘5516項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過（此輪與另一個完整測試背景工作同時跑，因此耗時較長）。
 - 真實dev server的pbr3d頁（WebGPU）選取`lawnstripes`：option 897個、status為896 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼無接縫、條紋明暗與傾斜可辨。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：原子時代飛鏢紋層壓板（atomicboomerang）
+
+- 目錄896→897，含plain的gallery為898項。5×5格各有一個印花：約62%為V形飛鏢（兩臂 y＝k|x|、k＝0.4，向臂尖收尖），其餘格約70%為四尖星；位置、尺寸（80–100%）、角度隨機，淺奶油或深青二選一；底色淡青灰帶細小深色斑點，印花略抬高且更光滑。Metallic／mortar為0，預設tile0.6 m、0.0008 UV-relative relief、metallic factor 0。作者設計的復古圖樣，非特定層壓板品牌的複製，未打包外部圖樣。仍在獨立worktree分支`materials/more-textures`作業。
+- 實際抓到並修正：(1) 第一版是拋物線臂，預覽看起來像月牙而非飛鏢，改為V形（k|x|）並調整錐度；(2) 測試「每個印花完全位於單一格內」失敗，原因有二：半長0.36加位置偏移0.06已貼近格邊（量測印花最左像素index 614，距格邊614.4不到半個像素），所以把halfLength降為0.32留出餘裕；另外測試本身用像素index而非像素中心判斷所屬格，已改為(index+0.5)。這兩處都是實際重現後才改，並非放寬門檻。
+- 實測：`tests/procedural-material-motifs.test.ts`八十三項（本材質四項）全過。印花以顏色門檻（>0.75或<0.27，斑點最深約0.34所以不會混入）取wrap四連通區，二階矩判別：四尖星為各向同性（橢圓率≤1.5）、V形飛鏢為細長（＞1.5）；斷言每格至多一個印花、飛鏢數＞0.3×25、星數＞2、淺／深兩色都出現、飛鏢軸向（倍角）合向量比＜0.6（角度確實分散），以及底色斑點比例0.01–0.2。`tests/procedural-material.test.ts`以`-t "atomicboomerang|every preset"`定向跑3項通過，沒有重跑該檔其餘5517項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`atomicboomerang`：option 898個、status為897 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼無接縫、飛鏢與星形可辨。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

@@ -17171,6 +17171,83 @@ export function createSurfaceSampler(
           occlusion = clamp(1 - p.valleyAO * (1 - strand) * (1 - strand));
         };
       }
+      case 'atomicboomerang': {
+        const p = proceduralMaterialPresets.atomicboomerang,
+          // kind 0 empty, 1 boomerang, 2 star; plus jitter, scale, angle, tone selector.
+          cells = new Float64Array(p.cells * p.cells * 7),
+          speckleField = cachedNoise(
+            p.speckleCells,
+            p.speckleCells,
+            seed ^ 0x24b01,
+          ),
+          inverseEdge = 1 / p.edgeSoft,
+          curvature = p.rise / p.halfLength;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 7,
+              pick = hash(col, row, seed ^ 0x24b03),
+              angle = TAU * hash(col, row, seed ^ 0x24b05);
+            cells[i] =
+              pick < p.boomerangChance
+                ? 1
+                : hash(col, row, seed ^ 0x24b07) < p.starChance
+                  ? 2
+                  : 0;
+            cells[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x24b09) - 1);
+            cells[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x24b0b) - 1);
+            cells[i + 3] =
+              p.minScale +
+              (p.maxScale - p.minScale) * hash(col, row, seed ^ 0x24b0d);
+            cells[i + 4] = Math.cos(angle);
+            cells[i + 5] = Math.sin(angle);
+            cells[i + 6] =
+              hash(col, row, seed ^ 0x24b0f) < 0.5 ? p.lightTone : p.darkTone;
+          }
+        return () => {
+          const speckle = smooth(
+            clamp((speckleField(u, v) - p.speckleThreshold) * p.speckleSharp),
+          );
+          color = p.baseTone - p.speckleTone * speckle;
+          height = p.baseHeight;
+          roughness = p.roughness;
+          occlusion = 1;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 7;
+          if (cells[i] === 0) return;
+          // Local frame in cell units, rotated by the cell angle and scaled by its pose.
+          const dx = (uc - col - cells[i + 1]) / cells[i + 3],
+            dy = (vc - row - cells[i + 2]) / cells[i + 3],
+            x = dx * cells[i + 4] + dy * cells[i + 5],
+            y = dy * cells[i + 4] - dx * cells[i + 5];
+          let cover: number;
+          if (cells[i] === 1) {
+            // V-shaped boomerang: arms y = k|x| with width tapering toward the tips.
+            const t = Math.abs(x) / p.halfLength,
+              distance =
+                Math.abs(y - curvature * Math.abs(x)) /
+                Math.sqrt(1 + curvature * curvature),
+              width = p.halfWidth * Math.max(0, 1 - t ** p.taper);
+            cover =
+              smooth(clamp((width - distance) * inverseEdge + 0.5)) *
+              (t < 1 ? 1 : 0);
+          } else {
+            // Four-point astroid star: |x|^e + |y|^e <= r^e.
+            const e = p.starPower,
+              field = Math.abs(x) ** e + Math.abs(y) ** e;
+            cover = smooth(
+              clamp(((p.starRadius ** e - field) / p.starRadius ** e) * 8),
+            );
+          }
+          color += (cells[i + 6] - color) * cover;
+          height += p.printHeight * cover;
+          roughness -= p.printRoughness * cover;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -44700,6 +44777,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'atomicboomerang' ||
     kind === 'lawnstripes' ||
     kind === 'asphaltshingle' ||
     kind === 'expandedpolystyrene' ||

@@ -1442,3 +1442,160 @@ describe('lawnstripes: mown stripes with alternating blade lean', () => {
     expect(different).toBeGreaterThan(100);
   });
 });
+
+describe('atomicboomerang: laminate print of V boomerangs and stars', () => {
+  const p = proceduralMaterialPresets.atomicboomerang;
+  const size = 768;
+  type Shape = { cell: number; ratio: number; angle: number; light: boolean };
+  const analyze = (seed: number): { shapes: Shape[]; speckle: number } => {
+    const sample = createSurfaceSampler('atomicboomerang', seed),
+      out = empty(),
+      kind = new Uint8Array(size * size);
+    let invalid = 0,
+      speckles = 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        invalid += Number(out.metallic !== 0 || out.mortar !== 0);
+        for (const value of [
+          out.color,
+          out.height / p.relief,
+          out.roughness,
+          out.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+        // Printed shapes are far from the base tone; speckle only dips to about 0.34.
+        kind[y * size + x] = out.color > 0.75 ? 1 : out.color < 0.27 ? 2 : 0;
+        speckles += Number(out.color < p.baseTone - 0.1 && out.color >= 0.27);
+      }
+    expect(invalid).toBe(0);
+    const seen = new Uint8Array(kind.length),
+      shapes: Shape[] = [],
+      cell = size / p.cells;
+    for (let first = 0; first < kind.length; first++) {
+      if (!kind[first] || seen[first]) continue;
+      const value = kind[first],
+        queue = [first];
+      seen[first] = 1;
+      for (let read = 0; read < queue.length; read++) {
+        const i = queue[read],
+          x = i % size,
+          y = Math.floor(i / size);
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const j = ((y + dy + size) % size) * size + ((x + dx + size) % size);
+          if (kind[j] === value && !seen[j]) {
+            seen[j] = 1;
+            queue.push(j);
+          }
+        }
+      }
+      if (queue.length < 20) continue;
+      // Shapes never cross a tile edge, so plain coordinates suffice for their moments.
+      let mx = 0,
+        my = 0;
+      for (const i of queue) {
+        mx += i % size;
+        my += Math.floor(i / size);
+      }
+      mx /= queue.length;
+      my /= queue.length;
+      let sxx = 0,
+        syy = 0,
+        sxy = 0,
+        minX = size,
+        maxX = 0,
+        minY = size,
+        maxY = 0;
+      for (const i of queue) {
+        const x = i % size,
+          y = Math.floor(i / size);
+        sxx += (x - mx) ** 2;
+        syy += (y - my) ** 2;
+        sxy += (x - mx) * (y - my);
+        minX = Math.min(minX, x);
+        maxX = Math.max(maxX, x);
+        minY = Math.min(minY, y);
+        maxY = Math.max(maxY, y);
+      }
+      const tr = sxx + syy,
+        det = sxx * syy - sxy * sxy,
+        root = Math.sqrt(Math.max(0, (tr * tr) / 4 - det));
+      // Every shape sits inside a single cell.
+      // Pixel centers decide which cell owns a pixel.
+      expect(Math.floor((minX + 0.5) / cell)).toBe(
+        Math.floor((maxX + 0.5) / cell),
+      );
+      expect(Math.floor((minY + 0.5) / cell)).toBe(
+        Math.floor((maxY + 0.5) / cell),
+      );
+      shapes.push({
+        cell:
+          Math.floor((minY + 0.5) / cell) * p.cells +
+          Math.floor((minX + 0.5) / cell),
+        ratio: (tr / 2 + root) / Math.max(1e-9, tr / 2 - root),
+        angle: 0.5 * Math.atan2(2 * sxy, sxx - syy),
+        light: value === 1,
+      });
+    }
+    return { shapes, speckle: speckles / kind.length };
+  };
+
+  it.each(seeds)(
+    'prints one shape per cell: elongated V boomerangs at random angles and round-symmetric stars (seed %i)',
+    (seed) => {
+      const { shapes, speckle } = analyze(seed),
+        cells = new Set(shapes.map((s) => s.cell));
+      // At most one printed shape per cell.
+      expect(cells.size).toBe(shapes.length);
+      // Four-fold symmetric stars have an isotropic second moment; V boomerangs do not.
+      const boomerangs = shapes.filter((s) => s.ratio > 1.5),
+        stars = shapes.filter((s) => s.ratio <= 1.5);
+      expect(boomerangs.length).toBeGreaterThan(0.3 * p.cells * p.cells);
+      expect(stars.length).toBeGreaterThan(2);
+      expect(boomerangs.length + stars.length).toBeLessThanOrEqual(
+        p.cells * p.cells,
+      );
+      expect(shapes.some((s) => s.light)).toBe(true);
+      expect(shapes.some((s) => !s.light)).toBe(true);
+      // Orientation is spread over the circle (axial angle, doubled).
+      let c = 0,
+        s2 = 0;
+      for (const b of boomerangs) {
+        c += Math.cos(2 * b.angle);
+        s2 += Math.sin(2 * b.angle);
+      }
+      expect(Math.hypot(c, s2) / boomerangs.length).toBeLessThan(0.6);
+      // The base keeps a fine dark speckle.
+      expect(speckle).toBeGreaterThan(0.01);
+      expect(speckle).toBeLessThan(0.2);
+    },
+  );
+
+  it('wraps seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('atomicboomerang', 0),
+      b = createSurfaceSampler('atomicboomerang', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        expect(two.height).toBeCloseTo(one.height, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(100);
+  });
+});
