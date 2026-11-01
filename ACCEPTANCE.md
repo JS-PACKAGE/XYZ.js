@@ -11764,3 +11764,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`三百零一項（本材質四項）全過。三seed、22條×400個位置：在中心線與0.7倍半寬處、且沒有上層麵條覆蓋時，中心線高度與設定的0.62相差＜0.03、0.7處與圓管公式的預期高度（0.51）相差＜0.03，各占檢查點的98%以上；露出湯面（高度＜broth＋0.02）的面積占比實測約7.5%（測試範圍4%–14%）；通道範圍、metallic／mortar 0、wrap與seed差異（seed只改變色調與顆粒）。`tests/procedural-material.test.ts`以`-t "ramennoodles|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 效能：單次本機Bun量測512²取樣約200 ms，非基準測試，未量測瀏覽器、Worker或GPU呈現。
 - 真實dev server的pbr3d頁（WebGPU）選取`ramennoodles`：option 936個、status為935 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的麵條與湯面連續無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：四子棋盤（connectfourboard）
+
+- 目錄935→936，含plain的gallery為937項。每tile一張7欄×6列的四子棋盤加一列底座：藍色面板、圓孔、圓盤（先手中間色調、後手近白色，皆有內環），盤面由seed模擬一局合法遊戲：輪流隨機投入、重力堆疊、會形成四連線的落子改選別欄、共18–30手。Metallic／mortar為0，預設tile0.5 m、0.004 UV-relative relief、metallic factor 0。顏色是亮度而非真實紅黃，隨機局面非策略對局；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 調色記錄：第一版沿用預設的「深色→黃色」色階，預覽中面板變成橄欖綠、與圓盤難以區分；把色階兩端改為深藍（8,12,64）到冷白（238,242,255），面板變成藍色、圓盤分成中間色與近白。
+- 實測：`tests/procedural-material-motifs.test.ts`三百一十三項（本材質十二項）全過。十一個seed（0、7、4294967295、1至8）：在孔心取樣，色調＜0.15為空、0.38–0.62為先手盤、＞0.8為後手盤，每個孔都能歸類；每欄的圓盤從底列起連續堆疊、中間沒有空洞；先手圓盤數減後手為0或1；總數不少於16且不超過30；水平、垂直、兩個對角方向都沒有任何一方有四連線；通道範圍、metallic／mortar 0、wrap與seed差異。這只驗證局面的必要條件（重力、手數奇偶、無贏線），沒有驗證兩邊是否能「合理」下出這個局面。`tests/procedural-material.test.ts`以`-t "connectfourboard|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`connectfourboard`：option 937個、status為936 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的棋盤、圓盤與底座。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

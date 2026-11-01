@@ -13960,6 +13960,45 @@ var proceduralMaterialPresets = Object.freeze({
 		brothRoughness: .2,
 		contactAO: .55
 	}),
+	connectfourboard: Object.freeze({
+		dark: [
+			8,
+			12,
+			64
+		],
+		light: [
+			238,
+			242,
+			255
+		],
+		roughness: .34,
+		relief: .004,
+		columns: 7,
+		rows: 6,
+		movesMin: 18,
+		movesMax: 30,
+		discRadius: .4,
+		holeRadius: .42,
+		ringRadius: .26,
+		ringHalf: .035,
+		edgeSoft: .03,
+		grainCells: 192,
+		frameTone: .3,
+		trayTone: .14,
+		holeTone: .02,
+		redTone: .46,
+		yellowTone: .96,
+		ringShade: .08,
+		grainTone: .03,
+		frameHeight: .62,
+		holeHeight: .12,
+		discHeight: .4,
+		discRise: .1,
+		trayHeight: .5,
+		discRoughness: .28,
+		frameRoughness: .4,
+		holeAO: .5
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -22641,6 +22680,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	connectfourboard: .5,
 	ramennoodles: .3,
 	jigsawpuzzle: .5,
 	backgammonboard: .6,

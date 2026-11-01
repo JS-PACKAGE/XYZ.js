@@ -6487,3 +6487,118 @@ describe('ramennoodles: wavy strands with a rounded tube profile', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('connectfourboard: a reachable mid-game position without a finished line', () => {
+  const p = proceduralMaterialPresets.connectfourboard;
+  const total = p.rows + 1;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6, 7, 8])(
+    'drops discs from the bottom in alternating turns with no four in a row (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('connectfourboard', seed),
+        out = empty(),
+        grid: number[][] = [];
+      // 0 = empty hole, 1 = mid-tone disc (first player), 2 = light disc (second player).
+      for (let row = 0; row < p.rows; row++) {
+        grid.push([]);
+        for (let col = 0; col < p.columns; col++) {
+          sample((col + 0.5) / p.columns, (row + 0.5) / total, out);
+          const tone = out.color;
+          grid[row].push(
+            tone < 0.15
+              ? 0
+              : tone > 0.8
+                ? 2
+                : tone > 0.38 && tone < 0.62
+                  ? 1
+                  : -1,
+          );
+          expect(grid[row][col]).toBeGreaterThanOrEqual(0);
+        }
+      }
+      // Gravity: in every column the discs form an unbroken stack resting on the bottom row.
+      let first = 0,
+        second = 0;
+      for (let col = 0; col < p.columns; col++) {
+        let seen = false;
+        for (let row = 0; row < p.rows; row++) {
+          if (grid[row][col] !== 0) seen = true;
+          else expect(seen).toBe(false);
+        }
+        for (let row = 0; row < p.rows; row++) {
+          first += Number(grid[row][col] === 1);
+          second += Number(grid[row][col] === 2);
+        }
+      }
+      // The first player moves first, so they have as many discs or exactly one more.
+      expect(first - second).toBeGreaterThanOrEqual(0);
+      expect(first - second).toBeLessThanOrEqual(1);
+      expect(first + second).toBeGreaterThanOrEqual(p.movesMin - 2);
+      expect(first + second).toBeLessThanOrEqual(p.movesMax);
+      // Nobody has completed four in a row in any direction.
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const who = grid[row][col];
+          if (who === 0) continue;
+          for (const [dx, dy] of [
+            [1, 0],
+            [0, 1],
+            [1, 1],
+            [1, -1],
+          ]) {
+            let run = 1;
+            for (let step = 1; step < 4; step++) {
+              const x = col + dx * step,
+                y = row + dy * step;
+              if (
+                x < 0 ||
+                y < 0 ||
+                x >= p.columns ||
+                y >= p.rows ||
+                grid[y][x] !== who
+              )
+                break;
+              run++;
+            }
+            expect(run).toBeLessThan(4);
+          }
+        }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('connectfourboard', 0),
+      b = createSurfaceSampler('connectfourboard', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

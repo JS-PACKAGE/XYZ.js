@@ -1295,6 +1295,10 @@
 
 這是作者設計的示意：沒有捲曲的麵條、斷裂、油花、配料或湯汁的反光；因為麵條都是波浪形且逐條固定層次，看起來較規則。波浪的距離採一階近似（垂直偏移除以√(1＋斜率²)），在波峰斜率大處條寬略有誤差。預設0.3 m nominal tile、0.01 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；每個取樣點要檢查22條麵條，成本中等（單次本機Bun量測512²取樣約200 ms，非基準測試）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`connectfourboard`（四子棋盤）使目前目錄935→936種，含plain的gallery為937項。每tile一張7欄×6列的四子棋盤，下方再加一列底座：藍色面板上有圓孔，孔內是深色（空）、第一位玩家的圓盤（中間色調）或第二位玩家的圓盤（近白色），圓盤有內環與略凸的邊。盤面依seed模擬一局合法的遊戲：兩位玩家輪流在隨機欄位投入圓盤（第一位先手），圓盤因重力從底部往上堆，每次落子若會形成四連線就改選別欄；落子數在18–30之間。因此每欄圓盤由底部連續向上，第一位玩家的圓盤數比第二位多0或1，且沒有任何一方已連成四子。Metallic與mortar為0。
+
+這是作者設計的示意：沒有真實的紅、黃色（顏色是以dark／light兩端線性插值的亮度，所以第一位玩家是中間藍灰色、第二位玩家是近白色）；這是隨機合法局面，不是策略對局，也沒有保證可由雙方「合理」下出來。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上讓每個孔約73 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

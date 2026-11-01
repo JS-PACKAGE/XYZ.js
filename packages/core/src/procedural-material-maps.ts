@@ -20479,6 +20479,106 @@ export function createSurfaceSampler(
           occlusion = clamp(p.contactAO + (1 - p.contactAO) * round);
         };
       }
+      case 'connectfourboard': {
+        const p = proceduralMaterialPresets.connectfourboard,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x27201),
+          cols = p.columns,
+          rows = p.rows,
+          // 0 = empty, 1 = red, 2 = yellow; row 0 is the top row of the board.
+          board = new Uint8Array(cols * rows),
+          heights = new Uint8Array(cols),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          wins = (x: number, y: number, who: number): boolean => {
+            for (const [dx, dy] of [
+              [1, 0],
+              [0, 1],
+              [1, 1],
+              [1, -1],
+            ]) {
+              let run = 1;
+              for (const sign of [1, -1])
+                for (let step = 1; step < 4; step++) {
+                  const nx = x + sign * dx * step,
+                    ny = y + sign * dy * step;
+                  if (
+                    nx < 0 ||
+                    ny < 0 ||
+                    nx >= cols ||
+                    ny >= rows ||
+                    board[ny * cols + nx] !== who
+                  )
+                    break;
+                  run++;
+                }
+              if (run >= 4) return true;
+            }
+            return false;
+          };
+        // Play a random legal game, alternating players, never completing a four in a row.
+        const target =
+          p.movesMin +
+          Math.floor(
+            hash(1, 1, seed ^ 0x27203) * (p.movesMax - p.movesMin + 1),
+          );
+        let who = 1,
+          moves = 0;
+        for (let attempt = 0; moves < target && attempt < 600; attempt++) {
+          const column = Math.min(
+            cols - 1,
+            Math.floor(hash(attempt, 2, seed ^ 0x27205) * cols),
+          );
+          if (heights[column] >= rows) continue;
+          const y = rows - 1 - heights[column];
+          board[y * cols + column] = who;
+          if (wins(column, y, who)) {
+            board[y * cols + column] = 0;
+            continue;
+          }
+          heights[column]++;
+          who = 3 - who;
+          moves++;
+        }
+        return () => {
+          // The board is cols x rows cells; the last cell row of the tile is a base tray.
+          const total = rows + 1,
+            gx = u * cols,
+            gy = v * total,
+            col = Math.min(cols - 1, Math.floor(gx)),
+            row = Math.min(total - 1, Math.floor(gy)),
+            fx = gx - col - 0.5,
+            fy = gy - row - 0.5,
+            grain = grainField(u, v) - 0.5;
+          if (row === rows) {
+            color = clamp(p.trayTone + p.grainTone * grain);
+            height = p.trayHeight;
+            roughness = p.frameRoughness;
+            occlusion = 1;
+            return;
+          }
+          const r = Math.sqrt(fx * fx + fy * fy),
+            piece = board[row * cols + col],
+            hole = cover(p.holeRadius - r),
+            disc = piece > 0 ? cover(p.discRadius - r) : 0,
+            ring = cover(p.ringHalf - Math.abs(r - p.ringRadius)) * disc,
+            discTone = piece === 1 ? p.redTone : p.yellowTone;
+          let tone = p.frameTone + (p.holeTone - p.frameTone) * hole;
+          tone += (discTone - p.ringShade * ring - tone) * disc;
+          color = clamp(tone + p.grainTone * grain);
+          height = clamp(
+            p.frameHeight +
+              (p.holeHeight - p.frameHeight) * hole +
+              (p.discHeight +
+                p.discRise * (1 - r / p.discRadius) -
+                p.holeHeight) *
+                disc,
+          );
+          roughness =
+            p.frameRoughness + (p.discRoughness - p.frameRoughness) * disc;
+          occlusion = clamp(1 - (1 - p.holeAO) * hole * (1 - disc));
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -48008,6 +48108,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'connectfourboard' ||
     kind === 'ramennoodles' ||
     kind === 'jigsawpuzzle' ||
     kind === 'backgammonboard' ||

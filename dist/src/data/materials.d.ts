@@ -7832,6 +7832,37 @@ export declare const proceduralMaterialPresets: Readonly<{
         brothRoughness: 0.2;
         contactAO: 0.55;
     }>;
+    connectfourboard: Readonly<{
+        dark: readonly [8, 12, 64];
+        light: readonly [238, 242, 255];
+        roughness: 0.34;
+        relief: 0.004;
+        columns: 7;
+        rows: 6;
+        movesMin: 18;
+        movesMax: 30;
+        discRadius: 0.4;
+        holeRadius: 0.42;
+        ringRadius: 0.26;
+        ringHalf: 0.035;
+        edgeSoft: 0.03;
+        grainCells: 192;
+        frameTone: 0.3;
+        trayTone: 0.14;
+        holeTone: 0.02;
+        redTone: 0.46;
+        yellowTone: 0.96;
+        ringShade: 0.08;
+        grainTone: 0.03;
+        frameHeight: 0.62;
+        holeHeight: 0.12;
+        discHeight: 0.4;
+        discRise: 0.1;
+        trayHeight: 0.5;
+        discRoughness: 0.28;
+        frameRoughness: 0.4;
+        holeAO: 0.5;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -14317,6 +14348,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    connectfourboard: 0.5;
     ramennoodles: 0.3;
     jigsawpuzzle: 0.5;
     backgammonboard: 0.6;
