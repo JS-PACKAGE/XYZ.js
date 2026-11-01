@@ -1349,6 +1349,12 @@
 
 這是作者設計的示意：軌道數固定為3、4、5、6（不隨seed改變，seed只影響墊面的細微顆粒），各軌等寬、沒有光電感測器、遮光罩或軸；亮色代表透光、暗色代表遮光只是亮度的約定，不是實際光學材質；顏色是亮度插值。預設0.35 m nominal tile、0.0028 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上（64扇區的盤在512 px下每個扇區在最外圈約3 px寬）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`code39barcodes`（Code 39條碼）使目前目錄948→949種，含plain的gallery為950項。每tile 6列條碼，每列是 `*XXXXX*`：起訖字元 `*` 夾著由seed隨機選出的5個字元（0至9、A至Z、`-`、`.`）。每個字元由9個元素（5條黑條、4個空白，黑條開頭）組成，其中恰好3個為寬（寬度為窄的3倍），6個為窄；字元之間隔一個窄空白，前後各有10個窄單位以上的靜區（quiet zone）。紙面為米白、黑條帶些微墨色濃淡與顆粒。Metallic與mortar為0。
+
+編碼表是照記憶輸入，並用Wikipedia〈Code 39〉描述的結構規則（兩條寬黑條以權重1、2、4、7、0相加編為1至10，四個空白中恰有一個寬者選擇「U–Z加符號／數字／A–J／K–T」四組之一）在測試端獨立解碼回來，確認38個資料字元與起訖符號 `*` 的圖樣全部符合該規則；但沒有拿真實的條碼掃描器或ISO/IEC 16388標準全文比對，也沒有實際掃描過這些條碼。
+
+這是作者設計的示意：不含Code 39的檢查碼（該符號本來就沒有必要檢查碼）、不含`$`、`/`、`+`、`%`與空白這五個字元（空白可編碼，但這裡的字母表不使用）、也沒有印刷可讀文字；寬窄比固定為3:1、取樣在1/132 tile的單位上，所以太小的解析度（如32）無法分辨窄條。預設0.3 m nominal tile、0.0012 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上（窄單位約7.7 px）；512仍能分辨，約3.9 px；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

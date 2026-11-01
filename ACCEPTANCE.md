@@ -11859,3 +11859,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 真實缺陷與修正（測試先失敗）：軸孔的色調公式我寫成「墊面色＋（圓盤色−墊面色）×盤＋（孔色−墊面色）×孔」，孔中心得到0.22而不是預期的近黑0.04（孔效應是相對墊面色加上去，而不是蓋在圓盤色之上）；測試第一次執行時因此在全部七個seed失敗；改為先算出圓盤色，再以孔係數朝孔色內插，之後通過。預覽圖中孔看起來偏灰就是這個錯誤的表現，我當時沒有注意到，是測試抓到的。
 - 實測：`tests/procedural-material-motifs.test.ts`四百二十七項（本材質八項）全過。七個seed（0、7、4294967295、1至4）、四片盤：以測試端獨立的幾何（等寬軌道、軌道中心半徑、扇區角度）讀出每個扇區中心每條軌道的亮暗（色調必須明確＜0.3或＞0.8），各扇區碼互不相同、相鄰扇區（含最後接回第0個）恰好只有一個位元不同、第0個扇區的碼為0、軸孔暗色（＜0.15）、盤外為墊面色（±0.08）；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "graycodediscs|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`graycodediscs`：option 949個、status為948 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的四片編碼盤。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：Code 39條碼（code39barcodes）
+
+- 目錄948→949，含plain的gallery為950項。每tile 6列 `*XXXXX*` 條碼（起訖`*`夾5個由seed選的0–9、A–Z、`-`、`.`字元），每字元9個元素其中3個為寬（3:1），字元間隔一個窄空白，兩側各有至少10個窄單位的靜區。Metallic／mortar為0，預設tile0.3 m、0.0012 UV-relative relief、metallic factor 0。作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 圖樣表的來源與驗證範圍：38個資料字元與`*`的寬窄圖樣是照記憶輸入的。為了避免測試只是把同一張表抄一遍，測試端不用表，而是以Wikipedia〈Code 39〉描述的結構規則解碼（兩條寬黑條以權重1、2、4、7、0相加得到1至10，4個空白中唯一的寬者選擇U–Z加符號／數字／A–J／K–T四組之一，並檢查每個字元恰有2條寬黑條與1個寬空白）。對60個seed×6列×5個字元，測試確認出現的字元集合恰為全部38個資料字元（`-.0123456789A…Z`），表示表中每一個圖樣都符合該規則；`*`也用兩端起訖的解碼確認。沒有用真實條碼掃描器掃描，也沒有對照ISO/IEC 16388全文。
+- 測試修正：第一版要求最後一條黑條後的靜區與第一條前面的靜區等長（10），但實際輸出是11，因為最後一個字元之後本來就有一個字元間隔的窄空白（Wikipedia也提到字元之間的窄空白通常是字型的一部分）；是測試寫得過嚴，改為兩側都至少10個單位（符號規範的要求）。取樣器沒有改。
+- 實測：`tests/procedural-material-motifs.test.ts`四百三十八項（本材質十一項）全過。九個seed（0、7、4294967295、1至6）：每列解碼為7個字元、首尾為`*`、中間5個在字母表內、元素寬度只有1或3、黑白交錯、字元之間為單一窄空白，各列文字至少有5種不同；另一項對60個seed掃描全部字元圖樣（見上）；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "code39barcodes|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 另外，以`vitest run tests/procedural-material.test.ts tests/procedural-material-motifs.test.ts`完整跑過一次：5962項全過（約1514 s）。這次是在weavingdraft提交後的狀態啟動，執行期間我同時繼續編輯scrambledcubenet、knightstour、graycodediscs的原始碼與測試（vitest在啟動時已載入檔案），所以只能視為「約在該狀態」的結果，不是對最新commit的完整驗證；之後新增的材質仍只做了定向測試。
+- 真實dev server的pbr3d頁（WebGPU）選取`code39barcodes`：option 950個、status為949 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的條碼列。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

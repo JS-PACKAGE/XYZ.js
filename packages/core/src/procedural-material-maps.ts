@@ -21738,6 +21738,108 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'code39barcodes': {
+        const p = proceduralMaterialPresets.code39barcodes,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x27f01),
+          // Bar/space widths (n = narrow, w = wide) of the nine elements of each Code 39 character,
+          // starting with a bar: five bars and four spaces, three of the nine elements wide.
+          patterns: Record<string, string> = {
+            '0': 'nnnwwnwnn',
+            '1': 'wnnwnnnnw',
+            '2': 'nnwwnnnnw',
+            '3': 'wnwwnnnnn',
+            '4': 'nnnwwnnnw',
+            '5': 'wnnwwnnnn',
+            '6': 'nnwwwnnnn',
+            '7': 'nnnwnnwnw',
+            '8': 'wnnwnnwnn',
+            '9': 'nnwwnnwnn',
+            A: 'wnnnnwnnw',
+            B: 'nnwnnwnnw',
+            C: 'wnwnnwnnn',
+            D: 'nnnnwwnnw',
+            E: 'wnnnwwnnn',
+            F: 'nnwnwwnnn',
+            G: 'nnnnnwwnw',
+            H: 'wnnnnwwnn',
+            I: 'nnwnnwwnn',
+            J: 'nnnnwwwnn',
+            K: 'wnnnnnnww',
+            L: 'nnwnnnnww',
+            M: 'wnwnnnnwn',
+            N: 'nnnnwnnww',
+            O: 'wnnnwnnwn',
+            P: 'nnwnwnnwn',
+            Q: 'nnnnnnwww',
+            R: 'wnnnnnwwn',
+            S: 'nnwnnnwwn',
+            T: 'nnnnwnwwn',
+            U: 'wwnnnnnnw',
+            V: 'nwwnnnnnw',
+            W: 'wwwnnnnnn',
+            X: 'nwnnwnnnw',
+            Y: 'wwnnwnnnn',
+            Z: 'nwwnwnnnn',
+            '-': 'nwnnnnwnw',
+            '.': 'wwnnnnwnn',
+            '*': 'nwnnwnwnn',
+          },
+          alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-.',
+          rows = p.rows,
+          units = p.unitCount,
+          ink = new Uint8Array(rows * units);
+        // Each row prints "*" + random characters + "*": bars from the pattern, one narrow space
+        // between characters, and quiet zones on both sides.
+        for (let row = 0; row < rows; row++) {
+          let text = '*';
+          for (let i = 0; i < p.characters; i++)
+            text +=
+              alphabet[
+                Math.min(
+                  alphabet.length - 1,
+                  Math.floor(hash(row, i, seed ^ 0x27f03) * alphabet.length),
+                )
+              ];
+          text += '*';
+          let at = p.quietUnits;
+          for (const character of text) {
+            const pattern = patterns[character];
+            for (let element = 0; element < 9; element++) {
+              const width = pattern[element] === 'w' ? p.wideRatio : 1;
+              if (element % 2 === 0)
+                ink.fill(1, row * units + at, row * units + at + width);
+              at += width;
+            }
+            at += 1;
+          }
+        }
+        return () => {
+          const gy = v * rows,
+            row = Math.min(rows - 1, Math.floor(gy)),
+            fy = gy - row,
+            unit = Math.min(units - 1, Math.floor(u * units)),
+            bar =
+              ink[row * units + unit] === 1
+                ? smooth(
+                    clamp(
+                      (p.barHeight / 2 - Math.abs(fy - 0.5)) /
+                        (p.barSoft * 0.2) +
+                        0.5,
+                    ),
+                  )
+                : 0,
+            tone = p.inkTone + p.inkGain * (grainField(u, v) - 0.5);
+          color = clamp(
+            p.paperTone +
+              p.grainTone * (grainField(v, u) - 0.5) +
+              (tone - p.paperTone) * bar,
+          );
+          height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * bar);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * bar;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -49267,6 +49369,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'code39barcodes' ||
     kind === 'graycodediscs' ||
     kind === 'knightstour' ||
     kind === 'scrambledcubenet' ||

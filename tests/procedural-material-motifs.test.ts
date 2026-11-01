@@ -8121,3 +8121,136 @@ describe('graycodediscs: encoder discs read out as a Gray code', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('code39barcodes: rows decode with the Code 39 two-bar / one-space rule', () => {
+  const p = proceduralMaterialPresets.code39barcodes;
+  // Decode the nine elements (bar, space, bar, ... bar; true = wide) of one character from the
+  // structure of the symbology rather than from a table: two wide bars encode a number 1 to 10
+  // with the weights 1, 2, 4, 7, 0; the one wide space (of four) picks the group of ten values.
+  const decodeCharacter = (wide: boolean[]): string => {
+    const bars = [0, 2, 4, 6, 8].filter((i) => wide[i]),
+      spaces = [1, 3, 5, 7].filter((i) => wide[i]);
+    expect(bars.length).toBe(2);
+    expect(spaces.length).toBe(1);
+    const weights = [1, 2, 4, 7, 0],
+      sum = bars.reduce((total, i) => total + weights[i / 2], 0),
+      n = sum === 11 ? 10 : sum,
+      group = [30, 0, 10, 20][(spaces[0] - 1) / 2];
+    if (group === 0) return String(n === 10 ? 0 : n);
+    const value = group + n - 1;
+    if (value <= 35) return String.fromCharCode(65 + value - 10);
+    return ['-', '.', ' ', '*'][value - 36];
+  };
+
+  // Read one row of bars into its label text, checking the structure of the symbol on the way.
+  const readRow = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    row: number,
+  ): string => {
+    const out = empty(),
+      bits: boolean[] = [];
+    for (let unit = 0; unit < p.unitCount; unit++) {
+      sample((unit + 0.5) / p.unitCount, (row + 0.5) / p.rows, out);
+      bits.push(out.color < 0.5);
+    }
+    // Runs of equal bits, starting from the first bar.
+    const first = bits.indexOf(true),
+      runs: { bar: boolean; width: number }[] = [];
+    // Quiet zones of at least ten narrow units on both sides, as the symbology asks.
+    expect(first).toBeGreaterThanOrEqual(10);
+    expect(bits.length - 1 - bits.lastIndexOf(true)).toBeGreaterThanOrEqual(10);
+    for (let i = first; i < bits.length;) {
+      let end = i;
+      while (end < bits.length && bits[end] === bits[i]) end++;
+      runs.push({ bar: bits[i], width: end - i });
+      i = end;
+    }
+    // Nine elements per character, then a one-unit gap; the last run is the quiet zone.
+    let text = '',
+      at = 0;
+    while (at + 9 <= runs.length - 1) {
+      const wide: boolean[] = [];
+      for (let k = 0; k < 9; k++) {
+        const run = runs[at + k];
+        expect(run.bar).toBe(k % 2 === 0);
+        expect([1, 3]).toContain(run.width);
+        wide.push(run.width === 3);
+      }
+      text += decodeCharacter(wide);
+      at += 9;
+      // Characters are separated by one narrow space (the last one is followed by the quiet zone).
+      if (at < runs.length - 1) {
+        expect(runs[at].bar).toBe(false);
+        expect(runs[at].width).toBe(1);
+        at++;
+      }
+    }
+    return text;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'prints rows of *XXXXX* labels that decode back to valid characters (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('code39barcodes', seed),
+        labels: string[] = [];
+      for (let row = 0; row < p.rows; row++) {
+        const text = readRow(sample, row);
+        expect(text.length).toBe(p.characters + 2);
+        expect(text[0]).toBe('*');
+        expect(text[text.length - 1]).toBe('*');
+        expect(/^[0-9A-Z.-]+$/.test(text.slice(1, -1))).toBe(true);
+        labels.push(text);
+      }
+      expect(new Set(labels).size).toBeGreaterThan(p.rows - 2);
+    },
+  );
+
+  it('uses the right bar pattern for every one of the 38 data characters', () => {
+    const seen = new Set<string>();
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('code39barcodes', seed);
+      for (let row = 0; row < p.rows; row++)
+        for (const character of readRow(sample, row).slice(1, -1))
+          seen.add(character);
+    }
+    expect([...seen].sort().join('')).toBe(
+      '-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+    );
+  }, 30000);
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('code39barcodes', 0),
+      b = createSurfaceSampler('code39barcodes', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
