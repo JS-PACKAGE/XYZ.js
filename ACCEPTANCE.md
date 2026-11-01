@@ -11419,3 +11419,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 目錄885→886，含plain的gallery為887項。外觀參考onsemi P2N2222A/D（2013年1月 Rev.7）第6頁TO-92封裝圖，已正常下載並實看；僅作形狀與尺寸參考，不宣稱精確CAD、材料化學或電氣行為。2×2四個正面各有霧黑D形塑封本體與三支等距平行中性金屬直腳；腳M1，本體／背底M0，邊界C1混合。預設tile0.08m、0.0042 UV-relative relief、metallic factor1。
 - 實測：目標測試11pass；built ESM 512 seed7 packing M0／M255／transition為255,280／5,210／1,654；format:check、API（737 exports／2810 contracts）、distribution、lint、strict typecheck皆過；完整suite 179檔／9,438項全過（1072.69s，Node v26.7.0）。
 - 本次未重做瀏覽器gallery／shipped-root／matrix缺陷對照，不宣稱已驗證；僅由built Node smoke與完整suite支持。沒有force push，保留使用者原有ACCEPTANCE hunk未提交。
+
+## 2026-11-01 程序材質：深巧克力褐色黑胡桃木弦切面（blackwalnut）
+
+- 目錄886→887，含plain的gallery為888項。近似Juglans nigra心材未塗裝弦切縱向木面：中深巧克力褐色、較暗長縱向條紋、直到略起伏的紋理與稀疏短小開放導管凹點。外觀依據實際閱讀的[Wood Database Black Walnut](https://www.wood-database.com/black-walnut/)（Color／Appearance、Grain／Texture、Porosity）及實看的[弦切整板掃描](https://www.wood-database.com/wp-content/uploads/juglans-nigra-full.jpg)；僅作配色與紋理方向參考。不含紫／灰偏色、邊材、捲紋／瘤／鳥眼figure、塗層，也沒有半環孔材導管由大漸小的梯度。
+- 直接fallthrough重用既有Padauk／Bloodwood系導管sampler，constructor只選preset；新增preset位於`src/data`，預設0.16 m tile、0.0025 UV-relative relief（非公尺位移）、metallic factor0。不新增API、依賴或每點配置。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）256²取樣導管占0.54–0.59%，本體色0.254–0.579，橫向／縱向色差比8.8–10.0，metallic／mortar皆0；seed7的512²五maps平均base color約(86,59,40)，導管占0.587%、法線max tilt²0.0069。另以Bun直接產生512 seed7 base color並實看2×2排列圖：中深褐色長縱向條紋與稀疏短黑色凹點，未見明顯接縫。
+- 新增4項永久測試（`Black Walnut`：三seed外觀與縱向各向異性、C1掃描、actual512五maps、帶號UV週期），並加入通用kinds清單；在乾淨worktree以`-t "Black Walnut|generic|seed|periodic|distinct"`定向跑，**4493項通過／1023項未選**（517.22s）。
+- 乾淨worktree（僅含本功能）實跑build（tsc＋minify＋copy-vendor＋build-cjs）、strict typecheck、eslint、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 versioned consumers）、distribution（367 exports）、全倉`prettier --check .`皆通過；dist相對HEAD只變動既有材質相關14檔。
+- 本功能**未**重跑完整179檔suite，也未開瀏覽器gallery（WebGPU／WebGL2／Canvas2D）或shipped-root；僅由上述定向測試、built gates與Node端圖片實看支持，不宣稱跨瀏覽器／backend或效能驗證。工作樹另有他人進行中的mudcloth未提交變更，本commit不含，亦不push。

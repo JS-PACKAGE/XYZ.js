@@ -1095,6 +1095,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`blackwalnut`（深巧克力褐色黑胡桃木弦切面）使目前目錄886→887種，含plain的gallery為888項。近似選定Juglans nigra心材的未塗裝弦切縱向木面：中深巧克力褐色、較暗的長縱向條紋、直紋到略起伏的紋理與稀疏短小的開放導管凹點。不是紫／灰偏色、邊材、捲紋／瘤／鳥眼／分叉figure、塗層，也沒有半環孔材由早材到晚材逐漸變小的導管梯度——導管凹點大小一致，僅為示意。
+
+外觀依據實際閱讀的[Wood Database Black Walnut](https://www.wood-database.com/black-walnut/)（Color/Appearance：淺褐到深巧克力褐色並帶更暗的條紋；Grain/Texture：通常直紋、可不規則、中等質地、中等自然光澤；Porosity：semi-ring-porous），以及實際下載並實看的[弦切整板掃描](https://www.wood-database.com/wp-content/uploads/juglans-nigra-full.jpg)；僅作配色與紋理方向參考，不打包來源圖、不由照片反推真色、roughness或尺寸。
+
+直接fallthrough重用既有Padauk／Bloodwood系細長橢圓導管sampler，constructor只選preset：40×14個導管site（Float64×4共17,920 B pose表）、4個帶狀起伏、192×9縱向fiber與128²細grain。M0、AO在導管處降低；導管凹陷為真height凹陷，縱向色紋只是顏料不抬高。預設0.16 m nominal tile與0.0025 UV-relative relief（非公尺位移）皆作者設定。三seed（0／1／0xffffffff）、256²取樣：導管占0.54–0.59%，本體色0.254–0.579，橫向與縱向色差比8.8–10.0；seed7的512²平均base color約(86,59,40)。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

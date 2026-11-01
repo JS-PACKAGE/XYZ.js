@@ -901,7 +901,8 @@ export type ProceduralMaterialKind =
   | 'batiste'
   | 'ramie'
   | 'wavewashers'
-  | 'cupwashers';
+  | 'cupwashers'
+  | 'blackwalnut';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2037,6 +2038,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'ramie',
   'wavewashers',
   'cupwashers',
+  'blackwalnut',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

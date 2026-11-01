@@ -11897,6 +11897,31 @@ export declare const proceduralMaterialPresets: Readonly<{
         coneRise: 0.38;
         grainHeight: 0.0025;
     }>;
+    blackwalnut: Readonly<{
+        dark: readonly [42, 27, 18];
+        light: readonly [140, 98, 68];
+        roughness: 0.5;
+        relief: 0.0025;
+        columns: 40;
+        rows: 14;
+        widthMinimum: 0.04;
+        widthVariation: 0.03;
+        lengthMinimum: 0.1;
+        lengthVariation: 0.14;
+        poreChance: 0.22;
+        centerMinimum: 0.35;
+        centerRange: 0.3;
+        poreShoulder: 0.5;
+        poreDepth: 0.09;
+        bands: 4;
+        bandWarp: 0.5;
+        bandRadius: 0.46;
+        bandCore: 0.16;
+        bandContrast: 0.2;
+        fiberColumns: 192;
+        fiberRows: 9;
+        fiberContrast: 0.12;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -13162,4 +13187,5 @@ export declare const proceduralTileMeters: Readonly<{
     ramie: 0.04;
     wavewashers: 0.1;
     cupwashers: 0.1;
+    blackwalnut: 0.16;
 }>;
