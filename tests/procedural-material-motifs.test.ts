@@ -9366,3 +9366,113 @@ describe('louvershutter: slats, gaps, stiles, tilt rod and pins', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('ledgersheet: the running balance adds up', () => {
+  const p = proceduralMaterialPresets.ledgersheet;
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'prints amounts and a balance that is their running sum (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('ledgersheet', seed),
+        out = empty(),
+        rows = p.rows,
+        px = p.digitPixel;
+      // Read the glyph whose top-left pixel is at (left, top); -1 if it is not a digit.
+      const glyph = (left: number, centerV: number): number => {
+        const bits: string[] = [];
+        for (let y = 0; y < 5; y++) {
+          let text = '';
+          for (let x = 0; x < 3; x++) {
+            sample(left + (x + 0.5) * px, centerV + (y - 2) * px, out);
+            text += out.color < 0.45 ? '#' : '.';
+          }
+          bits.push(text);
+        }
+        return art.findIndex((digits) =>
+          digits.every((text, i) => text === bits[i]),
+        );
+      };
+      // Read a right-aligned number of up to four digits ending at \`right\`.
+      const readNumber = (
+        right: number,
+        centerV: number,
+        maxDigits: number,
+      ): number => {
+        for (let length = maxDigits; length >= 1; length--) {
+          const left = right - (length * 4 - 1) * px;
+          const digits: number[] = [];
+          for (let d = 0; d < length; d++)
+            digits.push(glyph(left + d * 4 * px, centerV));
+          // The window must hold exactly this many digits: valid glyphs, and blank space to its left.
+          sample(left - 2 * px, centerV, out);
+          if (
+            digits.every((digit) => digit >= 0) &&
+            out.color > 0.8 &&
+            glyph(left - 4 * px, centerV) < 0
+          )
+            return Number(digits.join(''));
+        }
+        return -1;
+      };
+      let running = 0;
+      for (let row = 0; row < rows; row++) {
+        const centerV = (row + 0.5) / rows;
+        expect(glyph(p.indexLeft, centerV)).toBe(row + 1);
+        const amount = readNumber(p.amountRight, centerV, 3),
+          balance = readNumber(p.balanceRight, centerV, 4);
+        expect(amount).toBeGreaterThanOrEqual(p.minAmount);
+        expect(amount).toBeLessThanOrEqual(p.maxAmount);
+        running += amount;
+        expect(balance).toBe(running);
+      }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('ledgersheet', 0),
+      b = createSurfaceSampler('ledgersheet', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

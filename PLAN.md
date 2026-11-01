@@ -1391,6 +1391,10 @@
 
 這是作者設計的示意：這是正面平視的簡化圖，沒有透視、沒有葉片之間透出的背景或光線（縫隙只是深色）、也沒有真實的葉片傾斜角度——傾斜只用「上亮下暗」的亮度梯度與高度斜面表示；邊框直條沒有榫接或面板；顏色是亮度插值（近黑灰到淺灰白），不代表特定的漆色。預設0.4 m nominal tile、0.012 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`ledgersheet`（帳簿紙）使目前目錄958→959種，含plain的gallery為960項。每tile一張8列的簡易帳簿：每列左側是列號（1至8），中間欄是靠右對齊的三位數金額（100至999，由seed決定），右欄是靠右對齊的累計餘額（目前為止所有金額的總和，第一列為三位數、之後多為四位數）；欄位之間有兩條較深的直線，每列之間是淺色橫線，數字是3×5點陣，墨色略有濃淡，米黃紙面有細紋。所以每一列的餘額都等於前一列餘額加本列金額。Metallic與mortar為0。
+
+這是作者設計的示意：沒有欄位標題、貨幣符號、小數點或借貸欄，只有金額與累計餘額兩個數字欄；金額範圍固定為100至999，最多8列（餘額最大7992，四位數）；顏色是亮度插值（近黑藍墨＋米黃紙），不代表真實帳簿的紅藍墨水。預設0.3 m nominal tile、0.0014 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上（每個點陣像素約5 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

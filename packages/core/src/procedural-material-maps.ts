@@ -22513,6 +22513,123 @@ export function createSurfaceSampler(
           );
         };
       }
+      case 'ledgersheet': {
+        const p = proceduralMaterialPresets.ledgersheet,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x28901),
+          jitterField = cachedNoise(
+            p.jitterCells,
+            p.jitterCells,
+            seed ^ 0x28903,
+          ),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          rows = p.rows,
+          amounts: number[] = [],
+          balances: number[] = [],
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // Whether the pixel (x, y) of the number `value`, whose left edge is at `left`, is ink.
+          numberInk = (
+            value: number,
+            left: number,
+            centerV: number,
+            px: number,
+            py: number,
+          ): number => {
+            const text = String(value),
+              width = text.length * 4 - 1,
+              column = Math.floor((px - left) / p.digitPixel),
+              line = Math.floor(
+                (py - (centerV - 2.5 * p.digitPixel)) / p.digitPixel,
+              );
+            if (
+              column < 0 ||
+              column >= width ||
+              column % 4 === 3 ||
+              line < 0 ||
+              line >= 5
+            )
+              return 0;
+            return glyphs[text.charCodeAt(Math.floor(column / 4)) - 48][
+              line * 3 + (column % 4)
+            ] === '1'
+              ? 1
+              : 0;
+          };
+        // A small ledger: each row has its index, an amount of three digits and the running balance
+        // (the sum of the amounts so far), the numbers right-aligned in their columns.
+        let balance = 0;
+        for (let row = 0; row < rows; row++) {
+          const amount =
+            p.minAmount +
+            Math.min(
+              p.maxAmount - p.minAmount,
+              Math.floor(
+                hash(row, 1, seed ^ 0x28905) * (p.maxAmount - p.minAmount + 1),
+              ),
+            );
+          balance += amount;
+          amounts.push(amount);
+          balances.push(balance);
+        }
+        return () => {
+          const row = Math.min(rows - 1, Math.floor(v * rows)),
+            fy = v * rows - row,
+            centerV = (row + 0.5) / rows,
+            index = row + 1,
+            amount = amounts[row],
+            total = balances[row],
+            ink = Math.max(
+              numberInk(index, p.indexLeft, centerV, u, v),
+              numberInk(
+                amount,
+                p.amountRight - (String(amount).length * 4 - 1) * p.digitPixel,
+                centerV,
+                u,
+                v,
+              ),
+              numberInk(
+                total,
+                p.balanceRight - (String(total).length * 4 - 1) * p.digitPixel,
+                centerV,
+                u,
+                v,
+              ),
+            ),
+            rowRule = cover(p.ruleHalf - Math.min(fy, 1 - fy) / rows),
+            columnRule = Math.max(
+              cover(p.columnHalf - Math.abs(u - p.marginRule)),
+              cover(p.columnHalf - Math.abs(u - p.totalRule)),
+            ),
+            rule = Math.max(rowRule * 0.8, columnRule),
+            ruleTone =
+              columnRule >= rowRule * 0.8 ? p.columnRuleTone : p.rowRuleTone,
+            base = p.paperTone + (ruleTone - p.paperTone) * rule,
+            tone = p.inkTone + p.inkJitter * (jitterField(u, v) - 0.5);
+          color = clamp(
+            base + p.grainTone * (grainField(u, v) - 0.5) + (tone - base) * ink,
+          );
+          height = clamp(
+            p.paperHeight +
+              (p.ruleHeight - p.paperHeight) * rule +
+              (p.inkHeight - p.ruleHeight) * ink,
+          );
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -50042,6 +50159,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'ledgersheet' ||
     kind === 'louvershutter' ||
     kind === 'chesterfieldtufting' ||
     kind === 'polargraphpaper' ||

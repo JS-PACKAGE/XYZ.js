@@ -11932,3 +11932,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 目錄957→958，含plain的gallery為959項。每tile一扇百葉窗：左右各一條實心邊框直條（約7%寬）、中央連動桿、10片斜置葉片（上亮下暗的傾斜面，底部14%為深色縫隙），桿上每片葉片中央有一顆軸釘。Metallic／mortar為0，預設tile0.4 m、0.012 UV-relative relief、metallic factor 0。正面平視簡化圖；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
 - 實測：`tests/procedural-material-motifs.test.ts`五百一十二項（本材質四項）全過，第一次執行即通過。三seed（0、7、4294967295）：沿u = 0.25的直線以20000點掃描，數到10個暗縫隙，每個縫隙的中心與 (k + 1 − gap/2)/10 相差＜0.002、寬度與gap/10相差＜0.004；每片葉片上緣比下緣亮＞0.15、縫隙高度＜0.1；連動桿上每片葉片中央為軸釘色調（±0.08）、縫隙處仍是桿的色調（±0.08）；兩側邊框在200個高度都是實心淺色（±0.05，沒有縫隙）；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "louvershutter|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`louvershutter`：option 959個、status為958 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的葉片與桿。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：帳簿紙（ledgersheet）
+
+- 目錄958→959，含plain的gallery為960項。每tile 8列的簡易帳簿：每列有列號（1至8）、靠右對齊的三位數金額（100至999，由seed決定）與靠右對齊的累計餘額，3×5點陣數字、兩條欄線與每列橫線，餘額等於前一列餘額加本列金額。Metallic／mortar為0，預設tile0.3 m、0.0014 UV-relative relief、metallic factor 0。無欄位標題與貨幣符號；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 設計記錄：第一版草稿留有一堆`void`暫存變數與沒用到的`digitAt`輔助函式，寫入前整個重寫為單一的`numberInk`輔助函式。
+- 實測：`tests/procedural-material-motifs.test.ts`五百二十二項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）×8列：以測試端獨立的3×5字型逐像素解碼列號、右對齊的金額（試三位數）與餘額（先試四位數，其左側必須是空白，否則退回三位數），列號等於列序、金額在100至999之間，且每列的餘額嚴格等於前面所有金額的累計總和；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "ledgersheet|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 完整測試的補記：在quasicrystalwaves提交（`9ee096f9a`）的狀態，以`git archive`匯出乾淨副本（`/private/tmp/xyz-suite`，執行期間不受我繼續編輯的影響），對它跑完整的`vitest run tests/procedural-material.test.ts tests/procedural-material-motifs.test.ts`：`2 passed`、**6064項全過**（約1392 s）。這一份取代前面「約該狀態」的5962項記錄，是對一個確定commit的完整驗證；其後新增的tallymarks、polargraphpaper、chesterfieldtufting、louvershutter與本材質仍只做了定向測試。
+- 真實dev server的pbr3d頁（WebGPU）選取`ledgersheet`：option 960個、status為959 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的帳簿。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
