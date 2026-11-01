@@ -10900,3 +10900,100 @@ describe('gameoflife: each board is the next generation of the one before', () =
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('pascalmodulo: every tile follows the Pascal recurrence modulo its modulus', () => {
+  const p = proceduralMaterialPresets.pascalmodulo;
+  const n = p.rows;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'rows are the sum of the two above, modulo 2, 3, 4 and 5 once each (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('pascalmodulo', seed),
+        out = empty(),
+        side = 0.5 - 2 * p.margin,
+        cell = side / n,
+        moduli: number[] = [];
+      for (let quadrant = 0; quadrant < 4; quadrant++) {
+        const tones: number[][] = [];
+        for (let row = 0; row < n; row++) {
+          const line: number[] = [];
+          for (let col = 0; col < n; col++) {
+            sample(
+              (quadrant & 1) * 0.5 + p.margin + (col + 0.5) * cell,
+              (quadrant >> 1) * 0.5 + p.margin + (row + 0.5) * cell,
+              out,
+            );
+            line.push(out.color);
+            // Cells right of the diagonal are empty paper.
+            if (col > row) expect(out.color).toBeLessThan(p.emptyTone + 0.03);
+          }
+          tones.push(line);
+        }
+        // The distinct tile tones are the residues: cluster the sorted tones of the triangle.
+        const used = tones
+            .flatMap((line, row) => line.slice(0, row + 1))
+            .sort((a, b) => a - b),
+          levels: number[] = [used[0]];
+        for (const tone of used)
+          if (tone - levels[levels.length - 1] > 0.05) levels.push(tone);
+        const modulus = levels.length;
+        moduli.push(modulus);
+        const value = (row: number, col: number): number =>
+          col < 0 || col > row
+            ? 0
+            : // The "+ 0" turns a rounded -0 into 0.
+              Math.round(
+                ((tones[row][col] - p.lowTone) / (p.highTone - p.lowTone)) *
+                  (modulus - 1),
+              ) + 0;
+        expect(value(0, 0)).toBe(1);
+        let checked = 0;
+        for (let row = 1; row < n; row++)
+          for (let col = 0; col <= row; col++) {
+            expect(value(row, col)).toBe(
+              (value(row - 1, col - 1) + value(row - 1, col)) % modulus,
+            );
+            checked++;
+          }
+        expect(checked).toBe((n * (n - 1)) / 2 + n - 1);
+      }
+      expect(moduli.sort()).toEqual([2, 3, 4, 5]);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('pascalmodulo', 0),
+      b = createSurfaceSampler('pascalmodulo', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

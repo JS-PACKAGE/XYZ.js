@@ -1453,6 +1453,10 @@
 
 這是作者設計的示意：初始狀態是隨機湯而非特定圖案（沒有刻意放置滑翔機等結構）；盤面只有20×20（環面）；先運行10代而非更長，是因為burn-in 24代時14個seed中最少只剩21個活細胞（第一版以一維hash產生初始狀態時seed 0甚至只剩8個，另外初始狀態還出現大片空白，所以改用二維hash），而10代時各seed為59至121個活細胞（400格）；四個盤面的左右上下邊緣在環面上相連，但這個接縫在tile畫面上沒有表示。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`pascalmodulo`（巴斯卡三角形同餘）使目前目錄971→972種，含plain的gallery為973項。每tile分成2×2個32列的左對齊巴斯卡三角形：第r列第c個方塊是二項式係數的遞推值（每格等於上一列左上與正上兩格之和），分別對模2、3、4、5取餘數，四個象限各用一個模數，哪個模數放在哪個象限由seed決定。餘數越大方塊越亮（亮度在0.2與0.94之間等距分布），三角形右上方是空白的深色底；每個盤面有細外框。模2的盤面就是謝爾賓斯基三角形。Metallic與mortar為0。
+
+這是作者設計的示意：只列出32列；餘數以亮度表示（不是色相，模5的5種亮度間距約0.185，小尺寸下不易分辨）；餘數0不是「空白」而是較暗的方塊（亮度0.2），空白只在對角線右上方；四個模數各出現一次。預設0.4 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
