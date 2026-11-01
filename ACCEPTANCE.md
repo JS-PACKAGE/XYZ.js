@@ -11868,3 +11868,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`四百三十八項（本材質十一項）全過。九個seed（0、7、4294967295、1至6）：每列解碼為7個字元、首尾為`*`、中間5個在字母表內、元素寬度只有1或3、黑白交錯、字元之間為單一窄空白，各列文字至少有5種不同；另一項對60個seed掃描全部字元圖樣（見上）；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "code39barcodes|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 另外，以`vitest run tests/procedural-material.test.ts tests/procedural-material-motifs.test.ts`完整跑過一次：5962項全過（約1514 s）。這次是在weavingdraft提交後的狀態啟動，執行期間我同時繼續編輯scrambledcubenet、knightstour、graycodediscs的原始碼與測試（vitest在啟動時已載入檔案），所以只能視為「約在該狀態」的結果，不是對最新commit的完整驗證；之後新增的材質仍只做了定向測試。
 - 真實dev server的pbr3d頁（WebGPU）選取`code39barcodes`：option 950個、status為949 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的條碼列。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：阿彌陀籤（amidakuji）
+
+- 目錄949→950，含plain的gallery為951項。每tile 8條縱線、10層由seed隨機畫的橫槓（機率約45%，同層不會有兩根相接）；上排標起點號碼1至8，下排標「從哪個起點出發會走到這條縱線」。Metallic／mortar為0，預設tile0.3 m、0.0016 UV-relative relief、metallic factor 0。橫槓固定在層級中央、沒有標示中獎路徑；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 真實缺陷與修正：第一次verify被strict typecheck擋下兩處（TS7022，`rung`因與`previous`互相參照而推成any；TS2322，`let tone = p.paperTone`被推成字面型別），標註型別後重跑通過；建置未在失敗狀態下執行。
+- 實測：`tests/procedural-material-motifs.test.ts`四百五十項（本材質十二項）全過，第一次執行即通過。十一個seed（0、7、4294967295、1至6、8、9）：每條縱線在上、中、下三個高度為墨色；每一層取兩條縱線之間的中點判斷橫槓，同層沒有相接的橫槓、全部橫槓數＞8、層與層之間的空隙無雜墨；測試端依橫槓逐起點走過10層，再與以測試端獨立字型逐像素解碼的下排號碼比對（上排為1至8，下排為每條縱線的終點對應起點），且下排是1至8的排列；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "amidakuji|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`amidakuji`：option 951個、status為950 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的縱線、橫槓與標籤。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+- 更正：先前progress7的提交數寫成65，實際為64（`git rev-list --count`）；本次完成後為66。

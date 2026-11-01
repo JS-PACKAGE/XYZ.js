@@ -8254,3 +8254,128 @@ describe('code39barcodes: rows decode with the Code 39 two-bar / one-space rule'
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('amidakuji: the bottom numbers follow from walking the rungs', () => {
+  const p = proceduralMaterialPresets.amidakuji;
+  const n = 8,
+    levels = 10;
+  // Independent 3x5 drawing of the digits 1 to 8.
+  const art: Record<number, string[]> = {
+    1: ['.#.', '##.', '.#.', '.#.', '###'],
+    2: ['###', '..#', '###', '#..', '###'],
+    3: ['###', '..#', '###', '..#', '###'],
+    4: ['#.#', '#.#', '###', '..#', '..#'],
+    5: ['###', '#..', '###', '..#', '###'],
+    6: ['###', '#..', '###', '#.#', '###'],
+    7: ['###', '..#', '.#.', '.#.', '.#.'],
+    8: ['###', '#.#', '###', '#.#', '###'],
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6, 8, 9])(
+    'labels each line at the bottom with the start number that ends there (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('amidakuji', seed),
+        out = empty(),
+        bandBottom = 1 - p.labelBand,
+        levelHeight = (bandBottom - p.labelBand) / levels,
+        dark = (u: number, v: number): boolean => {
+          sample(u, v, out);
+          return out.color < 0.3;
+        },
+        readDigit = (column: number, v: number): number => {
+          const bits: string[] = [];
+          for (let y = 0; y < 5; y++) {
+            let text = '';
+            for (let x = 0; x < 3; x++)
+              text += dark(
+                (column + 0.5) / n + (x - 1) * p.digitPixel,
+                v + (y - 2) * p.digitPixel,
+              )
+                ? '#'
+                : '.';
+            bits.push(text);
+          }
+          const found = Object.entries(art).find(([, rows]) =>
+            rows.every((text, i) => text === bits[i]),
+          );
+          return found ? Number(found[0]) : -1;
+        };
+      // Vertical lines run the full height between the label bands.
+      for (let column = 0; column < n; column++)
+        for (const v of [0.15, 0.5, 0.85])
+          expect(dark((column + 0.5) / n, v)).toBe(true);
+      // Rungs: one cell between two neighboring lines, per level.
+      const rungs: boolean[][] = [];
+      let touching = 0;
+      for (let level = 0; level < levels; level++) {
+        const v = p.labelBand + (level + 0.5) * levelHeight,
+          row: boolean[] = [];
+        for (let gap = 0; gap < n - 1; gap++) row.push(dark((gap + 1) / n, v));
+        for (let gap = 1; gap < n - 1; gap++)
+          touching += Number(row[gap] && row[gap - 1]);
+        rungs.push(row);
+        // Between the levels the gaps are empty (no stray ink).
+        for (let gap = 0; gap < n - 1; gap++)
+          expect(
+            dark(
+              (gap + 1) / n,
+              p.labelBand + level * levelHeight + levelHeight * 0.02 + 0.0001,
+            ),
+          ).toBe(false);
+      }
+      expect(touching).toBe(0);
+      expect(rungs.flat().filter(Boolean).length).toBeGreaterThan(8);
+      // Walk every start number down the lines.
+      const ends: number[] = [];
+      for (let start = 0; start < n; start++) {
+        let at = start;
+        for (let level = 0; level < levels; level++) {
+          if (at < n - 1 && rungs[level][at]) at++;
+          else if (at > 0 && rungs[level][at - 1]) at--;
+        }
+        ends[at] = start + 1;
+      }
+      for (let column = 0; column < n; column++) {
+        expect(readDigit(column, p.labelBand / 2)).toBe(column + 1);
+        expect(readDigit(column, 1 - p.labelBand / 2)).toBe(ends[column]);
+      }
+      expect(new Set(ends).size).toBe(n);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('amidakuji', 0),
+      b = createSurfaceSampler('amidakuji', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

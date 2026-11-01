@@ -21840,6 +21840,98 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'amidakuji': {
+        const p = proceduralMaterialPresets.amidakuji,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x28001),
+          glyphs = [
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+          ],
+          n = p.columns,
+          levels = p.levels,
+          gaps = new Uint8Array(levels * (n - 1)),
+          arrangement: number[] = Array.from({ length: n }, (_, i) => i),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          bandBottom = 1 - p.labelBand,
+          levelHeight = (bandBottom - p.labelBand) / levels;
+        // Ghost-leg lottery: rungs join neighboring vertical lines at random levels (never two
+        // touching rungs on one level). A start number walks down its line and crosses every rung
+        // it meets; the number under each line at the bottom is the start that ends there.
+        for (let level = 0; level < levels; level++) {
+          let previous: boolean = false;
+          for (let i = 0; i < n - 1; i++) {
+            const rung: boolean =
+              !previous && hash(i, level, seed ^ 0x28003) < p.rungChance;
+            gaps[level * (n - 1) + i] = rung ? 1 : 0;
+            if (rung) {
+              const held = arrangement[i];
+              arrangement[i] = arrangement[i + 1];
+              arrangement[i + 1] = held;
+            }
+            previous = rung;
+          }
+        }
+        return () => {
+          const column = Math.min(n - 1, Math.floor(u * n)),
+            centerOffset = u * n - column - 0.5,
+            lineDistance = Math.abs(centerOffset) / n,
+            inBand = v < p.labelBand || v >= bandBottom,
+            level = Math.min(
+              levels - 1,
+              Math.max(0, Math.floor((v - p.labelBand) / levelHeight)),
+            );
+          let ink = 0,
+            tone: number = p.paperTone;
+          if (inBand) {
+            // Digit labels: 1-8 on top, the start number that ends in each column at the bottom.
+            tone = p.labelBackTone;
+            const number = v < p.labelBand ? column : arrangement[column],
+              left = (column + 0.5) / n - 1.5 * p.digitPixel,
+              top =
+                (v < p.labelBand ? p.labelBand / 2 : 1 - p.labelBand / 2) -
+                2.5 * p.digitPixel,
+              x = Math.floor((u - left) / p.digitPixel),
+              y = Math.floor((v - top) / p.digitPixel);
+            if (
+              x >= 0 &&
+              x < 3 &&
+              y >= 0 &&
+              y < 5 &&
+              glyphs[number][y * 3 + x] === '1'
+            )
+              ink = 1;
+          } else {
+            ink = cover(p.lineHalf - lineDistance);
+            // A rung at this level between this line and the one on its right (or left) neighbor.
+            const centerV = p.labelBand + (level + 0.5) * levelHeight,
+              rungHere = (gap: number): boolean =>
+                gap >= 0 && gap < n - 1 && gaps[level * (n - 1) + gap] === 1,
+              side = centerOffset >= 0 ? column : column - 1;
+            if (rungHere(side))
+              ink = Math.max(ink, cover(p.rungHalf - Math.abs(v - centerV)));
+          }
+          color = clamp(
+            tone +
+              p.grainTone * (grainField(u, v) - 0.5) +
+              (p.inkTone - tone) * ink,
+          );
+          height = clamp(
+            (inBand ? p.labelHeight : p.paperHeight) +
+              (p.inkHeight - p.paperHeight) * ink,
+          );
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -49369,6 +49461,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'amidakuji' ||
     kind === 'code39barcodes' ||
     kind === 'graycodediscs' ||
     kind === 'knightstour' ||

@@ -711,6 +711,7 @@ try {
     'dcbarreljackfaces',
     'stfiberadapterfaces',
     'to92packagefaces',
+    'amidakuji',
     'code39barcodes',
     'graycodediscs',
     'knightstour',
