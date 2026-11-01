@@ -7298,6 +7298,38 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.03;
         leeAO: 0.25;
     }>;
+    frostpolygons: Readonly<{
+        dark: readonly [54, 52, 44];
+        light: readonly [196, 190, 170];
+        roughness: 0.9;
+        relief: 0.012;
+        cells: 8;
+        jitter: 0.7;
+        troughWidth: 0.06;
+        troughSoft: 0.05;
+        rimWidth: 0.42;
+        rimSoft: 0.12;
+        pebbleCells: 48;
+        stoneRadius: 0.36;
+        stoneEdge: 5;
+        stoneRimMin: 0.45;
+        stoneRimSoft: 0.25;
+        pebbleToneRange: 0.4;
+        grainHeight: 0.02;
+        siltCells: 24;
+        grainCells: 256;
+        siltTone: 0.62;
+        troughTone: 0.14;
+        rimTone: 0.48;
+        pebbleTone: 0.3;
+        siltVariation: 0.1;
+        grainTone: 0.06;
+        troughHeight: 0.08;
+        siltHeight: 0.46;
+        rimHeight: 0.62;
+        pebbleHeight: 0.14;
+        troughAO: 0.45;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -13783,6 +13815,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    frostpolygons: 1.5;
     sandripples: 1;
     morsetape: 0.4;
     ean13barcodes: 0.35;

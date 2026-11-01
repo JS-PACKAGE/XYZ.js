@@ -3955,3 +3955,148 @@ describe('sandripples: asymmetric ripple train on an integer wave vector', () =>
     expect(different).toBeGreaterThan(100);
   });
 });
+
+describe('frostpolygons: patterned ground of silt polygons between troughs', () => {
+  const p = proceduralMaterialPresets.frostpolygons;
+
+  it.each([...seeds, 1, 2, 3])(
+    'closes a trough network around exactly one silt polygon per lattice cell (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('frostpolygons', seed),
+        out = empty(),
+        n = 1024,
+        floor = new Uint8Array(n * n);
+      let invalid = 0,
+        trough = 0;
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          sample((x + 0.5) / n, (y + 0.5) / n, out);
+          invalid += Number(out.metallic !== 0 || out.mortar !== 0);
+          for (const value of [
+            out.color,
+            out.height / p.relief,
+            out.roughness,
+            out.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+          const wet = out.occlusion < 0.8;
+          trough += Number(wet);
+          floor[y * n + x] = wet ? 0 : 1;
+        }
+      expect(invalid).toBe(0);
+      // Troughs cover a modest share of the surface.
+      expect(trough / (n * n)).toBeGreaterThan(0.08);
+      expect(trough / (n * n)).toBeLessThan(0.22);
+      // Everything that is not trough splits into exactly cells^2 polygons (torus connectivity).
+      const seen = new Uint8Array(floor.length);
+      let polygons = 0,
+        smallest = Infinity;
+      for (let first = 0; first < floor.length; first++) {
+        if (!floor[first] || seen[first]) continue;
+        polygons++;
+        const queue = [first];
+        seen[first] = 1;
+        for (let read = 0; read < queue.length; read++) {
+          const i = queue[read],
+            x = i % n,
+            y = Math.floor(i / n);
+          for (const [dx, dy] of [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ]) {
+            const j = ((y + dy + n) % n) * n + ((x + dx + n) % n);
+            if (floor[j] && !seen[j]) {
+              seen[j] = 1;
+              queue.push(j);
+            }
+          }
+        }
+        smallest = Math.min(smallest, queue.length);
+      }
+      expect(polygons).toBe(p.cells * p.cells);
+      // No sliver: every polygon is a real patch of ground.
+      expect(smallest).toBeGreaterThan(
+        0.2 * ((n * n) / (p.cells * p.cells)) * 0.5,
+      );
+    },
+  );
+
+  it('rises from the trough through a stony rim to a lower silt core', () => {
+    const sample = createSurfaceSampler('frostpolygons', 7),
+      out = empty(),
+      n = 512,
+      height = new Float64Array(n * n),
+      distance = new Int32Array(n * n).fill(-1),
+      queue: number[] = [];
+    for (let y = 0; y < n; y++)
+      for (let x = 0; x < n; x++) {
+        sample((x + 0.5) / n, (y + 0.5) / n, out);
+        height[y * n + x] = out.height / p.relief;
+        if (out.occlusion < 0.8) {
+          distance[y * n + x] = 0;
+          queue.push(y * n + x);
+        }
+      }
+    // Distance (in pixels) from the nearest trough pixel by multi-source BFS on the torus.
+    for (let read = 0; read < queue.length; read++) {
+      const i = queue[read],
+        x = i % n,
+        y = Math.floor(i / n);
+      for (const [dx, dy] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ]) {
+        const j = ((y + dy + n) % n) * n + ((x + dx + n) % n);
+        if (distance[j] < 0) {
+          distance[j] = distance[i] + 1;
+          queue.push(j);
+        }
+      }
+    }
+    const meanAt = (low: number, high: number): number => {
+      let sum = 0,
+        count = 0;
+      for (let i = 0; i < height.length; i++)
+        if (distance[i] >= low && distance[i] <= high) {
+          sum += height[i];
+          count++;
+        }
+      expect(count).toBeGreaterThan(500);
+      return sum / count;
+    };
+    const trough = meanAt(0, 0),
+      rim = meanAt(4, 10),
+      core = meanAt(30, 1000);
+    expect(trough).toBeLessThan(0.12);
+    expect(rim).toBeGreaterThan(0.58);
+    expect(core).toBeLessThan(0.5);
+    expect(rim - core).toBeGreaterThan(0.12);
+  });
+
+  it('wraps seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('frostpolygons', 0),
+      b = createSurfaceSampler('frostpolygons', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        expect(two.height).toBeCloseTo(one.height, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(100);
+  });
+});

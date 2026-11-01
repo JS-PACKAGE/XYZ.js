@@ -711,6 +711,7 @@ try {
     'dcbarreljackfaces',
     'stfiberadapterfaces',
     'to92packagefaces',
+    'frostpolygons',
     'sandripples',
     'morsetape',
     'ean13barcodes',

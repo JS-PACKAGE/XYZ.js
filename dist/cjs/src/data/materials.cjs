@@ -13210,6 +13210,46 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: .03,
 		leeAO: .25
 	}),
+	frostpolygons: Object.freeze({
+		dark: [
+			54,
+			52,
+			44
+		],
+		light: [
+			196,
+			190,
+			170
+		],
+		roughness: .9,
+		relief: .012,
+		cells: 8,
+		jitter: .7,
+		troughWidth: .06,
+		troughSoft: .05,
+		rimWidth: .42,
+		rimSoft: .12,
+		pebbleCells: 48,
+		stoneRadius: .36,
+		stoneEdge: 5,
+		stoneRimMin: .45,
+		stoneRimSoft: .25,
+		pebbleToneRange: .4,
+		grainHeight: .02,
+		siltCells: 24,
+		grainCells: 256,
+		siltTone: .62,
+		troughTone: .14,
+		rimTone: .48,
+		pebbleTone: .3,
+		siltVariation: .1,
+		grainTone: .06,
+		troughHeight: .08,
+		siltHeight: .46,
+		rimHeight: .62,
+		pebbleHeight: .14,
+		troughAO: .45
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -21891,6 +21931,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	frostpolygons: 1.5,
 	sandripples: 1,
 	morsetape: .4,
 	ean13barcodes: .35,

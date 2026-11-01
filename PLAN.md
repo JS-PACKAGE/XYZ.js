@@ -1215,6 +1215,10 @@
 
 這是作者設計的簡化示意，不是對特定沙丘的量測；沒有波峰分岔（bifurcation／defect）、沙丘尺度的大型形態、風向變化或濕沙。預設1 m nominal tile、0.006 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`frostpolygons`（凍土多邊形）使目前目錄915→916種，含plain的gallery為917項。每tile 8×8個抖動Voronoi多邊形（抖動0.7）的極地圖案地面：粉質土多邊形中心（略低、色調中等且有低頻雲狀變化），邊緣有一圈隆起的石環（rim，色調較暗，內有圓形卵石，半徑隨機、色調0.3–0.7），多邊形之間是窄而深的暗色冰楔裂溝（troughs，AO較暗）。多邊形邊界由兩個最近種子點的距離差近似，不是真正的邊緣距離，所以裂溝寬度在尖角處略有變化。Metallic與mortar為0。
+
+這是作者設計的簡化示意，不是對特定凍土區（如北極多邊形土或石環）的量測，不模擬冰楔剖面、融凍循環、苔蘚或季節積雪；石環色調以隨機亮度表示，不含岩性。預設1.5 m nominal tile、0.012 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

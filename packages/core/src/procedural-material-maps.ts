@@ -18613,6 +18613,92 @@ export function createSurfaceSampler(
           occlusion = clamp(1 - p.leeAO * (windward ? 0 : bump));
         };
       }
+      case 'frostpolygons': {
+        const p = proceduralMaterialPresets.frostpolygons,
+          pointX = new Float64Array(p.cells * p.cells),
+          pointY = new Float64Array(p.cells * p.cells),
+          siltField = cachedNoise(p.siltCells, p.siltCells, seed ^ 0x25e03),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x25e05),
+          inverseTrough = 1 / p.troughSoft,
+          inverseRim = 1 / p.rimSoft,
+          inverseSolid = 1 / p.stoneRimSoft;
+        for (let y = 0; y < p.cells; y++)
+          for (let x = 0; x < p.cells; x++) {
+            pointX[y * p.cells + x] =
+              0.5 + p.jitter * (hash(x, y, seed ^ 0x25e07) - 0.5);
+            pointY[y * p.cells + x] =
+              0.5 + p.jitter * (hash(x, y, seed ^ 0x25e09) - 0.5);
+          }
+        return () => {
+          const gx = u * p.cells,
+            gy = v * p.cells,
+            cx = Math.floor(gx),
+            cy = Math.floor(gy);
+          let nearest = 9,
+            second = 9;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const wx = (((cx + ox) % p.cells) + p.cells) % p.cells,
+                wy = (((cy + oy) % p.cells) + p.cells) % p.cells,
+                dx = cx + ox + pointX[wy * p.cells + wx] - gx,
+                dy = cy + oy + pointY[wy * p.cells + wx] - gy,
+                d = Math.sqrt(dx * dx + dy * dy);
+              if (d < nearest) {
+                second = nearest;
+                nearest = d;
+              } else if (d < second) second = d;
+            }
+          // Gap between the two nearest points is a smooth proxy for the distance to the cell border.
+          const edge = second - nearest,
+            trough =
+              1 - smooth(clamp((edge - p.troughWidth) * inverseTrough + 0.5)),
+            rim =
+              (1 - smooth(clamp((edge - p.rimWidth) * inverseRim + 0.5))) *
+              (1 - trough),
+            pebbleX = Math.floor(u * p.pebbleCells),
+            pebbleY = Math.floor(v * p.pebbleCells),
+            silt = siltField(u, v) - 0.5,
+            grain = grainField(u, v) - 0.5,
+            base = p.siltTone + p.siltVariation * silt,
+            stoneSeed = hash(pebbleX, pebbleY, seed ^ 0x25e0b),
+            stoneRadius = p.stoneRadius * (0.55 + 0.9 * stoneSeed),
+            stoneDx =
+              u * p.pebbleCells -
+              pebbleX -
+              (0.3 + 0.4 * hash(pebbleX, pebbleY, seed ^ 0x25e0d)),
+            stoneDy =
+              v * p.pebbleCells -
+              pebbleY -
+              (0.3 + 0.4 * hash(pebbleX, pebbleY, seed ^ 0x25e0f)),
+            stone = smooth(
+              clamp(
+                (stoneRadius -
+                  Math.sqrt(stoneDx * stoneDx + stoneDy * stoneDy)) *
+                  p.stoneEdge,
+              ),
+            ),
+            // Stones sit only where the rim band is solid.
+            pebble =
+              stone * smooth(clamp((rim - p.stoneRimMin) * inverseSolid));
+          color = clamp(
+            base +
+              (p.rimTone - base) * rim +
+              (p.pebbleTone + p.pebbleToneRange * stoneSeed - p.rimTone) *
+                pebble +
+              (p.troughTone - base) * trough +
+              p.grainTone * grain,
+          );
+          height = clamp(
+            p.siltHeight +
+              (p.rimHeight - p.siltHeight) * rim -
+              (p.rimHeight - p.troughHeight) * trough +
+              p.pebbleHeight * pebble +
+              p.grainHeight * grain,
+          );
+          roughness = p.roughness;
+          occlusion = clamp(1 - (1 - p.troughAO) * trough);
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -46142,6 +46228,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'frostpolygons' ||
     kind === 'sandripples' ||
     kind === 'morsetape' ||
     kind === 'ean13barcodes' ||

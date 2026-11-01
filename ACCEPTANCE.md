@@ -11617,3 +11617,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試修正：第一版測試用relief縮放後的高度與1e-4的絕對門檻判斷「有在變化」的步進，單位不一致（實際等於把門檻放大了1/0.006倍），雖然碰巧通過，但不合理；改為統一使用除以relief的高度後再套1e-4門檻，結果仍通過。
 - 實測：`tests/procedural-material-motifs.test.ts`一百七十四項（本材質四項）全過。三seed在256²格上直接做DFT：能量集中在基頻(18, 7)周圍±3 bin的比例實測約0.79–0.80（門檻＞0.65，因波峰被噪聲彎曲而散開，其餘為諧波）；鏡像向量(18, −7)、轉置向量(7, 18)與無關頻率(30, 3)、(2, 2)的能量合計＜1%（實測約0.0001）；沿+u移動時高度上升的比例實測約0.689，測試要求在0.72±0.06內且＞0.6（遠離對稱波的0.5，顯示迎風緩升確實較久；實測略低於0.72，因砂粒雜訊與圓化峰谷使部分小步進被排除或反向）；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "sandripples|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`sandripples`：option 916個、status為915 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的沙紋連續無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：凍土多邊形（frostpolygons）
+
+- 目錄915→916，含plain的gallery為917項。每tile 8×8個抖動Voronoi多邊形（抖動0.7）：粉質土中心略低、邊緣有含圓形卵石的隆起石環、多邊形之間是窄而深的暗色冰楔裂溝。邊界以兩最近種子點的距離差近似。Metallic／mortar為0，預設tile1.5 m、0.012 UV-relative relief、metallic factor 0。作者設計，不模擬冰楔剖面、融凍、苔蘚或積雪；仍在獨立worktree分支`materials/more-textures`作業。
+- 調整記錄：第一版（12×12、抖動0.55、以雜訊閾值取卵石）預覽看起來像鱷魚皮／鵝卵石而不像圖案地面，石環呈方塊狀；改成8×8、抖動0.7、以隨機半徑圓形卵石（72格）排在石環帶、再調為48格後，才有石環圍繞粉土多邊形的樣子。另外清理了重構後留下的未使用變數與魔術常數（石頭邊緣、最小rim、色調範圍、顆粒高度移到preset）。
+- 實測：`tests/procedural-material-motifs.test.ts`一百八十二項（本材質八項）全過。六個seed（0、7、4294967295、1、2、3）1024²取樣：把非裂溝像素（AO≥0.8）依環面4連通分成恰好64（8×8）個多邊形，裂溝占比0.14–0.15（測試範圍0.08–0.22），最小多邊形約7500–9700像素（遠大於測試下限約1638，沒有碎片）；以裂溝為多源BFS的距離分層：裂溝平均高度約0.05（＜0.12）、石環帶（距裂溝4–10像素）約0.655（＞0.58）、中心核心（≥30像素）約0.46（＜0.5）、石環比核心高0.12以上；通道範圍、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "frostpolygons|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`frostpolygons`：option 917個、status為916 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的多邊形與石環連續無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
