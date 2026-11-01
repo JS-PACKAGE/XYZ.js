@@ -22917,6 +22917,123 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'bluenoisemask': {
+        const p = proceduralMaterialPresets.bluenoisemask,
+          n = p.size,
+          total = n * n,
+          radius = p.kernelRadius,
+          kernel = new Float64Array((2 * radius + 1) ** 2),
+          ranks = new Float64Array(total);
+        for (let dy = -radius; dy <= radius; dy++)
+          for (let dx = -radius; dx <= radius; dx++)
+            kernel[(dy + radius) * (2 * radius + 1) + dx + radius] = Math.exp(
+              -(dx * dx + dy * dy) / (2 * p.sigma * p.sigma),
+            );
+        // Void-and-cluster (Ulichney): build a blue-noise dither mask in which the rank of every texel
+        // 0..total-1 is used exactly once. `energy` is the Gaussian-blurred density of the texels
+        // currently set (on a torus, so the mask tiles).
+        const pattern = new Uint8Array(total),
+          energy = new Float64Array(total),
+          splat = (index: number, sign: number): void => {
+            const px = index % n,
+              py = Math.floor(index / n);
+            for (let dy = -radius; dy <= radius; dy++) {
+              const row = ((py + dy + n) % n) * n;
+              for (let dx = -radius; dx <= radius; dx++)
+                energy[row + ((px + dx + n) % n)] +=
+                  sign * kernel[(dy + radius) * (2 * radius + 1) + dx + radius];
+            }
+          },
+          // The set texel with the highest energy (tightest cluster) or the clear texel with the
+          // lowest (largest void).
+          tightest = (): number => {
+            let best = -1,
+              value = -Infinity;
+            for (let i = 0; i < total; i++)
+              if (pattern[i] === 1 && energy[i] > value) {
+                value = energy[i];
+                best = i;
+              }
+            return best;
+          },
+          largestVoid = (): number => {
+            let best = -1,
+              value = Infinity;
+            for (let i = 0; i < total; i++)
+              if (pattern[i] === 0 && energy[i] < value) {
+                value = energy[i];
+                best = i;
+              }
+            return best;
+          };
+        // Initial pattern: the first texels in the order of a seeded hash, then relaxed until the
+        // tightest cluster is also the largest void.
+        const order = Array.from({ length: total }, (_, i) => i).sort(
+            (a, b) => hash(a, 1, seed ^ 0x28d01) - hash(b, 1, seed ^ 0x28d01),
+          ),
+          ones = Math.floor(total * p.initialFraction);
+        for (let i = 0; i < ones; i++) {
+          pattern[order[i]] = 1;
+          splat(order[i], 1);
+        }
+        for (let step = 0; step < p.relaxLimit; step++) {
+          const cluster = tightest();
+          pattern[cluster] = 0;
+          splat(cluster, -1);
+          const hole = largestVoid();
+          pattern[hole] = 1;
+          splat(hole, 1);
+          if (hole === cluster) break;
+        }
+        const initial = pattern.slice();
+        // Phase 1: remove ones from the tightest cluster, giving ranks ones - 1 down to 0.
+        for (let rank = ones - 1; rank >= 0; rank--) {
+          const cluster = tightest();
+          pattern[cluster] = 0;
+          splat(cluster, -1);
+          ranks[cluster] = rank;
+        }
+        // Phase 2: restore the initial pattern and add ones in the largest voids up to half full.
+        energy.fill(0);
+        for (let i = 0; i < total; i++) {
+          pattern[i] = initial[i];
+          if (initial[i] === 1) splat(i, 1);
+        }
+        const half = total >> 1;
+        for (let rank = ones; rank < half; rank++) {
+          const hole = largestVoid();
+          pattern[hole] = 1;
+          splat(hole, 1);
+          ranks[hole] = rank;
+        }
+        // Phase 3: the remaining texels, each the tightest cluster of clear texels.
+        energy.fill(0);
+        for (let i = 0; i < total; i++) if (pattern[i] === 0) splat(i, 1);
+        for (let rank = half; rank < total; rank++) {
+          let best = -1,
+            value = -Infinity;
+          for (let i = 0; i < total; i++)
+            if (pattern[i] === 0 && energy[i] > value) {
+              value = energy[i];
+              best = i;
+            }
+          pattern[best] = 1;
+          splat(best, -1);
+          ranks[best] = rank;
+        }
+        return () => {
+          const tone =
+            ranks[
+              Math.min(n - 1, Math.floor(v * n)) * n +
+                Math.min(n - 1, Math.floor(u * n))
+            ] /
+            (total - 1);
+          color = tone;
+          height = clamp(tone * p.heightGain);
+          roughness = clamp(p.roughnessBase + p.roughnessSpan * tone);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -50446,6 +50563,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'bluenoisemask' ||
     kind === 'fibonaccisquares' ||
     kind === 'doubleslitfringes' ||
     kind === 'sundialplate' ||

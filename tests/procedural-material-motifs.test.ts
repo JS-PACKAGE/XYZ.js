@@ -9931,3 +9931,112 @@ describe('fibonaccisquares: squares of side 1, 1, 2, 3, 5, 8, 13 and a spiral th
     expect(different).toBeGreaterThan(20);
   });
 });
+
+describe('bluenoisemask: a void-and-cluster dither mask', () => {
+  const p = proceduralMaterialPresets.bluenoisemask;
+  const n = 64,
+    total = n * n;
+
+  // The 64 x 64 texel ranks, recovered from the tone (rank / (total - 1)).
+  const ranks = (seed: number): number[] => {
+    const sample = createSurfaceSampler('bluenoisemask', seed),
+      out = empty(),
+      values: number[] = [];
+    for (let y = 0; y < n; y++)
+      for (let x = 0; x < n; x++) {
+        sample((x + 0.5) / n, (y + 0.5) / n, out);
+        values.push(Math.round(out.color * (total - 1)));
+      }
+    return values;
+  };
+
+  it.each(seeds)(
+    'uses every rank exactly once, so the histogram is flat (seed %i)',
+    (seed) => {
+      const values = ranks(seed),
+        seen = new Set(values);
+      expect(seen.size).toBe(total);
+      expect(Math.min(...values)).toBe(0);
+      expect(Math.max(...values)).toBe(total - 1);
+    },
+    30000,
+  );
+
+  it.each(seeds)(
+    'suppresses low spatial frequencies compared with white noise (seed %i)',
+    (seed) => {
+      const values = ranks(seed).map((rank) => rank / (total - 1) - 0.5);
+      // Power spectrum on integer frequencies of the torus (the mask tiles).
+      const power = (kx: number, ky: number): number => {
+        let re = 0,
+          im = 0;
+        for (let y = 0; y < n; y++)
+          for (let x = 0; x < n; x++) {
+            const angle = (-2 * Math.PI * (kx * x + ky * y)) / n;
+            re += values[y * n + x] * Math.cos(angle);
+            im += values[y * n + x] * Math.sin(angle);
+          }
+        return (re * re + im * im) / total;
+      };
+      // White noise of the same variance has a mean power equal to that variance at every frequency.
+      const variance =
+        values.reduce((sum, value) => sum + value * value, 0) / total;
+      let low = 0,
+        lowCount = 0,
+        high = 0,
+        highCount = 0;
+      for (let ky = -31; ky <= 31; ky++)
+        for (let kx = -31; kx <= 31; kx++) {
+          const radius = Math.hypot(kx, ky);
+          if (radius >= 1 && radius <= 5) {
+            low += power(kx, ky);
+            lowCount++;
+          } else if (radius >= 24 && radius <= 31) {
+            high += power(kx, ky);
+            highCount++;
+          }
+        }
+      // Blue noise: almost no power at low frequencies and more than white noise near the Nyquist
+      // frequency (radius 24 to 31 of at most 32 cycles per mask).
+      expect(low / lowCount / variance).toBeLessThan(0.1);
+      expect(high / highCount / variance).toBeGreaterThan(1.2);
+    },
+    60000,
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('bluenoisemask', 0),
+      b = createSurfaceSampler('bluenoisemask', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  }, 30000);
+});

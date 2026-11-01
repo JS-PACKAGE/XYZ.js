@@ -1407,6 +1407,12 @@
 
 這是作者設計的示意：這是用費氏數列方塊近似的螺線（由四分之一圓弧拼接，曲率在接點不連續），不是真正的對數螺線；長方形不填滿tile，四周留有空白，所以tile重複時圖形之間有間隔；只畫七個方塊（最大13），不能繼續擴大；seed只影響紙面顆粒。預設0.4 m nominal tile、0.0016 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上（最小的方形約21 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`bluenoisemask`（藍噪聲遮罩）使目前目錄962→963種，含plain的gallery為964項。每tile是一張64×64的藍噪聲（blue noise）抖動遮罩，用 void-and-cluster 演算法（Ulichney）產生：在環面（上下左右相接）上以高斯能量（σ = 1.5）找「最密的群聚」與「最大的空洞」，先把約10%的隨機初始點鬆弛到穩定，再依序為全部4096個texel排出0至4095的名次，每個名次恰好使用一次；亮度 = 名次 ÷ 4095，所以亮度直方圖是完全平坦的，且低頻能量被壓得很低。遮罩在環面上計算，可無縫重複。height隨亮度升高，roughness隨亮度略升。Metallic與mortar為0。
+
+一次性本機量測（seed 0，64×64遮罩的離散傅立葉功率，除以白雜訊的預期功率）：半徑1至5頻率的平均約0.000、半徑8至12約0.003、半徑24至31（接近Nyquist）約1.61；同樣變異數的隨機排列（白雜訊）三者約為1.21、1.14、0.96。單次建立約66 ms（一次性量測，非基準）。
+
+這是作者設計的產物：遮罩大小固定為64×64 texel（再大則演算法時間過長），以最近鄰方式取樣，所以在512 px的圖上每個texel是8×8 px的方塊（想要像素級的藍噪聲請把size設為64，或在shader裡以repeat取樣）；seed只決定初始隨機點，不同seed是不同的遮罩，但品質（頻譜）相近；顏色是亮度，沒有色相意義。預設0.2 m nominal tile、0.002 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

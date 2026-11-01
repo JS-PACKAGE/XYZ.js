@@ -8542,6 +8542,21 @@ export declare const proceduralMaterialPresets: Readonly<{
         lineRoughness: 0.4;
         paperRoughness: 0.74;
     }>;
+    bluenoisemask: Readonly<{
+        dark: readonly [6, 8, 14];
+        light: readonly [244, 248, 255];
+        roughness: 0.55;
+        relief: 0.002;
+        size: 64;
+        sigma: 1.5;
+        kernelRadius: 5;
+        initialFraction: 0.1;
+        relaxLimit: 400;
+        smoothing: 0;
+        heightGain: 1;
+        roughnessSpan: 0.3;
+        roughnessBase: 0.4;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -15027,6 +15042,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    bluenoisemask: 0.2;
     fibonaccisquares: 0.4;
     doubleslitfringes: 0.4;
     sundialplate: 0.4;
