@@ -37979,7 +37979,7 @@ export function createSurfaceSampler(
           // Resin flow: bands whose phase is bent by integer-wavenumber sinusoids give
           // slowly swirling light and dark streaks. Trapped bubbles are summed over the
           // 3 x 3 neighbour cells: a dome smooth(1 - q / (size * r)^2) for the body, and a
-          // bright ring exp(-((sqrt(q) / (size * r)) - ringStart)^2 / w^2) times the dome
+          // bright ring exp(-((q / (size * r)^2 - ringStart^2) / w)^2) times the dome
           // envelope for the lensing rim; both are C1 and the saturating S / (1 + S)
           // bounds their sum.
           let bend = 0;
@@ -38009,7 +38009,8 @@ export function createSurfaceSampler(
                 q = (dx * dx + dy * dy) * inverseRadius2,
                 dome = smooth(clamp(1 - q / (size * size)));
               if (dome === 0) continue;
-              const ring = (Math.sqrt(q) / size - p.ringStart) / p.ringWidth;
+              const ring =
+                (q / (size * size) - p.ringStart * p.ringStart) / p.ringWidth;
               body += dome;
               rim += dome * Math.exp(-ring * ring);
             }

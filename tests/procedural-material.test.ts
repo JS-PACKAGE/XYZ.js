@@ -141783,8 +141783,8 @@ describe('Amber resin with glossy orange flow streaks, trapped bubbles and brigh
       expect(roughLow).toBeCloseTo(p.roughness, 12);
       expect(roughHigh).toBeGreaterThan(p.roughness + 0.04);
       expect(roughHigh).toBeLessThan(p.roughness + 0.06);
-      expect(occlusionLow).toBeGreaterThan(0.87);
-      expect(occlusionLow).toBeLessThan(0.89);
+      expect(occlusionLow).toBeGreaterThan(0.9);
+      expect(occlusionLow).toBeLessThan(0.91);
       expect(heightLow).toBeLessThan(0.01);
       expect(heightHigh).toBeGreaterThan(0.37);
       expect(heightHigh).toBeLessThan(0.39);

@@ -9831,7 +9831,7 @@ function createSurfaceSampler(t, r) {
 						if (a === 0) continue;
 						let m = c - (u + n + .5 + o[i]), h = l - (d + e + .5 + o[i + 1]), g = (m * m + h * h) * s, _ = smooth(clamp(1 - g / (a * a)));
 						if (_ === 0) continue;
-						let v = (Math.sqrt(g) / a - t.ringStart) / t.ringWidth;
+						let v = (g / (a * a) - t.ringStart * t.ringStart) / t.ringWidth;
 						f += _, p += _ * Math.exp(-v * v);
 					}
 					let m = f / (1 + f), h = p / (1 + p), g = i(G, K);

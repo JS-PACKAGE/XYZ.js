@@ -20926,7 +20926,7 @@ var proceduralMaterialPresets = Object.freeze({
 		bubbleJitter: .3,
 		bubbleRadius: .36,
 		ringStart: .55,
-		ringWidth: .25,
+		ringWidth: .28,
 		baseTone: .58,
 		flowTone: .22,
 		haloTone: .2,

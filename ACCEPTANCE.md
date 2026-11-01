@@ -11843,3 +11843,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 起因：在檢查樂譜`Math.max`問題後，我審視了本輪新增sampler中的`Math.max／min／abs`用法。雨滴漣漪的`roughness += waveRoughness·|reflection|`在`reflection = 0`（漣漪波形的零交越線）上有V形折角，**不是C1**；先前的C1掃描通過只是因為取樣點沒有恰好落在這些零交越線上，我在該section與docs寫的C1因此不嚴格成立，是我的疏漏。其餘審視的sampler（含`gamedice`的`|dx|`在飽和區內、`coirdoormat`的環形距離為偶函數的cos²、`chesterfieldleather`的`|da|`在smooth的平坦端、`woodenpalletdeck`的`min(fy,1−fy)`在飽和區、`golfballdimples`／`monitorlizardskin`的最近距離在擁有權邊界前歸零）經閱讀程式判斷折角處皆已被飽和或歸零而不影響C1；此為閱讀判斷，不是新的測試證明。
 - 修正：`|reflection|`改為`reflection²`（C∞），其餘不變。重新實測（工具實跑）：三seed 512²取樣roughness 0.080–0.122（原記0.080–0.126）；color、高度、亮暗比例與seed7的512²統計不變；docs內該數字已同步更正，舊section保留原文作歷史紀錄、以本section為準。雨滴漣漪7項測試重跑通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Raindrop ripples|raindropripples|kinds|catalog|distinct|periodic"`定向測試**2142項通過／3669項未選**。本修正未重跑完整179檔suite；不push。
+
+## 2026-11-02 修正：含氣泡的琥珀樹脂（amberbubbles）的亮環改為平滑函數
+
+- 起因：延續上面兩次修正的審視，含氣泡琥珀的氣泡亮環原本寫成`exp(−((√q/size − ringStart)/w)²)`，其中`√q`在氣泡圓心有圓錐形尖點（因為對半徑而非半徑平方取值）；尖點處的值很小（約0.008），但斜率不連續，所以**嚴格說不是C1**。先前的C1掃描通過同樣只是因為取樣點沒有恰好落在圓心，我在該section與docs寫的C1因此不嚴格成立，是我的疏漏。
+- 修正：亮環改以半徑平方表示——`exp(−((q/size² − ringStart²)/ringWidth)²)`（`ringStart`仍為0.55倍半徑，`ringWidth`在半徑平方單位下設為0.28），在圓心完全平滑；實看修正後的渲染，氣泡與亮環外觀與原先相近。重新實測（工具實跑）：三seed 512²取樣color>0.8占1.35–1.84%（原記1.26–1.67%）、color 0.432–0.896（原記0.432–0.895）、平均0.584–0.597、最低AO 0.905（原記0.876）、氣泡占比、高度、roughness與seed7的512²統計（r／g／b約(189,119,25)、AO<250占7.8%）不變；相應的測試期望（最低AO）由0.87–0.89改為0.90–0.91，7項測試重跑通過；docs數字與sampler說明已同步更正，舊section保留原文作歷史紀錄、以本section為準。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Amber resin|amberbubbles|kinds|catalog|distinct|periodic"`定向測試**2142項通過／3669項未選**。本修正未重跑完整179檔suite；不push。

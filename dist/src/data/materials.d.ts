@@ -12822,7 +12822,7 @@ export declare const proceduralMaterialPresets: Readonly<{
         bubbleJitter: 0.3;
         bubbleRadius: 0.36;
         ringStart: 0.55;
-        ringWidth: 0.25;
+        ringWidth: 0.28;
         baseTone: 0.58;
         flowTone: 0.22;
         haloTone: 0.2;
