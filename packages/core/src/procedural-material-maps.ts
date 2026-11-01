@@ -20411,6 +20411,74 @@ export function createSurfaceSampler(
           occlusion = clamp(1 - (1 - p.lineAO) * line);
         };
       }
+      case 'ramennoodles': {
+        const p = proceduralMaterialPresets.ramennoodles,
+          brothField = cachedNoise(p.brothCells, p.brothCells, seed ^ 0x27101),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x27103),
+          n = p.strands,
+          // Each strand: a horizontal wave y = row + A sin(TAU (k x + phase)) with integer k, so it
+          // closes on itself when the tile repeats.
+          cycles = new Float64Array(n),
+          phases = new Float64Array(n),
+          tones = new Float64Array(n),
+          inverseSoft = 1 / p.edgeSoft;
+        for (let i = 0; i < n; i++) {
+          // Fixed by strand index (golden-ratio phases) so the layout is the same for every seed;
+          // the seed only varies tone and grain.
+          cycles[i] = p.harmonics[i % p.harmonics.length];
+          phases[i] = (i * 0.6180339887498949) % 1;
+          tones[i] = hash(i, 3, seed ^ 0x27109) - 0.5;
+        }
+        return () => {
+          // Later strands lie on top of earlier ones; find the topmost strand covering this point.
+          let top = -1,
+            shade = 0;
+          for (let i = 0; i < n; i++) {
+            const base = (i + 0.5) / n,
+              wave = p.amplitude * Math.sin(TAU * (cycles[i] * u + phases[i])),
+              slope =
+                p.amplitude *
+                TAU *
+                cycles[i] *
+                Math.cos(TAU * (cycles[i] * u + phases[i])),
+              // Wrap vertically so the strand that crosses the tile edge continues on the other side.
+              offset = ((v - base - wave + 1.5) % 1) - 0.5,
+              d = Math.abs(offset) / Math.sqrt(1 + slope * slope);
+            if (d < p.halfWidth) {
+              top = i;
+              shade = d / p.halfWidth;
+            }
+          }
+          const broth = brothField(u, v) - 0.5,
+            grain = grainField(u, v) - 0.5;
+          if (top < 0) {
+            color = clamp(p.brothTone + p.grainTone * broth);
+            height = p.brothHeight;
+            roughness = p.brothRoughness;
+            occlusion = p.contactAO;
+            return;
+          }
+          // Round tube: bright along the center line, darker toward the edges.
+          const round = Math.sqrt(Math.max(0, 1 - shade * shade)),
+            edge = smooth(
+              clamp((p.halfWidth - shade * p.halfWidth) * inverseSoft),
+            );
+          color = clamp(
+            p.shadeTone +
+              (p.strandTone - p.shadeTone) * round +
+              p.toneJitter * tones[top] +
+              p.grainTone * grain,
+          );
+          height = clamp(
+            p.brothHeight +
+              (p.strandHeight - p.brothHeight) *
+                (p.roundness + (1 - p.roundness) * round) *
+                edge,
+          );
+          roughness = p.roughness;
+          occlusion = clamp(p.contactAO + (1 - p.contactAO) * round);
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -47940,6 +48008,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'ramennoodles' ||
     kind === 'jigsawpuzzle' ||
     kind === 'backgammonboard' ||
     kind === 'zoneplates' ||

@@ -6363,3 +6363,127 @@ describe('jigsawpuzzle: interlocking pieces on a torus', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('ramennoodles: wavy strands with a rounded tube profile', () => {
+  const p = proceduralMaterialPresets.ramennoodles;
+  const n = p.strands;
+  // Strand i: y = (i + 0.5) / n + A sin(2 pi (k u + phase)) with k cycling through the harmonics
+  // and golden-ratio phases (the same for every seed).
+  const strandY = (i: number, u: number): number =>
+    (i + 0.5) / n +
+    p.amplitude *
+      Math.sin(
+        2 *
+          Math.PI *
+          (p.harmonics[i % p.harmonics.length] * u +
+            ((i * 0.6180339887498949) % 1)),
+      );
+  const strandSlope = (i: number, u: number): number => {
+    const k = p.harmonics[i % p.harmonics.length];
+    return (
+      p.amplitude *
+      2 *
+      Math.PI *
+      k *
+      Math.cos(2 * Math.PI * (k * u + ((i * 0.6180339887498949) % 1)))
+    );
+  };
+  /** Vertical-wrapped first-order distance from a point to strand j. */
+  const distance = (j: number, u: number, v: number): number =>
+    Math.abs(((v - strandY(j, u) + 1.5) % 1) - 0.5) /
+    Math.sqrt(1 + strandSlope(j, u) ** 2);
+
+  it.each(seeds)(
+    'shows a rounded tube profile wherever a strand lies on top, and some broth between strands (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('ramennoodles', seed),
+        out = empty(),
+        normalizedHeight = (u: number, v: number): number => {
+          sample(u, ((v % 1) + 1) % 1, out);
+          return out.height / p.relief;
+        };
+      let center = 0,
+        flank = 0,
+        checked = 0;
+      // Later strands lie on top, so a strand shows its own profile wherever no later strand
+      // reaches the probed point; the pile is dense, so use those stretches only.
+      const onTop = (i: number, u: number, v: number): boolean => {
+        for (let j = i + 1; j < n; j++)
+          if (distance(j, u, v) < p.halfWidth) return false;
+        return true;
+      };
+      for (let i = 0; i < n; i++)
+        for (let k = 0; k < 400; k++) {
+          const u = (k + 0.37) / 400,
+            y = strandY(i, u),
+            scale = Math.sqrt(1 + strandSlope(i, u) ** 2),
+            probe = y + 0.7 * p.halfWidth * scale;
+          if (!onTop(i, u, y) || !onTop(i, u, probe)) continue;
+          checked++;
+          // A tube: full height on the center line, lower at 0.7 of the half width.
+          center += Number(
+            Math.abs(normalizedHeight(u, y) - p.strandHeight) < 0.03,
+          );
+          const round = Math.sqrt(1 - 0.49),
+            expected =
+              p.brothHeight +
+              (p.strandHeight - p.brothHeight) *
+                (p.roundness + (1 - p.roundness) * round);
+          flank += Number(
+            Math.abs(normalizedHeight(u, probe) - expected) < 0.03,
+          );
+        }
+      expect(checked).toBeGreaterThan(300);
+      expect(center / checked).toBeGreaterThan(0.98);
+      expect(flank / checked).toBeGreaterThan(0.98);
+      // Broth shows through the gaps between strands: about 7% of the surface (measured) is at broth level.
+      let gaps = 0;
+      const size = 256;
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++)
+          gaps += Number(
+            normalizedHeight((x + 0.5) / size, (y + 0.5) / size) <
+              p.brothHeight + 0.02,
+          );
+      expect(gaps / (size * size)).toBeGreaterThan(0.04);
+      expect(gaps / (size * size)).toBeLessThan(0.14);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds in tone only', () => {
+    const a = createSurfaceSampler('ramennoodles', 0),
+      b = createSurfaceSampler('ramennoodles', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        expect(two.height).toBeCloseTo(one.height, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

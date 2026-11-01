@@ -7809,6 +7809,29 @@ export declare const proceduralMaterialPresets: Readonly<{
         lineRoughness: 0.8;
         lineAO: 0.5;
     }>;
+    ramennoodles: Readonly<{
+        dark: readonly [150, 108, 40];
+        light: readonly [250, 228, 150];
+        roughness: 0.42;
+        relief: 0.01;
+        strands: 22;
+        harmonics: readonly [3, 4, 5];
+        amplitude: 0.085;
+        halfWidth: 0.026;
+        edgeSoft: 0.004;
+        brothCells: 128;
+        grainCells: 192;
+        strandTone: 0.74;
+        shadeTone: 0.28;
+        toneJitter: 0.06;
+        brothTone: 0.18;
+        grainTone: 0.04;
+        brothHeight: 0.08;
+        strandHeight: 0.62;
+        roundness: 0.28;
+        brothRoughness: 0.2;
+        contactAO: 0.55;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -14294,6 +14317,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    ramennoodles: 0.3;
     jigsawpuzzle: 0.5;
     backgammonboard: 0.6;
     zoneplates: 0.2;

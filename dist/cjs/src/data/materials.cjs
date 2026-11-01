@@ -13925,6 +13925,41 @@ var proceduralMaterialPresets = Object.freeze({
 		lineRoughness: .8,
 		lineAO: .5
 	}),
+	ramennoodles: Object.freeze({
+		dark: [
+			150,
+			108,
+			40
+		],
+		light: [
+			250,
+			228,
+			150
+		],
+		roughness: .42,
+		relief: .01,
+		strands: 22,
+		harmonics: [
+			3,
+			4,
+			5
+		],
+		amplitude: .085,
+		halfWidth: .026,
+		edgeSoft: .004,
+		brothCells: 128,
+		grainCells: 192,
+		strandTone: .74,
+		shadeTone: .28,
+		toneJitter: .06,
+		brothTone: .18,
+		grainTone: .04,
+		brothHeight: .08,
+		strandHeight: .62,
+		roundness: .28,
+		brothRoughness: .2,
+		contactAO: .55
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -22606,6 +22641,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	ramennoodles: .3,
 	jigsawpuzzle: .5,
 	backgammonboard: .6,
 	zoneplates: .2,

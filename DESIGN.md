@@ -1299,6 +1299,10 @@
 
 這是作者設計的示意：凸塊形狀是圓形加直頸，不是真實拼圖刀模的曲線；沒有卡紙厚度、印刷圖案內容或背面。每片的面積因凸塊與凹槽而略有不同（凸塊、凹槽成對抵消時與一格相同）。預設0.5 m nominal tile、0.0026 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上讓每片約170 px、切線約5 px；512時切線約2 px；每個取樣點要做約40次擁有者判定，成本較高：單次本機Bun量測512²取樣約226 ms（同次量測lissajousgrid約122 ms、tumblingblocks約45 ms、brick約16 ms；非基準測試，未量測瀏覽器或Worker）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`ramennoodles`（拉麵麵條）使目前目錄934→935種，含plain的gallery為936項。每tile 22條沿u方向的波浪形麵條，由上到下疊放，後面的麵條蓋在前面的上面：第i條的中心線是 y = (i + 0.5)/22 + 0.085·sin(2π(k·u + 相位))，k依序取3、4、5，相位以黃金比例（i×0.618…取小數）決定，所以每個seed的麵條形狀相同、只有色調與顆粒隨seed變化；麵條半寬0.026，剖面為圓管（中心線亮、邊緣暗並降低高度與環境遮蔽），逐條有±0.06的色調差，麵條之間約7%的面積露出深色湯面。Metallic與mortar為0。
+
+這是作者設計的示意：沒有捲曲的麵條、斷裂、油花、配料或湯汁的反光；因為麵條都是波浪形且逐條固定層次，看起來較規則。波浪的距離採一階近似（垂直偏移除以√(1＋斜率²)），在波峰斜率大處條寬略有誤差。預設0.3 m nominal tile、0.01 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；每個取樣點要檢查22條麵條，成本中等（單次本機Bun量測512²取樣約200 ms，非基準測試）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
