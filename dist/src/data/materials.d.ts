@@ -12597,6 +12597,29 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainRoughness: 0.03;
         earlyOcclusion: 0.03;
     }>;
+    gamedice: Readonly<{
+        dark: readonly [14, 12, 12];
+        light: readonly [244, 238, 222];
+        roughness: 0.3;
+        relief: 0.012;
+        cells: 6;
+        seedSalt: 53710;
+        halfSize: 0.43;
+        edgeRamp: 0.1;
+        pipOffset: 0.2;
+        pipRadius: 0.09;
+        trayTone: 0.16;
+        faceTone: 0.93;
+        pipTone: 0.04;
+        grainCells: 64;
+        grainTone: 0.02;
+        trayHeight: 0;
+        dieHeight: 1;
+        pipDepth: 0.22;
+        pipRoughness: 0.25;
+        trayRoughness: 0.4;
+        trayOcclusion: 0.5;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -13891,4 +13914,5 @@ export declare const proceduralTileMeters: Readonly<{
     metalflakepaint: 0.1;
     poolcaustics: 0.5;
     europeanolive: 0.18;
+    gamedice: 0.3;
 }>;

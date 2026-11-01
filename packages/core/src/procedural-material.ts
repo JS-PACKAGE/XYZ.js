@@ -930,7 +930,8 @@ export type ProceduralMaterialKind =
   | 'tapemeasure'
   | 'metalflakepaint'
   | 'poolcaustics'
-  | 'europeanolive';
+  | 'europeanolive'
+  | 'gamedice';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2095,6 +2096,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'metalflakepaint',
   'poolcaustics',
   'europeanolive',
+  'gamedice',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

@@ -37548,6 +37548,67 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'gamedice': {
+        const p = proceduralMaterialPresets.gamedice,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0xd1cf),
+          counts = new Uint8Array(p.cells * p.cells),
+          inverseRadius2 = 1 / (p.pipRadius * p.pipRadius),
+          o = p.pipOffset,
+          // Standard die faces over seven sites: corners, side centres and centre.
+          sites: readonly (readonly [number, number])[] = [
+            [-o, -o],
+            [o, o],
+            [o, -o],
+            [-o, o],
+            [-o, 0],
+            [o, 0],
+            [0, 0],
+          ],
+          faces: readonly (readonly number[])[] = [
+            [6],
+            [0, 1],
+            [0, 1, 6],
+            [0, 1, 2, 3],
+            [0, 1, 2, 3, 6],
+            [0, 1, 2, 3, 4, 5],
+          ];
+        for (let row = 0; row < p.cells; row++)
+          for (let column = 0; column < p.cells; column++)
+            counts[row * p.cells + column] = Math.floor(
+              6 * hash(column, row, seed ^ p.seedSalt),
+            );
+        return () => {
+          // A tray of dice: each die is a rounded square (product of two smooth
+          // edge ramps, zero slope at the rim and over the flat top) with pips of
+          // smooth(1 - q / r^2) pressed into the face. The face pattern is the
+          // standard 1-6 layout drawn from seven sites.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            column = Math.floor(x),
+            row = Math.floor(y),
+            dx = x - column - 0.5,
+            dy = y - row - 0.5,
+            die =
+              smooth(clamp((p.halfSize - Math.abs(dx)) / p.edgeRamp)) *
+              smooth(clamp((p.halfSize - Math.abs(dy)) / p.edgeRamp));
+          let pip = 0;
+          for (const site of faces[counts[row * p.cells + column]]) {
+            const px = dx - sites[site][0],
+              py = dy - sites[site][1];
+            pip += smooth(clamp(1 - (px * px + py * py) * inverseRadius2));
+          }
+          const grain = grainField(u, v),
+            face = p.faceTone + p.grainTone * (grain - 0.5);
+          color =
+            p.trayTone * (1 - die) + (face * (1 - pip) + p.pipTone * pip) * die;
+          height = p.trayHeight + (p.dieHeight - p.pipDepth * pip) * die;
+          roughness +=
+            (p.trayRoughness - p.roughness) * (1 - die) +
+            p.pipRoughness * pip * die;
+          occlusion = 1 - p.trayOcclusion * (1 - die) * (1 - die);
+          return;
+        };
+      }
       case 'woodenpalletdeck': {
         const p = proceduralMaterialPresets.woodenpalletdeck,
           tones = new Float64Array(p.boards),
@@ -45151,6 +45212,7 @@ export function createSurfaceSampler(
     kind === 'metalflakepaint' ||
     kind === 'poolcaustics' ||
     kind === 'europeanolive' ||
+    kind === 'gamedice' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
     kind === 'sitkaspruce' ||

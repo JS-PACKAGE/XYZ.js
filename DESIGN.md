@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`gamedice`（遊戲骰子）使目前目錄915→916種，含plain的gallery為917項。6×6顆象牙白圓角方骰排成一盤，骰面壓入黑色圓形點數（標準1–6點配置，每顆隨seed擲出），骰子間是較暗、較粗糙且帶AO的托盤；骰面光滑、點數凹陷且較粗糙。不是立體骰子的三個面、斜放或堆疊、骰邊倒角之外的幾何、點數塗漆厚度或磨損。
+
+此材質是作者依一般六面骰子的標準點數配置（1–6點）所作示意，沒有引用特定來源文件、照片或量測；骰子大小、圓角、點數半徑與深度、色調、roughness與0.3 m nominal tile皆作者設定，不宣稱符合任何實際骰子規格（如尺寸或對面和為7的排列），也不模擬真實骰子的點數凹陷方式。
+
+新增專用sampler：36顆骰各以`hash`依seed擲出1–6，點數位置取自七個候選位置（四角、左右中央與中心）的標準配置；骰身為兩個平滑邊緣斜坡的乘積（頂面平坦、邊緣斜率為0），點數 = `smooth(1 − q/r²)`壓入面內，托盤色與骰色以骰身權重混合，因此皆C1。cache為36項Uint8點數表與64²細grain（4,096 Float64），共32,804 B lattice算術預算（非總RAM）。顏色是顏料，height只用於法線與AO；金屬factor為0、無mortar。預設0.3 m nominal tile與0.012 UV-relative relief（非公尺位移）皆作者設定。三seed（0／1／0xffffffff）量測：每顆骰的七個位置中暗點構成的集合都恰為六種標準配置之一；三seed共108顆骰的點數分布為1點21、2點17、3點19、4點18、5點21、6點12顆；骰面color 0.921–0.939、點數0.04、托盤0.16；骰面高度1.0 relief、點數0.78、托盤0；roughness骰面0.30／點數0.55／托盤0.40；托盤AO 0.5、骰面1；seed7的512²中r平均143.7、r<60占33.0%、r>180占46.3%、AO<200占39.2%、法線max tilt²約0.532。我實看了四圖，確認2、3、5、6點的配置與標準骰面一致。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `europeanolive`（歐洲橄欖木）使目前目錄914→915種，含plain的gallery為916項。近似Olea europaea未塗裝弦切面：淡黃褐底色、細而均勻的質地、6條細長起伏帶拱形的深黃褐生長紋（約占面積一成以下）與細縱向纖維。不是深褐至近黑的縱向條紋與紋理、彎曲／野生紋、瘤紋、邊心材界線或塗層。
 
 外觀依據實際閱讀的[Wood Database Olive](https://www.wood-database.com/olive/)（Color／Appearance：心材由黃到淺紅褐，帶更暗的棕到黑色條紋與脈；邊材淡黃且與心材分明；Grain／Texture：紋理可為直、交錯或野生；細而均勻的質地、帶適度天然光澤）與實際下載並實看的[木面照片](https://www.wood-database.com/wp-content/uploads/olea-europaea-300x600.jpg)（淡黃褐面、細暗生長紋與拱形）；僅作配色與紋理形態參考，**不**重現頁面所述的深褐至近黑條紋與脈、野生紋或瘤紋，不打包來源圖，也不由照片反推真色、roughness或實際尺寸。

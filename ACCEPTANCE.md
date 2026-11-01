@@ -11698,3 +11698,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增4項永久測試（`European olive`：三seed外觀與各向異性、C1掃描、actual512五maps、帶號UV週期），並加入通用kinds清單；名稱篩選7項通過（7.48s）。
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "European olive|europeanolive|kinds|catalog|distinct|periodic"`定向測試，**2120項通過／3594項未選**。
 - 本功能未重跑完整179檔suite（metalflakepaint commit的完整suite仍在凍結worktree執行，結果另記）、未開瀏覽器gallery；不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：遊戲骰子（gamedice）
+
+- 目錄915→916，含plain的gallery為917項。6×6顆象牙白圓角方骰排成一盤，骰面壓入黑色圓形點數（標準1–6點配置，每顆隨seed擲出），骰間為較暗、較粗糙且帶AO的托盤；骰面光滑、點數凹陷且較粗糙。這是作者依標準六面骰點數配置所作示意，**沒有**引用特定來源，不宣稱符合骰子規格（尺寸、對面和為7等），也不含立體三面、斜放堆疊、塗漆厚度或磨損。
+- 專用sampler：36顆骰各以`hash`擲出1–6，點數位置取自七個候選位置的標準配置；骰身為兩個平滑邊緣斜坡的乘積，點數`smooth(1−q/r²)`壓入面內，托盤色與骰色以骰身權重混合，皆C1。cache為36項Uint8＋64² grain（4,096 Float64）共32,804 B。預設0.3 m tile、0.012 UV-relative relief（非公尺位移）、metallic factor0；不新增API或依賴。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）每顆骰的七個候選位置中暗點構成的集合恰為六種標準配置之一；三seed共108顆骰點數分布1點21、2點17、3點19、4點18、5點21、6點12；骰面color 0.921–0.939、點數0.04、托盤0.16；骰面高度1.0 relief、點數0.78、托盤0；roughness骰面0.30／點數0.55／托盤0.40；托盤AO 0.5、骰面1；seed7的512² r平均143.7、r<60占33.0%、r>180占46.3%、AO<200占39.2%、法線max tilt²約0.532。以Bun產生512 seed7四圖並實看：整齊的6×6骰盤、各骰面點數配置正確、法線圖有骰緣斜坡與點數凹陷。
+- 新增4項永久測試（`Game dice`：三seed逐骰標準配置與點／面／托盤幾何、六種點數都出現且各seed不同、C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選7項通過（8.50s）。我先寫的一條「同seed取同位置兩次相等」的斷言屬於恆真式，已在跑第二遍前刪除。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Game dice|gamedice|kinds|catalog|distinct|periodic"`定向測試，**2121項通過／3600項未選**。
+- 補記（完整suite）：在凍結worktree於metalflakepaint commit `586fbcd25`實跑完整`vitest run`，**179檔／9,629項全部通過**（1283.58s，wall約21.4分）；該commit之後的poolcaustics、europeanolive與本功能沒有重跑完整suite，僅有各自的定向測試與gates。
+- 未開瀏覽器gallery（topographicmap之後新增的barcodelabel、ledmatrix、tapemeasure、metalflakepaint、poolcaustics、europeanolive與本功能均未在gallery驗證內）；不宣稱跨瀏覽器／backend或效能驗證；不push。

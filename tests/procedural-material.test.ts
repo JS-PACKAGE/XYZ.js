@@ -957,6 +957,7 @@ const kinds: ProceduralMaterialKind[] = [
   'metalflakepaint',
   'poolcaustics',
   'europeanolive',
+  'gamedice',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -139942,5 +139943,199 @@ describe('Pale yellow-tan European olive wood with fine uniform texture and thin
       }
     }
     expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Game dice with a tray of ivory rounded dice and standard one to six pips pressed into the faces', () => {
+  const p = proceduralMaterialPresets.gamedice;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const o = p.pipOffset;
+  const sites: [number, number][] = [
+    [-o, -o],
+    [o, o],
+    [o, -o],
+    [-o, o],
+    [-o, 0],
+    [o, 0],
+    [0, 0],
+  ];
+  // The six standard layouts as the set of lit site indices.
+  const layouts = ['6', '01', '016', '0123', '01236', '012345'];
+  const faceAt = (seed: number, row: number, column: number): string => {
+    const sample = createSurfaceSampler('gamedice', seed),
+      out = empty();
+    let lit = '';
+    sites.forEach(([sx, sy], index) => {
+      sample((column + 0.5 + sx) / p.cells, (row + 0.5 + sy) / p.cells, out);
+      if (out.color < 0.2) lit += String(index);
+    });
+    return lit;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'draws a valid standard pip layout on every die with exact pip, face and tray geometry for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('gamedice', seed),
+        pip = empty(),
+        face = empty(),
+        tray = empty();
+      let invalid = 0;
+      for (let row = 0; row < p.cells; row++)
+        for (let column = 0; column < p.cells; column++) {
+          const lit = faceAt(seed, row, column);
+          expect(layouts).toContain(lit);
+          const first = [...lit][0];
+          sample(
+            (column + 0.5 + sites[Number(first)][0]) / p.cells,
+            (row + 0.5 + sites[Number(first)][1]) / p.cells,
+            pip,
+          );
+          sample((column + 0.8) / p.cells, (row + 0.8) / p.cells, face);
+          sample(column / p.cells, row / p.cells, tray);
+          expect(pip.color).toBeCloseTo(p.pipTone, 12);
+          expect(pip.height).toBeCloseTo(
+            p.relief * (p.dieHeight - p.pipDepth),
+            12,
+          );
+          expect(pip.roughness).toBeCloseTo(p.roughness + p.pipRoughness, 12);
+          expect(face.color).toBeGreaterThan(0.91);
+          expect(face.color).toBeLessThan(0.95);
+          expect(face.height).toBeCloseTo(p.relief * p.dieHeight, 12);
+          expect(face.occlusion).toBeCloseTo(1, 12);
+          expect(tray.color).toBeCloseTo(p.trayTone, 12);
+          expect(tray.height).toBeCloseTo(p.relief * p.trayHeight, 12);
+          expect(tray.occlusion).toBeCloseTo(1 - p.trayOcclusion, 12);
+          expect(tray.roughness).toBeCloseTo(p.trayRoughness, 12);
+          for (const s of [pip, face, tray])
+            invalid += Number(
+              s.metallic !== 0 ||
+                s.mortar !== 0 ||
+                keys.some(
+                  (key) => !Number.isFinite(s[key]) || s[key] < 0 || s[key] > 1,
+                ),
+            );
+        }
+      expect(invalid).toBe(0);
+    },
+  );
+  it('uses all six faces across the tested seeds and rolls different dice per seed', () => {
+    const seen = new Set<string>();
+    let different = 0;
+    for (const seed of [0, 1, 0xffffffff])
+      for (let row = 0; row < p.cells; row++)
+        for (let column = 0; column < p.cells; column++)
+          seen.add(faceAt(seed, row, column));
+    for (let row = 0; row < p.cells; row++)
+      for (let column = 0; column < p.cells; column++)
+        different += Number(faceAt(0, row, column) !== faceAt(1, row, column));
+    expect([...seen].sort()).toEqual([...layouts].sort());
+    expect(different).toBeGreaterThan(p.cells * p.cells * 0.5);
+  });
+  it('keeps die rims, pip rims and the tray C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('gamedice', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.cells, 2 * p.cells, 12 * p.cells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 ivory-and-black dielectric maps with about a third dark tray and pips and strong rim normals', () => {
+    const maps = generateProceduralMaps('gamedice', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      dark = 0,
+      light = 0,
+      occluded = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      dark += Number(maps.baseColor[i] < 60);
+      light += Number(maps.baseColor[i] > 180);
+      occluded += Number(maps.occlusion[i] < 200);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2] ||
+          maps.baseColor[i] < maps.baseColor[i + 2] ||
+          maps.normal[i + 2] < 180,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(130);
+    expect(red / (512 * 512)).toBeLessThan(155);
+    expect(dark / (512 * 512)).toBeGreaterThan(0.3);
+    expect(dark / (512 * 512)).toBeLessThan(0.36);
+    expect(light / (512 * 512)).toBeGreaterThan(0.43);
+    expect(light / (512 * 512)).toBeLessThan(0.5);
+    expect(occluded / (512 * 512)).toBeGreaterThan(0.36);
+    expect(occluded / (512 * 512)).toBeLessThan(0.43);
+    expect(maxTilt).toBeGreaterThan(0.45);
+    expect(maxTilt).toBeLessThan(0.6);
+    expect(invalid).toBe(0);
   });
 });
