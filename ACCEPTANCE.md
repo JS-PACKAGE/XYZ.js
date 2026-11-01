@@ -11494,3 +11494,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實際抓到並修正：(1) 第一版是拋物線臂，預覽看起來像月牙而非飛鏢，改為V形（k|x|）並調整錐度；(2) 測試「每個印花完全位於單一格內」失敗，原因有二：半長0.36加位置偏移0.06已貼近格邊（量測印花最左像素index 614，距格邊614.4不到半個像素），所以把halfLength降為0.32留出餘裕；另外測試本身用像素index而非像素中心判斷所屬格，已改為(index+0.5)。這兩處都是實際重現後才改，並非放寬門檻。
 - 實測：`tests/procedural-material-motifs.test.ts`八十三項（本材質四項）全過。印花以顏色門檻（>0.75或<0.27，斑點最深約0.34所以不會混入）取wrap四連通區，二階矩判別：四尖星為各向同性（橢圓率≤1.5）、V形飛鏢為細長（＞1.5）；斷言每格至多一個印花、飛鏢數＞0.3×25、星數＞2、淺／深兩色都出現、飛鏢軸向（倍角）合向量比＜0.6（角度確實分散），以及底色斑點比例0.01–0.2。`tests/procedural-material.test.ts`以`-t "atomicboomerang|every preset"`定向跑3項通過，沒有重跑該檔其餘5517項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`atomicboomerang`：option 898個、status為897 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼無接縫、飛鏢與星形可辨。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：凱爾特雙帶編織浮雕（celticplait）
+
+- 目錄897→898，含plain的gallery為899項。4條橫向雕刻帶，每條由兩根互相交織的緞帶（y＝±A·sin(2π·4u)，A＝0.052，半寬0.029；每tile 8個交叉點）組成，上升的那條在每個交叉點都在上方；緞帶有圓截面、中央細溝與接觸陰影（只降AO），帶間有細軌線；底為凹下的細顆粒石面。Metallic／mortar為0，預設tile0.5 m、0.0042 UV-relative relief、metallic factor 0。簡化雙帶編織，不含三帶以上結構／轉角／動物形，垂直距離為斜率修正的近似；作者設計，未打包外部圖樣。仍在獨立worktree分支`materials/more-textures`作業。
+- 實測：`tests/procedural-material-motifs.test.ts`九十項（本材質七項）全過。幾何測試在θ＝π/2（兩緞帶水平、相距最遠）沿v取16384點，以color＞0.68（緞帶面0.74，軌線0.62、凹槽／底面更低）取亮段：三seed各剛好16段＝4帶×2緞帶×（中央細溝分成兩半）、每段寬＝半寬−溝半寬±0.006、中心位置符合±A±(半寬＋溝半寬)/2（±0.006）；上下關係測試在4帶×8個交叉點上，沿兩條切線方向各取±0.012的高度範圍，上升方向（過上）的高度範圍必須比下降方向小至少0.1 relief，與「過／下輪替」的定義獨立（由取樣到的高度判斷，而不是讀sampler內部旗標）。`tests/procedural-material.test.ts`以`-t "celticplait|every preset"`定向跑3項通過，沒有重跑該檔其餘5518項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`celticplait`：option 899個、status為898 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼無接縫、兩帶交織與中央細溝可辨。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

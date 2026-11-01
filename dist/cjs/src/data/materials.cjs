@@ -12522,6 +12522,43 @@ var proceduralMaterialPresets = Object.freeze({
 		baseHeight: .45,
 		printRoughness: .05
 	}),
+	celticplait: Object.freeze({
+		dark: [
+			52,
+			48,
+			42
+		],
+		light: [
+			214,
+			204,
+			180
+		],
+		roughness: .82,
+		relief: .0042,
+		bands: 4,
+		periods: 4,
+		amplitude: .052,
+		ribbonHalf: .029,
+		ribbonSoft: .004,
+		grooveHalf: .006,
+		railPosition: .114,
+		railHalf: .006,
+		shadowWidth: .014,
+		grainCells: 160,
+		groundTone: .3,
+		ribbonTone: .74,
+		grooveTone: .22,
+		railTone: .62,
+		grainTone: .07,
+		groundHeight: .12,
+		ribbonHeight: .62,
+		underDrop: .3,
+		grooveDepth: .12,
+		railHeight: .3,
+		grainHeight: .03,
+		roughnessGrain: .06,
+		shadowAO: .45
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -21203,6 +21240,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	celticplait: .5,
 	atomicboomerang: .6,
 	lawnstripes: 2,
 	asphaltshingle: 1,

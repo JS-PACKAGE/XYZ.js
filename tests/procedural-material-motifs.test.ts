@@ -1599,3 +1599,118 @@ describe('atomicboomerang: laminate print of V boomerangs and stars', () => {
     expect(different).toBeGreaterThan(100);
   });
 });
+
+describe('celticplait: carved two-ribbon interlace bands', () => {
+  const p = proceduralMaterialPresets.celticplait;
+
+  it.each(seeds)(
+    'places two grooved ribbons at the authored amplitude and width in every band (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('celticplait', seed),
+        out = empty(),
+        n = 16384,
+        // theta = pi/2: both ribbons are horizontal and furthest apart.
+        u = 0.25 / p.periods,
+        lit: boolean[] = [];
+      let invalid = 0;
+      for (let i = 0; i < n; i++) {
+        sample(u, (i + 0.5) / n, out);
+        invalid += Number(out.metallic !== 0 || out.mortar !== 0);
+        for (const value of [
+          out.color,
+          out.height / p.relief,
+          out.roughness,
+          out.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+        // Ribbon faces (0.74) are above both rails (0.62) and the groove/ground.
+        lit.push(out.color > 0.68);
+      }
+      expect(invalid).toBe(0);
+      const runs: { center: number; width: number }[] = [];
+      let start = -1;
+      for (let i = 0; i <= n; i++) {
+        const on = i < n && lit[i];
+        if (on && start < 0) start = i;
+        if (!on && start >= 0) {
+          runs.push({ center: (start + i) / 2 / n, width: (i - start) / n });
+          start = -1;
+        }
+      }
+      // Per band: two ribbons, each split in two halves by the center groove.
+      expect(runs.length).toBe(4 * p.bands);
+      const half = p.ribbonHalf - p.grooveHalf;
+      for (const run of runs)
+        expect(Math.abs(run.width - half)).toBeLessThan(0.006);
+      for (let band = 0; band < p.bands; band++) {
+        const mid = (band + 0.5) / p.bands,
+          centers = runs
+            .slice(4 * band, 4 * band + 4)
+            .map((r) => r.center - mid);
+        const expected = [
+          -p.amplitude - (p.ribbonHalf + p.grooveHalf) / 2,
+          -p.amplitude + (p.ribbonHalf + p.grooveHalf) / 2,
+          p.amplitude - (p.ribbonHalf + p.grooveHalf) / 2,
+          p.amplitude + (p.ribbonHalf + p.grooveHalf) / 2,
+        ];
+        for (let k = 0; k < 4; k++)
+          expect(Math.abs(centers[k] - expected[k])).toBeLessThan(0.006);
+      }
+    },
+  );
+
+  it.each(seeds)(
+    'passes the rising ribbon over the falling one at every crossing (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('celticplait', seed),
+        out = empty(),
+        slope = p.amplitude * 2 * Math.PI * p.periods;
+      for (let band = 0; band < p.bands; band++)
+        for (let crossing = 0; crossing < 2 * p.periods; crossing++) {
+          const u0 = crossing / (2 * p.periods),
+            v0 = (band + 0.5) / p.bands,
+            // Slope of strand 1 alternates in sign; the strands mirror each other.
+            slope1 = slope * (crossing % 2 === 0 ? 1 : -1),
+            range = (direction: number): number => {
+              let low = Infinity,
+                high = -Infinity;
+              for (let k = -10; k <= 10; k++) {
+                const t = (k / 10) * 0.012;
+                sample(u0 + t, v0 + direction * Math.abs(slope1) * t, out);
+                low = Math.min(low, out.height);
+                high = Math.max(high, out.height);
+              }
+              return (high - low) / p.relief;
+            };
+          // The over ribbon keeps its crest through the crossing; the under ribbon is
+          // interrupted by it, so its height profile varies far more.
+          const rising = range(1),
+            falling = range(-1);
+          expect(falling).toBeGreaterThan(rising + 0.1);
+        }
+    },
+  );
+
+  it('wraps seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('celticplait', 0),
+      b = createSurfaceSampler('celticplait', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        expect(two.height).toBeCloseTo(one.height, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(100);
+  });
+});

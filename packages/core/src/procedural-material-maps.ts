@@ -17248,6 +17248,71 @@ export function createSurfaceSampler(
           roughness -= p.printRoughness * cover;
         };
       }
+      case 'celticplait': {
+        const p = proceduralMaterialPresets.celticplait,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x24c01),
+          inverseSoft = 1 / p.ribbonSoft,
+          inverseShadow = 1 / p.shadowWidth,
+          slopeScale = p.amplitude * TAU * p.periods;
+        return () => {
+          const bv = v * p.bands,
+            band = Math.floor(bv),
+            y = (bv - band - 0.5) / p.bands,
+            theta = TAU * p.periods * u,
+            s = Math.sin(theta),
+            c = Math.cos(theta),
+            // Perpendicular distance to a strand: vertical offset over sqrt(1 + slope^2).
+            norm = 1 / Math.sqrt(1 + slopeScale * slopeScale * c * c),
+            d1 = Math.abs(y - p.amplitude * s) * norm,
+            d2 = Math.abs(y + p.amplitude * s) * norm,
+            cover1 = smooth(clamp((p.ribbonHalf - d1) * inverseSoft + 0.5)),
+            cover2 = smooth(clamp((p.ribbonHalf - d2) * inverseSoft + 0.5)),
+            // Strand 1 passes over at cos > 0, strand 2 at cos < 0; each undulates over/under.
+            h1 =
+              cover1 *
+              (1 - p.underDrop * (0.5 - 0.5 * c)) *
+              Math.sqrt(clamp(1 - (d1 / p.ribbonHalf) ** 2)),
+            h2 =
+              cover2 *
+              (1 - p.underDrop * (0.5 + 0.5 * c)) *
+              Math.sqrt(clamp(1 - (d2 / p.ribbonHalf) ** 2)),
+            first = h1 >= h2,
+            top = first ? h1 : h2,
+            distance = first ? d1 : d2,
+            cover = Math.max(cover1, cover2),
+            groove =
+              smooth(clamp((p.grooveHalf - distance) * inverseSoft + 0.5)) *
+              cover,
+            rail = smooth(
+              clamp(
+                (p.railHalf - Math.abs(Math.abs(y) - p.railPosition)) *
+                  inverseSoft +
+                  0.5,
+              ),
+            ),
+            grain = grainField(u, v),
+            // Contact shadow on whatever lies just outside the topmost ribbon.
+            shadow =
+              (1 - (first ? cover1 : cover2)) *
+              (1 - smooth(clamp((distance - p.ribbonHalf) * inverseShadow)));
+          color = clamp(
+            p.groundTone +
+              (p.ribbonTone - p.groundTone) * cover +
+              (p.railTone - p.groundTone) * rail * (1 - cover) -
+              (p.ribbonTone - p.grooveTone) * groove +
+              p.grainTone * (grain - 0.5),
+          );
+          height = clamp(
+            p.groundHeight +
+              p.ribbonHeight * top +
+              p.railHeight * rail * (1 - cover) -
+              p.grooveDepth * groove +
+              p.grainHeight * (grain - 0.5),
+          );
+          roughness = p.roughness - p.roughnessGrain * (grain - 0.5);
+          occlusion = clamp(1 - p.shadowAO * shadow);
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -44777,6 +44842,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'celticplait' ||
     kind === 'atomicboomerang' ||
     kind === 'lawnstripes' ||
     kind === 'asphaltshingle' ||
