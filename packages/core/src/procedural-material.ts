@@ -648,6 +648,7 @@ export type ProceduralMaterialKind =
   | 'dcbarreljackfaces'
   | 'stfiberadapterfaces'
   | 'to92packagefaces'
+  | 'lissajousgrid'
   | 'mondriancomposition'
   | 'hilbertcurve'
   | 'battleshipgrid'
@@ -1827,6 +1828,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'dcbarreljackfaces',
   'stfiberadapterfaces',
   'to92packagefaces',
+  'lissajousgrid',
   'mondriancomposition',
   'hilbertcurve',
   'battleshipgrid',

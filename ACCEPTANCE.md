@@ -11723,3 +11723,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試記錄：第一版斷言「每個區域恰好填滿其外接框」在八個seed中七個失敗：線邊緣的抗鋸齒像素受雜訊影響，會在邊界留下1–幾十個像素的鋸齒（顏色剛好在閾值0.2附近）；改閾值反而讓區域標準差超標。最後改為：把外接框向內縮3 px，縮小後的核心區必須被完全填滿（L形區域會在核心留下明顯缺口，所以仍有鑑別力），顏色平均與標準差也只在核心區計算。
 - 實測：`tests/procedural-material-motifs.test.ts`二百七十三項（本材質九項）全過。八個seed（0、7、4294967295、1、2、3、4、5）512²取樣：黑線像素（顏色＜0.2）以外的區域以4連通分組，數量在5–40之間；每區的核心區完全填滿外接框（矩形）、核心標準差＜0.08、平均色調與六階色階之一相差＜0.08，且每個seed至少出現2種不同色階；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "mondriancomposition|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`mondriancomposition`：option 931個、status為930 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的矩形與黑線連續無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：李沙育圖形表（lissajousgrid）
+
+- 目錄930→931，含plain的gallery為932項。每tile一張4×4示波器風格李沙育圖形表，第(欄, 列)格畫出 x = A·sin(a·t + π/2)、y = A·sin(b·t)（a = 欄 + 1、b = 列 + 1、A = 0.4格、160段折線近似），亮綠線條帶光暈、淡格框與中心十字。Metallic／mortar為0，預設tile0.4 m、0.002 UV-relative relief、metallic factor 0。相位固定，無螢幕曲率；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 效能記錄：每個取樣點檢查160段折線；單次本機Bun量測512²取樣約155 ms，同一次量測tumblingblocks約56 ms、brick約17 ms；這不是基準測試，沒有量測瀏覽器、Worker或GPU呈現。
+- 測試調整：第一版以512²取樣、4000點解析曲線對全部亮像素做最近距離比對，在完整測試同時執行時超過vitest預設5秒而逾時；改為384²、2000點、一旦找到足夠近的點就提早結束，並把該測試的逾時設為30秒。
+- 實測：`tests/procedural-material-motifs.test.ts`二百七十七項（本材質四項）全過。三seed：測試端以公式獨立生成每格的解析曲線（2000點），每格曲線上每隔40點取樣，落在亮像素（顏色＞0.6）的比例＞0.99；所有亮像素到解析曲線的最近距離都在「線半寬＋2 px」之內（偏離曲線的雜散亮像素占比＜1%），亮像素總數＞5000；通道範圍、metallic／mortar 0、wrap與seed差異（seed只改變面板顆粒）。這驗證曲線位置，沒有驗證光暈強度。`tests/procedural-material.test.ts`以`-t "lissajousgrid|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 另外，在上一輪（tetrisstack提交時的整體狀態，共41種新材質）以`vitest run tests/procedural-material.test.ts tests/procedural-material-motifs.test.ts`完整跑過：兩檔共5802項全過（約1397 s）；之後新增的battleshipgrid、hilbertcurve、mondriancomposition、本材質只做了定向測試。
+- 真實dev server的pbr3d頁（WebGPU）選取`lissajousgrid`：option 932個、status為931 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的圖形表連續無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

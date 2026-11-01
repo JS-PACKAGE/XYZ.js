@@ -13787,6 +13787,39 @@ var proceduralMaterialPresets = Object.freeze({
 		lineRoughness: .5,
 		fieldRoughness: .7
 	}),
+	lissajousgrid: Object.freeze({
+		dark: [
+			8,
+			24,
+			18
+		],
+		light: [
+			120,
+			240,
+			170
+		],
+		roughness: .4,
+		relief: .002,
+		cells: 4,
+		segments: 160,
+		amplitude: .4,
+		phase: Math.PI / 2,
+		lineHalf: .014,
+		glowWidth: .1,
+		edgeSoft: .008,
+		frameHalf: .012,
+		gratCells: 192,
+		lineTone: .95,
+		glowTone: .2,
+		gridTone: .14,
+		panelTone: .04,
+		gratTone: .02,
+		lineHeight: .6,
+		panelHeight: .3,
+		gridHeight: .38,
+		lineRoughness: .3,
+		panelRoughness: .65
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -22468,6 +22501,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	lissajousgrid: .4,
 	mondriancomposition: .6,
 	hilbertcurve: .3,
 	battleshipgrid: .4,

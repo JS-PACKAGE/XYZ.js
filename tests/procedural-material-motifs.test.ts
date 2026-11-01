@@ -5957,3 +5957,104 @@ describe('mondriancomposition: a rectangular partition framed by black lines', (
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('lissajousgrid: curves with frequencies a = column + 1 and b = row + 1', () => {
+  const p = proceduralMaterialPresets.lissajousgrid;
+  const n = p.cells;
+
+  it.each(seeds)(
+    'inks exactly the analytic Lissajous curve of every cell and nothing else (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('lissajousgrid', seed),
+        out = empty();
+      // Independent dense polyline of x = A sin(a t + phase), y = A sin(b t) per cell, in tile units.
+      const dense = 2000;
+      const curve = (col: number, row: number): Float64Array => {
+        const points = new Float64Array(dense * 2);
+        for (let i = 0; i < dense; i++) {
+          const t = (2 * Math.PI * i) / dense;
+          points[2 * i] =
+            (col + 0.5 + p.amplitude * Math.sin((col + 1) * t + p.phase)) / n;
+          points[2 * i + 1] =
+            (row + 0.5 + p.amplitude * Math.sin((row + 1) * t)) / n;
+        }
+        return points;
+      };
+      let onCurveInked = 0,
+        onCurveTotal = 0,
+        stray = 0,
+        inkPixels = 0;
+      const size = 384;
+      const ink = new Uint8Array(size * size);
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          sample((x + 0.5) / size, (y + 0.5) / size, out);
+          ink[y * size + x] = Number(out.color > 0.6);
+          expect(out.metallic).toBe(0);
+          expect(out.mortar).toBe(0);
+          for (const value of [
+            out.color,
+            out.height / p.relief,
+            out.roughness,
+            out.occlusion,
+          ])
+            expect(value >= 0 && value <= 1).toBe(true);
+        }
+      for (let row = 0; row < n; row++)
+        for (let col = 0; col < n; col++) {
+          const points = curve(col, row);
+          // Points on the analytic curve are inked (sampled on the pixel grid, not between pixels).
+          for (let i = 0; i < dense; i += 40) {
+            const x = Math.floor(points[2 * i] * size),
+              y = Math.floor(points[2 * i + 1] * size);
+            onCurveTotal++;
+            onCurveInked += ink[y * size + x];
+          }
+          // Every inked pixel in this cell lies close to the curve.
+          const x0 = Math.floor((col * size) / n),
+            y0 = Math.floor((row * size) / n);
+          for (let y = y0; y < y0 + size / n; y++)
+            for (let x = x0; x < x0 + size / n; x++) {
+              if (!ink[y * size + x]) continue;
+              inkPixels++;
+              const px = (x + 0.5) / size,
+                py = (y + 0.5) / size;
+              // lineHalf is in cells; allow slack for pixel size and the polyline spacing.
+              const limit = p.lineHalf / n + 2 / size;
+              let close = false;
+              for (let i = 0; i < dense && !close; i++)
+                close =
+                  Math.hypot(points[2 * i] - px, points[2 * i + 1] - py) <=
+                  limit;
+              stray += Number(!close);
+            }
+        }
+      expect(onCurveInked / onCurveTotal).toBeGreaterThan(0.99);
+      expect(stray / inkPixels).toBeLessThan(0.01);
+      expect(inkPixels).toBeGreaterThan(5000);
+    },
+    30_000,
+  );
+
+  it('repeats seamlessly and differs between seeds only in the panel grain', () => {
+    const a = createSurfaceSampler('lissajousgrid', 0),
+      b = createSurfaceSampler('lissajousgrid', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

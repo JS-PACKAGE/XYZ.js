@@ -20071,6 +20071,80 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'lissajousgrid': {
+        const p = proceduralMaterialPresets.lissajousgrid,
+          gratField = cachedNoise(p.gratCells, p.gratCells, seed ^ 0x26d01),
+          n = p.cells,
+          // Per cell, the closed curve x = A sin(a t + phase), y = A sin(b t) as a polyline of
+          // cell-relative points, with frequencies a = column + 1 and b = row + 1.
+          curves: Float64Array[] = [],
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5));
+        for (let row = 0; row < n; row++)
+          for (let col = 0; col < n; col++) {
+            const points = new Float64Array((p.segments + 1) * 2);
+            for (let i = 0; i <= p.segments; i++) {
+              const t = (TAU * i) / p.segments;
+              points[2 * i] =
+                0.5 + p.amplitude * Math.sin((col + 1) * t + p.phase);
+              points[2 * i + 1] = 0.5 + p.amplitude * Math.sin((row + 1) * t);
+            }
+            curves.push(points);
+          }
+        return () => {
+          const gx = u * n,
+            gy = v * n,
+            col = Math.min(n - 1, Math.floor(gx)),
+            row = Math.min(n - 1, Math.floor(gy)),
+            fx = gx - col,
+            fy = gy - row,
+            points = curves[row * n + col];
+          // Squared distance (in cells) to the polyline.
+          let nearest = Infinity;
+          for (let i = 0; i < p.segments; i++) {
+            const ax = points[2 * i],
+              ay = points[2 * i + 1],
+              dx = points[2 * i + 2] - ax,
+              dy = points[2 * i + 3] - ay,
+              length = dx * dx + dy * dy,
+              along =
+                length > 0
+                  ? clamp(((fx - ax) * dx + (fy - ay) * dy) / length)
+                  : 0,
+              qx = ax + along * dx - fx,
+              qy = ay + along * dy - fy,
+              d = qx * qx + qy * qy;
+            if (d < nearest) nearest = d;
+          }
+          const distance = Math.sqrt(nearest),
+            line = cover(p.lineHalf - distance),
+            glow = smooth(clamp(1 - distance / p.glowWidth)),
+            // Faint graticule: the cell frame and a center cross.
+            grid = Math.max(
+              cover(p.frameHalf - Math.min(fx, 1 - fx)),
+              cover(p.frameHalf - Math.min(fy, 1 - fy)),
+              0.6 * cover(p.frameHalf * 0.5 - Math.abs(fx - 0.5)),
+              0.6 * cover(p.frameHalf * 0.5 - Math.abs(fy - 0.5)),
+            ),
+            grat = gratField(u, v) - 0.5;
+          color = clamp(
+            p.panelTone +
+              p.gratTone * grat +
+              (p.gridTone - p.panelTone) * grid +
+              (p.glowTone - p.panelTone) * glow * 0.5 +
+              (p.lineTone - p.panelTone) * line,
+          );
+          height = clamp(
+            p.panelHeight +
+              (p.gridHeight - p.panelHeight) * grid +
+              (p.lineHeight - p.panelHeight) * line,
+          );
+          roughness =
+            p.panelRoughness + (p.lineRoughness - p.panelRoughness) * line;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -47600,6 +47674,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'lissajousgrid' ||
     kind === 'mondriancomposition' ||
     kind === 'hilbertcurve' ||
     kind === 'battleshipgrid' ||

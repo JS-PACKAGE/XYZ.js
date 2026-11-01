@@ -1283,6 +1283,10 @@
 
 這是作者設計的示意：不是蒙德里安作品的複製，也沒有紅、藍、黃三原色——填色只是亮度（顏色由dark／light兩端線性插值，所以呈灰階）；分割規則與比例是作者設定的。預設0.6 m nominal tile、0.0016 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上讓黑線約3.8 px寬；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`lissajousgrid`（李沙育圖形表）使目前目錄930→931種，含plain的gallery為932項。每tile一張4×4的示波器風格李沙育（Lissajous）圖形表：第(欄, 列)格畫出參數曲線 x = A·sin(a·t + π/2)、y = A·sin(b·t)，頻率 a = 欄 + 1、b = 列 + 1（A = 0.4格，t為0到2π、以160段折線近似），所以由1:1的圓到4:4共16種比例，a與b有公因數時曲線會重複描繪、a = 2b 等情況會退化成拋物線弧。線條為亮綠（線半寬0.014格）並帶柔和光暈，面板有深綠色底、淡淡的格框與中心十字刻度，另有細微顆粒。Metallic與mortar為0。
+
+這是作者設計的示意：沒有示波器的螢幕曲率、光暈拖尾、掃描線或讀數文字，相位固定為π/2（不隨格子變化），顏色只是由dark／light兩端線性插值的綠色調。預設0.4 m nominal tile、0.002 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；每個取樣點要檢查160段折線，成本較其他材質高：單次本機Bun量測512²取樣約155 ms（同一次量測中tumblingblocks約56 ms、brick約17 ms；不是基準測試，也沒有量測瀏覽器或Worker）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

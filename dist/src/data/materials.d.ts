@@ -7703,6 +7703,31 @@ export declare const proceduralMaterialPresets: Readonly<{
         lineRoughness: 0.5;
         fieldRoughness: 0.7;
     }>;
+    lissajousgrid: Readonly<{
+        dark: readonly [8, 24, 18];
+        light: readonly [120, 240, 170];
+        roughness: 0.4;
+        relief: 0.002;
+        cells: 4;
+        segments: 160;
+        amplitude: 0.4;
+        phase: number;
+        lineHalf: 0.014;
+        glowWidth: 0.1;
+        edgeSoft: 0.008;
+        frameHalf: 0.012;
+        gratCells: 192;
+        lineTone: 0.95;
+        glowTone: 0.2;
+        gridTone: 0.14;
+        panelTone: 0.04;
+        gratTone: 0.02;
+        lineHeight: 0.6;
+        panelHeight: 0.3;
+        gridHeight: 0.38;
+        lineRoughness: 0.3;
+        panelRoughness: 0.65;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -14188,6 +14213,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    lissajousgrid: 0.4;
     mondriancomposition: 0.6;
     hilbertcurve: 0.3;
     battleshipgrid: 0.4;
