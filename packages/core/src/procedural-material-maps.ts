@@ -37133,6 +37133,62 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'monitorlizardskin': {
+        const p = proceduralMaterialPresets.monitorlizardskin,
+          tones = new Float64Array(p.columns * p.rows),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x30101),
+          rowSpacing = p.columns / p.rows,
+          inverseRadius2 = 1 / (p.radius * p.radius);
+        for (let row = 0; row < p.rows; row++)
+          for (let column = 0; column < p.columns; column++)
+            tones[row * p.columns + column] =
+              p.scaleVariation * (hash(column, row, seed ^ 0x30103) - 0.5);
+        return () => {
+          // Hex-packed scales like the golf-ball grid, but raised. Each scale carries its own tone, the nearest scale owns the
+          // point, and dome = smooth(1 - q) is zero (value and slope) at the rim, so
+          // handing ownership over between scales is continuous (radius <= 0.5, the
+          // hex Voronoi inradius); rows is even so the
+          // stagger parity and the transverse bands wrap with the tile.
+          const x = fract(u) * p.columns,
+            y = fract(v) * p.columns,
+            row = Math.floor(y / rowSpacing);
+          let nearest = Infinity,
+            tone = 0;
+          for (let r = row - 1; r <= row + 1; r++) {
+            const wrapped = ((r % p.rows) + p.rows) % p.rows,
+              offset = 0.25 + 0.5 * (wrapped % 2),
+              column = Math.round(x - offset),
+              dx = x - (column + offset),
+              dy = y - (r + 0.5) * rowSpacing,
+              q = dx * dx + dy * dy;
+            if (q < nearest) {
+              nearest = q;
+              tone =
+                tones[
+                  wrapped * p.columns +
+                    (((column % p.columns) + p.columns) % p.columns)
+                ];
+            }
+          }
+          const dome = smooth(clamp(1 - nearest * inverseRadius2)),
+            band = 0.5 - 0.5 * Math.cos(TAU * p.bands * v),
+            grain = grainField(u, v);
+          color =
+            p.groutTone * (1 - dome) +
+            (p.baseTone +
+              tone +
+              p.bandTone * (band - 0.5) +
+              p.domeTone * dome +
+              p.grainTone * (grain - 0.5)) *
+              dome;
+          height =
+            p.baseHeight + p.domeHeight * dome + p.grainHeight * grain * dome;
+          roughness +=
+            p.domeRoughness * dome + p.grainRoughness * (grain - 0.5) * dome;
+          occlusion = 1 - p.groutOcclusion * (1 - dome);
+          return;
+        };
+      }
       case 'woodenpalletdeck': {
         const p = proceduralMaterialPresets.woodenpalletdeck,
           tones = new Float64Array(p.boards),
@@ -44726,6 +44782,7 @@ export function createSurfaceSampler(
     kind === 'teak' ||
     kind === 'honduranmahogany' ||
     kind === 'sitkaspruce' ||
+    kind === 'monitorlizardskin' ||
     kind === 'kilimdiamonds' ||
     kind === 'popcornceiling' ||
     kind === 'forgedcarbon' ||

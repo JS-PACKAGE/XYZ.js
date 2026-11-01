@@ -945,6 +945,7 @@ const kinds: ProceduralMaterialKind[] = [
   'woodenpalletdeck',
   'honduranmahogany',
   'sitkaspruce',
+  'monitorlizardskin',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -137697,5 +137698,202 @@ describe('Cream-white Sitka spruce with fine even straight grain and faint pale 
       }
     }
     expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Monitor-lizard skin with hex-packed raised olive-brown scales, individual tones, dark grooves and transverse bands', () => {
+  const p = proceduralMaterialPresets.monitorlizardskin;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  // Scale centres: odd rows are shifted by half a column; the pattern wraps with even rows.
+  const centre = (row: number, column: number): [number, number] => [
+    (column + 0.25 + 0.5 * (row % 2)) / p.columns,
+    (row + 0.5) / p.rows,
+  ];
+  const crownColors = (seed: number): number[] => {
+    const sample = createSurfaceSampler('monitorlizardskin', seed),
+      out = empty(),
+      colors: number[] = [];
+    for (let row = 0; row < p.rows; row++)
+      for (let column = 0; column < p.columns; column++) {
+        const [u, v] = centre(row, column);
+        sample(u, v, out);
+        colors.push(out.color);
+      }
+    return colors;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'raises a lit unoccluded crown at every hex centre with a low dark occluded groove halfway to the same-row neighbour for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('monitorlizardskin', seed),
+        crown = empty(),
+        groove = empty();
+      let invalid = 0;
+      for (let row = 0; row < p.rows; row++)
+        for (let column = 0; column < p.columns; column++) {
+          const [u, v] = centre(row, column);
+          sample(u, v, crown);
+          sample(u + 0.5 / p.columns, v, groove);
+          expect(crown.height).toBeGreaterThan(0.7 * p.relief);
+          expect(crown.occlusion).toBeGreaterThan(0.999);
+          expect(crown.color).toBeGreaterThan(0.3);
+          expect(crown.color).toBeLessThan(0.78);
+          expect(crown.roughness).toBeLessThan(groove.roughness - 0.05);
+          expect(groove.height).toBeLessThan(0.1 * p.relief);
+          expect(groove.occlusion).toBeLessThan(0.45);
+          expect(groove.color).toBeLessThan(0.06);
+          for (const s of [crown, groove])
+            invalid += Number(
+              s.metallic !== 0 ||
+                s.mortar !== 0 ||
+                keys.some(
+                  (key) => !Number.isFinite(s[key]) || s[key] < 0 || s[key] > 1,
+                ),
+            );
+        }
+      expect(invalid).toBe(0);
+    },
+  );
+  it('gives each scale its own tone, differently per seed, with darker and lighter transverse bands', () => {
+    const first = crownColors(0),
+      second = crownColors(1),
+      mean = first.reduce((x, y) => x + y, 0) / first.length,
+      deviation = Math.sqrt(
+        first.reduce((x, y) => x + (y - mean) ** 2, 0) / first.length,
+      );
+    expect(deviation).toBeGreaterThan(0.06);
+    expect(deviation).toBeLessThan(0.14);
+    expect(
+      first.reduce((x, y, i) => x + Math.abs(y - second[i]), 0) / first.length,
+    ).toBeGreaterThan(0.05);
+    expect(crownColors(0)).toEqual(first);
+    // Rows near the transverse band peaks are lighter than rows near the troughs.
+    let peak = 0,
+      peakCount = 0,
+      trough = 0,
+      troughCount = 0;
+    for (let row = 0; row < p.rows; row++) {
+      const band =
+        0.5 - 0.5 * Math.cos(2 * Math.PI * p.bands * ((row + 0.5) / p.rows));
+      for (let column = 0; column < p.columns; column++) {
+        if (band > 0.8) {
+          peak += first[row * p.columns + column];
+          peakCount++;
+        } else if (band < 0.2) {
+          trough += first[row * p.columns + column];
+          troughCount++;
+        }
+      }
+    }
+    expect(peakCount).toBeGreaterThan(0);
+    expect(troughCount).toBeGreaterThan(0);
+    expect(peak / peakCount - trough / troughCount).toBeGreaterThan(0.1);
+  });
+  it('keeps scale rims, crowns, grooves and the stagger seam C1 across the periodic wrap', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('monitorlizardskin', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.columns, p.rows, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (const row of [0, 1, 8, 15])
+        for (const offset of [0, 0.5, 0.25])
+          for (let i = 0; i < 2048; i++)
+            check(i / 2048, (row + offset) / p.rows);
+      for (let i = 0; i < 8192; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 dark olive dielectric maps with about half the surface in occluded grooves and strong scale normals', () => {
+    const maps = generateProceduralMaps('monitorlizardskin', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let sum = 0,
+      occluded = 0,
+      dark = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      sum += maps.baseColor[i];
+      occluded += Number(maps.occlusion[i] < 180);
+      dark += Number(maps.baseColor[i] < 50);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2] ||
+          maps.baseColor[i] < maps.baseColor[i + 2] ||
+          maps.normal[i + 2] < 150,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(sum / (512 * 512)).toBeGreaterThan(55);
+    expect(sum / (512 * 512)).toBeLessThan(80);
+    expect(occluded / (512 * 512)).toBeGreaterThan(0.45);
+    expect(occluded / (512 * 512)).toBeLessThan(0.65);
+    expect(dark / (512 * 512)).toBeGreaterThan(0.3);
+    expect(dark / (512 * 512)).toBeLessThan(0.5);
+    expect(maxTilt).toBeGreaterThan(0.1);
+    expect(maxTilt).toBeLessThan(0.3);
+    expect(invalid).toBe(0);
   });
 });

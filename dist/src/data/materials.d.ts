@@ -12320,6 +12320,29 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainRoughness: 0.03;
         earlyOcclusion: 0.03;
     }>;
+    monitorlizardskin: Readonly<{
+        dark: readonly [26, 24, 14];
+        light: readonly [200, 182, 122];
+        roughness: 0.7;
+        relief: 0.01;
+        columns: 14;
+        rows: 16;
+        bands: 4;
+        radius: 0.5;
+        grainCells: 160;
+        baseTone: 0.4;
+        scaleVariation: 0.2;
+        bandTone: 0.2;
+        domeTone: 0.12;
+        grainTone: 0.05;
+        groutTone: 0.04;
+        baseHeight: 0.08;
+        domeHeight: 0.7;
+        grainHeight: 0.015;
+        domeRoughness: -0.12;
+        grainRoughness: 0.06;
+        groutOcclusion: 0.6;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -13602,4 +13625,5 @@ export declare const proceduralTileMeters: Readonly<{
     woodenpalletdeck: 0.4;
     honduranmahogany: 0.18;
     sitkaspruce: 0.12;
+    monitorlizardskin: 0.14;
 }>;

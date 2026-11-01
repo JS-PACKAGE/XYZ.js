@@ -1095,6 +1095,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`monitorlizardskin`（巨蜥風格顆粒狀鱗皮）使目前目錄903→904種，含plain的gallery為905項。14欄×16列的六角緊密排列圓形隆起鱗片（奇數列錯半欄），每片有自己的色調（標準差約0.09–0.10）、略亮、較光滑，鱗間是窄而深的暗溝（AO 0.4、color 0.04、roughness 0.7）；4條橫向的深淺色帶沿v方向起伏，整體為橄欖褐色。不是特定物種的鱗片形狀／大小分區、斑點或環紋，沒有腹鱗、背脊或皮褶。
+
+此材質是作者依「巨蜥類粗顆粒鱗皮」的一般印象所作示意，沒有引用特定來源文件、照片或量測；我閱讀的[Wikipedia「Monitor lizard」](https://en.wikipedia.org/wiki/Monitor_lizard)導言只描述屬別、分布與體型，未描述皮膚，所以鱗片尺寸、色調、色帶、roughness、AO與0.14 m nominal tile皆作者設定，不宣稱符合任何實際物種或個體。
+
+新增專用sampler：以六角緊密排列（奇數列偏移半欄、取上下相鄰三列）找最近鱗片中心，鱗片 = `smooth(1 − q/r²)`，半徑 r = 0.5 為六角Voronoi內切半徑，使鱗片在擁有權切換前歸零（因此各鱗各自的色調查表不產生跳變），中心與邊緣斜率皆0；14×16格表（224個每鱗色調Float64）與160²細grain共25,824 Float64／206,592 B lattice算術預算（非總RAM）。列數為偶數，錯位奇偶與4條橫向色帶才隨tile週期。金屬factor為0、無mortar；預設0.14 m nominal tile、0.01 UV-relative relief（非公尺位移）。我先試了半徑0.48與0.9的橫向壓扁，但壓扁會使擁有權邊界出現未歸零的跳變，已改回等向與半徑0.5。三seed（0／1／0xffffffff）量測：鱗頂高度0.780–0.795 relief、AO 1、color 0.336–0.701、roughness 0.550–0.609；同列相鄰鱗間的溝高度0.08、AO 0.4、color 0.04、roughness 0.7；每鱗色調標準差0.090–0.099。seed7的512²中r平均67.9、AO<180占55.3%、r<50占39.9%、法線max tilt²約0.17。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `sitkaspruce`（北美雲杉／Sitka spruce）使目前目錄902→903種，含plain的gallery為904項。近似Picea sitchensis未塗裝縱向木面：奶白偏淡黃的底色、極細而幾乎筆直的縱向年輪線（對比極低、年輪輕微起伏）與細纖維grain。不是bearclaw紋、粉紅紅色調、樹脂道、節疤、邊材／心材界線或塗層。
 
 外觀依據實際閱讀的[Wood Database Sitka Spruce](https://www.wood-database.com/sitka-spruce/)（Color／Appearance：奶白到黃色，心材偶帶淡粉紅，邊材不明顯分界，部分有bearclaw紋；Grain／Texture：細而均勻的質地、一致的直紋；Endgrain：中型樹脂道）與實際下載並實看的[木面照片](https://www.wood-database.com/wp-content/uploads/sitka-spruce-400x400.jpg)（奶白色面與極細淡色縱線）；僅作配色與年輪線形態參考，不重現bearclaw或粉紅色調，不打包來源圖，也不由照片反推真色、roughness或實際尺寸。

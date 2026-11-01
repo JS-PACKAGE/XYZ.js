@@ -11576,3 +11576,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Sitka|sitkaspruce|kinds|catalog|distinct|periodic"`定向測試，**2100項通過／3527項未選**。
 - 補記（瀏覽器gallery，第二批）：以乾淨worktree的Vite dev server＋spawned Google Chrome（headless new）實跑`/examples/pbr3d/`，頁面列出903種preset＋plain；kilimdiamonds、popcornceiling、forgedcarbon、woodenpalletdeck、honduranmahogany、sitkaspruce共6種，在WebGPU與`?renderer=webgl2`兩個backend皆逐一以`input`事件選取並等到readout顯示該材質，頁面`errors()`皆為空，並實看WebGPU畫面（5×5球陣列顯示Sitka spruce）。這是這6種的證據，先前11種另有第一批記錄；不擴大到Safari、實機或fps／跨backend像素一致性。
 - 本功能未重跑完整179檔suite（popcornceiling commit的完整suite見上一節）；不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：巨蜥風格顆粒狀鱗皮（monitorlizardskin）
+
+- 目錄903→904，含plain的gallery為905項。14欄×16列六角緊密排列的圓形隆起鱗片（奇數列錯半欄），每片各有色調、略亮較光滑，鱗間為窄深暗溝，4條橫向深淺色帶，橄欖褐色。這是作者依一般巨蜥類粗顆粒鱗皮所作示意，**沒有**引用特定來源；實讀的[Wikipedia「Monitor lizard」](https://en.wikipedia.org/wiki/Monitor_lizard)導言只描述屬別、分布與體型、不含皮膚，故不作為外觀依據。不宣稱符合任何物種，也不含腹鱗、脊或皮褶。
+- 專用sampler：最近鱗片中心（六角排列、取三列）＋`smooth(1−q/r²)`，r=0.5為六角Voronoi內切半徑，使鱗片在擁有權切換前歸零；224個每鱗色調＋160² grain共25,824 Float64／206,592 B。預設0.14 m tile、0.01 UV-relative relief（非公尺位移）、metallic factor0；不新增API或依賴。
+- 開發中實際修正：我曾試半徑0.48加0.9縱向壓扁，但壓扁後擁有權邊界上鱗片值未歸零，會使各鱗色調在邊界產生跳變，故改為等向、半徑0.5並移除flatten欄位；首版半徑0.48的鱗片間隙偏大，最終改半徑0.5後實看。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）鱗頂高度0.780–0.795 relief、AO 1、color 0.336–0.701、roughness 0.550–0.609；溝高度0.08、AO 0.4、color 0.04、roughness 0.7；每鱗色調標準差0.090–0.099；seed7的512² r平均67.9、AO<180占55.3%、r<50占39.9%、法線max tilt²約0.17。以Bun產生512 seed7的四圖與2×2排列圖並實看：整齊的橄欖褐色顆粒鱗與暗溝、法線圖每鱗有球面斜率。
+- 新增4組永久測試（`Monitor-lizard`：三seed逐鱗頂／溝幾何、每鱗色調／seed差異／橫向色帶明暗差、含列縫與wrap的C1及帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選7項通過（7.23s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Monitor-lizard|monitorlizardskin|kinds|catalog|distinct|periodic"`定向測試，**2101項通過／3533項未選**。
+- 補記：本輪原先開發的cane webbing（藤編網眼）在寫完sampler並看了預覽後才發現既有`canewebbing`已存在，故整個捨棄且未提交（以`git checkout`丟棄我自己尚未提交的變更），之後挑新材質前改為先比對既有kind名稱。本功能未重跑完整179檔suite、未開瀏覽器gallery；不宣稱跨瀏覽器／backend或效能驗證；不push。
