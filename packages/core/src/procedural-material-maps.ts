@@ -37096,6 +37096,49 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'laptopkeycaps': {
+        const p = proceduralMaterialPresets.laptopkeycaps,
+          tones = new Float64Array(p.cells * p.cells),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x29101),
+          inverseHalf = 1 / p.keyHalf,
+          inverseBevel = 1 / p.bevel,
+          inverseRim = 1 / p.rimWidth;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x29103);
+        return () => {
+          // A quartic superellipse is a rounded square whose polynomial s keeps the
+          // key outline C1; keys vanish before the cell boundary, so the fract() wrap
+          // and the per-key tone lookup never change a visible value.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            ax = ((x - col - 0.5) * inverseHalf) ** 2,
+            ay = ((y - row - 0.5) * inverseHalf) ** 2,
+            s = ax * ax + ay * ay,
+            key = smooth(clamp((1 - s) * inverseBevel)),
+            rim = key * (1 - smooth(clamp((1 - s) * inverseRim))),
+            dish = clamp(0.5 * (ax + ay)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone * (1 - key) +
+            (p.topTone +
+              p.toneVariation * (tones[row * p.cells + col] - 0.5) +
+              p.rimTone * rim +
+              p.grainTone * (grain - 0.5)) *
+              key;
+          height =
+            p.gapHeight * (1 - key) +
+            (p.topHeight - p.dishDepth * (1 - dish) + p.grainHeight * grain) *
+              key;
+          roughness +=
+            p.gapRoughness * (1 - key) +
+            (p.grainRoughness * (grain - 0.5) - p.rimRoughness * rim) * key;
+          occlusion = 1 - p.gapOcclusion * (1 - key);
+          return;
+        };
+      }
       case 'qrcodelabel': {
         const p = proceduralMaterialPresets.qrcodelabel,
           size = p.modules + 2 * p.quiet,
@@ -44378,6 +44421,7 @@ export function createSurfaceSampler(
     kind === 'westernredcedar' ||
     kind === 'perforatedhardboard' ||
     kind === 'qrcodelabel' ||
+    kind === 'laptopkeycaps' ||
     kind === 'thomsonite' ||
     kind === 'dalmatianstone' ||
     kind === 'basswood' ||

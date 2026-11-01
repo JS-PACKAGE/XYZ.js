@@ -935,6 +935,7 @@ const kinds: ProceduralMaterialKind[] = [
   'westernredcedar',
   'perforatedhardboard',
   'qrcodelabel',
+  'laptopkeycaps',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -135874,5 +135875,176 @@ describe('Printed QR-style label with finder, timing and alignment patterns, see
     expect(paper / (512 * 512)).toBeLessThan(0.72);
     expect(maxTilt).toBeLessThan(0.01);
     expect(invalid).toBe(0);
+  });
+});
+
+describe('Chiclet laptop keycaps with rounded dark matte keys, shallow dished tops and deep gaps', () => {
+  const p = proceduralMaterialPresets.laptopkeycaps;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'puts a raised unoccluded dished key at every cell centre and a low dark occluded gap at every cell corner for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('laptopkeycaps', seed),
+        centre = empty(),
+        edge = empty(),
+        gap = empty(),
+        n = p.cells,
+        tones: number[] = [];
+      let invalid = 0;
+      for (let i = 0; i < n; i++)
+        for (let j = 0; j < n; j++) {
+          sample((i + 0.5) / n, (j + 0.5) / n, centre);
+          sample((i + 0.5 + 0.75 * p.keyHalf) / n, (j + 0.5) / n, edge);
+          sample(i / n, j / n, gap);
+          expect(centre.occlusion).toBeGreaterThan(0.999);
+          expect(centre.height).toBeGreaterThan(0.55 * p.relief);
+          expect(centre.color).toBeGreaterThan(0.4);
+          expect(centre.color).toBeLessThan(0.6);
+          // The top is dished: height rises from the centre toward the key edge.
+          expect(edge.height - centre.height).toBeGreaterThan(0.015 * p.relief);
+          expect(gap.height).toBeLessThan(0.1 * p.relief);
+          expect(gap.occlusion).toBeLessThan(0.3);
+          expect(gap.color).toBeLessThan(0.06);
+          expect(gap.roughness).toBeGreaterThan(0.85);
+          tones.push(centre.color);
+          for (const s of [centre, edge, gap])
+            invalid += Number(
+              s.metallic !== 0 ||
+                s.mortar !== 0 ||
+                keys.some(
+                  (key) => !Number.isFinite(s[key]) || s[key] < 0 || s[key] > 1,
+                ),
+            );
+        }
+      const mean = tones.reduce((a, b) => a + b, 0) / tones.length,
+        deviation = Math.sqrt(
+          tones.reduce((a, b) => a + (b - mean) ** 2, 0) / tones.length,
+        );
+      // Per-key tone variation is visible but small.
+      expect(deviation).toBeGreaterThan(0.01);
+      expect(deviation).toBeLessThan(0.05);
+      expect(invalid).toBe(0);
+      let covered = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, gap);
+          covered += Number(gap.occlusion > 0.9);
+        }
+      expect(covered / 65536).toBeGreaterThan(0.6);
+      expect(covered / 65536).toBeLessThan(0.75);
+    },
+  );
+  it('keeps key outlines, rims, dishes and stipple C1 through cell wraps', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('laptopkeycaps', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.cells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      // Rows through key centres and gaps cross every outline, rim and bevel.
+      for (const row of [0, 3, 7])
+        for (const offset of [0, 0.5, 0.15])
+          for (let i = 0; i < 4096; i++)
+            check(i / 4096, (row + offset) / p.cells);
+      for (let i = 0; i < 8192; i++)
+        check((i * 0.61803398875) % 1, (i * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('writes actual512 dark dielectric maps with about two thirds raised key area and steep key-edge normals', () => {
+    const maps = generateProceduralMaps('laptopkeycaps', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let gap = 0,
+      key = 0,
+      raised = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      gap += Number(maps.baseColor[i] < 20);
+      key += Number(maps.baseColor[i] >= 30);
+      raised += Number(maps.occlusion[i] > 230);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2] ||
+          maps.normal[i + 2] < 150,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(gap / (512 * 512)).toBeGreaterThan(0.28);
+    expect(gap / (512 * 512)).toBeLessThan(0.38);
+    expect(key / (512 * 512)).toBeGreaterThan(0.6);
+    expect(key / (512 * 512)).toBeLessThan(0.72);
+    expect(raised / (512 * 512)).toBeGreaterThan(0.6);
+    expect(raised / (512 * 512)).toBeLessThan(0.72);
+    expect(maxTilt).toBeGreaterThan(0.2);
+    expect(maxTilt).toBeLessThan(0.8);
+    expect(invalid).toBe(0);
+  });
+  it('repeats over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    let worst = 0;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('laptopkeycaps', seed);
+      for (let i = 0; i < 8192; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 7, v + 11, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+    }
+    expect(worst).toBeLessThan(5e-10);
   });
 });

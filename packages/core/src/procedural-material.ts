@@ -908,7 +908,8 @@ export type ProceduralMaterialKind =
   | 'chesterfieldleather'
   | 'westernredcedar'
   | 'perforatedhardboard'
-  | 'qrcodelabel';
+  | 'qrcodelabel'
+  | 'laptopkeycaps';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2051,6 +2052,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'westernredcedar',
   'perforatedhardboard',
   'qrcodelabel',
+  'laptopkeycaps',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

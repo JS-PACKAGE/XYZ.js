@@ -19858,6 +19858,38 @@ var proceduralMaterialPresets = Object.freeze({
 		inkRoughness: .2,
 		grainRoughness: .04
 	}),
+	laptopkeycaps: Object.freeze({
+		dark: [
+			9,
+			10,
+			12
+		],
+		light: [
+			96,
+			100,
+			108
+		],
+		roughness: .5,
+		relief: .004,
+		cells: 8,
+		grainCells: 160,
+		keyHalf: .43,
+		bevel: .06,
+		rimWidth: .3,
+		dishDepth: .1,
+		topHeight: .72,
+		gapHeight: .06,
+		grainHeight: .012,
+		topTone: .5,
+		toneVariation: .06,
+		gapTone: .03,
+		rimTone: .14,
+		grainTone: .05,
+		gapRoughness: .4,
+		grainRoughness: .1,
+		rimRoughness: .2,
+		gapOcclusion: .75
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -21248,7 +21280,8 @@ var proceduralTileMeters = Object.freeze({
 	chesterfieldleather: .5,
 	westernredcedar: .12,
 	perforatedhardboard: .4,
-	qrcodelabel: .05
+	qrcodelabel: .05,
+	laptopkeycaps: .152
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

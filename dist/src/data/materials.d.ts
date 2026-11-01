@@ -12073,6 +12073,30 @@ export declare const proceduralMaterialPresets: Readonly<{
         inkRoughness: 0.2;
         grainRoughness: 0.04;
     }>;
+    laptopkeycaps: Readonly<{
+        dark: readonly [9, 10, 12];
+        light: readonly [96, 100, 108];
+        roughness: 0.5;
+        relief: 0.004;
+        cells: 8;
+        grainCells: 160;
+        keyHalf: 0.43;
+        bevel: 0.06;
+        rimWidth: 0.3;
+        dishDepth: 0.1;
+        topHeight: 0.72;
+        gapHeight: 0.06;
+        grainHeight: 0.012;
+        topTone: 0.5;
+        toneVariation: 0.06;
+        gapTone: 0.03;
+        rimTone: 0.14;
+        grainTone: 0.05;
+        gapRoughness: 0.4;
+        grainRoughness: 0.1;
+        rimRoughness: 0.2;
+        gapOcclusion: 0.75;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -13345,4 +13369,5 @@ export declare const proceduralTileMeters: Readonly<{
     westernredcedar: 0.12;
     perforatedhardboard: 0.4;
     qrcodelabel: 0.05;
+    laptopkeycaps: 0.152;
 }>;

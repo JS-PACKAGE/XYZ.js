@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`laptopkeycaps`（chiclet筆電鍵帽）使目前目錄893→894種，含plain的gallery為895項。8×8格方陣，每格一顆圓角方形深色霧面鍵帽（以四次方超橢圓為輪廓，半寬0.43格，約占面積68%），鍵頂中央微凹（越近鍵緣越高），鍵與鍵之間是深色低窄縫（AO 0.25、roughness≥0.9）；每顆有細微不同的色調、霧面細grain與邊緣高光。沒有字符、背光、鍵軸或機身。
+
+此材質是作者依一般chiclet（島狀）鍵盤外觀所作示意，沒有引用特定來源文件、產品照片或量測，因此不宣稱符合任何實際鍵盤、鍵距、鍵帽輪廓或材料；色彩、roughness、AO、層高與0.152 m nominal tile（8格、每格19 mm）皆作者設定。
+
+新增專用sampler：`s = ((dx/hw)²)² + ((dy/hw)²)²`是四次方超橢圓多項式，`smooth(clamp((1−s)/bevel))`得到C1的圓角方形，鍵在到達格界前已歸零，所以`fract()`換格及每鍵tone查表不影響連續性；頂面高度 = topHeight − dishDepth·(1 − r²)。constructor快取64個每鍵tone（512 B）與160²霧面stipple（共25,664 Float64／205,312 B lattice算術預算，非總RAM）。金屬factor為0、無mortar；預設0.004 UV-relative relief（非公尺位移）。三seed（0／1／0xffffffff）量測：鍵心高度0.620–0.632 relief、距鍵心0.75半寬處0.649–0.660（凹面向外升高）、縫高度0.06、縫AO 0.25；256²取樣AO>0.9占68.4%；每鍵tone標準差0.022–0.024。seed7的512²中r<20的縫占32.9%、r≥30的鍵面占66.9%、法線max tilt²約0.465（鍵緣陡）。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `qrcodelabel`（QR風格印刷標籤）使目前目錄892→893種，含plain的gallery為894項。一張紙質標籤佔滿一個tile：29×29個模組外加四模組寬的白色安靜區（共37×37）；左上、右上、左下各有7×7的finder pattern（深外框、淺環、3×3深核心）及白色separator，第6列／行有深淺交替的timing pattern，右下有5×5 alignment pattern，其餘為依seed決定的偽隨機資料模組。深色油墨在淺色帶細纖維grain的紙上。**這不是可解碼的QR**：沒有編碼訊息、格式資訊、遮罩或錯誤更正，僅是QR風格的外觀。
 
 結構概念依據實際閱讀的[Wikipedia「QR code」](https://en.wikipedia.org/wiki/QR_code)：三個位於左上、右上與左下的finder pattern（三層同心方形）以及第四角附近的較小方形。29×29模組、四模組安靜區、7×7／5×5尺寸、timing位置、油墨與紙色、roughness、0.05 m tile皆作者設定，沒有逐條對照ISO／IEC 18004，不宣稱符合任何QR版本或可被掃描。

@@ -11483,3 +11483,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增4組永久測試（`QR-style`：三seed結構（finder／separator／timing／alignment／安靜區逐模組）、資料區深色比例與seed差異／相同seed一致、C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選7項通過（5.11s）。
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "QR-style|qrcodelabel|kinds|catalog|distinct|periodic"`定向測試，**2084項通過／3474項未選**。
 - 本功能未重跑完整179檔suite、未開瀏覽器gallery，也不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：chiclet筆電鍵帽（laptopkeycaps）
+
+- 目錄893→894，含plain的gallery為895項。8×8格方陣，每格一顆圓角方形（四次方超橢圓，半寬0.43格）深色霧面鍵帽，鍵頂中央微凹、鍵緣高光，鍵間為深色低窄縫；每鍵tone略異並有霧面stipple。這是作者依一般chiclet鍵盤所作示意，**沒有**引用特定來源文件、產品照片或量測，不宣稱符合任何實際鍵盤、鍵距或鍵帽輪廓；沒有字符、背光、鍵軸或機身。
+- 專用sampler：四次方超橢圓多項式經`smooth(clamp((1−s)/bevel))`得到C1圓角方形，鍵在格界前歸零；64個每鍵tone與160² stipple共25,664 Float64／205,312 B。預設0.152 m tile（8格×19 mm為作者設定）、0.004 UV-relative relief（非公尺位移）、metallic factor0；不新增API或依賴。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）鍵心高度0.620–0.632 relief、0.75半寬處0.649–0.660、縫高度0.06、縫AO 0.25、縫roughness≥0.9；256²取樣AO>0.9占68.4%；每鍵tone標準差0.022–0.024；seed7的512²中縫（r<20）占32.9%、鍵面（r≥30）占66.9%、法線max tilt²約0.465。以Bun產生512 seed7四圖並實看：整齊的圓角方鍵陣列、窄縫與鍵緣法線環。
+- 新增4組永久測試（`Chiclet laptop`：三seed逐鍵／逐縫幾何與tone變異、C1含鍵心列與縫掃描、actual512五maps、帶號UV週期），並加入通用kinds清單；名稱篩選7項通過（7.41s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Chiclet laptop|laptopkeycaps|kinds|catalog|distinct|periodic"`定向測試，**2086項通過／3479項未選**。
+- 本功能未重跑完整179檔suite、未開瀏覽器gallery，也不宣稱跨瀏覽器／backend或效能驗證；不push。
