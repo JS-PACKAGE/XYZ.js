@@ -1012,6 +1012,7 @@ try {
     'windowpane',
     'crosswordgrid',
     'sweetcorn',
+    'baconstrips',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

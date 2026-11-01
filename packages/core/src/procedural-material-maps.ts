@@ -38224,6 +38224,57 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'baconstrips': {
+        const p = proceduralMaterialPresets.baconstrips,
+          warpField = cachedNoise(p.warpColumns, p.warpRows, seed ^ p.seedSalt),
+          widthField = cachedNoise(
+            p.widthCells,
+            p.widthCells,
+            seed ^ (p.seedSalt + 1),
+          ),
+          fiberField = cachedNoise(
+            p.fiberColumns,
+            p.fiberRows,
+            seed ^ (p.seedSalt + 2),
+          ),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 3),
+          );
+        return () => {
+          // Streaky bacon: an integer number of bands whose phase is warped by a
+          // periodic noise field, and whose lean/fat split moves with a second noise
+          // field, so band widths vary smoothly. tanh of a sine is a smooth square wave
+          // (C-infinity). Meat carries lengthwise fibres; fat is pale, raised and
+          // glossier; the transition is slightly darker (cooked edge).
+          const phase = p.bands * v + p.warp * (warpField(u, v) - 0.5),
+            fat =
+              0.5 +
+              0.5 *
+                Math.tanh(
+                  p.sharpness *
+                    (Math.sin(TAU * phase) -
+                      p.threshold -
+                      p.widthVariation * (widthField(u, v) - 0.5)),
+                ),
+            edge = 4 * fat * (1 - fat),
+            fiber = fiberField(u, v),
+            grain = grainField(u, v);
+          color =
+            p.meatTone +
+            (p.fatTone - p.meatTone) * fat +
+            p.fiberTone * (fiber - 0.5) * (1 - fat) -
+            p.edgeTone * edge +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.fatHeight * fat +
+            p.fiberHeight * fiber * (1 - fat) +
+            p.grainHeight * grain;
+          roughness -= p.fatRoughness * fat;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -45965,6 +46016,7 @@ export function createSurfaceSampler(
     kind === 'windowpane' ||
     kind === 'crosswordgrid' ||
     kind === 'sweetcorn' ||
+    kind === 'baconstrips' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

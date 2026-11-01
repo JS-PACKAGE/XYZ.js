@@ -13018,6 +13018,33 @@ export declare const proceduralMaterialPresets: Readonly<{
         gapRoughness: 0.3;
         gapOcclusion: 0.5;
     }>;
+    baconstrips: Readonly<{
+        dark: readonly [130, 26, 20];
+        light: readonly [250, 228, 204];
+        roughness: 0.55;
+        relief: 0.003;
+        bands: 5;
+        seedSalt: 47808;
+        warpColumns: 6;
+        warpRows: 3;
+        warp: 1.4;
+        widthCells: 5;
+        widthVariation: 0.6;
+        threshold: 0.2;
+        sharpness: 3;
+        fiberColumns: 12;
+        fiberRows: 160;
+        grainCells: 128;
+        meatTone: 0.2;
+        fatTone: 0.9;
+        edgeTone: 0.08;
+        fiberTone: 0.1;
+        grainTone: 0.03;
+        fatHeight: 0.5;
+        fiberHeight: 0.3;
+        grainHeight: 0.2;
+        fatRoughness: 0.14;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -14330,4 +14357,5 @@ export declare const proceduralTileMeters: Readonly<{
     windowpane: 0.3;
     crosswordgrid: 0.3;
     sweetcorn: 0.13;
+    baconstrips: 0.2;
 }>;

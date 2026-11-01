@@ -11901,3 +11901,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增7項（三seed統計與幾何、seed差異與決定性、C1＋有符號UV週期、actual512 maps），`-t "Sweet corn|sweetcorn"`通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Sweet corn|sweetcorn|kinds|catalog|distinct|periodic"`定向測試**2151項通過／3700項未選**。
 - 未驗證：本材質未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：培根片（baconstrips）
+
+- 範圍：新增`baconstrips`（目前目錄933→934種，含plain的gallery 935項）：約5條被6×3週期低頻雜訊扭成波浪的紅色瘦肉帶與乳白色肥肉帶交錯（`tanh`的正弦平滑方波，肥瘦寬度隨5×5雜訊平滑變化），瘦肉有沿u方向的12×160纖維雜訊，肥肉較亮、略凸起且roughness低0.14，交界略暗；預設0.2 m nominal tile、0.003 UV-relative relief。作者示意，沒有引用特定來源、**沒有對照照片**，比真實培根平滑規則。
+- 調整紀錄：第一版的纖維方向（160×12）沿v方向、與條帶垂直，我在預覽上看出不對後把行列對調（12×160）；寬度變化由0.9降為0.6（中央有一塊過寬的肥肉區）；瘦肉色調由0.3降為0.2並加深palette暗端，原本偏粉紫。這些是我對預覽的主觀判斷，不是與照片的比對。
+- 實測（工具實跑）：三seed 512²取樣肥肉（color>0.6）占38.4–39.7%、瘦肉（color<0.4）占54.0–55.4%、color 0.138–0.912、平均0.471–0.485、roughness 0.410–0.550、height至多0.693–0.697 relief；瘦肉處沿v／沿u的逐像素色差比約2.5–2.7（seed 7為3.6）；seed 0與1的肥肉遮罩48.3%像素不同；seed 7的512²maps平均r／g／b約(188, 124, 109)、法線tilt²最大約0.058、z分量最小251。
+- 測試：新增7項（三seed統計與纖維方向、seed差異與決定性、C1＋有符號UV週期、actual512 maps），`-t "Bacon strips|baconstrips"`通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Bacon strips|baconstrips|kinds|catalog|distinct|periodic"`定向測試**2153項通過／3705項未選**。
+- 未驗證：本材質未跑完整suite與瀏覽器gallery；不push。

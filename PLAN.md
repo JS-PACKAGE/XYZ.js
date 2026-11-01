@@ -1095,6 +1095,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`baconstrips`（培根片）使目前目錄933→934種，含plain的gallery為935項。條紋培根片表面：約5條帶狀的紅色瘦肉與乳白色肥肉交錯，帶的相位被低頻雜訊扭成波浪，肥瘦比例隨位置平滑變化；瘦肉帶有沿u方向的肌纖維，肥肉較亮、略凸起且較光滑，兩者交界略暗（煎烤邊）。不是真實培根的皺縮、油脂氣泡、焦邊、片狀厚度或肉皮。
+
+此材質是作者依一般條紋培根外觀所作示意，沒有引用特定來源文件、照片或量測，也沒有對照照片；帶數（每tile 5）、波浪幅度、肥肉比例、瘦肉與肥肉色調、纖維強度、roughness與0.2 m nominal tile皆作者設定，不宣稱符合任何實際培根的規格或烹調狀態。
+
+新增專用sampler：相位 = `5·v + 1.4·(warp(u, v) − 0.5)`，`warp`為6×3的週期低頻雜訊，肥肉權重 = `0.5 + 0.5·tanh(3·(sin(2π·相位) − 0.2 − 0.6·(width(u, v) − 0.5)))`（`tanh`的正弦是平滑方波，C∞；`width`為5×5週期雜訊，使肥瘦寬度平滑變化；整數帶數隨tile wrap）；煎烤邊 `4·fat·(1 − fat)` 使交界略暗；瘦肉另有12×160的沿u方向纖維雜訊與128²細grain；cache合計18＋25＋1,920＋16,384 = 18,347個Float64／146,776 B lattice算術預算（非總RAM）。顏色是顏料，肥肉height約0.5 relief、纖維0.3、grain 0.2，肥肉處roughness降低0.14；金屬factor為0、無mortar、AO 1。預設0.2 m nominal tile與0.003 UV-relative relief（非公尺位移）。實測（工具實跑，seed 0／1／0xffffffff，512²取樣）：color>0.6的肥肉占38.4–39.7%、color<0.4的瘦肉占54.0–55.4%，color 0.138–0.912，全圖平均0.471–0.485，肥肉平均0.829–0.839、瘦肉平均0.221–0.224，roughness 0.410–0.550，height至多0.693–0.697 relief；瘦肉處沿v方向的逐像素色差約為沿u方向的2.5–2.7倍（seed 7為3.6倍）；seed 0與1的肥肉遮罩有48.3%像素不同；seed 7的512²maps平均r／g／b約(188, 124, 109)、法線tilt²最大約0.058。我實看了預覽：紅白相間的波浪條紋像培根，但條帶比真實培根平滑規則（沒有皺縮與氣泡）。未新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `sweetcorn`（甜玉米）使目前目錄932→933種，含plain的gallery為934項。玉米穗表面：14×14排成整齊行列的圓角方形黃色玉米粒，每粒有各自的色調（淡金黃到飽和黃）、微小的位置抖動與穹頂高光，粒與粒之間是較暗、受遮蔽的細縫。不是真實玉米穗的弧形包覆、粒的凹陷、花絲、苞葉、粒的大小變化或蒸煮後的外觀。
 
 此材質是作者依一般新鮮甜玉米外觀所作示意，沒有引用特定來源文件、照片或量測；每tile 14×14粒、粒的大小（0.47格半寬）、抖動量、縫的色調與遮蔽、粒色變化量、roughness與0.13 m nominal tile皆作者設定，不宣稱符合任何真實玉米品種或尺寸，也沒有對照照片。

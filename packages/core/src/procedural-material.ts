@@ -948,7 +948,8 @@ export type ProceduralMaterialKind =
   | 'merbau'
   | 'windowpane'
   | 'crosswordgrid'
-  | 'sweetcorn';
+  | 'sweetcorn'
+  | 'baconstrips';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2131,6 +2132,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'windowpane',
   'crosswordgrid',
   'sweetcorn',
+  'baconstrips',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
