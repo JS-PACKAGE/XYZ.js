@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`sweetcorn`（甜玉米）使目前目錄932→933種，含plain的gallery為934項。玉米穗表面：14×14排成整齊行列的圓角方形黃色玉米粒，每粒有各自的色調（淡金黃到飽和黃）、微小的位置抖動與穹頂高光，粒與粒之間是較暗、受遮蔽的細縫。不是真實玉米穗的弧形包覆、粒的凹陷、花絲、苞葉、粒的大小變化或蒸煮後的外觀。
+
+此材質是作者依一般新鮮甜玉米外觀所作示意，沒有引用特定來源文件、照片或量測；每tile 14×14粒、粒的大小（0.47格半寬）、抖動量、縫的色調與遮蔽、粒色變化量、roughness與0.13 m nominal tile皆作者設定，不宣稱符合任何真實玉米品種或尺寸，也沒有對照照片。
+
+新增專用sampler：每粒是以抖動後位置為中心的四次超橢圓（圓角方形，`s = x⁴ + y⁴`為多項式），半寬0.47加抖動0.02小於半格，因此每粒在自己的格邊界前就歸零，逐粒查表不產生跳變；粒遮罩`smooth(clamp((1 − s)/0.25))`、穹頂`smooth(clamp(1 − s))`皆為C1；顏色在縫色與粒色（含逐粒色調與穹頂）之間依遮罩混合；縫處roughness升高0.3、AO降到0.5；cache合計3×196個Float64（4,704 B）＋128²紙grain（16,384個Float64／131,072 B）= 135,776 B lattice算術預算（非總RAM）。顏色是顏料，穹頂height約0.7 relief＋grain 0.3 relief；金屬factor為0、無mortar。預設0.13 m nominal tile與0.006 UV-relative relief（非公尺位移）。實測（工具實跑，seed 0／1／0xffffffff，512²取樣）：粒面（AO為1處）占70.9–71.0%，color 0.285–0.924，全圖平均0.685–0.693，粒心color 0.760–0.917（平均0.835–0.845），縫處（格角）平均0.300，roughness 0.38–0.68，最低AO 0.5，height至多0.994–0.997 relief；seed 0與1的粒心色差平均約0.049；seed 7的512²maps平均r／g／b約(222, 186, 66)、AO<230占25.8%、法線tilt²最大約0.351。我實看了預覽：整齊排列的圓角黃色玉米粒，比真實玉米規則許多（粒皆為同一大小的方格排列）。未新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `crosswordgrid`（填字格）使目前目錄931→932種，含plain的gallery為933項。白紙上15×15格的填字遊戲方格：約兩成的黑格依180°旋轉對稱（與印刷填字格相同）分布，白格之間有淡灰細格線，字詞起始的白格（左／上為黑格或tile邊界而右／下為白格）左上角有小圓點作為題號標記。不是真實的填字謎題、可解的字詞、數字題號、題目文字或答案；黑格也不保證符合填字謎的全部排版規則（如連通性或最小字長）。
 
 此材質是作者依一般報紙填字格外觀所作示意，沒有引用特定來源文件、照片或量測；格數（每tile 15×15）、黑格比例（0.2）、格線濃度與寬度、題號圓點的位置與大小、墨與紙的色調、roughness與0.3 m nominal tile皆作者設定，不宣稱符合任何實際填字格的規格。

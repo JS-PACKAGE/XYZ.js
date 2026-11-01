@@ -38175,6 +38175,55 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'sweetcorn': {
+        const p = proceduralMaterialPresets.sweetcorn,
+          count = p.cells * p.cells,
+          offsetX = new Float64Array(count),
+          offsetY = new Float64Array(count),
+          tones = new Float64Array(count),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 1),
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = row * p.cells + col,
+              salt = seed ^ p.seedSalt;
+            offsetX[i] = p.jitter * 2 * (hash(col, row, salt) - 0.5);
+            offsetY[i] = p.jitter * 2 * (hash(col, row, salt + 1) - 0.5);
+            tones[i] = p.toneVariation * (hash(col, row, salt + 2) - 0.5);
+          }
+        return () => {
+          // A kernel is a quartic superellipse (a rounded square) around its jittered
+          // site; s is polynomial, and the half size plus the jitter stays under half a
+          // cell so the kernel is zero before its cell boundary and the per-kernel
+          // lookup never creates a jump.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            i = row * p.cells + col,
+            ax = (x - col - 0.5 - offsetX[i]) * inverseHalf,
+            ay = (y - row - 0.5 - offsetY[i]) * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.kernelTone + tones[i] + p.domeTone * dome - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.kernelHeight * dome + p.grainHeight * grain;
+          roughness += p.gapRoughness * (1 - mask);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -45915,6 +45964,7 @@ export function createSurfaceSampler(
     kind === 'merbau' ||
     kind === 'windowpane' ||
     kind === 'crosswordgrid' ||
+    kind === 'sweetcorn' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

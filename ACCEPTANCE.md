@@ -11892,3 +11892,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 方法（工具實跑）：以spawned Google Chrome headless（`--enable-unsafe-webgpu --use-angle=metal`）開啟vite dev server（服務`fb50d18c4`狀態的乾淨worktree）上的範例頁，等待`Material `讀數出現後，逐一以`#material`的`input`事件選取七個kind並等待讀數更新為`Material <kind> `；WebGPU與`?renderer=webgl2`各跑一次；兩次結束時`tab.errors()`皆為0筆（dropped 0）。狀態列顯示`932 procedural material presets + plain`。
 - 過程紀錄：我第一次跑時誤把`errors()`的回傳（物件，錄有`entries`）當陣列取`length`，所以沒有得到錯誤計數；因此重跑一次並取`entries.length`，才得到上面的0筆；另有一次單獨以WebGPU選取crosswordgrid、windowpane、merbau的檢查，錯誤同樣為空，並截圖得到正常的5×5球陣列。
 - 限制：此檢查只涵蓋「能選取、讀數更新、console沒有錯誤」，**沒有**逐材質的視覺比對，也沒有跨瀏覽器、跨GPU或Windows／Linux驗證；沒有重跑完整suite（最近一次完整suite為`50bbdf7da`的179檔／9,747項通過）；不push。
+
+## 2026-11-02 新增材質：甜玉米（sweetcorn）
+
+- 範圍：新增`sweetcorn`（目前目錄932→933種，含plain的gallery 934項）：14×14排成整齊行列的圓角方形黃色玉米粒（四次超橢圓，半寬0.47＋抖動0.02小於半格，因此每粒在自己的格邊界前歸零），各有色調、穹頂高光，粒間較暗且受遮蔽的細縫（roughness＋0.3、AO 0.5）；預設0.13 m nominal tile、0.006 UV-relative relief。作者示意，沒有引用特定來源、**沒有對照照片**，比真實玉米規則許多。
+- 調整紀錄：第一版（半寬0.43、縫色0.08、深褐縫）在預覽上縫太寬太暗、像磁磚而不像玉米；改為半寬0.47、縫色0.3、較亮的黃色palette後我才採用——這是對預覽的主觀判斷，不是與照片的比對。
+- 實測（工具實跑）：三seed 512²取樣粒面（AO為1處）占70.9–71.0%、color 0.285–0.924、平均0.685–0.693、粒心color 0.760–0.917、縫處平均0.300、roughness 0.38–0.68、最低AO 0.5、height至多0.994–0.997 relief；seed 0與1的粒心色差平均約0.049；seed 7的512²maps平均r／g／b約(222, 186, 66)、AO<230占25.8%、法線tilt²最大約0.351、z分量最小231。
+- 測試：新增7項（三seed統計與幾何、seed差異與決定性、C1＋有符號UV週期、actual512 maps），`-t "Sweet corn|sweetcorn"`通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Sweet corn|sweetcorn|kinds|catalog|distinct|periodic"`定向測試**2151項通過／3700項未選**。
+- 未驗證：本材質未跑完整suite與瀏覽器gallery；不push。

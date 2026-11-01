@@ -974,6 +974,7 @@ const kinds: ProceduralMaterialKind[] = [
   'merbau',
   'windowpane',
   'crosswordgrid',
+  'sweetcorn',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -143371,6 +143372,195 @@ describe('Crosswordgrid with 180-degree symmetric black squares, thin grid lines
     expect(ink / (512 * 512)).toBeLessThan(0.26);
     expect(maxTilt).toBeGreaterThan(0.04);
     expect(maxTilt).toBeLessThan(0.08);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Sweet corn with glossy yellow kernels in rows separated by darker occluded gaps', () => {
+  const p = proceduralMaterialPresets.sweetcorn;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const gridColors = (seed: number, offset: number): number[] => {
+    const sample = createSurfaceSampler('sweetcorn', seed),
+      out = empty(),
+      values: number[] = [];
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        sample((col + offset) / p.cells, (row + offset) / p.cells, out);
+        values.push(out.color);
+      }
+    return values;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'covers about seven tenths of the surface with bright kernels over darker gaps with a bounded range for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('sweetcorn', seed),
+        a = empty();
+      let kernel = 0,
+        low = 1,
+        high = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 512; y++)
+        for (let x = 0; x < 512; x++) {
+          sample((x + 0.5) / 512, (y + 0.5) / 512, a);
+          kernel += Number(a.occlusion === 1);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      const centres = gridColors(seed, 0.5),
+        corners = gridColors(seed, 0),
+        average = (values: number[]) =>
+          values.reduce((sum, value) => sum + value, 0) / values.length;
+      expect(kernel / 262144).toBeGreaterThan(0.7);
+      expect(kernel / 262144).toBeLessThan(0.72);
+      expect(low).toBeGreaterThan(0.28);
+      expect(low).toBeLessThan(0.29);
+      expect(high).toBeGreaterThan(0.91);
+      expect(high).toBeLessThan(0.93);
+      expect(roughLow).toBeCloseTo(p.roughness, 3);
+      expect(roughHigh).toBeCloseTo(p.roughness + p.gapRoughness, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 3);
+      expect(heightHigh).toBeGreaterThan(0.99);
+      expect(heightHigh).toBeLessThan(1);
+      expect(Math.min(...centres)).toBeGreaterThan(0.75);
+      expect(Math.max(...centres)).toBeLessThan(0.93);
+      expect(average(centres)).toBeGreaterThan(0.82);
+      expect(average(centres)).toBeLessThan(0.86);
+      expect(average(corners)).toBeGreaterThan(0.29);
+      expect(average(corners)).toBeLessThan(0.31);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('re-draws the kernel tones per seed and is deterministic for one seed', () => {
+    const first = gridColors(0, 0.5),
+      second = gridColors(1, 0.5);
+    let difference = 0;
+    for (let i = 0; i < first.length; i++)
+      difference += Math.abs(first[i] - second[i]);
+    expect(difference / first.length).toBeGreaterThan(0.03);
+    expect(gridColors(0, 0.5)).toEqual(first);
+  });
+  it('keeps the kernel outlines, domes and gaps C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('sweetcorn', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.cells, 2 * p.cells, 4 * p.cells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 saturated yellow dielectric maps with a quarter of the pixels occluded and strong kernel normals', () => {
+    const maps = generateProceduralMaps('sweetcorn', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      occluded = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      occluded += Number(maps.occlusion[i] < 230);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2] ||
+          maps.baseColor[i] < maps.baseColor[i + 1] ||
+          maps.baseColor[i + 1] < maps.baseColor[i + 2] ||
+          maps.normal[i + 2] < 220,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(218);
+    expect(red / (512 * 512)).toBeLessThan(227);
+    expect(green / (512 * 512)).toBeGreaterThan(182);
+    expect(green / (512 * 512)).toBeLessThan(191);
+    expect(blue / (512 * 512)).toBeGreaterThan(62);
+    expect(blue / (512 * 512)).toBeLessThan(71);
+    expect(occluded / (512 * 512)).toBeGreaterThan(0.24);
+    expect(occluded / (512 * 512)).toBeLessThan(0.27);
+    expect(maxTilt).toBeGreaterThan(0.3);
+    expect(maxTilt).toBeLessThan(0.4);
     expect(invalid).toBe(0);
   });
 });
