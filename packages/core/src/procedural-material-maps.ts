@@ -38145,6 +38145,45 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'crosshatchengraving': {
+        const p = proceduralMaterialPresets.crosshatchengraving,
+          toneField = cachedNoise(p.toneCells, p.toneCells, seed ^ p.seedSalt),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 1),
+          );
+        return () => {
+          // Engraving shading: a low-frequency tone field decides how many hatch
+          // directions are inked. Three integer-count line families (diagonal, opposite
+          // diagonal, horizontal) fade in at rising tone thresholds with smooth ramps, and
+          // each line's width also grows with tone. A line is exp(-sin^2(pi n s) / w^2),
+          // C-infinity, and the families join as the union 1 - prod(1 - x) (not max, which
+          // creases where two families are equal), so the whole is smooth and wraps.
+          const tone = toneField(u, v),
+            ramp = (start: number) =>
+              smooth(clamp((tone - start) / p.rampSpan)),
+            width = p.widthMinimum + (p.widthMaximum - p.widthMinimum) * tone,
+            inverseWidth2 = 1 / (width * width),
+            line = (phase: number) => {
+              const s = Math.sin(Math.PI * phase);
+              return Math.exp(-s * s * inverseWidth2);
+            },
+            ink =
+              1 -
+              (1 - ramp(p.firstStart) * line(p.lines * (u + v))) *
+                (1 - ramp(p.secondStart) * line(p.lines * (u - v))) *
+                (1 - ramp(p.thirdStart) * line(p.lines * v)),
+            grain = grainField(u, v);
+          color =
+            p.paperTone +
+            p.grainTone * (grain - 0.5) -
+            (p.paperTone - p.inkTone) * ink;
+          height = p.inkHeight * ink + p.grainHeight * grain;
+          roughness += p.inkRoughness * ink;
+          return;
+        };
+      }
       case 'woodenpalletdeck': {
         const p = proceduralMaterialPresets.woodenpalletdeck,
           tones = new Float64Array(p.boards),
@@ -45761,6 +45800,7 @@ export function createSurfaceSampler(
     kind === 'jarrah' ||
     kind === 'buffaloplaid' ||
     kind === 'sheetmusic' ||
+    kind === 'crosshatchengraving' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

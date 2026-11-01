@@ -970,6 +970,7 @@ const kinds: ProceduralMaterialKind[] = [
   'jarrah',
   'buffaloplaid',
   'sheetmusic',
+  'crosshatchengraving',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -142542,6 +142543,190 @@ describe('Sheet music with ruled five-line staves, bar lines and random quarter 
     expect(ink / (512 * 512)).toBeLessThan(0.065);
     expect(maxTilt).toBeGreaterThan(0.08);
     expect(maxTilt).toBeLessThan(0.13);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Crosshatch engraving with black hatch lines that add directions and widen with a low-frequency tone field on cream paper', () => {
+  const p = proceduralMaterialPresets.crosshatchengraving;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const inkMask = (seed: number): boolean[] => {
+    const sample = createSurfaceSampler('crosshatchengraving', seed),
+      out = empty(),
+      mask: boolean[] = [];
+    for (let y = 0; y < 512; y++)
+      for (let x = 0; x < 512; x++) {
+        sample((x + 0.5) / 512, (y + 0.5) / 512, out);
+        mask.push(out.color < 0.5);
+      }
+    return mask;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'inks thin dark hatch lines over mostly bare cream paper with a bounded height, roughness and range for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('crosshatchengraving', seed),
+        a = empty();
+      let ink = 0,
+        paper = 0,
+        low = 1,
+        high = 0,
+        mean = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 512; y++)
+        for (let x = 0; x < 512; x++) {
+          sample((x + 0.5) / 512, (y + 0.5) / 512, a);
+          ink += Number(a.color < 0.5);
+          paper += Number(a.color > 0.85);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          mean += a.color;
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(ink / 262144).toBeGreaterThan(0.04);
+      expect(ink / 262144).toBeLessThan(0.16);
+      expect(paper / 262144).toBeGreaterThan(0.68);
+      expect(paper / 262144).toBeLessThan(0.9);
+      expect(low).toBeGreaterThan(0.03);
+      expect(low).toBeLessThan(0.05);
+      expect(high).toBeGreaterThan(0.95);
+      expect(high).toBeLessThan(0.97);
+      expect(mean / 262144).toBeGreaterThan(0.78);
+      expect(mean / 262144).toBeLessThan(0.9);
+      expect(roughLow).toBeCloseTo(p.roughness - 0.08, 3);
+      expect(roughHigh).toBeLessThan(p.roughness + 0.01);
+      expect(heightHigh).toBeGreaterThan(0.95);
+      expect(heightHigh).toBeLessThan(1);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('re-draws the tone field and hatch coverage per seed and is deterministic for one seed', () => {
+    const first = inkMask(0),
+      second = inkMask(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.03);
+    expect(inkMask(0)).toEqual(first);
+  });
+  it('keeps the three hatch families, their tone ramps and the paper grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('crosshatchengraving', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.toneCells, p.lines, 2 * p.lines, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 cream dielectric maps with about a tenth dark hatch ink and shallow normals', () => {
+    const maps = generateProceduralMaps('crosshatchengraving', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      ink = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      ink += Number(maps.baseColor[i] < 110);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.baseColor[i] < maps.baseColor[i + 1] ||
+          maps.baseColor[i + 1] < maps.baseColor[i + 2] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(195);
+    expect(red / (512 * 512)).toBeLessThan(208);
+    expect(green / (512 * 512)).toBeGreaterThan(186);
+    expect(green / (512 * 512)).toBeLessThan(199);
+    expect(blue / (512 * 512)).toBeGreaterThan(166);
+    expect(blue / (512 * 512)).toBeLessThan(179);
+    expect(ink / (512 * 512)).toBeGreaterThan(0.075);
+    expect(ink / (512 * 512)).toBeLessThan(0.105);
+    expect(maxTilt).toBeGreaterThan(0.13);
+    expect(maxTilt).toBeLessThan(0.21);
     expect(invalid).toBe(0);
   });
 });

@@ -11849,3 +11849,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 起因：延續上面兩次修正的審視，含氣泡琥珀的氣泡亮環原本寫成`exp(−((√q/size − ringStart)/w)²)`，其中`√q`在氣泡圓心有圓錐形尖點（因為對半徑而非半徑平方取值）；尖點處的值很小（約0.008），但斜率不連續，所以**嚴格說不是C1**。先前的C1掃描通過同樣只是因為取樣點沒有恰好落在圓心，我在該section與docs寫的C1因此不嚴格成立，是我的疏漏。
 - 修正：亮環改以半徑平方表示——`exp(−((q/size² − ringStart²)/ringWidth)²)`（`ringStart`仍為0.55倍半徑，`ringWidth`在半徑平方單位下設為0.28），在圓心完全平滑；實看修正後的渲染，氣泡與亮環外觀與原先相近。重新實測（工具實跑）：三seed 512²取樣color>0.8占1.35–1.84%（原記1.26–1.67%）、color 0.432–0.896（原記0.432–0.895）、平均0.584–0.597、最低AO 0.905（原記0.876）、氣泡占比、高度、roughness與seed7的512²統計（r／g／b約(189,119,25)、AO<250占7.8%）不變；相應的測試期望（最低AO）由0.87–0.89改為0.90–0.91，7項測試重跑通過；docs數字與sampler說明已同步更正，舊section保留原文作歷史紀錄、以本section為準。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Amber resin|amberbubbles|kinds|catalog|distinct|periodic"`定向測試**2142項通過／3669項未選**。本修正未重跑完整179檔suite；不push。
+
+## 2026-11-02 新增材質：交叉排線版畫（crosshatchengraving）
+
+- 範圍：新增`crosshatchengraving`（目前目錄928→929種，含plain的gallery 930項）：奶油色紙面上，依6×6低頻明暗場逐步加線的黑色細排線（三組各48條的整數線數線族：對角、反向對角、水平，分別在0.25／0.55／0.8的明暗門檻淡入，線寬0.06–0.3隨明暗增加），128²紙grain；預設0.25 m nominal tile、0.0015 UV-relative relief。作者示意，沒有引用特定來源；非真實刻線軌跡。
+- 實作過程中的問題（誠實紀錄）：第一版用`Math.max`合併三組線族，C1二階差分測試報出約872而失敗；原因是`max`在兩族相等處有折角。我改為聯集`1 − Π(1 − x)`後通過。此問題也讓我回頭發現已提交的樂譜、雨滴漣漪與含氣泡琥珀有同類的非C1寫法，已各自以前三個`Fix ...`提交修正並寫在上面的修正section。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）512²取樣墨色（color<0.5）占5.33–14.64%、紙面（color>0.85）占70.3–87.3%、color 0.040–0.960、平均0.796–0.883、roughness 0.72–0.80、height至多0.997 relief，metallic／mortar為0、AO為1；seed 0與1的墨色遮罩8.01%像素不同；seed 7的512²maps平均r／g／b約(201, 192, 172)、r<110占9.6%、法線tilt²最大約0.168、z分量最小244。我實看了四格預覽（顏色／法線／metallic-roughness／AO），交叉排線的明暗層次清楚。
+- 測試：新增7項（三seed統計、seed差異與同seed決定性、C1二階差分＋有符號UV週期、actual512 maps），`-t "Crosshatch engraving|crosshatchengraving"`通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Crosshatch engraving|crosshatchengraving|kinds|catalog|distinct|periodic"`定向測試**2144項通過／3674項未選**。
+- 未驗證：本材質未重跑完整179檔suite（最近一次完整suite為cdff89719，9,713項，其後的jarrah、buffaloplaid、sheetmusic、三個修正與本提交皆只有定向測試與gates）；未做瀏覽器gallery驗證（jarrah、buffaloplaid、sheetmusic亦未做）；預覽只涵蓋外觀自查，不是與實際版畫的比對；不push。

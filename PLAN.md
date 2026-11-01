@@ -1095,6 +1095,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`crosshatchengraving`（交叉排線版畫）使目前目錄928→929種，含plain的gallery為930項。奶油色紙面上的黑色細排線，依低頻明暗場逐步加線：暗部出現第一組對角線，更暗處加上反向對角線形成交叉，最暗處再加水平線；線寬也隨明暗增加，亮部保持留白。不是真實版畫的刻線軌跡、可變線距、輪廓線、透視或圖像內容。
+
+此材質是作者依一般銅版／鋼筆交叉排線（crosshatching）外觀所作示意，沒有引用特定來源文件、照片或量測；線數（每方向48條）、三組線的出現門檻（0.25／0.55／0.8）、線寬範圍、明暗場的6×6格解析度、墨與紙的色調、roughness與0.25 m nominal tile皆作者設定，不宣稱符合任何實際版畫或印刷規格。
+
+新增專用sampler：6×6低頻雜訊決定明暗，三組整數線數的線族（`u+v`對角、`u−v`反向對角、水平`v`）各以平滑ramp在自己的門檻淡入，單條線是`exp(−sin²(π·n·s)/w²)`（C∞，隨tile整數wrap），線寬隨明暗由0.06增至0.3；三族以聯集`1 − Π(1 − x)`合併（不用`max`，因為`max`在兩族相等處有折角、不是C1——我實作時測試曾因此失敗，詳見ACCEPTANCE），整體為C1；cache合計6²（36個）＋128²紙grain（16,384個）= 16,420個Float64／131,360 B lattice算術預算（非總RAM）。顏色是顏料，墨線height約0.7 relief＋紙grain 0.3 relief；墨處roughness略降0.08；金屬factor為0、無mortar、AO 1。預設0.25 m nominal tile與0.0015 UV-relative relief（非公尺位移）。實測（工具實跑，seed 0／1／0xffffffff，512²取樣）：墨色（color<0.5）占5.33–14.64%（隨明暗場而異）、color>0.85的紙面占70.3–87.3%、color 0.040–0.960、平均0.796–0.883、roughness 0.72–0.80、height至多0.997 relief；seed 0與1的墨色遮罩有8.01%像素不同；seed 7的512²maps平均r／g／b約(201, 192, 172)、r<110占9.6%、法線tilt²最大約0.168。我實看了四格預覽：交叉排線的明暗層次清楚。未新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `sheetmusic`（樂譜）使目前目錄927→928種，含plain的gallery為929項。奶油色紙面上6組五線譜（每組5條連續的細黑譜線，間以小節線：每tile 4條），每組16個音符位置，約八成有一個四分音符（隨機音高0–7個半階、符頭＋符桿，低音符桿朝上、高音符桿朝下），其餘為休止；譜組之間留白。不是真實樂曲或可演奏的音符、譜號、拍號、升降記號、符尾、連結線或歌詞。
 
 此材質是作者依一般樂譜外觀所作示意，沒有引用特定來源文件、照片或量測；譜線間距、符頭大小、音符分布規則、墨與紙的色調、roughness與0.25 m nominal tile皆作者設定，不宣稱符合任何實際樂譜印刷規格，音符也不構成有意義的旋律。

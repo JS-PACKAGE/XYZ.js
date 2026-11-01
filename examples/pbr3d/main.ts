@@ -1007,6 +1007,7 @@ try {
     'jarrah',
     'buffaloplaid',
     'sheetmusic',
+    'crosshatchengraving',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }
