@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`metalflakepaint`（金屬片漆）使目前目錄912→913種，含plain的gallery為914項。深藍清漆底色上散布隨機位置、隨機傾斜與亮度的圓形金屬片（64×64格、約半數格有片），約21–22%的面積被片覆蓋；片本身淡薰衣草銀色，在metallic通道中形成部分金屬遮罩（最高約0.68，不是全金屬），片的小傾斜使法線閃爍，清漆底則為非金屬。不是珠光／變色（多色）、片的多邊形形狀、各片獨立反射方向或清漆層厚度。
+
+此材質是作者依一般金屬片車漆外觀所作示意，沒有引用特定來源文件、照片或量測；片大小、密度、色調、metallic覆蓋、roughness與0.1 m nominal tile皆作者設定，不宣稱符合任何實際塗料或色號。
+
+新增專用sampler：每格存5個Float64（抖動位置x、y，傾斜x、y與色調；缺片時色調0），64²格共20,480 Float64，另有128²清漆grain 16,384 Float64，合計36,864 Float64／294,912 B lattice算術預算（非總RAM）。金屬片以加總而非擁有權處理：每片是`smooth(1 − q/r²)`圓頂（半徑0.55格、值與斜率於邊緣歸零），取3×3鄰格（片最遠達半徑加抖動共0.9格，足夠涵蓋）；高度為各片圓頂乘以`1 + 2·tilt·(tiltX·dx + tiltY·dy)`的加總，因此重疊處仍為C1。覆蓋度`S/(1+S)`（S為加權和乘flakeGain 1.2）飽和映射到color、metallic、roughness與AO，不做硬剪裁。這是此kind之所以加入`procedural-material.ts`的metallic清單（金屬factor 1，由逐樣本metallic通道控制）與測試的通用「非金屬」例外清單。預設0.1 m nominal tile與0.003 UV-relative relief（非公尺位移）皆作者設定。首版以48格、半徑0.78、存在率0.85渲染，實看後幾乎整面是銀色而看不到藍色底，所以改成64格、半徑0.55、存在率0.5、flakeGain 1.2。三seed（0／1／0xffffffff）、512²取樣：metallic>0.3占21.5–22.3%、metallic最高0.671–0.683、最低0、平均0.117–0.121、color 0.165–0.748、高度0.25到1.31–1.38 relief、roughness 0.052–0.12、AO最低0.932、color與metallic的相關係數約0.999；seed 0與1的片遮罩有33.3%像素不同；seed7的512²中r／b平均約(73,113)、metallic通道平均30.3／255、其中>76占21.9%、法線max tilt²約0.351。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `tapemeasure`（捲尺）使目前目錄911→912種，含plain的gallery為913項。一個tile是黃色捲尺的100 mm段：100條毫米刻度（長0.2 tile高）、每5 mm一條較長（0.3）、每10 mm一條最長而較粗（0.42）的近黑刻線，從帶邊下方0.08起向下垂；橫截面是兩緣升起、中央下凹的餘弦弧，光滑塗層因此在縱向有法線梯度。沒有數字、英制刻度、端鉤、捲尺外殼或磨損。
 
 此材質是作者依一般公制捲尺外觀所作示意，沒有引用特定來源文件、照片或量測；刻線長度與寬度、黃色、凹弧深度、roughness與0.1 m nominal tile（正好對應100 mm段）皆作者設定，不宣稱符合任何實際捲尺標準或精度等級。

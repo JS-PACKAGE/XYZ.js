@@ -954,6 +954,7 @@ const kinds: ProceduralMaterialKind[] = [
   'barcodelabel',
   'ledmatrix',
   'tapemeasure',
+  'metalflakepaint',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -77052,6 +77053,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'botryoidalcopper' &&
           kind !== 'sewingthimbles' &&
           kind !== 'boullebrassinlay' &&
+          kind !== 'metalflakepaint' &&
           kind !== 'internaltoothwashers' &&
           kind !== 'utilityknifeblades' &&
           kind !== 'bismuthhoppers' &&
@@ -139374,6 +139376,212 @@ describe('Yellow tape measure with millimetre, five-millimetre and centimetre ti
     expect(ink / (512 * 512)).toBeLessThan(0.06);
     expect(maxTilt).toBeGreaterThan(0.08);
     expect(maxTilt).toBeLessThan(0.15);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Metal-flake paint with random tilted metallic flakes sparkling in a deep blue clear-coated base', () => {
+  const p = proceduralMaterialPresets.metalflakepaint;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const flakeMask = (seed: number): boolean[] => {
+    const sample = createSurfaceSampler('metalflakepaint', seed),
+      out = empty(),
+      mask: boolean[] = [];
+    for (let y = 0; y < 512; y++)
+      for (let x = 0; x < 512; x++) {
+        sample((x + 0.5) / 512, (y + 0.5) / 512, out);
+        mask.push(out.metallic > 0.3);
+      }
+    return mask;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'scatters metallic flakes over about a fifth of a smooth non-metal blue base, with color, metal, roughness and occlusion locked together for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('metalflakepaint', seed),
+        a = empty();
+      let flake = 0,
+        count = 0,
+        metalHigh = 0,
+        metalLow = 1,
+        colorLow = 1,
+        colorHigh = 0,
+        heightLow = 1,
+        heightHigh = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        occlusionLow = 1,
+        sumColor = 0,
+        sumMetal = 0,
+        sumColorMetal = 0,
+        sumColorSquare = 0,
+        sumMetalSquare = 0,
+        invalid = 0;
+      for (let y = 0; y < 512; y++)
+        for (let x = 0; x < 512; x++) {
+          sample((x + 0.5) / 512, (y + 0.5) / 512, a);
+          count++;
+          flake += Number(a.metallic > 0.3);
+          metalHigh = Math.max(metalHigh, a.metallic);
+          metalLow = Math.min(metalLow, a.metallic);
+          colorLow = Math.min(colorLow, a.color);
+          colorHigh = Math.max(colorHigh, a.color);
+          heightLow = Math.min(heightLow, a.height / p.relief);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          sumColor += a.color;
+          sumMetal += a.metallic;
+          sumColorMetal += a.color * a.metallic;
+          sumColorSquare += a.color * a.color;
+          sumMetalSquare += a.metallic * a.metallic;
+          invalid += Number(
+            a.mortar !== 0 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      const correlation =
+        (sumColorMetal / count - (sumColor / count) * (sumMetal / count)) /
+        Math.sqrt(
+          (sumColorSquare / count - (sumColor / count) ** 2) *
+            (sumMetalSquare / count - (sumMetal / count) ** 2),
+        );
+      expect(flake / count).toBeGreaterThan(0.19);
+      expect(flake / count).toBeLessThan(0.25);
+      expect(metalLow).toBe(0);
+      expect(metalHigh).toBeGreaterThan(0.62);
+      expect(metalHigh).toBeLessThan(0.72);
+      expect(sumMetal / count).toBeGreaterThan(0.1);
+      expect(sumMetal / count).toBeLessThan(0.14);
+      expect(colorLow).toBeGreaterThan(0.15);
+      expect(colorLow).toBeLessThan(0.18);
+      expect(colorHigh).toBeGreaterThan(0.7);
+      expect(colorHigh).toBeLessThan(0.78);
+      expect(heightLow).toBeCloseTo(0.25, 6);
+      expect(heightHigh).toBeGreaterThan(1.2);
+      expect(roughLow).toBeGreaterThan(0.04);
+      expect(roughHigh).toBeCloseTo(p.clearRoughness, 12);
+      expect(occlusionLow).toBeGreaterThan(0.92);
+      expect(correlation).toBeGreaterThan(0.99);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('moves the flakes with the seed and is deterministic for one seed', () => {
+    const first = flakeMask(0),
+      second = flakeMask(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.25);
+    expect(flakeMask(0)).toEqual(first);
+  });
+  it('keeps overlapping flake domes, their random tilts and the clear-coat grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('metalflakepaint', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.cells, 2 * p.cells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 deep blue maps whose metallic channel carries the flakes and whose normals sparkle', () => {
+    const maps = generateProceduralMaps('metalflakepaint', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      blue = 0,
+      metal = 0,
+      metalHigh = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      blue += maps.baseColor[i + 2];
+      metal += maps.metallicRoughness[i + 2];
+      metalHigh += Number(maps.metallicRoughness[i + 2] > 76);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2] ||
+          maps.baseColor[i + 2] < maps.baseColor[i] ||
+          maps.normal[i + 2] < 150,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(65);
+    expect(red / (512 * 512)).toBeLessThan(82);
+    expect(blue / (512 * 512)).toBeGreaterThan(100);
+    expect(blue / (512 * 512)).toBeLessThan(125);
+    expect(metal / (512 * 512)).toBeGreaterThan(26);
+    expect(metal / (512 * 512)).toBeLessThan(35);
+    expect(metalHigh / (512 * 512)).toBeGreaterThan(0.19);
+    expect(metalHigh / (512 * 512)).toBeLessThan(0.25);
+    expect(maxTilt).toBeGreaterThan(0.3);
+    expect(maxTilt).toBeLessThan(0.4);
     expect(invalid).toBe(0);
   });
 });

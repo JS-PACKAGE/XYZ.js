@@ -11668,3 +11668,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增4項永久測試（`Yellow tape measure`：三seed 100／20／10條階層與刻線／間隙色幅、凹弧與緣部高度／AO與通道範圍、含刻線端與ownership縫的C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選7項通過（8.60s）。
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Yellow tape measure|tapemeasure|kinds|catalog|distinct|periodic"`定向測試，**2114項通過／3579項未選**。
 - 本功能未重跑完整179檔suite、未開瀏覽器gallery（barcodelabel、ledmatrix與本功能均未在gallery驗證內）；不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：金屬片漆（metalflakepaint）
+
+- 目錄912→913，含plain的gallery為914項。深藍清漆底色上散布隨機位置／傾斜／亮度的圓形金屬片（64×64格、約半數格有片），約21–22%面積被覆蓋；片為淡薰衣草銀色，metallic通道形成部分金屬遮罩（最高約0.68，非全金屬），小傾斜使法線閃爍，清漆底為非金屬。這是作者依一般金屬片車漆外觀所作示意，**沒有**引用特定來源；不含珠光／變色、多邊形片、各片獨立反射方向或清漆厚度。
+- 專用sampler：每格5個Float64（64²共20,480）＋128²清漆grain（16,384），合計36,864 Float64／294,912 B；金屬片以加總而非擁有權處理（`smooth(1−q/r²)`圓頂、取3×3鄰格，高度乘上隨機傾斜項），重疊處仍為C1；覆蓋度`S/(1+S)`飽和映射到color／metallic／roughness／AO。這是本輪第一個以逐樣本metallic通道混合金屬與非金屬的新kind，因此加入`procedural-material.ts`的metallic清單（factor 1）與測試通用「非金屬」例外清單；不新增API或依賴。預設0.1 m tile、0.003 UV-relative relief（非公尺位移）。
+- 開發中實際修正：首版48格、半徑0.78、存在率0.85，實看四圖後整面幾乎都是銀色、看不到藍色底，改為64格、半徑0.55、存在率0.5、flakeGain 1.2；另外第一次跑測試時，通用「`%s` is deterministic, seeded, distinct and periodic」測試因本kind有非零metallic而失敗（期望metallic通道為0），補上例外後該測試與其他6項全數通過。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）512²取樣metallic>0.3占21.5–22.3%、metallic最高0.671–0.683、最低0、平均0.117–0.121、color 0.165–0.748、高度0.25到1.31–1.38 relief、roughness 0.052–0.12、AO最低0.932、color與metallic相關係數約0.999；seed 0與1的片遮罩有33.3%像素不同；seed7的512² r／b平均約(73,113)、metallic通道平均30.3／255、其中>76占21.9%、法線max tilt²約0.351。以Bun產生512 seed7四圖並實看：深藍底上稀疏的銀紫色小圓片、法線圖有顆粒狀閃爍、metallic圖紅／洋紅斑點。
+- 新增4項永久測試（`Metal-flake`：三seed覆蓋率／metallic與color相關性／通道範圍、seed移動片與確定性、重疊圓頂與隨機傾斜的C1及帶號UV週期、actual512五maps含metallic通道），並加入通用kinds清單；名稱篩選7項通過（5.40s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Metal-flake|metalflakepaint|kinds|catalog|distinct|periodic"`定向測試，**2116項通過／3584項未選**。
+- 因本功能改動了metallic清單這類跨kind的共用判斷，已另在凍結worktree對本commit啟動完整suite，結果另記於後續section；本section撰寫時未取得該結果。未開瀏覽器gallery；不宣稱跨瀏覽器／backend或效能驗證；不push。

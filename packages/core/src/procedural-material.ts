@@ -927,7 +927,8 @@ export type ProceduralMaterialKind =
   | 'topographicmap'
   | 'barcodelabel'
   | 'ledmatrix'
-  | 'tapemeasure';
+  | 'tapemeasure'
+  | 'metalflakepaint';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2089,6 +2090,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'barcodelabel',
   'ledmatrix',
   'tapemeasure',
+  'metalflakepaint',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -2308,6 +2310,7 @@ export class ProceduralMaterial {
         this.kind === 'botryoidalcopper' ||
         this.kind === 'sewingthimbles' ||
         this.kind === 'boullebrassinlay' ||
+        this.kind === 'metalflakepaint' ||
         this.kind === 'internaltoothwashers' ||
         this.kind === 'utilityknifeblades' ||
         this.kind === 'bismuthhoppers' ||

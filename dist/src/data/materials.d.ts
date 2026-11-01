@@ -12532,6 +12532,27 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainRoughness: 0.05;
         edgeOcclusion: 0.25;
     }>;
+    metalflakepaint: Readonly<{
+        dark: readonly [10, 16, 58];
+        light: readonly [238, 228, 255];
+        roughness: 0.3;
+        relief: 0.003;
+        cells: 64;
+        seedSalt: 61860;
+        jitter: 0.35;
+        presence: 0.5;
+        radius: 0.55;
+        tilt: 0.6;
+        toneMinimum: 0.4;
+        baseTone: 0.18;
+        flakeGain: 1.2;
+        heightGain: 1;
+        grainCells: 128;
+        grainTone: 0.03;
+        clearRoughness: 0.12;
+        flakeRoughness: -0.1;
+        flakeOcclusion: 0.1;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -13823,4 +13844,5 @@ export declare const proceduralTileMeters: Readonly<{
     barcodelabel: 0.14;
     ledmatrix: 0.16;
     tapemeasure: 0.1;
+    metalflakepaint: 0.1;
 }>;

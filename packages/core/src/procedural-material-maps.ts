@@ -37448,6 +37448,68 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'metalflakepaint': {
+        const p = proceduralMaterialPresets.metalflakepaint,
+          flakes = new Float64Array(p.cells * p.cells * 5),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0xf1a5),
+          inverseRadius2 = 1 / (p.radius * p.radius);
+        // Per cell: jittered centre offset (x, y), tilt (x, y) and tone; a missing
+        // flake has tone 0.
+        for (let cy = 0; cy < p.cells; cy++)
+          for (let cx = 0; cx < p.cells; cx++) {
+            const at = (cy * p.cells + cx) * 5,
+              salt = seed ^ p.seedSalt,
+              present = hash(cx, cy * 8, salt) < p.presence;
+            flakes[at] = p.jitter * (2 * hash(cx, cy * 8 + 1, salt) - 1);
+            flakes[at + 1] = p.jitter * (2 * hash(cx, cy * 8 + 2, salt) - 1);
+            flakes[at + 2] = 2 * hash(cx, cy * 8 + 3, salt) - 1;
+            flakes[at + 3] = 2 * hash(cx, cy * 8 + 4, salt) - 1;
+            flakes[at + 4] = present
+              ? p.toneMinimum + (1 - p.toneMinimum) * hash(cx, cy * 8 + 5, salt)
+              : 0;
+          }
+        return () => {
+          // Metal flakes are summed, not owned: each is a smooth(1 - q / r^2) dome
+          // (value and slope zero at its rim) carrying its own random tilt, so the sum
+          // is C1 anywhere flakes overlap or meet. A flake reaches at most radius + jitter (0.55 + 0.35 here)
+          // cells from its cell centre, so the 3 x 3 neighbourhood is enough. The
+          // saturating S / (1 + S) turns the summed flake weight into coverage for the
+          // color, metallic and roughness channels without clipping.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            cx = Math.floor(x),
+            cy = Math.floor(y);
+          let weight = 0,
+            facet = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const wx = (((cx + ox) % p.cells) + p.cells) % p.cells,
+                wy = (((cy + oy) % p.cells) + p.cells) % p.cells,
+                at = (wy * p.cells + wx) * 5,
+                tone = flakes[at + 4];
+              if (tone === 0) continue;
+              const dx = x - (cx + ox + 0.5 + flakes[at]),
+                dy = y - (cy + oy + 0.5 + flakes[at + 1]),
+                dome = smooth(clamp(1 - (dx * dx + dy * dy) * inverseRadius2));
+              if (dome === 0) continue;
+              weight += tone * dome;
+              facet +=
+                dome *
+                (1 + p.tilt * (flakes[at + 2] * dx + flakes[at + 3] * dy) * 2);
+            }
+          const coverage = (p.flakeGain * weight) / (1 + p.flakeGain * weight),
+            grain = grainField(u, v);
+          color =
+            p.baseTone +
+            p.grainTone * (grain - 0.5) +
+            (1 - p.baseTone) * coverage;
+          height = p.heightGain * facet * 0.5 + 0.25;
+          metallic = coverage;
+          roughness = p.clearRoughness + p.flakeRoughness * coverage;
+          occlusion = 1 - p.flakeOcclusion * coverage;
+          return;
+        };
+      }
       case 'woodenpalletdeck': {
         const p = proceduralMaterialPresets.woodenpalletdeck,
           tones = new Float64Array(p.boards),
@@ -45047,6 +45109,7 @@ export function createSurfaceSampler(
     kind === 'barcodelabel' ||
     kind === 'ledmatrix' ||
     kind === 'tapemeasure' ||
+    kind === 'metalflakepaint' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
     kind === 'sitkaspruce' ||

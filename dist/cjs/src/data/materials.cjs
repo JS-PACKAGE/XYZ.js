@@ -20515,6 +20515,35 @@ var proceduralMaterialPresets = Object.freeze({
 		grainRoughness: .05,
 		edgeOcclusion: .25
 	}),
+	metalflakepaint: Object.freeze({
+		dark: [
+			10,
+			16,
+			58
+		],
+		light: [
+			238,
+			228,
+			255
+		],
+		roughness: .3,
+		relief: .003,
+		cells: 64,
+		seedSalt: 61860,
+		jitter: .35,
+		presence: .5,
+		radius: .55,
+		tilt: .6,
+		toneMinimum: .4,
+		baseTone: .18,
+		flakeGain: 1.2,
+		heightGain: 1,
+		grainCells: 128,
+		grainTone: .03,
+		clearRoughness: .12,
+		flakeRoughness: -.1,
+		flakeOcclusion: .1
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -21924,7 +21953,8 @@ var proceduralTileMeters = Object.freeze({
 	topographicmap: .3,
 	barcodelabel: .14,
 	ledmatrix: .16,
-	tapemeasure: .1
+	tapemeasure: .1,
+	metalflakepaint: .1
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;
