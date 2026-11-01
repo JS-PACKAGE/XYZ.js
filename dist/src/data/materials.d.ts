@@ -8222,6 +8222,34 @@ export declare const proceduralMaterialPresets: Readonly<{
         inkRoughness: 0.4;
         paperRoughness: 0.72;
     }>;
+    featherbarbs: Readonly<{
+        dark: readonly [14, 12, 16];
+        light: readonly [236, 228, 212];
+        roughness: 0.6;
+        relief: 0.003;
+        barbsPerTile: 48;
+        slope: 1.3;
+        reach: 0.21;
+        reachVariation: 0.03;
+        barbWidth: 0.55;
+        barbSoft: 0.1;
+        tipSoft: 0.004;
+        shaftHalf: 0.0065;
+        shaftSoft: 0.0015;
+        grainCells: 192;
+        barbToneInner: 0.78;
+        barbToneOuter: 0.5;
+        barbToneVariation: 0.12;
+        shaftTone: 0.92;
+        gapTone: 0.06;
+        grainTone: 0.04;
+        barbHeight: 0.6;
+        gapHeight: 0.2;
+        shaftHeight: 0.85;
+        barbRoughness: 0.5;
+        gapRoughness: 0.9;
+        gapAO: 0.55;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -14707,6 +14735,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    featherbarbs: 0.25;
     amidakuji: 0.3;
     code39barcodes: 0.3;
     graycodediscs: 0.35;

@@ -1367,6 +1367,10 @@
 
 這是作者設計的示意：下方標籤是「起點號碼」而不是獎品名稱；橫槓高度固定在10個層級的中央（不像手繪那樣高低不一）；沒有標示哪一條是中獎線，也沒有突顯任何一條走過的路徑；顏色是亮度插值（近黑墨＋米白紙）。預設0.3 m nominal tile、0.0016 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上（縱線間約64 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`featherbarbs`（羽毛羽枝）使目前目錄950→951種，含plain的gallery為952項。每tile並排兩片羽毛的羽片（羽軸在u = 1/4與3/4）：細亮的羽軸向兩側伸出一排排羽枝（barbs），羽枝朝羽尾方向斜掃——沿同一根羽枝 v + 1.3·|u − 羽軸| 為定值，所以羽枝是相位 (v + 斜率·|dx|) / 週期 的條紋，每個tile垂直方向有48根；每根羽枝有自己的長度（約0.21 ± 0.03 tile），形成參差的外緣，羽枝間是深色縫隙，由內向外色調由亮轉暗，每根的亮度略有不同。最長的羽枝（約0.24 tile）仍短於羽軸到邊界的0.25 tile，所以每片羽毛在邊界至少留約0.01 tile的空白，所以tile接縫與兩片羽毛之間沒有羽枝接觸。Metallic與mortar為0。
+
+這是作者設計的示意：只畫了羽枝與羽軸，沒有羽小枝（barbules）的細節、沒有彎曲或扭轉的羽片、沒有羽毛輪廓與尖端；兩片羽毛完全鏡像排列；顏色是亮度插值（近黑底、米白羽枝），不代表真實羽毛色相；有高頻條紋（週期約20 px@1024、羽枝寬約0.55個週期），在小尺寸下會產生疊紋。預設0.25 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

@@ -21932,6 +21932,56 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'featherbarbs': {
+        const p = proceduralMaterialPresets.featherbarbs,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x28101),
+          period = 1 / p.barbsPerTile,
+          inverseSoft = 1 / p.barbSoft;
+        // Two feathers side by side (shafts at u = 1/4 and 3/4). Barbs leave the shaft and sweep
+        // toward the tail: along one barb v + slope * |u - shaft| is constant, so the barbs are the
+        // stripes of the phase (v + slope * |dx|) / period, and each barb ends at its own length.
+        return () => {
+          const left = u < 0.5,
+            dx = Math.abs(u - (left ? 0.25 : 0.75)),
+            phase = (v + p.slope * dx) / period,
+            index = Math.floor(phase),
+            across = phase - index,
+            // The pattern repeats with the tile, so the barb index is taken modulo the barbs per tile.
+            wrapped =
+              ((index % p.barbsPerTile) + p.barbsPerTile) % p.barbsPerTile,
+            length =
+              p.reach +
+              p.reachVariation *
+                (2 * hash(wrapped, left ? 1 : 2, seed ^ 0x28103) - 1),
+            body = smooth(
+              clamp(
+                (p.barbWidth / 2 - Math.abs(across - 0.5)) * inverseSoft + 0.5,
+              ),
+            ),
+            alive = smooth(clamp((length - dx) / p.tipSoft + 0.5)),
+            barb = body * alive,
+            shaftLine = smooth(clamp((p.shaftHalf - dx) / p.shaftSoft + 0.5)),
+            lit = Math.max(barb, shaftLine),
+            tone =
+              p.barbToneInner +
+              (p.barbToneOuter - p.barbToneInner) * clamp(dx / p.reach) +
+              p.barbToneVariation *
+                (hash(wrapped, left ? 3 : 4, seed ^ 0x28105) - 0.5),
+            base = p.gapTone + (tone - p.gapTone) * barb;
+          color = clamp(
+            base +
+              (p.shaftTone - base) * shaftLine +
+              p.grainTone * (grainField(u, v) - 0.5) * lit,
+          );
+          height = clamp(
+            p.gapHeight +
+              (p.barbHeight - p.gapHeight) * barb +
+              (p.shaftHeight - p.barbHeight) * shaftLine,
+          );
+          roughness = p.gapRoughness + (p.barbRoughness - p.gapRoughness) * lit;
+          occlusion = clamp(p.gapAO + (1 - p.gapAO) * lit);
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -49461,6 +49511,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'featherbarbs' ||
     kind === 'amidakuji' ||
     kind === 'code39barcodes' ||
     kind === 'graycodediscs' ||

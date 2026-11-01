@@ -11876,3 +11876,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`四百五十項（本材質十二項）全過，第一次執行即通過。十一個seed（0、7、4294967295、1至6、8、9）：每條縱線在上、中、下三個高度為墨色；每一層取兩條縱線之間的中點判斷橫槓，同層沒有相接的橫槓、全部橫槓數＞8、層與層之間的空隙無雜墨；測試端依橫槓逐起點走過10層，再與以測試端獨立字型逐像素解碼的下排號碼比對（上排為1至8，下排為每條縱線的終點對應起點），且下排是1至8的排列；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "amidakuji|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`amidakuji`：option 951個、status為950 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的縱線、橫槓與標籤。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
 - 更正：先前progress7的提交數寫成65，當時實際為64（`git rev-list --count 0aa5a2a3f..HEAD`）；本次提交後為65。
+
+## 2026-11-02 程序材質：羽毛羽枝（featherbarbs）
+
+- 目錄950→951，含plain的gallery為952項。每tile並排兩片羽毛的羽片（羽軸在u = 1/4與3/4），亮色羽軸向兩側伸出朝羽尾斜掃的羽枝（沿同一根羽枝 v + 1.3·|u − 羽軸| 為定值；每tile 48根；每根長度約0.21 ± 0.03 tile），羽枝間為深色縫隙。Metallic／mortar為0，預設tile0.25 m、0.003 UV-relative relief、metallic factor 0。只畫羽枝與羽軸；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 真實缺陷與修正：（1）第一版羽枝長度0.23 ± 0.03，最長達0.26，超過羽軸到邊界的0.25，所以兩片羽毛的最長羽枝會在邊界碰到對面（且左右羽毛用不同的長度雜湊，邊界上可能出現不連續）；先被測試的「超出範圍必為空白」暴露（該測試取樣到另一片羽毛的羽枝），改為0.21 ± 0.03（最長0.24）。（2）預覽時我誤留了一個為了試驗而加入的`cachedNoise`欄位與`u * 24`的取樣，寫入前已移除，羽枝亮度改為每根羽枝一個雜湊。（3）測試端：第一版的垂直掃描把跨越v = 0/1接縫的一根羽枝當成兩段，數到49而不是48，改為合併首尾段；鏡像對稱測試第一版直接比較顏色，但顆粒雜訊（不鏡像）使254／400個點不相等，改為只比較亮／暗狀態，並略過軟邊緣附近的樣本（仍有1個點因顆粒跨過閾值而不同）。
+- 實測：`tests/procedural-material-motifs.test.ts`四百五十五項（本材質五項）全過。三seed（0、7、4294967295）：離羽軸0.06與0.1 tile處垂直掃描各數到48根羽枝（每個tile），間距與週期1/48相差＜0.0004；兩處的羽枝位置相對移動為 −斜率×0.04（對週期取餘，容許3%週期），即羽枝以固定斜率朝羽尾斜掃；羽軸上的色調＞0.85；最長羽枝之外沒有任何亮點（400點）；最短羽枝之內，被羽枝覆蓋的比例與羽枝寬度0.55個週期相差＜0.05；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "featherbarbs|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`featherbarbs`：option 952個、status為951 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的羽片（羽枝週期約10 px@512，有輕微疊紋）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

@@ -8379,3 +8379,141 @@ describe('amidakuji: the bottom numbers follow from walking the rungs', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('featherbarbs: barbs sweep tailward at a fixed slope from the shaft', () => {
+  const p = proceduralMaterialPresets.featherbarbs;
+  const period = 1 / p.barbsPerTile;
+
+  // Centers of the runs where the scan is lit (tone above a level between the gaps and the barbs).
+  // The scan covers one full tile, so a run touching both ends is one run across the wrap.
+  const runCenters = (
+    values: number[],
+    step: number,
+    origin: number,
+  ): number[] => {
+    const runs: [number, number][] = [];
+    let start = -1;
+    for (let i = 0; i <= values.length; i++) {
+      const lit = i < values.length && values[i] > 0.25;
+      if (lit && start < 0) start = i;
+      if (!lit && start >= 0) {
+        runs.push([start, i - 1]);
+        start = -1;
+      }
+    }
+    if (
+      runs.length > 1 &&
+      runs[0][0] === 0 &&
+      runs[runs.length - 1][1] === values.length - 1
+    ) {
+      const first = runs.shift()!,
+        last = runs.pop()!;
+      runs.push([last[0], first[1] + values.length]);
+    }
+    return runs.map(([from, to]) => origin + ((from + to) / 2) * step);
+  };
+
+  it.each(seeds)(
+    'has one barb per period along the shaft and a slope of dv/dx = -slope (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('featherbarbs', seed),
+        out = empty(),
+        shaftU = 0.25,
+        steps = 20000;
+      // Vertical scan at a fixed distance from the shaft: one stripe per barb period.
+      const scanDown = (dx: number): number[] => {
+        const values: number[] = [];
+        for (let i = 0; i < steps; i++) {
+          sample(shaftU + dx, (i + 0.5) / steps, out);
+          values.push(out.color);
+        }
+        return runCenters(values, 1 / steps, 0.5 / steps);
+      };
+      const near = scanDown(0.06),
+        far = scanDown(0.1);
+      expect(near.length).toBe(p.barbsPerTile);
+      expect(far.length).toBe(p.barbsPerTile);
+      for (let i = 1; i < near.length; i++)
+        expect(Math.abs(near[i] - near[i - 1] - period)).toBeLessThan(0.0004);
+      // Moving 0.04 away from the shaft shifts every stripe by -slope * 0.04, modulo the period.
+      const shift = ((far[10] - near[10] + p.slope * 0.04) / period) % 1;
+      expect(
+        Math.min(Math.abs(shift), Math.abs(shift - 1), Math.abs(shift + 1)),
+      ).toBeLessThan(0.03);
+    },
+  );
+
+  it('is mirror symmetric about the shaft, bright on the shaft and empty beyond the reach', () => {
+    const sample = createSurfaceSampler('featherbarbs', 7),
+      out = empty(),
+      other = empty();
+    let asymmetric = 0;
+    for (let i = 0; i < 400; i++) {
+      const dx = ((i * 0.6180339887) % 1) * 0.24,
+        v = ((i * 0.7548776662) % 1) * 0.5 + 0.1;
+      sample(0.25 + dx, v, out);
+      sample(0.25 - dx, v, other);
+      // Lit or not is symmetric (skipping the soft edge where the grain, which is not mirrored,
+      // can move a sample across the threshold).
+      if (
+        Math.abs(out.color - 0.25) < 0.1 ||
+        Math.abs(other.color - 0.25) < 0.1
+      )
+        continue;
+      asymmetric += Number(out.color > 0.25 !== other.color > 0.25);
+    }
+    expect(asymmetric).toBe(0);
+    sample(0.25, 0.4, out);
+    expect(out.color).toBeGreaterThan(0.85);
+    // Well beyond the longest barb (reach + variation) nothing is lit; well inside every barb stands.
+    let beyond = 0,
+      inside = 0;
+    for (let i = 0; i < 400; i++) {
+      sample(0.25 + p.reach + p.reachVariation + 0.005, (i + 0.5) / 400, out);
+      beyond += Number(out.color > 0.2);
+    }
+    expect(beyond).toBe(0);
+    for (let i = 0; i < 4000; i++) {
+      sample(0.25 + p.reach - p.reachVariation - 0.01, (i + 0.5) / 4000, out);
+      inside += Number(out.color > 0.25);
+    }
+    // About barbWidth of every period is covered by a barb (the rest is the gap between barbs).
+    expect(Math.abs(inside / 4000 - p.barbWidth)).toBeLessThan(0.05);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('featherbarbs', 0),
+      b = createSurfaceSampler('featherbarbs', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
