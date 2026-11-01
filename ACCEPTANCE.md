@@ -11830,3 +11830,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試設計：可解性以測試端獨立寫的GF(2)高斯消去判斷（5×5的熄燈遊戲，一個盤面可解需滿足線性系統一致）。為了確認這個判斷器不是「永遠回答可解」，另有一項測試用固定線性同餘亂數產生200個隨機盤面，要求可解比例落在10%至45%之間（理論約25%）——這項先過、確認判斷器有鑑別力，才用它檢查材質輸出。本次未出現失敗。
 - 實測：`tests/procedural-material-motifs.test.ts`三百八十一項（本材質十七項）全過。十五個seed（0、7、4294967295、1至6、8至13）：25個按鈕中心的色調必須明確落在＜0.3（熄）或＞0.6（亮）之一，亮燈數在2至23之間，解碼出的盤面通過GF(2)可解檢查，按鈕之間的框為暗色（＜0.12）；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "lightsoutboard|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`lightsoutboard`：option 945個、status為944 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的按鈕盤。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：織造圖解（weavingdraft）
+
+- 目錄944→945，含plain的gallery為946項。每tile 16×16格：左上12×4穿綜圖（每欄一個記號）、右上4×4踏板連綜表（每個踏板抬起1至3片綜）、右下12×4踩踏順序（每列一個記號）、左下12×12由三者推得的織紋圖（深＝經浮、淺＝緯浮，升梭慣例）。穿綜與踩踏由seed隨機決定。Metallic／mortar為0，預設tile0.4 m、0.0018 UV-relative relief、metallic factor 0。只畫四綜四踏板，不是傳統斜紋規則，沒有紗線顏色；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 實測：`tests/procedural-material-motifs.test.ts`三百九十三項（本材質十二項）全過，第一次執行即通過、沒有出現失敗。十一個seed（0、7、4294967295、1至6、8、9）：從格中心的色調（＜0.4為深）讀出穿綜（每欄恰好一個記號，1號綜在最靠近織紋的那一列）、踏板連綜表（每個踏板抬起的綜數在1至3片之間）與踩踏（每列恰好一個記號），再由測試端獨立套用「經線c在第r梭浮在上面＝第r梭的踏板抬起第c條經線所穿的綜」逐格比對12×12的織紋圖，全部相符（0處錯誤）；織紋中的深格數在21至123之間；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "weavingdraft|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 觀察到但未處理：隨機的穿綜與踩踏使織紋看起來雜亂，不像傳統的斜紋或緞紋；這是設計取捨（讓每個seed都能是獨立可驗證的完整圖解），不是缺陷，已在文件列為限制。
+- 真實dev server的pbr3d頁（WebGPU）選取`weavingdraft`：option 946個、status為945 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的圖解。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

@@ -21256,6 +21256,101 @@ export function createSurfaceSampler(
           occlusion = clamp(1 - (1 - p.gapAO) * (1 - button));
         };
       }
+      case 'weavingdraft': {
+        const p = proceduralMaterialPresets.weavingdraft,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x27b01),
+          w = p.width,
+          s = p.shafts,
+          t = p.treadles,
+          cells = w + s,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          threading = new Uint8Array(w),
+          treadling = new Uint8Array(w),
+          tieUp = new Uint8Array(t * s);
+        // A weaving draft on a four-shaft loom. threading[c]: the shaft each warp thread runs
+        // through; treadling[r]: the treadle pressed for each weft pass; tieUp: which shafts each
+        // treadle lifts. A warp thread shows on top in the drawdown when its shaft is lifted.
+        for (let i = 0; i < w; i++) {
+          threading[i] = Math.min(
+            s - 1,
+            Math.floor(hash(i, 1, seed ^ 0x27b03) * s),
+          );
+          treadling[i] = Math.min(
+            t - 1,
+            Math.floor(hash(i, 2, seed ^ 0x27b05) * t),
+          );
+        }
+        for (let treadle = 0; treadle < t; treadle++) {
+          // A non-empty, non-full subset of the shafts.
+          const mask =
+            1 +
+            Math.min(
+              (1 << s) - 3,
+              Math.floor(hash(treadle, 3, seed ^ 0x27b07) * ((1 << s) - 2)),
+            );
+          for (let shaft = 0; shaft < s; shaft++)
+            tieUp[treadle * s + shaft] = (mask >> shaft) & 1;
+        }
+        // Rows of a shaft block are drawn with shaft 1 nearest the drawdown (the bottom row).
+        return () => {
+          const gx = u * cells,
+            gy = v * cells,
+            col = Math.min(cells - 1, Math.floor(gx)),
+            row = Math.min(cells - 1, Math.floor(gy)),
+            fx = gx - col,
+            fy = gy - row,
+            inside = (inset: number): number =>
+              cover(0.5 - inset - Math.abs(fx - 0.5)) *
+              cover(0.5 - inset - Math.abs(fy - 0.5)),
+            line = Math.max(
+              cover(p.lineHalf - Math.min(fx, 1 - fx)),
+              cover(p.lineHalf - Math.min(fy, 1 - fy)),
+            );
+          let mark = 0,
+            warp = 0,
+            weft = 0;
+          if (col < w && row >= s) {
+            // Drawdown: warp up when the pressed treadle's tie-up lifts this thread's shaft.
+            const lifted = tieUp[treadling[row - s] * s + threading[col]];
+            warp = lifted ? inside(p.cellInset) : 0;
+            weft = lifted ? 0 : inside(p.cellInset);
+          } else if (col < w) {
+            // Threading: one mark per column, in the row of that thread's shaft.
+            mark = threading[col] === s - 1 - row ? inside(p.markInset) : 0;
+          } else if (row < s) {
+            // Tie-up: a mark where the treadle (column) lifts the shaft (row).
+            mark = tieUp[(col - w) * s + (s - 1 - row)]
+              ? inside(p.markInset)
+              : 0;
+          } else {
+            // Treadling: one mark per weft row, in the column of the pressed treadle.
+            mark = treadling[row - s] === col - w ? inside(p.markInset) : 0;
+          }
+          const gridded = p.paperTone + (p.gridTone - p.paperTone) * line,
+            base =
+              gridded +
+              (p.weftTone - gridded) * weft +
+              (p.warpTone - gridded) * warp;
+          color = clamp(
+            base +
+              (p.markTone - base) * mark +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.paperHeight +
+              (p.weftHeight - p.paperHeight) * weft +
+              (p.warpHeight - p.paperHeight) * warp +
+              (p.markHeight - p.paperHeight) * mark,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.warpRoughness - p.paperRoughness) * (warp + weft) +
+            (p.markRoughness - p.paperRoughness) * mark;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -48785,6 +48880,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'weavingdraft' ||
     kind === 'lightsoutboard' ||
     kind === 'nonogrampuzzle' ||
     kind === 'juliacells' ||

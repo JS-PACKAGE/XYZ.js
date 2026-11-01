@@ -1333,6 +1333,10 @@
 
 這是作者設計的示意：只有5×5的標準規則（不含其他尺寸或變體），畫的是靜態局面，沒有按鍵順序或解答提示；亮燈的顏色是亮度插值（近黑到暖黃），按鈕沒有對應真實硬體的材質。預設0.25 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議256以上（每鈕約51 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`weavingdraft`（織造圖解）使目前目錄944→945種，含plain的gallery為946項。每tile 16×16格，畫出四綜（4 shafts）織機的完整織造圖解：左上12×4是穿綜圖（threading，每條經線穿過哪一片綜，每欄一個記號，1號綜在最靠近織紋的那一列）、右上4×4是踏板連綜表（tie-up，每個踏板抬起哪些綜）、右下12×4是踩踏順序（treadling，每一梭踩哪個踏板，每列一個記號）、左下12×12是由三者推得的織紋圖（drawdown）：深色格表示該經線在這一梭浮在上面（它的綜被抬起），淺色格表示緯線在上。穿綜與踩踏由seed隨機決定，每個踏板抬起非空且非全部的綜（1至3片），因此織紋由規則完全決定。Metallic與mortar為0。
+
+這是作者設計的示意：只畫四綜、四踏板、12×12的升梭（rising shed）慣例，穿綜與踩踏是隨機的，不是傳統的斜紋或緞紋規則，所以織紋看起來可能不整齊；沒有紗線顏色（深／淺只是「經浮／緯浮」）、也沒有織縮或實際組織的立體感；顏色是亮度插值（近黑墨＋米白紙），不代表任何紗線色相。預設0.4 m nominal tile、0.0018 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上（每格32 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

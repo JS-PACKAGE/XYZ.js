@@ -14281,6 +14281,41 @@ var proceduralMaterialPresets = Object.freeze({
 		onRoughness: .2,
 		gapAO: .5
 	}),
+	weavingdraft: Object.freeze({
+		dark: [
+			20,
+			24,
+			40
+		],
+		light: [
+			250,
+			244,
+			226
+		],
+		roughness: .62,
+		relief: .0018,
+		width: 12,
+		shafts: 4,
+		treadles: 4,
+		markInset: .14,
+		cellInset: .04,
+		lineHalf: .025,
+		edgeSoft: .02,
+		grainCells: 192,
+		paperTone: .95,
+		gridTone: .62,
+		markTone: .1,
+		warpTone: .16,
+		weftTone: .86,
+		grainTone: .03,
+		markHeight: .6,
+		warpHeight: .55,
+		weftHeight: .38,
+		paperHeight: .3,
+		markRoughness: .4,
+		warpRoughness: .55,
+		paperRoughness: .72
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -22962,6 +22997,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	weavingdraft: .4,
 	lightsoutboard: .25,
 	nonogrampuzzle: .36,
 	juliacells: .4,

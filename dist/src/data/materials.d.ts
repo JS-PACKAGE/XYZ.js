@@ -8071,6 +8071,33 @@ export declare const proceduralMaterialPresets: Readonly<{
         onRoughness: 0.2;
         gapAO: 0.5;
     }>;
+    weavingdraft: Readonly<{
+        dark: readonly [20, 24, 40];
+        light: readonly [250, 244, 226];
+        roughness: 0.62;
+        relief: 0.0018;
+        width: 12;
+        shafts: 4;
+        treadles: 4;
+        markInset: 0.14;
+        cellInset: 0.04;
+        lineHalf: 0.025;
+        edgeSoft: 0.02;
+        grainCells: 192;
+        paperTone: 0.95;
+        gridTone: 0.62;
+        markTone: 0.1;
+        warpTone: 0.16;
+        weftTone: 0.86;
+        grainTone: 0.03;
+        markHeight: 0.6;
+        warpHeight: 0.55;
+        weftHeight: 0.38;
+        paperHeight: 0.3;
+        markRoughness: 0.4;
+        warpRoughness: 0.55;
+        paperRoughness: 0.72;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -14556,6 +14583,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    weavingdraft: 0.4;
     lightsoutboard: 0.25;
     nonogrampuzzle: 0.36;
     juliacells: 0.4;

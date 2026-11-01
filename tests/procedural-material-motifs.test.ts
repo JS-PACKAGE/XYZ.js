@@ -7623,3 +7623,105 @@ describe('lightsoutboard: a solvable Lights Out position', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('weavingdraft: the drawdown follows from threading, tie-up and treadling', () => {
+  const p = proceduralMaterialPresets.weavingdraft;
+  const width = 12,
+    shafts = 4,
+    treadles = 4,
+    cells = width + shafts;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6, 8, 9])(
+    'draws a drawdown where thread c shows when treadle(row) lifts shaft(c) (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('weavingdraft', seed),
+        out = empty(),
+        tone = (col: number, row: number): number => {
+          sample((col + 0.5) / cells, (row + 0.5) / cells, out);
+          return out.color;
+        },
+        // Marks and warp-up cells are dark, empty paper and weft are light.
+        dark = (col: number, row: number): boolean => tone(col, row) < 0.4;
+      // Threading: exactly one mark per column, in the row of shaft s (shaft 1 nearest the drawdown).
+      const threading: number[] = [];
+      for (let col = 0; col < width; col++) {
+        const marked: number[] = [];
+        for (let row = 0; row < shafts; row++)
+          if (dark(col, row)) marked.push(shafts - 1 - row);
+        expect(marked.length).toBe(1);
+        threading.push(marked[0]);
+      }
+      // Tie-up: each treadle lifts a non-empty, non-full set of shafts.
+      const tieUp: boolean[][] = [];
+      for (let treadle = 0; treadle < treadles; treadle++) {
+        const lifts: boolean[] = [];
+        for (let shaft = 0; shaft < shafts; shaft++)
+          lifts.push(dark(width + treadle, shafts - 1 - shaft));
+        const count = lifts.filter(Boolean).length;
+        expect(count).toBeGreaterThanOrEqual(1);
+        expect(count).toBeLessThanOrEqual(shafts - 1);
+        tieUp.push(lifts);
+      }
+      // Treadling: exactly one pressed treadle per weft pass.
+      const treadling: number[] = [];
+      for (let pass = 0; pass < width; pass++) {
+        const pressed: number[] = [];
+        for (let treadle = 0; treadle < treadles; treadle++)
+          if (dark(width + treadle, shafts + pass)) pressed.push(treadle);
+        expect(pressed.length).toBe(1);
+        treadling.push(pressed[0]);
+      }
+      // The drawdown is then fully determined.
+      let wrong = 0;
+      for (let pass = 0; pass < width; pass++)
+        for (let col = 0; col < width; col++)
+          wrong += Number(
+            dark(col, shafts + pass) !== tieUp[treadling[pass]][threading[col]],
+          );
+      expect(wrong).toBe(0);
+      // A draft that does something: both lifted and sunk crossings appear.
+      let lifted = 0;
+      for (let pass = 0; pass < width; pass++)
+        for (let col = 0; col < width; col++)
+          lifted += Number(dark(col, shafts + pass));
+      expect(lifted).toBeGreaterThan(20);
+      expect(lifted).toBeLessThan(124);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('weavingdraft', 0),
+      b = createSurfaceSampler('weavingdraft', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
