@@ -930,6 +930,7 @@ const kinds: ProceduralMaterialKind[] = [
   'cupwashers',
   'blackwalnut',
   'douglasfir',
+  'longleafpine',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -134963,6 +134964,185 @@ describe('Flatsawn Douglas-fir with light orange earlywood and abrupt darker lat
     let worst = 0;
     for (const seed of [0, 1, 0xffffffff]) {
       const sample = createSurfaceSampler('douglasfir', seed);
+      for (let i = 0; i < 8192; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 7, v + 11, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+    }
+    expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Longleaf pine with pale yellow earlywood and narrow high-contrast orange-brown latewood stripes', () => {
+  const p = proceduralMaterialPresets.longleafpine;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps pale earlywood beside saturated orange latewood stripes that are strongly anisotropic, raised and non-metallic for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('longleafpine', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let late = 0,
+        early = 0,
+        lateHeight = 0,
+        earlyHeight = 0,
+        across = 0,
+        along = 0,
+        low = 1,
+        high = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          const u = (x + 0.5) / 256,
+            v = (y + 0.5) / 256;
+          sample(u, v, a);
+          sample(u + 1 / 1024, v, b);
+          sample(u, v + 1 / 1024, c);
+          across += Math.abs(a.color - b.color);
+          along += Math.abs(a.color - c.color);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          if (a.color < 0.4) {
+            late++;
+            lateHeight += a.height;
+          } else if (a.color > 0.75) {
+            early++;
+            earlyHeight += a.height;
+          }
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness < 0.54 ||
+              a.roughness > 0.64 ||
+              a.occlusion < 0.93 ||
+              a.height < 0.45 * p.relief ||
+              a.height > 0.78 * p.relief,
+          );
+          for (const key of keys)
+            invalid += Number(
+              !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+            );
+        }
+      expect(late / 65536).toBeGreaterThan(0.18);
+      expect(late / 65536).toBeLessThan(0.28);
+      expect(early / 65536).toBeGreaterThan(0.48);
+      expect(early / 65536).toBeLessThan(0.6);
+      expect(low).toBeLessThan(0.25);
+      expect(high).toBeGreaterThan(0.9);
+      expect(lateHeight / late - earlyHeight / early).toBeGreaterThan(
+        0.12 * p.relief,
+      );
+      expect(across).toBeGreaterThan(6 * along);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('keeps the ring index, ring profile edges, fiber and grain lattices C1', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('longleafpine', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.warpCells, p.fiberColumns, p.fiberRows, 128])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      // Dense sweeps cross many latewood ramp starts, peaks and abrupt ends.
+      for (const y of [0.05, 0.31, 0.5, 0.77])
+        for (let i = 0; i < 4096; i++) check(i / 4096, y);
+      for (let i = 0; i < 8192; i++)
+        check((i * 0.61803398875) % 1, (i * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('writes actual512 pale-yellow dielectric maps with distinct orange stripe bands and moderate normals', () => {
+    const maps = generateProceduralMaps('longleafpine', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let warm = 0,
+      pale = 0,
+      stripe = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      warm += Number(r >= 192 && r - g > 25 && g - b > 25);
+      pale += Number(g >= 192);
+      stripe += Number(g < 160);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2] ||
+          maps.normal[i + 2] < 200,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(warm / (512 * 512)).toBeGreaterThan(0.98);
+    expect(pale / (512 * 512)).toBeGreaterThan(0.45);
+    expect(pale / (512 * 512)).toBeLessThan(0.65);
+    expect(stripe / (512 * 512)).toBeGreaterThan(0.2);
+    expect(stripe / (512 * 512)).toBeLessThan(0.4);
+    expect(maxTilt).toBeGreaterThan(0.01);
+    expect(maxTilt).toBeLessThan(0.1);
+    expect(invalid).toBe(0);
+  });
+  it('repeats over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    let worst = 0;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('longleafpine', seed);
       for (let i = 0; i < 8192; i++) {
         const u = (i * 0.61803398875) % 1,
           v = (i * 0.41421356237) % 1;

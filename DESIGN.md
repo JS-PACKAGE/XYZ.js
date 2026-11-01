@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`longleafpine`（長葉松縱向年輪紋）使目前目錄888→889種，含plain的gallery為890項。近似Pinus palustris未塗裝木面：淡黃白早材與窄而高對比的橙褐色晚材條紋，年輪近乎平行、輕微起伏。不是樹脂道、節疤、紅褐心材整面、塗層或Douglas-fir式的大型尖拱。
+
+外觀依據實際閱讀的[Wood Database Longleaf Pine](https://www.wood-database.com/longleaf-pine/)（Color／Appearance：心材紅褐、邊材黃白；Grain／Texture：直紋、細到中等質地；Endgrain：大型樹脂道多而均勻，早晚材過渡abrupt、色差高）與實際下載並實看的[木面照片](https://www.wood-database.com/wp-content/uploads/longleaf-pine.jpg)（淡黃白底與平行橙褐晚材條紋）；僅作配色與條紋形態參考，不打包來源圖，也不由照片反推真色、roughness或實際尺寸。
+
+直接fallthrough重用`douglasfir`的年輪指標sampler，constructor只選preset；本preset以較多年輪、很小的縱向拱與skew、較寬的晚材漸暗區和較強晚材色差取得近乎平行的條紋。3個constructor cache為5×5 warp、192×5縱向fiber與128² grain（共17,369 Float64／138,952 B lattice算術預算，非總RAM）；金屬factor為0、無mortar，晚材略抬高、較光滑，早材AO略低。預設0.12 m nominal tile、0.003 UV-relative relief（非公尺位移）皆作者設定。三seed（0／1／0xffffffff）、256²取樣：color<0.4晚材占21.1–24.0%、color>0.75早材占52.7–55.9%，橫／縱色差比12.0–12.9，晚材比早材高約0.19 relief；seed7的512²平均base color約(232,186,125)、法線max tilt²約0.030。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `douglasfir`（Douglas-fir弦切面）使目前目錄887→888種，含plain的gallery為889項。近似Pseudotsuga menziesii未塗裝弦切縱向木面：淺橙褐色早材、較暗橙褐色晚材年輪，年輪沿弦切面形成多重尖拱（cathedral）並圍繞較大的同心橢圓。不是節疤、樹脂囊／樹脂道、邊材／心材分界、塗層，也不是徑切（quartersawn）的平行直線年輪。
 
 外觀依據實際閱讀的[Wood Database Douglas-Fir](https://www.wood-database.com/douglas-fir/)（Color／Appearance：淺褐帶紅或黃、年輪較暗，弦切可見強烈花紋；Grain／Texture：多直紋或略起伏、中到粗質地；Identification：樹脂道小到中型且稀疏，早晚材過渡abrupt）與實際下載並實看的[弦切樣板照片](https://www.wood-database.com/wp-content/uploads/pseudotsuga-menziesii.jpg)（巢狀弧形年輪與一處小節）；僅作配色與年輪形態參考，不打包來源圖、不重現節疤，也不由照片反推真色、roughness或實際尺寸。

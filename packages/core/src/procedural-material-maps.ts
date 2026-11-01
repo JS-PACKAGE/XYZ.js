@@ -37050,8 +37050,12 @@ export function createSurfaceSampler(
           occlusion = 0.8 + 0.2 * smooth(height);
           return;
         };
-      case 'douglasfir': {
-        const p = proceduralMaterialPresets.douglasfir,
+      case 'douglasfir':
+      case 'longleafpine': {
+        const p =
+            kind === 'longleafpine'
+              ? proceduralMaterialPresets.longleafpine
+              : proceduralMaterialPresets.douglasfir,
           warpField = cachedNoise(p.warpCells, p.warpCells, seed ^ 0x25101),
           fiberField = cachedNoise(p.fiberColumns, p.fiberRows, seed ^ 0x25103),
           grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x25105),
@@ -44212,6 +44216,7 @@ export function createSurfaceSampler(
     kind === 'bloodwood' ||
     kind === 'blackwalnut' ||
     kind === 'douglasfir' ||
+    kind === 'longleafpine' ||
     kind === 'thomsonite' ||
     kind === 'dalmatianstone' ||
     kind === 'basswood' ||

@@ -11437,3 +11437,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增4項永久測試（`Douglas-fir`：三seed早晚材比例與高度差、含年輪邊緣密集掃描的C1、actual512五maps、帶號UV週期），並加入通用kinds清單；乾淨worktree以`-t "Douglas-fir|douglasfir|kinds|catalog|distinct|periodic"`定向跑，**2077項通過／3446項未選**；7項Douglas-fir名稱篩選為3.36s。
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 versioned consumers）與distribution（367 exports）皆通過；dist只變動既有材質相關檔。
 - 本功能未重跑完整179檔suite、未開瀏覽器gallery，也不宣稱跨瀏覽器／backend或效能驗證；不push。前一功能blackwalnut的完整suite在另一個凍結worktree執行，結果另記。
+
+## 2026-11-01 程序材質：長葉松縱向年輪條紋（longleafpine）
+
+- 目錄888→889，含plain的gallery為890項。近似Pinus palustris未塗裝木面：淡黃白早材與窄而高對比的橙褐色晚材條紋，年輪近乎平行、輕微起伏。外觀依據實際閱讀的[Wood Database Longleaf Pine](https://www.wood-database.com/longleaf-pine/)與實看的[木面照片](https://www.wood-database.com/wp-content/uploads/longleaf-pine.jpg)；僅作配色與條紋形態參考，不含樹脂道、節疤、整面紅褐心材或塗層。
+- 直接fallthrough重用`douglasfir`年輪sampler，constructor只選新preset（較多年輪、很小的拱與skew、較寬晚材漸暗區、較強色差）；3個cache共17,369 Float64／138,952 B。預設0.12 m tile、0.003 UV-relative relief（非公尺位移）、metallic factor0；不新增API、依賴或每點配置。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）256²取樣晚材（color<0.4）占21.1–24.0%、早材（color>0.75）占52.7–55.9%，橫／縱色差比12.0–12.9，晚材比早材高約0.19 relief，roughness 0.551–0.629、AO最低0.94，metallic／mortar皆0；seed7的512² base color平均約(232,186,125)，g≥192占55.4%、g<160占29.2%，法線max tilt²約0.030。以Bun產生512 seed7的2×2排列圖並實看：淡黃底色與近平行橙色條紋、局部較寬的橢圓區；首版（rings18、窄晚材）條紋過細，調為rings11／latewoodStart0.3／lateTone0.72後才採用。
+- 新增4項永久測試（`Longleaf pine`：三seed顏色比例／各向異性／高度差、C1、actual512五maps、帶號UV週期），並加入通用kinds清單；Longleaf名稱篩選7項通過（9.28s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 versioned consumers）、distribution（367 exports）與`-t "Longleaf|longleafpine|kinds|catalog|distinct|periodic"`定向測試；皆實際通過（定向測試2084項通過／3446項未選）。
+- 本功能未重跑完整179檔suite、未開瀏覽器gallery，也不宣稱跨瀏覽器／backend或效能驗證；不push。
