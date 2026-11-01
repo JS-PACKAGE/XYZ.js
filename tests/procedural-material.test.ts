@@ -673,6 +673,7 @@ const kinds: ProceduralMaterialKind[] = [
   'minidin4femalefaces',
   'dcbarreljackfaces',
   'stfiberadapterfaces',
+  'ftypefemalefaces',
   'usbcfemalefaces',
   'iecc6inlets',
   'iecc8inlets',
@@ -76992,6 +76993,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'minidin4femalefaces' &&
           kind !== 'dcbarreljackfaces' &&
           kind !== 'stfiberadapterfaces' &&
+          kind !== 'ftypefemalefaces' &&
           kind !== 'usbcfemalefaces' &&
           kind !== 'iecc6inlets' &&
           kind !== 'iecc8inlets' &&
@@ -86472,6 +86474,7 @@ describe('procedural preset acquisition and ownership', () => {
     'minidin4femalefaces',
     'dcbarreljackfaces',
     'stfiberadapterfaces',
+    'ftypefemalefaces',
     'usbcfemalefaces',
     'iecc6inlets',
     'iecc8inlets',
@@ -86607,6 +86610,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'minidin4femalefaces' ||
           kind === 'dcbarreljackfaces' ||
           kind === 'stfiberadapterfaces' ||
+          kind === 'ftypefemalefaces' ||
           kind === 'usbcfemalefaces' ||
           kind === 'iecc6inlets' ||
           kind === 'iecc8inlets' ||
@@ -132104,6 +132108,874 @@ describe('ST simplex faces: independently observed closed metal hardware, keyed 
         if (size === 512) {
           expect(hit.stud).toBeGreaterThan(0);
           expect(hit.key).toBeGreaterThan(0);
+        }
+      }
+    },
+  );
+});
+
+describe('F-type female fronts: independently observed nuts, closed lips and dielectric entries', () => {
+  const preset = proceduralMaterialPresets.ftypefemalefaces;
+  const seeds = [0, 7, 0xffffffff] as const;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  type Sample = {
+    color: number;
+    height: number;
+    roughness: number;
+    occlusion: number;
+    metallic: number;
+    mortar: number;
+  };
+  type P = { u: number; v: number };
+  type Region = P & { pixels: number[] };
+  type Line = { a: P; b: P };
+  interface Face {
+    center: P;
+    world: (r: number, a: number) => P;
+    outer: number[];
+    flats: number[];
+    disk: number;
+    dielectricRadius: number;
+    entryRadius: number;
+    entryColorRadius: number;
+    lipInner: number;
+    lipOuter: number;
+    shoulderRadius: number;
+    lipProbe: number;
+    shoulderProbe: number;
+    nutProbe: number;
+    nutAngle: number;
+    back: Sample;
+    entry: Sample;
+    insert: Sample;
+    nut: Sample;
+    shoulder: Sample;
+    lip: Sample;
+  }
+  interface Observation {
+    sample: (u: number, v: number, out: Sample) => void;
+    at: (p: P) => Sample;
+    size: number;
+    invalid: number;
+    metal: Uint8Array;
+    regions: Region[];
+    voids: Region[];
+    faces: Face[];
+    lines: Line[];
+  }
+  const empty = (): Sample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const mix = (a: P, b: P, t: number): P => ({
+    u: a.u + (b.u - a.u) * t,
+    v: a.v + (b.v - a.v) * t,
+  });
+  const distance = (a: P, b: P): number => Math.hypot(a.u - b.u, a.v - b.v);
+  const median = (a: number[]): number =>
+    [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)];
+  const components = (
+    mask: Uint8Array,
+    size: number,
+    value: number,
+  ): Region[] => {
+    const seen = new Uint8Array(mask.length),
+      queue = new Int32Array(mask.length),
+      found: Region[] = [];
+    for (let first = 0; first < mask.length; first++) {
+      if (seen[first] || mask[first] !== value) continue;
+      let read = 0,
+        count = 1,
+        u = 0,
+        v = 0;
+      const pixels: number[] = [];
+      queue[0] = first;
+      seen[first] = 1;
+      while (read < count) {
+        const i = queue[read++],
+          x = i % size,
+          y = Math.floor(i / size);
+        pixels.push(i);
+        u += (x + 0.5) / size;
+        v += (y + 0.5) / size;
+        for (const [dx, dy] of [
+          [-1, 0],
+          [1, 0],
+          [0, -1],
+          [0, 1],
+        ]) {
+          const j = ((y + dy + size) % size) * size + ((x + dx + size) % size);
+          if (!seen[j] && mask[j] === value) {
+            seen[j] = 1;
+            queue[count++] = j;
+          }
+        }
+      }
+      found.push({ u: u / count, v: v / count, pixels });
+    }
+    return found.sort((a, b) => b.pixels.length - a.pixels.length);
+  };
+  const runs = (mask: boolean[]): number[][] => {
+    const first = mask.findIndex((v) => !v);
+    if (first < 0) return [mask.map((_, i) => i)];
+    const result: number[][] = [];
+    let active: number[] = [];
+    for (let k = 1; k <= mask.length; k++) {
+      const i = (first + k) % mask.length;
+      if (mask[i]) active.push(i);
+      else if (active.length) {
+        result.push(active);
+        active = [];
+      }
+    }
+    return result;
+  };
+  // Missing boundaries fail an expectation, never an accidental undefined access or NaN.
+  const crossing = (a: P, b: P, read: (p: P) => number, level: number): P => {
+    const side = read(a) > level;
+    let previous = a;
+    for (let i = 1; i <= 512; i++) {
+      const p = mix(a, b, i / 512);
+      if (read(p) > level !== side) {
+        let lo = previous,
+          hi = p;
+        for (let j = 0; j < 42; j++) {
+          const q = mix(lo, hi, 0.5);
+          if (read(q) > level === side) lo = q;
+          else hi = q;
+        }
+        return mix(lo, hi, 0.5);
+      }
+      previous = p;
+    }
+    expect(false).toBe(true);
+    return a;
+  };
+  const observe = (seed: number): Observation => {
+    const size = Math.max(768, preset.cells * 384),
+      sample = createSurfaceSampler('ftypefemalefaces', seed);
+    const at = (p: P): Sample => {
+      const s = empty();
+      sample(p.u, p.v, s);
+      s.height /= preset.relief;
+      return s;
+    };
+    const raw = empty(),
+      metal = new Uint8Array(size * size);
+    let invalid = 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, raw);
+        for (const k of keys) {
+          const value = raw[k] / (k === 'height' ? preset.relief : 1);
+          invalid += Number(!Number.isFinite(value) || value < 0 || value > 1);
+        }
+        metal[y * size + x] = Number(raw.metallic > 0.5);
+      }
+    const regions = components(metal, size, 1),
+      voids = components(metal, size, 0),
+      count = preset.cells ** 2;
+    expect(regions.length).toBe(count);
+    expect(voids.length).toBe(count + 1);
+    const lines: Line[] = [],
+      span = 0.47 / preset.cells;
+    const faces = voids.slice(1).map((hole) => {
+      let center: P = { u: hole.u, v: hole.v };
+      const ray = (c: P, r: number, a: number): P => ({
+        u: c.u + r * Math.cos(a),
+        v: c.v + r * Math.sin(a),
+      });
+      for (let pass = 0; pass < 5; pass++)
+        for (const a of [0, Math.PI / 2]) {
+          const p = crossing(
+            center,
+            ray(center, span, a),
+            (q) => at(q).metallic,
+            0.5,
+          );
+          const q = crossing(
+            center,
+            ray(center, span, a + Math.PI),
+            (q) => at(q).metallic,
+            0.5,
+          );
+          center = mix(p, q, 0.5);
+        }
+      const world = (r: number, a: number): P => ray(center, r, a);
+      const disk = median(
+        Array.from({ length: 96 }, (_, i) =>
+          distance(
+            center,
+            crossing(
+              center,
+              world(span, (i * Math.PI) / 48),
+              (q) => at(q).metallic,
+              0.5,
+            ),
+          ),
+        ),
+      );
+      const outer = Array.from({ length: 720 }, (_, i) =>
+        distance(
+          center,
+          crossing(
+            world(span, (i * Math.PI) / 360),
+            world(disk * 1.05, (i * Math.PI) / 360),
+            (q) => at(q).metallic,
+            0.5,
+          ),
+        ),
+      );
+      const minimum = Math.min(...outer),
+        maximum = Math.max(...outer),
+        nutAngle = (outer.indexOf(maximum) * Math.PI) / 360;
+      const flats = runs(
+        outer.map((r) => r < minimum + (maximum - minimum) * 0.12),
+      ).map((run) =>
+        Math.atan2(
+          run.reduce((s, i) => s + Math.sin((i * Math.PI) / 360), 0),
+          run.reduce((s, i) => s + Math.cos((i * Math.PI) / 360), 0),
+        ),
+      );
+      const entry = at(center),
+        insert = at(world(disk * 0.55, 0)),
+        back = at(world(span, 0)),
+        nutProbe = maximum * 0.94,
+        nut = at(world(nutProbe, nutAngle));
+      // The interior disk is found from material roots; the much smaller entry is independently found from H AND color.
+      expect(insert.height).toBeGreaterThan(entry.height);
+      expect(insert.color).toBeGreaterThan(entry.color);
+      const entryRadius = distance(
+        center,
+        crossing(
+          center,
+          world(disk * 0.8, 0),
+          (q) => at(q).height,
+          (entry.height + insert.height) / 2,
+        ),
+      );
+      const entryColorRadius = distance(
+        center,
+        crossing(
+          center,
+          world(disk * 0.8, 0),
+          (q) => at(q).color,
+          (entry.color + insert.color) / 2,
+        ),
+      );
+      const radial = Array.from({ length: 1025 }, (_, i) => {
+        const r = disk + ((minimum - disk) * i) / 1024;
+        return {
+          r,
+          h: median(
+            Array.from(
+              { length: 12 },
+              (_, j) => at(world(r, ((j + 0.23) * Math.PI) / 6)).height,
+            ),
+          ),
+        };
+      });
+      const peak = radial.reduce((a, b) => (a.h > b.h ? a : b)),
+        lipProbe = peak.r,
+        lip = at(world(lipProbe, 0));
+      expect(lip.height).toBeGreaterThan(insert.height);
+      expect(insert.height).toBeGreaterThan(nut.height);
+      // Seek an observed flat intermediate terrace outside the lip, rather than supplying artist radii or height constants.
+      const contrast = lip.height - nut.height;
+      const candidates = radial
+        .slice(8, -8)
+        .map((q, i) => ({
+          ...q,
+          variation: Math.abs(radial[i + 16].h - radial[i].h),
+        }))
+        .filter(
+          (q) =>
+            q.r > lipProbe &&
+            q.h > nut.height + contrast * 0.05 &&
+            q.h < insert.height - contrast * 0.05,
+        );
+      expect(candidates.length).toBeGreaterThan(0);
+      const shoulderCandidate = candidates.reduce((a, b) =>
+        a.variation <= b.variation ? a : b,
+      );
+      // A bevel sample at an intermediate height is not a distinct shoulder terrace.
+      expect(shoulderCandidate.variation).toBeLessThan(contrast * 0.003);
+      const shoulderProbe = shoulderCandidate.r;
+      const shoulder = at(world(shoulderProbe, 0));
+      const lipInner = distance(
+        center,
+        crossing(
+          world(disk * 0.55, 0),
+          world(lipProbe, 0),
+          (q) => at(q).height,
+          (insert.height + lip.height) / 2,
+        ),
+      );
+      const dielectricRadius = distance(
+        center,
+        crossing(
+          world(disk * 0.55, 0),
+          world(lipProbe, 0),
+          (q) => {
+            const s = at(q);
+            return (
+              Math.abs(s.height - insert.height) /
+                (lip.height - insert.height) +
+              Math.abs(s.color - insert.color) / (insert.color - entry.color)
+            );
+          },
+          0.5,
+        ),
+      );
+      const lipOuter = distance(
+        center,
+        crossing(
+          world(lipProbe, 0),
+          world(shoulderProbe, 0),
+          (q) => at(q).height,
+          (shoulder.height + lip.height) / 2,
+        ),
+      );
+      const shoulderRadius = distance(
+        center,
+        crossing(
+          world(shoulderProbe, nutAngle),
+          world(nutProbe, nutAngle),
+          (q) => at(q).height,
+          (nut.height + shoulder.height) / 2,
+        ),
+      );
+      const localLine = (p: P, a: number, width: number): void => {
+        lines.push({ a: ray(p, -width, a), b: ray(p, width, a) });
+      };
+      // Every recovered circular join gets radial and oblique/tangential tracks, including the tiny H/C entry invisible in M.
+      for (let i = 0; i < 96; i++) {
+        const a = ((i + 0.17) * Math.PI) / 48;
+        for (const r of [
+          entryRadius,
+          entryColorRadius,
+          disk,
+          dielectricRadius,
+          lipInner,
+          lipOuter,
+          shoulderRadius,
+        ]) {
+          for (const offset of [0, Math.PI / 4, Math.PI / 2])
+            localLine(world(r, a), a + offset, Math.min(disk * 0.18, r * 0.45));
+        }
+      }
+      // All six native planes, off-axis face regions and plane-plane intersections are explicitly traversed.
+      for (const a of flats) {
+        for (const offset of [-0.42, -0.23, 0, 0.23, 0.42, Math.PI / 6]) {
+          const angle = a + offset;
+          const p = crossing(
+            world(span, angle),
+            world(disk * 1.05, angle),
+            (q) => at(q).metallic,
+            0.5,
+          );
+          for (const direction of [a, a + Math.PI / 4, a + Math.PI / 2])
+            localLine(p, direction, disk * 0.22);
+        }
+      }
+      return {
+        center,
+        world,
+        outer,
+        flats,
+        disk,
+        dielectricRadius,
+        entryRadius,
+        entryColorRadius,
+        lipInner,
+        lipOuter,
+        shoulderRadius,
+        lipProbe,
+        shoulderProbe,
+        nutProbe,
+        nutAngle,
+        back,
+        entry,
+        insert,
+        nut,
+        shoulder,
+        lip,
+      };
+    });
+    expect(faces.length).toBe(count);
+    return { sample, at, size, invalid, metal, regions, voids, faces, lines };
+  };
+  const cache = new Map<number, Observation>();
+  const native = (seed: number): Observation => {
+    let d = cache.get(seed);
+    if (!d) {
+      d = observe(seed);
+      cache.set(seed, d);
+    }
+    return d;
+  };
+  const refineCurvature = (d: Observation): number => {
+    const probes = [empty(), empty(), empty(), empty(), empty()];
+    const curvature = (a: Sample, b: Sample, c: Sample): number => {
+      let value = 0;
+      for (const k of keys)
+        value = Math.max(
+          value,
+          Math.abs(a[k] - 2 * b[k] + c[k]) /
+            (k === 'height' ? preset.relief : 1),
+        );
+      return value;
+    };
+    const lines = [...d.lines];
+    let worst = 0;
+    for (let axis = 0; axis < 2; axis++)
+      for (let j = 0; j < 24; j++) {
+        const t = (j + 0.37) / 24;
+        lines.push({
+          a: { u: axis ? t : 0, v: axis ? 0 : t },
+          b: { u: axis ? t : 1, v: axis ? 1 : t },
+        });
+      }
+    for (const line of lines) {
+      const length = distance(line.a, line.b),
+        n = 128,
+        values: Sample[] = [],
+        scores = new Float64Array(n + 1);
+      const read = (t: number, out: Sample): void => {
+        const p = mix(line.a, line.b, t);
+        d.sample(p.u, p.v, out);
+      };
+      for (let i = 0; i <= n; i++) {
+        const s = empty();
+        read(i / n, s);
+        values.push(s);
+      }
+      for (let i = 1; i < n; i++)
+        scores[i] = curvature(values[i - 1], values[i], values[i + 1]);
+      for (let i = 2; i < n - 1; i++) {
+        if (
+          scores[i] < 1e-6 ||
+          scores[i] < scores[i - 1] ||
+          scores[i] < scores[i + 1]
+        )
+          continue;
+        let lo = (i - 1) / n,
+          span = 2 / n,
+          t = 0,
+          h = 0;
+        for (let step = 0; step < 22; step++) {
+          const q = span / 4;
+          for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+          const s = [
+            curvature(probes[0], probes[1], probes[2]),
+            curvature(probes[1], probes[2], probes[3]),
+            curvature(probes[2], probes[3], probes[4]),
+          ];
+          let best = s[1] > s[0] ? 1 : 0;
+          if (s[2] > s[best]) best = 2;
+          t = lo + (best + 1) * q;
+          h = q;
+          lo += best * q;
+          span = 2 * q;
+        }
+        read(t - h, probes[0]);
+        read(t, probes[1]);
+        read(t + h, probes[2]);
+        worst = Math.max(
+          worst,
+          curvature(probes[0], probes[1], probes[2]) / (h * length),
+        );
+      }
+    }
+    return worst;
+  };
+  it.each(seeds)(
+    'recovers native concentric circles and six actual off-axis nut planes at seed %s',
+    (seed) => {
+      const d = native(seed);
+      expect(d.invalid).toBe(0);
+      for (const f of d.faces) {
+        const minimum = Math.min(...f.outer),
+          maximum = Math.max(...f.outer);
+        expect(maximum / minimum).toBeGreaterThan(1.08);
+        expect(maximum / minimum).toBeLessThan(1.2);
+        expect(f.flats.length).toBe(6);
+        expect(f.entryRadius / f.disk).toBeGreaterThan(0.025);
+        expect(f.entryRadius / f.disk).toBeLessThan(0.3);
+        expect(Math.abs(f.entryRadius - f.entryColorRadius)).toBeLessThan(
+          f.entryRadius * 0.25,
+        );
+        expect(Math.abs(f.dielectricRadius - f.disk)).toBeLessThan(
+          f.disk * 0.08,
+        );
+        expect(f.disk).toBeLessThan(f.lipOuter);
+        expect(f.lipOuter).toBeLessThan(f.shoulderRadius);
+        expect(f.shoulderRadius).toBeLessThan(maximum);
+        for (const a of f.flats)
+          for (const offset of [-0.26, -0.13, 0.11, 0.24]) {
+            const p = crossing(
+              f.world(0.47 / preset.cells, a + offset),
+              f.world(f.disk * 1.05, a + offset),
+              (q) => d.at(q).metallic,
+              0.5,
+            );
+            expect(
+              Math.abs(distance(p, f.center) * Math.cos(offset) - minimum),
+            ).toBeLessThan(minimum * 0.018);
+          }
+        for (let i = 0; i < 96; i++) {
+          const a = ((i + 0.31) * Math.PI) / 48;
+          const roots: [number, P, P, keyof Sample, number][] = [
+            [f.disk, f.center, f.world(f.lipProbe, a), 'metallic', 0.5],
+            [
+              f.entryRadius,
+              f.center,
+              f.world(f.disk * 0.6, a),
+              'height',
+              (f.entry.height + f.insert.height) / 2,
+            ],
+            [
+              f.entryColorRadius,
+              f.center,
+              f.world(f.disk * 0.6, a),
+              'color',
+              (f.entry.color + f.insert.color) / 2,
+            ],
+            [
+              f.lipInner,
+              f.world(f.disk * 0.55, a),
+              f.world(f.lipProbe, a),
+              'height',
+              (f.insert.height + f.lip.height) / 2,
+            ],
+            [
+              f.lipOuter,
+              f.world(f.lipProbe, a),
+              f.world(f.shoulderProbe, a),
+              'height',
+              (f.lip.height + f.shoulder.height) / 2,
+            ],
+            [
+              f.shoulderRadius,
+              f.world(f.shoulderProbe, a),
+              f.world(f.nutProbe, a),
+              'height',
+              (f.shoulder.height + f.nut.height) / 2,
+            ],
+          ];
+          for (const [radius, start, end, key, level] of roots) {
+            const p = crossing(start, end, (q) => d.at(q)[key], level);
+            expect(Math.abs(distance(p, f.center) - radius)).toBeLessThan(
+              radius * 0.025,
+            );
+          }
+          const dielectricEdge = crossing(
+            f.world(f.disk * 0.55, a),
+            f.world(f.lipProbe, a),
+            (q) => {
+              const s = d.at(q);
+              return (
+                Math.abs(s.height - f.insert.height) /
+                  (f.lip.height - f.insert.height) +
+                Math.abs(s.color - f.insert.color) /
+                  (f.insert.color - f.entry.color)
+              );
+            },
+            0.5,
+          );
+          expect(
+            Math.abs(distance(dielectricEdge, f.center) - f.dielectricRadius),
+          ).toBeLessThan(f.dielectricRadius * 0.025);
+        }
+      }
+    },
+  );
+  it.each(seeds)(
+    'observes closed metallic annuli, low entry-only holes and high unkeyed lips at seed %s',
+    (seed) => {
+      const d = native(seed),
+        n = preset.cells ** 2;
+      expect(d.regions.length).toBe(n);
+      expect(d.voids.length).toBe(n + 1);
+      for (const f of d.faces) {
+        const size = 384,
+          width = 0.9 / preset.cells;
+        const low = new Uint8Array(size * size),
+          high = new Uint8Array(size * size);
+        const lowLevel = (f.entry.height + f.nut.height) / 2,
+          highLevel = (f.insert.height + f.lip.height) / 2;
+        for (let y = 0; y < size; y++)
+          for (let x = 0; x < size; x++) {
+            const p = {
+                u: f.center.u + (x / (size - 1) - 0.5) * width,
+                v: f.center.v + (y / (size - 1) - 0.5) * width,
+              },
+              h = d.at(p).height;
+            low[y * size + x] = Number(h > lowLevel);
+            high[y * size + x] = Number(h > highLevel);
+          }
+        for (const mask of [low, high]) {
+          expect(components(mask, size, 1).length).toBe(1);
+          expect(components(mask, size, 0).length).toBe(2);
+        }
+        for (let i = 0; i < 720; i++) {
+          const a = (i * Math.PI) / 360;
+          expect(d.at(f.world(f.lipProbe, a)).height).toBeGreaterThan(
+            highLevel,
+          );
+          // Outside the lip there are no bayonet studs, isolated bosses or extra high rings.
+          for (const t of [0.25, 0.5, 0.75]) {
+            const r = f.lipOuter + (f.shoulderRadius - f.lipOuter) * t;
+            expect(d.at(f.world(r, a)).height).toBeLessThan(highLevel);
+          }
+        }
+        // Topological hole size and location distinguish tiny entry-only low phase from an empty dielectric bore.
+        const lowHole = components(low, size, 0)[1];
+        expect(lowHole !== undefined).toBe(true);
+        if (lowHole) {
+          expect(
+            Math.hypot(lowHole.u - 0.5, lowHole.v - 0.5) * width,
+          ).toBeLessThan(f.entryRadius * 0.15 + width / size);
+          const equivalentRadius =
+            (Math.sqrt(lowHole.pixels.length / Math.PI) * width) / size;
+          expect(equivalentRadius).toBeGreaterThan(f.entryRadius * 0.6);
+          expect(equivalentRadius).toBeLessThan(f.entryRadius * 1.5);
+        }
+      }
+    },
+  );
+  it.each(seeds)(
+    'resolves the pale continuous dielectric and truly recessed opaque nonmetal entry at seed %s',
+    (seed) => {
+      const d = native(seed);
+      for (const f of d.faces) {
+        expect(f.back.height).toBeLessThan(f.entry.height);
+        expect(f.entry.height).toBeLessThan(f.nut.height);
+        expect(f.nut.height).toBeLessThan(f.shoulder.height);
+        expect(f.shoulder.height).toBeLessThan(f.insert.height);
+        expect(f.insert.height).toBeLessThan(f.lip.height);
+        expect(f.entry.color).toBeLessThan(f.insert.color);
+        expect(f.entry.occlusion).toBeLessThan(f.insert.occlusion);
+        expect(f.insert.color).toBeGreaterThan(f.nut.color);
+        expect(f.entry.occlusion).toBeLessThan(f.nut.occlusion);
+        expect(f.insert.roughness).toBeGreaterThan(f.lip.roughness);
+        for (let j = 0; j <= 20; j++)
+          for (let i = 0; i < 96; i++) {
+            const a = ((i + 0.19) * Math.PI) / 48;
+            const dielectricRadius =
+              f.entryRadius * 1.5 +
+              ((f.disk * 0.93 - f.entryRadius * 1.5) * j) / 20;
+            const s = d.at(f.world(dielectricRadius, a));
+            expect(s.metallic).toBe(0);
+            expect(s.mortar).toBe(0);
+            expect(s.color).toBeGreaterThan(
+              f.entry.color + (f.insert.color - f.entry.color) * 0.8,
+            );
+            expect(s.height).toBeGreaterThan(f.shoulder.height);
+            expect(s.height).toBeLessThan(f.lip.height);
+            expect(s.roughness).toBeGreaterThan(f.lip.roughness);
+            const entry = d.at(f.world((f.entryRadius * 0.6 * j) / 20, a));
+            expect(entry.metallic).toBe(0);
+            expect(entry.mortar).toBe(0);
+            expect(entry.height).toBeLessThan(f.nut.height);
+            expect(entry.color).toBeLessThan(
+              (f.entry.color + f.insert.color) / 2,
+            );
+            expect(entry.occlusion).toBeLessThan(f.insert.occlusion);
+          }
+        for (let i = 0; i < 180; i++) {
+          const a = (i * Math.PI) / 90;
+          for (const r of [f.lipProbe, f.shoulderProbe]) {
+            const s = d.at(f.world(r, a));
+            expect(s.metallic).toBeGreaterThan(0.99);
+            expect(s.mortar).toBe(0);
+            expect(s.height).toBeLessThan(
+              f.lip.height + (f.lip.height - f.entry.height) * 0.01,
+            );
+          }
+        }
+        for (const a of f.flats) {
+          const r = (f.shoulderRadius + Math.min(...f.outer)) / 2,
+            s = d.at(f.world(r, a));
+          expect(s.metallic).toBeGreaterThan(0.99);
+          expect(s.height).toBeLessThan(f.shoulder.height);
+        }
+      }
+    },
+  );
+  it.each(seeds)(
+    'converges all native plane and circle joins in all six fields and repeats signed UV at seed %s',
+    (seed) => {
+      const d = native(seed),
+        a = empty(),
+        b = empty();
+      let error = 0;
+      for (let i = 0; i < 4096; i++) {
+        const u = (i * 0.7548776662466927) % 1,
+          v = (i * 0.5698402909980532) % 1;
+        d.sample(u, v, a);
+        d.sample(u - 2, v + 3, b);
+        for (const k of keys)
+          error = Math.max(
+            error,
+            Math.abs(a[k] - b[k]) / (k === 'height' ? preset.relief : 1),
+          );
+      }
+      for (const tiny of [-Number.MIN_VALUE, -Number.EPSILON / 4])
+        for (const axis of [0, 1])
+          for (const other of [0, 0.37, 0.5, 1]) {
+            d.sample(axis ? other : tiny, axis ? tiny : other, a);
+            d.sample(axis ? other : 0, axis ? 0 : other, b);
+            for (const k of keys) {
+              const value = a[k] / (k === 'height' ? preset.relief : 1);
+              expect(Number.isFinite(value) && value >= 0 && value <= 1).toBe(
+                true,
+              );
+              expect(a[k]).toBe(b[k]);
+            }
+          }
+      expect(error).toBeLessThan(1e-12);
+      expect(refineCurvature(d)).toBeLessThan(0.1);
+    },
+  );
+  it('changes observed geometry between seven and maximum seed without requiring every seed pair unique', () => {
+    const a = native(7),
+      b = native(0xffffffff);
+    let changed = 0;
+    for (let i = 0; i < a.metal.length; i++)
+      changed += Number(a.metal[i] !== b.metal[i]);
+    expect(changed / a.metal.length).toBeGreaterThan(0.001);
+  });
+  it.each([32, 512])(
+    'packs actual spatial material roles, opaque positive unit normals and H/R/AO/M at size %s',
+    (size) => {
+      const d = native(7),
+        maps = generateProceduralMaps('ftypefemalefaces', size, 7, {
+          heightMap: true,
+        });
+      expect(maps.height !== undefined).toBe(true);
+      const values = new Float64Array(size * size),
+        hits = d.faces.map(() => ({
+          entry: 0,
+          insert: 0,
+          lip: 0,
+          shoulder: 0,
+          nut: 0,
+        }));
+      let lo = Infinity,
+        hi = -Infinity,
+        alpha = 0,
+        badNormal = 0,
+        normalError = 0;
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          const j = y * size + x,
+            i = j * 4,
+            p = { u: (x + 0.5) / size, v: (y + 0.5) / size },
+            s = d.at(p);
+          values[j] = s.height;
+          lo = Math.min(lo, s.height);
+          hi = Math.max(hi, s.height);
+          for (const buffer of Object.values(maps))
+            alpha += Number(buffer[i + 3] !== 255);
+          const nx = maps.normal[i] / 127.5 - 1,
+            ny = maps.normal[i + 1] / 127.5 - 1,
+            nz = maps.normal[i + 2] / 127.5 - 1;
+          badNormal += Number(!Number.isFinite(nx + ny + nz) || nz <= 0);
+          normalError = Math.max(
+            normalError,
+            Math.abs(nx * nx + ny * ny + nz * nz - 1),
+          );
+          const m = maps.metallicRoughness[i + 2];
+          expect(Math.abs(m - Math.round(s.metallic * 255))).toBeLessThan(2);
+          expect(
+            Math.abs(
+              maps.metallicRoughness[i + 1] - Math.round(s.roughness * 255),
+            ),
+          ).toBeLessThan(2);
+          expect(
+            Math.abs(maps.occlusion[i] - Math.round(s.occlusion * 255)),
+          ).toBeLessThan(2);
+          for (let f = 0; f < d.faces.length; f++) {
+            const face = d.faces[f],
+              r = distance(p, face.center),
+              angle = Math.atan2(p.v - face.center.v, p.u - face.center.u);
+            const ai =
+              Math.round(((angle + Math.PI * 2) * 360) / Math.PI) % 720;
+            // Spatial classification deliberately precedes height: the dielectric is higher than shoulder hardware.
+            if (r < face.entryRadius * 0.65) {
+              hits[f].entry++;
+              expect(m).toBe(0);
+              expect(s.height).toBeLessThan(face.nut.height);
+              expect(s.color).toBeLessThan(
+                (face.entry.color + face.insert.color) / 2,
+              );
+            } else if (r > face.entryRadius * 1.5 && r < face.disk * 0.93) {
+              hits[f].insert++;
+              expect(m).toBe(0);
+              expect(s.height).toBeGreaterThan(face.shoulder.height);
+              expect(s.color).toBeGreaterThan(
+                (face.entry.color + face.insert.color) / 2,
+              );
+            } else if (
+              r > face.lipInner &&
+              r < face.lipOuter &&
+              s.metallic === 1 &&
+              s.height > (face.insert.height + face.lip.height) / 2
+            ) {
+              hits[f].lip++;
+              expect(m).toBe(255);
+            } else if (
+              r > face.lipOuter &&
+              r < face.shoulderRadius &&
+              s.metallic === 1 &&
+              s.height < (face.lip.height + face.shoulder.height) / 2
+            ) {
+              hits[f].shoulder++;
+              expect(m).toBe(255);
+            } else if (
+              r > face.shoulderRadius &&
+              r < face.outer[ai] &&
+              s.metallic === 1 &&
+              s.height < (face.shoulder.height + face.nut.height) / 2
+            ) {
+              hits[f].nut++;
+              expect(m).toBe(255);
+            }
+          }
+        }
+      expect(hi).toBeGreaterThan(lo);
+      if (maps.height)
+        for (let j = 0; j < values.length; j++)
+          expect(
+            Math.abs(
+              maps.height[j * 4] -
+                Math.round((255 * (values[j] - lo)) / (hi - lo)),
+            ),
+          ).toBeLessThan(2);
+      expect(alpha).toBe(0);
+      expect(badNormal).toBe(0);
+      expect(normalError).toBeLessThan(0.02);
+      // Coarse sampling need not land inside a tiny entry or every narrow hardware terrace.
+      for (const hit of hits) {
+        expect(hit.insert).toBeGreaterThan(0);
+        expect(hit.nut + hit.shoulder + hit.lip).toBeGreaterThan(0);
+        if (size === 512) {
+          expect(hit.entry).toBeGreaterThan(0);
+          expect(hit.lip).toBeGreaterThan(0);
+          expect(hit.shoulder).toBeGreaterThan(0);
+          expect(hit.nut).toBeGreaterThan(0);
         }
       }
     },

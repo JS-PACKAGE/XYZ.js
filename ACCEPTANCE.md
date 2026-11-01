@@ -11315,3 +11315,59 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - ST reference PDF已close；14個列名owned暫存檔與唯一owned profile均移除，保留19660／19662、使用者舊hunk、local證據及下一F-type私有參考。README中／英／日、PLAN／DESIGN、CURRENT與技術／操作中英文同步；不宣稱其他browser、Canvas2D顯示3D材質、RF／光學／電氣／插合／安規／CAD或FPS相容，沒有push。
 
 - 收尾九文件387個relative links實查missing0；本feature只選自己的EOF驗收，保留使用者先前獨立hunk未提交。純文件收尾另檢格式，不冒稱重新驗證runtime。
+
+## 2026-11-01 程序材質：F-type封閉金屬筒唇、淡色P.P.圓盤與凹入微小母入口（ftypefemalefaces）
+
+- 目錄883→884。實際正常下載並raster實看歷史[Amphenol Connex CAT-103 ©2001原廠目錄，PDF第159頁／印刷第158頁](https://docs.rs-online.com/1ab7/A700000006717073.pdf#page=159)與222121照片／圖面放大圖（HTTP200、application/pdf、13,976,554B、216頁）；另讀第154頁／印刷第153頁一般F說明。222121為BULKHEAD ADAPTER JACK-TO-JACK，該型表列Nickel／P.P.／75Ω；型號特定P.P.優先於一般頁面的Delrin／Teflon，不借用別型Pasternack材料。
+
+- 採六平面鍍鎳金屬六角底座、同心凸圓肩、封閉無鍵槽圓筒唇、淡色P.P.介電圓盤與更深暗色不透明微小中央母入口，2×2四個裸正面。照片不足以確立微小入口精確截面，圓入口是刻意簡化，不冒稱精確CAD。11HEX、21.3mm軸向長度與側視washer／nut尺寸僅作來源參考，不變成正面高度；不加ST鍵槽／卡口柱、公針、虛構中央金屬接點或環、螺紋螺旋、裝飾同心螺紋、後部／導線／真實孔洞。
+
+- 可見外部硬體M1；背底、P.P.與入口M0。作者正規化H背底.02 < 入口.06 < 六角底座.26 < 凸肩.36 < P.P..48 < 唇.66；tile0.04m與既有0.0042 UV-relief，不把relief寫成公尺或CAD深度。預設metallic factor1，explicit0只改factor，原始mask bytes不變。來源75Ω不是RF模擬，不臆測基體合金、實際接點材料或精準鍍層光學。
+
+- 獨立46欄preset（44數值＋2色盤），六個C1六角半平面及四組平方半徑圓形共10 profiles；20組constructor快取C／H／R／AO差值形成巢狀凸角色替換。四組四欄Float64 poses128B與96² grain73,728B共73,856 typed bytes，排除一般closure／JS overhead，不冒充RAM或FPS改善。
+
+- 實算maxScale×nutInradius／(sqrt(3)／2)＋jitter = 0.369957166897568 < .5；保留ownership前第二次fract及tiny-negative guard。AST實查returned query的allocation／loops／hash、trig、sqrt、hypot等forbidden calls皆空；只在M非零時查cached grain，沒有query鄰格或重新建cache。
+
+- 正式15個獨立callback只讀cells／relief與實際場，從原生M與H／C探測六平面、封閉圓唇、P.P.盤與微小入口，不複製producer hash／radii／bevel。seed0／7／0xffffffff，各768²六欄invalid0；M、低H與高唇H全皆4solid／5void，每面六平面、全角閉合唇。入口H與C半徑差全部0；入口／盤觀測半徑比約.11347313，六角外半徑比1.151210925–1.151493470。
+
+- 每seed實測8,496條native joins及48條whole-tile C1 tracks，worst依序0.005389096570743679／0.005610961801374724／0.005398642597433432，皆<.1。4,096 signed period probes誤差0；−MIN_VALUE及−EPSILON／4的雙軸／四個另一軸位置均有限且與0相同。
+
+- 實測角色：背底C.018／H.02／R.98／AO.4／M0；入口C.025／H.06／R.98／AO.22／M0；P.P.C.94／H.48／R.65／AO.91／M0。金屬六角H.26003–.26038、凸肩H.36006–.36036、唇H.66002–.66030，皆M1；mortar0。所有高度為除以shared relief後的正規化場，不是量測厚度。
+
+- 32／512實際packing：M0／M255／transition分別832／166／26與217,879／39,419／4,846；normal tilt²最大.0037216455209534913／.28939638600538253，length² error最大.0037216455209534427／.010303729334871115（<.02），Z<=0與alpha!=255皆0，base-color luma約14–230。32不保證每個微小入口像素可辨；512各面entry／PP／lip／shoulder／nut空間角色均有hit。
+
+- 私有observer首次把凸肩射線終點錯放到固定nutAngle，得到.1302589364586525 < .0035705450229049415失敗；改為同角徑向終點，不改producer或容差。後續253!=255是把M>.99的合法blend誤當完整金屬；exact255的角色hit改要求原生M===1，全部像素仍比對原生packing。另將私有harness不支援的toBeLessThanOrEqual換成帶原正裕量的strict less-than，不把TypeError算缺陷證據。
+
+- 舊15callback確實錯誤接受「凸肩消失」、「P.P.降到凸肩同高」及「P.P.染成黑色」。先做同一before/after對照：前兩者把斜面誤讀為凸肩，觀測relative variation約.153／.0677，正常約1.3e−8–3.1e−7，真實窄凸肩約5.7e−8–4.6e−6。補上相對contrast的實際平臺平坦度與PP相對六角底座的明度關係後，三者均ERR_ASSERTION；producer未變，正常、真實薄凸肩及低於唇色調的muted pale PP各15callback仍全過。
+
+- 第一完整私有matrix（bg364，655.46s）98legal全過／31defect rejected／上述3misses accepted，exit1，保留該失敗歷程。另發現initial maxScale +3% label的payload被通用normalized clamp誤設.995；final修為實際1.03，三個高normalized欄位改正標為bounded high，不謊稱initial每列皆精確±3%。
+
+- 最終fresh Node canonical（bg365，789.11s）100legal×15=1,500 callback全過，34種defect全部以實際ERR_ASSERTION拒絕，acceptedFaults0。涵蓋42數值欄位的雙向變化（3個高normalized端點有界且明標）、cells1／3、grain93／99、兩色盤、共同H affine、耦合輪廓縮放、零grain、固定0／quarter方向、quintic、constant grain、有限0=7 seed collision，以及薄但存在凸肩與muted pale PP；不把所有seed pair唯一當契約。
+
+- 獨立six-plane Math.min counterexample每seed六欄invalid0，M／低H／高H仍全4／5，native8,496＋whole48追蹤worst C1為428.5250793105322／439.346022157744／447.0360048663456。正式同一fixture確實拒絕C1，而不是僅靠mask數量或NaN。
+
+- 獨立smooth H-only填平入口counterexample：其他五欄逐樣本Object.is differences0，六欄invalid0，H改變1,288／1,246／1,272像素；M與高H仍4／5，低H由4／5變4／1，C1仍等於合法baseline且<.1。同一fixture因真實入口凹深消失而ERR_ASSERTION，證明不是只數金屬孔或把暗色塗點當母入口。
+
+- 全部34種counterexample另涵蓋圓形代六角、linear／binary joins、缺少PP／入口／高唇／凸肩、PP或入口隱性partial metal、虛構中央接點／凸公針、平滑高唇key cut、錯seed／ownership、超出normalized與nonfinite等；SyntaxError／TypeError／其他例外一律不算成功拒絕。
+
+- 整合14 human files後一次formatter＋build成功（bg366，39.18s）；376 JS files由6,132,855→2,864,422B，370 CJS modules，vendor unchanged。target＋lint／全repo format:check／strict typecheck／API／distribution gate全過（bg367，134.94s）：新kind17pass／5470skip／5487total，15:33:52開始，13.34s；API737exports／2810directional contracts、710historic namespaces／5consumers，distribution367exports。
+
+- source／tests／docs／dist凍結後完整suite179檔／9416項全部通過（bg368）；2026-11-01 15:36:59開始，1089.01s（wall1090.16s）。實際Node v26.7.0，不冒稱重新認證最低Node22或其他browser。
+
+- fresh Node直接跑實際built ESM全部15callback並取數（bg369，29.90s）。baseline是實際前commit f6f61603583ad1046fb5541e50fdcd4d4aabac45的全部883舊kind：883×4seed×7points=24,724樣本／148,344欄位Object.is differences0，舊preset／tile與相對順序不變；16相關舊kind的96sets／480buffers byte differences0。
+
+- 新kind私有prototype／built ESM／CJS三者73,728 signed samples／442,368 triplet channels Object.is differences0，新kind6sets／30buffers與prototype byte differences0；新kind加16舊kind共102sets／510 ESM-CJS buffers differences0，全部preset／tile相等。6個actual source maps皆v3／正確單一source／file，identity與前版完全相同；最初audit誤把CJS source預期為.ts，實際CJS正確指向built ESM.js，未修改map或源碼。
+
+- 實際標準Chrome156、唯一owned profile／port19753，沒有unsafe GPU／no-sandbox／TLS／visibility／RAF繞過。同一可見native window先forced WebGL2後完整導航forced WebGPU，各3個真實RAF，F被選中、884+plain=885 options、25球、animate off。GL實際30draw且context未lost，GPU實際submit1；viewport1024×1000／DPR1.25，canvas CSS960×540與backing1200×675分離。兩圖均實際read/view。
+
+- 嚴格built root http://127.0.0.1:19662/ftype-material-smoke 實際404／nosniff／完整default-none、script-self／worker-self等CSP維持不變，從/src/index.js真實公開入口執行512seed7／height／tint[.9,1,1.1]／repeats3。Sync、native module Worker與cache-hit五streams各1,048,576B逐byte相等，三preset textures逐slot互不別名；五slot UV皆[3,0,0,3,0,0]。
+
+- root M0／M255／transition實測217,879／39,419／4,846，default factor1／explicit0；override前後所有stored MR bytes逐byte相等。cache size1／5,242,880B／hit1miss1，pool完成1、running／queued／admitted／cancel／failed0；三preset.destroyed真實true，借用外部pool仍能完成32seed8至completed2／failed0，借用preset亦destroyed。cache.clear後0／0B，pool.destroy後native dedicated workers0。
+
+- 公開factory最小32 seed123／124的base-color差396bytes，兩preset.destroyed實讀true。另從同一built公開factory生成512seed7四panel1024²PNG（222,565B），實際read/view後preset destroyed true。Root正確SDK error-note snapshot只有初始預期404，沒有後續app／Worker／pageerror。一次state-only BrowserTab.run把object誤成[object Object]；僅重讀JSON state，沒有重跑已成功factory。
+
+- 關閉兩個remaining owned raw pages，closing errors[]／remaining0，兩SDK handles釋放；portal connection的另一頁Puppeteer note可能不存在，不把fallback[]冒稱額外無error證據，consumer error採前述正確snapshot。停止唯一owned Chrome後manifest實際exit1，stderr含allocator duplicate、CVDisplayLink−6670、一般updater／missing auxiliary Crashpad與sandbox resource Operation not permitted；Metal log列Apple M5／metal-3，不冒稱clean143、warning-free或實體硬體／OS視窗認證。
+
+- 原始F reference PDF handle已觀測closed，15個列名owned暫存檔與唯一owned profile已移除，數值與已看影像證據先保留於local artifact；19660／19662 shared servers與使用者舊hunk保留。README中英日、PLAN／DESIGN、CURRENT與技術／操作中英文同步；不宣稱其他browser、Canvas2D顯示3D、電氣／RF／75Ω／插合／安規／CAD／FPS模擬或認證；沒有push。
+
+- 收尾九文件387個relative links實查missing0；本feature只選自己的EOF驗收，保留使用者先前獨立hunk未提交。純文件收尾另檢格式，不冒稱重新執行runtime。

@@ -16402,6 +16402,141 @@ export function createSurfaceSampler(
           roughness += p.grainRoughness * grain;
         };
       }
+      case 'ftypefemalefaces': {
+        const p = proceduralMaterialPresets.ftypefemalefaces,
+          poses = new Float64Array(p.cells * p.cells * 4),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x22f01),
+          halfRootThree = Math.sqrt(3) * 0.5,
+          nutRadius = p.nutInradius / halfRootThree,
+          ownerBound = p.maxScale * nutRadius,
+          inverseNut = 1 / p.nutBevel,
+          shoulderSquared = p.shoulderRadius * p.shoulderRadius,
+          shoulderCore = p.shoulderRadius - p.shoulderBevel,
+          inverseShoulder = 1 / (shoulderSquared - shoulderCore * shoulderCore),
+          barrelSquared = p.barrelRadius * p.barrelRadius,
+          barrelCore = p.barrelRadius - p.barrelBevel,
+          inverseBarrel = 1 / (barrelSquared - barrelCore * barrelCore),
+          insertSquared = p.insertRadius * p.insertRadius,
+          insertCore = p.insertRadius - p.insertBevel,
+          inverseInsert = 1 / (insertSquared - insertCore * insertCore),
+          entrySquared = p.entryRadius * p.entryRadius,
+          entryCore = p.entryRadius - p.entryBevel,
+          inverseEntry = 1 / (entrySquared - entryCore * entryCore),
+          nutTone = p.nutTone - p.backingTone,
+          nutHeight = p.nutHeight - p.backingHeight,
+          nutRoughness = p.roughness - p.backingRoughness,
+          nutAO = p.nutAO - p.backingAO,
+          shoulderTone = p.shoulderTone - p.nutTone,
+          shoulderHeight = p.shoulderHeight - p.nutHeight,
+          shoulderRoughness = p.shoulderRoughness - p.roughness,
+          shoulderAO = p.shoulderAO - p.nutAO,
+          lipTone = p.lipTone - p.shoulderTone,
+          lipHeight = p.lipHeight - p.shoulderHeight,
+          lipRoughness = p.lipRoughness - p.shoulderRoughness,
+          lipAO = p.lipAO - p.shoulderAO,
+          insertTone = p.insertTone - p.lipTone,
+          insertHeight = p.insertHeight - p.lipHeight,
+          insertRoughness = p.insertRoughness - p.lipRoughness,
+          insertAO = p.insertAO - p.lipAO,
+          entryTone = p.entryTone - p.insertTone,
+          entryHeight = p.entryHeight - p.insertHeight,
+          entryRoughness = p.entryRoughness - p.insertRoughness,
+          entryAO = p.entryAO - p.insertAO;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4,
+              scale =
+                p.minScale +
+                (p.maxScale - p.minScale) * hash(col, row, seed ^ 0x22f03),
+              angle =
+                TAU *
+                p.rotationTurns *
+                (2 * hash(col, row, seed ^ 0x22f05) - 1);
+            poses[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x22f07) - 1);
+            poses[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x22f09) - 1);
+            poses[i + 2] = Math.cos(angle) / scale;
+            poses[i + 3] = Math.sin(angle) / scale;
+          }
+        return () => {
+          color = p.backingTone;
+          height = p.backingHeight;
+          roughness = p.backingRoughness;
+          occlusion = p.backingAO;
+          metallic = 0;
+          // Shared wrapping can round tiny negative UVs to one; wrap again before ownership.
+          const uc = fract(u) * p.cells,
+            vc = fract(v) * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 4,
+            dx = uc - col - poses[i],
+            dy = vc - row - poses[i + 1];
+          if (Math.abs(dx) >= ownerBound || Math.abs(dy) >= ownerBound) return;
+          const x = dx * poses[i + 2] + dy * poses[i + 3],
+            y = dy * poses[i + 2] - dx * poses[i + 3],
+            diagonalA = x * 0.5 + y * halfRootThree,
+            diagonalB = x * 0.5 - y * halfRootThree;
+          // Product of six C1 half-planes avoids hard min-plane ridges.
+          const nut =
+            smooth(clamp((p.nutInradius - x) * inverseNut)) *
+            smooth(clamp((p.nutInradius + x) * inverseNut)) *
+            smooth(clamp((p.nutInradius - diagonalA) * inverseNut)) *
+            smooth(clamp((p.nutInradius + diagonalA) * inverseNut)) *
+            smooth(clamp((p.nutInradius - diagonalB) * inverseNut)) *
+            smooth(clamp((p.nutInradius + diagonalB) * inverseNut));
+          if (nut === 0) return;
+          color += nut * nutTone;
+          height += nut * nutHeight;
+          roughness += nut * nutRoughness;
+          occlusion += nut * nutAO;
+          metallic = nut;
+          const q = x * x + y * y;
+          if (q < shoulderSquared) {
+            const shoulder = smooth(
+              clamp((shoulderSquared - q) * inverseShoulder),
+            );
+            color += shoulder * shoulderTone;
+            height += shoulder * shoulderHeight;
+            roughness += shoulder * shoulderRoughness;
+            occlusion += shoulder * shoulderAO;
+            if (q < barrelSquared) {
+              const lip = smooth(clamp((barrelSquared - q) * inverseBarrel));
+              color += lip * lipTone;
+              height += lip * lipHeight;
+              roughness += lip * lipRoughness;
+              occlusion += lip * lipAO;
+              if (q < insertSquared) {
+                const insert = smooth(
+                  clamp((insertSquared - q) * inverseInsert),
+                );
+                // The pale P.P. disk replaces the lip below its crest, including relief.
+                color += insert * insertTone;
+                height += insert * insertHeight;
+                roughness += insert * insertRoughness;
+                occlusion += insert * insertAO;
+                metallic = nut * (1 - insert);
+                if (q < entrySquared) {
+                  const entry = smooth(
+                    clamp((entrySquared - q) * inverseEntry),
+                  );
+                  // Closed opaque female entry is a deeper field, never a pin or metal ring.
+                  color += entry * entryTone;
+                  height += entry * entryHeight;
+                  roughness += entry * entryRoughness;
+                  occlusion += entry * entryAO;
+                }
+              }
+            }
+          }
+          if (metallic === 0) return;
+          const grain = grainField(u, v) * metallic;
+          color += p.grainTone * grain;
+          height += p.grainHeight * grain;
+          roughness += p.grainRoughness * grain;
+        };
+      }
       case 'dcbarreljackfaces': {
         const p = proceduralMaterialPresets.dcbarreljackfaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -43521,6 +43656,7 @@ export function createSurfaceSampler(
     kind === 'minidin4femalefaces' ||
     kind === 'dcbarreljackfaces' ||
     kind === 'stfiberadapterfaces' ||
+    kind === 'ftypefemalefaces' ||
     kind === 'usbcfemalefaces' ||
     kind === 'iecc6inlets' ||
     kind === 'iecc8inlets' ||

@@ -710,6 +710,7 @@ try {
     'minidin4femalefaces',
     'dcbarreljackfaces',
     'stfiberadapterfaces',
+    'ftypefemalefaces',
     'usbcfemalefaces',
     'iecc6inlets',
     'iecc8inlets',
