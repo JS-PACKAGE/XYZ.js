@@ -11595,3 +11595,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增4項永久測試（`Hickory`：三seed外觀與縱向各向異性、C1掃描、actual512五maps、帶號UV週期），並加入通用kinds清單；名稱篩選7項通過（8.88s）。
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Hickory|shagbarkhickory|kinds|catalog|distinct|periodic"`定向測試，**2103項通過／3538項未選**。
 - 本功能未重跑完整179檔suite（monitorlizardskin commit的完整suite正在凍結worktree執行，結果另記）、未開瀏覽器gallery（monitorlizardskin與本功能均不在先前兩批gallery驗證內）；不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：歐洲落葉松弦切面（europeanlarch）
+
+- 目錄905→906，含plain的gallery為907項。近似Larix decidua未塗裝弦切面：淡粉紅褐／淡黃褐早材底、12條流動拱形的紅褐晚材年輪線（約占面積四分之一）與細縱向纖維。外觀依據實際閱讀的[Wood Database European Larch](https://www.wood-database.com/european-larch/)與實看的[弦切面照片](https://www.wood-database.com/wp-content/uploads/european-larch-s-400x400.jpg)；僅作配色與紋理形態參考，不重現邊／心材界線、節、樹脂囊、螺旋紋或油脂光澤。
+- 直接fallthrough重用`douglasfir`年輪sampler（與`longleafpine`、`westernredcedar`、`sitkaspruce`同路徑），constructor只選新preset；warp 36＋fiber 180×6＋128² grain共17,500 Float64／140,000 B。預設0.2 m tile、0.003 UV-relative relief（非公尺位移）、metallic factor0；不新增API或依賴。
+- 開發中實際修正：首版warp 1.4（rings 10、arch 2.8）渲染成封閉的漩渦環，與照片的流動拱形不符；實看後改為warp 0.55、rings 12、arch 2.2。修正後仍比照片規律，不宣稱逼真。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）256²取樣晚材色（color<0.6）占25.7–26.5%、早材色（>0.75）占62.6–63.6%、色域0.316–0.907、roughness 0.531–0.610、高度0.498–0.662 relief、橫／縱色差比2.84–2.88，metallic／mortar皆0；seed7的512² g≥165占69.9%、g<165占30.1%、法線max tilt²約0.028、base color平均約(220,176,142)。以Bun產生512 seed7排列圖並實看。
+- 新增4項永久測試（`European larch`：三seed外觀與各向異性、C1掃描、actual512五maps、帶號UV週期），並加入通用kinds清單；名稱篩選7項通過（9.44s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "European larch|europeanlarch|kinds|catalog|distinct|periodic"`定向測試，**2104項通過／3544項未選**。
+- 本功能未重跑完整179檔suite、未開瀏覽器gallery；不宣稱跨瀏覽器／backend或效能驗證；不push。

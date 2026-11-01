@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`europeanlarch`（歐洲落葉松）使目前目錄905→906種，含plain的gallery為907項。近似Larix decidua未塗裝弦切面：淡粉紅褐／淡黃褐的早材底，12條流動的紅褐晚材年輪線（中等偏寬、約占面積四分之一、彎曲起伏並有拱形），帶細縱向纖維紋。不是樹脂囊、節、窄而近白的邊材與心材界線、螺旋紋或塗層。
+
+外觀依據實際閱讀的[Wood Database European Larch](https://www.wood-database.com/european-larch/)（Color／Appearance：心材由黃到中等紅褐、窄邊材近白且與心材分明、弦切面生長輪呈現許多特色紋樣；Grain／Texture：多直紋或螺旋紋、中到細質地、帶油脂感）與實際下載並實看的[弦切面照片](https://www.wood-database.com/wp-content/uploads/european-larch-s-400x400.jpg)（淡粉褐面、流動的紅褐年輪線與拱形）；僅作配色與紋理形態參考，不重現邊／心材界線、節或油脂光澤，不打包來源圖，也不由照片反推真色、roughness或實際尺寸。開發中我先把warp設為1.4，渲染成封閉的漩渦環，與照片不符；實看後降到0.55、年輪數12、arch 2.2，波動仍偏規律但接近照片的流動拱形。
+
+直接fallthrough重用`douglasfir`年輪sampler（與`longleafpine`、`westernredcedar`、`sitkaspruce`同路徑），constructor只選新preset（rings 12、arch 2.2、warp 0.55、latewood 0.45–0.9、lateTone 0.52、earlyTone 0.86）；warp 36＋fiber 180×6＋128²細grain共17,500 Float64／140,000 B lattice算術預算（非總RAM）。金屬factor為0，晚材略高，年輪紋色是顏料。預設0.2 m nominal tile與0.003 UV-relative relief（非公尺位移）皆作者設定。三seed（0／1／0xffffffff）、256²取樣：晚材色（color<0.6）占25.7–26.5%、早材色（>0.75）占62.6–63.6%、色域0.316–0.907、roughness 0.531–0.610、高度0.498–0.662 relief、橫／縱色差比2.84–2.88；seed7的512²中g≥165占69.9%、g<165占30.1%、法線max tilt²約0.028、平均base color約(220,176,142)。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `shagbarkhickory`（粗皮山胡桃木）使目前目錄904→905種，含plain的gallery為906項。近似Carya ovata未塗裝縱向木面：偏淺的黃褐／淡棕底色、中等質地、3條寬而起伏的較暖淺褐條紋（近似心／邊材交錯的calico感）、細長的縱向纖維紋，以及散布的短小開放導管凹點。不是紅褐心材主導的深色面、環孔材大型早材導管列、交錯／波浪紋、塗層或實際心邊材邊界。
 
 外觀依據實際閱讀的[Wood Database Shagbark Hickory](https://www.wood-database.com/shagbark-hickory/)（Color／Appearance：心材淺到中等棕且帶紅調、邊材較淡的黃褐，心邊材對比的板材被稱為Calico Hickory；Grain／Texture：多直紋、偶有波浪、中等質地；Endgrain：ring-porous，早材導管大到極大且呈單列）與實際下載並實看的[木面照片](https://www.wood-database.com/wp-content/uploads/shagbark-hickory-400x400.jpg)（淡黃褐面、縱向條紋與細孔）；僅作配色與紋理形態參考，不重現環孔材早材導管列或真正的心／邊材邊界，不打包來源圖，也不由照片反推真色、roughness或實際尺寸。
