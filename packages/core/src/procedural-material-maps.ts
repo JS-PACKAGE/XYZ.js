@@ -17678,6 +17678,108 @@ export function createSurfaceSampler(
           metallic = worn;
         };
       }
+      case 'kiwislices': {
+        const p = proceduralMaterialPresets.kiwislices,
+          poses = new Float64Array(p.cells * p.cells * 4),
+          fuzzField = cachedNoise(p.fuzzCells, p.fuzzCells, seed ^ 0x25201),
+          juiceField = cachedNoise(p.juiceCells, p.juiceCells, seed ^ 0x25203),
+          inverseSkin = 1 / p.skinSoft,
+          inverseCore = 1 / p.coreSoft,
+          inverseSeedLength = 1 / p.seedLength,
+          inverseSeedWidth = 1 / p.seedWidth;
+        // Per slice: center x, center y (cell units), inverse scale and turn angle. Radius plus
+        // jitter stays below half a cell, so a point only queries its own cell.
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4;
+            poses[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x25205) - 1);
+            poses[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x25207) - 1);
+            poses[i + 2] =
+              1 /
+              (p.minScale +
+                (p.maxScale - p.minScale) * hash(col, row, seed ^ 0x25209));
+            poses[i + 3] = TAU * hash(col, row, seed ^ 0x2520b);
+          }
+        // Distance (in units of the oval's half extents) to the nearest seed of one ring.
+        const seedField = (
+          rho: number,
+          theta: number,
+          ringRadius: number,
+          count: number,
+          phase: number,
+        ): number => {
+          const index = Math.round((theta / TAU) * count - phase),
+            local = theta - ((index + phase) / count) * TAU,
+            radial = (rho - ringRadius) * inverseSeedLength,
+            tangent = rho * local * inverseSeedWidth;
+          return Math.sqrt(radial * radial + tangent * tangent);
+        };
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 4,
+            dx = ((uc - col - poses[i]) * poses[i + 2]) / p.cells,
+            dy = ((vc - row - poses[i + 1]) * poses[i + 2]) / p.cells,
+            // Radius in cell units; the slice is a disc of radius p.radius.
+            rho = Math.sqrt(dx * dx + dy * dy) * p.cells,
+            fuzz = fuzzField(u, v),
+            juice = juiceField(u, v);
+          // Outside the slice: dark gap between fruit.
+          color = p.skinTone * 0.5;
+          height = p.baseHeight - 0.1;
+          roughness = p.skinRoughness;
+          occlusion = 0.8;
+          if (rho >= p.radius + p.skinSoft) return;
+          const body = smooth(clamp((p.radius - rho) * inverseSkin + 0.5)),
+            skin = smooth(
+              clamp((rho - (p.radius - p.skinWidth)) * inverseSkin + 0.5),
+            ),
+            theta = Math.atan2(dy, dx) + poses[i + 3],
+            core = smooth(clamp((p.coreRadius - rho) * inverseCore + 0.5)),
+            span = p.radius - p.skinWidth - p.coreRadius,
+            // 0 at the core edge, 1 at the skin: lighter flesh near the core.
+            depth = clamp((rho - p.coreRadius) / span),
+            streak =
+              (0.5 + 0.5 * Math.cos(p.streaks * theta)) ** p.streakPower *
+              smooth(clamp(depth * 6)) *
+              (1 - skin),
+            inner = seedField(rho, theta, p.innerSeedRadius, p.innerSeeds, 0),
+            outer = seedField(rho, theta, p.outerSeedRadius, p.outerSeeds, 0.5),
+            seed =
+              smooth(clamp((1 - Math.min(inner, outer)) * 3)) *
+              (1 - core) *
+              (1 - skin);
+          const flesh =
+            p.fleshTone +
+            p.gradientTone * (1 - depth) -
+            p.gradientTone * 0.5 +
+            p.streakTone * streak +
+            p.juiceTone * (juice - 0.5);
+          let tone = flesh + (p.coreTone - flesh) * core;
+          tone = tone + (p.skinTone + p.fuzzTone * (fuzz - 0.5) - tone) * skin;
+          tone += (p.seedTone - tone) * seed;
+          color = clamp(tone * body + p.skinTone * 0.5 * (1 - body));
+          height = clamp(
+            (p.baseHeight +
+              p.skinHeight * skin -
+              p.coreHeight * core +
+              p.streakHeight * streak +
+              p.fuzzHeight * (fuzz - 0.5) * skin -
+              p.seedDepth * seed) *
+              body +
+              (p.baseHeight - 0.1) * (1 - body),
+          );
+          roughness =
+            p.fleshRoughness +
+            (p.skinRoughness - p.fleshRoughness) * skin +
+            (p.seedRoughness - p.fleshRoughness) * seed;
+          occlusion = clamp(1 - (1 - p.seedAO) * seed - (1 - p.coreAO) * core);
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -45207,6 +45309,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'kiwislices' ||
     kind === 'hazardstripes' ||
     kind === 'radarscope' ||
     kind === 'digitalcamo' ||

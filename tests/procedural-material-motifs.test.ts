@@ -2375,3 +2375,186 @@ describe('hazardstripes: chipped warning stripes over bare steel', () => {
     expect(different).toBeGreaterThan(5);
   });
 });
+
+describe('kiwislices: radial-streaked slices with two seed rings', () => {
+  const p = proceduralMaterialPresets.kiwislices;
+  const size = 768;
+  type Slice = { u: number; v: number; flesh: number; seeds: number[] };
+
+  const analyze = (seed: number) => {
+    const sample = createSurfaceSampler('kiwislices', seed),
+      out = empty(),
+      color = new Float64Array(size * size);
+    let invalid = 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        invalid += Number(out.metallic !== 0 || out.mortar !== 0);
+        for (const value of [
+          out.color,
+          out.height / p.relief,
+          out.roughness,
+          out.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+        color[y * size + x] = out.color;
+      }
+    expect(invalid).toBe(0);
+    const cell = size / p.cells,
+      slices: Slice[] = [];
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        // Flesh and core are brighter than skin, seeds and the gap between fruit (< 0.2).
+        let count = 0,
+          sx = 0,
+          sy = 0;
+        for (let y = 0; y < cell; y++)
+          for (let x = 0; x < cell; x++) {
+            const px = col * cell + x,
+              py = row * cell + y;
+            if (color[py * size + px] > 0.2) {
+              count++;
+              sx += px + 0.5;
+              sy += py + 0.5;
+            }
+          }
+        const cx = sx / count,
+          cy = sy / count,
+          // Bright area ~ pi r^2 minus the (small) seed holes.
+          flesh = Math.sqrt(count / Math.PI);
+        // Seeds: dark pixels well inside the flesh disc, 4-connected components.
+        const dark = new Uint8Array(cell * cell),
+          seen = new Uint8Array(cell * cell);
+        for (let y = 0; y < cell; y++)
+          for (let x = 0; x < cell; x++) {
+            const px = col * cell + x,
+              py = row * cell + y;
+            dark[y * cell + x] = Number(
+              color[py * size + px] < 0.12 &&
+                Math.hypot(px + 0.5 - cx, py + 0.5 - cy) < 0.85 * flesh,
+            );
+          }
+        const seeds: number[] = [];
+        for (let first = 0; first < dark.length; first++) {
+          if (!dark[first] || seen[first]) continue;
+          const queue = [first];
+          seen[first] = 1;
+          let mx = 0,
+            my = 0;
+          for (let read = 0; read < queue.length; read++) {
+            const i = queue[read],
+              x = i % cell,
+              y = Math.floor(i / cell);
+            mx += col * cell + x + 0.5;
+            my += row * cell + y + 0.5;
+            for (const [dx, dy] of [
+              [1, 0],
+              [-1, 0],
+              [0, 1],
+              [0, -1],
+            ]) {
+              const nx = x + dx,
+                ny = y + dy;
+              if (nx < 0 || ny < 0 || nx >= cell || ny >= cell) continue;
+              const j = ny * cell + nx;
+              if (dark[j] && !seen[j]) {
+                seen[j] = 1;
+                queue.push(j);
+              }
+            }
+          }
+          if (queue.length >= 4)
+            seeds.push(
+              Math.hypot(mx / queue.length - cx, my / queue.length - cy) /
+                flesh,
+            );
+        }
+        slices.push({ u: cx / size, v: cy / size, flesh: flesh / size, seeds });
+      }
+    return { sample, slices };
+  };
+
+  it.each(seeds)(
+    'places the authored number of seeds on two rings per slice (seed %i)',
+    (seed) => {
+      const { slices } = analyze(seed),
+        fleshRadius = p.radius - p.skinWidth,
+        inner = p.innerSeedRadius / fleshRadius,
+        outer = p.outerSeedRadius / fleshRadius;
+      expect(slices.length).toBe(p.cells * p.cells);
+      for (const slice of slices) {
+        // Seed distances split into two clusters at the authored radius ratio.
+        const near = slice.seeds.filter((r) => r < (inner + outer) / 2),
+          far = slice.seeds.filter((r) => r >= (inner + outer) / 2);
+        expect(Math.abs(near.length - p.innerSeeds)).toBeLessThanOrEqual(1);
+        expect(Math.abs(far.length - p.outerSeeds)).toBeLessThanOrEqual(1);
+        const mean = (values: number[]): number =>
+          values.reduce((a, b) => a + b, 0) / values.length;
+        // The flesh radius estimate carries the skin-edge softness, so allow a few percent.
+        expect(Math.abs(mean(near) - inner)).toBeLessThan(0.04);
+        expect(Math.abs(mean(far) - outer)).toBeLessThan(0.04);
+      }
+    },
+  );
+
+  it.each(seeds)(
+    'carries the authored number of radial streaks around the flesh (seed %i)',
+    (seed) => {
+      const { sample, slices } = analyze(seed),
+        out = empty(),
+        steps = 2048;
+      for (const slice of slices) {
+        // Outside the outer seed ring, inside the skin.
+        const radius = slice.flesh * 0.86,
+          color: number[] = [];
+        for (let i = 0; i < steps; i++) {
+          const a = (2 * Math.PI * i) / steps;
+          sample(
+            slice.u + radius * Math.cos(a),
+            slice.v + radius * Math.sin(a),
+            out,
+          );
+          color.push(out.color);
+        }
+        let best = 0,
+          bestPower = 0;
+        for (let k = 20; k <= 120; k++) {
+          let re = 0,
+            im = 0;
+          for (let i = 0; i < steps; i++) {
+            re += color[i] * Math.cos((2 * Math.PI * k * i) / steps);
+            im += color[i] * Math.sin((2 * Math.PI * k * i) / steps);
+          }
+          if (re * re + im * im > bestPower) {
+            bestPower = re * re + im * im;
+            best = k;
+          }
+        }
+        expect(best).toBe(p.streaks);
+      }
+    },
+  );
+
+  it('wraps seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('kiwislices', 0),
+      b = createSurfaceSampler('kiwislices', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        expect(two.height).toBeCloseTo(one.height, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(100);
+  });
+});
