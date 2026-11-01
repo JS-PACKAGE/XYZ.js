@@ -11816,3 +11816,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試設計：c由seed的hash決定，測試端不知道它的值，所以每個象限先以12個探測點、在preset容許的±0.04範圍內做8001步的一維搜尋，用測試端獨立寫的`z → z² + c`平滑逃逸次數去擬合從色調解碼出的μ（色調對μ單調、可反解），再以擬合得到的c檢查400個探測點全部相符（最大誤差＜0.02）。
 - 實測：`tests/procedural-material-motifs.test.ts`三百五十三項（本材質五項）全過。三seed（0、7、4294967295）×四象限：擬合的c落在容許範圍內且400個探測點與獨立迭代一致；seed 7下x、y兩軸鏡像對稱（每格300個點，無不對稱）、四個格的中心都為內部色（0.02）、格邊界上的點皆為外部（色調＜0.3）；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "juliacells|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`juliacells`：option 943個、status為942 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的四個集合。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：數織（nonogrampuzzle）
+
+- 目錄942→943，含plain的gallery為944項。每tile 12×12格：右下8×8是已解開的圖形（約55%填成深色方塊，由seed決定），左側4欄與上方4列以3×5點陣數字（0至8）印出各行各列的連續填格長度提示，列提示靠右緊貼圖形、行提示靠下對齊，全空行列印「0」，左上4×4為空白紙；每5格與外框畫較粗的線。提示與圖形由同一份填格資料算出。Metallic／mortar為0，預設tile0.36 m、0.0016 UV-relative relief、metallic factor 0。圖形為隨機填格、不保證唯一解；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 真實缺陷與修正：（1）第一版草稿在寫入前我發現自己留了一堆`void`暫存變數與永遠為假的條件（`&& false`），整個重寫。（2）`let tone = p.paperTone`被推成字面型別0.95而不能指派0.86（TS2322），標為`number`；strict typecheck第一次verify就擋下。（3）分組線測試第一版比較「線的最暗色調」，但粗線與細線的色調相同、只有寬度不同，所以失敗；改為量測沿格列中線橫跨垂直邊的中間色調寬度。（4）改寬度測試時，第一次取樣高度設為格上緣0.02，剛好落在橫向格線上，整段都算成線（801／801）；改取格列中線。這三項都是測試端的錯。（5）清掉一個多餘的`mark = Math.max(ink, 0)`變數（ink已在0至1），行為不變，重跑verify全過。
+- 實測：`tests/procedural-material-motifs.test.ts`三百六十四項（本材質十一項）全過。九個seed（0、7、4294967295、1至6）：從8×8格中心的色調（＜0.3為填色）讀出圖形，由測試端獨立算出每行每列的連續長度，與提示格以測試端獨立寫的0至8字型逐像素解碼的結果逐格比對，包含右／下對齊的空位必須是空白，全部相符（0處錯誤）；填色數介於16至56；左上角空白格為紙色（＞0.9）；每5格的分組線與外框的寬度大於一般格線的1.5倍；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "nonogrampuzzle|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`nonogrampuzzle`：option 944個、status為943 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的版面、提示與圖形。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

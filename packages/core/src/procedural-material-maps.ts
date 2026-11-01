@@ -21090,6 +21090,114 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'nonogrampuzzle': {
+        const p = proceduralMaterialPresets.nonogrampuzzle,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x27901),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+          ],
+          n = p.size,
+          m = p.clueCells,
+          cells = n + m,
+          filled = new Uint8Array(n * n),
+          // Run lengths of every row and column of the solution in reading order; [0] for an empty
+          // line. Row clues are right-aligned against the grid, column clues bottom-aligned above it.
+          rowClues: number[][] = [],
+          columnClues: number[][] = [],
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          runsOf = (at: (i: number) => number): number[] => {
+            const runs: number[] = [];
+            let length = 0;
+            for (let i = 0; i < n; i++) {
+              if (at(i)) length++;
+              else if (length > 0) {
+                runs.push(length);
+                length = 0;
+              }
+            }
+            if (length > 0) runs.push(length);
+            return runs.length > 0 ? runs : [0];
+          },
+          // Distance to the nearest cell edge along one axis and whether that edge is a heavy one
+          // (every groupEvery cells and the outer border of the grid).
+          lineAt = (f: number, index: number, heavyFrom: number): number => {
+            const edge = index - heavyFrom + (f >= 0.5 ? 1 : 0),
+              heavy = edge % p.groupEvery === 0 || edge === n,
+              distance = f < 0.5 ? f : 1 - f;
+            return cover((heavy ? p.groupLineHalf : p.lineHalf) - distance);
+          };
+        for (let row = 0; row < n; row++)
+          for (let col = 0; col < n; col++)
+            filled[row * n + col] =
+              hash(col, row, seed ^ 0x27903) < p.density ? 1 : 0;
+        for (let i = 0; i < n; i++) {
+          rowClues.push(runsOf((k) => filled[i * n + k]));
+          columnClues.push(runsOf((k) => filled[k * n + i]));
+        }
+        return () => {
+          const gx = u * cells,
+            gy = v * cells,
+            col = Math.min(cells - 1, Math.floor(gx)),
+            row = Math.min(cells - 1, Math.floor(gy)),
+            fx = gx - col,
+            fy = gy - row,
+            inGridX = col >= m,
+            inGridY = row >= m;
+          let tone: number = p.paperTone,
+            ink = 0,
+            line = 0;
+          if (inGridX && inGridY) {
+            if (filled[(row - m) * n + (col - m)])
+              ink =
+                cover(0.5 - p.fillInset - Math.abs(fx - 0.5)) *
+                cover(0.5 - p.fillInset - Math.abs(fy - 0.5));
+            line = Math.max(lineAt(fx, col, m), lineAt(fy, row, m));
+          } else if (inGridX !== inGridY) {
+            // A clue cell: row clues sit left of the grid, column clues above it.
+            tone = p.clueBackTone;
+            const clues = inGridY ? rowClues[row - m] : columnClues[col - m],
+              slot = inGridY ? col : row,
+              entry = slot - (m - clues.length);
+            line = Math.max(
+              cover(p.lineHalf - Math.min(fx, 1 - fx)),
+              cover(p.lineHalf - Math.min(fy, 1 - fy)),
+            );
+            if (entry >= 0) {
+              const x = Math.floor((fx - 0.5) / p.digitPixel + 1.5),
+                y = Math.floor((fy - 0.5) / p.digitPixel + 2.5);
+              if (
+                x >= 0 &&
+                x < 3 &&
+                y >= 0 &&
+                y < 5 &&
+                glyphs[clues[entry]][y * 3 + x] === '1'
+              )
+                ink = 1;
+            }
+          }
+          const level = inGridX && inGridY ? p.inkTone : p.clueTone,
+            gridded = tone + (p.gridTone - tone) * line;
+          color = clamp(
+            gridded +
+              p.grainTone * (grainField(u, v) - 0.5) +
+              (level - gridded) * ink,
+          );
+          height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * ink);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -48619,6 +48727,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'nonogrampuzzle' ||
     kind === 'juliacells' ||
     kind === 'spirographrosettes' ||
     kind === 'sliderulescale' ||

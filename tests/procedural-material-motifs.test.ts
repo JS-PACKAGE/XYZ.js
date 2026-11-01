@@ -7346,3 +7346,160 @@ describe('juliacells: filled Julia sets with real parameters', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('nonogrampuzzle: clues match the solved picture', () => {
+  const p = proceduralMaterialPresets.nonogrampuzzle;
+  const n = 8,
+    m = 4,
+    cells = n + m;
+  // Independent 3x5 drawing of the digits 0 to 8.
+  const art: Record<number, string[]> = {
+    0: ['###', '#.#', '#.#', '#.#', '###'],
+    1: ['.#.', '##.', '.#.', '.#.', '###'],
+    2: ['###', '..#', '###', '#..', '###'],
+    3: ['###', '..#', '###', '..#', '###'],
+    4: ['#.#', '#.#', '###', '..#', '..#'],
+    5: ['###', '#..', '###', '..#', '###'],
+    6: ['###', '#..', '###', '#.#', '###'],
+    7: ['###', '..#', '.#.', '.#.', '.#.'],
+    8: ['###', '#.#', '###', '#.#', '###'],
+  };
+  const runs = (line: boolean[]): number[] => {
+    const result: number[] = [];
+    let length = 0;
+    for (const on of [...line, false]) {
+      if (on) length++;
+      else if (length > 0) {
+        result.push(length);
+        length = 0;
+      }
+    }
+    return result.length > 0 ? result : [0];
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'prints, for every row and column, the run lengths of the filled cells (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('nonogrampuzzle', seed),
+        out = empty(),
+        at = (col: number, row: number, fx: number, fy: number): number => {
+          sample((col + fx) / cells, (row + fy) / cells, out);
+          return out.color;
+        };
+      const grid: boolean[][] = [];
+      for (let row = 0; row < n; row++) {
+        const line: boolean[] = [];
+        for (let col = 0; col < n; col++)
+          line.push(at(m + col, m + row, 0.5, 0.5) < 0.3);
+        grid.push(line);
+      }
+      // Decode a clue cell into a digit (or null if blank) with the independent glyph table.
+      const decode = (col: number, row: number): number | null => {
+        const bits: string[] = [];
+        for (let y = 0; y < 5; y++) {
+          let text = '';
+          for (let x = 0; x < 3; x++)
+            text +=
+              at(
+                col,
+                row,
+                0.5 + (x - 1) * p.digitPixel,
+                0.5 + (y - 2) * p.digitPixel,
+              ) < 0.4
+                ? '#'
+                : '.';
+          bits.push(text);
+        }
+        if (bits.every((text) => text === '...')) return null;
+        for (const [digit, rows] of Object.entries(art))
+          if (rows.every((text, i) => text === bits[i])) return Number(digit);
+        return -1;
+      };
+      let wrong = 0;
+      for (let line = 0; line < n; line++) {
+        const row = runs(grid[line]),
+          column = runs(grid.map((r) => r[line]));
+        for (let slot = 0; slot < m; slot++) {
+          const wantRow =
+              slot - (m - row.length) >= 0
+                ? row[slot - (m - row.length)]
+                : null,
+            wantColumn =
+              slot - (m - column.length) >= 0
+                ? column[slot - (m - column.length)]
+                : null;
+          wrong += Number(decode(slot, m + line) !== wantRow);
+          wrong += Number(decode(m + line, slot) !== wantColumn);
+        }
+      }
+      expect(wrong).toBe(0);
+      // A picture of a plausible density: not empty and not full.
+      const total = grid.flat().filter(Boolean).length;
+      expect(total).toBeGreaterThan(16);
+      expect(total).toBeLessThan(56);
+    },
+  );
+
+  it('keeps the corner blank and heavier lines every five cells', () => {
+    const sample = createSurfaceSampler('nonogrampuzzle', 7),
+      out = empty();
+    for (const [x, y] of [
+      [0.5, 0.5],
+      [1.5, 2.5],
+      [3.5, 3.5],
+    ]) {
+      sample(x / cells, y / cells, out);
+      expect(out.color).toBeGreaterThan(0.9);
+    }
+    // Width (in 0.0001-cell steps) of the mid-tone grid line across a vertical cell edge, measured
+    // along the middle of the first grid row: the lines every five cells and the outer border are
+    // wider than the plain ones.
+    const lineWidth = (edge: number): number => {
+      let width = 0;
+      for (let i = -400; i <= 400; i++) {
+        sample((m + edge + i * 0.0001) / cells, (m + 0.5) / cells, out);
+        width += Number(out.color > 0.3 && out.color < 0.75);
+      }
+      return width;
+    };
+    expect(lineWidth(5)).toBeGreaterThan(lineWidth(3) * 1.5);
+    expect(lineWidth(8)).toBeGreaterThan(lineWidth(3) * 1.5);
+    expect(lineWidth(0)).toBeGreaterThan(lineWidth(3) * 1.5);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('nonogrampuzzle', 0),
+      b = createSurfaceSampler('nonogrampuzzle', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

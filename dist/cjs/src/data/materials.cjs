@@ -14212,6 +14212,41 @@ var proceduralMaterialPresets = Object.freeze({
 		insideRoughness: .8,
 		glowRoughness: .35
 	}),
+	nonogrampuzzle: Object.freeze({
+		dark: [
+			22,
+			24,
+			34
+		],
+		light: [
+			248,
+			246,
+			238
+		],
+		roughness: .58,
+		relief: .0016,
+		size: 8,
+		clueCells: 4,
+		density: .55,
+		digitPixel: .115,
+		fillInset: .09,
+		lineHalf: .012,
+		groupLineHalf: .03,
+		groupEvery: 5,
+		edgeSoft: .012,
+		grainCells: 192,
+		paperTone: .95,
+		inkTone: .1,
+		gridTone: .55,
+		clueTone: .12,
+		clueBackTone: .86,
+		grainTone: .035,
+		inkHeight: .6,
+		paperHeight: .3,
+		clueHeight: .34,
+		inkRoughness: .4,
+		paperRoughness: .72
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -22893,6 +22928,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	nonogrampuzzle: .36,
 	juliacells: .4,
 	spirographrosettes: .3,
 	sliderulescale: .25,
