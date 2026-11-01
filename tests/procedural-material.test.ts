@@ -936,6 +936,7 @@ const kinds: ProceduralMaterialKind[] = [
   'perforatedhardboard',
   'qrcodelabel',
   'laptopkeycaps',
+  'golfballdimples',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -136036,6 +136037,166 @@ describe('Chiclet laptop keycaps with rounded dark matte keys, shallow dished to
     let worst = 0;
     for (const seed of [0, 1, 0xffffffff]) {
       const sample = createSurfaceSampler('laptopkeycaps', seed);
+      for (let i = 0; i < 8192; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 7, v + 11, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+    }
+    expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Glossy white golf-ball dimples in a hex-packed grid with shallow spherical bowls and smooth lands', () => {
+  const p = proceduralMaterialPresets.golfballdimples;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  // Dimple centres: odd rows are shifted by half a column; the pattern wraps with even rows.
+  const centre = (row: number, column: number): [number, number] => [
+    (column + 0.25 + 0.5 * (row % 2)) / p.columns,
+    (row + 0.5) / p.rows,
+  ];
+  it.each([0, 1, 0xffffffff])(
+    'sinks a darker occluded bowl at every hex centre and leaves a raised smooth land halfway to the same-row neighbour for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('golfballdimples', seed),
+        bowl = empty(),
+        land = empty(),
+        diagonal = empty();
+      let invalid = 0;
+      for (let row = 0; row < p.rows; row++)
+        for (let column = 0; column < p.columns; column++) {
+          const [u, v] = centre(row, column);
+          sample(u, v, bowl);
+          sample(u + 0.5 / p.columns, v, land);
+          // Half a column right and one row down is the neighbouring row's centre.
+          sample(u + 0.5 / p.columns, v + 1 / p.rows, diagonal);
+          expect(bowl.height).toBeLessThan(0.3 * p.relief);
+          expect(bowl.occlusion).toBeCloseTo(1 - p.dimpleOcclusion, 5);
+          expect(land.height).toBeGreaterThan(0.55 * p.relief);
+          expect(land.occlusion).toBeGreaterThan(0.999);
+          expect(land.color - bowl.color).toBeGreaterThan(0.05);
+          expect(land.roughness).toBeLessThan(bowl.roughness - 0.05);
+          expect(diagonal.height).toBeLessThan(0.3 * p.relief);
+          for (const s of [bowl, land, diagonal])
+            invalid += Number(
+              s.metallic !== 0 ||
+                s.mortar !== 0 ||
+                keys.some(
+                  (key) => !Number.isFinite(s[key]) || s[key] < 0 || s[key] > 1,
+                ),
+            );
+        }
+      expect(invalid).toBe(0);
+      let covered = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, land);
+          covered += Number(land.occlusion < 0.9);
+        }
+      expect(covered / 65536).toBeGreaterThan(0.49);
+      expect(covered / 65536).toBeLessThan(0.57);
+    },
+  );
+  it('keeps bowl rims, centres, hex row seams and grain C1 across the periodic wrap', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('golfballdimples', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.columns, p.rows, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      // Rows through dimple centres, row seams (including the tile wrap) and lands.
+      for (const row of [0, 1, 4, 7])
+        for (const offset of [0, 0.5, 0.25])
+          for (let i = 0; i < 4096; i++)
+            check(i / 4096, (row + offset) / p.rows);
+      for (let i = 0; i < 8192; i++)
+        check((i * 0.61803398875) % 1, (i * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('writes actual512 pale glossy dielectric maps with about half the surface occluded and visible bowl normals', () => {
+    const maps = generateProceduralMaps('golfballdimples', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let pale = 0,
+      occluded = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      pale += Number(maps.baseColor[i] > 200);
+      occluded += Number(maps.occlusion[i] < 230);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2] ||
+          maps.normal[i + 2] < 200,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(pale / (512 * 512)).toBeGreaterThan(0.99);
+    expect(occluded / (512 * 512)).toBeGreaterThan(0.49);
+    expect(occluded / (512 * 512)).toBeLessThan(0.57);
+    expect(maxTilt).toBeGreaterThan(0.015);
+    expect(maxTilt).toBeLessThan(0.08);
+    expect(invalid).toBe(0);
+  });
+  it('repeats over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    let worst = 0;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('golfballdimples', seed);
       for (let i = 0; i < 8192; i++) {
         const u = (i * 0.61803398875) % 1,
           v = (i * 0.41421356237) % 1;

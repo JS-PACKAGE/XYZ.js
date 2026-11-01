@@ -12097,6 +12097,25 @@ export declare const proceduralMaterialPresets: Readonly<{
         rimRoughness: 0.2;
         gapOcclusion: 0.75;
     }>;
+    golfballdimples: Readonly<{
+        dark: readonly [148, 148, 146];
+        light: readonly [250, 250, 246];
+        roughness: 0.34;
+        relief: 0.012;
+        columns: 7;
+        rows: 8;
+        grainCells: 128;
+        radius: 0.46;
+        baseTone: 0.86;
+        dimpleTone: 0.1;
+        grainTone: 0.02;
+        baseHeight: 0.62;
+        dimpleDepth: 0.4;
+        grainHeight: 0.006;
+        dimpleRoughness: 0.12;
+        grainRoughness: 0.04;
+        dimpleOcclusion: 0.45;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -13370,4 +13389,5 @@ export declare const proceduralTileMeters: Readonly<{
     perforatedhardboard: 0.4;
     qrcodelabel: 0.05;
     laptopkeycaps: 0.152;
+    golfballdimples: 0.028;
 }>;

@@ -19890,6 +19890,33 @@ var proceduralMaterialPresets = Object.freeze({
 		rimRoughness: .2,
 		gapOcclusion: .75
 	}),
+	golfballdimples: Object.freeze({
+		dark: [
+			148,
+			148,
+			146
+		],
+		light: [
+			250,
+			250,
+			246
+		],
+		roughness: .34,
+		relief: .012,
+		columns: 7,
+		rows: 8,
+		grainCells: 128,
+		radius: .46,
+		baseTone: .86,
+		dimpleTone: .1,
+		grainTone: .02,
+		baseHeight: .62,
+		dimpleDepth: .4,
+		grainHeight: .006,
+		dimpleRoughness: .12,
+		grainRoughness: .04,
+		dimpleOcclusion: .45
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -21281,7 +21308,8 @@ var proceduralTileMeters = Object.freeze({
 	westernredcedar: .12,
 	perforatedhardboard: .4,
 	qrcodelabel: .05,
-	laptopkeycaps: .152
+	laptopkeycaps: .152,
+	golfballdimples: .028
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

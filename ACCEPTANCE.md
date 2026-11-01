@@ -11492,3 +11492,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增4組永久測試（`Chiclet laptop`：三seed逐鍵／逐縫幾何與tone變異、C1含鍵心列與縫掃描、actual512五maps、帶號UV週期），並加入通用kinds清單；名稱篩選7項通過（7.41s）。
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Chiclet laptop|laptopkeycaps|kinds|catalog|distinct|periodic"`定向測試，**2086項通過／3479項未選**。
 - 本功能未重跑完整179檔suite、未開瀏覽器gallery，也不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：高爾夫球風格凹坑（golfballdimples）
+
+- 目錄894→895，含plain的gallery為896項。7欄×8列六角緊密排列的圓形淺球碗（奇數列錯半欄，半徑0.46欄），碗心較低、較暗（AO 0.55）、較粗糙，碗間為窄而光滑的平台，偏白亮面塑膠。這是作者依一般高爾夫球凹坑所作平面示意，**沒有**引用特定來源文件、產品照片或量測，不宣稱符合任何實際球種、凹坑數量／尺寸或規範；非完整球體曲率、接縫或印字。7×8使列距7/8≈0.875近似理想0.866且列數為偶數，錯位奇偶才隨tile週期對齊。
+- 專用sampler：取上下相鄰三列的最近中心等向距離平方，`smooth(1−q/r²)`在中心與邊緣斜率皆0，C1；只快取128² grain（16,384 Float64／131,072 B）。預設0.028 m tile、0.012 UV-relative relief（非公尺位移）、metallic factor0；不新增API或依賴。relief首版0.0012，實跑法線幾乎全平，才提高為0.008再到0.012（實測max tilt²：relief 0.008為0.0138，0.012為0.030；0.0012版未量化，僅在法線預覽看到幾乎全平）。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）碗心高度0.220–0.226 relief、AO 0.55、roughness 0.441–0.479；同列相鄰凹坑中點平台高度0.620–0.626、AO 1、roughness 0.321–0.360；256²取樣AO<0.9占52.9%；seed7的512²中AO<230占52.8%、法線max tilt²約0.030。以Bun產生512 seed7的四圖並實看：六角排列的圓形凹坑與環形高度輪廓（預覽四圖把height放入alpha，白底上低處呈白色，屬預覽工具假象，已改用數值確認碗心height為低值）。
+- 新增4組永久測試（`golf-ball`：三seed逐凹坑碗心／平台／鄰列幾何與覆蓋率、含列縫與tile wrap的C1掃描、actual512五maps、帶號UV週期），並加入通用kinds清單；名稱篩選7項通過（9.19s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "golf-ball|golfballdimples|kinds|catalog|distinct|periodic"`定向測試，**2087項通過／3485項未選**。
+- 本功能未重跑完整179檔suite、未開瀏覽器gallery，也不宣稱跨瀏覽器／backend或效能驗證；不push。

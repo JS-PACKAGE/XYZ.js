@@ -37096,6 +37096,37 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'golfballdimples': {
+        const p = proceduralMaterialPresets.golfballdimples,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2a101),
+          rowSpacing = p.columns / p.rows,
+          inverseRadius2 = 1 / (p.radius * p.radius);
+        return () => {
+          // Hex-packed centres: odd rows are shifted by half a column. Distances use
+          // isotropic cell units; rows is even so the stagger parity wraps, and the
+          // bowl profile smooth(1 - q) has zero slope at its centre and rim.
+          const x = fract(u) * p.columns,
+            y = fract(v) * p.columns,
+            row = Math.floor(y / rowSpacing);
+          let nearest = Infinity;
+          for (let r = row - 1; r <= row + 1; r++) {
+            const offset = 0.25 + 0.5 * (((r % p.rows) + p.rows) % 2),
+              dx = x - (Math.round(x - offset) + offset),
+              dy = y - (r + 0.5) * rowSpacing;
+            nearest = Math.min(nearest, dx * dx + dy * dy);
+          }
+          const dimple = smooth(clamp(1 - nearest * inverseRadius2)),
+            grain = grainField(u, v);
+          color =
+            p.baseTone - p.dimpleTone * dimple + p.grainTone * (grain - 0.5);
+          height =
+            p.baseHeight - p.dimpleDepth * dimple + p.grainHeight * grain;
+          roughness +=
+            p.dimpleRoughness * dimple + p.grainRoughness * (grain - 0.5);
+          occlusion = 1 - p.dimpleOcclusion * dimple;
+          return;
+        };
+      }
       case 'laptopkeycaps': {
         const p = proceduralMaterialPresets.laptopkeycaps,
           tones = new Float64Array(p.cells * p.cells),
@@ -44422,6 +44453,7 @@ export function createSurfaceSampler(
     kind === 'perforatedhardboard' ||
     kind === 'qrcodelabel' ||
     kind === 'laptopkeycaps' ||
+    kind === 'golfballdimples' ||
     kind === 'thomsonite' ||
     kind === 'dalmatianstone' ||
     kind === 'basswood' ||

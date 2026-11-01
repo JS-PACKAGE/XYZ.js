@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`golfballdimples`（高爾夫球風格凹坑）使目前目錄894→895種，含plain的gallery為896項。7欄×8列的六角緊密排列圓形淺凹坑（奇數列錯半欄），凹坑為半徑0.46欄的球碗狀，碗中央較低、較暗（AO 0.55）且較粗糙，凹坑之間是較高、光滑、略亮的窄平台；整體為偏白的亮面塑膠。不是完整球體曲率、接縫線、印字或實際球上的凹坑數／分布。
+
+此材質是作者依一般高爾夫球凹坑外觀所作的平面示意，沒有引用特定來源文件、產品照片或量測，因此不宣稱符合任何實際球種、凹坑直徑／深度／數量或規範；色彩、roughness、AO、層高與0.028 m nominal tile（7欄、每欄4 mm）皆作者設定。7×8是為了讓六角列距（7/8≈0.875）近似理想的0.866且列數為偶數、錯位奇偶才能隨tile週期對齊。
+
+新增專用sampler：以各列的最近凹坑中心（奇數列偏移半欄、取上下相鄰三列）計算等向距離平方`q`，凹坑 = `smooth(1 − q/r²)`，在中心與邊緣的斜率皆為0，所以碗形與平台為C1；列數為偶數使錯位奇偶隨v週期對齊。只快取128² grain（16,384 Float64／131,072 B lattice算術預算，非總RAM）。金屬factor為0、無mortar；預設0.012 UV-relative relief（非公尺位移；提高到此值是因0.0012時法線幾乎全平）。三seed（0／1／0xffffffff）量測：碗心高度0.220–0.226 relief、碗心AO 0.55、碗心roughness 0.441–0.479；同列相鄰凹坑中點的平台高度0.620–0.626、AO 1、roughness 0.321–0.360；256²取樣AO<0.9占52.9%。seed7的512²平均base color r約231.8、AO<230占52.8%、法線max tilt²約0.030。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `laptopkeycaps`（chiclet筆電鍵帽）使目前目錄893→894種，含plain的gallery為895項。8×8格方陣，每格一顆圓角方形深色霧面鍵帽（以四次方超橢圓為輪廓，半寬0.43格，約占面積68%），鍵頂中央微凹（越近鍵緣越高），鍵與鍵之間是深色低窄縫（AO 0.25、roughness≥0.9）；每顆有細微不同的色調、霧面細grain與邊緣高光。沒有字符、背光、鍵軸或機身。
 
 此材質是作者依一般chiclet（島狀）鍵盤外觀所作示意，沒有引用特定來源文件、產品照片或量測，因此不宣稱符合任何實際鍵盤、鍵距、鍵帽輪廓或材料；色彩、roughness、AO、層高與0.152 m nominal tile（8格、每格19 mm）皆作者設定。
