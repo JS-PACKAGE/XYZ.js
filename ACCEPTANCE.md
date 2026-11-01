@@ -12035,3 +12035,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增7項（三seed統計與幾何、C1、actual512 maps、有符號UV週期），`-t "Red alder|redalder"`通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Red alder|redalder|Merbau|kinds|catalog|distinct|periodic"`定向測試**2181項通過／3754項未選**。
 - 未驗證：本材質未跑完整suite與瀏覽器gallery；與真實紅赤楊的外觀比對只有我對一張照片的主觀目視；不push。
+
+## 2026-11-02 新增材質：心電圖紙（ecgpaper）
+
+- 範圍：新增`ecgpaper`（目前目錄945→946種，含plain的gallery 947項）：淡粉紅色醫療記錄紙——每tile 40×40格的細格與每5格的粗格（`exp(−sin²(π·n·s)/w²)`整數線數），3條記錄帶各重複6個心跳描線（P、Q、R、S、T五個緊支撐凸起，各拍振幅±18%）；預設0.3 m nominal tile、0.0012 UV-relative relief。作者示意，沒有引用特定來源、標準或對照照片，**不可作醫療用途**；R波偏矮、T波頂部偏平。
+- 實作過程的問題（誠實紀錄）：這個材質讓我連續踩到三個不同的問題，都由C1測試抓出：（1）第一版描線用一階距離`dy/√(1 + 斜率²)`，陡峭的R波會把描線拉成貫穿整個記錄帶的長條，並在記錄帶邊界產生真實的跳變（二階差分約3.7×10⁹），因此加入「曲線可到達的垂直範圍」視窗與「記錄帶邊界」視窗，並把R波振幅由0.13降到0.11以便留在帶內；（2）接著出現約0.038的失敗，追查後發現是高斯波形的尾端不是精確的零（約10⁻¹²），各拍振幅不同使拍界產生微小跳變，被描線的陡峭響應放大；改為緊支撐凸起`a·smooth(1 − ((x − c)/s)²)`後消失；（3）再來是曲率過大（R波很窄時二階差分約0.057，雖是平滑函數但超過測試門檻）；把各波形寬度放寬後降到門檻以下。波形因此比較圓鈍，不像真實心電圖那樣尖銳。
+- 實測（工具實跑）：三seed 512²取樣墨線（color<0.3）占3.23–3.27%（seed 7為3.13%）、紙面（color>0.85）占73.8–73.9%、color 0.05–0.955、平均0.859–0.860、roughness 0.60–0.70、height至多0.983–0.992 relief；每條記錄帶基線與每拍R波頂端皆為墨色（測試逐拍驗證）；seed 0與1的墨色遮罩僅0.75%像素不同；seed 7的512²maps平均r／g／b約(228, 206, 206)、r<110占2.9%、法線tilt²最大約0.061、z分量最小251。我實看了預覽，整體像心電圖紙。
+- 測試：新增9項（三seed統計、基線與R波頂端逐拍驗證、seed差異與決定性、C1＋有符號UV週期、actual512 maps），`-t "ECG paper|ecgpaper"`通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "ECG paper|ecgpaper|kinds|catalog|distinct|periodic"`定向測試**2179項通過／3766項未選**。
+- 未驗證：本材質未跑完整suite與瀏覽器gallery（redalder亦未做）；不push。

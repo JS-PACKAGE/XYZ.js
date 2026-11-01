@@ -13350,6 +13350,32 @@ export declare const proceduralMaterialPresets: Readonly<{
         fiberRows: 9;
         fiberContrast: 0.1;
     }>;
+    ecgpaper: Readonly<{
+        dark: readonly [58, 10, 18];
+        light: readonly [255, 238, 236];
+        roughness: 0.7;
+        relief: 0.0012;
+        seedSalt: 60561;
+        minorLines: 40;
+        majorEvery: 5;
+        minorWidth: 0.1;
+        majorWidth: 0.13;
+        strips: 3;
+        beats: 6;
+        amplitude: 0.11;
+        traceWidth: 0.0035;
+        windowRamp: 0.01;
+        beatJitter: 0.18;
+        grainCells: 128;
+        paperTone: 0.94;
+        minorDrop: 0.1;
+        majorDrop: 0.22;
+        inkTone: 0.05;
+        grainTone: 0.03;
+        inkHeight: 0.6;
+        grainHeight: 0.4;
+        inkRoughness: -0.1;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -14674,4 +14700,5 @@ export declare const proceduralTileMeters: Readonly<{
     tilledsoil: 0.4;
     sherpafleece: 0.15;
     redalder: 0.18;
+    ecgpaper: 0.3;
 }>;

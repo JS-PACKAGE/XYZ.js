@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`ecgpaper`（心電圖紙）使目前目錄945→946種，含plain的gallery為947項。淡粉紅色醫療記錄紙：每tile 40×40格的細格線（每5格一條較粗的粗格線，共8×8大格），3條橫向的記錄帶，每帶重複6個心跳波形（P、Q、R、S、T波，各心跳振幅有±18%的差異），以深褐紅色細線描繪在各帶的基線上。不是真實心電圖的導程標示、校準方波、時間刻度、病理波形或列印文字；波形是示意的簡化曲線（T波的頂部偏平）。
+
+此材質是作者依一般心電圖記錄紙外觀所作示意，沒有引用特定來源文件、照片、醫學標準或量測，也沒有對照照片；格數（每tile 40×40、粗格每5格）、記錄帶數與心跳數（3帶×6拍）、各波形的位置與幅度、線寬、粉紅紙色與暗紅墨色、roughness與0.3 m nominal tile皆作者設定，不宣稱符合任何實際心電圖紙或可作醫療用途。
+
+新增專用sampler：細格與粗格各是每個方向一組整數線數的`exp(−sin²(π·n·s)/w²)`（C∞，隨tile wrap），兩個方向以聯集`1 − Π(1 − x)`合併；每一帶的心跳由P、Q、R、S、T五個緊支撐凸起組成——`a·smooth(1 − ((x − c)/s)²)`在`|x − c| ≥ s`時恰好為零且為C1，因此每一拍在自己的兩端精確歸零，各拍不同的振幅不會在拍與拍之間留下階梯（我最初用高斯，其尾端不是精確的零，使取樣在拍界產生約10⁻¹²的跳變，被C1測試放大成約0.038而失敗）；描線是寬0.0035的`exp(−d²/w²)`，`d = dy / √(1 + 斜率²)`為到曲線的一階距離，使陡峭的筆畫仍有相近的粗細，並以兩個C1視窗限制在曲線可到達的垂直範圍與自己的記錄帶內；格線與紙grain合成後以凸組合混入墨色；cache合計18＋16,384 = 16,402個Float64／131,216 B lattice算術預算（非總RAM）。顏色是顏料，墨線height約0.6 relief＋紙grain 0.4 relief、墨處roughness降低0.1；金屬factor為0、無mortar、AO 1。預設0.3 m nominal tile與0.0012 UV-relative relief（非公尺位移）。實測（工具實跑，seed 0／1／0xffffffff，512²取樣）：color<0.3的墨線占3.23–3.27%（seed 7為3.13%），color>0.85的紙面占73.8–73.9%，color 0.05–0.955，全圖平均0.859–0.860，roughness 0.60–0.70，height至多0.983–0.992 relief；每一條記錄帶的基線處與每一拍R波頂端皆為墨色（測試逐拍驗證，3帶×6拍）；seed 0與1的墨色遮罩只有0.75%像素不同（只有逐拍振幅與紙grain隨seed變）；seed 7的512²maps平均r／g／b約(228, 206, 206)、r<110占2.9%、法線tilt²最大約0.061。我實看了預覽：粉紅格紙上三條重複的心跳描線，整體像心電圖紙；但R波偏矮、T波頂部偏平，不像真實波形。未新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `redalder`（紅赤楊／北美西部赤楊）使目前目錄944→945種，含plain的gallery為946項。近似Alnus rubra未塗裝縱向木面：淡黃褐到略帶紅的均勻底色、細而均勻的質地、2條很淡的暗帶、縱向纖維與極少量（約0.15%）的細暗短痕（對應偶爾出現的聚合木射線）。不是邊材與心材的區別、聚合木射線的寬大條紋、節疤、波浪紋或塗層。
 
 外觀依據實際閱讀的[Wood Database Red Alder](https://www.wood-database.com/red-alder/)（Color／Appearance：淡黃褐到略帶紅的褐色，隨時間變深變紅，邊材與心材無明顯差別，偶爾有聚合木射線形成的小條紋；Grain／Texture：紋理通常平直、質地中等偏細而均勻；Endgrain：散孔材，導管小到中等且很多）與實際下載並實看的[木面照片](https://www.wood-database.com/wp-content/uploads/alnus-rubra.jpg)（淡黃褐的均勻面、極淡的縱向色變、零星細小的暗色短痕）；僅作配色與紋理形態參考，**不**重現聚合木射線的寬大條紋、節疤或波浪紋，不打包來源圖，也不由照片反推真色、roughness或實際尺寸；導管（散孔、很多）在本材質中因為過小而不可見，只以少量暗痕代表偶爾可見的木射線。

@@ -38886,6 +38886,105 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'ecgpaper': {
+        const p = proceduralMaterialPresets.ecgpaper,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseMinor2 = 1 / (p.minorWidth * p.minorWidth),
+          inverseMajor2 = 1 / (p.majorWidth * p.majorWidth),
+          inverseTrace2 = 1 / (p.traceWidth * p.traceWidth),
+          majorLines = p.minorLines / p.majorEvery,
+          // Per-beat amplitude, so beats differ slightly but every strip repeats
+          // identically across tile periods.
+          amplitudes = new Float64Array(p.beats * p.strips);
+        for (let i = 0; i < amplitudes.length; i++)
+          amplitudes[i] =
+            1 + p.beatJitter * 2 * (hash(i, 0, seed ^ p.seedSalt) - 0.5);
+        // One heartbeat as P, Q, R, S and T bumps over a beat phase in [0, 1),
+        // returned with its derivative. A bump is a * smooth(1 - ((x - c) / s)^2),
+        // compact (exactly zero for |x - c| >= s) and C1, so a beat is exactly zero at
+        // its own ends and the per-beat amplitudes never leave a step between beats.
+        const bump = (x: number, c: number, s: number, a: number): number[] => {
+          const t = (x - c) / s,
+            q = 1 - t * t;
+          if (q <= 0) return [0, 0];
+          const clamped = Math.min(q, 1);
+          return [
+            a * smooth(clamped),
+            a * (6 * clamped - 6 * clamped * clamped) * ((-2 * t) / s),
+          ];
+        };
+        const beat = (x: number): [number, number] => {
+          const parts = [
+            bump(x, 0.18, 0.09, 0.1),
+            bump(x, 0.38, 0.05, -0.12),
+            bump(x, 0.42, 0.06, 1),
+            bump(x, 0.46, 0.05, -0.22),
+            bump(x, 0.68, 0.14, 0.28),
+          ];
+          let value = 0,
+            slope = 0;
+          for (const [a, d] of parts) {
+            value += a;
+            slope += d;
+          }
+          return [value, slope];
+        };
+        return () => {
+          // Medical chart paper: a minor and a major grid (integer line counts, each
+          // exp(-sin^2(pi n s) / w^2), C-infinity) under a repeating heartbeat trace on
+          // each strip. The trace is a line of width w at the first-order distance
+          // dy / sqrt(1 + slope^2) from a smooth P-Q-R-S-T curve, so steep strokes keep
+          // a similar thickness. Grid and trace join as 1 - prod(1 - x) and a convex mix.
+          const sinU = Math.sin(Math.PI * p.minorLines * u),
+            sinV = Math.sin(Math.PI * p.minorLines * v),
+            minor =
+              1 -
+              (1 - Math.exp(-sinU * sinU * inverseMinor2)) *
+                (1 - Math.exp(-sinV * sinV * inverseMinor2)),
+            majorU = Math.sin(Math.PI * majorLines * u),
+            majorV = Math.sin(Math.PI * majorLines * v),
+            major =
+              1 -
+              (1 - Math.exp(-majorU * majorU * inverseMajor2)) *
+                (1 - Math.exp(-majorV * majorV * inverseMajor2)),
+            stripPosition = fract(v) * p.strips,
+            strip = Math.floor(stripPosition),
+            beatPosition = fract(u) * p.beats,
+            beatIndex = Math.floor(beatPosition),
+            [wave, waveSlope] = beat(beatPosition - beatIndex),
+            amplitude = amplitudes[strip * p.beats + beatIndex],
+            height0 = (stripPosition - strip - 0.5) / p.strips,
+            // The trace is drawn up (towards smaller v) by the wave value.
+            dy = height0 + p.amplitude * amplitude * wave,
+            slope = p.amplitude * amplitude * waveSlope * p.beats,
+            distance2 = (dy * dy) / (1 + slope * slope),
+            // The first-order distance is only meaningful near the curve, so the trace
+            // is windowed to the vertical range the curve can reach (up to 1.1 R heights
+            // up and 0.35 down).
+            reach = p.amplitude * amplitude,
+            window =
+              smooth(clamp((dy + 1.1 * reach) / p.windowRamp)) *
+              smooth(clamp((0.35 * reach - dy) / p.windowRamp)),
+            // Each strip owns its own band: the trace fades out before the strip edge so
+            // the per-strip lookup never creates a jump.
+            band = smooth(
+              clamp((0.5 / p.strips - Math.abs(height0)) / p.windowRamp),
+            ),
+            trace = Math.exp(-distance2 * inverseTrace2) * window * band,
+            grid = 1 - (1 - p.minorDrop * minor) * (1 - p.majorDrop * major),
+            grain = grainField(u, v);
+          color =
+            (p.paperTone - grid + p.grainTone * (grain - 0.5)) * (1 - trace) +
+            p.inkTone * trace;
+          height = p.inkHeight * trace + p.grainHeight * grain;
+          roughness += p.inkRoughness * trace;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -46639,6 +46738,7 @@ export function createSurfaceSampler(
     kind === 'tilledsoil' ||
     kind === 'sherpafleece' ||
     kind === 'redalder' ||
+    kind === 'ecgpaper' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

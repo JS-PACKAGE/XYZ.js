@@ -987,6 +987,7 @@ const kinds: ProceduralMaterialKind[] = [
   'tilledsoil',
   'sherpafleece',
   'redalder',
+  'ecgpaper',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -145942,6 +145943,220 @@ describe('Heat sink fins as anodised aluminium with flat fin tops, deep occluded
     expect(blue / (512 * 512)).toBeLessThan(90);
     expect(maxTilt).toBeGreaterThan(0.65);
     expect(maxTilt).toBeLessThan(0.78);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('ECG paper with a pink minor and major grid under repeating heartbeat traces', () => {
+  const p = proceduralMaterialPresets.ecgpaper;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const inkMask = (seed: number): boolean[] => {
+    const sample = createSurfaceSampler('ecgpaper', seed),
+      out = empty(),
+      mask: boolean[] = [];
+    for (let y = 0; y < 512; y++)
+      for (let x = 0; x < 512; x++) {
+        sample((x + 0.5) / 512, (y + 0.5) / 512, out);
+        mask.push(out.color < 0.3);
+      }
+    return mask;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps about three percent of the surface as dark trace ink over pale pink paper with a bounded range for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('ecgpaper', seed),
+        a = empty();
+      let ink = 0,
+        paper = 0,
+        low = 1,
+        high = 0,
+        mean = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 512; y++)
+        for (let x = 0; x < 512; x++) {
+          sample((x + 0.5) / 512, (y + 0.5) / 512, a);
+          ink += Number(a.color < 0.3);
+          paper += Number(a.color > 0.85);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          mean += a.color;
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(ink / 262144).toBeGreaterThan(0.031);
+      expect(ink / 262144).toBeLessThan(0.034);
+      expect(paper / 262144).toBeGreaterThan(0.73);
+      expect(paper / 262144).toBeLessThan(0.75);
+      expect(low).toBeCloseTo(p.inkTone, 6);
+      expect(high).toBeGreaterThan(0.95);
+      expect(high).toBeLessThan(0.96);
+      expect(mean / 262144).toBeGreaterThan(0.855);
+      expect(mean / 262144).toBeLessThan(0.865);
+      expect(roughLow).toBeCloseTo(p.roughness + p.inkRoughness, 6);
+      expect(roughHigh).toBeLessThanOrEqual(p.roughness);
+      expect(heightHigh).toBeGreaterThan(0.97);
+      expect(heightHigh).toBeLessThan(1);
+      expect(invalid).toBe(0);
+    },
+  );
+  it.each([0, 1, 0xffffffff])(
+    'puts the trace on every strip baseline and reaches ink at every R peak for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('ecgpaper', seed),
+        out = empty();
+      let baselines = 0,
+        peaks = 0;
+      for (let strip = 0; strip < p.strips; strip++) {
+        // Between beats the P wave has not started yet (phase 0.02), so the trace
+        // sits on the strip baseline.
+        for (let beat = 0; beat < p.beats; beat++) {
+          sample((beat + 0.02) / p.beats, (strip + 0.5) / p.strips, out);
+          baselines += Number(out.color < 0.1);
+          // The R peak is a flat top of the curve at phase 0.42, so some pixel in
+          // the strip column at that phase is on the trace.
+          let darkest = 1;
+          for (let i = 0; i < 400; i++) {
+            sample((beat + 0.42) / p.beats, (strip + i / 400) / p.strips, out);
+            darkest = Math.min(darkest, out.color);
+          }
+          peaks += Number(darkest < 0.1);
+        }
+      }
+      expect(baselines).toBe(p.strips * p.beats);
+      expect(peaks).toBe(p.strips * p.beats);
+    },
+  );
+  it('keeps the grid, trace and grain deterministic and the beat-to-beat amplitude jitter seed-dependent', () => {
+    const first = inkMask(0),
+      second = inkMask(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.002);
+    expect(inkMask(0)).toEqual(first);
+  });
+  it('keeps the grid lines, heartbeat trace and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('ecgpaper', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [
+        p.minorLines,
+        p.minorLines / p.majorEvery,
+        p.beats,
+        p.strips,
+        p.grainCells,
+      ])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 pale pink dielectric maps with shallow normals', () => {
+    const maps = generateProceduralMaps('ecgpaper', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      dark = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      dark += Number(maps.baseColor[i] < 110);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.normal[i + 2] < 245,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(222);
+    expect(red / (512 * 512)).toBeLessThan(232);
+    expect(green / (512 * 512)).toBeGreaterThan(201);
+    expect(green / (512 * 512)).toBeLessThan(211);
+    expect(blue / (512 * 512)).toBeGreaterThan(200);
+    expect(blue / (512 * 512)).toBeLessThan(211);
+    expect(dark / (512 * 512)).toBeGreaterThan(0.027);
+    expect(dark / (512 * 512)).toBeLessThan(0.032);
+    expect(maxTilt).toBeGreaterThan(0.045);
+    expect(maxTilt).toBeLessThan(0.08);
     expect(invalid).toBe(0);
   });
 });
