@@ -12009,3 +12009,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 修正：兩個材質共用的sampler把鄰格視窗改為5×5（可涵蓋最多兩格的延伸），不改任何preset。重新實測（工具實跑）：granola三seed（及seed 7）512²的底面外露、淡色塊、color範圍、平均、512 maps統計與修正前逐位相同（顯示的所有位數皆相同），代表這些seed在取樣範圍內本來就沒有發生過截斷；docs內相應的鄰格範圍說明已更正為5×5。`-t "Granola|granola|Tilled soil|tilledsoil"`的測試重跑通過。
 - 限制：現有的C1測試是隨機取樣，**不保證**能抓到這類罕見的截斷；我沒有為此另寫確定性的對抗測試，這個修正是靠閱讀程式與計算最壞情況推導出來的，不是靠新測試證明。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Granola|granola|Tilled soil|tilledsoil|kinds|catalog|distinct|periodic"`定向測試**2176項通過／3745項未選**。本修正未重跑完整suite；不push。
+
+## 2026-11-02 新增材質：雪帕刷毛布（sherpafleece）與完整suite紀錄
+
+- 範圍：新增`sherpafleece`（目前目錄943→944種，含plain的gallery 945項）：直接fallthrough重用既有兩層旋轉橢圓塊sampler（constructor只選preset，沒有新增sampler）——大團塊12×12格（半軸0.7–1.1格）與小團塊24×24格，每個像素合成5×5鄰格，邊緣受64×64雜訊擾動；縫隙地AO 0.4；預設0.15 m nominal tile、0.012 UV-relative relief。作者示意，沒有引用特定來源、**沒有對照照片**。
+- 外觀限制與調整紀錄（誠實紀錄）：預覽更像奶油色碎屑／爆米花而不像真實刷毛布的纖維，只是勉強近似；第一版（22×22格、較小團塊）像粗砂，第二版放大團塊後才採用。第一版色調讓color最高達1.01（超出[0,1]），降低團塊色調與穹頂後最高0.93。第二版的團塊最遠可延伸約1.8格，使C1測試報出約2.5×10⁹的失敗——這也是前一個commit（`Widen granola and tilled soil piece window to 5x5`）發現granola與tilledsoil有同類潛在截斷問題的來源。
+- 實測（工具實跑）：三seed 512²取樣亮簇（color>0.7）占38.8–41.3%、縫隙地（AO<0.45）占0.92–1.72%、color 0.234–0.931、平均0.659–0.670、roughness恆為0.92、最低AO 0.4、height至多0.996–0.998 relief；seed 0與1的亮簇遮罩48.2%像素不同；seed 7的512²maps平均r／g／b約(203, 191, 174)、AO<200占5.2%、法線tilt²最大約0.788、z分量最小186。
+- 測試：新增6項專屬測試（以tilledsoil的測試為範本改寫數值；三seed統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps），`-t "Sherpa fleece|sherpafleece"`通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Sherpa fleece|sherpafleece|kinds|catalog|distinct|periodic"`定向測試**2173項通過／3755項未選**。
+- 完整suite（工具實跑，worktree `/private/tmp/xyz-ct-suite`於`9a1be8a97`「Add heat sink fins material」，與tilledsoil等的gates同時執行）：**179檔／9,843項全數通過**，Duration 1424.17s。涵蓋`047b7f742`之後的granola、kawung、pancake、garlicskin、jerky、heatsinkfins（含heatsinkfins對`ProceduralMaterial`金屬factor清單的修改）；tilledsoil、5×5修正與sherpafleece則只有定向測試與gates。
+- 未驗證：本材質未跑瀏覽器gallery（garlicskin、jerky、heatsinkfins、tilledsoil亦未做）；不push。

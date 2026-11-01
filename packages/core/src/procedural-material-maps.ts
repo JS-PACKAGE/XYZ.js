@@ -38461,11 +38461,14 @@ export function createSurfaceSampler(
         };
       }
       case 'granola':
-      case 'tilledsoil': {
+      case 'tilledsoil':
+      case 'sherpafleece': {
         const p =
             kind === 'tilledsoil'
               ? proceduralMaterialPresets.tilledsoil
-              : proceduralMaterialPresets.granola,
+              : kind === 'sherpafleece'
+                ? proceduralMaterialPresets.sherpafleece
+                : proceduralMaterialPresets.granola,
           grainField = cachedNoise(
             p.grainCells,
             p.grainCells,
@@ -38548,8 +38551,9 @@ export function createSurfaceSampler(
           rest = 1;
         // Composite the pieces of one layer over what is already painted, in a fixed
         // 5x5 order (the largest piece, with maximum stretch and edge perturbation, can
-        // reach a little over one cell past its own, so a 3x3 window could cut it): value = value * (1 - m) + piece * m, with m a smooth mask of a
-        // smooth(1 - q) rotated ellipse, so overlaps stay C1.
+        // reach a little over one cell past its own, so a 3x3 window could cut it):
+        // value = value * (1 - m) + piece * m, with m a smooth mask of a smooth(1 - q)
+        // rotated ellipse, so overlaps stay C1.
         const paint = (layer: typeof flakes, u: number, v: number): void => {
           const wobble = 1 + p.edgeNoise * 2 * (edgeField(u, v) - 0.5),
             n = layer.cells,
@@ -46631,6 +46635,7 @@ export function createSurfaceSampler(
     kind === 'jerky' ||
     kind === 'heatsinkfins' ||
     kind === 'tilledsoil' ||
+    kind === 'sherpafleece' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

@@ -21540,6 +21540,47 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: .2,
 		groundOcclusion: .55
 	}),
+	sherpafleece: Object.freeze({
+		dark: [
+			112,
+			88,
+			64
+		],
+		light: [
+			250,
+			244,
+			230
+		],
+		roughness: .92,
+		relief: .012,
+		seedSalt: 24095,
+		flakeCells: 12,
+		flakeChance: 1,
+		flakeSizeMinimum: .7,
+		flakeSizeVariation: .4,
+		flakeStretch: .45,
+		flakeJitter: .5,
+		flakeTone: .52,
+		flakeToneVariation: .12,
+		chunkCells: 24,
+		chunkChance: .7,
+		chunkSizeMinimum: .45,
+		chunkSizeVariation: .4,
+		chunkStretch: .3,
+		chunkJitter: .5,
+		chunkTone: .58,
+		chunkToneVariation: .14,
+		edgeSoft: .6,
+		edgeCells: 64,
+		edgeNoise: .25,
+		groundTone: .3,
+		domeTone: .2,
+		grainCells: 128,
+		grainTone: .03,
+		domeHeight: .85,
+		grainHeight: .15,
+		groundOcclusion: .6
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -22980,7 +23021,8 @@ var proceduralTileMeters = Object.freeze({
 	garlicskin: .1,
 	jerky: .12,
 	heatsinkfins: .1,
-	tilledsoil: .4
+	tilledsoil: .4,
+	sherpafleece: .15
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;
