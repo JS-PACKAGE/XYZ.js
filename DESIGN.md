@@ -1307,6 +1307,10 @@
 
 這是作者設計的示意：沒有真實的紅、黃色（顏色是以dark／light兩端線性插值的亮度，所以第一位玩家是中間藍灰色、第二位玩家是近白色）；這是隨機合法局面，不是策略對局，也沒有保證可由雙方「合理」下出來。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上讓每個孔約73 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`bingocard`（賓果卡）使目前目錄936→937種，含plain的gallery為938項。每tile 6×6格，左側5欄×6列是一張賓果卡：第一列是淡灰底的「B I N G O」標題（3×5點陣字型），其下5列各格依標準範圍填入數字——B欄1–15、I欄16–30、N欄31–45、G欄46–60、O欄61–75，同一欄內數字互異且由seed隨機選取；中央格（N欄第三列）是空格「free space」，以灰色圓點標示；約25%的數字格被畫上圓圈標記（daub）。卡片外框較粗；右側第六欄是空白邊距，使重複時卡片之間有間隔。Metallic與mortar為0。
+
+這是作者設計的示意：卡上的數字不代表任何實際叫號的狀態（圓圈標記是隨機的，不保證與任何叫號序列一致，也不判斷是否已連線）；字型是3×5點陣，沒有印刷的圖案、卡號或廣告。標題的字母B、I、N、G、O在字型中以點陣近似。預設0.3 m nominal tile、0.0014 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上讓每格約85 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

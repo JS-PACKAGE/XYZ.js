@@ -7863,6 +7863,35 @@ export declare const proceduralMaterialPresets: Readonly<{
         frameRoughness: 0.4;
         holeAO: 0.5;
     }>;
+    bingocard: Readonly<{
+        dark: readonly [28, 26, 40];
+        light: readonly [248, 242, 226];
+        roughness: 0.7;
+        relief: 0.0014;
+        cells: 6;
+        cardColumns: 5;
+        pixel: 0.09;
+        lineHalf: 0.02;
+        outerHalf: 0.04;
+        ringRadius: 0.45;
+        ringHalf: 0.025;
+        daubChance: 0.25;
+        edgeSoft: 0.012;
+        inkCells: 192;
+        paperCells: 256;
+        paperTone: 0.94;
+        headerTone: 0.72;
+        lineTone: 0.12;
+        digitTone: 0.07;
+        ringTone: 0.3;
+        freeTone: 0.55;
+        inkGain: 0.08;
+        paperGrain: 0.04;
+        inkHeight: 0.56;
+        paperHeight: 0.3;
+        inkRoughness: 0.44;
+        paperRoughness: 0.76;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -14348,6 +14377,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    bingocard: 0.3;
     connectfourboard: 0.5;
     ramennoodles: 0.3;
     jigsawpuzzle: 0.5;

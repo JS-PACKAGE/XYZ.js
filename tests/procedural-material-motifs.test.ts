@@ -6602,3 +6602,135 @@ describe('connectfourboard: a reachable mid-game position without a finished lin
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('bingocard: a standard BINGO card', () => {
+  const p = proceduralMaterialPresets.bingocard;
+  const n = p.cells;
+  // 3x5 pixel glyphs written out independently of the sampler.
+  const digits = [
+    '111101101101111',
+    '010110010010111',
+    '111001111100111',
+    '111001111001111',
+    '101101111001001',
+    '111100111001111',
+    '111100111101111',
+    '111001001010010',
+    '111101111101111',
+    '111101111001111',
+  ];
+  const letters: Record<string, string> = {
+    B: '110101110101110',
+    I: '111010010010111',
+    N: '101111111101101',
+    G: '111100101101111',
+    O: '111101101101111',
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5])(
+    'prints BINGO over columns of distinct numbers in the standard ranges with a free center (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('bingocard', seed),
+        out = empty(),
+        dark = (col: number, row: number, fx: number, fy: number): boolean => {
+          sample((col + fx) / n, (row + fy) / n, out);
+          return out.color < 0.2;
+        },
+        // Read a glyph whose top-left pixel center is at the given pixel offsets from the cell center.
+        glyphAt = (col: number, row: number, firstPixel: number): string => {
+          let bits = '';
+          for (let y = 0; y < 5; y++)
+            for (let x = 0; x < 3; x++)
+              bits += dark(
+                col,
+                row,
+                0.5 + (firstPixel + x + 0.5) * p.pixel,
+                0.5 + (y - 2.5 + 0.5) * p.pixel,
+              )
+                ? '1'
+                : '0';
+          return bits;
+        };
+      // Header: the letters of BINGO, one per column.
+      'BINGO'
+        .split('')
+        .forEach((letter, col) =>
+          expect(glyphAt(col, 0, -1.5)).toBe(letters[letter]),
+        );
+      let daubs = 0;
+      for (let col = 0; col < p.cardColumns; col++) {
+        const seen = new Set<number>();
+        for (let row = 1; row <= 5; row++) {
+          // A single digit sits centered; two digits sit side by side, 4 pixels apart.
+          const single = digits.indexOf(glyphAt(col, row, -1.5)),
+            left = digits.indexOf(glyphAt(col, row, -3.5)),
+            right = digits.indexOf(glyphAt(col, row, 0.5));
+          let value: number | undefined;
+          if (col === 2 && row === 3) {
+            // The free space: no digits, but a mark at the center.
+            expect(glyphAt(col, row, -1.5)).toBe('0'.repeat(15));
+            sample((col + 0.5) / n, (row + 0.5) / n, out);
+            expect(out.color).toBeLessThan(0.75);
+            continue;
+          }
+          if (single >= 0 && !(left >= 0 && right >= 0)) value = single;
+          else if (left >= 0 && right >= 0) value = left * 10 + right;
+          expect(value).toBeDefined();
+          const number = value as number;
+          // Column c holds 15c + 1 .. 15c + 15, each at most once.
+          expect(number).toBeGreaterThanOrEqual(15 * col + 1);
+          expect(number).toBeLessThanOrEqual(15 * col + 15);
+          expect(seen.has(number)).toBe(false);
+          seen.add(number);
+          // A daubed cell has a ring around the digits (probe the left edge of the ring).
+          sample((col + 0.5 - p.ringRadius) / n, (row + 0.5) / n, out);
+          daubs += Number(out.color < 0.5);
+        }
+        expect(seen.size).toBe(col === 2 ? 4 : 5);
+      }
+      // About the authored share of the 24 numbered cells is daubed.
+      expect(daubs / 24).toBeLessThan(p.daubChance + 0.3);
+      // The sixth column is blank margin.
+      for (let row = 0; row < n; row++) {
+        sample((5.5 + 0.1) / n, (row + 0.5) / n, out);
+        expect(out.color).toBeGreaterThan(0.8);
+      }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('bingocard', 0),
+      b = createSurfaceSampler('bingocard', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

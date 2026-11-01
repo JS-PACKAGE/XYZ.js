@@ -13999,6 +13999,43 @@ var proceduralMaterialPresets = Object.freeze({
 		frameRoughness: .4,
 		holeAO: .5
 	}),
+	bingocard: Object.freeze({
+		dark: [
+			28,
+			26,
+			40
+		],
+		light: [
+			248,
+			242,
+			226
+		],
+		roughness: .7,
+		relief: .0014,
+		cells: 6,
+		cardColumns: 5,
+		pixel: .09,
+		lineHalf: .02,
+		outerHalf: .04,
+		ringRadius: .45,
+		ringHalf: .025,
+		daubChance: .25,
+		edgeSoft: .012,
+		inkCells: 192,
+		paperCells: 256,
+		paperTone: .94,
+		headerTone: .72,
+		lineTone: .12,
+		digitTone: .07,
+		ringTone: .3,
+		freeTone: .55,
+		inkGain: .08,
+		paperGrain: .04,
+		inkHeight: .56,
+		paperHeight: .3,
+		inkRoughness: .44,
+		paperRoughness: .76
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -22680,6 +22717,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	bingocard: .3,
 	connectfourboard: .5,
 	ramennoodles: .3,
 	jigsawpuzzle: .5,

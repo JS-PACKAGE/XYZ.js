@@ -11771,3 +11771,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 調色記錄：第一版沿用預設的「深色→黃色」色階，預覽中面板變成橄欖綠、與圓盤難以區分；把色階兩端改為深藍（8,12,64）到冷白（238,242,255），面板變成藍色、圓盤分成中間色與近白。
 - 實測：`tests/procedural-material-motifs.test.ts`三百一十三項（本材質十二項）全過。十一個seed（0、7、4294967295、1至8）：在孔心取樣，色調＜0.15為空、0.38–0.62為先手盤、＞0.8為後手盤，每個孔都能歸類；每欄的圓盤從底列起連續堆疊、中間沒有空洞；先手圓盤數減後手為0或1；總數不少於16且不超過30；水平、垂直、兩個對角方向都沒有任何一方有四連線；通道範圍、metallic／mortar 0、wrap與seed差異。這只驗證局面的必要條件（重力、手數奇偶、無贏線），沒有驗證兩邊是否能「合理」下出這個局面。`tests/procedural-material.test.ts`以`-t "connectfourboard|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`connectfourboard`：option 937個、status為936 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的棋盤、圓盤與底座。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：賓果卡（bingocard）
+
+- 目錄936→937，含plain的gallery為938項。每tile 6×6格：左側5欄×6列是賓果卡（淡灰底「BINGO」標題、各欄依標準範圍1–15／16–30／31–45／46–60／61–75的互異數字、中央空格、約25%圓圈標記），右側一欄是空白邊距。Metallic／mortar為0，預設tile0.3 m、0.0014 UV-relative relief、metallic factor 0。圓圈標記為隨機、不代表叫號狀態；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 設計記錄：第一版草稿的格線運算寫得太繞，且留有許多`void`的暫時變數，在寫入前重寫；預覽中圓圈標記（半徑0.43格）與兩位數字的角落相交（字型角落距中心約0.43格），把字型像素由0.1縮為0.09格、圓圈半徑加大到0.45格，圓圈與數字之間才有空隙。
+- 實測：`tests/procedural-material-motifs.test.ts`三百二十二項（本材質九項）全過。八個seed（0、7、4294967295、1至5）：標題五格解碼為B、I、N、G、O；每個數字格以測試端獨立寫出的3×5字型解碼（單一數字置中、兩位數字並排間隔4像素），每個值都落在其欄的標準範圍內、同欄內不重複、每欄恰5個（N欄4個加中央空格）；中央空格沒有數字但中心有標記；右側空白欄（紙面）亮度＞0.8；圓圈標記占比＜0.55（寬鬆上限，因為只有24格，統計上隨機）；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "bingocard|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`bingocard`：option 938個、status為937 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的卡片、標題與圓圈標記。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

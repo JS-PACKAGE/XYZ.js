@@ -20579,6 +20579,131 @@ export function createSurfaceSampler(
           occlusion = clamp(1 - (1 - p.holeAO) * hole * (1 - disc));
         };
       }
+      case 'bingocard': {
+        const p = proceduralMaterialPresets.bingocard,
+          inkField = cachedNoise(p.inkCells, p.inkCells, seed ^ 0x27301),
+          paperField = cachedNoise(p.paperCells, p.paperCells, seed ^ 0x27303),
+          // 3x5 pixel glyphs: the digits 0-9 and the letters B, I, N, G, O.
+          digitGlyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001001010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          letterGlyphs = [
+            '110101110101110',
+            '111010010010111',
+            '101111111101101',
+            '111100101101111',
+            '111101101101111',
+          ],
+          n = p.cells,
+          columns = p.cardColumns,
+          // Column c draws five distinct numbers from 15c + 1 .. 15c + 15; the middle cell of the
+          // middle column is the free space, stored as 0.
+          numbers = new Uint8Array(columns * 5),
+          daubed = new Uint8Array(columns * 5),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          pixelOn = (glyph: string, x: number, y: number): boolean =>
+            x >= 0 && x < 3 && y >= 0 && y < 5 && glyph[y * 3 + x] === '1';
+        for (let c = 0; c < columns; c++) {
+          const pool = Array.from({ length: 15 }, (_, i) => c * 15 + i + 1);
+          for (let r = 0; r < 5; r++) {
+            const pick = Math.min(
+              pool.length - 1,
+              Math.floor(hash(c * 5 + r, 1, seed ^ 0x27305) * pool.length),
+            );
+            numbers[c * 5 + r] = pool.splice(pick, 1)[0];
+            daubed[c * 5 + r] =
+              hash(c * 5 + r, 2, seed ^ 0x27307) < p.daubChance ? 1 : 0;
+          }
+        }
+        numbers[2 * 5 + 2] = 0;
+        daubed[2 * 5 + 2] = 0;
+        return () => {
+          const gx = u * n,
+            gy = v * n,
+            col = Math.min(n - 1, Math.floor(gx)),
+            row = Math.min(n - 1, Math.floor(gy)),
+            fx = gx - col,
+            fy = gy - row,
+            grain = paperField(u, v) - 0.5,
+            gain = inkField(u, v) - 0.5,
+            onCard = col < columns;
+          // Grid: vertical lines at the card edges (thick) and between columns, horizontal lines
+          // between all rows, but only across the card.
+          const lineX = Math.round(gx) % n,
+            vertical =
+              lineX <= columns
+                ? cover(
+                    (lineX === 0 || lineX === columns
+                      ? p.outerHalf
+                      : p.lineHalf) - Math.abs(gx - Math.round(gx)),
+                  )
+                : 0,
+            horizontal = onCard
+              ? cover(p.lineHalf - Math.abs(gy - Math.round(gy)))
+              : 0,
+            grid = Math.max(vertical, horizontal);
+          let glyphInk = 0,
+            ring = 0,
+            freeDot = 0,
+            header = 0;
+          if (onCard && row === 0) {
+            header = 1;
+            const x = Math.floor((fx - 0.5) / p.pixel + 1.5),
+              y = Math.floor((fy - 0.5) / p.pixel + 2.5);
+            glyphInk = pixelOn(letterGlyphs[col], x, y) ? 1 : 0;
+          } else if (onCard) {
+            const index = col * 5 + (row - 1),
+              value = numbers[index];
+            if (value === 0) {
+              freeDot = cover(0.26 - Math.hypot(fx - 0.5, fy - 0.5));
+            } else {
+              const label = String(value),
+                width = 4 * label.length - 1,
+                x = Math.floor((fx - 0.5) / p.pixel + width / 2),
+                y = Math.floor((fy - 0.5) / p.pixel + 2.5),
+                glyph = Math.floor(x / 4);
+              if (x >= 0 && x < width && x % 4 < 3 && glyph < label.length)
+                glyphInk = pixelOn(digitGlyphs[Number(label[glyph])], x % 4, y)
+                  ? 1
+                  : 0;
+            }
+            if (daubed[index])
+              ring = cover(
+                p.ringHalf -
+                  Math.abs(Math.hypot(fx - 0.5, fy - 0.5) - p.ringRadius),
+              );
+          }
+          const paper =
+              p.paperTone +
+              p.paperGrain * grain -
+              (header ? p.paperTone - p.headerTone : 0),
+            ink = Math.max(grid, glyphInk, ring, freeDot),
+            tone =
+              glyphInk >= Math.max(grid, ring, freeDot)
+                ? p.digitTone
+                : grid >= Math.max(ring, freeDot)
+                  ? p.lineTone
+                  : ring >= freeDot
+                    ? p.ringTone
+                    : p.freeTone;
+          color = clamp(paper + (tone + p.inkGain * gain - paper) * ink);
+          height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * ink);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -48108,6 +48233,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'bingocard' ||
     kind === 'connectfourboard' ||
     kind === 'ramennoodles' ||
     kind === 'jigsawpuzzle' ||
