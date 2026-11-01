@@ -2680,3 +2680,109 @@ describe('mandalaflower: layered rotational-symmetric petals', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('needlepoint: slanted wool stitches in a repeating diamond motif', () => {
+  const p = proceduralMaterialPresets.needlepoint;
+  const n = p.stitches;
+  const tones = [...p.ringTones, p.accentTone];
+  const nearest = (color: number): number => {
+    let best = 0;
+    for (let i = 1; i < tones.length; i++)
+      if (Math.abs(color - tones[i]) < Math.abs(color - tones[best])) best = i;
+    return best;
+  };
+
+  it.each(seeds)(
+    'tiles a mirror-symmetric motif with the authored period and slants every stitch (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('needlepoint', seed),
+        out = empty(),
+        grid = new Uint8Array(n * n);
+      let invalid = 0;
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          // Stitch center: full cover, so the color is the cell tone (plus ply ripple).
+          sample((x + 0.5) / n, (y + 0.5) / n, out);
+          grid[y * n + x] = nearest(out.color);
+        }
+      const size = 384,
+        color = new Float64Array(size * size);
+      let holes = 0;
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          sample((x + 0.5) / size, (y + 0.5) / size, out);
+          invalid += Number(out.metallic !== 0 || out.mortar !== 0);
+          for (const value of [
+            out.color,
+            out.height / p.relief,
+            out.roughness,
+            out.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+          color[y * size + x] = out.height;
+          holes += Number(out.occlusion < (p.holeAO + 1) / 2);
+        }
+      expect(invalid).toBe(0);
+      // Motif: the same tone class one motif further, and mirrored inside every motif.
+      let periodic = 0,
+        mirrored = 0;
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          periodic += Number(
+            grid[y * n + x] ===
+              grid[((y + p.motif) % n) * n + ((x + p.motif) % n)],
+          );
+          const mx = p.motif - 1 - (x % p.motif),
+            my = p.motif - 1 - (y % p.motif),
+            base = Math.floor(x / p.motif) * p.motif,
+            baseY = Math.floor(y / p.motif) * p.motif;
+          mirrored += Number(
+            grid[y * n + x] === grid[(baseY + my) * n + (base + mx)] &&
+              grid[y * n + x] === grid[y * n + (base + mx)],
+          );
+        }
+      expect(periodic).toBe(n * n);
+      expect(mirrored).toBe(n * n);
+      // All four tone classes appear; the cross accent covers 44 of the 144 cells of a motif.
+      const accent = grid.filter((c) => c === 3).length / grid.length;
+      expect(Math.abs(accent - 44 / 144)).toBeLessThan(0.01);
+      for (let c = 0; c < tones.length; c++)
+        expect(grid.some((value) => value === c)).toBe(true);
+      // Ridge direction: stitches run along (1, 1), so height gradients anti-correlate.
+      let covariance = 0;
+      for (let y = 1; y < size - 1; y++)
+        for (let x = 1; x < size - 1; x++) {
+          const gx = color[y * size + x + 1] - color[y * size + x - 1],
+            gy = color[(y + 1) * size + x] - color[(y - 1) * size + x];
+          covariance += gx * gy;
+        }
+      expect(covariance).toBeLessThan(0);
+      // Canvas gaps and stitch edges (AO well below 1) are a sizable minority, not most, of the surface.
+      expect(holes / (size * size)).toBeGreaterThan(0.15);
+      expect(holes / (size * size)).toBeLessThan(0.5);
+    },
+  );
+
+  it('wraps seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('needlepoint', 0),
+      b = createSurfaceSampler('needlepoint', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        expect(two.height).toBeCloseTo(one.height, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(100);
+  });
+});

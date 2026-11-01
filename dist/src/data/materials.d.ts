@@ -7036,6 +7036,34 @@ export declare const proceduralMaterialPresets: Readonly<{
         outlineDepth: 0.1;
         grainHeight: 0.03;
     }>;
+    needlepoint: Readonly<{
+        dark: readonly [34, 22, 40];
+        light: readonly [244, 226, 196];
+        roughness: 0.86;
+        relief: 0.0026;
+        stitches: 48;
+        motif: 12;
+        halfWidth: 0.27;
+        halfLength: 0.66;
+        lengthPower: 4;
+        edgeSoft: 0.12;
+        plyAlong: 2.5;
+        plyAcross: 1.2;
+        ringTones: readonly [0.16, 0.5, 0.8];
+        ringWidth: 2;
+        accentTone: 0.94;
+        accentHalf: 1;
+        jitter: 0.03;
+        plyTone: 0.07;
+        holeTone: 0.03;
+        holeHeight: 0.04;
+        stitchHeight: 0.62;
+        baseHeight: 0.3;
+        plyHeight: 0.06;
+        holeRoughness: 0.95;
+        stitchRoughness: 0.82;
+        holeAO: 0.45;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -13521,6 +13549,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    needlepoint: 0.3;
     mandalaflower: 0.6;
     kiwislices: 0.25;
     hazardstripes: 0.5;

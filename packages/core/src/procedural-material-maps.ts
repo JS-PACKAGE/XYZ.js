@@ -17861,6 +17861,59 @@ export function createSurfaceSampler(
           height = clamp(height + p.grainHeight * (grain - 0.5));
         };
       }
+      case 'needlepoint': {
+        const p = proceduralMaterialPresets.needlepoint,
+          jitter = new Float64Array(p.stitches * p.stitches),
+          inverseEdge = 1 / p.edgeSoft,
+          inverseWidth = 1 / p.halfWidth,
+          inverseLength = 1 / p.halfLength,
+          centerOffset = (p.motif - 1) / 2;
+        for (let y = 0; y < p.stitches; y++)
+          for (let x = 0; x < p.stitches; x++)
+            jitter[y * p.stitches + x] = hash(x, y, seed ^ 0x25401) - 0.5;
+        return () => {
+          const su = u * p.stitches,
+            sv = v * p.stitches,
+            cx = Math.floor(su),
+            cy = Math.floor(sv),
+            // Half-cell coordinates inside the stitch cell; the stitch runs along (1, 1).
+            x = su - cx - 0.5,
+            y = sv - cy - 0.5,
+            along = (x + y) * Math.SQRT1_2,
+            across = (x - y) * Math.SQRT1_2,
+            // Motif coordinates centered on the repeat: diamond rings plus a cross accent.
+            mx = (((cx % p.motif) + p.motif) % p.motif) - centerOffset,
+            my = (((cy % p.motif) + p.motif) % p.motif) - centerOffset,
+            ring =
+              Math.floor((Math.abs(mx) + Math.abs(my)) / p.ringWidth) %
+              p.ringTones.length,
+            accent = Math.abs(mx) < p.accentHalf || Math.abs(my) < p.accentHalf,
+            tone =
+              (accent ? p.accentTone : p.ringTones[ring]) +
+              p.jitter * jitter[cy * p.stitches + cx],
+            reach = Math.sqrt(
+              (across * inverseWidth) ** 2 +
+                (Math.abs(along) * inverseLength) ** p.lengthPower,
+            ),
+            cover = smooth(clamp((1 - reach) * inverseEdge * 2 + 0.5)),
+            dome = Math.sqrt(clamp(1 - reach * reach)),
+            ply =
+              0.5 +
+              0.5 * Math.cos(TAU * (along * p.plyAlong + across * p.plyAcross));
+          color = clamp(
+            p.holeTone + (tone + p.plyTone * (ply - 0.5) - p.holeTone) * cover,
+          );
+          height = clamp(
+            p.holeHeight +
+              (p.baseHeight - p.holeHeight) * cover +
+              p.stitchHeight * dome * cover +
+              p.plyHeight * (ply - 0.5) * cover,
+          );
+          roughness =
+            p.holeRoughness + (p.stitchRoughness - p.holeRoughness) * cover;
+          occlusion = clamp(p.holeAO + (1 - p.holeAO) * cover);
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -45390,6 +45443,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'needlepoint' ||
     kind === 'mandalaflower' ||
     kind === 'kiwislices' ||
     kind === 'hazardstripes' ||

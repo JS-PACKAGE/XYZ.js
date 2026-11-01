@@ -11549,3 +11549,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實作調整：初稿用一個`[edge, tone, level][]`陣列在每個像素迴圈四個圖層，會每個樣本配置一個陣列；改成constructor內的`paint`閉包後無每點配置。輪廓測試初版用相鄰兩個取樣點判斷「谷底」，但輪廓底部是平的（寬0.008），所以一律0；改為與一個輪廓寬度外的取樣比較並合併相距＜0.02的谷底，三seed沿一條射線都量到3個輪廓（位置依seed旋轉而不同，如0.104／0.130／0.395）。
 - 實測：`tests/procedural-material-motifs.test.ts`一百三十一項（本材質七項）全過：以圓周色彩的角向諧波（k＝2..72功率最大者）驗證三seed下各層的旋轉對稱數——內層花瓣圈＝12、外層花瓣圈＝24、點環（半徑0.27）＝36、蓮瓣圈＝12；中心色接近hub色；通道範圍與wrap／seed差異。`tests/procedural-material.test.ts`以`-t "mandalaflower|every preset"`定向跑3項通過，沒有重跑該檔其餘5526項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`mandalaflower`：option 906個、status為905 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼無接縫、各層花瓣與點環可辨。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：針繡織錦（needlepoint）
+
+- 目錄905→906，含plain的gallery為907項。每tile 48×48針、沿(1,1)方向傾斜的半十字針腳（半寬0.27格、半長0.66格，含兩股絞線起伏），針腳間露出深色畫布孔隙；色彩為每tile 4×4個重複的12×12針母題（同心菱形環＋穿過中心的十字亮色重點，左右上下鏡像對稱，每針±0.03色調抖動）。Metallic／mortar為0，預設tile0.3 m、0.0026 UV-relative relief、metallic factor 0。目錄中已有`Bargello flame needlepoint`相關的另一個種類（火焰針法）；本種類是半十字針＋菱形環母題，圖樣不同，沒有改名或取代舊種類。作者設計的簡化示意，未打包外部圖樣。仍在獨立worktree分支`materials/more-textures`作業。
+- 調整記錄：第一版針腳半寬0.2／半長0.62，預覽看起來畫布孔隙占一半以上而不像針繡；放寬到0.27／0.66後覆蓋率明顯提高。測試的「孔隙」比例（AO低於(holeAO+1)/2的像素）原先猜錯為＜0.3，實測0.375，所以門檻改為0.15–0.5（以實測定，並如實標註此值包含針腳邊緣的暗部，不只是畫布孔）。
+- 實測：`tests/procedural-material-motifs.test.ts`一百三十五項（本材質四項）全過：三seed對48×48個針腳中心取色並分類為四個色調（最近色階），各針腳的色調類別在+12針位移處100%相同（母題週期）、在每個母題內左右與上下鏡像100%相同、十字亮色重點占每個母題的44/144（容差0.01）、四種色階都出現；高度場梯度共變異數Σgx·gy＜0（針腳沿(1,1)方向）；通道範圍與wrap／seed差異。`tests/procedural-material.test.ts`以`-t "needlepoint|every preset"`定向跑7項通過（含既有Bargello火焰針繡的測試，名稱也含needlepoint）；沒有重跑該檔其餘5523項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`needlepoint`：option 907個、status為906 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼無接縫、傾斜針腳與菱形環母題可辨。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

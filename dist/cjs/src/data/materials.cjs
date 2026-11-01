@@ -12859,6 +12859,46 @@ var proceduralMaterialPresets = Object.freeze({
 		outlineDepth: .1,
 		grainHeight: .03
 	}),
+	needlepoint: Object.freeze({
+		dark: [
+			34,
+			22,
+			40
+		],
+		light: [
+			244,
+			226,
+			196
+		],
+		roughness: .86,
+		relief: .0026,
+		stitches: 48,
+		motif: 12,
+		halfWidth: .27,
+		halfLength: .66,
+		lengthPower: 4,
+		edgeSoft: .12,
+		plyAlong: 2.5,
+		plyAcross: 1.2,
+		ringTones: [
+			.16,
+			.5,
+			.8
+		],
+		ringWidth: 2,
+		accentTone: .94,
+		accentHalf: 1,
+		jitter: .03,
+		plyTone: .07,
+		holeTone: .03,
+		holeHeight: .04,
+		stitchHeight: .62,
+		baseHeight: .3,
+		plyHeight: .06,
+		holeRoughness: .95,
+		stitchRoughness: .82,
+		holeAO: .45
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -21540,6 +21580,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	needlepoint: .3,
 	mandalaflower: .6,
 	kiwislices: .25,
 	hazardstripes: .5,
