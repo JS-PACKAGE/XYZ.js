@@ -14761,6 +14761,44 @@ var proceduralMaterialPresets = Object.freeze({
 		buttonRoughness: .18,
 		creaseAO: .45
 	}),
+	louvershutter: Object.freeze({
+		dark: [
+			24,
+			28,
+			30
+		],
+		light: [
+			226,
+			232,
+			224
+		],
+		roughness: .5,
+		relief: .012,
+		slats: 10,
+		gap: .14,
+		stile: .07,
+		rodHalf: .012,
+		pinRadius: .016,
+		edgeSoft: .01,
+		grainCells: 256,
+		grainStretch: 12,
+		faceTop: .88,
+		faceBottom: .58,
+		gapTone: .05,
+		stileTone: .82,
+		rodTone: .72,
+		pinTone: .45,
+		grainTone: .04,
+		slatHeightTop: .78,
+		slatHeightBottom: .52,
+		stileHeight: .9,
+		rodHeight: .96,
+		gapHeight: .05,
+		paintRoughness: .52,
+		gapRoughness: .9,
+		pinRoughness: .3,
+		gapAO: .35
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -23442,6 +23480,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	louvershutter: .4,
 	chesterfieldtufting: .5,
 	polargraphpaper: .3,
 	tallymarks: .3,

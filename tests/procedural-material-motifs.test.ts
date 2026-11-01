@@ -9268,3 +9268,101 @@ describe('chesterfieldtufting: buttons on the even grid points, creases between 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('louvershutter: slats, gaps, stiles, tilt rod and pins', () => {
+  const p = proceduralMaterialPresets.louvershutter;
+  const n = 10;
+
+  it.each(seeds)(
+    'has ten sloped slats separated by dark gaps, with stiles, a rod and a pin on every slat (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('louvershutter', seed),
+        out = empty(),
+        steps = 20000,
+        scan: number[] = [];
+      // Scan down a column clear of the stiles and rod.
+      for (let i = 0; i < steps; i++) {
+        sample(0.25, (i + 0.5) / steps, out);
+        scan.push(out.color);
+      }
+      // Dark gap runs.
+      const gaps: [number, number][] = [];
+      let start = -1;
+      for (let i = 0; i <= steps; i++) {
+        const dark = i < steps && scan[i] < 0.3;
+        if (dark && start < 0) start = i;
+        if (!dark && start >= 0) {
+          gaps.push([(start + i - 1) / 2 / steps, (i - start) / steps]);
+          start = -1;
+        }
+      }
+      expect(gaps.length).toBe(n);
+      for (let k = 0; k < n; k++) {
+        // The gap is the bottom part of each slat's period.
+        expect(Math.abs(gaps[k][0] - (k + 1 - p.gap / 2) / n)).toBeLessThan(
+          0.002,
+        );
+        expect(Math.abs(gaps[k][1] - p.gap / n)).toBeLessThan(0.004);
+      }
+      for (let k = 0; k < n; k++) {
+        // Each face is brighter near its top edge than near its bottom edge.
+        const faceTone = (fraction: number): number => {
+          sample(0.25, (k + fraction * (1 - p.gap)) / n, out);
+          return out.color;
+        };
+        expect(faceTone(0.15) - faceTone(0.85)).toBeGreaterThan(0.15);
+        // Gap height is low and face height is high.
+        sample(0.25, (k + 1 - p.gap / 2) / n, out);
+        expect(out.height / p.relief).toBeLessThan(0.1);
+        // Pin on the rod in the middle of every slat; the rod itself continues through the gap.
+        sample(0.5, (k + (1 - p.gap) / 2) / n, out);
+        expect(Math.abs(out.color - p.pinTone)).toBeLessThan(0.08);
+        sample(0.5, (k + 1 - p.gap / 2) / n, out);
+        expect(Math.abs(out.color - p.rodTone)).toBeLessThan(0.08);
+      }
+      // Stiles at both edges are solid: the same light tone at every height, no gaps.
+      for (let i = 0; i < 200; i++) {
+        for (const u of [0.02, 0.98]) {
+          sample(u, (i + 0.5) / 200, out);
+          expect(Math.abs(out.color - p.stileTone)).toBeLessThan(0.05);
+        }
+      }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('louvershutter', 0),
+      b = createSurfaceSampler('louvershutter', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

@@ -22461,6 +22461,58 @@ export function createSurfaceSampler(
           occlusion = clamp(1 - (1 - p.creaseAO) * crease * (1 - button));
         };
       }
+      case 'louvershutter': {
+        const p = proceduralMaterialPresets.louvershutter,
+          grainField = cachedNoise(
+            p.grainStretch,
+            p.grainCells,
+            seed ^ 0x28801,
+          ),
+          n = p.slats,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5));
+        // A louvered shutter: two vertical stiles, a tilt rod down the middle and n tilted slats.
+        // Each slat is a sloped face (bright at its top edge, shaded toward the bottom) separated
+        // from the next by a dark gap; a small pin joins each slat to the rod.
+        return () => {
+          const gy = v * n,
+            slat = Math.min(n - 1, Math.floor(gy)),
+            fy = gy - slat,
+            // Face coordinate 0 (top) to 1 (bottom) inside the slat; the gap is the last part.
+            face = clamp(fy / (1 - p.gap)),
+            inGap = cover(fy - (1 - p.gap)),
+            stile = cover(p.stile - Math.min(u, 1 - u)),
+            rod = cover(p.rodHalf - Math.abs(u - 0.5)),
+            pin = cover(
+              p.pinRadius - Math.hypot(u - 0.5, (fy - (1 - p.gap) / 2) / n),
+            ),
+            grain = grainField(u * p.grainStretch, v) - 0.5,
+            slatTone =
+              p.faceTop +
+              (p.faceBottom - p.faceTop) * face +
+              p.grainTone * grain,
+            slatHeight =
+              p.slatHeightTop + (p.slatHeightBottom - p.slatHeightTop) * face;
+          let tone = slatTone + (p.gapTone - slatTone) * inGap,
+            level = slatHeight + (p.gapHeight - slatHeight) * inGap;
+          tone += (p.rodTone - tone) * rod;
+          level += (p.rodHeight - level) * rod;
+          tone += (p.pinTone - tone) * pin;
+          tone += (p.stileTone - tone) * stile;
+          level += (p.stileHeight - level) * stile;
+          color = clamp(tone);
+          height = clamp(level);
+          roughness = clamp(
+            p.paintRoughness +
+              (p.gapRoughness - p.paintRoughness) * inGap * (1 - stile) +
+              (p.pinRoughness - p.paintRoughness) * pin * (1 - stile),
+          );
+          occlusion = clamp(
+            1 - (1 - p.gapAO) * inGap * (1 - stile) * (1 - rod),
+          );
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -49990,6 +50042,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'louvershutter' ||
     kind === 'chesterfieldtufting' ||
     kind === 'polargraphpaper' ||
     kind === 'tallymarks' ||

@@ -11926,3 +11926,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 真實缺陷與修正（測試先失敗）：第一版的高度公式把釦子的貢獻寫成「縫褶高度＋（面高−縫褶高）×墊＋（釦高−面高）×釦」，在釦子中心（墊＝0）得到0.04 + 0 + (0.96 − 0.8) = 0.2，而不是預期的0.96——釦子在高度圖裡其實比周圍的軟墊還低；預覽的顏色看起來正常所以沒有發現，是測試在三個seed都抓到。改為先算出軟墊高度，再以釦子係數朝0.96內插；粗糙度同樣改為朝釦子的粗糙度內插。
 - 實測：`tests/procedural-material-motifs.test.ts`五百零八項（本材質五項）全過。三seed：8個「偶數」網格點（釦子）的高度＞0.9、顏色＞0.6；8個「奇數」網格點（菱形中央）的高度與0.8相差＜0.02；16個對角線中點（縫褶）的高度＜0.08、顏色＜0.15；從縫褶中點走向菱形中央，高度單調不降（41個取樣點）；沿菱形對角線鏡像，高度完全相同（300點，無不對稱）；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "chesterfieldtufting|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`chesterfieldtufting`：option 958個、status為957 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的菱格軟墊與釦子。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：百葉窗板（louvershutter）
+
+- 目錄957→958，含plain的gallery為959項。每tile一扇百葉窗：左右各一條實心邊框直條（約7%寬）、中央連動桿、10片斜置葉片（上亮下暗的傾斜面，底部14%為深色縫隙），桿上每片葉片中央有一顆軸釘。Metallic／mortar為0，預設tile0.4 m、0.012 UV-relative relief、metallic factor 0。正面平視簡化圖；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 實測：`tests/procedural-material-motifs.test.ts`五百一十二項（本材質四項）全過，第一次執行即通過。三seed（0、7、4294967295）：沿u = 0.25的直線以20000點掃描，數到10個暗縫隙，每個縫隙的中心與 (k + 1 − gap/2)/10 相差＜0.002、寬度與gap/10相差＜0.004；每片葉片上緣比下緣亮＞0.15、縫隙高度＜0.1；連動桿上每片葉片中央為軸釘色調（±0.08）、縫隙處仍是桿的色調（±0.08）；兩側邊框在200個高度都是實心淺色（±0.05，沒有縫隙）；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "louvershutter|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`louvershutter`：option 959個、status為958 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的葉片與桿。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
