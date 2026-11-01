@@ -1323,6 +1323,12 @@
 
 這是作者設計的示意：只畫C尺的單一十進位，不含其他尺（A／B／D／CI／K／S／T／L）、游標、運算標示或字樣；數字用3×5點陣而非印刷字型；刻度規則採常見分段，並非特定廠牌型號的重現；顏色是線性亮度插值（象牙底＋近黑墨），不代表真實材質的色相。預設0.25 m nominal tile、0.002 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上（細刻度的間距在u上最小約0.0044）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`spirographrosettes`（繪圖尺花紋）使目前目錄940→941種，含plain的gallery為942項。每tile四個象限各畫一條內擺線（hypotrochoid，小齒輪在大環內滾動、筆離齒輪中心一段距離所畫出的曲線），環／齒輪半徑比依序為5/3、8/3、7/2、9/4，因此各有5、8、7、9個花瓣（R與r互質時，瓣數等於R），曲線在 t 走完 2π·r／gcd(R,r) 後閉合。筆距依seed與象限在齒輪半徑的0.37至0.73倍之間浮動、整條花紋再依seed旋轉；筆尖永遠剛好碰到外圈（半徑0.215 tile），因此瓣尖落在同一個圓上。四個象限的墨色亮度略有不同，紙面有細紋。Metallic與mortar為0。
+
+實作上，曲線在建立取樣器時以約10.8萬個點蓋印進一張640×640的Float32墨跡遮罩（約1.6 MB，每個取樣器各一份），之後每個取樣只做雙線性查表；遮罩解析度固定為640，所以tile超過640 px時線條會被雙線性放大而稍微變軟，不會變得更銳利。
+
+這是作者設計的示意：只畫四種固定的環／齒輪比（不是一般的任意R、r），曲線是均勻取t的折線點陣（9000點每圈，並非精確距離場）；顏色是亮度插值（近黑墨＋米白紙），不代表筆的色相。預設0.3 m nominal tile、0.0012 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512至1024；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

@@ -7068,3 +7068,143 @@ describe('sliderulescale: logarithmic graduations and digits', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('spirographrosettes: hypotrochoid rosettes', () => {
+  const p = proceduralMaterialPresets.spirographrosettes;
+  // Ring and gear radii of the four quadrants, written out independently of the preset.
+  const gears = [
+    [5, 3],
+    [8, 3],
+    [7, 2],
+    [9, 4],
+  ];
+
+  it.each(seeds)(
+    'draws R equally spaced lobes that reach but never pass the outer circle (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('spirographrosettes', seed),
+        out = empty();
+      for (let cell = 0; cell < 4; cell++) {
+        const cx = 0.25 + 0.5 * (cell & 1),
+          cy = 0.25 + 0.5 * (cell >> 1),
+          [ring] = gears[cell];
+        // Outermost ink radius for each direction; lobe tips are the directions where it comes within
+        // 0.004 of the reach circle (the pen reaches that circle exactly at the tips).
+        const angles = 2880,
+          reach: number[] = [];
+        let beyond = 0;
+        for (let i = 0; i < angles; i++) {
+          const angle = ((i + 0.5) / angles) * Math.PI * 2;
+          let outermost = 0;
+          for (
+            let radius = p.outerRadius + 0.006;
+            radius > 0.02;
+            radius -= 0.0005
+          ) {
+            sample(
+              cx + radius * Math.cos(angle),
+              cy + radius * Math.sin(angle),
+              out,
+            );
+            if (out.color < 0.6) {
+              outermost = radius;
+              break;
+            }
+          }
+          reach.push(outermost);
+          beyond += Number(outermost > p.outerRadius + 0.0035);
+        }
+        expect(beyond).toBe(0);
+        // Cyclic runs of directions near the reach circle: one run per lobe.
+        const near = reach.map((radius) => radius > p.outerRadius - 0.004),
+          first = near.findIndex(
+            (hit, i) => hit && !near[(i + angles - 1) % angles],
+          ),
+          centers: number[] = [];
+        expect(first).toBeGreaterThanOrEqual(0);
+        let run = -1;
+        for (let k = 0; k < angles; k++) {
+          const i = (first + k) % angles;
+          if (near[i] && run < 0) run = k;
+          if (!near[i] && run >= 0) {
+            centers.push(first + (run + k - 1) / 2);
+            run = -1;
+          }
+        }
+        // The scan starts at a run start, so a run still open here ends at the last direction.
+        if (run >= 0) centers.push(first + (run + angles - 1) / 2);
+        expect(centers.length).toBe(ring);
+        for (let i = 0; i < centers.length; i++) {
+          const gap =
+            (i + 1 < centers.length ? centers[i + 1] : centers[0] + angles) -
+            centers[i];
+          expect(Math.abs(gap - angles / ring)).toBeLessThan(angles * 0.01);
+        }
+      }
+    },
+  );
+
+  it('keeps the inner radius of each rosette within the pen-offset range', () => {
+    const sample = createSurfaceSampler('spirographrosettes', 7),
+      out = empty();
+    for (let cell = 0; cell < 4; cell++) {
+      const cx = 0.25 + 0.5 * (cell & 1),
+        cy = 0.25 + 0.5 * (cell >> 1),
+        [ring, gear] = gears[cell];
+      let inner = Infinity;
+      for (let j = 0; j < 480; j++)
+        for (let i = 0; i < 480; i++) {
+          const dx = ((i + 0.5) / 480 - 0.5) * 0.46,
+            dy = ((j + 0.5) / 480 - 0.5) * 0.46;
+          sample(cx + dx, cy + dy, out);
+          if (out.color < 0.6) inner = Math.min(inner, Math.hypot(dx, dy));
+        }
+      // Pen distance is between 0.37 and 0.73 gear radii, the curve reaches ring - gear + pen
+      // outside and ring - gear - pen inside (both in units of the reach, scaled to the tile).
+      const low =
+          ((ring - gear - 0.73 * gear) / (ring - gear + 0.73 * gear)) *
+          p.outerRadius,
+        high =
+          ((ring - gear - 0.37 * gear) / (ring - gear + 0.37 * gear)) *
+          p.outerRadius;
+      expect(inner).toBeGreaterThan(low - 0.006);
+      expect(inner).toBeLessThan(high + 0.006);
+    }
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('spirographrosettes', 0),
+      b = createSurfaceSampler('spirographrosettes', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(20);
+  });
+});

@@ -20965,6 +20965,81 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'spirographrosettes': {
+        const p = proceduralMaterialPresets.spirographrosettes,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x27701),
+          size = p.maskSize,
+          mask = new Float32Array(size * size),
+          gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+        // Four hypotrochoids (a small gear of radius r rolling inside a ring of radius R, the pen at
+        // distance d from its center), one per quadrant. Each is stamped once into an ink-coverage
+        // mask, so per-sample work is a bilinear lookup.
+        for (let cell = 0; cell < 4; cell++) {
+          const [ring, gear] = p.gears[cell],
+            penRatio =
+              p.penOffset +
+              p.penJitter * (2 * hash(cell, 1, seed ^ 0x27703) - 1),
+            pen = gear * penRatio,
+            reach = ring - gear + pen,
+            scale = (p.outerRadius * size) / reach,
+            phase = hash(cell, 2, seed ^ 0x27705) * TAU,
+            centerX = (0.25 + 0.5 * (cell & 1)) * size,
+            centerY = (0.25 + 0.5 * (cell >> 1)) * size,
+            loops = gear / gcd(ring, gear),
+            ratio = (ring - gear) / gear,
+            radius = Math.ceil(p.lineHalf + 1);
+          for (let i = 0; i < p.pointsPerLoop * loops; i++) {
+            const t = (i / (p.pointsPerLoop * loops)) * TAU * loops,
+              x = (ring - gear) * Math.cos(t) + pen * Math.cos(ratio * t),
+              y = (ring - gear) * Math.sin(t) - pen * Math.sin(ratio * t),
+              px =
+                centerX + scale * (x * Math.cos(phase) - y * Math.sin(phase)),
+              py =
+                centerY + scale * (x * Math.sin(phase) + y * Math.cos(phase)),
+              x0 = Math.floor(px),
+              y0 = Math.floor(py);
+            for (let j = y0 - radius; j <= y0 + radius; j++) {
+              if (j < 0 || j >= size) continue;
+              for (let k = x0 - radius; k <= x0 + radius; k++) {
+                if (k < 0 || k >= size) continue;
+                const coverage = clamp(
+                    p.lineHalf + 0.5 - Math.hypot(k + 0.5 - px, j + 0.5 - py),
+                  ),
+                  at = j * size + k;
+                if (coverage > mask[at]) mask[at] = coverage;
+              }
+            }
+          }
+        }
+        return () => {
+          const gx = u * size - 0.5,
+            gy = v * size - 0.5,
+            x0 = Math.floor(gx),
+            y0 = Math.floor(gy),
+            fx = gx - x0,
+            fy = gy - y0,
+            xa = (x0 + size) % size,
+            xb = (x0 + 1 + size) % size,
+            ya = (y0 + size) % size,
+            yb = (y0 + 1 + size) % size,
+            ink =
+              (mask[ya * size + xa] * (1 - fx) + mask[ya * size + xb] * fx) *
+                (1 - fy) +
+              (mask[yb * size + xa] * (1 - fx) + mask[yb * size + xb] * fx) *
+                fy,
+            cell = (u >= 0.5 ? 1 : 0) + (v >= 0.5 ? 2 : 0),
+            pen = p.inkTone + (p.inkStep * cell) / 3;
+          color = clamp(
+            p.paperTone +
+              p.grainTone * (grainField(u, v) - 0.5) +
+              (pen - p.paperTone) * ink,
+          );
+          height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * ink);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -48494,6 +48569,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'spirographrosettes' ||
     kind === 'sliderulescale' ||
     kind === 'xylophonebars' ||
     kind === 'pegsolitaire' ||

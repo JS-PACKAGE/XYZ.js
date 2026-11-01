@@ -7978,6 +7978,28 @@ export declare const proceduralMaterialPresets: Readonly<{
         inkRoughness: 0.4;
         baseRoughness: 0.5;
     }>;
+    spirographrosettes: Readonly<{
+        dark: readonly [18, 22, 44];
+        light: readonly [244, 240, 226];
+        roughness: 0.62;
+        relief: 0.0012;
+        maskSize: 640;
+        gears: readonly [readonly [5, 3], readonly [8, 3], readonly [7, 2], readonly [9, 4]];
+        outerRadius: 0.215;
+        penOffset: 0.55;
+        penJitter: 0.18;
+        pointsPerLoop: 9000;
+        lineHalf: 1.1;
+        paperTone: 0.94;
+        inkTone: 0.14;
+        inkStep: 0.2;
+        grainCells: 256;
+        grainTone: 0.035;
+        inkHeight: 0.55;
+        paperHeight: 0.32;
+        inkRoughness: 0.4;
+        paperRoughness: 0.7;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -14463,6 +14485,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    spirographrosettes: 0.3;
     sliderulescale: 0.25;
     xylophonebars: 0.4;
     pegsolitaire: 0.35;
