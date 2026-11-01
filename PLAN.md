@@ -1095,6 +1095,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`woodenpalletdeck`（木棧板面板）使目前目錄900→901種，含plain的gallery為902項。一個tile內4塊沿u方向的木板，板間是約9%寬度的低窄深縫（AO 0.2、color≈0.02、高度0.04 relief），每塊板各有自己的整體色調、起伏的年輪線、長縱向纖維與細grain，板中線上每個tile有2顆深色略凸的圓形釘頭（每板位置有微小偏移）。不是完整棧板（沒有橫梁／縱梁、板端、裂縫、節疤或金屬釘的金屬性）。
+
+概念依據實際閱讀的[Wikipedia「Pallet」](https://en.wikipedia.org/wiki/Pallet)導言：pallet（skid）是供堆高機等抬升、穩定承載貨物的平面運輸結構，多數為木製。該條目不提供板寬、釘距或顏色，因此板數、縫寬、釘頭尺寸／位置、色彩、roughness與0.4 m nominal tile皆為作者設定，不宣稱符合任何棧板標準或實物。
+
+新增專用sampler：以`fract(v)·4`分出板號與板內位置，縫與釘頭皆為到各自邊的smoothstep（在板交界前已歸零，所以逐板查表不產生跳變），年輪線為`sin(2π(rings·fy + warp·noise + 每板相位))`、另有6×96縱向fiber與160²細grain；每板色調與釘位偏移只在constructor以hash抽取（共12個Float64）。cache共25 + 576 + 25,600 + 12 = 26,213 Float64（含每板表12個），約209,704 B lattice算術預算（非總RAM）。釘頭是dielectric（metallic 0），僅降低roughness；金屬factor為0、無mortar。預設0.4 m nominal tile、0.006 UV-relative relief（非公尺位移）。三seed（0／1／0xffffffff）量測：縫color 0.02、AO 0.2、高度0.04 relief；板面color 0.388–0.765、高度0.575–0.648 relief、roughness 0.78–0.86；板中線每板恰有2個寬約0.042–0.045的釘頭（color 0.2、高度約0.78 relief）；各板平均色差於seed間可見（seed0板均值0.502–0.655、seed1 0.552–0.683）。seed7的512²中r平均129、AO<100的縫占10.9%、法線max tilt²約0.21。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `forgedcarbon`（鍛造碳纖維風格複合材）使目前目錄899→900種，含plain的gallery為901項。10×10格、每格5個隨機位置／方向／長寬／灰階與疊放權重的圓角長條碎片，覆蓋在近黑樹脂背景上；碎片內有細密的平行編織漣漪（沿碎片長軸）與輕微高度／粗糙度起伏，整體為亮面（roughness約0.18–0.30）。不是規則斜紋或平紋編織（那是既有`carbonfiber`），沒有環氧樹脂厚度、反射清漆或金屬光澤。
 
 此材質是作者依一般鍛造（forged）／短切碳纖維複合材外觀所作示意，沒有引用特定來源文件、產品照片或量測，因此不宣稱符合任何實際製程、纖維長度、碎片尺寸、纖維方向統計或色彩；色調、roughness、高度與0.2 m nominal tile皆作者設定。

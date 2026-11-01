@@ -12236,6 +12236,39 @@ export declare const proceduralMaterialPresets: Readonly<{
         rippleRoughness: 0.05;
         grainRoughness: 0.03;
     }>;
+    woodenpalletdeck: Readonly<{
+        dark: readonly [66, 42, 24];
+        light: readonly [196, 152, 98];
+        roughness: 0.82;
+        relief: 0.006;
+        boards: 4;
+        gapHalf: 0.045;
+        gapSoft: 0.04;
+        nailColumns: 2;
+        nailRadius: 0.022;
+        nailSoft: 0.008;
+        warpCells: 5;
+        fiberColumns: 6;
+        fiberRows: 96;
+        grainCells: 160;
+        rings: 5;
+        warp: 0.7;
+        baseTone: 0.56;
+        boardVariation: 0.14;
+        ringTone: 0.1;
+        fiberTone: 0.1;
+        grainTone: 0.04;
+        nailTone: 0.2;
+        gapTone: 0.02;
+        boardHeight: 0.6;
+        ringHeight: 0.03;
+        fiberHeight: 0.02;
+        nailHeight: 0.14;
+        gapHeight: 0.04;
+        gapOcclusion: 0.8;
+        nailRoughness: -0.35;
+        grainRoughness: 0.08;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -13515,4 +13548,5 @@ export declare const proceduralTileMeters: Readonly<{
     kilimdiamonds: 0.32;
     popcornceiling: 0.25;
     forgedcarbon: 0.2;
+    woodenpalletdeck: 0.4;
 }>;

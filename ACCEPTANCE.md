@@ -11548,3 +11548,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增4組永久測試（`Forged-carbon`：三seed灰階分布／各向同性、seed差異與同seed一致、C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選7項通過。
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Forged-carbon|forgedcarbon|kinds|catalog|distinct|periodic"`定向測試，**2095項通過／3511項未選**。
 - 本功能未重跑完整179檔suite（popcornceiling commit的完整suite另在凍結worktree執行，結果另記）、未開瀏覽器gallery；不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：木棧板面板（woodenpalletdeck）
+
+- 目錄900→901，含plain的gallery為902項。一個tile內4塊沿u方向的木板，板間為低窄深縫（約9%寬、AO 0.2），每板有各自色調、起伏年輪線、縱向纖維與細grain，板中線每tile 2顆深色略凸圓釘頭。概念依據實際閱讀的[Wikipedia「Pallet」](https://en.wikipedia.org/wiki/Pallet)導言（供堆高機等抬升的平面運輸結構、多數為木製）；板數、縫寬、釘頭、色彩與0.4 m tile皆作者設定。不是完整棧板（無橫梁、板端、裂縫、節疤），釘頭為dielectric而非金屬。
+- 專用sampler：`fract(v)·4`分板，縫與釘頭為smoothstep且在板交界前歸零；年輪線`sin(2π(rings·fy + warp·noise + 每板相位))`，6×96縱向fiber與160² grain；每板色調／相位／釘位偏移於constructor抽取（12 Float64）。lattice算術預算合計26,213 Float64／209,704 B。預設0.4 m tile、0.006 UV-relative relief（非公尺位移）、metallic factor0；不新增API或依賴。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）縫color 0.02、AO 0.2、高度0.04 relief；板面color 0.388–0.765、高度0.575–0.648 relief、roughness 0.78–0.86；板中線每板恰2個寬0.042–0.045的釘頭（color 0.2、高度約0.78 relief）；板均色在seed間不同。seed7的512² r平均129、AO<100的縫占10.9%、法線max tilt²約0.21。以Bun產生512 seed7的2×2排列圖並實看：水平排列的多塊木板、深縫與規則釘頭。
+- 新增4組永久測試（`pallet`：三seed逐板縫／板面／釘頭計數、板色調與seed差異、含板緣與釘頭掃描的C1及帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選7項通過（9.30s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "pallet|Pallet|woodenpalletdeck|kinds|catalog|distinct|periodic"`定向測試，**2097項通過／3516項未選**。
+- 撰文時曾把cache合計寫成26,201（漏算每板表12個），提交前已更正為26,213／209,704 B。本功能未重跑完整179檔suite、未開瀏覽器gallery；不宣稱跨瀏覽器／backend或效能驗證；不push。

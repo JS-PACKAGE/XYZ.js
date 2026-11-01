@@ -942,6 +942,7 @@ const kinds: ProceduralMaterialKind[] = [
   'kilimdiamonds',
   'popcornceiling',
   'forgedcarbon',
+  'woodenpalletdeck',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -137123,6 +137124,215 @@ describe('Forged-carbon composite with randomly oriented glossy chopped chips an
     expect(light / (512 * 512)).toBeLessThan(0.2);
     expect(maxTilt).toBeGreaterThan(0.003);
     expect(maxTilt).toBeLessThan(0.03);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Wooden pallet deck of four rough boards with dark gaps, ring-and-fibre grain and dark nail heads', () => {
+  const p = proceduralMaterialPresets.woodenpalletdeck;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const boardMeans = (seed: number): number[] => {
+    const sample = createSurfaceSampler('woodenpalletdeck', seed),
+      out = empty(),
+      means: number[] = [];
+    for (let board = 0; board < p.boards; board++) {
+      let sum = 0;
+      for (let i = 0; i < 64; i++) {
+        sample(i / 64 + 0.0033, (board + 0.3) / p.boards, out);
+        sum += out.color;
+      }
+      means.push(sum / 64);
+    }
+    return means;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'separates boards with low dark occluded gaps and drives exactly one nail head per nail column into every board for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('woodenpalletdeck', seed),
+        a = empty();
+      let invalid = 0;
+      for (let board = 0; board < p.boards; board++) {
+        for (let i = 0; i < 32; i++) {
+          const u = (i + 0.37) / 32;
+          sample(u, board / p.boards, a);
+          expect(a.color).toBeLessThan(0.05);
+          expect(a.occlusion).toBeLessThan(0.25);
+          expect(a.height).toBeLessThan(0.08 * p.relief);
+          sample(u, (board + 0.3) / p.boards, a);
+          expect(a.color).toBeGreaterThan(0.3);
+          expect(a.color).toBeLessThan(0.85);
+          expect(a.occlusion).toBeGreaterThan(0.999);
+          expect(a.height).toBeGreaterThan(0.5 * p.relief);
+          expect(a.height).toBeLessThan(0.7 * p.relief);
+          expect(a.roughness).toBeGreaterThan(0.75);
+          expect(a.roughness).toBeLessThan(0.9);
+        }
+        // Sweep the centre line of the board: each nail is one dark, raised run.
+        let runs = 0,
+          inRun = false,
+          start = 0,
+          darkest = 1,
+          tallest = 0;
+        for (let i = 0; i <= 4096; i++) {
+          sample((i % 4096) / 4096, (board + 0.5) / p.boards, a);
+          const dark = a.color < 0.35;
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+          if (dark && !inRun) {
+            inRun = true;
+            start = i;
+            darkest = 1;
+            tallest = 0;
+          }
+          if (dark) {
+            darkest = Math.min(darkest, a.color);
+            tallest = Math.max(tallest, a.height / p.relief);
+          }
+          if ((!dark || i === 4096) && inRun) {
+            inRun = false;
+            runs++;
+            // Run width is about the nail diameter (in tile units).
+            expect((i - start) / 4096).toBeGreaterThan(1.6 * p.nailRadius);
+            expect((i - start) / 4096).toBeLessThan(2.4 * p.nailRadius);
+            expect(darkest).toBeLessThan(p.nailTone + 0.03);
+            expect(tallest).toBeGreaterThan(0.7 * p.relief);
+          }
+        }
+        expect(runs).toBe(p.nailColumns);
+      }
+      expect(invalid).toBe(0);
+    },
+  );
+  it('gives each board its own tone, differently for different seeds', () => {
+    const first = boardMeans(0),
+      second = boardMeans(1),
+      mean = first.reduce((x, y) => x + y, 0) / first.length,
+      deviation = Math.sqrt(
+        first.reduce((x, y) => x + (y - mean) ** 2, 0) / first.length,
+      );
+    expect(deviation).toBeGreaterThan(0.02);
+    expect(deviation).toBeLessThan(0.15);
+    expect(
+      first.reduce((x, y, i) => x + Math.abs(y - second[i]), 0),
+    ).toBeGreaterThan(0.1);
+    expect(boardMeans(0)).toEqual(first);
+  });
+  it('keeps board edges, gaps, nail heads, rings, fibre and grain C1 and the tile periodic', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('woodenpalletdeck', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.warpCells, p.fiberColumns, p.fiberRows, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      // Columns through nail heads and rows across every gap edge and board seam.
+      for (let board = 0; board < p.boards; board++)
+        for (const offset of [
+          0,
+          p.gapHalf,
+          p.gapHalf + p.gapSoft,
+          0.5,
+          1 - p.gapHalf,
+        ])
+          for (let i = 0; i < 2048; i++)
+            check(i / 2048, (board + offset) / p.boards);
+      for (let i = 0; i < 4096; i++)
+        check(0.25 + (i / 4096) * 0.1, (i * 0.41421356237) % 1);
+      for (let i = 0; i < 8192; i++)
+        check((i * 0.61803398875) % 1, (i * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+      for (let i = 0; i < 4096; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        sample(u, v, b);
+        sample(u - 7, v + 11, d);
+        for (const key of keys)
+          drift = Math.max(drift, Math.abs(b[key] - d[key]));
+      }
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 brown dielectric maps with about a tenth of the surface in dark occluded gaps', () => {
+    const maps = generateProceduralMaps('woodenpalletdeck', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let sum = 0,
+      gap = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      sum += maps.baseColor[i];
+      gap += Number(maps.occlusion[i] < 100);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2] ||
+          maps.baseColor[i] < maps.baseColor[i + 1] ||
+          maps.baseColor[i + 1] < maps.baseColor[i + 2] ||
+          maps.normal[i + 2] < 100,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(sum / (512 * 512)).toBeGreaterThan(115);
+    expect(sum / (512 * 512)).toBeLessThan(145);
+    expect(gap / (512 * 512)).toBeGreaterThan(0.09);
+    expect(gap / (512 * 512)).toBeLessThan(0.13);
+    expect(maxTilt).toBeGreaterThan(0.1);
+    expect(maxTilt).toBeLessThan(0.4);
     expect(invalid).toBe(0);
   });
 });

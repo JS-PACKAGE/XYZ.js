@@ -20087,6 +20087,47 @@ var proceduralMaterialPresets = Object.freeze({
 		rippleRoughness: .05,
 		grainRoughness: .03
 	}),
+	woodenpalletdeck: Object.freeze({
+		dark: [
+			66,
+			42,
+			24
+		],
+		light: [
+			196,
+			152,
+			98
+		],
+		roughness: .82,
+		relief: .006,
+		boards: 4,
+		gapHalf: .045,
+		gapSoft: .04,
+		nailColumns: 2,
+		nailRadius: .022,
+		nailSoft: .008,
+		warpCells: 5,
+		fiberColumns: 6,
+		fiberRows: 96,
+		grainCells: 160,
+		rings: 5,
+		warp: .7,
+		baseTone: .56,
+		boardVariation: .14,
+		ringTone: .1,
+		fiberTone: .1,
+		grainTone: .04,
+		nailTone: .2,
+		gapTone: .02,
+		boardHeight: .6,
+		ringHeight: .03,
+		fiberHeight: .02,
+		nailHeight: .14,
+		gapHeight: .04,
+		gapOcclusion: .8,
+		nailRoughness: -.35,
+		grainRoughness: .08
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -21484,7 +21525,8 @@ var proceduralTileMeters = Object.freeze({
 	teak: .2,
 	kilimdiamonds: .32,
 	popcornceiling: .25,
-	forgedcarbon: .2
+	forgedcarbon: .2,
+	woodenpalletdeck: .4
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

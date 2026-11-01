@@ -37131,6 +37131,71 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'woodenpalletdeck': {
+        const p = proceduralMaterialPresets.woodenpalletdeck,
+          tones = new Float64Array(p.boards),
+          phases = new Float64Array(p.boards),
+          nailShifts = new Float64Array(p.boards),
+          warpField = cachedNoise(p.warpCells, p.warpCells, seed ^ 0x2e101),
+          fiberField = cachedNoise(p.fiberColumns, p.fiberRows, seed ^ 0x2e103),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2e105),
+          inverseGap = 1 / p.gapSoft,
+          inverseNail = 1 / p.nailSoft;
+        for (let board = 0; board < p.boards; board++) {
+          tones[board] =
+            p.boardVariation * (hash(board, 3, seed ^ 0x2e107) - 0.5);
+          phases[board] = hash(board, 5, seed ^ 0x2e109);
+          nailShifts[board] = 0.08 * (hash(board, 7, seed ^ 0x2e10b) - 0.5);
+        }
+        return () => {
+          // Boards run along u. Gap, nail and ring profiles are smoothsteps of the
+          // distance to their own edge, and each is zero before the board index
+          // changes, so the per-board lookups never create a visible jump.
+          const y = fract(v) * p.boards,
+            board = Math.floor(y),
+            fy = y - board,
+            edge = Math.min(fy, 1 - fy),
+            face = smooth(clamp((edge - p.gapHalf) * inverseGap)),
+            // Nail heads: nearest nail column to u, vertically centred in the board.
+            nu = fract(u * p.nailColumns + 0.25 + nailShifts[board]) - 0.5,
+            nv = (fy - 0.5) / p.boards,
+            nail =
+              smooth(
+                clamp(
+                  (p.nailRadius -
+                    Math.sqrt((nu / p.nailColumns) ** 2 + nv * nv)) *
+                    inverseNail +
+                    0.5,
+                ),
+              ) * face,
+            ring = Math.sin(
+              TAU * (p.rings * fy + p.warp * warpField(u, v) + phases[board]),
+            ),
+            fiber = fiberField(u, v),
+            grain = grainField(u, v);
+          color =
+            p.gapTone * (1 - face) +
+            (p.baseTone +
+              tones[board] +
+              p.ringTone * ring +
+              p.fiberTone * (fiber - 0.5) +
+              p.grainTone * (grain - 0.5)) *
+              face *
+              (1 - nail) +
+            p.nailTone * nail;
+          height =
+            p.gapHeight * (1 - face) +
+            (p.boardHeight +
+              p.ringHeight * ring +
+              p.fiberHeight * fiber +
+              p.nailHeight * nail) *
+              face;
+          roughness +=
+            p.nailRoughness * nail + p.grainRoughness * (grain - 0.5) * face;
+          occlusion = 1 - p.gapOcclusion * (1 - face);
+          return;
+        };
+      }
       case 'forgedcarbon': {
         const p = proceduralMaterialPresets.forgedcarbon,
           stride = 9,
@@ -44659,6 +44724,7 @@ export function createSurfaceSampler(
     kind === 'kilimdiamonds' ||
     kind === 'popcornceiling' ||
     kind === 'forgedcarbon' ||
+    kind === 'woodenpalletdeck' ||
     kind === 'thomsonite' ||
     kind === 'dalmatianstone' ||
     kind === 'basswood' ||
