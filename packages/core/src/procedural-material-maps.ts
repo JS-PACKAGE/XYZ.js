@@ -37662,7 +37662,7 @@ export function createSurfaceSampler(
           color =
             p.baseTone + p.waveTone * reflection + p.grainTone * (grain - 0.5);
           height = p.heightBias + p.heightScale * reflection;
-          roughness += p.waveRoughness * Math.abs(reflection);
+          roughness += p.waveRoughness * reflection * reflection;
           return;
         };
       }

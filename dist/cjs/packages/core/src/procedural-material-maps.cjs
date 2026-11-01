@@ -9714,7 +9714,7 @@ function createSurfaceSampler(t, r) {
 						g !== 0 && (l += i[f + 2] * g * Math.cos(s * Math.sqrt(h) - i[f + 3]));
 					}
 					let u = a(G, K), d = Math.tanh(t.waveGain * l);
-					J = t.baseTone + t.waveTone * d + t.grainTone * (u - .5), Y = t.heightBias + t.heightScale * d, X += t.waveRoughness * Math.abs(d);
+					J = t.baseTone + t.waveTone * d + t.grainTone * (u - .5), Y = t.heightBias + t.heightScale * d, X += t.waveRoughness * d * d;
 				};
 			}
 			case `coirdoormat`: {

@@ -11837,3 +11837,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 修正：把sheetmusic內四處`ink = Math.max(ink, x)`改為平滑聯集`ink += x·(1 − ink)`（兩個C1函數的聯集仍為C1），並在程式註解與README以外的各文件的sampler說明中補上這個合併方式；音符表、幾何與預設值不變。重新實測（工具實跑）：512²墨色（color<0.5）占7.13–7.18%（原記7.12–7.17%）、seed 0與1的墨色遮罩2.98%像素不同（原記2.97%）、平均約0.881、seed7的512²平均(218,210,191)與r<100占5.5%皆不變；先前在樂譜section記載的其他數字（譜線最大color 0.069、留白最小color 0.921、至多1個符頭、0.396的位置有符頭）未受影響。舊的樂譜section保留原文作為歷史紀錄，以本section為準；docs內的數字已同步更正。
 - 驗證：樂譜10項測試重跑通過；乾淨worktree重跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility、distribution與`-t "Sheet music|sheetmusic|kinds|catalog|distinct|periodic"`定向測試，結果見下方「gates」行。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Sheet music|sheetmusic|kinds|catalog|distinct|periodic"`定向測試**2145項通過／3666項未選**。本修正未重跑完整179檔suite；不push。
+
+## 2026-11-02 修正：雨滴漣漪（raindropripples）的roughness改為平滑函數
+
+- 起因：在檢查樂譜`Math.max`問題後，我審視了本輪新增sampler中的`Math.max／min／abs`用法。雨滴漣漪的`roughness += waveRoughness·|reflection|`在`reflection = 0`（漣漪波形的零交越線）上有V形折角，**不是C1**；先前的C1掃描通過只是因為取樣點沒有恰好落在這些零交越線上，我在該section與docs寫的C1因此不嚴格成立，是我的疏漏。其餘審視的sampler（含`gamedice`的`|dx|`在飽和區內、`coirdoormat`的環形距離為偶函數的cos²、`chesterfieldleather`的`|da|`在smooth的平坦端、`woodenpalletdeck`的`min(fy,1−fy)`在飽和區、`golfballdimples`／`monitorlizardskin`的最近距離在擁有權邊界前歸零）經閱讀程式判斷折角處皆已被飽和或歸零而不影響C1；此為閱讀判斷，不是新的測試證明。
+- 修正：`|reflection|`改為`reflection²`（C∞），其餘不變。重新實測（工具實跑）：三seed 512²取樣roughness 0.080–0.122（原記0.080–0.126）；color、高度、亮暗比例與seed7的512²統計不變；docs內該數字已同步更正，舊section保留原文作歷史紀錄、以本section為準。雨滴漣漪7項測試重跑通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Raindrop ripples|raindropripples|kinds|catalog|distinct|periodic"`定向測試**2142項通過／3669項未選**。本修正未重跑完整179檔suite；不push。
