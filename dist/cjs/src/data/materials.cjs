@@ -12117,6 +12117,49 @@ var proceduralMaterialPresets = Object.freeze({
 		aoFloor: .7,
 		motifAO: .04
 	}),
+	turingpattern: Object.freeze({
+		dark: [
+			52,
+			31,
+			17
+		],
+		light: [
+			232,
+			203,
+			158
+		],
+		roughness: .78,
+		relief: 7e-4,
+		waveX: [
+			13,
+			-6,
+			-7
+		],
+		waveY: [
+			0,
+			11,
+			-11
+		],
+		warpCells: 10,
+		warp: .05,
+		thresholdCells: 4,
+		thresholdLow: .1,
+		thresholdHigh: 1.5,
+		edge: .32,
+		grainCells: 160,
+		groundTone: .82,
+		patternTone: .14,
+		coreTone: .06,
+		coreDepth: 1.2,
+		grainTone: .05,
+		groundHeight: .2,
+		patternHeight: .55,
+		grainHeight: .04,
+		groundRoughness: .74,
+		patternRoughness: .86,
+		grainRoughness: .04,
+		patternAO: .82
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -20798,6 +20841,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	turingpattern: .4,
 	mudcloth: .5,
 	to220packagefaces: .08,
 	ftypefemalefaces: .04,

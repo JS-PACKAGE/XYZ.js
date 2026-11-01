@@ -711,6 +711,7 @@ try {
     'dcbarreljackfaces',
     'stfiberadapterfaces',
     'to92packagefaces',
+    'turingpattern',
     'mudcloth',
     'to220packagefaces',
     'ftypefemalefaces',

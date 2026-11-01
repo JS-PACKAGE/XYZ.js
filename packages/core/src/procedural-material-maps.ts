@@ -16517,6 +16517,56 @@ export function createSurfaceSampler(
           );
         };
       }
+      case 'turingpattern': {
+        const p = proceduralMaterialPresets.turingpattern,
+          phases = new Float64Array(3),
+          warpX = cachedNoise(p.warpCells, p.warpCells, seed ^ 0x24201),
+          warpY = cachedNoise(p.warpCells, p.warpCells, seed ^ 0x24203),
+          thresholdField = cachedNoise(
+            p.thresholdCells,
+            p.thresholdCells,
+            seed ^ 0x24205,
+          ),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x24207),
+          inverseEdge = 1 / p.edge,
+          inverseCore = 1 / p.coreDepth,
+          patternTone = p.patternTone - p.groundTone,
+          patternHeight = p.patternHeight - p.groundHeight,
+          patternRoughness = p.patternRoughness - p.groundRoughness,
+          patternAO = p.patternAO - 1;
+        for (let k = 0; k < 3; k++)
+          phases[k] = TAU * hash(k, 0, seed ^ 0x24209);
+        return () => {
+          // Integer wave vectors keep the superposition periodic; the periodic warp bends the
+          // hexagonal spot lattice into labyrinths without breaking the seam.
+          const x = u + p.warp * (2 * warpX(u, v) - 1),
+            y = v + p.warp * (2 * warpY(u, v) - 1),
+            field =
+              Math.cos(TAU * (p.waveX[0] * x + p.waveY[0] * y) + phases[0]) +
+              Math.cos(TAU * (p.waveX[1] * x + p.waveY[1] * y) + phases[1]) +
+              Math.cos(TAU * (p.waveX[2] * x + p.waveY[2] * y) + phases[2]),
+            // A slowly varying threshold moves between spots (high) and stripes (low).
+            threshold =
+              p.thresholdLow +
+              (p.thresholdHigh - p.thresholdLow) * thresholdField(u, v),
+            margin = field - threshold,
+            pattern = smooth(clamp(margin * inverseEdge + 0.5)),
+            grain = grainField(u, v);
+          color = clamp(
+            p.groundTone +
+              patternTone * pattern -
+              p.coreTone * pattern * clamp(margin * inverseCore) +
+              p.grainTone * (grain - 0.5),
+          );
+          height =
+            p.groundHeight + patternHeight * pattern + p.grainHeight * grain;
+          roughness =
+            p.groundRoughness +
+            patternRoughness * pattern +
+            p.grainRoughness * (grain - 0.5);
+          occlusion = 1 + patternAO * pattern;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -44046,6 +44096,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'turingpattern' ||
     kind === 'to220packagefaces' ||
     kind === 'ftypefemalefaces' ||
     kind === 'usbcfemalefaces' ||

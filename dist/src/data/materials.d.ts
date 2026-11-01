@@ -6457,6 +6457,33 @@ export declare const proceduralMaterialPresets: Readonly<{
         aoFloor: 0.7;
         motifAO: 0.04;
     }>;
+    turingpattern: Readonly<{
+        dark: readonly [52, 31, 17];
+        light: readonly [232, 203, 158];
+        roughness: 0.78;
+        relief: 0.0007;
+        waveX: readonly [13, -6, -7];
+        waveY: readonly [0, 11, -11];
+        warpCells: 10;
+        warp: 0.05;
+        thresholdCells: 4;
+        thresholdLow: 0.1;
+        thresholdHigh: 1.5;
+        edge: 0.32;
+        grainCells: 160;
+        groundTone: 0.82;
+        patternTone: 0.14;
+        coreTone: 0.06;
+        coreDepth: 1.2;
+        grainTone: 0.05;
+        groundHeight: 0.2;
+        patternHeight: 0.55;
+        grainHeight: 0.04;
+        groundRoughness: 0.74;
+        patternRoughness: 0.86;
+        grainRoughness: 0.04;
+        patternAO: 0.82;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -12942,6 +12969,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    turingpattern: 0.4;
     mudcloth: 0.5;
     to220packagefaces: 0.08;
     ftypefemalefaces: 0.04;
