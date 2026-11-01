@@ -11027,3 +11027,57 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Gallery於外層raw portal關閉、累計errors[]，兩個SDK handles已釋放；owned Chrome TERM／exit143。實讀完整stderr仍有allocator、CVDisplayLink -6670、missing Crashpad及helper sandbox-extension permission，不宣稱warning-free。PDF已close、14個實際列名scratch files與唯一owned profile已移除，保留19660／19662及下一feature私有檔。README中／英／日、PLAN、DESIGN、CURRENT完整878-kind union、TECHNICAL／USAGE雙語同步；歷史459基底與驗收日期／數量不改。不認證Node22、其他browser、實體硬體、電氣／網路合規或FPS，沒有push。
 
 - 九文件387個relative links已實查missing0；使用者先前獨立hunk保留，僅本feature EOF段落納入提交。
+
+## 2026-11-01 程序材質：RCA母座小六角前鼻、圓肩與凹入母孔正面（rcafemalefaces）
+
+- 目錄878→879。正常下載並實際渲染／讀圖[REAN NYS367-0原廠單頁drawing](https://www.rean-connectors.com/media/14879/download/NYS367-0.pdf?v=1)（47,763B；drawing 3.652.052、2020-11-13）與[原廠NYS367四頁product PDF](https://www.rean-connectors.com/en/product/nys367-1.pdf)（261,753B；全頁文字與第1頁照片已讀）。後者URL不是新增NYS367-1 variant；實際family列黑0、紅2、黃4、綠5、藍6、白9。Drawing的NYS373-x色環note與NYS367-0 title不一致，不據此臆造規格。
+
+- 實際照片確認較小的六角扳手面在前barrel、較寬圓形色碼washer在後；AF12大hex nut屬背側，不誤畫成正面大法蘭。產品資料列housing／nut／lug／pin為gold-plated brass、washer為PA+30%GF，不推定內部insulator樹脂。13／15.5／8.3等圖面標註不作作者PBR尺寸校準；中性灰刻意省略實際金鍍層光譜，沒有隨套件附帶圖紙或照片。
+
+- 四組2×2 RCA/Cinch正面由寬圓黑washer、較小圓金屬shoulder、再小的六角前鼻、黑色insulating annulus、深圓bore及示意的低金屬socket annulus／暗opaque底構成。不是BNC bayonet studs、male中心針或背側螺帽；內接點及深度是作者可視化近似，不冒充隱藏剖面的實測。0.04m nominal tile、尺度／色盤／roughness／0.0042 UV relief皆非CAD、公差或物理厚度校準。
+
+- 這是connector家族變體，不是新渲染或connector模擬技術；省略背nut／lug／solder tails、真螺紋、細spring split、PCB與panel厚度。不新增mesh、穿透洞、透明度、碰撞、實際電氣／audio／RF／cable／voltage／EMC／安規或插合認證。
+
+- 56-field frozen preset與tile集中src/data；6個squared-radius C1 profiles加3個對向平面折成的C1 slab乘積構成小hex，建構時計算27個channel差量。四組四欄pose128B與96² Float64 grain73,728B，共73,856B typed payload，不是總RAM或FPS。sqrt(3)/2、seed hash與rotation trig只在建構；每點單owner、不配置array、hash、trig、sqrt或逐邊loop，支撐界0.386<0.5。
+
+- 公開kind union、central runtime validation、default metallic1、detail bypass、preset／tile、實際gallery selector／preload與兩組generic矩陣／metallic例外同步。Root／core、request、native module Worker、cache、repeats與ownership沿既有中央架構；無新entry、alias、依賴或其他kind算法更改。README中／英／日、PLAN、DESIGN、CURRENT完整879-kind union與TECHNICAL／USAGE雙語同步；歷史459基底與舊驗收不改。
+
+- 2026-11-01 targeted Vitest：17passed／5385skipped／5402total，10:41:22開始、5.03s（wall5.75s）。15個新增semantic callbacks為三seed topology、三native geometry、三surface、seed footprint、三seed signed-period／C1及32／512 packing；另兩項來自既有generic矩陣。Fresh Node v26.7.0亦在實際built ESM執行同15callbacks，不以註冊測試代替執行。
+
+- 三seed 0／7／0xffffffff的768²六channel raster均invalid0、8個colour connected regions／9voids、8個metal annuli／9phase voids、4個高閉環／5低basins。Native contour只由connected-region moments、opposed-ray二分及實際height輪廓取得，不複製private poses、radii或seeded角度；同心小socket確實是有底母孔，不是實心male disc。
+
+- Metal circle error最大1.145434270223719e-14、concentric error最大8.504860231517303e-16；帶微grain的washer colour-contour error最大0.002504405652634031。Height輪廓六次諧波幅度0.0573973–0.0589279、其他非6／12諧波最大0.00000332874，六面straightness最大0.0001334176；不是圓上畫hex，也不靠複製private rotation做判定。144個native boundary centers給C1 worst0.000810623／0.000821114／0.000811577（<0.1），4096 signed-period probes各0。
+
+- 實查黑washer／insulator／bore／floor為M0、圓肩／六角前鼻／深socket ring為M1；黑域matte、金屬較polished，兩層外金屬共pigment。Plate／shoulder／insulator／barrel高度遞升，bore與floor低於contact、contact低於washer，深well AO低、外塑膠與metal AO高；最大flat-core height spread0.0001009646。
+
+- 合法one-cell試驗揭露舊式exact-zero period assertion過嚴：真實period最大2.220446049250313e-16，native phases均正確、finite／topology不變。僅改observer為relief-normalized <1e-12，不修改producer或clamp結果；one-cell同15callbacks及後續全部合法controls通過，避免把浮點bit相同冒充週期契約。
+
+- 完整corrected controls實跑506.92s：112資料變體（54 numeric各低／高、包含1／3 cells、兩palette、共同height affine及front-barrel／insulator nesting耦合）＋5source合法替代（0／π/2朝向、明確quintic、常grain、有限seed0=7碰撞）各15callbacks全過。18資料＋20source故障全部ERR_ASSERTION拒絕，accepted0；語法／TypeError等非assertion會使harness失敗，不算故障檢出。
+
+- 初次private linear-mutant生成錯刪Math.abs括號，發現後立即取消該owned控制job，未算通過。改為逐一移除完整smooth wrapper，先解析全部25個source替代再跑上述完整矩陣；正式source／tests未因harness錯誤修改，也不把語法錯當negative成功。
+
+- 故障涵蓋缺寬washer、hex過大／過窄、過寬深contact、塑膠鏡面／染亮、metal粉筆、深井未遮蔽及錯高度、圓形代hex、缺contact、實心male disc、塑膠導電與僅finish seed。Finish-only footprint變化0.0000966389974被>0.02界限拒絕；正式seed7／MAX實際binary幾何變化0.07221306695。
+
+- 六radial與hex線性profiles由C1分別229.2479／423.0374／524.9762／615.1549／835.3058／1071.4569／157.3683拒絕；hard profiles≥2.5769803776e9。獨立max-plane hex故障仍finite、8 bodies／phases、9voids、4高環／5basins且保留六面外觀，卻有C1 worst193.017275／196.369015／207.617317，確由corner接縫拒絕。
+
+- 獨立C1 height-only缺口在各24,576 signed samples改height107／106／104點、其他五channel Object.is差異0；finite、8 bodies／phases與9voids、4高環保留，只有低basins5→1。192個native＋實際觀察缺口角度的centers給C1 worst0.000813484／0.000821114／0.000811577，皆<0.1。真正執行fixture得到topology的ERR_ASSERTION 1≠5，不靠C0或改metal mask。
+
+- 實際32／512五maps alpha皆255、normal Z皆正；metal nonzero156／38,929、full145／35,772、transition11／3,157。最大normal length²量化誤差0.002491349／0.010795848、max tilt²0.002491349／0.413902345，luma約17.7192–225.7192／226.7192；32僅巨觀預覽，不保證細socket ring或六角邊可辨。
+
+- Source gates實跑117.44s：14 owned files Prettier、repository lint／format:check、strict typecheck、ESM／CJS build通過；376JS minify6,085,917→2,844,253B、370CJS modules、vendor不變。API結構737 exports／2810 directional contracts、710 historical namespaces／5 versioned consumers；distribution367 exports與既有class identity規則通過，不冒稱宣告可認證runtime。
+
+- 2026-11-01完整Vitest：179files／9,331tests全過，10:53:07開始、998.75s（wall999.58s）。期間repo source／tests／docs不變；下一F05 optical僅private記憶體與4個本機參考／preview檔，未混入本feature。其後只補本驗收及文件格式，不冒稱又跑一次runtime。
+
+- Fresh Node v26.7.0整鏈12.97s，釘選bcd97aed：舊878種×4seed×7points＝24,584samples／147,504channel values逐值Object.is差異0，878preset／tile與相對順序保留。Rj45／USB-C／C6／C8／DIN5／XLR／BNC／C14／Dsub／trimmer／rectangle共11近似種類的32／512×三seed：66sets／330buffers逐byte差異0。
+
+- Private prototype／final ESM／CJS三方73,728 signed samples／442,368channel triplets差異0；新材質6sets／30prototype buffers相同，新＋11近似種類72sets／360ESM-CJS buffers差異0，兩制879preset／tile相同。目錄數與sample／buffer counts均由實際runtime取得，沒有沿用舊hardcoded標籤。
+
+- Owned正常security HeadlessChrome156／19748，無unsafe GPU、no-sandbox、TLS、RAF或visibility bypass。同一真實gallery page先WebGL2再fresh導航WebGPU，各實見3 native RAF、animate off、新kind及879＋plain共880選項、25球；兩張PNG均實際讀圖。Native GL draw30且未lost、GPUQueue.submit1；CSS960×540、DPR1.25、backing1200×675，不冒稱normal OS window、Canvas2D3D或FPS認證。
+
+- 實讀published-root404完整CSP（default-none、script-self、worker-self、無unsafe-eval／inline）與nosniff；真正callable跑512／seed7／tint[.9,1,1.1]／height／repeats3：sync、原生single module Worker及cache-hit五streams各1,048,576B逐byte相同、三preset textures兩兩隔離，default metallic1／explicit0、五UV transforms均[3,0,0,3,0,0]。Metal mask223,215zero／35,772full／3,157transition。
+
+- Cache1entry／5,242,880B、hit1／miss1；pool1worker／completed1，其餘running／queued／admittedBytes／cancelled／failed全0。三preset destroyed後，同借用pool32／seed8完成completed2／failed0，borrowed preset亦destroy；cache clear後0／0B、明確caller-owned pool.destroy。32／seed123、124 public factory實見588個baseColor bytes不同且cleanup；strict managed errors／console entries0、dropped0。Published-root1024²四panel另實際讀圖並destroy preset，404僅smoke底頁不是發佈UI。
+
+- Gallery於raw portal外層close、累計errors[]、remaining0，兩SDK handles釋放；owned service手動stop後實際exit1，不寫成exit0／143。一次讀取stderr仍有allocator、headless CVDisplayLink -6670與updater missing Crashpad，未隱藏警告或宣稱warning-free。兩PDF已close、14個實際列名scratch files與唯一owned profile已移除；保留19660／19662、下一feature私有檔與使用者既有hunk。未認證Node22、其他browser、實體硬體或電氣／audio／RF／安全／FPS，沒有push。
+
+- 九文件387個relative links實查missing0；只提交本feature EOF驗收，不將使用者先前獨立hunk納入。

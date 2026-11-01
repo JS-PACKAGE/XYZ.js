@@ -15743,6 +15743,152 @@ export function createSurfaceSampler(
           metallic = pin;
         };
       }
+      case 'rcafemalefaces': {
+        const p = proceduralMaterialPresets.rcafemalefaces,
+          poses = new Float64Array(p.cells * p.cells * 4),
+          grainField = cachedNoise(96, 96, seed ^ 0x22a01),
+          gasketSquared = p.gasketRadius * p.gasketRadius,
+          gasketCore = p.gasketRadius - p.gasketBevel,
+          inverseGasket = 1 / (gasketSquared - gasketCore * gasketCore),
+          shoulderSquared = p.shoulderRadius * p.shoulderRadius,
+          shoulderCore = p.shoulderRadius - p.shoulderBevel,
+          inverseShoulder = 1 / (shoulderSquared - shoulderCore * shoulderCore),
+          insulatorSquared = p.insulatorRadius * p.insulatorRadius,
+          insulatorCore = p.insulatorRadius - p.insulatorBevel,
+          inverseInsulator =
+            1 / (insulatorSquared - insulatorCore * insulatorCore),
+          boreSquared = p.boreRadius * p.boreRadius,
+          boreCore = p.boreRadius - p.boreBevel,
+          inverseBore = 1 / (boreSquared - boreCore * boreCore),
+          contactSquared = p.contactRadius * p.contactRadius,
+          contactCore = p.contactRadius - p.contactBevel,
+          inverseContact = 1 / (contactSquared - contactCore * contactCore),
+          holeSquared = p.holeRadius * p.holeRadius,
+          holeCore = p.holeRadius - p.holeBevel,
+          inverseHole = 1 / (holeSquared - holeCore * holeCore),
+          inverseBarrel = 1 / p.barrelBevel,
+          diagonal = Math.sqrt(3) / 2,
+          gasketTone = p.gasketTone - p.backingTone,
+          gasketHeight = p.gasketHeight - p.backingHeight,
+          gasketRoughness = p.gasketRoughness - p.backingRoughness,
+          gasketAO = p.gasketAO - p.backingAO,
+          shoulderTone = p.metalTone - p.gasketTone,
+          shoulderHeight = p.shoulderHeight - p.gasketHeight,
+          shoulderRoughness = p.shoulderRoughness - p.gasketRoughness,
+          shoulderAO = p.shoulderAO - p.gasketAO,
+          barrelHeight = p.barrelHeight - p.shoulderHeight,
+          barrelRoughness = p.roughness - p.shoulderRoughness,
+          barrelAO = p.barrelAO - p.shoulderAO,
+          insulatorTone = p.insulatorTone - p.metalTone,
+          insulatorHeight = p.insulatorHeight - p.barrelHeight,
+          insulatorRoughness = p.insulatorRoughness - p.roughness,
+          insulatorAO = p.insulatorAO - p.barrelAO,
+          boreTone = p.boreTone - p.insulatorTone,
+          boreHeight = p.boreHeight - p.insulatorHeight,
+          boreRoughness = p.boreRoughness - p.insulatorRoughness,
+          boreAO = p.boreAO - p.insulatorAO,
+          contactTone = p.contactTone - p.boreTone,
+          contactHeight = p.contactHeight - p.boreHeight,
+          contactRoughness = p.contactRoughness - p.boreRoughness,
+          contactAO = p.contactAO - p.boreAO,
+          holeTone = p.holeTone - p.contactTone,
+          holeHeight = p.holeHeight - p.contactHeight,
+          holeRoughness = p.holeRoughness - p.contactRoughness,
+          holeAO = p.holeAO - p.contactAO;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4,
+              scale =
+                p.minScale +
+                (p.maxScale - p.minScale) * hash(col, row, seed ^ 0x22a03),
+              angle = TAU * hash(col, row, seed ^ 0x22a05);
+            poses[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x22a07) - 1);
+            poses[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x22a09) - 1);
+            poses[i + 2] = Math.cos(angle) / scale;
+            poses[i + 3] = Math.sin(angle) / scale;
+          }
+        return () => {
+          color = p.backingTone;
+          height = p.backingHeight;
+          roughness = p.backingRoughness;
+          occlusion = p.backingAO;
+          metallic = 0;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 4,
+            dx = uc - col - poses[i],
+            dy = vc - row - poses[i + 1],
+            x = dx * poses[i + 2] + dy * poses[i + 3],
+            y = dy * poses[i + 2] - dx * poses[i + 3],
+            q = x * x + y * y;
+          if (q >= gasketSquared) return;
+          const gasket = smooth(clamp((gasketSquared - q) * inverseGasket)),
+            grain = grainField(u, v);
+          color += gasket * (gasketTone + p.grainTone * grain);
+          height += gasket * (gasketHeight + p.grainHeight * grain);
+          roughness += gasket * (gasketRoughness + p.grainRoughness * grain);
+          occlusion += gasket * gasketAO - p.edgeAO * gasket * (1 - gasket);
+          const shoulder = smooth(
+            clamp((shoulderSquared - q) * inverseShoulder),
+          );
+          if (shoulder === 0) return;
+          color += shoulder * shoulderTone;
+          height += shoulder * shoulderHeight;
+          roughness += shoulder * shoulderRoughness;
+          occlusion +=
+            shoulder * shoulderAO - p.edgeAO * shoulder * (1 - shoulder);
+          metallic = shoulder;
+          const hx = 0.5 * x,
+            hy = diagonal * y,
+            barrel =
+              smooth(clamp((p.barrelInradius - Math.abs(x)) * inverseBarrel)) *
+              smooth(
+                clamp((p.barrelInradius - Math.abs(hx + hy)) * inverseBarrel),
+              ) *
+              smooth(
+                clamp((p.barrelInradius - Math.abs(hx - hy)) * inverseBarrel),
+              );
+          if (barrel === 0) return;
+          height += barrel * barrelHeight;
+          roughness += barrel * barrelRoughness;
+          occlusion += barrel * barrelAO - p.edgeAO * barrel * (1 - barrel);
+          const insulator = smooth(
+            clamp((insulatorSquared - q) * inverseInsulator),
+          );
+          if (insulator === 0) return;
+          color += insulator * insulatorTone;
+          height += insulator * insulatorHeight;
+          roughness += insulator * insulatorRoughness;
+          occlusion +=
+            insulator * insulatorAO - p.edgeAO * insulator * (1 - insulator);
+          metallic -= insulator;
+          const bore = smooth(clamp((boreSquared - q) * inverseBore));
+          if (bore === 0) return;
+          color += bore * boreTone;
+          height += bore * boreHeight;
+          roughness += bore * boreRoughness;
+          occlusion += bore * boreAO - p.edgeAO * bore * (1 - bore);
+          const contact = smooth(clamp((contactSquared - q) * inverseContact));
+          if (contact === 0) return;
+          color += contact * contactTone;
+          height += contact * contactHeight;
+          roughness += contact * contactRoughness;
+          occlusion += contact * contactAO - p.edgeAO * contact * (1 - contact);
+          metallic += contact;
+          const hole = smooth(clamp((holeSquared - q) * inverseHole));
+          if (hole === 0) return;
+          color += hole * holeTone;
+          height += hole * holeHeight;
+          roughness += hole * holeRoughness;
+          occlusion += hole * holeAO - p.edgeAO * hole * (1 - hole);
+          metallic -= hole;
+          // Recessed opaque female socket floor, not a male pin or transmission hole.
+        };
+      }
       case 'usbcfemalefaces': {
         const p = proceduralMaterialPresets.usbcfemalefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -42728,6 +42874,7 @@ export function createSurfaceSampler(
     kind === 'ceramiccapacitors' ||
     kind === 'fennelseeds' ||
     kind === 'rj45femalefaces' ||
+    kind === 'rcafemalefaces' ||
     kind === 'usbcfemalefaces' ||
     kind === 'iecc6inlets' ||
     kind === 'iecc8inlets' ||

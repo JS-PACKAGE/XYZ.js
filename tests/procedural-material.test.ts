@@ -668,6 +668,7 @@ const kinds: ProceduralMaterialKind[] = [
   'ceramiccapacitors',
   'fennelseeds',
   'rj45femalefaces',
+  'rcafemalefaces',
   'usbcfemalefaces',
   'iecc6inlets',
   'iecc8inlets',
@@ -76983,6 +76984,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'xlrfemalefaces' &&
           kind !== 'bncfemalefaces' &&
           kind !== 'rj45femalefaces' &&
+          kind !== 'rcafemalefaces' &&
           kind !== 'usbcfemalefaces' &&
           kind !== 'iecc6inlets' &&
           kind !== 'iecc8inlets' &&
@@ -86458,6 +86460,7 @@ describe('procedural preset acquisition and ownership', () => {
     'sewingsnaps',
     'ceramiccapacitors',
     'rj45femalefaces',
+    'rcafemalefaces',
     'usbcfemalefaces',
     'iecc6inlets',
     'iecc8inlets',
@@ -86589,6 +86592,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'xlrfemalefaces' ||
           kind === 'bncfemalefaces' ||
           kind === 'rj45femalefaces' ||
+          kind === 'rcafemalefaces' ||
           kind === 'usbcfemalefaces' ||
           kind === 'iecc6inlets' ||
           kind === 'iecc8inlets' ||
@@ -127894,6 +127898,724 @@ describe('RJ45-type eight-contact female faces with rectangular shields and step
         expect(m.fullMetal).toBeGreaterThan(0);
         expect(m.transitions).toBeGreaterThan(0);
       }
+    },
+  );
+});
+describe('RCA female faces with small six-flat front barrels, round shoulders and recessed socket annuli', () => {
+  const preset = proceduralMaterialPresets.rcafemalefaces;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+    centers: readonly { u: number; v: number }[],
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines + centers.length; line++) {
+        const fixed =
+          line < lines
+            ? (line + 0.37) / lines
+            : axis
+              ? centers[line - lines].u
+              : centers[line - lines].v;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed shoulders instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const regions = (
+    mask: Uint8Array,
+    size: number,
+    queue: Int32Array,
+    labels: Int32Array,
+    sign: 1 | -1,
+  ) => {
+    const result = [] as {
+      area: number;
+      cx: number;
+      cy: number;
+      xx: number;
+      yy: number;
+      xy: number;
+    }[];
+    for (let first = 0; first < mask.length; first++) {
+      if (!mask[first]) continue;
+      let read = 0,
+        write = 1,
+        sx = 0,
+        sy = 0,
+        sxx = 0,
+        syy = 0,
+        sxy = 0;
+      queue[0] = first;
+      mask[first] = 0;
+      const label = sign * (result.length + 1);
+      while (read < write) {
+        const at = queue[read++],
+          ix = at % size,
+          iy = Math.floor(at / size),
+          x = (ix + 0.5) / size,
+          y = (iy + 0.5) / size;
+        labels[at] = label;
+        sx += x;
+        sy += y;
+        sxx += x * x;
+        syy += y * y;
+        sxy += x * y;
+        for (let d = 0; d < 8; d++) {
+          const ox = d < 4 ? (d === 0 ? 1 : d === 1 ? -1 : 0) : d % 2 ? 1 : -1,
+            oy = d < 4 ? (d === 2 ? 1 : d === 3 ? -1 : 0) : d < 6 ? -1 : 1,
+            nx = (ix + ox + size) % size,
+            ny = (iy + oy + size) % size,
+            next = ny * size + nx;
+          if (mask[next]) {
+            mask[next] = 0;
+            queue[write++] = next;
+          }
+        }
+      }
+      const cx = sx / write,
+        cy = sy / write;
+      result.push({
+        area: write,
+        cx,
+        cy,
+        xx: sxx / write - cx * cx,
+        yy: syy / write - cy * cy,
+        xy: sxy / write - cx * cy,
+      });
+    }
+    return result;
+  };
+  const field = (seed: number) => {
+    const size = Math.max(768, 384 * preset.cells),
+      total = size * size,
+      sample = createSurfaceSampler('rcafemalefaces', seed),
+      probe = empty(),
+      colors = new Float64Array(total),
+      heights = new Float64Array(total),
+      metals = new Float64Array(total),
+      queue = new Int32Array(total),
+      bodyLabels = new Int32Array(total),
+      phaseLabels = new Int32Array(total),
+      highLabels = new Int32Array(total);
+    let invalid = 0,
+      min = Infinity,
+      maxPlastic = -Infinity;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        const at = y * size + x;
+        sample((x + 0.5) / size, (y + 0.5) / size, probe);
+        for (const key of keys)
+          invalid += Number(
+            !Number.isFinite(probe[key]) || probe[key] < 0 || probe[key] > 1,
+          );
+        colors[at] = probe.color;
+        heights[at] = probe.height / preset.relief;
+        metals[at] = probe.metallic;
+        invalid += Number(!Number.isFinite(heights[at]));
+        min = Math.min(min, probe.color);
+        if (probe.metallic === 0)
+          maxPlastic = Math.max(maxPlastic, probe.color);
+      }
+    const level = (min + maxPlastic) * 0.5,
+      bodyMask = Uint8Array.from(colors, (c) => Number(c > level)),
+      bodies = regions(bodyMask.slice(), size, queue, bodyLabels, 1),
+      bodyVoids = regions(
+        Uint8Array.from(bodyMask, (c) => 1 - c),
+        size,
+        queue,
+        new Int32Array(total),
+        -1,
+      ),
+      phaseMask = Uint8Array.from(metals, (m) => Number(m > 0.5)),
+      phases = regions(phaseMask.slice(), size, queue, phaseLabels, 1),
+      phaseVoids = regions(
+        Uint8Array.from(phaseMask, (c) => 1 - c),
+        size,
+        queue,
+        new Int32Array(total),
+        -1,
+      );
+    let minHeight = Infinity,
+      maxHeight = -Infinity;
+    for (let at = 0; at < total; at++)
+      if (bodyMask[at] && metals[at] === 0) {
+        minHeight = Math.min(minHeight, heights[at]);
+        maxHeight = Math.max(maxHeight, heights[at]);
+      }
+    const highLevel = (minHeight + maxHeight) * 0.5,
+      highMask = Uint8Array.from(heights, (h) => Number(h > highLevel)),
+      highs = regions(highMask.slice(), size, queue, highLabels, 1),
+      basins = regions(
+        Uint8Array.from(highMask, (m) => 1 - m),
+        size,
+        queue,
+        new Int32Array(total),
+        -1,
+      ),
+      highMetal = new Uint32Array(highs.length);
+    for (let at = 0; at < total; at++)
+      if (highLabels[at] > 0 && metals[at] > 0.5)
+        highMetal[highLabels[at] - 1]++;
+    return {
+      seed,
+      size,
+      invalid,
+      level,
+      bodies,
+      bodyVoids,
+      phases,
+      phaseVoids,
+      highs,
+      basins,
+      minHeight,
+      maxHeight,
+      highLevel,
+      highMetal,
+      sample,
+      colors,
+      heights,
+      metals,
+      bodyMask,
+      highMask,
+      bodyLabels,
+      phaseLabels,
+      highLabels,
+    };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      buffers = Object.values(maps);
+    let minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      fullMetal = 0,
+      transitions = 0,
+      maxTilt = 0,
+      normalLengthError = 0,
+      backFacing = 0,
+      invalidAlpha = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        nz = maps.normal[j + 2] / 127.5 - 1,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      fullMetal += Number(maps.metallicRoughness[j + 2] === 255);
+      transitions += Number(
+        maps.metallicRoughness[j + 2] > 0 &&
+          maps.metallicRoughness[j + 2] < 255,
+      );
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      normalLengthError = Math.max(
+        normalLengthError,
+        Math.abs(nx * nx + ny * ny + nz * nz - 1),
+      );
+      backFacing += Number(nz <= 0);
+      for (const buffer of buffers)
+        invalidAlpha += Number(buffer[j + 3] !== 255);
+    }
+    return {
+      metallicPixels,
+      fullMetal,
+      transitions,
+      maxTilt,
+      minLuma,
+      maxLuma,
+      normalLengthError,
+      backFacing,
+      invalidAlpha,
+    };
+  };
+  const check = (value: boolean): void => {
+    expect(value).toBe(true);
+  };
+  const observeNative = (d: ReturnType<typeof field>) => {
+    const n = preset.cells ** 2,
+      largest = d.phases.slice().sort((a, b) => b.area - a.area),
+      outer = largest.slice(0, n),
+      small = largest.slice(n),
+      bodyRegions = d.bodies
+        .slice()
+        .sort((a, b) => b.area - a.area)
+        .slice(0, n),
+      probe = empty(),
+      boundaries: { u: number; v: number }[] = [];
+    const owners = outer.map((ring) => {
+      const read = (
+        cx: number,
+        cy: number,
+        r: number,
+        angle: number,
+        key: keyof SurfaceSample,
+      ): number => {
+        d.sample(cx + r * Math.cos(angle), cy + r * Math.sin(angle), probe);
+        return key === 'height' ? probe.height / preset.relief : probe[key];
+      };
+      const annulus = (
+        region: (typeof d.phases)[number],
+        key: 'metallic' | 'color' = 'metallic',
+        threshold = 0.5,
+      ) => {
+        let { cx, cy } = region;
+        const mid = Math.sqrt(region.xx + region.yy),
+          cross = (angle: number, outside: boolean) => {
+            let a = mid,
+              b = outside ? 2 * mid : mid / 2;
+            if (!outside)
+              for (
+                let k = 0;
+                k < 10 && read(cx, cy, b, angle, key) > threshold;
+                k++
+              )
+                b *= 0.5;
+            check(read(cx, cy, a, angle, key) > threshold);
+            check(read(cx, cy, b, angle, key) < threshold);
+            for (let j = 0; j < 52; j++) {
+              const m = (a + b) / 2;
+              if (read(cx, cy, m, angle, key) > threshold) a = m;
+              else b = m;
+            }
+            return (a + b) / 2;
+          };
+        const right = cross(0, true),
+          left = cross(Math.PI, true),
+          up = cross(Math.PI / 2, true),
+          down = cross(-Math.PI / 2, true);
+        cx += (right - left) / 2;
+        cy += (up - down) / 2;
+        const outs: number[] = [],
+          ins: number[] = [];
+        for (let k = 0; k < 24; k++) {
+          const angle = (k * Math.PI) / 12;
+          outs.push(cross(angle, true));
+          ins.push(cross(angle, false));
+          if (k % 6 === 0) {
+            for (const r of [outs[k], ins[k]])
+              boundaries.push({
+                u: cx + r * Math.cos(angle),
+                v: cy + r * Math.sin(angle),
+              });
+          }
+        }
+        return {
+          cx,
+          cy,
+          outer: outs.reduce((s, r) => s + r, 0) / 24,
+          inner: ins.reduce((s, r) => s + r, 0) / 24,
+          circleError: Math.max(
+            (Math.max(...outs) - Math.min(...outs)) /
+              (outs.reduce((s, r) => s + r, 0) / 24),
+            (Math.max(...ins) - Math.min(...ins)) /
+              (ins.reduce((s, r) => s + r, 0) / 24),
+          ),
+        };
+      };
+      const circle = annulus(ring),
+        nearest = small
+          .slice()
+          .sort(
+            (a, b) =>
+              (a.cx - circle.cx) ** 2 +
+              (a.cy - circle.cy) ** 2 -
+              ((b.cx - circle.cx) ** 2 + (b.cy - circle.cy) ** 2),
+          )[0],
+        contact = annulus(nearest),
+        bodyRegion = bodyRegions
+          .slice()
+          .sort(
+            (a, b) =>
+              (a.cx - circle.cx) ** 2 +
+              (a.cy - circle.cy) ** 2 -
+              ((b.cx - circle.cx) ** 2 + (b.cy - circle.cy) ** 2),
+          )[0],
+        body = annulus(bodyRegion, 'color', d.level);
+      const shoulderH = read(
+          circle.cx,
+          circle.cy,
+          circle.outer * 0.9,
+          0,
+          'height',
+        ),
+        barrelH = read(circle.cx, circle.cy, circle.inner * 1.1, 0, 'height'),
+        plasticH = read(circle.cx, circle.cy, circle.inner * 0.7, 0, 'height'),
+        level = (shoulderH + Math.min(barrelH, plasticH)) / 2;
+      const contour = (angle: number) => {
+        let a = circle.inner * 0.9,
+          b = circle.outer * 0.95;
+        check(read(circle.cx, circle.cy, a, angle, 'height') > level);
+        check(read(circle.cx, circle.cy, b, angle, 'height') < level);
+        for (let k = 0; k < 52; k++) {
+          const m = (a + b) / 2;
+          if (read(circle.cx, circle.cy, m, angle, 'height') > level) a = m;
+          else b = m;
+        }
+        return (a + b) / 2;
+      };
+      // Recover six-fold phase from observed contours, never the private seeded angle.
+      const radii = Array.from({ length: 72 }, (_, k) =>
+          contour((k * Math.PI) / 36),
+        ),
+        mean = radii.reduce((s, r) => s + r, 0) / 72,
+        harmonics = Array.from({ length: 12 }, (_, m) => {
+          const order = m + 1,
+            c =
+              (2 *
+                radii.reduce(
+                  (s, r, k) => s + r * Math.cos((order * k * Math.PI) / 36),
+                  0,
+                )) /
+              72,
+            s =
+              (2 *
+                radii.reduce(
+                  (s, r, k) => s + r * Math.sin((order * k * Math.PI) / 36),
+                  0,
+                )) /
+              72;
+          return {
+            order,
+            amplitude: Math.hypot(c, s) / mean,
+            phase: Math.atan2(s, c) / order,
+          };
+        });
+      const vertices = harmonics[5].phase;
+      let straightness = 0;
+      for (let k = 0; k < 6; k++) {
+        const vertex = vertices + (k * Math.PI) / 3,
+          normal = vertex + Math.PI / 6,
+          mid = contour(normal);
+        for (const sign of [-1, 1])
+          straightness = Math.max(
+            straightness,
+            Math.abs(
+              contour(normal + (sign * Math.PI) / 12) * Math.cos(Math.PI / 12) -
+                mid,
+            ) / mid,
+          );
+        for (const angle of [vertex, normal]) {
+          const r = contour(angle);
+          boundaries.push({
+            u: circle.cx + r * Math.cos(angle),
+            v: circle.cy + r * Math.sin(angle),
+          });
+        }
+      }
+      const locations = [
+        ['backing', body.outer * 1.2, (body.outer - circle.outer) * 0.02],
+        [
+          'gasket',
+          (body.outer + circle.outer) / 2,
+          (body.outer - circle.outer) * 0.02,
+        ],
+        ['shoulder', circle.outer * 0.9, (circle.outer - circle.inner) * 0.01],
+        ['barrel', circle.inner * 1.1, (circle.outer - circle.inner) * 0.005],
+        ['insulator', circle.inner * 0.7, (body.inner - contact.outer) * 0.02],
+        [
+          'bore',
+          (body.inner + contact.outer) / 2,
+          (body.inner - contact.outer) * 0.02,
+        ],
+        [
+          'contact',
+          (contact.inner + contact.outer) / 2,
+          (contact.outer - contact.inner) * 0.02,
+        ],
+        ['hole', 0, contact.inner * 0.02],
+      ] as const;
+      const surfaceAt = (r: number, dx = 0, dy = 0): SurfaceSample => {
+        d.sample(circle.cx + r + dx, circle.cy + dy, probe);
+        return { ...probe, height: probe.height / preset.relief };
+      };
+      const surfaces = Object.fromEntries(
+        locations.map(([name, r]) => [name, surfaceAt(r)]),
+      ) as Record<(typeof locations)[number][0], SurfaceSample>;
+      let flatness = 0;
+      for (const [, r, step] of locations) {
+        const values = [
+          surfaceAt(r).height,
+          surfaceAt(r, -step).height,
+          surfaceAt(r, step).height,
+          surfaceAt(r, 0, -step).height,
+          surfaceAt(r, 0, step).height,
+        ];
+        flatness = Math.max(
+          flatness,
+          Math.max(...values) - Math.min(...values),
+        );
+      }
+      return {
+        circle,
+        contact,
+        body,
+        surfaces,
+        flatness,
+        meanRadius: mean,
+        centerError:
+          Math.hypot(circle.cx - contact.cx, circle.cy - contact.cy) /
+          circle.outer,
+        shoulderH,
+        barrelH,
+        plasticH,
+        level,
+        hexSixfold: harmonics[5].amplitude,
+        hexOther: Math.max(
+          ...harmonics
+            .filter((q) => q.order !== 6 && q.order !== 12)
+            .map((q) => q.amplitude),
+        ),
+        straightness,
+      };
+    });
+    return { owners, boundaries };
+  };
+
+  const fields = new Map<number, ReturnType<typeof field>>();
+  const natives = new Map<number, ReturnType<typeof observeNative>>();
+  const measuredField = (seed: number) => {
+    let d = fields.get(seed);
+    if (!d) {
+      d = field(seed);
+      fields.set(seed, d);
+    }
+    return d;
+  };
+  const native = (seed: number) => {
+    let g = natives.get(seed);
+    if (!g) {
+      g = observeNative(measuredField(seed));
+      natives.set(seed, g);
+    }
+    return g;
+  };
+  it.each([0, 7, 0xffffffff])(
+    'keeps isolated nested annuli, closed bores and opaque finite channels at seed %s',
+    (seed) => {
+      const d = measuredField(seed),
+        n = preset.cells * preset.cells;
+      expect(d.invalid).toBe(0);
+      expect(d.bodies.length).toBe(2 * n);
+      expect(d.bodyVoids.length).toBe(2 * n + 1);
+      expect(d.phases.length).toBe(2 * n);
+      expect(d.phaseVoids.length).toBe(2 * n + 1);
+      expect(d.highs.length).toBe(n);
+      expect(d.basins.length).toBe(n + 1);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'recovers round washers and shoulders, concentric sockets and six straight front facets at seed %s',
+    (seed) => {
+      for (const o of native(seed).owners) {
+        expect(o.body.circleError).toBeLessThan(0.015);
+        expect(o.circle.circleError).toBeLessThan(0.002);
+        expect(o.contact.circleError).toBeLessThan(0.002);
+        expect(o.centerError).toBeLessThan(0.01);
+        expect(o.body.outer / o.circle.outer).toBeGreaterThan(1.15);
+        expect(o.circle.outer / o.circle.inner).toBeGreaterThan(1.3);
+        expect(o.body.inner / o.contact.outer).toBeGreaterThan(1.2);
+        expect(o.circle.inner / o.body.inner).toBeGreaterThan(1.4);
+        expect(o.contact.outer / o.contact.inner).toBeGreaterThan(1.25);
+        expect(o.meanRadius / o.circle.inner).toBeGreaterThan(1.1);
+        expect(o.meanRadius / o.circle.outer).toBeLessThan(0.9);
+        expect(o.hexSixfold).toBeGreaterThan(0.025);
+        expect(o.hexSixfold).toBeLessThan(0.1);
+        expect(o.hexOther).toBeLessThan(0.003);
+        expect(o.straightness).toBeLessThan(0.003);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'separates dark matte insulation, conductive rims and recessed female floors at seed %s',
+    (seed) => {
+      for (const o of native(seed).owners) {
+        const s = o.surfaces;
+        for (const q of [s.backing, s.gasket, s.insulator, s.bore, s.hole]) {
+          expect(q.metallic).toBe(0);
+          expect(q.color).toBeLessThan(0.4);
+          expect(q.roughness).toBeGreaterThan(0.6);
+        }
+        for (const q of [s.shoulder, s.barrel, s.contact]) {
+          expect(q.metallic).toBe(1);
+          expect(q.color).toBeGreaterThan(0.6);
+          expect(q.roughness).toBeLessThan(0.5);
+          expect(q.occlusion).toBeGreaterThan(0.65);
+        }
+        expect(Math.abs(s.shoulder.color - s.barrel.color)).toBeLessThan(0.02);
+        expect(s.gasket.height).toBeGreaterThan(s.backing.height);
+        expect(s.shoulder.height).toBeGreaterThan(s.gasket.height);
+        expect(s.insulator.height).toBeGreaterThan(s.shoulder.height);
+        expect(s.barrel.height).toBeGreaterThan(s.insulator.height);
+        expect(s.bore.height).toBeLessThan(s.contact.height);
+        expect(s.hole.height).toBeLessThan(s.contact.height);
+        expect(s.contact.height).toBeLessThan(s.gasket.height);
+        expect(s.bore.occlusion).toBeLessThan(0.45);
+        expect(s.hole.occlusion).toBeLessThan(0.45);
+        expect(s.insulator.occlusion).toBeGreaterThan(0.7);
+        expect(s.gasket.occlusion).toBeGreaterThan(0.7);
+        expect(o.flatness).toBeLessThan(0.002);
+      }
+    },
+  );
+  it('varies actual washer, metal and six-flat height footprints rather than grain alone', () => {
+    const masks = [7, 0xffffffff].map((seed) => {
+      const d = measuredField(seed),
+        g = native(seed),
+        level = g.owners.reduce((sum, o) => sum + o.level, 0) / g.owners.length;
+      return Uint8Array.from(
+        d.metals,
+        (m, i) =>
+          Number(d.bodyMask[i] > 0) |
+          (Number(m > 0.5) << 1) |
+          (Number(d.highMask[i] > 0) << 2) |
+          (Number(d.heights[i] > level) << 3),
+      );
+    });
+    let changed = 0;
+    for (let i = 0; i < masks[0].length; i++)
+      changed += Number(masks[0][i] !== masks[1][i]);
+    expect(changed / masks[0].length).toBeGreaterThan(0.02);
+  });
+  it.each([0, 7, 0xffffffff])(
+    'keeps signed UV periodicity and C1 shoulders, facets and socket rims at seed %s',
+    (seed) => {
+      const d = measuredField(seed),
+        a = empty(),
+        b = empty();
+      let period = 0;
+      for (let i = 0; i < 4096; i++) {
+        const u = (i * 0.7548776662466927) % 1,
+          v = (i * 0.5698402909980532) % 1;
+        d.sample(u, v, a);
+        d.sample(u - 2, v + 3, b);
+        for (const key of keys)
+          period = Math.max(
+            period,
+            Math.abs(a[key] - b[key]) / (key === 'height' ? preset.relief : 1),
+          );
+      }
+      expect(period).toBeLessThan(1e-12);
+      expect(
+        refineCurvature(d.sample, preset.relief, native(seed).boundaries),
+      ).toBeLessThan(0.1);
+    },
+  );
+  it.each([32, 512])(
+    'packs both opaque phases and bounded forward normals at size %s',
+    (size) => {
+      const p = observePixels(
+          generateProceduralMaps('rcafemalefaces', size, 7, {
+            heightMap: true,
+          }),
+        ),
+        count = size * size;
+      expect(p.invalidAlpha).toBe(0);
+      expect(p.backFacing).toBe(0);
+      expect(p.normalLengthError).toBeLessThan(0.02);
+      expect(p.maxTilt).toBeLessThan(0.8);
+      expect(p.metallicPixels / count).toBeGreaterThan(0.05);
+      expect(p.metallicPixels / count).toBeLessThan(0.35);
+      expect(p.fullMetal / p.metallicPixels).toBeGreaterThan(0.6);
+      expect(p.transitions / p.metallicPixels).toBeGreaterThan(0.002);
+      expect(p.minLuma).toBeGreaterThan(0);
+      expect(p.minLuma).toBeLessThan(80);
+      expect(p.maxLuma).toBeGreaterThan(150);
+      expect(p.maxLuma).toBeLessThan(255);
     },
   );
 });

@@ -1073,7 +1073,13 @@
 
 `snowflakeobsidian`（雪花黑曜石）新增作者近似的黑色磨光平面與平齊灰白放射晶簇，不是既有Obsidian貝殼狀斷口、凸花或平滑印色圓斑。36組seeded晶簇各用24個compact放射晶瓣與0.4–1.1倍不等尺度；scaled support加jitter上界0.4657 cell，小於0.5 owner邊界。重用Chrysanthemum Stone核心，constructor選色調／roughness與縮放cache basis；3,564個geometry值加96² grain，共12,780 Float64／102,240 B，僅為table預算、非總RAM。取樣無配置／hash／trig／sqrt，只有micrograin改height，灰晶簇比黑底稍粗糙。0.12 m nominal tile與0.001 UV relief為作者選定，非標本量測。沿用opaque dielectric四maps、metallic 0、optional height、tint／repeats／Worker／cache及呼叫者ownership，不新增斷口／晶體geometry、透明、礦物鑑定或校準光學模擬。
 
-`rj45femalefaces`（RJ45型8P8C母座正面示意）使目前目錄為878種：四個薄矩形金屬屏蔽框圍住霧黑絕緣內襯，低主腔一側連較窄的階梯卡扣延伸，對側單排八個獨立長金屬接點；不同於四接點矩形插座或USB-C雙排24接點舌片。實讀[TE 1734795-6產品頁](https://www.te.com/en/product-1734795-6.html)列8位置／8接點、無指示燈、黑PA9T GF30、鍍金／鎳磷青銅接點與鍍鎳黃銅殼。中性灰省略鍍金光譜；階梯、接點佈局、尺寸、深度、顏色、PBR粗糙度及0.054 m nominal tile／0.0044 UV relief皆作者近似，不是精確CAD或原廠機械圖面重現。
+`rcafemalefaces`（RCA／Cinch母座正面示意）使目前目錄增至879種：2×2四個寬圓形黑絕緣墊圈，各有較小圓金屬肩、再小一層的六平面前端筒鼻、暗色環形絕緣體與深圓腔；腔內為簡化的凹入導電母座環與暗色不透明底，不是公中心針。無BNC卡口凸耳，不把大型後側安裝螺帽放到正面。這是接頭家族變體，不是新的渲染或接頭模擬技術。
+
+外觀依據已實讀／實看的原廠[REAN NYS367-0圖面](https://www.rean-connectors.com/media/14879/download/NYS367-0.pdf?v=1)（3.652.052，2020-11-13）與通用[NYS367產品PDF](https://www.rean-connectors.com/en/product/nys367-1.pdf)。圖面列墊圈Ø15.5、筒Ø8.3、前段7.5、M8×0.75及全長(29)；AF12是大型後螺帽，不是正面尺寸。圖內不一致的NYS373-x註記不構成新變體證據，產品PDF網址也不代表存在NYS367-1變體。產品照片顯示小型前端平面、較寬墊圈與後螺帽／焊片；PDF列外殼、螺帽、焊片、接點為黃銅／金、墊圈為PA+30%GF，不推定內絕緣樹脂。中性灰刻意省略真實金光學；形狀、位置、深度、顏色、粗糙度、0.04 m nominal tile與0.0042 UV relief皆作者近似，不是量測CAD、公差或隱藏剖面。
+
+獨立56-field preset／kernel組合六組徑向平方距離C1 profiles、三個smooth folded hex slabs與27組快取channel差值。四組四欄pose128B及96² Float64 grain73,728B，共73,856 typed-array payload bytes，非總RAM或FPS。逐點無配置／hash／trig／sqrt／逐邊迴圈；`Math.sqrt(3) / 2`只在construction時計算。Default metallic1保留金屬肩／筒／母座接點與非金屬墊圈／絕緣體／底；explicit0只改material factor、不改stored map。沿用opaque四maps、optional height、tint／repeats、同步／module Worker pool／cache與preset-owned texture清理，既有878種不變；不增依賴或API入口。建議512，32僅粗預覽，不保證小母座可辨。不含後螺帽／焊片／焊尾、實際螺紋或接點彈簧細縫、面板／PCB geometry、mesh、透明穿孔或碰撞，不提供電氣／音訊／RF／插合／EMC／安全模擬或認證。
+
+`rj45femalefaces`（RJ45型8P8C母座正面示意）使當時目錄為878種：四個薄矩形金屬屏蔽框圍住霧黑絕緣內襯，低主腔一側連較窄的階梯卡扣延伸，對側單排八個獨立長金屬接點；不同於四接點矩形插座或USB-C雙排24接點舌片。實讀[TE 1734795-6產品頁](https://www.te.com/en/product-1734795-6.html)列8位置／8接點、無指示燈、黑PA9T GF30、鍍金／鎳磷青銅接點與鍍鎳黃銅殼。中性灰省略鍍金光譜；階梯、接點佈局、尺寸、深度、顏色、PBR粗糙度及0.054 m nominal tile／0.0044 UV relief皆作者近似，不是精確CAD或原廠機械圖面重現。
 
 獨立kernel以55個preset fields、15組快取channel差值與outer／liner／main／key／pin五組平方距離C1 profiles組合；main + key − main × key乘積聯集避免主腔／卡扣腔的max接縫，逐點只取一個nearest接點候選，不逐pad迴圈。四組四欄pose128B加96² Float64 grain73,728B，共73,856B typed payload，非總RAM或FPS。取樣無陣列配置／hash／trig／sqrt，不改舊877種kernel。Default metallic1保留屏蔽框／接點M1、絕緣內襯／低底M0；explicit0只改factor、不改stored map。Opaque四maps與optional height沿用tint／repeats／Worker pool／cache及texture ownership；不增依賴、LED、插頭／線材、磁性元件、PCB／焊尾或面板EMI片，不模擬實體空腔mesh、Ethernet／PoE／Cat／速度／電氣／EMC／安全或插合認證。
 

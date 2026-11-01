@@ -705,6 +705,7 @@ try {
     'ceramiccapacitors',
     'fennelseeds',
     'rj45femalefaces',
+    'rcafemalefaces',
     'usbcfemalefaces',
     'iecc6inlets',
     'iecc8inlets',
