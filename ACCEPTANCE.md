@@ -11569,3 +11569,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 目錄907→908，含plain的gallery為909項。每tile 8皮×4塊的半塊錯縫（奇數皮右移半塊）、2:1磚塊，灰縫寬0.0095 tile、凹陷並使用既有`mortar`通道；磚面有逐塊±0.08色調差、雲狀色斑、骨料顆粒、倒角與每tile約940個小氣孔。Metallic為0，預設tile1.6 m、0.0038 UV-relative relief、metallic factor 0。不模擬孔洞、泛白、油漆，不代表特定CMU規格；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
 - 實測：`tests/procedural-material-motifs.test.ts`一百四十六項（本材質七項）全過。三seed每一皮沿u掃描16384點取mortar>0.5連續區：每皮恰4條縫、縫寬為0.0095±0.003、縫間距為1/4±0.002；相隔一皮的偏移相同、相鄰皮偏移半塊±0.003；沿u=0.07垂直掃描恰8條橫縫、位於k/8±0.003。三seed 1024²以連通區計氣孔（AO＜0.65且非灰縫）為每tile 909–930個，測試期望值為56²×0.3＝941的0.8–1.1倍；所有通道範圍、metallic 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "cinderblockwall|every preset"`定向跑3項通過，沒有重跑該檔其餘5529項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`cinderblockwall`：option 909個、status為908 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的錯縫、灰縫與氣孔可辨且無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：疊紋條紋（moirefringes）
+
+- 目錄908→909，含plain的gallery為910項。兩張整數波向量(24, 3)與(24, −3)的細線格柵疊合（線占比0.26，兩者皆無墨處才透光）；頻差(0, 6)形成每tile 6條水平疊紋帶，頻和(48, 0)形成較細條紋；紙面有256×256低振幅纖維起伏。Metallic／mortar為0，預設tile0.3 m、0.0014 UV-relative relief、metallic factor 0。數學乘積示意，不模擬觀察者或相機取樣；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 調整記錄：第一版線占比算式寫反（`1 − duty − t`），預覽幾乎全黑、只剩細長亮菱形；修正為`duty − t`後預覽正確，並把占比由0.34降到0.26以保留疊紋的明暗對比。
+- 實測：`tests/procedural-material-motifs.test.ts`一百五十項（本材質四項）全過。三seed在256²格上以DFT直接量測指定整數頻率的振幅：兩格柵(24, 3)與(24, −3)約0.319（相等±2%，下限0.25）、頻差(0, 6)與頻和(48, 0)約0.0997（相等±3%，下限0.07）；相鄰頻率(0, 5)、(0, 7)、(1, 6)與無關頻率(11, 5)、(17, −2)、(30, 3)振幅都低於0.01（實測約0.0001），表示能量只在晶格頻率；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "moirefringes|every preset"`定向跑3項通過，沒有重跑該檔其餘5530項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`moirefringes`：option 910個、status為909 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的菱形疊紋帶可辨且無接縫。球面縮小時貼圖自身會有額外混疊，未量化。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

@@ -3097,3 +3097,87 @@ describe('cinderblockwall: running-bond masonry blocks with air voids', () => {
     expect(different).toBeGreaterThan(100);
   });
 });
+
+describe('moirefringes: two integer-wavevector gratings and their beat', () => {
+  const p = proceduralMaterialPresets.moirefringes;
+  const n = 256;
+
+  it.each(seeds)(
+    'puts spectral energy at both gratings, their difference and sum, and nowhere else (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('moirefringes', seed),
+        out = empty(),
+        color = new Float64Array(n * n);
+      let invalid = 0;
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          sample((x + 0.5) / n, (y + 0.5) / n, out);
+          invalid += Number(out.metallic !== 0 || out.mortar !== 0);
+          for (const value of [
+            out.color,
+            out.height / p.relief,
+            out.roughness,
+            out.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+          color[y * n + x] = out.color;
+        }
+      expect(invalid).toBe(0);
+      const amplitude = (kx: number, ky: number): number => {
+        let re = 0,
+          im = 0;
+        for (let y = 0; y < n; y++)
+          for (let x = 0; x < n; x++) {
+            const angle =
+              (-2 * Math.PI * (kx * (x + 0.5) + ky * (y + 0.5))) / n;
+            re += color[y * n + x] * Math.cos(angle);
+            im += color[y * n + x] * Math.sin(angle);
+          }
+        return (2 * Math.hypot(re, im)) / (n * n);
+      };
+      const first = amplitude(p.kx1, p.ky1),
+        second = amplitude(p.kx2, p.ky2),
+        beat = amplitude(p.kx1 - p.kx2, p.ky1 - p.ky2),
+        sum = amplitude(p.kx1 + p.kx2, p.ky1 + p.ky2);
+      // Gratings are strong and equal; the overlay's product terms carry the beat and the sum.
+      expect(first).toBeGreaterThan(0.25);
+      expect(Math.abs(first - second) / first).toBeLessThan(0.02);
+      expect(beat).toBeGreaterThan(0.07);
+      expect(Math.abs(beat - sum) / beat).toBeLessThan(0.03);
+      // Frequencies between lattice points, next to the beat, and unrelated ones stay near zero
+      // (only the faint paper fibers contribute).
+      for (const [kx, ky] of [
+        [p.kx1 - p.kx2, p.ky1 - p.ky2 + 1],
+        [p.kx1 - p.kx2, p.ky1 - p.ky2 - 1],
+        [1, p.ky1 - p.ky2],
+        [11, 5],
+        [17, -2],
+        [p.kx1 + 6, p.ky1],
+      ])
+        expect(amplitude(kx, ky)).toBeLessThan(0.01);
+    },
+  );
+
+  it('wraps seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('moirefringes', 0),
+      b = createSurfaceSampler('moirefringes', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        expect(two.height).toBeCloseTo(one.height, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(100);
+  });
+});

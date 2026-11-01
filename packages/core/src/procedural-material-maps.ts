@@ -18069,6 +18069,35 @@ export function createSurfaceSampler(
           mortar = joint;
         };
       }
+      case 'moirefringes': {
+        const p = proceduralMaterialPresets.moirefringes,
+          fiberField = cachedNoise(p.fiberCells, p.fiberCells, seed ^ 0x25701),
+          inverseSoft = 1 / p.edgeSoft,
+          // Integer wave vectors keep both gratings, and therefore their beat, periodic.
+          line = (phase: number): number => {
+            const t = Math.abs(fract(phase) - 0.5) * 2;
+            // t is 0 at the line center and 1 at the gap center; duty is the line fraction.
+            return smooth(clamp((p.duty - t) * inverseSoft + 0.5));
+          };
+        return () => {
+          const a = line(u * p.kx1 + v * p.ky1),
+            b = line(u * p.kx2 + v * p.ky2),
+            // Two transparent line sheets overlay: light passes only where neither has ink.
+            ink = 1 - (1 - a) * (1 - b),
+            fiber = fiberField(u, v) - 0.5;
+          color = clamp(
+            p.paperTone + p.fiberTone * fiber + (p.inkTone - p.paperTone) * ink,
+          );
+          height = clamp(
+            p.paperHeight +
+              (p.inkHeight - p.paperHeight) * ink +
+              p.fiberHeight * fiber,
+          );
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+          occlusion = p.paperAO + (p.inkAO - p.paperAO) * ink;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -45598,6 +45627,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'moirefringes' ||
     kind === 'cinderblockwall' ||
     kind === 'dicefaces' ||
     kind === 'needlepoint' ||

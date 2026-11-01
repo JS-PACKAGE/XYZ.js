@@ -12974,6 +12974,37 @@ var proceduralMaterialPresets = Object.freeze({
 		voidAO: .35,
 		jointAO: .55
 	}),
+	moirefringes: Object.freeze({
+		dark: [
+			18,
+			20,
+			30
+		],
+		light: [
+			240,
+			236,
+			222
+		],
+		roughness: .62,
+		relief: .0014,
+		kx1: 24,
+		ky1: 3,
+		kx2: 24,
+		ky2: -3,
+		duty: .26,
+		edgeSoft: .1,
+		fiberCells: 256,
+		paperTone: .97,
+		inkTone: .04,
+		fiberTone: .03,
+		inkHeight: .55,
+		paperHeight: .3,
+		fiberHeight: .08,
+		paperRoughness: .66,
+		inkRoughness: .45,
+		paperAO: 1,
+		inkAO: .9
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -21655,6 +21686,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	moirefringes: .3,
 	cinderblockwall: 1.6,
 	dicefaces: .4,
 	needlepoint: .3,

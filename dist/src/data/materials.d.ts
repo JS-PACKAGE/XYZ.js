@@ -7123,6 +7123,29 @@ export declare const proceduralMaterialPresets: Readonly<{
         voidAO: 0.35;
         jointAO: 0.55;
     }>;
+    moirefringes: Readonly<{
+        dark: readonly [18, 20, 30];
+        light: readonly [240, 236, 222];
+        roughness: 0.62;
+        relief: 0.0014;
+        kx1: 24;
+        ky1: 3;
+        kx2: 24;
+        ky2: -3;
+        duty: 0.26;
+        edgeSoft: 0.1;
+        fiberCells: 256;
+        paperTone: 0.97;
+        inkTone: 0.04;
+        fiberTone: 0.03;
+        inkHeight: 0.55;
+        paperHeight: 0.3;
+        fiberHeight: 0.08;
+        paperRoughness: 0.66;
+        inkRoughness: 0.45;
+        paperAO: 1;
+        inkAO: 0.9;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -13608,6 +13631,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    moirefringes: 0.3;
     cinderblockwall: 1.6;
     dicefaces: 0.4;
     needlepoint: 0.3;
