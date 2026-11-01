@@ -11255,3 +11255,63 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - DC reference PDF已close；12個實際列名owned暫存檔及唯一owned browser profile已移除，保留19660／19662、下一ST私有參考／原型及使用者獨立hunk。未重新認證Node22、其他browser、實體硬體、光學／電氣／極性／安規／CAD／插合或FPS，沒有push。
 
 - 收尾九文件387個relative links實查missing0；只選本feature EOF驗收提交，保留使用者先前獨立hunk未提交。純文件收尾檢查格式，不冒稱重新驗證runtime。
+
+## 2026-11-01 程序材質：ST simplex連續金屬凸肩、單開口筒唇與雙卡口柱（stfiberadapterfaces）
+
+- 目錄882→883。實讀[SENKO ST產品頁](https://www.senko.com/product/st-adapter-2/)、正常下載並渲染／讀圖五頁[DS-ST-000006-RevA-EN原廠資料表](https://www.senko.com/wp-content/uploads/2025/01/DS-ST-000006-RevA-EN.pdf)（695,827B；實看第1頁照片與第3頁圖面）及[原廠900px照片](https://www.senko.com/wp-content/uploads/2021/09/ST-Adapter.png)。PDF metadata created2024-11-15不是印刷日期；本項取216-101 simplex，不混用316 duplex。
+
+- 29.3mm是軸向深度；8.3是cross dimension，double-D9.6×7.8為panel cutout reference，不當成正面外形尺寸。原廠僅證實plated metal，不自行補鍍鎳／合金；zirconia sleeve在內部，照片未清楚露出白色正面環，故不畫白陶瓷／中心金屬接點或針。另實讀／實看[Thorlabs ADAST](https://www.thorlabs.com/item/ADAST)及其原廠照片，只作卡口幾何輔助，不跨型號借材質。
+
+- 四個2×2六平面金屬六角底座、同心連續圓凸肩、高圓筒唇、一個上方開放軸向鍵槽及左右兩個相對卡口柱，中央深暗不透明圓腔。鍵槽只把高唇降至金屬凸肩，不穿過凸肩／底座；硬體與槽底M1，背底與腔底M0。作者正面示意省略螺牙、knurl teeth、獨立washer、蓋、後半部、纜線／ferrule、PCB；不模擬光傳輸、電路、插合、CAD、安規或真mesh穿孔，不把外部參考圖片打包。
+
+- 獨立54-field preset（52數值欄位、2色盤），13個C1 profile因子為6平面、3平方圓、2鍵槽軸向及2卡口柱軸向；20組C／H／R／AO差值constructor快取。層級採convex replacement，非把重疊柱與唇的高度相加；只有metallic非0才取grain。4×4 Float64 poses128B加96² Float64 grain73,728B，共73,856 typed bytes，不冒稱總RAM或FPS。
+
+- 解析owner半徑含jitter為0.35841016151377547<0.5；只查自身cell，無鄰居搜尋。實查query AST沒有new／object／array配置、迴圈或hash／trig／sqrt呼叫。保留必要的第二次fract：共用fract對極小負數可能round到1，不能拿掉owner guard。公開入口、union、kind list、noise bypass、default-metallic、0.04m tile與gallery均完整接入；relief0.0042沿用UV契約，無新增API／runtime依賴。
+
+- 永久獨立native fixture共15callbacks：三seed各拓撲／幾何、單槽／雙柱、材質角色、C1／period，加7對MAX實際幾何與32／512 packing。只讀preset.cells／relief，不偷看producer尺寸、hash或poses；由native M roots回復圓心／圓口、六個真平面與off-axis chords、唇／肩高度邊界、槽軸及兩個實際柱位置，不以像素centroid或六重對稱單獨冒充幾何。
+
+- built ESM三seed0／7／MAX各768²實查，六欄位（含H除relief）finite且[0,1] invalid0；M為4solids／5voids，低階H為4／5，高唇H為4／1。高唇phase界限由實測lip與較低stud maximum之間取得，不把較低柱的投影連接當作高唇契約。每face一個槽、兩個相對柱；native1260條＋whole32條收斂，worst0.009514721391063847／0.008421661006616227／0.008073786362349714<0.1；各4096 signed period probes誤差0，極小負IEEE UV finite並與0一致。
+
+- 實測六角outer max/min radius1.1489314183833081–1.1513889605684557；圓腔relative roundness3.22394323110227e-15–5.896686045426937e-15；單槽角寬0.3665191429188092–0.3752457891787808rad。這是作者圖形native量測，不是原廠CAD尺寸或光學校準。
+
+- 核心角色實測：背底C.015/H.02/R.98/AO.4/M0；腔底C約.018/H約.06/R.96/AO約.22/M0；六角H約.280、凸肩／鍵底約.360、柱約.540、唇約.680，全部硬體M1，槽底AO.97且非背景。全域mortar0；圓腔內沒有額外金屬島、白環或實心針。
+
+- 32／512實際packing：M0／M255／transition分別774／229／21與201446／56418／4280；normal max tilt²0.0037216455209534913／0.465451749327182，unit-length² error0.0037216455209534427／0.011841599384851964<.02；Z<=0與alpha!=255皆0。最高normalizedH約.680337571／.680398342；C／H／R／AO／M channels與實際sampler核對。32是粗預覽，不宣稱微小槽／柱必定可讀。
+
+- 最終canonical fresh Node控制114組合法變體×15=1710callbacks全部通過、45種真缺陷皆ERR_ASSERTION、acceptedFaults0（534.42s）。109個data變體含50個連續數值欄位上下變動、cells1／3、grain93／99、兩色盤、共同height affine、耦合profile尺度與較窄但實際存在的柱；5個source正例為固定0／quarter turn、cached quintic、constant grain、有限0=7 seed collision。backingR／studAO高值用.99、lipAO用.995，並未把>1當合法數據。
+
+- 初輪控制歷程保留：bg_355於16.93s在jitter+3%的512 stud hit0失敗，原因是observer先以height把完整柱歸到lip；修正為native位置與barrel外的spatial stud分類，不改producer／jitter。bg_356於60.37s在barrelRadius−3%得到高phase3而非1：原observer把較低柱混入高唇phase；改用實測柱上方的高phase界限，並保留獨立radial probe level。兩組合法變體均各15callbacks再實證通過，沒有縮窄合法幾何。
+
+- bg_357於451.49s已通過113合法與40真缺陷，但原標成vanishing narrow stud的halfHeight.0041仍有兩個實際可解出的柱、C1與512 packing，故本來就是合法作者邊界，不能硬判缺陷。改列合法、加入真的zero stud footprint與4個新缺陷；補充fresh Node bg_359的1正例／5反例全過（10.11s）。之後完整canonical bg_363重跑114／45全部通過；保留前述分類失敗，不把它抹成producer修復或假稱首次全過。
+
+- 實際overlap regression：只把lip height replacement改成相加，舊15callbacks竟全過；補native stud-axis深度上界後，同一變體以0.7197795781747842<0.6929208069317963之ERR_ASSERTION在role case被抓到，正確producer仍全過。這是永久不確定edge coverage，不是改壞runtime後再掩蓋。
+
+- 真min-plane缺陷：把6平面product改Math.min，三seed normalized invalid0、M4／5、lowH4／5、highH4／1仍保留，但C1分別346.7076806394152／479.22313042807093／296.05755666338155，原fixture於C1 case拒絕，不靠region count或SyntaxError冒充。
+
+- 真smooth height-only cut缺陷：每seed768²的其他五欄位Object.is differences0，只改4406／4507／4359個H樣本，M仍4／5、highH仍4／1，lowH由4／5開成4／1，normalized invalid0。用正確表面native1260 tracks加實際height-difference的4個component邊界136 tracks及whole32量測，C1仍為原先<.1數值；壞表面的必需閉合凸肩已無法回復，原fixture以native-boundary的false!==true拒絕，沒有捏造失敗邊界或將TypeError／C0當證據。
+
+- 其他45反例含圓形取代六角、linear／hard profiles、缺槽／雙槽／鍵槽與柱錯誤平行、缺柱、假的中心金屬接點、M填孔／硬體介電／鍵底去金屬、錯誤深度／反光角色、負H／NaN、固定seed與移除第二fract。全部由相同fixture的實際expect assertion拒絕，語法／型別／generic exception不計成功。
+
+- 實際build完成（21.79s）：376 JS 6,124,666→2,861,222B、370 CJS modules，vendor unchanged。隨後target17pass／5453skip／5470total（14:39:14、7.13s），完整lint、format:check、strict typecheck、API與distribution均過（該鏈106.59s）；API737 exports／2810 directional contracts、710歷史namespace、5版consumer，distribution367 exports，不把型別相容當runtime證明。
+
+- 完整suite在source／tests／docs／dist凍結下執行：179檔／9399項全部通過；2026-11-01 14:42:49開始，1142.80s（wall1143.82s）。實際Node v26.7.0；沒有冒稱重新認證最低Node22環境。
+
+- fresh Node直接執行built ESM全部15callbacks（12.93s）並對實際前commit的全部882舊kind做比較：baseline完整SHA為2428779c2923a3587d8d6975a88e7917bce8c197，882×4seed×7points=24,696樣本／148,176欄位Object.is differences0，舊preset／tile與相對順序不變；15相關舊kind的90sets／450buffers byte differences0。
+
+- 私有prototype／built ESM／CJS三者73,728 signed samples／442,368 triplet channels Object.is differences0；新kind6sets／30buffers與prototype byte differences0；新kind加15舊kind共96sets／480 ESM-CJS buffers differences0，兩種distribution的全部preset／tile相等。6個source maps皆v3／單一正確source／file identity；8個runtime／declaration面皆有新kind。
+
+- 使用全新owned normal headless Chrome156與19752 loopback，無unsafe GPU、no-sandbox、TLS、RAF或visibility bypass。WebGPU初開第二個native window雖status ready，實測visibility hidden、0 RAF而失敗；查原生target/window/focus後關閉該owned hidden window，將已實看visible的WebGL2 window做全新WebGPU navigation，沒有改引擎或假造visibility，兩backend均實到3 RAF。
+
+- Gallery實際UI選stfiberadapterfaces、883+plain共884options、25球、animation off；viewport1024×1000、DPR1.25、CSS945×532與backing1181×664分離。WebGL2 native draw30、not lost；WebGPU native submit1。兩張gallery PNG與prototype四圖mosaic皆實際read/view，不拿截圖檔存在當畫面證據，也不以draw數當FPS。
+
+- built root在http://127.0.0.1:19662/stfiber-material-smoke 的真404 document下，以/src/index.js正常import；實查nosniff、default-src none／script-src self／worker-src self等完整CSP，無unsafe script／blob-worker放寬。512 seed7／tint[.9,1,1.1]／heightMap／repeats3，同步、原生1個module Worker與cache hit的5streams各1,048,576B逐byte一致，3組texture objects兩兩隔離。
+
+- Root實測M0／M255／transition為201446／56418／4280，defaultmetallic1、explicit0僅factor override；5個UV矩陣均[3,0,0,3,0,0]。Cache1entry／5,242,880B，hits1／misses1；pool workers1、completed1、running／queued／admittedBytes／cancelled／failed皆0。
+
+- 3個preset.destroyed實際true；caller-owned pool仍能跑32 seed8至completed2／failed0，借用preset亦destroyed；cache.clear後size0／bytes0，pool.destroy後實查native dedicated workers0。公開factory在32 seed123／124的base-color差465bytes，兩preset清理完成；另用built public factory512生成1024²四panel PNG（263,872B）實際read/view後destroyed true。Strict console只有初始預期404，沒有後續app／Worker／pageerror。
+
+- 所有owned raw pages關閉、remaining0、gallery errors[]，strict最後仍只有預期404且workers0；兩SDK handles釋放，owned Chrome停後實際exit143。一次實讀stderr含allocator duplicate、CVDisplayLink−6670、missing Crashpad、sandbox resource Operation not permitted；Metal log列Apple M5／metal-3，不冒稱實體硬體／OS視窗或warning-free認證。
+
+- ST reference PDF已close；14個列名owned暫存檔與唯一owned profile均移除，保留19660／19662、使用者舊hunk、local證據及下一F-type私有參考。README中／英／日、PLAN／DESIGN、CURRENT與技術／操作中英文同步；不宣稱其他browser、Canvas2D顯示3D材質、RF／光學／電氣／插合／安規／CAD或FPS相容，沒有push。
+
+- 收尾九文件387個relative links實查missing0；本feature只選自己的EOF驗收，保留使用者先前獨立hunk未提交。純文件收尾另檢格式，不冒稱重新驗證runtime。

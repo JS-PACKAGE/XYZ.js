@@ -16247,6 +16247,161 @@ export function createSurfaceSampler(
           // Opaque female wells; internal silver contacts are not visible front annuli.
         };
       }
+      case 'stfiberadapterfaces': {
+        const p = proceduralMaterialPresets.stfiberadapterfaces,
+          poses = new Float64Array(p.cells * p.cells * 4),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x22e01),
+          halfRootThree = Math.sqrt(3) * 0.5,
+          nutRadius = p.nutInradius / halfRootThree,
+          ownerBound = p.maxScale * nutRadius,
+          inverseNut = 1 / p.nutBevel,
+          collarSquared = p.collarRadius * p.collarRadius,
+          collarCore = p.collarRadius - p.collarBevel,
+          inverseCollar = 1 / (collarSquared - collarCore * collarCore),
+          barrelSquared = p.barrelRadius * p.barrelRadius,
+          barrelCore = p.barrelRadius - p.barrelBevel,
+          inverseBarrel = 1 / (barrelSquared - barrelCore * barrelCore),
+          cavitySquared = p.cavityRadius * p.cavityRadius,
+          cavityCore = p.cavityRadius - p.cavityBevel,
+          inverseCavity = 1 / (cavitySquared - cavityCore * cavityCore),
+          keySquaredX = p.keyHalfWidth * p.keyHalfWidth,
+          keySquaredY = p.keyHalfHeight * p.keyHalfHeight,
+          keyCoreX = p.keyHalfWidth - p.keyBevelX,
+          keyCoreY = p.keyHalfHeight - p.keyBevelY,
+          inverseKeyX = 1 / (keySquaredX - keyCoreX * keyCoreX),
+          inverseKeyY = 1 / (keySquaredY - keyCoreY * keyCoreY),
+          studSquaredX = p.studHalfWidth * p.studHalfWidth,
+          studSquaredY = p.studHalfHeight * p.studHalfHeight,
+          studCoreX = p.studHalfWidth - p.studBevelX,
+          studCoreY = p.studHalfHeight - p.studBevelY,
+          inverseStudX = 1 / (studSquaredX - studCoreX * studCoreX),
+          inverseStudY = 1 / (studSquaredY - studCoreY * studCoreY),
+          nutTone = p.nutTone - p.backingTone,
+          nutHeight = p.nutHeight - p.backingHeight,
+          nutRoughness = p.roughness - p.backingRoughness,
+          nutAO = p.nutAO - p.backingAO,
+          collarTone = p.collarTone - p.nutTone,
+          collarHeight = p.collarHeight - p.nutHeight,
+          collarRoughness = p.collarRoughness - p.roughness,
+          collarAO = p.collarAO - p.nutAO,
+          studTone = p.studTone - p.collarTone,
+          studHeight = p.studHeight - p.collarHeight,
+          studRoughness = p.studRoughness - p.collarRoughness,
+          studAO = p.studAO - p.collarAO,
+          lipTone = p.lipTone - p.collarTone,
+          lipHeight = p.lipHeight - p.collarHeight,
+          lipRoughness = p.lipRoughness - p.collarRoughness,
+          lipAO = p.lipAO - p.collarAO,
+          boreTone = p.boreTone - p.collarTone,
+          boreHeight = p.boreHeight - p.collarHeight,
+          boreRoughness = p.boreRoughness - p.collarRoughness,
+          boreAO = p.boreAO - p.collarAO;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4,
+              scale =
+                p.minScale +
+                (p.maxScale - p.minScale) * hash(col, row, seed ^ 0x22e03),
+              angle =
+                TAU *
+                p.rotationTurns *
+                (2 * hash(col, row, seed ^ 0x22e05) - 1);
+            poses[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x22e07) - 1);
+            poses[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x22e09) - 1);
+            poses[i + 2] = Math.cos(angle) / scale;
+            poses[i + 3] = Math.sin(angle) / scale;
+          }
+        return () => {
+          color = p.backingTone;
+          height = p.backingHeight;
+          roughness = p.backingRoughness;
+          occlusion = p.backingAO;
+          metallic = 0;
+          // Shared wrapping can round tiny negative UVs to one; wrap again before ownership.
+          const uc = fract(u) * p.cells,
+            vc = fract(v) * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 4,
+            dx = uc - col - poses[i],
+            dy = vc - row - poses[i + 1];
+          if (Math.abs(dx) >= ownerBound || Math.abs(dy) >= ownerBound) return;
+          const x = dx * poses[i + 2] + dy * poses[i + 3],
+            y = dy * poses[i + 2] - dx * poses[i + 3],
+            ax = Math.abs(x),
+            ay = Math.abs(y),
+            diagonalA = x * 0.5 + y * halfRootThree,
+            diagonalB = x * 0.5 - y * halfRootThree;
+          // Six smooth half-planes retain six flats without a hard min-plane seam.
+          const nut =
+            smooth(clamp((p.nutInradius - x) * inverseNut)) *
+            smooth(clamp((p.nutInradius + x) * inverseNut)) *
+            smooth(clamp((p.nutInradius - diagonalA) * inverseNut)) *
+            smooth(clamp((p.nutInradius + diagonalA) * inverseNut)) *
+            smooth(clamp((p.nutInradius - diagonalB) * inverseNut)) *
+            smooth(clamp((p.nutInradius + diagonalB) * inverseNut));
+          if (nut === 0) return;
+          color += nut * nutTone;
+          height += nut * nutHeight;
+          roughness += nut * nutRoughness;
+          occlusion += nut * nutAO;
+          metallic = nut;
+          const xx = x * x,
+            yy = y * y,
+            q = xx + yy;
+          if (q < collarSquared) {
+            const collar = smooth(clamp((collarSquared - q) * inverseCollar));
+            color += collar * collarTone;
+            height += collar * collarHeight;
+            roughness += collar * collarRoughness;
+            occlusion += collar * collarAO;
+            const sx = ax - p.studX;
+            let stud = 0;
+            if (Math.abs(sx) < p.studHalfWidth && ay < p.studHalfHeight) {
+              // Disjoint opposed supports: abs(x) has no active cusp at the origin.
+              stud =
+                smooth(clamp((studSquaredX - sx * sx) * inverseStudX)) *
+                smooth(clamp((studSquaredY - yy) * inverseStudY));
+              color += stud * studTone;
+              height += stud * studHeight;
+              roughness += stud * studRoughness;
+              occlusion += stud * studAO;
+            }
+            if (q < barrelSquared) {
+              const ky = y - p.keyCenterY,
+                key =
+                  ax < p.keyHalfWidth && Math.abs(ky) < p.keyHalfHeight
+                    ? smooth(clamp((keySquaredX - xx) * inverseKeyX)) *
+                      smooth(clamp((keySquaredY - ky * ky) * inverseKeyY))
+                    : 0,
+                lip =
+                  smooth(clamp((barrelSquared - q) * inverseBarrel)) *
+                  (1 - key);
+              // Lip replaces any stud underneath, rather than adding their heights.
+              color += lip * (lipTone - stud * studTone);
+              height += lip * (lipHeight - stud * studHeight);
+              roughness += lip * (lipRoughness - stud * studRoughness);
+              occlusion += lip * (lipAO - stud * studAO);
+              if (q < cavitySquared) {
+                const bore = smooth(clamp((cavitySquared - q) * inverseCavity));
+                // Studs are disjoint from the mouth; the bore replaces collar or lip.
+                color += bore * (boreTone - lip * lipTone);
+                height += bore * (boreHeight - lip * lipHeight);
+                roughness += bore * (boreRoughness - lip * lipRoughness);
+                occlusion += bore * (boreAO - lip * lipAO);
+                metallic = nut * (1 - bore);
+              }
+            }
+          }
+          if (metallic === 0) return;
+          const grain = grainField(u, v) * metallic;
+          color += p.grainTone * grain;
+          height += p.grainHeight * grain;
+          roughness += p.grainRoughness * grain;
+        };
+      }
       case 'dcbarreljackfaces': {
         const p = proceduralMaterialPresets.dcbarreljackfaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -43365,6 +43520,7 @@ export function createSurfaceSampler(
     kind === 'f05opticalfaces' ||
     kind === 'minidin4femalefaces' ||
     kind === 'dcbarreljackfaces' ||
+    kind === 'stfiberadapterfaces' ||
     kind === 'usbcfemalefaces' ||
     kind === 'iecc6inlets' ||
     kind === 'iecc8inlets' ||

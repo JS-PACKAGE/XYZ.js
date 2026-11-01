@@ -709,6 +709,7 @@ try {
     'f05opticalfaces',
     'minidin4femalefaces',
     'dcbarreljackfaces',
+    'stfiberadapterfaces',
     'usbcfemalefaces',
     'iecc6inlets',
     'iecc8inlets',

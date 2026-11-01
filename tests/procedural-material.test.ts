@@ -672,6 +672,7 @@ const kinds: ProceduralMaterialKind[] = [
   'f05opticalfaces',
   'minidin4femalefaces',
   'dcbarreljackfaces',
+  'stfiberadapterfaces',
   'usbcfemalefaces',
   'iecc6inlets',
   'iecc8inlets',
@@ -76990,6 +76991,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'rcafemalefaces' &&
           kind !== 'minidin4femalefaces' &&
           kind !== 'dcbarreljackfaces' &&
+          kind !== 'stfiberadapterfaces' &&
           kind !== 'usbcfemalefaces' &&
           kind !== 'iecc6inlets' &&
           kind !== 'iecc8inlets' &&
@@ -86469,6 +86471,7 @@ describe('procedural preset acquisition and ownership', () => {
     'f05opticalfaces',
     'minidin4femalefaces',
     'dcbarreljackfaces',
+    'stfiberadapterfaces',
     'usbcfemalefaces',
     'iecc6inlets',
     'iecc8inlets',
@@ -86603,6 +86606,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'rcafemalefaces' ||
           kind === 'minidin4femalefaces' ||
           kind === 'dcbarreljackfaces' ||
+          kind === 'stfiberadapterfaces' ||
           kind === 'usbcfemalefaces' ||
           kind === 'iecc6inlets' ||
           kind === 'iecc8inlets' ||
@@ -131248,6 +131252,860 @@ describe('DC barrel jack faces: independent native solid pin, lower spring and r
           expect(pinHits[i]).toBeGreaterThan(0);
           expect(springHits[i]).toBeGreaterThan(0);
         }
+    },
+  );
+});
+
+describe('ST simplex faces: independently observed closed metal hardware, keyed lip and opposed studs', () => {
+  const preset = proceduralMaterialPresets.stfiberadapterfaces;
+  const seeds = [0, 7, 0xffffffff] as const;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  type Sample = {
+    color: number;
+    height: number;
+    roughness: number;
+    occlusion: number;
+    metallic: number;
+    mortar: number;
+  };
+  type P = { u: number; v: number };
+  type Region = P & { pixels: number[] };
+  type Line = { a: P; b: P };
+  interface Face {
+    center: P;
+    radius: number;
+    outer: number[];
+    boreEdges: P[];
+    lipRadius: number;
+    lipInner: number;
+    collarRadius: number;
+    nut: Sample;
+    collar: Sample;
+    lip: Sample;
+    bore: Sample;
+    back: Sample;
+    key: Sample;
+    keyAngle: number;
+    gapWidth: number;
+    studLevel: number;
+    studAngles: number[];
+    studPoints: P[];
+    studRadii: number[];
+    highLevel: number;
+    lowerLevel: number;
+    world: (r: number, angle: number) => P;
+  }
+  interface Observation {
+    sample: (u: number, v: number, out: Sample) => void;
+    at: (p: P) => Sample;
+    size: number;
+    invalid: number;
+    metal: Uint8Array;
+    heights: Float64Array;
+    regions: Region[];
+    voids: Region[];
+    faces: Face[];
+    lines: Line[];
+  }
+  const empty = (): Sample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const mix = (a: P, b: P, t: number): P => ({
+    u: a.u + (b.u - a.u) * t,
+    v: a.v + (b.v - a.v) * t,
+  });
+  const distance = (a: P, b: P): number => Math.hypot(a.u - b.u, a.v - b.v);
+  const median = (a: number[]): number =>
+    [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)];
+  const angleDistance = (a: number, b: number): number =>
+    Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+  const components = (
+    mask: Uint8Array,
+    size: number,
+    value: number,
+  ): Region[] => {
+    const seen = new Uint8Array(mask.length),
+      queue = new Int32Array(mask.length),
+      found: Region[] = [];
+    for (let first = 0; first < mask.length; first++) {
+      if (seen[first] || mask[first] !== value) continue;
+      let read = 0,
+        count = 1,
+        u = 0,
+        v = 0;
+      const pixels: number[] = [];
+      queue[0] = first;
+      seen[first] = 1;
+      while (read < count) {
+        const i = queue[read++],
+          x = i % size,
+          y = Math.floor(i / size);
+        pixels.push(i);
+        u += (x + 0.5) / size;
+        v += (y + 0.5) / size;
+        for (const [dx, dy] of [
+          [-1, 0],
+          [1, 0],
+          [0, -1],
+          [0, 1],
+        ]) {
+          const j = ((y + dy + size) % size) * size + ((x + dx + size) % size);
+          if (!seen[j] && mask[j] === value) {
+            seen[j] = 1;
+            queue[count++] = j;
+          }
+        }
+      }
+      found.push({ u: u / count, v: v / count, pixels });
+    }
+    return found.sort((a, b) => b.pixels.length - a.pixels.length);
+  };
+  // Every absent native boundary asserts presence before returning a safe value; a TypeError is never the proof.
+  const crossing = (a: P, b: P, read: (p: P) => number, level: number): P => {
+    const side = read(a) > level;
+    let previous = a;
+    for (let i = 1; i <= 256; i++) {
+      const p = mix(a, b, i / 256);
+      if (read(p) > level !== side) {
+        let lo = previous,
+          hi = p;
+        for (let j = 0; j < 42; j++) {
+          const q = mix(lo, hi, 0.5);
+          if (read(q) > level === side) lo = q;
+          else hi = q;
+        }
+        return mix(lo, hi, 0.5);
+      }
+      previous = p;
+    }
+    expect(false).toBe(true);
+    return a;
+  };
+  const runs = (mask: boolean[]): number[][] => {
+    const result: number[][] = [];
+    const firstFalse = mask.findIndex((v) => !v);
+    if (firstFalse < 0) return [mask.map((_, i) => i)];
+    let active: number[] = [];
+    for (let k = 1; k <= mask.length; k++) {
+      const i = (firstFalse + k) % mask.length;
+      if (mask[i]) active.push(i);
+      else if (active.length) {
+        result.push(active);
+        active = [];
+      }
+    }
+    return result;
+  };
+  const observe = (seed: number): Observation => {
+    const size = Math.max(768, 384 * preset.cells),
+      sample = createSurfaceSampler('stfiberadapterfaces', seed);
+    const at = (p: P): Sample => {
+      const s = empty();
+      sample(p.u, p.v, s);
+      s.height /= preset.relief;
+      return s;
+    };
+    const metal = new Uint8Array(size * size),
+      heights = new Float64Array(size * size),
+      raw = empty();
+    let invalid = 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        const i = y * size + x;
+        sample((x + 0.5) / size, (y + 0.5) / size, raw);
+        for (const k of keys) {
+          const v = raw[k] / (k === 'height' ? preset.relief : 1);
+          invalid += Number(!Number.isFinite(v) || v < 0 || v > 1);
+        }
+        metal[i] = Number(raw.metallic > 0.5);
+        heights[i] = raw.height / preset.relief;
+      }
+    const regions = components(metal, size, 1),
+      voids = components(metal, size, 0),
+      count = preset.cells * preset.cells;
+    expect(regions.length).toBe(count);
+    expect(voids.length).toBe(count + 1);
+    const lines: Line[] = [],
+      span = 0.47 / preset.cells;
+    const faces = voids.slice(1).map((hole) => {
+      let center: P = { u: hole.u, v: hole.v };
+      const ray = (c: P, r: number, a: number): P => ({
+        u: c.u + r * Math.cos(a),
+        v: c.v + r * Math.sin(a),
+      });
+      // Pixel centers seed the search only. Opposed native metallic roots determine the circle center.
+      for (let pass = 0; pass < 4; pass++)
+        for (const angle of [0, Math.PI / 2]) {
+          const a = crossing(
+            center,
+            ray(center, span, angle),
+            (p) => at(p).metallic,
+            0.5,
+          );
+          const b = crossing(
+            center,
+            ray(center, span, angle + Math.PI),
+            (p) => at(p).metallic,
+            0.5,
+          );
+          center = mix(a, b, 0.5);
+        }
+      const world = (r: number, angle: number): P => ray(center, r, angle);
+      const boreEdges = Array.from({ length: 96 }, (_, i) =>
+        crossing(
+          center,
+          world(span, ((i + 0.29) * Math.PI) / 48),
+          (p) => at(p).metallic,
+          0.5,
+        ),
+      );
+      const radius = median(boreEdges.map((p) => distance(p, center)));
+      const outer = Array.from({ length: 360 }, (_, i) => {
+        const a = (i * Math.PI) / 180;
+        return distance(
+          center,
+          crossing(
+            world(span, a),
+            world(radius * 1.1, a),
+            (p) => at(p).metallic,
+            0.5,
+          ),
+        );
+      });
+      const minimumOuter = Math.min(...outer),
+        maximumOuter = Math.max(...outer);
+      const radial: { r: number; h: number }[] = [];
+      for (let i = 0; i <= 256; i++) {
+        const r = radius * 1.04 + ((minimumOuter - radius * 1.04) * i) / 256;
+        radial.push({
+          r,
+          h: median(
+            Array.from(
+              { length: 48 },
+              (_, j) => at(world(r, ((j + 0.19) * Math.PI) / 24)).height,
+            ),
+          ),
+        });
+      }
+      const peak = radial.reduce((a, b) => (a.h > b.h ? a : b)),
+        bore = at(center),
+        back = at(world(span, 0));
+      const lipBand = radial.filter(
+        (q) => q.h > bore.height + (peak.h - bore.height) * 0.92,
+      );
+      expect(lipBand.length).toBeGreaterThan(0);
+      const lipMid = lipBand.length
+        ? (lipBand[0].r + lipBand[lipBand.length - 1].r) / 2
+        : peak.r;
+      const nutAngle = (outer.indexOf(maximumOuter) * Math.PI) / 180;
+      const nut = at(world(maximumOuter * 0.94, nutAngle));
+      const lipOuterEstimate =
+        radial
+          .filter((q) => q.h > bore.height + (peak.h - bore.height) * 0.8)
+          .pop()?.r ?? peak.r;
+      const collarProbe = (lipOuterEstimate + minimumOuter) / 2;
+      const collar = at(world(collarProbe, nutAngle + 0.31));
+      const radialLevel = (peak.h + collar.height) / 2;
+      const angular = Array.from(
+        { length: 720 },
+        (_, i) => at(world(lipMid, (i * Math.PI) / 360)).height,
+      );
+      const gaps = runs(angular.map((h) => h < radialLevel));
+      expect(gaps.length).toBe(1);
+      const gap = gaps[0] ?? [0];
+      const keyAngle = Math.atan2(
+        gap.reduce((s, i) => s + Math.sin((i * Math.PI) / 360), 0),
+        gap.reduce((s, i) => s + Math.cos((i * Math.PI) / 360), 0),
+      );
+      const safeAngle = keyAngle + Math.PI;
+      const lip = at(world(lipMid, safeAngle)),
+        key = at(world(lipMid, keyAngle));
+      const lipRadius = distance(
+        center,
+        crossing(
+          world(lipMid, safeAngle),
+          world(minimumOuter, safeAngle),
+          (p) => at(p).height,
+          radialLevel,
+        ),
+      );
+      const lipInner = distance(
+        center,
+        crossing(
+          center,
+          world(lipMid, safeAngle),
+          (p) => at(p).height,
+          radialLevel,
+        ),
+      );
+      const collarLevel = (collar.height + nut.height) / 2;
+      const collarRadius = distance(
+        center,
+        crossing(
+          world(collarProbe, safeAngle),
+          world(maximumOuter * 0.98, safeAngle),
+          (p) => at(p).height,
+          collarLevel,
+        ),
+      );
+      // Outside the round barrel, only genuinely raised studs may exceed the collar. Their positions are not assumed.
+      const ringRadii = Array.from(
+        { length: 48 },
+        (_, i) =>
+          lipRadius * 1.035 + ((collarRadius - lipRadius * 1.035) * i) / 47,
+      );
+      const maxima = Array.from({ length: 720 }, (_, i) => {
+        const angle = (i * Math.PI) / 360;
+        return ringRadii.reduce(
+          (best, r) => {
+            const s = at(world(r, angle));
+            return s.height > best.h ? { h: s.height, r } : best;
+          },
+          { h: -Infinity, r: 0 },
+        );
+      });
+      const raised = Math.max(...maxima.map((p) => p.h)),
+        studLevel = collar.height + (raised - collar.height) * 0.6;
+      expect(raised - collar.height).toBeGreaterThan(
+        (lip.height - collar.height) * 0.12,
+      );
+      const studRuns = runs(maxima.map((p) => p.h > studLevel));
+      expect(studRuns.length).toBe(2);
+      const studAngles = studRuns.map((run) =>
+        Math.atan2(
+          run.reduce((s, i) => s + Math.sin((i * Math.PI) / 360), 0),
+          run.reduce((s, i) => s + Math.cos((i * Math.PI) / 360), 0),
+        ),
+      );
+      const studRadii = studAngles.map(
+        (a) => maxima[Math.round(((a + Math.PI * 2) * 360) / Math.PI) % 720].r,
+      );
+      const studPoints = studAngles.map((a, i) => world(studRadii[i], a));
+      const boundary = (p: P, angle: number, width: number): void => {
+        lines.push({ a: ray(p, width, angle), b: ray(p, -width, angle) });
+      };
+      // Native radial boundaries plus oblique tracks across every plane corner, key join and stud overlap.
+      for (let i = 0; i < 360; i += 3) {
+        const a = ((i + 0.13) * Math.PI) / 180;
+        lines.push({
+          a: world(radius * 0.82, a),
+          b: world(outer[i] * 1.07, a),
+        });
+        const p = world(outer[i], (i * Math.PI) / 180);
+        boundary(p, a + Math.PI / 2, radius * 0.2);
+      }
+      for (const a of [
+        keyAngle,
+        keyAngle - (gap.length * Math.PI) / 720,
+        keyAngle + (gap.length * Math.PI) / 720,
+        ...studAngles,
+      ]) {
+        for (const f of [0.88, 0.98, 1, 1.02, 1.12]) {
+          const p = world(lipRadius * f, a);
+          for (const angle of [a, a + Math.PI / 2, a + Math.PI / 4])
+            boundary(p, angle, radius * 0.27);
+        }
+      }
+      // The high lip phase must exclude lower studs even when their projected supports separate.
+      return {
+        center,
+        radius,
+        outer,
+        boreEdges,
+        lipRadius,
+        lipInner,
+        collarRadius,
+        nut,
+        collar,
+        lip,
+        bore,
+        back,
+        key,
+        keyAngle,
+        gapWidth: (gap.length * Math.PI) / 360,
+        studLevel,
+        studAngles,
+        studPoints,
+        studRadii,
+        highLevel: (lip.height + raised) / 2,
+        lowerLevel: (nut.height + bore.height) / 2,
+        world,
+      };
+    });
+    expect(faces.length).toBe(count);
+    return {
+      sample,
+      at,
+      size,
+      invalid,
+      metal,
+      heights,
+      regions,
+      voids,
+      faces,
+      lines,
+    };
+  };
+  const cache = new Map<number, Observation>();
+  const native = (seed: number): Observation => {
+    let d = cache.get(seed);
+    if (!d) {
+      d = observe(seed);
+      cache.set(seed, d);
+    }
+    return d;
+  };
+  const refineCurvature = (d: Observation): number => {
+    const probes = [empty(), empty(), empty(), empty(), empty()];
+    const curvature = (a: Sample, b: Sample, c: Sample): number => {
+      let value = 0;
+      for (const k of keys)
+        value = Math.max(
+          value,
+          Math.abs(a[k] - 2 * b[k] + c[k]) /
+            (k === 'height' ? preset.relief : 1),
+        );
+      return value;
+    };
+    const lines = [...d.lines];
+    let worst = 0;
+    for (let axis = 0; axis < 2; axis++)
+      for (let j = 0; j < 16; j++) {
+        const t = (j + 0.37) / 16;
+        lines.push({
+          a: { u: axis ? t : 0, v: axis ? 0 : t },
+          b: { u: axis ? t : 1, v: axis ? 1 : t },
+        });
+      }
+    for (const line of lines) {
+      const length = distance(line.a, line.b),
+        n = 128,
+        values: Sample[] = [],
+        scores = new Float64Array(n + 1);
+      const read = (t: number, out: Sample): void => {
+        const p = mix(line.a, line.b, t);
+        d.sample(p.u, p.v, out);
+      };
+      for (let i = 0; i <= n; i++) {
+        const s = empty();
+        read(i / n, s);
+        values.push(s);
+      }
+      for (let i = 1; i < n; i++)
+        scores[i] = curvature(values[i - 1], values[i], values[i + 1]);
+      for (let i = 2; i < n - 1; i++) {
+        if (
+          scores[i] < 1e-5 ||
+          scores[i] < scores[i - 1] ||
+          scores[i] < scores[i + 1]
+        )
+          continue;
+        let lo = (i - 1) / n,
+          span = 2 / n,
+          t = 0,
+          h = 0;
+        for (let step = 0; step < 24; step++) {
+          const q = span / 4;
+          for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+          const s = [
+            curvature(probes[0], probes[1], probes[2]),
+            curvature(probes[1], probes[2], probes[3]),
+            curvature(probes[2], probes[3], probes[4]),
+          ];
+          let best = s[1] > s[0] ? 1 : 0;
+          if (s[2] > s[best]) best = 2;
+          t = lo + (best + 1) * q;
+          h = q;
+          lo += best * q;
+          span = 2 * q;
+        }
+        read(t - h, probes[0]);
+        read(t, probes[1]);
+        read(t + h, probes[2]);
+        worst = Math.max(
+          worst,
+          curvature(probes[0], probes[1], probes[2]) / (h * length),
+        );
+      }
+    }
+    return worst;
+  };
+  it.each(seeds)(
+    'recovers native circular empty bores, closed concentric collars and six-flat nuts at seed %s',
+    (seed) => {
+      const d = native(seed),
+        n = preset.cells * preset.cells;
+      expect(d.invalid).toBe(0);
+      expect(d.regions.length).toBe(n);
+      expect(d.voids.length).toBe(n + 1);
+      for (const f of d.faces) {
+        const radii = f.boreEdges.map((p) => distance(p, f.center));
+        expect(Math.max(...radii) - Math.min(...radii)).toBeLessThan(
+          f.radius * 0.025,
+        );
+        const outerMin = Math.min(...f.outer),
+          outerMax = Math.max(...f.outer);
+        expect(outerMax / outerMin).toBeGreaterThan(1.08);
+        expect(outerMax / outerMin).toBeLessThan(1.2);
+        // Sixfold repetition alone does not prove flats: independent chords must follow six planes.
+        const peakRuns = runs(
+          f.outer.map((r) => r > outerMin + (outerMax - outerMin) * 0.8),
+        );
+        expect(peakRuns.length).toBe(6);
+        for (let i = 0; i < 360; i++)
+          expect(Math.abs(f.outer[i] - f.outer[(i + 60) % 360])).toBeLessThan(
+            outerMin * 0.025,
+          );
+        const valleys = runs(
+          f.outer.map((r) => r < outerMin + (outerMax - outerMin) * 0.12),
+        );
+        expect(valleys.length).toBe(6);
+        for (const run of valleys) {
+          const a = Math.atan2(
+            run.reduce((s, i) => s + Math.sin((i * Math.PI) / 180), 0),
+            run.reduce((s, i) => s + Math.cos((i * Math.PI) / 180), 0),
+          );
+          for (const offset of [-0.23, -0.11, 0.09, 0.21]) {
+            const angle = a + offset,
+              p = crossing(
+                f.world(0.47 / preset.cells, angle),
+                f.world(f.radius * 1.1, angle),
+                (q) => d.at(q).metallic,
+                0.5,
+              );
+            expect(
+              Math.abs(distance(p, f.center) * Math.cos(offset) - outerMin),
+            ).toBeLessThan(outerMin * 0.018);
+          }
+        }
+        for (let i = 0; i < 80; i++) {
+          const a = ((i + 0.43) * Math.PI) / 40;
+          const p = f.world(f.radius * 0.72, a),
+            s = d.at(p);
+          expect(s.metallic).toBe(0);
+          expect(s.height).toBeLessThan((f.bore.height + f.nut.height) / 2);
+          expect(
+            d.at(f.world(f.collarRadius * 0.97, a)).metallic,
+          ).toBeGreaterThan(0.99);
+          const collarEdge = crossing(
+            f.world((f.lipRadius + f.collarRadius) / 2, a),
+            f.world(outerMin * 1.03, a),
+            (q) => d.at(q).height,
+            (f.nut.height + f.collar.height) / 2,
+          );
+          expect(
+            Math.abs(distance(collarEdge, f.center) - f.collarRadius),
+          ).toBeLessThan(f.collarRadius * 0.025);
+          if (
+            angleDistance(a, f.keyAngle) > f.gapWidth * 0.7 &&
+            f.studAngles.every((b) => angleDistance(a, b) > 0.2)
+          ) {
+            const edge = crossing(
+              f.world((f.lipInner + f.lipRadius) / 2, a),
+              f.world(f.collarRadius, a),
+              (q) => d.at(q).height,
+              f.highLevel,
+            );
+            expect(
+              Math.abs(distance(edge, f.center) - f.lipRadius),
+            ).toBeLessThan(f.lipRadius * 0.035);
+          }
+        }
+        expect(f.radius).toBeLessThan(f.lipInner);
+        expect(f.lipRadius).toBeLessThan(f.collarRadius);
+        expect(f.collarRadius).toBeLessThan(outerMin);
+      }
+    },
+  );
+  it.each(seeds)(
+    'opens exactly one high lip gap but not the collar, and finds two actual opposed bayonet studs at seed %s',
+    (seed) => {
+      const d = native(seed),
+        n = preset.cells * preset.cells;
+      for (const f of d.faces) {
+        expect(f.gapWidth).toBeGreaterThan(0.06);
+        expect(f.gapWidth).toBeLessThan(0.8);
+        const low = Uint8Array.from(d.heights, (h) => Number(h > f.lowerLevel));
+        expect(components(low, d.size, 1).length).toBe(n);
+        expect(components(low, d.size, 0).length).toBe(n + 1);
+        // Restrict high topology to this cell: other faces may have bounded per-face height variation.
+        const localSize = 384,
+          localMask = new Uint8Array(localSize * localSize);
+        for (let y = 0; y < localSize; y++)
+          for (let x = 0; x < localSize; x++) {
+            const p = {
+              u:
+                f.center.u + ((x / (localSize - 1) - 0.5) * 0.9) / preset.cells,
+              v:
+                f.center.v + ((y / (localSize - 1) - 0.5) * 0.9) / preset.cells,
+            };
+            localMask[y * localSize + x] = Number(d.at(p).height > f.highLevel);
+          }
+        expect(components(localMask, localSize, 0).length).toBe(1);
+        expect(components(localMask, localSize, 1).length).toBe(1);
+        expect(f.key.metallic).toBeGreaterThan(0.99);
+        expect(Math.abs(f.key.height - f.collar.height)).toBeLessThan(
+          (f.lip.height - f.collar.height) * 0.15,
+        );
+        for (const fraction of [0.25, 0.5, 0.75]) {
+          const s = d.at(
+            f.world(
+              f.lipInner + (f.lipRadius - f.lipInner) * fraction,
+              f.keyAngle,
+            ),
+          );
+          expect(s.metallic).toBeGreaterThan(0.99);
+          expect(Math.abs(s.height - f.collar.height)).toBeLessThan(
+            (f.lip.height - f.collar.height) * 0.18,
+          );
+        }
+        expect(f.studAngles.length).toBe(2);
+        if (f.studAngles.length === 2)
+          expect(
+            Math.abs(angleDistance(f.studAngles[0], f.studAngles[1]) - Math.PI),
+          ).toBeLessThan(0.1);
+        for (let i = 0; i < f.studPoints.length; i++) {
+          expect(
+            Math.abs(angleDistance(f.studAngles[i], f.keyAngle) - Math.PI / 2),
+          ).toBeLessThan(0.12);
+          const s = d.at(f.studPoints[i]);
+          expect(s.metallic).toBeGreaterThan(0.99);
+          expect(s.height).toBeGreaterThan(f.collar.height);
+          expect(s.height).toBeLessThan(f.lip.height);
+          expect(f.studRadii[i]).toBeGreaterThan(f.lipRadius);
+          const off = d.at(f.world(f.studRadii[i], f.studAngles[i] + 0.28));
+          expect(s.height - off.height).toBeGreaterThan(
+            (f.lip.height - f.collar.height) * 0.12,
+          );
+        }
+      }
+    },
+  );
+  it.each(seeds)(
+    'assigns deep dark occluded bore and ordered metallic hardware reflectance roles at seed %s',
+    (seed) => {
+      const d = native(seed);
+      for (const f of d.faces) {
+        expect(f.back.height).toBeLessThan(f.bore.height);
+        expect(f.bore.height).toBeLessThan(f.nut.height);
+        expect(f.nut.height).toBeLessThan(f.collar.height);
+        expect(f.collar.height).toBeLessThan(f.lip.height);
+        for (const s of [f.back, f.bore]) {
+          expect(s.metallic).toBe(0);
+          expect(s.color).toBeLessThan(0.4);
+          expect(s.roughness).toBeGreaterThan(0.55);
+          expect(s.mortar).toBe(0);
+        }
+        expect(f.bore.occlusion).toBeLessThan(f.back.occlusion);
+        for (const s of [
+          f.nut,
+          f.collar,
+          f.key,
+          f.lip,
+          ...f.studPoints.map((p) => d.at(p)),
+        ]) {
+          expect(s.metallic).toBeGreaterThan(0.99);
+          expect(s.mortar).toBe(0);
+          expect(s.color).toBeGreaterThan(f.bore.color + 0.12);
+          expect(s.roughness).toBeLessThan(f.bore.roughness);
+          expect(s.occlusion).toBeGreaterThan(f.bore.occlusion);
+        }
+        expect(f.lip.color).toBeGreaterThan(f.key.color);
+        expect(f.lip.roughness).toBeLessThan(f.key.roughness);
+        // Overlapping studs must not add their relief on top of the higher barrel lip.
+        for (const angle of f.studAngles)
+          for (let i = 0; i < 128; i++) {
+            const s = d.at(
+              f.world(
+                f.radius + ((f.collarRadius - f.radius) * i) / 127,
+                angle,
+              ),
+            );
+            expect(s.height).toBeLessThan(
+              f.lip.height + (f.lip.height - f.collar.height) * 0.04,
+            );
+          }
+        // No invented inner metal annulus, ceramic ring or center contact: inspect the entire interior disk.
+        for (let j = 0; j < 16; j++)
+          for (let i = 0; i < 72; i++) {
+            const s = d.at(
+              f.world((f.radius * 0.88 * j) / 15, ((i + 0.17) * Math.PI) / 36),
+            );
+            expect(s.metallic).toBe(0);
+            expect(s.color).toBeLessThan(0.4);
+            expect(Math.abs(s.height - f.bore.height)).toBeLessThan(
+              (f.nut.height - f.bore.height) * 0.12,
+            );
+          }
+      }
+    },
+  );
+  it.each(seeds)(
+    'converges native six-plane, circle, key and stud joins and repeats signed IEEE UV at seed %s',
+    (seed) => {
+      const d = native(seed),
+        a = empty(),
+        b = empty();
+      let error = 0;
+      for (let i = 0; i < 4096; i++) {
+        const u = (i * 0.7548776662466927) % 1,
+          v = (i * 0.5698402909980532) % 1;
+        d.sample(u, v, a);
+        d.sample(u - 2, v + 3, b);
+        for (const k of keys)
+          error = Math.max(
+            error,
+            Math.abs(a[k] - b[k]) / (k === 'height' ? preset.relief : 1),
+          );
+      }
+      for (const tiny of [-Number.MIN_VALUE, -Number.EPSILON / 4])
+        for (const axis of [0, 1]) {
+          d.sample(axis ? 0.37 : tiny, axis ? tiny : 0.37, a);
+          d.sample(axis ? 0.37 : 0, axis ? 0 : 0.37, b);
+          for (const k of keys) {
+            const v = a[k] / (k === 'height' ? preset.relief : 1);
+            expect(Number.isFinite(v) && v >= 0 && v <= 1).toBe(true);
+            expect(a[k]).toBe(b[k]);
+          }
+        }
+      expect(error).toBeLessThan(1e-12);
+      expect(refineCurvature(d)).toBeLessThan(0.1);
+    },
+  );
+  it('changes real hardware and cavity geometry between seed seven and maximum unsigned seed', () => {
+    const a = native(7),
+      b = native(0xffffffff);
+    let changed = 0;
+    for (let i = 0; i < a.metal.length; i++)
+      changed += Number(a.metal[i] !== b.metal[i]);
+    expect(changed / a.metal.length).toBeGreaterThan(0.003);
+  });
+  it.each([32, 512])(
+    'packs actual hardware footprints, opaque unit normals and sampler height/R/AO bytes at size %s',
+    (size) => {
+      const d = native(7),
+        maps = generateProceduralMaps('stfiberadapterfaces', size, 7, {
+          heightMap: true,
+        });
+      expect(maps.height !== undefined).toBe(true);
+      const values = new Float64Array(size * size),
+        hits = d.faces.map(() => ({
+          nut: 0,
+          collar: 0,
+          lip: 0,
+          stud: 0,
+          key: 0,
+          bore: 0,
+        }));
+      let lo = Infinity,
+        hi = -Infinity,
+        alpha = 0,
+        badNormal = 0,
+        normalError = 0,
+        metals = 0,
+        voids = 0;
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          const j = y * size + x,
+            i = j * 4,
+            p = { u: (x + 0.5) / size, v: (y + 0.5) / size },
+            s = d.at(p);
+          values[j] = s.height;
+          lo = Math.min(lo, s.height);
+          hi = Math.max(hi, s.height);
+          for (const buffer of Object.values(maps))
+            alpha += Number(buffer[i + 3] !== 255);
+          const nx = maps.normal[i] / 127.5 - 1,
+            ny = maps.normal[i + 1] / 127.5 - 1,
+            nz = maps.normal[i + 2] / 127.5 - 1;
+          badNormal += Number(!Number.isFinite(nx + ny + nz) || nz <= 0);
+          normalError = Math.max(
+            normalError,
+            Math.abs(nx * nx + ny * ny + nz * nz - 1),
+          );
+          const m = maps.metallicRoughness[i + 2];
+          metals += Number(m > 127);
+          voids += Number(m === 0);
+          expect(Math.abs(m - Math.round(s.metallic * 255))).toBeLessThan(2);
+          expect(
+            Math.abs(
+              maps.metallicRoughness[i + 1] - Math.round(s.roughness * 255),
+            ),
+          ).toBeLessThan(2);
+          expect(
+            Math.abs(maps.occlusion[i] - Math.round(s.occlusion * 255)),
+          ).toBeLessThan(2);
+          let supported = false;
+          for (let f = 0; f < d.faces.length; f++) {
+            const face = d.faces[f],
+              r = distance(p, face.center),
+              a = Math.atan2(p.v - face.center.v, p.u - face.center.u),
+              tolerance = 2 / size;
+            const ai = Math.round(((a + Math.PI * 2) * 180) / Math.PI) % 360;
+            supported ||=
+              r >= face.radius - tolerance && r <= face.outer[ai] + tolerance;
+            if (s.metallic > 0.99 && r > face.radius && r < face.outer[ai]) {
+              if (
+                r > face.lipRadius &&
+                face.studPoints.some(
+                  (q) => distance(p, q) < face.radius * 0.2,
+                ) &&
+                s.height > face.studLevel
+              )
+                hits[f].stud++;
+              else if (s.height > face.highLevel) hits[f].lip++;
+              else if (
+                r < face.lipRadius &&
+                angleDistance(a, face.keyAngle) < face.gapWidth * 0.35
+              )
+                hits[f].key++;
+              else if (
+                r < face.collarRadius &&
+                s.height > (face.nut.height + face.collar.height) / 2
+              )
+                hits[f].collar++;
+              else if (r > face.collarRadius) hits[f].nut++;
+            }
+            if (r < face.radius * 0.7 && m === 0) hits[f].bore++;
+          }
+          if (m > 127) expect(supported).toBe(true);
+        }
+      expect(hi).toBeGreaterThan(lo);
+      if (maps.height)
+        for (let j = 0; j < values.length; j++)
+          expect(
+            Math.abs(
+              maps.height[j * 4] -
+                Math.round((255 * (values[j] - lo)) / (hi - lo)),
+            ),
+          ).toBeLessThan(2);
+      expect(alpha).toBe(0);
+      expect(badNormal).toBe(0);
+      expect(normalError).toBeLessThan(0.02);
+      expect(metals).toBeGreaterThan(size * size * 0.1);
+      expect(voids).toBeGreaterThan(size * size * 0.5);
+      for (const hit of hits) {
+        expect(hit.nut).toBeGreaterThan(0);
+        expect(hit.collar).toBeGreaterThan(0);
+        expect(hit.lip).toBeGreaterThan(0);
+        expect(hit.bore).toBeGreaterThan(0);
+        if (size === 512) {
+          expect(hit.stud).toBeGreaterThan(0);
+          expect(hit.key).toBeGreaterThan(0);
+        }
+      }
     },
   );
 });
