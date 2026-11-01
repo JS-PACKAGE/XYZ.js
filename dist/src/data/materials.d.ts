@@ -6869,6 +6869,27 @@ export declare const proceduralMaterialPresets: Readonly<{
         fiberHeight: 0.03;
         fiberRoughness: 0.04;
     }>;
+    digitalcamo: Readonly<{
+        dark: readonly [30, 38, 26];
+        light: readonly [204, 186, 138];
+        roughness: 0.9;
+        relief: 0.0007;
+        blocks: 64;
+        coarseShare: 0.5;
+        broadCells: 4;
+        mediumCells: 12;
+        broadWeight: 0.55;
+        mediumWeight: 0.3;
+        jitterWeight: 0.15;
+        tones: readonly [0.08, 0.34, 0.62, 0.9];
+        threads: 128;
+        weaveTone: 0.03;
+        weaveHeight: 0.45;
+        baseHeight: 0.3;
+        inkHeight: 0.04;
+        weaveRoughness: 0.04;
+        weaveAO: 0.25;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -13354,6 +13375,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    digitalcamo: 1;
     topographiccontours: 1;
     garnetschist: 0.4;
     celticplait: 0.5;

@@ -17485,6 +17485,69 @@ export function createSurfaceSampler(
           roughness = p.roughness - p.fiberRoughness * (fiber - 0.5);
         };
       }
+      case 'digitalcamo': {
+        const p = proceduralMaterialPresets.digitalcamo,
+          broad = cachedNoise(p.broadCells, p.broadCells, seed ^ 0x24f01),
+          medium = cachedNoise(p.mediumCells, p.mediumCells, seed ^ 0x24f03),
+          half = p.blocks / 2,
+          values = new Float64Array(p.blocks * p.blocks),
+          levels = new Uint8Array(p.blocks * p.blocks),
+          value = (
+            x: number,
+            y: number,
+            size: number,
+            salt: number,
+          ): number => {
+            const cu = (x + 0.5) / size,
+              cv = (y + 0.5) / size;
+            return (
+              p.broadWeight * broad(cu, cv) +
+              p.mediumWeight * medium(cu, cv) +
+              p.jitterWeight * hash(x, y, seed ^ salt)
+            );
+          };
+        // One field value per fine block; some blocks borrow their 2x2 parent's value so the
+        // pixels cluster into larger squares.
+        for (let y = 0; y < p.blocks; y++)
+          for (let x = 0; x < p.blocks; x++)
+            values[y * p.blocks + x] =
+              hash(x, y, seed ^ 0x24f05) < p.coarseShare
+                ? value(x >> 1, y >> 1, half, 0x24f07)
+                : value(x, y, p.blocks, 0x24f09);
+        // Quartile thresholds give every tone the same share of the blocks.
+        const sorted = Float64Array.from(values).sort(),
+          step = sorted.length / p.tones.length;
+        for (let i = 0; i < values.length; i++) {
+          let tone = 0;
+          while (
+            tone < p.tones.length - 1 &&
+            values[i] >= sorted[Math.round(step * (tone + 1))]
+          )
+            tone++;
+          levels[i] = tone;
+        }
+        return () => {
+          const bu = u * p.blocks,
+            bv = v * p.blocks,
+            tone = p.tones[levels[Math.floor(bv) * p.blocks + Math.floor(bu)]],
+            nu = u * p.threads,
+            nv = v * p.threads,
+            ix = Math.floor(nu),
+            iy = Math.floor(nv),
+            a = nu - ix,
+            b = nv - iy,
+            pa = 4 * a * (1 - a),
+            pb = 4 * b * (1 - b),
+            // Plain-weave canvas under the print: the visible thread alternates each cell.
+            weave = (((ix + iy) & 1) === 0 ? pa : pb) * 0.6 + 0.4 * pa * pb;
+          color = clamp(tone + p.weaveTone * (weave - 0.5));
+          height = clamp(
+            p.baseHeight + p.weaveHeight * weave + p.inkHeight * tone,
+          );
+          roughness = p.roughness - p.weaveRoughness * (weave - 0.5);
+          occlusion = clamp(1 - p.weaveAO * (1 - weave));
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -45014,6 +45077,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'digitalcamo' ||
     kind === 'topographiccontours' ||
     kind === 'garnetschist' ||
     kind === 'celticplait' ||

@@ -11514,3 +11514,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 設計取捨：原本想用「每條沿u的環繞掃描線，等高線段數必為偶數（f週期，上穿＝下穿）」當獨立不變量，實測三seed只有59%–75%的掃描線為偶數——陡坡處相鄰等高線的間距小於線寬而合併為一段，以及線切近峰頂時的接觸，會破壞奇偶性，所以不把它當測試（也沒有放寬到沒意義的門檻）；改測可獨立量到且穩定的三項。
 - 實測：`tests/procedural-material-motifs.test.ts`九十八項（本材質四項）全過：三seed每條掃描線（64條×4096點）量得 (1) 相鄰色帶中點底色差的中位數÷（elevationTone/levels）＝0.98–1.02（門檻0.7–1.3），即每跨過一條線恰好改變一個等高距；(2) 計曲線占全部線的比例0.19–0.22（期望0.2，門檻0.1–0.32）；(3) 計曲線／一般線的寬度中位數比2.4–2.55（期望2.33，門檻1.7–3.2）；另含通道範圍與wrap／seed差異。`tests/procedural-material.test.ts`以`-t "topographiccontours|every preset"`定向跑3項通過，沒有重跑該檔其餘5520項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`topographiccontours`：option 901個、status為900 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼無接縫、計曲線與分層設色可辨。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：數位像素迷彩（digitalcamo）
+
+- 目錄900→901，含plain的gallery為902項。每tile 64×64個方形像素、四個色階（暗橄欖／橄欖褐／卡其／沙色）；色階由兩層週期value noise與雜湊抖動以**四分位數**分級（每個色階恰佔四分之一），約一半像素取其2×2父塊的值而聚成較大方塊；其上為每tile 128×128的平紋帆布織紋。Metallic／mortar為0，預設tile1.0 m、0.0007 UV-relative relief、metallic factor 0。作者設計，非任何軍用或商業迷彩的複製，不代表偽裝效果，未打包外部圖樣。仍在獨立worktree分支`materials/more-textures`作業。
+- 實際抓到並修正：第一版用固定門檻（0.43／0.5／0.57）切色階，預覽幾乎只剩暗橄欖與沙色兩種、中間色階面積極小，因為三層加權雜訊的值域比門檻窄；改為在constructor排序全部4096個像素值、以四分位數取門檻，使四個色階各佔exactly 25%。
+- 實測：`tests/procedural-material-motifs.test.ts`一百零三項（本材質五項）全過：三seed逐塊以五個探針（避開邊緣）量到的最近色階全部一致（比例＝1，即織紋不改變塊色階）、四個色階面積比各介於0.24–0.26、相鄰塊同色比例＞0.45（隨機約0.25；聚成大方塊）；單塊內織紋色調變化範圍落在weaveTone的0.5–1.5倍、高度變化＞0.5×weaveHeight；通道範圍與wrap／seed差異。`tests/procedural-material.test.ts`以`-t "digitalcamo|every preset"`定向跑3項通過，沒有重跑該檔其餘5521項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`digitalcamo`：option 902個、status為901 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼無接縫、四色像素與聚簇方塊可辨。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

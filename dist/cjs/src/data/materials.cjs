@@ -12647,6 +12647,40 @@ var proceduralMaterialPresets = Object.freeze({
 		fiberHeight: .03,
 		fiberRoughness: .04
 	}),
+	digitalcamo: Object.freeze({
+		dark: [
+			30,
+			38,
+			26
+		],
+		light: [
+			204,
+			186,
+			138
+		],
+		roughness: .9,
+		relief: 7e-4,
+		blocks: 64,
+		coarseShare: .5,
+		broadCells: 4,
+		mediumCells: 12,
+		broadWeight: .55,
+		mediumWeight: .3,
+		jitterWeight: .15,
+		tones: [
+			.08,
+			.34,
+			.62,
+			.9
+		],
+		threads: 128,
+		weaveTone: .03,
+		weaveHeight: .45,
+		baseHeight: .3,
+		inkHeight: .04,
+		weaveRoughness: .04,
+		weaveAO: .25
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -21328,6 +21362,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	digitalcamo: 1,
 	topographiccontours: 1,
 	garnetschist: .4,
 	celticplait: .5,

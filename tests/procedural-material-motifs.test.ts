@@ -1985,3 +1985,124 @@ describe('topographiccontours: isolines of a smooth elevation field', () => {
     expect(different).toBeGreaterThan(100);
   });
 });
+
+describe('digitalcamo: four-tone pixel camouflage on canvas', () => {
+  const p = proceduralMaterialPresets.digitalcamo;
+  const n = p.blocks;
+  const nearest = (color: number): number => {
+    let best = 0;
+    for (let i = 1; i < p.tones.length; i++)
+      if (Math.abs(color - p.tones[i]) < Math.abs(color - p.tones[best]))
+        best = i;
+    return best;
+  };
+
+  it.each(seeds)(
+    'gives each tone a quarter of the pixels, flat inside every block and clustered across blocks (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('digitalcamo', seed),
+        out = empty();
+      let invalid = 0;
+      const counts = new Array<number>(p.tones.length).fill(0),
+        grid = new Uint8Array(n * n);
+      let inside = 0,
+        flat = 0;
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          // Several probes inside the block (clear of its edge, where nothing changes anyway).
+          const levels: number[] = [];
+          for (const [fx, fy] of [
+            [0.2, 0.2],
+            [0.8, 0.3],
+            [0.5, 0.5],
+            [0.3, 0.8],
+            [0.75, 0.75],
+          ]) {
+            sample((x + fx) / n, (y + fy) / n, out);
+            invalid += Number(out.metallic !== 0 || out.mortar !== 0);
+            for (const value of [
+              out.color,
+              out.height / p.relief,
+              out.roughness,
+              out.occlusion,
+            ])
+              invalid += Number(!(value >= 0 && value <= 1));
+            levels.push(nearest(out.color));
+          }
+          inside++;
+          flat += Number(levels.every((l) => l === levels[0]));
+          grid[y * n + x] = levels[0];
+          counts[levels[0]]++;
+        }
+      expect(invalid).toBe(0);
+      // Block tone ignores the weave: every probe in a block reads as the same tone.
+      expect(flat / inside).toBe(1);
+      // Quartile thresholds give an equal share to every tone.
+      for (const count of counts) {
+        expect(count / (n * n)).toBeGreaterThan(0.24);
+        expect(count / (n * n)).toBeLessThan(0.26);
+      }
+      // Spatial clustering: neighboring blocks agree far more often than the 1/4 of random tones.
+      let same = 0,
+        pairs = 0;
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++)
+          for (const [dx, dy] of [
+            [1, 0],
+            [0, 1],
+          ]) {
+            same += Number(
+              grid[y * n + x] === grid[((y + dy) % n) * n + ((x + dx) % n)],
+            );
+            pairs++;
+          }
+      expect(same / pairs).toBeGreaterThan(0.45);
+    },
+  );
+
+  it('keeps the canvas weave visible inside a flat block', () => {
+    const sample = createSurfaceSampler('digitalcamo', 7),
+      out = empty(),
+      colors: number[] = [],
+      heights: number[] = [];
+    // One block spans 2 thread cells in each direction.
+    for (let i = 0; i < 64; i++)
+      for (let j = 0; j < 64; j++) {
+        sample(
+          (10 + 0.1 + (0.8 * i) / 64) / n,
+          (20 + 0.1 + (0.8 * j) / 64) / n,
+          out,
+        );
+        colors.push(out.color);
+        heights.push(out.height / p.relief);
+      }
+    const spread = (values: number[]): number =>
+      Math.max(...values) - Math.min(...values);
+    expect(spread(colors)).toBeGreaterThan(p.weaveTone * 0.5);
+    expect(spread(colors)).toBeLessThan(p.weaveTone * 1.5);
+    expect(spread(heights)).toBeGreaterThan(p.weaveHeight * 0.5);
+  });
+
+  it('wraps seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('digitalcamo', 0),
+      b = createSurfaceSampler('digitalcamo', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        expect(two.height).toBeCloseTo(one.height, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(100);
+  });
+});
