@@ -958,6 +958,7 @@ const kinds: ProceduralMaterialKind[] = [
   'poolcaustics',
   'europeanolive',
   'gamedice',
+  'raindropripples',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -140136,6 +140137,198 @@ describe('Game dice with a tray of ivory rounded dice and standard one to six pi
     expect(occluded / (512 * 512)).toBeLessThan(0.43);
     expect(maxTilt).toBeGreaterThan(0.45);
     expect(maxTilt).toBeLessThan(0.6);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Raindrop ripples with overlapping concentric rings on a dark grey-blue puddle surface', () => {
+  const p = proceduralMaterialPresets.raindropripples;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const lineColors = (seed: number, v: number): number[] => {
+    const sample = createSurfaceSampler('raindropripples', seed),
+      out = empty(),
+      colors: number[] = [];
+    for (let i = 0; i < 4096; i++) {
+      sample((i + 0.5) / 4096, v, out);
+      colors.push(out.color);
+    }
+    return colors;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'balances bright and dark ring crests around a mid grey-blue, with calm wave-free roughness and shallow wave roughening for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('raindropripples', seed),
+        a = empty();
+      let bright = 0,
+        dark = 0,
+        low = 1,
+        high = 0,
+        mean = 0,
+        roughHigh = 0,
+        roughLow = 1,
+        heightLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 512; y++)
+        for (let x = 0; x < 512; x++) {
+          sample((x + 0.5) / 512, (y + 0.5) / 512, a);
+          bright += Number(a.color > 0.75);
+          dark += Number(a.color < 0.25);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          mean += a.color;
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          heightLow = Math.min(heightLow, a.height / p.relief);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(bright / 262144).toBeGreaterThan(0.05);
+      expect(bright / 262144).toBeLessThan(0.1);
+      expect(Math.abs(bright - dark) / 262144).toBeLessThan(0.01);
+      expect(low).toBeGreaterThan(0.1);
+      expect(low).toBeLessThan(0.13);
+      expect(high).toBeGreaterThan(0.86);
+      expect(high).toBeLessThan(0.9);
+      expect(mean / 262144).toBeGreaterThan(0.495);
+      expect(mean / 262144).toBeLessThan(0.505);
+      expect(roughLow).toBeCloseTo(p.roughness, 12);
+      expect(roughHigh).toBeGreaterThan(p.roughness + 0.03);
+      expect(heightLow).toBeGreaterThan(0.03);
+      expect(heightHigh).toBeLessThan(0.97);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('oscillates through many ring crests along any line and drops different rings per seed', () => {
+    for (const seed of [0, 1, 0xffffffff])
+      for (const v of [0.13, 0.5, 0.81]) {
+        const colors = lineColors(seed, v);
+        let crossings = 0;
+        for (let i = 1; i < colors.length; i++)
+          crossings += Number((colors[i] - 0.5) * (colors[i - 1] - 0.5) < 0);
+        expect(crossings).toBeGreaterThan(25);
+        expect(crossings).toBeLessThan(90);
+      }
+    const first = lineColors(0, 0.5),
+      second = lineColors(1, 0.5);
+    expect(
+      first.reduce((sum, value, i) => sum + Math.abs(value - second[i]), 0) /
+        first.length,
+    ).toBeGreaterThan(0.1);
+  });
+  it('keeps ring envelopes, drop centres and overlapping rings C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('raindropripples', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.cells, 2 * p.cells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 grey-blue dielectric maps with about an eighth each of bright and dark ring crests and strong ring normals', () => {
+    const maps = generateProceduralMaps('raindropripples', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      blue = 0,
+      low = 0,
+      high = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      blue += maps.baseColor[i + 2];
+      low += Number(maps.baseColor[i] < 80);
+      high += Number(maps.baseColor[i] > 150);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.baseColor[i] > maps.baseColor[i + 1] ||
+          maps.baseColor[i + 1] > maps.baseColor[i + 2] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(105);
+    expect(red / (512 * 512)).toBeLessThan(125);
+    expect(blue / (512 * 512)).toBeGreaterThan(133);
+    expect(blue / (512 * 512)).toBeLessThan(153);
+    expect(low / (512 * 512)).toBeGreaterThan(0.11);
+    expect(low / (512 * 512)).toBeLessThan(0.15);
+    expect(high / (512 * 512)).toBeGreaterThan(0.11);
+    expect(high / (512 * 512)).toBeLessThan(0.15);
+    expect(maxTilt).toBeGreaterThan(0.08);
+    expect(maxTilt).toBeLessThan(0.14);
     expect(invalid).toBe(0);
   });
 });

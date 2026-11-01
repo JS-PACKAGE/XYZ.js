@@ -12620,6 +12620,26 @@ export declare const proceduralMaterialPresets: Readonly<{
         trayRoughness: 0.4;
         trayOcclusion: 0.5;
     }>;
+    raindropripples: Readonly<{
+        dark: readonly [30, 48, 60];
+        light: readonly [200, 216, 226];
+        roughness: 0.08;
+        relief: 0.0022;
+        cells: 8;
+        seedSalt: 31261;
+        jitter: 0.16;
+        radius: 0.78;
+        wavelength: 0.2;
+        amplitudeMinimum: 0.35;
+        baseTone: 0.5;
+        waveTone: 0.42;
+        waveGain: 1.1;
+        grainCells: 96;
+        grainTone: 0.02;
+        heightBias: 0.5;
+        heightScale: 0.5;
+        waveRoughness: 0.05;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -13915,4 +13935,5 @@ export declare const proceduralTileMeters: Readonly<{
     poolcaustics: 0.5;
     europeanolive: 0.18;
     gamedice: 0.3;
+    raindropripples: 0.4;
 }>;

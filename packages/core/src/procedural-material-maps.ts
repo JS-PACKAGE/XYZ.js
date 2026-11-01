@@ -37609,6 +37609,59 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'raindropripples': {
+        const p = proceduralMaterialPresets.raindropripples,
+          drops = new Float64Array(p.cells * p.cells * 4),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x7a1e),
+          inverseRadius2 = 1 / (p.radius * p.radius),
+          frequency = TAU / p.wavelength;
+        // Per cell: jittered drop centre (x, y), amplitude and ring phase.
+        for (let cy = 0; cy < p.cells; cy++)
+          for (let cx = 0; cx < p.cells; cx++) {
+            const at = (cy * p.cells + cx) * 4,
+              salt = seed ^ p.seedSalt;
+            drops[at] = p.jitter * (2 * hash(cx, cy * 4, salt) - 1);
+            drops[at + 1] = p.jitter * (2 * hash(cx, cy * 4 + 1, salt) - 1);
+            drops[at + 2] =
+              p.amplitudeMinimum +
+              (1 - p.amplitudeMinimum) * hash(cx, cy * 4 + 2, salt);
+            drops[at + 3] = TAU * hash(cx, cy * 4 + 3, salt);
+          }
+        return () => {
+          // Ripple rings superpose: every drop adds an envelope * cos(k r - phase)
+          // wave, the envelope smooth(1 - q / R^2) is zero in value and slope at its
+          // outer radius and cos(k sqrt(q)) is even in r, so the sum is C1 even where
+          // rings from neighbouring drops overlap. The 3 x 3 cell neighbourhood covers
+          // radius + jitter. tanh maps the unbounded sum to the bright / dark reflection.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            cx = Math.floor(x),
+            cy = Math.floor(y);
+          let wave = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const wx = (((cx + ox) % p.cells) + p.cells) % p.cells,
+                wy = (((cy + oy) % p.cells) + p.cells) % p.cells,
+                at = (wy * p.cells + wx) * 4,
+                dx = x - (cx + ox + 0.5 + drops[at]),
+                dy = y - (cy + oy + 0.5 + drops[at + 1]),
+                q = dx * dx + dy * dy,
+                envelope = smooth(clamp(1 - q * inverseRadius2));
+              if (envelope === 0) continue;
+              wave +=
+                drops[at + 2] *
+                envelope *
+                Math.cos(frequency * Math.sqrt(q) - drops[at + 3]);
+            }
+          const grain = grainField(u, v),
+            reflection = Math.tanh(p.waveGain * wave);
+          color =
+            p.baseTone + p.waveTone * reflection + p.grainTone * (grain - 0.5);
+          height = p.heightBias + p.heightScale * reflection;
+          roughness += p.waveRoughness * Math.abs(reflection);
+          return;
+        };
+      }
       case 'woodenpalletdeck': {
         const p = proceduralMaterialPresets.woodenpalletdeck,
           tones = new Float64Array(p.boards),
@@ -45213,6 +45266,7 @@ export function createSurfaceSampler(
     kind === 'poolcaustics' ||
     kind === 'europeanolive' ||
     kind === 'gamedice' ||
+    kind === 'raindropripples' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
     kind === 'sitkaspruce' ||

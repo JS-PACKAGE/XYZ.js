@@ -11708,3 +11708,14 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Game dice|gamedice|kinds|catalog|distinct|periodic"`定向測試，**2121項通過／3600項未選**。
 - 補記（完整suite）：在凍結worktree於metalflakepaint commit `586fbcd25`實跑完整`vitest run`，**179檔／9,629項全部通過**（1283.58s，wall約21.4分）；該commit之後的poolcaustics、europeanolive與本功能沒有重跑完整suite，僅有各自的定向測試與gates。
 - 未開瀏覽器gallery（topographicmap之後新增的barcodelabel、ledmatrix、tapemeasure、metalflakepaint、poolcaustics、europeanolive與本功能均未在gallery驗證內）；不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：雨滴漣漪（raindropripples）
+
+- 目錄916→917，含plain的gallery為918項。深灰藍的光滑水面上，8×8個位置抖動的雨滴各自擴散同心漣漪環（隨機振幅與相位），相鄰漣漪疊加成干涉圖樣。這是作者依一般雨滴漣漪外觀所作示意，**沒有**引用特定來源，不含色散／衰減律、時間擴散、水面下折射、水花或岸邊反射。
+- 專用sampler：每格4個Float64（8×8共256）＋96² grain（9,216），合計9,472 Float64／75,776 B；每個雨滴貢獻`振幅·smooth(1−q/R²)·cos(2π√q/λ−相位)`（R=0.78格、取3×3鄰格），`tanh(1.1·Σ)`映射為反光亮／暗，重疊處仍為C1。預設0.4 m tile、0.0022 UV-relative relief（非公尺位移）、metallic factor0、AO 1；不新增API或依賴。
+- 開發中實際修正：首版把環頻率誤除以格數一次，渲染出過寬的環；改正後以Bun產生512 seed7四圖並實看，呈細密的同心圈與干涉（波長0.2格×每格64像素≈12.8像素，此數為計算值）。法線圖有清楚的環狀起伏；干涉重疊處在512像素下出現網格狀的疊紋，屬於環重疊的結果而非瑕疵修正項。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）512²取樣color>0.75占6.1–8.6%、color<0.25占6.1–8.6%（兩者相差不到0.3個百分點）、color 0.111–0.887、平均0.4999–0.5004、roughness 0.080–0.126、高度0.044–0.954 relief、AO 1；沿三條水平線穿越中灰32–66次；seed 0與1的取樣影像平均色差0.189；seed7的512² r／g／b平均約(115,132,143)、r<80占12.8%、r>150占12.9%、法線max tilt²約0.107。
+- 新增4項永久測試（`Raindrop ripples`：三seed亮暗對稱／色域／roughness／高度、沿線穿越次數與seed差異、C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選7項通過（9.80s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Raindrop ripples|raindropripples|kinds|catalog|distinct|periodic"`定向測試，**2123項通過／3605項未選**。
+- 補記（瀏覽器gallery）：從乾淨worktree啟動的vite（5391埠），以spawned Google Chrome headless在WebGPU與`?renderer=webgl2`兩條路徑，逐一選取barcodelabel、ledmatrix、tapemeasure、metalflakepaint、poolcaustics、europeanolive與gamedice，並等待readout出現`Material <kind> `，**7種全部成功**，狀態列為「916 procedural material presets + plain」，`errors()`為空。第一次執行時初始readout等待30秒逾時（頁面當時仍在冷啟動、vite重新轉譯大型來源）；查看頁面確認已無錯誤並載入完成後，把初始等待放寬到120秒重跑即全數通過。此驗證只涵蓋「能選取、無console錯誤、readout更新」，**不是**逐材質視覺比對或跨瀏覽器／GPU驗證；本功能raindropripples尚未納入。
+- 本功能未重跑完整179檔suite（gamedice之前的完整結果見gamedice section）；不宣稱跨瀏覽器／backend或效能驗證；不push。
