@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`barcodelabel`（條碼標籤）使目前目錄909→910種，含plain的gallery為911項。一個tile是一張完整標籤寬度：左右各10模組靜區、Code 128 Start B 起始樣式（11模組）、9個資料符號（每個為6段交替的條／空寬度，各1–4模組、合計11模組）與13模組停止樣式，共143模組；條只佔v 0.1–0.9的標籤帶，上下是留白。黑色近黑碳粉（略高、略平滑）印在偏白粗糙紙面上，並有細紙纖維grain。不是可解碼的Code 128：資料符號是隨seed抽出的隨機寬度，沒有檢查碼、沒有奇偶（條寬和為偶、空寬和為奇）限制，也沒有人眼可讀文字、其他標籤元素或曲面。
+
+結構依據實際閱讀的[Wikipedia「Code 128」](https://en.wikipedia.org/wiki/Code_128)：每個符號為三條黑條與三條空白、各1–4模組、合計11模組，且以條起、以空結束；停止樣式為13模組（含結尾2模組條）；左右靜區至少10模組。我使用的Start B位元樣式`11010010000`與停止樣式`1100011101011`來自我對標準樣式表的記憶，該頁擷取到的文字沒有包含這些表格，所以這兩串位元**未由該頁驗證**。外觀（黑條白紙、0.14 m tile、碳粉高度、roughness、紙色）皆作者設定，沒有引用特定標籤照片或量測。
+
+新增專用sampler：建構時依seed以`hash`抽出9個符號（五段寬度各1–4、第六段由「合計11」推出並要求落在1–4，最多重試4,096次，失敗則回退為Start B寬度），組成143模組位元陣列；採樣時以x = fract(u)·143找模組，條邊在模組界線兩側各`edgeRamp/2 = 0.11`模組內以`smooth`混合（兩端斜率為0，故C1），標籤帶上下緣亦以0.012的`smooth`斜坡。cache為96²紙纖維grain（9,216 Float64／73,728 B）加143項模組位元陣列。顏色是顏料，碳粉height 0.35 relief、紙grain至多0.1；金屬factor為0、無mortar、AO 1。預設0.14 m nominal tile與0.0006 UV-relative relief（非公尺位移）皆作者設定。三seed（0／1／0xffffffff）、512²取樣：color<0.5占30.1–34.8%、最低color 0.0276、最高0.982、碳粉平均高度約0.39 relief對紙面約0.055、roughness 0.445–0.575；seed7的512²中r平均173.3、r<128占31.1%、法線max tilt²約0.0036。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `topographicmap`（等高線地形圖紙）使目前目錄908→909種，含plain的gallery為910項。暖米白紙面上以定值寬度的棕色等高線印出一塊由7個整數波數正弦疊成的地形（16個等高階、每5條一條較粗較深的計曲線），紙面隨高度有極淡的色調變化與細紙纖維grain；墨線略高於紙面。不是真實地形資料、標高註記、水系、道路、網格或圖例文字。
 
 此材質是作者依「等高線地形圖」一般樣式所作示意，沒有引用特定來源文件、照片或量測；等高階數、計曲線間隔、線寬、墨色、紙色與0.3 m nominal tile皆作者設定，不宣稱符合任何實際地圖規格或比例尺。

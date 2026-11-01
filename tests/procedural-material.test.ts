@@ -951,6 +951,7 @@ const kinds: ProceduralMaterialKind[] = [
   'lenticularsheet',
   'eastindianrosewood',
   'topographicmap',
+  'barcodelabel',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -138804,6 +138805,219 @@ describe('Topographic map paper with constant-width brown contour lines, heavier
     expect(ink / (512 * 512)).toBeLessThan(0.125);
     expect(maxTilt).toBeGreaterThan(0.08);
     expect(maxTilt).toBeLessThan(0.15);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Barcode label with black Code 128-style bars, start and stop patterns and quiet zones on white paper', () => {
+  const p = proceduralMaterialPresets.barcodelabel;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const startBits = '11010010000',
+    stopBits = '1100011101011',
+    modules =
+      2 * p.quietModules +
+      startBits.length +
+      p.dataSymbols * p.symbolModules +
+      stopBits.length;
+  const readBits = (seed: number, v: number): string => {
+    const sample = createSurfaceSampler('barcodelabel', seed),
+      out = empty();
+    let bits = '';
+    for (let i = 0; i < modules; i++) {
+      sample((i + 0.5) / modules, v, out);
+      bits += out.color < 0.5 ? '1' : '0';
+    }
+    return bits;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'lays out quiet zones, the Code 128 start B and stop patterns and nine data symbols of six 1-4 module runs for seed %s',
+    (seed) => {
+      const bits = readBits(seed, 0.5),
+        quiet = '0'.repeat(p.quietModules);
+      let at = 0;
+      expect(bits.slice(at, (at += p.quietModules))).toBe(quiet);
+      expect(bits.slice(at, (at += startBits.length))).toBe(startBits);
+      for (let symbol = 0; symbol < p.dataSymbols; symbol++) {
+        const runs = (
+          bits.slice(at, (at += p.symbolModules)).match(/1+|0+/g) ?? []
+        ).map((run) => run.length);
+        expect(runs.length).toBe(6);
+        expect(bits[at - p.symbolModules]).toBe('1');
+        expect(bits[at - 1]).toBe('0');
+        for (const run of runs) {
+          expect(run).toBeGreaterThanOrEqual(1);
+          expect(run).toBeLessThanOrEqual(4);
+        }
+      }
+      expect(bits.slice(at, (at += stopBits.length))).toBe(stopBits);
+      expect(bits.slice(at)).toBe(quiet);
+      expect(bits.length).toBe(modules);
+    },
+  );
+  it('changes only the data symbols with the seed and leaves the bars confined to the label band', () => {
+    const first = readBits(0, 0.5),
+      second = readBits(1, 0.5),
+      head = p.quietModules + startBits.length,
+      tail = modules - p.quietModules - stopBits.length;
+    expect(first.slice(0, head)).toBe(second.slice(0, head));
+    expect(first.slice(tail)).toBe(second.slice(tail));
+    expect(first.slice(head, tail)).not.toBe(second.slice(head, tail));
+    expect(readBits(0, 0.5)).toBe(first);
+    expect(readBits(0, 0.5 * (p.barStart + p.barEnd) + 0.02)).toBe(first);
+    expect(readBits(0, p.barStart + 0.03)).toBe(first);
+    expect(readBits(0, p.barEnd - 0.03)).toBe(first);
+    expect(readBits(0, p.barStart - 0.04)).toBe('0'.repeat(modules));
+    expect(readBits(0, p.barEnd + 0.04)).toBe('0'.repeat(modules));
+  });
+  it.each([0, 1, 0xffffffff])(
+    'prints flat raised near-black toner on bright rough paper with no metal or occlusion for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('barcodelabel', seed),
+        a = empty();
+      let ink = 0,
+        paper = 0,
+        inkHeight = 0,
+        paperHeight = 0,
+        low = 1,
+        high = 0,
+        invalid = 0;
+      for (let y = 0; y < 512; y++)
+        for (let x = 0; x < 512; x++) {
+          sample((x + 0.5) / 512, (y + 0.5) / 512, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          if (a.color < 0.5) {
+            ink++;
+            inkHeight += a.height;
+          } else {
+            paper++;
+            paperHeight += a.height;
+          }
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              a.roughness < 0.44 ||
+              a.roughness > 0.58,
+          );
+          for (const key of keys)
+            invalid += Number(
+              !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+            );
+        }
+      expect(ink / 262144).toBeGreaterThan(0.28);
+      expect(ink / 262144).toBeLessThan(0.37);
+      expect(low).toBeLessThan(0.04);
+      expect(high).toBeGreaterThan(0.95);
+      expect(inkHeight / ink - paperHeight / paper).toBeGreaterThan(
+        0.3 * p.relief,
+      );
+      expect(invalid).toBe(0);
+    },
+  );
+  it('keeps bar edges, label band edges and paper grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('barcodelabel', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [modules, 2 * modules, p.grainCells, 64])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (const edge of [
+        p.barStart,
+        p.barStart + p.verticalRamp,
+        p.barEnd,
+        p.barEnd - p.verticalRamp,
+      ])
+        for (let i = 0; i < 2048; i++) check(i / 2048, edge);
+      for (let i = 0; i < 8192; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 bright paper maps with near-black bar toner covering about a third of the texels and shallow normals', () => {
+    const maps = generateProceduralMaps('barcodelabel', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      ink = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      ink += Number(maps.baseColor[i] < 128);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.normal[i + 2] < 240,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(160);
+    expect(red / (512 * 512)).toBeLessThan(190);
+    expect(ink / (512 * 512)).toBeGreaterThan(0.28);
+    expect(ink / (512 * 512)).toBeLessThan(0.34);
+    expect(maxTilt).toBeGreaterThan(0.001);
+    expect(maxTilt).toBeLessThan(0.01);
     expect(invalid).toBe(0);
   });
 });

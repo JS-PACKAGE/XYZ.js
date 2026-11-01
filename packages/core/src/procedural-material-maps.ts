@@ -37278,6 +37278,71 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'barcodelabel': {
+        const p = proceduralMaterialPresets.barcodelabel,
+          // Code 128 start B and stop patterns, as module bits (1 = bar).
+          start = [1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0],
+          stop = [1, 1, 0, 0, 0, 1, 1, 1, 0, 1, 0, 1, 1],
+          bits: number[] = new Array<number>(p.quietModules).fill(0),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0xba7d);
+        bits.push(...start);
+        for (let symbol = 0; symbol < p.dataSymbols; symbol++) {
+          // Six alternating widths (bar first) of 1-4 modules summing to 11, like a
+          // Code 128 symbol; retried with a counter until the last width fits.
+          let widths = [2, 1, 1, 2, 1, 4];
+          for (let attempt = 0; attempt < 4096; attempt++) {
+            const trial = [0, 1, 2, 3, 4].map(
+              (k) =>
+                1 +
+                Math.floor(
+                  4 * hash(symbol, attempt * 8 + k, seed ^ p.seedSalt),
+                ),
+            );
+            const last =
+              p.symbolModules - trial.reduce((sum, value) => sum + value, 0);
+            if (last >= 1 && last <= 4) {
+              widths = [...trial, last];
+              break;
+            }
+          }
+          widths.forEach((width, index) => {
+            for (let i = 0; i < width; i++) bits.push(index % 2 === 0 ? 1 : 0);
+          });
+        }
+        bits.push(...stop);
+        for (let i = 0; i < p.quietModules; i++) bits.push(0);
+        const modules = bits.length;
+        return () => {
+          // The tile is the whole label width (quiet zones, start, symbols, stop), so
+          // it repeats as a row of labels. Bar edges blend over edgeRamp modules with
+          // smooth(), which is flat at both ends and therefore C1 with the neighbour
+          // module; the bars start and end vertically with the same kind of ramp.
+          const x = fract(u) * modules,
+            module = Math.floor(x),
+            t = x - module,
+            half = p.edgeRamp / 2,
+            here = bits[module],
+            previous = bits[(module + modules - 1) % modules],
+            next = bits[(module + 1) % modules];
+          let bar = here;
+          if (t < half)
+            bar = previous + (here - previous) * smooth(0.5 + t / p.edgeRamp);
+          else if (t > 1 - half)
+            bar = here + (next - here) * smooth((t - 1) / p.edgeRamp + 0.5);
+          const vertical =
+              smooth(clamp((fract(v) - p.barStart) / p.verticalRamp)) *
+              smooth(clamp((p.barEnd - fract(v)) / p.verticalRamp)),
+            ink = bar * vertical,
+            grain = grainField(u, v);
+          color =
+            p.paperTone +
+            p.grainTone * (grain - 0.5) -
+            (p.paperTone - p.inkTone) * ink;
+          height = p.grainHeight * grain + p.inkHeight * ink;
+          roughness += p.inkRoughness * ink + p.grainRoughness * (grain - 0.5);
+          return;
+        };
+      }
       case 'woodenpalletdeck': {
         const p = proceduralMaterialPresets.woodenpalletdeck,
           tones = new Float64Array(p.boards),
@@ -44874,6 +44939,7 @@ export function createSurfaceSampler(
     kind === 'shagbarkhickory' ||
     kind === 'eastindianrosewood' ||
     kind === 'topographicmap' ||
+    kind === 'barcodelabel' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
     kind === 'sitkaspruce' ||

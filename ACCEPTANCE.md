@@ -11636,3 +11636,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Topographic|topographicmap|kinds|catalog|distinct|periodic"`定向測試，**2108項通過／3561項未選**。
 - 補記（瀏覽器gallery）：從乾淨worktree啟動vite（5391埠），以spawned Google Chrome headless在WebGPU與`?renderer=webgl2`兩條路徑，逐一以`#material`的`input`事件選取monitorlizardskin、shagbarkhickory、europeanlarch、lenticularsheet、eastindianrosewood與topographicmap，並等待readout出現`Material <kind> `，**6種全部成功**，狀態列為「909 procedural material presets + plain」，`errors()`為空。第一次執行時WebGPU路徑的monitorlizardskin逾時；原因是我在頁面初始化完成前就送出了第一次選取，等待初始readout後重跑即通過（同樣的事件順序），不是材質本身失敗。此驗證只涵蓋「能選取、無console錯誤、readout更新」，**不是**逐材質的視覺比對或跨瀏覽器／GPU驗證。
 - 補記（完整suite）：先前在凍結worktree於rosewood commit `f6b828f76`的完整suite正在執行，結果另記於後續section；本功能沒有重跑完整179檔suite；不push。
+
+## 2026-11-02 程序材質：條碼標籤（barcodelabel）
+
+- 目錄909→910，含plain的gallery為911項。一個tile是一張標籤寬度：左右各10模組靜區、Code 128 Start B 樣式（11模組）、9個隨seed抽出的資料符號（各為6段交替條／空寬度，1–4模組、合計11）與13模組停止樣式，共143模組；近黑碳粉條只佔v 0.1–0.9標籤帶，白色粗糙紙面上下留白。**不是可解碼的Code 128**：資料符號為隨機寬度，沒有檢查碼、沒有條寬和為偶／空寬和為奇的限制，也沒有人眼可讀文字。
+- 結構依據實際閱讀的[Wikipedia「Code 128」](https://en.wikipedia.org/wiki/Code_128)（符號為三條三空、各1–4模組合計11、以條起以空結束；停止樣式13模組含2模組結尾條；靜區至少10模組）。Start B位元樣式`11010010000`與停止樣式`1100011101011`來自我對標準符號表的記憶；該頁擷取文字不含表格，這兩串位元**未經該頁驗證**，已在README／docs／本節如實標註。外觀（黑條白紙、碳粉高度、roughness、紙色、0.14 m tile）為作者設定。
+- 專用sampler：建構時依seed抽符號並組成143模組位元陣列；條邊在模組界線兩側各0.11模組以`smooth`混合（兩端斜率為0，C1），標籤帶上下緣0.012斜坡。cache為96² grain（9,216 Float64／73,728 B）＋143項位元陣列。預設0.14 m tile、0.0006 UV-relative relief（非公尺位移）、metallic factor0、AO 1；不新增API或依賴。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）512²取樣color<0.5占30.1–34.8%、最低color 0.0276、最高0.982、碳粉平均高度約0.39 relief對紙面約0.055、roughness 0.445–0.575；seed7的512² r平均173.3、r<128占31.1%、法線max tilt²約0.0036。以Bun產生512 seed7四圖並實看：置中的條碼帶、上下左右留白、紙纖維grain；法線圖幾乎平坦，height圖在條邊有細線。
+- 新增5項永久測試（`Barcode label`：三seed的靜區／Start B／9個符號6 runs（各1–4）／停止樣式逐模組解析、seed只改資料符號且條只在標籤帶內、碳粉／紙面統計、含條邊與標籤帶上下緣的C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選10項通過（9.25s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Barcode label|barcodelabel|kinds|catalog|distinct|periodic"`定向測試，**2113項通過／3566項未選**。
+- 本功能未重跑完整179檔suite（rosewood commit的完整suite仍在凍結worktree執行，結果另記）、未開瀏覽器gallery；不宣稱跨瀏覽器／backend或效能驗證；不push。

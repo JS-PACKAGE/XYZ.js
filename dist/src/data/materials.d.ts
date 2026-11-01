@@ -12461,6 +12461,28 @@ export declare const proceduralMaterialPresets: Readonly<{
         inkRoughness: -0.08;
         grainRoughness: 0.04;
     }>;
+    barcodelabel: Readonly<{
+        dark: readonly [24, 24, 28];
+        light: readonly [244, 243, 238];
+        roughness: 0.55;
+        relief: 0.0006;
+        quietModules: 10;
+        dataSymbols: 9;
+        symbolModules: 11;
+        seedSalt: 47740;
+        barStart: 0.1;
+        barEnd: 0.9;
+        edgeRamp: 0.22;
+        verticalRamp: 0.012;
+        grainCells: 96;
+        paperTone: 0.97;
+        inkTone: 0.04;
+        grainTone: 0.025;
+        inkHeight: 0.35;
+        grainHeight: 0.1;
+        inkRoughness: -0.08;
+        grainRoughness: 0.05;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -13749,4 +13771,5 @@ export declare const proceduralTileMeters: Readonly<{
     lenticularsheet: 0.1;
     eastindianrosewood: 0.18;
     topographicmap: 0.3;
+    barcodelabel: 0.14;
 }>;

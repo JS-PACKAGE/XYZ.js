@@ -20420,6 +20420,36 @@ var proceduralMaterialPresets = Object.freeze({
 		inkRoughness: -.08,
 		grainRoughness: .04
 	}),
+	barcodelabel: Object.freeze({
+		dark: [
+			24,
+			24,
+			28
+		],
+		light: [
+			244,
+			243,
+			238
+		],
+		roughness: .55,
+		relief: 6e-4,
+		quietModules: 10,
+		dataSymbols: 9,
+		symbolModules: 11,
+		seedSalt: 47740,
+		barStart: .1,
+		barEnd: .9,
+		edgeRamp: .22,
+		verticalRamp: .012,
+		grainCells: 96,
+		paperTone: .97,
+		inkTone: .04,
+		grainTone: .025,
+		inkHeight: .35,
+		grainHeight: .1,
+		inkRoughness: -.08,
+		grainRoughness: .05
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -21826,7 +21856,8 @@ var proceduralTileMeters = Object.freeze({
 	europeanlarch: .2,
 	lenticularsheet: .1,
 	eastindianrosewood: .18,
-	topographicmap: .3
+	topographicmap: .3,
+	barcodelabel: .14
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;
