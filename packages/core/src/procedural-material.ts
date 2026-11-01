@@ -647,6 +647,7 @@ export type ProceduralMaterialKind =
   | 'minidin4femalefaces'
   | 'dcbarreljackfaces'
   | 'stfiberadapterfaces'
+  | 'to92packagefaces'
   | 'to220packagefaces'
   | 'ftypefemalefaces'
   | 'usbcfemalefaces'
@@ -1781,6 +1782,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'minidin4femalefaces',
   'dcbarreljackfaces',
   'stfiberadapterfaces',
+  'to92packagefaces',
   'to220packagefaces',
   'ftypefemalefaces',
   'usbcfemalefaces',
@@ -2298,6 +2300,7 @@ export class ProceduralMaterial {
         this.kind === 'minidin4femalefaces' ||
         this.kind === 'dcbarreljackfaces' ||
         this.kind === 'stfiberadapterfaces' ||
+        this.kind === 'to92packagefaces' ||
         this.kind === 'to220packagefaces' ||
         this.kind === 'ftypefemalefaces' ||
         this.kind === 'usbcfemalefaces' ||

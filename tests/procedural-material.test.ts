@@ -674,6 +674,7 @@ const kinds: ProceduralMaterialKind[] = [
   'dcbarreljackfaces',
   'stfiberadapterfaces',
   'to220packagefaces',
+  'to92packagefaces',
   'ftypefemalefaces',
   'usbcfemalefaces',
   'iecc6inlets',
@@ -76995,6 +76996,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'dcbarreljackfaces' &&
           kind !== 'stfiberadapterfaces' &&
           kind !== 'to220packagefaces' &&
+          kind !== 'to92packagefaces' &&
           kind !== 'ftypefemalefaces' &&
           kind !== 'usbcfemalefaces' &&
           kind !== 'iecc6inlets' &&
@@ -86477,6 +86479,7 @@ describe('procedural preset acquisition and ownership', () => {
     'dcbarreljackfaces',
     'stfiberadapterfaces',
     'to220packagefaces',
+    'to92packagefaces',
     'ftypefemalefaces',
     'usbcfemalefaces',
     'iecc6inlets',
@@ -86614,6 +86617,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'dcbarreljackfaces' ||
           kind === 'stfiberadapterfaces' ||
           kind === 'to220packagefaces' ||
+          kind === 'to92packagefaces' ||
           kind === 'ftypefemalefaces' ||
           kind === 'usbcfemalefaces' ||
           kind === 'iecc6inlets' ||
@@ -133910,6 +133914,705 @@ describe('TO-220 exposed-tab fronts: independently recovered geometry and surfac
           for (const n of [...hit.shoulders, ...hit.tails])
             expect(n).toBeGreaterThan(0);
         }
+      }
+    },
+  );
+});
+
+describe('TO-92 D-shaped package fronts: independently recovered geometry and surface roles', () => {
+  const preset = proceduralMaterialPresets.to92packagefaces;
+  const seeds = [0, 7, 0xffffffff] as const;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  type S = {
+    color: number;
+    height: number;
+    roughness: number;
+    occlusion: number;
+    metallic: number;
+    mortar: number;
+  };
+  type P = { u: number; v: number };
+  type Region = P & { pixels: number[] };
+  type Line = { a: P; b: P };
+  type Lead = {
+    x: number;
+    near: number;
+    far: number;
+    shoulder: number;
+    tail: number;
+    shoulderY: number;
+    tailY: number;
+  };
+  type Part = {
+    world: (x: number, y: number) => P;
+    local: (p: P) => P;
+    halfWidth: number;
+    top: number;
+    bottom: number;
+    leads: Lead[];
+    bodySample: S;
+    leadSample: S;
+  };
+  type Observation = {
+    sample: (u: number, v: number, out: S) => void;
+    at: (p: P) => S;
+    size: number;
+    low: number;
+    high: number;
+    parts: Part[];
+    lines: Line[];
+  };
+  const empty = (): S => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const mix = (a: P, b: P, t: number): P => ({
+    u: a.u + (b.u - a.u) * t,
+    v: a.v + (b.v - a.v) * t,
+  });
+  const distance = (a: P, b: P): number => Math.hypot(a.u - b.u, a.v - b.v);
+  const requireGeometry = (condition: boolean): void => {
+    expect(condition).toBe(true);
+    if (!condition)
+      throw new Error('Missing independently observed TO-92 geometry');
+  };
+  const components = (
+    mask: Uint8Array,
+    size: number,
+    value: number,
+  ): Region[] => {
+    const seen = new Uint8Array(mask.length),
+      queue = new Int32Array(mask.length),
+      found: Region[] = [];
+    for (let first = 0; first < mask.length; first++) {
+      if (seen[first] || mask[first] !== value) continue;
+      let read = 0,
+        count = 1,
+        u = 0,
+        v = 0;
+      const pixels: number[] = [];
+      queue[0] = first;
+      seen[first] = 1;
+      while (read < count) {
+        const i = queue[read++],
+          x = i % size,
+          y = Math.floor(i / size);
+        pixels.push(i);
+        u += (x + 0.5) / size;
+        v += (y + 0.5) / size;
+        for (const [dx, dy] of [
+          [-1, 0],
+          [1, 0],
+          [0, -1],
+          [0, 1],
+        ]) {
+          const j = ((y + dy + size) % size) * size + ((x + dx + size) % size);
+          if (!seen[j] && mask[j] === value) {
+            seen[j] = 1;
+            queue[count++] = j;
+          }
+        }
+      }
+      found.push({ u: u / count, v: v / count, pixels });
+    }
+    return found.sort((a, b) => b.pixels.length - a.pixels.length);
+  };
+  const crossing = (a: P, b: P, read: (p: P) => number, level: number): P => {
+    const side = read(a) > level;
+    let previous = a;
+    for (let i = 1; i <= 512; i++) {
+      const p = mix(a, b, i / 512);
+      if (read(p) > level !== side) {
+        let lo = previous,
+          hi = p;
+        for (let j = 0; j < 42; j++) {
+          const q = mix(lo, hi, 0.5);
+          if (read(q) > level === side) lo = q;
+          else hi = q;
+        }
+        return mix(lo, hi, 0.5);
+      }
+      previous = p;
+    }
+    requireGeometry(false);
+    return a;
+  };
+  const observe = (seed: number): Observation => {
+    const cells = preset.cells,
+      count = cells * cells,
+      size = Math.max(768, cells * 512),
+      sample = createSurfaceSampler('to92packagefaces', seed);
+    const at = (p: P): S => {
+      const s = empty();
+      sample(p.u, p.v, s);
+      s.height /= preset.relief;
+      return s;
+    };
+    const heights = new Float64Array(size * size),
+      metal = new Uint8Array(size * size),
+      raw = empty();
+    let low = Infinity,
+      high = -Infinity,
+      invalid = 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        const i = y * size + x;
+        sample((x + 0.5) / size, (y + 0.5) / size, raw);
+        for (const k of keys) {
+          const value = raw[k] / (k === 'height' ? preset.relief : 1);
+          invalid += Number(!Number.isFinite(value) || value < 0 || value > 1);
+        }
+        heights[i] = raw.height / preset.relief;
+        low = Math.min(low, heights[i]);
+        high = Math.max(high, heights[i]);
+        metal[i] = Number(raw.metallic > 0.5);
+      }
+    expect(invalid).toBe(0);
+    expect(high - low).toBeGreaterThan(0.3);
+    const solids = components(metal, size, 1),
+      bodies = components(
+        Uint8Array.from(heights, (h) => Number(h > low + (high - low) * 0.85)),
+        size,
+        1,
+      );
+    expect(solids.length).toBe(3 * count);
+    expect(bodies.length).toBe(count);
+    expect(components(metal, size, 0).length).toBe(1);
+    requireGeometry(solids.length === 3 * count && bodies.length === count);
+    const point = (i: number): P => ({
+      u: ((i % size) + 0.5) / size,
+      v: (Math.floor(i / size) + 0.5) / size,
+    });
+    const lines: Line[] = [],
+      parts: Part[] = [],
+      assigned = new Set<Region>();
+    for (const body of bodies) {
+      const candidates = solids.filter((r) =>
+        bodies.every((b) => distance(r, body) <= distance(r, b)),
+      );
+      expect(candidates.length).toBe(3);
+      requireGeometry(candidates.length === 3);
+      let pair: [Region, Region] = [candidates[0], candidates[1]];
+      for (const a of candidates)
+        for (const b of candidates)
+          if (distance(a, b) > distance(pair[0], pair[1])) pair = [a, b];
+      const span = distance(pair[0], pair[1]);
+      requireGeometry(span > 0);
+      let tx = (pair[1].u - pair[0].u) / span,
+        ty = (pair[1].v - pair[0].v) / span,
+        ax = -ty,
+        ay = tx;
+      const center = mix(pair[0], pair[1], 0.5);
+      if ((center.u - body.u) * ax + (center.v - body.v) * ay < 0) {
+        tx = -tx;
+        ty = -ty;
+        ax = -ax;
+        ay = -ay;
+      }
+      const world = (x: number, y: number): P => ({
+        u: body.u + tx * x + ax * y,
+        v: body.v + ty * x + ay * y,
+      });
+      const local = (p: P): P => ({
+        u: (p.u - body.u) * tx + (p.v - body.v) * ty,
+        v: (p.u - body.u) * ax + (p.v - body.v) * ay,
+      });
+      const reach = 0.46 / cells;
+      // Recover the continuous tail axis instead of using a raster centroid pose.
+      const stem = candidates[0],
+        coords = stem.pixels.map((i) => local(point(i))),
+        near = Math.min(...coords.map((p) => p.v)),
+        far = Math.max(...coords.map((p) => p.v)),
+        stemX = local(stem).u;
+      const centers = [0.65, 0.85].map((f) => {
+        const y = near + (far - near) * f,
+          p = world(stemX, y);
+        return mix(
+          crossing(p, world(stemX - span / 3, y), (q) => at(q).metallic, 0.5),
+          crossing(p, world(stemX + span / 3, y), (q) => at(q).metallic, 0.5),
+          0.5,
+        );
+      });
+      const axisSpan = distance(centers[0], centers[1]);
+      requireGeometry(axisSpan > 0);
+      ax = (centers[1].u - centers[0].u) / axisSpan;
+      ay = (centers[1].v - centers[0].v) / axisSpan;
+      tx = ay;
+      ty = -ax;
+      const lineAt = (p: P, width: number): void => {
+        for (const a of [0.17, 0.71, 1.23])
+          lines.push({
+            a: {
+              u: p.u - width * (tx * Math.cos(a) + ax * Math.sin(a)),
+              v: p.v - width * (ty * Math.cos(a) + ay * Math.sin(a)),
+            },
+            b: {
+              u: p.u + width * (tx * Math.cos(a) + ax * Math.sin(a)),
+              v: p.v + width * (ty * Math.cos(a) + ay * Math.sin(a)),
+            },
+          });
+      };
+      const bodySample = at(body),
+        bodyLevel = low + (high - low) * 0.85;
+      expect(bodySample.metallic).toBe(0);
+      expect(bodySample.color).toBeLessThan(0.3);
+      const left = local(
+          crossing(body, world(-reach, 0), (q) => at(q).height, bodyLevel),
+        ).u,
+        right = local(
+          crossing(body, world(reach, 0), (q) => at(q).height, bodyLevel),
+        ).u,
+        midX = (left + right) / 2,
+        halfWidth = (right - left) / 2;
+      const edge = (x: number, sign: number): P =>
+        crossing(
+          world(x, 0),
+          world(x, sign * reach),
+          (q) => at(q).height,
+          bodyLevel,
+        );
+      const top = local(edge(midX, -1)).v,
+        bottom = local(edge(midX, 1)).v;
+      expect(halfWidth).toBeGreaterThan(0);
+      expect(bottom - top).toBeGreaterThan(halfWidth);
+      // The upper contour must rise centrally; the lower edge stays flat across its width.
+      const roof: number[] = [];
+      for (const f of [-0.8, -0.55, -0.25, 0, 0.25, 0.55, 0.8]) {
+        const x = midX + f * halfWidth,
+          upper = edge(x, -1),
+          lower = edge(x, 1);
+        roof.push(local(upper).v);
+        expect(Math.abs(local(lower).v - bottom)).toBeLessThan(
+          halfWidth * 0.025,
+        );
+        expect(
+          Math.abs(local(upper).v - local(edge(midX - f * halfWidth, -1)).v),
+        ).toBeLessThan(halfWidth * 0.03);
+        lineAt(upper, halfWidth * 0.2);
+        lineAt(lower, halfWidth * 0.2);
+      }
+      expect(roof[0] - top).toBeGreaterThan((bottom - top) * 0.1);
+      expect(roof[1]).toBeGreaterThan(roof[2]);
+      expect(roof[2]).toBeGreaterThan(top);
+      // Straight lower sidewalls distinguish a D silhouette from a full oval.
+      for (const f of [0.1, 0.35, 0.65]) {
+        const y = bottom * f;
+        for (const sign of [-1, 1]) {
+          const p = crossing(
+            world(midX, y),
+            world(midX + sign * reach, y),
+            (q) => at(q).height,
+            bodyLevel,
+          );
+          expect(Math.abs(local(p).u - (sign < 0 ? left : right))).toBeLessThan(
+            halfWidth * 0.03,
+          );
+          lineAt(p, halfWidth * 0.25);
+        }
+      }
+      const leads = candidates
+        .map((region) => {
+          requireGeometry(!assigned.has(region));
+          assigned.add(region);
+          const coords = region.pixels.map((i) => local(point(i))),
+            near = Math.min(...coords.map((p) => p.v)),
+            far = Math.max(...coords.map((p) => p.v)),
+            approximateX = local(region).u,
+            tailY = near + (far - near) * 0.75;
+          const widthAt = (
+            x: number,
+            y: number,
+          ): { x: number; width: number } => {
+            const p = world(x, y),
+              l = crossing(
+                p,
+                world(x - span / 3, y),
+                (q) => at(q).metallic,
+                0.5,
+              ),
+              r = crossing(
+                p,
+                world(x + span / 3, y),
+                (q) => at(q).metallic,
+                0.5,
+              );
+            lineAt(l, span * 0.08);
+            lineAt(r, span * 0.08);
+            return {
+              x: (local(l).u + local(r).u) / 2,
+              width: distance(l, r) / 2,
+            };
+          };
+          const x = widthAt(approximateX, tailY).x;
+          const profiles = Array.from({ length: 65 }, (_, i) => {
+            const y = near + (far - near) * (0.08 + (i / 64) * 0.8),
+              p = widthAt(x, y),
+              s = at(world(x, y));
+            expect(s.metallic).toBe(1);
+            expect(s.height).toBeGreaterThan(low + (high - low) * 0.5);
+            expect(s.height).toBeLessThan(bodySample.height);
+            expect(Math.abs(p.x - x)).toBeLessThan(p.width * 0.03 + 1 / size);
+            return { y, width: p.width };
+          });
+          const broad = profiles.reduce((a, b) => (a.width > b.width ? a : b)),
+            tail = profiles[profiles.length - 1];
+          expect(broad.width).toBeGreaterThan(tail.width * 1.3);
+          expect(broad.y).toBeLessThan(tail.y);
+          for (const p of profiles.slice(-12))
+            expect(Math.abs(p.width - tail.width)).toBeLessThan(
+              tail.width * 0.04,
+            );
+          expect(near).toBeLessThan(bottom + 3 / size);
+          expect(far).toBeGreaterThan(bottom + halfWidth);
+          // The broad wing must be raised geometry, not merely a metallic/color stripe.
+          const wing = at(world(x + (broad.width + tail.width) * 0.5, broad.y));
+          expect(wing.metallic).toBeGreaterThan(0.5);
+          expect(wing.height).toBeGreaterThan(low + (high - low) * 0.3);
+          for (const sign of [-1, 1])
+            for (const f of [0.2, 0.5, 0.8, 1])
+              lines.push({
+                a: world(x + sign * broad.width * f, near - tail.width),
+                b: world(x + sign * tail.width * f, far + tail.width),
+              });
+          for (const y of [near, far, bottom])
+            lineAt(world(x, y), broad.width * 2);
+          return {
+            x,
+            near,
+            far,
+            shoulder: broad.width,
+            tail: tail.width,
+            shoulderY: broad.y,
+            tailY,
+          };
+        })
+        .sort((a, b) => a.x - b.x);
+      const pitch = leads[1].x - leads[0].x;
+      expect(pitch).toBeGreaterThan(
+        2 * Math.max(...leads.map((l) => l.shoulder)),
+      );
+      expect(Math.abs(leads[2].x - leads[1].x - pitch)).toBeLessThan(
+        pitch * 0.03,
+      );
+      expect(
+        Math.max(...leads.map((l) => l.far)) -
+          Math.min(...leads.map((l) => l.far)),
+      ).toBeLessThan(pitch * 0.04 + 2 / size);
+      const leadSample = at(world(leads[1].x, leads[1].tailY));
+      expect(leadSample.metallic).toBe(1);
+      expect(leadSample.color).toBeGreaterThan(bodySample.color);
+      expect(leadSample.roughness).toBeLessThan(bodySample.roughness);
+      for (let i = 0; i < 2; i++)
+        for (let j = 0; j <= 32; j++) {
+          const y = bottom + (leads[i].far - bottom) * (0.1 + (j / 32) * 0.85),
+            gap = at(world((leads[i].x + leads[i + 1].x) / 2, y));
+          expect(gap.metallic).toBe(0);
+          expect(gap.height).toBeLessThan(
+            leadSample.height - (high - low) * 0.3,
+          );
+        }
+      for (let i = 0; i < 32; i++) {
+        const t = (i + 0.37) / 32;
+        lines.push({
+          a: world(-reach, -reach + t * 2 * reach),
+          b: world(reach, -reach + t * 2 * reach + halfWidth * 0.13),
+        });
+        lines.push({
+          a: world(-reach + t * 2 * reach, -reach),
+          b: world(-reach + t * 2 * reach + halfWidth * 0.19, reach),
+        });
+      }
+      parts.push({
+        world,
+        local,
+        halfWidth,
+        top,
+        bottom,
+        leads,
+        bodySample,
+        leadSample,
+      });
+    }
+    expect(assigned.size).toBe(3 * count);
+    // Both raised body/lead silhouettes must exist in height, independent of M and color.
+    const raised = components(
+      Uint8Array.from(heights, (h) => Number(h > low + (high - low) * 0.3)),
+      size,
+      1,
+    );
+    expect(raised.length).toBe(count);
+    return { sample, at, size, low, high, parts, lines };
+  };
+  const cache = new Map<number, Observation>();
+  const native = (seed: number): Observation => {
+    let d = cache.get(seed);
+    if (!d) {
+      d = observe(seed);
+      cache.set(seed, d);
+    }
+    return d;
+  };
+  const refineCurvature = (d: Observation): number => {
+    const probes = [empty(), empty(), empty(), empty(), empty()];
+    const curvature = (a: S, b: S, c: S): number => {
+      let value = 0;
+      for (const k of keys)
+        value = Math.max(
+          value,
+          Math.abs(a[k] - 2 * b[k] + c[k]) /
+            (k === 'height' ? preset.relief : 1),
+        );
+      return value;
+    };
+    const lines = [...d.lines];
+    let worst = 0;
+    for (let axis = 0; axis < 2; axis++)
+      for (let j = 0; j < 32; j++) {
+        const t = (j + 0.37) / 32;
+        lines.push({
+          a: { u: axis ? t : -0.02, v: axis ? -0.02 : t },
+          b: { u: axis ? t : 1.02, v: axis ? 1.02 : t },
+        });
+      }
+    for (const line of lines) {
+      const length = distance(line.a, line.b),
+        n = 128,
+        values: S[] = [],
+        scores = new Float64Array(n + 1);
+      const read = (t: number, out: S): void => {
+        const p = mix(line.a, line.b, t);
+        d.sample(p.u, p.v, out);
+      };
+      for (let i = 0; i <= n; i++) {
+        const s = empty();
+        read(i / n, s);
+        values.push(s);
+      }
+      for (let i = 1; i < n; i++)
+        scores[i] = curvature(values[i - 1], values[i], values[i + 1]);
+      for (let i = 2; i < n - 1; i++) {
+        if (
+          scores[i] < 1e-6 ||
+          scores[i] < scores[i - 1] ||
+          scores[i] < scores[i + 1]
+        )
+          continue;
+        let lo = (i - 1) / n,
+          span = 2 / n,
+          t = 0,
+          h = 0;
+        for (let step = 0; step < 22; step++) {
+          const q = span / 4;
+          for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+          const s = [
+            curvature(probes[0], probes[1], probes[2]),
+            curvature(probes[1], probes[2], probes[3]),
+            curvature(probes[2], probes[3], probes[4]),
+          ];
+          let best = s[1] > s[0] ? 1 : 0;
+          if (s[2] > s[best]) best = 2;
+          t = lo + (best + 1) * q;
+          h = q;
+          lo += best * q;
+          span = 2 * q;
+        }
+        read(t - h, probes[0]);
+        read(t, probes[1]);
+        read(t + h, probes[2]);
+        worst = Math.max(
+          worst,
+          curvature(probes[0], probes[1], probes[2]) / (h * length),
+        );
+      }
+    }
+    return worst;
+  };
+  it.each(seeds)(
+    'recovers D-shaped bodies and exactly three equally pitched shouldered leads at seed %s',
+    (seed) => {
+      expect(native(seed).parts.length).toBe(preset.cells ** 2);
+    },
+  );
+  it.each(seeds)(
+    'converges dome, flat edge, roots, shoulders and tails in all six fields and repeats signed UV at seed %s',
+    (seed) => {
+      const d = native(seed),
+        a = empty(),
+        b = empty();
+      let error = 0;
+      for (let i = 0; i < 4096; i++) {
+        const u = (i * 0.7548776662466927) % 1,
+          v = (i * 0.5698402909980532) % 1;
+        d.sample(u, v, a);
+        d.sample(u - 2, v + 3, b);
+        for (const k of keys)
+          error = Math.max(
+            error,
+            Math.abs(a[k] - b[k]) / (k === 'height' ? preset.relief : 1),
+          );
+      }
+      for (const tiny of [-Number.MIN_VALUE, -Number.EPSILON / 4])
+        for (const axis of [0, 1])
+          for (const other of [0, 0.37, 0.5, 1]) {
+            d.sample(axis ? other : tiny, axis ? tiny : other, a);
+            d.sample(axis ? other : 0, axis ? 0 : other, b);
+            for (const k of keys) {
+              const value = a[k] / (k === 'height' ? preset.relief : 1);
+              expect(Number.isFinite(value) && value >= 0 && value <= 1).toBe(
+                true,
+              );
+              expect(a[k]).toBe(b[k]);
+            }
+          }
+      expect(error).toBeLessThan(1e-12);
+      expect(refineCurvature(d)).toBeLessThan(0.1);
+    },
+  );
+  it('changes independently observed geometry between seven and maximum seed', () => {
+    const a = native(7),
+      b = native(0xffffffff),
+      x = empty(),
+      y = empty();
+    let changed = 0;
+    for (let row = 0; row < a.size; row++)
+      for (let col = 0; col < a.size; col++) {
+        const u = (col + 0.5) / a.size,
+          v = (row + 0.5) / a.size;
+        a.sample(u, v, x);
+        b.sample(u, v, y);
+        changed += Number(x.metallic > 0.5 !== y.metallic > 0.5);
+      }
+    expect(changed / (a.size * a.size)).toBeGreaterThan(0.001);
+  });
+  it.each([32, 512])(
+    'packs actual opaque body, backing, shoulder and tail roles with unitish positive normals at size %s',
+    (size) => {
+      const d = native(7),
+        maps = generateProceduralMaps('to92packagefaces', size, 7, {
+          heightMap: true,
+        }),
+        values = new Float64Array(size * size),
+        hits = d.parts.map(() => ({
+          body: 0,
+          shoulders: [0, 0, 0],
+          tails: [0, 0, 0],
+        }));
+      expect(maps.height !== undefined).toBe(true);
+      let lo = Infinity,
+        hi = -Infinity,
+        alpha = 0,
+        badNormal = 0,
+        normalError = 0,
+        metals = 0,
+        backing = 0;
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          const j = y * size + x,
+            i = j * 4,
+            p = { u: (x + 0.5) / size, v: (y + 0.5) / size },
+            s = d.at(p);
+          values[j] = s.height;
+          lo = Math.min(lo, s.height);
+          hi = Math.max(hi, s.height);
+          for (const buffer of Object.values(maps))
+            alpha += Number(buffer[i + 3] !== 255);
+          const nx = maps.normal[i] / 127.5 - 1,
+            ny = maps.normal[i + 1] / 127.5 - 1,
+            nz = maps.normal[i + 2] / 127.5 - 1;
+          badNormal += Number(!Number.isFinite(nx + ny + nz) || nz <= 0);
+          normalError = Math.max(
+            normalError,
+            Math.abs(nx * nx + ny * ny + nz * nz - 1),
+          );
+          const m = maps.metallicRoughness[i + 2];
+          metals += Number(m > 250);
+          if (s.height === d.low) {
+            backing++;
+            expect(m).toBe(0);
+          }
+          expect(Math.abs(m - Math.round(s.metallic * 255))).toBeLessThan(2);
+          expect(
+            Math.abs(
+              maps.metallicRoughness[i + 1] - Math.round(s.roughness * 255),
+            ),
+          ).toBeLessThan(2);
+          expect(
+            Math.abs(maps.occlusion[i] - Math.round(s.occlusion * 255)),
+          ).toBeLessThan(2);
+          for (let f = 0; f < d.parts.length; f++) {
+            const part = d.parts[f],
+              q = part.local(p),
+              hit = hits[f];
+            if (
+              Math.abs(q.u) < part.halfWidth * 0.5 &&
+              q.v > part.top * 0.45 &&
+              q.v < part.bottom * 0.65
+            ) {
+              hit.body++;
+              expect(m).toBe(0);
+              expect(s.height).toBeGreaterThan(part.leadSample.height);
+              expect(s.color).toBeLessThan(part.leadSample.color);
+            }
+            for (let l = 0; l < 3; l++) {
+              const lead = part.leads[l];
+              if (
+                Math.abs(q.u - lead.x) < lead.tail * 0.65 &&
+                Math.abs(q.v - lead.tailY) < (lead.far - lead.near) * 0.09
+              ) {
+                hit.tails[l]++;
+                expect(m).toBe(255);
+                expect(s.height).toBeGreaterThan(
+                  d.low + (d.high - d.low) * 0.5,
+                );
+                expect(s.height).toBeLessThan(part.bodySample.height);
+              }
+              if (
+                Math.abs(q.u - lead.x) > lead.tail * 1.01 &&
+                Math.abs(q.u - lead.x) < lead.shoulder &&
+                Math.abs(q.v - lead.shoulderY) <
+                  (lead.far - lead.near) * 0.04 &&
+                s.metallic > 0.5
+              ) {
+                hit.shoulders[l]++;
+                expect(m).toBeGreaterThan(127);
+                expect(s.height).toBeGreaterThan(
+                  (d.low + part.leadSample.height) * 0.5 -
+                    (d.high - d.low) / 255,
+                );
+              }
+            }
+          }
+        }
+      expect(hi).toBeGreaterThan(lo);
+      expect(metals).toBeGreaterThan(0);
+      expect(backing).toBeGreaterThan(0);
+      if (maps.height)
+        for (let j = 0; j < values.length; j++)
+          expect(
+            Math.abs(
+              maps.height[j * 4] -
+                Math.round((255 * (values[j] - lo)) / (hi - lo)),
+            ),
+          ).toBeLessThan(2);
+      expect(alpha).toBe(0);
+      expect(badNormal).toBe(0);
+      expect(normalError).toBeLessThan(0.02);
+      for (const hit of hits) {
+        expect(hit.body).toBeGreaterThan(0);
+        if (size === 512)
+          for (const n of [...hit.shoulders, ...hit.tails])
+            expect(n).toBeGreaterThan(0);
       }
     },
   );

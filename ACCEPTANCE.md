@@ -11413,3 +11413,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 工作階段中斷後無法取回先前完整suite輸出，未記為成功。本次凍結source／tests／dist後重跑完整suite：2026-11-01 21:33:39開始，179檔／9,427項全部通過（819.39s，wall820.40s，Node v26.7.0）；不以先前無法取回的結果充當本次證據。
 
 - 收尾實查15個列名owned暫存檔與唯一profile均已不存在，port19754無listener；不冒稱由本次手動刪除，也未停止或重啟shared服務。九文件387個relative links仍missing0，新增驗收文件格式通過。提交只選本feature EOF驗收與28個source／test／doc／dist檔，保留使用者原先獨立的ACCEPTANCE hunk未提交；沒有混入其他功能或改寫歷史。
+
+## 2026-11-01 程序材質：TO-92霧黑D形塑封本體與三支直腳（to92packagefaces）
+
+- 目錄885→886，含plain的gallery為887項。外觀參考onsemi P2N2222A/D（2013年1月 Rev.7）第6頁TO-92封裝圖，已正常下載並實看；僅作形狀與尺寸參考，不宣稱精確CAD、材料化學或電氣行為。2×2四個正面各有霧黑D形塑封本體與三支等距平行中性金屬直腳；腳M1，本體／背底M0，邊界C1混合。預設tile0.08m、0.0042 UV-relative relief、metallic factor1。
+- 實測：目標測試11pass；built ESM 512 seed7 packing M0／M255／transition為255,280／5,210／1,654；format:check、API（737 exports／2810 contracts）、distribution、lint、strict typecheck皆過；完整suite 179檔／9,438項全過（1072.69s，Node v26.7.0）。
+- 本次未重做瀏覽器gallery／shipped-root／matrix缺陷對照，不宣稱已驗證；僅由built Node smoke與完整suite支持。沒有force push，保留使用者原有ACCEPTANCE hunk未提交。

@@ -16402,6 +16402,122 @@ export function createSurfaceSampler(
           roughness += p.grainRoughness * grain;
         };
       }
+      case 'to92packagefaces': {
+        const p = proceduralMaterialPresets.to92packagefaces,
+          poses = new Float64Array(p.cells * p.cells * 4),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x23101),
+          lastLead = p.leadCount - 1,
+          firstLeadX = -lastLead * p.leadPitch * 0.5,
+          leadBoundX =
+            -firstLeadX + Math.max(p.leadRootHalfWidth, p.leadHalfWidth),
+          bodyBoundY = Math.abs(p.bodyCenterY) + p.bodyHalfHeight,
+          leadBoundY = Math.abs(p.leadCenterY) + p.leadHalfHeight,
+          // Default rotated support radius < .402; adding .012 jitter stays below .5.
+          ownerBound =
+            p.maxScale *
+            Math.sqrt(
+              Math.max(
+                p.bodyHalfWidth * p.bodyHalfWidth + bodyBoundY * bodyBoundY,
+                leadBoundX * leadBoundX + leadBoundY * leadBoundY,
+              ),
+            ),
+          inverseBodyX2 = 1 / (p.bodyHalfWidth * p.bodyHalfWidth),
+          inverseBodyY = 1 / p.bodyHalfHeight,
+          inverseBodyRound = 1 / p.bodyRoundBevel,
+          inverseBody = 1 / p.bodyBevel,
+          inversePitch = 1 / p.leadPitch,
+          inverseShoulder = 1 / p.leadShoulderBlend,
+          inverseLeadX = 1 / p.leadBevelX,
+          inverseLeadY = 1 / p.leadBevelY,
+          leadWidthDelta = p.leadHalfWidth - p.leadRootHalfWidth,
+          leadTone = p.leadTone - p.backingTone,
+          leadHeight = p.leadHeight - p.backingHeight,
+          leadRoughness = p.leadRoughness - p.backingRoughness,
+          leadAO = p.leadAO - p.backingAO,
+          bodyTone = p.bodyTone - p.backingTone,
+          bodyHeight = p.bodyHeight - p.backingHeight,
+          bodyRoughness = p.roughness - p.backingRoughness,
+          bodyAO = p.bodyAO - p.backingAO;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4,
+              scale =
+                p.minScale +
+                (p.maxScale - p.minScale) * hash(col, row, seed ^ 0x23103),
+              angle =
+                TAU *
+                p.rotationTurns *
+                (2 * hash(col, row, seed ^ 0x23105) - 1);
+            poses[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x23107) - 1);
+            poses[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x23109) - 1);
+            poses[i + 2] = Math.cos(angle) / scale;
+            poses[i + 3] = Math.sin(angle) / scale;
+          }
+        return () => {
+          color = p.backingTone;
+          height = p.backingHeight;
+          roughness = p.backingRoughness;
+          occlusion = p.backingAO;
+          metallic = 0;
+          // Shared wrapping can round tiny negative UVs to one; wrap again before ownership.
+          const uc = fract(u) * p.cells,
+            vc = fract(v) * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 4,
+            dx = uc - col - poses[i],
+            dy = vc - row - poses[i + 1];
+          if (Math.abs(dx) >= ownerBound || Math.abs(dy) >= ownerBound) return;
+          const x = dx * poses[i + 2] + dy * poses[i + 3],
+            y = dy * poses[i + 2] - dx * poses[i + 3],
+            // Squaring the clamped upper ordinate makes the dome/straight-side join C1.
+            domeY = Math.max(0, p.bodyCenterY - y) * inverseBodyY,
+            body =
+              smooth(
+                clamp(
+                  (1 - x * x * inverseBodyX2 - domeY * domeY) *
+                    inverseBodyRound,
+                ),
+              ) *
+              smooth(
+                clamp((p.bodyCenterY + p.bodyHalfHeight - y) * inverseBody),
+              ),
+            leadIndex = Math.max(
+              0,
+              Math.min(
+                lastLead,
+                Math.floor((x - firstLeadX) * inversePitch + 0.5),
+              ),
+            ),
+            leadX = x - (firstLeadX + leadIndex * p.leadPitch),
+            shoulder = smooth(
+              clamp((y - p.leadShoulderEndY) * inverseShoulder),
+            ),
+            leadWidth = p.leadRootHalfWidth + leadWidthDelta * shoulder,
+            lead =
+              smooth(clamp((leadWidth - Math.abs(leadX)) * inverseLeadX)) *
+              smooth(
+                clamp(
+                  (p.leadHalfHeight - Math.abs(y - p.leadCenterY)) *
+                    inverseLeadY,
+                ),
+              ),
+            exposed = 1 - body;
+          // Body replaces the covered lead roots; all role weights are convex.
+          color += lead * leadTone * exposed + body * bodyTone;
+          height += lead * leadHeight * exposed + body * bodyHeight;
+          roughness += lead * leadRoughness * exposed + body * bodyRoughness;
+          occlusion += lead * leadAO * exposed + body * bodyAO;
+          metallic = lead * exposed;
+          if (metallic === 0) return;
+          const grain = grainField(u, v) * metallic;
+          color += p.grainTone * grain;
+          height += p.grainHeight * grain;
+          roughness += p.grainRoughness * grain;
+        };
+      }
       case 'to220packagefaces': {
         const p = proceduralMaterialPresets.to220packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -43813,6 +43929,7 @@ export function createSurfaceSampler(
     kind === 'minidin4femalefaces' ||
     kind === 'dcbarreljackfaces' ||
     kind === 'stfiberadapterfaces' ||
+    kind === 'to92packagefaces' ||
     kind === 'to220packagefaces' ||
     kind === 'ftypefemalefaces' ||
     kind === 'usbcfemalefaces' ||
