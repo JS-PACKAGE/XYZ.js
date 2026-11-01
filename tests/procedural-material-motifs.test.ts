@@ -577,3 +577,171 @@ describe('patchworkquilt: sewn patches with puffed padding and running stitches'
     expect(different).toBeGreaterThan(100);
   });
 });
+
+describe('amberresin: polished resin with flow bands, bubbles and spangle cracks', () => {
+  const p = proceduralMaterialPresets.amberresin;
+  const size = 768;
+  const sweep = (
+    seed: number,
+  ): {
+    sample: ReturnType<typeof createSurfaceSampler>;
+    maps: SurfaceSample[];
+  } => {
+    const sample = createSurfaceSampler('amberresin', seed),
+      maps: SurfaceSample[] = [];
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        const out = empty();
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        maps.push(out);
+      }
+    return { sample, maps };
+  };
+
+  it.each(seeds)(
+    'keeps opaque non-metal channels in range for seed %i',
+    (seed) => {
+      for (const out of sweep(seed).maps) {
+        expect(out.mortar).toBe(0);
+        expect(out.metallic).toBe(0);
+        for (const value of [
+          out.color,
+          out.height / p.relief,
+          out.roughness,
+          out.occlusion,
+        ])
+          if (!(value >= 0 && value <= 1))
+            throw new Error(`amberresin channel ${value} out of range`);
+      }
+    },
+  );
+
+  it.each(seeds)(
+    'places at most one ring-shaped bubble inside each grid cell, within the authored radii (seed %i)',
+    (seed) => {
+      const { maps } = sweep(seed),
+        rim = maps.map((m) => m.occlusion < 0.95),
+        seen = new Uint8Array(rim.length),
+        cell = size / p.cells,
+        perCell = new Map<string, number>();
+      let rings = 0;
+      for (let first = 0; first < rim.length; first++) {
+        if (!rim[first] || seen[first]) continue;
+        const queue = [first];
+        seen[first] = 1;
+        let minX = size,
+          maxX = -1,
+          minY = size,
+          maxY = -1,
+          area = 0;
+        for (let read = 0; read < queue.length; read++) {
+          const i = queue[read],
+            x = i % size,
+            y = Math.floor(i / size);
+          area++;
+          minX = Math.min(minX, x);
+          maxX = Math.max(maxX, x);
+          minY = Math.min(minY, y);
+          maxY = Math.max(maxY, y);
+          for (const [dx, dy] of [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ]) {
+            const j =
+              ((y + dy + size) % size) * size + ((x + dx + size) % size);
+            if (rim[j] && !seen[j]) {
+              seen[j] = 1;
+              queue.push(j);
+            }
+          }
+        }
+        if (area <= 20) continue;
+        rings++;
+        const width = (maxX - minX + 1) / size,
+          height = (maxY - minY + 1) / size;
+        // A circular rim has equal extents and a diameter between the authored limits.
+        expect(Math.abs(width - height)).toBeLessThan(0.01);
+        expect(width).toBeGreaterThan(2 * p.bubbleMin - 0.005);
+        expect(width).toBeLessThan(2 * (p.bubbleMax + p.rimWidth) + 0.01);
+        // The whole ring sits inside one grid cell.
+        const cellX = Math.floor(minX / cell),
+          cellY = Math.floor(minY / cell);
+        expect(Math.floor(maxX / cell)).toBe(cellX);
+        expect(Math.floor(maxY / cell)).toBe(cellY);
+        perCell.set(
+          `${cellX},${cellY}`,
+          (perCell.get(`${cellX},${cellY}`) ?? 0) + 1,
+        );
+        // The enclosed gas is lighter than its own rim.
+        const centre =
+            maps[
+              Math.floor((minY + maxY) / 2) * size +
+                Math.floor((minX + maxX) / 2)
+            ],
+          ring = maps[queue[0]];
+        expect(centre.occlusion).toBe(1);
+        expect(centre.color).toBeGreaterThan(ring.color + 0.1);
+      }
+      expect(rings).toBeGreaterThanOrEqual(8);
+      expect(rings).toBeLessThanOrEqual(p.cells * p.cells);
+      expect(Math.max(...perCell.values())).toBe(1);
+    },
+  );
+
+  it.each(seeds)(
+    'bands the flow along v more finely than along u and cuts spangle cracks (seed %i)',
+    (seed) => {
+      const { sample, maps } = sweep(seed),
+        a = empty(),
+        b = empty(),
+        lag = 1 / 56;
+      let acrossU = 0,
+        acrossV = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          const u = (x + 0.5) / 256,
+            v = (y + 0.5) / 256;
+          sample(u, v, a);
+          const base = a.color,
+            baseAO = a.occlusion;
+          sample(u + lag, v, b);
+          if (baseAO === 1 && b.occlusion === 1)
+            acrossU += Math.abs(base - b.color);
+          sample(u, v + lag, b);
+          if (baseAO === 1 && b.occlusion === 1)
+            acrossV += Math.abs(base - b.color);
+        }
+      // The flow field has 28 rows but only 4 columns per tile.
+      expect(acrossV / acrossU).toBeGreaterThan(1.8);
+      const cracked =
+        maps.filter((m) => m.height / p.relief < 0.3).length / maps.length;
+      expect(cracked).toBeGreaterThan(0.005);
+      expect(cracked).toBeLessThan(0.06);
+    },
+  );
+
+  it('wraps seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('amberresin', 0),
+      b = createSurfaceSampler('amberresin', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        expect(two.height).toBeCloseTo(one.height, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(100);
+  });
+});

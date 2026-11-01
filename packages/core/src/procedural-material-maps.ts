@@ -16732,6 +16732,92 @@ export function createSurfaceSampler(
           );
         };
       }
+      case 'amberresin': {
+        const p = proceduralMaterialPresets.amberresin,
+          flowField = cachedNoise(p.flowCells, p.flowRows, seed ^ 0x24501),
+          warpField = cachedNoise(p.warpCells, p.warpCells, seed ^ 0x24503),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x24505),
+          inverseBubbleSoft = 1 / p.bubbleSoft,
+          inverseRim = 1 / p.rimWidth,
+          inverseSpangleSoft = 1 / p.spangleSoft;
+        // Features are keyed by grid cell, with centers kept far enough from the cell edge that
+        // their full radius stays inside the owning cell.
+        return () => {
+          const flow = flowField(u, v + p.warp * (warpField(u, v) - 0.5)),
+            grain = grainField(u, v),
+            bx = Math.floor(u * p.cells),
+            by = Math.floor(v * p.cells);
+          const tone =
+            p.baseTone +
+            p.flowTone * (flow - 0.5) +
+            p.grainTone * (grain - 0.5);
+          let lift = 0,
+            crack = 0,
+            bubble = 0,
+            rim = 0;
+          if (hash(bx, by, seed ^ 0x24507) < p.bubbleChance) {
+            const radius =
+                p.bubbleMin +
+                (p.bubbleMax - p.bubbleMin) * hash(bx, by, seed ^ 0x24509),
+              dx =
+                (fract(u * p.cells) -
+                  (0.35 + 0.3 * hash(bx, by, seed ^ 0x2450b))) /
+                p.cells,
+              dy =
+                (fract(v * p.cells) -
+                  (0.35 + 0.3 * hash(bx, by, seed ^ 0x2450d))) /
+                p.cells,
+              d = Math.sqrt(dx * dx + dy * dy);
+            bubble = smooth(clamp((radius - d) * inverseBubbleSoft + 0.5));
+            rim = smooth(clamp(1 - Math.abs(d - radius) * inverseRim));
+          }
+          const sx = Math.floor(u * p.spangleCells),
+            sy = Math.floor(v * p.spangleCells);
+          if (hash(sx, sy, seed ^ 0x2450f) < p.spangleChance) {
+            const radius =
+                p.spangleMin +
+                (p.spangleMax - p.spangleMin) * hash(sx, sy, seed ^ 0x24511),
+              dx =
+                (fract(u * p.spangleCells) -
+                  (0.4 + 0.2 * hash(sx, sy, seed ^ 0x24513))) /
+                p.spangleCells,
+              dy =
+                (fract(v * p.spangleCells) -
+                  (0.4 + 0.2 * hash(sx, sy, seed ^ 0x24515))) /
+                p.spangleCells,
+              d = Math.sqrt(dx * dx + dy * dy),
+              disc = smooth(clamp((radius - d) * inverseSpangleSoft + 0.5));
+            if (disc > 0) {
+              // Radial stress cracks fade in from the nucleus and die at the disc edge.
+              const spoke =
+                Math.abs(
+                  Math.cos(Math.atan2(dy, dx) * p.spangleSpokes * 0.5),
+                ) ** 12;
+              crack = disc * spoke * smooth(clamp(d / (radius * 0.5)));
+              lift = disc;
+            }
+          }
+          color = clamp(
+            tone +
+              p.spangleLift * lift -
+              p.crackDrop * crack +
+              p.bubbleLift * bubble * (1 - rim) -
+              p.rimDrop * rim,
+          );
+          height = clamp(
+            p.baseHeight +
+              p.flowHeight * (flow - 0.5) +
+              p.grainHeight * (grain - 0.5) -
+              p.crackDepth * crack,
+          );
+          roughness =
+            p.roughness +
+            p.flowRoughness * (flow - 0.5) +
+            p.bubbleRoughness * bubble +
+            p.crackRoughness * crack;
+          occlusion = clamp(1 - p.bubbleAO * rim);
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -44261,6 +44347,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'amberresin' ||
     kind === 'patchworkquilt' ||
     kind === 'bayerdither' ||
     kind === 'turingpattern' ||

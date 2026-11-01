@@ -711,6 +711,7 @@ try {
     'dcbarreljackfaces',
     'stfiberadapterfaces',
     'to92packagefaces',
+    'amberresin',
     'patchworkquilt',
     'bayerdither',
     'turingpattern',

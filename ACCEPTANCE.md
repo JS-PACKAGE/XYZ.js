@@ -11445,3 +11445,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 原型量測與修正：同心方環的內縫距離第一版以ring+進位計算，使最內方塊中心多出一個假拼縫（圖中央有小點），改為「最近的ring縫、且至少為第1條」。縫線測試先量原型再定門檻：以高度二階差（兩側平均−縫線處）檢測縫線，上邊0.1–0.9的虛線佔空比0.56–0.60、段數6–7（含織紋造成的邊界碎段），所以測試門檻為（duty−0.12, duty+0.08）與5–7段，不是用精確等號。縫線最低點因dome斜率略向邊界偏移（實測約0.062對inset0.07），測試容許0.012。
 - 實測：`tests/procedural-material-motifs.test.ts`三十四項（本材質十三項：三seed範圍、三seed拼縫凹縫與隆起、三seed虛線縫線位置／佔空比、三seed布片色調分散、wrap／seed差異）全過。`tests/procedural-material.test.ts`以`-t "patchworkquilt|every preset"`定向跑3項通過，沒有重跑該檔其餘5510項。strict typecheck、eslint（變更source／test）、build（tsc／minify／vendor／cjs）、API structural compatibility與distribution已實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`patchworkquilt`：option 891個、status為890 presets＋plain，25球渲染且`tab.errors()`空（第一次讀取時頁面仍在載入，因為驗證指令同時在跑；等載入完成後重測才取得上述status）；實看512 seed7 2×2拼貼無接縫、四種設計可辨。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：拋光琥珀樹脂（amberresin）
+
+- 目錄890→891，含plain的gallery為892項。沿v拉長（28列／4欄）的蜂蜜金流動色帶，6×6格內約55%機率的圓形氣泡（內亮、暗色細環只降AO）、4×4格內約40%機率的太陽斑圓盤（9組放射裂紋使高度下凹且較粗糙）；roughness約0.14。Metallic／mortar為0，預設tile0.2 m、0.0006 UV-relative relief、metallic factor 0。不透明貼圖近似，不模擬半透明、折射或內含物，不依據特定產地或標本。仍在獨立worktree分支`materials/more-textures`作業。
+- 設計取捨與修正：氣泡環最初同時有AO與裂紋AO，導致以AO偵測的環與放射裂紋互相連通、無法獨立量測；移除裂紋的AO，使occlusion<0.95只剩氣泡環，測試才能以八連通區（含wrap）計環。第一次`eslint`抓到`tone`應為const（prefer-const），已改後重跑typecheck、eslint與44項。
+- 實測：`tests/procedural-material-motifs.test.ts`四十四項（本材質十項：三seed範圍、三seed氣泡環、三seed流動各向異性與裂紋、wrap／seed差異）全過。氣泡環檢查以768²取樣：三seed皆為18–21個環（上限36格），每個外接框近似正方形、直徑落在[2×bubbleMin−0.005, 2×(bubbleMax+rim)+0.01]、完整落在單一格內且每格至多一個，環內中心較環更亮；沿v／沿u（lag 1/56）色差比實測2.4–2.7（門檻1.8）、裂紋像素佔0.018–0.0285（門檻0.005–0.06）。`tests/procedural-material.test.ts`以`-t "amberresin|every preset"`定向跑3項通過，沒有重跑該檔其餘5511項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過（lint修正後重新build並重跑API與distribution）。
+- 真實dev server的pbr3d頁（WebGPU）選取`amberresin`：option 892個、status為891 presets＋plain，25球渲染、金色帶與反光可見且`tab.errors()`空；實看512 seed7 2×2拼貼無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
