@@ -13485,6 +13485,55 @@ var proceduralMaterialPresets = Object.freeze({
 		inkRoughness: .44,
 		paperRoughness: .74
 	}),
+	fretboard: Object.freeze({
+		dark: [
+			34,
+			18,
+			12
+		],
+		light: [
+			214,
+			204,
+			186
+		],
+		roughness: .46,
+		relief: .004,
+		frets: 12,
+		strings: 6,
+		fretHalf: .0035,
+		stringHalfMin: .0022,
+		stringHalfMax: .0075,
+		stringReach: .04,
+		inlayFrets: [
+			3,
+			5,
+			7,
+			9
+		],
+		inlayRadius: .024,
+		doubleInlayFret: 12,
+		doubleInlayOffset: .17,
+		edgeSoft: .002,
+		grainCellsU: 24,
+		grainCellsV: 192,
+		fineGrainCellsU: 64,
+		fineGrainCellsV: 512,
+		woodTone: .18,
+		woodVariation: .06,
+		fineGrainTone: .03,
+		fretTone: .82,
+		stringTone: .7,
+		inlayTone: .95,
+		woodHeight: .4,
+		fretHeight: .8,
+		stringHeight: .62,
+		inlayHeight: .46,
+		grainHeight: .04,
+		woodRoughness: .55,
+		fretRoughness: .28,
+		inlayRoughness: .3,
+		stringShadow: .5
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -22166,6 +22215,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	fretboard: .32,
 	calendarpage: .3,
 	measuringtape: .16,
 	sudokugrid: .25,

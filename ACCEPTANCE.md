@@ -11668,3 +11668,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`二百二十項（本材質十二項）全過。十一個seed（0–9與4294967295）：以3×5像素中心解碼每格的0–2位數字（字型由測試端獨立寫出）；第一個有標籤的格子在第一列（起始欄0–6）、天數28–31、標籤依閱讀順序恰為1、2、…、天數，之後全為空白；第一與最後一欄的空白紙面比第四欄暗0.05以上、第三欄與第四欄相差＜0.05；24個seed中至少出現4種不同起始欄、3種不同天數；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "calendarpage|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 另外，在上一輪（ean13barcodes提交時的整體狀態，共31種新材質）以`vitest run tests/procedural-material.test.ts tests/procedural-material-motifs.test.ts`完整跑過：兩檔共5727項全過（約1395 s）；之後新增的ecgpaper、sheetmusic、sudokugrid、measuringtape、本材質只做了定向測試。
 - 真實dev server的pbr3d頁（WebGPU）選取`calendarpage`：option 923個、status為922 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的格線、日期與週末欄連續無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：吉他指板（fretboard）
+
+- 目錄922→923，含plain的gallery為924項。每tile涵蓋一個八度（琴枕到第12品）的深色玫瑰木指板：品絲依十二平均律（第n品在1−2^(−n/12)處，以第12品正規化到u=1，與下一tile的琴枕銜接）、6條由高音到低音漸粗的琴弦、第3／5／7／9品珍珠圓點與第12品雙點。Metallic為0（品絲與琴弦只用亮度與粗糙度，非金屬遮罩）。預設tile0.32 m、0.004 UV-relative relief、metallic factor 0。尺度已正規化，無指板弧度與金屬反射；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 測試調整：品絲間距比原先用`toBeCloseTo(…, 1)`（容差約0.05），量測解析度（20000點）其實足以支持更嚴的檢查，改為與2^(−1/12)相差＜0.01。
+- 實測：`tests/procedural-material-motifs.test.ts`二百二十四項（本材質四項）全過。三seed：在兩弦之間沿u掃描，細亮線（寬＜0.012）恰12條（品0–11；第12品與下個琴枕重合），各品位置與公式相差＜0.003（含跨tile接縫的環狀距離），連續品距比與2^(−1/12)≈0.944相差＜0.01；沿v在第0到第1品之間掃描恰6條亮線，中心在(i+0.5)/6±0.003、寬度與設定的2×半寬相差＜0.002、且由高音到低音嚴格遞增；中線上的寬亮段（＞0.02）恰4個，分別位於第3／5／7／9品的品間中點（±0.003）、直徑與2×半徑相差＜0.004；第12品中點上下各一個亮點、中線上無點；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "fretboard|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`fretboard`：option 924個、status為923 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的品絲、琴弦與圓點連續無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

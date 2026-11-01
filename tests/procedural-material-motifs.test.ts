@@ -4855,3 +4855,144 @@ describe('calendarpage: a month laid out on a weekday grid', () => {
     expect(different).toBeGreaterThan(30);
   });
 });
+
+describe('fretboard: equal-tempered frets, graded strings and inlay dots', () => {
+  const p = proceduralMaterialPresets.fretboard;
+  // Equal temperament: fret n sits at 1 - 2^(-n/12) of the scale; the octave (fret 12) is half the
+  // scale, so normalizing by it puts fret 12 at u = 1.
+  const fretAt = (n: number): number => (1 - Math.pow(2, -n / 12)) * 2;
+
+  /** Bright runs (color above a threshold) along u or v at a fixed cross position, as [center, width]. */
+  const bright = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    cross: number,
+    alongU: boolean,
+    threshold = 0.5,
+  ): [number, number][] => {
+    const out = empty(),
+      n = 20000,
+      on: boolean[] = [];
+    for (let i = 0; i < n; i++) {
+      if (alongU) sample((i + 0.5) / n, cross, out);
+      else sample(cross, (i + 0.5) / n, out);
+      on.push(out.color > threshold);
+    }
+    const start = on.findIndex((value, i) => !value && on[(i + 1) % n]),
+      runs: [number, number][] = [];
+    let length = 0;
+    for (let k = 1; k <= n; k++) {
+      const i = (start + k) % n;
+      if (on[i]) length++;
+      else if (length > 0) {
+        runs.push([((((start + k - length / 2) % n) + n) % n) / n, length / n]);
+        length = 0;
+      }
+    }
+    return runs.sort((a, b) => a[0] - b[0]);
+  };
+
+  it.each(seeds)(
+    'places frets at the 12-TET positions, six graded strings and inlays at fret midpoints (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('fretboard', seed),
+        out = empty();
+      // Frets: a scan between strings crosses one thin bright line per fret 0-11.
+      const frets = bright(sample, 1 / p.strings, true).filter(
+        ([, width]) => width < 0.012,
+      );
+      expect(frets.length).toBe(p.frets);
+      for (let n = 0; n < p.frets; n++) {
+        const expected = fretAt(n),
+          actual = frets
+            .map(([center]) => center)
+            .reduce((best, center) => {
+              const d = (a: number) =>
+                Math.min(Math.abs(a - expected), 1 - Math.abs(a - expected));
+              return d(center) < d(best) ? center : best;
+            });
+        expect(
+          Math.min(
+            Math.abs(actual - expected),
+            1 - Math.abs(actual - expected),
+          ),
+        ).toBeLessThan(0.003);
+      }
+      // Frets narrow toward the bridge: successive gaps shrink by the factor 2^(-1/12).
+      const centers = frets.map(([center]) => center);
+      for (let n = 2; n < p.frets; n++) {
+        const gap = centers[n] - centers[n - 1],
+          previous = centers[n - 1] - centers[n - 2];
+        expect(Math.abs(gap / previous - Math.pow(2, -1 / 12))).toBeLessThan(
+          0.01,
+        );
+      }
+      // Strings: a scan along v in the first fret gap meets six bright lines, thicker toward the bass.
+      const strings = bright(sample, (fretAt(0) + fretAt(1)) / 2, false, 0.4);
+      expect(strings.length).toBe(p.strings);
+      strings.forEach(([center, width], i) => {
+        expect(Math.abs(center - (i + 0.5) / p.strings)).toBeLessThan(0.003);
+        const half =
+          p.stringHalfMin +
+          ((p.stringHalfMax - p.stringHalfMin) * i) / (p.strings - 1);
+        expect(Math.abs(width - 2 * half)).toBeLessThan(0.002);
+        if (i > 0) expect(width).toBeGreaterThan(strings[i - 1][1]);
+      });
+      // Single inlay dots at frets 3, 5, 7 and 9: wide bright runs on the center line.
+      const dots = bright(sample, 0.5, true).filter(
+        ([, width]) => width > 0.02,
+      );
+      expect(dots.length).toBe(p.inlayFrets.length);
+      p.inlayFrets.forEach((n, i) => {
+        expect(
+          Math.abs(dots[i][0] - (fretAt(n - 1) + fretAt(n)) / 2),
+        ).toBeLessThan(0.003);
+        expect(Math.abs(dots[i][1] - 2 * p.inlayRadius)).toBeLessThan(0.004);
+      });
+      // The double marker at fret 12: one dot above and one below the center line, none on it.
+      const doubleU =
+        (fretAt(p.doubleInlayFret - 1) + fretAt(p.doubleInlayFret)) / 2;
+      for (const offset of [-p.doubleInlayOffset, p.doubleInlayOffset]) {
+        sample(doubleU, 0.5 + offset, out);
+        expect(out.color).toBeGreaterThan(0.5);
+      }
+      sample(doubleU, 0.5, out);
+      expect(out.color).toBeLessThan(0.4);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('fretboard', 0),
+      b = createSurfaceSampler('fretboard', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

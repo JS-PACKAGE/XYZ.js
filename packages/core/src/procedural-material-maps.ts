@@ -19198,6 +19198,91 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'fretboard': {
+        const p = proceduralMaterialPresets.fretboard,
+          grainField = cachedNoise(
+            p.grainCellsU,
+            p.grainCellsV,
+            seed ^ 0x26501,
+          ),
+          fineField = cachedNoise(
+            p.fineGrainCellsU,
+            p.fineGrainCellsV,
+            seed ^ 0x26503,
+          ),
+          inverseSoft = 1 / p.edgeSoft,
+          // Equal-tempered fret positions, normalized so the 12th fret (half the scale) lands on
+          // u = 1 and therefore meets the nut at u = 0 when the tile repeats.
+          position = (n: number): number => (1 - Math.pow(2, -n / 12)) * 2,
+          fretPositions = Array.from({ length: p.frets }, (_, n) =>
+            position(n),
+          ),
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5));
+        return () => {
+          let fret = 0;
+          for (const at of fretPositions) {
+            const d = Math.abs(u - at);
+            fret = Math.max(fret, cover(p.fretHalf - Math.min(d, 1 - d)));
+          }
+          // Strings: evenly spaced across the board, thicker toward the bass side.
+          const stringIndex = Math.min(
+              p.strings - 1,
+              Math.floor(v * p.strings),
+            ),
+            stringV = (stringIndex + 0.5) / p.strings,
+            half =
+              p.stringHalfMin +
+              ((p.stringHalfMax - p.stringHalfMin) * stringIndex) /
+                (p.strings - 1),
+            string = cover(half - Math.abs(v - stringV)),
+            // Inlay dots sit midway between two frets, on the board's center line (or in pairs at the double marker).
+            before = (n: number): number => (position(n - 1) + position(n)) / 2;
+          let inlay = 0;
+          for (const n of p.inlayFrets)
+            inlay = Math.max(
+              inlay,
+              cover(p.inlayRadius - Math.hypot(u - before(n), v - 0.5)),
+            );
+          const doubleU = before(p.doubleInlayFret);
+          for (const offset of [-p.doubleInlayOffset, p.doubleInlayOffset])
+            inlay = Math.max(
+              inlay,
+              cover(p.inlayRadius - Math.hypot(u - doubleU, v - 0.5 - offset)),
+            );
+          const grain = grainField(u, v) - 0.5,
+            fine = fineField(u, v) - 0.5,
+            wood =
+              p.woodTone + p.woodVariation * grain + p.fineGrainTone * fine,
+            metal = Math.max(fret, string);
+          color = clamp(
+            wood +
+              (p.inlayTone - wood) * inlay * (1 - fret) +
+              (p.stringTone - wood) * string * (1 - fret) +
+              (p.fretTone - wood) * fret,
+          );
+          height = clamp(
+            p.woodHeight +
+              p.grainHeight * grain +
+              (p.inlayHeight - p.woodHeight) * inlay +
+              (p.stringHeight - p.woodHeight) * string * (1 - fret) +
+              (p.fretHeight - p.woodHeight) * fret,
+          );
+          roughness =
+            p.woodRoughness +
+            (p.inlayRoughness - p.woodRoughness) * inlay +
+            (p.fretRoughness - p.woodRoughness) * metal;
+          occlusion = clamp(
+            1 -
+              (1 - p.stringShadow) *
+                Math.max(
+                  0,
+                  cover(half * 2.4 - Math.abs(v - stringV)) - string,
+                ) *
+                (1 - fret),
+          );
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -46727,6 +46812,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'fretboard' ||
     kind === 'calendarpage' ||
     kind === 'measuringtape' ||
     kind === 'sudokugrid' ||
