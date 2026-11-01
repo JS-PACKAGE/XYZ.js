@@ -16567,6 +16567,63 @@ export function createSurfaceSampler(
           occlusion = 1 + patternAO * pattern;
         };
       }
+      case 'bayerdither': {
+        const p = proceduralMaterialPresets.bayerdither,
+          // Recursive Bayer construction: B(2n) = [[4B, 4B+2], [4B+3, 4B+1]].
+          matrix = new Uint8Array(64),
+          jitter = new Float64Array(p.blocks * p.blocks),
+          levelField = cachedNoise(p.levelCells, p.levelCells, seed ^ 0x24301),
+          inverseBevel = 1 / p.bevel,
+          onTone = p.onTone - p.gapTone,
+          offTone = p.offTone - p.gapTone;
+        for (let size = 1; size < 8; size *= 2)
+          for (let y = size - 1; y >= 0; y--)
+            for (let x = size - 1; x >= 0; x--) {
+              const b = matrix[y * 8 + x] * 4;
+              matrix[y * 8 + x] = b;
+              matrix[y * 8 + x + size] = b + 2;
+              matrix[(y + size) * 8 + x] = b + 3;
+              matrix[(y + size) * 8 + x + size] = b + 1;
+            }
+        for (let y = 0; y < p.blocks; y++)
+          for (let x = 0; x < p.blocks; x++)
+            jitter[y * p.blocks + x] = hash(x, y, seed ^ 0x24303) - 0.5;
+        return () => {
+          // The quarter-block grid phase keeps sample lattices of power-of-two textures off the
+          // block edges, so a 32 px preview does not sample only grooves.
+          const bu = u * p.blocks + p.phase,
+            bv = v * p.blocks + p.phase,
+            ix = Math.floor(bu),
+            iy = Math.floor(bv),
+            fx = bu - ix,
+            fy = bv - iy,
+            // The ordered threshold reads the level at the block center, so each block is flat.
+            level = clamp(
+              0.5 +
+                p.contrast *
+                  (levelField((ix + 0.5) / p.blocks, (iy + 0.5) / p.blocks) -
+                    0.5),
+            ),
+            on = level > (matrix[(iy & 7) * 8 + (ix & 7)] + 0.5) / 64,
+            face = smooth(
+              clamp((Math.min(fx, 1 - fx, fy, 1 - fy) - p.gap) * inverseBevel),
+            );
+          color = clamp(
+            p.gapTone +
+              face *
+                ((on ? onTone : offTone) +
+                  p.jitter *
+                    jitter[(iy % p.blocks) * p.blocks + (ix % p.blocks)]),
+          );
+          height =
+            p.floorHeight +
+            face * ((on ? p.onHeight : p.offHeight) - p.floorHeight);
+          roughness =
+            p.gapRoughness +
+            face * ((on ? p.onRoughness : p.offRoughness) - p.gapRoughness);
+          occlusion = p.floorAO + face * ((on ? p.onAO : p.offAO) - p.floorAO);
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -44096,6 +44153,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'bayerdither' ||
     kind === 'turingpattern' ||
     kind === 'to220packagefaces' ||
     kind === 'ftypefemalefaces' ||

@@ -12160,6 +12160,39 @@ var proceduralMaterialPresets = Object.freeze({
 		grainRoughness: .04,
 		patternAO: .82
 	}),
+	bayerdither: Object.freeze({
+		dark: [
+			18,
+			22,
+			30
+		],
+		light: [
+			236,
+			232,
+			214
+		],
+		roughness: .62,
+		relief: .0036,
+		blocks: 64,
+		phase: .25,
+		levelCells: 3,
+		contrast: 1.5,
+		gap: .06,
+		bevel: .12,
+		jitter: .05,
+		gapTone: .02,
+		onTone: .9,
+		offTone: .14,
+		floorHeight: .04,
+		onHeight: .92,
+		offHeight: .46,
+		onRoughness: .42,
+		offRoughness: .78,
+		gapRoughness: .95,
+		floorAO: .5,
+		onAO: 1,
+		offAO: .8
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -20841,6 +20874,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	bayerdither: .32,
 	turingpattern: .4,
 	mudcloth: .5,
 	to220packagefaces: .08,

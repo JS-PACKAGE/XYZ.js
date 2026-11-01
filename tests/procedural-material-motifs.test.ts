@@ -275,3 +275,146 @@ describe('turingpattern: analytic labyrinth-to-spot coat pattern', () => {
     expect(different).toBeGreaterThan(100);
   });
 });
+
+describe('bayerdither: ordered-dither pixel tile mosaic', () => {
+  const p = proceduralMaterialPresets.bayerdither;
+  const n = p.blocks;
+  // Independent bit-interleaved Bayer rank (the sampler builds its matrix recursively).
+  const rank = (x: number, y: number): number => {
+    let r = 0;
+    for (let i = 0; i < 3; i++)
+      r += ((((x >> i) ^ (y >> i)) & 1) * 2 + ((y >> i) & 1)) * 4 ** i;
+    return r;
+  };
+  const readBlocks = (seed: number): Uint8Array => {
+    const sample = createSurfaceSampler('bayerdither', seed),
+      out = empty(),
+      on = new Uint8Array(n * n);
+    for (let y = 0; y < n; y++)
+      for (let x = 0; x < n; x++) {
+        sample((x + 0.5 - p.phase) / n, (y + 0.5 - p.phase) / n, out);
+        on[y * n + x] = Number(out.color > 0.5);
+      }
+    return on;
+  };
+
+  it.each(seeds)(
+    'keeps opaque non-metal channels in range for seed %i',
+    (seed) => {
+      const sample = createSurfaceSampler('bayerdither', seed),
+        out = empty();
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+          expect(out.mortar).toBe(0);
+          expect(out.metallic).toBe(0);
+          for (const value of [
+            out.color,
+            out.height / p.relief,
+            out.roughness,
+            out.occlusion,
+          ])
+            if (!(value >= 0 && value <= 1))
+              throw new Error(`bayerdither channel ${value} out of range`);
+        }
+    },
+  );
+
+  it.each(seeds)(
+    'follows Bayer threshold order and forms checkerboards at mid level (seed %i)',
+    (seed) => {
+      const on = readBlocks(seed),
+        density = on.reduce((a, b) => a + b, 0) / on.length;
+      expect(density).toBeGreaterThan(0.25);
+      expect(density).toBeLessThan(0.75);
+      // Where two adjacent blocks differ, the lit one should hold the lower threshold rank.
+      let differing = 0,
+        ordered = 0;
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++)
+          for (const [dx, dy] of [
+            [1, 0],
+            [0, 1],
+          ]) {
+            const x2 = (x + dx) % n,
+              y2 = (y + dy) % n,
+              a = on[y * n + x],
+              b = on[y2 * n + x2];
+            if (a === b) continue;
+            differing++;
+            ordered += Number(
+              (a === 1) === rank(x & 7, y & 7) < rank(x2 & 7, y2 & 7),
+            );
+          }
+      expect(differing).toBeGreaterThan(1000);
+      // Random states would agree about half the time.
+      expect(ordered / differing).toBeGreaterThan(0.7);
+      // Near 50% level every Bayer tile degenerates to a checkerboard; independent random
+      // blocks of that density would average about 28 lit orthogonal neighbor pairs.
+      const pairs: number[] = [];
+      for (let ty = 0; ty < n / 8; ty++)
+        for (let tx = 0; tx < n / 8; tx++) {
+          let lit = 0,
+            touching = 0;
+          for (let y = 0; y < 8; y++)
+            for (let x = 0; x < 8; x++) {
+              const a = on[(ty * 8 + y) * n + tx * 8 + x];
+              lit += a;
+              if (x < 7 && a && on[(ty * 8 + y) * n + tx * 8 + x + 1])
+                touching++;
+              if (y < 7 && a && on[(ty * 8 + y + 1) * n + tx * 8 + x])
+                touching++;
+            }
+          if (lit >= 26 && lit <= 38) pairs.push(touching);
+        }
+      expect(pairs.length).toBeGreaterThanOrEqual(8);
+      expect(pairs.reduce((a, b) => a + b, 0) / pairs.length).toBeLessThan(14);
+    },
+  );
+
+  it('keeps each block flat in its interior and cuts a dark groove between blocks', () => {
+    const sample = createSurfaceSampler('bayerdither', 7),
+      center = empty(),
+      probe = empty(),
+      groove = empty();
+    for (let by = 0; by < n; by += 5)
+      for (let bx = 0; bx < n; bx += 3) {
+        sample((bx + 0.5 - p.phase) / n, (by + 0.5 - p.phase) / n, center);
+        for (const [fx, fy] of [
+          [0.35, 0.35],
+          [0.65, 0.4],
+          [0.4, 0.65],
+        ]) {
+          sample((bx + fx - p.phase) / n, (by + fy - p.phase) / n, probe);
+          expect(probe.color).toBeCloseTo(center.color, 10);
+          expect(probe.height).toBeCloseTo(center.height, 10);
+        }
+        sample((bx + 0.01 - p.phase) / n, (by + 0.5 - p.phase) / n, groove);
+        expect(groove.color).toBeLessThan(0.1);
+        expect(groove.height).toBeLessThan(center.height);
+      }
+  });
+
+  it('wraps seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('bayerdither', 0),
+      b = createSurfaceSampler('bayerdither', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        expect(two.height).toBeCloseTo(one.height, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

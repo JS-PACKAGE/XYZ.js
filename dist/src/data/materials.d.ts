@@ -6484,6 +6484,31 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainRoughness: 0.04;
         patternAO: 0.82;
     }>;
+    bayerdither: Readonly<{
+        dark: readonly [18, 22, 30];
+        light: readonly [236, 232, 214];
+        roughness: 0.62;
+        relief: 0.0036;
+        blocks: 64;
+        phase: 0.25;
+        levelCells: 3;
+        contrast: 1.5;
+        gap: 0.06;
+        bevel: 0.12;
+        jitter: 0.05;
+        gapTone: 0.02;
+        onTone: 0.9;
+        offTone: 0.14;
+        floorHeight: 0.04;
+        onHeight: 0.92;
+        offHeight: 0.46;
+        onRoughness: 0.42;
+        offRoughness: 0.78;
+        gapRoughness: 0.95;
+        floorAO: 0.5;
+        onAO: 1;
+        offAO: 0.8;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -12969,6 +12994,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    bayerdither: 0.32;
     turingpattern: 0.4;
     mudcloth: 0.5;
     to220packagefaces: 0.08;
