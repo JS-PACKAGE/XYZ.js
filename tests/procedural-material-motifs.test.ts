@@ -4996,3 +4996,170 @@ describe('fretboard: equal-tempered frets, graded strings and inlay dots', () =>
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('crosswordgrid: a rule-abiding symmetric grid with standard numbering', () => {
+  const p = proceduralMaterialPresets.crosswordgrid;
+  const n = p.size;
+  // 3x5 pixel glyphs for 0-9, written out independently of the sampler.
+  const glyphs = [
+    '111101101101111',
+    '010110010010111',
+    '111001111100111',
+    '111001111001111',
+    '101101111001001',
+    '111100111001111',
+    '111100111101111',
+    '111001001010010',
+    '111101111101111',
+    '111101111001111',
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5])(
+    'draws a 180-degree symmetric, connected grid with words of at least three letters and standard numbers (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('crosswordgrid', seed),
+        out = empty(),
+        dark = (col: number, row: number, fx: number, fy: number): boolean => {
+          sample((col + fx) / n, (row + fy) / n, out);
+          return out.color < 0.3;
+        },
+        black: boolean[][] = [];
+      let blacks = 0;
+      for (let row = 0; row < n; row++) {
+        black.push([]);
+        for (let col = 0; col < n; col++) {
+          const isBlack = dark(col, row, 0.5, 0.5);
+          black[row].push(isBlack);
+          blacks += Number(isBlack);
+        }
+      }
+      expect(blacks / (n * n)).toBeGreaterThan(0.1);
+      expect(blacks / (n * n)).toBeLessThan(p.blackTarget + 0.06);
+      // 180-degree rotational symmetry.
+      for (let row = 0; row < n; row++)
+        for (let col = 0; col < n; col++)
+          expect(black[row][col]).toBe(black[n - 1 - row][n - 1 - col]);
+      // No run of white cells shorter than the minimum, across or down.
+      for (let line = 0; line < n; line++)
+        for (const across of [true, false]) {
+          let run = 0;
+          for (let i = 0; i <= n; i++) {
+            const isBlack =
+              i === n || (across ? black[line][i] : black[i][line]);
+            if (isBlack) {
+              if (run > 0) expect(run).toBeGreaterThanOrEqual(p.minRun);
+              run = 0;
+            } else run++;
+          }
+        }
+      // All white cells form one connected region.
+      const seen = new Set<number>(),
+        stack: number[] = [],
+        whites = n * n - blacks,
+        first = black.flat().findIndex((cell) => !cell);
+      stack.push(first);
+      seen.add(first);
+      while (stack.length) {
+        const cell = stack.pop() as number,
+          x = cell % n,
+          y = Math.floor(cell / n);
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const nx = x + dx,
+            ny = y + dy;
+          if (
+            nx < 0 ||
+            ny < 0 ||
+            nx >= n ||
+            ny >= n ||
+            black[ny][nx] ||
+            seen.has(ny * n + nx)
+          )
+            continue;
+          seen.add(ny * n + nx);
+          stack.push(ny * n + nx);
+        }
+      }
+      expect(seen.size).toBe(whites);
+      // Numbering: a white cell is numbered when it starts an across or down word, counting in
+      // reading order from 1; every other cell shows no number.
+      const read = (col: number, row: number): number | undefined => {
+        let text = '';
+        for (let g = 0; g < 2; g++) {
+          let bits = '';
+          for (let line = 0; line < 5; line++)
+            for (let c = 0; c < 3; c++)
+              bits += dark(
+                col,
+                row,
+                p.numberLeft + (4 * g + c + 0.5) * p.pixel,
+                p.numberTop + (line + 0.5) * p.pixel,
+              )
+                ? '1'
+                : '0';
+          if (bits === '0'.repeat(15)) break;
+          const digit = glyphs.indexOf(bits);
+          expect(digit).toBeGreaterThanOrEqual(0);
+          text += digit;
+        }
+        return text === '' ? undefined : Number(text);
+      };
+      let expected = 1;
+      for (let row = 0; row < n; row++)
+        for (let col = 0; col < n; col++) {
+          if (black[row][col]) continue;
+          const startsAcross =
+              (col === 0 || black[row][col - 1]) &&
+              col + 1 < n &&
+              !black[row][col + 1],
+            startsDown =
+              (row === 0 || black[row - 1][col]) &&
+              row + 1 < n &&
+              !black[row + 1][col];
+          expect(read(col, row)).toBe(
+            startsAcross || startsDown ? expected++ : undefined,
+          );
+        }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('crosswordgrid', 0),
+      b = createSurfaceSampler('crosswordgrid', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

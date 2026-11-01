@@ -13534,6 +13534,41 @@ var proceduralMaterialPresets = Object.freeze({
 		inlayRoughness: .3,
 		stringShadow: .5
 	}),
+	crosswordgrid: Object.freeze({
+		dark: [
+			20,
+			20,
+			26
+		],
+		light: [
+			244,
+			240,
+			230
+		],
+		roughness: .72,
+		relief: .0014,
+		size: 15,
+		blackTarget: .17,
+		attempts: 600,
+		minRun: 3,
+		pixel: .05,
+		numberLeft: .08,
+		numberTop: .08,
+		lineHalf: .016,
+		edgeSoft: .004,
+		inkCells: 192,
+		paperCells: 256,
+		paperTone: .94,
+		blackTone: .05,
+		lineTone: .14,
+		digitTone: .08,
+		inkGain: .06,
+		paperGrain: .04,
+		inkHeight: .56,
+		paperHeight: .3,
+		inkRoughness: .44,
+		paperRoughness: .76
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -22215,6 +22250,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	crosswordgrid: .3,
 	fretboard: .32,
 	calendarpage: .3,
 	measuringtape: .16,

@@ -11675,3 +11675,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試調整：品絲間距比原先用`toBeCloseTo(…, 1)`（容差約0.05），量測解析度（20000點）其實足以支持更嚴的檢查，改為與2^(−1/12)相差＜0.01。
 - 實測：`tests/procedural-material-motifs.test.ts`二百二十四項（本材質四項）全過。三seed：在兩弦之間沿u掃描，細亮線（寬＜0.012）恰12條（品0–11；第12品與下個琴枕重合），各品位置與公式相差＜0.003（含跨tile接縫的環狀距離），連續品距比與2^(−1/12)≈0.944相差＜0.01；沿v在第0到第1品之間掃描恰6條亮線，中心在(i+0.5)/6±0.003、寬度與設定的2×半寬相差＜0.002、且由高音到低音嚴格遞增；中線上的寬亮段（＞0.02）恰4個，分別位於第3／5／7／9品的品間中點（±0.003）、直徑與2×半徑相差＜0.004；第12品中點上下各一個亮點、中線上無點；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "fretboard|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`fretboard`：option 924個、status為923 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的品絲、琴弦與圓點連續無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：填字遊戲格（crosswordgrid）
+
+- 目錄923→924，含plain的gallery為925項。每tile一個15×15填字格：約17%黑格、180°旋轉對稱，每個橫向／縱向白格連續段至少3格且所有白格相連，起始單字的格子依閱讀順序標示標準編號（3×5點陣字型）。Metallic／mortar為0，預設tile0.3 m、0.0014 UV-relative relief、metallic factor 0。空格無答案與提示；規則只在單一tile內成立，tile重複後跨邊界的白格連續段不再符合規則；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 設計記錄：sampler建立時（非每個取樣點）以雜湊驅動的隨機增補黑格對，每次檢查規則後才接受；規則檢查包含整行／整列的白格連續段長度與白格連通性（洪水填充）。另外整理了第一版尾段重複的ink／base算式。
+- 實測：`tests/procedural-material-motifs.test.ts`二百三十三項（本材質九項）全過。八個seed（0、7、4294967295、1、2、3、4、5）：在格中心取樣分出黑白格，黑格比例在0.10與目標0.17＋0.06之間；每格都與其180°對點同色（15×15全檢）；每個橫向與縱向白格連續段≥3；白格洪水填充後全部相連；標號以測試端獨立寫出的字型解碼，起始單字（左或上為黑／邊界、右或下為白）的白格依閱讀順序恰為1、2、3…，其餘白格無號碼；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "crosswordgrid|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`crosswordgrid`：option 925個、status為924 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的黑格、編號與格線連續。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

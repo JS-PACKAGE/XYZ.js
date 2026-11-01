@@ -19283,6 +19283,168 @@ export function createSurfaceSampler(
           );
         };
       }
+      case 'crosswordgrid': {
+        const p = proceduralMaterialPresets.crosswordgrid,
+          inkField = cachedNoise(p.inkCells, p.inkCells, seed ^ 0x26601),
+          paperField = cachedNoise(p.paperCells, p.paperCells, seed ^ 0x26603),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001001010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          n = p.size,
+          black = new Uint8Array(n * n),
+          numbers = new Uint16Array(n * n),
+          at = (x: number, y: number): number =>
+            x < 0 || y < 0 || x >= n || y >= n ? 1 : black[y * n + x],
+          // Every maximal white run (across or down) must be at least minRun long and every white
+          // cell must be reachable from every other.
+          valid = (): boolean => {
+            for (let line = 0; line < n; line++)
+              for (const across of [true, false]) {
+                let run = 0;
+                for (let i = 0; i <= n; i++) {
+                  const dark =
+                    i === n ||
+                    (across ? black[line * n + i] : black[i * n + line]) === 1;
+                  if (dark) {
+                    if (run > 0 && run < p.minRun) return false;
+                    run = 0;
+                  } else run++;
+                }
+              }
+            let start = -1,
+              whites = 0;
+            for (let i = 0; i < n * n; i++)
+              if (!black[i]) {
+                whites++;
+                if (start < 0) start = i;
+              }
+            const seen = new Uint8Array(n * n),
+              stack = [start];
+            seen[start] = 1;
+            let reached = 0;
+            while (stack.length) {
+              const cell = stack.pop() as number,
+                x = cell % n,
+                y = Math.floor(cell / n);
+              reached++;
+              for (const [dx, dy] of [
+                [1, 0],
+                [-1, 0],
+                [0, 1],
+                [0, -1],
+              ]) {
+                const nx = x + dx,
+                  ny = y + dy;
+                if (!at(nx, ny) && !seen[ny * n + nx]) {
+                  seen[ny * n + nx] = 1;
+                  stack.push(ny * n + nx);
+                }
+              }
+            }
+            return reached === whites;
+          };
+        // Grow a 180-degree-symmetric pattern: add black pairs while the rules still hold.
+        let blackCells = 0;
+        for (
+          let attempt = 0;
+          attempt < p.attempts && blackCells < p.blackTarget * n * n;
+          attempt++
+        ) {
+          const x = Math.min(
+              n - 1,
+              Math.floor(hash(attempt, 1, seed ^ 0x26605) * n),
+            ),
+            y = Math.min(
+              n - 1,
+              Math.floor(hash(attempt, 2, seed ^ 0x26607) * n),
+            ),
+            a = y * n + x,
+            b = (n - 1 - y) * n + (n - 1 - x);
+          if (black[a]) continue;
+          black[a] = 1;
+          black[b] = 1;
+          if (valid()) blackCells += a === b ? 1 : 2;
+          else {
+            black[a] = 0;
+            black[b] = 0;
+          }
+        }
+        // Standard numbering: a white cell starts a word when its left or upper neighbor is
+        // black or off the grid and the next cell in that direction is white.
+        let next = 1;
+        for (let y = 0; y < n; y++)
+          for (let x = 0; x < n; x++) {
+            if (black[y * n + x]) continue;
+            const across = at(x - 1, y) === 1 && at(x + 1, y) === 0,
+              down = at(x, y - 1) === 1 && at(x, y + 1) === 0;
+            if (across || down) numbers[y * n + x] = next++;
+          }
+        const inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5));
+        return () => {
+          const gx = u * n,
+            gy = v * n,
+            col = Math.min(n - 1, Math.floor(gx)),
+            row = Math.min(n - 1, Math.floor(gy)),
+            fx = gx - col,
+            fy = gy - row,
+            grid = Math.max(
+              cover(p.lineHalf - Math.abs(gx - Math.round(gx))),
+              cover(p.lineHalf - Math.abs(gy - Math.round(gy))),
+            ),
+            filled = black[row * n + col],
+            number = numbers[row * n + col];
+          let digit = 0;
+          if (number > 0) {
+            const label = String(number),
+              column = Math.floor((fx - p.numberLeft) / p.pixel),
+              line = Math.floor((fy - p.numberTop) / p.pixel);
+            if (
+              line >= 0 &&
+              line < 5 &&
+              column >= 0 &&
+              column < 4 * label.length - 1
+            ) {
+              const inside = column % 4;
+              if (
+                inside < 3 &&
+                glyphs[Number(label[Math.floor(column / 4)])][
+                  line * 3 + inside
+                ] === '1'
+              )
+                digit = 1;
+            }
+          }
+          const gain = inkField(u, v) - 0.5,
+            grain = paperField(u, v) - 0.5,
+            paper = p.paperTone + p.paperGrain * grain,
+            mark = Math.max(grid, digit),
+            ink = Math.max(filled, mark);
+          color = clamp(
+            filled
+              ? p.blackTone + p.inkGain * gain
+              : paper +
+                  ((grid >= digit ? p.lineTone : p.digitTone) +
+                    p.inkGain * gain -
+                    paper) *
+                    mark,
+          );
+          height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * ink);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -46812,6 +46974,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'crosswordgrid' ||
     kind === 'fretboard' ||
     kind === 'calendarpage' ||
     kind === 'measuringtape' ||

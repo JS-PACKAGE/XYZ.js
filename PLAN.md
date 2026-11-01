@@ -1247,6 +1247,10 @@
 
 這是作者設計的示意：不是特定琴款的量測；音階長度被正規化，因此只有「品絲間距比例」而沒有真實的毫米尺寸；沒有指板弧度（radius）、琴頸斜度、琴弦凹陷或磨損，也不模擬品絲與琴弦的金屬反射（它們只是較亮、較光滑的非金屬）。預設0.32 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上讓品絲約3.6 px寬；512時約1.8 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`crosswordgrid`（填字遊戲格）使目前目錄923→924種，含plain的gallery為925項。每tile一個15×15的填字格：由seed決定、約17%為黑格，生成時每次成對加入180°旋轉對稱的黑格，並檢查規則，只接受「每個橫向與縱向的白格連續段至少3格」且「所有白格相連」的結果。白格中起始橫向或縱向單字的格子依閱讀順序標示標準編號（1、2、…；以3×5點陣字型畫在格子左上角），其餘白格留白，黑格為墨黑；細線分格。Metallic與mortar為0。
+
+這是作者設計的示意：格子只是空白填字格，沒有答案字母、提示文字或粗外框，也不保證有可填入的詞表；規則與編號只在單一tile內成立，tile重複時相鄰tile邊緣的白格連續段會跨過tile邊界，所以重複後並不是一個合規的大型填字格。預設0.3 m nominal tile、0.0014 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上讓每格約68 px（編號像素約3.4 px）；512時每格約34 px，編號會相當小；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
