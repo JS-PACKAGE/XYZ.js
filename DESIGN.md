@@ -1315,6 +1315,10 @@
 
 這是作者設計的示意：局面只保證「可解」（由倒推產生），不保證是最短解或具代表性的謎題；只畫英式33孔棋盤，不含法式37孔或其他變體；顏色是由dark／light兩端線性插值的亮度，所以木釘是淺黃褐色而不是特定顏色。預設0.35 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上讓每格約73 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`xylophonebars`（木琴音條）使目前目錄938→939種，含plain的gallery為940項。每tile 12根並排的木音條（一個八度的十二個半音），均以tile中線為中心；第一根最長（0.9 tile），之後每根為前一根的 2^(−1/24) ≈ 0.9715 倍——調音音條的頻率與長度平方成反比，一個十二平均律半音（頻率比 2^(1/12)）因此使音條縮短 2^(−1/24)，十二個半音（一個八度）縮短為 2^(−1/2)。每根音條在距兩端22.4%（自由—自由梁第一振動模態的節點位置）處各有一個懸掛孔，相鄰音條的孔以細線（繩）相連；木紋沿音條長度方向，音條色調由長到短略為變淺，背景是深色毛氈。Metallic與mortar為0。
+
+這是作者設計的示意：只依「長度比與節點位置」繪製，沒有考慮音條的厚度、寬度或截面（真實木琴音條常有下凹以微調泛音），也不模擬共鳴管；繩子是孔洞之間的直線，在tile接縫（最後一根到下一個tile的第一根）處折回，是刻意保留的不連續。預設0.4 m nominal tile、0.0035 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

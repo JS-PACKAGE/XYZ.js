@@ -11786,3 +11786,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`三百三十四項（本材質十二項）全過。十一個seed（0、7、4294967295、1至8）：49個格中心取樣，色調＜0.15為空孔、＞0.7為木釘；孔或釘恰好出現在十字形棋盤上（33格，四個角落無孔）；木釘數在5至9之間；測試端對解碼後的局面做深度優先搜尋（水平與垂直的跳躍，並以狀態集合去重），每個seed都找到跳到只剩一顆的解；通道範圍、metallic／mortar 0、wrap與seed差異。可解性是由構造（倒推）保證，測試以實際求解再確認一次。`tests/procedural-material.test.ts`以`-t "pegsolitaire|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 另外，在上一輪（bingocard之前、connectfourboard提交時的整體狀態，共49種新材質）以`vitest run tests/procedural-material.test.ts tests/procedural-material-motifs.test.ts`完整跑過：兩檔共5860項全過（約1325 s）；之後新增的connectfourboard、bingocard、本材質只做了定向測試。
 - 真實dev server的pbr3d頁（WebGPU）選取`pegsolitaire`：option 939個、status為938 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的十字棋盤、孔與木釘。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：木琴音條（xylophonebars）
+
+- 目錄938→939，含plain的gallery為940項。每tile 12根並排音條（十二個半音），第一根最長0.9 tile，之後每根為前一根的2^(−1/24)倍（調音音條頻率與長度平方成反比，所以一個十二平均律半音縮短2^(−1/24)、一個八度縮短2^(−1/2)），每根在距兩端22.4%的節點處有懸掛孔、孔間以細繩相連，深色毛氈背景。Metallic／mortar為0，預設tile0.4 m、0.0035 UV-relative relief、metallic factor 0。不含音條厚度、下凹截面或共鳴管；繩子在tile接縫折回；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 設計記錄：第一版草稿的繩子插值寫得太繞，還留有`void next`與乘零的算式，寫入前重寫為「兩根音條中心之間，繩高在兩個孔偏移量之間線性插值」。
+- 測試記錄：半音比與八度的期望值在測試中以`2^(−1/24)`與`2^(−1/2)`獨立算出，不直接讀preset的`semitoneRatio`，因此同時驗證了preset常數0.97153…確實等於2^(−1/24)。
+- 實測：`tests/procedural-material-motifs.test.ts`三百三十八項（本材質四項）全過。三seed：在每根音條中心偏右0.3格處沿垂直掃描（避開孔洞），以8192個點量音條範圍；第一根長度與0.9相差＜0.003，每根與前一根長度比與2^(−1/24)相差＜0.006，每根都以tile中線為中心（±0.002），且（最後一根長度／第一根長度）×一個半音比與2^(−1/2)相差＜0.02；在每根音條中線上距兩端22.4%處（0.5 ∓ 0.276×長度）取樣為暗孔（色調＜0.15），距中心35%長度處為亮木色（＞0.3）；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "xylophonebars|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`xylophonebars`：option 940個、status為939 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的音條、孔與繩。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

@@ -7921,6 +7921,35 @@ export declare const proceduralMaterialPresets: Readonly<{
         pegRoughness: 0.28;
         holeAO: 0.45;
     }>;
+    xylophonebars: Readonly<{
+        dark: readonly [24, 14, 12];
+        light: readonly [226, 170, 110];
+        roughness: 0.42;
+        relief: 0.0035;
+        bars: 12;
+        longest: 0.9;
+        semitoneRatio: 0.9715319411536059;
+        barGap: 0.12;
+        nodal: 0.224;
+        holeRadius: 0.012;
+        cordHalf: 0.0032;
+        edgeSoft: 0.003;
+        grainCellsU: 12;
+        grainCellsV: 192;
+        feltCells: 192;
+        barTone: 0.55;
+        barSlope: 0.16;
+        holeTone: 0.03;
+        cordTone: 0.82;
+        feltTone: 0.1;
+        grainTone: 0.07;
+        barHeight: 0.62;
+        feltHeight: 0.1;
+        cordHeight: 0.7;
+        barRoughness: 0.34;
+        feltRoughness: 0.9;
+        shadowAO: 0.55;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -14406,6 +14435,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    xylophonebars: 0.4;
     pegsolitaire: 0.35;
     bingocard: 0.3;
     connectfourboard: 0.5;

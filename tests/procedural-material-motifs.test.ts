@@ -6843,3 +6843,92 @@ describe('pegsolitaire: a solvable position on the English board', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('xylophonebars: tuned bar lengths with cord holes at the nodes', () => {
+  const p = proceduralMaterialPresets.xylophonebars;
+  // A tuned bar's frequency goes as 1 / length^2, so one equal-tempered semitone (frequency ratio
+  // 2^(1/12)) shortens the bar by 2^(-1/24).
+  const semitone = Math.pow(2, -1 / 24);
+
+  it.each(seeds)(
+    'shortens each bar by one semitone step and drills holes 22.4% in from both ends (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('xylophonebars', seed),
+        out = empty(),
+        lengths: number[] = [];
+      for (let col = 0; col < p.bars; col++) {
+        // Scan down a column a little off center (clear of the holes) and measure the bar's extent.
+        const u = (col + 0.5 + 0.3) / p.bars,
+          steps = 8192;
+        let first = -1,
+          last = -1;
+        for (let i = 0; i < steps; i++) {
+          sample(u, (i + 0.5) / steps, out);
+          if (out.color > 0.3) {
+            if (first < 0) first = i;
+            last = i;
+          }
+        }
+        const length = (last - first + 1) / steps;
+        lengths.push(length);
+        // Bars are centered on the middle of the tile.
+        expect(Math.abs((first + last + 1) / 2 / steps - 0.5)).toBeLessThan(
+          0.002,
+        );
+        // Holes: dark at both nodal points on the center line, bright wood 15% in from an end.
+        const centerU = (col + 0.5) / p.bars;
+        for (const sign of [-1, 1]) {
+          sample(centerU, 0.5 + sign * length * (0.5 - 0.224), out);
+          expect(out.color).toBeLessThan(0.15);
+          sample(centerU, 0.5 + sign * length * 0.35, out);
+          expect(out.color).toBeGreaterThan(0.3);
+        }
+      }
+      expect(Math.abs(lengths[0] - p.longest)).toBeLessThan(0.003);
+      for (let col = 1; col < p.bars; col++)
+        expect(
+          Math.abs(lengths[col] / lengths[col - 1] - semitone),
+        ).toBeLessThan(0.006);
+      // Eleven steps from the first to the last bar plus one more step is a whole octave, which
+      // shortens a bar by 2^(-1/2).
+      const octave = (lengths[p.bars - 1] / lengths[0]) * semitone;
+      expect(Math.abs(octave - Math.pow(2, -0.5))).toBeLessThan(0.02);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('xylophonebars', 0),
+      b = createSurfaceSampler('xylophonebars', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

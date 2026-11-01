@@ -20797,6 +20797,79 @@ export function createSurfaceSampler(
           occlusion = clamp(1 - (1 - p.holeAO) * hole * (1 - peg));
         };
       }
+      case 'xylophonebars': {
+        const p = proceduralMaterialPresets.xylophonebars,
+          grainField = cachedNoise(
+            p.grainCellsU,
+            p.grainCellsV,
+            seed ^ 0x27501,
+          ),
+          feltField = cachedNoise(p.feltCells, p.feltCells, seed ^ 0x27503),
+          n = p.bars,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // Bar lengths fall by one equal-tempered semitone ratio per step, as for tuned bars
+          // (frequency goes as 1 / length squared). All bars are centered on v = 0.5.
+          length = (i: number): number =>
+            p.longest * Math.pow(p.semitoneRatio, i),
+          // A free bar vibrates with nodes 22.4% of its length in from each end: the cord holes
+          // go there, so each bar has holes at 0.5 -/+ length * (0.5 - nodal).
+          nodeOffset = (i: number): number => length(i) * (0.5 - p.nodal),
+          barHalf = (1 - p.barGap) / 2;
+        return () => {
+          const gx = u * n,
+            col = Math.min(n - 1, Math.floor(gx)),
+            fx = gx - col - 0.5,
+            span = length(col),
+            across = cover((barHalf - Math.abs(fx)) / n),
+            along = cover(span / 2 - Math.abs(v - 0.5)),
+            bar = across * along,
+            offset = nodeOffset(col),
+            // Hole distance in tile units (fx is in cells, so scale it back).
+            holeDistance = Math.min(
+              Math.hypot(fx / n, v - (0.5 - offset)),
+              Math.hypot(fx / n, v - (0.5 + offset)),
+            ),
+            hole = cover(p.holeRadius - holeDistance) * bar,
+            // Cords join the holes of neighboring bars; between bar centers (s = gx - 0.5) the
+            // cord height interpolates linearly between the two bars' hole offsets.
+            s = gx - 0.5,
+            first = Math.floor(s),
+            blend = s - first,
+            a = nodeOffset(((first % n) + n) % n),
+            b = nodeOffset((((first + 1) % n) + n) % n),
+            cordOffset = a + (b - a) * blend,
+            cord =
+              Math.max(
+                cover(p.cordHalf - Math.abs(v - (0.5 - cordOffset))),
+                cover(p.cordHalf - Math.abs(v - (0.5 + cordOffset))),
+              ) *
+              (1 - bar),
+            grain = grainField(u, v) - 0.5,
+            felt = feltField(u, v) - 0.5,
+            tone =
+              p.barTone +
+              p.barSlope * (0.5 - col / (n - 1)) +
+              p.grainTone * grain,
+            lit = bar * (1 - hole);
+          color = clamp(
+            p.feltTone +
+              p.grainTone * 0.3 * felt +
+              (tone - p.feltTone) * lit +
+              (p.holeTone - p.feltTone) * hole +
+              (p.cordTone - p.feltTone) * cord,
+          );
+          height = clamp(
+            p.feltHeight +
+              (p.barHeight - p.feltHeight) * lit +
+              (p.cordHeight - p.feltHeight) * cord,
+          );
+          roughness =
+            p.feltRoughness + (p.barRoughness - p.feltRoughness) * bar;
+          occlusion = clamp(1 - (1 - p.shadowAO) * hole);
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -48326,6 +48399,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'xylophonebars' ||
     kind === 'pegsolitaire' ||
     kind === 'bingocard' ||
     kind === 'connectfourboard' ||

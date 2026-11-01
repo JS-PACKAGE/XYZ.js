@@ -14073,6 +14073,43 @@ var proceduralMaterialPresets = Object.freeze({
 		pegRoughness: .28,
 		holeAO: .45
 	}),
+	xylophonebars: Object.freeze({
+		dark: [
+			24,
+			14,
+			12
+		],
+		light: [
+			226,
+			170,
+			110
+		],
+		roughness: .42,
+		relief: .0035,
+		bars: 12,
+		longest: .9,
+		semitoneRatio: .9715319411536059,
+		barGap: .12,
+		nodal: .224,
+		holeRadius: .012,
+		cordHalf: .0032,
+		edgeSoft: .003,
+		grainCellsU: 12,
+		grainCellsV: 192,
+		feltCells: 192,
+		barTone: .55,
+		barSlope: .16,
+		holeTone: .03,
+		cordTone: .82,
+		feltTone: .1,
+		grainTone: .07,
+		barHeight: .62,
+		feltHeight: .1,
+		cordHeight: .7,
+		barRoughness: .34,
+		feltRoughness: .9,
+		shadowAO: .55
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -22754,6 +22791,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	xylophonebars: .4,
 	pegsolitaire: .35,
 	bingocard: .3,
 	connectfourboard: .5,
