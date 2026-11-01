@@ -9626,3 +9626,105 @@ describe('sundialplate: horizontal sundial hour lines follow the latitude formul
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('doubleslitfringes: fringe maxima follow the single-slit envelope', () => {
+  const p = proceduralMaterialPresets.doubleslitfringes;
+  const ratios = [2, 3, 4, 5];
+  const period = 1 / 16;
+  // Far-field intensity of two slits (separation / width = ratio) at offset x from the centre.
+  const intensity = (x: number, ratio: number): number => {
+    const argument = (Math.PI * x) / (ratio * period),
+      envelope = argument === 0 ? 1 : (Math.sin(argument) / argument) ** 2;
+    return Math.cos((Math.PI * x) / period) ** 2 * envelope;
+  };
+
+  it.each(seeds)(
+    'has fringe maxima of height sinc^2(pi m / ratio) with every ratio-th order missing (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('doubleslitfringes', seed),
+        out = empty();
+      for (let panel = 0; panel < 4; panel++) {
+        const ratio = ratios[panel],
+          v = (panel + 0.5) / 4,
+          measured = (x: number): number => {
+            sample(0.5 + x, v, out);
+            return out.color ** (1 / p.gamma);
+          };
+        let missing = 0;
+        for (let m = -7; m <= 7; m++) {
+          // Bright fringes sit at whole multiples of the period, dark ones halfway between.
+          const x = m * period;
+          expect(Math.abs(measured(x) - intensity(x, ratio))).toBeLessThan(
+            0.02,
+          );
+          if (Math.abs(intensity(x, ratio)) < 1e-9) {
+            missing++;
+            expect(measured(x)).toBeLessThan(0.02);
+          } else if (m % ratio !== 0) expect(measured(x)).toBeGreaterThan(0.0);
+          expect(measured((m + 0.5) * period)).toBeLessThan(
+            0.02 + intensity((m + 0.5) * period, ratio),
+          );
+        }
+        // Orders 0 and +-ratio, +-2 ratio ... : the zeros of the envelope that fall within +-7 orders.
+        expect(missing).toBe(2 * Math.floor(7 / ratio));
+        // The central maximum is the brightest sample in the panel.
+        expect(measured(0)).toBeGreaterThan(0.95);
+      }
+    },
+  );
+
+  it('is mirror symmetric about the centre and has dark gaps between the panels', () => {
+    const sample = createSurfaceSampler('doubleslitfringes', 7),
+      out = empty(),
+      other = empty();
+    let asymmetric = 0;
+    for (let i = 0; i < 400; i++) {
+      const x = ((i * 0.6180339887) % 1) * 0.5,
+        v = ((i * 0.7548776662) % 1) * 0.9 + 0.05;
+      sample(0.5 + x, v, out);
+      sample(0.5 - x, v, other);
+      asymmetric += Number(Math.abs(out.color - other.color) > 0.02);
+    }
+    expect(asymmetric).toBe(0);
+    for (let panel = 1; panel < 4; panel++) {
+      sample(0.5, panel / 4, out);
+      expect(out.color).toBeLessThan(0.1);
+    }
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('doubleslitfringes', 0),
+      b = createSurfaceSampler('doubleslitfringes', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

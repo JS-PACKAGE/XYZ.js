@@ -22743,6 +22743,43 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'doubleslitfringes': {
+        const p = proceduralMaterialPresets.doubleslitfringes,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x28b01),
+          panels = p.ratios.length,
+          period = 1 / p.fringesAcross,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5));
+        // Far-field double slit: the intensity at offset x from the center is
+        // cos^2(pi x / period) * sinc^2(pi x / (ratio * period)), where ratio = slit separation /
+        // slit width. A fringe order m = k * ratio coincides with a zero of the single-slit
+        // envelope and is missing. Each panel has its own ratio; tone = intensity^gamma.
+        return () => {
+          const panel = Math.min(panels - 1, Math.floor(v * panels)),
+            fy = v * panels - panel,
+            ratio = p.ratios[panel],
+            x = u - 0.5,
+            fringe = Math.cos((Math.PI * x) / period) ** 2,
+            argument = (Math.PI * x) / (ratio * period),
+            envelope =
+              argument === 0 ? 1 : (Math.sin(argument) / argument) ** 2,
+            intensity = fringe * envelope,
+            gap = cover(p.gapHalf - Math.min(fy, 1 - fy) / panels),
+            lit = Math.pow(intensity, p.gamma);
+          color = clamp(
+            lit * (1 - gap) +
+              p.gapTone * gap +
+              p.grainTone * (grainField(u, v) - 0.5) * (1 - gap),
+          );
+          height = clamp(
+            p.gapHeight * gap + (1 - gap) * lit * 0.8 + 0.1 * (1 - gap),
+          );
+          roughness =
+            p.fringeRoughness + (p.gapRoughness - p.fringeRoughness) * gap;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -50272,6 +50309,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'doubleslitfringes' ||
     kind === 'sundialplate' ||
     kind === 'ledgersheet' ||
     kind === 'louvershutter' ||

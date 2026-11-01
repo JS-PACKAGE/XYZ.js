@@ -11948,3 +11948,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試設計：緯度φ由seed決定、測試端不知道，所以先由「正午後1小時線」的角度反推緯度（asin(tan θ₁ / tan 15°)，並檢查落在25°至55°之間），再用測試端獨立寫的公式檢查全部13條線（誤差＜0.15°）。
 - 實測：`tests/procedural-material-motifs.test.ts`五百三十二項（本材質十項）全過。九個seed（0、7、4294967295、1至6）：沿半徑0.25的圓以40000點掃描，數到13條時刻線，角度與公式相差＜0.15°；每條線末端外側的數字以測試端獨立的0至9字型逐像素解碼，等於對應的時鐘整點（正午為12、午前11至6、午後1至6）；圓上下半部（95°至265°）沒有暗線；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "sundialplate|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`sundialplate`：option 961個、status為960 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的日晷盤。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：雙狹縫干涉條紋（doubleslitfringes）
+
+- 目錄960→961，含plain的gallery為962項。每tile上下疊四個遠場雙狹縫面板（狹縫間距÷寬度 r = 2、3、4、5），強度 I(x) = cos²(πx/p)·sinc²(πx/(r·p))（p = 1/16 tile），亮度為 I^0.6；r的倍數級次缺級；面板之間有細暗縫。左右鏡像故可無縫重複。Metallic／mortar為0，預設tile0.4 m、0.002 UV-relative relief、metallic factor 0。理想化遠場公式、非實驗影像；seed只影響極細顆粒；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 實測：`tests/procedural-material-motifs.test.ts`五百三十七項（本材質五項）全過，第一次執行即通過。三seed（0、7、4294967295）×四個面板：測試端以閉式公式獨立計算 I(x)，在 x = m·p（m = −7至7）處把色調以 γ 反解成強度，與公式相差＜0.02；缺級位置（m 是 r 的倍數，強度＜0.02）的個數恰為 2·floor(7/r)；暗紋（m + 1/2）處強度不高於公式值加0.02；中央最大＞0.95；另一項以400個隨機點檢查左右鏡像（色調相差＜0.02）、面板之間的暗縫（＜0.1）；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "doubleslitfringes|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`doubleslitfringes`：option 962個、status為961 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的四個面板。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

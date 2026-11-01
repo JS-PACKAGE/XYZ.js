@@ -1407,6 +1407,10 @@
 
 這是作者設計的示意：只畫盤面，沒有晷針的立體或投影；不考慮所在地的經度修正、均時差或日光節約時間；每個seed是一個不同的緯度，不是特定城市；整點之間沒有半小時或刻度細線；顏色是亮度插值（深褐近黑到青銅色），不代表真實青銅的氧化色。預設0.4 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`doubleslitfringes`（雙狹縫干涉條紋）使目前目錄960→961種，含plain的gallery為962項。每tile上下疊四個遠場雙狹縫干涉圖樣面板，沿水平方向的強度為 I(x) = cos²(πx/p) · sinc²(πx/(r·p))，x 是離中央的偏移、p = 1/16 tile 是條紋週期、r 是「狹縫間距÷狹縫寬度」，四個面板的 r 依序為2、3、4、5：條紋位置在 p 的整數倍，當條紋級次 m 恰是 r 的倍數時，剛好落在單縫繞射包絡 sinc² 的零點上而缺級（missing order）。亮度為 I^0.6，暗色背景、奶黃色條紋，面板之間有一條細暗縫。圖樣左右鏡像、以中央為軸，所以在tile接縫處連續，可無縫重複。Metallic與mortar為0。
+
+這是作者設計的示意：這是遠場（Fraunhofer）理想化公式，不是實驗影像——沒有有限狹縫距離、有限光源寬度、非單色光造成的條紋模糊，也沒有真實光強度的物理單位；水平方向是一維圖樣，在垂直方向只是重複；seed只影響極細的顆粒；顏色是亮度（近黑藍到奶黃），不代表特定波長的色光。預設0.4 m nominal tile、0.002 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上（條紋週期約32 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
