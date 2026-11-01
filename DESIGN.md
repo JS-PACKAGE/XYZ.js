@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`heatsinkfins`（散熱鰭片）使目前目錄941→942種，含plain的gallery為943項。陽極處理的擠型鋁散熱片：每tile 20片沿u方向排列的鰭片，鰭頂平坦而明亮、鰭間是深而受遮蔽的窄縫（寬度與鰭頂約相同），鰭頂沿v方向有細微的擠型線、極淡的陽極處理斑駁與細grain；整面金屬（metallic為1）。不是真實散熱片的鰭片高度與厚度、基板、導熱管、扣具或切削毛邊。
+
+此材質是作者依一般擠型鋁散熱片外觀所作示意，沒有引用特定來源文件、照片或量測，也沒有對照照片；鰭片數（每tile 20）、鰭頂與縫的比例與銳度、金屬色調、擠型線與斑駁強度、roughness與0.1 m nominal tile皆作者設定，不宣稱符合任何實際散熱片的規格。
+
+新增專用sampler：鰭片 = `0.5 + 0.5·tanh(3.5·sin(2π·20·u))`（`tanh`的正弦是平滑方波，C∞；整數鰭數隨tile wrap），鰭頂mask使顏色在縫色0.14與鰭色0.7之間混合；鰭頂另有4×160沿v方向拉長的擠型線雜訊（只作用於鰭頂）、4×4的陽極處理斑駁與128²細grain；縫處roughness升高0.2、AO降到0.5；cache合計640＋16＋16,384 = 17,040個Float64／136,320 B lattice算術預算（非總RAM）。`metallic`在整個取樣範圍為1，並已加入`ProceduralMaterial`的金屬factor清單與測試的非金屬例外清單。顏色是金屬的反射色，鰭頂height約0.8 relief、擠型線0.1、grain 0.1；無mortar。預設0.1 m nominal tile與0.01 UV-relative relief（非公尺位移）。實測（工具實跑，seed 0／1／0xffffffff，512²取樣）：color>0.5的鰭頂占47.1–47.3%、color<0.25的縫占43.4–43.7%，AO<0.9的區域固定為56.25%（與seed無關），color 0.099–0.777，全圖平均0.416–0.421，roughness 0.38–0.58，最低AO 0.50，metallic恆為1，height至多0.988–0.992 relief；在鰭頂上沿u方向（跨鰭）的逐像素色差約為沿v方向（擠型線）的4.9–5.3倍；seed 7的512²maps平均r／g／b約(76, 79, 86)、metallic通道平均255、法線tilt²最大約0.716。我實看了四格預覽：整齊的直條鰭片與深縫，像擠型鋁散熱片，但太簡化（沒有鰭片的高度、倒角與基板）。未新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `jerky`（牛肉乾）使目前目錄940→941種，含plain的gallery為942項。風乾牛肉條表面：深紅褐色底上沿u方向延伸的細密肌纖維、沿同方向的寬低頻色調變化、逐處變化的光澤（roughness）與零星的近黑胡椒碎粒。不是真實肉乾的皺縮輪廓、脂肪粒、鹽結晶或油亮度，預覽也容易被看成髮絲拋光的深色木紋。
 
 此材質是作者依一般牛肉乾外觀所作示意，沒有引用特定來源文件、照片或量測，也沒有對照照片；纖維與色調雜訊的格數、胡椒密度與大小、紅褐色調、roughness與0.12 m nominal tile皆作者設定，不宣稱符合任何實際肉乾。

@@ -11983,3 +11983,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增7項（三seed統計與纖維方向、seed差異與決定性、C1＋有符號UV週期、actual512 maps），`-t "Beef jerky|jerky"`通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Beef jerky|jerky|kinds|catalog|distinct|periodic"`定向測試**2167項通過／3740項未選**。
 - 未驗證：本材質未跑完整suite與瀏覽器gallery（garlicskin亦未做）；不push。
+
+## 2026-11-02 新增材質：散熱鰭片（heatsinkfins）
+
+- 範圍：新增`heatsinkfins`（目前目錄941→942種，含plain的gallery 943項）：陽極處理擠型鋁散熱片，每tile 20片沿u方向的鰭片（`tanh`的正弦平滑方波），平坦鰭頂＋深而受遮蔽的窄縫（roughness＋0.2、AO 0.5），鰭頂另有4×160沿v方向拉長的擠型線、4×4陽極處理斑駁與128²細grain；整面金屬（sampler的`metallic = 1`），已加入`ProceduralMaterial`的金屬factor清單與測試的非金屬例外清單；預設0.1 m nominal tile、0.01 UV-relative relief。作者示意，沒有引用特定來源、**沒有對照照片**，無鰭片高度、倒角與基板。
+- 實作過程的錯誤（誠實紀錄）：我先只把kind加入`ProceduralMaterial`的金屬清單，探測時發現sampler輸出的metallic仍為0、512 maps的metallic通道平均也是0（金屬清單與sampler的`metallic`輸出是兩個獨立的地方）；補上`metallic = 1`後才得到255。另外加入範例選單的第一次腳本因為jerky選項經prettier換行而比對失敗，部分檔案已先被寫入；我確認哪些已寫入後只補寫缺的兩個檔案，沒有重複插入。
+- 實測（工具實跑）：三seed 512²取樣鰭頂（color>0.5）占47.1–47.3%、縫（color<0.25）占43.4–43.7%、AO<0.9的區域固定56.25%（與seed無關）、color 0.099–0.777、平均0.416–0.421、roughness 0.38–0.58、最低AO 0.50、metallic恆為1、height至多0.988–0.992 relief；鰭頂上沿u／沿v的逐像素色差比約4.9–5.3；seed 7的512²maps平均r／g／b約(76, 79, 86)、metallic通道平均255、法線tilt²最大約0.716、z分量最小196。
+- 測試：新增7項（三seed統計與全金屬、seed差異與決定性、C1＋有符號UV週期、actual512 maps），`-t "Heat sink fins|heatsinkfins"`通過；通用的「deterministic, seeded, distinct and periodic」測試中本kind走金屬例外（不要求metallic為0）。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Heat sink fins|heatsinkfins|kinds|catalog|distinct|periodic"`定向測試**2169項通過／3745項未選**。
+- 未驗證：本材質未跑完整suite（金屬清單的修改尤其值得之後完整跑一次）與瀏覽器gallery（garlicskin、jerky亦未做）；不push。

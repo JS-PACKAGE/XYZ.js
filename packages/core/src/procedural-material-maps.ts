@@ -38837,6 +38837,44 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'heatsinkfins': {
+        const p = proceduralMaterialPresets.heatsinkfins,
+          lineField = cachedNoise(p.lineColumns, p.lineRows, seed ^ p.seedSalt),
+          mottleField = cachedNoise(
+            p.mottleCells,
+            p.mottleCells,
+            seed ^ (p.seedSalt + 1),
+          ),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 2),
+          );
+        return () => {
+          // Extruded aluminium heat sink: an integer number of fins across u, with
+          // tanh of a sine as a smooth, C-infinity square wave (flat fin tops, deep
+          // gaps), fine extrusion lines along u from an elongated noise field, a faint
+          // anodising mottle and fine grain.
+          const fin =
+              0.5 +
+              0.5 * Math.tanh(p.sharpness * Math.sin(2 * Math.PI * p.fins * u)),
+            line = lineField(u, v),
+            mottle = mottleField(u, v),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.finTone - p.gapTone) * fin +
+            p.lineTone * (line - 0.5) * fin +
+            p.mottleTone * (mottle - 0.5) +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.finHeight * fin + p.lineHeight * line + p.grainHeight * grain;
+          roughness += p.gapRoughness * (1 - fin);
+          occlusion = 1 - p.gapOcclusion * (1 - fin);
+          metallic = 1;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -46586,6 +46624,7 @@ export function createSurfaceSampler(
     kind === 'pancake' ||
     kind === 'garlicskin' ||
     kind === 'jerky' ||
+    kind === 'heatsinkfins' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
