@@ -2946,3 +2946,154 @@ describe('dicefaces: rounded dice faces with point-symmetric pip layouts', () =>
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('cinderblockwall: running-bond masonry blocks with air voids', () => {
+  const p = proceduralMaterialPresets.cinderblockwall;
+  /** Runs (center, width) of mortar > 0.5 along a cyclic scan; fixed v scans u, otherwise the reverse. */
+  const runs = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    fixed: number,
+    alongU: boolean,
+  ): { center: number; width: number }[] => {
+    const out = empty(),
+      n = 16384,
+      on: boolean[] = [];
+    for (let i = 0; i < n; i++) {
+      if (alongU) sample((i + 0.5) / n, fixed, out);
+      else sample(fixed, (i + 0.5) / n, out);
+      on.push(out.mortar > 0.5);
+    }
+    const start = on.findIndex((value, i) => !value && on[(i + 1) % n]),
+      found: { center: number; width: number }[] = [];
+    let run = 0;
+    for (let k = 1; k <= n; k++) {
+      const i = (start + k) % n;
+      if (on[i]) run++;
+      else if (run > 0) {
+        found.push({
+          center: ((((start + k - run / 2) % n) + n) % n) / n,
+          width: run / n,
+        });
+        run = 0;
+      }
+    }
+    return found;
+  };
+
+  it.each(seeds)(
+    'lays joints of the authored width on a half-block running bond (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('cinderblockwall', seed),
+        pitch = 1 / p.columns;
+      const offsets: number[] = [];
+      for (let row = 0; row < p.courses; row++) {
+        const joints = runs(sample, (row + 0.5) / p.courses, true);
+        expect(joints.length).toBe(p.columns);
+        for (const joint of joints)
+          expect(Math.abs(joint.width - p.jointWidth)).toBeLessThan(0.003);
+        const spacing = joints.map((j) => j.center).sort((a, b) => a - b);
+        for (let i = 1; i < spacing.length; i++)
+          expect(Math.abs(spacing[i] - spacing[i - 1] - pitch)).toBeLessThan(
+            0.002,
+          );
+        // Joint offset within a block pitch.
+        offsets.push(((spacing[0] % pitch) + pitch) % pitch);
+      }
+      // Adjacent courses are offset by half a block, even courses by the same amount.
+      for (let row = 2; row < p.courses; row++)
+        expect(Math.abs(offsets[row] - offsets[row - 2])).toBeLessThan(0.002);
+      const shift = Math.abs(offsets[1] - offsets[0]);
+      expect(Math.abs(Math.min(shift, pitch - shift) - pitch / 2)).toBeLessThan(
+        0.003,
+      );
+      // Bed joints: one per course boundary, at the same places in every column.
+      const beds = runs(sample, 0.07, false);
+      expect(beds.length).toBe(p.courses);
+      for (const [k, bed] of beds
+        .sort((a, b) => a.center - b.center)
+        .entries()) {
+        const expected = (k === 0 ? 0 : k) / p.courses;
+        const gap = Math.abs(bed.center - expected);
+        expect(Math.min(gap, 1 - gap)).toBeLessThan(0.003);
+        expect(Math.abs(bed.width - p.jointWidth)).toBeLessThan(0.003);
+      }
+    },
+  );
+
+  it.each(seeds)(
+    'scatters small air voids at about the authored density and stays in range (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('cinderblockwall', seed),
+        out = empty(),
+        n = 1024,
+        pit = new Uint8Array(n * n);
+      let invalid = 0;
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          sample((x + 0.5) / n, (y + 0.5) / n, out);
+          invalid += Number(out.metallic !== 0);
+          for (const value of [
+            out.color,
+            out.height / p.relief,
+            out.roughness,
+            out.occlusion,
+            out.mortar,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+          pit[y * n + x] = Number(out.occlusion < 0.65 && out.mortar < 0.05);
+        }
+      expect(invalid).toBe(0);
+      const seen = new Uint8Array(pit.length);
+      let pits = 0;
+      for (let first = 0; first < pit.length; first++) {
+        if (!pit[first] || seen[first]) continue;
+        pits++;
+        const queue = [first];
+        seen[first] = 1;
+        for (let read = 0; read < queue.length; read++) {
+          const i = queue[read],
+            x = i % n,
+            y = Math.floor(i / n);
+          for (const [dx, dy] of [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ]) {
+            const j = ((y + dy + n) % n) * n + ((x + dx + n) % n);
+            if (pit[j] && !seen[j]) {
+              seen[j] = 1;
+              queue.push(j);
+            }
+          }
+        }
+      }
+      const expected = p.voidCells * p.voidCells * p.voidChance;
+      expect(pits).toBeGreaterThan(0.8 * expected);
+      expect(pits).toBeLessThan(1.1 * expected);
+    },
+  );
+
+  it('wraps seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('cinderblockwall', 0),
+      b = createSurfaceSampler('cinderblockwall', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        expect(two.mortar).toBeCloseTo(one.mortar, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(100);
+  });
+});

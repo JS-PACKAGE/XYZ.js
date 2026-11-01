@@ -17993,6 +17993,82 @@ export function createSurfaceSampler(
           );
         };
       }
+      case 'cinderblockwall': {
+        const p = proceduralMaterialPresets.cinderblockwall,
+          tones = new Float64Array(p.courses * p.columns),
+          aggregateField = cachedNoise(
+            p.aggregateCells,
+            p.aggregateCells,
+            seed ^ 0x25601,
+          ),
+          mottleField = cachedNoise(
+            p.mottleCells,
+            p.mottleCells,
+            seed ^ 0x25603,
+          ),
+          inverseJoint = 1 / p.jointSoft,
+          inverseChamfer = 1 / p.chamfer,
+          inverseVoid = 1 / p.voidSoft,
+          blockHeight = 1 / p.courses,
+          blockWidth = 1 / p.columns;
+        for (let row = 0; row < p.courses; row++)
+          for (let col = 0; col < p.columns; col++)
+            tones[row * p.columns + col] = hash(col, row, seed ^ 0x25605) - 0.5;
+        return () => {
+          const row = Math.floor(v * p.courses),
+            // Running bond: odd courses start half a block to the right.
+            shifted = u - (row & 1) * 0.5 * blockWidth,
+            colF = shifted * p.columns,
+            colRaw = Math.floor(colF),
+            col = ((colRaw % p.columns) + p.columns) % p.columns,
+            // Distances to the block's four edges, in tile units.
+            left = (colF - colRaw) * blockWidth,
+            right = blockWidth - left,
+            top = (v * p.courses - row) * blockHeight,
+            bottom = blockHeight - top,
+            edge = Math.min(left, right, top, bottom),
+            joint =
+              1 -
+              smooth(clamp((edge - p.jointWidth * 0.5) * inverseJoint + 0.5)),
+            face = smooth(clamp((edge - p.jointWidth * 0.5) * inverseChamfer)),
+            aggregate = aggregateField(u, v),
+            mottle = mottleField(u, v),
+            voidCellX = Math.floor(u * p.voidCells),
+            voidCellY = Math.floor(v * p.voidCells);
+          // Air voids ("bugholes"): at most one per cell, kept inside the cell.
+          let pit = 0;
+          if (hash(voidCellX, voidCellY, seed ^ 0x25607) < p.voidChance) {
+            const cx = 0.25 + 0.5 * hash(voidCellX, voidCellY, seed ^ 0x25609),
+              cy = 0.25 + 0.5 * hash(voidCellX, voidCellY, seed ^ 0x2560b),
+              radius =
+                p.voidRadius *
+                (0.6 + 0.8 * hash(voidCellX, voidCellY, seed ^ 0x2560d)),
+              d =
+                Math.sqrt(
+                  (u * p.voidCells - voidCellX - cx) ** 2 +
+                    (v * p.voidCells - voidCellY - cy) ** 2,
+                ) / p.voidCells;
+            pit = smooth(clamp((radius - d) * inverseVoid + 0.5)) * face;
+          }
+          color = clamp(
+            p.blockTone +
+              p.blockVariation * tones[row * p.columns + col] +
+              p.mottleTone * (mottle - 0.5) +
+              p.aggregateTone * (aggregate - 0.5) -
+              p.voidTone * pit,
+          );
+          height = clamp(
+            p.jointHeight +
+              (p.faceHeight - p.jointHeight) * face -
+              p.chamferHeight * (1 - face) * (1 - joint) +
+              p.aggregateHeight * (aggregate - 0.5) * face -
+              p.voidDepth * pit,
+          );
+          roughness = p.roughness + (p.jointRoughness - p.roughness) * joint;
+          occlusion = clamp(1 - (1 - p.jointAO) * joint - (1 - p.voidAO) * pit);
+          mortar = joint;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -45522,6 +45598,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'cinderblockwall' ||
     kind === 'dicefaces' ||
     kind === 'needlepoint' ||
     kind === 'mandalaflower' ||

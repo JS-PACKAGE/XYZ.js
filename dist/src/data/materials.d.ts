@@ -7093,6 +7093,36 @@ export declare const proceduralMaterialPresets: Readonly<{
         gapAO: 0.4;
         pipAO: 0.6;
     }>;
+    cinderblockwall: Readonly<{
+        dark: readonly [92, 92, 90];
+        light: readonly [196, 196, 190];
+        roughness: 0.92;
+        relief: 0.0038;
+        courses: 8;
+        columns: 4;
+        jointWidth: 0.0095;
+        jointSoft: 0.003;
+        chamfer: 0.007;
+        aggregateCells: 160;
+        mottleCells: 8;
+        voidCells: 56;
+        voidChance: 0.3;
+        voidRadius: 0.0042;
+        voidSoft: 0.0014;
+        blockTone: 0.5;
+        blockVariation: 0.08;
+        mottleTone: 0.1;
+        aggregateTone: 0.12;
+        voidTone: 0.2;
+        jointHeight: 0.1;
+        faceHeight: 0.62;
+        aggregateHeight: 0.07;
+        chamferHeight: 0.12;
+        voidDepth: 0.3;
+        jointRoughness: 0.98;
+        voidAO: 0.35;
+        jointAO: 0.55;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -13578,6 +13608,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    cinderblockwall: 1.6;
     dicefaces: 0.4;
     needlepoint: 0.3;
     mandalaflower: 0.6;

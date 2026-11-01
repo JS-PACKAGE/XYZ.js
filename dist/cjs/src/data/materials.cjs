@@ -12936,6 +12936,44 @@ var proceduralMaterialPresets = Object.freeze({
 		gapAO: .4,
 		pipAO: .6
 	}),
+	cinderblockwall: Object.freeze({
+		dark: [
+			92,
+			92,
+			90
+		],
+		light: [
+			196,
+			196,
+			190
+		],
+		roughness: .92,
+		relief: .0038,
+		courses: 8,
+		columns: 4,
+		jointWidth: .0095,
+		jointSoft: .003,
+		chamfer: .007,
+		aggregateCells: 160,
+		mottleCells: 8,
+		voidCells: 56,
+		voidChance: .3,
+		voidRadius: .0042,
+		voidSoft: .0014,
+		blockTone: .5,
+		blockVariation: .08,
+		mottleTone: .1,
+		aggregateTone: .12,
+		voidTone: .2,
+		jointHeight: .1,
+		faceHeight: .62,
+		aggregateHeight: .07,
+		chamferHeight: .12,
+		voidDepth: .3,
+		jointRoughness: .98,
+		voidAO: .35,
+		jointAO: .55
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -21617,6 +21655,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	cinderblockwall: 1.6,
 	dicefaces: .4,
 	needlepoint: .3,
 	mandalaflower: .6,

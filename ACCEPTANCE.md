@@ -11563,3 +11563,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試修正：第一版把「顏色在縫隙色與0.25之間」視為圓點，結果面緣的軟邊（縫隙→面的過渡）形成一圈大連通區，圓點數量達10、中心位置偏到0.075，使三seed都失敗；改為只在距面中心0.38以內的區域找深色像素（圓點最遠約0.333），避開面緣。這是量測範圍的錯，不是材質缺陷。
 - 實測：`tests/procedural-material-motifs.test.ts`一百三十九項（本材質四項）全過。三seed 768²取樣：每個面的面積（含圓點）等於圓角正方形公式 (2h)²−(4−π)r² 的±0.02、圓點數1–6、每個圓點中心都落在間距0.255的3×3格點上（±0.012）、且每個圓點的對點也亮（點對稱，標準骰子排列必然點對稱）；以固定格點探針逐面數亮點，三seed合計48個面恰好涵蓋1、2、3、4、5、6六種點數；通道範圍與wrap／seed差異。`tests/procedural-material.test.ts`以`-t "dicefaces|every preset"`定向跑3項通過，沒有重跑該檔其餘5528項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`dicefaces`：option 908個、status為907 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼無接縫、各點數面可辨。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：混凝土空心磚牆（cinderblockwall）
+
+- 目錄907→908，含plain的gallery為909項。每tile 8皮×4塊的半塊錯縫（奇數皮右移半塊）、2:1磚塊，灰縫寬0.0095 tile、凹陷並使用既有`mortar`通道；磚面有逐塊±0.08色調差、雲狀色斑、骨料顆粒、倒角與每tile約940個小氣孔。Metallic為0，預設tile1.6 m、0.0038 UV-relative relief、metallic factor 0。不模擬孔洞、泛白、油漆，不代表特定CMU規格；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 實測：`tests/procedural-material-motifs.test.ts`一百四十六項（本材質七項）全過。三seed每一皮沿u掃描16384點取mortar>0.5連續區：每皮恰4條縫、縫寬為0.0095±0.003、縫間距為1/4±0.002；相隔一皮的偏移相同、相鄰皮偏移半塊±0.003；沿u=0.07垂直掃描恰8條橫縫、位於k/8±0.003。三seed 1024²以連通區計氣孔（AO＜0.65且非灰縫）為每tile 909–930個，測試期望值為56²×0.3＝941的0.8–1.1倍；所有通道範圍、metallic 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "cinderblockwall|every preset"`定向跑3項通過，沒有重跑該檔其餘5529項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`cinderblockwall`：option 909個、status為908 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的錯縫、灰縫與氣孔可辨且無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
