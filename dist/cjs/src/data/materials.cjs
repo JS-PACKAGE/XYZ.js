@@ -21359,6 +21359,41 @@ var proceduralMaterialPresets = Object.freeze({
 		threadHeight: .5,
 		waxRoughness: -.06
 	}),
+	pancake: Object.freeze({
+		dark: [
+			88,
+			46,
+			16
+		],
+		light: [
+			246,
+			210,
+			138
+		],
+		roughness: .62,
+		relief: .004,
+		seedSalt: 39500,
+		broadCells: 5,
+		fineCells: 22,
+		fineWeight: .35,
+		browningCenter: .5,
+		browningSharpness: 6,
+		poreCells: 30,
+		poreChance: .55,
+		poreRadiusMinimum: .14,
+		poreRadiusVariation: .14,
+		poreJitter: .2,
+		grainCells: 128,
+		baseTone: .7,
+		browningDrop: .42,
+		poreDrop: .2,
+		grainTone: .04,
+		poreHeight: .4,
+		browningHeight: .15,
+		grainHeight: .45,
+		poreRoughness: .08,
+		poreOcclusion: .3
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -22794,7 +22829,8 @@ var proceduralTileMeters = Object.freeze({
 	salami: .12,
 	raspberry: .08,
 	granola: .2,
-	kawung: .3
+	kawung: .3,
+	pancake: .25
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

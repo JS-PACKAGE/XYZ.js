@@ -11948,3 +11948,14 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增7項（三seed統計與橢圓／圓點／裸布位置、seed差異與決定性、C1＋有符號UV週期、actual512 maps），`-t "Kawung|kawung"`通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Kawung|kawung|kinds|catalog|distinct|periodic"`定向測試**2161項通過／3725項未選**。
 - 未驗證：本材質未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：煎餅（pancake）與完整suite紀錄
+
+- 範圍：新增`pancake`（目前目錄938→939種，含plain的gallery 940項）：金黃底上由5×5＋22×22週期雜訊經`tanh`平滑門檻形成的蕾絲邊焦褐斑塊（面積隨seed差異很大），加30×30格的微小氣孔凹洞（roughness＋0.08、AO 0.7）；預設0.25 m nominal tile、0.004 UV-relative relief。作者示意，沒有引用特定來源、**沒有對照照片**。
+- 實作過程的錯誤（誠實紀錄）：第一版氣孔的`poreJitter`設為0.3、半徑最大0.28格，半徑加抖動0.58格超過半個格，氣孔會越過自己的格邊界，C1二階差分測試報出約6.3×10⁶而失敗（真實的跳變）。改成抖動0.2（0.28＋0.2 = 0.48 < 0.5）後通過，並重測統計（color最小值由0.069–0.085改為0.073–0.091，測試門檻同步調整）。這也使我再次確認本輪其他單格擁有權的材質（薩拉米胡椒0.22＋0.26、甜玉米0.47＋0.02、填字格題號點）皆在半格內。
+- 外觀限制（誠實紀錄）：斑塊邊緣有明顯的方塊雜訊感（來自22×22細雜訊格），沒有真實煎餅的光澤與厚度；焦褐面積隨seed差異極大（color<0.45的區域占24.7–63.4%），測試只能用寬門檻。
+- 實測（工具實跑）：三seed 512²取樣氣孔（AO<0.9）占4.84–5.15%、color 0.073–0.716、平均0.428–0.544、roughness 0.62–0.70、最低AO 0.7、height至多0.983–0.990 relief；seed 0與1的焦褐遮罩41.2%像素不同；seed 7的512²maps平均r／g／b約(161, 122, 73)、AO<230占4.87%、法線tilt²最大約0.325、z分量最小232。
+- 測試：新增7項（三seed統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps），`-t "Pancake|pancake"`通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Pancake|pancake|kinds|catalog|distinct|periodic"`定向測試**2163項通過／3730項未選**。
+- 完整suite（工具實跑，新建的乾淨worktree `/private/tmp/xyz-ct-suite`於`047b7f742`「Add raspberry material」，與granola、kawung、pancake的gates同時執行）：**179檔／9,801項全數通過**，Duration 1466.74s。涵蓋`50bbdf7da`之後的merbau、windowpane、crosswordgrid、sweetcorn、baconstrips、salami、raspberry；granola、kawung、pancake則只有定向測試與gates，尚未再跑完整suite。
+- 未驗證：本材質未跑瀏覽器gallery（merbau之後新增的sweetcorn、baconstrips、salami、raspberry、granola、kawung、pancake皆尚未做）；不push。

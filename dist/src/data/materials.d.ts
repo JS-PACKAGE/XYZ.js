@@ -13151,6 +13151,33 @@ export declare const proceduralMaterialPresets: Readonly<{
         threadHeight: 0.5;
         waxRoughness: -0.06;
     }>;
+    pancake: Readonly<{
+        dark: readonly [88, 46, 16];
+        light: readonly [246, 210, 138];
+        roughness: 0.62;
+        relief: 0.004;
+        seedSalt: 39500;
+        broadCells: 5;
+        fineCells: 22;
+        fineWeight: 0.35;
+        browningCenter: 0.5;
+        browningSharpness: 6;
+        poreCells: 30;
+        poreChance: 0.55;
+        poreRadiusMinimum: 0.14;
+        poreRadiusVariation: 0.14;
+        poreJitter: 0.2;
+        grainCells: 128;
+        baseTone: 0.7;
+        browningDrop: 0.42;
+        poreDrop: 0.2;
+        grainTone: 0.04;
+        poreHeight: 0.4;
+        browningHeight: 0.15;
+        grainHeight: 0.45;
+        poreRoughness: 0.08;
+        poreOcclusion: 0.3;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -14468,4 +14495,5 @@ export declare const proceduralTileMeters: Readonly<{
     raspberry: 0.08;
     granola: 0.2;
     kawung: 0.3;
+    pancake: 0.25;
 }>;

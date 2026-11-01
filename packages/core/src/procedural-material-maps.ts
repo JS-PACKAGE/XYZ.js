@@ -38639,6 +38639,77 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'pancake': {
+        const p = proceduralMaterialPresets.pancake,
+          count = p.poreCells * p.poreCells,
+          poreX = new Float64Array(count),
+          poreY = new Float64Array(count),
+          poreSize = new Float64Array(count),
+          broadField = cachedNoise(
+            p.broadCells,
+            p.broadCells,
+            seed ^ p.seedSalt,
+          ),
+          fineField = cachedNoise(
+            p.fineCells,
+            p.fineCells,
+            seed ^ (p.seedSalt + 1),
+          ),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 2),
+          );
+        for (let row = 0; row < p.poreCells; row++)
+          for (let col = 0; col < p.poreCells; col++) {
+            const i = row * p.poreCells + col,
+              salt = seed ^ (p.seedSalt + 3);
+            poreX[i] = p.poreJitter * 2 * (hash(col, row, salt) - 0.5);
+            poreY[i] = p.poreJitter * 2 * (hash(col, row, salt + 1) - 0.5);
+            // A zero size means no pore in this cell.
+            poreSize[i] =
+              hash(col, row, salt + 2) < p.poreChance
+                ? p.poreRadiusMinimum +
+                  p.poreRadiusVariation * hash(col, row, salt + 3)
+                : 0;
+          }
+        return () => {
+          // Browning: a broad plus a fine periodic noise field pushed through a smooth
+          // tanh step, so the darker patches have lacy, irregular edges. Pores are
+          // small smooth(1 - q) craters whose radius plus jitter stays under half a
+          // cell, so each is zero before its own cell boundary.
+          const mix =
+              (1 - p.fineWeight) * broadField(u, v) +
+              p.fineWeight * fineField(u, v),
+            browning =
+              0.5 +
+              0.5 * Math.tanh(p.browningSharpness * (p.browningCenter - mix)),
+            px = fract(u) * p.poreCells,
+            py = fract(v) * p.poreCells,
+            col = Math.floor(px),
+            row = Math.floor(py),
+            i = row * p.poreCells + col,
+            size = poreSize[i],
+            dx = px - col - 0.5 - poreX[i],
+            dy = py - row - 0.5 - poreY[i],
+            pore = size
+              ? smooth(clamp(1 - (dx * dx + dy * dy) / (size * size)))
+              : 0,
+            grain = grainField(u, v);
+          color =
+            p.baseTone -
+            p.browningDrop * browning -
+            p.poreDrop * pore +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.browningHeight * browning +
+            p.poreHeight * (1 - pore) +
+            p.grainHeight * grain;
+          roughness += p.poreRoughness * pore;
+          occlusion = 1 - p.poreOcclusion * pore;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -46385,6 +46456,7 @@ export function createSurfaceSampler(
     kind === 'raspberry' ||
     kind === 'granola' ||
     kind === 'kawung' ||
+    kind === 'pancake' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
