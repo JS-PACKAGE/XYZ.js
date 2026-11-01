@@ -979,6 +979,7 @@ const kinds: ProceduralMaterialKind[] = [
   'salami',
   'raspberry',
   'granola',
+  'kawung',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -144356,6 +144357,218 @@ describe('Granola with pale oat flakes and dark nut and fruit chunks on a honey-
     expect(covered / (512 * 512)).toBeLessThan(0.52);
     expect(maxTilt).toBeGreaterThan(0.65);
     expect(maxTilt).toBeLessThan(0.8);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Kawung batik with cream wax-resist checkerboard ellipses and dots on indigo cloth', () => {
+  const p = proceduralMaterialPresets.kawung;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  // Colour at a position given in cell units inside every cell of the tile.
+  const cellColors = (
+    seed: number,
+    cx: number,
+    cy: number,
+    parity = -1,
+  ): number[] => {
+    const sample = createSurfaceSampler('kawung', seed),
+      out = empty(),
+      values: number[] = [];
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        if (parity >= 0 && (col + row) % 2 !== parity) continue;
+        sample((col + cx) / p.cells, (row + cy) / p.cells, out);
+        values.push(out.color);
+      }
+    return values;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'draws about an eighth cream wax lines and dots over dark indigo with a bounded range for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('kawung', seed),
+        a = empty();
+      let wax = 0,
+        groundSum = 0,
+        groundCount = 0,
+        low = 1,
+        high = 0,
+        mean = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 512; y++)
+        for (let x = 0; x < 512; x++) {
+          sample((x + 0.5) / 512, (y + 0.5) / 512, a);
+          wax += Number(a.color > 0.5);
+          if (a.color < 0.25) {
+            groundSum += a.color;
+            groundCount++;
+          }
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          mean += a.color;
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      // The cell centre dot and the ellipse edges are wax; the corner of a cell,
+      // where four ellipses leave a gap, is bare cloth.
+      const centreDots = cellColors(seed, 0.5, 0.5),
+        // Even cells hold a horizontal ellipse (its top edge is wax), odd cells a
+        // vertical one (its left edge is wax).
+        tops = cellColors(seed, 0.5, 0.5 - p.petalWidth, 0),
+        sides = cellColors(seed, 0.5 - p.petalWidth, 0.5, 1),
+        bare = cellColors(seed, 0, 0);
+      expect(wax / 262144).toBeGreaterThan(0.12);
+      expect(wax / 262144).toBeLessThan(0.135);
+      expect(groundSum / groundCount).toBeGreaterThan(0.118);
+      expect(groundSum / groundCount).toBeLessThan(0.126);
+      expect(low).toBeGreaterThan(0.07);
+      expect(low).toBeLessThan(0.08);
+      expect(high).toBeGreaterThan(0.9);
+      expect(high).toBeLessThan(0.912);
+      expect(mean / 262144).toBeGreaterThan(0.21);
+      expect(mean / 262144).toBeLessThan(0.218);
+      expect(roughLow).toBeCloseTo(p.roughness + p.waxRoughness, 3);
+      expect(roughHigh).toBeLessThanOrEqual(p.roughness);
+      expect(heightHigh).toBeGreaterThan(0.99);
+      expect(heightHigh).toBeLessThan(1);
+      expect(Math.min(...centreDots)).toBeGreaterThan(0.82);
+      expect(Math.min(...tops)).toBeGreaterThan(0.82);
+      expect(Math.min(...sides)).toBeGreaterThan(0.82);
+      expect(Math.max(...bare)).toBeLessThan(0.2);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('re-draws the dye and thread noise per seed and is deterministic for one seed', () => {
+    const first = cellColors(0, 0, 0),
+      second = cellColors(1, 0, 0);
+    let difference = 0;
+    for (let i = 0; i < first.length; i++)
+      difference += Math.abs(first[i] - second[i]);
+    expect(difference / first.length).toBeGreaterThan(0.004);
+    expect(cellColors(0, 0, 0)).toEqual(first);
+  });
+  it('keeps the petal rings, dots, dye and thread noise C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('kawung', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [
+        p.cells,
+        2 * p.cells,
+        4 * p.cells,
+        p.dyeCells,
+        p.threadCells,
+      ])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 indigo dielectric maps with a cream wax pattern', () => {
+    const maps = generateProceduralMaps('kawung', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      light = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      light += Number(maps.baseColor[i] > 110);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.normal[i + 2] < 200,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(57);
+    expect(red / (512 * 512)).toBeLessThan(64);
+    expect(green / (512 * 512)).toBeGreaterThan(61);
+    expect(green / (512 * 512)).toBeLessThan(68);
+    expect(blue / (512 * 512)).toBeGreaterThan(80);
+    expect(blue / (512 * 512)).toBeLessThan(88);
+    expect(blue).toBeGreaterThan(green);
+    expect(light / (512 * 512)).toBeGreaterThan(0.125);
+    expect(light / (512 * 512)).toBeLessThan(0.145);
+    expect(maxTilt).toBeGreaterThan(0.4);
+    expect(maxTilt).toBeLessThan(0.5);
     expect(invalid).toBe(0);
   });
 });

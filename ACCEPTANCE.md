@@ -11939,3 +11939,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Granola|granola|kinds|catalog|distinct|periodic"`定向測試**2159項通過／3720項未選**。
 - 工作環境註記：我原本用來跑完整suite的凍結worktree `/private/tmp/xyz-suite`在這段期間被其他程序改動（`.git`連結不見、`node_modules`連結改指向另一個worktree，`git worktree list`標為prunable），我對該次suite的啟動因此失敗（`not a git repository`），沒有產生結果；我改建新的worktree `/private/tmp/xyz-ct-suite`重跑。更早在`50bbdf7da`取得的完整suite結果（9,747項通過）是在該目錄被改動之前完成的，不受影響。
 - 未驗證：本材質未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：卡翁紋巴迪克（kawung）
+
+- 範圍：新增`kawung`（目前目錄937→938種，含plain的gallery 939項）：深靛藍棉布上以蠟防染的乳白色橢圓，4×4格、每格一個橢圓、`(col + row)`偶數格長軸沿u、奇數格沿v（棋盤式），橢圓半軸0.72／0.30格而伸入鄰格交疊，中心有圓點；環線為緊支撐的`smooth(clamp(1 − ((q − 1)/w)²))`、與圓點以聯集`1 − Π(1 − x)`合併，靛藍底另有5×5染色雜訊與192²紗線雜訊；預設0.3 m nominal tile、0.004 UV-relative relief。簡化示意，沒有引用特定來源、**沒有對照圖譜或照片**，不是真實卡翁紋的精確幾何。
+- 調整紀錄（誠實紀錄）：第一版把四個花瓣橢圓沿格線（半軸0.25／0.14）排列，預覽看起來像鏈條格而非卡翁；改成每格一個、棋盤式交錯方向、半軸0.72／0.30的橢圓後才採用（再把長半軸由0.66加到0.72以增加交疊）。因為幾何改了，我也重寫並重新校正了測試的取樣位置（偶數格取橢圓上緣、奇數格取左緣、格角取無蠟處）與全部數值門檻，沿用第一版數值而未重跑會出錯。
+- 實測（工具實跑）：三seed 512²取樣蠟（color>0.5）占12.75–12.78%、color 0.072–0.907、平均0.2125–0.2146、靛藍底平均0.121–0.123、roughness 0.76–0.82、height至多0.994–0.999 relief；格角（無蠟處）最亮約0.140–0.164；seed 0與1的格角色差平均約0.024；seed 7的512²maps平均r／g／b約(60, 64, 84)、r>110占13.5%、法線tilt²最大約0.450、z分量最小222。
+- 測試：新增7項（三seed統計與橢圓／圓點／裸布位置、seed差異與決定性、C1＋有符號UV週期、actual512 maps），`-t "Kawung|kawung"`通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Kawung|kawung|kinds|catalog|distinct|periodic"`定向測試**2161項通過／3725項未選**。
+- 未驗證：本材質未跑完整suite與瀏覽器gallery；不push。

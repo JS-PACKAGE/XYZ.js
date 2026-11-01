@@ -13130,6 +13130,27 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.3;
         groundOcclusion: 0.4;
     }>;
+    kawung: Readonly<{
+        dark: readonly [12, 20, 52];
+        light: readonly [238, 228, 202];
+        roughness: 0.82;
+        relief: 0.004;
+        cells: 4;
+        seedSalt: 51729;
+        petalLength: 0.72;
+        petalWidth: 0.3;
+        ringSoft: 0.14;
+        dotRadius: 0.07;
+        dyeCells: 5;
+        threadCells: 192;
+        groundTone: 0.12;
+        dyeTone: 0.05;
+        waxTone: 0.86;
+        threadTone: 0.05;
+        waxHeight: 0.5;
+        threadHeight: 0.5;
+        waxRoughness: -0.06;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -14446,4 +14467,5 @@ export declare const proceduralTileMeters: Readonly<{
     salami: 0.12;
     raspberry: 0.08;
     granola: 0.2;
+    kawung: 0.3;
 }>;

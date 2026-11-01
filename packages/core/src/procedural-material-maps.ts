@@ -38590,6 +38590,55 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'kawung': {
+        const p = proceduralMaterialPresets.kawung,
+          dyeField = cachedNoise(p.dyeCells, p.dyeCells, seed ^ p.seedSalt),
+          threadField = cachedNoise(
+            p.threadCells,
+            p.threadCells,
+            seed ^ (p.seedSalt + 1),
+          ),
+          inverseSoft = 1 / p.ringSoft,
+          inverseLength2 = 1 / (p.petalLength * p.petalLength),
+          inverseWidth2 = 1 / (p.petalWidth * p.petalWidth),
+          inverseDot2 = 1 / (p.dotRadius * p.dotRadius);
+        return () => {
+          // Wax-resist lines of a kawung-style lattice: one ellipse per cell, long
+          // axis along u on even (col + row) cells and along v on odd ones (the cell
+          // count is even, so the checkerboard wraps), each long enough to poke into
+          // the neighbouring cells and cross their ellipses. A ring is
+          // smooth(clamp(1 - ((q - 1) / w)^2)) of the ellipse form q, compact and C1;
+          // rings and centre dots join as the union 1 - prod(1 - x).
+          const fx = fract(u) * p.cells,
+            fy = fract(v) * p.cells,
+            col = Math.floor(fx),
+            row = Math.floor(fy);
+          let rest = 1;
+          for (let dr = -1; dr <= 1; dr++)
+            for (let dc = -1; dc <= 1; dc++) {
+              const dx = fx - (col + dc) - 0.5,
+                dy = fy - (row + dr) - 0.5,
+                horizontal = (((col + dc + row + dr) % 2) + 2) % 2 === 0,
+                q = horizontal
+                  ? dx * dx * inverseLength2 + dy * dy * inverseWidth2
+                  : dx * dx * inverseWidth2 + dy * dy * inverseLength2,
+                t = (q - 1) * inverseSoft;
+              rest *= 1 - smooth(clamp(1 - t * t));
+              rest *= 1 - smooth(clamp(1 - (dx * dx + dy * dy) * inverseDot2));
+            }
+          const wax = 1 - rest,
+            dye = dyeField(u, v),
+            thread = threadField(u, v);
+          color =
+            p.groundTone +
+            p.dyeTone * (dye - 0.5) +
+            (p.waxTone - p.groundTone) * wax +
+            p.threadTone * (thread - 0.5);
+          height = p.waxHeight * wax + p.threadHeight * thread;
+          roughness += p.waxRoughness * wax;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -46335,6 +46384,7 @@ export function createSurfaceSampler(
     kind === 'salami' ||
     kind === 'raspberry' ||
     kind === 'granola' ||
+    kind === 'kawung' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
