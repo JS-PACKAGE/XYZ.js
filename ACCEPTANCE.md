@@ -11624,3 +11624,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 調整記錄：第一版（12×12、抖動0.55、以雜訊閾值取卵石）預覽看起來像鱷魚皮／鵝卵石而不像圖案地面，石環呈方塊狀；改成8×8、抖動0.7、以隨機半徑圓形卵石（72格）排在石環帶、再調為48格後，才有石環圍繞粉土多邊形的樣子。另外清理了重構後留下的未使用變數與魔術常數（石頭邊緣、最小rim、色調範圍、顆粒高度移到preset）。
 - 實測：`tests/procedural-material-motifs.test.ts`一百八十二項（本材質八項）全過。六個seed（0、7、4294967295、1、2、3）1024²取樣：把非裂溝像素（AO≥0.8）依環面4連通分成恰好64（8×8）個多邊形，裂溝占比0.14–0.15（測試範圍0.08–0.22），最小多邊形約7500–9700像素（遠大於測試下限約1638，沒有碎片）；以裂溝為多源BFS的距離分層：裂溝平均高度約0.05（＜0.12）、石環帶（距裂溝4–10像素）約0.655（＞0.58）、中心核心（≥30像素）約0.46（＜0.5）、石環比核心高0.12以上；通道範圍、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "frostpolygons|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`frostpolygons`：option 917個、status為916 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的多邊形與石環連續無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：Data Matrix二維碼標籤（datamatrixcodes）
+
+- 目錄916→917，含plain的gallery為918項。每tile 3×3個18×18模組的ECC 200風格符號（1模組空白區，共60×60模組）：左欄與底列為實心L形finder、上列與右欄為交替clock track，16×16資料區依seed以約50%機率塗墨。Metallic／mortar為0，預設tile0.4 m、0.0012 UV-relative relief、metallic factor 0。資料區是隨機位元，不是有效的ECC 200碼字，不可掃描；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 調整記錄：第一版每個模組是帶圓角的獨立方塊，預覽中相鄰深色模組之間有一格格的淡色縫，不像印刷的二維碼；改為只在與不同狀態的鄰格共用的邊緣做柔化，深色模組連成實心後才像Data Matrix。同時移除了不再使用的圓角參數。
+- 實測：`tests/procedural-material-motifs.test.ts`一百八十六項（本材質四項）全過。三seed對9個符號、在模組中心取樣：左欄與底列18個模組全為深色；上列為偶數欄深、奇數欄淺；右欄由底往上偶數步為深（上右角為淺）；資料區深色比例與0.5相差＜0.12；9個符號的資料位元圖樣互不相同；符號四周的空白區全為淺色；通道範圍、metallic／mortar 0、wrap與seed差異。只驗證結構，沒有掃描器或解碼函式庫，也不宣稱資料可解碼。`tests/procedural-material.test.ts`以`-t "datamatrixcodes|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`datamatrixcodes`：option 918個、status為917 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的符號與接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

@@ -4100,3 +4100,92 @@ describe('frostpolygons: patterned ground of silt polygons between troughs', () 
     expect(different).toBeGreaterThan(100);
   });
 });
+
+describe('datamatrixcodes: ECC 200 finder and clock patterns', () => {
+  const p = proceduralMaterialPresets.datamatrixcodes;
+  const pitch = p.size + 2 * p.quiet,
+    modules = p.symbols * pitch;
+
+  it.each(seeds)(
+    'draws an L-shaped solid finder, alternating clock track and varied data in every symbol (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('datamatrixcodes', seed),
+        out = empty(),
+        dark = (col: number, row: number): number => {
+          sample((col + 0.5) / modules, (row + 0.5) / modules, out);
+          return out.color < 0.5 ? 1 : 0;
+        },
+        last = p.size - 1,
+        patterns = new Set<string>();
+      for (let sy = 0; sy < p.symbols; sy++)
+        for (let sx = 0; sx < p.symbols; sx++) {
+          const at = (col: number, row: number): number =>
+            dark(sx * pitch + p.quiet + col, sy * pitch + p.quiet + row);
+          let dataDark = 0,
+            bits = '';
+          for (let i = 0; i < p.size; i++) {
+            // Solid L: left column and bottom row.
+            expect(at(0, i)).toBe(1);
+            expect(at(i, last)).toBe(1);
+            // Clock track: top row dark on even columns, right column dark on even steps up from
+            // the bottom (so the top-right corner module is light for an even-sized symbol).
+            expect(at(i, 0)).toBe(i % 2 === 0 ? 1 : 0);
+            expect(at(last, i)).toBe((last - i) % 2 === 0 ? 1 : 0);
+          }
+          for (let row = 1; row < last; row++)
+            for (let col = 1; col < last; col++) {
+              const bit = at(col, row);
+              dataDark += bit;
+              bits += bit;
+            }
+          const data = (p.size - 2) ** 2;
+          expect(Math.abs(dataDark / data - p.dataDensity)).toBeLessThan(0.12);
+          patterns.add(bits);
+          // Quiet zone around the symbol is paper.
+          for (let i = -p.quiet; i <= p.size + p.quiet - 1; i++) {
+            expect(at(i, -1)).toBe(0);
+            expect(at(-1, i)).toBe(0);
+            expect(at(i, p.size)).toBe(0);
+            expect(at(p.size, i)).toBe(0);
+          }
+        }
+      expect(patterns.size).toBe(p.symbols * p.symbols);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('datamatrixcodes', 0),
+      b = createSurfaceSampler('datamatrixcodes', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

@@ -18699,6 +18699,73 @@ export function createSurfaceSampler(
           occlusion = clamp(1 - (1 - p.troughAO) * trough);
         };
       }
+      case 'datamatrixcodes': {
+        const p = proceduralMaterialPresets.datamatrixcodes,
+          inkField = cachedNoise(p.inkCells, p.inkCells, seed ^ 0x25f01),
+          paperField = cachedNoise(p.paperCells, p.paperCells, seed ^ 0x25f03),
+          pitch = p.size + 2 * p.quiet,
+          modules = p.symbols * pitch,
+          // 1 = dark module. Each symbol: solid L finder (left column, bottom row), alternating
+          // clock track (top row, right column) and a pseudo-random data region inside.
+          grid = new Uint8Array(modules * modules);
+        for (let sy = 0; sy < p.symbols; sy++)
+          for (let sx = 0; sx < p.symbols; sx++)
+            for (let row = 0; row < p.size; row++)
+              for (let col = 0; col < p.size; col++) {
+                const last = p.size - 1;
+                let dark: boolean;
+                if (col === 0 || row === last) dark = true;
+                else if (row === 0) dark = col % 2 === 0;
+                else if (col === last) dark = (last - row) % 2 === 0;
+                else
+                  dark =
+                    hash(sx * p.size + col, sy * p.size + row, seed ^ 0x25f05) <
+                    p.dataDensity;
+                grid[
+                  (sy * pitch + p.quiet + row) * modules +
+                    sx * pitch +
+                    p.quiet +
+                    col
+                ] = dark ? 1 : 0;
+              }
+        const inverseSoft = 1 / p.edgeSoft;
+        return () => {
+          const gx = u * modules,
+            gy = v * modules,
+            cx = Math.min(modules - 1, Math.floor(gx)),
+            cy = Math.min(modules - 1, Math.floor(gy)),
+            fx = gx - cx,
+            fy = gy - cy,
+            here = grid[cy * modules + cx],
+            // Soften only the edges shared with a module of the other state, so runs of dark
+            // modules stay solid.
+            toLeft =
+              grid[cy * modules + ((cx + modules - 1) % modules)] !== here
+                ? fx
+                : 1,
+            toRight =
+              grid[cy * modules + ((cx + 1) % modules)] !== here ? 1 - fx : 1,
+            toTop =
+              grid[((cy + modules - 1) % modules) * modules + cx] !== here
+                ? fy
+                : 1,
+            toBottom =
+              grid[((cy + 1) % modules) * modules + cx] !== here ? 1 - fy : 1,
+            edge = Math.min(toLeft, toRight, toTop, toBottom),
+            ink = here ? smooth(clamp(edge * inverseSoft)) : 0,
+            gain = inkField(u, v) - 0.5,
+            grain = paperField(u, v) - 0.5;
+          color = clamp(
+            p.paperTone +
+              p.paperGrain * grain +
+              (p.inkTone + p.inkGain * gain - p.paperTone) * ink,
+          );
+          height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * ink);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -46228,6 +46295,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'datamatrixcodes' ||
     kind === 'frostpolygons' ||
     kind === 'sandripples' ||
     kind === 'morsetape' ||
