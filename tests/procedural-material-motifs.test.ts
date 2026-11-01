@@ -9020,3 +9020,150 @@ describe('tallymarks: strokes counted in fives match the printed total', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('polargraphpaper: rings at equal spacing and spokes every ten degrees', () => {
+  const p = proceduralMaterialPresets.polargraphpaper;
+  const spacing = 0.04;
+
+  // Runs of ink along a sampled path: [centre, width] pairs.
+  const runsOf = (values: number[], step: number): [number, number][] => {
+    const runs: [number, number][] = [];
+    let start = -1;
+    for (let i = 0; i <= values.length; i++) {
+      const ink = i < values.length && values[i] < 0.8;
+      if (ink && start < 0) start = i;
+      if (!ink && start >= 0) {
+        runs.push([((start + i - 1) / 2) * step, (i - start) * step]);
+        start = -1;
+      }
+    }
+    return runs;
+  };
+
+  it.each(seeds)(
+    'draws twelve rings at radii 0.04 k with heavier rings at 5, 10 and 12 (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('polargraphpaper', seed),
+        out = empty(),
+        steps = 8000;
+      // Along a ray between two spokes (5 degrees past the +u axis).
+      const angle = (5 * Math.PI) / 180,
+        values: number[] = [];
+      for (let i = 0; i < steps; i++) {
+        const radius = ((i + 0.5) / steps) * 0.5;
+        sample(
+          0.5 + radius * Math.cos(angle),
+          0.5 + radius * Math.sin(angle),
+          out,
+        );
+        values.push(out.color);
+      }
+      const rings = runsOf(values, 0.5 / steps);
+      expect(rings.length).toBe(12);
+      for (let k = 0; k < 12; k++)
+        expect(Math.abs(rings[k][0] - spacing * (k + 1))).toBeLessThan(0.0006);
+      const thin = rings[1][1],
+        heavy = rings[4][1];
+      for (const k of [4, 9, 11])
+        expect(rings[k][1]).toBeGreaterThan(thin * 1.4);
+      for (const k of [0, 1, 2, 3, 5, 6, 7, 8, 10])
+        expect(rings[k][1]).toBeLessThan(heavy * 0.85);
+    },
+  );
+
+  it.each(seeds)(
+    'draws 36 spokes with every third heavier and the four axes heaviest (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('polargraphpaper', seed),
+        out = empty(),
+        steps = 20000;
+      // Around a circle halfway between two rings (inside the outer ring).
+      const radius = spacing * 7.5,
+        values: number[] = [];
+      for (let i = 0; i < steps; i++) {
+        const angle = ((i + 0.5) / steps) * Math.PI * 2;
+        sample(
+          0.5 + radius * Math.cos(angle),
+          0.5 + radius * Math.sin(angle),
+          out,
+        );
+        values.push(out.color);
+      }
+      // The scan starts on the +u axis, whose spoke straddles the start: rotate by half a spoke.
+      const shifted = values
+          .slice(steps / 72)
+          .concat(values.slice(0, steps / 72)),
+        spokes = runsOf(shifted, 360 / steps);
+      expect(spokes.length).toBe(36);
+      let worstAngle = 0;
+      const widths: number[] = [];
+      for (let k = 0; k < 36; k++) {
+        // The scan starts 5 degrees past the +u axis, so the spoke on the axis (k = 0) is the last
+        // run and run j is spoke j + 1, centred at (j + 1) * 10 degrees minus the 5 degree shift.
+        const run = spokes[(k + 35) % 36],
+          expected = k === 0 ? 360 - 5 : k * 10 - 5;
+        worstAngle = Math.max(worstAngle, Math.abs(run[0] - expected));
+        widths.push(run[1]);
+      }
+      expect(worstAngle).toBeLessThan(0.2);
+      const thinWidth = widths[1];
+      for (let k = 0; k < 36; k++) {
+        if (k % 9 === 0) expect(widths[k]).toBeGreaterThan(thinWidth * 2.2);
+        else if (k % 3 === 0)
+          expect(widths[k]).toBeGreaterThan(thinWidth * 1.5);
+        else
+          expect(Math.abs(widths[k] - thinWidth)).toBeLessThan(
+            thinWidth * 0.25,
+          );
+      }
+      // No spokes inside the first ring, and nothing outside the outer ring.
+      let inner = 0,
+        outside = 0;
+      for (let i = 0; i < 720; i++) {
+        const a = ((i + 0.5) / 720) * Math.PI * 2;
+        sample(0.5 + 0.025 * Math.cos(a), 0.5 + 0.025 * Math.sin(a), out);
+        inner += Number(out.color < 0.8);
+        sample(0.5 + 0.495 * Math.cos(a), 0.5 + 0.495 * Math.sin(a), out);
+        outside += Number(out.color < 0.8);
+      }
+      expect(inner).toBe(0);
+      expect(outside).toBe(0);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('polargraphpaper', 0),
+      b = createSurfaceSampler('polargraphpaper', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(20);
+  });
+});

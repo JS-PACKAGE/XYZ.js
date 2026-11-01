@@ -1379,6 +1379,10 @@
 
 這是作者設計的示意：採用的是「四直一斜」的五劃計數法（不是東亞的「正」字記法）；每條筆劃都是完美的直線，沒有手寫的歪斜與粗細變化（墨色濃淡只是整體亮度擾動）；最多49條（10組），再多就放不進一列。預設0.3 m nominal tile、0.0016 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上（筆劃寬約3 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`polargraphpaper`（極座標方格紙）使目前目錄955→956種，含plain的gallery為957項。每tile一張置中的極座標圖紙：12個等間距同心圓（半徑0.04 k tile，k = 1至12，第5、10與最外圈較粗）與每10°一條的36條放射線（每30°較粗、四條座標軸最粗），放射線從第1圈外側畫到最外圈，中心留一個空白小圓，圖紙之外是空白紙面。墨色為青綠近黑，紙面米白帶細紋。Metallic與mortar為0。
+
+這是作者設計的示意：沒有角度或半徑的刻度數字、沒有座標軸箭頭；線寬是固定的相對寬度（細0.0011、粗0.0021、軸0.0032 tile），不隨解析度調整，所以在32這種極低解析度下細線會消失；圖紙正好是tile內的一個圓，tile接縫處沒有線。顏色是亮度插值（深青綠到近白）。預設0.3 m nominal tile、0.0012 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上（細線約2 px）；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

@@ -8355,6 +8355,32 @@ export declare const proceduralMaterialPresets: Readonly<{
         inkRoughness: 0.4;
         paperRoughness: 0.72;
     }>;
+    polargraphpaper: Readonly<{
+        dark: readonly [20, 60, 56];
+        light: readonly [244, 248, 240];
+        roughness: 0.62;
+        relief: 0.0012;
+        rings: 12;
+        ringSpacing: 0.04;
+        spokes: 36;
+        heavyEvery: 3;
+        axisEvery: 9;
+        thinHalf: 0.0011;
+        heavyHalf: 0.0021;
+        axisHalf: 0.0032;
+        ringHeavyEvery: 5;
+        edgeSoft: 0.0009;
+        grainCells: 256;
+        paperTone: 0.95;
+        thinTone: 0.55;
+        heavyTone: 0.36;
+        axisTone: 0.2;
+        grainTone: 0.03;
+        lineHeight: 0.5;
+        paperHeight: 0.3;
+        lineRoughness: 0.45;
+        paperRoughness: 0.74;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -14840,6 +14866,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    polargraphpaper: 0.3;
     tallymarks: 0.3;
     quasicrystalwaves: 0.4;
     tictactoegames: 0.3;

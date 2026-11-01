@@ -22345,6 +22345,67 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'polargraphpaper': {
+        const p = proceduralMaterialPresets.polargraphpaper,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x28601),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          outer = p.rings * p.ringSpacing,
+          step = TAU / p.spokes;
+        // Polar graph paper centered on the tile: concentric circles at equal radial spacing (every
+        // fifth heavier) and radial lines every 360 / spokes degrees, every third heavier and the
+        // four axes heaviest.
+        return () => {
+          const dx = u - 0.5,
+            dy = v - 0.5,
+            radius = Math.sqrt(dx * dx + dy * dy);
+          let weight = 0,
+            tone: number = p.paperTone;
+          if (radius <= outer + p.heavyHalf) {
+            const ringIndex = Math.round(radius / p.ringSpacing),
+              ringDistance = Math.abs(radius - ringIndex * p.ringSpacing),
+              heavyRing =
+                ringIndex % p.ringHeavyEvery === 0 || ringIndex === p.rings,
+              ring =
+                ringIndex >= 1 && ringIndex <= p.rings
+                  ? cover((heavyRing ? p.heavyHalf : p.thinHalf) - ringDistance)
+                  : 0;
+            if (ring > 0) {
+              weight = ring;
+              tone = heavyRing ? p.heavyTone : p.thinTone;
+            }
+            // Radial lines: nearest spoke by angle, distance across the line in tile units.
+            const turn = (Math.atan2(dy, dx) + TAU) % TAU,
+              spoke = Math.round(turn / step) % p.spokes,
+              across =
+                Math.abs(((turn - spoke * step + Math.PI) % TAU) - Math.PI) *
+                radius,
+              axis = spoke % p.axisEvery === 0,
+              heavy = spoke % p.heavyEvery === 0,
+              half = axis ? p.axisHalf : heavy ? p.heavyHalf : p.thinHalf,
+              line =
+                radius >= p.ringSpacing
+                  ? cover(half - across) * cover(outer + p.heavyHalf - radius)
+                  : 0;
+            if (line > weight) {
+              weight = line;
+              tone = axis ? p.axisTone : heavy ? p.heavyTone : p.thinTone;
+            }
+          }
+          color = clamp(
+            p.paperTone +
+              (tone - p.paperTone) * weight +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.paperHeight + (p.lineHeight - p.paperHeight) * weight,
+          );
+          roughness =
+            p.paperRoughness + (p.lineRoughness - p.paperRoughness) * weight;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -49874,6 +49935,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'polargraphpaper' ||
     kind === 'tallymarks' ||
     kind === 'quasicrystalwaves' ||
     kind === 'tictactoegames' ||

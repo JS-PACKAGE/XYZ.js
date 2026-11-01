@@ -11912,3 +11912,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`四百九十六項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）×8列：在每個預期的筆劃位置（取每條筆劃下半部，避開斜線）判斷有無墨，斜線以組中央的間隙判斷；一組的筆劃從第一條起連續、斜線只出現在四條筆劃齊全的組、只有最後一組可以不滿五（不滿的組之後不能再有滿組）；整列的總數（滿組算5）在3至49之間，且與以測試端獨立字型逐像素解碼出的右側數字（一或兩位數）完全相等；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "tallymarks|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 另外，在quasicrystalwaves提交後的狀態，以`git archive HEAD`匯出一份乾淨副本（`/private/tmp/xyz-suite`，避免我在執行期間繼續編輯影響結果），對它執行完整的`vitest run tests/procedural-material.test.ts tests/procedural-material-motifs.test.ts`；結果在完成時另行記錄於後續的進度說明（本段撰寫時尚未回來，不在此宣稱通過）。
 - 真實dev server的pbr3d頁（WebGPU）選取`tallymarks`：option 956個、status為955 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的計數列與數字。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：極座標方格紙（polargraphpaper）
+
+- 目錄955→956，含plain的gallery為957項。每tile一張置中的極座標圖紙：12個等間距同心圓（半徑0.04 k tile；第5、10與最外圈較粗）與每10°一條的36條放射線（每30°較粗、四軸最粗），放射線從第1圈畫到最外圈，中心留空白小圓。Metallic／mortar為0，預設tile0.3 m、0.0012 UV-relative relief、metallic factor 0。無刻度數字，線寬固定；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 測試修正：放射線測試第一版的索引錯位（掃描起點偏5°後，位於0°的軸線變成最後一個run，其餘每個run的索引要加一），導致最大角度誤差報成約10°而失敗；是測試端的索引錯誤，改為用`(k + 35) % 36`對應後通過。取樣器沒有改。
+- 實測：`tests/procedural-material-motifs.test.ts`五百零三項（本材質七項）全過。三seed（0、7、4294967295）：沿兩條放射線之間的射線（偏離5°）掃描8000點，數到12個圈，中心半徑與0.04 k相差＜0.0006，第5、10與最外圈的寬度大於細圈的1.4倍、其餘圈小於粗圈的0.85倍；沿著兩圈中間的圓（半徑0.3）掃描20000點，數到36條放射線，角度與k×10°相差＜0.2°，軸線（每90°）寬度＞細線的2.2倍、每30°的＞1.5倍、其餘與細線相差＜25%；第一圈內側與最外圈外側沒有任何墨線；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "polargraphpaper|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`polargraphpaper`：option 957個、status為956 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的極座標圖。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
