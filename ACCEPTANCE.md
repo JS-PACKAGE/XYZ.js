@@ -11576,3 +11576,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 調整記錄：第一版線占比算式寫反（`1 − duty − t`），預覽幾乎全黑、只剩細長亮菱形；修正為`duty − t`後預覽正確，並把占比由0.34降到0.26以保留疊紋的明暗對比。
 - 實測：`tests/procedural-material-motifs.test.ts`一百五十項（本材質四項）全過。三seed在256²格上以DFT直接量測指定整數頻率的振幅：兩格柵(24, 3)與(24, −3)約0.319（相等±2%，下限0.25）、頻差(0, 6)與頻和(48, 0)約0.0997（相等±3%，下限0.07）；相鄰頻率(0, 5)、(0, 7)、(1, 6)與無關頻率(11, 5)、(17, −2)、(30, 3)振幅都低於0.01（實測約0.0001），表示能量只在晶格頻率；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "moirefringes|every preset"`定向跑3項通過，沒有重跑該檔其餘5530項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`moirefringes`：option 910個、status為909 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的菱形疊紋帶可辨且無接縫。球面縮小時貼圖自身會有額外混疊，未量化。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：葡萄牙式彩繪瓷磚（azulejotiles）
+
+- 目錄909→910，含plain的gallery為911項。每tile 4×4片相同的鈷藍白釉方磚，凹陷灰縫0.012 tile寬並使用既有`mortar`通道；每片有四瓣中央花、細環與磚角四分之一圓盤，具完整正方形對稱，藍色有筆刷明暗、釉面有細微龜裂與倒角。Metallic為0，預設tile0.8 m、0.0022 UV-relative relief、metallic factor 0。非特定歷史圖樣，各磚完全相同；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 已知限制：釉面龜裂（crackTone 0.08）在預覽與球面上幾乎看不見；屬於刻意低振幅，沒有調高，測試也不驗證龜裂線（只驗證其不破壞通道範圍與對稱判定）。
+- 實測：`tests/procedural-material-motifs.test.ts`一百五十四項（本材質四項）全過。三seed 1024²取樣：顏色低於0.5的藍色像素占比0.227（測試範圍0.15–0.3）；取tile (1, 2)去掉8 px邊界後，轉90°、左右鏡像、對角翻轉三種映射下色差＜0.3的像素比例皆為1.000（門檻0.99），對照組（橫向位移30 px）僅0.725（門檻＜0.85，證明測試能失敗）；16片磚的藍／白分類與tile (0, 0)一致度≥0.999（門檻0.99）；mortar＞0.5的灰縫沿兩個方向各恰4條（含跨越掃描接縫的合併處理）、寬度為0.012±0.003；通道範圍、metallic 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "azulejotiles|every preset"`定向跑3項通過，沒有重跑該檔其餘5531項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`azulejotiles`：option 911個、status為910 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的花、環與圓盤無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

@@ -3181,3 +3181,136 @@ describe('moirefringes: two integer-wavevector gratings and their beat', () => {
     expect(different).toBeGreaterThan(100);
   });
 });
+
+describe('azulejotiles: identical D4-symmetric tiles separated by grout', () => {
+  const p = proceduralMaterialPresets.azulejotiles;
+  const n = 1024,
+    tile = n / p.tiles;
+
+  it.each(seeds)(
+    'repeats one tile with full square symmetry between grout lines of the authored width (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('azulejotiles', seed),
+        out = empty(),
+        color = new Float64Array(n * n),
+        grout = new Float64Array(n * n);
+      let invalid = 0,
+        pigment = 0;
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          sample((x + 0.5) / n, (y + 0.5) / n, out);
+          invalid += Number(out.metallic !== 0);
+          for (const value of [
+            out.color,
+            out.height / p.relief,
+            out.roughness,
+            out.occlusion,
+            out.mortar,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+          color[y * n + x] = out.color;
+          grout[y * n + x] = out.mortar;
+          pigment += Number(out.color < 0.5);
+        }
+      expect(invalid).toBe(0);
+      expect(pigment / (n * n)).toBeGreaterThan(0.15);
+      expect(pigment / (n * n)).toBeLessThan(0.3);
+      const margin = 8,
+        agreement = (
+          tx: number,
+          ty: number,
+          map: (x: number, y: number) => [number, number],
+        ): number => {
+          let ok = 0,
+            count = 0;
+          for (let y = margin; y < tile - margin; y++)
+            for (let x = margin; x < tile - margin; x++) {
+              const [x2, y2] = map(x, y);
+              count++;
+              ok += Number(
+                Math.abs(
+                  color[(ty * tile + y) * n + tx * tile + x] -
+                    color[(ty * tile + y2) * n + tx * tile + x2],
+                ) < 0.3,
+              );
+            }
+          return ok / count;
+        };
+      // Quarter turn, both mirrors and the diagonal flip all map the tile onto itself;
+      // an arbitrary shift (control) does not, which shows the test can fail.
+      expect(agreement(1, 2, (x, y) => [tile - 1 - y, x])).toBeGreaterThan(
+        0.99,
+      );
+      expect(agreement(1, 2, (x, y) => [tile - 1 - x, y])).toBeGreaterThan(
+        0.99,
+      );
+      expect(agreement(1, 2, (x, y) => [y, x])).toBeGreaterThan(0.99);
+      expect(
+        agreement(1, 2, (x, y) => [Math.min(tile - margin - 1, x + 30), y]),
+      ).toBeLessThan(0.85);
+      // Every tile carries the same pigment pattern as tile (0, 0).
+      let same = 0,
+        total = 0;
+      for (let ty = 0; ty < p.tiles; ty++)
+        for (let tx = 0; tx < p.tiles; tx++)
+          for (let y = margin; y < tile - margin; y++)
+            for (let x = margin; x < tile - margin; x++) {
+              total++;
+              same += Number(
+                color[(ty * tile + y) * n + tx * tile + x] < 0.5 ===
+                  color[y * n + x] < 0.5,
+              );
+            }
+      expect(same / total).toBeGreaterThan(0.99);
+      // Grout: one line per tile boundary in each direction, of the authored width.
+      for (const alongU of [true, false]) {
+        const mid = Math.floor(tile / 2),
+          lines: number[] = [];
+        let run = 0;
+        for (let i = 0; i < n; i++) {
+          const g = alongU ? grout[mid * n + i] : grout[i * n + mid];
+          if (g > 0.5) run++;
+          else if (run > 0) {
+            lines.push(run);
+            run = 0;
+          }
+        }
+        if (run > 0) lines.push(run);
+        // A line crossing the seam of the scan is split in two; merge it back.
+        const wrapped =
+          grout[alongU ? mid * n : mid] > 0.5 &&
+          grout[alongU ? mid * n + n - 1 : (n - 1) * n + mid] > 0.5;
+        if (wrapped) {
+          const last = lines.pop() ?? 0;
+          lines[0] += last;
+        }
+        expect(lines.length).toBe(p.tiles);
+        for (const width of lines)
+          expect(Math.abs(width / n - p.groutWidth)).toBeLessThan(0.003);
+      }
+    },
+  );
+
+  it('wraps seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('azulejotiles', 0),
+      b = createSurfaceSampler('azulejotiles', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        expect(two.mortar).toBeCloseTo(one.mortar, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(100);
+  });
+});

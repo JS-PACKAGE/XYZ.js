@@ -18098,6 +18098,98 @@ export function createSurfaceSampler(
           occlusion = p.paperAO + (p.inkAO - p.paperAO) * ink;
         };
       }
+      case 'azulejotiles': {
+        const p = proceduralMaterialPresets.azulejotiles,
+          brushField = cachedNoise(p.brushCells, p.brushCells, seed ^ 0x25801),
+          inverseEdge = 1 / p.edgeSoft,
+          inverseGrout = 1 / p.groutSoft,
+          inverseBevel = 1 / p.bevel,
+          tileSize = 1 / p.tiles,
+          crackX = new Float64Array(p.crackCells * p.crackCells),
+          crackY = new Float64Array(p.crackCells * p.crackCells),
+          inverseCrack = 1 / p.crackWidth;
+        for (let y = 0; y < p.crackCells; y++)
+          for (let x = 0; x < p.crackCells; x++) {
+            crackX[y * p.crackCells + x] = hash(x, y, seed ^ 0x25803);
+            crackY[y * p.crackCells + x] = hash(x, y, seed ^ 0x25805);
+          }
+        // Mask of a soft-edged disc or annulus given the signed distance (positive inside).
+        const mask = (inside: number): number =>
+          smooth(clamp(inside * inverseEdge + 0.5));
+        return () => {
+          const tx = u * p.tiles,
+            ty = v * p.tiles,
+            x = tx - Math.floor(tx) - 0.5,
+            y = ty - Math.floor(ty) - 0.5,
+            edge = (0.5 - Math.max(Math.abs(x), Math.abs(y))) * tileSize,
+            grout =
+              1 -
+              smooth(clamp((edge - p.groutWidth * 0.5) * inverseGrout + 0.5)),
+            bevel = smooth(clamp((edge - p.groutWidth * 0.5) * inverseBevel)),
+            radius = Math.sqrt(x * x + y * y),
+            angle = Math.atan2(y, x),
+            // Four-lobed rosette (D4 symmetric: cos 4t is even under t -> -t and 90-degree turns).
+            flower = mask(
+              p.flowerRadius +
+                p.flowerLobe * Math.cos(p.flowerLobes * angle) -
+                radius,
+            ),
+            ring = mask(p.ringHalfWidth - Math.abs(radius - p.ringRadius)),
+            cornerDistance = Math.sqrt(
+              (0.5 - Math.abs(x)) ** 2 + (0.5 - Math.abs(y)) ** 2,
+            ),
+            corner = mask(p.cornerRadius - cornerDistance),
+            cornerRing = mask(
+              p.cornerRingHalfWidth - Math.abs(cornerDistance - p.cornerRing),
+            ),
+            // Corner discs are solid; their inner ring is glaze-colored inside the disc.
+            pigment = Math.max(flower, ring, corner * (1 - cornerRing)),
+            brush = brushField(u, v) - 0.5;
+          // Glaze craquelure: distance gap between the two nearest jittered cell points.
+          const gx = Math.floor(u * p.crackCells),
+            gy = Math.floor(v * p.crackCells);
+          let nearest = 9,
+            second = 9;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = gx + ox,
+                cy = gy + oy,
+                wx = ((cx % p.crackCells) + p.crackCells) % p.crackCells,
+                wy = ((cy % p.crackCells) + p.crackCells) % p.crackCells,
+                dx = cx + crackX[wy * p.crackCells + wx] - u * p.crackCells,
+                dy = cy + crackY[wy * p.crackCells + wx] - v * p.crackCells,
+                d = Math.sqrt(dx * dx + dy * dy);
+              if (d < nearest) {
+                second = nearest;
+                nearest = d;
+              } else if (d < second) second = d;
+            }
+          const crack =
+              1 -
+              smooth(clamp((second - nearest) * p.crackCells * inverseCrack)),
+            glaze = 1 - grout;
+          color = clamp(
+            p.glazeTone +
+              (p.pigmentTone - p.glazeTone) * pigment +
+              p.brushTone * brush * pigment -
+              p.crackTone * crack * glaze,
+          );
+          height = clamp(
+            p.groutHeight +
+              (p.glazeHeight - p.groutHeight) * glaze -
+              p.bevelHeight * (1 - bevel) * glaze +
+              p.pigmentHeight * pigment * glaze,
+          );
+          roughness =
+            p.groutRoughness +
+            (p.pigmentRoughness - p.groutRoughness) * glaze +
+            0.02 * pigment * glaze;
+          occlusion = clamp(
+            1 - (1 - p.groutAO) * grout - (1 - p.crackAO) * crack * glaze,
+          );
+          mortar = grout;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -45627,6 +45719,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'azulejotiles' ||
     kind === 'moirefringes' ||
     kind === 'cinderblockwall' ||
     kind === 'dicefaces' ||

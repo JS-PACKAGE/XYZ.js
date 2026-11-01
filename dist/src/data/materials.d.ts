@@ -7146,6 +7146,40 @@ export declare const proceduralMaterialPresets: Readonly<{
         paperAO: 1;
         inkAO: 0.9;
     }>;
+    azulejotiles: Readonly<{
+        dark: readonly [18, 38, 118];
+        light: readonly [246, 246, 240];
+        roughness: 0.2;
+        relief: 0.0022;
+        tiles: 4;
+        groutWidth: 0.012;
+        groutSoft: 0.003;
+        bevel: 0.014;
+        flowerRadius: 0.15;
+        flowerLobe: 0.055;
+        flowerLobes: 4;
+        ringRadius: 0.3;
+        ringHalfWidth: 0.012;
+        cornerRadius: 0.2;
+        cornerRing: 0.14;
+        cornerRingHalfWidth: 0.01;
+        edgeSoft: 0.006;
+        crackCells: 28;
+        crackWidth: 0.045;
+        brushCells: 96;
+        glazeTone: 0.93;
+        pigmentTone: 0.1;
+        brushTone: 0.1;
+        crackTone: 0.08;
+        glazeHeight: 0.7;
+        groutHeight: 0.1;
+        pigmentHeight: 0.04;
+        bevelHeight: 0.2;
+        groutRoughness: 0.9;
+        pigmentRoughness: 0.28;
+        groutAO: 0.5;
+        crackAO: 0.85;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -13631,6 +13665,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    azulejotiles: 0.8;
     moirefringes: 0.3;
     cinderblockwall: 1.6;
     dicefaces: 0.4;

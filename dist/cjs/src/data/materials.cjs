@@ -13005,6 +13005,48 @@ var proceduralMaterialPresets = Object.freeze({
 		paperAO: 1,
 		inkAO: .9
 	}),
+	azulejotiles: Object.freeze({
+		dark: [
+			18,
+			38,
+			118
+		],
+		light: [
+			246,
+			246,
+			240
+		],
+		roughness: .2,
+		relief: .0022,
+		tiles: 4,
+		groutWidth: .012,
+		groutSoft: .003,
+		bevel: .014,
+		flowerRadius: .15,
+		flowerLobe: .055,
+		flowerLobes: 4,
+		ringRadius: .3,
+		ringHalfWidth: .012,
+		cornerRadius: .2,
+		cornerRing: .14,
+		cornerRingHalfWidth: .01,
+		edgeSoft: .006,
+		crackCells: 28,
+		crackWidth: .045,
+		brushCells: 96,
+		glazeTone: .93,
+		pigmentTone: .1,
+		brushTone: .1,
+		crackTone: .08,
+		glazeHeight: .7,
+		groutHeight: .1,
+		pigmentHeight: .04,
+		bevelHeight: .2,
+		groutRoughness: .9,
+		pigmentRoughness: .28,
+		groutAO: .5,
+		crackAO: .85
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -21686,6 +21728,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	azulejotiles: .8,
 	moirefringes: .3,
 	cinderblockwall: 1.6,
 	dicefaces: .4,
