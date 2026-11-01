@@ -11875,4 +11875,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 真實缺陷與修正：第一次verify被strict typecheck擋下兩處（TS7022，`rung`因與`previous`互相參照而推成any；TS2322，`let tone = p.paperTone`被推成字面型別），標註型別後重跑通過；建置未在失敗狀態下執行。
 - 實測：`tests/procedural-material-motifs.test.ts`四百五十項（本材質十二項）全過，第一次執行即通過。十一個seed（0、7、4294967295、1至6、8、9）：每條縱線在上、中、下三個高度為墨色；每一層取兩條縱線之間的中點判斷橫槓，同層沒有相接的橫槓、全部橫槓數＞8、層與層之間的空隙無雜墨；測試端依橫槓逐起點走過10層，再與以測試端獨立字型逐像素解碼的下排號碼比對（上排為1至8，下排為每條縱線的終點對應起點），且下排是1至8的排列；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "amidakuji|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`amidakuji`：option 951個、status為950 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的縱線、橫槓與標籤。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
-- 更正：先前progress7的提交數寫成65，實際為64（`git rev-list --count`）；本次完成後為66。
+- 更正：先前progress7的提交數寫成65，當時實際為64（`git rev-list --count 0aa5a2a3f..HEAD`）；本次提交後為65。
