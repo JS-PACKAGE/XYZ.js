@@ -12931,6 +12931,31 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.3;
         inkRoughness: -0.08;
     }>;
+    merbau: Readonly<{
+        dark: readonly [66, 46, 34];
+        light: readonly [140, 104, 78];
+        roughness: 0.5;
+        relief: 0.0025;
+        columns: 40;
+        rows: 16;
+        widthMinimum: 0.04;
+        widthVariation: 0.03;
+        lengthMinimum: 0.08;
+        lengthVariation: 0.12;
+        poreChance: 0.75;
+        centerMinimum: 0.35;
+        centerRange: 0.3;
+        poreShoulder: 0.5;
+        poreDepth: 0.09;
+        bands: 1;
+        bandWarp: 0.6;
+        bandRadius: 0.46;
+        bandCore: 0.16;
+        bandContrast: 0.1;
+        fiberColumns: 200;
+        fiberRows: 8;
+        fiberContrast: 0.14;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -14239,4 +14264,5 @@ export declare const proceduralTileMeters: Readonly<{
     buffaloplaid: 0.25;
     sheetmusic: 0.25;
     crosshatchengraving: 0.25;
+    merbau: 0.18;
 }>;

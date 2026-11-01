@@ -11858,3 +11858,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增7項（三seed統計、seed差異與同seed決定性、C1二階差分＋有符號UV週期、actual512 maps），`-t "Crosshatch engraving|crosshatchengraving"`通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Crosshatch engraving|crosshatchengraving|kinds|catalog|distinct|periodic"`定向測試**2144項通過／3674項未選**。
 - 未驗證：本材質未重跑完整179檔suite（最近一次完整suite為cdff89719，9,713項，其後的jarrah、buffaloplaid、sheetmusic、三個修正與本提交皆只有定向測試與gates）；未做瀏覽器gallery驗證（jarrah、buffaloplaid、sheetmusic亦未做）；預覽只涵蓋外觀自查，不是與實際版畫的比對；不push。
+
+## 2026-11-02 新增材質：印茄木（merbau）
+
+- 範圍：新增`merbau`（目前目錄929→930種，含plain的gallery 931項）：近似Intsia spp.未塗裝縱向木面，帶灰調的橙棕底、粗質地、1條很淡的暗帶、縱向纖維與密集散布的細暗導管短痕。外觀依據實際閱讀的Wood Database Merbau頁面與實際下載並實看的木面照片，僅作配色與紋理形態參考；**不**重現黃色礦物沉積、交錯紋、板間色差或塗層。導管密度依照片外觀由作者設定，與頁面「導管很少」的端面描述不同。直接fallthrough重用既有細長橢圓導管sampler（只新增preset），預設0.18 m nominal tile、0.0025 UV-relative relief。
+- 調整紀錄：第一版pores（30×10、寬0.03）在預覽上與照片相比太稀疏；第二版（48×20、更小）又小到近乎看不見；第三版（40×16、寬0.04＋0.03、長0.08＋0.12、poreChance 0.75）才採用；三版皆為我實看預覽的主觀判斷，不是量測比對。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）256²取樣導管（AO<0.9）占1.27–1.53%、無凹陷本體占98.1–98.3%、本體色0.254–0.499、橫／縱色差比8.42–8.82、roughness 0.50–0.604、height 0.41–0.503 relief、最低AO 0.75；seed 7的512²maps平均r／g／b約(95, 69, 51)、AO<230占1.40%、法線tilt²最大約0.0069。
+- 測試：新增7項（三seed統計與幾何、C1、actual512 maps、有符號UV週期），`-t "Merbau|merbau"`通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Merbau|merbau|kinds|catalog|distinct|periodic"`定向測試**2146項通過／3679項未選**。
+- 未驗證：本材質未跑完整suite與瀏覽器gallery；與真實merbau的外觀比對只有我對一張照片的主觀目視；不push。

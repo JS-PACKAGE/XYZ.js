@@ -21067,6 +21067,39 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: .3,
 		inkRoughness: -.08
 	}),
+	merbau: Object.freeze({
+		dark: [
+			66,
+			46,
+			34
+		],
+		light: [
+			140,
+			104,
+			78
+		],
+		roughness: .5,
+		relief: .0025,
+		columns: 40,
+		rows: 16,
+		widthMinimum: .04,
+		widthVariation: .03,
+		lengthMinimum: .08,
+		lengthVariation: .12,
+		poreChance: .75,
+		centerMinimum: .35,
+		centerRange: .3,
+		poreShoulder: .5,
+		poreDepth: .09,
+		bands: 1,
+		bandWarp: .6,
+		bandRadius: .46,
+		bandCore: .16,
+		bandContrast: .1,
+		fiberColumns: 200,
+		fiberRows: 8,
+		fiberContrast: .14
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -22493,7 +22526,8 @@ var proceduralTileMeters = Object.freeze({
 	jarrah: .18,
 	buffaloplaid: .25,
 	sheetmusic: .25,
-	crosshatchengraving: .25
+	crosshatchengraving: .25,
+	merbau: .18
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

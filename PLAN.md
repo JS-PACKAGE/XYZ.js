@@ -1095,6 +1095,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`merbau`（印茄木）使目前目錄929→930種，含plain的gallery為931項。近似Intsia spp.未塗裝縱向木面：帶灰調的橙棕底色、粗質地、1條很淡的暗帶、縱向纖維與密集散布的細暗導管短痕（約1.4%）。不是新切時偏橙的鮮明色、黃色礦物沉積（yellow mineral deposits）、交錯紋或塗層。
+
+外觀依據實際閱讀的[Wood Database Merbau](https://www.wood-database.com/merbau/)（Color／Appearance：新切為橙棕色，日久轉為較深的紅棕，板與板之間色差大，並有零星黃色礦物沉積；Grain／Texture：直紋到交錯紋、粗質地，中等光澤；Endgrain：散孔材，導管大到極大但很少）與實際下載並實看的[木面照片](https://www.wood-database.com/wp-content/uploads/merbau.jpg)（帶灰調的暗棕面、許多縱向的細暗短導管痕、極少數黃色細線）；僅作配色與紋理形態參考，**不**重現黃色礦物沉積、交錯紋、板間色差或塗層，不打包來源圖，也不由照片反推真色、roughness或實際尺寸；導管密度為依照片外觀作者設定，不代表Wood Database「導管很少」的端面描述。
+
+直接fallthrough重用既有Padauk／Bloodwood系細長橢圓導管sampler（與`blackwalnut`、`teak`、`honduranmahogany`、`shagbarkhickory`、`eastindianrosewood`、`bubinga`、`jarrah`同路徑），constructor只選preset：40×16個導管site（pose表20,480 B）、1條起伏（bandWarp 0.6）且對比低（bandContrast 0.1）的暗帶、200×8縱向fiber、128²細grain與固定3×4 warp，共20,556個Float64／164,448 B lattice算術預算（非總RAM）。金屬factor為0；導管凹點是真的height凹陷，色紋只是顏料。預設0.18 m nominal tile與0.0025 UV-relative relief（非公尺位移）皆作者設定。實測（工具實跑，三seed 0／1／0xffffffff、256²取樣）：導管（AO<0.9）占1.27–1.53%，無凹陷的本體占98.1–98.3%，本體色0.254–0.499，橫／縱色差比8.42–8.82，roughness 0.50–0.604、height 0.41–0.503 relief、最低AO 0.75；seed 7的512²maps平均r／g／b約(95, 69, 51)、AO<230占1.40%、法線tilt²最大約0.0069。我實看了預覽：暗棕底上有密集的細短導管痕，與照片的形態相近但規則得多（導管落在格狀site上）。未新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `crosshatchengraving`（交叉排線版畫）使目前目錄928→929種，含plain的gallery為930項。奶油色紙面上的黑色細排線，依低頻明暗場逐步加線：暗部出現第一組對角線，更暗處加上反向對角線形成交叉，最暗處再加水平線；線寬也隨明暗增加，亮部保持留白。不是真實版畫的刻線軌跡、可變線距、輪廓線、透視或圖像內容。
 
 此材質是作者依一般銅版／鋼筆交叉排線（crosshatching）外觀所作示意，沒有引用特定來源文件、照片或量測；線數（每方向48條）、三組線的出現門檻（0.25／0.55／0.8）、線寬範圍、明暗場的6×6格解析度、墨與紙的色調、roughness與0.25 m nominal tile皆作者設定，不宣稱符合任何實際版畫或印刷規格。
