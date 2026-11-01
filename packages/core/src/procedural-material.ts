@@ -957,7 +957,8 @@ export type ProceduralMaterialKind =
   | 'pancake'
   | 'garlicskin'
   | 'jerky'
-  | 'heatsinkfins';
+  | 'heatsinkfins'
+  | 'tilledsoil';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2149,6 +2150,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'garlicskin',
   'jerky',
   'heatsinkfins',
+  'tilledsoil',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

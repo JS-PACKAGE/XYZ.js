@@ -11992,3 +11992,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增7項（三seed統計與全金屬、seed差異與決定性、C1＋有符號UV週期、actual512 maps），`-t "Heat sink fins|heatsinkfins"`通過；通用的「deterministic, seeded, distinct and periodic」測試中本kind走金屬例外（不要求metallic為0）。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Heat sink fins|heatsinkfins|kinds|catalog|distinct|periodic"`定向測試**2169項通過／3745項未選**。
 - 未驗證：本材質未跑完整suite（金屬清單的修改尤其值得之後完整跑一次）與瀏覽器gallery（garlicskin、jerky亦未做）；不push。
+
+## 2026-11-02 新增材質：翻耕土壤（tilledsoil）
+
+- 範圍：新增`tilledsoil`（目前目錄942→943種，含plain的gallery 944項）：直接fallthrough重用既有`granola`的兩層旋轉橢圓塊sampler（constructor只選preset，沒有新增sampler）——土塊8×8格、淺色卵石16×16格，每個像素合成3×3鄰格的塊，邊緣受48×48雜訊擾動，縫隙地AO 0.45；預設0.4 m nominal tile、0.012 UV-relative relief。作者示意，沒有引用特定來源、**沒有對照照片**，預覽也像迷彩、比真實土壤平坦。
+- 實作過程的錯誤（誠實紀錄）：第一版卵石色調0.78，探測時發現color最高達1.03（超出[0,1]），降為0.66±0.08後最高0.888–0.899；第一版的土塊色調（0.45）與縫隙地（0.2）也過亮，預覽上像淺褐色補丁，降為0.32／0.14後才採用。這些都是在寫測試之前處理的。
+- 實測（工具實跑）：三seed 512²取樣縫隙地（AO<0.46）占35.9–41.8%（seed 7為42.0%）、淺色卵石（color>0.5）占6.8–9.4%、color 0.094–0.899、平均0.270–0.288、roughness恆為0.92、最低AO 0.45、height至多0.994–0.997 relief；seed 0與1的覆蓋遮罩43.7%像素不同；seed 7的512²maps平均r／g／b約(62, 47, 35)、AO<200占50.9%、法線tilt²最大約0.894、z分量最小170。
+- 測試：新增7項（以`granola`的測試為範本改寫數值，三seed統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps），`-t "Tilled soil|tilledsoil"`通過；因為重用sampler，也同時重跑了`Granola`的測試。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Tilled soil|tilledsoil|Granola|kinds|catalog|distinct|periodic"`定向測試**2176項通過／3745項未選**。
+- 未驗證：本材質未跑完整suite與瀏覽器gallery（garlicskin、jerky、heatsinkfins亦未做）；不push。

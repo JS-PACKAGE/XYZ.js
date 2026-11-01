@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`tilledsoil`（翻耕土壤）使目前目錄942→943種，含plain的gallery為944項。深褐色土壤表面：任意旋轉、邊緣不規則的土塊（中褐色，彼此可重疊，約占六成），間隙處是更深而受遮蔽的細土，並散布少量（約7–9%）較小的淺色卵石或砂礫。不是真實土壤的根系、蟲孔、濕度光澤、植物殘體或粒徑分布，預覽也容易被看成迷彩圖樣。
+
+此材質是作者依一般翻耕後土壤外觀所作示意，沒有引用特定來源文件、照片或量測，也沒有對照照片；土塊與卵石兩層的格數、機率、大小、長寬比、邊緣雜訊、各層色調、roughness與0.4 m nominal tile皆作者設定，不宣稱符合任何實際土質。
+
+直接fallthrough重用既有`granola`的兩層旋轉橢圓塊sampler（constructor只選preset，不新增sampler）：土塊（8×8格，機率1，半軸0.34–0.62格×0.7–1.3長寬比）與淺色卵石（16×16格，機率0.3，半軸0.1–0.22格）各自在格內抖動±0.45並帶任意旋轉角，每個像素依固定順序合成3×3鄰格——`value = value·(1 − m) + 塊值·m`，遮罩`m = smooth(clamp((1 − q)/0.4))`，`q`乘上48×48週期雜訊的邊緣擾動——先合成土塊、再合成卵石，所有項皆為C1；沒被任何塊蓋住的部分顏色為底色0.14、AO降到0.45；cache合計448＋1,792＋2,304＋16,384 = 20,928個Float64／167,424 B lattice算術預算（非總RAM）。顏色是顏料，穹頂height約0.8 relief＋grain 0.2 relief；金屬factor為0、無mortar。預設0.4 m nominal tile與0.012 UV-relative relief（非公尺位移）。我在寫這個preset時，第一版把卵石色調設為0.78，探測發現color最高到1.03（超出[0,1]），把卵石色調降為0.66±0.08後才符合範圍。實測（工具實跑，seed 0／1／0xffffffff，512²取樣）：土塊間的縫隙地（AO<0.46）占35.9–41.8%（seed 7為42.0%），color>0.5的淺色卵石占6.8–9.4%，color 0.094–0.899，全圖平均0.270–0.288，縫隙地平均0.140，roughness恆為0.92，最低AO 0.45，height至多0.994–0.997 relief；seed 0與1的覆蓋遮罩有43.7%像素不同；seed 7的512²maps平均r／g／b約(62, 47, 35)、AO<200占50.9%、法線tilt²最大約0.894。我實看了預覽：深褐的縫隙上疊著較亮的褐色土塊與小卵石，像鬆散的土壤，但相當像迷彩，且遠比真實土壤平坦。未新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `heatsinkfins`（散熱鰭片）使目前目錄941→942種，含plain的gallery為943項。陽極處理的擠型鋁散熱片：每tile 20片沿u方向排列的鰭片，鰭頂平坦而明亮、鰭間是深而受遮蔽的窄縫（寬度與鰭頂約相同），鰭頂沿v方向有細微的擠型線、極淡的陽極處理斑駁與細grain；整面金屬（metallic為1）。不是真實散熱片的鰭片高度與厚度、基板、導熱管、扣具或切削毛邊。
 
 此材質是作者依一般擠型鋁散熱片外觀所作示意，沒有引用特定來源文件、照片或量測，也沒有對照照片；鰭片數（每tile 20）、鰭頂與縫的比例與銳度、金屬色調、擠型線與斑駁強度、roughness與0.1 m nominal tile皆作者設定，不宣稱符合任何實際散熱片的規格。

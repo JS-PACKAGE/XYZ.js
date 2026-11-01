@@ -38460,8 +38460,12 @@ export function createSurfaceSampler(
           return;
         };
       }
-      case 'granola': {
-        const p = proceduralMaterialPresets.granola,
+      case 'granola':
+      case 'tilledsoil': {
+        const p =
+            kind === 'tilledsoil'
+              ? proceduralMaterialPresets.tilledsoil
+              : proceduralMaterialPresets.granola,
           grainField = cachedNoise(
             p.grainCells,
             p.grainCells,
@@ -46625,6 +46629,7 @@ export function createSurfaceSampler(
     kind === 'garlicskin' ||
     kind === 'jerky' ||
     kind === 'heatsinkfins' ||
+    kind === 'tilledsoil' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

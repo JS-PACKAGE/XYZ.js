@@ -13259,6 +13259,39 @@ export declare const proceduralMaterialPresets: Readonly<{
         gapRoughness: 0.2;
         gapOcclusion: 0.5;
     }>;
+    tilledsoil: Readonly<{
+        dark: readonly [28, 18, 12];
+        light: readonly [152, 124, 94];
+        roughness: 0.92;
+        relief: 0.012;
+        seedSalt: 20497;
+        flakeCells: 8;
+        flakeChance: 1;
+        flakeSizeMinimum: 0.34;
+        flakeSizeVariation: 0.28;
+        flakeStretch: 0.3;
+        flakeJitter: 0.45;
+        flakeTone: 0.32;
+        flakeToneVariation: 0.12;
+        chunkCells: 16;
+        chunkChance: 0.3;
+        chunkSizeMinimum: 0.1;
+        chunkSizeVariation: 0.12;
+        chunkStretch: 0.25;
+        chunkJitter: 0.45;
+        chunkTone: 0.66;
+        chunkToneVariation: 0.08;
+        edgeSoft: 0.4;
+        edgeCells: 48;
+        edgeNoise: 0.5;
+        groundTone: 0.14;
+        domeTone: 0.14;
+        grainCells: 128;
+        grainTone: 0.05;
+        domeHeight: 0.8;
+        grainHeight: 0.2;
+        groundOcclusion: 0.55;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -14580,4 +14613,5 @@ export declare const proceduralTileMeters: Readonly<{
     garlicskin: 0.1;
     jerky: 0.12;
     heatsinkfins: 0.1;
+    tilledsoil: 0.4;
 }>;

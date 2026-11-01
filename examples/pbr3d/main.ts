@@ -1021,6 +1021,7 @@ try {
     'garlicskin',
     'jerky',
     'heatsinkfins',
+    'tilledsoil',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }
