@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`amberbubbles`（含氣泡的琥珀樹脂）使目前目錄924→925種，含plain的gallery為926項。橘黃色的光滑樹脂，由4個整數波數正弦彎曲的3條流動帶形成緩慢捲動的明暗紋；14×14格中約45%有一顆被困住的氣泡（隨機大小與位置），氣泡略凸、更光滑、帶一圈明亮的透鏡邊緣與淡淡的光暈；另有10×10的低頻混濁。不是半透明（次表面）、內含物（昆蟲、植物）、裂紋或打磨痕。
+
+此材質是作者依一般琥珀樹脂（流紋與氣泡）外觀所作示意，沒有引用特定來源文件、照片或量測；流動帶數、氣泡密度與大小、色調、roughness與0.12 m nominal tile皆作者設定，不宣稱符合任何實際琥珀或樹脂，也不模擬半透明與折射。
+
+新增專用sampler：流動 = `0.5 + 0.5·sin(2π·3u + 0.8·Σ sin(2π(m·u + n·v) + φ))`（四個整數波數正弦，含seed相位）；每格存3個Float64（抖動位置x、y與大小）的14²格氣泡，每顆氣泡是`smooth(1 − q/(size·r)²)`圓頂（r = 0.36格）加上位於0.55倍半徑、寬0.25的高斯亮環（乘圓頂包絡），取3×3鄰格，並以`S/(1+S)`飽和；混濁為10²值雜訊；全部C1。cache合計100＋588＋4 = 692 Float64／5,536 B lattice算術預算（非總RAM）。顏色是顏料，height只用於法線與AO；金屬factor為0、無mortar。預設0.12 m nominal tile與0.004 UV-relative relief（非公尺位移）皆作者設定。三seed（0／1／0xffffffff）、512²取樣：高度超過0.13 relief的氣泡占6.95–7.49%、color>0.8占1.26–1.67%、color 0.432–0.895、平均0.583–0.597、roughness 0.08到0.13、最低AO 0.876、高度0到0.38 relief；seed 0與1的氣泡遮罩有13.1%像素不同；seed7的512² r／g／b平均約(189,119,25)、AO<250占7.8%、法線max tilt²約0.080。我實看了四圖：流動明暗紋與帶亮緣的氣泡、法線圖氣泡為淺凸。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `cauliflowercurd`（花椰菜凝乳）使目前目錄923→924種，含plain的gallery為925項。奶白色花球表面，由三個尺度（10²、26²、64²格）的圓頂花蕾堆疊：大花球上長較小的花蕾、再長更小的凸粒；花蕾頂較亮，間隙帶灰米色並有AO遮蔽（AO<0.7約占15%）；整體粗糙（roughness恆為0.78）、帶細grain。不是莖、葉、花球的整體曲面、斑點或褐變。
 
 此材質是作者依一般花椰菜（白花椰）花球表面外觀所作示意，沒有引用特定來源文件、照片或量測；三個尺度的格數、半徑、振幅、色調、roughness與0.12 m nominal tile皆作者設定，不宣稱符合任何花椰菜品種，也不是真正的碎形（只有三層疊加）。

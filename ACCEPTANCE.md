@@ -11788,3 +11788,14 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增4項永久測試（`Cauliflower curd`：三seed谷／蕾頂比例與色／AO／高度範圍、seed差異與確定性、含三個尺度格線的C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選7項通過（11.31s）。
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Cauliflower curd|cauliflowercurd|kinds|catalog|distinct|periodic"`定向測試，**2135項通過／3642項未選**。
 - 本功能未重跑完整179檔suite（pumpkinskin commit的完整suite仍在凍結worktree執行，結果另記）、未開瀏覽器gallery；不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：含氣泡的琥珀樹脂（amberbubbles）
+
+- 目錄924→925，含plain的gallery為926項。橘黃色光滑樹脂，3條被整數波數正弦彎曲的流動明暗帶；14×14格中約45%有被困住的氣泡（隨機大小與位置，略凸、更光滑、帶亮緣與光暈），另有10×10低頻混濁。這是作者依一般琥珀樹脂外觀所作示意，**沒有**引用特定來源，不模擬半透明與折射，也不含內含物（昆蟲、植物）或裂紋。
+- 專用sampler：流動`0.5+0.5·sin(2π·3u+0.8·Σsin(2π(m·u+n·v)+φ))`；14²格氣泡每格3個Float64，圓頂`smooth(1−q/(size·r)²)`（r=0.36格）加0.55倍半徑的高斯亮環，3×3鄰格加總並`S/(1+S)`飽和；10²混濁。cache合計692 Float64／5,536 B。預設0.12 m tile、0.004 UV-relative relief（非公尺位移）、metallic factor0；不新增API或依賴。
+- 開發中實際遇到的問題：第一次插入sampler時，我先寫入一段佔位的樁程式（含一個不存在的`radiusPlaceholder`欄位）再打算替換，替換用的kernel輔助函式`rd`參數用法錯誤而中途出錯，所以樁程式短暫存在於工作樹；我改用直接檔案讀寫完整取代，之後的四圖渲染、探測、測試與gates都是在完整實作上執行的，樁程式沒有進入任何commit。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）512²取樣高度超過0.13 relief的氣泡占6.95–7.49%、color>0.8占1.26–1.67%、color 0.432–0.895、平均0.583–0.597、roughness 0.08到0.13、最低AO 0.876、高度0到0.38 relief；seed 0與1的氣泡遮罩有13.1%像素不同；seed7的512² r／g／b平均約(189,119,25)、AO<250占7.8%、法線max tilt²約0.080。以Bun產生512 seed7四圖並實看：流動明暗紋與帶亮緣的氣泡，法線圖氣泡為淺凸。
+- 新增4項永久測試（`Amber resin`：三seed氣泡比例／色域／粗糙度／AO／高度、seed差異與確定性、C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選7項通過（7.61s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Amber resin|amberbubbles|kinds|catalog|distinct|periodic"`定向測試，**2137項通過／3647項未選**。
+- 補記（完整suite）：在凍結worktree於pumpkinskin commit `851195586`實跑完整`vitest run`，**179檔／9,685項全部通過**（1399.36s，wall約23.3分）；該commit之後的pomegranatearils、bubinga、cauliflowercurd與本功能沒有重跑完整suite，僅有各自的定向測試與gates。
+- 未開瀏覽器gallery（gamedice之後新增的raindropripples、europeanyew、coirdoormat、citruspeel、pumpkinskin、pomegranatearils、bubinga、cauliflowercurd與本功能均未在gallery驗證內）；不宣稱跨瀏覽器／backend或效能驗證；不push。

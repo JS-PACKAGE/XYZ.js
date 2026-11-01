@@ -966,6 +966,7 @@ const kinds: ProceduralMaterialKind[] = [
   'pomegranatearils',
   'bubinga',
   'cauliflowercurd',
+  'amberbubbles',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -141696,6 +141697,198 @@ describe('Cauliflower curd with cream-white florets carrying smaller buds and bu
     expect(valleys / (512 * 512)).toBeLessThan(0.17);
     expect(maxTilt).toBeGreaterThan(0.6);
     expect(maxTilt).toBeLessThan(0.85);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Amber resin with glossy orange flow streaks, trapped bubbles and bright lensing rims', () => {
+  const p = proceduralMaterialPresets.amberbubbles;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const bubbleMask = (seed: number): boolean[] => {
+    const sample = createSurfaceSampler('amberbubbles', seed),
+      out = empty(),
+      mask: boolean[] = [];
+    for (let y = 0; y < 512; y++)
+      for (let x = 0; x < 512; x++) {
+        sample((x + 0.5) / 512, (y + 0.5) / 512, out);
+        mask.push(out.height / p.relief > p.flowHeight + 0.05);
+      }
+    return mask;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'traps raised glossy bubbles over about a fourteenth of a smooth swirling orange resin with a few bright rims for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('amberbubbles', seed),
+        a = empty();
+      let bubbles = 0,
+        bright = 0,
+        low = 1,
+        high = 0,
+        mean = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        occlusionLow = 1,
+        heightLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 512; y++)
+        for (let x = 0; x < 512; x++) {
+          sample((x + 0.5) / 512, (y + 0.5) / 512, a);
+          bubbles += Number(a.height / p.relief > p.flowHeight + 0.05);
+          bright += Number(a.color > 0.8);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          mean += a.color;
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightLow = Math.min(heightLow, a.height / p.relief);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(bubbles / 262144).toBeGreaterThan(0.066);
+      expect(bubbles / 262144).toBeLessThan(0.08);
+      expect(bright / 262144).toBeGreaterThan(0.01);
+      expect(bright / 262144).toBeLessThan(0.02);
+      expect(low).toBeGreaterThan(0.42);
+      expect(low).toBeLessThan(0.45);
+      expect(high).toBeGreaterThan(0.88);
+      expect(high).toBeLessThan(0.91);
+      expect(mean / 262144).toBeGreaterThan(0.57);
+      expect(mean / 262144).toBeLessThan(0.61);
+      expect(roughLow).toBeCloseTo(p.roughness, 12);
+      expect(roughHigh).toBeGreaterThan(p.roughness + 0.04);
+      expect(roughHigh).toBeLessThan(p.roughness + 0.06);
+      expect(occlusionLow).toBeGreaterThan(0.87);
+      expect(occlusionLow).toBeLessThan(0.89);
+      expect(heightLow).toBeLessThan(0.01);
+      expect(heightHigh).toBeGreaterThan(0.37);
+      expect(heightHigh).toBeLessThan(0.39);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('traps different bubbles per seed and is deterministic for one seed', () => {
+    const first = bubbleMask(0),
+      second = bubbleMask(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.1);
+    expect(bubbleMask(0)).toEqual(first);
+  });
+  it('keeps the flow bands, bubble bodies, their lensing rims and the haze C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('amberbubbles', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.bubbleCells, 2 * p.bubbleCells, p.cloudCells, 12])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 amber dielectric maps with a few percent bubble occlusion and shallow normals', () => {
+    const maps = generateProceduralMaps('amberbubbles', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      occluded = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      occluded += Number(maps.occlusion[i] < 250);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2] ||
+          maps.baseColor[i] < maps.baseColor[i + 1] ||
+          maps.baseColor[i + 1] < maps.baseColor[i + 2] ||
+          maps.normal[i + 2] < 240,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(180);
+    expect(red / (512 * 512)).toBeLessThan(198);
+    expect(green / (512 * 512)).toBeGreaterThan(110);
+    expect(green / (512 * 512)).toBeLessThan(127);
+    expect(blue / (512 * 512)).toBeGreaterThan(20);
+    expect(blue / (512 * 512)).toBeLessThan(31);
+    expect(occluded / (512 * 512)).toBeGreaterThan(0.065);
+    expect(occluded / (512 * 512)).toBeLessThan(0.09);
+    expect(maxTilt).toBeGreaterThan(0.06);
+    expect(maxTilt).toBeLessThan(0.1);
     expect(invalid).toBe(0);
   });
 });

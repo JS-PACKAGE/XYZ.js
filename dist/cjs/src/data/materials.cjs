@@ -20899,6 +20899,45 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: .04,
 		valleyOcclusion: .55
 	}),
+	amberbubbles: Object.freeze({
+		dark: [
+			92,
+			34,
+			4
+		],
+		light: [
+			255,
+			176,
+			40
+		],
+		roughness: .08,
+		relief: .004,
+		seedSalt: 41904,
+		flowWaves: [
+			[1, 1],
+			[2, -1],
+			[1, 3],
+			[3, 2]
+		],
+		flowWarp: .8,
+		flowBands: 3,
+		bubbleCells: 14,
+		bubblePresence: .45,
+		bubbleJitter: .3,
+		bubbleRadius: .36,
+		ringStart: .55,
+		ringWidth: .25,
+		baseTone: .58,
+		flowTone: .22,
+		haloTone: .2,
+		rimTone: .18,
+		cloudCells: 10,
+		cloudTone: .08,
+		bubbleHeight: .6,
+		flowHeight: .08,
+		bubbleRoughness: .1,
+		bubbleOcclusion: .25
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -22320,7 +22359,8 @@ var proceduralTileMeters = Object.freeze({
 	pumpkinskin: .4,
 	pomegranatearils: .12,
 	bubinga: .18,
-	cauliflowercurd: .12
+	cauliflowercurd: .12,
+	amberbubbles: .12
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

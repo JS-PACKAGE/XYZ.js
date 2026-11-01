@@ -37947,6 +37947,85 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'amberbubbles': {
+        const p = proceduralMaterialPresets.amberbubbles,
+          cloud = cachedNoise(
+            p.cloudCells,
+            p.cloudCells,
+            seed ^ (p.seedSalt + 1),
+          ),
+          phases = p.flowWaves.map(
+            (_, i) => TAU * hash(i, 0, seed ^ p.seedSalt),
+          ),
+          bubbles = new Float64Array(p.bubbleCells * p.bubbleCells * 3),
+          inverseRadius2 = 1 / (p.bubbleRadius * p.bubbleRadius);
+        // Per cell: jittered bubble centre (x, y) and relative size; a missing bubble
+        // has size 0.
+        for (let cy = 0; cy < p.bubbleCells; cy++)
+          for (let cx = 0; cx < p.bubbleCells; cx++) {
+            const at = (cy * p.bubbleCells + cx) * 3,
+              salt = seed ^ (p.seedSalt + 2);
+            bubbles[at] = p.bubbleJitter * (2 * hash(cx, cy * 4, salt) - 1);
+            bubbles[at + 1] =
+              p.bubbleJitter * (2 * hash(cx, cy * 4 + 1, salt) - 1);
+            bubbles[at + 2] =
+              hash(cx, cy * 4 + 3, salt) < p.bubblePresence
+                ? 0.35 + 0.65 * hash(cx, cy * 4 + 2, salt)
+                : 0;
+          }
+        return () => {
+          // Resin flow: bands whose phase is bent by integer-wavenumber sinusoids give
+          // slowly swirling light and dark streaks. Trapped bubbles are summed over the
+          // 3 x 3 neighbour cells: a dome smooth(1 - q / (size * r)^2) for the body, and a
+          // bright ring exp(-((sqrt(q) / (size * r)) - ringStart)^2 / w^2) times the dome
+          // envelope for the lensing rim; both are C1 and the saturating S / (1 + S)
+          // bounds their sum.
+          let bend = 0;
+          for (let i = 0; i < p.flowWaves.length; i++)
+            bend += Math.sin(
+              TAU * (p.flowWaves[i][0] * u + p.flowWaves[i][1] * v) + phases[i],
+            );
+          const flow =
+              0.5 + 0.5 * Math.sin(TAU * (p.flowBands * u) + p.flowWarp * bend),
+            x = fract(u) * p.bubbleCells,
+            y = fract(v) * p.bubbleCells,
+            cx = Math.floor(x),
+            cy = Math.floor(y);
+          let body = 0,
+            rim = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const wx =
+                  (((cx + ox) % p.bubbleCells) + p.bubbleCells) % p.bubbleCells,
+                wy =
+                  (((cy + oy) % p.bubbleCells) + p.bubbleCells) % p.bubbleCells,
+                at = (wy * p.bubbleCells + wx) * 3,
+                size = bubbles[at + 2];
+              if (size === 0) continue;
+              const dx = x - (cx + ox + 0.5 + bubbles[at]),
+                dy = y - (cy + oy + 0.5 + bubbles[at + 1]),
+                q = (dx * dx + dy * dy) * inverseRadius2,
+                dome = smooth(clamp(1 - q / (size * size)));
+              if (dome === 0) continue;
+              const ring = (Math.sqrt(q) / size - p.ringStart) / p.ringWidth;
+              body += dome;
+              rim += dome * Math.exp(-ring * ring);
+            }
+          const bubble = body / (1 + body),
+            glow = rim / (1 + rim),
+            haze = cloud(u, v);
+          color =
+            p.baseTone +
+            p.flowTone * (flow - 0.5) +
+            p.cloudTone * (haze - 0.5) +
+            p.haloTone * bubble +
+            p.rimTone * glow;
+          height = p.flowHeight * flow + p.bubbleHeight * bubble;
+          roughness += p.bubbleRoughness * bubble;
+          occlusion = 1 - p.bubbleOcclusion * bubble * (1 - glow);
+          return;
+        };
+      }
       case 'woodenpalletdeck': {
         const p = proceduralMaterialPresets.woodenpalletdeck,
           tones = new Float64Array(p.boards),
@@ -45558,6 +45637,7 @@ export function createSurfaceSampler(
     kind === 'pumpkinskin' ||
     kind === 'pomegranatearils' ||
     kind === 'cauliflowercurd' ||
+    kind === 'amberbubbles' ||
     kind === 'bubinga' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||

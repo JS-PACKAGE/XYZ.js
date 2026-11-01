@@ -12808,6 +12808,32 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.04;
         valleyOcclusion: 0.55;
     }>;
+    amberbubbles: Readonly<{
+        dark: readonly [92, 34, 4];
+        light: readonly [255, 176, 40];
+        roughness: 0.08;
+        relief: 0.004;
+        seedSalt: 41904;
+        flowWaves: readonly [readonly [1, 1], readonly [2, -1], readonly [1, 3], readonly [3, 2]];
+        flowWarp: 0.8;
+        flowBands: 3;
+        bubbleCells: 14;
+        bubblePresence: 0.45;
+        bubbleJitter: 0.3;
+        bubbleRadius: 0.36;
+        ringStart: 0.55;
+        ringWidth: 0.25;
+        baseTone: 0.58;
+        flowTone: 0.22;
+        haloTone: 0.2;
+        rimTone: 0.18;
+        cloudCells: 10;
+        cloudTone: 0.08;
+        bubbleHeight: 0.6;
+        flowHeight: 0.08;
+        bubbleRoughness: 0.1;
+        bubbleOcclusion: 0.25;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -14111,4 +14137,5 @@ export declare const proceduralTileMeters: Readonly<{
     pomegranatearils: 0.12;
     bubinga: 0.18;
     cauliflowercurd: 0.12;
+    amberbubbles: 0.12;
 }>;
