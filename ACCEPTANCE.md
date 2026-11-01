@@ -11371,3 +11371,45 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 原始F reference PDF handle已觀測closed，15個列名owned暫存檔與唯一owned profile已移除，數值與已看影像證據先保留於local artifact；19660／19662 shared servers與使用者舊hunk保留。README中英日、PLAN／DESIGN、CURRENT與技術／操作中英文同步；不宣稱其他browser、Canvas2D顯示3D、電氣／RF／75Ω／插合／安規／CAD／FPS模擬或認證；沒有push。
 
 - 收尾九文件387個relative links實查missing0；本feature只選自己的EOF驗收，保留使用者先前獨立hunk未提交。純文件收尾另檢格式，不冒稱重新執行runtime。
+
+## 2026-11-01 程序材質：TO-220雙倒角外露耳片、單安裝孔與三支寬根直腳（to220packagefaces）
+
+- 目錄884→885，含plain的gallery為886項。依據[STMicroelectronics STP55NF06原廠資料表](https://www.st.com/resource/en/datasheet/stb55nf06.pdf#page=13)，May 2012／Doc ID7544 Rev11：正常直接下載HTTP200、application/pdf、812,175B、19頁，實看第1頁封面、第13頁Figure23／0015988_typeA_Rev_S及放大圖，實讀第12頁type A尺寸表。選外露金屬耳片TO-220，不混用TO-220FP；放大原圖確認上方兩角均倒角，最初粗看單角的印象在任何實作前已修正。
+
+- 2×2四個正面各有雙上角倒角的中性金屬耳片、一個中央圓形暗色不透明凹安裝孔、遮住下耳片與腳根的霧黑矩形本體、三支等距平行直金屬腳，腳根肩寬而尾端窄。不加印字、額外孔、公針、後部或可見晶粒。孔徑3.75–3.85mm、pitch2.4–2.7mm僅是來源參考，不冒充圖樣精確CAD尺寸；不臆測鍍層合金或塑封化學。
+
+- 耳片／引腳完整核心M1，黑本體／孔底／背底M0，邊界C1混合；不是電氣隔離模型。作者正規化H背底.02 < 孔底.06 < 耳片.30 < 腳.44 < 本體.68，不換算實測厚度。預設tile0.08m、0.0042 UV-relative relief（不是公尺）、metallic factor1；explicit0只改factor，不重寫stored M。
+
+- 獨立56欄preset（54數值與2色盤），16組constructor角色差值以凸權重替換C／H／R／AO。四組四欄Float64 pose128B與96² grain73,728B，共73,856 typed bytes，排除JS／closure overhead。預設support半徑<.399，含jitter<.411<.5；保留ownership前第二次fract。實查query AST無allocation／loop／hash／trig／sqrt／hypot，僅呼叫abs／floor／max／min／clamp／fract／cached grain／smooth；不以此宣稱RAM或FPS提升。
+
+- 新增9個獨立consumer callbacks，僅讀cells／relief，從實際原生場恢復孔、雙倒角直平面、矩形本體及三支寬根窄尾腳，不抄producer pose／radii／hash。seed0／7／0xffffffff各1024²六欄invalid0；每seed四個封裝，M16solid／5void、低H4／5、高本體H4／1。每seed6,552條native與64條whole-tile C1 tracks，worst依序0.01202655526307913／0.010035098970778523／0.015601710989498174，皆<.1；4,096 signed period probes誤差0，雙軸tiny-negative有限且等於0。
+
+- 32／512實際packing的M0／M255／transition分別988／27／9與247,356／12,104／2,684；normal length² error最大0.0037216455209534427／0.010180699730872989，Z<=0與alpha!=255皆0。高度範圍.02–.68。32不保證辨識所有細腳；512對每個孔、本體、耳片及三支腳肩／尾皆有實際空間hit。
+
+- 私有observer首次把32的耳片有效區限於任意窄帶而0>0失敗；改為完整獨立觀測的外露耳片區，不改producer。合法較窄腳肩.0145需使用實際寬出尾部的整個wing；M>.5的wing是AA混合，不可誤要求其H高於完整耳片。完整肩核心仍要求M1及H>耳片，wing要求packed M>127及符合lead／backing混合的H下界，允許一個8-bit H量階。合法上移孔的原射線起點已在耳片外，改為從外向孔尋找第一交界，未放寬幾何容差。
+
+- 舊8callback確實錯誤接受忽略seed與僅靠微小grain假裝凹孔兩個缺陷。增加實際7／最大seed的M輪廓變化，以及孔深至少超過兩個相對8-bit量階後，兩者均以ERR_ASSERTION拒絕；合法constant grain、有限0=7 seed collision、真實窄肩及上移孔仍接受。假凹孔實際contrast.00014799999999998148，小於所需.0051764705882352945；不把暗色或次量階起伏當真凹孔。
+
+- 第一完整matrix於合法jitter+3%失敗（bg370，21.15s），實際中心偏差.0012744014835145714大於.0012196832833010012。只instrument該assert後，另暴露512把邊界誤當核心的254!=255。原因是細腳raster centroid偏差污染共同軸；改以連續尾邊中點恢復共同軸與各腳中心，不放寬原straightness／M1容差、不改producer。正常、真實jitter+3%、窄肩、上移孔與constant grain各9callback全過，兩個上述真缺陷仍拒絕。
+
+- 最終fresh Node matrix（bg371，605.31s）118legal×9=1,062callback全過，38defect全部以實際ERR_ASSERTION拒絕，acceptedFaults0。51個非整數數值欄位雙向變化；4個normalized高端明標bounded high，maxScale+3%確實為1.03。另含cells1／3、grain93／99、兩色盤、只作用角色H的共同affine、耦合幾何縮放、零grain、真實窄肩、muted black body、固定0／quarter方向、quintic、constant grain與有限seed collision。
+
+- 缺陷涵蓋錯腳數／無肩／寬尾／重疊腳、錯H階序／亮孔／淡本體／錯roughness與AO、缺少任一上倒角／第二個孔、隱性partial metal／填孔／全介電、假凹深／硬肩／錯ownership／忽略seed／nonfinite。Linear／binary profiles先通過三seed原生geometry，再因C1分別988.6086979523297／80515152819.20103而拒絕，不只依賴mask數量或NaN；SyntaxError／TypeError等不算成功拒絕。
+
+- 整合後formatter＋build成功（bg372，38.49s）：376 JS由6,140,663→2,868,059B，370 CJS modules，vendor unchanged。target與完整static gates通過（bg373，146.08s）：11pass／5487skip／5498total，target10.91s；lint、全repo format:check、strict typecheck、API737exports／2810contracts／710歷史namespace／5consumers及distribution367exports均通過。
+
+- Fresh Node實跑built ESM全部9callbacks並取數（bg374，21.33s，Node v26.7.0）。baseline cf3ff75545023d079a05b36bd4edba6b351bfb0f的884舊kind×4seed×7points=24,752樣本／148,512欄位Object.is differences0；舊preset／tile／相對順序不變，16相關舊kind的96sets／480buffers逐byte相同。新kind prototype／built ESM／CJS共73,728 signed樣本／442,368 triplet欄位differences0，新6sets／30buffers相同；全部102sets／510 ESM-CJS buffers相同。六個actual source maps的v3／file／單一source均正確；CJS source指向built ESM.js，ESM source指向TS。
+
+- 標準owned Chrome156／port19754，沒有unsafe GPU、no-sandbox、TLS、visibility或RAF繞過。同一可見native window先forced WebGL2後完整導航forced WebGPU，各3個真實RAF；885+plain=886 options、25球、選中新kind、animate off。實測GL30draw且context未lost、GPU submit1；viewport1024×1000／DPR1.25，canvas CSS960×540、backing1200×675。兩實際gallery PNG均read/view。
+
+- Strict built root在http://127.0.0.1:19662/to220-material-smoke 的預期404 document維持nosniff與default-none／script-self／worker-self完整CSP，從/src/index.js正式入口實測512seed7／height／tint[.9,1,1.1]／repeats3。Sync、原生module Worker與cache-hit的5streams各1,048,576B逐byte相等，三組texture逐slot互不別名；5個UV矩陣均[3,0,0,3,0,0]。Default factor1／explicit0，前後全部MR bytes相同。
+
+- Root cache1entry／5,242,880B／hit1miss1，pool completed1、running／queued／admitted／cancelled／failed皆0；三preset實際destroyed。Caller-owned pool可再完成32seed8至completed2／failed0，借用preset亦destroyed；cache.clear後0entry／0B，pool.destroy後實測native workers0。最小32 seed123／124 base-color差67bytes，兩preset destroyed true。另從published factory輸出1024×1064四panel PNG118,095B，實際read/view且preset destroyed true。
+
+- 正確strict SDK最後snapshot只有初始預期404，沒有後續app／Worker／pageerror。一次PNG工具呼叫content:null無效，僅補做二進位存檔與state觀測，沒有重複成功的factory。工作階段中斷後supervisor回報owned Chrome exited without an exit code，不冒稱手動逐頁close、正常143或warning-free退出；不重新包裝舊瀏覽器結果為新驗證。
+
+- README中／英／日、PLAN／DESIGN、CURRENT與技術／操作中英文同步；九文件387個relative links實查missing0。不宣稱其他browser、最低Node22重認證、Canvas2D顯示3D、電氣／MOSFET／熱／RF／CAD／安規或FPS認證。使用者本次明確要求依功能提交並推送，既有439個功能提交已正常推送origin/main（8e83ad986→cf3ff7554），沒有force或改寫歷史。
+
+- 工作階段中斷後無法取回先前完整suite輸出，未記為成功。本次凍結source／tests／dist後重跑完整suite：2026-11-01 21:33:39開始，179檔／9,427項全部通過（819.39s，wall820.40s，Node v26.7.0）；不以先前無法取回的結果充當本次證據。
+
+- 收尾實查15個列名owned暫存檔與唯一profile均已不存在，port19754無listener；不冒稱由本次手動刪除，也未停止或重啟shared服務。九文件387個relative links仍missing0，新增驗收文件格式通過。提交只選本feature EOF驗收與28個source／test／doc／dist檔，保留使用者原先獨立的ACCEPTANCE hunk未提交；沒有混入其他功能或改寫歷史。

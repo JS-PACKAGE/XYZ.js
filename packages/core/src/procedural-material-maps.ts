@@ -16402,6 +16402,163 @@ export function createSurfaceSampler(
           roughness += p.grainRoughness * grain;
         };
       }
+      case 'to220packagefaces': {
+        const p = proceduralMaterialPresets.to220packagefaces,
+          poses = new Float64Array(p.cells * p.cells * 4),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x23001),
+          lastLead = p.leadCount - 1,
+          firstLeadX = -lastLead * p.leadPitch * 0.5,
+          leadBoundX =
+            -firstLeadX + Math.max(p.leadRootHalfWidth, p.leadHalfWidth),
+          tabBoundY = Math.abs(p.tabCenterY) + p.tabHalfHeight,
+          bodyBoundY = Math.abs(p.bodyCenterY) + p.bodyHalfHeight,
+          leadBoundY = Math.abs(p.leadCenterY) + p.leadHalfHeight,
+          ownerBound =
+            p.maxScale *
+            Math.sqrt(
+              Math.max(
+                p.tabHalfWidth * p.tabHalfWidth + tabBoundY * tabBoundY,
+                p.bodyHalfWidth * p.bodyHalfWidth + bodyBoundY * bodyBoundY,
+                leadBoundX * leadBoundX + leadBoundY * leadBoundY,
+              ),
+            ),
+          inverseTab = 1 / p.tabBevel,
+          tabTop = p.tabCenterY - p.tabHalfHeight,
+          clipSlope = p.tabClipHeight / p.tabClipWidth,
+          clipInnerX = p.tabHalfWidth - p.tabClipWidth,
+          inverseClip =
+            1 / (p.tabClipBevel * Math.sqrt(1 + clipSlope * clipSlope)),
+          inverseBody = 1 / p.bodyBevel,
+          inversePitch = 1 / p.leadPitch,
+          inverseShoulder = 1 / p.leadShoulderBlend,
+          inverseLeadX = 1 / p.leadBevelX,
+          inverseLeadY = 1 / p.leadBevelY,
+          leadWidthDelta = p.leadHalfWidth - p.leadRootHalfWidth,
+          holeSquared = p.holeRadius * p.holeRadius,
+          holeCore = p.holeRadius - p.holeBevel,
+          inverseHole = 1 / (holeSquared - holeCore * holeCore),
+          tabTone = p.tabTone - p.backingTone,
+          tabHeight = p.tabHeight - p.backingHeight,
+          tabRoughness = p.tabRoughness - p.backingRoughness,
+          tabAO = p.tabAO - p.backingAO,
+          leadTone = p.leadTone - p.backingTone,
+          leadHeight = p.leadHeight - p.backingHeight,
+          leadRoughness = p.leadRoughness - p.backingRoughness,
+          leadAO = p.leadAO - p.backingAO,
+          bodyTone = p.bodyTone - p.backingTone,
+          bodyHeight = p.bodyHeight - p.backingHeight,
+          bodyRoughness = p.roughness - p.backingRoughness,
+          bodyAO = p.bodyAO - p.backingAO,
+          holeTone = p.holeTone - p.tabTone,
+          holeHeight = p.holeHeight - p.tabHeight,
+          holeRoughness = p.holeRoughness - p.tabRoughness,
+          holeAO = p.holeAO - p.tabAO;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4,
+              scale =
+                p.minScale +
+                (p.maxScale - p.minScale) * hash(col, row, seed ^ 0x23003),
+              angle =
+                TAU *
+                p.rotationTurns *
+                (2 * hash(col, row, seed ^ 0x23005) - 1);
+            poses[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x23007) - 1);
+            poses[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x23009) - 1);
+            poses[i + 2] = Math.cos(angle) / scale;
+            poses[i + 3] = Math.sin(angle) / scale;
+          }
+        return () => {
+          color = p.backingTone;
+          height = p.backingHeight;
+          roughness = p.backingRoughness;
+          occlusion = p.backingAO;
+          metallic = 0;
+          // Shared wrapping can round tiny negative UVs to one; wrap again before ownership.
+          const uc = fract(u) * p.cells,
+            vc = fract(v) * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 4,
+            dx = uc - col - poses[i],
+            dy = vc - row - poses[i + 1];
+          if (Math.abs(dx) >= ownerBound || Math.abs(dy) >= ownerBound) return;
+          const x = dx * poses[i + 2] + dy * poses[i + 3],
+            y = dy * poses[i + 2] - dx * poses[i + 3],
+            ax = Math.abs(x),
+            tab =
+              smooth(clamp((p.tabHalfWidth - ax) * inverseTab)) *
+              smooth(
+                clamp(
+                  (p.tabHalfHeight - Math.abs(y - p.tabCenterY)) * inverseTab,
+                ),
+              ) *
+              // Symmetric affine gates clip BOTH upper corners; their axis seam is full core.
+              smooth(
+                clamp(
+                  (y - tabTop + clipSlope * (clipInnerX - ax)) * inverseClip,
+                ),
+              ),
+            body =
+              smooth(clamp((p.bodyHalfWidth - ax) * inverseBody)) *
+              smooth(
+                clamp(
+                  (p.bodyHalfHeight - Math.abs(y - p.bodyCenterY)) *
+                    inverseBody,
+                ),
+              ),
+            leadIndex = Math.max(
+              0,
+              Math.min(
+                lastLead,
+                Math.floor((x - firstLeadX) * inversePitch + 0.5),
+              ),
+            ),
+            leadX = x - (firstLeadX + leadIndex * p.leadPitch),
+            shoulder = smooth(
+              clamp((y - p.leadShoulderEndY) * inverseShoulder),
+            ),
+            leadWidth = p.leadRootHalfWidth + leadWidthDelta * shoulder,
+            lead =
+              smooth(clamp((leadWidth - Math.abs(leadX)) * inverseLeadX)) *
+              smooth(
+                clamp(
+                  (p.leadHalfHeight - Math.abs(y - p.leadCenterY)) *
+                    inverseLeadY,
+                ),
+              ),
+            holeY = y - p.holeCenterY,
+            hole = smooth(
+              clamp((holeSquared - x * x - holeY * holeY) * inverseHole),
+            ),
+            exposed = 1 - body;
+          // Disjoint tab/leads, a hole inside full tab, and body replacement give convex weights.
+          color +=
+            (tab * tabTone + lead * leadTone) * exposed +
+            body * bodyTone +
+            hole * holeTone;
+          height +=
+            (tab * tabHeight + lead * leadHeight) * exposed +
+            body * bodyHeight +
+            hole * holeHeight;
+          roughness +=
+            (tab * tabRoughness + lead * leadRoughness) * exposed +
+            body * bodyRoughness +
+            hole * holeRoughness;
+          occlusion +=
+            (tab * tabAO + lead * leadAO) * exposed +
+            body * bodyAO +
+            hole * holeAO;
+          metallic = (tab + lead) * exposed - hole;
+          if (metallic === 0) return;
+          const grain = grainField(u, v) * metallic;
+          color += p.grainTone * grain;
+          height += p.grainHeight * grain;
+          roughness += p.grainRoughness * grain;
+        };
+      }
       case 'ftypefemalefaces': {
         const p = proceduralMaterialPresets.ftypefemalefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -43656,6 +43813,7 @@ export function createSurfaceSampler(
     kind === 'minidin4femalefaces' ||
     kind === 'dcbarreljackfaces' ||
     kind === 'stfiberadapterfaces' ||
+    kind === 'to220packagefaces' ||
     kind === 'ftypefemalefaces' ||
     kind === 'usbcfemalefaces' ||
     kind === 'iecc6inlets' ||
