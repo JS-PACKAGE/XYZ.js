@@ -4599,3 +4599,115 @@ describe('sudokugrid: conflict-free clues on a 9 x 9 grid with box lines', () =>
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('measuringtape: millimeter scale with numbered centimeters', () => {
+  const p = proceduralMaterialPresets.measuringtape;
+  const tileMm = p.centimeters * 10,
+    stripMm = tileMm / p.strips;
+  // 3x5 pixel glyphs for 0-9, written out independently of the sampler.
+  const glyphs = [
+    '111101101101111',
+    '010110010010111',
+    '111001111100111',
+    '111001111001111',
+    '101101111001001',
+    '111100111001111',
+    '111100111101111',
+    '111001001010010',
+    '111101111101111',
+    '111101111001111',
+  ];
+
+  it.each(seeds)(
+    'draws ticks of three lengths with the right counts and numbers every centimeter on every strip (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('measuringtape', seed),
+        out = empty(),
+        dark = (x: number, strip: number, y: number): boolean => {
+          sample(x / tileMm, (strip * stripMm + y) / tileMm, out);
+          return out.color < 0.3;
+        };
+      for (let strip = 0; strip < p.strips; strip++) {
+        // Count ticks crossing a scan line at depth y: millimeter ticks reach 4 mm, half
+        // centimeter ticks 6.4 mm and centimeter ticks 9.2 mm from the top edge of the strip.
+        const ticksAt = (y: number): number => {
+          // Count dark runs around the seam-free cycle; start from the state at the far end so a
+          // tick straddling x = 0 is counted exactly once.
+          let runs = 0,
+            previous = dark(tileMm - 0.025, strip, y);
+          for (let x = 0.025; x < tileMm; x += 0.05) {
+            const now = dark(x, strip, y);
+            if (now && !previous) runs++;
+            previous = now;
+          }
+          return runs;
+        };
+        expect(ticksAt(2)).toBe(tileMm);
+        expect(ticksAt((p.millimeterLength + p.halfLength) / 2)).toBe(
+          tileMm / 5,
+        );
+        expect(ticksAt((p.halfLength + p.centimeterLength) / 2)).toBe(
+          p.centimeters,
+        );
+        expect(ticksAt(p.centimeterLength + 0.8)).toBe(0);
+        // Numbers: centimeter k is written as its decimal digits right of its tick.
+        for (let k = 0; k < p.centimeters; k++) {
+          const label = String(k);
+          let decoded = '';
+          for (let g = 0; g < label.length; g++) {
+            let bits = '';
+            for (let row = 0; row < 5; row++)
+              for (let col = 0; col < 3; col++)
+                bits += dark(
+                  k * 10 + p.digitLeft + (4 * g + col + 0.5) * p.digitPixel,
+                  strip,
+                  p.digitTop + (row + 0.5) * p.digitPixel,
+                )
+                  ? '1'
+                  : '0';
+            const digit = glyphs.indexOf(bits);
+            expect(digit).toBeGreaterThanOrEqual(0);
+            decoded += digit;
+          }
+          expect(decoded).toBe(label);
+        }
+      }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('measuringtape', 0),
+      b = createSurfaceSampler('measuringtape', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

@@ -11653,3 +11653,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 調整記錄：第一版線的柔邊（0.012 tile）遠大於線寬（約0.003 tile），線條糊成淡灰、最大覆蓋只有約0.9；原先程式註解還把線寬單位誤寫成tile。改為柔邊0.0025 tile、線半寬0.018／0.04格，註解更正為「格」單位，預覽的格線與粗宮線才清晰。
 - 實測：`tests/procedural-material-motifs.test.ts`二百零四項（本材質十項）全過。八個seed（0、7、4294967295、1、2、3、4、5）：每格取3×5個像素中心，全空白視為無提示，其餘必須唯一匹配測試端獨立寫出的1–9字型；提示格比例與0.42相差＜0.2；任何列、行、3×3宮內的提示數字皆不重複（9列、9行、9宮都檢查）；沿u與沿v各9條線，量得線寬與預設的2×半寬/9相差＜0.0012 tile（粗線每3條一次）；通道範圍、metallic／mortar 0、wrap與seed差異。這驗證了提示的相容性，沒有驗證唯一解或難度。`tests/procedural-material.test.ts`以`-t "sudokugrid|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`sudokugrid`：option 921個、status為920 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的格線、粗宮線與數字連續無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：卷尺（measuringtape）
+
+- 目錄920→921，含plain的gallery為922項。每tile 160 mm見方（16 cm寬）、8條黃色條帶（每條20 mm高）：每1 mm短刻度（4 mm長）、每5 mm中刻度（6.4 mm）、每10 mm長刻度（9.2 mm、略粗），公分刻度右側以3×5點陣字型標示0–15。Metallic／mortar為0，預設tile0.16 m、0.0018 UV-relative relief、metallic factor 0。重複的0–15 cm段；作者設計，非特定卷尺標準。仍在獨立worktree分支`materials/more-textures`作業。
+- 設計調整：第一版草稿把長度單位混用（mm、公分、條帶高度比例），在落地前改為整個sampler都以毫米為單位量測（x、y、刻度長度、字型像素皆為mm），避免單位換算錯誤；預覽的刻度長度與字型大小因此符合實際尺寸。
+- 實測：`tests/procedural-material-motifs.test.ts`二百零八項（本材質四項）全過。三seed、8條條帶：在深度2 mm掃描一圈（步長0.05 mm）恰160個刻度、在中刻度與短刻度長度之間（5.2 mm）恰32個、在長刻度與中刻度之間（7.8 mm）恰16個、長刻度末端之下（10 mm）0個；每個公分k（0–15）在其刻度右側以3×5個像素中心取樣，解碼結果等於十進位字串k（含兩位數的10–15），字型由測試端獨立寫出；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "measuringtape|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`measuringtape`：option 922個、status為921 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的刻度與數字連續無接縫（512下每mm約3.2 px，刻度偏細，已在文件註明建議1024）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

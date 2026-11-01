@@ -7436,6 +7436,35 @@ export declare const proceduralMaterialPresets: Readonly<{
         inkRoughness: 0.44;
         paperRoughness: 0.76;
     }>;
+    measuringtape: Readonly<{
+        dark: readonly [18, 16, 10];
+        light: readonly [244, 206, 52];
+        roughness: 0.5;
+        relief: 0.0018;
+        strips: 8;
+        centimeters: 16;
+        millimeterLength: 4;
+        halfLength: 6.4;
+        centimeterLength: 9.2;
+        tickHalf: 0.14;
+        centimeterTickScale: 1.8;
+        edgeLine: 0.6;
+        tickStart: 0.6;
+        digitPixel: 1.1;
+        digitLeft: 1;
+        digitTop: 11;
+        edgeSoft: 0.15;
+        inkCells: 192;
+        tapeCells: 256;
+        tapeTone: 0.9;
+        inkTone: 0.04;
+        inkGain: 0.06;
+        tapeGrain: 0.05;
+        inkHeight: 0.55;
+        tapeHeight: 0.32;
+        inkRoughness: 0.42;
+        tapeRoughness: 0.5;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -13921,6 +13950,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    measuringtape: 0.16;
     sudokugrid: 0.25;
     sheetmusic: 0.3;
     ecgpaper: 0.08;

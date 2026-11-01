@@ -13414,6 +13414,43 @@ var proceduralMaterialPresets = Object.freeze({
 		inkRoughness: .44,
 		paperRoughness: .76
 	}),
+	measuringtape: Object.freeze({
+		dark: [
+			18,
+			16,
+			10
+		],
+		light: [
+			244,
+			206,
+			52
+		],
+		roughness: .5,
+		relief: .0018,
+		strips: 8,
+		centimeters: 16,
+		millimeterLength: 4,
+		halfLength: 6.4,
+		centimeterLength: 9.2,
+		tickHalf: .14,
+		centimeterTickScale: 1.8,
+		edgeLine: .6,
+		tickStart: .6,
+		digitPixel: 1.1,
+		digitLeft: 1,
+		digitTop: 11,
+		edgeSoft: .15,
+		inkCells: 192,
+		tapeCells: 256,
+		tapeTone: .9,
+		inkTone: .04,
+		inkGain: .06,
+		tapeGrain: .05,
+		inkHeight: .55,
+		tapeHeight: .32,
+		inkRoughness: .42,
+		tapeRoughness: .5
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -22095,6 +22132,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	measuringtape: .16,
 	sudokugrid: .25,
 	sheetmusic: .3,
 	ecgpaper: .08,

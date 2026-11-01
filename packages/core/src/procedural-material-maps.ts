@@ -19028,6 +19028,89 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'measuringtape': {
+        const p = proceduralMaterialPresets.measuringtape,
+          inkField = cachedNoise(p.inkCells, p.inkCells, seed ^ 0x26301),
+          tapeField = cachedNoise(p.tapeCells, p.tapeCells, seed ^ 0x26303),
+          // 3x5 pixel glyphs for 0-9, 15 bits (rows top to bottom) each.
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001001010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          inverseSoft = 1 / p.edgeSoft,
+          tileMm = p.centimeters * 10,
+          stripMm = tileMm / p.strips,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5));
+        // Everything below is measured in millimeters on the tape.
+        return () => {
+          const x = u * tileMm,
+            strip = Math.min(p.strips - 1, Math.floor(v * p.strips)),
+            y = (v * p.strips - strip) * stripMm,
+            mark = Math.round(x),
+            offset = Math.abs(x - mark),
+            centimeterMark = mark % 10 === 0,
+            length = centimeterMark
+              ? p.centimeterLength
+              : mark % 5 === 0
+                ? p.halfLength
+                : p.millimeterLength,
+            tick =
+              cover(
+                p.tickHalf * (centimeterMark ? p.centimeterTickScale : 1) -
+                  offset,
+              ) *
+              cover(length - y) *
+              cover(y - p.tickStart),
+            // Label: the centimeter number right of its tick, in a 3x5 pixel font.
+            centimeter = Math.floor(x / 10),
+            label = String(centimeter),
+            column = Math.floor(
+              (x - centimeter * 10 - p.digitLeft) / p.digitPixel,
+            ),
+            row = Math.floor((y - p.digitTop) / p.digitPixel);
+          let digit = 0;
+          if (
+            row >= 0 &&
+            row < 5 &&
+            column >= 0 &&
+            column < 4 * label.length - 1
+          ) {
+            const inside = column % 4;
+            if (
+              inside < 3 &&
+              glyphs[Number(label[Math.floor(column / 4)])][
+                row * 3 + inside
+              ] === '1'
+            )
+              digit = 1;
+          }
+          const edge = Math.max(
+              cover(p.edgeLine - y),
+              cover(y - (stripMm - p.edgeLine)),
+            ),
+            ink = Math.max(tick, digit, edge),
+            gain = inkField(u, v) - 0.5,
+            grain = tapeField(u, v) - 0.5;
+          color = clamp(
+            p.tapeTone +
+              p.tapeGrain * grain +
+              (p.inkTone + p.inkGain * gain - p.tapeTone) * ink,
+          );
+          height = clamp(p.tapeHeight + (p.inkHeight - p.tapeHeight) * ink);
+          roughness =
+            p.tapeRoughness + (p.inkRoughness - p.tapeRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -46557,6 +46640,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'measuringtape' ||
     kind === 'sudokugrid' ||
     kind === 'sheetmusic' ||
     kind === 'ecgpaper' ||
