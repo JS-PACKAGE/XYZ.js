@@ -23580,6 +23580,73 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'kaleidoscope': {
+        const p = proceduralMaterialPresets.kaleidoscope,
+          cellCount = 2,
+          // One wedge of blobs per cell, in polar form: radius, angle inside the wedge (0 to 1), size and tone.
+          wedges = p.folds.map((fold, cell) => {
+            const list: { r: number; a: number; size: number; tone: number }[] =
+              [];
+            for (let i = 0; i < p.blobs; i++)
+              list.push({
+                r: 0.05 + 0.38 * hash(cell, i, seed ^ 0x29301),
+                a: hash(cell, i + 100, seed ^ 0x29303),
+                size: 0.025 + 0.06 * hash(cell, i + 200, seed ^ 0x29305),
+                tone: p.blobTones[
+                  Math.min(
+                    p.blobTones.length - 1,
+                    Math.floor(
+                      hash(cell, i + 300, seed ^ 0x29307) * p.blobTones.length,
+                    ),
+                  )
+                ],
+              });
+            return {
+              fold,
+              list,
+              phase: hash(cell, 400, seed ^ 0x29309) * Math.PI * 2,
+            };
+          });
+        return () => {
+          const cx = Math.min(cellCount - 1, Math.floor(u * cellCount)),
+            cy = Math.min(cellCount - 1, Math.floor(v * cellCount)),
+            cell = cy * cellCount + cx,
+            wedge = wedges[cell],
+            dx = u * cellCount - cx - 0.5,
+            dy = v * cellCount - cy - 0.5,
+            r = Math.hypot(dx, dy),
+            width = Math.PI / wedge.fold;
+          // Fold the angle into one wedge: rotate by 2 pi / n, then mirror about the wedge's edges.
+          let t = Math.atan2(dy, dx) % (2 * width);
+          if (t < 0) t += 2 * width;
+          if (t > width) t = 2 * width - t;
+          const fx = r * Math.cos(t),
+            fy = r * Math.sin(t);
+          let tone: number =
+              p.baseTone +
+              p.ringAmplitude *
+                Math.sin(r * p.ringFrequency * Math.PI * 2 + wedge.phase),
+            level: number = p.baseHeight,
+            rough: number = p.roughnessBase;
+          for (const blob of wedge.list) {
+            const bx = blob.r * Math.cos(blob.a * width),
+              by = blob.r * Math.sin(blob.a * width),
+              cover = smooth(
+                clamp(
+                  (blob.size - Math.hypot(fx - bx, fy - by)) / p.edgeSoft + 0.5,
+                ),
+              );
+            tone += (blob.tone - tone) * cover;
+            level += (p.blobHeight - level) * cover;
+            rough += (p.roughnessBlob - rough) * cover;
+          }
+          const rim = smooth(clamp((r - p.rimStart) / (p.rimEnd - p.rimStart)));
+          color = clamp(tone + (p.rimTone - tone) * rim);
+          height = clamp(level + (p.rimHeight - level) * rim);
+          roughness = rough;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -51109,6 +51176,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'kaleidoscope' ||
     kind === 'slidingpuzzle' ||
     kind === 'magicsquares' ||
     kind === 'wordsearchgrid' ||

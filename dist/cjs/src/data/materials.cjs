@@ -15192,6 +15192,47 @@ var proceduralMaterialPresets = Object.freeze({
 		frameRoughness: .68,
 		holeRoughness: .9
 	}),
+	kaleidoscope: Object.freeze({
+		dark: [
+			18,
+			20,
+			44
+		],
+		light: [
+			250,
+			226,
+			168
+		],
+		roughness: .34,
+		relief: .002,
+		folds: [
+			6,
+			8,
+			5,
+			12
+		],
+		blobs: 9,
+		rimStart: .455,
+		rimEnd: .485,
+		edgeSoft: .012,
+		ringFrequency: 14,
+		ringAmplitude: .16,
+		baseTone: .4,
+		blobTones: [
+			.12,
+			.28,
+			.5,
+			.66,
+			.82,
+			.95
+		],
+		rimTone: .06,
+		blobHeight: .62,
+		baseHeight: .4,
+		rimHeight: .2,
+		roughnessBase: .4,
+		roughnessBlob: .26
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -23873,6 +23914,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	kaleidoscope: .4,
 	slidingpuzzle: .3,
 	magicsquares: .4,
 	wordsearchgrid: .35,

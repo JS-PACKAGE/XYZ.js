@@ -10609,3 +10609,92 @@ describe('slidingpuzzle: the shuffled board is a solvable 15-puzzle', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('kaleidoscope: each rosette has dihedral symmetry of its own order', () => {
+  const p = proceduralMaterialPresets.kaleidoscope;
+  const folds = [6, 8, 5, 12];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'is unchanged by rotation 2π/n and by mirroring, but not by half a turn of the wedge (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('kaleidoscope', seed),
+        one = empty(),
+        two = empty();
+      for (let cell = 0; cell < 4; cell++) {
+        const n = folds[cell],
+          cx = ((cell & 1) + 0.5) / 2,
+          cy = ((cell >> 1) + 0.5) / 2,
+          at = (
+            radius: number,
+            angle: number,
+            target: SurfaceSample,
+          ): number => {
+            sample(
+              cx + (radius * Math.cos(angle)) / 2,
+              cy + (radius * Math.sin(angle)) / 2,
+              target,
+            );
+            return target.color;
+          };
+        let probes = 0,
+          halfTurnDiffers = 0,
+          contrast = 0;
+        for (let i = 0; i < 400; i++) {
+          // Quasi-random probe positions inside the rim, away from the exact mirror lines.
+          const radius = 0.02 + 0.42 * ((i * 0.6180339887) % 1),
+            angle = 0.013 + 2 * Math.PI * ((i * 0.7548776662) % 1) * 0.999;
+          const value = at(radius, angle, one);
+          expect(at(radius, angle + (2 * Math.PI) / n, two)).toBeCloseTo(
+            value,
+            6,
+          );
+          expect(at(radius, -angle, two)).toBeCloseTo(value, 6);
+          halfTurnDiffers += Number(
+            Math.abs(at(radius, angle + Math.PI / n, two) - value) > 0.02,
+          );
+          contrast = Math.max(contrast, Math.abs(value - p.baseTone));
+          probes++;
+        }
+        // The pattern is not merely radial: rotating by half the wedge angle changes many samples.
+        expect(halfTurnDiffers / probes).toBeGreaterThan(0.05);
+        expect(contrast).toBeGreaterThan(0.2);
+      }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('kaleidoscope', 0),
+      b = createSurfaceSampler('kaleidoscope', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

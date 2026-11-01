@@ -8693,6 +8693,27 @@ export declare const proceduralMaterialPresets: Readonly<{
         frameRoughness: 0.68;
         holeRoughness: 0.9;
     }>;
+    kaleidoscope: Readonly<{
+        dark: readonly [18, 20, 44];
+        light: readonly [250, 226, 168];
+        roughness: 0.34;
+        relief: 0.002;
+        folds: readonly [6, 8, 5, 12];
+        blobs: 9;
+        rimStart: 0.455;
+        rimEnd: 0.485;
+        edgeSoft: 0.012;
+        ringFrequency: 14;
+        ringAmplitude: 0.16;
+        baseTone: 0.4;
+        blobTones: readonly [0.12, 0.28, 0.5, 0.66, 0.82, 0.95];
+        rimTone: 0.06;
+        blobHeight: 0.62;
+        baseHeight: 0.4;
+        rimHeight: 0.2;
+        roughnessBase: 0.4;
+        roughnessBlob: 0.26;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -15178,6 +15199,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    kaleidoscope: 0.4;
     slidingpuzzle: 0.3;
     magicsquares: 0.4;
     wordsearchgrid: 0.35;

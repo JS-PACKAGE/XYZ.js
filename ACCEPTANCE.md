@@ -12005,3 +12005,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 設計記錄：數字原本佔格寬約0.84（`digitFraction` 0.12），兩位數幾乎頂到方塊邊，看圖後改成0.1。
 - 實測：`tests/procedural-material-motifs.test.ts`六百零一項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）：由左上角的亮度判斷空格（暗＜0.2），其他格以測試端的點陣字型解碼（沿用前一個材質修正後的「單一字形讀取成功即單位數」判斷）；解碼後必須恰為0至15各一次；以獨立的可解性準則驗證（4×4盤面可解 ⇔ 逆序數＋空格由下往上的列號為奇數），九個seed全部可解；且在原位的方塊不超過6塊（確認有被打亂）。通道範圍、metallic／mortar 0、wrap與seed差異。可解性是「由合法滑動構造」的必然結果，測試只是獨立確認這個性質，並不證明盤面隨機性有多好。`tests/procedural-material.test.ts`以`-t "slidingpuzzle|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`slidingpuzzle`：option 969個、status為968 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的盤面。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：萬花筒（kaleidoscope）
+
+- 目錄968→969，含plain的gallery為970項。每tile 2×2個圓形玫瑰紋，分別為6、8、5、12重二面體對稱；每個圓盤是楔形（角度π/n）內9個seed隨機圓點加同心環，取樣時把角度折疊進楔形，因此旋轉與鏡射對稱是精確成立的。Metallic／mortar為0，預設tile0.4 m、0.002 UV-relative relief、metallic factor 0。作者設計；仍在獨立worktree分支`materials/more-textures`作業。
+- 實測：`tests/procedural-material-motifs.test.ts`六百一十一項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）× 四個圓盤 × 400個準隨機探測點（避開楔形邊緣）：旋轉2π/n與鏡射（角度取負）後的亮度與原位置相同（6位小數）；旋轉半個楔形角π/n後超過5%的點亮度改變＞0.02（不是單純的放射狀圖案）；探測中存在與底色相差＞0.2的點；通道範圍、metallic／mortar 0、wrap與seed差異。突變檢查：把折疊的鏡射`t = 2w - t`改成`t = t - w`（破壞鏡射連續性）後九個對稱測試全部失敗，改回後全過；`tests/procedural-material.test.ts`以`-t "kaleidoscope|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 效能：512×512單次建立約174 ms（每像素含atan2、cos、sin與9個圓點），比多數材質慢（brick約18 ms、knightstour約51 ms），未做最佳化；這只是單機、單次、Bun的量測，不代表瀏覽器或Worker下的表現。
+- 真實dev server的pbr3d頁（WebGPU）選取`kaleidoscope`：option 970個、status為969 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的圓盤。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
