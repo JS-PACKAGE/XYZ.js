@@ -7725,3 +7725,173 @@ describe('weavingdraft: the drawdown follows from threading, tie-up and treadlin
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('scrambledcubenet: the net of a legally scrambled 3x3x3 cube', () => {
+  const p = proceduralMaterialPresets.scrambledcubenet;
+  const tones = [0.24, 0.36, 0.5, 0.64, 0.79, 0.95];
+  // Face order U, L, F, R, B, D with their outward normals; colors are numbered like the faces.
+  const normals = [
+    [0, 1, 0],
+    [-1, 0, 0],
+    [0, 0, 1],
+    [1, 0, 0],
+    [0, 0, -1],
+    [0, -1, 0],
+  ];
+  // Cross net: face origin in the 14x14 sheet (cells) and the map from face row/column to 3D.
+  const origins = [
+    [4, 2],
+    [1, 5],
+    [4, 5],
+    [7, 5],
+    [10, 5],
+    [4, 8],
+  ];
+  const position = (face: number, r: number, c: number): number[] =>
+    [
+      [c - 1, 1, r - 1],
+      [-1, 1 - r, c - 1],
+      [c - 1, 1 - r, 1],
+      [1, 1 - r, 1 - c],
+      [1 - c, 1 - r, -1],
+      [c - 1, -1, 1 - r],
+    ][face];
+  const det = (a: number[], b: number[], c: number[]): number =>
+    a[0] * (b[1] * c[2] - b[2] * c[1]) -
+    a[1] * (b[0] * c[2] - b[2] * c[0]) +
+    a[2] * (b[0] * c[1] - b[1] * c[0]);
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6, 8, 9])(
+    'keeps nine stickers per color and every edge and corner piece intact (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('scrambledcubenet', seed),
+        out = empty(),
+        colorAt = (col: number, row: number): number => {
+          sample((col + 0.5) / p.cells, (row + 0.5) / p.cells, out);
+          let best = 0;
+          for (let i = 1; i < tones.length; i++)
+            if (
+              Math.abs(tones[i] - out.color) < Math.abs(tones[best] - out.color)
+            )
+              best = i;
+          expect(Math.abs(tones[best] - out.color)).toBeLessThan(0.04);
+          return best;
+        };
+      const counts = new Array<number>(6).fill(0),
+        pieces = new Map<string, { colors: number[]; normals: number[][] }>();
+      let displaced = 0;
+      for (let face = 0; face < 6; face++)
+        for (let r = 0; r < 3; r++)
+          for (let c = 0; c < 3; c++) {
+            const color = colorAt(origins[face][0] + c, origins[face][1] + r);
+            counts[color]++;
+            if (r === 1 && c === 1) expect(color).toBe(face);
+            displaced += Number(color !== face);
+            const key = position(face, r, c).join(','),
+              piece = pieces.get(key) ?? { colors: [], normals: [] };
+            piece.colors.push(color);
+            piece.normals.push(normals[face]);
+            pieces.set(key, piece);
+          }
+      expect(counts).toEqual([9, 9, 9, 9, 9, 9]);
+      expect(displaced).toBeGreaterThan(20);
+      // Cells outside the cross are blank paper.
+      for (const [col, row] of [
+        [0, 0],
+        [13, 0],
+        [0, 13],
+        [13, 13],
+        [1, 3],
+        [12, 11],
+      ]) {
+        sample((col + 0.5) / p.cells, (row + 0.5) / p.cells, out);
+        expect(out.color).toBeGreaterThan(0.85);
+      }
+      // Edge and corner pieces: the solved cube has 12 edges (two non-opposite colors) and 8
+      // corners (three mutually adjacent colors); after scrambling each must appear exactly once.
+      const solvedEdges = new Set<string>(),
+        solvedCorners = new Set<string>();
+      for (let a = 0; a < 6; a++)
+        for (let b = a + 1; b < 6; b++) {
+          if (
+            normals[a][0] + normals[b][0] === 0 &&
+            normals[a][1] + normals[b][1] === 0 &&
+            normals[a][2] + normals[b][2] === 0
+          )
+            continue;
+          solvedEdges.add(`${a},${b}`);
+          for (let c = b + 1; c < 6; c++) {
+            const opposite = (x: number, y: number): boolean =>
+              normals[x].every((value, i) => value + normals[y][i] === 0);
+            if (!opposite(a, c) && !opposite(b, c))
+              solvedCorners.add(`${a},${b},${c}`);
+          }
+        }
+      const seenEdges = new Set<string>(),
+        seenCorners = new Set<string>();
+      let wrongHanded = 0;
+      for (const piece of pieces.values()) {
+        const key = [...piece.colors].sort((x, y) => x - y).join(',');
+        if (piece.colors.length === 2) {
+          expect(solvedEdges.has(key)).toBe(true);
+          seenEdges.add(key);
+        } else if (piece.colors.length === 3) {
+          expect(solvedCorners.has(key)).toBe(true);
+          seenCorners.add(key);
+          // A turn keeps the handedness of a corner: the colors read in the order of the facelet
+          // normals have the same orientation as the normals of those colors on the solved cube.
+          const here = det(
+              piece.normals[0],
+              piece.normals[1],
+              piece.normals[2],
+            ),
+            solved = det(
+              normals[piece.colors[0]],
+              normals[piece.colors[1]],
+              normals[piece.colors[2]],
+            );
+          wrongHanded += Number(here * solved < 0);
+        }
+      }
+      expect(seenEdges.size).toBe(12);
+      expect(seenCorners.size).toBe(8);
+      expect(wrongHanded).toBe(0);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('scrambledcubenet', 0),
+      b = createSurfaceSampler('scrambledcubenet', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(20);
+  });
+});

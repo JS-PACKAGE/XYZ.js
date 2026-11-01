@@ -11837,3 +11837,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`三百九十三項（本材質十二項）全過，第一次執行即通過、沒有出現失敗。十一個seed（0、7、4294967295、1至6、8、9）：從格中心的色調（＜0.4為深）讀出穿綜（每欄恰好一個記號，1號綜在最靠近織紋的那一列）、踏板連綜表（每個踏板抬起的綜數在1至3片之間）與踩踏（每列恰好一個記號），再由測試端獨立套用「經線c在第r梭浮在上面＝第r梭的踏板抬起第c條經線所穿的綜」逐格比對12×12的織紋圖，全部相符（0處錯誤）；織紋中的深格數在21至123之間；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "weavingdraft|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 觀察到但未處理：隨機的穿綜與踩踏使織紋看起來雜亂，不像傳統的斜紋或緞紋；這是設計取捨（讓每個seed都能是獨立可驗證的完整圖解），不是缺陷，已在文件列為限制。
 - 真實dev server的pbr3d頁（WebGPU）選取`weavingdraft`：option 946個、status為945 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的圖解。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：打亂的魔術方塊展開圖（scrambledcubenet）
+
+- 目錄945→946，含plain的gallery為947項。每tile是14×14格的紙面，中央是3×3×3魔術方塊的十字展開圖（54顆貼紙，12×9格，六面以六個亮度0.24至0.95表示），方塊由seed隨機做22次外層四分之一轉（旋轉三維座標與法線）得到。Metallic／mortar為0，預設tile0.4 m、0.0028 UV-relative relief、metallic factor 0。亮度只是明暗而非色相；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 設計記錄：第一版的展開圖是12格寬、剛好填滿tile，tile重複時B面緊接下一個tile的L面，畫面變成一條連續的帶狀；預覽時發現後改為14×14格、展開圖置中（偏移1、2格）。
+- 測試設計：測試端以與取樣器不同的表示法（每個面一個`(r, c) → 三維座標`的算式，取樣器用right／down向量）自己建出54個貼紙的三維位置，再依位置分組得到邊塊與角塊；檢查每個亮度9顆貼紙、中心貼紙等於其面的亮度、12個邊塊與8個角塊的顏色組合各恰好出現一次且皆屬於還原狀態的組合（不含相對面）、每個角塊的手性（法線行列式與顏色對應法線行列式同號）。另做一次變異檢查：暫時把測試端R面的座標算式改成鏡像後，上述測試在所有seed都失敗，確認測試對手性或對應錯誤是敏感的，之後已復原。
+- 實測：`tests/procedural-material-motifs.test.ts`四百零五項（本材質十二項）全過，第一次執行即通過。十一個seed（0、7、4294967295、1至6、8、9）：每個貼紙色調與最近的六個亮度相差＜0.04；各色恰9顆；中心貼紙等於其面；錯位貼紙數＞20；十字外的格子是紙面（＞0.85）；12個邊塊與8個角塊各出現一次，手性正確；通道範圍、metallic／mortar 0、wrap與seed差異。注意：合法性檢查是必要條件，不是充分條件（沒有檢查邊塊翻轉總和、角塊扭轉總和與排列奇偶性）。`tests/procedural-material.test.ts`以`-t "scrambledcubenet|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`scrambledcubenet`：option 947個、status為946 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的展開圖。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

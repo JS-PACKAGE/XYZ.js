@@ -21351,6 +21351,139 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'scrambledcubenet': {
+        const p = proceduralMaterialPresets.scrambledcubenet,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x27c01),
+          cells = p.cells,
+          // Net cell of each sticker (column, row in cells) or -1 where the cross net is empty,
+          // holding the color index 0-5 of the sticker shown there.
+          net = new Int8Array(cells * cells).fill(-1),
+          inverseSoft = 1 / p.edgeSoft,
+          half = 0.5 - p.inset,
+          // Face frames: outward normal, the direction "right" and "down" in the net, and the
+          // position of the face in the cross net (in faces). Axes: x right, y up, z toward the viewer.
+          faces = [
+            {
+              normal: [0, 1, 0],
+              right: [1, 0, 0],
+              down: [0, 0, 1],
+              at: [1, 0],
+            },
+            {
+              normal: [-1, 0, 0],
+              right: [0, 0, 1],
+              down: [0, -1, 0],
+              at: [0, 1],
+            },
+            {
+              normal: [0, 0, 1],
+              right: [1, 0, 0],
+              down: [0, -1, 0],
+              at: [1, 1],
+            },
+            {
+              normal: [1, 0, 0],
+              right: [0, 0, -1],
+              down: [0, -1, 0],
+              at: [2, 1],
+            },
+            {
+              normal: [0, 0, -1],
+              right: [-1, 0, 0],
+              down: [0, -1, 0],
+              at: [3, 1],
+            },
+            {
+              normal: [0, -1, 0],
+              right: [1, 0, 0],
+              down: [0, 0, -1],
+              at: [1, 2],
+            },
+          ],
+          dot = (a: number[], b: number[]): number =>
+            a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
+          stickers: { position: number[]; normal: number[]; color: number }[] =
+            [];
+        // One sticker per visible facelet of a solved cube, colored by the face it starts on.
+        for (let f = 0; f < 6; f++)
+          for (let r = -1; r <= 1; r++)
+            for (let c = -1; c <= 1; c++) {
+              const face = faces[f];
+              stickers.push({
+                position: [0, 1, 2].map(
+                  (i) => face.normal[i] + c * face.right[i] + r * face.down[i],
+                ),
+                normal: [...face.normal],
+                color: f,
+              });
+            }
+        // Scramble with random quarter turns of the outer layers.
+        for (let m = 0; m < p.moves; m++) {
+          const axis = Math.min(2, Math.floor(hash(m, 1, seed ^ 0x27c03) * 3)),
+            layer = hash(m, 2, seed ^ 0x27c05) < 0.5 ? -1 : 1,
+            direction = hash(m, 3, seed ^ 0x27c07) < 0.5 ? -1 : 1,
+            b = (axis + 1) % 3,
+            c = (axis + 2) % 3,
+            turn = (vector: number[]): number[] => {
+              const out = [...vector];
+              out[b] = -direction * vector[c];
+              out[c] = direction * vector[b];
+              return out;
+            };
+          for (const sticker of stickers)
+            if (sticker.position[axis] === layer) {
+              sticker.position = turn(sticker.position);
+              sticker.normal = turn(sticker.normal);
+            }
+        }
+        for (const sticker of stickers) {
+          const f = faces.findIndex(
+              (face) => dot(face.normal, sticker.normal) === 1,
+            ),
+            face = faces[f],
+            column = dot(sticker.position, face.right) + 1,
+            row = dot(sticker.position, face.down) + 1;
+          net[
+            (p.netOffsetY + face.at[1] * 3 + row) * cells +
+              p.netOffsetX +
+              face.at[0] * 3 +
+              column
+          ] = sticker.color;
+        }
+        return () => {
+          const gx = u * cells,
+            gy = v * cells,
+            col = Math.min(cells - 1, Math.floor(gx)),
+            row = Math.min(cells - 1, Math.floor(gy)),
+            fx = gx - col - 0.5,
+            fy = gy - row - 0.5,
+            colorIndex = net[row * cells + col],
+            grain = p.grainTone * (grainField(u, v) - 0.5);
+          if (colorIndex < 0) {
+            color = clamp(p.paperTone + grain);
+            height = p.paperHeight;
+            roughness = p.paperRoughness;
+            occlusion = 1;
+            return;
+          }
+          const qx = Math.abs(fx) - (half - p.corner),
+            qy = Math.abs(fy) - (half - p.corner),
+            distance =
+              Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) +
+              Math.min(Math.max(qx, qy), 0) -
+              p.corner,
+            sticker = smooth(clamp(-distance * inverseSoft + 0.5));
+          color = clamp(
+            p.bodyTone + (p.tones[colorIndex] - p.bodyTone) * sticker + grain,
+          );
+          height = clamp(
+            p.bodyHeight + (p.stickerHeight - p.bodyHeight) * sticker,
+          );
+          roughness =
+            p.bodyRoughness + (p.stickerRoughness - p.bodyRoughness) * sticker;
+          occlusion = clamp(1 - 0.4 * (1 - sticker));
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -48880,6 +49013,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'scrambledcubenet' ||
     kind === 'weavingdraft' ||
     kind === 'lightsoutboard' ||
     kind === 'nonogrampuzzle' ||

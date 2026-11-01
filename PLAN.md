@@ -1337,6 +1337,10 @@
 
 這是作者設計的示意：只畫四綜、四踏板、12×12的升梭（rising shed）慣例，穿綜與踩踏是隨機的，不是傳統的斜紋或緞紋規則，所以織紋看起來可能不整齊；沒有紗線顏色（深／淺只是「經浮／緯浮」）、也沒有織縮或實際組織的立體感；顏色是亮度插值（近黑墨＋米白紙），不代表任何紗線色相。預設0.4 m nominal tile、0.0018 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上（每格32 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`scrambledcubenet`（打亂的魔術方塊展開圖）使目前目錄945→946種，含plain的gallery為947項。每tile是一張14×14格的紙面，中央是3×3×3魔術方塊的十字形展開圖（上、左、前、右、後、下六面，共54顆貼紙，12×9格），貼紙是圓角方塊、嵌在黑色塑膠本體上；六面的顏色以六個亮度（0.24至0.95）表示。方塊由seed隨機做22次外層四分之一轉（旋轉三維座標與法線，不是隨機填色），所以畫面一定是合法、可還原的方塊狀態：每個亮度恰有9顆貼紙、六個中心貼紙各是一個亮度、12個邊塊與8個角塊各出現一次且不會有相對面的顏色配在同一塊。Metallic與mortar為0。
+
+這是作者設計的示意：展開圖的方向是常見的十字展開（U在F上方、D在F下方、L／R／B在F兩側與後方），不是任何特定轉法記號；顏色只是亮度，不是真實魔術方塊的色相，六個亮度間距約0.12至0.16，在小尺寸下較不易分辨；沒有立體魔術方塊的形狀；22次隨機四分之一轉並不保證達到均勻隨機狀態。預設0.4 m nominal tile、0.0028 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上（每格約37 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
