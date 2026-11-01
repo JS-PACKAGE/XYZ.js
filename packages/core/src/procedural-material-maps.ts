@@ -18443,6 +18443,123 @@ export function createSurfaceSampler(
           occlusion = clamp(1 - 0.1 * gapEdge);
         };
       }
+      case 'morsetape': {
+        const p = proceduralMaterialPresets.morsetape,
+          inkField = cachedNoise(p.inkCells, p.inkCells, seed ^ 0x25c01),
+          paperField = cachedNoise(p.paperCells, p.paperCells, seed ^ 0x25c03),
+          words = [
+            'SOS',
+            'XYZ',
+            'CAT',
+            'PLAY',
+            'HELLO',
+            'WORLD',
+            'LIGHT',
+            'ENGINE',
+            'SIGNAL',
+            'TEXTURE',
+          ],
+          code: Record<string, string> = {
+            A: '.-',
+            B: '-...',
+            C: '-.-.',
+            D: '-..',
+            E: '.',
+            F: '..-.',
+            G: '--.',
+            H: '....',
+            I: '..',
+            J: '.---',
+            K: '-.-',
+            L: '.-..',
+            M: '--',
+            N: '-.',
+            O: '---',
+            P: '.--.',
+            Q: '--.-',
+            R: '.-.',
+            S: '...',
+            T: '-',
+            U: '..-',
+            V: '...-',
+            W: '.--',
+            X: '-..-',
+            Y: '-.--',
+            Z: '--..',
+          },
+          // For every module: where its mark starts and ends (in modules), or -1 when blank.
+          starts: Float64Array[] = [],
+          ends: Float64Array[] = [],
+          rowModules = p.modules / p.rows;
+        for (let row = 0; row < p.rows; row++) {
+          const word =
+              words[
+                Math.min(
+                  words.length - 1,
+                  Math.floor(hash(row, 0, seed ^ 0x25c05) * words.length),
+                )
+              ],
+            start = new Float64Array(p.modules).fill(-1),
+            end = new Float64Array(p.modules).fill(-1);
+          let at = p.margin;
+          [...word].forEach((letter, index) => {
+            if (index > 0) at += 3;
+            [...code[letter]].forEach((mark, markIndex) => {
+              if (markIndex > 0) at += 1;
+              const length = mark === '.' ? 1 : 3;
+              for (let i = at; i < at + length; i++) {
+                start[i] = at;
+                end[i] = at + length;
+              }
+              at += length;
+            });
+          });
+          starts.push(start);
+          ends.push(end);
+        }
+        const inverseSoft = 1 / p.edgeSoft;
+        return () => {
+          const gy = v * p.rows,
+            row = Math.min(p.rows - 1, Math.floor(gy)),
+            fy = gy - row - 0.5,
+            gx = u * p.modules,
+            index = Math.min(p.modules - 1, Math.floor(gx)),
+            from = starts[row][index];
+          let ink = 0;
+          if (from >= 0) {
+            // Mark = capsule around the run's center line, measured in module units.
+            const to = ends[row][index],
+              y = fy * rowModules,
+              x =
+                clamp(
+                  (gx - (from + p.markRadius)) /
+                    Math.max(1e-9, to - from - 2 * p.markRadius),
+                ) *
+                  (to - from - 2 * p.markRadius) +
+                from +
+                p.markRadius,
+              d = Math.sqrt((gx - x) ** 2 + y * y);
+            ink = smooth(clamp((p.markRadius - d) * inverseSoft + 0.5));
+          }
+          const guide = Math.abs(fy) < p.guideHalfHeight ? 1 : 0,
+            gain = inkField(u, v) - 0.5,
+            grain = paperField(u, v) - 0.5;
+          color = clamp(
+            p.paperTone +
+              p.paperGrain * grain +
+              (p.guideTone - p.paperTone) * guide * (1 - ink) +
+              (p.inkTone + p.inkGain * gain - p.paperTone) * ink,
+          );
+          height = clamp(
+            p.paperHeight +
+              (p.guideHeight - p.paperHeight) * guide * (1 - ink) +
+              (p.inkHeight - p.paperHeight) * ink,
+          );
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -45972,6 +46089,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'morsetape' ||
     kind === 'ean13barcodes' ||
     kind === 'kilimflatweave' ||
     kind === 'tumblingblocks' ||

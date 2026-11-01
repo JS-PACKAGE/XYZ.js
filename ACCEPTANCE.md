@@ -11603,3 +11603,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試方式：測試端獨立寫出公開的L碼表，R碼取補數、G碼為R碼反轉，再逐列在95個模組中心取樣解碼；不讀取sampler內部。第一版的sampler有遺留的無效算式（`across * 0.0`與重複分支），預覽正確但程式碼難讀，在寫測試前已整理掉；整理後預覽與測試結果一致。
 - 實測：`tests/procedural-material-motifs.test.ts`一百六十六項（本材質四項）全過。三seed對每一列：左右各9模組全為空白、起訖護線101、中央護線01010、左側六組都能唯一匹配L或G碼（不會同時匹配兩者）、奇偶樣式能反推出合法的第一位數字、右側六組都匹配R碼、13個數字加權和（1、3交替）是10的倍數；在條底與護線底之間的高度上只有護線被塗墨；四列的數字互不相同；通道範圍、metallic／mortar 0、wrap與seed差異。只驗證結構與檢查碼，沒有用實體掃描器或解碼函式庫，也沒有量測列印品質；512下每模組約4.5 px、邊緣柔化占比較大，建議1024以上。`tests/procedural-material.test.ts`以`-t "ean13barcodes|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`ean13barcodes`：option 914個、status為913 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的條碼與接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：摩斯電碼紙帶（morsetape）
+
+- 目錄913→914，含plain的gallery為915項。每tile 10行紙帶、每行64單位寬，依各行hash自十個固定單字選一個，以國際摩斯電碼時序（點1、劃3、字內間隔1、字母間隔3、左側空白3）拼出，圓端膠囊形標記厚度1單位，另有淡導線與紙面纖維。Metallic／mortar為0，預設tile0.4 m、0.0016 UV-relative relief、metallic factor 0。每行僅單一單字，無鏈輪孔；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 調整記錄：第一版為12行×96單位，預覽中訊息只占寬度約一半、標記偏小；改為10行×64單位後，標記約16 px、字數與間隔清晰。首次草稿的sampler含未使用的中間變數，在插入前已重寫成乾淨版本。
+- 實測：`tests/procedural-material-motifs.test.ts`一百七十項（本材質四項）全過。測試端獨立寫出A–Z摩斯表與十個單字，三seed對每行在64個單位中心取樣，將連續的亮／暗區解析為點劃與間隔：左側空白恰3單位、亮段只有1或3單位、暗段只有1或3單位（尾端空白除外）、解碼結果必在單字表內，三seed共30行至少出現3種不同單字；每行首尾單位皆空白（tile邊界不切斷標記）；沿垂直方向量得的標記厚度為2×0.5單位±0.08；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "morsetape|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`morsetape`：option 915個、status為914 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的點劃與接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

@@ -3704,3 +3704,153 @@ describe('ean13barcodes: structurally valid EAN-13 symbols', () => {
     expect(different).toBeGreaterThan(100);
   });
 });
+
+describe('morsetape: decodable International Morse words on paper tape', () => {
+  const p = proceduralMaterialPresets.morsetape;
+  const vocabulary = [
+    'SOS',
+    'XYZ',
+    'CAT',
+    'PLAY',
+    'HELLO',
+    'WORLD',
+    'LIGHT',
+    'ENGINE',
+    'SIGNAL',
+    'TEXTURE',
+  ];
+  // ITU Morse for A-Z, written out independently of the sampler.
+  const letters: Record<string, string> = {
+    '.-': 'A',
+    '-...': 'B',
+    '-.-.': 'C',
+    '-..': 'D',
+    '.': 'E',
+    '..-.': 'F',
+    '--.': 'G',
+    '....': 'H',
+    '..': 'I',
+    '.---': 'J',
+    '-.-': 'K',
+    '.-..': 'L',
+    '--': 'M',
+    '-.': 'N',
+    '---': 'O',
+    '.--.': 'P',
+    '--.-': 'Q',
+    '.-.': 'R',
+    '...': 'S',
+    '-': 'T',
+    '..-': 'U',
+    '...-': 'V',
+    '.--': 'W',
+    '-..-': 'X',
+    '-.--': 'Y',
+    '--..': 'Z',
+  };
+
+  /** Decode one tape line from its module-center samples; undefined when the timing is invalid. */
+  const decode = (bits: number[]): string | undefined => {
+    const runs: { on: boolean; length: number }[] = [];
+    for (const bit of bits) {
+      const on = bit === 1,
+        last = runs[runs.length - 1];
+      if (last && last.on === on) last.length++;
+      else runs.push({ on, length: 1 });
+    }
+    // Leading margin, then alternating marks and gaps, then blank tape.
+    if (runs[0].on || runs[0].length !== p.margin) return undefined;
+    let word = '',
+      letter = '';
+    for (let i = 1; i < runs.length; i++) {
+      const run = runs[i];
+      if (run.on) {
+        if (run.length === 1) letter += '.';
+        else if (run.length === 3) letter += '-';
+        else return undefined;
+      } else if (i === runs.length - 1) {
+        break;
+      } else if (run.length === 3) {
+        word += letters[letter] ?? '?';
+        letter = '';
+      } else if (run.length !== 1) return undefined;
+    }
+    return word + (letters[letter] ?? '?');
+  };
+
+  it.each(seeds)(
+    'spells vocabulary words with standard dot, dash and gap timing on every line (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('morsetape', seed),
+        out = empty(),
+        words = new Set<string>();
+      for (let row = 0; row < p.rows; row++) {
+        const bits: number[] = [];
+        for (let i = 0; i < p.modules; i++) {
+          sample((i + 0.5) / p.modules, (row + 0.5) / p.rows, out);
+          bits.push(out.color < 0.35 ? 1 : 0);
+        }
+        const word = decode(bits);
+        expect(word).toBeDefined();
+        expect(vocabulary).toContain(word);
+        words.add(word as string);
+        // Tape ends blank so the pattern wraps without cutting a mark.
+        expect(bits[0]).toBe(0);
+        expect(bits[p.modules - 1]).toBe(0);
+        // A mark is one module thick: measure its height across the first inked module center.
+        const center = bits.indexOf(1);
+        let thick = 0;
+        const steps = 2000;
+        for (let k = 0; k < steps; k++) {
+          sample(
+            (center + 0.5) / p.modules,
+            (row + (k + 0.5) / steps) / p.rows,
+            out,
+          );
+          thick += Number(out.color < 0.35);
+        }
+        const rowModules = p.modules / p.rows;
+        expect(
+          Math.abs((thick / steps) * rowModules - 2 * p.markRadius),
+        ).toBeLessThan(0.08);
+      }
+      expect(words.size).toBeGreaterThanOrEqual(3);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('morsetape', 0),
+      b = createSurfaceSampler('morsetape', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
