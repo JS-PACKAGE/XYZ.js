@@ -11715,3 +11715,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 目錄928→929，含plain的gallery為930項。每tile一條4階希爾伯特空間填充曲線，穿過16×16個格子中心（左上起、右上終），相鄰索引的格子以線相連，色調沿索引由深靛漸變到灰；起終點向tile邊緣外伸半格，水平重複時接成連續曲線，垂直方向不相連；接縫處色調由淺跳回深（刻意保留）。Metallic／mortar為0，預設tile0.3 m、0.0014 UV-relative relief、metallic factor 0。作者設計；仍在獨立worktree分支`materials/more-textures`作業。
 - 實測：`tests/procedural-material-motifs.test.ts`二百六十四項（本材質四項）全過。三seed：測試端以標準的Hilbert索引轉座標演算法獨立算出每個索引的格子位置，對16×16個格子：每個格中心都有墨；相鄰兩個格中心的中點有墨，若且唯若兩格索引相差1（水平與垂直共480對全檢），索引相鄰的連接數恰為255；曲線起點在左上格、終點在右上格，兩端各有向tile邊緣外伸的線段（0.25格處有墨），其他邊緣格的外側半格皆無墨；格中心色調與索引的相關係數＞0.95；通道範圍、metallic／mortar 0、wrap與seed差異。第一版測試中有一個恆為假的條件（`i === 0`，迴圈從1開始），已改為直接斷言false。`tests/procedural-material.test.ts`以`-t "hilbertcurve|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`hilbertcurve`：option 930個、status為929 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的曲線與水平方向接合處。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：蒙德里安式構圖（mondriancomposition）
+
+- 目錄929→930，含plain的gallery為931項。每tile一幅遞迴二分割的矩形構圖（前兩層必分割，之後80%機率續分，最深5層、最小邊0.14 tile；分割線只橫跨被分割的矩形；tile邊緣有黑框），矩形以六個色階之一填色。無紅藍黃三原色（只有亮度，呈灰階），非任何作品的複製。Metallic／mortar為0，預設tile0.6 m、0.0016 UV-relative relief、metallic factor 0。作者設計；仍在獨立worktree分支`materials/more-textures`作業。
+- 發現並修正的缺陷：（1）第一版seed 7的預覽整張都是單一矩形，因為根節點也受80%機率影響而沒有分割，新增`forcedDepth: 2`讓前兩層必分割；（2）分割線的端點原本往外多延伸一個線半寬，導致線端在相鄰矩形角落多出約1 px的小突起，造成區域不是乾淨的矩形，改為線只涵蓋0到線長；（3）第一次完整驗證時`tsc`報錯（`let tone = p.tones[0]`被推論成字面型別0.97），`verify.sh`在typecheck失敗後仍繼續往下跑，我看輸出發現後修正為`let tone: number`並重跑。
+- 測試記錄：第一版斷言「每個區域恰好填滿其外接框」在八個seed中七個失敗：線邊緣的抗鋸齒像素受雜訊影響，會在邊界留下1–幾十個像素的鋸齒（顏色剛好在閾值0.2附近）；改閾值反而讓區域標準差超標。最後改為：把外接框向內縮3 px，縮小後的核心區必須被完全填滿（L形區域會在核心留下明顯缺口，所以仍有鑑別力），顏色平均與標準差也只在核心區計算。
+- 實測：`tests/procedural-material-motifs.test.ts`二百七十三項（本材質九項）全過。八個seed（0、7、4294967295、1、2、3、4、5）512²取樣：黑線像素（顏色＜0.2）以外的區域以4連通分組，數量在5–40之間；每區的核心區完全填滿外接框（矩形）、核心標準差＜0.08、平均色調與六階色階之一相差＜0.08，且每個seed至少出現2種不同色階；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "mondriancomposition|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`mondriancomposition`：option 931個、status為930 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的矩形與黑線連續無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

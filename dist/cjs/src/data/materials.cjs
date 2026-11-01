@@ -13749,6 +13749,44 @@ var proceduralMaterialPresets = Object.freeze({
 		inkRoughness: .42,
 		paperRoughness: .72
 	}),
+	mondriancomposition: Object.freeze({
+		dark: [
+			18,
+			18,
+			20
+		],
+		light: [
+			246,
+			242,
+			232
+		],
+		roughness: .66,
+		relief: .0016,
+		maxDepth: 5,
+		forcedDepth: 2,
+		minSize: .14,
+		splitChance: .8,
+		lineHalf: .0075,
+		edgeSoft: .0016,
+		tones: [
+			.97,
+			.97,
+			.97,
+			.62,
+			.4,
+			.78
+		],
+		lineTone: .04,
+		paintGain: .05,
+		canvasGrain: .03,
+		canvasCells: 192,
+		paintCells: 96,
+		lineHeight: .58,
+		fieldHeight: .4,
+		canvasHeight: .04,
+		lineRoughness: .5,
+		fieldRoughness: .7
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -22430,6 +22468,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	mondriancomposition: .6,
 	hilbertcurve: .3,
 	battleshipgrid: .4,
 	tetrisstack: .4,

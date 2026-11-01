@@ -5828,3 +5828,132 @@ describe('hilbertcurve: a space-filling path through every cell', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('mondriancomposition: a rectangular partition framed by black lines', () => {
+  const p = proceduralMaterialPresets.mondriancomposition;
+
+  it.each([...seeds, 1, 2, 3, 4, 5])(
+    'divides the canvas into rectangles, each filled with one of the authored tones (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('mondriancomposition', seed),
+        out = empty(),
+        n = 512,
+        color = new Float64Array(n * n),
+        line = new Uint8Array(n * n);
+      let invalid = 0;
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          sample((x + 0.5) / n, (y + 0.5) / n, out);
+          invalid += Number(out.metallic !== 0 || out.mortar !== 0);
+          for (const value of [
+            out.color,
+            out.height / p.relief,
+            out.roughness,
+            out.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+          color[y * n + x] = out.color;
+          line[y * n + x] = Number(out.color < 0.2);
+        }
+      expect(invalid).toBe(0);
+      const seen = new Uint8Array(n * n),
+        fills = new Set<number>();
+      let regions = 0;
+      for (let first = 0; first < n * n; first++) {
+        if (line[first] || seen[first]) continue;
+        regions++;
+        const queue = [first];
+        seen[first] = 1;
+        const members: number[] = queue;
+        let minX = n,
+          maxX = 0,
+          minY = n,
+          maxY = 0;
+        for (let read = 0; read < queue.length; read++) {
+          const i = queue[read],
+            x = i % n,
+            y = Math.floor(i / n);
+          minX = Math.min(minX, x);
+          maxX = Math.max(maxX, x);
+          minY = Math.min(minY, y);
+          maxY = Math.max(maxY, y);
+          for (const [dx, dy] of [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ]) {
+            const nx = x + dx,
+              ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= n || ny >= n) continue;
+            const j = ny * n + nx;
+            if (!line[j] && !seen[j]) {
+              seen[j] = 1;
+              queue.push(j);
+            }
+          }
+        }
+        // A rectangle fills its bounding box. Anti-aliased line edges leave a ragged pixel or two
+        // along the boundary, so inspect the box shrunk by 3 px: it must be completely filled
+        // (an L-shaped region would leave a large notch inside).
+        const inset = 3;
+        let core = 0,
+          sum = 0,
+          sumSquares = 0;
+        for (const i of members) {
+          const x = i % n,
+            y = Math.floor(i / n);
+          if (
+            x >= minX + inset &&
+            x <= maxX - inset &&
+            y >= minY + inset &&
+            y <= maxY - inset
+          ) {
+            core++;
+            sum += color[i];
+            sumSquares += color[i] ** 2;
+          }
+        }
+        expect(core).toBe(
+          Math.max(0, maxX - minX + 1 - 2 * inset) *
+            Math.max(0, maxY - minY + 1 - 2 * inset),
+        );
+        const mean = sum / core;
+        expect(
+          Math.sqrt(Math.max(0, sumSquares / core - mean * mean)),
+        ).toBeLessThan(0.08);
+        // The fill matches one of the authored tones.
+        const nearest = p.tones.reduce((best, tone) =>
+          Math.abs(tone - mean) < Math.abs(best - mean) ? tone : best,
+        );
+        expect(Math.abs(nearest - mean)).toBeLessThan(0.08);
+        fills.add(nearest);
+      }
+      expect(regions).toBeGreaterThanOrEqual(5);
+      expect(regions).toBeLessThanOrEqual(40);
+      expect(fills.size).toBeGreaterThanOrEqual(2);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('mondriancomposition', 0),
+      b = createSurfaceSampler('mondriancomposition', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

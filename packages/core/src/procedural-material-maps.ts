@@ -19962,6 +19962,115 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'mondriancomposition': {
+        const p = proceduralMaterialPresets.mondriancomposition,
+          canvasField = cachedNoise(
+            p.canvasCells,
+            p.canvasCells,
+            seed ^ 0x26c01,
+          ),
+          paintField = cachedNoise(p.paintCells, p.paintCells, seed ^ 0x26c03),
+          inverseSoft = 1 / p.edgeSoft,
+          // Axis-aligned rectangles as [x0, y0, x1, y1, tone index]. Each split line spans only the
+          // rectangle it divides, as in the paintings.
+          leaves: number[][] = [],
+          lines: number[][] = [];
+        let counter = 0;
+        const divide = (
+          x0: number,
+          y0: number,
+          x1: number,
+          y1: number,
+          depth: number,
+        ): void => {
+          const width = x1 - x0,
+            height = y1 - y0,
+            canSplitX = width >= 2 * p.minSize,
+            canSplitY = height >= 2 * p.minSize,
+            id = counter++;
+          if (
+            depth >= p.maxDepth ||
+            (!canSplitX && !canSplitY) ||
+            (depth >= p.forcedDepth &&
+              hash(id, 1, seed ^ 0x26c05) > p.splitChance)
+          ) {
+            leaves.push([
+              x0,
+              y0,
+              x1,
+              y1,
+              Math.min(
+                p.tones.length - 1,
+                Math.floor(hash(id, 2, seed ^ 0x26c07) * p.tones.length),
+              ),
+            ]);
+            return;
+          }
+          const vertical =
+              canSplitX &&
+              (!canSplitY ||
+                (width > height
+                  ? hash(id, 3, seed ^ 0x26c09) < 0.75
+                  : hash(id, 3, seed ^ 0x26c09) < 0.25)),
+            fraction = 0.35 + 0.3 * hash(id, 4, seed ^ 0x26c0b);
+          if (vertical) {
+            const x = Math.min(
+              x1 - p.minSize,
+              Math.max(x0 + p.minSize, x0 + width * fraction),
+            );
+            lines.push([x, y0, x, y1]);
+            divide(x0, y0, x, y1, depth + 1);
+            divide(x, y0, x1, y1, depth + 1);
+          } else {
+            const y = Math.min(
+              y1 - p.minSize,
+              Math.max(y0 + p.minSize, y0 + height * fraction),
+            );
+            lines.push([x0, y, x1, y]);
+            divide(x0, y0, x1, y, depth + 1);
+            divide(x0, y, x1, y1, depth + 1);
+          }
+        };
+        divide(0, 0, 1, 1, 0);
+        const cover = (inside: number): number =>
+          smooth(clamp(inside * inverseSoft + 0.5));
+        return () => {
+          // Frame: the tile edge counts as a line so the composition is closed and repeats cleanly.
+          let line = Math.max(
+            cover(p.lineHalf - Math.min(u, 1 - u)),
+            cover(p.lineHalf - Math.min(v, 1 - v)),
+          );
+          for (const [x0, y0, x1, y1] of lines) {
+            const across = x0 === x1 ? Math.abs(u - x0) : Math.abs(v - y0),
+              along = x0 === x1 ? v - y0 : u - x0,
+              length = x0 === x1 ? y1 - y0 : x1 - x0;
+            if (along >= 0 && along <= length)
+              line = Math.max(line, cover(p.lineHalf - across));
+          }
+          let tone: number = p.tones[0];
+          for (const [x0, y0, x1, y1, index] of leaves)
+            if (u >= x0 && u < x1 && v >= y0 && v < y1) {
+              tone = p.tones[index];
+              break;
+            }
+          const canvas = canvasField(u, v) - 0.5,
+            paint = paintField(u, v) - 0.5;
+          color = clamp(
+            tone +
+              p.canvasGrain * canvas +
+              p.paintGain * paint * (tone < 0.9 ? 1 : 0) +
+              (p.lineTone - tone) * line,
+          );
+          height = clamp(
+            p.fieldHeight +
+              p.canvasHeight * canvas +
+              (p.lineHeight - p.fieldHeight) * line,
+          );
+          roughness =
+            p.fieldRoughness + (p.lineRoughness - p.fieldRoughness) * line;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -47491,6 +47600,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'mondriancomposition' ||
     kind === 'hilbertcurve' ||
     kind === 'battleshipgrid' ||
     kind === 'tetrisstack' ||

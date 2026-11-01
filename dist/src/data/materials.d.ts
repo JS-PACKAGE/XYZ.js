@@ -7680,6 +7680,29 @@ export declare const proceduralMaterialPresets: Readonly<{
         inkRoughness: 0.42;
         paperRoughness: 0.72;
     }>;
+    mondriancomposition: Readonly<{
+        dark: readonly [18, 18, 20];
+        light: readonly [246, 242, 232];
+        roughness: 0.66;
+        relief: 0.0016;
+        maxDepth: 5;
+        forcedDepth: 2;
+        minSize: 0.14;
+        splitChance: 0.8;
+        lineHalf: 0.0075;
+        edgeSoft: 0.0016;
+        tones: readonly [0.97, 0.97, 0.97, 0.62, 0.4, 0.78];
+        lineTone: 0.04;
+        paintGain: 0.05;
+        canvasGrain: 0.03;
+        canvasCells: 192;
+        paintCells: 96;
+        lineHeight: 0.58;
+        fieldHeight: 0.4;
+        canvasHeight: 0.04;
+        lineRoughness: 0.5;
+        fieldRoughness: 0.7;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -14165,6 +14188,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    mondriancomposition: 0.6;
     hilbertcurve: 0.3;
     battleshipgrid: 0.4;
     tetrisstack: 0.4;
