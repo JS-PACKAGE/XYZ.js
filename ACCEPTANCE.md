@@ -11473,3 +11473,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試設計：本材質的核心不變量是拓樸——每個Voronoi格恰有一顆被接縫封閉的珠面，且空隙只在三珠交會處。測試用height>seamHeight+0.15取珠面並做wrap四連通標記，在768²取樣下三seed皆得到256顆＝16²；空隙（occlusion低於seam／void AO中點）的個數必須介於cells與2×cells之間（週期平面Voronoi每格約有2個頂點；窄接點會淡出），且每個空隙周圍8 px內至少碰到3顆不同的珠面（比例＞0.95）；原型768→1024量測空隙為311–332個，皆小於512上限。第一版測試因為在每個像素內呼叫expect而逾時（6.3 s > 5 s），改為累計無效通道計數、迴圈後一次斷言，並降到768²，之後整組在約1 s完成。
 - 實測：`tests/procedural-material-motifs.test.ts`六十五項（本材質四項）全過。`tests/procedural-material.test.ts`以`-t "expandedpolystyrene|every preset"`定向跑3項通過，沒有重跑該檔其餘5514項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`expandedpolystyrene`：option 895個、status為894 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼無接縫、珠面與三珠交會暗隙可辨。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：瀝青三片式屋頂瓦（asphaltshingle）
+
+- 目錄894→895，含plain的gallery為896項。每tile 12道瓦列、每列6片瓦舌，各列圖樣向右偏移整數個半片寬；瓦舌間的狹縫只開在列下58%（露出深色底層）；瓦舌向下緣增厚後陡降到下一列，被覆蓋的上緣AO變暗；顆粒雜訊、每片色調微變與緩變磨損。Metallic／mortar為0，預設tile1.0 m、0.0045 UV-relative relief、metallic factor 0。作者設計的示意，不代表任何製造商，不模擬釘線／密封膠條／苔蘚，未打包外部圖樣。仍在獨立worktree分支`materials/more-textures`作業。
+- 測試修正：第一版「陡降與陰影」測試用固定的瓦舌中心位置，但各列偏移是隨機的半片寬倍數，探針有時落在狹縫內（陡降比例只有0.75／0.83而非≥0.95）；改為先沿該列量到狹縫中心，再在兩個相鄰狹縫的正中央取樣。這是測試量測位置的錯，不是材質缺陷，也沒有放寬門檻。
+- 實測：`tests/procedural-material-motifs.test.ts`七十五項（本材質十項：三seed每列狹縫數＝6、寬度＝2×slotHalf±0.004、相鄰間距＝1/6±0.002、偏移為半片寬整數倍、列上段無狹縫；三seed陡降≥0.15 relief、陰影AO差＞0.25、瓦舌色調分散＞0.03；通道範圍；wrap／seed差異）全過。`tests/procedural-material.test.ts`以`-t "asphaltshingle|every preset"`定向跑3項通過，沒有重跑該檔其餘5515項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`asphaltshingle`：option 896個、status為895 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼無接縫、各列狹縫偏移可辨。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

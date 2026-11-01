@@ -1215,3 +1215,149 @@ describe('expandedpolystyrene: fused domed beads with junction voids', () => {
     expect(different).toBeGreaterThan(100);
   });
 });
+
+describe('asphaltshingle: staggered three-tab courses', () => {
+  const p = proceduralMaterialPresets.asphaltshingle;
+  /** Slot centers (in tab units) along a horizontal line inside one course. */
+  const slotsAt = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    v: number,
+  ): { centers: number[]; widths: number[] } => {
+    const out = empty(),
+      n = 6144,
+      dark: boolean[] = [];
+    for (let i = 0; i < n; i++) {
+      sample((i + 0.5) / n, v, out);
+      // Slot floor is the darkest tone; granules and shadow stay far above it.
+      dark.push(out.color < 0.12);
+    }
+    const start = dark.findIndex((d, i) => d && !dark[(i + n - 1) % n]),
+      centers: number[] = [],
+      widths: number[] = [];
+    let run = 0;
+    for (let k = 0; k < n; k++) {
+      const i = (start + k) % n;
+      if (dark[i]) run++;
+      else if (run > 0) {
+        centers.push(((((start + k - run / 2) % n) + n) % n) / n);
+        widths.push(run / n);
+        run = 0;
+      }
+    }
+    if (run > 0) {
+      centers.push(((((start + n - run / 2) % n) + n) % n) / n);
+      widths.push(run / n);
+    }
+    return { centers, widths };
+  };
+
+  it.each(seeds)(
+    'cuts one slot per tab at half-tab course offsets, only in the lower part (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('asphaltshingle', seed),
+        out = empty(),
+        pitch = 1 / p.tabs;
+      for (let course = 0; course < p.courses; course++) {
+        const { centers, widths } = slotsAt(sample, (course + 0.8) / p.courses);
+        expect(centers.length).toBe(p.tabs);
+        for (const width of widths)
+          expect(Math.abs(width - 2 * p.slotHalf)).toBeLessThan(0.004);
+        const sorted = [...centers].sort((a, b) => a - b);
+        for (let i = 1; i < sorted.length; i++)
+          expect(Math.abs(sorted[i] - sorted[i - 1] - pitch)).toBeLessThan(
+            0.002,
+          );
+        // Offset relative to the tab pitch is a whole number of half tabs.
+        const half = (sorted[0] * p.tabs * 2) % 1;
+        expect(Math.min(half, 1 - half)).toBeLessThan(0.05);
+        // The upper part of the course (covered by the course above) has no slot.
+        for (let i = 0; i < 512; i++) {
+          sample(i / 512, (course + 0.2) / p.courses, out);
+          expect(out.color).toBeGreaterThan(0.12);
+        }
+      }
+    },
+  );
+
+  it.each(seeds)(
+    'steps down at each course edge, shadows the overlap and varies tab tone (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('asphaltshingle', seed),
+        above = empty(),
+        below = empty(),
+        mid = empty(),
+        tones: number[] = [];
+      let steps = 0,
+        shadows = 0,
+        count = 0;
+      for (let course = 0; course < p.courses; course++)
+        for (let tab = 0; tab < p.tabs; tab++) {
+          // Middle of a tab: halfway between two neighboring slots of this course.
+          const slots = slotsAt(
+              sample,
+              (course + 0.8) / p.courses,
+            ).centers.sort((x, y) => x - y),
+            u = slots[0] + (tab + 0.5) / p.tabs;
+          sample(u, (course + 0.97) / p.courses, above);
+          sample(u, (course + 1.03) / p.courses, below);
+          sample(u, (course + 0.6) / p.courses, mid);
+          steps += Number(above.height - below.height > 0.15 * p.relief);
+          shadows += Number(mid.occlusion - below.occlusion > 0.25);
+          tones.push(mid.color);
+          count++;
+        }
+      expect(steps / count).toBeGreaterThan(0.95);
+      expect(shadows / count).toBeGreaterThan(0.95);
+      const mean = tones.reduce((a, b) => a + b, 0) / tones.length,
+        spread = Math.sqrt(
+          tones.reduce((a, b) => a + (b - mean) ** 2, 0) / tones.length,
+        );
+      expect(spread).toBeGreaterThan(0.03);
+    },
+  );
+
+  it.each(seeds)(
+    'keeps opaque non-metal channels in range for seed %i',
+    (seed) => {
+      const sample = createSurfaceSampler('asphaltshingle', seed),
+        out = empty();
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+          expect(out.mortar).toBe(0);
+          expect(out.metallic).toBe(0);
+          for (const value of [
+            out.color,
+            out.height / p.relief,
+            out.roughness,
+            out.occlusion,
+          ])
+            if (!(value >= 0 && value <= 1))
+              throw new Error(`asphaltshingle channel ${value} out of range`);
+        }
+    },
+  );
+
+  it('wraps seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('asphaltshingle', 0),
+      b = createSurfaceSampler('asphaltshingle', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        expect(two.height).toBeCloseTo(one.height, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(100);
+  });
+});

@@ -12414,6 +12414,42 @@ var proceduralMaterialPresets = Object.freeze({
 		seamAO: .7,
 		voidAO: .3
 	}),
+	asphaltshingle: Object.freeze({
+		dark: [
+			34,
+			36,
+			40
+		],
+		light: [
+			168,
+			164,
+			156
+		],
+		roughness: .94,
+		relief: .0045,
+		tabs: 6,
+		courses: 12,
+		slotHalf: .006,
+		slotSoft: .003,
+		slotTop: .42,
+		edgeSoft: .02,
+		granuleCells: 256,
+		wearCells: 6,
+		baseTone: .42,
+		tabVariation: .1,
+		granuleTone: .28,
+		wearTone: .14,
+		shadowTone: .12,
+		slotTone: .03,
+		baseHeight: .4,
+		thickness: .3,
+		granuleHeight: .06,
+		slotHeight: .05,
+		roughnessGranule: .04,
+		shadowAO: .55,
+		shadowReach: .3,
+		slotAO: .2
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -21095,6 +21131,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	asphaltshingle: 1,
 	expandedpolystyrene: .12,
 	octopussuckers: .4,
 	ammonitestone: .5,

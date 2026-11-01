@@ -6684,6 +6684,34 @@ export declare const proceduralMaterialPresets: Readonly<{
         seamAO: 0.7;
         voidAO: 0.3;
     }>;
+    asphaltshingle: Readonly<{
+        dark: readonly [34, 36, 40];
+        light: readonly [168, 164, 156];
+        roughness: 0.94;
+        relief: 0.0045;
+        tabs: 6;
+        courses: 12;
+        slotHalf: 0.006;
+        slotSoft: 0.003;
+        slotTop: 0.42;
+        edgeSoft: 0.02;
+        granuleCells: 256;
+        wearCells: 6;
+        baseTone: 0.42;
+        tabVariation: 0.1;
+        granuleTone: 0.28;
+        wearTone: 0.14;
+        shadowTone: 0.12;
+        slotTone: 0.03;
+        baseHeight: 0.4;
+        thickness: 0.3;
+        granuleHeight: 0.06;
+        slotHeight: 0.05;
+        roughnessGranule: 0.04;
+        shadowAO: 0.55;
+        shadowReach: 0.3;
+        slotAO: 0.2;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -13169,6 +13197,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    asphaltshingle: 1;
     expandedpolystyrene: 0.12;
     octopussuckers: 0.4;
     ammonitestone: 0.5;

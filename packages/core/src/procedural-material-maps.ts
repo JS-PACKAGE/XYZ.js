@@ -17070,6 +17070,69 @@ export function createSurfaceSampler(
           );
         };
       }
+      case 'asphaltshingle': {
+        const p = proceduralMaterialPresets.asphaltshingle,
+          shifts = new Float64Array(p.courses),
+          tabTones = new Float64Array(p.courses * p.tabs),
+          granuleField = cachedNoise(
+            p.granuleCells,
+            p.granuleCells,
+            seed ^ 0x24901,
+          ),
+          wearField = cachedNoise(p.wearCells, p.wearCells, seed ^ 0x24903),
+          inverseSlot = 1 / p.slotSoft,
+          inverseEdge = 1 / p.edgeSoft,
+          inverseReach = 1 / p.shadowReach;
+        // A course starts its tab pattern a whole number of half tabs to the right, so the
+        // pattern still repeats exactly once per tile.
+        for (let course = 0; course < p.courses; course++) {
+          shifts[course] =
+            Math.floor(hash(course, 0, seed ^ 0x24905) * p.tabs * 2) /
+            (2 * p.tabs);
+          for (let tab = 0; tab < p.tabs; tab++)
+            tabTones[course * p.tabs + tab] =
+              hash(tab, course, seed ^ 0x24907) - 0.5;
+        }
+        return () => {
+          const cv = v * p.courses,
+            course = Math.floor(cv),
+            y = cv - course,
+            shifted = u - shifts[course],
+            tu = shifted * p.tabs,
+            tab = ((Math.floor(tu) % p.tabs) + p.tabs) % p.tabs,
+            // Distance to the nearest slot in u, in tile units.
+            slotDistance = Math.abs(tu - Math.round(tu)) / p.tabs,
+            // Slots run up from the lower edge of the course and close with a soft top.
+            slot =
+              smooth(clamp((p.slotHalf - slotDistance) * inverseSlot + 0.5)) *
+              smooth(clamp((y - p.slotTop) * inverseSlot * 4)),
+            granule = granuleField(u, v),
+            wear = wearField(u, v),
+            // Each tab thickens toward its lower edge, then steps down onto the next course.
+            thick = smooth(y),
+            edge = smooth(clamp((1 - y) * inverseEdge));
+          color = clamp(
+            p.baseTone +
+              p.tabVariation * tabTones[course * p.tabs + tab] +
+              p.granuleTone * (granule - 0.5) +
+              p.wearTone * (wear - 0.5) -
+              p.shadowTone * (1 - smooth(clamp(y * inverseReach))),
+          );
+          color = color + (p.slotTone - color) * slot;
+          height = clamp(
+            p.baseHeight +
+              p.thickness * thick * edge +
+              p.granuleHeight * (granule - 0.5),
+          );
+          height = height + (p.slotHeight - height) * slot;
+          roughness = p.roughness - p.roughnessGranule * (granule - 0.5);
+          occlusion = clamp(
+            1 -
+              (1 - p.shadowAO) * (1 - smooth(clamp(y * inverseReach))) -
+              (1 - p.slotAO) * slot,
+          );
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -44599,6 +44662,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'asphaltshingle' ||
     kind === 'expandedpolystyrene' ||
     kind === 'octopussuckers' ||
     kind === 'ammonitestone' ||
