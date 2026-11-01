@@ -15066,6 +15066,56 @@ var proceduralMaterialPresets = Object.freeze({
 		pegRoughness: .25,
 		holeAO: .5
 	}),
+	wordsearchgrid: Object.freeze({
+		dark: [
+			24,
+			28,
+			44
+		],
+		light: [
+			250,
+			246,
+			224
+		],
+		roughness: .62,
+		relief: .0014,
+		size: 12,
+		alphabet: `ACDEGILMNORT`,
+		words: [
+			`CODE`,
+			`TREE`,
+			`GRID`,
+			`MINT`,
+			`TIDE`,
+			`LION`,
+			`DOOR`,
+			`CLOT`,
+			`RAIN`,
+			`CELL`,
+			`MOON`,
+			`TIGER`,
+			`ANGLE`,
+			`CIRCLE`,
+			`TRIANGLE`
+		],
+		wordCount: 5,
+		attempts: 300,
+		digitPixel: .0135,
+		lineHalf: .0016,
+		edgeSoft: .0013,
+		grainCells: 192,
+		jitterCells: 96,
+		paperTone: .95,
+		ruleTone: .78,
+		inkTone: .12,
+		inkJitter: .05,
+		grainTone: .03,
+		inkHeight: .58,
+		ruleHeight: .36,
+		paperHeight: .3,
+		inkRoughness: .4,
+		paperRoughness: .72
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -23747,6 +23797,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	wordsearchgrid: .35,
 	mastermindboard: .35,
 	elementaryautomata: .4,
 	bluenoisemask: .2,

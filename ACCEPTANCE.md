@@ -11984,3 +11984,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 設計記錄：第一版草稿在回饋釘區塊留有一段亂寫的位置計算（`slot`、`cx`、`cy`都以`void`丟掉），寫入前整段重寫為「兩欄各分上下兩格」的明確版本。
 - 實測：`tests/procedural-material-motifs.test.ts`五百七十一項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）：由釘孔中心的色調以最近的六個亮度判定顏色（誤差＜0.04），讀出密碼與8個猜測；每個猜測的回饋釘依色調分為準確（＞0.9）、部分（＜0.09）、空孔（與孔色相差＜0.03），並檢查依序為準確、部分、空孔；測試端以獨立算法計分：準確數＝同位置同顏色的個數，部分數＝各顏色在密碼與猜測中出現次數的最小值之和減去準確數，兩者與讀出的回饋釘完全相同；八個猜測中至少三個有回饋、至少四種不同的猜測；通道範圍、metallic／mortar 0、wrap與seed差異。測試中一個`let`宣告應為`const`的小問題（`distinctGuesses`）在送交verify前就先改掉。`tests/procedural-material.test.ts`以`-t "mastermindboard|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`mastermindboard`：option 966個、status為965 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的棋盤與回饋釘。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：找字遊戲（wordsearchgrid）
+
+- 目錄965→966，含plain的gallery為967項。每tile一張12×12字母方格（只用A C D E G I L M N O R T十二個字母，3×5點陣大寫），從15個單字的清單挑出5個沿8個方向隨機放入（相交時字母必須相同），其餘填入隨機字母。Metallic／mortar為0，預設tile0.35 m、0.0014 UV-relative relief、metallic factor 0。清單不印出、填充字母可能拼出其他單字；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 字型說明：十二個字母的3×5點陣是我自己畫的（不是任何標準字型），M與N、D與O在極小尺寸下容易混淆；測試端另寫了一份獨立的字型表來解碼，因此測試驗證的是「畫出來的圖形確實能被這份字型讀回」，不是字型的正確性。
+- 實測：`tests/procedural-material-motifs.test.ts`五百八十一項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）：每個格子以測試端的字型逐像素解碼成12個字母之一（解碼不到的格子會使測試失敗），在8個方向搜尋全部15個單字，清單中至少5個單字能在格內以直線找到，且格內出現的字母種類不超過12個；通道範圍、metallic／mortar 0、wrap與seed差異。注意：「至少5個」是下限（填充字母可能意外多拼出別的單字）；也沒有測試「恰好是哪5個」，因為取樣器內的挑選與放置不對外公開。`tests/procedural-material.test.ts`以`-t "wordsearchgrid|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`wordsearchgrid`：option 967個、status為966 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的字母方格（我把點陣像素由0.0125放大到0.0135，使字母更清楚）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

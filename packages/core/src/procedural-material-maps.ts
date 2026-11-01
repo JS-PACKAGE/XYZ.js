@@ -23196,6 +23196,126 @@ export function createSurfaceSampler(
           occlusion = clamp(1 - (1 - p.holeAO) * hole * (1 - peg));
         };
       }
+      case 'wordsearchgrid': {
+        const p = proceduralMaterialPresets.wordsearchgrid,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x29001),
+          jitterField = cachedNoise(
+            p.jitterCells,
+            p.jitterCells,
+            seed ^ 0x29003,
+          ),
+          // 3 x 5 letters of the twelve-letter alphabet, row by row.
+          glyphs: Record<string, string> = {
+            A: '010101111101101',
+            C: '111100100100111',
+            D: '110101101101110',
+            E: '111100111100111',
+            G: '111100101101111',
+            I: '111010010010111',
+            L: '100100100100111',
+            M: '111111101101101',
+            N: '110101101101101',
+            O: '111101101101111',
+            R: '110101110101101',
+            T: '111010010010010',
+          },
+          n = p.size,
+          letters: string[] = new Array<string>(n * n).fill(''),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          directions = [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+            [1, 1],
+            [-1, -1],
+            [1, -1],
+            [-1, 1],
+          ],
+          // Words are picked from the list in the order of a seeded shuffle.
+          chosen = [...p.words].sort(
+            (a, b) =>
+              hash(
+                a.length,
+                a.charCodeAt(0) + a.charCodeAt(1),
+                seed ^ 0x29005,
+              ) -
+              hash(b.length, b.charCodeAt(0) + b.charCodeAt(1), seed ^ 0x29005),
+          );
+        let placed = 0;
+        for (let w = 0; placed < p.wordCount && w < chosen.length; w++) {
+          const word = chosen[w];
+          for (let attempt = 0; attempt < p.attempts; attempt++) {
+            const [dx, dy] =
+                directions[
+                  Math.min(7, Math.floor(hash(w, attempt, seed ^ 0x29007) * 8))
+                ],
+              x0 = Math.min(
+                n - 1,
+                Math.floor(hash(w, attempt + 1000, seed ^ 0x29009) * n),
+              ),
+              y0 = Math.min(
+                n - 1,
+                Math.floor(hash(w, attempt + 2000, seed ^ 0x2900b) * n),
+              ),
+              x1 = x0 + dx * (word.length - 1),
+              y1 = y0 + dy * (word.length - 1);
+            if (x1 < 0 || x1 >= n || y1 < 0 || y1 >= n) continue;
+            let fits = true;
+            for (let i = 0; i < word.length && fits; i++) {
+              const existing = letters[(y0 + dy * i) * n + x0 + dx * i];
+              if (existing !== '' && existing !== word[i]) fits = false;
+            }
+            if (!fits) continue;
+            for (let i = 0; i < word.length; i++)
+              letters[(y0 + dy * i) * n + x0 + dx * i] = word[i];
+            placed++;
+            break;
+          }
+        }
+        // Fill the rest with random letters from the alphabet.
+        for (let i = 0; i < n * n; i++)
+          if (letters[i] === '')
+            letters[i] =
+              p.alphabet[
+                Math.min(
+                  p.alphabet.length - 1,
+                  Math.floor(hash(i, 5, seed ^ 0x2900d) * p.alphabet.length),
+                )
+              ];
+        return () => {
+          const gx = u * n,
+            gy = v * n,
+            col = Math.min(n - 1, Math.floor(gx)),
+            row = Math.min(n - 1, Math.floor(gy)),
+            glyph = glyphs[letters[row * n + col]],
+            x = Math.floor((gx - col - 0.5) / (p.digitPixel * n) + 1.5),
+            y = Math.floor((gy - row - 0.5) / (p.digitPixel * n) + 2.5),
+            ink =
+              x >= 0 && x < 3 && y >= 0 && y < 5 && glyph[y * 3 + x] === '1'
+                ? 1
+                : 0,
+            rule = Math.max(
+              cover(p.lineHalf - Math.min(gx - col, col + 1 - gx) / n),
+              cover(p.lineHalf - Math.min(gy - row, row + 1 - gy) / n),
+            ),
+            base = p.paperTone + (p.ruleTone - p.paperTone) * rule,
+            tone = p.inkTone + p.inkJitter * (jitterField(u, v) - 0.5);
+          color = clamp(
+            base + p.grainTone * (grainField(u, v) - 0.5) + (tone - base) * ink,
+          );
+          height = clamp(
+            p.paperHeight +
+              (p.ruleHeight - p.paperHeight) * rule +
+              (p.inkHeight - p.ruleHeight) * ink,
+          );
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -50725,6 +50845,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'wordsearchgrid' ||
     kind === 'mastermindboard' ||
     kind === 'elementaryautomata' ||
     kind === 'bluenoisemask' ||

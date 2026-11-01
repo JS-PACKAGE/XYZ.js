@@ -8612,6 +8612,32 @@ export declare const proceduralMaterialPresets: Readonly<{
         pegRoughness: 0.25;
         holeAO: 0.5;
     }>;
+    wordsearchgrid: Readonly<{
+        dark: readonly [24, 28, 44];
+        light: readonly [250, 246, 224];
+        roughness: 0.62;
+        relief: 0.0014;
+        size: 12;
+        alphabet: "ACDEGILMNORT";
+        words: readonly ["CODE", "TREE", "GRID", "MINT", "TIDE", "LION", "DOOR", "CLOT", "RAIN", "CELL", "MOON", "TIGER", "ANGLE", "CIRCLE", "TRIANGLE"];
+        wordCount: 5;
+        attempts: 300;
+        digitPixel: 0.0135;
+        lineHalf: 0.0016;
+        edgeSoft: 0.0013;
+        grainCells: 192;
+        jitterCells: 96;
+        paperTone: 0.95;
+        ruleTone: 0.78;
+        inkTone: 0.12;
+        inkJitter: 0.05;
+        grainTone: 0.03;
+        inkHeight: 0.58;
+        ruleHeight: 0.36;
+        paperHeight: 0.3;
+        inkRoughness: 0.4;
+        paperRoughness: 0.72;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -15097,6 +15123,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    wordsearchgrid: 0.35;
     mastermindboard: 0.35;
     elementaryautomata: 0.4;
     bluenoisemask: 0.2;

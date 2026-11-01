@@ -10251,3 +10251,139 @@ describe('mastermindboard: feedback pegs score each guess against the revealed c
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('wordsearchgrid: the listed words are hidden in the letter grid', () => {
+  const p = proceduralMaterialPresets.wordsearchgrid;
+  const n = 12;
+  const words = [
+    'CODE',
+    'TREE',
+    'GRID',
+    'MINT',
+    'TIDE',
+    'LION',
+    'DOOR',
+    'CLOT',
+    'RAIN',
+    'CELL',
+    'MOON',
+    'TIGER',
+    'ANGLE',
+    'CIRCLE',
+    'TRIANGLE',
+  ];
+  // Independent 3x5 drawings of the twelve letters.
+  const art: Record<string, string[]> = {
+    A: ['.#.', '#.#', '###', '#.#', '#.#'],
+    C: ['###', '#..', '#..', '#..', '###'],
+    D: ['##.', '#.#', '#.#', '#.#', '##.'],
+    E: ['###', '#..', '###', '#..', '###'],
+    G: ['###', '#..', '#.#', '#.#', '###'],
+    I: ['###', '.#.', '.#.', '.#.', '###'],
+    L: ['#..', '#..', '#..', '#..', '###'],
+    M: ['###', '###', '#.#', '#.#', '#.#'],
+    N: ['##.', '#.#', '#.#', '#.#', '#.#'],
+    O: ['###', '#.#', '#.#', '#.#', '###'],
+    R: ['##.', '#.#', '##.', '#.#', '#.#'],
+    T: ['###', '.#.', '.#.', '.#.', '.#.'],
+  };
+  const directions = [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+    [1, 1],
+    [-1, -1],
+    [1, -1],
+    [-1, 1],
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'contains at least five of the listed words in straight lines (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('wordsearchgrid', seed),
+        out = empty(),
+        pixel = p.digitPixel,
+        grid: string[][] = [];
+      for (let row = 0; row < n; row++) {
+        const line: string[] = [];
+        for (let col = 0; col < n; col++) {
+          const bits: string[] = [];
+          for (let y = 0; y < 5; y++) {
+            let text = '';
+            for (let x = 0; x < 3; x++) {
+              sample(
+                (col + 0.5) / n + (x - 1) * pixel,
+                (row + 0.5) / n + (y - 2) * pixel,
+                out,
+              );
+              text += out.color < 0.4 ? '#' : '.';
+            }
+            bits.push(text);
+          }
+          const found = Object.entries(art).find(([, rows]) =>
+            rows.every((text, i) => text === bits[i]),
+          );
+          expect(found).toBeDefined();
+          line.push(found![0]);
+        }
+        grid.push(line);
+      }
+      // Search every word in the eight directions.
+      const present = new Set<string>();
+      for (const word of words)
+        for (let y = 0; y < n; y++)
+          for (let x = 0; x < n; x++)
+            for (const [dx, dy] of directions) {
+              const x1 = x + dx * (word.length - 1),
+                y1 = y + dy * (word.length - 1);
+              if (x1 < 0 || x1 >= n || y1 < 0 || y1 >= n) continue;
+              if (
+                [...word].every(
+                  (letter, i) => grid[y + dy * i][x + dx * i] === letter,
+                )
+              )
+                present.add(word);
+            }
+      expect(present.size).toBeGreaterThanOrEqual(p.wordCount);
+      // The fill letters come only from the alphabet.
+      expect(new Set(grid.flat()).size).toBeLessThanOrEqual(12);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('wordsearchgrid', 0),
+      b = createSurfaceSampler('wordsearchgrid', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
