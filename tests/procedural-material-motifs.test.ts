@@ -7895,3 +7895,135 @@ describe('scrambledcubenet: the net of a legally scrambled 3x3x3 cube', () => {
     expect(different).toBeGreaterThan(20);
   });
 });
+
+describe('knightstour: numbered squares form an open knight tour', () => {
+  const p = proceduralMaterialPresets.knightstour;
+  const n = 8,
+    allSeeds = [...seeds, 1, 2, 3, 4, 5, 6, 8, 9];
+  // Independent 3x5 drawing of the digits 0 to 9.
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+  // Read the number written in one square from a 7-wide, 5-high window centered on it.
+  const readSquare = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    col: number,
+    row: number,
+  ): number => {
+    const out = empty(),
+      bits: boolean[][] = [];
+    for (let y = 0; y < 5; y++) {
+      const line: boolean[] = [];
+      for (let x = 0; x < 7; x++) {
+        sample(
+          (col + 0.5) / n + (x - 3) * p.digitPixel,
+          (row + 0.5) / n + (y - 2) * p.digitPixel,
+          out,
+        );
+        line.push(out.color < 0.25);
+      }
+      bits.push(line);
+    }
+    // A single digit sits in columns 2-4 (every digit has ink in its middle column, which is
+    // column 3 here); two digits sit in columns 0-2 and 4-6 and leave column 3 empty.
+    const glyphAt = (offset: number): number =>
+      art.findIndex((rows) =>
+        rows.every((text, y) =>
+          [...text].every((ch, x) => bits[y][offset + x] === (ch === '#')),
+        ),
+      );
+    if (bits.some((line) => line[3])) return glyphAt(2);
+    const tens = glyphAt(0),
+      units = glyphAt(4);
+    return tens < 0 || units < 0 ? -1 : tens * 10 + units;
+  };
+  const tour = (seed: number): Map<number, [number, number]> => {
+    const sample = createSurfaceSampler('knightstour', seed),
+      where = new Map<number, [number, number]>();
+    for (let row = 0; row < n; row++)
+      for (let col = 0; col < n; col++)
+        where.set(readSquare(sample, col, row), [col, row]);
+    return where;
+  };
+
+  it.each(allSeeds)(
+    'numbers 1 to 64 so consecutive squares are a knight move apart (seed %i)',
+    (seed) => {
+      const where = tour(seed);
+      expect(where.size).toBe(64);
+      for (let label = 1; label <= 64; label++)
+        expect(where.has(label)).toBe(true);
+      for (let k = 1; k < 64; k++) {
+        const [ax, ay] = where.get(k)!,
+          [bx, by] = where.get(k + 1)!,
+          dx = Math.abs(ax - bx),
+          dy = Math.abs(ay - by);
+        expect((dx === 1 && dy === 2) || (dx === 2 && dy === 1)).toBe(true);
+      }
+    },
+  );
+
+  it('colors the squares as a checkerboard', () => {
+    const sample = createSurfaceSampler('knightstour', 7),
+      out = empty();
+    for (let row = 0; row < n; row++)
+      for (let col = 0; col < n; col++) {
+        // Near the square's top-left corner, away from digits and tour lines.
+        sample((col + 0.06) / n, (row + 0.06) / n, out);
+        expect(
+          Math.abs(out.color - ((col + row) % 2 === 1 ? 0.6 : 0.88)),
+        ).toBeLessThan(0.08);
+      }
+  });
+
+  it('starts the tour on different squares for different seeds', () => {
+    const starts = new Set<string>();
+    for (const seed of allSeeds) starts.add(String(tour(seed).get(1)));
+    expect(starts.size).toBeGreaterThan(3);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('knightstour', 0),
+      b = createSurfaceSampler('knightstour', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

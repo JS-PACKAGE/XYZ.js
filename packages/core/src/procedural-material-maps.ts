@@ -21484,6 +21484,194 @@ export function createSurfaceSampler(
           occlusion = clamp(1 - 0.4 * (1 - sticker));
         };
       }
+      case 'knightstour': {
+        const p = proceduralMaterialPresets.knightstour,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x27d01),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          n = p.size,
+          total = n * n,
+          moves = [
+            [1, 2],
+            [2, 1],
+            [2, -1],
+            [1, -2],
+            [-1, -2],
+            [-2, -1],
+            [-2, 1],
+            [-1, 2],
+          ],
+          order = new Int16Array(total).fill(-1),
+          visited = new Uint8Array(total),
+          path: number[] = [],
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          degree = (square: number): number => {
+            let count = 0;
+            const x = square % n,
+              y = Math.floor(square / n);
+            for (const [dx, dy] of moves) {
+              const nx = x + dx,
+                ny = y + dy;
+              if (
+                nx >= 0 &&
+                nx < n &&
+                ny >= 0 &&
+                ny < n &&
+                !visited[ny * n + nx]
+              )
+                count++;
+            }
+            return count;
+          };
+        // Open knight's tour by depth-first search, trying the square with the fewest onward moves
+        // first (Warnsdorff's rule) and breaking ties by the seed; each attempt has a node budget.
+        let nodes = 0;
+        const extend = (square: number, attempt: number): boolean => {
+          visited[square] = 1;
+          path.push(square);
+          if (path.length === total) return true;
+          if (++nodes > p.nodeBudget) {
+            visited[square] = 0;
+            path.pop();
+            return false;
+          }
+          const x = square % n,
+            y = Math.floor(square / n),
+            next: { square: number; rank: number }[] = [];
+          for (const [dx, dy] of moves) {
+            const nx = x + dx,
+              ny = y + dy;
+            if (nx < 0 || nx >= n || ny < 0 || ny >= n || visited[ny * n + nx])
+              continue;
+            next.push({
+              square: ny * n + nx,
+              rank:
+                degree(ny * n + nx) +
+                0.5 *
+                  hash(ny * n + nx, path.length, seed ^ (0x27d03 + attempt)),
+            });
+          }
+          next.sort((a, b) => a.rank - b.rank);
+          for (const candidate of next)
+            if (extend(candidate.square, attempt)) return true;
+          visited[square] = 0;
+          path.pop();
+          return false;
+        };
+        for (let attempt = 0; attempt < p.attempts; attempt++) {
+          visited.fill(0);
+          path.length = 0;
+          nodes = 0;
+          const start = Math.min(
+            total - 1,
+            Math.floor(hash(attempt, 1, seed ^ 0x27d05) * total),
+          );
+          if (extend(start, attempt)) break;
+        }
+        for (let i = 0; i < path.length; i++) order[path[i]] = i + 1;
+        // Segments between consecutive centers, listed for every cell they come within a line
+        // half-width of, so a sample only tests the few segments near it.
+        const segments = new Float64Array(Math.max(0, path.length - 1) * 5),
+          cellSegments: number[][] = Array.from({ length: total }, () => []);
+        for (let i = 1; i < path.length; i++) {
+          const ax = ((path[i - 1] % n) + 0.5) / n,
+            ay = (Math.floor(path[i - 1] / n) + 0.5) / n,
+            bx = ((path[i] % n) + 0.5) / n,
+            by = (Math.floor(path[i] / n) + 0.5) / n,
+            steps = 200;
+          segments.set(
+            [ax, ay, bx - ax, by - ay, 1 / ((bx - ax) ** 2 + (by - ay) ** 2)],
+            (i - 1) * 5,
+          );
+          for (let k = 0; k <= steps; k++) {
+            const x = ax + ((bx - ax) * k) / steps,
+              y = ay + ((by - ay) * k) / steps;
+            for (const cx of [x - p.lineHalf, x + p.lineHalf])
+              for (const cy of [y - p.lineHalf, y + p.lineHalf]) {
+                const cell =
+                  Math.min(n - 1, Math.max(0, Math.floor(cy * n))) * n +
+                  Math.min(n - 1, Math.max(0, Math.floor(cx * n)));
+                if (!cellSegments[cell].includes(i - 1))
+                  cellSegments[cell].push(i - 1);
+              }
+          }
+        }
+        return () => {
+          const gx = u * n,
+            gy = v * n,
+            col = Math.min(n - 1, Math.floor(gx)),
+            row = Math.min(n - 1, Math.floor(gy)),
+            square = row * n + col,
+            dark = (col + row) % 2 === 1;
+          // Faint line along the tour: distance to the nearest nearby segment.
+          let near = 1;
+          for (const index of cellSegments[square]) {
+            const ax = segments[index * 5],
+              ay = segments[index * 5 + 1],
+              dx = segments[index * 5 + 2],
+              dy = segments[index * 5 + 3],
+              t = clamp(
+                ((u - ax) * dx + (v - ay) * dy) * segments[index * 5 + 4],
+              ),
+              d = Math.hypot(u - ax - t * dx, v - ay - t * dy);
+            if (d < near) near = d;
+          }
+          const line = cover(p.lineHalf - near);
+          // The step number: one or two 3x5 digits centered in the square.
+          const label = order[square],
+            digits = label >= 10 ? 2 : 1,
+            width = (digits * 3 + (digits - 1)) * p.digitPixel,
+            left = (col + 0.5) / n - width / 2,
+            top = (row + 0.5) / n - 2.5 * p.digitPixel,
+            x = Math.floor((u - left) / p.digitPixel),
+            y = Math.floor((v - top) / p.digitPixel);
+          let ink = 0;
+          if (
+            label > 0 &&
+            y >= 0 &&
+            y < 5 &&
+            x >= 0 &&
+            x < digits * 4 - 1 &&
+            x % 4 !== 3
+          ) {
+            const digit =
+              digits === 2
+                ? x < 3
+                  ? Math.floor(label / 10)
+                  : label % 10
+                : label;
+            if (glyphs[digit][y * 3 + (x % 4)] === '1') ink = 1;
+          }
+          const square0 = dark ? p.darkSquare : p.lightSquare,
+            base = square0 + (p.lineTone - square0) * line;
+          color = clamp(
+            base +
+              p.grainTone * (grainField(u, v) - 0.5) +
+              (p.inkTone - base) * ink,
+          );
+          height = clamp(
+            (dark ? p.darkSquareHeight : p.squareHeight) +
+              (p.lineHeight - (dark ? p.darkSquareHeight : p.squareHeight)) *
+                line +
+              (p.inkHeight - p.lineHeight) * ink,
+          );
+          roughness =
+            p.squareRoughness + (p.inkRoughness - p.squareRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -49013,6 +49201,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'knightstour' ||
     kind === 'scrambledcubenet' ||
     kind === 'weavingdraft' ||
     kind === 'lightsoutboard' ||
