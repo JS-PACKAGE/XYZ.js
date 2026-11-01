@@ -12012,3 +12012,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`六百一十一項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）× 四個圓盤 × 400個準隨機探測點（避開楔形邊緣）：旋轉2π/n與鏡射（角度取負）後的亮度與原位置相同（6位小數）；旋轉半個楔形角π/n後超過5%的點亮度改變＞0.02（不是單純的放射狀圖案）；探測中存在與底色相差＞0.2的點；通道範圍、metallic／mortar 0、wrap與seed差異。突變檢查：把折疊的鏡射`t = 2w - t`改成`t = t - w`（破壞鏡射連續性）後九個對稱測試全部失敗，改回後全過；`tests/procedural-material.test.ts`以`-t "kaleidoscope|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 效能：512×512單次建立約174 ms（每像素含atan2、cos、sin與9個圓點），比多數材質慢（brick約18 ms、knightstour約51 ms），未做最佳化；這只是單機、單次、Bun的量測，不代表瀏覽器或Worker下的表現。
 - 真實dev server的pbr3d頁（WebGPU）選取`kaleidoscope`：option 970個、status為969 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的圓盤。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：歐甘文刻石（oghaminscription）
+
+- 目錄969→970，含plain的gallery為971項。灰色粗石面上8行水平刻字，每行一條主幹線，單字由1至5道刻痕為一組的字母排列（四組：下方、上方、斜穿、主幹線上的短槽），每行依seed從16個古愛爾蘭樹名挑一個。Metallic／mortar為0，預設tile0.5 m、0.006 UV-relative relief、metallic factor 0。作者設計；仍在獨立worktree分支`materials/more-textures`作業。
+- 資料來源：歐甘字母次序（BLFSN／HDTCQ／MGNGZR／AOUEI）、四組的刻法與16個樹名都是憑記憶輸入，沒有對照外部資料；真實歐甘文沿石稜由下往上讀，這裡簡化為水平由左到右。測試端的字母表與單字清單是另寫的一份，所以測試確認的是「畫出來的刻痕組能被這份字母表讀回為清單中的單字」，不是歐甘文的歷史正確性。
+- 設計與缺陷記錄：第一版每行最多8個字母格，但最長的單字只有6個字母，右側約四分之一的石面是空的；改成每行6格（同時把刻痕加長加粗）後排滿。送交verify時eslint抓到`let stroke = 0`的初始值從未被使用（`no-useless-assignment`），改成`let stroke: number`後通過。
+- 實測：`tests/procedural-material-motifs.test.ts`六百二十一項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）× 8行：沿主幹線上下0.025與0.0075的水平線計算暗段數，由「只在下方／只在上方／上下等數／僅主幹線上有槽」分辨四組，再由暗段數1至5決定字母；每行解出的單字都必須在測試端的16字清單中，且8行至少出現3個不同的單字；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "oghaminscription|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`oghaminscription`：option 971個、status為970 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的刻石。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

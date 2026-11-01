@@ -10698,3 +10698,120 @@ describe('kaleidoscope: each rosette has dihedral symmetry of its own order', ()
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('oghaminscription: stroke groups spell Old Irish tree names', () => {
+  const p = proceduralMaterialPresets.oghaminscription;
+  // Independent copy of the alphabet in the order of the four aicmi (X is NG) and of the word list.
+  const alphabet = 'BLFSNHDTCQMGXZRAOUEI';
+  const words = [
+    'BETH',
+    'LUIS',
+    'FEARN',
+    'SAILLE',
+    'NION',
+    'UATH',
+    'DUIR',
+    'TINNE',
+    'COLL',
+    'CERT',
+    'GORT',
+    'RUIS',
+    'AILM',
+    'ONN',
+    'EADHA',
+    'IDHO',
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'decodes every row into a word of the list (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('oghaminscription', seed),
+        out = empty(),
+        step = 0.0003,
+        rowHeight = 1 / p.rows,
+        cellWidth = 1 / p.cellsPerRow,
+        decoded = new Set<string>();
+      // Count the separate dark runs along a horizontal line inside one cell.
+      const runs = (cell: number, y: number): number => {
+        let count = 0,
+          inside = false;
+        for (
+          let u = cell * cellWidth + step / 2;
+          u < (cell + 1) * cellWidth;
+          u += step
+        ) {
+          sample(u, y, out);
+          const dark = out.color < 0.33;
+          count += Number(dark && !inside);
+          inside = dark;
+        }
+        return count;
+      };
+      for (let row = 0; row < p.rows; row++) {
+        const stem = (row + 0.5) * rowHeight;
+        let word = '';
+        for (let cell = 0; cell < p.cellsPerRow; cell++) {
+          const below = runs(cell, stem + 0.025),
+            above = runs(cell, stem - 0.025);
+          let kind: number, count: number;
+          if (below === 0 && above === 0) {
+            count = runs(cell, stem + 0.0075);
+            if (count === 0) break;
+            kind = 3;
+          } else if (above === 0) {
+            kind = 0;
+            count = below;
+          } else if (below === 0) {
+            kind = 1;
+            count = above;
+          } else {
+            expect(below).toBe(above);
+            kind = 2;
+            count = below;
+          }
+          word += alphabet[kind * 5 + count - 1];
+        }
+        expect(words).toContain(word);
+        decoded.add(word);
+      }
+      // Eight rows draw from a list of sixteen words: not all rows are the same word.
+      expect(decoded.size).toBeGreaterThanOrEqual(3);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('oghaminscription', 0),
+      b = createSurfaceSampler('oghaminscription', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

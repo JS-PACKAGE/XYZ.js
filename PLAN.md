@@ -1437,6 +1437,10 @@
 
 這是作者設計的示意：真實萬花筒是以鏡子反射真實物件，這裡是算式模擬的鏡像；n=12的圓盤因楔形很窄而顯得接近放射狀；圖案不是有意義的曼陀羅；所有圓盤的位置固定（2×2），不隨seed移動。預設0.4 m nominal tile、0.002 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`oghaminscription`（歐甘文刻石）使目前目錄969→970種，含plain的gallery為971項。每tile是一塊灰色粗石面（含細粒與粗尺度的亮度變化），上面刻有8行水平的歐甘（Ogham）文字：每行一條橫向的主幹線，一個單字由1至5道短刻痕為一組的字母從左往右排列。依字母所屬的四個aicme（組）區分刻法：第1組（B L F S N）的刻痕在主幹線下方，第2組（H D T C Q）在上方，第3組（M G NG Z R）斜穿主幹線，第4組（A O U E I，母音）是主幹線上的短槽；組內的刻痕數1至5決定字母。每行單字依seed從16個古愛爾蘭樹名（BETH、LUIS、FEARN、SAILLE、NION、UATH、DUIR、TINNE、COLL、CERT、GORT、RUIS、AILM、ONN、EADHA、IDHO）中挑出，刻痕比石面暗、凹陷（height較低）。Metallic與mortar為0。
+
+這是作者設計的示意：歐甘字母的次序（BLFSN／HDTCQ／MGNGZR／AOUEI）與四組的刻法是憑記憶輸入的，未對照外部資料；真正的歐甘文沿石頭的稜線由下往上讀，這裡改成水平從左到右的簡化排列，每行主幹線是橫貫整個tile的細線；單字是以字母拼寫的樹名（不是考證過的銘文，且沒有使用NG字母——測試字母表中以X代表NG）；沒有風化或崩缺。預設0.5 m nominal tile、0.006 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

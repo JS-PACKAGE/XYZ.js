@@ -23647,6 +23647,86 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'oghaminscription': {
+        const p = proceduralMaterialPresets.oghaminscription,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x29401),
+          coarseField = cachedNoise(
+            p.coarseCells,
+            p.coarseCells,
+            seed ^ 0x29403,
+          ),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // Each row carries one word, written left to right as groups of one to five strokes: letters
+          // 1-5 of the alphabet hang below the stem, 6-10 rise above it, 11-15 cross it diagonally and
+          // 16-20 are notches on the stem (the vowels).
+          rows = Array.from({ length: p.rows }, (_, row) => {
+            const word =
+              p.words[
+                Math.min(
+                  p.words.length - 1,
+                  Math.floor(hash(row, 5, seed ^ 0x29405) * p.words.length),
+                )
+              ];
+            return [...word].map((letter) => p.alphabet.indexOf(letter));
+          }),
+          cellWidth = 1 / p.cellsPerRow,
+          rowHeight = 1 / p.rows;
+        return () => {
+          const row = Math.min(p.rows - 1, Math.floor(v * p.rows)),
+            cell = Math.min(p.cellsPerRow - 1, Math.floor(u * p.cellsPerRow)),
+            stemY = (row + 0.5) * rowHeight,
+            dy = v - stemY,
+            word = rows[row];
+          let carve = cover(p.stemHalf - Math.abs(dy));
+          if (cell < word.length) {
+            const index = word[cell],
+              kind = Math.floor(index / 5),
+              count = (index % 5) + 1,
+              centerX = (cell + 0.5) * cellWidth;
+            for (let i = 0; i < count; i++) {
+              const sx = centerX + (i - (count - 1) / 2) * p.strokePitch;
+              let stroke: number;
+              if (kind === 0)
+                stroke = Math.min(
+                  cover(p.strokeHalf - Math.abs(u - sx)),
+                  cover(dy) * cover(p.strokeReach - dy),
+                );
+              else if (kind === 1)
+                stroke = Math.min(
+                  cover(p.strokeHalf - Math.abs(u - sx)),
+                  cover(-dy) * cover(p.strokeReach + dy),
+                );
+              else if (kind === 2)
+                stroke = Math.min(
+                  cover(p.strokeHalf - Math.abs(u - sx - dy * p.slant)),
+                  cover(p.strokeReach - Math.abs(dy)),
+                );
+              else
+                stroke = Math.min(
+                  cover(p.notchHalfWidth - Math.abs(u - sx)),
+                  cover(p.notchHalfLength - Math.abs(dy)),
+                );
+              carve = Math.max(carve, stroke);
+            }
+          }
+          const grain = grainField(u, v) - 0.5,
+            stone =
+              p.stoneTone +
+              p.grainTone * grain +
+              p.coarseTone * (coarseField(u, v) - 0.5);
+          color = clamp(stone + (p.carveTone - stone) * carve);
+          height = clamp(
+            p.stoneHeight +
+              p.heightGrain * grain +
+              (p.carveHeight - p.stoneHeight) * carve,
+          );
+          roughness =
+            p.stoneRoughness + (p.carveRoughness - p.stoneRoughness) * carve;
+          occlusion = clamp(1 - 0.25 * carve);
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -51176,6 +51256,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'oghaminscription' ||
     kind === 'kaleidoscope' ||
     kind === 'slidingpuzzle' ||
     kind === 'magicsquares' ||

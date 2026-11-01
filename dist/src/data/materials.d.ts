@@ -8714,6 +8714,35 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughnessBase: 0.4;
         roughnessBlob: 0.26;
     }>;
+    oghaminscription: Readonly<{
+        dark: readonly [38, 40, 38];
+        light: readonly [190, 188, 174];
+        roughness: 0.86;
+        relief: 0.006;
+        rows: 8;
+        cellsPerRow: 6;
+        alphabet: "BLFSNHDTCQMGXZRAOUEI";
+        words: readonly ["BETH", "LUIS", "FEARN", "SAILLE", "NION", "UATH", "DUIR", "TINNE", "COLL", "CERT", "GORT", "RUIS", "AILM", "ONN", "EADHA", "IDHO"];
+        strokePitch: 0.024;
+        strokeHalf: 0.003;
+        strokeReach: 0.042;
+        stemHalf: 0.0021;
+        slant: 0.4;
+        notchHalfLength: 0.01;
+        notchHalfWidth: 0.006;
+        edgeSoft: 0.0011;
+        grainCells: 160;
+        coarseCells: 40;
+        stoneTone: 0.58;
+        grainTone: 0.16;
+        coarseTone: 0.14;
+        carveTone: 0.16;
+        stoneHeight: 0.7;
+        carveHeight: 0.18;
+        heightGrain: 0.1;
+        stoneRoughness: 0.88;
+        carveRoughness: 0.74;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -15199,6 +15228,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    oghaminscription: 0.5;
     kaleidoscope: 0.4;
     slidingpuzzle: 0.3;
     magicsquares: 0.4;

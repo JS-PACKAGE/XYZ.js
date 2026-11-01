@@ -15233,6 +15233,60 @@ var proceduralMaterialPresets = Object.freeze({
 		roughnessBase: .4,
 		roughnessBlob: .26
 	}),
+	oghaminscription: Object.freeze({
+		dark: [
+			38,
+			40,
+			38
+		],
+		light: [
+			190,
+			188,
+			174
+		],
+		roughness: .86,
+		relief: .006,
+		rows: 8,
+		cellsPerRow: 6,
+		alphabet: `BLFSNHDTCQMGXZRAOUEI`,
+		words: [
+			`BETH`,
+			`LUIS`,
+			`FEARN`,
+			`SAILLE`,
+			`NION`,
+			`UATH`,
+			`DUIR`,
+			`TINNE`,
+			`COLL`,
+			`CERT`,
+			`GORT`,
+			`RUIS`,
+			`AILM`,
+			`ONN`,
+			`EADHA`,
+			`IDHO`
+		],
+		strokePitch: .024,
+		strokeHalf: .003,
+		strokeReach: .042,
+		stemHalf: .0021,
+		slant: .4,
+		notchHalfLength: .01,
+		notchHalfWidth: .006,
+		edgeSoft: .0011,
+		grainCells: 160,
+		coarseCells: 40,
+		stoneTone: .58,
+		grainTone: .16,
+		coarseTone: .14,
+		carveTone: .16,
+		stoneHeight: .7,
+		carveHeight: .18,
+		heightGrain: .1,
+		stoneRoughness: .88,
+		carveRoughness: .74
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -23914,6 +23968,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	oghaminscription: .5,
 	kaleidoscope: .4,
 	slidingpuzzle: .3,
 	magicsquares: .4,
