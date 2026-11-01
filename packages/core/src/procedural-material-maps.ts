@@ -37662,6 +37662,45 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'coirdoormat': {
+        const p = proceduralMaterialPresets.coirdoormat,
+          patch = cachedNoise(p.patchCells, p.patchCells, seed ^ p.seedSalt),
+          // Four streak lattices stretched along four directions; the shears use
+          // integer coefficients, so every field still wraps with the tile.
+          alongX = cachedNoise(p.streakAlong, p.streakAcross, seed ^ 0xc01b),
+          alongY = cachedNoise(p.streakAcross, p.streakAlong, seed ^ 0xc01c),
+          alongUp = cachedNoise(p.streakAcross, p.streakAlong, seed ^ 0xc01d),
+          alongDown = cachedNoise(p.streakAcross, p.streakAlong, seed ^ 0xc01e),
+          fuzz = cachedNoise(p.fuzzCells, p.fuzzCells, seed ^ 0xc01f);
+        return () => {
+          // Bristles lie in patches of four directions. A low-frequency field picks
+          // the direction through cos^2 weights (zero slope where one direction hands
+          // over to the next, and the weights always sum to one), so the blend is C1.
+          const phase = patch(u, v) * 4,
+            weights = [0, 1, 2, 3].map((k) => {
+              const d =
+                Math.abs(phase - k - 0.5) > 2
+                  ? 4 - Math.abs(phase - k - 0.5)
+                  : Math.abs(phase - k - 0.5);
+              return d < 1 ? Math.cos((Math.PI / 2) * d) ** 2 : 0;
+            }),
+            fibers =
+              weights[0] * alongX(u, v) +
+              weights[1] * alongY(u, v) +
+              weights[2] * alongUp(u + v, v) +
+              weights[3] * alongDown(u - v, v),
+            fluff = fuzz(u, v);
+          color =
+            p.baseTone +
+            p.fiberTone * (fibers - 0.5) +
+            p.patchTone * (patch(u, v) - 0.5) +
+            p.fuzzTone * (fluff - 0.5);
+          height = p.fiberHeight * fibers + p.fuzzHeight * fluff;
+          roughness += p.fiberRoughness * (fibers - 0.5);
+          occlusion = 1 - p.shadowOcclusion * (1 - fibers) * (1 - fibers);
+          return;
+        };
+      }
       case 'woodenpalletdeck': {
         const p = proceduralMaterialPresets.woodenpalletdeck,
           tones = new Float64Array(p.boards),
@@ -45268,6 +45307,7 @@ export function createSurfaceSampler(
     kind === 'europeanolive' ||
     kind === 'gamedice' ||
     kind === 'raindropripples' ||
+    kind === 'coirdoormat' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

@@ -12666,6 +12666,25 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainRoughness: 0.03;
         earlyOcclusion: 0.04;
     }>;
+    coirdoormat: Readonly<{
+        dark: readonly [38, 24, 14];
+        light: readonly [196, 146, 92];
+        roughness: 0.95;
+        relief: 0.006;
+        patchCells: 5;
+        seedSalt: 49178;
+        streakAcross: 170;
+        streakAlong: 12;
+        fuzzCells: 128;
+        baseTone: 0.35;
+        fiberTone: 0.5;
+        patchTone: 0.12;
+        fuzzTone: 0.12;
+        fiberHeight: 0.7;
+        fuzzHeight: 0.3;
+        fiberRoughness: 0.03;
+        shadowOcclusion: 0.45;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -13963,4 +13982,5 @@ export declare const proceduralTileMeters: Readonly<{
     gamedice: 0.3;
     raindropripples: 0.4;
     europeanyew: 0.18;
+    coirdoormat: 0.3;
 }>;

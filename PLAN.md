@@ -1095,6 +1095,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`coirdoormat`（椰殼纖維門墊）使目前目錄918→919種，含plain的gallery為920項。深褐到淡褐的粗硬纖維，在5×5低頻分塊中分成四種方向（水平、垂直、兩個斜向），各塊內是細長條狀的纖維紋，塊間以平滑權重交接；整體粗糙、帶些許縫隙陰影（AO最低約0.55）與細小絨毛起伏。不是單根纖維的幾何、編織底布、橡膠框邊、字樣或磨損。
+
+此材質是作者依一般椰殼纖維（coir）門墊外觀所作示意，沒有引用特定來源文件、照片或量測；方向分塊、纖維粗細、色調、roughness與0.3 m nominal tile皆作者設定，不宣稱符合任何實際產品或材質規格。
+
+新增專用sampler：4個以不同方向拉長的細條值雜訊——水平（12×170格）、垂直（170×12格）與兩個以整數剪切`(u+v, v)`、`(u−v, v)`取樣的斜向（各170×12格，因係整數剪切，仍隨tile wrap）——加上128²細絨毛雜訊與5×5低頻分塊雜訊；分塊雜訊×4決定方向，四個方向權重為`cos²(π/2·距離)`（距離為環形，≤1才非零），它們在交接處斜率為0且總和恆為1，因此混合為C1。cache合計24,569 Float64／196,552 B lattice算術預算（非總RAM）。顏色是顏料，height只用於法線與AO；金屬factor為0、無mortar。預設0.3 m nominal tile與0.006 UV-relative relief（非公尺位移）皆作者設定。三seed（0／1／0xffffffff）、256²取樣：color 0.007–0.053到0.654–0.678、平均0.348–0.358、標準差約0.101、roughness 0.935–0.965、高度0.024–0.953 relief、最低AO 0.553–0.558、橫／縱色差比1.03–1.23（無全域纖維方向）；seed 0與1的取樣色差平均0.113；seed7的512²中r／g／b平均約(91,65,40)、r<90占45.2%、AO<200占15.7%、法線max tilt²約0.618。我實看了四圖：呈粗硬的方向性分塊纖維、法線圖紋理強烈。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `europeanyew`（歐洲紫杉）使目前目錄917→918種，含plain的gallery為919項。近似Taxus baccata未塗裝弦切面心材：橙褐色底、細而均勻的質地、16條密集起伏帶拱形的較深褐生長紋（約占面積七分之一）與細縱向纖維。不是淡黃褐的窄邊材帶、偏紫的暗褐色變、節、瘤或塗層。
 
 外觀依據實際閱讀的[Wood Database European Yew](https://www.wood-database.com/european-yew/)（Color／Appearance：邊材通常為淡黃或棕褐的窄帶，心材為橙褐色、有時帶更暗的棕或紫調；Grain／Texture：直紋、細而均勻的質地、天然光澤佳）與實際下載並實看的[木面照片](https://www.wood-database.com/wp-content/uploads/taxus-baccata-300x600.jpg)（橙褐色面、細密生長紋與拱形、一個暗色節）；僅作配色與紋理形態參考，**不**重現照片中的節、邊材帶或紫調，不打包來源圖，也不由照片反推真色、roughness或實際尺寸。

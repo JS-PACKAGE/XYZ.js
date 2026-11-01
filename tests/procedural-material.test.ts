@@ -960,6 +960,7 @@ const kinds: ProceduralMaterialKind[] = [
   'gamedice',
   'raindropripples',
   'europeanyew',
+  'coirdoormat',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -140512,5 +140513,207 @@ describe('Orange-brown European yew with fine uniform texture and dense darker g
       }
     }
     expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Coir doormat with stiff coconut-fibre bristles lying in patches of different directions, dark brown to tan', () => {
+  const p = proceduralMaterialPresets.coirdoormat;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const sampledColors = (seed: number): number[] => {
+    const sample = createSurfaceSampler('coirdoormat', seed),
+      out = empty(),
+      colors: number[] = [];
+    for (let y = 0; y < 256; y += 4)
+      for (let x = 0; x < 256; x += 4) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        colors.push(out.color);
+      }
+    return colors;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps a dark brown mat with high roughness, deep shadowed gaps and no global bristle direction for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('coirdoormat', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let low = 1,
+        high = 0,
+        mean = 0,
+        square = 0,
+        across = 0,
+        along = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        occlusionLow = 1,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          const u = (x + 0.5) / 256,
+            v = (y + 0.5) / 256;
+          sample(u, v, a);
+          sample(u + 1 / 1024, v, b);
+          sample(u, v + 1 / 1024, c);
+          across += Math.abs(a.color - b.color);
+          along += Math.abs(a.color - c.color);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          mean += a.color;
+          square += a.color * a.color;
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      const average = mean / 65536,
+        deviation = Math.sqrt(square / 65536 - average * average);
+      expect(low).toBeLessThan(0.06);
+      expect(high).toBeGreaterThan(0.64);
+      expect(high).toBeLessThan(0.7);
+      expect(average).toBeGreaterThan(0.33);
+      expect(average).toBeLessThan(0.37);
+      expect(deviation).toBeGreaterThan(0.09);
+      expect(deviation).toBeLessThan(0.11);
+      expect(roughLow).toBeGreaterThan(p.roughness - 0.03);
+      expect(roughHigh).toBeLessThan(p.roughness + 0.03);
+      expect(occlusionLow).toBeGreaterThan(0.54);
+      expect(occlusionLow).toBeLessThan(0.58);
+      expect(across / along).toBeGreaterThan(0.9);
+      expect(across / along).toBeLessThan(1.35);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('lays different bristle patches per seed and is deterministic for one seed', () => {
+    const first = sampledColors(0),
+      second = sampledColors(1);
+    expect(
+      first.reduce((sum, value, i) => sum + Math.abs(value - second[i]), 0) /
+        first.length,
+    ).toBeGreaterThan(0.08);
+    expect(sampledColors(0)).toEqual(first);
+  });
+  it('keeps the four-direction patch blend, sheared bristle fields and fuzz C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('coirdoormat', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [
+        p.patchCells,
+        p.streakAlong,
+        p.streakAcross,
+        p.fuzzCells,
+      ])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 dark brown dielectric maps with strongly textured bristle normals and a few shadowed gaps', () => {
+    const maps = generateProceduralMaps('coirdoormat', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      dark = 0,
+      occluded = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      dark += Number(maps.baseColor[i] < 90);
+      occluded += Number(maps.occlusion[i] < 200);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2] ||
+          maps.baseColor[i] < maps.baseColor[i + 1] ||
+          maps.baseColor[i + 1] < maps.baseColor[i + 2] ||
+          maps.normal[i + 2] < 190,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(82);
+    expect(red / (512 * 512)).toBeLessThan(100);
+    expect(green / (512 * 512)).toBeGreaterThan(58);
+    expect(green / (512 * 512)).toBeLessThan(73);
+    expect(blue / (512 * 512)).toBeGreaterThan(35);
+    expect(blue / (512 * 512)).toBeLessThan(46);
+    expect(dark / (512 * 512)).toBeGreaterThan(0.4);
+    expect(dark / (512 * 512)).toBeLessThan(0.5);
+    expect(occluded / (512 * 512)).toBeGreaterThan(0.12);
+    expect(occluded / (512 * 512)).toBeLessThan(0.2);
+    expect(maxTilt).toBeGreaterThan(0.5);
+    expect(maxTilt).toBeLessThan(0.75);
+    expect(invalid).toBe(0);
   });
 });

@@ -11728,3 +11728,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增4項永久測試（`European yew`：三seed外觀與各向異性、C1掃描、actual512五maps、帶號UV週期），並加入通用kinds清單；名稱篩選7項通過（11.46s）。
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "European yew|europeanyew|kinds|catalog|distinct|periodic"`定向測試，**2125項通過／3610項未選**。
 - 本功能未重跑完整179檔suite（raindropripples commit的完整suite仍在凍結worktree執行，結果另記）、未開瀏覽器gallery（raindropripples與本功能未在gallery驗證內）；不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：椰殼纖維門墊（coirdoormat）
+
+- 目錄918→919，含plain的gallery為920項。深褐到淡褐的粗硬纖維，在5×5低頻分塊中分成四種方向（水平、垂直、兩個斜向），塊內為細長條狀纖維紋，塊間以平滑權重交接；整體粗糙、帶縫隙陰影（AO最低約0.55）與細絨毛起伏。這是作者依一般椰殼纖維門墊外觀所作示意，**沒有**引用特定來源；不含單根纖維幾何、編織底布、橡膠邊框、字樣或磨損。
+- 專用sampler：4個以不同方向拉長的值雜訊（水平12×170、垂直170×12，及以整數剪切`(u+v,v)`、`(u−v,v)`取樣的兩個斜向170×12，仍隨tile wrap）＋128²細絨毛＋5×5分塊雜訊；四方向權重`cos²(π/2·環形距離)`在交接處斜率為0且總和恆為1，混合為C1。cache合計24,569 Float64／196,552 B。預設0.3 m tile、0.006 UV-relative relief（非公尺位移）、metallic factor0；不新增API或依賴。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）256²取樣color最低0.007–0.053、最高0.654–0.678、平均0.348–0.358、標準差約0.101、roughness 0.935–0.965、高度0.024–0.953 relief、最低AO 0.553–0.558、橫／縱色差比1.03–1.23（無全域纖維方向）；seed 0與1的取樣色差平均0.113；seed7的512² r／g／b平均約(91,65,40)、r<90占45.2%、AO<200占15.7%、法線max tilt²約0.618。以Bun產生512 seed7四圖並實看：粗硬、方向性分塊的纖維，法線圖紋理強烈。
+- 新增4項永久測試（`Coir doormat`：三seed色域／粗糙度／AO／無全域方向、seed差異與確定性、含四個方向場格線的C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選7項通過（9.18s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Coir doormat|coirdoormat|kinds|catalog|distinct|periodic"`定向測試，**2126項通過／3616項未選**。
+- 本功能未重跑完整179檔suite（raindropripples commit的完整suite仍在凍結worktree執行，結果另記）、未開瀏覽器gallery（raindropripples、europeanyew與本功能未在gallery驗證內）；不宣稱跨瀏覽器／backend或效能驗證；不push。

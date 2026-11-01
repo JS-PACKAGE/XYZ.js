@@ -933,7 +933,8 @@ export type ProceduralMaterialKind =
   | 'europeanolive'
   | 'gamedice'
   | 'raindropripples'
-  | 'europeanyew';
+  | 'europeanyew'
+  | 'coirdoormat';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2101,6 +2102,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'gamedice',
   'raindropripples',
   'europeanyew',
+  'coirdoormat',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
