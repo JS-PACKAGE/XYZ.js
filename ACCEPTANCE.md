@@ -11719,3 +11719,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Raindrop ripples|raindropripples|kinds|catalog|distinct|periodic"`定向測試，**2123項通過／3605項未選**。
 - 補記（瀏覽器gallery）：從乾淨worktree啟動的vite（5391埠），以spawned Google Chrome headless在WebGPU與`?renderer=webgl2`兩條路徑，逐一選取barcodelabel、ledmatrix、tapemeasure、metalflakepaint、poolcaustics、europeanolive與gamedice，並等待readout出現`Material <kind> `，**7種全部成功**，狀態列為「916 procedural material presets + plain」，`errors()`為空。第一次執行時初始readout等待30秒逾時（頁面當時仍在冷啟動、vite重新轉譯大型來源）；查看頁面確認已無錯誤並載入完成後，把初始等待放寬到120秒重跑即全數通過。此驗證只涵蓋「能選取、無console錯誤、readout更新」，**不是**逐材質視覺比對或跨瀏覽器／GPU驗證；本功能raindropripples尚未納入。
 - 本功能未重跑完整179檔suite（gamedice之前的完整結果見gamedice section）；不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：歐洲紫杉弦切面心材（europeanyew）
+
+- 目錄917→918，含plain的gallery為919項。近似Taxus baccata未塗裝弦切面心材：橙褐色底、細而均勻的質地、16條密集起伏帶拱形的較深褐生長紋（約占面積七分之一）與細縱向纖維。外觀依據實際閱讀的[Wood Database European Yew](https://www.wood-database.com/european-yew/)與實看的[木面照片](https://www.wood-database.com/wp-content/uploads/taxus-baccata-300x600.jpg)；僅作配色與紋理形態參考，**不**重現照片中的暗色節、淡黃褐邊材帶或紫調。
+- 直接fallthrough重用`douglasfir`年輪sampler（與`longleafpine`、`westernredcedar`、`sitkaspruce`、`europeanlarch`、`europeanolive`同路徑），constructor只選新preset；warp 36＋fiber 200×6＋128² grain共17,620 Float64／140,960 B。預設0.18 m tile、0.0025 UV-relative relief（非公尺位移）、metallic factor0；不新增API或依賴。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）256²取樣color<0.6占14.9–15.2%、color>0.75占70.2–70.5%、色域0.469–0.881、roughness 0.421–0.490、高度0.498–0.642 relief、橫／縱色差比3.64–3.66、最低AO 0.96，metallic／mortar皆0；seed7的512² r／g／b平均約(216,143,68)、g≥140占72.4%（g<140占27.6%）、法線max tilt²約0.0149。以Bun產生512 seed7排列圖並實看：橙褐色面與密集的起伏拱形年輪，比照片規律、缺少節。
+- 新增4項永久測試（`European yew`：三seed外觀與各向異性、C1掃描、actual512五maps、帶號UV週期），並加入通用kinds清單；名稱篩選7項通過（11.46s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "European yew|europeanyew|kinds|catalog|distinct|periodic"`定向測試，**2125項通過／3610項未選**。
+- 本功能未重跑完整179檔suite（raindropripples commit的完整suite仍在凍結worktree執行，結果另記）、未開瀏覽器gallery（raindropripples與本功能未在gallery驗證內）；不宣稱跨瀏覽器／backend或效能驗證；不push。

@@ -12640,6 +12640,32 @@ export declare const proceduralMaterialPresets: Readonly<{
         heightScale: 0.5;
         waveRoughness: 0.05;
     }>;
+    europeanyew: Readonly<{
+        dark: readonly [146, 76, 30];
+        light: readonly [238, 164, 80];
+        roughness: 0.46;
+        relief: 0.0025;
+        rings: 16;
+        arch: 1.9;
+        archShift: 0.05;
+        skew: 0.4;
+        warpCells: 6;
+        warp: 0.6;
+        latewoodStart: 0.55;
+        latewoodPeak: 0.9;
+        fiberColumns: 200;
+        fiberRows: 6;
+        grainCells: 128;
+        earlyTone: 0.82;
+        lateTone: 0.32;
+        fiberTone: 0.07;
+        grainTone: 0.03;
+        lateHeight: 0.14;
+        grainHeight: 0.004;
+        lateRoughness: -0.04;
+        grainRoughness: 0.03;
+        earlyOcclusion: 0.04;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -13936,4 +13962,5 @@ export declare const proceduralTileMeters: Readonly<{
     europeanolive: 0.18;
     gamedice: 0.3;
     raindropripples: 0.4;
+    europeanyew: 0.18;
 }>;

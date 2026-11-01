@@ -38083,6 +38083,7 @@ export function createSurfaceSampler(
       case 'longleafpine':
       case 'westernredcedar':
       case 'sitkaspruce':
+      case 'europeanyew':
       case 'europeanolive':
       case 'europeanlarch': {
         const p = proceduralMaterialPresets[kind],
@@ -45267,6 +45268,7 @@ export function createSurfaceSampler(
     kind === 'europeanolive' ||
     kind === 'gamedice' ||
     kind === 'raindropripples' ||
+    kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
     kind === 'sitkaspruce' ||

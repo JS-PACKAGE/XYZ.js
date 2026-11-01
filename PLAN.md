@@ -1095,6 +1095,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`europeanyew`（歐洲紫杉）使目前目錄917→918種，含plain的gallery為919項。近似Taxus baccata未塗裝弦切面心材：橙褐色底、細而均勻的質地、16條密集起伏帶拱形的較深褐生長紋（約占面積七分之一）與細縱向纖維。不是淡黃褐的窄邊材帶、偏紫的暗褐色變、節、瘤或塗層。
+
+外觀依據實際閱讀的[Wood Database European Yew](https://www.wood-database.com/european-yew/)（Color／Appearance：邊材通常為淡黃或棕褐的窄帶，心材為橙褐色、有時帶更暗的棕或紫調；Grain／Texture：直紋、細而均勻的質地、天然光澤佳）與實際下載並實看的[木面照片](https://www.wood-database.com/wp-content/uploads/taxus-baccata-300x600.jpg)（橙褐色面、細密生長紋與拱形、一個暗色節）；僅作配色與紋理形態參考，**不**重現照片中的節、邊材帶或紫調，不打包來源圖，也不由照片反推真色、roughness或實際尺寸。
+
+直接fallthrough重用`douglasfir`年輪sampler（與`longleafpine`、`westernredcedar`、`sitkaspruce`、`europeanlarch`、`europeanolive`同路徑），constructor只選新preset（rings 16、arch 1.9、warp 0.6、latewood 0.55–0.9、lateTone 0.32、earlyTone 0.82）；warp 36＋fiber 200×6＋128²細grain共17,620 Float64／140,960 B lattice算術預算（非總RAM）。金屬factor為0，晚材略高，年輪紋色是顏料。預設0.18 m nominal tile與0.0025 UV-relative relief（非公尺位移）皆作者設定。三seed（0／1／0xffffffff）、256²取樣：color<0.6占14.9–15.2%、color>0.75占70.2–70.5%、色域0.469–0.881、roughness 0.421–0.490、高度0.498–0.642 relief、橫／縱色差比3.64–3.66、最低AO 0.96；seed7的512²中r／g／b平均約(216,143,68)、g≥140占72.4%（g<140占27.6%）、法線max tilt²約0.0149。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `raindropripples`（雨滴漣漪）使目前目錄916→917種，含plain的gallery為918項。深灰藍的光滑水面上，8×8個位置抖動的雨滴各自擴散出同心漣漪環（隨機振幅與相位），相鄰漣漪疊加成干涉圖樣；環的亮／暗波峰各占約6–9%面積，水面反光顏色圍繞中灰藍，波處roughness略升、法線顯示清楚的環狀起伏。不是隨時間擴散、水面下的折射、水花、泡沫或岸邊反射。
 
 此材質是作者依「雨滴落在水面形成的同心漣漪」一般印象所作示意，沒有引用特定來源文件、照片或量測；格數、環波長、包絡半徑、振幅範圍、色調、roughness與0.4 m nominal tile皆作者設定，不宣稱符合任何實際水體或流體力學模型（沒有色散、衰減律或波速關係）。
