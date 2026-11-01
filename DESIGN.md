@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`qrcodelabel`（QR風格印刷標籤）使目前目錄892→893種，含plain的gallery為894項。一張紙質標籤佔滿一個tile：29×29個模組外加四模組寬的白色安靜區（共37×37）；左上、右上、左下各有7×7的finder pattern（深外框、淺環、3×3深核心）及白色separator，第6列／行有深淺交替的timing pattern，右下有5×5 alignment pattern，其餘為依seed決定的偽隨機資料模組。深色油墨在淺色帶細纖維grain的紙上。**這不是可解碼的QR**：沒有編碼訊息、格式資訊、遮罩或錯誤更正，僅是QR風格的外觀。
+
+結構概念依據實際閱讀的[Wikipedia「QR code」](https://en.wikipedia.org/wiki/QR_code)：三個位於左上、右上與左下的finder pattern（三層同心方形）以及第四角附近的較小方形。29×29模組、四模組安靜區、7×7／5×5尺寸、timing位置、油墨與紙色、roughness、0.05 m tile皆作者設定，沒有逐條對照ISO／IEC 18004，不宣稱符合任何QR版本或可被掃描。
+
+新增專用sampler：constructor依seed與hash填一個37×37的`Uint8Array`（1,369 B）模組表，取樣時以smoothstep權重在模組邊界附近雙線性混合相鄰四模組，權重在模組中心保持零斜率，因此邊緣窄但C1，且模組索引以tile大小取模，整張標籤週期重複。另有128²紙grain與48²纖維兩個cache（共18,688 Float64／149,504 B）。金屬factor為0、無mortar；預設0.05 m nominal tile、0.0006 UV-relative relief（非公尺位移）。三seed（0／1／0xffffffff）以模組中心實測：油墨color恆為0.04、紙color 0.876–0.925；資料區（排除finder／timing／alignment）深色占46.9%／49.1%／50.4%，seed0與seed1資料位置有49.1%不同；seed7的512²中r<60占28.3%、r>200占66.8%，法線max tilt²約0.0004。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `perforatedhardboard`（棕色鑽孔硬纖維板）使目前目錄891→892種，含plain的gallery為893項。16×16格的方格陣列，每格中心有一個圓形暗色不透明孔（孔半徑0.13格、孔徑約占5.1%面積），孔緣有略暗的圓角環；孔間為連續的棕色回火硬纖維板面，含細纖維grain、較大的碎屑斑與低頻光澤起伏。孔不是透明通孔（不含背景穿透），也不含掛鉤、螺絲或金屬板。
 
 概念依據實際閱讀的[Wikipedia「Perforated hardboard」](https://en.wikipedia.org/wiki/Pegboard)：回火硬纖維板（以亞麻仁油薄層塗佈並高溫烘烤）預鑽等距孔，Peg-Board為Masonite舊商標、常泛稱穿孔收納板。**未**查看或引用任何實物照片／規格圖，故孔距、孔徑、色彩、roughness與0.4 m tile皆為作者設定，不宣稱符合任何標準孔徑／孔距或商品。

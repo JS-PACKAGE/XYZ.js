@@ -12053,6 +12053,26 @@ export declare const proceduralMaterialPresets: Readonly<{
         holeOcclusion: 0.85;
         rimOcclusion: 0.25;
     }>;
+    qrcodelabel: Readonly<{
+        dark: readonly [14, 14, 16];
+        light: readonly [238, 237, 230];
+        roughness: 0.52;
+        relief: 0.0006;
+        modules: 29;
+        quiet: 4;
+        edgeSoft: 0.14;
+        grainCells: 128;
+        fiberCells: 48;
+        paperTone: 0.9;
+        inkDrop: 0.86;
+        grainTone: 0.03;
+        fiberTone: 0.025;
+        baseHeight: 0.5;
+        inkHeight: 0.1;
+        grainHeight: 0.02;
+        inkRoughness: 0.2;
+        grainRoughness: 0.04;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -13324,4 +13344,5 @@ export declare const proceduralTileMeters: Readonly<{
     chesterfieldleather: 0.5;
     westernredcedar: 0.12;
     perforatedhardboard: 0.4;
+    qrcodelabel: 0.05;
 }>;

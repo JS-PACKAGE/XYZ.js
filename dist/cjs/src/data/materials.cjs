@@ -19830,6 +19830,34 @@ var proceduralMaterialPresets = Object.freeze({
 		holeOcclusion: .85,
 		rimOcclusion: .25
 	}),
+	qrcodelabel: Object.freeze({
+		dark: [
+			14,
+			14,
+			16
+		],
+		light: [
+			238,
+			237,
+			230
+		],
+		roughness: .52,
+		relief: 6e-4,
+		modules: 29,
+		quiet: 4,
+		edgeSoft: .14,
+		grainCells: 128,
+		fiberCells: 48,
+		paperTone: .9,
+		inkDrop: .86,
+		grainTone: .03,
+		fiberTone: .025,
+		baseHeight: .5,
+		inkHeight: .1,
+		grainHeight: .02,
+		inkRoughness: .2,
+		grainRoughness: .04
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -21219,7 +21247,8 @@ var proceduralTileMeters = Object.freeze({
 	longleafpine: .12,
 	chesterfieldleather: .5,
 	westernredcedar: .12,
-	perforatedhardboard: .4
+	perforatedhardboard: .4,
+	qrcodelabel: .05
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

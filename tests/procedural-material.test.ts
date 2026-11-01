@@ -934,6 +934,7 @@ const kinds: ProceduralMaterialKind[] = [
   'chesterfieldleather',
   'westernredcedar',
   'perforatedhardboard',
+  'qrcodelabel',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -135695,5 +135696,183 @@ describe('Brown tempered perforated hardboard with a square grid of opaque round
       }
     }
     expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Printed QR-style label with finder, timing and alignment patterns, seeded data modules and a quiet zone', () => {
+  const p = proceduralMaterialPresets.qrcodelabel;
+  const size = p.modules + 2 * p.quiet,
+    last = p.modules - 1;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  // Module (mx, my) in symbol coordinates; the quiet zone has negative / overflowing indices.
+  const read = (seed: number): ((mx: number, my: number) => number) => {
+    const sample = createSurfaceSampler('qrcodelabel', seed),
+      out = empty();
+    return (mx, my) => {
+      sample((p.quiet + mx + 0.5) / size, (p.quiet + my + 0.5) / size, out);
+      expect(out.color < 0.3 || out.color > 0.7).toBe(true);
+      return out.color < 0.3 ? 1 : 0;
+    };
+  };
+  const inData = (mx: number, my: number): boolean =>
+    mx >= 9 &&
+    my >= 9 &&
+    !(Math.abs(mx - (last - 6)) <= 2 && Math.abs(my - (last - 6)) <= 2);
+  it.each([0, 1, 0xffffffff])(
+    'draws identical finder, separator, timing, alignment and quiet-zone structure around data for seed %s',
+    (seed) => {
+      const module = read(seed);
+      for (const [cx, cy] of [
+        [3, 3],
+        [last - 3, 3],
+        [3, last - 3],
+      ])
+        for (let dy = -4; dy <= 4; dy++)
+          for (let dx = -4; dx <= 4; dx++) {
+            const d = Math.max(Math.abs(dx), Math.abs(dy)),
+              expected = d === 2 || d === 4 ? 0 : 1;
+            // d=4 is the light separator / quiet zone; far outer ring is not asserted.
+            if (d <= 3 || d === 4)
+              expect(module(cx + dx, cy + dy)).toBe(expected);
+          }
+      for (let k = 8; k <= last - 8; k++) {
+        expect(module(k, 6)).toBe(k % 2 === 0 ? 1 : 0);
+        expect(module(6, k)).toBe(k % 2 === 0 ? 1 : 0);
+      }
+      for (let dy = -2; dy <= 2; dy++)
+        for (let dx = -2; dx <= 2; dx++)
+          expect(module(last - 6 + dx, last - 6 + dy)).toBe(
+            Math.max(Math.abs(dx), Math.abs(dy)) === 1 ? 0 : 1,
+          );
+      for (let k = -p.quiet; k < p.modules + p.quiet; k++)
+        for (let q = 1; q <= p.quiet; q++) {
+          expect(module(k, -q)).toBe(0);
+          expect(module(k, last + q)).toBe(0);
+          expect(module(-q, k)).toBe(0);
+          expect(module(last + q, k)).toBe(0);
+        }
+    },
+  );
+  it('fills data modules about half dark, differently per seed and identically for the same seed', () => {
+    const a = read(0),
+      b = read(1),
+      again = read(0);
+    let dark = 0,
+      total = 0,
+      mismatch = 0;
+    for (let my = 0; my < p.modules; my++)
+      for (let mx = 0; mx < p.modules; mx++) {
+        if (!inData(mx, my)) continue;
+        const value = a(mx, my);
+        total++;
+        dark += value;
+        mismatch += Number(value !== b(mx, my));
+        expect(again(mx, my)).toBe(value);
+      }
+    expect(dark / total).toBeGreaterThan(0.4);
+    expect(dark / total).toBeLessThan(0.6);
+    expect(mismatch / total).toBeGreaterThan(0.35);
+    expect(mismatch / total).toBeLessThan(0.65);
+  });
+  it('keeps narrow module edges, paper grain and fibre lattices C1 and the tile periodic', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('qrcodelabel', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [size, p.fiberCells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      // Rows through the finders and the data area, offset to hit module blend bands.
+      for (const row of [5, 6, 14, 22])
+        for (const offset of [0, 0.5, 0.5 - p.edgeSoft / 2])
+          for (let i = 0; i < 4096; i++)
+            check(i / 4096, (p.quiet + row + offset) / size);
+      for (let i = 0; i < 8192; i++)
+        check((i * 0.61803398875) % 1, (i * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+      const d = empty();
+      let drift = 0;
+      for (let i = 0; i < 4096; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 7, v + 11, d);
+        for (const key of keys)
+          drift = Math.max(drift, Math.abs(a[key] - d[key]));
+      }
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 ink-on-paper dielectric maps with no metal, mortar or significant normals', () => {
+    const maps = generateProceduralMaps('qrcodelabel', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let ink = 0,
+      paper = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      ink += Number(maps.baseColor[i] < 60);
+      paper += Number(maps.baseColor[i] > 200);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.normal[i + 2] < 250,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(ink / (512 * 512)).toBeGreaterThan(0.24);
+    expect(ink / (512 * 512)).toBeLessThan(0.33);
+    expect(paper / (512 * 512)).toBeGreaterThan(0.6);
+    expect(paper / (512 * 512)).toBeLessThan(0.72);
+    expect(maxTilt).toBeLessThan(0.01);
+    expect(invalid).toBe(0);
   });
 });

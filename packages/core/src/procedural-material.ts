@@ -907,7 +907,8 @@ export type ProceduralMaterialKind =
   | 'longleafpine'
   | 'chesterfieldleather'
   | 'westernredcedar'
-  | 'perforatedhardboard';
+  | 'perforatedhardboard'
+  | 'qrcodelabel';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2049,6 +2050,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'chesterfieldleather',
   'westernredcedar',
   'perforatedhardboard',
+  'qrcodelabel',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

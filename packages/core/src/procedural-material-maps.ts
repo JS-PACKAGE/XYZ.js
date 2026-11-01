@@ -37096,6 +37096,80 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'qrcodelabel': {
+        const p = proceduralMaterialPresets.qrcodelabel,
+          size = p.modules + 2 * p.quiet,
+          ink = new Uint8Array(size * size),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x28101),
+          fiberField = cachedNoise(p.fiberCells, p.fiberCells, seed ^ 0x28103),
+          inverseSoft = 1 / p.edgeSoft,
+          last = p.modules - 1,
+          // Chebyshev ring pattern: 5 = finder 7x7 (dark rim, light ring, dark core),
+          // 3 = alignment 5x5; both are dark on even rings.
+          finder = (dx: number, dy: number): number => {
+            const d = Math.max(Math.abs(dx), Math.abs(dy));
+            return d === 2 || d > 3 ? 0 : 1;
+          },
+          alignment = (dx: number, dy: number): number =>
+            Math.max(Math.abs(dx), Math.abs(dy)) === 1 ? 0 : 1;
+        // This is a QR-style symbol: real finder, timing and alignment structure with
+        // seeded data modules, not an encoded or decodable message.
+        for (let my = 0; my < p.modules; my++)
+          for (let mx = 0; mx < p.modules; mx++) {
+            let value = hash(mx, my, seed ^ 0x28105) < 0.5 ? 1 : 0;
+            const nearLeft = mx <= 7,
+              nearRight = mx >= p.modules - 8,
+              nearTop = my <= 7,
+              nearBottom = my >= p.modules - 8;
+            if (nearLeft && nearTop)
+              value = mx === 7 || my === 7 ? 0 : finder(mx - 3, my - 3);
+            else if (nearRight && nearTop)
+              value =
+                mx === last - 7 || my === 7
+                  ? 0
+                  : finder(mx - (last - 3), my - 3);
+            else if (nearLeft && nearBottom)
+              value =
+                mx === 7 || my === last - 7
+                  ? 0
+                  : finder(mx - 3, my - (last - 3));
+            else if (my === 6) value = mx % 2 === 0 ? 1 : 0;
+            else if (mx === 6) value = my % 2 === 0 ? 1 : 0;
+            else if (
+              Math.abs(mx - (last - 6)) <= 2 &&
+              Math.abs(my - (last - 6)) <= 2
+            )
+              value = alignment(mx - (last - 6), my - (last - 6));
+            ink[(my + p.quiet) * size + mx + p.quiet] = value;
+          }
+        return () => {
+          // Module values are bilinearly blended with smoothstep weights centred on
+          // module boundaries, so edges are narrow but C1 and the tile wraps.
+          const x = u * size - 0.5,
+            y = v * size - 0.5,
+            ix = Math.floor(x),
+            iy = Math.floor(y),
+            wx = smooth(clamp((x - ix - 0.5) * inverseSoft + 0.5)),
+            wy = smooth(clamp((y - iy - 0.5) * inverseSoft + 0.5)),
+            x0 = ((ix % size) + size) % size,
+            y0 = ((iy % size) + size) % size,
+            x1 = (x0 + 1) % size,
+            y1 = (y0 + 1) % size,
+            top = ink[y0 * size + x0] * (1 - wx) + ink[y0 * size + x1] * wx,
+            bottom = ink[y1 * size + x0] * (1 - wx) + ink[y1 * size + x1] * wx,
+            dot = top * (1 - wy) + bottom * wy,
+            grain = grainField(u, v),
+            fiber = fiberField(u, v);
+          color =
+            p.paperTone -
+            p.inkDrop * dot +
+            (p.grainTone * (grain - 0.5) + p.fiberTone * (fiber - 0.5)) *
+              (1 - dot);
+          height = p.baseHeight + p.inkHeight * dot + p.grainHeight * grain;
+          roughness += p.inkRoughness * dot + p.grainRoughness * (grain - 0.5);
+          return;
+        };
+      }
       case 'perforatedhardboard': {
         const p = proceduralMaterialPresets.perforatedhardboard,
           grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x27101),
@@ -44303,6 +44377,7 @@ export function createSurfaceSampler(
     kind === 'chesterfieldleather' ||
     kind === 'westernredcedar' ||
     kind === 'perforatedhardboard' ||
+    kind === 'qrcodelabel' ||
     kind === 'thomsonite' ||
     kind === 'dalmatianstone' ||
     kind === 'basswood' ||

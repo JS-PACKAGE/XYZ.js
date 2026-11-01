@@ -11474,3 +11474,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增4項永久測試（`perforated hardboard`：三seed逐格孔／板面／圓角環、C1含孔心列掃描、actual512五maps、帶號UV週期），並加入通用kinds清單。首次實跑3項失敗：我拿孔環的單點顏色與距離很遠的格角比較，被grain／fleck雜訊抵消；改為同一孔8個角度的環平均比較孔環與外側環後，名稱篩選7項通過（5.70s）。
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "perforated hardboard|perforatedhardboard|kinds|catalog|distinct|periodic"`定向測試，**2083項通過／3468項未選**。
 - 本功能未重跑完整179檔suite、未開瀏覽器gallery，也不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：QR風格印刷標籤（qrcodelabel）
+
+- 目錄892→893，含plain的gallery為894項。一張紙質標籤佔滿一個tile：29×29模組加四模組白色安靜區（37×37）；三個角7×7 finder pattern與separator、第6列／行timing、右下5×5 alignment、依seed的偽隨機資料模組，深色油墨印在帶纖維grain的淺紙上。**不是可解碼QR**（無訊息、格式資訊、遮罩或錯誤更正）。結構概念依據實際閱讀的[Wikipedia「QR code」](https://en.wikipedia.org/wiki/QR_code)（左上／右上／左下三個同心方形finder pattern、第四角附近較小方形）；29×29、四模組安靜區、7×7／5×5、timing位置、色彩與0.05 m tile皆作者設定，未逐條對照ISO／IEC 18004。
+- 專用sampler：constructor填37×37 `Uint8Array`模組表（1,369 B），取樣以零斜率smoothstep權重在模組邊界雙線性混合，邊緣窄但C1，模組索引依tile大小取模；另128²紙grain與48²纖維（18,688 Float64／149,504 B）。預設0.05 m tile、0.0006 UV-relative relief（非公尺位移）、metallic factor0；不新增API或依賴。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）以模組中心取樣，油墨color恆為0.04、紙color 0.876–0.925；資料區深色占46.9%／49.1%／50.4%，seed0與seed1資料位置49.1%不同；seed7的512²中r<60占28.3%、r>200占66.8%，法線max tilt²約0.0004。以Bun產生512 seed7的2×2排列圖並實看：可辨識的finder、timing、alignment與安靜區，資料模組邊緣清楚。**未**以任何QR掃描器驗證（本來就不可解碼）。
+- 新增4組永久測試（`QR-style`：三seed結構（finder／separator／timing／alignment／安靜區逐模組）、資料區深色比例與seed差異／相同seed一致、C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選7項通過（5.11s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "QR-style|qrcodelabel|kinds|catalog|distinct|periodic"`定向測試，**2084項通過／3474項未選**。
+- 本功能未重跑完整179檔suite、未開瀏覽器gallery，也不宣稱跨瀏覽器／backend或效能驗證；不push。
