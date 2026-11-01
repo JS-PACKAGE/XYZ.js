@@ -6932,3 +6932,139 @@ describe('xylophonebars: tuned bar lengths with cord holes at the nodes', () => 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('sliderulescale: logarithmic graduations and digits', () => {
+  const p = proceduralMaterialPresets.sliderulescale;
+  // The conventional C-scale graduations over one decade, as integer hundredths of x.
+  const graduations = (): { x: number; level: number }[] => {
+    const list: { x: number; level: number }[] = [];
+    const push = (from: number, to: number, step: number): void => {
+      for (let h = from; h < to; h += step) {
+        let level = 0;
+        if (h % 100 === 0) level = 2;
+        else if (h < 400 ? h % 10 === 0 : h % 50 === 0) level = 1;
+        list.push({ x: h / 100, level });
+      }
+    };
+    push(100, 200, 2);
+    push(200, 400, 5);
+    push(400, 1000, 10);
+    return list;
+  };
+  // Independent drawing of the digits 1 to 9 (3 wide, 5 tall).
+  const art: Record<number, string[]> = {
+    1: ['.#.', '##.', '.#.', '.#.', '###'],
+    2: ['###', '..#', '###', '#..', '###'],
+    3: ['###', '..#', '###', '..#', '###'],
+    4: ['#.#', '#.#', '###', '..#', '..#'],
+    5: ['###', '#..', '###', '..#', '###'],
+    6: ['###', '#..', '###', '#.#', '###'],
+    7: ['###', '..#', '.#.', '.#.', '.#.'],
+    8: ['###', '#.#', '###', '#.#', '###'],
+    9: ['###', '#.#', '###', '..#', '###'],
+  };
+
+  it('puts every tick at log10 of its value, with 150 / 42 / 9 ticks at the three lengths', () => {
+    const sample = createSurfaceSampler('sliderulescale', 7),
+      out = empty(),
+      steps = 16384,
+      stripHeight = 1 / p.strips,
+      expected = graduations();
+    // Scan at a depth that only ticks of that length (or longer) reach.
+    const scan = (depth: number): number[] => {
+      const centers: number[] = [];
+      let start = -1;
+      for (let i = 0; i <= steps; i++) {
+        let inkRun = false;
+        if (i < steps) {
+          // Start half a tile in so the tick shared by 1 and 10 at the seam is not split in two.
+          sample(((i + 0.5) / steps + 0.5) % 1, depth * stripHeight, out);
+          inkRun = out.color < 0.5;
+        }
+        if (inkRun && start < 0) start = i;
+        if (!inkRun && start >= 0) {
+          centers.push(((start + i) / 2 / steps + 0.5) % 1);
+          start = -1;
+        }
+      }
+      return centers.sort((x, y) => x - y);
+    };
+    for (const [depth, level] of [
+      [0.12, 0],
+      [0.21, 1],
+      [0.3, 2],
+    ] as const) {
+      const centers = scan(depth),
+        wanted = expected.filter((g) => g.level >= level);
+      expect(centers.length).toBe(wanted.length);
+      let worst = 0;
+      for (let i = 0; i < wanted.length; i++)
+        worst = Math.max(worst, Math.abs(centers[i] - Math.log10(wanted[i].x)));
+      expect(worst).toBeLessThan(0.0006);
+    }
+    expect(expected.length).toBe(150);
+    expect(expected.filter((g) => g.level >= 1).length).toBe(42);
+    expect(expected.filter((g) => g.level === 2).length).toBe(9);
+  });
+
+  it.each(seeds)(
+    'prints the digits 1 to 9 beside the integer ticks on every strip (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('sliderulescale', seed),
+        out = empty();
+      let wrong = 0;
+      for (let strip = 0; strip < p.strips; strip++)
+        for (let digit = 1; digit <= 9; digit++)
+          for (let row = 0; row < 5; row++)
+            for (let column = 0; column < 3; column++) {
+              const u =
+                  Math.log10(digit) +
+                  p.digitLeft +
+                  (column + 0.5) * p.digitPixel,
+                v =
+                  (strip + p.digitTop) / p.strips + (row + 0.5) * p.digitPixel;
+              sample(u, v, out);
+              wrong += Number(
+                out.color < 0.5 !== (art[digit][row][column] === '#'),
+              );
+            }
+      expect(wrong).toBe(0);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('sliderulescale', 0),
+      b = createSurfaceSampler('sliderulescale', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

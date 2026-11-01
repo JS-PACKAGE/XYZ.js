@@ -11794,3 +11794,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試記錄：半音比與八度的期望值在測試中以`2^(−1/24)`與`2^(−1/2)`獨立算出，不直接讀preset的`semitoneRatio`，因此同時驗證了preset常數0.97153…確實等於2^(−1/24)。
 - 實測：`tests/procedural-material-motifs.test.ts`三百三十八項（本材質四項）全過。三seed：在每根音條中心偏右0.3格處沿垂直掃描（避開孔洞），以8192個點量音條範圍；第一根長度與0.9相差＜0.003，每根與前一根長度比與2^(−1/24)相差＜0.006，每根都以tile中線為中心（±0.002），且（最後一根長度／第一根長度）×一個半音比與2^(−1/2)相差＜0.02；在每根音條中線上距兩端22.4%處（0.5 ∓ 0.276×長度）取樣為暗孔（色調＜0.15），距中心35%長度處為亮木色（＞0.3）；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "xylophonebars|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`xylophonebars`：option 940個、status為939 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的音條、孔與繩。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：計算尺刻度（sliderulescale）
+
+- 目錄939→940，含plain的gallery為941項。每tile 8條象牙色底的對數C尺，一個十進位橫跨tile寬，刻度x畫在u = log10(x)；刻度規則為[1,2)每0.02、[2,4)每0.05、[4,10)每0.1，共150條，分三種長度（整數9條、中等33條、最短108條），整數刻度右側有3×5數字1至9。Metallic／mortar為0，預設tile0.25 m、0.002 UV-relative relief、metallic factor 0。只畫C尺單一十進位，不含游標與其他尺；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 真實缺陷與修正（測試先失敗）：（1）數字「7」的點陣在取樣器中誤寫成`111001001010010`（###／..#／..#／.#.／.#.），與測試端獨立寫的標準3×5字型（###／..#／.#.／.#.／.#.）不同，每條尺2個點、共16個點不符；改用標準字型`111001010010010`。（2）刻度掃描的第一版把tile接縫處「1與10共用的刻度」切成兩半（一半在u=0、一半在u=1），多算出一條；改為掃描時起點移動半個tile，使接縫刻度落在掃描中段。（3）測試中中等長度刻度的期望數我先算成43條（把[2,4)的十分位算成19個），其實是2.1至2.9與3.1至3.9共18個，正確為9（[1,2)）＋18＋6（4.5至9.5）＝33條、加9條整數共42條；測試實際掃描的條數一直與表一致，是我的算式與註解寫錯，已更正並同步文件的「33／108」。
+- 實測：`tests/procedural-material-motifs.test.ts`三百四十三項（本材質五項）全過。tick測試以16384點沿三種深度（只有該長度以上的刻度會到達）掃描：每個深度的刻度數與期望相同（150／42／9），每條刻度的中心與log10(值)相差＜0.0006，測試端以「整數百分位」獨立生成刻度表；數字測試以三個seed（0、7、4294967295）對8條尺×9個數字×15個像素逐一比對測試端字型；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "sliderulescale|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`sliderulescale`：option 941個、status為940 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的尺、刻度與數字。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

@@ -20870,6 +20870,101 @@ export function createSurfaceSampler(
           occlusion = clamp(1 - (1 - p.shadowAO) * hole);
         };
       }
+      case 'sliderulescale': {
+        const p = proceduralMaterialPresets.sliderulescale,
+          inkField = cachedNoise(p.inkCells, p.inkCells, seed ^ 0x27601),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x27603),
+          glyphs = [
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          inverseSoft = 1 / p.edgeSoft,
+          stripHeight = 1 / p.strips,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          lengths = [p.shortLength, p.mediumLength, p.longLength],
+          // One decade of a logarithmic (C) scale: the graduation x sits at u = log10(x), so the
+          // tick for 10 coincides with the tick for 1 when the tile repeats. The usual rule: step
+          // 0.02 in [1, 2), 0.05 in [2, 4) and 0.1 in [4, 10). Kind 2 = integer, 1 = tenth (or half
+          // in [4, 10)), 0 = other.
+          positions: number[] = [],
+          kinds: number[] = [];
+        for (let hundredths = 100; hundredths < 1000;) {
+          const x = hundredths / 100;
+          positions.push(Math.log10(x));
+          kinds.push(
+            hundredths % 100 === 0
+              ? 2
+              : (x < 4 ? hundredths % 10 === 0 : hundredths % 50 === 0)
+                ? 1
+                : 0,
+          );
+          hundredths += hundredths < 200 ? 2 : hundredths < 400 ? 5 : 10;
+        }
+        positions.push(1);
+        kinds.push(2);
+        return () => {
+          const strip = Math.min(p.strips - 1, Math.floor(v * p.strips)),
+            y = v * p.strips - strip;
+          // Nearest graduation by binary search over the sorted positions.
+          let low = 0,
+            high = positions.length - 1;
+          while (high - low > 1) {
+            const middle = (low + high) >> 1;
+            if (positions[middle] <= u) low = middle;
+            else high = middle;
+          }
+          const index = u - positions[low] <= positions[high] - u ? low : high,
+            kind = kinds[index],
+            offset = Math.abs(u - positions[index]),
+            tick =
+              cover(p.tickHalf * (kind === 2 ? p.longTickScale : 1) - offset) *
+              cover(lengths[kind] - y) *
+              cover(y - p.tickStart);
+          // Digits 1-9 right of each integer tick (the 10 at the seam is the 1 of the next decade).
+          let digit = 0;
+          for (let k = 1; k <= 9; k++) {
+            const x0 = Math.log10(k) + p.digitLeft,
+              column = Math.floor((u - x0) / p.digitPixel),
+              line = Math.floor(
+                ((y - p.digitTop) * stripHeight) / p.digitPixel,
+              );
+            if (
+              column >= 0 &&
+              column < 3 &&
+              line >= 0 &&
+              line < 5 &&
+              glyphs[k - 1][line * 3 + column] === '1'
+            ) {
+              digit = 1;
+              break;
+            }
+          }
+          const edge = Math.max(
+              cover(p.edgeLine - y),
+              cover(y - (1 - p.edgeLine)),
+            ),
+            ink = Math.max(tick, digit, edge),
+            gain = inkField(u, v) - 0.5,
+            grain = grainField(u, v) - 0.5;
+          color = clamp(
+            p.baseTone +
+              p.grainTone * grain +
+              (p.inkTone + p.inkGain * gain - p.baseTone) * ink,
+          );
+          height = clamp(p.baseHeight + (p.inkHeight - p.baseHeight) * ink);
+          roughness =
+            p.baseRoughness + (p.inkRoughness - p.baseRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -48399,6 +48494,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'sliderulescale' ||
     kind === 'xylophonebars' ||
     kind === 'pegsolitaire' ||
     kind === 'bingocard' ||
