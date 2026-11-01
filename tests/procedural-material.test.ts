@@ -973,6 +973,7 @@ const kinds: ProceduralMaterialKind[] = [
   'crosshatchengraving',
   'merbau',
   'windowpane',
+  'crosswordgrid',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -143141,6 +143142,235 @@ describe('Windowpane with thin pale pane lines over a dark twill flannel', () =>
     expect(pale / (512 * 512)).toBeLessThan(0.07);
     expect(maxTilt).toBeGreaterThan(0.3);
     expect(maxTilt).toBeLessThan(0.42);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Crosswordgrid with 180-degree symmetric black squares, thin grid lines and clue-number marks on white paper', () => {
+  const p = proceduralMaterialPresets.crosswordgrid;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const cellColors = (seed: number, fx: number, fy: number): number[][] => {
+    const sample = createSurfaceSampler('crosswordgrid', seed),
+      out = empty(),
+      rows: number[][] = [];
+    for (let row = 0; row < p.cells; row++) {
+      rows.push([]);
+      for (let col = 0; col < p.cells; col++) {
+        sample((col + fx) / p.cells, (row + fy) / p.cells, out);
+        rows[row].push(out.color);
+      }
+    }
+    return rows;
+  };
+  const blackCells = (seed: number): boolean[][] =>
+    cellColors(seed, 0.5, 0.5).map((row) => row.map((color) => color < 0.5));
+  it.each([0, 1, 0xffffffff])(
+    'keeps black cells deep black and white cells white with a bounded range for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('crosswordgrid', seed),
+        a = empty(),
+        centres = cellColors(seed, 0.5, 0.5);
+      let black = 0,
+        blackHigh = 0,
+        whiteLow = 1;
+      for (const row of centres)
+        for (const color of row)
+          if (color < 0.5) {
+            black++;
+            blackHigh = Math.max(blackHigh, color);
+          } else whiteLow = Math.min(whiteLow, color);
+      let low = 1,
+        high = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 512; y++)
+        for (let x = 0; x < 512; x++) {
+          sample((x + 0.5) / 512, (y + 0.5) / 512, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(black).toBeGreaterThan(20);
+      expect(black).toBeLessThan(70);
+      expect(blackHigh).toBeLessThan(0.08);
+      expect(whiteLow).toBeGreaterThan(0.92);
+      expect(low).toBeGreaterThan(0.044);
+      expect(low).toBeLessThan(0.048);
+      expect(high).toBeGreaterThan(0.95);
+      expect(high).toBeLessThan(0.96);
+      expect(roughLow).toBeCloseTo(p.roughness + p.inkRoughness, 3);
+      expect(roughHigh).toBeLessThanOrEqual(p.roughness);
+      expect(heightHigh).toBeGreaterThan(0.99);
+      expect(heightHigh).toBeLessThan(1);
+      expect(invalid).toBe(0);
+    },
+  );
+  it.each([0, 1, 0xffffffff])(
+    'mirrors the black squares through the tile centre and numbers exactly the cells where a word starts for seed %s',
+    (seed) => {
+      const blacks = blackCells(seed),
+        dots = cellColors(seed, p.dotX, p.dotY),
+        n = p.cells,
+        at = (row: number, col: number) => blacks[(row + n) % n][(col + n) % n];
+      let numbered = 0;
+      for (let row = 0; row < n; row++)
+        for (let col = 0; col < n; col++) {
+          expect(blacks[row][col]).toBe(blacks[n - 1 - row][n - 1 - col]);
+          const starts =
+            !blacks[row][col] &&
+            ((at(row, col - 1) && !at(row, col + 1)) ||
+              (at(row - 1, col) && !at(row + 1, col)));
+          numbered += Number(starts);
+          // The mark is dark exactly in numbered cells; black cells are dark anyway.
+          if (!blacks[row][col]) expect(dots[row][col] < 0.5).toBe(starts);
+        }
+      expect(numbered).toBeGreaterThan(20);
+    },
+  );
+  it('draws thin grid lines on white cell borders only', () => {
+    const centres = cellColors(0, 0.5, 0.5),
+      sides = cellColors(0, 0.5, 0),
+      n = p.cells;
+    let checked = 0;
+    for (let row = 0; row < n; row++)
+      for (let col = 0; col < n; col++)
+        if (
+          centres[row][col] > 0.85 &&
+          centres[(row + n - 1) % n][col] > 0.85
+        ) {
+          // Top border between two white cells: a pale grey line.
+          expect(centres[row][col] - sides[row][col]).toBeGreaterThan(0.3);
+          expect(centres[row][col] - sides[row][col]).toBeLessThan(0.5);
+          checked++;
+        }
+    expect(checked).toBeGreaterThan(100);
+  });
+  it('re-draws the black squares per seed and is deterministic for one seed', () => {
+    const first = blackCells(0),
+      second = blackCells(1);
+    let different = 0;
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++)
+        different += Number(first[row][col] !== second[row][col]);
+    expect(different).toBeGreaterThan(30);
+    expect(blackCells(0)).toEqual(first);
+  });
+  it('keeps the cell blends, grid lines and clue marks C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('crosswordgrid', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.cells, 2 * p.cells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 near-neutral paper maps with a quarter of the pixels dark ink', () => {
+    const maps = generateProceduralMaps('crosswordgrid', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      ink = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      ink += Number(maps.baseColor[i] < 110);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.normal[i + 2] < 245,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(172);
+    expect(red / (512 * 512)).toBeLessThan(181);
+    expect(green / (512 * 512)).toBeGreaterThan(171);
+    expect(green / (512 * 512)).toBeLessThan(180);
+    expect(blue / (512 * 512)).toBeGreaterThan(167);
+    expect(blue / (512 * 512)).toBeLessThan(176);
+    expect(ink / (512 * 512)).toBeGreaterThan(0.22);
+    expect(ink / (512 * 512)).toBeLessThan(0.26);
+    expect(maxTilt).toBeGreaterThan(0.04);
+    expect(maxTilt).toBeLessThan(0.08);
     expect(invalid).toBe(0);
   });
 });

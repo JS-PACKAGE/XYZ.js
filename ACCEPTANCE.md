@@ -11875,3 +11875,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增8項（三seed統計與斜紋方向性、線位於整數格上、seed差異與同seed決定性、C1二階差分＋有符號UV週期、actual512 maps），`-t "Windowpane|windowpane"`通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Windowpane|windowpane|kinds|catalog|distinct|periodic"`定向測試**2148項通過／3685項未選**。
 - 未驗證：本材質未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：填字格（crosswordgrid）與完整suite紀錄
+
+- 範圍：新增`crosswordgrid`（目前目錄931→932種，含plain的gallery 933項）：白紙上15×15格填字方格，約兩成黑格依180°旋轉對稱分布（黑格表225項Uint8，半邊抽雜湊再鏡射），白格間淡灰細格線（`exp(−sin²(π·n·s)/w²)`），字詞起始白格左上角的圓點題號標記（題號表225項Uint8），格填色以smoothstep權重混合，三者以聯集`1 − Π(1 − x)`合併；預設0.3 m nominal tile、0.0012 UV-relative relief。作者示意，沒有引用特定來源；黑格分布**不**保證滿足連通性、最小字長等填字排版規則，圓點也不是數字題號。
+- 實作過程的小問題：第一版actual512測試要求每個像素r≥b，但墨色（22, 22, 24）本來就是r<b，是測試條件寫錯而非取樣器錯誤，已移除；題號點半徑由0.085改為0.11（預覽上原本太小）。
+- 實測（工具實跑）：seed 0／1／0xffffffff黑格數32／52／56（共225格）、題號點47／66／55個，黑格皆對tile中心鏡射對稱；512²取樣墨色占15.3%／24.6%／26.4%、color 0.045–0.955、roughness 0.74–0.80、height至多0.9975–0.9982 relief；兩白格間格線處比格中心暗約0.43；seed 0與1的225格中64格黑白不同；seed 7的512²maps平均r／g／b約(177, 175, 172)、r<110占23.9%、法線tilt²最大約0.058、z分量最小251。我實看了預覽（單tile與2×2重複），格線與題號點清楚。
+- 測試：新增11項（三seed統計、鏡射對稱與題號規則逐格驗證、格線深淺、seed差異、C1＋有符號UV週期、actual512 maps），`-t "Crosswordgrid|crosswordgrid"`通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Crosswordgrid|crosswordgrid|kinds|catalog|distinct|periodic"`定向測試**2153項通過／3691項未選**。
+- 完整suite（工具實跑，凍結worktree `/private/tmp/xyz-suite`於`50bbdf7da`「Add crosshatch engraving material」，與其後merbau／windowpane／crosswordgrid的gates同時執行因此耗時較長）：**179檔／9,747項全數通過**，Duration 1520.97s。這是`cdff89719`之後第一次完整suite，涵蓋之間的jarrah、buffaloplaid、sheetmusic、sheetmusic／raindropripples／amberbubbles三個smooth修正與crosshatchengraving；merbau、windowpane、crosswordgrid則只有定向測試與gates，尚未跑完整suite。
+- 未驗證：瀏覽器gallery（jarrah起至本材質皆尚未做）；與真實報紙填字格的外觀比對只有我的目視；不push。

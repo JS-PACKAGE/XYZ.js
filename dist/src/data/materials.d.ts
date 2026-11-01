@@ -12975,6 +12975,28 @@ export declare const proceduralMaterialPresets: Readonly<{
         threadHeight: 0.25;
         lineRoughness: -0.04;
     }>;
+    crosswordgrid: Readonly<{
+        dark: readonly [22, 22, 24];
+        light: readonly [242, 240, 234];
+        roughness: 0.8;
+        relief: 0.0012;
+        cells: 15;
+        blackChance: 0.2;
+        seedSalt: 49237;
+        edgeSoft: 0.06;
+        lineWidth: 0.09;
+        gridStrength: 0.45;
+        dotX: 0.2;
+        dotY: 0.2;
+        dotRadius: 0.11;
+        grainCells: 128;
+        paperTone: 0.94;
+        inkTone: 0.06;
+        grainTone: 0.03;
+        inkHeight: 0.7;
+        grainHeight: 0.3;
+        inkRoughness: -0.06;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -14285,4 +14307,5 @@ export declare const proceduralTileMeters: Readonly<{
     crosshatchengraving: 0.25;
     merbau: 0.18;
     windowpane: 0.3;
+    crosswordgrid: 0.3;
 }>;

@@ -38100,6 +38100,81 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'crosswordgrid': {
+        const p = proceduralMaterialPresets.crosswordgrid,
+          count = p.cells * p.cells,
+          black = new Uint8Array(count),
+          numbered = new Uint8Array(count),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 1),
+          ),
+          inverseSoft = 1 / p.edgeSoft,
+          inverseWidth2 = 1 / (p.lineWidth * p.lineWidth),
+          inverseDot2 = 1 / (p.dotRadius * p.dotRadius),
+          inkSpan = p.paperTone - p.inkTone,
+          at = (col: number, row: number): number =>
+            ((row + p.cells) % p.cells) * p.cells + ((col + p.cells) % p.cells);
+        // Black squares are drawn for one half and mirrored through the tile centre
+        // (180-degree rotational symmetry, as in a printed crossword), so cell i and
+        // cell count - 1 - i share a hash. Neighbours wrap with the tile.
+        for (let i = 0; i < count; i++)
+          black[i] =
+            hash(Math.min(i, count - 1 - i), 0, seed ^ p.seedSalt) <
+            p.blackChance
+              ? 1
+              : 0;
+        // A white cell is numbered when a word starts there: black (or the wrap)
+        // before it and white after it, across or down.
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const here = at(col, row);
+            numbered[here] =
+              !black[here] &&
+              ((black[at(col - 1, row)] && !black[at(col + 1, row)]) ||
+                (black[at(col, row - 1)] && !black[at(col, row + 1)]))
+                ? 1
+                : 0;
+          }
+        return () => {
+          // Cell fill is blended across each boundary with smoothstep weights (zero
+          // slope at the cell centres). Grid lines are exp(-sin^2(pi n s) / w^2),
+          // C-infinity at an integer cell count. A clue-number mark is a smooth(1 - q)
+          // dot kept inside its own cell. Black fill, grid lines and marks join as the
+          // union 1 - prod(1 - x), so every term stays C1 and inside [0, 1].
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            sx = x - 0.5,
+            sy = y - 0.5,
+            ix = Math.floor(sx),
+            iy = Math.floor(sy),
+            wx = smooth(clamp((sx - ix - 0.5) * inverseSoft + 0.5)),
+            wy = smooth(clamp((sy - iy - 0.5) * inverseSoft + 0.5)),
+            top = black[at(ix, iy)] * (1 - wx) + black[at(ix + 1, iy)] * wx,
+            bottom =
+              black[at(ix, iy + 1)] * (1 - wx) + black[at(ix + 1, iy + 1)] * wx,
+            fill = top * (1 - wy) + bottom * wy,
+            sinU = Math.sin(Math.PI * p.cells * u),
+            sinV = Math.sin(Math.PI * p.cells * v),
+            lineU = Math.exp(-sinU * sinU * inverseWidth2),
+            lineV = Math.exp(-sinV * sinV * inverseWidth2),
+            line = p.gridStrength * (1 - (1 - lineU) * (1 - lineV)),
+            dx = x - col - p.dotX,
+            dy = y - row - p.dotY,
+            dot = numbered[row * p.cells + col]
+              ? smooth(clamp(1 - (dx * dx + dy * dy) * inverseDot2))
+              : 0,
+            ink = 1 - (1 - fill) * (1 - line) * (1 - dot),
+            grain = grainField(u, v);
+          color = p.paperTone + p.grainTone * (grain - 0.5) - inkSpan * ink;
+          height = p.inkHeight * ink + p.grainHeight * grain;
+          roughness += p.inkRoughness * ink;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -45839,6 +45914,7 @@ export function createSurfaceSampler(
     kind === 'crosshatchengraving' ||
     kind === 'merbau' ||
     kind === 'windowpane' ||
+    kind === 'crosswordgrid' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

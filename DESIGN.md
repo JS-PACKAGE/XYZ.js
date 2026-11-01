@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`crosswordgrid`（填字格）使目前目錄931→932種，含plain的gallery為933項。白紙上15×15格的填字遊戲方格：約兩成的黑格依180°旋轉對稱（與印刷填字格相同）分布，白格之間有淡灰細格線，字詞起始的白格（左／上為黑格或tile邊界而右／下為白格）左上角有小圓點作為題號標記。不是真實的填字謎題、可解的字詞、數字題號、題目文字或答案；黑格也不保證符合填字謎的全部排版規則（如連通性或最小字長）。
+
+此材質是作者依一般報紙填字格外觀所作示意，沒有引用特定來源文件、照片或量測；格數（每tile 15×15）、黑格比例（0.2）、格線濃度與寬度、題號圓點的位置與大小、墨與紙的色調、roughness與0.3 m nominal tile皆作者設定，不宣稱符合任何實際填字格的規格。
+
+新增專用sampler：黑格表為225項Uint8，只對一半格抽雜湊並以格序`i`與`224 − i`共用同一雜湊鏡射到tile中心（180°旋轉對稱），鄰格隨tile wrap；題號表為225項Uint8（白格且左／上為黑格而右／下為白格即為1）。格填色以smoothstep權重在格邊界混合（格中心斜率為零），格線是`exp(−sin²(π·n·s)/w²)`（C∞，隨tile在整數格數wrap），題號點是只在自己格內的`smooth(1 − q)`圓點，三者以聯集`1 − Π(1 − x)`合併，使每一項皆為C1且保持在[0, 1]；cache合計450 B＋128²紙grain（16,384個Float64／131,072 B）= 131,522 B lattice算術預算（非總RAM）。顏色是顏料，墨處height約0.7 relief＋紙grain 0.3 relief、roughness略降0.06；金屬factor為0、無mortar、AO 1。預設0.3 m nominal tile與0.0012 UV-relative relief（非公尺位移）。實測（工具實跑）：seed 0／1／0xffffffff的黑格數為32／52／56（共225格），題號點為47／66／55個，每個seed黑格皆對tile中心鏡射對稱（測試逐格驗證，題號點與左右／上下規則逐格一致）；512²取樣墨色（color<0.5）占15.3%／24.6%／26.4%，color 0.045–0.955，roughness 0.74–0.80、height至多0.9975–0.9982 relief；黑格中心color至多0.074、白格中心至少0.925；兩個白格之間的格線處比格中心暗約0.43（峰值設定0.45）；seed 0與1的225格中有64格黑白不同；seed 7的512²maps平均r／g／b約(177, 175, 172)、r<110占23.9%、法線tilt²最大約0.058。我實看了預覽：整齊的黑白格、細格線與題號點。未新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `windowpane`（窗格紋）使目前目錄930→931種，含plain的gallery為932項。暗炭灰藍的斜紋法蘭絨布面，上面是每tile 3×3格、橫直各一組的淡色細線（窗格），線在交叉處平滑相接；布面帶斜向2/2斜紋脊（80條）與逐紗線的雜訊。不是真實的毛織結構、每條紗線的幾何、雙線或不等距格線、縫線、毛邊或褪色。
 
 此材質是作者依一般窗格紋（windowpane check）法蘭絨外觀所作示意，沒有引用特定來源文件、照片或量測；格數（每tile 3）、線寬、底色與線色的色調、斜紋線數、roughness與0.3 m nominal tile皆作者設定，不宣稱符合任何實際織物規格。
