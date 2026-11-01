@@ -19861,6 +19861,107 @@ export function createSurfaceSampler(
           occlusion = clamp(1 - (1 - p.hullAO) * hull * (1 - peg));
         };
       }
+      case 'hilbertcurve': {
+        const p = proceduralMaterialPresets.hilbertcurve,
+          inkField = cachedNoise(p.inkCells, p.inkCells, seed ^ 0x26b01),
+          paperField = cachedNoise(p.paperCells, p.paperCells, seed ^ 0x26b03),
+          n = 1 << p.order,
+          total = n * n,
+          // Position of each cell along the curve (the classic d -> (x, y) conversion).
+          order = new Int32Array(total),
+          cellAt = new Int32Array(total),
+          inverseSoft = 1 / p.edgeSoft;
+        for (let d = 0; d < total; d++) {
+          let x = 0,
+            y = 0,
+            t = d;
+          for (let s = 1; s < n; s *= 2) {
+            const rx = 1 & (t >> 1),
+              ry = 1 & (t ^ rx);
+            if (ry === 0) {
+              if (rx === 1) {
+                x = s - 1 - x;
+                y = s - 1 - y;
+              }
+              const swap = x;
+              x = y;
+              y = swap;
+            }
+            x += s * rx;
+            y += s * ry;
+            t >>= 2;
+          }
+          order[y * n + x] = d;
+          cellAt[d] = y * n + x;
+        }
+        // Distance (in cells) from a point to the segment a-b.
+        const segment = (
+          px: number,
+          py: number,
+          ax: number,
+          ay: number,
+          bx: number,
+          by: number,
+        ): number => {
+          const dx = bx - ax,
+            dy = by - ay,
+            along = clamp(
+              ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy),
+            ),
+            qx = ax + along * dx - px,
+            qy = ay + along * dy - py;
+          return Math.sqrt(qx * qx + qy * qy);
+        };
+        return () => {
+          const gx = u * n,
+            gy = v * n,
+            col = Math.min(n - 1, Math.floor(gx)),
+            row = Math.min(n - 1, Math.floor(gy)),
+            cell = row * n + col,
+            d = order[cell],
+            cx = col + 0.5,
+            cy = row + 0.5;
+          // Distance to the strokes leaving this cell's center toward its path neighbors; the first
+          // and last cells also reach out across the tile edge so repeated tiles join into one curve.
+          let distance = Math.sqrt((gx - cx) ** 2 + (gy - cy) ** 2);
+          const reach = (index: number): void => {
+            const other = cellAt[index],
+              ox = (other % n) + 0.5,
+              oy = Math.floor(other / n) + 0.5;
+            distance = Math.min(
+              distance,
+              segment(gx, gy, cx, cy, (cx + ox) / 2, (cy + oy) / 2),
+            );
+          };
+          if (d > 0) reach(d - 1);
+          else
+            distance = Math.min(
+              distance,
+              segment(gx, gy, cx, cy, cx - 0.5, cy),
+            );
+          if (d < total - 1) reach(d + 1);
+          else
+            distance = Math.min(
+              distance,
+              segment(gx, gy, cx, cy, cx + 0.5, cy),
+            );
+          const ink = smooth(
+              clamp((p.lineHalf - distance) * inverseSoft + 0.5),
+            ),
+            tone = p.startTone + ((p.endTone - p.startTone) * d) / (total - 1),
+            gain = inkField(u, v) - 0.5,
+            grain = paperField(u, v) - 0.5;
+          color = clamp(
+            p.paperTone +
+              p.paperGrain * grain +
+              (tone + p.inkGain * gain - p.paperTone) * ink,
+          );
+          height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * ink);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -47390,6 +47491,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'hilbertcurve' ||
     kind === 'battleshipgrid' ||
     kind === 'tetrisstack' ||
     kind === 'minesweeperboard' ||

@@ -7660,6 +7660,26 @@ export declare const proceduralMaterialPresets: Readonly<{
         pegRoughness: 0.4;
         hullAO: 0.8;
     }>;
+    hilbertcurve: Readonly<{
+        dark: readonly [16, 22, 52];
+        light: readonly [244, 238, 222];
+        roughness: 0.62;
+        relief: 0.0014;
+        order: 4;
+        lineHalf: 0.14;
+        edgeSoft: 0.03;
+        paperCells: 256;
+        inkCells: 128;
+        paperTone: 0.94;
+        startTone: 0.08;
+        endTone: 0.55;
+        inkGain: 0.04;
+        paperGrain: 0.04;
+        inkHeight: 0.56;
+        paperHeight: 0.3;
+        inkRoughness: 0.42;
+        paperRoughness: 0.72;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -14145,6 +14165,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    hilbertcurve: 0.3;
     battleshipgrid: 0.4;
     tetrisstack: 0.4;
     minesweeperboard: 0.4;

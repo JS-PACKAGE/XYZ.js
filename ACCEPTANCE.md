@@ -11709,3 +11709,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試記錄：第一版測試對命中數的註解寫成「命中只在船格上（由上方的構造保證）」——這其實是同義反覆（命中的定義就是船格上的暗釘），所以已刪掉該句，只保留有意義的檢查（兩種圓釘皆出現、射擊比例接近設定值）。
 - 實測：`tests/procedural-material-motifs.test.ts`二百六十項（本材質九項）全過。八個seed（0、7、4294967295、1、2、3、4、5）：在格中心取樣，色調＜0.45為船、＞0.9為落空圓釘、其餘為水面；船格以8連通分組恰為5組（所以不相接，含角落）；每組是無間隙的直線（寬或高為1、另一邊等於格數），長度排序後恰為2、3、3、4、5；命中與落空兩種圓釘皆出現、被射擊的比例與0.32相差＜0.15；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "battleshipgrid|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`battleshipgrid`：option 929個、status為928 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的船體、圓釘與格線。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：希爾伯特曲線（hilbertcurve）
+
+- 目錄928→929，含plain的gallery為930項。每tile一條4階希爾伯特空間填充曲線，穿過16×16個格子中心（左上起、右上終），相鄰索引的格子以線相連，色調沿索引由深靛漸變到灰；起終點向tile邊緣外伸半格，水平重複時接成連續曲線，垂直方向不相連；接縫處色調由淺跳回深（刻意保留）。Metallic／mortar為0，預設tile0.3 m、0.0014 UV-relative relief、metallic factor 0。作者設計；仍在獨立worktree分支`materials/more-textures`作業。
+- 實測：`tests/procedural-material-motifs.test.ts`二百六十四項（本材質四項）全過。三seed：測試端以標準的Hilbert索引轉座標演算法獨立算出每個索引的格子位置，對16×16個格子：每個格中心都有墨；相鄰兩個格中心的中點有墨，若且唯若兩格索引相差1（水平與垂直共480對全檢），索引相鄰的連接數恰為255；曲線起點在左上格、終點在右上格，兩端各有向tile邊緣外伸的線段（0.25格處有墨），其他邊緣格的外側半格皆無墨；格中心色調與索引的相關係數＞0.95；通道範圍、metallic／mortar 0、wrap與seed差異。第一版測試中有一個恆為假的條件（`i === 0`，迴圈從1開始），已改為直接斷言false。`tests/procedural-material.test.ts`以`-t "hilbertcurve|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`hilbertcurve`：option 930個、status為929 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的曲線與水平方向接合處。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

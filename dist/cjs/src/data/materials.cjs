@@ -13721,6 +13721,34 @@ var proceduralMaterialPresets = Object.freeze({
 		pegRoughness: .4,
 		hullAO: .8
 	}),
+	hilbertcurve: Object.freeze({
+		dark: [
+			16,
+			22,
+			52
+		],
+		light: [
+			244,
+			238,
+			222
+		],
+		roughness: .62,
+		relief: .0014,
+		order: 4,
+		lineHalf: .14,
+		edgeSoft: .03,
+		paperCells: 256,
+		inkCells: 128,
+		paperTone: .94,
+		startTone: .08,
+		endTone: .55,
+		inkGain: .04,
+		paperGrain: .04,
+		inkHeight: .56,
+		paperHeight: .3,
+		inkRoughness: .42,
+		paperRoughness: .72
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -22402,6 +22430,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	hilbertcurve: .3,
 	battleshipgrid: .4,
 	tetrisstack: .4,
 	minesweeperboard: .4,

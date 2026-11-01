@@ -5694,3 +5694,137 @@ describe('battleshipgrid: a legal fleet on a 10 x 10 board with shot pegs', () =
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('hilbertcurve: a space-filling path through every cell', () => {
+  const p = proceduralMaterialPresets.hilbertcurve;
+  const n = 1 << p.order,
+    total = n * n;
+  // The standard Hilbert index -> (x, y) conversion, written out independently of the sampler.
+  const indexOf = new Int32Array(total);
+  const positionOf: [number, number][] = [];
+  for (let d = 0; d < total; d++) {
+    let x = 0,
+      y = 0,
+      t = d;
+    for (let s = 1; s < n; s *= 2) {
+      const rx = 1 & (t / 2),
+        ry = 1 & (t ^ rx);
+      if (ry === 0) {
+        if (rx === 1) {
+          x = s - 1 - x;
+          y = s - 1 - y;
+        }
+        [x, y] = [y, x];
+      }
+      x += s * rx;
+      y += s * ry;
+      t = Math.floor(t / 4);
+    }
+    indexOf[y * n + x] = d;
+    positionOf.push([x, y]);
+  }
+
+  it.each(seeds)(
+    'inks exactly the unit steps between consecutive curve cells, with a tone ramp along the path (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('hilbertcurve', seed),
+        out = empty(),
+        inked = (gx: number, gy: number): boolean => {
+          sample(gx / n, gy / n, out);
+          return out.color < 0.75;
+        };
+      // Every cell center carries ink, and its tone climbs with the curve index.
+      const tones: number[] = [],
+        indices: number[] = [];
+      for (let row = 0; row < n; row++)
+        for (let col = 0; col < n; col++) {
+          expect(inked(col + 0.5, row + 0.5)).toBe(true);
+          tones.push(out.color);
+          indices.push(indexOf[row * n + col]);
+        }
+      const mean = (values: number[]): number =>
+          values.reduce((a, b) => a + b, 0) / values.length,
+        mt = mean(tones),
+        mi = mean(indices);
+      let covariance = 0,
+        varianceTone = 0,
+        varianceIndex = 0;
+      tones.forEach((tone, i) => {
+        covariance += (tone - mt) * (indices[i] - mi);
+        varianceTone += (tone - mt) ** 2;
+        varianceIndex += (indices[i] - mi) ** 2;
+      });
+      expect(
+        covariance / Math.sqrt(varianceTone * varianceIndex),
+      ).toBeGreaterThan(0.95);
+      // Between two neighboring cell centers there is ink exactly when their indices are consecutive.
+      let connected = 0;
+      for (let row = 0; row < n; row++)
+        for (let col = 0; col < n; col++)
+          for (const [dx, dy] of [
+            [1, 0],
+            [0, 1],
+          ]) {
+            const x = col + dx,
+              y = row + dy;
+            if (x >= n || y >= n) continue;
+            const consecutive =
+              Math.abs(indexOf[row * n + col] - indexOf[y * n + x]) === 1;
+            expect(inked(col + 0.5 + dx * 0.5, row + 0.5 + dy * 0.5)).toBe(
+              consecutive,
+            );
+            connected += Number(consecutive);
+          }
+      // A single path through all cells has total - 1 links between consecutive cells.
+      expect(connected).toBe(total - 1);
+      // The curve starts at the top-left cell and ends at the top-right cell and runs off the tile
+      // edge there, so repeated tiles join into one curve; no other edge cell reaches the border.
+      expect(positionOf[0]).toEqual([0, 0]);
+      expect(positionOf[total - 1]).toEqual([n - 1, 0]);
+      expect(inked(0.25, 0.5)).toBe(true);
+      expect(inked(n - 0.25, 0.5)).toBe(true);
+      for (let i = 1; i < n; i++) {
+        expect(inked(0.25, i + 0.5)).toBe(false);
+        expect(inked(n - 0.25, i + 0.5)).toBe(false);
+        expect(inked(i + 0.5, 0.25)).toBe(false);
+        expect(inked(i + 0.5, n - 0.25)).toBe(false);
+      }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('hilbertcurve', 0),
+      b = createSurfaceSampler('hilbertcurve', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
