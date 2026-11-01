@@ -15600,6 +15600,147 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'iecc6inlets': {
+        const p = proceduralMaterialPresets.iecc6inlets,
+          poses = new Float64Array(p.cells * p.cells * 4),
+          grainField = cachedNoise(96, 96, seed ^ 0x22601),
+          bodyStraightX = p.halfWidth - p.bodyCorner,
+          bodyStraightY = p.halfHeight - p.bodyCorner,
+          bodySquared = p.bodyCorner * p.bodyCorner,
+          bodyCore = p.bodyCorner - p.bodyBevel,
+          inverseBody = 1 / (bodySquared - bodyCore * bodyCore),
+          counterSquared = p.counterRadius * p.counterRadius,
+          mountSquared = p.mountRadius * p.mountRadius,
+          inverseCounter = 1 / (counterSquared - mountSquared),
+          mountCore = p.mountRadius - p.mountBevel,
+          inverseMount = 1 / (mountSquared - mountCore * mountCore),
+          mouthSquared = p.mouthRadius * p.mouthRadius,
+          mouthCore = p.mouthRadius - p.mouthBevel,
+          inverseMouth = 1 / (mouthSquared - mouthCore * mouthCore),
+          mouthBoundX = p.pinX + p.mouthRadius,
+          mouthMinY = p.upperY - p.mouthRadius,
+          mouthMaxY = p.lowerY + p.mouthRadius,
+          pinSquared = p.pinRadius * p.pinRadius,
+          pinCore = p.pinRadius - p.pinBevel,
+          inversePin = 1 / (pinSquared - pinCore * pinCore),
+          bodyTone = p.bodyTone - p.backingTone,
+          bodyHeight = p.bodyHeight - p.backingHeight,
+          bodyRoughness = p.roughness - p.backingRoughness,
+          bodyAO = p.bodyAO - p.backingAO,
+          counterHeight = p.counterHeight - p.bodyHeight,
+          counterRoughness = p.counterRoughness - p.roughness,
+          counterAO = p.counterAO - p.bodyAO,
+          mountHeight = p.mountHeight - p.counterHeight,
+          mountRoughness = p.mountRoughness - p.counterRoughness,
+          mountAO = p.mountAO - p.counterAO,
+          mouthHeight = p.mouthHeight - p.bodyHeight,
+          mouthRoughness = p.mouthRoughness - p.roughness,
+          mouthAO = p.mouthAO - p.bodyAO,
+          pinTone = p.pinTone - p.bodyTone,
+          pinHeight = p.pinHeight - p.mouthHeight,
+          pinRoughness = p.pinRoughness - p.mouthRoughness,
+          pinAO = p.pinAO - p.mouthAO;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4,
+              scale =
+                p.minScale +
+                (p.maxScale - p.minScale) * hash(col, row, seed ^ 0x22603),
+              angle = TAU * hash(col, row, seed ^ 0x22605);
+            poses[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x22607) - 1);
+            poses[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x22609) - 1);
+            poses[i + 2] = Math.cos(angle) / scale;
+            poses[i + 3] = Math.sin(angle) / scale;
+          }
+        return () => {
+          color = p.backingTone;
+          height = p.backingHeight;
+          roughness = p.backingRoughness;
+          occlusion = p.backingAO;
+          metallic = 0;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 4,
+            dx = uc - col - poses[i],
+            dy = vc - row - poses[i + 1],
+            x = dx * poses[i + 2] + dy * poses[i + 3],
+            y = dy * poses[i + 2] - dx * poses[i + 3],
+            ax = Math.abs(x),
+            ay = Math.abs(y);
+          if (ax >= p.halfWidth || ay >= p.halfHeight) return;
+          const bx = Math.max(0, ax - bodyStraightX),
+            by = Math.max(0, ay - bodyStraightY),
+            body = smooth(
+              clamp((bodySquared - bx * bx - by * by) * inverseBody),
+            );
+          if (body === 0) return;
+          const grain = grainField(u, v);
+          color += body * (bodyTone + p.grainTone * grain);
+          height += body * (bodyHeight + p.grainHeight * grain);
+          roughness += body * (bodyRoughness + p.grainRoughness * grain);
+          occlusion += body * bodyAO - p.edgeAO * body * (1 - body);
+          const mx = ax - p.mountX,
+            yy = y * y,
+            mountDistance = mx * mx + yy;
+          if (mountDistance < counterSquared) {
+            const counter = smooth(
+              clamp((counterSquared - mountDistance) * inverseCounter),
+            );
+            if (mountDistance >= mountSquared) {
+              height += counter * counterHeight;
+              roughness += counter * counterRoughness;
+              occlusion +=
+                counter * counterAO - p.edgeAO * (counter * (1 - counter));
+              return;
+            }
+            const mount = smooth(
+              clamp((mountSquared - mountDistance) * inverseMount),
+            );
+            height += counter * counterHeight + mount * mountHeight;
+            roughness += counter * counterRoughness + mount * mountRoughness;
+            occlusion +=
+              counter * counterAO +
+              mount * mountAO -
+              p.edgeAO * (counter * (1 - counter) + mount * (1 - mount));
+            return;
+          }
+          if (ax >= mouthBoundX || y <= mouthMinY || y >= mouthMaxY) return;
+          const sx = ax - p.pinX,
+            uy = y - p.upperY,
+            ly = y - p.lowerY,
+            upperDistance = x * x + uy * uy,
+            lowerDistance = sx * sx + ly * ly,
+            nearest = Math.min(upperDistance, lowerDistance);
+          if (nearest >= mouthSquared) return;
+          // The lower lobes are disjoint at the abs(x) fold; their shared well joins through the upper lobe.
+          const upper =
+              upperDistance < mouthSquared
+                ? smooth(clamp((mouthSquared - upperDistance) * inverseMouth))
+                : 0,
+            lower =
+              lowerDistance < mouthSquared
+                ? smooth(clamp((mouthSquared - lowerDistance) * inverseMouth))
+                : 0,
+            mouth = upper + (1 - upper) * lower;
+          height += mouth * mouthHeight;
+          roughness += mouth * mouthRoughness;
+          occlusion += mouth * mouthAO - p.edgeAO * mouth * (1 - mouth);
+          // All three contact supports are disjoint, including across the nearest-center bisector.
+          if (nearest >= pinSquared) return;
+          const pin = smooth(clamp((pinSquared - nearest) * inversePin));
+          if (pin === 0) return;
+          color += pin * pinTone;
+          height += pin * pinHeight;
+          roughness += pin * pinRoughness;
+          occlusion += pin * pinAO - p.edgeAO * pin * (1 - pin);
+          metallic = pin;
+          return;
+        };
+      }
       case 'iecc8inlets': {
         const p = proceduralMaterialPresets.iecc8inlets,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -42310,6 +42451,7 @@ export function createSurfaceSampler(
     kind === 'lathplaster' ||
     kind === 'ceramiccapacitors' ||
     kind === 'fennelseeds' ||
+    kind === 'iecc6inlets' ||
     kind === 'iecc8inlets' ||
     kind === 'din5femalefaces' ||
     kind === 'xlrfemalefaces' ||

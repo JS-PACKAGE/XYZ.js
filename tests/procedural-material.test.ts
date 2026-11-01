@@ -667,6 +667,7 @@ const kinds: ProceduralMaterialKind[] = [
   'lathplaster',
   'ceramiccapacitors',
   'fennelseeds',
+  'iecc6inlets',
   'iecc8inlets',
   'din5femalefaces',
   'xlrfemalefaces',
@@ -76979,6 +76980,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'ceramiccapacitors' &&
           kind !== 'xlrfemalefaces' &&
           kind !== 'bncfemalefaces' &&
+          kind !== 'iecc6inlets' &&
           kind !== 'iecc8inlets' &&
           kind !== 'iecc14inlets' &&
           kind !== 'dsubsocketfaces' &&
@@ -86451,6 +86453,7 @@ describe('procedural preset acquisition and ownership', () => {
     'axialresistors',
     'sewingsnaps',
     'ceramiccapacitors',
+    'iecc6inlets',
     'iecc8inlets',
     'din5femalefaces',
     'xlrfemalefaces',
@@ -86579,6 +86582,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'ceramiccapacitors' ||
           kind === 'xlrfemalefaces' ||
           kind === 'bncfemalefaces' ||
+          kind === 'iecc6inlets' ||
           kind === 'iecc8inlets' ||
           kind === 'iecc14inlets' ||
           kind === 'dsubsocketfaces' ||
@@ -125008,6 +125012,1125 @@ describe('IEC C8 inlet faces with capsule shrouds, rounded V waists and two soli
           heightMap: true,
         }),
         m = observePixels(maps);
+      expect(m.invalidAlpha).toBe(0);
+      expect(m.backFacing).toBe(0);
+      expect(m.normalLengthError).toBeLessThan(0.014);
+      expect(m.maxTilt).toBeGreaterThan(0.0001);
+      expect(m.maxLuma - m.minLuma).toBeGreaterThan(10);
+      if (size === 512) {
+        expect(m.metallicPixels).toBeGreaterThan(0);
+        expect(m.metallicPixels).toBeLessThan(size * size);
+        expect(m.fullMetal).toBeGreaterThan(0);
+        expect(m.transitions).toBeGreaterThan(0);
+      }
+    },
+  );
+});
+describe('IEC C6 inlet faces with shared cloverleaf wells, three solid metal tips and countersunk mounting holes', () => {
+  const preset = proceduralMaterialPresets.iecc6inlets;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+    centers: readonly { u: number; v: number }[],
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines + centers.length; line++) {
+        const fixed =
+          line < lines
+            ? (line + 0.37) / lines
+            : axis
+              ? centers[line - lines].u
+              : centers[line - lines].v;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed shoulders instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const regions = (
+    mask: Uint8Array,
+    size: number,
+    queue: Int32Array,
+    labels: Int32Array,
+    sign: 1 | -1,
+  ) => {
+    const result = [] as {
+      area: number;
+      cx: number;
+      cy: number;
+      xx: number;
+      yy: number;
+      xy: number;
+    }[];
+    for (let first = 0; first < mask.length; first++) {
+      if (!mask[first]) continue;
+      let read = 0,
+        write = 1,
+        sx = 0,
+        sy = 0,
+        sxx = 0,
+        syy = 0,
+        sxy = 0;
+      queue[0] = first;
+      mask[first] = 0;
+      const label = sign * (result.length + 1);
+      while (read < write) {
+        const at = queue[read++],
+          ix = at % size,
+          iy = Math.floor(at / size),
+          x = (ix + 0.5) / size,
+          y = (iy + 0.5) / size;
+        labels[at] = label;
+        sx += x;
+        sy += y;
+        sxx += x * x;
+        syy += y * y;
+        sxy += x * y;
+        for (let d = 0; d < 8; d++) {
+          const ox = d < 4 ? (d === 0 ? 1 : d === 1 ? -1 : 0) : d % 2 ? 1 : -1,
+            oy = d < 4 ? (d === 2 ? 1 : d === 3 ? -1 : 0) : d < 6 ? -1 : 1,
+            nx = (ix + ox + size) % size,
+            ny = (iy + oy + size) % size,
+            next = ny * size + nx;
+          if (mask[next]) {
+            mask[next] = 0;
+            queue[write++] = next;
+          }
+        }
+      }
+      const cx = sx / write,
+        cy = sy / write;
+      result.push({
+        area: write,
+        cx,
+        cy,
+        xx: sxx / write - cx * cx,
+        yy: syy / write - cy * cy,
+        xy: sxy / write - cx * cy,
+      });
+    }
+    return result;
+  };
+
+  const field = (seed: number) => {
+    const size = Math.max(768, 384 * preset.cells),
+      total = size * size,
+      sample = createSurfaceSampler('iecc6inlets', seed),
+      probe = empty(),
+      colors = new Float64Array(total),
+      heights = new Float64Array(total),
+      metals = new Float64Array(total),
+      queue = new Int32Array(total),
+      bodyLabels = new Int32Array(total),
+      pinLabels = new Int32Array(total),
+      plateLabels = new Int32Array(total),
+      basinLabels = new Int32Array(total);
+    let invalid = 0,
+      min = Infinity,
+      maxPolymer = -Infinity;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        const at = y * size + x;
+        sample((x + 0.5) / size, (y + 0.5) / size, probe);
+        for (const key of keys)
+          invalid += Number(
+            !Number.isFinite(probe[key]) || probe[key] < 0 || probe[key] > 1,
+          );
+        colors[at] = probe.color;
+        heights[at] = probe.height / preset.relief;
+        metals[at] = probe.metallic;
+        invalid += Number(!Number.isFinite(heights[at]));
+        min = Math.min(min, probe.color);
+        if (probe.metallic === 0)
+          maxPolymer = Math.max(maxPolymer, probe.color);
+      }
+    const level = (min + maxPolymer) * 0.5,
+      bodyMask = Uint8Array.from(colors, (c) => Number(c > level)),
+      bodies = regions(bodyMask.slice(), size, queue, bodyLabels, 1),
+      bodyVoids = regions(
+        Uint8Array.from(bodyMask, (c) => 1 - c),
+        size,
+        queue,
+        new Int32Array(total),
+        -1,
+      ),
+      pins = regions(
+        Uint8Array.from(metals, (m) => Number(m > 0.5)),
+        size,
+        queue,
+        pinLabels,
+        1,
+      );
+    let minHeight = Infinity,
+      maxHeight = -Infinity;
+    for (let at = 0; at < total; at++)
+      if (bodyMask[at] && metals[at] === 0) {
+        minHeight = Math.min(minHeight, heights[at]);
+        maxHeight = Math.max(maxHeight, heights[at]);
+      }
+    const plateLevel = (minHeight + maxHeight) * 0.5,
+      plateMask = Uint8Array.from(heights, (h, at) =>
+        Number(metals[at] === 0 && h > plateLevel),
+      ),
+      plates = regions(plateMask.slice(), size, queue, plateLabels, 1),
+      basins = regions(
+        Uint8Array.from(plateMask, (m) => 1 - m),
+        size,
+        queue,
+        basinLabels,
+        -1,
+      );
+    return {
+      seed,
+      size,
+      invalid,
+      level,
+      bodies,
+      bodyVoids,
+      pins,
+      plates,
+      basins,
+      minHeight,
+      maxHeight,
+      plateLevel,
+      sample,
+      colors,
+      heights,
+      metals,
+      bodyMask,
+      plateMask,
+      bodyLabels,
+      pinLabels,
+      plateLabels,
+      basinLabels,
+    };
+  };
+  const classify = (d: ReturnType<typeof field>) => {
+    const n = preset.cells * preset.cells;
+    if (
+      d.invalid ||
+      d.bodies.length !== n ||
+      d.bodyVoids.length !== 1 ||
+      d.pins.length !== 3 * n ||
+      d.plates.length !== n ||
+      d.basins.length !== 3 * n + 1
+    )
+      return null;
+    const outside = d.basins.reduce((a, b) => (a.area > b.area ? a : b)),
+      basins = d.basins.filter((b) => b !== outside),
+      ownerOf = (q: { cx: number; cy: number }) => {
+        let best = 0,
+          distance = Infinity;
+        for (let i = 0; i < n; i++) {
+          const b = d.bodies[i],
+            dist = (q.cx - b.cx) ** 2 + (q.cy - b.cy) ** 2;
+          if (dist < distance) {
+            best = i;
+            distance = dist;
+          }
+        }
+        return best;
+      },
+      re = new Float64Array(n),
+      im = new Float64Array(n);
+    for (let at = 0; at < d.bodyLabels.length; at++) {
+      const owner = d.bodyLabels[at] - 1;
+      if (owner < 0) continue;
+      const b = d.bodies[owner],
+        x = ((at % d.size) + 0.5) / d.size - b.cx,
+        y = (Math.floor(at / d.size) + 0.5) / d.size - b.cy,
+        xx = x * x,
+        yy = y * y;
+      re[owner] += xx * xx - 6 * xx * yy + yy * yy;
+      im[owner] += 4 * x * y * (xx - yy);
+    }
+    const candidates = d.bodies.map((body, i) => {
+      const pins = d.pins.filter((p) => ownerOf(p) === i),
+        plate = d.plates.find((p) => ownerOf(p) === i),
+        inside = basins.filter((p) => ownerOf(p) === i);
+      if (pins.length !== 3 || !plate || inside.length !== 3) return null;
+      const well = inside.reduce((a, b) => (a.area > b.area ? a : b)),
+        mounts = inside.filter((b) => b !== well),
+        gap = Math.hypot(body.xx - body.yy, 2 * body.xy),
+        theta =
+          gap / (body.xx + body.yy) > 0.08
+            ? 0.5 * Math.atan2(2 * body.xy, body.xx - body.yy)
+            : 0.25 * (Math.atan2(im[i], re[i]) - Math.PI),
+        a = { x: Math.cos(theta), y: Math.sin(theta) },
+        b = { x: -a.y, y: a.x },
+        variance = (v: { x: number; y: number }) =>
+          v.x * v.x * well.xx + 2 * v.x * v.y * well.xy + v.y * v.y * well.yy,
+        ex = variance(a) > variance(b) ? a : b,
+        ey = { x: -ex.y, y: ex.x };
+      return { ...body, pins, plate, well, mounts, ex, ey };
+    });
+    if (candidates.some((p) => !p)) return null;
+    const parts = candidates.filter(
+        (p): p is NonNullable<typeof p> => p !== null,
+      ),
+      wellOwners = new Int32Array(d.basins.length).fill(-1),
+      skew = new Float64Array(n);
+    for (let i = 0; i < n; i++) wellOwners[d.basins.indexOf(parts[i].well)] = i;
+    for (let at = 0; at < d.basinLabels.length; at++) {
+      const label = d.basinLabels[at];
+      if (label >= 0) continue;
+      const owner = wellOwners[-label - 1];
+      if (owner < 0) continue;
+      const part = parts[owner],
+        x = ((at % d.size) + 0.5) / d.size - part.well.cx,
+        y = (Math.floor(at / d.size) + 0.5) / d.size - part.well.cy,
+        v = x * part.ey.x + y * part.ey.y;
+      skew[owner] += v * v * v;
+    }
+    for (let i = 0; i < n; i++)
+      if (skew[i] > 0) {
+        parts[i].ex = { x: -parts[i].ex.x, y: -parts[i].ex.y };
+        parts[i].ey = { x: -parts[i].ey.x, y: -parts[i].ey.y };
+      }
+    return { parts, outside, basins };
+  };
+  const geometryOf = (
+    d: ReturnType<typeof field>,
+    c: NonNullable<ReturnType<typeof classify>>,
+  ) => {
+    const probe = empty(),
+      read = (x: number, y: number, key: (typeof keys)[number]): number => {
+        d.sample(x, y, probe);
+        return probe[key] / (key === 'height' ? preset.relief : 1);
+      };
+    const exit = (
+      cx: number,
+      cy: number,
+      dx: number,
+      dy: number,
+      lo: number,
+      hi: number,
+      predicate: (x: number, y: number) => boolean,
+      last = true,
+    ): number | null => {
+      let left = lo,
+        yes = predicate(cx + dx * left, cy + dy * left),
+        found = null as null | [number, number];
+      for (let j = 1; j <= 128; j++) {
+        const right = lo + ((hi - lo) * j) / 128,
+          next = predicate(cx + dx * right, cy + dy * right);
+        if (yes && !next) {
+          found = [left, right];
+          if (!last) break;
+        }
+        left = right;
+        yes = next;
+      }
+      if (!found) return null;
+      let [a, b] = found;
+      for (let j = 0; j < 40; j++) {
+        const m = (a + b) * 0.5;
+        if (predicate(cx + dx * m, cy + dy * m)) a = m;
+        else b = m;
+      }
+      return (a + b) * 0.5;
+    };
+    const circle = (
+      cx: number,
+      cy: number,
+      r: number,
+      predicate: (x: number, y: number) => boolean,
+    ) => {
+      for (let j = 0; j < 4; j++) {
+        const right = exit(cx, cy, 1, 0, 0.6 * r, 1.3 * r, predicate),
+          left = exit(cx, cy, -1, 0, 0.6 * r, 1.3 * r, predicate),
+          down = exit(cx, cy, 0, 1, 0.6 * r, 1.3 * r, predicate),
+          up = exit(cx, cy, 0, -1, 0.6 * r, 1.3 * r, predicate);
+        if (right === null || left === null || down === null || up === null)
+          return null;
+        cx += (right - left) * 0.5;
+        cy += (down - up) * 0.5;
+      }
+      const radii = [] as number[];
+      for (let j = 0; j < 32; j++) {
+        const t = (2 * Math.PI * j) / 32,
+          radius = exit(
+            cx,
+            cy,
+            Math.cos(t),
+            Math.sin(t),
+            0.6 * r,
+            1.3 * r,
+            predicate,
+          );
+        if (radius === null) return null;
+        radii.push(radius);
+      }
+      const mean = radii.reduce((a, b) => a + b, 0) / radii.length;
+      return {
+        cx,
+        cy,
+        radius: mean,
+        roundness: (Math.max(...radii) - Math.min(...radii)) / mean,
+      };
+    };
+
+    return c.parts.map((part) => {
+      const metal = (x: number, y: number) => read(x, y, 'metallic') > 0.5,
+        low = (x: number, y: number) => read(x, y, 'height') < d.plateLevel,
+        pinFits = part.pins.map((p) =>
+          circle(p.cx, p.cy, Math.sqrt(p.area / Math.PI) / d.size, metal),
+        ),
+        mountFits = part.mounts.map((p) =>
+          circle(p.cx, p.cy, Math.sqrt(p.area / Math.PI) / d.size, low),
+        );
+      if (pinFits.some((p) => !p) || mountFits.some((p) => !p)) return null;
+      const pins = pinFits.filter(
+          (p): p is NonNullable<typeof p> => p !== null,
+        ),
+        mounts = mountFits.filter(
+          (p): p is NonNullable<typeof p> => p !== null,
+        ),
+        project = (p: { cx: number; cy: number }) => ({
+          x: (p.cx - part.cx) * part.ex.x + (p.cy - part.cy) * part.ex.y,
+          y: (p.cx - part.cx) * part.ey.x + (p.cy - part.cy) * part.ey.y,
+        }),
+        ordered = [...pins].sort((a, b) => project(a).y - project(b).y),
+        upper = ordered[0],
+        lower = ordered.slice(1).sort((a, b) => project(a).x - project(b).x),
+        a = project(lower[0]),
+        b = project(lower[1]),
+        u = project(upper),
+        spacing = (b.x - a.x) * 0.5,
+        rowSeparation = ((a.y + b.y) * 0.5 - u.y) / spacing,
+        alignment = Math.abs(a.y - b.y) / spacing,
+        pinCentering =
+          Math.max(Math.abs((a.x + b.x) * 0.5), Math.abs(u.x)) / spacing;
+      const projectedX =
+          part.ex.x * part.ex.x * part.xx +
+          2 * part.ex.x * part.ex.y * part.xy +
+          part.ex.y * part.ex.y * part.yy,
+        projectedY =
+          part.ey.x * part.ey.x * part.xx +
+          2 * part.ey.x * part.ey.y * part.xy +
+          part.ey.y * part.ey.y * part.yy,
+        guessWidth = Math.sqrt(3 * projectedX),
+        guessHeight = Math.sqrt(3 * projectedY),
+        sides = [] as number[][];
+      for (let axis = 0; axis < 2; axis++)
+        for (const sign of [-1, 1]) {
+          const dir = axis ? part.ey : part.ex,
+            other = axis ? part.ex : part.ey,
+            guess = axis ? guessHeight : guessWidth,
+            span = axis ? guessWidth : guessHeight,
+            values = [] as number[];
+          for (const offset of [-0.4, -0.2, 0, 0.2, 0.4]) {
+            const r = exit(
+              part.cx + offset * span * other.x,
+              part.cy + offset * span * other.y,
+              sign * dir.x,
+              sign * dir.y,
+              0.5 * guess,
+              1.5 * guess,
+              (x, y) => read(x, y, 'color') > d.level,
+            );
+            if (r === null) return null;
+            values.push(r);
+          }
+          sides.push(values);
+        }
+      const means = sides.map((v) => v.reduce((a, b) => a + b, 0) / v.length),
+        halfWidth = (means[0] + means[1]) * 0.5,
+        halfHeight = (means[2] + means[3]) * 0.5,
+        straightness = Math.max(
+          ...sides.map(
+            (v, i) =>
+              (Math.max(...v) - Math.min(...v)) /
+              (i < 2 ? halfWidth : halfHeight),
+          ),
+        ),
+        corners = [] as boolean[];
+      for (const sx of [-1, 1])
+        for (const sy of [-1, 1])
+          for (const f of [0.8, 0.997])
+            corners.push(
+              read(
+                part.cx +
+                  f *
+                    (sx * halfWidth * part.ex.x + sy * halfHeight * part.ey.x),
+                part.cy +
+                  f *
+                    (sx * halfWidth * part.ex.y + sy * halfHeight * part.ey.y),
+                'color',
+              ) > d.level,
+            );
+      const mx = (mounts[0].cx + mounts[1].cx) * 0.5,
+        my = (mounts[0].cy + mounts[1].cy) * 0.5,
+        mountSpacing =
+          Math.hypot(mounts[1].cx - mounts[0].cx, mounts[1].cy - mounts[0].cy) *
+          0.5,
+        mountCentering = Math.hypot(mx - part.cx, my - part.cy) / mountSpacing,
+        mountAlignment =
+          Math.abs(
+            (mounts[1].cx - mounts[0].cx) * part.ey.x +
+              (mounts[1].cy - mounts[0].cy) * part.ey.y,
+          ) / mountSpacing;
+      const centroid = {
+          cx: pins.reduce((s, p) => s + p.cx, 0) / 3,
+          cy: pins.reduce((s, p) => s + p.cy, 0) / 3,
+        },
+        wellGuess = Math.sqrt(part.well.area / (3 * Math.PI)) / d.size,
+        lobes = [] as {
+          cx: number;
+          cy: number;
+          radius: number;
+          roundness: number;
+          outX: number;
+          outY: number;
+        }[];
+      for (const pin of pins) {
+        const dx = pin.cx - centroid.cx,
+          dy = pin.cy - centroid.cy,
+          length = Math.hypot(dx, dy),
+          outX = dx / length,
+          outY = dy / length,
+          radii = [] as number[];
+        for (let j = 0; j <= 16; j++) {
+          const angle = -Math.PI / 3 + (((2 * Math.PI) / 3) * j) / 16,
+            dirX = outX * Math.cos(angle) - outY * Math.sin(angle),
+            dirY = outY * Math.cos(angle) + outX * Math.sin(angle),
+            r = exit(
+              pin.cx,
+              pin.cy,
+              dirX,
+              dirY,
+              0,
+              2.2 * wellGuess,
+              low,
+              false,
+            );
+          if (r === null) return null;
+          radii.push(r);
+        }
+        const radius = radii.reduce((a, b) => a + b, 0) / radii.length;
+        lobes.push({
+          cx: pin.cx,
+          cy: pin.cy,
+          radius,
+          roundness: (Math.max(...radii) - Math.min(...radii)) / radius,
+          outX,
+          outY,
+        });
+      }
+      const cones = [] as {
+        cx: number;
+        cy: number;
+        radius: number;
+        roundness: number;
+        floorHeight: number;
+        plateHeight: number;
+        curve: number[];
+        spread: number;
+        largestStep: number;
+      }[];
+      for (const mount of mounts) {
+        const floorHeight = read(mount.cx, mount.cy, 'height'),
+          plateHeight =
+            (read(
+              mount.cx + 0.75 * halfHeight * part.ey.x,
+              mount.cy + 0.75 * halfHeight * part.ey.y,
+              'height',
+            ) +
+              read(
+                mount.cx - 0.75 * halfHeight * part.ey.x,
+                mount.cy - 0.75 * halfHeight * part.ey.y,
+                'height',
+              )) *
+            0.5,
+          curve = [] as number[];
+        for (let j = 1; j < 32; j++) {
+          const level = floorHeight + ((plateHeight - floorHeight) * j) / 32,
+            radii = [] as number[];
+          for (const dir of [part.ex, part.ey])
+            for (const sign of [-1, 1]) {
+              const r = exit(
+                mount.cx,
+                mount.cy,
+                sign * dir.x,
+                sign * dir.y,
+                0,
+                2 * mount.radius,
+                (x, y) => read(x, y, 'height') < level,
+                false,
+              );
+              if (r === null) return null;
+              radii.push(r);
+            }
+          curve.push(radii.reduce((a, b) => a + b, 0) / radii.length);
+        }
+        const span = curve[30] - curve[0],
+          largestStep =
+            Math.max(...curve.slice(1).map((r, i) => r - curve[i])) / span;
+        cones.push({
+          ...mount,
+          floorHeight,
+          plateHeight,
+          curve,
+          spread: span / curve[15],
+          largestStep,
+        });
+      }
+      return {
+        cx: part.cx,
+        cy: part.cy,
+        ex: part.ex,
+        ey: part.ey,
+        halfWidth,
+        halfHeight,
+        straightness,
+        corners,
+        pins,
+        upper,
+        lower,
+        spacing,
+        rowSeparation,
+        alignment,
+        pinCentering,
+        mounts: cones,
+        mountSpacing,
+        mountCentering,
+        mountAlignment,
+        lobes,
+      };
+    });
+  };
+  const surfacesOf = (
+    d: ReturnType<typeof field>,
+    geometry: ReturnType<typeof geometryOf>,
+  ) => {
+    const probe = empty(),
+      read = (x: number, y: number) => {
+        d.sample(x, y, probe);
+        return {
+          color: probe.color,
+          height: probe.height / preset.relief,
+          roughness: probe.roughness,
+          occlusion: probe.occlusion,
+          metallic: probe.metallic,
+        };
+      },
+      stats = (points: { x: number; y: number }[]) => {
+        const values = points.map((p) => read(p.x, p.y));
+        if (!values.length) return null;
+        return {
+          color: values.reduce((s, p) => s + p.color, 0) / values.length,
+          height: values.reduce((s, p) => s + p.height, 0) / values.length,
+          roughness:
+            values.reduce((s, p) => s + p.roughness, 0) / values.length,
+          occlusion:
+            values.reduce((s, p) => s + p.occlusion, 0) / values.length,
+          minHeight: Math.min(...values.map((p) => p.height)),
+          maxHeight: Math.max(...values.map((p) => p.height)),
+          minMetal: Math.min(...values.map((p) => p.metallic)),
+          maxMetal: Math.max(...values.map((p) => p.metallic)),
+        };
+      };
+    let back = Infinity;
+    for (let at = 0; at < d.heights.length; at++)
+      if (!d.bodyMask[at]) back = Math.min(back, d.heights[at]);
+    return geometry.map((g) => {
+      if (!g) return null;
+      const body = [] as { x: number; y: number }[],
+        floor = [] as { x: number; y: number }[],
+        metal = [] as { x: number; y: number }[],
+        mount = [] as { x: number; y: number }[],
+        counter = [] as { x: number; y: number }[],
+        local = (x: number, y: number) => ({
+          x: g.cx + x * g.ex.x + y * g.ey.x,
+          y: g.cy + x * g.ex.y + y * g.ey.y,
+        }),
+        lobeX = g.lobes.map(
+          (l) => (l.cx - g.cx) * g.ex.x + (l.cy - g.cy) * g.ex.y,
+        ),
+        lobeY = g.lobes.map(
+          (l) => (l.cx - g.cx) * g.ey.x + (l.cy - g.cy) * g.ey.y,
+        );
+      for (const sign of [-1, 1]) {
+        const wellEdge = Math.max(
+            ...g.lobes.map((l, i) => sign * lobeX[i] + l.radius),
+          ),
+          nearMount = g.mounts.reduce((a, b) => {
+            const ax = sign * ((a.cx - g.cx) * g.ex.x + (a.cy - g.cy) * g.ex.y),
+              bx = sign * ((b.cx - g.cx) * g.ex.x + (b.cy - g.cy) * g.ex.y);
+            return ax > bx ? a : b;
+          }),
+          mountX =
+            sign *
+            ((nearMount.cx - g.cx) * g.ex.x + (nearMount.cy - g.cy) * g.ex.y),
+          side = (wellEdge + mountX - nearMount.curve[30]) * 0.5,
+          wellY = Math.max(
+            ...g.lobes.map((l, i) => sign * lobeY[i] + l.radius),
+          ),
+          top = (wellY + g.halfHeight) * 0.5;
+        for (const fraction of [-0.15, 0, 0.15]) {
+          body.push(
+            local(sign * side, fraction * g.spacing),
+            local(fraction * g.spacing, sign * top),
+          );
+        }
+      }
+      for (let i = 0; i < g.pins.length; i++) {
+        const pin = g.pins[i],
+          lobe = g.lobes[i];
+        for (const fraction of [0.35, 0.55, 0.75])
+          for (const angle of [-0.25, 0, 0.25]) {
+            const r = pin.radius + fraction * (lobe.radius - pin.radius),
+              dx = lobe.outX * Math.cos(angle) - lobe.outY * Math.sin(angle),
+              dy = lobe.outY * Math.cos(angle) + lobe.outX * Math.sin(angle);
+            floor.push({ x: pin.cx + r * dx, y: pin.cy + r * dy });
+          }
+        for (let j = 0; j < 12; j++) {
+          const a = (2 * Math.PI * j) / 12;
+          metal.push({
+            x: pin.cx + 0.3 * pin.radius * Math.cos(a),
+            y: pin.cy + 0.3 * pin.radius * Math.sin(a),
+          });
+        }
+      }
+      for (const m of g.mounts)
+        for (let j = 0; j < 12; j++) {
+          const a = (2 * Math.PI * j) / 12,
+            dx = Math.cos(a),
+            dy = Math.sin(a);
+          mount.push({
+            x: m.cx + 0.25 * m.curve[0] * dx,
+            y: m.cy + 0.25 * m.curve[0] * dy,
+          });
+          counter.push({
+            x: m.cx + m.curve[15] * dx,
+            y: m.cy + m.curve[15] * dy,
+          });
+        }
+      const b = stats(body),
+        f = stats(floor),
+        p = stats(metal),
+        m = stats(mount),
+        c = stats(counter);
+      if (!b || !f || !p || !m || !c) return null;
+      const span = b.height - back,
+        flatness = Math.max(
+          ...[b, f, p, m].map((v) => (v.maxHeight - v.minHeight) / span),
+        );
+      return {
+        flatness,
+        commonPolymerAlbedo:
+          Math.max(b.color, f.color, m.color) -
+          Math.min(b.color, f.color, m.color),
+        pinContrast: p.color - Math.max(b.color, f.color, m.color),
+        wellDepth: (b.height - f.height) / span,
+        mountDepth: (b.height - m.height) / span,
+        pinDepth: (p.height - f.height) / span,
+        pinGuard: (b.height - p.height) / span,
+        bodyRoughness: b.roughness,
+        counterRoughness: c.roughness,
+        mountRoughness: m.roughness,
+        floorRoughness: f.roughness,
+        pinRoughness: p.roughness,
+        bodyAO: b.occlusion,
+        floorAO: f.occlusion,
+        mountAO: m.occlusion,
+        pinAO: p.occlusion,
+        polymerMetal: Math.max(b.maxMetal, f.maxMetal, m.maxMetal, c.maxMetal),
+        pinMinMetal: p.minMetal,
+        pinMaxMetal: p.maxMetal,
+      };
+    });
+  };
+  const measure = (seed: number) => {
+    const d = field(seed),
+      c = classify(d),
+      geometry = c ? geometryOf(d, c) : [],
+      surfaces = c ? surfacesOf(d, geometry) : [],
+      geometryMask = new Uint8Array(d.heights.length),
+      boundaries = [] as { u: number; v: number }[];
+    if (c) {
+      const wellIds = new Set(
+          c.parts.map((p) => -d.basins.indexOf(p.well) - 1),
+        ),
+        mountIds = new Set(
+          c.parts.flatMap((p) => p.mounts.map((m) => -d.basins.indexOf(m) - 1)),
+        );
+      for (let at = 0; at < geometryMask.length; at++) {
+        let bits = d.bodyMask[at] ? 1 : 0;
+        if (mountIds.has(d.basinLabels[at])) bits |= 2;
+        if (wellIds.has(d.basinLabels[at])) bits |= 4;
+        if (d.metals[at] > 0.5) bits |= 8;
+        const owner = d.bodyLabels[at] - 1,
+          g = geometry[owner];
+        if (g && d.metals[at] === 0) {
+          const x = ((at % d.size) + 0.5) / d.size,
+            y = (Math.floor(at / d.size) + 0.5) / d.size;
+          if (
+            g.mounts.some((m) => {
+              const q = (x - m.cx) ** 2 + (y - m.cy) ** 2;
+              return q > m.curve[0] ** 2 && q < m.curve[30] ** 2;
+            })
+          )
+            bits |= 16;
+        }
+        geometryMask[at] = bits;
+      }
+      for (const g of geometry) {
+        if (!g) continue;
+        const add = (x: number, y: number) =>
+          boundaries.push({
+            u: g.cx + x * g.ex.x + y * g.ey.x,
+            v: g.cy + x * g.ex.y + y * g.ey.y,
+          });
+        add(0, 0);
+        for (const sign of [-1, 1]) {
+          add(sign * g.halfWidth, 0);
+          add(0, sign * g.halfHeight);
+        }
+        for (const pin of g.pins)
+          for (let j = 0; j < 4; j++) {
+            const a = (2 * Math.PI * j) / 4;
+            boundaries.push({
+              u: pin.cx + pin.radius * Math.cos(a),
+              v: pin.cy + pin.radius * Math.sin(a),
+            });
+          }
+        for (const lobe of g.lobes)
+          for (const a of [-Math.PI / 3, 0, Math.PI / 3])
+            boundaries.push({
+              u:
+                lobe.cx +
+                lobe.radius *
+                  (lobe.outX * Math.cos(a) - lobe.outY * Math.sin(a)),
+              v:
+                lobe.cy +
+                lobe.radius *
+                  (lobe.outY * Math.cos(a) + lobe.outX * Math.sin(a)),
+            });
+        const top = g.lobes[g.pins.indexOf(g.upper)];
+        for (const pin of g.lower) {
+          const lower = g.lobes[g.pins.indexOf(pin)],
+            dx = lower.cx - top.cx,
+            dy = lower.cy - top.cy,
+            distance = Math.hypot(dx, dy),
+            along =
+              (top.radius ** 2 - lower.radius ** 2 + distance ** 2) /
+              (2 * distance),
+            square = top.radius ** 2 - along ** 2;
+          if (square > 0) {
+            const h = Math.sqrt(square),
+              x = top.cx + (along * dx) / distance,
+              y = top.cy + (along * dy) / distance;
+            for (const sign of [-1, 1])
+              boundaries.push({
+                u: x - (sign * h * dy) / distance,
+                v: y + (sign * h * dx) / distance,
+              });
+          }
+        }
+        for (const mount of g.mounts)
+          for (const index of [0, 7, 15, 30])
+            for (const sign of [-1, 1])
+              boundaries.push({
+                u: mount.cx + sign * mount.curve[index] * g.ey.x,
+                v: mount.cy + sign * mount.curve[index] * g.ey.y,
+              });
+      }
+    }
+    return {
+      seed,
+      size: d.size,
+      invalid: d.invalid,
+      bodies: d.bodies.length,
+      bodyVoids: d.bodyVoids.length,
+      pins: d.pins.length,
+      plates: d.plates.length,
+      basins: d.basins.length,
+      geometry,
+      surfaces,
+      geometryMask,
+      boundaries,
+    };
+  };
+  const measurements = new Map<number, ReturnType<typeof measure>>();
+  const measured = (seed: number) => {
+    let m = measurements.get(seed);
+    if (!m) {
+      m = measure(seed);
+      measurements.set(seed, m);
+    }
+    return m;
+  };
+
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('iecc6inlets', seed),
+      a = empty(),
+      b = empty();
+    let period = 0;
+    for (let i = 0; i < 4096; i++) {
+      const u = (i * 0.7548776662466927) % 1,
+        v = (i * 0.5698402909980532) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? preset.relief : 1),
+        );
+    }
+    return {
+      period,
+      worst: refineCurvature(sample, preset.relief, measured(seed).boundaries),
+    };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      buffers = Object.values(maps);
+    let minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      fullMetal = 0,
+      transitions = 0,
+      maxTilt = 0,
+      normalLengthError = 0,
+      backFacing = 0,
+      invalidAlpha = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        nz = maps.normal[j + 2] / 127.5 - 1,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      fullMetal += Number(maps.metallicRoughness[j + 2] === 255);
+      transitions += Number(
+        maps.metallicRoughness[j + 2] > 0 &&
+          maps.metallicRoughness[j + 2] < 255,
+      );
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      normalLengthError = Math.max(
+        normalLengthError,
+        Math.abs(nx * nx + ny * ny + nz * nz - 1),
+      );
+      backFacing += Number(nz <= 0);
+      for (const buffer of buffers)
+        invalidAlpha += Number(buffer[j + 3] !== 255);
+    }
+    return {
+      metallicPixels,
+      fullMetal,
+      transitions,
+      maxTilt,
+      minLuma,
+      maxLuma,
+      normalLengthError,
+      backFacing,
+      invalidAlpha,
+    };
+  };
+  it.each([0, 7, 0xffffffff])(
+    'retains a solid PA6 flange, three isolated metal tips and three closed low basins per face (seed %s)',
+    (seed) => {
+      const m = measured(seed),
+        n = preset.cells * preset.cells;
+      expect(m.invalid).toBe(0);
+      expect(m.bodies).toBe(n);
+      expect(m.bodyVoids).toBe(1);
+      expect(m.pins).toBe(3 * n);
+      expect(m.plates).toBe(n);
+      expect(m.basins).toBe(3 * n + 1);
+      expect(m.geometry.length).toBe(n);
+      for (const g of m.geometry) {
+        expect(g !== null).toBe(true);
+        if (!g) continue;
+        expect(g.pins.length).toBe(3);
+        expect(g.mounts.length).toBe(2);
+        expect(g.lobes.length).toBe(3);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'retains rounded straight flanges, an upper/lower-pair contact layout, circular cloverleaf arcs and two broad countersinks (seed %s)',
+    (seed) => {
+      const m = measured(seed);
+      expect(m.geometry.length).toBe(preset.cells * preset.cells);
+      for (const g of m.geometry) {
+        expect(g !== null).toBe(true);
+        if (!g) continue;
+        expect(g.straightness).toBeLessThan(0.015);
+        expect(g.alignment).toBeLessThan(0.015);
+        expect(g.pinCentering).toBeLessThan(0.015);
+        expect(g.rowSeparation).toBeGreaterThan(0.25);
+        expect(g.mountCentering).toBeLessThan(0.015);
+        expect(g.mountAlignment).toBeLessThan(0.015);
+        for (let j = 0; j < g.corners.length; j++)
+          expect(g.corners[j]).toBe(j % 2 === 0);
+        for (const pin of g.pins) expect(pin.roundness).toBeLessThan(0.025);
+        for (const lobe of g.lobes) expect(lobe.roundness).toBeLessThan(0.025);
+        for (const mount of g.mounts) {
+          expect(mount.roundness).toBeLessThan(0.025);
+          expect(mount.spread).toBeGreaterThan(0.15);
+          expect(mount.largestStep).toBeLessThan(0.75);
+        }
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps common-albedo matte polymer, low occluded mounting and well floors and guarded polished metal tips (seed %s)',
+    (seed) => {
+      const m = measured(seed);
+      expect(m.surfaces.length).toBe(preset.cells * preset.cells);
+      for (const s of m.surfaces) {
+        expect(s !== null).toBe(true);
+        if (!s) continue;
+        expect(s.flatness).toBeLessThan(0.015);
+        expect(s.commonPolymerAlbedo).toBeLessThan(0.05);
+        expect(s.pinContrast).toBeGreaterThan(0.3);
+        expect(s.wellDepth).toBeGreaterThan(0.15);
+        expect(s.mountDepth).toBeGreaterThan(0.15);
+        expect(s.pinDepth).toBeGreaterThan(0.2);
+        expect(s.pinGuard).toBeGreaterThan(0.08);
+        expect(s.bodyRoughness).toBeGreaterThan(0.55);
+        expect(s.counterRoughness).toBeGreaterThan(0.55);
+        expect(s.mountRoughness).toBeGreaterThan(0.75);
+        expect(s.floorRoughness).toBeGreaterThan(0.75);
+        expect(s.pinRoughness).toBeLessThan(0.55);
+        expect(s.floorRoughness - s.pinRoughness).toBeGreaterThan(0.2);
+        expect(s.bodyAO - s.floorAO).toBeGreaterThan(0.2);
+        expect(s.bodyAO - s.mountAO).toBeGreaterThan(0.2);
+        expect(s.pinAO - s.floorAO).toBeGreaterThan(0.2);
+        expect(s.polymerMetal).toBe(0);
+        expect(s.pinMinMetal).toBe(1);
+        expect(s.pinMaxMetal).toBe(1);
+      }
+    },
+  );
+  it('changes observed flange, mounting, shared-well, contact or countersink footprints rather than only finish with seed', () => {
+    const a = measured(0).geometryMask;
+    let maxChange = 0;
+    for (const seed of [7, 0xffffffff]) {
+      const b = measured(seed).geometryMask;
+      for (const bit of [1, 2, 4, 8, 16]) {
+        let different = 0,
+          occupied = 0;
+        for (let at = 0; at < a.length; at++) {
+          different += Number(Boolean(a[at] & bit) !== Boolean(b[at] & bit));
+          occupied += Number(Boolean((a[at] | b[at]) & bit));
+        }
+        if (occupied) maxChange = Math.max(maxChange, different / occupied);
+      }
+    }
+    expect(maxChange).toBeGreaterThan(0.02);
+  });
+  it.each([0, 7, 0xffffffff])(
+    'preserves signed UV periods and C1 shoulders through native flange, bowl, lobe-junction and contact boundaries (seed %s)',
+    (seed) => {
+      const m = continuity(seed);
+      expect(m.period).toBeLessThan(1e-10);
+      expect(m.worst).toBeLessThan(0.1);
+    },
+  );
+  it.each([32, 512])(
+    'packs opaque forward normalized nonflat maps at size %s',
+    (size) => {
+      const m = observePixels(
+        generateProceduralMaps('iecc6inlets', size, 7, { heightMap: true }),
+      );
       expect(m.invalidAlpha).toBe(0);
       expect(m.backFacing).toBe(0);
       expect(m.normalLengthError).toBeLessThan(0.014);
