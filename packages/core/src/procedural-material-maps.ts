@@ -30593,6 +30593,100 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'romannumerals': {
+        const p = proceduralMaterialPresets.romannumerals,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2cd01),
+          glyphs: Record<string, string> = {
+            '0': '111101101101111',
+            '1': '010110010010111',
+            '2': '111001111100111',
+            '3': '111001111001111',
+            '4': '101101111001001',
+            '5': '111100111001111',
+            '6': '111100111101111',
+            '7': '111001010010010',
+            '8': '111101111101111',
+            '9': '111101111001111',
+            '=': '000111000111000',
+            I: '111010010010111',
+            V: '101101101101010',
+            X: '101101010101101',
+            L: '100100100100111',
+            C: '011100100100011',
+          },
+          columns = 13,
+          // Roman numerals in the usual subtractive form, for values up to 199.
+          roman = (value: number): string => {
+            let rest = value,
+              text = '';
+            for (const [amount, symbol] of [
+              [100, 'C'],
+              [90, 'XC'],
+              [50, 'L'],
+              [40, 'XL'],
+              [10, 'X'],
+              [9, 'IX'],
+              [5, 'V'],
+              [4, 'IV'],
+              [1, 'I'],
+            ] as const)
+              while (rest >= amount) {
+                text += symbol;
+                rest -= amount;
+              }
+            return text;
+          },
+          // The seed picks distinct values and lists them in ascending order.
+          values = Array.from({ length: p.maxValue }, (_, i) => i + 1)
+            .sort(
+              (a, b) => hash(a, 0, seed ^ 0x2cd02) - hash(b, 0, seed ^ 0x2cd02),
+            )
+            .slice(0, p.rows)
+            .sort((a, b) => a - b),
+          // Each row: the decimal number right-aligned in three cells, an equals sign, then the Roman numeral.
+          lines = values.map((value) => {
+            const decimal = String(value).padStart(3, ' '),
+              text = roman(value);
+            return [...decimal, '=', ...text];
+          });
+        return () => {
+          const row = Math.floor((v - p.top) / p.rowPitch),
+            x = (u - p.left) / p.cell,
+            column = Math.floor(x);
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            rough: number = p.paperRoughness,
+            glyph = 0;
+          if (row >= 0 && row < p.rows && column >= 0 && column < columns) {
+            const fx = x - column,
+              fy = (v - p.top) / p.rowPitch - row,
+              stripe = row % 2 === 1,
+              symbol = lines[row][column] ?? ' ';
+            tone = stripe ? p.stripeTone : p.paperTone;
+            level = stripe ? p.stripeHeight : p.paperHeight;
+            rough = stripe ? p.stripeRoughness : p.paperRoughness;
+            const px = Math.floor(((fx - 0.5) * p.cell) / p.digitPixel + 1.5),
+              py = Math.floor(((fy - 0.5) * p.rowPitch) / p.digitPixel + 2.5);
+            if (
+              symbol !== ' ' &&
+              px >= 0 &&
+              px < 3 &&
+              py >= 0 &&
+              py < 5 &&
+              glyphs[symbol][py * 3 + px] === '1'
+            )
+              glyph = 1;
+          }
+          color = clamp(
+            tone +
+              (p.inkTone - tone) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * glyph);
+          roughness = rough + (p.inkRoughness - rough) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -58122,6 +58216,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'romannumerals' ||
     kind === 'cayleytables' ||
     kind === 'hammingcodewords' ||
     kind === 'collatzsequences' ||

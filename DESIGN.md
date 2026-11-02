@@ -1673,6 +1673,10 @@
 
 這是作者設計的示意：只有這五個8階群，沒有其他階或群名標示；標籤打亂後表格看起來不再有「規律」；點陣數字在小尺寸下難以辨識。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`romannumerals`（羅馬數字）使目前目錄1026→1027種，含plain的gallery為1028項。每tile有14列，每列左邊是一個十進位數（1到199，靠右對齊的三格），後面是等號與它的羅馬數字（以I、V、X、L、C的3×5點陣字母寫出，標準減法寫法，例如4寫成IV、9寫成IX、40寫成XL、90寫成XC；靠左、最多九個字母，例如188寫成CLXXXVIII）；奇數列有略深的底色。14個數由seed從1到199中挑選、互不相同並依升序排列。Metallic與mortar為0。
+
+這是作者設計的示意：只到199（不含D、M，所以沒有500以上的數字）；只使用標準的減法寫法，不畫古代的IIII等變體；點陣字母在小尺寸下難以辨識（I與數字1的圖形不同，但很小時仍可能混淆）。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

@@ -17717,3 +17717,135 @@ describe('cayleytables: the multiplication table of a group of order eight', () 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('romannumerals: decimal numbers beside their Roman numerals', () => {
+  const p = proceduralMaterialPresets.romannumerals;
+  const shapes: Record<string, string[]> = {
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    '2': ['###', '..#', '###', '#..', '###'],
+    '3': ['###', '..#', '###', '..#', '###'],
+    '4': ['#.#', '#.#', '###', '..#', '..#'],
+    '5': ['###', '#..', '###', '..#', '###'],
+    '6': ['###', '#..', '###', '#.#', '###'],
+    '7': ['###', '..#', '.#.', '.#.', '.#.'],
+    '8': ['###', '#.#', '###', '#.#', '###'],
+    '9': ['###', '#.#', '###', '..#', '###'],
+    '=': ['...', '###', '...', '###', '...'],
+    I: ['###', '.#.', '.#.', '.#.', '###'],
+    V: ['#.#', '#.#', '#.#', '#.#', '.#.'],
+    X: ['#.#', '#.#', '.#.', '#.#', '#.#'],
+    L: ['#..', '#..', '#..', '#..', '###'],
+    C: ['.##', '#..', '#..', '#..', '.##'],
+  };
+  // The canonical Roman numeral, written out digit by digit rather than by the sampler's greedy table.
+  const canonical = (value: number): string => {
+    const hundreds = ['', 'C'][Math.floor(value / 100)],
+      tens = ['', 'X', 'XX', 'XXX', 'XL', 'L', 'LX', 'LXX', 'LXXX', 'XC'][
+        Math.floor(value / 10) % 10
+      ],
+      ones = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'][
+        value % 10
+      ];
+    return hundreds + tens + ones;
+  };
+  // Reads a numeral the way a reader does: a symbol smaller than the one after it is subtracted.
+  const parse = (text: string): number => {
+    const worth: Record<string, number> = { I: 1, V: 5, X: 10, L: 50, C: 100 };
+    return [...text].reduce((sum, symbol, i) => {
+      const next = worth[text[i + 1]] ?? 0;
+      return sum + (worth[symbol] < next ? -worth[symbol] : worth[symbol]);
+    }, 0);
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'writes each decimal number as the matching canonical Roman numeral, in ascending order (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('romannumerals', seed),
+        out = empty(),
+        at = (column: number, row: number, fx: number, fy: number): number => {
+          sample(
+            p.left + (column + fx) * p.cell,
+            p.top + (row + fy) * p.rowPitch,
+            out,
+          );
+          return out.color;
+        },
+        // A cell holds a symbol, or nothing when no pixel of the 3 x 5 matrix is dark.
+        read = (column: number, row: number): string => {
+          const bits: string[] = [];
+          for (let y = 0; y < 5; y++) {
+            let text = '';
+            for (let x = 0; x < 3; x++) {
+              const fx = 0.5 + ((x - 1) * p.digitPixel) / p.cell,
+                fy = 0.5 + ((y - 2) * p.digitPixel) / p.rowPitch;
+              text += at(column, row, fx, fy) < 0.3 ? '#' : '.';
+            }
+            bits.push(text);
+          }
+          if (bits.every((line) => line === '...')) return ' ';
+          const found = Object.entries(shapes).find(([, shape]) =>
+            shape.every((line, i) => line === bits[i]),
+          );
+          expect(found).toBeDefined();
+          return (found as [string, string[]])[0];
+        },
+        values: number[] = [];
+      for (let row = 0; row < p.rows; row++) {
+        const cells = Array.from({ length: 13 }, (_, column) =>
+            read(column, row),
+          ),
+          decimal = cells.slice(0, 3).join('').trim(),
+          numeral = cells.slice(4).join('').trimEnd();
+        expect(cells[3]).toBe('=');
+        expect(decimal).toMatch(/^[1-9][0-9]{0,2}$/);
+        // Numbers are right-aligned, and the numeral is flush left with no gaps.
+        expect(cells.slice(0, 3).join('')).toBe(decimal.padStart(3, ' '));
+        expect(cells.slice(4).join('')).toBe(numeral.padEnd(9, ' '));
+        const value = Number(decimal);
+        expect(value).toBeLessThanOrEqual(p.maxValue);
+        expect(numeral).toBe(canonical(value));
+        expect(parse(numeral)).toBe(value);
+        values.push(value);
+      }
+      expect(new Set(values).size).toBe(p.rows);
+      expect(values).toEqual([...values].sort((a, b) => a - b));
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('romannumerals', 0),
+      b = createSurfaceSampler('romannumerals', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
