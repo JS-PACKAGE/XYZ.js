@@ -1046,6 +1046,7 @@ try {
     'elementaryautomata',
     'modulartable',
     'pascalmod3',
+    'collatzsteps',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

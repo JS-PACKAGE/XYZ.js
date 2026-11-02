@@ -982,7 +982,8 @@ export type ProceduralMaterialKind =
   | 'gameoflife'
   | 'elementaryautomata'
   | 'modulartable'
-  | 'pascalmod3';
+  | 'pascalmod3'
+  | 'collatzsteps';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2199,6 +2200,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'elementaryautomata',
   'modulartable',
   'pascalmod3',
+  'collatzsteps',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
