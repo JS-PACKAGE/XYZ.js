@@ -17101,3 +17101,184 @@ describe('convexhullpoints: a scatter of points and its convex hull', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('delaunaytriangles: a scatter of points and its Delaunay triangulation', () => {
+  const p = proceduralMaterialPresets.delaunaytriangles;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'joins exactly the pairs of points that have an empty circle through them (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('delaunaytriangles', seed),
+        out = empty(),
+        n = 400,
+        grid = new Float64Array(n * n);
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          sample((x + 0.5) / n, (y + 0.5) / n, out);
+          grid[y * n + x] = out.color;
+        }
+      // The points are the connected dark blobs; their centroids are the positions.
+      const seen = new Uint8Array(n * n),
+        dots: { x: number; y: number }[] = [];
+      for (let start = 0; start < n * n; start++) {
+        if (seen[start] || grid[start] >= 0.2) continue;
+        const stack = [start];
+        let area = 0,
+          sx = 0,
+          sy = 0;
+        seen[start] = 1;
+        while (stack.length > 0) {
+          const cell = stack.pop() as number,
+            cx = cell % n,
+            cy = (cell - cx) / n;
+          area++;
+          sx += cx + 0.5;
+          sy += cy + 0.5;
+          for (const [dx, dy] of [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ]) {
+            const nx = cx + dx,
+              ny = cy + dy;
+            if (
+              nx < 0 ||
+              ny < 0 ||
+              nx >= n ||
+              ny >= n ||
+              seen[ny * n + nx] ||
+              grid[ny * n + nx] >= 0.2
+            )
+              continue;
+            seen[ny * n + nx] = 1;
+            stack.push(ny * n + nx);
+          }
+        }
+        dots.push({ x: sx / area / n, y: sy / area / n });
+      }
+      expect(dots.length).toBeGreaterThanOrEqual(12);
+      expect(dots.length).toBeLessThanOrEqual(p.points);
+      for (const [i, a] of dots.entries()) {
+        expect(a.x).toBeGreaterThan(p.margin - 0.01);
+        expect(a.x).toBeLessThan(1 - p.margin + 0.01);
+        expect(a.y).toBeGreaterThan(p.margin - 0.01);
+        expect(a.y).toBeLessThan(1 - p.margin + 0.01);
+        for (const b of dots.slice(i + 1))
+          expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThan(
+            p.minSpacing - 0.005,
+          );
+      }
+      // Two points are a Delaunay edge when some circle through both holds no other point. Its centre lies on their
+      // perpendicular bisector at offset t, and each other point k bounds t linearly, so the feasible t form an interval.
+      // The interval's length measures how clear the decision is; pairs within 0.01 of a tie are not judged, since the
+      // dots are only located to about a pixel.
+      const gap = (i: number, j: number): number => {
+        const a = dots[i],
+          b = dots[j],
+          mx = (a.x + b.x) / 2,
+          my = (a.y + b.y) / 2,
+          length = Math.hypot(b.x - a.x, b.y - a.y),
+          nx = -(b.y - a.y) / length,
+          ny = (b.x - a.x) / length,
+          half = length / 2;
+        let low = -Infinity,
+          high = Infinity;
+        for (const [k, c] of dots.entries()) {
+          if (k === i || k === j) continue;
+          const along = c.x - mx,
+            across = c.y - my,
+            rhs = along * along + across * across - half * half,
+            slope = 2 * (nx * along + ny * across);
+          if (Math.abs(slope) < 1e-12) {
+            if (rhs < 0) return -Infinity;
+          } else if (slope > 0) high = Math.min(high, rhs / slope);
+          else low = Math.max(low, rhs / slope);
+        }
+        return high - low;
+      };
+      let edges = 0,
+        absent = 0;
+      for (let i = 0; i < dots.length; i++)
+        for (let j = i + 1; j < dots.length; j++) {
+          const margin = gap(i, j),
+            at = (t: number): number => {
+              sample(
+                dots[i].x + (dots[j].x - dots[i].x) * t,
+                dots[i].y + (dots[j].y - dots[i].y) * t,
+                out,
+              );
+              return out.color;
+            };
+          // A pair whose segment passes close to a third point (a chain of nearly collinear edges) is not judged.
+          const ax = dots[i].x,
+            ay = dots[i].y,
+            bx = dots[j].x - ax,
+            by = dots[j].y - ay,
+            near = dots.some((c, k) => {
+              if (k === i || k === j) return false;
+              const t = Math.min(
+                1,
+                Math.max(
+                  0,
+                  ((c.x - ax) * bx + (c.y - ay) * by) / (bx * bx + by * by),
+                ),
+              );
+              return Math.hypot(c.x - ax - bx * t, c.y - ay - by * t) < 0.015;
+            });
+          if (near) continue;
+          if (margin > 0.01) {
+            edges++;
+            expect(at(0.5)).toBeGreaterThan(0.25);
+            expect(at(0.5)).toBeLessThan(0.6);
+          } else if (margin < -0.01) {
+            absent++;
+            // Somewhere along a non-edge the sheet shows fill or bare paper rather than a line.
+            expect([0.2, 0.35, 0.5, 0.65, 0.8].some((t) => at(t) > 0.7)).toBe(
+              true,
+            );
+          }
+        }
+      // Euler: a triangulation of m points with h on the hull has 3m - 3 - h edges, between 2m - 3 and 3m - 6 in all.
+      expect(edges).toBeGreaterThanOrEqual(2 * dots.length - 3 - 3);
+      expect(edges).toBeLessThanOrEqual(3 * dots.length - 6);
+      expect(absent).toBeGreaterThan(20);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('delaunaytriangles', 0),
+      b = createSurfaceSampler('delaunaytriangles', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

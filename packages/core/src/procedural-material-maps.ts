@@ -30136,6 +30136,135 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'delaunaytriangles': {
+        const p = proceduralMaterialPresets.delaunaytriangles,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2c901),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          span = 1 - 2 * p.margin,
+          xs: number[] = [],
+          ys: number[] = [],
+          triangles: [number, number, number][] = [],
+          keys = new Set<number>(),
+          edges: [number, number][] = [];
+        // Scatter points with a minimum spacing, kept off the tile edge so the tile stays seamless.
+        for (
+          let attempt = 0;
+          attempt < p.attempts && xs.length < p.points;
+          attempt++
+        ) {
+          const x = p.margin + span * hash(attempt, 1, seed ^ 0x2c902),
+            y = p.margin + span * hash(attempt, 2, seed ^ 0x2c902);
+          if (
+            xs.every((px, i) => Math.hypot(px - x, ys[i] - y) >= p.minSpacing)
+          ) {
+            xs.push(x);
+            ys.push(y);
+          }
+        }
+        // Delaunay triangulation by brute force: a triple of points is a Delaunay triangle when no other point lies
+        // strictly inside its circumcircle.
+        for (let a = 0; a < xs.length; a++)
+          for (let b = a + 1; b < xs.length; b++)
+            for (let c = b + 1; c < xs.length; c++) {
+              const d =
+                2 *
+                (xs[a] * (ys[b] - ys[c]) +
+                  xs[b] * (ys[c] - ys[a]) +
+                  xs[c] * (ys[a] - ys[b]));
+              if (Math.abs(d) < 1e-9) continue;
+              const sa = xs[a] * xs[a] + ys[a] * ys[a],
+                sb = xs[b] * xs[b] + ys[b] * ys[b],
+                sc = xs[c] * xs[c] + ys[c] * ys[c],
+                cx =
+                  (sa * (ys[b] - ys[c]) +
+                    sb * (ys[c] - ys[a]) +
+                    sc * (ys[a] - ys[b])) /
+                  d,
+                cy =
+                  (sa * (xs[c] - xs[b]) +
+                    sb * (xs[a] - xs[c]) +
+                    sc * (xs[b] - xs[a])) /
+                  d,
+                radius = Math.hypot(xs[a] - cx, ys[a] - cy);
+              let empty = true;
+              for (let m = 0; empty && m < xs.length; m++)
+                if (
+                  m !== a &&
+                  m !== b &&
+                  m !== c &&
+                  Math.hypot(xs[m] - cx, ys[m] - cy) < radius
+                )
+                  empty = false;
+              if (!empty) continue;
+              triangles.push([a, b, c]);
+              for (const [i, j] of [
+                [a, b],
+                [b, c],
+                [a, c],
+              ]) {
+                if (!keys.has(i * 64 + j)) {
+                  keys.add(i * 64 + j);
+                  edges.push([i, j]);
+                }
+              }
+            }
+        const shades = triangles.map(
+          ([a, b, c]) => hash(a, b * 64 + c, seed ^ 0x2c903) - 0.5,
+        );
+        return () => {
+          let found = -1,
+            edge = 0,
+            dot = 0;
+          for (let t = 0; t < triangles.length && found < 0; t++) {
+            const [a, b, c] = triangles[t],
+              side = (i: number, j: number): number =>
+                (xs[j] - xs[i]) * (v - ys[i]) - (ys[j] - ys[i]) * (u - xs[i]),
+              s1 = side(a, b),
+              s2 = side(b, c),
+              s3 = side(c, a);
+            if (
+              (s1 >= 0 && s2 >= 0 && s3 >= 0) ||
+              (s1 <= 0 && s2 <= 0 && s3 <= 0)
+            )
+              found = t;
+          }
+          for (const [a, b] of edges) {
+            const ex = xs[b] - xs[a],
+              ey = ys[b] - ys[a],
+              wx = u - xs[a],
+              wy = v - ys[a],
+              t = clamp((wx * ex + wy * ey) / (ex * ex + ey * ey));
+            edge = Math.max(
+              edge,
+              cover(p.edgeHalf - Math.hypot(wx - ex * t, wy - ey * t)),
+            );
+          }
+          for (let i = 0; i < xs.length; i++)
+            dot = Math.max(
+              dot,
+              cover(p.dotRadius - Math.hypot(u - xs[i], v - ys[i])),
+            );
+          const inside = found >= 0 ? 1 : 0,
+            fill = p.fillTone + p.fillSpread * (found >= 0 ? shades[found] : 0),
+            filled = p.paperTone + (fill - p.paperTone) * inside,
+            lined = filled + (p.edgeTone - filled) * edge,
+            tone = lined + (p.dotTone - lined) * dot;
+          color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(
+            p.paperHeight +
+              (p.fillHeight - p.paperHeight) * inside +
+              (p.edgeHeight - p.fillHeight) * edge +
+              (p.dotHeight - p.edgeHeight) * dot,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.fillRoughness - p.paperRoughness) * inside +
+            (p.dotRoughness - p.fillRoughness) * dot;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -57665,6 +57794,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'delaunaytriangles' ||
     kind === 'convexhullpoints' ||
     kind === 'pascaltrianglenumbers' ||
     kind === 'fouriersquarewaves' ||
