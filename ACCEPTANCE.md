@@ -12184,3 +12184,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 真實缺陷（測試抓到）：第一版每個合格格點各以40%機率獨立放珍珠，測試第一次執行時seed 3只有1顆珍珠（測試要求至少2顆），這樣的謎題幾乎沒有線索；改為「把所有合格格點依seed排序，取`max(最少珍珠數5, 40%×合格數)`顆」（新增`minPearls`參數）。我的測試第一版也夾帶一個沒有實際作用的`reach`變數，已刪除。
 - 實測：`tests/procedural-material-motifs.test.ts`八百四十四項（本材質十項）全過。九個seed（0、7、4294967295、1至6）：測試端由中點亮度讀出迴路邊，每個格點連0或2條邊、至少12個迴路格點，並以廣度優先搜尋確認為一個連通的環；以對角線上半徑0.026處是否有環判斷珍珠、以半徑0.45倍處是否暗判斷黑珍珠；每顆黑珍珠所在格點不是直行、且兩個相鄰格點都直行；每顆白珍珠所在格點直行、且相鄰格點中至少有一個轉彎；珍珠數至少5顆；通道範圍、metallic／mortar 0、wrap與seed差異。突變檢查：把黑珍珠條件的`every`改成`some`後，九個seed中的九項失敗，還原後全過。`tests/procedural-material.test.ts`以`-t "masyupearls|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`masyupearls`：option 994個、status為993 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的謎題。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：弦線藝術（stringartcurves）
+
+- 目錄993→994，含plain的gallery為995項。每tile 2×2個圓，各有96個點、把點i連到點（k·i mod 96），k=2、3、4、5各一個圓（seed洗牌象限並微轉每個圓），包絡線分別為心臟線、腎臟線與更多瓣的曲線。線條加法疊加。Metallic／mortar為0，預設tile0.4 m、0.003 UV-relative relief、metallic factor 0。作者設計；仍在獨立worktree分支`materials/more-textures`作業。
+- 實測：`tests/procedural-material-motifs.test.ts`八百五十四項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）× 四個象限：圓的轉角是取樣器內部由seed決定的未知小角度（不到一個點距），測試端對64個轉角×4個乘數的每個組合，檢查所有弦線的中點（兩端點的平均位置）是否都被畫出（亮度＞0.6）；只有真正的乘數能讓所有弦線的中點都亮，且四個象限找到的乘數排序後必須恰為`[2,3,4,5]`；通道範圍、metallic／mortar 0、wrap與seed差異。注意：這驗證的是「所有該畫的弦線都在」，沒有驗證「沒有多畫別的線」（弦線很密，反向檢查會被巧合重疊干擾）。
+- 文件更正：我最初在說明中寫每個像素要量測「約380條弦線」的距離，這是錯的：每個像素只迴圈自己所在圓的弦線，最多約95條（96個點減去固定點）；寫入前（送交commit前）已更正。效能：512×512單次建立約223 ms（Bun、單次量測），比多數材質慢，未最佳化，也不代表瀏覽器或Worker下的表現。
+- 完整套件：沿用`5b0b408dc`上的6439項通過紀錄；之後的slitherlinkloop、masyupearls與本材質只有定向測試加typecheck／eslint／build／API相容／distribution。
+- 真實dev server的pbr3d頁（WebGPU）選取`stringartcurves`：option 995個、status為994 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的弦線圖（心臟線、腎臟線清楚可見）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

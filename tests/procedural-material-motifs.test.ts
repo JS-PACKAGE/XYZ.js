@@ -13456,3 +13456,82 @@ describe('masyupearls: one closed loop and pearls that obey the Masyu rules', ()
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('stringartcurves: each circle holds exactly the chords i to k·i mod n of its multiplier', () => {
+  const p = proceduralMaterialPresets.stringartcurves;
+  const n = p.points;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows every chord of one multiplier per quadrant and the four multipliers once each (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('stringartcurves', seed),
+        out = empty(),
+        found: number[] = [];
+      for (let quadrant = 0; quadrant < 4; quadrant++) {
+        const cx = (quadrant & 1) * 0.5 + 0.25,
+          cy = (quadrant >> 1) * 0.5 + 0.25;
+        // The circle is turned by an unknown fraction of one point spacing, so try 64 turns and every
+        // multiplier and keep a pair for which every chord midpoint is drawn.
+        const matches: { multiplier: number; turn: number }[] = [];
+        for (const multiplier of p.multipliers)
+          for (let step = 0; step < 64; step++) {
+            const turn = ((step + 0.5) / 64) * ((2 * Math.PI) / n);
+            let all = true;
+            for (let i = 0; i < n && all; i++) {
+              const j = (multiplier * i) % n;
+              if (j === i) continue;
+              const angleA = turn + (2 * Math.PI * i) / n,
+                angleB = turn + (2 * Math.PI * j) / n;
+              sample(
+                cx + (p.radius * (Math.cos(angleA) + Math.cos(angleB))) / 2,
+                cy + (p.radius * (Math.sin(angleA) + Math.sin(angleB))) / 2,
+                out,
+              );
+              all = out.color > 0.6;
+            }
+            if (all) matches.push({ multiplier, turn });
+          }
+        // Only the true multiplier explains all the chords.
+        expect(new Set(matches.map((match) => match.multiplier)).size).toBe(1);
+        found.push(matches[0].multiplier);
+      }
+      expect([...found].sort()).toEqual([...p.multipliers].sort());
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('stringartcurves', 0),
+      b = createSurfaceSampler('stringartcurves', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

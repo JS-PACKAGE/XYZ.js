@@ -1533,6 +1533,10 @@
 
 這是作者設計的示意：畫面同時顯示答案（迴路）與珍珠，真正的謎題只給珍珠並隱藏迴路；珍珠規則是依一般Masyu規則憑記憶實作（白珍珠直行且至少一側轉彎、黑珍珠轉彎且兩臂直行），沒有對照規則書；珍珠只放在符合規則的格點，所以必然與迴路一致，但不保證整個謎題只有唯一解；迴路由隨機生長的區域產生，形狀偏向從某個角落長出。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`stringartcurves`（弦線藝術／模乘弦圖）使目前目錄993→994種，含plain的gallery為995項。每tile分成2×2個圓：每個圓上均勻分布96個點，依序編號0至95，把點i與點（k·i mod 96）以直線相連（k為該圓的乘數，四個圓分別取2、3、4、5，放在哪個象限由seed洗牌，並把各圓轉動不到一個點距的小角度）。這些直線的包絡線在k=2時是心臟線、k=3時是腎臟線，更大的k得到更多瓣的曲線。線條以加法疊加後再壓縮成亮度（1−e^{−1.6·疊加量}），單線約為0.8的亮度，重疊處趨近飽和，圓周有一圈暗色細環，背景深藍黑。Metallic與mortar為0。
+
+這是作者設計的示意：包絡線是由弦線自然形成的視覺效果，並未另外畫出曲線；k相同點數下，更大的乘數使弦線很密（k=5的圓看起來像模糊的玫瑰）；固定點（k·i≡i）不畫線；點數固定為96。取樣器對每個像素逐一計算到所在圓的最多約95條弦線的距離，512×512單次建立約223 ms，較其他材質慢，未最佳化。預設0.4 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

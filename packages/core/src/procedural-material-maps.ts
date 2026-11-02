@@ -26752,6 +26752,79 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'stringartcurves': {
+        const p = proceduralMaterialPresets.stringartcurves,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2ac01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          n = p.points,
+          // The seed shuffles which multiplier goes in which quadrant and turns each circle a little.
+          order = [...p.multipliers]
+            .map((value, index) => ({
+              value,
+              key: hash(index, 3, seed ^ 0x2ac03),
+            }))
+            .sort((a, b) => a.key - b.key)
+            .map((entry) => entry.value),
+          chords = order.map((multiplier, quadrant) => {
+            const turn =
+                hash(quadrant, 5, seed ^ 0x2ac05) * ((2 * Math.PI) / n),
+              point = (i: number): [number, number] => [
+                p.radius * Math.cos(turn + (2 * Math.PI * i) / n),
+                p.radius * Math.sin(turn + (2 * Math.PI * i) / n),
+              ],
+              list: number[] = [];
+            // Chord from point i to point (multiplier * i) mod n: the family whose envelope is a cardioid
+            // for 2, a nephroid for 3 and similar curves for larger multipliers.
+            for (let i = 0; i < n; i++) {
+              const j = (multiplier * i) % n;
+              if (j === i) continue;
+              const [ax, ay] = point(i),
+                [bx, by] = point(j);
+              list.push(ax, ay, bx, by);
+            }
+            return list;
+          });
+        return () => {
+          const quadrant = (u >= 0.5 ? 1 : 0) + (v >= 0.5 ? 2 : 0),
+            x = u - (quadrant & 1) * 0.5 - 0.25,
+            y = v - (quadrant >> 1) * 0.5 - 0.25,
+            radius = Math.hypot(x, y);
+          let glow = 0,
+            ring = 0;
+          if (radius < p.radius + 0.01) {
+            const list = chords[quadrant];
+            for (let k = 0; k < list.length; k += 4) {
+              const ax = list[k],
+                ay = list[k + 1],
+                dx = list[k + 2] - ax,
+                dy = list[k + 3] - ay,
+                t = clamp(
+                  ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy),
+                ),
+                distance = Math.hypot(x - ax - t * dx, y - ay - t * dy);
+              glow += cover(p.lineHalf - distance);
+            }
+            ring = cover(p.ringHalf - Math.abs(radius - p.radius));
+          }
+          const line = 1 - Math.exp(-p.gain * glow),
+            tone =
+              p.backgroundTone +
+              (p.lineTone - p.backgroundTone) * line +
+              (p.ringTone - p.backgroundTone) * ring * (1 - line);
+          color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(
+            p.backgroundHeight +
+              (p.lineHeight - p.backgroundHeight) * line +
+              (p.ringHeight - p.backgroundHeight) * ring * (1 - line),
+          );
+          roughness =
+            p.backgroundRoughness +
+            (p.lineRoughness - p.backgroundRoughness) * line;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -54281,6 +54354,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'stringartcurves' ||
     kind === 'masyupearls' ||
     kind === 'slitherlinkloop' ||
     kind === 'hashibridges' ||
