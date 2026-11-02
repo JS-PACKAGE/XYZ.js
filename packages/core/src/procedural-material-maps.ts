@@ -36664,6 +36664,96 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'happynumberchains': {
+        const p = proceduralMaterialPresets.happynumberchains,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x31101),
+          glyphs: Record<string, string> = {
+            '0': '111101101101111',
+            '1': '010110010010111',
+            '2': '111001111100111',
+            '3': '111001111001111',
+            '4': '101101111001001',
+            '5': '111100111001111',
+            '6': '111100111101111',
+            '7': '111001010010010',
+            '8': '111101111101111',
+            '9': '111101111001111',
+            '>': '100010001010100',
+          },
+          next = (n: number): number =>
+            [...String(n)].reduce((sum, digit) => sum + Number(digit) ** 2, 0),
+          // Each row is the chain of one starting number written with ">" between the numbers; a start whose chain would be wider
+          // than maxLength is replaced by the next number drawn from the seed, and no start repeats.
+          texts: string[] = [],
+          starts = new Set<number>();
+        for (let row = 0; row < p.rows; row++) {
+          for (let attempt = 0; ; attempt++) {
+            const start =
+              p.lowest +
+              Math.floor(
+                hash(row, attempt, seed ^ 0x31102) * (p.highest - p.lowest + 1),
+              );
+            if (starts.has(start)) continue;
+            const chain = [start];
+            while (
+              chain[chain.length - 1] !== 1 &&
+              chain[chain.length - 1] !== 4
+            )
+              chain.push(next(chain[chain.length - 1]));
+            const text = chain.join('>');
+            if (text.length > p.maxLength) continue;
+            starts.add(start);
+            texts.push(text);
+            break;
+          }
+        }
+        return () => {
+          const row = Math.floor((v - p.top) / p.rowPitch),
+            fy = (v - p.top) / p.rowPitch - row;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            glyph = 0;
+          if (row >= 0 && row < p.rows) {
+            const text = texts[row],
+              px = Math.floor((u - p.left) / p.pixel),
+              d = px >= 0 ? Math.floor(px / 4) : -1,
+              gx = px - 4 * d,
+              py = Math.floor(((fy - 0.5) * p.rowPitch) / p.pixel + 2.5);
+            if (
+              row % 2 === 1 &&
+              Math.abs(u - p.left - p.stripeWidth / 2) <
+                p.stripeWidth / 2 + p.stripeInset
+            ) {
+              tone = p.stripeTone;
+              level = p.stripeHeight;
+            }
+            // A chain that ends at 1 (a happy number) has a darker cell under its first number.
+            if (text.endsWith('>1') && d >= 0 && d < text.indexOf('>')) {
+              tone = p.happyTone;
+              level = p.happyHeight;
+            }
+            if (
+              d >= 0 &&
+              d < text.length &&
+              gx >= 0 &&
+              gx < 3 &&
+              py >= 0 &&
+              py < 5 &&
+              glyphs[text[d]][py * 3 + gx] === '1'
+            )
+              glyph = 1;
+          }
+          color = clamp(
+            tone +
+              (p.inkTone - tone) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * glyph);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -64193,6 +64283,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'happynumberchains' ||
     kind === 'lookandsayrows' ||
     kind === 'kaprekarsteps' ||
     kind === 'roundrobintable' ||

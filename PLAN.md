@@ -1933,6 +1933,10 @@
 
 這是作者設計的示意：只列出數列的項，沒有標註項次或說明外觀數列的規則；各項只用0到9的數字；位數限制26是版面寬度所決定的（不是數列的性質），因此不同起點的列數可能不同（實際預覽的起點6是9列）。預設0.8 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`happynumberchains`（快樂數鏈）使目前目錄1093→1094種，含plain的gallery為1095項。整張tile由上而下寫出12條「各位數字平方和」的演算鏈：從2到99中由seed選出的一個起點開始，每次取各位數字的平方和得到下一個數，用「>」連接，例如19>82>68>100>1；鏈到1為止（起點是快樂數），或到第一次出現4為止（其他所有數最後都會落進 4、16、37、58、89、145、42、20 的循環，所以在4停止）。到1結束的列，第一個數字下方有較深的底色。12條鏈的起點互不相同，字串寬度不超過34個字元的才會被採用（太長的起點會換下一個由seed產生的數）；奇數列有淡淡的底色條。Metallic與mortar為0。
+
+這是作者設計的示意：沒有標註「快樂」或「不快樂」，也沒有標示循環的其他成員；起點限制在2到99且鏈的寬度不超過34個字元，所以像99這樣鏈很長的起點不會出現（實際預覽中的起點都是兩位數以內）；點陣字是3×5字形，「>」為簡化字形，字高較小，建議1024以上才清楚。預設0.8 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

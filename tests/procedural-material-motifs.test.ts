@@ -27665,3 +27665,148 @@ describe('lookandsayrows: the look-and-say sequence', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('happynumberchains: sums of squares of digits until 1 or the cycle through 4', () => {
+  const p = proceduralMaterialPresets.happynumberchains;
+  const shapes: Record<string, string[]> = {
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    '2': ['###', '..#', '###', '#..', '###'],
+    '3': ['###', '..#', '###', '..#', '###'],
+    '4': ['#.#', '#.#', '###', '..#', '..#'],
+    '5': ['###', '#..', '###', '..#', '###'],
+    '6': ['###', '#..', '###', '#.#', '###'],
+    '7': ['###', '..#', '.#.', '.#.', '.#.'],
+    '8': ['###', '#.#', '###', '#.#', '###'],
+    '9': ['###', '#.#', '###', '..#', '###'],
+    '>': ['#..', '.#.', '..#', '.#.', '#..'],
+  };
+  const squares = (n: number): number =>
+    String(n)
+      .split('')
+      .reduce((sum, digit) => sum + Number(digit) * Number(digit), 0);
+  // Happy: repeating the step reaches 1; found by following the step up to 200 times (every unhappy number falls into a cycle).
+  const isHappy = (n: number): boolean => {
+    let value = n;
+    for (let i = 0; i < 200 && value !== 1; i++) value = squares(value);
+    return value === 1;
+  };
+
+  const readRows = (seed: number): { text: string; tone: number }[] => {
+    const sample = createSurfaceSampler('happynumberchains', seed),
+      out = empty(),
+      colorAt = (u: number, v: number): number => {
+        sample(u, v, out);
+        return out.color;
+      },
+      rows: { text: string; tone: number }[] = [];
+    for (let row = 0; row < p.rows; row++) {
+      const centre = p.top + (row + 0.5) * p.rowPitch;
+      let text = '';
+      for (
+        let slot = 0;
+        slot < Math.floor((0.99 - p.left) / (4 * p.pixel));
+        slot++
+      ) {
+        const lines = [0, 1, 2, 3, 4].map((k) =>
+          [0, 1, 2]
+            .map((x) =>
+              colorAt(
+                p.left + (4 * slot + x + 0.5) * p.pixel,
+                centre + (k - 2) * p.pixel,
+              ) < 0.3
+                ? '#'
+                : '.',
+            )
+            .join(''),
+        );
+        if (lines.every((line) => line === '...')) break;
+        const found = Object.entries(shapes).find(([, shape]) =>
+          shape.every((line, i) => line === lines[i]),
+        );
+        expect(found).toBeDefined();
+        text += (found as [string, string[]])[0];
+      }
+      // The background of the first character, near the bottom of the row where there is no ink.
+      rows.push({
+        text,
+        tone: colorAt(
+          p.left + 0.5 * p.pixel,
+          p.top + (row + 1) * p.rowPitch - 0.006,
+        ),
+      });
+    }
+    return rows;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'writes twelve different chains whose steps are sums of squares and which end at 1 or 4 (seed %i)',
+    (seed) => {
+      const rows = readRows(seed),
+        starts = new Set<number>();
+      for (const { text, tone } of rows) {
+        const chain = text.split('>').map(Number);
+        expect(text.length).toBeLessThanOrEqual(p.maxLength);
+        expect(chain[0]).toBeGreaterThanOrEqual(p.lowest);
+        expect(chain[0]).toBeLessThanOrEqual(p.highest);
+        starts.add(chain[0]);
+        chain.forEach((value, i) => {
+          if (i > 0) expect(value).toBe(squares(chain[i - 1]));
+          // 1 and 4 only appear at the end of a chain (except that the start itself may be 4 or 1 on its own).
+          if (i < chain.length - 1) expect([1, 4]).not.toContain(value);
+        });
+        const end = chain[chain.length - 1];
+        expect([1, 4]).toContain(end);
+        // A chain ends at 1 exactly when its starting number is happy, and only those have the darker label.
+        expect(end === 1).toBe(isHappy(chain[0]));
+        if (end === 1 && chain.length > 1) expect(tone).toBeLessThan(0.86);
+        else expect(tone).toBeGreaterThan(0.86);
+      }
+      expect(rows).toHaveLength(p.rows);
+      expect(starts.size).toBe(p.rows);
+    },
+  );
+
+  it('chooses different starting numbers for different seeds', () => {
+    const firsts = new Set<string>();
+    for (let seed = 0; seed < 20; seed++)
+      for (const { text } of readRows(seed)) firsts.add(text);
+    expect(firsts.size).toBeGreaterThan(40);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('happynumberchains', 0),
+      b = createSurfaceSampler('happynumberchains', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
