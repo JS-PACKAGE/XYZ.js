@@ -37712,6 +37712,103 @@ export function createSurfaceSampler(
           occlusion = 1 - 0.2 * rimAmount;
         };
       }
+      case 'countingrods': {
+        const p = proceduralMaterialPresets.countingrods,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x31e01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          // Numbers with 2 to 5 digits (seeded); a zero inside a number is an empty place.
+          numbers = Array.from({ length: p.rows }, (_, row) => {
+            const digits =
+                2 + Math.floor(hash(row, 1, seed ^ 0x31e02) * (p.places - 1)),
+              low = 10 ** (digits - 1);
+            return low + Math.floor(hash(row, 2, seed ^ 0x31e03) * 9 * low);
+          });
+        // The ink of one rod digit at (dx, dy) from the middle of its place, drawn with vertical rods (the quarter turn swaps dx, dy).
+        const rodInk = (digit: number, dx: number, dy: number): number => {
+          if (digit === 0) return 0;
+          const withBar = digit >= 6,
+            rods = withBar ? digit - 5 : digit,
+            start = withBar ? p.rodsBelowBar : -p.rodReach;
+          let ink = 0;
+          for (let k = 0; k < rods; k++)
+            ink = Math.max(
+              ink,
+              cover(
+                p.rodHalf - Math.abs(dx - (k - (rods - 1) / 2) * p.rodGap),
+              ) * cover(Math.min(dy - start, p.rodReach - dy)),
+            );
+          if (withBar)
+            ink = Math.max(
+              ink,
+              cover(p.rodHalf - Math.abs(dy + p.barOffset)) *
+                cover(p.barReach - Math.abs(dx)),
+            );
+          return ink;
+        };
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            row = Math.floor((fv - p.rowTop) / p.rowPitch);
+          let ink = 0;
+          if (row >= 0 && row < p.rows) {
+            const centreY = p.rowTop + (row + 0.5) * p.rowPitch,
+              text = String(numbers[row]),
+              // The decimal digits at the left, 3 x 5 pixels each with one pixel between.
+              px = Math.floor((fu - p.textLeft) / p.pixel),
+              digit = Math.floor(px / 4),
+              gx = px - 4 * digit,
+              gy = Math.floor((fv - centreY) / p.pixel + 2.5);
+            if (
+              px >= 0 &&
+              digit < text.length &&
+              gx < 3 &&
+              gy >= 0 &&
+              gy < 5 &&
+              glyphs[Number(text[digit])][gy * 3 + gx] === '1'
+            )
+              ink = 1;
+            // The rods, one place per digit, the units place at the right.
+            const slot = Math.floor((fu - p.rodsLeft) / p.placePitch);
+            if (slot >= 0 && slot < p.places) {
+              const power = p.places - 1 - slot,
+                digitAt = Math.floor(numbers[row] / 10 ** power) % 10,
+                dx = fu - (p.rodsLeft + (slot + 0.5) * p.placePitch),
+                dy = fv - centreY;
+              ink = Math.max(
+                ink,
+                power % 2 === 0
+                  ? rodInk(digitAt, dx, dy)
+                  : rodInk(digitAt, dy, dx),
+              );
+            }
+          }
+          const stripe = row >= 0 && row < p.rows && row % 2 === 1 ? 1 : 0,
+            base = p.paperTone + (p.stripeTone - p.paperTone) * stripe;
+          color = clamp(
+            base +
+              (p.inkTone - base) * ink +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * ink);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -65241,6 +65338,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'countingrods' ||
     kind === 'braiddiagram' ||
     kind === 'youngtableaux' ||
     kind === 'euclidsquares' ||

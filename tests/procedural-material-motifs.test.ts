@@ -15,6 +15,8 @@ const empty = (): SurfaceSample => ({
   mortar: 0,
   metallic: 0,
 });
+// The sampler `createSurfaceSampler` returns: fills `out` for one periodic point (u, v).
+type Sampler = (u: number, v: number, out: SurfaceSample) => void;
 
 describe('mudcloth: painted motif bands on a dark plain weave', () => {
   const p = proceduralMaterialPresets.mudcloth;
@@ -29767,11 +29769,7 @@ describe('braiddiagram: a braid diagram', () => {
     p.firstTone + ((p.lastTone - p.firstTone) * strand) / (count - 1);
 
   // The strand at every place along a line of the picture, by its tone (-1 when the place is paper or the tone fits no strand).
-  const readLine = (
-    sample: ReturnType<typeof createSurfaceSampler>,
-    v: number,
-    count: number,
-  ): number[] => {
+  const readLine = (sample: Sampler, v: number, count: number): number[] => {
     const out = empty();
     return Array.from({ length: count }, (_, place) => {
       sample(p.left + place * (p.width / (count - 1)), v, out);
@@ -29928,6 +29926,224 @@ describe('braiddiagram: a braid diagram', () => {
   it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
     const a = createSurfaceSampler('braiddiagram', 0),
       b = createSurfaceSampler('braiddiagram', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
+
+describe('countingrods: Chinese counting rod numerals', () => {
+  const p = proceduralMaterialPresets.countingrods;
+  const glyphs = [
+    '111101101101111',
+    '010110010010111',
+    '111001111100111',
+    '111001111001111',
+    '101101111001001',
+    '111100111001111',
+    '111100111101111',
+    '111001010010010',
+    '111101111101111',
+    '111101111001111',
+  ];
+
+  // The dark runs (middle of each, along the scan) and the longest one's length along a line of the picture.
+  const runsAlong = (
+    sample: Sampler,
+    horizontal: boolean,
+    fixed: number,
+    from: number,
+    to: number,
+  ): { centres: number[]; longest: number } => {
+    const out = empty(),
+      step = 0.0008,
+      centres: number[] = [];
+    let start: number | undefined,
+      longest = 0;
+    for (let at = from; at <= to; at += step) {
+      if (horizontal) sample(at, fixed, out);
+      else sample(fixed, at, out);
+      const dark = out.color < 0.3;
+      if (dark && start === undefined) start = at;
+      if ((!dark || at + step > to) && start !== undefined) {
+        centres.push((start + at) / 2);
+        longest = Math.max(longest, at - start + step);
+        start = undefined;
+      }
+    }
+    return { centres, longest };
+  };
+
+  // One place of rods: whether there is a bar (a long dark run along the line across the bar), the rods counted along a line below
+  // the bar and along a line between the bar and the short rods, and the middle of every rod on the first line.
+  const rodPlace = (
+    sample: Sampler,
+    row: number,
+    slot: number,
+  ): {
+    hasBar: boolean;
+    rods: number;
+    betweenRods: number;
+    centres: number[];
+    middle: number;
+  } => {
+    const power = p.places - 1 - slot,
+      vertical = power % 2 === 0,
+      centreU = p.rodsLeft + (slot + 0.5) * p.placePitch,
+      centreV = p.rowTop + (row + 0.5) * p.rowPitch,
+      // Vertical rods: the lines run across the place horizontally, at an offset above or below its middle. Turned a quarter
+      // (horizontal rods) the roles of the two axes swap: the lines run vertically, at an offset to the left or right.
+      across = (offset: number) =>
+        vertical
+          ? runsAlong(
+              sample,
+              true,
+              centreV + offset,
+              centreU - 0.05,
+              centreU + 0.05,
+            )
+          : runsAlong(
+              sample,
+              false,
+              centreU + offset,
+              centreV - 0.05,
+              centreV + 0.05,
+            ),
+      bar = across(-p.barOffset),
+      rods = across(0.028),
+      between = across(-0.022);
+    return {
+      hasBar: bar.longest > 0.04,
+      rods: rods.centres.length,
+      betweenRods: between.centres.length,
+      centres: rods.centres,
+      middle: vertical ? centreU : centreV,
+    };
+  };
+
+  // The decimal number written at the left of a row.
+  const decimal = (sample: Sampler, row: number): string => {
+    const out = empty(),
+      centreV = p.rowTop + (row + 0.5) * p.rowPitch;
+    let text = '';
+    for (let digit = 0; digit < p.places; digit++) {
+      let bits = '';
+      for (let gy = 0; gy < 5; gy++)
+        for (let gx = 0; gx < 3; gx++) {
+          sample(
+            p.textLeft + (digit * 4 + gx + 0.5) * p.pixel,
+            centreV + (gy - 2) * p.pixel,
+            out,
+          );
+          bits += out.color < 0.3 ? '1' : '0';
+        }
+      if (bits === '0'.repeat(15)) break;
+      const index = glyphs.indexOf(bits);
+      expect(index).toBeGreaterThanOrEqual(0);
+      text += index;
+    }
+    return text;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows every number both in decimal and in rods (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('countingrods', seed),
+        out = empty();
+      for (let row = 0; row < p.rows; row++) {
+        const text = decimal(sample, row),
+          digits = text.padStart(p.places, '0');
+        expect(text.length).toBeGreaterThanOrEqual(2);
+        expect(text[0]).not.toBe('0');
+        digits.split('').forEach((character, slot) => {
+          const digit = Number(character),
+            place = rodPlace(sample, row, slot);
+          // 1 to 5: that many rods, none between the bar line and them; 6 to 9: a bar and 1 to 4 rods below it, with a gap between;
+          // 0: nothing at all.
+          expect(place.hasBar).toBe(digit >= 6);
+          expect(place.rods).toBe(digit >= 6 ? digit - 5 : digit);
+          expect(place.betweenRods).toBe(digit >= 6 ? 0 : digit);
+          // The rods are 0.014 apart and centred on the middle of their place.
+          place.centres.forEach((centre, k) => {
+            if (k > 0)
+              expect(
+                Math.abs(centre - place.centres[k - 1] - p.rodGap),
+              ).toBeLessThan(0.0015);
+          });
+          if (place.centres.length > 0)
+            expect(
+              Math.abs(
+                place.centres.reduce((a, b) => a + b, 0) /
+                  place.centres.length -
+                  place.middle,
+              ),
+            ).toBeLessThan(0.0015);
+        });
+
+        // Alternate rows have a darker band behind them.
+        sample(0.3, p.rowTop + (row + 0.5) * p.rowPitch, out);
+        expect(out.color).toBeGreaterThan(
+          row % 2 === 1 ? p.stripeTone - 0.03 : p.paperTone - 0.03,
+        );
+        expect(out.color).toBeLessThan(
+          row % 2 === 1 ? p.stripeTone + 0.03 : p.paperTone + 0.03,
+        );
+      }
+    },
+  );
+
+  it('draws zeros as empty places, numbers of 2 to 5 digits, and different numbers for different seeds', () => {
+    const numbers = new Set<string>(),
+      lengths = new Set<number>();
+    let zeros = 0;
+    for (let seed = 0; seed < 20; seed++) {
+      const sample = createSurfaceSampler('countingrods', seed);
+      for (let row = 0; row < p.rows; row++) {
+        const text = decimal(sample, row);
+        numbers.add(text);
+        lengths.add(text.length);
+        zeros += text
+          .slice(1)
+          .split('')
+          .filter((digit) => digit === '0').length;
+      }
+    }
+    expect(numbers.size).toBeGreaterThan(100);
+    expect(zeros).toBeGreaterThan(5);
+    expect([...lengths].sort()).toEqual([2, 3, 4, 5]);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('countingrods', 0),
+      b = createSurfaceSampler('countingrods', 7),
       one = empty(),
       two = empty();
     let invalid = 0,

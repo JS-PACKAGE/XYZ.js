@@ -20887,6 +20887,44 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .74,
 		strandRoughness: .5
 	}),
+	countingrods: Object.freeze({
+		dark: [
+			30,
+			26,
+			22
+		],
+		light: [
+			236,
+			224,
+			190
+		],
+		roughness: .58,
+		relief: .004,
+		rows: 8,
+		places: 5,
+		rowTop: .06,
+		rowPitch: .11,
+		textLeft: .06,
+		pixel: .0075,
+		rodsLeft: .42,
+		placePitch: .105,
+		rodHalf: .0028,
+		rodGap: .014,
+		rodReach: .04,
+		barOffset: .032,
+		barReach: .032,
+		rodsBelowBar: -.012,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .92,
+		inkTone: .08,
+		stripeTone: .86,
+		grainTone: .035,
+		paperHeight: .2,
+		inkHeight: .72,
+		paperRoughness: .72,
+		inkRoughness: .42
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -29568,6 +29606,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	countingrods: 1,
 	braiddiagram: 1,
 	youngtableaux: 1,
 	euclidsquares: 1,
