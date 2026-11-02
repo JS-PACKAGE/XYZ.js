@@ -1821,6 +1821,10 @@
 
 這是作者設計的示意：只有兩顆相同面數的公正骰子，沒有機率數值或頻率標示（每個方塊只是一種有序組合，(a, b)與(b, a)分開算）；格子很多時（8面骰、15欄）數字很小，小尺寸下不易辨識；與既有的`dicefaces`（骰子的面）是不同的材質。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`binaryheaptree`（二元堆積樹）使目前目錄1065→1066種，含plain的gallery為1067項。每tile是一棵4層、15個節點的完全二元樹：每個節點是一個圓，圓內用點陣字寫一個10到99之間的雙位數，父節點與子節點之間以直線相連；數值滿足堆積（heap）的性質——最小堆積中每個父節點都比兩個子節點小，最大堆積中則都比子節點大，根節點是最小（或最大）值，用較深的底色。seed決定是最小堆積還是最大堆積，並從10到99中取15個不重複的值，依序用標準的「插入後向上調整（sift-up）」放進陣列堆積。Metallic與mortar為0。
+
+這是作者設計的示意：只有15個節點、4層，沒有標示陣列索引或調整的過程；圖上同一層的節點之間沒有大小順序（堆積只保證父子之間的順序）；點陣字在小尺寸下很小。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

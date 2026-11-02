@@ -23425,3 +23425,170 @@ describe('dicesumbars: how many ways two dice make each sum', () => {
     expect(different).toBeGreaterThan(0);
   });
 });
+
+describe('binaryheaptree: a complete binary tree that satisfies the heap property', () => {
+  const p = proceduralMaterialPresets.binaryheaptree;
+  const digitShapes: string[][] = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+  const nodes = 2 ** p.levels - 1;
+  // Centre of the node in slot i: the slots of a level are consecutive, so level = number of bits of i + 1 minus one.
+  const centreOf = (slot: number): [number, number] => {
+    let level = 0;
+    while (slot + 1 >= 2 ** (level + 1)) level++;
+    const index = slot + 1 - 2 ** level;
+    return [
+      p.left + (p.width * (index + 0.5)) / 2 ** level,
+      p.top + level * p.levelPitch,
+    ];
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'puts a two-digit value in every node so that each parent beats both children (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('binaryheaptree', seed),
+        out = empty(),
+        colorAt = (u: number, v: number): number => {
+          sample(u, v, out);
+          return out.color;
+        },
+        values: number[] = [];
+      for (let slot = 0; slot < nodes; slot++) {
+        const [cx, cy] = centreOf(slot),
+          start = cx - ((4 * 2 - 1) / 2) * p.pixel;
+        let text = '';
+        for (let d = 0; d < 2; d++) {
+          const lines = [0, 1, 2, 3, 4].map((k) =>
+            [0, 1, 2]
+              .map((x) =>
+                colorAt(
+                  start + (4 * d + x + 0.5) * p.pixel,
+                  cy + (k - 2) * p.pixel,
+                ) < 0.3
+                  ? '#'
+                  : '.',
+              )
+              .join(''),
+          );
+          const digit = digitShapes.findIndex((shape) =>
+            shape.every((line, i) => line === lines[i]),
+          );
+          expect(digit).toBeGreaterThanOrEqual(0);
+          text += digit;
+        }
+        values.push(Number(text));
+      }
+      expect(new Set(values).size).toBe(nodes);
+      for (const value of values) {
+        expect(value).toBeGreaterThanOrEqual(p.lowest);
+        expect(value).toBeLessThanOrEqual(p.highest);
+      }
+      // Min-heap: every parent is smaller than its children; max-heap: larger. Exactly one of them holds.
+      let minHeap = true,
+        maxHeap = true;
+      for (let slot = 1; slot < nodes; slot++) {
+        const parent = values[Math.floor((slot - 1) / 2)];
+        if (parent > values[slot]) minHeap = false;
+        if (parent < values[slot]) maxHeap = false;
+      }
+      expect(minHeap !== maxHeap).toBe(true);
+      // The root holds the extreme value and its node is shaded darker than the others; an edge joins every child to its parent.
+      expect(values[0]).toBe(
+        minHeap ? Math.min(...values) : Math.max(...values),
+      );
+      expect(
+        colorAt(centreOf(0)[0] - p.nodeRadius * 0.8, centreOf(0)[1]),
+      ).toBeLessThan(
+        colorAt(centreOf(1)[0] - p.nodeRadius * 0.8, centreOf(1)[1]) - 0.1,
+      );
+      for (let slot = 1; slot < nodes; slot++) {
+        const [cx, cy] = centreOf(slot),
+          [px, py] = centreOf(Math.floor((slot - 1) / 2)),
+          // The middle of the segment, which lies between the two nodes since they are more than two radii apart.
+          mid = [(cx + px) / 2, (cy + py) / 2];
+        expect(Math.hypot(cx - px, cy - py)).toBeGreaterThan(2 * p.nodeRadius);
+        expect(colorAt(mid[0], mid[1])).toBeLessThan(0.5);
+      }
+    },
+  );
+
+  it('uses both min-heaps and max-heaps across seeds', () => {
+    const kinds = new Set<string>();
+    for (let seed = 0; seed < 30; seed++) {
+      const sample = createSurfaceSampler('binaryheaptree', seed),
+        out = empty(),
+        [cx, cy] = centreOf(0),
+        readValue = (slotCentre: [number, number]): number => {
+          let text = '';
+          const start = slotCentre[0] - ((4 * 2 - 1) / 2) * p.pixel;
+          for (let d = 0; d < 2; d++) {
+            const lines = [0, 1, 2, 3, 4].map((k) =>
+              [0, 1, 2]
+                .map((x) => {
+                  sample(
+                    start + (4 * d + x + 0.5) * p.pixel,
+                    slotCentre[1] + (k - 2) * p.pixel,
+                    out,
+                  );
+                  return out.color < 0.3 ? '#' : '.';
+                })
+                .join(''),
+            );
+            text += digitShapes.findIndex((shape) =>
+              shape.every((line, i) => line === lines[i]),
+            );
+          }
+          return Number(text);
+        },
+        root = readValue([cx, cy]),
+        child = readValue(centreOf(1));
+      kinds.add(root < child ? 'min' : 'max');
+    }
+    expect([...kinds].sort()).toEqual(['max', 'min']);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('binaryheaptree', 0),
+      b = createSurfaceSampler('binaryheaptree', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

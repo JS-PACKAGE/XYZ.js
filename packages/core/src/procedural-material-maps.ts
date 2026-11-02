@@ -34079,6 +34079,141 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'binaryheaptree': {
+        const p = proceduralMaterialPresets.binaryheaptree,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2f401),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          count = 2 ** p.levels - 1,
+          // The seed draws distinct values, inserts them one by one into a heap stored as an array (the children of
+          // slot i are 2i + 1 and 2i + 2) and moves each one up while it beats its parent; the seed also picks whether
+          // the smallest (a min-heap) or the largest value sits at the root.
+          minHeap = hash(1, 5, seed ^ 0x2f402) < 0.5,
+          pool = Array.from(
+            { length: p.highest - p.lowest + 1 },
+            (_, i) => p.lowest + i,
+          )
+            .map((value) => ({ value, key: hash(value, 8, seed ^ 0x2f403) }))
+            .sort((a, b) => a.key - b.key)
+            .slice(0, count)
+            .map((entry) => entry.value),
+          heap: number[] = [];
+        for (const value of pool) {
+          heap.push(value);
+          let slot = heap.length - 1;
+          while (slot > 0) {
+            const parent = (slot - 1) >> 1;
+            if (
+              minHeap ? heap[parent] <= heap[slot] : heap[parent] >= heap[slot]
+            )
+              break;
+            [heap[parent], heap[slot]] = [heap[slot], heap[parent]];
+            slot = parent;
+          }
+        }
+        // Node centres: level L has 2^L nodes spread evenly across the width.
+        const centre = (slot: number): [number, number] => {
+          const level = Math.floor(Math.log2(slot + 1)),
+            index = slot + 1 - 2 ** level;
+          return [
+            p.left + (p.width * (index + 0.5)) / 2 ** level,
+            p.top + level * p.levelPitch,
+          ];
+        };
+        // Distance from a point to the segment between two points.
+        const segment = (
+          x: number,
+          y: number,
+          ax: number,
+          ay: number,
+          bx: number,
+          by: number,
+        ): number => {
+          const dx = bx - ax,
+            dy = by - ay,
+            t = clamp(((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy));
+          return Math.hypot(x - (ax + t * dx), y - (ay + t * dy));
+        };
+        return () => {
+          let edge = 0,
+            ring = 0,
+            node = 0,
+            slotAt = -1,
+            glyph = 0;
+          for (let slot = 0; slot < count; slot++) {
+            const [cx, cy] = centre(slot);
+            if (slot > 0) {
+              const [px, py] = centre((slot - 1) >> 1);
+              edge = Math.max(
+                edge,
+                cover(p.edgeHalf - segment(u, v, px, py, cx, cy)),
+              );
+            }
+            const distance = Math.hypot(u - cx, v - cy);
+            node = Math.max(node, cover(p.nodeRadius - distance));
+            ring = Math.max(
+              ring,
+              cover(p.ringHalf - Math.abs(distance - p.nodeRadius)),
+            );
+            if (distance < p.nodeRadius) slotAt = slot;
+          }
+          if (slotAt >= 0) {
+            const [cx, cy] = centre(slotAt),
+              text = String(heap[slotAt]),
+              px = Math.floor(
+                (u - (cx - ((4 * text.length - 1) / 2) * p.pixel)) / p.pixel,
+              ),
+              py = Math.floor((v - (cy - 2.5 * p.pixel)) / p.pixel),
+              d = px >= 0 ? Math.floor(px / 4) : -1,
+              gx = px - 4 * d;
+            if (
+              d >= 0 &&
+              d < text.length &&
+              gx >= 0 &&
+              gx < 3 &&
+              py >= 0 &&
+              py < 5 &&
+              glyphs[Number(text[d])][py * 3 + gx] === '1'
+            )
+              glyph = 1;
+          }
+          // Edges lie under the nodes; the root node is shaded darker.
+          const fill = slotAt === 0 ? p.rootTone : p.nodeTone,
+            withEdge = p.paperTone + (p.lineTone - p.paperTone) * edge,
+            withNode = withEdge + (fill - withEdge) * node,
+            withRing = withNode + (p.lineTone - withNode) * ring;
+          color = clamp(
+            withRing +
+              (p.inkTone - withRing) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.paperHeight +
+              ((slotAt === 0 ? p.rootHeight : p.nodeHeight) - p.paperHeight) *
+                node +
+              (p.lineHeight - p.paperHeight) *
+                Math.max(edge * (1 - node), ring) -
+              p.inkDepth * glyph,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.inkRoughness - p.paperRoughness) * Math.max(edge, ring, glyph);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -61608,6 +61743,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'binaryheaptree' ||
     kind === 'dicesumbars' ||
     kind === 'substitutionwords' ||
     kind === 'stemandleaf' ||
