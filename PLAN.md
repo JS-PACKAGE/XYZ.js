@@ -1713,6 +1713,10 @@
 
 這是作者設計的示意：數字是隨機的，不是真實的卡號（也不模擬任何發卡機構的開頭規則或長度），僅用於示意Luhn演算法；每個tile的有效比例由seed的偽隨機決定（約六成，而非固定數量）；第2、4、…列有略深的底色；點陣數字在小尺寸下難以辨識。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`bezierconstruction`（貝茲曲線作圖）使目前目錄1038→1039種，含plain的gallery為1040項。每tile分成2×2四個面板，每個面板畫出一條三次貝茲曲線（四個固定的控制點P₀到P₃，共四種不同形狀，排列由seed決定），並顯示德卡斯特里奧（de Casteljau）作圖法在某個參數t的過程：虛線連出控制多邊形，端點P₀與P₃是實心方塊、中間兩個控制點P₁與P₂是空心圓環，然後在t處把相鄰點內插得到的第一層與第二層線段以細線畫出，最後一個內插點就是曲線上的點，用實心圓點標出。t由seed從1/4、1/3、1/2、2/3挑一個，四個面板共用同一個t。Metallic與mortar為0。
+
+這是作者設計的示意：只有四條固定的三次曲線與四個固定的t；曲線本身是64段折線近似（每像素對64條線段求距離）；虛線只是控制多邊形的示意，虛線的斷續是由螢幕座標的格點決定，不是沿線的等長虛線；單次512×512渲染約0.2秒（Bun、預覽腳本、只量一次）。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

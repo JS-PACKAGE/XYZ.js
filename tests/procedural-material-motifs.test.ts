@@ -19259,3 +19259,192 @@ describe('luhnnumbers: sixteen-digit numbers marked as passing or failing the Lu
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('bezierconstruction: cubic Bezier curves with the de Casteljau construction', () => {
+  const p = proceduralMaterialPresets.bezierconstruction;
+  const centres = [
+    [0.25, 0.25],
+    [0.75, 0.25],
+    [0.25, 0.75],
+    [0.75, 0.75],
+  ];
+  // Control points of preset curve `index` in a panel centred at (cx, cy).
+  const controls = (
+    index: number,
+    cx: number,
+    cy: number,
+  ): [number, number][] =>
+    [0, 1, 2, 3].map((k) => [
+      cx + p.curves[index][2 * k],
+      cy + p.curves[index][2 * k + 1],
+    ]);
+  // The Bezier curve from its Bernstein form B(t) = sum C(3, i) t^i (1 - t)^(3 - i) P_i.
+  const bernstein = (
+    points: [number, number][],
+    t: number,
+  ): [number, number] => {
+    const weights = [
+      (1 - t) ** 3,
+      3 * t * (1 - t) ** 2,
+      3 * t * t * (1 - t),
+      t ** 3,
+    ];
+    return [
+      weights.reduce((s, w, i) => s + w * points[i][0], 0),
+      weights.reduce((s, w, i) => s + w * points[i][1], 0),
+    ];
+  };
+  // The de Casteljau construction, written as repeated interpolation.
+  const casteljau = (
+    points: [number, number][],
+    t: number,
+  ): [number, number][][] => {
+    const levels = [points];
+    while (levels[levels.length - 1].length > 1) {
+      const last = levels[levels.length - 1];
+      levels.push(
+        last
+          .slice(1)
+          .map(
+            (q, i) =>
+              [
+                last[i][0] + (q[0] - last[i][0]) * t,
+                last[i][1] + (q[1] - last[i][1]) * t,
+              ] as [number, number],
+          ),
+      );
+    }
+    return levels;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws each curve through its Bernstein points and marks the de Casteljau point at one parameter (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('bezierconstruction', seed),
+        out = empty(),
+        colorAt = (x: number, y: number): number => {
+          sample(x, y, out);
+          return out.color;
+        },
+        used: number[] = [],
+        matches: Map<number, number>[] = [];
+      centres.forEach(([cx, cy]) => {
+        // Which preset curve sits in this panel: the one whose Bernstein points are (nearly) all dark.
+        const fits = p.curves.map((_, index) => {
+          const points = controls(index, cx, cy);
+          let dark = 0;
+          for (let i = 0; i <= 100; i++) {
+            const [x, y] = bernstein(points, i / 100);
+            dark += Number(colorAt(x, y) < 0.3);
+          }
+          return dark / 101;
+        });
+        const best = Math.max(...fits),
+          index = fits.indexOf(best);
+        expect(best).toBeGreaterThan(0.97);
+        expect([...fits].sort((a, b) => b - a)[1]).toBeLessThan(0.6);
+        used.push(index);
+        // For each candidate parameter, is the de Casteljau point marked (a dark disc) in this panel?
+        const marked = new Map<number, number>();
+        p.parameters.forEach((t, k) => {
+          const levels = casteljau(controls(index, cx, cy), t),
+            [x, y] = levels[3][0];
+          marked.set(
+            k,
+            colorAt(x, y) < 0.15 &&
+              colorAt(x + 0.007, y) < 0.15 &&
+              colorAt(x, y - 0.007) < 0.15
+              ? 1
+              : 0,
+          );
+        });
+        matches.push(marked);
+        // The end points are filled squares, the inner control points are rings (hollow in the middle).
+        const points = controls(index, cx, cy);
+        for (const k of [0, 3])
+          expect(colorAt(points[k][0], points[k][1])).toBeLessThan(0.2);
+        for (const k of [1, 2]) {
+          // The guide lines pass through the centre, so look for bare paper in the hollow around it.
+          const hollow = Math.max(
+            ...[0, 1, 2, 3, 4, 5, 6, 7].map((m) =>
+              colorAt(
+                points[k][0] + 0.0035 * Math.cos((m * Math.PI) / 4),
+                points[k][1] + 0.0035 * Math.sin((m * Math.PI) / 4),
+              ),
+            ),
+          );
+          expect(hollow).toBeGreaterThan(0.8);
+          expect(colorAt(points[k][0] + 0.0072, points[k][1])).toBeLessThan(
+            0.3,
+          );
+        }
+      });
+      // Each preset curve appears once.
+      expect([...used].sort((a, b) => a - b)).toEqual([0, 1, 2, 3]);
+      // Exactly one parameter is marked in every panel.
+      const common = p.parameters.map((_, k) =>
+        matches.every((m) => m.get(k) === 1),
+      );
+      expect(common.filter(Boolean).length).toBe(1);
+    },
+  );
+
+  it('shows more than one construction parameter across seeds', () => {
+    const out = empty(),
+      seen = new Set<number>();
+    for (let seed = 0; seed < 30; seed++) {
+      const sample = createSurfaceSampler('bezierconstruction', seed);
+      // The point at parameter t of the first preset curve, wherever its panel is, is only marked for the chosen t.
+      centres.forEach(([cx, cy]) => {
+        p.curves.forEach((_, index) => {
+          p.parameters.forEach((t, k) => {
+            const [x, y] = casteljau(controls(index, cx, cy), t)[3][0];
+            sample(x, y, out);
+            const a = out.color;
+            sample(x + 0.007, y, out);
+            const b = out.color;
+            sample(x, y - 0.007, out);
+            if (a < 0.15 && b < 0.15 && out.color < 0.15) seen.add(k);
+          });
+        });
+      });
+    }
+    expect(seen.size).toBeGreaterThan(1);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('bezierconstruction', 0),
+      b = createSurfaceSampler('bezierconstruction', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

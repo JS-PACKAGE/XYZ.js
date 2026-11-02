@@ -31537,6 +31537,214 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'bezierconstruction': {
+        const p = proceduralMaterialPresets.bezierconstruction,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2d901),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          parameter =
+            p.parameters[
+              Math.min(
+                p.parameters.length - 1,
+                Math.floor(hash(1, 1, seed ^ 0x2d902) * p.parameters.length),
+              )
+            ],
+          order = p.curves
+            .map((_, i) => i)
+            .sort(
+              (a, b) => hash(a, 4, seed ^ 0x2d903) - hash(b, 4, seed ^ 0x2d903),
+            ),
+          lerp = (a: number, b: number, t: number): number => a + (b - a) * t,
+          // For each panel: the control points, the de Casteljau levels at the chosen parameter, and the curve as a polyline.
+          panels = order.map((index, panel) => {
+            const centreX = panel % 2 === 0 ? 0.25 : 0.75,
+              centreY = panel < 2 ? 0.25 : 0.75,
+              raw = p.curves[index],
+              points = [0, 1, 2, 3].map(
+                (k) =>
+                  [centreX + raw[2 * k], centreY + raw[2 * k + 1]] as const,
+              ),
+              level1 = [0, 1, 2].map(
+                (k) =>
+                  [
+                    lerp(points[k][0], points[k + 1][0], parameter),
+                    lerp(points[k][1], points[k + 1][1], parameter),
+                  ] as const,
+              ),
+              level2 = [0, 1].map(
+                (k) =>
+                  [
+                    lerp(level1[k][0], level1[k + 1][0], parameter),
+                    lerp(level1[k][1], level1[k + 1][1], parameter),
+                  ] as const,
+              ),
+              top = [
+                lerp(level2[0][0], level2[1][0], parameter),
+                lerp(level2[0][1], level2[1][1], parameter),
+              ] as const,
+              curve = Array.from({ length: p.segments + 1 }, (_, i) => {
+                const t = i / p.segments,
+                  s = 1 - t,
+                  weights = [
+                    s * s * s,
+                    3 * s * s * t,
+                    3 * s * t * t,
+                    t * t * t,
+                  ];
+                return [
+                  weights.reduce((sum, w, k) => sum + w * points[k][0], 0),
+                  weights.reduce((sum, w, k) => sum + w * points[k][1], 0),
+                ] as const;
+              });
+            return { centreX, centreY, points, level1, level2, top, curve };
+          }),
+          // Distance from (x, y) to the segment a-b.
+          segmentDistance = (
+            x: number,
+            y: number,
+            ax: number,
+            ay: number,
+            bx: number,
+            by: number,
+          ): number => {
+            const ex = bx - ax,
+              ey = by - ay,
+              t = clamp(
+                ((x - ax) * ex + (y - ay) * ey) / (ex * ex + ey * ey || 1),
+              );
+            return Math.hypot(x - ax - ex * t, y - ay - ey * t);
+          };
+        return () => {
+          const panel = (v >= 0.5 ? 2 : 0) + (u >= 0.5 ? 1 : 0),
+            { centreX, centreY, points, level1, level2, top, curve } =
+              panels[panel];
+          let inside = 0,
+            curveCover = 0,
+            guide = 0,
+            construction = 0,
+            marker = 0;
+          if (
+            Math.abs(u - centreX) < p.panelHalf &&
+            Math.abs(v - centreY) < p.panelHalf
+          ) {
+            inside = 1;
+            for (let i = 0; i < p.segments; i++)
+              curveCover = Math.max(
+                curveCover,
+                cover(
+                  p.curveHalf -
+                    segmentDistance(
+                      u,
+                      v,
+                      curve[i][0],
+                      curve[i][1],
+                      curve[i + 1][0],
+                      curve[i + 1][1],
+                    ),
+                ),
+              );
+            // Control polygon, dashed.
+            const dash =
+              ((v % p.dashPeriod) + p.dashPeriod) % p.dashPeriod <
+                p.dashPeriod * p.dashDuty ||
+              ((u % p.dashPeriod) + p.dashPeriod) % p.dashPeriod <
+                p.dashPeriod * p.dashDuty
+                ? 1
+                : 0;
+            for (let k = 0; k < 3; k++)
+              guide = Math.max(
+                guide,
+                cover(
+                  p.guideHalf -
+                    segmentDistance(
+                      u,
+                      v,
+                      points[k][0],
+                      points[k][1],
+                      points[k + 1][0],
+                      points[k + 1][1],
+                    ),
+                ),
+              );
+            guide *= dash;
+            // De Casteljau levels: the segments between successive interpolated points.
+            for (let k = 0; k < 2; k++)
+              construction = Math.max(
+                construction,
+                cover(
+                  p.constructionHalf -
+                    segmentDistance(
+                      u,
+                      v,
+                      level1[k][0],
+                      level1[k][1],
+                      level1[k + 1][0],
+                      level1[k + 1][1],
+                    ),
+                ),
+              );
+            construction = Math.max(
+              construction,
+              cover(
+                p.constructionHalf -
+                  segmentDistance(
+                    u,
+                    v,
+                    level2[0][0],
+                    level2[0][1],
+                    level2[1][0],
+                    level2[1][1],
+                  ),
+              ),
+            );
+            // Markers: control points are rings, end points squares, and the point on the curve a filled disc.
+            for (const k of [1, 2]) {
+              const distance = Math.hypot(u - points[k][0], v - points[k][1]);
+              marker = Math.max(
+                marker,
+                cover(p.controlRadius - distance) *
+                  (1 - cover(p.controlRadius - 0.0035 - distance)),
+              );
+            }
+            for (const k of [0, 3])
+              marker = Math.max(
+                marker,
+                cover(
+                  p.endHalf -
+                    Math.max(
+                      Math.abs(u - points[k][0]),
+                      Math.abs(v - points[k][1]),
+                    ),
+                ),
+              );
+            marker = Math.max(
+              marker,
+              cover(p.pointRadius - Math.hypot(u - top[0], v - top[1])),
+            );
+          }
+          const base = p.paperTone + (p.panelTone - p.paperTone) * inside,
+            withGuide = base + (p.guideTone - base) * guide,
+            withConstruction =
+              withGuide + (p.constructionTone - withGuide) * construction,
+            withCurve =
+              withConstruction + (p.curveTone - withConstruction) * curveCover,
+            tone = withCurve + (p.pointTone - withCurve) * marker;
+          color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(
+            p.paperHeight +
+              (p.panelHeight - p.paperHeight) * inside +
+              (p.guideHeight - p.panelHeight) * Math.max(guide, construction) +
+              (p.curveHeight - p.panelHeight) * curveCover +
+              (p.pointHeight - p.curveHeight) * marker,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.curveRoughness - p.paperRoughness) *
+              Math.max(curveCover, marker);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -59066,6 +59274,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'bezierconstruction' ||
     kind === 'luhnnumbers' ||
     kind === 'twosourceripples' ||
     kind === 'cassiniovals' ||

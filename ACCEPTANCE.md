@@ -12506,3 +12506,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 文字修正：暫存的中文文件寫了「偶數列有略深的底色」，但取樣器實際是第2、4、…列（0起算的奇數索引），在寫入文件前改正，沒有進入提交。
 - 實測：`tests/procedural-material-motifs.test.ts`一千三百零一項（本材質十項）全過，`tsc`、eslint通過。九個seed（0、7、4294967295、1至6）：測試端在每格中心讀3×5點陣還原16位數字與列尾符號（打勾或打叉），用測試自己寫出的Luhn檢查（從右邊起每隔一位乘2、大於9減9、總和為10的倍數）計算每列是否有效，**必須與列尾符號一致**；組間的四個空格必須是空白、最後一位的格子底色較深、第一位的格子底色正常；十列數字互不相同；通道範圍、metallic／mortar 0、wrap與seed差異。突變檢查：(1)把取樣器的加倍位置從「從右數第2位」改成「第1位」，九個seed中的九項失敗；(2)讓無效列不真的改動任何一位（`!valid && false`），九個seed中的九項失敗；都已還原並確認`git diff --stat`只含本材質的112行。`tests/procedural-material.test.ts`以`-t "luhnnumbers|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`luhnnumbers`：嚴格斷言的檢查（option為1039個、status含「1038 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染，實看512 seed7 2×2拼貼的盤面（十列數字與列尾符號）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：貝茲曲線作圖（bezierconstruction）
+
+- 目錄1038→1039，含plain的gallery為1040項。每tile 2×2四個面板，各畫一條固定控制點的三次貝茲曲線（四種不同形狀，排列由seed決定）與德卡斯特里奧作圖法在參數t（1/4、1/3、1/2、2/3，由seed決定）的內插線段，控制多邊形以虛線、端點為方塊、內部控制點為圓環、曲線上的點為實心圓點；曲線是64段折線近似。Metallic／mortar為0，預設tile0.6 m、0.004 UV-relative relief、metallic factor 0。作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 調整：第一版第四條曲線的控制點縱向到±0.25，超出面板的±0.24邊界而被裁掉，預覽時看到，改成±0.22。文件的形狀名稱（我原先寫了「S形、鉤形、帶圈、波形」）沒有逐一對照預覽就寫了，在寫入文件前移除，只說「四種不同形狀」。
+- 測試端錯誤：第一版測試用「控制點圓環中心是亮的」判斷空心圓環，但控制多邊形的虛線穿過每個控制點，使中心不一定是亮的（0.62），九個seed全部失敗；改成在圓環內側半徑0.0035的八個方向取樣、至少一處是紙面色（大於0.8）。
+- 過程失誤：我在做突變檢查時，用了一個因為prettier換行而沒有匹配到任何行的`grep`，行號變數為空，接著的`sed -n`（沒有行號）把整個巨大的原始檔列印到輸出中（沒有修改檔案；`git diff --stat`仍只多本材質的209行）。之後改用先讀出行號與內容再以內容比對作保護的做法重做突變檢查。
+- 實測：`tests/procedural-material-motifs.test.ts`一千三百一十二項（本材質十一項）全過，`tsc`、eslint通過。九個seed（0、7、4294967295、1至6）：測試端對每個面板的四條預設曲線各自用測試自己寫出的**伯恩斯坦形式**求101個點，計算取樣器在這些點上是深色的比例，最佳候選必須超過97%、第二名低於60%，四個面板恰好各是不同的曲線；對四個候選t各自用**重複線性內插（de Casteljau）**求最上層的點，檢查該處（及右、上各偏移0.007）是否是深色圓點，四個面板必須恰好共同選中一個t；端點必須是實心（中心深色）、兩個內部控制點必須是空心圓環（內側有紙面、環上深色）；另一項測試在30個seed中確認出現多個t；通道範圍、metallic／mortar 0、wrap與seed差異。突變檢查：(1)把三次伯恩斯坦權重的第二項係數3改成2，九個seed中的九項失敗；(2)把最上層點的x座標內插參數改成1−t，九個seed中的六項失敗（t=1/2的seed不受影響，抓不到）；都已還原並確認`git diff --stat`只含本材質的209行。`tests/procedural-material.test.ts`以`-t "bezierconstruction|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。
+- 效能：512×512單次渲染約0.2秒（Bun，預覽腳本，只量一次）；沒有做瀏覽器端效能量測。
+- 真實dev server的pbr3d頁（WebGPU）選取`bezierconstruction`：嚴格斷言的檢查（option為1040個、status含「1039 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染，實看512 seed7 2×2拼貼的盤面。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

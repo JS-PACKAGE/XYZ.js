@@ -17891,6 +17891,94 @@ var proceduralMaterialPresets = Object.freeze({
 		cellRoughness: .55,
 		inkRoughness: .4
 	}),
+	bezierconstruction: Object.freeze({
+		dark: [
+			26,
+			28,
+			62
+		],
+		light: [
+			246,
+			242,
+			224
+		],
+		roughness: .5,
+		relief: .004,
+		curves: Object.freeze([
+			Object.freeze([
+				-.18,
+				.12,
+				-.05,
+				-.2,
+				.08,
+				.2,
+				.18,
+				-.1
+			]),
+			Object.freeze([
+				-.18,
+				-.1,
+				.2,
+				-.22,
+				-.2,
+				-.22,
+				.18,
+				-.1
+			]),
+			Object.freeze([
+				-.2,
+				.15,
+				.22,
+				.2,
+				-.22,
+				-.2,
+				.2,
+				-.15
+			]),
+			Object.freeze([
+				-.2,
+				0,
+				-.1,
+				.22,
+				.1,
+				-.22,
+				.2,
+				0
+			])
+		]),
+		parameters: Object.freeze([
+			.25,
+			1 / 3,
+			.5,
+			2 / 3
+		]),
+		segments: 64,
+		panelHalf: .24,
+		curveHalf: .0028,
+		guideHalf: 8e-4,
+		constructionHalf: .0011,
+		controlRadius: .0085,
+		endHalf: .008,
+		pointRadius: .0105,
+		dashPeriod: .02,
+		dashDuty: .55,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .95,
+		panelTone: .97,
+		curveTone: .08,
+		guideTone: .62,
+		constructionTone: .4,
+		pointTone: .06,
+		grainTone: .02,
+		paperHeight: .22,
+		panelHeight: .3,
+		curveHeight: .8,
+		guideHeight: .45,
+		pointHeight: .9,
+		paperRoughness: .74,
+		curveRoughness: .35
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -26572,6 +26660,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	bezierconstruction: .6,
 	luhnnumbers: .4,
 	twosourceripples: .5,
 	cassiniovals: .5,
