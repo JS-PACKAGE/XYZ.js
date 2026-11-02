@@ -1110,6 +1110,7 @@ try {
     'recamanarcs',
     'phasevortices',
     'euclidsteps',
+    'happynumbers',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

@@ -13080,3 +13080,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Euclid steps as|euclidsteps|kinds|catalog|distinct|periodic"`定向測試**2396項通過／4094項未選**。
 - 未驗證：recamanarcs、phasevortices與euclidsteps未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-03 新增材質：快樂數（happynumbers）
+
+- 範圍：新增`happynumbers`（目前目錄1045→1046種，含plain的gallery 1047項）：64×64圓角方磚表放數字1到4096，反覆換成各位數字平方和，到1的是快樂數（發光，替換次數0到6，越少越亮；4,096個中有614個），否則掉進4, 16, 37, 58, 89, 145, 42, 20, 4的循環（暗）；深綠底上萊姆綠星點；seed讓表在環面上平移；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 163,840 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽看了兩版：第一版因為我的產生程式沒有替換調色盤（沿用前一個材質的暗褐與橘色），看圖才發現，改成深綠與萊姆綠後重看；(2)sampler以「到1或4就停」判斷，測試改用十進位字串各位數字加集合偵測重複的獨立方式，所以不依賴「循環經過4」這件事；兩種方法在4,096個數上一致，不證明這個事實的一般性；(3)256²與512²取樣的亮處占比不同（6.46%對4.86%，兩者各自在所有seed下恆定），原因是格寬（4與8像素）與取樣點在格內位置不同，測試採用256²的數值；(4)建構與取樣耗時**未量測**；(5)測試第一次執行即通過（探針數值先量好才寫界線）。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：快樂數614個，替換次數0到6次的個數1／3／42／157／150／173／88；四個seed各有唯一符合的平移(23, 39)、(48, 6)、(45, 31)、(0, 21)，最大擬合誤差0.014984–0.014999；256²（seed 0／1／0xffffffff）亮處（color>0.5）恆為6.46%、color 0.05919–0.05949至0.84451–0.84637、平均0.17149–0.17164、roughness恆為0.4、AO最低0.7344、height至多0.8280–0.8348 relief；512²（四個seed）亮處恆為4.86%、color 0.02518–0.02539至0.84269–0.84878、平均0.15184–0.15199、AO最低0.6、height至多0.8326–0.8400 relief；seed 0與1相比，格中心顏色相差超過0.05的格子26.3%（512²中color>0.5的取樣8.6%不同）；seed 7的512²maps平均r／g／b約(34.3, 55.7, 33.1)、法線tilt²最大約0.0377、z分量最小253。我實看了預覽（seed 7，深綠與萊姆綠版本）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Happy numbers as|happynumbers|kinds|catalog|distinct|periodic"`定向測試**2398項通過／4097項未選**。
+- 未驗證：recamanarcs、phasevortices、euclidsteps與happynumbers未跑完整suite與瀏覽器gallery；不push。
