@@ -1010,7 +1010,8 @@ export type ProceduralMaterialKind =
   | 'penrosestar'
   | 'ammannbeenker'
   | 'heptagridtiling'
-  | 'dodecagridtiling';
+  | 'dodecagridtiling'
+  | 'penrosefilled';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2255,6 +2256,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'ammannbeenker',
   'heptagridtiling',
   'dodecagridtiling',
+  'penrosefilled',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

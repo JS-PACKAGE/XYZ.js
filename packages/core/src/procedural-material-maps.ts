@@ -41304,17 +41304,20 @@ export function createSurfaceSampler(
       case 'penrosestar':
       case 'ammannbeenker':
       case 'heptagridtiling':
-      case 'dodecagridtiling': {
+      case 'dodecagridtiling':
+      case 'penrosefilled': {
         const p =
-            kind === 'dodecagridtiling'
-              ? proceduralMaterialPresets.dodecagridtiling
-              : kind === 'heptagridtiling'
-                ? proceduralMaterialPresets.heptagridtiling
-                : kind === 'ammannbeenker'
-                  ? proceduralMaterialPresets.ammannbeenker
-                  : kind === 'penrosestar'
-                    ? proceduralMaterialPresets.penrosestar
-                    : proceduralMaterialPresets.penrosetiling,
+            kind === 'penrosefilled'
+              ? proceduralMaterialPresets.penrosefilled
+              : kind === 'dodecagridtiling'
+                ? proceduralMaterialPresets.dodecagridtiling
+                : kind === 'heptagridtiling'
+                  ? proceduralMaterialPresets.heptagridtiling
+                  : kind === 'ammannbeenker'
+                    ? proceduralMaterialPresets.ammannbeenker
+                    : kind === 'penrosestar'
+                      ? proceduralMaterialPresets.penrosestar
+                      : proceduralMaterialPresets.penrosetiling,
           grids = p.offsets.length,
           grainField = cachedNoise(
             p.grainCells,
@@ -41332,7 +41335,10 @@ export function createSurfaceSampler(
             Math.cos((TAU * index) / p.roots),
             Math.sin((TAU * index) / p.roots),
           ],
-          edges = new Map<string, [number, number, number, number]>();
+          edges = new Map<string, [number, number, number, number]>(),
+          tiles: { corners: [number, number][]; tileClass: number }[] = [],
+          fillActive = p.fills.some((tone) => tone > 0),
+          inverseRim = 1 / p.fillRim;
         // De Bruijn's multigrid construction of a rhombus tiling: the pentagrid (five
         // grids, fifth roots of unity, offsets summing to 0) gives the Penrose tiling and
         // four grids with the first four eighth roots of unity give the Ammann-Beenker
@@ -41385,6 +41391,7 @@ export function createSurfaceSampler(
                   ) > p.patchRadius
                 )
                   continue;
+                tiles.push({ corners, tileClass: k - j - 1 });
                 for (let side = 0; side < 4; side++) {
                   const from = corners[side],
                     to = corners[(side + 1) % 4],
@@ -41417,6 +41424,29 @@ export function createSurfaceSampler(
           halfY[slot] = (rby - ray) / 2;
           slot++;
         }
+        // Every tile keeps its rotated corners, centre, orientation (+1 or -1 for the
+        // sign of its area) and the grid-pair class k - j - 1 that picks its fill tone.
+        const tileCorners = new Float64Array(tiles.length * 8),
+          tileCenterX = new Float64Array(tiles.length),
+          tileCenterY = new Float64Array(tiles.length),
+          tileOrient = new Float64Array(tiles.length),
+          tileClass = new Uint8Array(tiles.length);
+        tiles.forEach((tile, t) => {
+          tile.corners.forEach(([cx, cy], c) => {
+            tileCorners[t * 8 + 2 * c] = cosine * cx - sine * cy;
+            tileCorners[t * 8 + 2 * c + 1] = sine * cx + cosine * cy;
+          });
+          const o = t * 8;
+          tileCenterX[t] = (tileCorners[o] + tileCorners[o + 4]) / 2;
+          tileCenterY[t] = (tileCorners[o + 1] + tileCorners[o + 5]) / 2;
+          tileOrient[t] = Math.sign(
+            (tileCorners[o + 2] - tileCorners[o]) *
+              (tileCorners[o + 7] - tileCorners[o + 1]) -
+              (tileCorners[o + 3] - tileCorners[o + 1]) *
+                (tileCorners[o + 6] - tileCorners[o]),
+          );
+          tileClass[t] = tile.tileClass;
+        });
         return () => {
           // Every edge is a thread: a compact-support quartic profile (1 - d^2 / r^2)^2 of
           // the distance to its segment, exactly zero beyond threadRadius, summed over the
@@ -41443,11 +41473,50 @@ export function createSurfaceSampler(
               d2 = (ex * ex + ey * ey) * inverseRadius2;
             if (d2 < 1) sum += (1 - d2) * (1 - d2);
           }
+          // A tile with a fill tone is tinted by the product over its four edges of
+          // smooth(distance to the edge / fillRim): it is 0 on every edge (with zero slope)
+          // and 1 beyond fillRim from all of them, so the tints of neighbouring tiles never
+          // jump. A minimum of the four distances would crease along the bisector of the
+          // acute corners, where it is still below fillRim.
+          let fillTone = 0,
+            fillLift = 0;
+          if (fillActive)
+            for (let t = 0; t < tiles.length; t++) {
+              if (
+                Math.abs(x - tileCenterX[t]) > 1.2 ||
+                Math.abs(y - tileCenterY[t]) > 1.2
+              )
+                continue;
+              let weight = 1;
+              for (let side = 0; side < 4 && weight > 0; side++) {
+                const from = t * 8 + 2 * side,
+                  to = t * 8 + 2 * ((side + 1) % 4);
+                weight *= smooth(
+                  clamp(
+                    tileOrient[t] *
+                      ((tileCorners[to] - tileCorners[from]) *
+                        (y - tileCorners[from + 1]) -
+                        (tileCorners[to + 1] - tileCorners[from + 1]) *
+                          (x - tileCorners[from])) *
+                      inverseRim,
+                  ),
+                );
+              }
+              if (weight <= 0) continue;
+              fillTone += p.fills[tileClass[t]] * weight;
+              fillLift += weight;
+            }
           const thread = 1 - Math.exp(-p.gain * sum),
             grain = grainField(u, v);
           color =
-            p.baseTone + p.threadTone * thread + p.grainTone * (grain - 0.5);
-          height = p.threadHeight * thread + p.grainHeight * grain;
+            p.baseTone +
+            p.threadTone * thread +
+            fillTone +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.threadHeight * thread +
+            p.fillHeight * fillLift +
+            p.grainHeight * grain;
           roughness += p.threadRoughness * thread;
           return;
         };
@@ -49255,6 +49324,7 @@ export function createSurfaceSampler(
     kind === 'ammannbeenker' ||
     kind === 'heptagridtiling' ||
     kind === 'dodecagridtiling' ||
+    kind === 'penrosefilled' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

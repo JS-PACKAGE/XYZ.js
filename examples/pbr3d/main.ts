@@ -1074,6 +1074,7 @@ try {
     'ammannbeenker',
     'heptagridtiling',
     'dodecagridtiling',
+    'penrosefilled',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

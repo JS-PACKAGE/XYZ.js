@@ -23161,6 +23161,14 @@ var proceduralMaterialPresets = Object.freeze({
 			.07,
 			-.11
 		],
+		fills: [
+			0,
+			0,
+			0,
+			0
+		],
+		fillRim: .15,
+		fillHeight: 0,
 		period: 16,
 		patchRadius: 6.2,
 		gridRange: 6,
@@ -23197,6 +23205,14 @@ var proceduralMaterialPresets = Object.freeze({
 			-.013,
 			.004
 		],
+		fills: [
+			0,
+			0,
+			0,
+			0
+		],
+		fillRim: .15,
+		fillHeight: 0,
 		period: 16,
 		patchRadius: 6.2,
 		gridRange: 6,
@@ -23232,6 +23248,13 @@ var proceduralMaterialPresets = Object.freeze({
 			.22,
 			-.04
 		],
+		fills: [
+			0,
+			0,
+			0
+		],
+		fillRim: .15,
+		fillHeight: 0,
 		period: 16,
 		patchRadius: 6.2,
 		gridRange: 6,
@@ -23270,6 +23293,16 @@ var proceduralMaterialPresets = Object.freeze({
 			-.17,
 			.12
 		],
+		fills: [
+			0,
+			0,
+			0,
+			0,
+			0,
+			0
+		],
+		fillRim: .15,
+		fillHeight: 0,
 		period: 16,
 		patchRadius: 6.2,
 		gridRange: 6,
@@ -23307,6 +23340,15 @@ var proceduralMaterialPresets = Object.freeze({
 			-.19,
 			.08
 		],
+		fills: [
+			0,
+			0,
+			0,
+			0,
+			0
+		],
+		fillRim: .15,
+		fillHeight: 0,
 		period: 16,
 		patchRadius: 6.2,
 		gridRange: 6,
@@ -23318,6 +23360,50 @@ var proceduralMaterialPresets = Object.freeze({
 		threadTone: .78,
 		grainTone: .03,
 		threadHeight: .85,
+		grainHeight: .15,
+		threadRoughness: -.1
+	}),
+	penrosefilled: Object.freeze({
+		dark: [
+			24,
+			12,
+			36
+		],
+		light: [
+			255,
+			214,
+			160
+		],
+		roughness: .4,
+		relief: 7e-4,
+		seedSalt: 40466,
+		roots: 5,
+		offsets: [
+			.13,
+			-.31,
+			.22,
+			.07,
+			-.11
+		],
+		fills: [
+			.2,
+			.1,
+			.1,
+			.2
+		],
+		fillRim: .15,
+		fillHeight: .05,
+		period: 16,
+		patchRadius: 6.2,
+		gridRange: 6,
+		rotationSteps: 10,
+		threadRadius: .09,
+		gain: 1.6,
+		grainCells: 128,
+		baseTone: .06,
+		threadTone: .7,
+		grainTone: .03,
+		threadHeight: .8,
 		grainHeight: .15,
 		threadRoughness: -.1
 	}),
@@ -24813,7 +24899,8 @@ var proceduralTileMeters = Object.freeze({
 	penrosestar: .5,
 	ammannbeenker: .5,
 	heptagridtiling: .5,
-	dodecagridtiling: .5
+	dodecagridtiling: .5,
+	penrosefilled: .5
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;
