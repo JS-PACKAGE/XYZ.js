@@ -41330,6 +41330,57 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'cyclicwaves': {
+        const p = proceduralMaterialPresets.cyclicwaves,
+          count = p.size * p.size,
+          tones = new Float64Array(count),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 1),
+          );
+        // The cyclic cellular automaton with the von Neumann neighbourhood (the four
+        // neighbours that share an edge, wrapping around the torus), threshold 1 and
+        // states states: a cell in state k moves to state k + 1 (modulo states) when at
+        // least one neighbour is already in state k + 1, and otherwise stays. It starts from
+        // a random state per cell and runs steps synchronous steps, which leaves waves
+        // (every state follows the previous one) around the places where the random start
+        // was locally ordered.
+        let current = new Uint8Array(count),
+          next = new Uint8Array(count);
+        for (let cell = 0; cell < count; cell++)
+          current[cell] = Math.floor(
+            hash(cell % p.size, Math.floor(cell / p.size), seed ^ p.seedSalt) *
+              p.states,
+          );
+        for (let step = 0; step < p.steps; step++) {
+          for (let cell = 0; cell < count; cell++) {
+            const x = cell % p.size,
+              y = (cell - x) / p.size,
+              successor = (current[cell] + 1) % p.states;
+            next[cell] =
+              current[y * p.size + ((x + 1) % p.size)] === successor ||
+              current[y * p.size + ((x + p.size - 1) % p.size)] === successor ||
+              current[((y + 1) % p.size) * p.size + x] === successor ||
+              current[((y + p.size - 1) % p.size) * p.size + x] === successor
+                ? successor
+                : current[cell];
+          }
+          [current, next] = [next, current];
+        }
+        for (let cell = 0; cell < count; cell++)
+          tones[cell] = current[cell] / (p.states - 1);
+        const toneField = latticeField(tones, p.size, p.size);
+        return () => {
+          // The state map is blended with the C1 smoothstep, so every wave front is a
+          // short ramp from state 7 back to state 0.
+          const tone = toneField(u, v),
+            grain = grainField(u, v);
+          color = p.baseTone + p.toneSpan * tone + p.grainTone * (grain - 0.5);
+          height = p.toneHeight * tone + p.grainHeight * grain;
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -50147,6 +50198,7 @@ export function createSurfaceSampler(
     kind === 'voronoifacets' ||
     kind === 'percolationclusters' ||
     kind === 'isingdomains' ||
+    kind === 'cyclicwaves' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||

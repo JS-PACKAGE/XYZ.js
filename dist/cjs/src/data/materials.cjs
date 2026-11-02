@@ -23469,6 +23469,30 @@ var proceduralMaterialPresets = Object.freeze({
 		agreeHeight: .1,
 		grainHeight: .2
 	}),
+	cyclicwaves: Object.freeze({
+		dark: [
+			8,
+			14,
+			48
+		],
+		light: [
+			255,
+			208,
+			96
+		],
+		roughness: .4,
+		relief: 8e-4,
+		seedSalt: 51137,
+		size: 96,
+		states: 8,
+		steps: 150,
+		grainCells: 128,
+		baseTone: .05,
+		toneSpan: .72,
+		grainTone: .03,
+		toneHeight: .8,
+		grainHeight: .2
+	}),
 	vermiculation: Object.freeze({
 		dark: [
 			60,
@@ -25469,6 +25493,7 @@ var proceduralTileMeters = Object.freeze({
 	voronoifacets: .4,
 	percolationclusters: .5,
 	isingdomains: .5,
+	cyclicwaves: .5,
 	vermiculation: .4,
 	kikko: .3,
 	kagome: .3,

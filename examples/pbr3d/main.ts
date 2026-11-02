@@ -1079,6 +1079,7 @@ try {
     'voronoifacets',
     'percolationclusters',
     'isingdomains',
+    'cyclicwaves',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

@@ -1042,6 +1042,7 @@ const kinds: ProceduralMaterialKind[] = [
   'voronoifacets',
   'percolationclusters',
   'isingdomains',
+  'cyclicwaves',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',
@@ -162867,6 +162868,244 @@ describe('Ising domains as a Metropolis Ising model snapshot on a 64 by 64 torus
     expect(blue / (512 * 512)).toBeLessThan(38);
     expect(maxTilt).toBeGreaterThan(0.02);
     expect(maxTilt).toBeLessThan(0.035);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Cyclic waves as an eight-state cyclic cellular automaton on a 96 by 96 torus', () => {
+  const p = proceduralMaterialPresets.cyclicwaves;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const size = p.size;
+  /** Colour of every lattice node, read at the nodes. */
+  const nodeColors = (seed: number): number[] => {
+    const sample = createSurfaceSampler('cyclicwaves', seed),
+      out = empty(),
+      colors: number[] = [];
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample(x / size, y / size, out);
+        colors.push(out.color);
+      }
+    return colors;
+  };
+  /**
+   * Written independently here: the state of every cell is read back from the node colours as
+   * the nearest of the eight tones base + span * k / 7, and the neighbour relations of the
+   * wrapped von Neumann neighbourhood are counted.
+   */
+  const states = (colors: number[]) => {
+    const state = colors.map((color) =>
+      Math.round(((color - p.baseTone) / p.toneSpan) * (p.states - 1)),
+    );
+    let similar = 0,
+      pairs = 0,
+      following = 0;
+    const counts = new Array<number>(p.states).fill(0);
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        const here = state[y * size + x];
+        counts[here]++;
+        let hasNeighbourInStep = false;
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const there =
+              state[((y + dy + size) % size) * size + ((x + dx + size) % size)],
+            distance = Math.min(
+              (here - there + p.states) % p.states,
+              (there - here + p.states) % p.states,
+            );
+          if (dx + dy > 0) {
+            pairs++;
+            similar += distance <= 1 ? 1 : 0;
+          }
+          if (distance === 1) hasNeighbourInStep = true;
+        }
+        following += hasNeighbourInStep ? 1 : 0;
+      }
+    return { state, counts, similar: similar / pairs, following };
+  };
+  it('colours every cell by its automaton state and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff, 7]) {
+      const sample = createSurfaceSampler('cyclicwaves', seed),
+        a = empty(),
+        nodes = nodeColors(seed),
+        { state, counts, similar, following } = states(nodes);
+      // Every node colour sits on one of the eight state tones within the grain.
+      let worst = 0;
+      for (let i = 0; i < nodes.length; i++)
+        worst = Math.max(
+          worst,
+          Math.abs(
+            nodes[i] - (p.baseTone + (p.toneSpan * state[i]) / (p.states - 1)),
+          ),
+        );
+      expect(worst).toBeLessThan(0.03);
+      // The random start (3 of the 8 possible differences, 37.5% of the neighbour pairs, are
+      // within one state) has relaxed into waves: about 97% of the neighbour pairs differ by at most one state, every cell has a
+      // neighbour one state before or after it, and all eight states stay about equally common.
+      expect(similar).toBeGreaterThan(0.96);
+      expect(similar).toBeLessThan(0.99);
+      expect(following).toBe(size * size);
+      for (const count of counts) {
+        expect(count / (size * size)).toBeGreaterThan(0.115);
+        expect(count / (size * size)).toBeLessThan(0.14);
+      }
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.037);
+      expect(low).toBeLessThan(0.041);
+      expect(high).toBeGreaterThan(0.779);
+      expect(high).toBeLessThan(0.783);
+      expect(dark / 65536).toBeGreaterThan(0.35);
+      expect(dark / 65536).toBeLessThan(0.38);
+      expect(mean / 65536).toBeGreaterThan(0.4);
+      expect(mean / 65536).toBeLessThan(0.415);
+      expect(roughLow).toBeCloseTo(p.roughness, 6);
+      expect(roughHigh).toBeCloseTo(p.roughness, 2);
+      expect(heightHigh).toBeGreaterThan(0.97);
+      expect(heightHigh).toBeLessThanOrEqual(1);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('gives every seed another wave pattern and is deterministic for one seed', () => {
+    const first = nodeColors(0).map((color) => color > 0.5),
+      second = nodeColors(1).map((color) => color > 0.5);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.45);
+    expect(different / first.length).toBeLessThan(0.6);
+    expect(nodeColors(0).map((color) => color > 0.5)).toEqual(first);
+  });
+  it('keeps the trace edges, glow and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('cyclicwaves', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [size, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 amber-on-indigo maps with gentle trace normals', () => {
+    const maps = generateProceduralMaps('cyclicwaves', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(108);
+    expect(red / (512 * 512)).toBeLessThan(112);
+    expect(green / (512 * 512)).toBeGreaterThan(92);
+    expect(green / (512 * 512)).toBeLessThan(96);
+    expect(blue / (512 * 512)).toBeGreaterThan(66);
+    expect(blue / (512 * 512)).toBeLessThan(70);
+    expect(maxTilt).toBeGreaterThan(0.008);
+    expect(maxTilt).toBeLessThan(0.016);
     expect(invalid).toBe(0);
   });
 });

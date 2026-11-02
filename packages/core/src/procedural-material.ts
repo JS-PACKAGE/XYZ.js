@@ -1016,6 +1016,7 @@ export type ProceduralMaterialKind =
   | 'voronoifacets'
   | 'percolationclusters'
   | 'isingdomains'
+  | 'cyclicwaves'
   | 'sandpileidentity'
   | 'multiplicativeorder'
   | 'vermiculation'
@@ -2279,6 +2280,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'voronoifacets',
   'percolationclusters',
   'isingdomains',
+  'cyclicwaves',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',
