@@ -9195,6 +9195,34 @@ export declare const proceduralMaterialPresets: Readonly<{
         stoneRoughness: 0.26;
         boardRoughness: 0.58;
     }>;
+    dewbeads: Readonly<{
+        dark: readonly [10, 38, 18];
+        light: readonly [190, 235, 200];
+        roughness: 0.34;
+        relief: 0.008;
+        cells: 12;
+        coverage: 0.62;
+        minRadius: 0.014;
+        maxRadius: 0.028;
+        jitter: 0.0117;
+        veinCount: 12;
+        veinHalf: 0.0016;
+        mottleCells: 40;
+        edgeSoft: 0.0008;
+        leafTone: 0.3;
+        mottleTone: 0.1;
+        veinTone: 0.2;
+        centreTone: 0.62;
+        rimTone: 0.18;
+        glintTone: 0.99;
+        glintSize: 0.2;
+        leafHeight: 0.28;
+        mottleHeight: 0.04;
+        veinHeight: 0.34;
+        domeHeight: 0.62;
+        leafRoughness: 0.62;
+        dropRoughness: 0.1;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -15680,6 +15708,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    dewbeads: 0.3;
     goboards: 0.4;
     othelloboard: 0.4;
     binaryclock: 0.4;

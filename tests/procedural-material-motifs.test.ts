@@ -12410,3 +12410,137 @@ describe('goboards: no group of stones is left without a liberty', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('dewbeads: separate round domes of the drop sizes', () => {
+  const p = proceduralMaterialPresets.dewbeads;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'finds round, spherical-cap drops that never touch and fit the radius range (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('dewbeads', seed),
+        out = empty(),
+        size = 384,
+        step = 1 / size,
+        heightAt = (u: number, v: number): number => {
+          sample(u, v, out);
+          return out.height / p.relief;
+        },
+        level = 0.5,
+        grid = new Uint8Array(size * size);
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++)
+          grid[y * size + x] = Number(
+            heightAt((x + 0.5) * step, (y + 0.5) * step) > level,
+          );
+      // Label the connected regions above the threshold.
+      const label = new Int32Array(size * size).fill(-1),
+        regions: { cells: number[] }[] = [];
+      for (let start = 0; start < size * size; start++) {
+        if (grid[start] === 0 || label[start] !== -1) continue;
+        const cells = [start];
+        label[start] = regions.length;
+        for (let i = 0; i < cells.length; i++) {
+          const x = cells[i] % size,
+            y = Math.floor(cells[i] / size);
+          for (const [dx, dy] of [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ]) {
+            const nx = x + dx,
+              ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
+            const index = ny * size + nx;
+            if (grid[index] === 1 && label[index] === -1) {
+              label[index] = regions.length;
+              cells.push(index);
+            }
+          }
+        }
+        regions.push({ cells });
+      }
+      // The cap's height is leaf + dome * sqrt(1 - d^2); the threshold cuts it at distance d0 from the centre.
+      const d0 = Math.sqrt(1 - ((level - p.leafHeight) / p.domeHeight) ** 2),
+        found: { u: number; v: number; radius: number }[] = [];
+      for (const { cells } of regions) {
+        const xs = cells.map((c) => (c % size) + 0.5),
+          ys = cells.map((c) => Math.floor(c / size) + 0.5),
+          centreU = (xs.reduce((a, b) => a + b, 0) / cells.length) * step,
+          centreV = (ys.reduce((a, b) => a + b, 0) / cells.length) * step,
+          radius = Math.sqrt((cells.length * step * step) / Math.PI) / d0,
+          width = (Math.max(...xs) - Math.min(...xs) + 1) * step,
+          tall = (Math.max(...ys) - Math.min(...ys) + 1) * step;
+        expect(radius).toBeGreaterThan(p.minRadius * 0.9);
+        expect(radius).toBeLessThan(p.maxRadius * 1.1);
+        // Round: the bounding box is nearly square.
+        expect(width / tall).toBeGreaterThan(0.85);
+        expect(width / tall).toBeLessThan(1.18);
+        // Spherical cap: the height at the centre and at half the radius follow leaf + dome * sqrt(1 - d^2).
+        expect(heightAt(centreU, centreV)).toBeCloseTo(
+          p.leafHeight + p.domeHeight,
+          1,
+        );
+        let ring = 0;
+        for (let k = 0; k < 8; k++)
+          ring +=
+            heightAt(
+              centreU + 0.5 * radius * Math.cos((k * Math.PI) / 4),
+              centreV + 0.5 * radius * Math.sin((k * Math.PI) / 4),
+            ) / 8;
+        expect(
+          Math.abs(ring - (p.leafHeight + p.domeHeight * Math.sqrt(0.75))),
+        ).toBeLessThan(0.07);
+        found.push({ u: centreU, v: centreV, radius });
+      }
+      // About `coverage` of the 144 cells hold a drop, and no two drops touch.
+      expect(found.length).toBeGreaterThan(
+        p.cells * p.cells * p.coverage * 0.6,
+      );
+      expect(found.length).toBeLessThan(
+        p.cells * p.cells * Math.min(1, p.coverage * 1.4),
+      );
+      for (let i = 0; i < found.length; i++)
+        for (let j = i + 1; j < found.length; j++)
+          expect(
+            Math.hypot(found[i].u - found[j].u, found[i].v - found[j].v),
+          ).toBeGreaterThan(found[i].radius + found[j].radius);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('dewbeads', 0),
+      b = createSurfaceSampler('dewbeads', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

@@ -25557,6 +25557,83 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'dewbeads': {
+        const p = proceduralMaterialPresets.dewbeads,
+          mottle = cachedNoise(p.mottleCells, p.mottleCells, seed ^ 0x2a501),
+          n = p.cells,
+          cell = 1 / n,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // At most one drop per cell, kept inside its own cell so the drops never touch.
+          drops = Array.from({ length: n * n }, (_, index) => {
+            const x = index % n,
+              y = Math.floor(index / n);
+            if (hash(x, y, seed ^ 0x2a503) > p.coverage) return null;
+            return {
+              x:
+                (x + 0.5) * cell +
+                (hash(x, y, seed ^ 0x2a505) - 0.5) * 2 * p.jitter,
+              y:
+                (y + 0.5) * cell +
+                (hash(x, y, seed ^ 0x2a507) - 0.5) * 2 * p.jitter,
+              radius:
+                p.minRadius +
+                (p.maxRadius - p.minRadius) * hash(x, y, seed ^ 0x2a509),
+            };
+          });
+        return () => {
+          const drop =
+              drops[
+                Math.min(n - 1, Math.floor(v * n)) * n +
+                  Math.min(n - 1, Math.floor(u * n))
+              ],
+            grain = mottle(u, v) - 0.5,
+            // Veins: lines slanting across the leaf, periodic in the tile.
+            line = ((((u + v) * p.veinCount) % 1) + 1) % 1,
+            veinCover = cover(
+              p.veinHalf -
+                Math.min(line, 1 - line) / (p.veinCount * Math.SQRT2),
+            );
+          let tone: number = p.leafTone + p.mottleTone * grain,
+            level: number = p.leafHeight + p.mottleHeight * grain,
+            rough: number = p.leafRoughness;
+          tone += (p.veinTone - tone) * veinCover;
+          level += (p.veinHeight - level) * veinCover;
+          if (drop !== null) {
+            const dx = u - drop.x,
+              dy = v - drop.y,
+              d = Math.hypot(dx, dy) / drop.radius;
+            if (d < 1.05) {
+              const body = cover((1 - d) * drop.radius),
+                dome = Math.sqrt(Math.max(0, 1 - d * d)),
+                // Light is refracted: the centre of the drop is brighter, the rim darker, and a
+                // small highlight sits towards the upper left.
+                glint = smooth(
+                  clamp(
+                    1 -
+                      Math.hypot(
+                        dx / drop.radius + 0.35,
+                        dy / drop.radius + 0.35,
+                      ) /
+                        p.glintSize,
+                  ),
+                ),
+                dropTone =
+                  p.rimTone +
+                  (p.centreTone - p.rimTone) * dome +
+                  (p.glintTone - p.centreTone) * glint;
+              tone += (dropTone - tone) * body;
+              level += (p.leafHeight + p.domeHeight * dome - level) * body;
+              rough += (p.dropRoughness - rough) * body;
+            }
+          }
+          color = clamp(tone);
+          height = clamp(level);
+          roughness = rough;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -53086,6 +53163,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'dewbeads' ||
     kind === 'goboards' ||
     kind === 'othelloboard' ||
     kind === 'binaryclock' ||

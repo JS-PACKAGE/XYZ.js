@@ -1513,6 +1513,10 @@
 
 這是作者設計的示意：對局完全隨機，不是有意義的棋局，也不是死活題；規則只實作提子與自殺禁手，沒有「打劫」（ko）限制，也沒有虛手、終局或勝負；若40次嘗試都找不到合法點則該手略過，因此盤面棋子數可能少於手數；白子的亮度是同一色階中最亮的一端，在這套只有「暗到亮」兩色漸變的材質中偏米黃色而不是純白。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`dewbeads`（露珠串）使目前目錄986→987種，含plain的gallery為988項。深綠色的葉面上有斜向排列的細葉脈與柔和的斑駁，散佈著圓形的露珠：把tile分成12×12格，每格以約62%的機率放一顆露珠，半徑在0.014與0.028個tile寬之間，位置在格內稍作抖動，確保露珠不會互相接觸也不會跨越tile邊界。露珠的高度是球冠形（中心最高，往邊緣以√(1−d²)下降，d為到中心的距離與半徑之比），顏色是折射式的：中心偏亮、邊緣偏暗，左上方有一個小亮點；光滑度高於葉面。Metallic與mortar為0。
+
+這是作者設計的示意：露珠只是簡單的球冠，沒有真實折射或倒影，也沒有水膜或流動；位置受格子限制，所以仍可看出一點格狀排列；葉面是人工的斜紋葉脈加噪聲斑駁，不是真實的葉片；顏色只是暗到亮的單色階（綠色色相來自預設的暗亮兩端）。預設0.3 m nominal tile、0.008 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

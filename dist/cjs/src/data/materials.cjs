@@ -15893,6 +15893,42 @@ var proceduralMaterialPresets = Object.freeze({
 		stoneRoughness: .26,
 		boardRoughness: .58
 	}),
+	dewbeads: Object.freeze({
+		dark: [
+			10,
+			38,
+			18
+		],
+		light: [
+			190,
+			235,
+			200
+		],
+		roughness: .34,
+		relief: .008,
+		cells: 12,
+		coverage: .62,
+		minRadius: .014,
+		maxRadius: .028,
+		jitter: .0117,
+		veinCount: 12,
+		veinHalf: .0016,
+		mottleCells: 40,
+		edgeSoft: 8e-4,
+		leafTone: .3,
+		mottleTone: .1,
+		veinTone: .2,
+		centreTone: .62,
+		rimTone: .18,
+		glintTone: .99,
+		glintSize: .2,
+		leafHeight: .28,
+		mottleHeight: .04,
+		veinHeight: .34,
+		domeHeight: .62,
+		leafRoughness: .62,
+		dropRoughness: .1
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -24574,6 +24610,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	dewbeads: .3,
 	goboards: .4,
 	othelloboard: .4,
 	binaryclock: .4,
