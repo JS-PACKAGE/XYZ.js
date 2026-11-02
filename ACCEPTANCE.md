@@ -12447,3 +12447,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試（569個盈數、1,732個虧數與完全數6／28／496、逐磚比對與唯一平移、統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Abundant numbers as|abundantnumbers|kinds|catalog|distinct|periodic"`定向測試**2270項通過／3892項未選**。
 - 未驗證：levycurve、hadamardmatrix、paleytable、xortable、abundantnumbers未跑瀏覽器gallery；abundantnumbers未跑完整suite；不push。
+
+## 2026-11-02 新增材質：莫比烏斯表（mobiustable）
+
+- 範圍：新增`mobiustable`（目前目錄984→985種，含plain的gallery 986項）：48×48個圓角方塊磚，第n格（`n = row × 48 + col + 1`，1到2304）依莫比烏斯函數`μ(n)`分三類：`μ = 0`（有平方因子，904個，色調0.08）、`μ = +1`（699個，0.7）、`μ = −1`（701個，0.38）；4的倍數形成暗直條；seed沿環面平移整張表；磚縫AO 0.6；roughness恆為0.4；預設0.3 m nominal tile、0.0008 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整紀錄（誠實紀錄）：relief沿用0.0008，512²maps法線tilt²最大0.0296。seed差異測試只斷言「超過20%的格子色調差超過0.05」，**沒有量測實際比例**。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：256²取樣亮處（color>0.5）占42.45%–42.47%、color 0.0256–0.0259至0.8536–0.8541、平均0.3702–0.3706、AO最低0.6、height至多0.8460–0.8486 relief（seed 0／1／0xffffffff）；512²取樣亮處占42.65%–42.69%、color 0.0252–0.0253至0.8545–0.8547、平均0.3719–0.3720、AO最低0.6、height至多0.8485–0.8498 relief；2,304個磚中心的顏色與測試中以完整質因數分解獨立算出的`μ(n)`表在唯一一個環面平移下一致（(6, 7)、(8, 21)、(39, 45)、(8, 28)；最大誤差約0.0149–0.0150）；seed 0與1的亮區遮罩（512²）40.7%像素不同；seed 7的512²maps平均r／g／b約(86.9, 72.0, 113.7)、法線tilt²最大約0.0296、z分量最小253。我實看了預覽（seed 7）。
+- 測試：新增5項專屬測試（904／699／701的分類個數、逐磚比對與唯一平移、統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Mobius table as|mobiustable|kinds|catalog|distinct|periodic"`定向測試**2272項通過／3895項未選**。
+- 未驗證：levycurve、hadamardmatrix、paleytable、xortable、abundantnumbers、mobiustable未跑瀏覽器gallery；abundantnumbers、mobiustable未跑完整suite；不push。
