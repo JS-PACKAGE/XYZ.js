@@ -12154,3 +12154,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 設計記錄：第一版草稿的地形洗牌寫成了兩次排序（先用`indexOf`再用索引鍵），既難讀又有重複值時會錯；註冊前整段改寫為單一的`shuffled`輔助函式。
 - 實測：`tests/procedural-material-motifs.test.ts`八百零四項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）：測試端以軸座標算出19個六邊形中心，在各六邊形標記下方0.055處取亮度並對最近的六個地形亮度分類（誤差＜0.06）；六種地形的數量排序後必須等於`[4,3,4,4,3,1]`的排序；在中心以點陣解碼數字標記（單一字形讀取成功即單位數），18個非沙漠六邊形各有一枚，標記排序後必須恰等於清單；對每個6或8，向六個鄰格中的三個方向與其反方向檢查，鄰格不得是6或8；通道範圍、metallic／mortar 0、wrap與seed差異。取樣器的400次重試上限在這些seed中從未用盡（測試通過即代表都找到合法配置），但這不證明所有seed都如此。`tests/procedural-material.test.ts`以`-t "hexresourceboard|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`hexresourceboard`：option 990個、status為989 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的島嶼。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：數和謎題（kakuropuzzle）
+
+- 目錄989→990，含plain的gallery為991項。每tile一個8×8已解開的Kakuro盤面：第一列與欄為黑格，另有6至9個隨機黑格（每段白格至少兩格），白格填1至9使每條橫向與縱向連續白格內數字不重複，黑格以斜線標出橫向（右上）與縱向（左下）的和。Metallic／mortar為0，預設tile0.5 m、0.004 UV-relative relief、metallic factor 0。顯示答案、不保證解答唯一；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 真實缺陷（測試抓到）：第一版版面搜尋上限是300次，測試第一次執行只有seed 0失敗：白格全部讀成數字0。原因是隨機黑格的版面只有約0.5%能通過「每段白格至少兩格」，seed 0的第一個合法版面出現在第328次嘗試，超過上限，取樣器因而保留了一個沒有填數字的版面。我另寫腳本在3000次嘗試中統計：九個seed各有13至20個合法版面，第一個出現的位置從第4次到第328次不等。因此上限改為6000次；取樣器建立時間在200個seed中最壞為16.6 ms。
+- 實測：`tests/procedural-material-motifs.test.ts`八百一十四項（本材質十項）全過。九個seed（0、7、4294967295、1至6）：測試端由角落亮度分辨黑白格（第一列與欄必為黑格），讀出每個白格的點陣數字（必為1至9）與黑格右上、左下的一至兩位數線索，對橫向與縱向每一條最大連續白格：長度至少2、數字互不重複、和等於其起點左邊或上方黑格的對應線索，且至少有10條連續格；另外以暫時的測試檔對200個額外的seed（100至299）重複同一個解碼檢查，全部通過（該暫時檔已刪除）；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "kakuropuzzle|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`kakuropuzzle`：option 991個、status為990 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的盤面。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

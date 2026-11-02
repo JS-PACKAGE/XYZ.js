@@ -12853,3 +12853,180 @@ describe('hexresourceboard: resources and number tokens follow the Catan layout 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('kakuropuzzle: every run has distinct digits that add up to its clue', () => {
+  const p = proceduralMaterialPresets.kakuropuzzle;
+  const n = p.size;
+  const side = 1 - 2 * p.margin;
+  const cell = side / n;
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'reads a consistent filled grid with its across and down clues (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('kakuropuzzle', seed),
+        out = empty(),
+        at = (row: number, col: number, fx: number, fy: number): number => {
+          sample(
+            p.margin + (col + fx) * cell,
+            p.margin + (row + fy) * cell,
+            out,
+          );
+          return out.color;
+        },
+        // Read a glyph whose middle pixel is at the given place inside a cell; `light` means light ink on a dark cell.
+        glyph = (
+          row: number,
+          col: number,
+          fx: number,
+          fy: number,
+          pixel: number,
+          light: boolean,
+        ): number => {
+          const bits: string[] = [];
+          for (let y = 0; y < 5; y++) {
+            let text = '';
+            for (let x = 0; x < 3; x++) {
+              const tone = at(
+                row,
+                col,
+                fx + ((x - 1) * pixel) / cell,
+                fy + ((y - 2) * pixel) / cell,
+              );
+              text += (light ? tone > 0.75 : tone < 0.3) ? '#' : '.';
+            }
+            bits.push(text);
+          }
+          return bits.every((line) => line === '...')
+            ? -1
+            : art.findIndex((rows) =>
+                rows.every((text, i) => text === bits[i]),
+              );
+        },
+        // A one- or two-digit number centred at (fx, fy); a single digit reads as a glyph in the middle window.
+        number = (
+          row: number,
+          col: number,
+          fx: number,
+          fy: number,
+          pixel: number,
+          light: boolean,
+        ): number => {
+          const single = glyph(row, col, fx, fy, pixel, light);
+          if (single >= 0) return single;
+          const tens = glyph(
+              row,
+              col,
+              fx - (2 * pixel) / cell,
+              fy,
+              pixel,
+              light,
+            ),
+            ones = glyph(row, col, fx + (2 * pixel) / cell, fy, pixel, light);
+          return tens >= 0 && ones >= 0 ? tens * 10 + ones : 0;
+        },
+        white: boolean[] = [],
+        digit: number[] = [],
+        across: number[] = [],
+        down: number[] = [];
+      for (let row = 0; row < n; row++)
+        for (let col = 0; col < n; col++) {
+          // The bottom-left corner of a cell is plain paper (white cell) or plain block (black cell).
+          const isWhite = at(row, col, 0.08, 0.92) > 0.7;
+          white.push(isWhite);
+          digit.push(
+            isWhite
+              ? glyph(row, col, 0.5, 0.5, cell * p.digitFraction, false)
+              : 0,
+          );
+          across.push(
+            isWhite ? 0 : number(row, col, 0.74, 0.27, p.cluePixel, true),
+          );
+          down.push(
+            isWhite ? 0 : number(row, col, 0.26, 0.73, p.cluePixel, true),
+          );
+        }
+      // The first row and column are blocks; every white cell holds a digit from 1 to 9.
+      for (let i = 0; i < n; i++) {
+        expect(white[i]).toBe(false);
+        expect(white[i * n]).toBe(false);
+      }
+      expect(white.filter(Boolean).length).toBeGreaterThan(20);
+      for (let i = 0; i < n * n; i++)
+        if (white[i]) expect(digit[i]).toBeGreaterThanOrEqual(1);
+      // Check every maximal run in both directions.
+      let runCount = 0;
+      for (const horizontal of [true, false])
+        for (let line = 0; line < n; line++) {
+          let run: number[] = [];
+          for (let i = 0; i <= n; i++) {
+            const index =
+              i < n ? (horizontal ? line * n + i : i * n + line) : -1;
+            if (index >= 0 && white[index]) {
+              run.push(index);
+              continue;
+            }
+            if (run.length > 0) {
+              runCount++;
+              expect(run.length).toBeGreaterThanOrEqual(2);
+              const digits = run.map((cellIndex) => digit[cellIndex]);
+              expect(new Set(digits).size).toBe(digits.length);
+              const clueCell = horizontal ? run[0] - 1 : run[0] - n;
+              expect((horizontal ? across : down)[clueCell]).toBe(
+                digits.reduce((a, b) => a + b, 0),
+              );
+            }
+            run = [];
+          }
+        }
+      expect(runCount).toBeGreaterThanOrEqual(10);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('kakuropuzzle', 0),
+      b = createSurfaceSampler('kakuropuzzle', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

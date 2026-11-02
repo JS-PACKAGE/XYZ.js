@@ -25973,6 +25973,213 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'kakuropuzzle': {
+        const p = proceduralMaterialPresets.kakuropuzzle,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2a801),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          n = p.size,
+          side = 1 - 2 * p.margin,
+          cell = side / n,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          white = new Uint8Array(n * n),
+          digit = new Uint8Array(n * n),
+          acrossClue = new Uint8Array(n * n),
+          downClue = new Uint8Array(n * n),
+          // The maximal runs of white cells along rows and then along columns.
+          runsOf = (): { cells: number[]; horizontal: boolean }[] => {
+            const list: { cells: number[]; horizontal: boolean }[] = [];
+            for (const horizontal of [true, false])
+              for (let line = 0; line < n; line++) {
+                let current: number[] = [];
+                for (let i = 0; i <= n; i++) {
+                  const index =
+                    i < n ? (horizontal ? line * n + i : i * n + line) : -1;
+                  if (index >= 0 && white[index] === 1) current.push(index);
+                  else {
+                    if (current.length > 0)
+                      list.push({ cells: current, horizontal });
+                    current = [];
+                  }
+                }
+              }
+            return list;
+          };
+        // A layout: the first row and column are blocks and a few random interior cells are blocks too,
+        // kept only if every run has at least two cells. The white cells are then filled with digits 1-9 so
+        // that no run repeats a digit (backtracking in a seeded random order); a run's clue is its sum.
+        for (let attempt = 0; attempt < p.attempts; attempt++) {
+          white.fill(0);
+          digit.fill(0);
+          acrossClue.fill(0);
+          downClue.fill(0);
+          for (let y = 1; y < n; y++)
+            for (let x = 1; x < n; x++) white[y * n + x] = 1;
+          const blocks =
+            p.minBlocks +
+            Math.floor(
+              hash(attempt, 3, seed ^ 0x2a803) *
+                (p.maxBlocks - p.minBlocks + 1),
+            );
+          for (let b = 0; b < blocks; b++) {
+            const x =
+                1 +
+                Math.floor(hash(attempt * 17 + b, 5, seed ^ 0x2a805) * (n - 1)),
+              y =
+                1 +
+                Math.floor(hash(attempt * 17 + b, 7, seed ^ 0x2a807) * (n - 1));
+            white[Math.min(n - 1, y) * n + Math.min(n - 1, x)] = 0;
+          }
+          const runs = runsOf();
+          if (runs.some((run) => run.cells.length < 2)) continue;
+          const runsOfCell = new Map<number, number[][]>();
+          for (const run of runs)
+            for (const index of run.cells)
+              runsOfCell.set(index, [
+                ...(runsOfCell.get(index) ?? []),
+                run.cells,
+              ]);
+          const order = [...runsOfCell.keys()].sort((a, b) => a - b),
+            place = (position: number): boolean => {
+              if (position === order.length) return true;
+              const index = order[position],
+                taken = new Set<number>();
+              for (const cells of runsOfCell.get(index) ?? [])
+                for (const other of cells)
+                  if (digit[other] !== 0) taken.add(digit[other]);
+              const choices = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+                .filter((value) => !taken.has(value))
+                .map((value) => ({
+                  value,
+                  key: hash(index * 11 + value, attempt + 13, seed ^ 0x2a809),
+                }))
+                .sort((a, b) => a.key - b.key);
+              for (const { value } of choices) {
+                digit[index] = value;
+                if (place(position + 1)) return true;
+              }
+              digit[index] = 0;
+              return false;
+            };
+          if (!place(0)) continue;
+          for (const run of runs) {
+            const first = run.cells[0],
+              block = run.horizontal ? first - 1 : first - n,
+              sum = run.cells.reduce((total, index) => total + digit[index], 0);
+            (run.horizontal ? acrossClue : downClue)[block] = sum;
+          }
+          break;
+        }
+        // Which pixel of a 3 x 5 (or two-digit) number is lit: x, y count pixels from the number's top left.
+        const lit = (value: number, x: number, y: number): boolean => {
+          const digits = value >= 10 ? 2 : 1;
+          if (y < 0 || y >= 5 || x < 0 || x >= digits * 4 - 1 || x % 4 === 3)
+            return false;
+          const glyph =
+            digits === 2
+              ? x < 3
+                ? Math.floor(value / 10)
+                : value % 10
+              : value;
+          return glyphs[glyph][y * 3 + (x % 4)] === '1';
+        };
+        return () => {
+          const lx = u - p.margin,
+            ly = v - p.margin;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            ink = 0,
+            clueInk = 0,
+            line = 0,
+            diagonal = 0;
+          if (lx >= 0 && lx < side && ly >= 0 && ly < side) {
+            const col = Math.min(n - 1, Math.floor(lx / cell)),
+              row = Math.min(n - 1, Math.floor(ly / cell)),
+              index = row * n + col,
+              fx = lx - col * cell,
+              fy = ly - row * cell;
+            line = cover(
+              p.lineHalf -
+                Math.min(Math.min(fx, cell - fx), Math.min(fy, cell - fy)),
+            );
+            if (white[index] === 1) {
+              tone = p.cellTone;
+              level = p.cellHeight;
+              const pixel = cell * p.digitFraction;
+              if (
+                lit(
+                  digit[index],
+                  Math.floor((fx - (cell / 2 - 1.5 * pixel)) / pixel),
+                  Math.floor((fy - (cell / 2 - 2.5 * pixel)) / pixel),
+                )
+              )
+                ink = 1;
+            } else {
+              tone = p.blockTone;
+              level = p.blockHeight;
+              const across = acrossClue[index],
+                down = downClue[index];
+              if (across > 0 || down > 0) {
+                diagonal = cover(
+                  p.diagonalHalf - Math.abs(fx - fy) / Math.SQRT2,
+                );
+                const small = p.cluePixel;
+                if (across > 0) {
+                  const width = (across >= 10 ? 7 : 3) * small;
+                  if (
+                    lit(
+                      across,
+                      Math.floor((fx - (cell * 0.74 - width / 2)) / small),
+                      Math.floor((fy - (cell * 0.27 - 2.5 * small)) / small),
+                    )
+                  )
+                    clueInk = 1;
+                }
+                if (down > 0) {
+                  const width = (down >= 10 ? 7 : 3) * small;
+                  if (
+                    lit(
+                      down,
+                      Math.floor((fx - (cell * 0.26 - width / 2)) / small),
+                      Math.floor((fy - (cell * 0.73 - 2.5 * small)) / small),
+                    )
+                  )
+                    clueInk = 1;
+                }
+              }
+            }
+          }
+          const base =
+            tone +
+            (p.lineTone - tone) * line +
+            (p.diagonalTone - tone) * diagonal * (1 - line);
+          color = clamp(
+            base +
+              (p.inkTone - base) * ink +
+              (p.clueTone - base) * clueInk +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            level + (p.lineHeight - level) * line - p.inkDepth * ink,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.inkRoughness - p.paperRoughness) * Math.max(ink, clueInk);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -53502,6 +53709,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'kakuropuzzle' ||
     kind === 'hexresourceboard' ||
     kind === 'bowlingscoresheet' ||
     kind === 'dewbeads' ||

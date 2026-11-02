@@ -1525,6 +1525,10 @@
 
 這是作者設計的示意：地形只以亮度區分，沒有森林、牧場等具體圖案，標記上的6與8也沒有畫成紅色（這套材質只有一條暗到亮的色階）；數字標記分布與地形配置符合上述規則，但規則是照記憶實作，沒有對照官方規則書；若400次洗牌都無法滿足6與8不相鄰的限制會保留最後一次（我的取樣測試中沒有遇到）；每個tile只有一座島，不隨tile重複的接縫處理。預設0.5 m nominal tile、0.005 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`kakuropuzzle`（數和謎題／Kakuro）使目前目錄989→990種，含plain的gallery為991項。每tile是一個8×8的已解開Kakuro盤面：第一列與第一欄是黑色格，其餘格中由seed隨機放入6至9個黑格，只保留每條連續白格都至少有兩格的版面；白格填入1至9的數字，使每一條橫向與縱向的連續白格內都沒有重複的數字（以回溯搜尋隨機填入）；每條連續白格的起點之前（左邊或上方）的黑格以斜線分成兩半，橫向的和寫在右上、縱向的和寫在左下（1至2位數的小點陣數字）。米白紙面與深色黑格，白格內是深色大點陣數字。Metallic與mortar為0。
+
+這是作者設計的示意：畫面是填好答案的盤面，真正的Kakuro只顯示線索並隱藏白格中的數字；盤面版面由隨機黑格挑選，通過條件只有「每段白格長度至少2」，不保證解答唯一，也不保證是好謎題；版面搜尋每個seed最多嘗試6000次，我只驗證了209個seed（9個測試seed加額外200個）都找到版面；點陣數字為3×5，兩位數的線索寬約0.045個tile。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

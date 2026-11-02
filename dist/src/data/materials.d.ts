@@ -9285,6 +9285,38 @@ export declare const proceduralMaterialPresets: Readonly<{
         seaRoughness: 0.3;
         tokenRoughness: 0.36;
     }>;
+    kakuropuzzle: Readonly<{
+        dark: readonly [18, 20, 34];
+        light: readonly [244, 238, 216];
+        roughness: 0.56;
+        relief: 0.004;
+        size: 8;
+        margin: 0.03;
+        minBlocks: 6;
+        maxBlocks: 9;
+        attempts: 6000;
+        digitFraction: 0.12;
+        cluePixel: 0.0064;
+        lineHalf: 0.0008;
+        diagonalHalf: 0.0016;
+        edgeSoft: 0.0011;
+        grainCells: 192;
+        paperTone: 0.94;
+        cellTone: 0.9;
+        blockTone: 0.1;
+        clueTone: 0.88;
+        diagonalTone: 0.55;
+        lineTone: 0.4;
+        inkTone: 0.08;
+        grainTone: 0.03;
+        paperHeight: 0.22;
+        cellHeight: 0.5;
+        blockHeight: 0.3;
+        lineHeight: 0.35;
+        inkDepth: 0.06;
+        inkRoughness: 0.4;
+        paperRoughness: 0.74;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -15770,6 +15802,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    kakuropuzzle: 0.5;
     hexresourceboard: 0.5;
     bowlingscoresheet: 0.5;
     dewbeads: 0.3;
