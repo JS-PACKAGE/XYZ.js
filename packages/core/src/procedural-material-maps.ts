@@ -35533,6 +35533,37 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'sierpinskipascal': {
+        const p = proceduralMaterialPresets.sierpinskipascal,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x30401),
+          depth =
+            p.depths[Math.floor(hash(6, 1, seed ^ 0x30402) * p.depths.length)],
+          mirrored = hash(6, 2, seed ^ 0x30403) < 0.5,
+          size = 2 ** depth;
+        return () => {
+          // Cell (i, j) holds Pascal's number C(i + j, i); it is odd exactly when i and j have no binary digit 1 in common.
+          // The second triangle is the same picture turned half a turn, so the two halves of the square meet on a diagonal.
+          const column = Math.min(
+              size - 1,
+              Math.floor((mirrored ? 1 - u : u) * size),
+            ),
+            row = Math.min(size - 1, Math.floor(v * size)),
+            ink =
+              (column & row) === 0 ||
+              ((size - 1 - column) & (size - 1 - row)) === 0
+                ? 1
+                : 0;
+          color = clamp(
+            p.paperTone +
+              (p.inkTone - p.paperTone) * ink +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * ink);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -63062,6 +63093,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'sierpinskipascal' ||
     kind === 'sacksspiral' ||
     kind === 'dyckpaths' ||
     kind === 'figuratenumbers' ||

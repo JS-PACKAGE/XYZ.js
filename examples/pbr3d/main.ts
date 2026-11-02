@@ -711,6 +711,7 @@ try {
     'dcbarreljackfaces',
     'stfiberadapterfaces',
     'to92packagefaces',
+    'sierpinskipascal',
     'sacksspiral',
     'dyckpaths',
     'figuratenumbers',

@@ -1885,6 +1885,10 @@
 
 這是作者設計的示意：沒有畫螺線本身、座標軸或數字標示，只有質數的點；點是固定大小的圓點，質數很密的地方點會彼此靠近或重疊；沒有說明質數分布的任何結論。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`sierpinskipascal`（帕斯卡奇偶三角）使目前目錄1081→1082種，含plain的gallery為1083項。整張tile是2^d × 2^d個方格（d由seed從5、6、7選一個）：第i欄第j列的方格填成深色，當且僅當帕斯卡三角形的數C(i + j, i)是奇數（等價於i與j的二進位沒有共同的1），這就是Sierpiński三角形；另一個三角形是同一張圖轉半圈，所以兩個三角形在對角線上相接，組成整個方形。seed另外決定是否左右鏡像。Metallic與mortar為0。
+
+這是作者設計的示意：只有奇數／偶數兩種顏色，不標註數字；方格是硬邊的（深色方格沒有邊線，邊緣沒有抗鋸齒的色階，只有紋理的顆粒）；深度最多7（128×128個方格），更深在512像素以下會變成不到4像素；兩個三角形在tile邊緣與對角線處的深色格會相連、顯得較粗。預設0.8 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

@@ -25866,3 +25866,101 @@ describe('sacksspiral: primes on the Sacks spiral', () => {
     expect(different).toBeGreaterThan(0);
   });
 });
+
+describe('sierpinskipascal: Pascal triangle modulo 2 in two triangles', () => {
+  const p = proceduralMaterialPresets.sierpinskipascal;
+  // Pascal's triangle mod 2 built by adding the two numbers above (no bit tricks); entry (i, j) of the picture is C(i + j, i).
+  const pascal = (rows: number): number[][] => {
+    const triangle: number[][] = [[1]];
+    for (let n = 1; n < rows; n++)
+      triangle.push(
+        Array.from(
+          { length: n + 1 },
+          (_, k) =>
+            ((triangle[n - 1][k - 1] ?? 0) + (triangle[n - 1][k] ?? 0)) % 2,
+        ),
+      );
+    return triangle;
+  };
+  const expected = (depth: number, mirrored: boolean): number[][] => {
+    const size = 2 ** depth,
+      triangle = pascal(size),
+      odd = (i: number, j: number): number =>
+        i + j < size ? triangle[i + j][i] : 0;
+    // Cell (row j, column i): the picture plus the same picture turned half a turn, columns mirrored when asked.
+    return Array.from({ length: size }, (_, row) =>
+      Array.from({ length: size }, (_, column) => {
+        const i = mirrored ? size - 1 - column : column;
+        return Math.max(odd(i, row), odd(size - 1 - i, size - 1 - row));
+      }),
+    );
+  };
+
+  const matches = (seed: number): [number, boolean][] => {
+    const sample = createSurfaceSampler('sierpinskipascal', seed),
+      out = empty(),
+      found: [number, boolean][] = [];
+    for (const depth of p.depths)
+      for (const mirrored of [false, true]) {
+        const grid = expected(depth, mirrored),
+          size = 2 ** depth;
+        let ok = true;
+        for (let row = 0; row < size && ok; row++)
+          for (let column = 0; column < size && ok; column++) {
+            sample((column + 0.5) / size, (row + 0.5) / size, out);
+            ok = (out.color < 0.5 ? 1 : 0) === grid[row][column];
+          }
+        if (ok) found.push([depth, mirrored]);
+      }
+    return found;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'fills exactly the cells where Pascal numbers are odd, in two halves (seed %i)',
+    (seed) => {
+      expect(matches(seed)).toHaveLength(1);
+    },
+  );
+
+  it('uses every depth and both mirrorings across seeds', () => {
+    const variants = new Set<string>();
+    for (let seed = 0; seed < 40; seed++) variants.add(matches(seed).join('|'));
+    expect(variants.size).toBe(6);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('sierpinskipascal', 0),
+      b = createSurfaceSampler('sierpinskipascal', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(0);
+  });
+});
