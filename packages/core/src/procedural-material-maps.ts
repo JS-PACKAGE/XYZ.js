@@ -39037,6 +39037,58 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'spectrogram': {
+        const p = proceduralMaterialPresets.spectrogram,
+          driftField = cachedNoise(p.driftCells, 2, seed ^ p.seedSalt),
+          energyField = cachedNoise(
+            p.energyColumns,
+            p.energyRows,
+            seed ^ (p.seedSalt + 1),
+          ),
+          floorField = cachedNoise(
+            p.floorCells,
+            p.floorCells,
+            seed ^ (p.seedSalt + 2),
+          ),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 3),
+          ),
+          inverseLine2 = 1 / (p.lineWidth * p.lineWidth),
+          inverseBurst2 = 1 / (p.burstWidth * p.burstWidth);
+        return () => {
+          // Spectrogram of a harmonic sound: horizontal harmonic lines (an integer
+          // number across the tile, each exp(-sin^2 / w^2), C-infinity) bent by
+          // vibrato and a slow pitch drift, vertical broadband bursts, and a speckle
+          // floor, all gated by a time-frequency energy field through a smooth tanh
+          // step. Terms join as the union 1 - prod(1 - x), so intensity stays in [0, 1].
+          const shift =
+              (p.vibrato * Math.sin(2 * Math.PI * p.vibratoCycles * u) +
+                p.driftAmount * (driftField(u, 0.3) - 0.5)) /
+              p.harmonics,
+            lineSin = Math.sin(Math.PI * p.harmonics * (v - shift)),
+            lines = Math.exp(-lineSin * lineSin * inverseLine2),
+            energy =
+              0.5 +
+              0.5 *
+                Math.tanh(
+                  p.energySharpness * (energyField(u, v) - p.energyCenter),
+                ),
+            burstSin = Math.sin(Math.PI * p.bursts * u),
+            burst = Math.exp(-burstSin * burstSin * inverseBurst2),
+            floor = floorField(u, v),
+            intensity =
+              1 -
+              (1 - lines * energy) *
+                (1 - p.burstWeight * burst * energy) *
+                (1 - p.floorWeight * floor * energy),
+            grain = grainField(u, v);
+          color = p.baseTone + p.peakTone * intensity;
+          height = p.heightWeight * intensity + p.grainHeight * grain;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -46792,6 +46844,7 @@ export function createSurfaceSampler(
     kind === 'redalder' ||
     kind === 'ecgpaper' ||
     kind === 'barchart' ||
+    kind === 'spectrogram' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

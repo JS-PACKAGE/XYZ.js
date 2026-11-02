@@ -13404,6 +13404,33 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.4;
         inkRoughness: -0.08;
     }>;
+    spectrogram: Readonly<{
+        dark: readonly [12, 8, 62];
+        light: readonly [255, 220, 96];
+        roughness: 0.4;
+        relief: 0.002;
+        seedSalt: 23020;
+        harmonics: 12;
+        lineWidth: 0.18;
+        vibrato: 0.2;
+        vibratoCycles: 6;
+        driftCells: 8;
+        driftAmount: 0.18;
+        energyColumns: 20;
+        energyRows: 14;
+        energyCenter: 0.35;
+        energySharpness: 5;
+        bursts: 5;
+        burstWidth: 0.1;
+        burstWeight: 0.5;
+        floorCells: 96;
+        floorWeight: 0.14;
+        baseTone: 0.04;
+        peakTone: 0.9;
+        heightWeight: 0.6;
+        grainCells: 128;
+        grainHeight: 0.4;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -14730,4 +14757,5 @@ export declare const proceduralTileMeters: Readonly<{
     redalder: 0.18;
     ecgpaper: 0.3;
     barchart: 0.25;
+    spectrogram: 0.3;
 }>;

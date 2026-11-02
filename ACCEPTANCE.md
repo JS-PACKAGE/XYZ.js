@@ -12053,3 +12053,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增7項（三seed統計與長條高度掃描、seed差異與決定性、C1＋有符號UV週期、actual512 maps），`-t "Bar chart|barchart"`通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Bar chart|barchart|kinds|catalog|distinct|periodic"`定向測試**2178項通過／3774項未選**。
 - 未驗證：本材質未跑完整suite與瀏覽器gallery（redalder、ecgpaper亦未做）；不push。
+
+## 2026-11-02 新增材質：頻譜圖（spectrogram）
+
+- 範圍：新增`spectrogram`（目前目錄947→948種，含plain的gallery 949項）：深藍底上12條被顫音（`0.2·sin(2π·6·u)`加8×2週期雜訊緩慢漂移）彎成波浪的黃色諧波水平線（整數條`exp(−sin²/w²)`）、5條垂直爆發亮帶與96×96雜訊斑點，三者乘上20×14能量場經tanh得到的平滑閘門，並以聯集`1 − Π(1 − x)`合併；預設0.3 m nominal tile、0.002 UV-relative relief。作者示意，沒有引用特定來源、音訊資料或對照圖，**不是真實音訊的頻譜**；所有諧波用相同的顫音幅度，顏色是單一漸層。
+- 調整紀錄（誠實紀錄）：第一版諧波線太細且能量閘門太嚴，預覽上亮線稀疏；加寬線寬（0.1→0.18）並降低能量門檻（0.45→0.35）後才採用，是我對預覽的主觀判斷。
+- 實測（工具實跑）：三seed 512²取樣亮線（color>0.5）占6.31–6.76%、color 0.0400–0.939、平均0.155–0.161、roughness恆為0.4、height至多0.971–0.982 relief；諧波線在顫音正峰約+0.2個間距、負峰約−0.2個間距（測試每個seed驗證，容差含漂移上限）；seed 0與1的亮區遮罩（color>0.2）有超過5%像素不同；seed 7的512²maps平均r／g／b約(50, 41, 67)、r>128占7.0%、法線tilt²最大約0.092、z分量最小249。
+- 測試：新增10項（三seed統計、顫音彎曲位置驗證、seed差異與決定性、C1＋有符號UV週期、actual512 maps；含通用kinds測試），`-t "Spectrogram|spectrogram"`通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Spectrogram|spectrogram|kinds|catalog|distinct|periodic"`定向測試**2183項通過／3779項未選**。
+- 未驗證：本材質未跑完整suite與瀏覽器gallery（redalder、ecgpaper、barchart亦未做）；不push。
