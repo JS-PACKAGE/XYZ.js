@@ -33724,6 +33724,103 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'boxplots': {
+        const p = proceduralMaterialPresets.boxplots,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2f001),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // Sorted data of every panel, as positions across the tile; the five-number summary uses the 4th, 8th and 12th
+          // of fifteen values as the quartiles and median (Tukey's hinges for an odd count).
+          panels = Array.from({ length: p.panels }, (_, panel) => {
+            const values = Array.from(
+              { length: p.points },
+              (_, i) =>
+                p.left +
+                p.span *
+                  ((i + 0.15 + 0.7 * hash(panel, i, seed ^ 0x2f002)) /
+                    p.points) **
+                    p.exponents[panel],
+            );
+            return {
+              values,
+              low: values[0],
+              q1: values[3],
+              median: values[7],
+              q3: values[11],
+              high: values[p.points - 1],
+            };
+          });
+        return () => {
+          const panel = Math.floor((v - p.top) / p.panelPitch),
+            local = v - p.top - panel * p.panelPitch;
+          let box = 0,
+            line = 0,
+            dot = 0;
+          if (panel >= 0 && panel < p.panels) {
+            const data = panels[panel],
+              dy = Math.abs(local - p.boxCentre),
+              insideX = (a: number, b: number): number =>
+                Math.min(u - a, b - u),
+              // The box, its outline, the median, the whiskers and their caps.
+              inBox = cover(
+                Math.min(insideX(data.q1, data.q3), p.boxHalfHeight - dy),
+              ),
+              outline = Math.min(
+                1,
+                cover(p.lineHalf - Math.abs(dy - p.boxHalfHeight)) *
+                  cover(insideX(data.q1 - p.lineHalf, data.q3 + p.lineHalf)) +
+                  cover(p.lineHalf - Math.abs(u - data.q1)) *
+                    cover(p.boxHalfHeight + p.lineHalf - dy) +
+                  cover(p.lineHalf - Math.abs(u - data.q3)) *
+                    cover(p.boxHalfHeight + p.lineHalf - dy),
+              ),
+              median =
+                cover(p.lineHalf * 1.5 - Math.abs(u - data.median)) *
+                cover(p.boxHalfHeight - dy),
+              whisker =
+                cover(p.lineHalf - dy) *
+                Math.max(
+                  cover(insideX(data.low, data.q1)),
+                  cover(insideX(data.q3, data.high)),
+                ),
+              caps =
+                Math.max(
+                  cover(p.lineHalf - Math.abs(u - data.low)),
+                  cover(p.lineHalf - Math.abs(u - data.high)),
+                ) * cover(p.capHalf - dy);
+            box = inBox;
+            line = Math.max(outline, median, whisker, caps);
+            // The data: sorted order alternates between two rows so that neighbours do not overlap.
+            for (let i = 0; i < p.points; i++) {
+              const row = p.dotRows[i % 2];
+              dot = Math.max(
+                dot,
+                cover(
+                  p.dotRadius - Math.hypot(u - data.values[i], local - row),
+                ),
+              );
+            }
+          }
+          const base = p.paperTone + (p.boxTone - p.paperTone) * box,
+            withLine = base + (p.lineTone - base) * line;
+          color = clamp(
+            withLine +
+              (p.dotTone - withLine) * dot +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.paperHeight +
+              (p.boxHeight - p.paperHeight) * box +
+              (p.lineHeight - p.boxHeight) * line * 0.9 +
+              (p.dotHeight - p.lineHeight) * dot,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.inkRoughness - p.paperRoughness) * Math.max(line, dot);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -61253,6 +61350,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'boxplots' ||
     kind === 'sorobanabacus' ||
     kind === 'numberwords' ||
     kind === 'dipolefieldlines' ||

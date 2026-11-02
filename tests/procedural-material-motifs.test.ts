@@ -22885,3 +22885,101 @@ describe('sorobanabacus: soroban beads that show the printed number', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('boxplots: five-number summaries drawn above their data', () => {
+  const p = proceduralMaterialPresets.boxplots;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws each box, median and whiskers at the quartiles of the dots below it (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('boxplots', seed),
+        out = empty(),
+        step = 0.0004,
+        // Dark runs along a horizontal line at height y, as [start, end] in u.
+        runs = (y: number): [number, number][] => {
+          const found: [number, number][] = [];
+          let start = -1;
+          for (let i = 0; i <= 2500; i++) {
+            const u = i * step;
+            sample(u, y, out);
+            const dark = out.color < 0.5;
+            if (dark && start < 0) start = u;
+            if (!dark && start >= 0) {
+              found.push([start, u - step]);
+              start = -1;
+            }
+          }
+          return found;
+        };
+      for (let panel = 0; panel < p.panels; panel++) {
+        const top = p.top + panel * p.panelPitch,
+          // The dots: runs on the two rows, each run's middle is a value.
+          values = [...runs(top + p.dotRows[0]), ...runs(top + p.dotRows[1])]
+            .map(([a, b]) => (a + b) / 2)
+            .sort((a, b) => a - b);
+        expect(values).toHaveLength(p.points);
+        // Tukey's hinges for fifteen values: the median is the 8th, the quartiles are the medians of the 7 values below and above.
+        const median = values[7],
+          lower = values.slice(0, 7),
+          upper = values.slice(8),
+          q1 = lower[3],
+          q3 = upper[3],
+          centre = runs(top + p.boxCentre);
+        // Whisker with the left outline of the box, the median line and the right outline with the other whisker.
+        expect(centre).toHaveLength(3);
+        const tolerance = 0.003;
+        expect(Math.abs(centre[0][0] - (values[0] - p.lineHalf))).toBeLessThan(
+          tolerance,
+        );
+        expect(Math.abs(centre[0][1] - (q1 + p.lineHalf))).toBeLessThan(
+          tolerance,
+        );
+        expect(
+          Math.abs((centre[1][0] + centre[1][1]) / 2 - median),
+        ).toBeLessThan(tolerance);
+        expect(Math.abs(centre[2][0] - (q3 - p.lineHalf))).toBeLessThan(
+          tolerance,
+        );
+        expect(Math.abs(centre[2][1] - (values[14] + p.lineHalf))).toBeLessThan(
+          tolerance,
+        );
+      }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('boxplots', 0),
+      b = createSurfaceSampler('boxplots', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
