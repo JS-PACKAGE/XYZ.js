@@ -12291,3 +12291,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試（三seed的磚中心顏色與獨立重寫的gcd比對（恰有一組偏移相符）、統計，seed差異與決定性，C1＋有符號UV週期，actual512 maps）通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "GCD table as|gcdtable|kinds|catalog|distinct|periodic"`定向測試**2240項通過／3847項未選**。
 - 未驗證：modulartable、pascalmod3、collatzsteps、gcdtable未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：埃拉托斯特尼篩（primesieve）
+
+- 範圍：新增`primesieve`（目前目錄969→970種，含plain的gallery 971項）：32×32個圓角方塊磚（沿用modulartable系列的緊湊支撐kernel逐格查詢做法，C1）代表整數1到1024，建構時以埃拉托斯特尼篩算出最小質因數：質數（172個）色調0.8、1為0.1、合數為`0.4·(1 − 1/最小質因數)`；seed沿環面平移整張表；磚縫AO 0.6；roughness恆為0.45；預設0.3 m nominal tile、0.0012 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**。合數之間的色調對比偏低，預覽比較像橄欖色底上的金黃點。
+- 調整紀錄（誠實紀錄）：第一版質數色調設為0.92，與底色0.14相加會超過1（約1.06），我在第一次渲染前就改為0.8；沒有再調整其他參數；也沒有調整relief（0.0012，第一版即採用）。
+- 實測（工具實跑，seed 0／1／0xffffffff／7，512²取樣）：亮處（color>0.5）占15.9%–16.0%、color 0.0351–0.0352至0.9545–0.9547、平均0.3573–0.3576、roughness恆為0.45、AO最低0.6、height至多0.8579–0.8595 relief；1,024個磚中心的顏色與測試中以試除法獨立重寫的最小質因數一致（質數172個），四個seed各自唯一對應的平移為(18, 21)、(0, 10)、(10, 29)、(18, 23)，最大誤差0.0150（細grain的幅度）；seed 0與1的亮區遮罩19.1%像素不同；seed 7的512²maps平均r／g／b約(106.5, 89.3, 55.2)、法線tilt²最大約0.0399、z分量最小252。我實看了預覽：金黃色質數點散布在橄欖色磚面上，可看出直條規律。
+- 測試：新增5項專屬測試（三seed的磚中心顏色與獨立試除法最小質因數比對（恰有一個平移相符、質數172個）、統計，seed差異與決定性，C1＋有符號UV週期，actual512 maps）通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Prime sieve as|primesieve|kinds|catalog|distinct|periodic"`定向測試**2242項通過／3850項未選**。
+- 未驗證：primesieve未跑完整suite與瀏覽器gallery；不push。

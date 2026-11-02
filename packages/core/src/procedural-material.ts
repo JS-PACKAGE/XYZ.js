@@ -984,7 +984,8 @@ export type ProceduralMaterialKind =
   | 'modulartable'
   | 'pascalmod3'
   | 'collatzsteps'
-  | 'gcdtable';
+  | 'gcdtable'
+  | 'primesieve';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2203,6 +2204,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'pascalmod3',
   'collatzsteps',
   'gcdtable',
+  'primesieve',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
