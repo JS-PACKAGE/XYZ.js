@@ -1617,6 +1617,10 @@
 
 這是作者設計的示意：因數只到9（不是12×12的常見大表）；因為內容固定、不同seed只有雜訊差異；點陣數字在小尺寸下難以辨識。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`moonphases`（月相／moon phases）使目前目錄1012→1013種，含plain的gallery為1014項。每tile是一張月相日曆：深藍色夜空上排成5欄×6列共30個月亮，依序代表朔望月（29.53天）中連續的30天，從新月經上弦、滿月、下弦再回到殘月。每個月亮是一個帶有隨機環形山（同一組24個，因為是同一個月球）的灰色圓盤，被照亮的部分是淡色、陰影部分是暗灰色；盈月時（前半個週期）由右側受光，虧月時（後半個週期）由左側受光，明暗界線是橢圓：照亮面積占全圓的比例是 (1−cos 2πφ)/2，其中 φ 是週期內的相位。日曆起點是seed決定的、不足一天的相位偏移，所以不同seed的月相略有差異。Metallic與mortar為0。
+
+這是作者設計的示意：不是天文曆表——相位只用單純的餘弦公式（朔望月固定取29.53天），沒有月球的天平動、地球的反照（地球光）或真實的月面地貌；北半球視角（盈月時右側受光），南半球觀察者會看到左右相反；30天只涵蓋29.53天的一個週期，所以第一個與最後一個月亮的相位接近但不是完全相同；顏色只有明度。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

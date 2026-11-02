@@ -15821,3 +15821,109 @@ describe('multiplicationtable: a times table', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('moonphases: thirty moons through one lunation', () => {
+  const p = proceduralMaterialPresets.moonphases;
+  const left = (1 - p.columns * p.cell) / 2;
+  const top = (1 - p.rows * p.cell) / 2;
+  const total = p.columns * p.rows;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'lights each moon by the right fraction, from the right while waxing and from the left while waning (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('moonphases', seed),
+        out = empty(),
+        fractions: number[] = [],
+        centroids: number[] = [];
+      for (let day = 0; day < total; day++) {
+        const cx = left + ((day % p.columns) + 0.5) * p.cell,
+          cy = top + (Math.floor(day / p.columns) + 0.5) * p.cell;
+        let inside = 0,
+          lit = 0,
+          sideSum = 0;
+        // Sample the disc on a grid of points just inside its rim.
+        for (let j = -24; j <= 24; j++)
+          for (let i = -24; i <= 24; i++) {
+            const dx = i / 24,
+              dy = j / 24;
+            if (Math.hypot(dx, dy) > 0.95) continue;
+            sample(
+              cx + dx * p.moonRadius * p.cell,
+              cy + dy * p.moonRadius * p.cell,
+              out,
+            );
+            inside++;
+            // Lit surface is bright even through a crater (0.95 - 0.12); the shadowed side is dark.
+            if (out.color > 0.6) {
+              lit++;
+              sideSum += dx;
+            }
+          }
+        fractions.push(lit / inside);
+        centroids.push(lit === 0 ? 0 : sideSum / lit);
+      }
+      // The calendar starts some fraction of a day into the lunation: find that offset and check every moon against it.
+      const expected = (day: number, offset: number): number =>
+        (1 - Math.cos((2 * Math.PI * (day + offset)) / p.synodicDays)) / 2;
+      let best = 1,
+        bestOffset = 0;
+      for (let offset = 0; offset < 1; offset += 0.005) {
+        const worst = Math.max(
+          ...fractions.map((fraction, day) =>
+            Math.abs(fraction - expected(day, offset)),
+          ),
+        );
+        if (worst < best) {
+          best = worst;
+          bestOffset = offset;
+        }
+      }
+      expect(best).toBeLessThan(0.05);
+      // Waxing moons are lit on the right (positive x), waning moons on the left; new and full moons have no side.
+      for (let day = 0; day < total; day++) {
+        const phase = ((day + bestOffset) / p.synodicDays) % 1;
+        if (fractions[day] > 0.15 && fractions[day] < 0.85)
+          expect(centroids[day] > 0).toBe(phase < 0.5);
+      }
+      // The lunation passes through a new moon and a full moon.
+      expect(Math.min(...fractions)).toBeLessThan(0.1);
+      expect(Math.max(...fractions)).toBeGreaterThan(0.9);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('moonphases', 0),
+      b = createSurfaceSampler('moonphases', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

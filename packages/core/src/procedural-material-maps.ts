@@ -29169,6 +29169,74 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'moonphases': {
+        const p = proceduralMaterialPresets.moonphases,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2bf01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          left = (1 - p.columns * p.cell) / 2,
+          top = (1 - p.rows * p.cell) / 2,
+          // One moon radius in tile units, and the calendar's start as a seed-driven fraction of a day into the lunation.
+          unit = p.moonRadius * p.cell,
+          offset = hash(1, 3, seed ^ 0x2bf03),
+          // The same craters on every moon (it is the same Moon), as discs in unit-disc coordinates.
+          craters = Array.from(
+            { length: p.craters },
+            (_, index): [number, number, number] => {
+              const angle = 2 * Math.PI * hash(index, 5, seed ^ 0x2bf05),
+                radius = 0.8 * Math.sqrt(hash(index, 7, seed ^ 0x2bf07));
+              return [
+                radius * Math.cos(angle),
+                radius * Math.sin(angle),
+                p.craterRadius * (0.5 + hash(index, 9, seed ^ 0x2bf09)),
+              ];
+            },
+          );
+        return () => {
+          const x = (u - left) / p.cell,
+            y = (v - top) / p.cell;
+          let shade = 0,
+            lit = 0,
+            crater = 0;
+          if (x >= 0 && y >= 0 && x < p.columns && y < p.rows) {
+            const column = Math.floor(x),
+              row = Math.floor(y),
+              phase = ((row * p.columns + column + offset) / p.synodicDays) % 1,
+              k = Math.cos(2 * Math.PI * phase),
+              px = (x - column - 0.5) / p.moonRadius,
+              py = (y - row - 0.5) / p.moonRadius,
+              chord = Math.sqrt(Math.max(0, 1 - py * py));
+            shade = cover((1 - Math.hypot(px, py)) * unit);
+            // Waxing (first half of the cycle) is lit from the right, waning from the left; the terminator is an ellipse.
+            lit =
+              shade *
+              cover((phase < 0.5 ? px - k * chord : -k * chord - px) * unit);
+            for (const [cx, cy, radius] of craters)
+              crater = Math.max(
+                crater,
+                cover((radius - Math.hypot(px - cx, py - cy)) * unit),
+              );
+          }
+          const moonTone =
+            p.shadowTone +
+            (p.litTone - p.shadowTone) * lit -
+            p.craterShade * crater;
+          color = clamp(
+            p.skyTone +
+              (moonTone - p.skyTone) * shade +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.skyHeight +
+              (p.moonHeight - p.skyHeight) * shade -
+              p.craterDepth * crater * shade,
+          );
+          roughness =
+            p.skyRoughness + (p.moonRoughness - p.skyRoughness) * shade;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -56698,6 +56766,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'moonphases' ||
     kind === 'multiplicationtable' ||
     kind === 'draughtsposition' ||
     kind === 'colormapregions' ||

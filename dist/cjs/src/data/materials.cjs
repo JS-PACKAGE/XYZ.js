@@ -16917,6 +16917,39 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .74,
 		headerRoughness: .35
 	}),
+	moonphases: Object.freeze({
+		dark: [
+			10,
+			14,
+			34
+		],
+		light: [
+			244,
+			240,
+			224
+		],
+		roughness: .6,
+		relief: .004,
+		columns: 5,
+		rows: 6,
+		cell: .15,
+		synodicDays: 29.53,
+		moonRadius: .42,
+		craters: 24,
+		craterRadius: .12,
+		edgeSoft: .0011,
+		grainCells: 160,
+		skyTone: .08,
+		shadowTone: .24,
+		litTone: .95,
+		craterShade: .12,
+		grainTone: .025,
+		skyHeight: .1,
+		moonHeight: .7,
+		craterDepth: .12,
+		skyRoughness: .9,
+		moonRoughness: .75
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -25598,6 +25631,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	moonphases: .5,
 	multiplicationtable: .4,
 	draughtsposition: .5,
 	colormapregions: .5,
