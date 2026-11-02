@@ -1565,6 +1565,10 @@
 
 這是作者設計的示意：畫面是填好答案的盤面，真正的Akari只給牆與部分數字、燈泡要自己推；不保證只有唯一解；沒有畫出光線；不保證牆全部連通或沒有被牆圍起的孤立白格（孤立的白格會自己放一顆燈泡）；8×8固定、點陣數字為3×5。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`takuzugrid`（二進位謎題／Takuzu，又名Binairo）使目前目錄1001→1002種，含plain的gallery為1003項。每tile是一個8×8已解開的Takuzu盤面：每格不是實心圓（1）就是空心圓環（0），並符合Takuzu的全部規則——每一列、每一欄都恰有4個實心與4個空心、任何一列或一欄中不會有連續三個相同的符號、任兩列不相同、任兩欄也不相同。盤面由seed以回溯搜尋產生：依格子順序逐格嘗試（先試哪個符號由雜湊決定），遇到違反規則就退回，直到填滿。Metallic與mortar為0。
+
+這是作者設計的示意：畫面是填好答案的盤面，真正的Takuzu只給部分格子；不保證只有唯一解；回溯搜尋有節點上限（100000個節點）——我對300個seed量測的最大節點數約2400，遠低於上限，但若某個seed超過上限，盤面會留下未填格並被畫成空心圓環，這個情形我沒有遇到也未驗證其外觀；8×8固定。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

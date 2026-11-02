@@ -27881,6 +27881,106 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'takuzugrid': {
+        const p = proceduralMaterialPresets.takuzugrid,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2b401),
+          n = p.size,
+          half = n / 2,
+          side = 1 - 2 * p.margin,
+          cell = side / n,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          bits = new Int8Array(n * n).fill(-1);
+        let nodes = 0;
+        // Is it legal to put b at index, given the cells before it? No three equal in a row or column, at
+        // most n/2 of each symbol per row and column, and no two identical rows or columns.
+        const allowed = (index: number, b: number): boolean => {
+          const x = index % n,
+            y = Math.floor(index / n);
+          if (x >= 2 && bits[index - 1] === b && bits[index - 2] === b)
+            return false;
+          if (y >= 2 && bits[index - n] === b && bits[index - 2 * n] === b)
+            return false;
+          let inRow = 1,
+            inColumn = 1;
+          for (let k = 0; k < x; k++) if (bits[y * n + k] === b) inRow++;
+          for (let k = 0; k < y; k++) if (bits[k * n + x] === b) inColumn++;
+          if (inRow > half || inColumn > half) return false;
+          if (x === n - 1)
+            for (let k = 0; k < y; k++) {
+              let same = bits[k * n + x] === b;
+              for (let j = 0; j < n - 1 && same; j++)
+                same = bits[k * n + j] === bits[y * n + j];
+              if (same) return false;
+            }
+          if (y === n - 1)
+            for (let j = 0; j < x; j++) {
+              let same = bits[y * n + j] === b;
+              for (let k = 0; k < n - 1 && same; k++)
+                same = bits[k * n + j] === bits[k * n + x];
+              if (same) return false;
+            }
+          return true;
+        };
+        const fill = (index: number): boolean => {
+          if (index === n * n) return true;
+          if (++nodes > p.nodeLimit) return false;
+          const first = hash(index, nodes, seed ^ 0x2b403) < 0.5 ? 0 : 1;
+          for (const b of [first, 1 - first]) {
+            if (!allowed(index, b)) continue;
+            bits[index] = b;
+            if (fill(index + 1)) return true;
+            bits[index] = -1;
+          }
+          return false;
+        };
+        fill(0);
+        return () => {
+          const lx = u - p.margin,
+            ly = v - p.margin;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            line = 0,
+            disc = 0,
+            ring = 0;
+          if (lx >= 0 && ly >= 0 && lx < side && ly < side) {
+            const col = Math.min(n - 1, Math.floor(lx / cell)),
+              row = Math.min(n - 1, Math.floor(ly / cell)),
+              fx = lx / cell - col,
+              fy = ly / cell - row,
+              distance = Math.hypot(fx - 0.5, fy - 0.5),
+              inside = (p.discRadius - distance) * cell;
+            tone = p.cellTone;
+            level = p.cellHeight;
+            line = cover(
+              p.lineHalf -
+                Math.min(Math.min(fx, 1 - fx), Math.min(fy, 1 - fy)) * cell,
+            );
+            // 1 is a filled disc, 0 is a ring of the same outer size.
+            if (bits[row * n + col] === 1) disc = cover(inside);
+            else
+              ring = Math.min(
+                cover(inside),
+                cover((distance - (p.discRadius - p.ringWidth)) * cell),
+              );
+          }
+          const base = tone + (p.lineTone - tone) * line,
+            mixed =
+              base + (p.discTone - base) * disc + (p.ringTone - base) * ring;
+          color = clamp(mixed + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(
+            level +
+              (p.discHeight - level) * disc +
+              (p.ringHeight - level) * ring,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.discRoughness - p.paperRoughness) * disc +
+            (p.ringRoughness - p.paperRoughness) * ring;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -55410,6 +55510,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'takuzugrid' ||
     kind === 'akarilights' ||
     kind === 'hitorishading' ||
     kind === 'shikakurects' ||

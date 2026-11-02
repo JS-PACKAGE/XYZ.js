@@ -14468,3 +14468,91 @@ describe('akarilights: a solved Akari (Light Up)', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('takuzugrid: a solved Takuzu (Binairo)', () => {
+  const p = proceduralMaterialPresets.takuzugrid;
+  const n = p.size;
+  const cell = (1 - 2 * p.margin) / n;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'has balanced rows and columns, no three in a line and no repeated line (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('takuzugrid', seed),
+        out = empty(),
+        at = (col: number, row: number, dx: number, dy: number): number => {
+          sample(
+            p.margin + (col + 0.5 + dx) * cell,
+            p.margin + (row + 0.5 + dy) * cell,
+            out,
+          );
+          return out.color;
+        },
+        grid: number[][] = [];
+      for (let row = 0; row < n; row++) {
+        const line: number[] = [];
+        for (let col = 0; col < n; col++) {
+          const centre = at(col, row, 0, 0) < 0.4,
+            // A ring is light in the middle and dark in a band between the two radii.
+            ringBand =
+              at(col, row, p.discRadius - p.ringWidth / 2, 0) < 0.4 &&
+              at(col, row, 0, -(p.discRadius - p.ringWidth / 2)) < 0.4;
+          // Dark in the middle is a disc (1); otherwise it must be a ring (0): light centre, dark band around it.
+          if (!centre) expect(ringBand).toBe(true);
+          line.push(centre ? 1 : 0);
+        }
+        grid.push(line);
+      }
+      const lines = [
+        ...grid,
+        ...Array.from({ length: n }, (_, c) => grid.map((line) => line[c])),
+      ];
+      for (const line of lines) {
+        expect(line.reduce((sum, bit) => sum + bit, 0)).toBe(n / 2);
+        for (let i = 2; i < n; i++)
+          expect(line[i] === line[i - 1] && line[i] === line[i - 2]).toBe(
+            false,
+          );
+      }
+      const rowKeys = grid.map((line) => line.join('')),
+        columnKeys = lines.slice(n).map((line) => line.join(''));
+      expect(new Set(rowKeys).size).toBe(n);
+      expect(new Set(columnKeys).size).toBe(n);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('takuzugrid', 0),
+      b = createSurfaceSampler('takuzugrid', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

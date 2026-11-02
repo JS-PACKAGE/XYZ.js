@@ -16491,6 +16491,41 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .74,
 		clueRoughness: .4
 	}),
+	takuzugrid: Object.freeze({
+		dark: [
+			18,
+			30,
+			52
+		],
+		light: [
+			244,
+			240,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		size: 8,
+		nodeLimit: 1e5,
+		margin: .05,
+		discRadius: .3,
+		ringWidth: .1,
+		lineHalf: 8e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		cellTone: .92,
+		lineTone: .55,
+		discTone: .1,
+		ringTone: .12,
+		grainTone: .03,
+		paperHeight: .22,
+		cellHeight: .5,
+		discHeight: .85,
+		ringHeight: .7,
+		discRoughness: .3,
+		ringRoughness: .4,
+		paperRoughness: .74
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -25172,6 +25207,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	takuzugrid: .4,
 	akarilights: .4,
 	hitorishading: .4,
 	shikakurects: .5,

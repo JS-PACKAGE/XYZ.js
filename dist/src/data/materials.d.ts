@@ -9635,6 +9635,33 @@ export declare const proceduralMaterialPresets: Readonly<{
         paperRoughness: 0.74;
         clueRoughness: 0.4;
     }>;
+    takuzugrid: Readonly<{
+        dark: readonly [18, 30, 52];
+        light: readonly [244, 240, 222];
+        roughness: 0.55;
+        relief: 0.004;
+        size: 8;
+        nodeLimit: 100000;
+        margin: 0.05;
+        discRadius: 0.3;
+        ringWidth: 0.1;
+        lineHalf: 0.0008;
+        edgeSoft: 0.0011;
+        grainCells: 192;
+        paperTone: 0.94;
+        cellTone: 0.92;
+        lineTone: 0.55;
+        discTone: 0.1;
+        ringTone: 0.12;
+        grainTone: 0.03;
+        paperHeight: 0.22;
+        cellHeight: 0.5;
+        discHeight: 0.85;
+        ringHeight: 0.7;
+        discRoughness: 0.3;
+        ringRoughness: 0.4;
+        paperRoughness: 0.74;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -16120,6 +16147,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    takuzugrid: 0.4;
     akarilights: 0.4;
     hitorishading: 0.4;
     shikakurects: 0.5;
