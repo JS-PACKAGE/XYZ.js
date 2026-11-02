@@ -35912,6 +35912,95 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'josephuscircle': {
+        const p = proceduralMaterialPresets.josephuscircle,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x30901),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          count =
+            p.counts[Math.floor(hash(10, 1, seed ^ 0x30902) * p.counts.length)],
+          step =
+            p.steps[Math.floor(hash(10, 2, seed ^ 0x30903) * p.steps.length)],
+          sector = (2 * Math.PI) / count,
+          // order[i] is when person i leaves (1 for the first to go, count for the survivor). The people stand in a queue; the
+          // front one moves to the back step - 1 times and the next one leaves.
+          order = Array.from({ length: count }, () => 0),
+          queue = Array.from({ length: count }, (_, i) => i);
+        for (let left = 1; left <= count; left++) {
+          for (let skip = 1; skip < step; skip++)
+            queue.push(queue.shift() as number);
+          order[queue.shift() as number] = left;
+        }
+        // Whether the point (dx, dy), measured from the middle of a text, is on a glyph of it.
+        const onText = (
+          text: string,
+          dx: number,
+          dy: number,
+          pixel: number,
+        ): boolean => {
+          const px = Math.floor((dx + (2 * text.length - 0.5) * pixel) / pixel),
+            d = px >= 0 ? Math.floor(px / 4) : -1,
+            gx = px - 4 * d,
+            py = Math.floor(dy / pixel + 2.5);
+          return (
+            d >= 0 &&
+            d < text.length &&
+            gx >= 0 &&
+            gx < 3 &&
+            py >= 0 &&
+            py < 5 &&
+            glyphs[Number(text[d])][py * 3 + gx] === '1'
+          );
+        };
+        return () => {
+          const x = u - 0.5,
+            y = v - 0.5,
+            node = Math.round((Math.atan2(y, x) + Math.PI / 2) / sector),
+            index = ((node % count) + count) % count,
+            nodeX = p.ringRadius * Math.cos(index * sector - Math.PI / 2),
+            nodeY = p.ringRadius * Math.sin(index * sector - Math.PI / 2),
+            distance = Math.hypot(x - nodeX, y - nodeY),
+            disk = cover(p.nodeRadius - distance),
+            edge = cover(p.nodeEdge - Math.abs(distance - p.nodeRadius)),
+            ink =
+              onText(String(order[index]), x - nodeX, y - nodeY, p.pixel) ||
+              onText(String(step), x, y, p.bigPixel)
+                ? 1
+                : 0,
+            tone = order[index] === count ? p.survivorTone : p.nodeTone,
+            inside = p.paperTone + (tone - p.paperTone) * disk,
+            outlined = inside + (p.edgeTone - inside) * edge;
+          color = clamp(
+            outlined +
+              (p.inkTone - outlined) * ink +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            Math.max(
+              p.paperHeight + (p.nodeHeight - p.paperHeight) * disk,
+              edge * p.edgeHeight,
+            ) -
+              p.inkDepth * ink,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.inkRoughness - p.paperRoughness) * Math.max(ink, edge);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -63441,6 +63530,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'josephuscircle' ||
     kind === 'gaussianprimes' ||
     kind === 'timestablecircles' ||
     kind === 'divisorcountbars' ||

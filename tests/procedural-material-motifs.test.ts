@@ -26535,3 +26535,154 @@ describe('gaussianprimes: Gaussian primes in a 40 by 40 window', () => {
     expect(different).toBeGreaterThan(0);
   });
 });
+
+describe('josephuscircle: the order of elimination round a circle', () => {
+  const p = proceduralMaterialPresets.josephuscircle;
+  const shapes = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+  // Elimination order by keeping the people in a list and moving a position pointer (step - 1 places on, then removing).
+  const eliminationOrder = (count: number, step: number): number[] => {
+    const people = Array.from({ length: count }, (_, i) => i),
+      order = Array.from({ length: count }, () => 0);
+    let at = 0;
+    for (let left = 1; left <= count; left++) {
+      at = (at + step - 1) % people.length;
+      order[people[at]] = left;
+      people.splice(at, 1);
+    }
+    return order;
+  };
+
+  const matching = (seed: number): [number, number][] => {
+    const sample = createSurfaceSampler('josephuscircle', seed),
+      out = empty(),
+      colorAt = (u: number, v: number): number => {
+        sample(u, v, out);
+        return out.color;
+      },
+      // True when the glyphs of `text` (centred on cx, cy, with the given pixel size) are drawn there.
+      shows = (text: string, cx: number, cy: number, pixel: number): boolean =>
+        [...text].every((character, d) =>
+          shapes[Number(character)].every((line, k) =>
+            [...line].every(
+              (cell, x) =>
+                colorAt(
+                  cx -
+                    (2 * text.length - 0.5) * pixel +
+                    (4 * d + x + 0.5) * pixel,
+                  cy + (k - 2) * pixel,
+                ) <
+                  0.3 ===
+                (cell === '#'),
+            ),
+          ),
+        ),
+      found: [number, number][] = [];
+    for (const count of p.counts)
+      for (const step of p.steps) {
+        const order = eliminationOrder(count, step);
+        let ok = shows(String(step), 0.5, 0.5, p.bigPixel);
+        for (let i = 0; i < count && ok; i++) {
+          const angle = (2 * Math.PI * i) / count - Math.PI / 2;
+          ok = shows(
+            String(order[i]),
+            0.5 + p.ringRadius * Math.cos(angle),
+            0.5 + p.ringRadius * Math.sin(angle),
+            p.pixel,
+          );
+        }
+        if (ok) found.push([count, step]);
+      }
+    return found;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'numbers each person by the order they leave, with the step in the middle (seed %i)',
+    (seed) => {
+      expect(matching(seed)).toHaveLength(1);
+    },
+  );
+
+  it('shades the survivor and no one else', () => {
+    for (const seed of [0, 7, 3]) {
+      const [[count, step]] = matching(seed),
+        order = eliminationOrder(count, step),
+        sample = createSurfaceSampler('josephuscircle', seed),
+        out = empty(),
+        tones: number[] = [];
+      for (let i = 0; i < count; i++) {
+        const angle = (2 * Math.PI * i) / count - Math.PI / 2;
+        // A point of the disk away from its digits: on the disk's edge side towards the middle of the circle.
+        sample(
+          0.5 + (p.ringRadius - 0.036) * Math.cos(angle),
+          0.5 + (p.ringRadius - 0.036) * Math.sin(angle),
+          out,
+        );
+        tones.push(out.color);
+      }
+      tones.forEach((tone, i) => {
+        if (order[i] === count) expect(tone).toBeLessThan(0.7);
+        else expect(tone).toBeGreaterThan(0.78);
+      });
+      expect(tones.filter((tone) => tone < 0.7)).toHaveLength(1);
+    }
+  });
+
+  it('uses every count and every step across seeds', () => {
+    const counts = new Set<number>(),
+      steps = new Set<number>();
+    for (let seed = 0; seed < 40; seed++) {
+      const [[count, step]] = matching(seed);
+      counts.add(count);
+      steps.add(step);
+    }
+    expect(counts.size).toBe(p.counts.length);
+    expect(steps.size).toBe(p.steps.length);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('josephuscircle', 0),
+      b = createSurfaceSampler('josephuscircle', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(0);
+  });
+});
