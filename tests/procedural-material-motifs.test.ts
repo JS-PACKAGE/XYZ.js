@@ -12292,3 +12292,121 @@ describe('othelloboard: each board is one legal Reversi move after the previous 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('goboards: no group of stones is left without a liberty', () => {
+  const p = proceduralMaterialPresets.goboards;
+  const n = p.size;
+  const side = 0.5 - 2 * p.margin;
+  const cell = side / n;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'every connected group on each board touches an empty point (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('goboards', seed),
+        out = empty();
+      for (let quadrant = 0; quadrant < 4; quadrant++) {
+        const board: number[][] = [];
+        for (let row = 0; row < n; row++) {
+          const line: number[] = [];
+          for (let col = 0; col < n; col++) {
+            // Sample beside the intersection: the grid lines cross exactly at its centre.
+            sample(
+              (quadrant & 1) * 0.5 + p.margin + (col + 0.75) * cell,
+              (quadrant >> 1) * 0.5 + p.margin + (row + 0.75) * cell,
+              out,
+            );
+            line.push(out.color < 0.2 ? 1 : out.color > 0.8 ? 2 : 0);
+          }
+          board.push(line);
+        }
+        const stones = board.flat().filter((value) => value !== 0).length;
+        expect(stones).toBeGreaterThan(4);
+        expect(stones).toBeLessThanOrEqual(p.moves[quadrant]);
+        // Flood fill every group (a connected run of one colour) and require a neighbouring empty point.
+        const seen = new Set<number>();
+        for (let start = 0; start < n * n; start++) {
+          const colour = board[Math.floor(start / n)][start % n];
+          if (colour === 0 || seen.has(start)) continue;
+          const group = [start];
+          seen.add(start);
+          let liberty = false;
+          for (let i = 0; i < group.length; i++) {
+            const r = Math.floor(group[i] / n),
+              c = group[i] % n;
+            for (const [dr, dc] of [
+              [1, 0],
+              [-1, 0],
+              [0, 1],
+              [0, -1],
+            ]) {
+              const rr = r + dr,
+                cc = c + dc;
+              if (rr < 0 || rr >= n || cc < 0 || cc >= n) continue;
+              if (board[rr][cc] === 0) liberty = true;
+              else if (board[rr][cc] === colour && !seen.has(rr * n + cc)) {
+                seen.add(rr * n + cc);
+                group.push(rr * n + cc);
+              }
+            }
+          }
+          expect(liberty).toBe(true);
+        }
+      }
+    },
+  );
+
+  it('shows both colours on the later, fuller boards', () => {
+    const sample = createSurfaceSampler('goboards', 7),
+      out = empty();
+    let black = 0,
+      white = 0;
+    for (let row = 0; row < n; row++)
+      for (let col = 0; col < n; col++) {
+        sample(
+          0.5 + p.margin + (col + 0.5) * cell,
+          0.5 + p.margin + (row + 0.5) * cell,
+          out,
+        );
+        black += Number(out.color < 0.2);
+        white += Number(out.color > 0.8);
+      }
+    expect(black).toBeGreaterThan(5);
+    expect(white).toBeGreaterThan(5);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('goboards', 0),
+      b = createSurfaceSampler('goboards', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

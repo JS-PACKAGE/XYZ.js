@@ -9161,6 +9161,40 @@ export declare const proceduralMaterialPresets: Readonly<{
         discRoughness: 0.28;
         feltRoughness: 0.82;
     }>;
+    goboards: Readonly<{
+        dark: readonly [30, 20, 10];
+        light: readonly [226, 178, 104];
+        roughness: 0.5;
+        relief: 0.004;
+        size: 9;
+        moves: readonly [16, 28, 42, 58];
+        margin: 0.02;
+        lineHalf: 0.0011;
+        frameHalf: 0.004;
+        starRadius: 0.1;
+        stoneRadius: 0.46;
+        edgeSoft: 0.0011;
+        grainCells: 192;
+        woodCells: 20;
+        paperTone: 0.07;
+        boardTone: 0.5;
+        lineTone: 0.12;
+        frameTone: 0.2;
+        blackTone: 0.05;
+        whiteTone: 0.96;
+        rimTone: 0.4;
+        rimStrength: 0.4;
+        rimWidth: 0.06;
+        grainTone: 0.05;
+        woodTone: 0.07;
+        paperHeight: 0.12;
+        boardHeight: 0.35;
+        lineHeight: 0.28;
+        frameHeight: 0.55;
+        stoneHeight: 0.85;
+        stoneRoughness: 0.26;
+        boardRoughness: 0.58;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -15646,6 +15680,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    goboards: 0.4;
     othelloboard: 0.4;
     binaryclock: 0.4;
     pianoroll: 0.5;

@@ -25405,6 +25405,158 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'goboards': {
+        const p = proceduralMaterialPresets.goboards,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2a401),
+          woodField = cachedNoise(p.woodCells, 2, seed ^ 0x2a403),
+          n = p.size,
+          side = 0.5 - 2 * p.margin,
+          cell = side / n,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          neighbours = (index: number): number[] => {
+            const x = index % n,
+              y = Math.floor(index / n),
+              list: number[] = [];
+            if (x > 0) list.push(index - 1);
+            if (x < n - 1) list.push(index + 1);
+            if (y > 0) list.push(index - n);
+            if (y < n - 1) list.push(index + n);
+            return list;
+          },
+          // The connected group of same-coloured stones containing index and its number of liberties.
+          groupOf = (
+            board: Uint8Array,
+            index: number,
+          ): { stones: number[]; liberties: number } => {
+            const colour = board[index],
+              stones = [index],
+              seen = new Set<number>([index]),
+              empty = new Set<number>();
+            for (let i = 0; i < stones.length; i++)
+              for (const next of neighbours(stones[i])) {
+                if (board[next] === 0) empty.add(next);
+                else if (board[next] === colour && !seen.has(next)) {
+                  seen.add(next);
+                  stones.push(next);
+                }
+              }
+            return { stones, liberties: empty.size };
+          },
+          // One game per quadrant of random alternating play with black first: a stone goes on a random
+          // empty point, captures any opposing group left without liberties, and is skipped if it would
+          // leave its own group without liberties.
+          games = p.moves.map((count, quadrant) => {
+            const board = new Uint8Array(n * n);
+            let colour = 1;
+            for (let move = 0; move < count; move++) {
+              for (let attempt = 0; attempt < 40; attempt++) {
+                const point = Math.min(
+                  n * n - 1,
+                  Math.floor(
+                    hash(
+                      move * 53 + attempt,
+                      quadrant * 7 + 1,
+                      seed ^ 0x2a405,
+                    ) *
+                      n *
+                      n,
+                  ),
+                );
+                if (board[point] !== 0) continue;
+                board[point] = colour;
+                const captured: number[] = [];
+                for (const next of neighbours(point))
+                  if (board[next] === 3 - colour) {
+                    const group = groupOf(board, next);
+                    if (group.liberties === 0) captured.push(...group.stones);
+                  }
+                for (const stone of captured) board[stone] = 0;
+                if (groupOf(board, point).liberties === 0) {
+                  board[point] = 0;
+                  continue;
+                }
+                break;
+              }
+              colour = 3 - colour;
+            }
+            return board;
+          }),
+          // The five star points of a 9x9 board: (3, 3), (3, 7), (5, 5), (7, 3) and (7, 7) counting from 1.
+          stars = [20, 24, 40, 56, 60];
+        return () => {
+          const quadrant = (u >= 0.5 ? 1 : 0) + (v >= 0.5 ? 2 : 0),
+            lx = u - (quadrant & 1) * 0.5 - p.margin,
+            ly = v - (quadrant >> 1) * 0.5 - p.margin;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            rough: number = p.boardRoughness;
+          if (
+            lx >= -p.frameHalf &&
+            lx <= side + p.frameHalf &&
+            ly >= -p.frameHalf &&
+            ly <= side + p.frameHalf
+          ) {
+            const frame = cover(
+              p.frameHalf -
+                Math.min(
+                  Math.min(Math.abs(lx), Math.abs(lx - side)),
+                  Math.min(Math.abs(ly), Math.abs(ly - side)),
+                ),
+            );
+            if (lx >= 0 && lx < side && ly >= 0 && ly < side) {
+              const col = Math.min(n - 1, Math.floor(lx / cell)),
+                row = Math.min(n - 1, Math.floor(ly / cell)),
+                dx = lx - (col + 0.5) * cell,
+                dy = ly - (row + 0.5) * cell,
+                reach = ((n - 1) / 2) * cell,
+                wood = woodField(u * p.woodCells, v * 2) - 0.5,
+                // Lines run through the intersections (cell centres) from the first to the last one.
+                lineX = Math.min(
+                  cover(p.lineHalf - Math.abs(dx)),
+                  cover(reach + p.lineHalf - Math.abs(ly - side / 2)),
+                ),
+                lineY = Math.min(
+                  cover(p.lineHalf - Math.abs(dy)),
+                  cover(reach + p.lineHalf - Math.abs(lx - side / 2)),
+                ),
+                line = Math.max(lineX, lineY),
+                star = stars.includes(row * n + col)
+                  ? cover(p.starRadius * cell * 0.5 - Math.hypot(dx, dy))
+                  : 0,
+                stone = games[quadrant][row * n + col];
+              tone =
+                p.boardTone +
+                p.woodTone * wood +
+                p.grainTone * (grainField(u, v) - 0.5);
+              level = p.boardHeight;
+              tone += (p.lineTone - tone) * Math.max(line, star);
+              level += (p.lineHeight - level) * Math.max(line, star);
+              if (stone !== 0) {
+                const radius = Math.hypot(dx, dy) / cell,
+                  body = cover((p.stoneRadius - radius) * cell),
+                  rim = cover(
+                    (p.rimWidth -
+                      Math.abs(radius - p.stoneRadius + p.rimWidth / 2)) *
+                      cell,
+                  );
+                tone +=
+                  ((stone === 1 ? p.blackTone : p.whiteTone) - tone) * body;
+                tone += (p.rimTone - tone) * rim * p.rimStrength;
+                level += (p.stoneHeight - level) * body;
+                rough += (p.stoneRoughness - rough) * body;
+              }
+            }
+            tone += (p.frameTone - tone) * frame;
+            level += (p.frameHeight - level) * frame;
+          }
+          color = clamp(tone);
+          height = clamp(level);
+          roughness = rough;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -52934,6 +53086,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'goboards' ||
     kind === 'othelloboard' ||
     kind === 'binaryclock' ||
     kind === 'pianoroll' ||

@@ -15846,6 +15846,53 @@ var proceduralMaterialPresets = Object.freeze({
 		discRoughness: .28,
 		feltRoughness: .82
 	}),
+	goboards: Object.freeze({
+		dark: [
+			30,
+			20,
+			10
+		],
+		light: [
+			226,
+			178,
+			104
+		],
+		roughness: .5,
+		relief: .004,
+		size: 9,
+		moves: [
+			16,
+			28,
+			42,
+			58
+		],
+		margin: .02,
+		lineHalf: .0011,
+		frameHalf: .004,
+		starRadius: .1,
+		stoneRadius: .46,
+		edgeSoft: .0011,
+		grainCells: 192,
+		woodCells: 20,
+		paperTone: .07,
+		boardTone: .5,
+		lineTone: .12,
+		frameTone: .2,
+		blackTone: .05,
+		whiteTone: .96,
+		rimTone: .4,
+		rimStrength: .4,
+		rimWidth: .06,
+		grainTone: .05,
+		woodTone: .07,
+		paperHeight: .12,
+		boardHeight: .35,
+		lineHeight: .28,
+		frameHeight: .55,
+		stoneHeight: .85,
+		stoneRoughness: .26,
+		boardRoughness: .58
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -24527,6 +24574,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	goboards: .4,
 	othelloboard: .4,
 	binaryclock: .4,
 	pianoroll: .5,
