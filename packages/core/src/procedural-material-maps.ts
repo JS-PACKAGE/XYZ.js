@@ -25147,6 +25147,92 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'binaryclock': {
+        const p = proceduralMaterialPresets.binaryclock,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2a201),
+          side = 0.5 - 2 * p.margin,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          day = 24 * 60 * 60,
+          start = Math.min(
+            p.maxStart,
+            Math.floor(hash(1, 1, seed ^ 0x2a203) * (p.maxStart + 1)),
+          ),
+          // The four clocks show consecutive seconds, in reading order; each column is one decimal digit
+          // of hh:mm:ss in binary coded decimal with the 8 bit on top, the 1 bit at the bottom.
+          digits = [0, 1, 2, 3].map((quadrant) => {
+            const total = (start + quadrant) % day,
+              hours = Math.floor(total / 3600),
+              minutes = Math.floor((total % 3600) / 60),
+              seconds = total % 60;
+            return [
+              Math.floor(hours / 10),
+              hours % 10,
+              Math.floor(minutes / 10),
+              minutes % 10,
+              Math.floor(seconds / 10),
+              seconds % 10,
+            ];
+          });
+        return () => {
+          const quadrant = (u >= 0.5 ? 1 : 0) + (v >= 0.5 ? 2 : 0),
+            lx = u - (quadrant & 1) * 0.5 - p.margin,
+            ly = v - (quadrant >> 1) * 0.5 - p.margin;
+          let tone: number = p.backgroundTone,
+            level: number = p.backgroundHeight,
+            rough: number = p.panelRoughness;
+          if (
+            lx >= -p.frameHalf &&
+            lx <= side + p.frameHalf &&
+            ly >= -p.frameHalf &&
+            ly <= side + p.frameHalf
+          ) {
+            const frame = cover(
+              p.frameHalf -
+                Math.min(
+                  Math.min(Math.abs(lx), Math.abs(lx - side)),
+                  Math.min(Math.abs(ly), Math.abs(ly - side)),
+                ),
+            );
+            tone = p.panelTone;
+            level = p.panelHeight;
+            if (lx >= 0 && lx < side && ly >= 0 && ly < side) {
+              const innerWidth = side - 2 * p.padding,
+                columnWidth = innerWidth / p.columns,
+                rowHeight = innerWidth / p.bits,
+                gx = lx - p.padding,
+                gy = ly - p.padding;
+              if (gx >= 0 && gx < innerWidth && gy >= 0 && gy < innerWidth) {
+                const column = Math.min(
+                    p.columns - 1,
+                    Math.floor(gx / columnWidth),
+                  ),
+                  bit = Math.min(p.bits - 1, Math.floor(gy / rowHeight)),
+                  distance = Math.hypot(
+                    gx - (column + 0.5) * columnWidth,
+                    gy - (bit + 0.5) * rowHeight,
+                  ),
+                  on = (digits[quadrant][column] >> (p.bits - 1 - bit)) & 1,
+                  disc = cover(p.dotRadius - distance),
+                  ring = cover(
+                    0.0016 - Math.abs(distance - p.dotRadius * 1.25),
+                  );
+                tone += (p.ringTone - tone) * ring;
+                tone += ((on === 1 ? p.onTone : p.offTone) - tone) * disc;
+                level += ((on === 1 ? p.onHeight : p.offHeight) - level) * disc;
+                rough += (p.onRoughness - rough) * disc * on;
+              }
+            }
+            tone += (p.frameTone - tone) * frame;
+            level += (p.frameHeight - level) * frame;
+          }
+          color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(level);
+          roughness = rough;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -52676,6 +52762,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'binaryclock' ||
     kind === 'pianoroll' ||
     kind === 'skyscraperpuzzles' ||
     kind === 'knockoutbracket' ||

@@ -12111,3 +12111,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 設計記錄：第一版的旋律起點固定為「主音＋12」，主音在升F以上時起點已在鍵盤最頂端，隨機走動全擠在最上面五列；看圖後把起點改成落在6至17之間（主音小於6時加12），並讓一半的移動偏向鍵盤中央。
 - 實測：`tests/procedural-material-motifs.test.ts`七百四十三項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）：琴鍵條的亮暗列必須與獨立寫的黑鍵集合{1,3,6,8,10}吻合（24個半音全部檢查）；32個步驟的每一步恰有一個亮列（單音）；將相同音高相鄰的步合併成音符，音符至少8個、長度至多4步、相鄰音符的音高差大於0且至多4個半音（一或兩個大調音階級）；所有出現的音級必須落在以第一個音為主音的大調音階內；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "pianoroll|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`pianoroll`：option 984個、status為983 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的捲簾。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：二進位時鐘（binaryclock）
+
+- 目錄983→984，含plain的gallery為985項。每tile 2×2個BCD時鐘面板，依閱讀順序顯示連續四秒（六欄×四個圓點，位元8、4、2、1由上到下，亮綠為1），起始時間由seed在一天內任選。Metallic／mortar為0，預設tile0.4 m、0.004 UV-relative relief、metallic factor 0。僅24小時制；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 實測：`tests/procedural-material-motifs.test.ts`七百五十三項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）× 四個面板：由圓點亮度（＞0.6為1）讀出六欄BCD，每個數字必須≤9，時＜24、分＜60、秒＜60，且四個面板的時間依序各加一秒（以對86400取餘計算差值）。已知的測試缺口：這九個seed不一定包含秒、分或日的進位（取餘邏輯有寫但可能沒走到），我沒有另外挑選會進位的seed來補，所以進位路徑的正確性只由程式碼閱讀而非測試證明。通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "binaryclock|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`binaryclock`：option 985個、status為984 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的面板。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

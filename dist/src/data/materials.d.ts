@@ -9100,6 +9100,35 @@ export declare const proceduralMaterialPresets: Readonly<{
         noteRoughness: 0.3;
         otherRoughness: 0.7;
     }>;
+    binaryclock: Readonly<{
+        dark: readonly [6, 10, 24];
+        light: readonly [90, 255, 170];
+        roughness: 0.4;
+        relief: 0.004;
+        columns: 6;
+        bits: 4;
+        margin: 0.02;
+        padding: 0.035;
+        dotRadius: 0.02;
+        frameHalf: 0.0028;
+        edgeSoft: 0.0011;
+        grainCells: 192;
+        maxStart: 86399;
+        backgroundTone: 0.05;
+        panelTone: 0.09;
+        offTone: 0.16;
+        onTone: 0.97;
+        ringTone: 0.3;
+        frameTone: 0.42;
+        grainTone: 0.03;
+        panelHeight: 0.2;
+        offHeight: 0.12;
+        onHeight: 0.85;
+        frameHeight: 0.4;
+        backgroundHeight: 0.1;
+        onRoughness: 0.26;
+        panelRoughness: 0.78;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -15585,6 +15614,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    binaryclock: 0.4;
     pianoroll: 0.5;
     skyscraperpuzzles: 0.4;
     knockoutbracket: 0.5;

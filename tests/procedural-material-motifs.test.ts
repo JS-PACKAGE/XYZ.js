@@ -12072,3 +12072,87 @@ describe('pianoroll: a stepwise melody in a major scale over a keyboard strip', 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('binaryclock: the four faces show consecutive seconds in binary coded decimal', () => {
+  const p = proceduralMaterialPresets.binaryclock;
+  const side = 0.5 - 2 * p.margin;
+  const inner = side - 2 * p.padding;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'reads valid times that advance by one second per face (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('binaryclock', seed),
+        out = empty(),
+        times: number[] = [];
+      for (let quadrant = 0; quadrant < 4; quadrant++) {
+        const digits: number[] = [];
+        for (let column = 0; column < p.columns; column++) {
+          let value = 0;
+          for (let bit = 0; bit < p.bits; bit++) {
+            sample(
+              (quadrant & 1) * 0.5 +
+                p.margin +
+                p.padding +
+                ((column + 0.5) * inner) / p.columns,
+              (quadrant >> 1) * 0.5 +
+                p.margin +
+                p.padding +
+                ((bit + 0.5) * inner) / p.bits,
+              out,
+            );
+            // Top row is the 8 bit, bottom row the 1 bit.
+            value = value * 2 + Number(out.color > 0.6);
+          }
+          digits.push(value);
+        }
+        // Binary coded decimal: each column is a decimal digit, tens of hours at most 2, tens of minutes and seconds at most 5.
+        for (const digit of digits) expect(digit).toBeLessThanOrEqual(9);
+        const hours = digits[0] * 10 + digits[1],
+          minutes = digits[2] * 10 + digits[3],
+          seconds = digits[4] * 10 + digits[5];
+        expect(hours).toBeLessThan(24);
+        expect(minutes).toBeLessThan(60);
+        expect(seconds).toBeLessThan(60);
+        times.push(hours * 3600 + minutes * 60 + seconds);
+      }
+      for (let i = 1; i < 4; i++)
+        expect((times[i] - times[i - 1] + 86400) % 86400).toBe(1);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('binaryclock', 0),
+      b = createSurfaceSampler('binaryclock', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
