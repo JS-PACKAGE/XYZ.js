@@ -13019,3 +13019,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Poisson disk as|poissondisk|kinds|catalog|distinct|periodic"`定向測試**2384項通過／4076項未選**。
 - 未驗證：poissondisk未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-03 新增材質：格雷碼（graycode）
+
+- 範圍：新增`graycode`（目前目錄1039→1040種，含plain的gallery 1041項）：旋轉編碼器圓盤：128個扇區、7圈同心環，扇區`n`在各環上依序放`n xor (n >> 1)`的各位元（最內圈最高位元），亮銀白弧為1、暗弧為0，相鄰扇區剛好只有一圈不同，環間有暗溝，每個0.5 m tile一個圓盤；seed讓圓盤轉過整數個扇區；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 131,072 B（沒有表）。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)**放棄的嘗試**：我先寫了`kruskalmaze`（環面上12×12的隨機Kruskal生成樹迷宮），預覽也看了，之後才發現既有的`perfectmaze`（8×8完美迷宮）已涵蓋同一個概念，所以整個未提交的嘗試（含程式、預覽）被丟棄，沒有進入任何commit；教訓是先在README的描述中搜尋概念而不是只搜kind名稱；(2)預覽只看了一版；(3)測試以反射法（`k + 1`位元的碼＝`k`位元的碼接上反向排列並設新的最高位元）這個**獨立的方式**重建128項格雷碼，並加上與表的寫法無關的格雷碼定義（相鄰扇區恰一圈不同）；(4)文件寫完後我發現zh版寫了一句錯誤的「4096個seed中，四個seed各自唯一」，實際是「128種可能的轉動量中」，gates通過後才改正（四份zh文件），改後重新`prettier --write`；(5)混合區（扇區最後35%）形狀沒有獨立驗證，只靠C1檢查；(6)256²與512²取樣的亮處占比略有不同，測試採用256²的數值；(7)建構與取樣耗時**未量測**；(8)測試第一次執行即通過。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：獨立反射表唯一符合的扇區轉動量10／71／101／125；128對相鄰扇區都恰一圈不同；亮位元448個（共896個）；讀回無模稜兩可；256²（seed 0／1／0xffffffff）亮處（color>0.5）22.57%–22.67%、color 0.02551–0.02600至0.85383–0.85454、平均0.24738–0.24749、roughness恆為0.4、AO最低0.6、height至多0.8769–0.8788 relief；512²（四個seed）亮處22.58%–22.60%、color 0.02521–0.02532至0.85467–0.85493、平均0.24738–0.24750、AO最低0.6、height至多0.8791–0.8798 relief；seed 0與1相比，512²中color>0.5的取樣23.0%不同；seed 7的512²maps平均r／g／b約(62.8, 69.2, 82.7)、法線tilt²最大約0.0241、z分量最小253。我實看了預覽（seed 7，2×2 tile）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
+- gates（工具實跑，改正文件前）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Gray code as|graycode|kinds|catalog|distinct|periodic"`定向測試**2386項通過／4079項未選**；文件改正後只重跑了`prettier --check .`（通過），沒有重跑其他gates。
+- 未驗證：poissondisk與graycode未跑完整suite與瀏覽器gallery；不push。

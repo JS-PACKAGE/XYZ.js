@@ -1104,6 +1104,7 @@ try {
     'bayerdither',
     'wangtiles',
     'poissondisk',
+    'graycode',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

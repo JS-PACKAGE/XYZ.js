@@ -42917,6 +42917,60 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'graycode': {
+        const p = proceduralMaterialPresets.graycode,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          sectors = 1 << p.bits,
+          ringWidth = (p.outerRadius - p.innerRadius) / p.bits,
+          turn = Math.floor(hash(0, 18, seed ^ p.seedSalt) * sectors);
+        // A rotary-encoder disc: sector n (of 2^bits around the circle) carries the reflected
+        // binary Gray code n xor (n >> 1) of the number n, one bit per ring, the lowest bit
+        // on the outermost ring, so neighbouring sectors differ in exactly one ring. A bit is
+        // 1 (lit) or 0 (dark); the seed turns the disc by whole sectors.
+        const bit = (sector: number, ring: number): number =>
+          ((sector ^ (sector >> 1)) >> (p.bits - 1 - ring)) & 1;
+        return () => {
+          const dx = fract(u) - 0.5,
+            dy = fract(v) - 0.5,
+            radius = Math.hypot(dx, dy),
+            // The angle in sectors, counted from the middle of the sector 0 (the sector
+            // index is only the integer part, the fraction decides the blending).
+            around = (Math.atan2(dy, dx) / (2 * Math.PI)) * sectors,
+            first = Math.floor(around),
+            fraction = around - first,
+            sector = (((first + turn) % sectors) + sectors) % sectors,
+            next = (sector + 1) % sectors,
+            // Over the last blend of a sector the bit moves to that of the next sector, with
+            // zero slope at both ends, so the value is continuous across the sector edges.
+            toward = smooth(clamp((fraction - (1 - p.blend)) / p.blend)),
+            ring = Math.floor((radius - p.innerRadius) / ringWidth);
+          let mask = 0,
+            value = 0;
+          if (ring >= 0 && ring < p.bits) {
+            const start = p.innerRadius + ring * ringWidth + p.ringGap,
+              end = p.innerRadius + (ring + 1) * ringWidth - p.ringGap;
+            mask = smooth(
+              clamp(Math.min(radius - start, end - radius) / p.edgeSoft),
+            );
+            value = bit(sector, ring) * (1 - toward) + bit(next, ring) * toward;
+          }
+          const tone = p.toneSpan * value,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.litHeight * mask * (p.baseHeight + (1 - p.baseHeight) * value) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -51759,6 +51813,7 @@ export function createSurfaceSampler(
     kind === 'bayerdither' ||
     kind === 'wangtiles' ||
     kind === 'poissondisk' ||
+    kind === 'graycode' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||

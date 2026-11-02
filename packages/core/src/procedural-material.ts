@@ -1041,6 +1041,7 @@ export type ProceduralMaterialKind =
   | 'bayerdither'
   | 'wangtiles'
   | 'poissondisk'
+  | 'graycode'
   | 'sandpileidentity'
   | 'multiplicativeorder'
   | 'vermiculation'
@@ -2329,6 +2330,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'bayerdither',
   'wangtiles',
   'poissondisk',
+  'graycode',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',

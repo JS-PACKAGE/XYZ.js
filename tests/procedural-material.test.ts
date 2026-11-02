@@ -1067,6 +1067,7 @@ const kinds: ProceduralMaterialKind[] = [
   'bayerdither',
   'wangtiles',
   'poissondisk',
+  'graycode',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',
@@ -168640,6 +168641,236 @@ describe('Poisson disk as evenly spread random discs from dart throwing with a m
     expect(blue / (512 * 512)).toBeLessThan(70.5);
     expect(maxTilt).toBeGreaterThan(0.001);
     expect(maxTilt).toBeLessThan(0.0025);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Gray code as a rotary-encoder disc whose 128 sectors carry the reflected binary Gray code on 7 rings', () => {
+  const p = proceduralMaterialPresets.graycode;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const sectors = 128,
+    rings = 7,
+    ringWidth = (p.outerRadius - p.innerRadius) / rings;
+  /**
+   * The reflected binary Gray code written independently here by reflection: the code for k + 1
+   * bits is the code for k bits followed by the same list in reverse order with the new top
+   * bit set (instead of the sampler's n xor (n >> 1)). Entry n is a number whose bit
+   * (rings - 1 - ring) belongs to the ring.
+   */
+  const gray = ((): number[] => {
+    let list = [0];
+    for (let bit = 0; bit < rings; bit++)
+      list = list.concat([...list].reverse().map((n) => n + (1 << bit)));
+    return list;
+  })();
+  /**
+   * The bit on every ring in the middle of every sector, read back from the sampler: the tone at
+   * the middle of the ring, in the middle of the sector (clear of the blend towards the next
+   * sector), decides lit (1) or dark (0) at the midpoint of the tone range.
+   */
+  const readDisc = (seed: number): { bits: number[][]; ambiguous: number } => {
+    const sample = createSurfaceSampler('graycode', seed),
+      out = empty(),
+      bits: number[][] = [];
+    let ambiguous = 0;
+    for (let sector = 0; sector < sectors; sector++) {
+      const row: number[] = [],
+        angle = ((sector + 0.5) * 2 * Math.PI) / sectors;
+      for (let ring = 0; ring < rings; ring++) {
+        const radius = p.innerRadius + (ring + 0.5) * ringWidth;
+        sample(
+          0.5 + radius * Math.cos(angle),
+          0.5 + radius * Math.sin(angle),
+          out,
+        );
+        const tone = (out.color - p.toneFloor) / p.toneSpan;
+        if (Math.abs(tone - 0.5) < 0.1) ambiguous++;
+        row.push(tone > 0.5 ? 1 : 0);
+      }
+      bits.push(row);
+    }
+    return { bits, ambiguous };
+  };
+  const turnsFitting = (bits: number[][]): number[] => {
+    const fits: number[] = [];
+    for (let turn = 0; turn < sectors; turn++)
+      if (
+        bits.every((row, sector) =>
+          row.every(
+            (value, ring) =>
+              value ===
+              ((gray[(sector + turn) % sectors] >> (rings - 1 - ring)) & 1),
+          ),
+        )
+      )
+        fits.push(turn);
+    return fits;
+  };
+  it('draws the Gray code on the rings and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('graycode', seed),
+        a = empty();
+      // The read-back bits fit the independently reflected Gray code turned by exactly one whole
+      // number of sectors; neighbouring sectors (also the last and the first) differ in exactly
+      // one ring, the defining property of a Gray code, which does not depend on the list; half
+      // of the 896 bits are lit; and no read-back is ambiguous.
+      const { bits, ambiguous } = readDisc(seed);
+      expect(ambiguous).toBe(0);
+      expect(turnsFitting(bits)).toHaveLength(1);
+      for (let sector = 0; sector < sectors; sector++) {
+        const next = bits[(sector + 1) % sectors];
+        expect(
+          bits[sector].filter((value, ring) => value !== next[ring]),
+        ).toHaveLength(1);
+      }
+      expect(bits.flat().filter(Boolean)).toHaveLength((sectors * rings) / 2);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0255);
+      expect(low).toBeLessThan(0.0261);
+      expect(high).toBeGreaterThan(0.853);
+      expect(high).toBeLessThan(0.855);
+      expect(dark / 65536).toBeGreaterThan(0.225);
+      expect(dark / 65536).toBeLessThan(0.2275);
+      expect(mean / 65536).toBeGreaterThan(0.247);
+      expect(mean / 65536).toBeLessThan(0.248);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 3);
+      expect(heightHigh).toBeGreaterThan(0.876);
+      expect(heightHigh).toBeLessThan(0.88);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('turns the disc by a different whole number of sectors per seed and is deterministic for one seed', () => {
+    const turns = [0, 1, 0xffffffff, 7].map(
+      (seed) => turnsFitting(readDisc(seed).bits)[0],
+    );
+    expect(new Set(turns).size).toBe(4);
+    expect(readDisc(0)).toEqual(readDisc(0));
+  });
+  it('keeps the rings, sector blends and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('graycode', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 silver encoder-disc maps with raised lit sectors and shaded grooves', () => {
+    const maps = generateProceduralMaps('graycode', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(62);
+    expect(red / (512 * 512)).toBeLessThan(63.5);
+    expect(green / (512 * 512)).toBeGreaterThan(68.5);
+    expect(green / (512 * 512)).toBeLessThan(70);
+    expect(blue / (512 * 512)).toBeGreaterThan(82);
+    expect(blue / (512 * 512)).toBeLessThan(83.5);
+    expect(maxTilt).toBeGreaterThan(0.02);
+    expect(maxTilt).toBeLessThan(0.03);
     expect(invalid).toBe(0);
   });
 });
