@@ -19810,3 +19810,154 @@ describe('ieee754floats: single-precision numbers with their bit fields', () => 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('bellcurvebands: a normal curve shaded by standard deviations', () => {
+  const p = proceduralMaterialPresets.bellcurvebands;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shades the area under the curve in the 68-95-99.7 proportions with bands one sigma wide (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('bellcurvebands', seed),
+        out = empty(),
+        at = (u: number, v: number): number => {
+          sample(u, v, out);
+          return out.color;
+        },
+        // Classify a tone: 0..3 for the four fills (darkest to lightest), 4 for paper, -1 for lines.
+        kind = (tone: number): number =>
+          tone < 0.4
+            ? -1
+            : tone < 0.57
+              ? 0
+              : tone < 0.71
+                ? 1
+                : tone < 0.83
+                  ? 2
+                  : tone < 0.915
+                    ? 3
+                    : 4,
+        columns = 900,
+        rows = 900;
+      // Along a row just above the axis, within 2.5 sigma of the middle (where the curve is far above the row), the fill
+      // tone steps at 0.5 +- sigma and 0.5 +- 2 sigma. Find which preset sigma explains it.
+      const row = p.baseline - 0.004,
+        steps = 20000,
+        scores = p.sigmas.map((candidate) => {
+          let tested = 0,
+            matching = 0;
+          for (let i = 0; i < steps; i++) {
+            const u = (i + 0.5) / steps;
+            if (Math.abs(u - 0.5) >= 2.5 * candidate) continue;
+            tested++;
+            matching += Number(
+              kind(at(u, row)) === Math.floor(Math.abs(u - 0.5) / candidate),
+            );
+          }
+          return matching / tested;
+        }),
+        best = Math.max(...scores),
+        sigma = p.sigmas[scores.indexOf(best)];
+      expect(best).toBeGreaterThan(0.995);
+      expect([...scores].sort((a, b) => b - a)[1]).toBeLessThan(0.95);
+      // The steps are where they should be: along the clean stretch there are exactly four tone changes.
+      const edges: number[] = [];
+      let previous = kind(at(0.5 - 2.5 * sigma, row));
+      for (let i = 1; i <= steps; i++) {
+        const u = 0.5 - 2.5 * sigma + (5 * sigma * i) / steps,
+          current = kind(at(u, row));
+        if (current !== previous) edges.push(u);
+        previous = current;
+      }
+      expect(edges.length).toBe(4);
+      [-2, -1, 1, 2].forEach((k, i) =>
+        expect(Math.abs(edges[i] - (0.5 + k * sigma))).toBeLessThan(0.0015),
+      );
+      // Area per band. With sigma known, each column's fill tone is known, so a pixel is fill when its tone is close to
+      // that, outline when much darker, and paper when much lighter. The outline is centred on the curve, so a run of
+      // outline pixels followed by fill counts half towards that fill (its upper half lies outside the area).
+      const counts = [0, 0, 0, 0],
+        top = p.baseline - p.peak - 0.01,
+        bottom = p.baseline - 0.003;
+      let total = 0;
+      for (let x = 0; x < columns; x++) {
+        const u = (x + 0.5) / columns,
+          band = Math.min(3, Math.floor(Math.abs(u - 0.5) / sigma)),
+          fill = p.bandTones[band];
+        let outline = 0;
+        for (let y = 0; y < rows; y++) {
+          const tone = at(u, top + ((y + 0.5) / rows) * (bottom - top));
+          if (tone < fill - 0.05) outline++;
+          else {
+            if (tone < fill + 0.05) {
+              counts[band] += 1 + outline * 0.5;
+              total += 1 + outline * 0.5;
+            }
+            outline = 0;
+          }
+        }
+      }
+      // The fractions of the area within 1, 2 and 3 standard deviations of the mean: the normal distribution's
+      // 0.6827, 0.9545 and 0.9973.
+      const within = [
+        counts[0],
+        counts[0] + counts[1],
+        counts[0] + counts[1] + counts[2],
+      ].map((count) => count / total);
+      expect(Math.abs(within[0] - 0.6827)).toBeLessThan(0.008);
+      expect(Math.abs(within[1] - 0.9545)).toBeLessThan(0.008);
+      expect(Math.abs(within[2] - 0.9973)).toBeLessThan(0.005);
+    },
+  );
+
+  it('shows all three widths across seeds', () => {
+    const out = empty(),
+      widths = new Set<number>();
+    for (let seed = 0; seed < 40; seed++) {
+      const sample = createSurfaceSampler('bellcurvebands', seed);
+      // The darkest fill spans 0.5 +- sigma along the row just above the axis.
+      let span = 0;
+      for (let i = 0; i < 4000; i++) {
+        sample((i + 0.5) / 4000, p.baseline - 0.004, out);
+        if (out.color > 0.4 && out.color < 0.57) span++;
+      }
+      widths.add(Math.round((span / 4000 / 2) * 100));
+    }
+    expect([...widths].sort((a, b) => a - b)).toEqual([7, 9, 11]);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('bellcurvebands', 0),
+      b = createSurfaceSampler('bellcurvebands', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

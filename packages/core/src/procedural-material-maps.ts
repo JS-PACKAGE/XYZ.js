@@ -31996,6 +31996,61 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'bellcurvebands': {
+        const p = proceduralMaterialPresets.bellcurvebands,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2dc01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          sigma =
+            p.sigmas[
+              Math.min(
+                p.sigmas.length - 1,
+                Math.floor(hash(1, 1, seed ^ 0x2dc02) * p.sigmas.length),
+              )
+            ],
+          // The normal density curve, scaled so its peak is p.peak above the baseline.
+          curveY = (x: number): number =>
+            p.baseline -
+            p.peak * Math.exp(-((x - 0.5) * (x - 0.5)) / (2 * sigma * sigma)),
+          slopeAt = (x: number): number =>
+            ((p.peak * (x - 0.5)) / (sigma * sigma)) *
+            Math.exp(-((x - 0.5) * (x - 0.5)) / (2 * sigma * sigma));
+        return () => {
+          const top = curveY(u),
+            // Which band of standard deviations the column lies in: 0 within 1 sigma, 1 within 2, 2 within 3, 3 beyond.
+            band = Math.min(3, Math.floor(Math.abs(u - 0.5) / sigma)),
+            below = v >= top && v <= p.baseline ? 1 : 0,
+            slope = slopeAt(u),
+            curve = cover(
+              p.curveHalf - Math.abs(v - top) / Math.sqrt(1 + slope * slope),
+            ),
+            axis = cover(p.axisHalf - Math.abs(v - p.baseline)),
+            // Dotted-free ticks at every standard deviation from -3 to 3 below the axis.
+            tickIndex = Math.round((u - 0.5) / sigma),
+            tick =
+              Math.abs(tickIndex) <= 3
+                ? cover(p.tickHalf - Math.abs(u - 0.5 - tickIndex * sigma)) *
+                  (v >= p.baseline && v <= p.baseline + p.tickReach ? 1 : 0)
+                : 0,
+            fill = p.bandTones[band],
+            base = p.paperTone + (fill - p.paperTone) * below,
+            withTick = base + (p.tickTone - base) * tick,
+            withAxis = withTick + (p.axisTone - withTick) * axis,
+            tone = withAxis + (p.curveTone - withAxis) * curve;
+          color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(
+            p.paperHeight +
+              (p.bandHeights[band] - p.paperHeight) * below +
+              (p.curveHeight - p.paperHeight) * Math.max(curve, axis),
+          );
+          roughness =
+            p.paperRoughness +
+            (p.fillRoughness - p.paperRoughness) * below +
+            (p.curveRoughness - p.fillRoughness) * Math.max(curve, axis);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -59525,6 +59580,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'bellcurvebands' ||
     kind === 'ieee754floats' ||
     kind === 'vennregions' ||
     kind === 'bezierconstruction' ||
