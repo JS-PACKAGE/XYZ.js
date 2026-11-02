@@ -31382,6 +31382,50 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'twosourceripples': {
+        const p = proceduralMaterialPresets.twosourceripples,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2d701),
+          wavelength =
+            p.wavelengths[
+              Math.min(
+                p.wavelengths.length - 1,
+                Math.floor(hash(1, 1, seed ^ 0x2d702) * p.wavelengths.length),
+              )
+            ],
+          separation =
+            p.separations[
+              Math.min(
+                p.separations.length - 1,
+                Math.floor(hash(2, 1, seed ^ 0x2d702) * p.separations.length),
+              )
+            ],
+          wavenumber = (2 * Math.PI) / wavelength,
+          // A tent fold mirrors the picture so it is continuous across the tile edge.
+          fold = (t: number): number => 1 - Math.abs(2 * t - 1),
+          // Two point sources in the middle of the folded square, a separation apart along the x axis.
+          leftX = 0.5 - separation / 2,
+          rightX = 0.5 + separation / 2;
+        return () => {
+          const x = fold(u),
+            y = fold(v),
+            r1 = Math.hypot(x - leftX, y - 0.5),
+            r2 = Math.hypot(x - rightX, y - 0.5),
+            // Two waves of equal amplitude: the sum is 2 cos(k (r1 + r2) / 2) cos(k (r1 - r2) / 2), zero on the
+            // hyperbolas where r1 - r2 is an odd multiple of half a wavelength.
+            sum = Math.cos(wavenumber * r1) + Math.cos(wavenumber * r2),
+            level = 0.5 + sum / 4;
+          color = clamp(
+            p.lowTone +
+              (p.highTone - p.lowTone) * level +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(p.heightBase + p.heightSpan * (level - 0.5));
+          roughness = clamp(
+            p.roughnessBase + p.roughnessSpan * Math.abs(level - 0.5) * 2,
+          );
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -58911,6 +58955,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'twosourceripples' ||
     kind === 'cassiniovals' ||
     kind === 'rosecurves' ||
     kind === 'conicsections' ||

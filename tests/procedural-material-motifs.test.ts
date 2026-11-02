@@ -18995,3 +18995,131 @@ describe('cassiniovals: curves of constant product of distances to two foci', ()
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('twosourceripples: interference of two circular waves', () => {
+  const p = proceduralMaterialPresets.twosourceripples;
+  const fold = (t: number): number => 1 - Math.abs(2 * t - 1);
+  // The tone of a zero sum of the two waves (the nodal lines) is the middle of the tone range.
+  const middle = (p.lowTone + p.highTone) / 2;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'puts the nodal lines on the hyperbolas |r1 - r2| = (m + 1/2) lambda and the strongest crests where both waves agree (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('twosourceripples', seed),
+        out = empty(),
+        n = 240,
+        tones: number[] = [];
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          sample((x + 0.5) / n, (y + 0.5) / n, out);
+          tones.push(out.color);
+        }
+      // For each candidate (wavelength, separation) measure how many near-nodal points are mid tone and how many near
+      // points where both waves are at a crest or trough are extreme.
+      const results: { nodal: number; extreme: number }[] = [];
+      for (const wavelength of p.wavelengths)
+        for (const separation of p.separations) {
+          let nodal = 0,
+            nodalMatching = 0,
+            extreme = 0,
+            extremeMatching = 0;
+          for (let y = 0; y < n; y++)
+            for (let x = 0; x < n; x++) {
+              const fx = fold((x + 0.5) / n),
+                fy = fold((y + 0.5) / n),
+                r1 = Math.hypot(fx - (0.5 - separation / 2), fy - 0.5),
+                r2 = Math.hypot(fx - (0.5 + separation / 2), fy - 0.5),
+                difference = (r1 - r2) / wavelength,
+                total = (r1 + r2) / wavelength,
+                tone = tones[y * n + x];
+              // r1 - r2 within 0.02 wavelengths of an odd multiple of half a wavelength.
+              if (
+                Math.abs(Math.abs(Math.sin(Math.PI * difference)) - 1) < 0.0004
+              ) {
+                nodal++;
+                nodalMatching += Number(Math.abs(tone - middle) < 0.04);
+              }
+              // Both r1 - r2 and r1 + r2 near whole wavelengths: the two waves are in step and the sum is +-2.
+              if (
+                Math.abs(Math.sin(Math.PI * difference)) < 0.06 &&
+                Math.abs(Math.sin(Math.PI * total)) < 0.06
+              ) {
+                extreme++;
+                extremeMatching += Number(Math.abs(tone - middle) > 0.36);
+              }
+            }
+          results.push({
+            nodal: nodalMatching / Math.max(1, nodal),
+            // Some geometries have no grid point where both conditions hold; then only the nodal lines are judged.
+            extreme: extreme >= 5 ? extremeMatching / extreme : 1,
+          });
+        }
+      const scores = results.map((result) =>
+          Math.min(result.nodal, result.extreme),
+        ),
+        best = Math.max(...scores);
+      expect(best).toBeGreaterThan(0.97);
+      // Exactly one (wavelength, separation) pair explains the picture.
+      expect(scores.filter((score) => score > 0.6).length).toBe(1);
+    },
+  );
+
+  it('shows more than one wavelength across seeds', () => {
+    const out = empty(),
+      seen = new Set<string>();
+    for (let seed = 0; seed < 30; seed++) {
+      const sample = createSurfaceSampler('twosourceripples', seed);
+      // Along the row through the sources, count tone peaks to read off the wavelength.
+      let previous = 0,
+        rising = false,
+        peaks = 0;
+      for (let i = 0; i < 4000; i++) {
+        sample((i + 0.5) / 4000 / 2, 0.5, out);
+        if (out.color > previous && !rising) rising = true;
+        if (out.color < previous && rising) {
+          rising = false;
+          peaks++;
+        }
+        previous = out.color;
+      }
+      seen.add(String(Math.round(peaks / 5)));
+    }
+    expect(seen.size).toBeGreaterThan(1);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('twosourceripples', 0),
+      b = createSurfaceSampler('twosourceripples', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

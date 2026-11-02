@@ -1705,6 +1705,10 @@
 
 這是作者設計的示意：只有這7個比例、固定水平放置、沒有座標軸或標示；線寬以隱函數的一階距離估計軟化（在兩焦點的中點，梯度為零，我加了下限1e-6避免除以零，見下方紀錄）；只在三種焦距裡擇一。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`twosourceripples`（雙波源漣漪）使目前目錄1036→1037種，含plain的gallery為1038項。每tile是兩個相同的圓形波源干涉的圖樣：兩個波源在tile中央水平相隔0.22或0.32 UV，波長取0.04、0.052或0.07 UV（兩者都由seed決定），每點的亮度由兩列波的和 cos(k·r₁) + cos(k·r₂) = 2 cos(k(r₁+r₂)/2) cos(k(r₁−r₂)/2) 決定（r₁、r₂是到兩個波源的距離），所以在 r₁ − r₂ 等於半波長奇數倍的雙曲線上相消、亮度落在中間值（節線），而兩波同步的位置最亮或最暗。座標經三角波折疊，使圖樣在tile邊緣連續。Metallic與mortar為0。
+
+這是作者設計的示意：只有兩個等振幅、同相位的點波源，沒有衰減也沒有反射邊界（三角波折疊只是為了接縫連續，不是物理上的鏡射）；亮度只是干涉強度、不是色相。預設0.5 m nominal tile、0.006 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽（波長0.04 UV在512×512只有約20個像素，更小尺寸會出現混疊）；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
