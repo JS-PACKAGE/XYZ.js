@@ -35213,6 +35213,97 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'pythagoreantriples': {
+        const p = proceduralMaterialPresets.pythagoreantriples,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x30001),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b)),
+          pairs: number[][] = [];
+        for (let m = 2; m <= p.maxM; m++)
+          for (let n = 1; n < m; n++)
+            if ((m - n) % 2 === 1 && gcd(m, n) === 1) pairs.push([m, n]);
+        // The seed shuffles the pairs (Fisher-Yates), twelve are kept and the table lists them by hypotenuse.
+        for (let i = pairs.length - 1; i > 0; i--) {
+          const j = Math.floor(hash(i, 3, seed ^ 0x30002) * (i + 1)),
+            swap = pairs[i];
+          pairs[i] = pairs[j];
+          pairs[j] = swap;
+        }
+        const texts = pairs
+          .slice(0, p.rows)
+          .map(([m, n]) => [m, n, m * m - n * n, 2 * m * n, m * m + n * n])
+          .sort((x, y) => x[4] - y[4])
+          .map(
+            ([m, n, a, b, c]) =>
+              String(m) +
+              ' ' +
+              String(n) +
+              '  ' +
+              String(a).padStart(3, ' ') +
+              ' ' +
+              String(b).padStart(3, ' ') +
+              ' ' +
+              String(c).padStart(3, ' '),
+          );
+        return () => {
+          const row = Math.floor((v - p.top) / p.rowPitch),
+            fy = (v - p.top) / p.rowPitch - row;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            glyph = 0;
+          if (row >= 0 && row < p.rows) {
+            const text = texts[row],
+              px = Math.floor((u - p.left) / p.pixel),
+              d = px >= 0 ? Math.floor(px / 4) : -1,
+              gx = px - 4 * d,
+              py = Math.floor(((fy - 0.5) * p.rowPitch) / p.pixel + 2.5);
+            if (
+              row % 2 === 1 &&
+              Math.abs(u - p.left - p.stripeWidth / 2) <
+                p.stripeWidth / 2 + p.stripeInset
+            ) {
+              tone = p.stripeTone;
+              level = p.stripeHeight;
+            }
+            // The hypotenuse (the last three characters) sits on a darker cell.
+            if (d >= text.length - 3 && d < text.length) {
+              tone = p.hypotenuseTone;
+              level = p.hypotenuseHeight;
+            }
+            if (
+              d >= 0 &&
+              d < text.length &&
+              gx >= 0 &&
+              gx < 3 &&
+              py >= 0 &&
+              py < 5 &&
+              text[d] !== ' '
+            ) {
+              if (glyphs[Number(text[d])][py * 3 + gx] === '1') glyph = 1;
+            }
+          }
+          color = clamp(
+            tone +
+              (p.inkTone - tone) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * glyph);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -62742,6 +62833,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'pythagoreantriples' ||
     kind === 'hexdumprows' ||
     kind === 'pairingtables' ||
     kind === 'ferrersdiagrams' ||

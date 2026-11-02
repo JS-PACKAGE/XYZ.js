@@ -25326,3 +25326,146 @@ describe('hexdumprows: offsets, bytes in hex and the same bytes as text', () => 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('pythagoreantriples: primitive Pythagorean triples from Euclid formula', () => {
+  const p = proceduralMaterialPresets.pythagoreantriples;
+  const shapes = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+  const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+
+  // All primitive triples that need m up to maxM, found by searching for a^2 + b^2 = c^2 directly (a odd, b even, a and b
+  // without a common factor) and keeping those whose m^2 = (a + c) / 2 is at most maxM^2; Euclid's formula does not list them.
+  // Two different triples can share a hypotenuse (65 is both 33, 56, 65 and 63, 16, 65), so rows are only sorted weakly.
+  const limit = p.maxM * p.maxM + (p.maxM - 1) * (p.maxM - 1);
+  const primitive = new Set<string>();
+  for (let a = 1; a < limit; a += 2)
+    for (let b = 2; b < limit; b += 2) {
+      const c = Math.round(Math.sqrt(a * a + b * b));
+      if (
+        c * c === a * a + b * b &&
+        gcd(a, b) === 1 &&
+        (a + c) / 2 <= p.maxM * p.maxM
+      )
+        primitive.add(`${a},${b},${c}`);
+    }
+
+  const decode = (seed: number): number[][] => {
+    const sample = createSurfaceSampler('pythagoreantriples', seed),
+      out = empty(),
+      colorAt = (u: number, v: number): number => {
+        sample(u, v, out);
+        return out.color;
+      };
+    return Array.from({ length: p.rows }, (_, row) => {
+      const centre = p.top + (row + 0.5) * p.rowPitch,
+        slots = Array.from({ length: 16 }, (_, slot) => {
+          const lines = [0, 1, 2, 3, 4].map((k) =>
+            [0, 1, 2]
+              .map((x) =>
+                colorAt(
+                  p.left + (4 * slot + x + 0.5) * p.pixel,
+                  centre + (k - 2) * p.pixel,
+                ) < 0.3
+                  ? '#'
+                  : '.',
+              )
+              .join(''),
+          );
+          if (lines.every((line) => line === '...')) return ' ';
+          const digit = shapes.findIndex((shape) =>
+            shape.every((line, i) => line === lines[i]),
+          );
+          expect(digit).toBeGreaterThanOrEqual(0);
+          return String(digit);
+        }).join('');
+      // Columns: m (slot 0), n (slot 2), a (5-7), b (9-11), c (13-15); the rest is blank.
+      expect(slots[1] + slots[3] + slots[4] + slots[8] + slots[12]).toBe(
+        '     ',
+      );
+      return [
+        slots[0],
+        slots[2],
+        slots.slice(5, 8),
+        slots.slice(9, 12),
+        slots.slice(13, 16),
+      ].map((text) => Number(text.trim()));
+    });
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'lists twelve different primitive triples by hypotenuse, each with its m and n (seed %i)',
+    (seed) => {
+      const rows = decode(seed);
+      expect(new Set(rows.map((row) => row.join(','))).size).toBe(p.rows);
+      rows.forEach(([m, n, a, b, c], index) => {
+        expect(a * a + b * b).toBe(c * c);
+        expect(primitive.has(`${a},${b},${c}`)).toBe(true);
+        // m and n are what Euclid's formula needs to make this triple.
+        expect([m * m - n * n, 2 * m * n, m * m + n * n]).toEqual([a, b, c]);
+        expect(m).toBeLessThanOrEqual(p.maxM);
+        if (index > 0) expect(c).toBeGreaterThanOrEqual(rows[index - 1][4]);
+      });
+      // No two rows come from the same pair, and the triples are all different too.
+      expect(new Set(rows.map(([m, n]) => `${m},${n}`)).size).toBe(p.rows);
+    },
+  );
+
+  it('chooses different sets of triples for different seeds and every one of the 18 can appear', () => {
+    const seen = new Set<string>(),
+      sets = new Set<string>();
+    for (let seed = 0; seed < 60; seed++) {
+      const rows = decode(seed);
+      sets.add(rows.map((row) => row[4]).join(','));
+      for (const [a, b, c] of rows) seen.add(`${a},${b},${c}`);
+    }
+    expect(primitive.size).toBe(18);
+    expect(seen.size).toBe(18);
+    expect(sets.size).toBeGreaterThan(30);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('pythagoreantriples', 0),
+      b = createSurfaceSampler('pythagoreantriples', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(0);
+  });
+});
