@@ -1070,6 +1070,7 @@ const kinds: ProceduralMaterialKind[] = [
   'graycode',
   'zoneplate',
   'kaleidoscope',
+  'recamanarcs',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',
@@ -169316,6 +169317,297 @@ describe('Kaleidoscope as smooth noise averaged over an 8-fold dihedral symmetry
     expect(blue / (512 * 512)).toBeLessThan(76.5);
     expect(maxTilt).toBeGreaterThan(0.012);
     expect(maxTilt).toBeLessThan(0.02);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe("Recaman arcs as the first 60 steps of Recaman's sequence drawn as half circles on a number line", () => {
+  const p = proceduralMaterialPresets.recamanarcs;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** Recaman's sequence written independently here with a set of visited numbers. */
+  const positions = ((): number[] => {
+    const visited = new Set<number>([0]),
+      list = [0];
+    for (let n = 1; n <= p.terms; n++) {
+      const down = list[n - 1] - n,
+        next = down > 0 && !visited.has(down) ? down : list[n - 1] + n;
+      visited.add(next);
+      list.push(next);
+    }
+    return list;
+  })();
+  /** Unvisited places on the number line at least 0.6 from every visited number. */
+  const gaps: number[] = [];
+  for (let x = 0; x <= p.span - 2 * p.margin + 10; x += 0.25)
+    if (positions.every((q) => Math.abs(q - x) >= 0.6)) gaps.push(x);
+  /**
+   * The picture read back from the sampler. The number line of the first band is the row
+   * v = 1/4. The sideways offset is fitted: every offset (steps of 0.02) at which the line is
+   * lit at all 61 visited numbers and dark at every gap is kept, and the middle of those is
+   * the offset (the lit and the dark checks are symmetric about the true offset, so the
+   * middle is within about the step of it). The side of the odd steps is the one on which the
+   * apex of all 60 half circles is lit.
+   */
+  const readPicture = (
+    seed: number,
+  ): { offset: number; passing: number; side: number; apexes: number[] } => {
+    const sample = createSurfaceSampler('recamanarcs', seed),
+      out = empty(),
+      lit = (x: number, y: number): boolean => {
+        sample(x / p.span, y / p.span, out);
+        return out.color > 0.5;
+      },
+      passing: number[] = [];
+    for (
+      let offset = p.margin - p.shiftRange - 0.5;
+      offset <= p.margin + p.shiftRange + 0.5;
+      offset += 0.02
+    )
+      if (
+        positions.every((q) => lit(q + offset, p.span / 4)) &&
+        gaps.every((g) => !lit(g + offset, p.span / 4))
+      )
+        passing.push(offset);
+    const offset = (passing[0] + passing[passing.length - 1]) / 2,
+      apexes = [1, -1].map((side) => {
+        let count = 0;
+        for (let k = 1; k <= p.terms; k++) {
+          const start = positions[k - 1],
+            end = positions[k],
+            sign = (k % 2 === 1) === side > 0 ? 1 : -1;
+          count += Number(
+            lit(
+              (start + end) / 2 + offset,
+              p.span / 4 + (sign * Math.abs(end - start)) / 2,
+            ),
+          );
+        }
+        return count;
+      });
+    return {
+      offset,
+      passing: passing.length,
+      side: apexes[0] > apexes[1] ? 1 : -1,
+      apexes,
+    };
+  };
+  /** Distance from (x, dy) to the half circles of a band, by polylines of 240 segments. */
+  const distanceToArcs = (
+    x: number,
+    dy: number,
+    offset: number,
+    side: number,
+  ): number => {
+    let best = Infinity;
+    for (let k = 1; k <= p.terms; k++) {
+      const start = positions[k - 1],
+        end = positions[k],
+        centre = (start + end) / 2 + offset,
+        radius = Math.abs(end - start) / 2,
+        sign = (k % 2 === 1) === side > 0 ? 1 : -1;
+      if (Math.abs(x - centre) > radius + 1) continue;
+      for (let i = 0; i < 240; i++) {
+        const x1 = centre + radius * Math.cos((Math.PI * i) / 240),
+          y1 = sign * radius * Math.sin((Math.PI * i) / 240),
+          vx = centre + radius * Math.cos((Math.PI * (i + 1)) / 240) - x1,
+          vy = sign * radius * Math.sin((Math.PI * (i + 1)) / 240) - y1,
+          along = Math.min(
+            1,
+            Math.max(0, ((x - x1) * vx + (dy - y1) * vy) / (vx * vx + vy * vy)),
+          );
+        best = Math.min(
+          best,
+          Math.hypot(x - (x1 + along * vx), dy - (y1 + along * vy)),
+        );
+      }
+    }
+    return best;
+  };
+  it("draws the half circles of Recaman's sequence and keeps the tones bounded", () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('recamanarcs', seed),
+        a = empty();
+      // The number line is lit at all 61 visited numbers and dark in the gaps for a narrow
+      // window of offsets (10 to 25 steps of 0.02, found as a contiguous block), the apexes of
+      // all 60 half circles are lit on one side (and on the other side only a few, by chance),
+      // the offset is inside the allowed shift, and at 4000 points the picture agrees with
+      // the independent polyline distance to the arcs of the fitted picture: lit within 0.1 of
+      // an arc, dark from 0.4 on (about 3,200 points are that clear, none may disagree).
+      const picture = readPicture(seed);
+      expect(picture.passing).toBeGreaterThan(10);
+      expect(picture.passing).toBeLessThan(25);
+      expect(Math.abs(picture.offset - p.margin)).toBeLessThanOrEqual(
+        p.shiftRange,
+      );
+      expect(Math.max(...picture.apexes)).toBe(60);
+      expect(Math.min(...picture.apexes)).toBeLessThan(10);
+      let clear = 0,
+        disagree = 0;
+      for (let i = 0; i < 4000; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1,
+          band = v < 0.5 ? 0 : 1,
+          distance = distanceToArcs(
+            u * p.span,
+            (v * p.span - p.span * (0.25 + 0.5 * band)) * (band === 0 ? 1 : -1),
+            picture.offset,
+            picture.side,
+          );
+        if (distance > 0.1 && distance < 0.4) continue;
+        sample(u, v, a);
+        clear++;
+        disagree += Number(a.color > 0.5 !== distance <= 0.1);
+      }
+      expect(clear).toBeGreaterThan(3000);
+      expect(disagree).toBe(0);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0251);
+      expect(low).toBeLessThan(0.0258);
+      expect(high).toBeGreaterThan(0.853);
+      expect(high).toBeLessThan(0.855);
+      expect(dark / 65536).toBeGreaterThan(0.104);
+      expect(dark / 65536).toBeLessThan(0.111);
+      expect(mean / 65536).toBeGreaterThan(0.131);
+      expect(mean / 65536).toBeLessThan(0.134);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 3);
+      expect(heightHigh).toBeGreaterThan(0.876);
+      expect(heightHigh).toBeLessThan(0.879);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('shifts the picture sideways and may swap the sides per seed and is deterministic for one seed', () => {
+    const pictures = [0, 1, 0xffffffff, 7].map(readPicture);
+    expect(new Set(pictures.map(({ offset }) => offset.toFixed(1))).size).toBe(
+      4,
+    );
+    expect(new Set(pictures.map(({ side }) => side)).size).toBe(2);
+    expect(readPicture(0)).toEqual(pictures[0]);
+  });
+  it('keeps the arcs, ground and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('recamanarcs', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 teal arc maps with raised lines and shaded ground', () => {
+    const maps = generateProceduralMaps('recamanarcs', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(23.5);
+    expect(red / (512 * 512)).toBeLessThan(25);
+    expect(green / (512 * 512)).toBeGreaterThan(50);
+    expect(green / (512 * 512)).toBeLessThan(52);
+    expect(blue / (512 * 512)).toBeGreaterThan(54.5);
+    expect(blue / (512 * 512)).toBeLessThan(56);
+    expect(maxTilt).toBeGreaterThan(0.04);
+    expect(maxTilt).toBeLessThan(0.07);
     expect(invalid).toBe(0);
   });
 });

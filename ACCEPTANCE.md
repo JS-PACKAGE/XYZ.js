@@ -13053,3 +13053,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 瀏覽器gallery（headless Chrome，`--enable-unsafe-webgpu --use-angle=metal`）：頁面載入約258 s後，預設（WebGPU）與`?renderer=webgl2`兩個分頁讀數皆為「1042 procedural material presets」、select共1043個選項；依序選取poissondisk、graycode、zoneplate、kaleidoscope、plain（WebGPU分頁另加wangtiles）都在期限內更新讀數，兩個分頁的console錯誤皆為0。這**只**涵蓋「可選取、讀數更新、無console錯誤」，沒有逐材質截圖，也不證明視覺品質；只選了上述少數kind，沒有逐一選過全部1042種。
 - 紀錄：這次兩次在前一個Chrome分頁關閉後立刻開下一個分頁時，`browser.open`曾逾時30秒（第一次是WebGPU分頁，第二次是webgl2分頁）；我終止了殘留的Chrome程序後重開即成功，逾時的嘗試沒有取得任何讀數，不計入上述結果。
 - 未驗證：沒有量測建構與取樣耗時；不push。
+
+## 2026-11-03 新增材質：雷卡曼弧線（recamanarcs）
+
+- 範圍：新增`recamanarcs`（目前目錄1042→1043種，含plain的gallery 1044項）：雷卡曼數列前60步（61個位置、57個不同的值、最大114），每一步畫成數線上的半圓（直徑為步長，奇偶步在兩側），每個tile上下兩條帶（第二條側邊對調），青綠細線在深青黑色底上；seed讓整幅圖左右平移最多5.5單位並可能對調兩側；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 131,072 B（另有小陣列未計入）。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽看了兩版：第一版線半徑0.9，相鄰大半圓的半徑只差1而疊成很厚的圓環，我一度以為是距離公式寫錯（用ASCII輸出檢查中線後才確認序列與端點位置正確，問題是線太粗），改成0.3；(2)測試用另寫的雷卡曼數列與多邊形距離；平移以「亮暗檢查都通過的連續區段的中點」估計（解析度0.02，區段寬約0.32），因此後面的分類只在距離≤0.1或≥0.4的明確點上比對，柔化區（0.1–0.4）的形狀沒有驗證；(3)seed差異只檢查四個seed平移各不相同且兩種側邊都出現；(4)256²取樣因線細而取樣不足，亮處占比與512²不同（10.58%–11.04%對11.31%–11.38%），測試採用256²的數值；(5)建構與取樣耗時**未量測**；(6)測試第一次執行即通過（探針數值先量好才寫界線）。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：保留的平移連續17步（各seed），區段中點2.44／3.64／11.14／7.88；60個頂點在一側全亮、另一側4／4／4／4個；4000點中約3,260點明確（亮約275–308、暗約2,977–2,983），與獨立多邊形距離不一致0個；256²（seed 0／1／0xffffffff）亮處（color>0.5）10.58%–11.04%、color 0.02520–0.02568至0.85385–0.85434、平均0.13175–0.13343、roughness恆為0.4、AO最低0.6、height至多0.8769–0.8782 relief；512²（四個seed）亮處11.31%–11.38%、color 0.02508–0.02528至0.85435–0.85480、平均0.13574–0.13656、AO最低0.6、height至多0.8783–0.8795 relief；seed 0與1相比，512²中color>0.5的取樣13.5%不同；seed 7的512²maps平均r／g／b約(24.2, 50.9, 55.1)、法線tilt²最大約0.0543、z分量最小251。我實看了預覽（seed 7，2×2 tile，細線版本）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Recaman arcs as|recamanarcs|kinds|catalog|distinct|periodic"`定向測試**2392項通過／4088項未選**。
+- 未驗證：recamanarcs未跑完整suite與瀏覽器gallery；不push。

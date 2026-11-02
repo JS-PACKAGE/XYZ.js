@@ -1044,6 +1044,7 @@ export type ProceduralMaterialKind =
   | 'graycode'
   | 'zoneplate'
   | 'kaleidoscope'
+  | 'recamanarcs'
   | 'sandpileidentity'
   | 'multiplicativeorder'
   | 'vermiculation'
@@ -2335,6 +2336,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'graycode',
   'zoneplate',
   'kaleidoscope',
+  'recamanarcs',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',

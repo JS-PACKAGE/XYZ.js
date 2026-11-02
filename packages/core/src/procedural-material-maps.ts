@@ -43062,6 +43062,71 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'recamanarcs': {
+        const p = proceduralMaterialPresets.recamanarcs,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          shift = (hash(0, 20, seed ^ p.seedSalt) - 0.5) * 2 * p.shiftRange,
+          flipped = hash(1, 20, seed ^ p.seedSalt) < 0.5,
+          visited = new Set<number>([0]),
+          positions = [0];
+        // Recaman's sequence: a(0) = 0 and a(n) = a(n - 1) - n when that is positive and has not
+        // been visited before, otherwise a(n - 1) + n. Every step n is drawn as a half circle
+        // on the number line from a(n - 1) to a(n), diameter n, the odd steps on one side of
+        // the line and the even steps on the other, and two such bands lie one above the
+        // other (the second with the sides swapped), each band spanning span units of the
+        // tile, which is span units wide and high; the seed shifts the picture sideways by up
+        // to shiftRange and may swap the sides.
+        for (let n = 1; n <= p.terms; n++) {
+          const down = positions[n - 1] - n,
+            next = down > 0 && !visited.has(down) ? down : positions[n - 1] + n;
+          visited.add(next);
+          positions.push(next);
+        }
+        const arcs = positions.slice(1).map((end, index) => {
+          const start = positions[index];
+          return {
+            centre: (start + end) / 2 + p.margin + shift,
+            radius: Math.abs(end - start) / 2,
+            side: (index % 2 === 0) === flipped ? 1 : -1,
+          };
+        });
+        return () => {
+          const x = fract(u) * p.span,
+            y = fract(v) * p.span,
+            band = y < p.span / 2 ? 0 : 1,
+            // The vertical offset from the middle line of the band the point is in.
+            dy = y - p.span * (0.25 + 0.5 * band);
+          let open = 1;
+          for (const arc of arcs) {
+            const across = dy * arc.side * (band === 0 ? 1 : -1),
+              along = x - arc.centre;
+            if (Math.abs(along) > arc.radius + p.strokeRadius) continue;
+            // Half circle: the circle itself on its own side of the line, the two end points
+            // of the diameter on the other.
+            const distance =
+              across >= 0
+                ? Math.abs(Math.hypot(along, across) - arc.radius)
+                : Math.hypot(Math.abs(along) - arc.radius, across);
+            open *= 1 - smooth(clamp((p.strokeRadius - distance) / p.edgeSoft));
+          }
+          const mask = 1 - open,
+            tone = p.toneSpan * mask,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.litHeight * mask * (p.baseHeight + (1 - p.baseHeight) * mask) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -51907,6 +51972,7 @@ export function createSurfaceSampler(
     kind === 'graycode' ||
     kind === 'zoneplate' ||
     kind === 'kaleidoscope' ||
+    kind === 'recamanarcs' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||

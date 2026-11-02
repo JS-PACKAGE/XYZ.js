@@ -1107,6 +1107,7 @@ try {
     'graycode',
     'zoneplate',
     'kaleidoscope',
+    'recamanarcs',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',
