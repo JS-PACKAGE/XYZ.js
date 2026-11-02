@@ -1051,6 +1051,7 @@ try {
     'primesieve',
     'lissajoustable',
     'rhodoneatable',
+    'spirographtable',
     'mandelbrottiles',
     'juliatiles',
     'dragoncurve',

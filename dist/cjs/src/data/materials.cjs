@@ -22600,6 +22600,37 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: .2,
 		lineRoughness: -.2
 	}),
+	spirographtable: Object.freeze({
+		dark: [
+			26,
+			6,
+			6
+		],
+		light: [
+			255,
+			190,
+			120
+		],
+		roughness: .4,
+		relief: 8e-4,
+		seedSalt: 23319,
+		cells: 6,
+		segments: 360,
+		amplitude: .4,
+		penRatio: .8,
+		rotationVariation: .5,
+		lineWidth: .016,
+		lineGain: 4,
+		glowRadius: .1,
+		grainCells: 128,
+		baseTone: .04,
+		lineTone: .74,
+		glowTone: .12,
+		grainTone: .02,
+		lineHeight: .8,
+		grainHeight: .2,
+		lineRoughness: -.2
+	}),
 	mandelbrottiles: Object.freeze({
 		dark: [
 			4,
@@ -25013,6 +25044,7 @@ var proceduralTileMeters = Object.freeze({
 	primesieve: .3,
 	lissajoustable: .3,
 	rhodoneatable: .3,
+	spirographtable: .3,
 	mandelbrottiles: .3,
 	juliatiles: .3,
 	dragoncurve: .25,

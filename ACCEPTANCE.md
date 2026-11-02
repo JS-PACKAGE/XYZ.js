@@ -12600,3 +12600,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增6項專屬測試（151塊／330條邊／180個頂點／歐拉示性數1／邊長1／頂點邊數2到10／41、70、40塊瓷磚、四seed的旋轉唯一比對（含瓷磚中心的內部色調）與統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過；`Dodecagrid tiling as`與`Heptagrid filled as`原有測試仍通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Dodecagrid filled as|dodecagridfilled|Dodecagrid tiling as|Heptagrid filled as|kinds|catalog|distinct|periodic"`定向測試**2310項通過／3938項未選**。
 - 未驗證：heptagridfilled、dodecagridfilled未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：螺旋規曲線表（spirographtable）
+
+- 範圍：新增`spirographtable`（目前目錄999→1000種，含plain的gallery 1001項）：6×6格，格(col, row)畫半徑`a = col + 1`的小輪在半徑`b = row + 7`的大環內滾動的內擺線（筆距比0.8；36格中13格的a與b有公因數，只畫一個封閉週期`t ∈ [0, 2π·a / gcd(a, b))`），曲線縮放至離格中心最遠0.4格寬、以seed決定的角度（0到0.5弧度）整體旋轉，銅色曲線與微光暈、暗紅褐底；沿用玫瑰線表的高斯和軟聯集（每格預先算出360個點的封閉折線）；預設0.3 m nominal tile、0.0008 UV-relative relief；cache 2×36×360 + 128² = 42,304個Float64／338,432 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**；只是整數比表，不是實體螺旋規。
+- 調整與紀錄：(1)第一版沿用`t ∈ [0, 2π·a)`，a與b有公因數的格子會重複描繪同一條曲線使線條加倍，改為`t ∈ [0, 2π·a / gcd(a, b))`；兩版預覽肉眼看不出明顯差異，**沒有量化比較，也沒有保存修改前的測試結果**，只是依數學上正確的封閉週期修改。(2)讀圖時第一次讀新檔案遇到路徑尚未可讀的暫時錯誤，重讀後正常，沒有影響結果。(3)每個取樣點走訪360個線段；只量過一次512² maps生成（seed 7）約444 ms，**單次量測，不是benchmark，也沒有與其他材質比較**；旋轉比對的測試判定寬度為22到32（量測25–29，並非精確值）。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：256²取樣亮處（color>0.5）占19.06%–19.20%、color 0.0303–0.0304至0.7892–0.7898、平均0.2033–0.2035、roughness 0.2–0.4、AO恆為1、height至多0.9919–0.9984 relief；512²取樣亮處占19.07%–19.10%、color 0.0301–0.0302至0.7898–0.7899、平均0.2034–0.2035、height至多0.9975–0.9992 relief；四格角落最大color 0.0487–0.0495；101種旋轉角中有25–29種使36格×96個獨立計算的曲線點全部落在亮處，最佳最小亮度0.7702–0.7704；seed 0與1的亮區遮罩（512²）18.5%像素不同；seed 7的512²maps平均r／g／b約(72.6, 43.4, 29.2)、法線tilt²最大約0.0495。我實看了預覽（seed 7）。
+- 測試：新增5項專屬測試（旋轉比對的曲線追蹤與統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過，`Rose table as`原有測試仍通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Spirograph table as|spirographtable|Rose table as|kinds|catalog|distinct|periodic"`定向測試**2309項通過／3944項未選**。
+- 未驗證：heptagridfilled、dodecagridfilled、spirographtable未跑完整suite與瀏覽器gallery；不push。

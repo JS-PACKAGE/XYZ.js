@@ -988,6 +988,7 @@ export type ProceduralMaterialKind =
   | 'primesieve'
   | 'lissajoustable'
   | 'rhodoneatable'
+  | 'spirographtable'
   | 'mandelbrottiles'
   | 'juliatiles'
   | 'dragoncurve'
@@ -2236,6 +2237,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'primesieve',
   'lissajoustable',
   'rhodoneatable',
+  'spirographtable',
   'mandelbrottiles',
   'juliatiles',
   'dragoncurve',

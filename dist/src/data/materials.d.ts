@@ -14002,6 +14002,29 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.2;
         lineRoughness: -0.2;
     }>;
+    spirographtable: Readonly<{
+        dark: readonly [26, 6, 6];
+        light: readonly [255, 190, 120];
+        roughness: 0.4;
+        relief: 0.0008;
+        seedSalt: 23319;
+        cells: 6;
+        segments: 360;
+        amplitude: 0.4;
+        penRatio: 0.8;
+        rotationVariation: 0.5;
+        lineWidth: 0.016;
+        lineGain: 4;
+        glowRadius: 0.1;
+        grainCells: 128;
+        baseTone: 0.04;
+        lineTone: 0.74;
+        glowTone: 0.12;
+        grainTone: 0.02;
+        lineHeight: 0.8;
+        grainHeight: 0.2;
+        lineRoughness: -0.2;
+    }>;
     mandelbrottiles: Readonly<{
         dark: readonly [4, 4, 26];
         light: readonly [120, 220, 255];
@@ -15973,6 +15996,7 @@ export declare const proceduralTileMeters: Readonly<{
     primesieve: 0.3;
     lissajoustable: 0.3;
     rhodoneatable: 0.3;
+    spirographtable: 0.3;
     mandelbrottiles: 0.3;
     juliatiles: 0.3;
     dragoncurve: 0.25;
