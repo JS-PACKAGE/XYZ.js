@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`turingmaze`（圖靈迷宮）使目前目錄950→951種，含plain的gallery為952項。白色紙面上的深色墨跡迷宮：彎曲、分岔、部分封閉的粗條紋，由週期Gray-Scott反應擴散在「迷宮（labyrinth）」參數下產生，墨跡的粗細與濃淡隨慢雜訊略為變化，紙面有細grain。墨跡在測試的seed上形成單一連通網路。這是反應擴散的條紋圖案，**不是指紋**（指紋的脊線間距細得多，且有螺旋與分叉結構），也不是真實印刷或墨水；預覽只有單一墨色到紙色的漸層。
+
+此材質是作者示意，沒有引用特定來源或對照照片；反應擴散參數（feed 0.03、kill 0.057、6000步、96×96格）、門檻與銳度、warp量、墨與紙的色調、0.3 m nominal tile皆作者設定與調整，不宣稱符合任何實際物件。我先嘗試命名為指紋（fingerprint），預覽後發現條紋間距約為其五到十倍、也沒有螺旋，所以改名為`turingmaze`。
+
+沿用`cheetahfur`新增的共用helper `latticeField`與`grayScott`，專用sampler把同一個週期pattern在輕微noise扭曲（±0.025 UV）後的位置，用`0.5 + 0.5·tanh(9·(pattern − level))`取平滑條紋遮罩（level = 0.5 ± 0.12隨7×7慢雜訊移動），墨濃度＝條紋×(0.82 + 0.18·7×7雜訊)，顏色＝`0.94 − 0.86·ink + 0.05·(160²細grain − 0.5)`；cache合計96²＋5²＋7²＋7²＋160² = 34,939個Float64／279,512 B lattice算術預算（非總RAM；建構時另有約294,912 B暫存，結束後只保留v）。height ≈ 0.7×條紋＋0.3×grain；墨處roughness降低最多0.15。預設0.3 m nominal tile與0.0012 UV-relative relief（非公尺位移）。迷宮參數在我掃描的12個seed上穩定（未正規化v最大值0.32–0.35、邊界密度一致），但不保證任意seed穩定。模擬成本：本機bun量測每個sampler建構約192–252 ms、512² maps約293 ms（單次量測，非benchmark）。
+
 `cheetahfur`（獵豹毛皮）使目前目錄949→950種，含plain的gallery為951項。黃褐色短毛皮上分布著黑色的橢圓斑點，斑點的位置、大小與形狀來自週期Gray-Scott反應擴散（reaction-diffusion）模擬，因此是不規則但間距相近的自然斑點，而非隨機圓點或固定格點；毛皮沿v方向有細纖維紋，斑處roughness略高。不是真實獵豹的毛色漸層、斑點外圍的淺色暈、腹部白毛或毛的方向性，預覽只有單一黃褐色與黑色兩段漸層。
 
 此材質是作者依一般獵豹斑紋外觀所作示意，沒有引用特定來源文件、照片或量測，也沒有對照照片；反應擴散參數（feed 0.04、kill 0.065、6000步、96×96格）、斑的門檻與銳度、warp量、毛色與斑色、0.25 m nominal tile皆作者設定與調整，不宣稱符合任何實際獵豹。反應擴散是這個引擎第一次在建立sampler時執行模擬，其他材質仍是純函數式雜訊。

@@ -12089,3 +12089,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 勘誤：上一個jade段落「未驗證」寫到「spectrogram亦未做gallery」是錯的；同一個`84d430604` commit已記錄spectrogram（及redalder、ecgpaper、barchart）的WebGPU與`?renderer=webgl2` gallery檢查，無錯誤。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Cheetah fur as|cheetahfur|kinds|catalog|distinct|periodic"`定向測試**2184項通過／3792項未選**。
 - 未驗證：本材質未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：圖靈迷宮（turingmaze）
+
+- 範圍：新增`turingmaze`（目前目錄950→951種，含plain的gallery 952項）：沿用`cheetahfur`新增的`latticeField`／`grayScott`，以迷宮參數（96×96格、feed 0.03、kill 0.057、6000步）產生白紙上的深色墨跡條紋迷宮，條紋門檻與墨濃度隨慢雜訊變化，另有160²紙面grain；預設0.3 m nominal tile、0.0012 UV-relative relief。作者示意，沒有引用特定來源、**沒有對照照片**。
+- 命名更正（誠實紀錄）：我原本把這個kind命名為`fingerprint`（指紋）。預覽後發現條紋間距比指紋粗很多倍、沒有螺旋與分叉結構，名稱會誤導，所以在commit前改名為`turingmaze`；所有檔案已同步，沒有`fingerprint`殘留於commit。為了讓條紋更細而加大格數（192²）會讓模擬成本變成約4倍，我沒有嘗試，所以「更像指紋」這件事沒有做。
+- 參數掃描（誠實紀錄）：我在12個seed上掃描(F, K, 格數, 播種格數)，64×64的迷宮參數（F 0.029／K 0.057）全部seed最終場域都變成均勻（未正規化v最大值約0）；96×96＋8×8播種格、F 0.03／K 0.057／6000步則12個seed的未正規化v最大值皆為0.32–0.35、邊界密度一致（1,686–1,784），才採用。8000步搭配12×12播種格會全部變均勻。**這是在我掃描的12個seed上穩定，不保證任意seed穩定**；測試涵蓋seed 0、1、0xffffffff與seed 7的maps。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：墨（color<0.5）占47.3%–49.1%、紙（color>0.8）占43.7%–45.5%（256²取樣）、墨區在週期網格上為1個連通區、紙區3–6個連通區、邊界相鄰對數4,560–4,802、color 0.061–0.068至0.9641–0.9643、平均0.549–0.565、roughness 0.550–0.700、height至多0.9956–0.9973 relief；seed 0與1的墨遮罩43.7%像素不同；seed 7的512²maps平均r／g／b約(145.8, 142.7, 140.6)、r<128的像素占48.3%、法線tilt²最大約0.0288、z分量最小253；sampler建構約192–252 ms、512² maps約293 ms（bun單次量測，非benchmark）。我實看了預覽（seed 7的2×2 tile）：粗的彎曲墨跡迷宮，邊緣有柔和過渡，看起來像珊瑚或迷宮圖案，不像指紋。
+- 測試：新增6項專屬測試（三seed統計含墨區連通數與邊界密度、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過；測試的連通區與邊界數是以目前參數的探針值設的區間，參數改動需重新量測。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Turing maze as|turingmaze|kinds|catalog|distinct|periodic"`定向測試**2191項通過／3792項未選**。
+- 未驗證：cheetahfur與turingmaze未跑完整suite與瀏覽器gallery；不push。

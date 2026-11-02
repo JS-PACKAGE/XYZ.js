@@ -21789,6 +21789,41 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: .4,
 		spotRoughness: .08
 	}),
+	turingmaze: Object.freeze({
+		dark: [
+			26,
+			24,
+			34
+		],
+		light: [
+			244,
+			240,
+			228
+		],
+		roughness: .7,
+		relief: .0012,
+		seedSalt: 61822,
+		gridSize: 96,
+		seedCells: 8,
+		feed: .03,
+		kill: .057,
+		steps: 6e3,
+		threshold: .5,
+		thresholdVariation: .24,
+		sharpness: 9,
+		warpCells: 5,
+		warp: .05,
+		sizeCells: 7,
+		inkLevel: .82,
+		inkVariation: .18,
+		grainCells: 160,
+		paperTone: .94,
+		inkDepth: .86,
+		grainTone: .05,
+		ridgeHeight: .7,
+		grainHeight: .3,
+		inkRoughness: -.15
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -23236,7 +23271,8 @@ var proceduralTileMeters = Object.freeze({
 	barchart: .25,
 	spectrogram: .3,
 	jade: .15,
-	cheetahfur: .25
+	cheetahfur: .25,
+	turingmaze: .3
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

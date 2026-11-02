@@ -965,7 +965,8 @@ export type ProceduralMaterialKind =
   | 'barchart'
   | 'spectrogram'
   | 'jade'
-  | 'cheetahfur';
+  | 'cheetahfur'
+  | 'turingmaze';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2165,6 +2166,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'spectrogram',
   'jade',
   'cheetahfur',
+  'turingmaze',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

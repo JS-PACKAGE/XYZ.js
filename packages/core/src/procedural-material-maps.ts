@@ -39293,6 +39293,59 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'turingmaze': {
+        const p = proceduralMaterialPresets.turingmaze,
+          pattern = latticeField(
+            grayScott(
+              p.gridSize,
+              p.seedCells,
+              p.feed,
+              p.kill,
+              p.steps,
+              seed ^ p.seedSalt,
+            ),
+            p.gridSize,
+            p.gridSize,
+          ),
+          warpField = cachedNoise(
+            p.warpCells,
+            p.warpCells,
+            seed ^ (p.seedSalt + 1),
+          ),
+          levelField = cachedNoise(
+            p.sizeCells,
+            p.sizeCells,
+            seed ^ (p.seedSalt + 2),
+          ),
+          inkField = cachedNoise(
+            p.sizeCells,
+            p.sizeCells,
+            seed ^ (p.seedSalt + 3),
+          ),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 4),
+          );
+        return () => {
+          // Ridges are the labyrinth regime of the same periodic Gray-Scott pattern,
+          // looked up at a lightly warped position and cut by a smooth tanh step whose
+          // level and ink density follow slow noise fields (so ridge width and ink
+          // darkness vary like an uneven print); paper grain is fine noise.
+          const wu = u + p.warp * (warpField(u, v) - 0.5),
+            wv = v + p.warp * (warpField(v + 0.37, u + 0.21) - 0.5),
+            level =
+              p.threshold + p.thresholdVariation * (levelField(u, v) - 0.5),
+            ridge =
+              0.5 + 0.5 * Math.tanh(p.sharpness * (pattern(wu, wv) - level)),
+            ink = ridge * (p.inkLevel + p.inkVariation * inkField(u, v)),
+            grain = grainField(u, v);
+          color = p.paperTone - p.inkDepth * ink + p.grainTone * (grain - 0.5);
+          height = p.ridgeHeight * ridge + p.grainHeight * grain;
+          roughness += p.inkRoughness * ink;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -47051,6 +47104,7 @@ export function createSurfaceSampler(
     kind === 'spectrogram' ||
     kind === 'jade' ||
     kind === 'cheetahfur' ||
+    kind === 'turingmaze' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

@@ -13485,6 +13485,33 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.4;
         spotRoughness: 0.08;
     }>;
+    turingmaze: Readonly<{
+        dark: readonly [26, 24, 34];
+        light: readonly [244, 240, 228];
+        roughness: 0.7;
+        relief: 0.0012;
+        seedSalt: 61822;
+        gridSize: 96;
+        seedCells: 8;
+        feed: 0.03;
+        kill: 0.057;
+        steps: 6000;
+        threshold: 0.5;
+        thresholdVariation: 0.24;
+        sharpness: 9;
+        warpCells: 5;
+        warp: 0.05;
+        sizeCells: 7;
+        inkLevel: 0.82;
+        inkVariation: 0.18;
+        grainCells: 160;
+        paperTone: 0.94;
+        inkDepth: 0.86;
+        grainTone: 0.05;
+        ridgeHeight: 0.7;
+        grainHeight: 0.3;
+        inkRoughness: -0.15;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -14814,4 +14841,5 @@ export declare const proceduralTileMeters: Readonly<{
     spectrogram: 0.3;
     jade: 0.15;
     cheetahfur: 0.25;
+    turingmaze: 0.3;
 }>;
