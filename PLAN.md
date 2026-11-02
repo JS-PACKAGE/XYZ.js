@@ -1621,6 +1621,10 @@
 
 這是作者設計的示意：沒有秒針、沒有數字、也沒有區分上午下午；刻度只有12個、沒有分刻度；指針是簡單的直線棒、沒有裝飾形狀；鐘面各自獨立隨機，同一面牆上時間不連貫；顏色只有明度。預設0.5 m nominal tile、0.005 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`piechartwedges`（圓餅圖）使目前目錄1015→1016種，含plain的gallery為1017項。每tile是一個圓餅圖：一個圓被切成8個扇形，每個扇形的**圓心角等於它的百分比×3.6°**，百分比（每個至少4%、8個加起來恰為100%）以3×5點陣數字寫在扇形中段。百分比由seed決定：每個先分到4%的底，剩下的68%依隨機權重分配，再用「最大餘數法」讓總和恰為100。第一個扇形從seed決定的角度起、順時針排列；每個扇形有各自的明度（依大小排名，由暗到亮線性對應，大小相同時依位置順序決定）；扇形之間與圓周以深色細線分隔，數字依底色明暗選用深或淺色。Metallic與mortar為0。
+
+這是作者設計的示意：百分比是隨機的，沒有任何資料意義；扇形最小4%（約14.4°），標籤是固定大小的點陣，小扇形的標籤可能緊貼邊線；明度只有排名、沒有色相；沒有圖例、標題或軸。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

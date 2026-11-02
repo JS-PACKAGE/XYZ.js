@@ -16210,3 +16210,144 @@ describe('analogclocks: a wall of clocks set to random times', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('piechartwedges: a pie chart whose wedge angles follow the printed percentages', () => {
+  const p = proceduralMaterialPresets.piechartwedges;
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'has wedges whose angles are 3.6 degrees per printed percent and whose percentages add up to 100 (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('piechartwedges', seed),
+        out = empty(),
+        at = (u: number, v: number): number => {
+          sample(u, v, out);
+          return out.color;
+        },
+        steps = 1440,
+        point = (angle: number, distance: number): [number, number] => [
+          0.5 + distance * p.radius * Math.sin(angle),
+          0.5 - distance * p.radius * Math.cos(angle),
+        ];
+      // The separator lines are the dark runs met going once round a circle half way out; their centres bound the wedges.
+      const dark: boolean[] = [];
+      for (let i = 0; i < steps; i++)
+        dark.push(at(...point((i / steps) * 2 * Math.PI, 0.5)) < 0.15);
+      const start = dark.findIndex(
+        (value, i) => !value && dark[(i + 1) % steps],
+      );
+      const centres: number[] = [];
+      for (let seen = 0, i = start + 1; seen < steps;) {
+        if (!dark[i % steps]) {
+          i++;
+          seen++;
+          continue;
+        }
+        let length = 0;
+        while (dark[(i + length) % steps] && seen + length < steps) length++;
+        centres.push(((i + (length - 1) / 2) / steps) * 360);
+        i += length;
+        seen += length;
+      }
+      expect(centres.length).toBe(p.wedges);
+      const widths = centres.map(
+        (angle, i) =>
+          (((centres[(i + 1) % centres.length] - angle) % 360) + 360) % 360,
+      );
+      expect(widths.reduce((sum, width) => sum + width, 0)).toBeCloseTo(360, 3);
+      // Read each wedge's percentage: ink contrasts with the wedge's own tone, at the middle of the wedge.
+      const pixel = p.digitPixel;
+      const percents = widths.map((width, i) => {
+        const middle = ((centres[i] + width / 2) * Math.PI) / 180,
+          [lx, ly] = point(middle, p.labelRadius),
+          background = at(...point(middle, 0.9)),
+          read = (digitCount: number): number[] => {
+            const digits: number[] = [];
+            for (let k = 0; k < digitCount; k++) {
+              const rows: string[] = [];
+              for (let y = 0; y < 5; y++) {
+                let text = '';
+                for (let x = 0; x < 3; x++) {
+                  const column = (digitCount === 1 ? -1 : 4 * k - 3) + x;
+                  text +=
+                    Math.abs(
+                      at(lx + column * pixel, ly + (y - 2) * pixel) -
+                        background,
+                    ) > 0.4
+                      ? '#'
+                      : '.';
+                }
+                rows.push(text);
+              }
+              digits.push(
+                art.findIndex((shape) =>
+                  shape.every((row, r) => row === rows[r]),
+                ),
+              );
+            }
+            return digits;
+          };
+        // A two-digit label leaves the middle column empty; a one-digit label has ink there.
+        let middleInk = false;
+        for (let y = -2; y <= 2; y++)
+          if (Math.abs(at(lx, ly + y * pixel) - background) > 0.4)
+            middleInk = true;
+        const digits = read(middleInk ? 1 : 2);
+        for (const digit of digits) expect(digit).toBeGreaterThanOrEqual(0);
+        return digits.reduce((sum, digit) => sum * 10 + digit, 0);
+      });
+      expect(percents.reduce((sum, value) => sum + value, 0)).toBe(100);
+      widths.forEach((width, i) => {
+        expect(percents[i]).toBeGreaterThanOrEqual(p.minPercent);
+        expect(Math.abs(width / 3.6 - percents[i])).toBeLessThan(0.4);
+      });
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('piechartwedges', 0),
+      b = createSurfaceSampler('piechartwedges', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

@@ -29461,6 +29461,126 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'piechartwedges': {
+        const p = proceduralMaterialPresets.piechartwedges,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2c201),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // Whole percentages of at least minPercent that add up to 100: the minimum for each, plus the rest
+          // shared out by random weights with the largest-remainder rule.
+          spare = 100 - p.minPercent * p.wedges,
+          weights = Array.from(
+            { length: p.wedges },
+            (_, index) => 0.2 + hash(index, 3, seed ^ 0x2c203),
+          ),
+          weightSum = weights.reduce((a, b) => a + b, 0),
+          shares = weights.map((weight) => (weight / weightSum) * spare),
+          percents = shares.map((share) => p.minPercent + Math.floor(share)),
+          offset = hash(1, 5, seed ^ 0x2c205),
+          // The tone follows the size rank (ties broken by position), so every wedge has its own tone.
+          rank = percents.map(
+            (value, index) =>
+              percents.filter(
+                (other, j) => other < value || (other === value && j < index),
+              ).length,
+          ),
+          // bounds[i] .. bounds[i + 1]: the wedge's part of a turn.
+          bounds = [0];
+        let left = 100 - percents.reduce((a, b) => a + b, 0);
+        for (const index of shares
+          .map((_, i) => i)
+          .sort((a, b) => (shares[b] % 1) - (shares[a] % 1))) {
+          if (left <= 0) break;
+          percents[index]++;
+          left--;
+        }
+        for (const value of percents)
+          bounds.push(bounds[bounds.length - 1] + value / 100);
+        return () => {
+          const x = u - 0.5,
+            y = v - 0.5,
+            distance = Math.hypot(x, y) / p.radius,
+            covered = cover((1 - distance) * p.radius);
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            line = cover(p.lineHalf - Math.abs(1 - distance) * p.radius),
+            glyph = 0,
+            inkTone: number = p.darkInk;
+          if (distance < 1) {
+            // Position round the circle as a fraction of a turn, clockwise from twelve, from the first wedge's start.
+            const turn =
+                (((Math.atan2(x, -y) / (2 * Math.PI) - offset) % 1) + 1) % 1,
+              index = Math.min(
+                p.wedges - 1,
+                bounds.findIndex((bound) => turn < bound) - 1,
+              ),
+              wedge = Math.max(0, index),
+              across =
+                Math.min(turn - bounds[wedge], bounds[wedge + 1] - turn) *
+                2 *
+                Math.PI *
+                distance *
+                p.radius;
+            tone =
+              p.toneLow +
+              ((p.toneHigh - p.toneLow) * rank[wedge]) / (p.wedges - 1);
+            level = p.wedgeHeight;
+            line = Math.max(line, cover(p.lineHalf - across));
+            inkTone = tone > p.inkSwitch ? p.darkInk : p.lightInk;
+            // The percentage in dot-matrix digits at the wedge's middle, labelRadius of the way out.
+            const middle =
+                (offset + (bounds[wedge] + bounds[wedge + 1]) / 2) *
+                2 *
+                Math.PI,
+              lx = p.labelRadius * p.radius * Math.sin(middle),
+              ly = -p.labelRadius * p.radius * Math.cos(middle),
+              digits =
+                percents[wedge] >= 10
+                  ? [Math.floor(percents[wedge] / 10), percents[wedge] % 10]
+                  : [percents[wedge]],
+              px = Math.floor(
+                (x - lx) / p.digitPixel + (digits.length === 1 ? 1.5 : 3.5),
+              ),
+              py = Math.floor((y - ly) / p.digitPixel + 2.5);
+            if (py >= 0 && py < 5)
+              for (let k = 0; k < digits.length; k++) {
+                const gx = px - 4 * k;
+                if (gx >= 0 && gx < 3 && glyphs[digits[k]][py * 3 + gx] === '1')
+                  glyph = 1;
+              }
+          }
+          const base = p.paperTone + (tone - p.paperTone) * covered,
+            withLine = base + (p.lineTone - base) * line;
+          color = clamp(
+            withLine +
+              (inkTone - withLine) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.paperHeight +
+              (level - p.paperHeight) * covered +
+              (p.lineHeight - p.wedgeHeight) * line -
+              p.inkDepth * glyph,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.lineRoughness - p.paperRoughness) * Math.max(line, glyph);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -56990,6 +57110,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'piechartwedges' ||
     kind === 'analogclocks' ||
     kind === 'treemaprects' ||
     kind === 'moonphases' ||

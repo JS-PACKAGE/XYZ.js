@@ -17027,6 +17027,43 @@ var proceduralMaterialPresets = Object.freeze({
 		faceRoughness: .3,
 		metalRoughness: .3
 	}),
+	piechartwedges: Object.freeze({
+		dark: [
+			26,
+			32,
+			56
+		],
+		light: [
+			246,
+			240,
+			218
+		],
+		roughness: .55,
+		relief: .004,
+		wedges: 8,
+		minPercent: 4,
+		radius: .44,
+		lineHalf: .004,
+		labelRadius: .62,
+		digitPixel: .009,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		toneLow: .28,
+		toneHigh: .84,
+		lineTone: .06,
+		darkInk: .08,
+		lightInk: .95,
+		inkSwitch: .55,
+		grainTone: .03,
+		paperHeight: .22,
+		wedgeHeight: .5,
+		lineHeight: .8,
+		inkDepth: .06,
+		inkRoughness: .4,
+		paperRoughness: .74,
+		lineRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -25708,6 +25745,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	piechartwedges: .5,
 	analogclocks: .5,
 	treemaprects: .5,
 	moonphases: .5,
