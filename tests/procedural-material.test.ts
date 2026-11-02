@@ -1038,6 +1038,7 @@ const kinds: ProceduralMaterialKind[] = [
   'tsquarefractal',
   'cantordust',
   'voronoicells',
+  'voronoipillows',
   'vermiculation',
   'kikko',
   'kagome',
@@ -161392,6 +161393,252 @@ describe('Voronoi cells as soft Voronoi plates of jittered sites with toned plat
     expect(blue / (512 * 512)).toBeLessThan(114);
     expect(maxTilt).toBeGreaterThan(0.04);
     expect(maxTilt).toBeLessThan(0.055);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Voronoi pillows as domed clay plates of jittered sites with dark seams', () => {
+  const p = proceduralMaterialPresets.voronoipillows;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** Colours, heights and plate interiors (occlusion above 0.97, i.e. far from every seam) on an n x n grid. */
+  const plates = (seed: number, n: number) => {
+    const sample = createSurfaceSampler('voronoipillows', seed),
+      out = empty(),
+      colors = new Float64Array(n * n),
+      heights = new Float64Array(n * n),
+      interior: boolean[] = [];
+    for (let y = 0; y < n; y++)
+      for (let x = 0; x < n; x++) {
+        sample((x + 0.5) / n, (y + 0.5) / n, out);
+        colors[y * n + x] = out.color;
+        heights[y * n + x] = out.height / p.relief;
+        interior.push(out.occlusion > 0.97);
+      }
+    // 4-connected regions of interior pixels on the wrapped grid.
+    const seen = new Int32Array(n * n).fill(-1),
+      regions: number[][] = [];
+    for (let start = 0; start < interior.length; start++) {
+      if (!interior[start] || seen[start] >= 0) continue;
+      const id = regions.length,
+        stack = [start];
+      regions.push([]);
+      seen[start] = id;
+      while (stack.length) {
+        const cell = stack.pop()!,
+          cx = cell % n,
+          cy = Math.floor(cell / n);
+        regions[id].push(cell);
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const next = ((cy + dy + n) % n) * n + ((cx + dx + n) % n);
+          if (interior[next] && seen[next] < 0) {
+            seen[next] = id;
+            stack.push(next);
+          }
+        }
+      }
+    }
+    return { colors, heights, interior, regions };
+  };
+  it.each([0, 1, 0xffffffff, 7])(
+    'forms exactly one toned plate per site, 64 of them, separated by seams at seed %s',
+    (seed) => {
+      const { colors, heights, interior, regions } = plates(seed, 512);
+      expect(regions).toHaveLength(p.cells * p.cells);
+      const sizes = regions.map((region) => region.length);
+      expect(Math.min(...sizes)).toBeGreaterThan(1300);
+      expect(Math.max(...sizes)).toBeLessThan(5200);
+      let toneLow = 1,
+        toneHigh = 0;
+      for (const region of regions) {
+        let low = 1,
+          high = 0,
+          sum = 0,
+          lowHeight = 1,
+          highHeight = 0;
+        for (const cell of region) {
+          low = Math.min(low, colors[cell]);
+          high = Math.max(high, colors[cell]);
+          sum += colors[cell];
+          lowHeight = Math.min(lowHeight, heights[cell]);
+          highHeight = Math.max(highHeight, heights[cell]);
+        }
+        // Every plate is a dome: its height varies by about half the relief across the plate
+        // (a flat plate would vary only by the grain) and stays below the relief.
+        expect(highHeight - lowHeight).toBeGreaterThan(0.5);
+        expect(highHeight - lowHeight).toBeLessThan(0.62);
+        expect(highHeight).toBeGreaterThan(0.84);
+        expect(highHeight).toBeLessThan(0.97);
+        // One tone per plate: the grain and the blend near the seam stay within 0.08.
+        expect(high - low).toBeLessThan(0.08);
+        toneLow = Math.min(toneLow, sum / region.length);
+        toneHigh = Math.max(toneHigh, sum / region.length);
+      }
+      expect(toneLow).toBeGreaterThan(0.27);
+      expect(toneHigh).toBeLessThan(0.68);
+      expect(toneHigh - toneLow).toBeGreaterThan(0.35);
+      expect(interior.filter(Boolean).length / (512 * 512)).toBeGreaterThan(
+        0.74,
+      );
+      expect(interior.filter(Boolean).length / (512 * 512)).toBeLessThan(0.76);
+    },
+  );
+  it('keeps the tones bounded and the seams dark, rough and shaded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('voronoipillows', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.067);
+      expect(low).toBeLessThan(0.07);
+      expect(high).toBeGreaterThan(0.68);
+      expect(high).toBeLessThan(0.7);
+      expect(roughLow).toBeCloseTo(p.roughness, 6);
+      expect(roughHigh).toBeCloseTo(p.roughness + p.edgeRoughness, 2);
+      expect(occlusionLow).toBeCloseTo(1 - p.edgeOcclusion, 2);
+      expect(heightHigh).toBeGreaterThan(0.95);
+      expect(heightHigh).toBeLessThan(0.97);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('moves the sites per seed and is deterministic for one seed', () => {
+    const first = plates(0, 256).interior,
+      second = plates(1, 256).interior;
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.3);
+    expect(different / first.length).toBeLessThan(0.4);
+    expect(plates(0, 256).interior).toEqual(first);
+  });
+  it('keeps the plates, seams and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('voronoipillows', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h) /
+                (key === 'height' ? p.relief : 1),
+            );
+        }
+      };
+      for (const n of [p.cells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 terracotta pillow maps with dark seams', () => {
+    const maps = generateProceduralMaps('voronoipillows', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(114);
+    expect(red / (512 * 512)).toBeLessThan(119);
+    expect(green / (512 * 512)).toBeGreaterThan(76);
+    expect(green / (512 * 512)).toBeLessThan(81);
+    expect(blue / (512 * 512)).toBeGreaterThan(57);
+    expect(blue / (512 * 512)).toBeLessThan(62);
+    expect(maxTilt).toBeGreaterThan(0.07);
+    expect(maxTilt).toBeLessThan(0.095);
     expect(invalid).toBe(0);
   });
 });

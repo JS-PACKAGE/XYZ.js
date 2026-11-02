@@ -1075,6 +1075,7 @@ try {
     'tsquarefractal',
     'cantordust',
     'voronoicells',
+    'voronoipillows',
     'vermiculation',
     'kikko',
     'kagome',

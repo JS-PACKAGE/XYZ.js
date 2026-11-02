@@ -40914,8 +40914,12 @@ export function createSurfaceSampler(
           return;
         };
       }
-      case 'voronoicells': {
-        const p = proceduralMaterialPresets.voronoicells,
+      case 'voronoicells':
+      case 'voronoipillows': {
+        const p =
+            kind === 'voronoipillows'
+              ? proceduralMaterialPresets.voronoipillows
+              : proceduralMaterialPresets.voronoicells,
           count = p.cells * p.cells,
           offsetX = new Float64Array(count),
           offsetY = new Float64Array(count),
@@ -40969,17 +40973,20 @@ export function createSurfaceSampler(
               slot++;
             }
           let total = 0,
-            tone = 0;
+            tone = 0,
+            meanDistance = 0;
           for (let k = 0; k < 25; k++) {
             weights[k] = Math.exp(-(distances[k] - nearest) * inverseSoftness);
             total += weights[k];
             tone += weights[k] * tones[owners[k]];
+            meanDistance += weights[k] * distances[k];
           }
           let impurity = 0;
           for (let k = 0; k < 25; k++) impurity += (weights[k] / total) ** 2;
           const edge = 1 - Math.exp(-p.edgeGain * (1 - impurity)),
             grain = grainField(u, v);
           tone /= total;
+          meanDistance /= total;
           color =
             p.baseTone +
             p.cellTone * (p.toneFloor + (1 - p.toneFloor) * tone) * (1 - edge) +
@@ -40989,6 +40996,9 @@ export function createSurfaceSampler(
             p.cellHeight *
               (1 - edge) *
               (1 - p.toneHeight + p.toneHeight * tone) +
+            p.domeHeight *
+              (1 - edge) *
+              smooth(clamp(1 - meanDistance / p.domeRadius)) +
             p.grainHeight * grain;
           roughness += p.edgeRoughness * edge;
           occlusion = 1 - p.edgeOcclusion * edge;
@@ -49808,6 +49818,7 @@ export function createSurfaceSampler(
     kind === 'tsquarefractal' ||
     kind === 'cantordust' ||
     kind === 'voronoicells' ||
+    kind === 'voronoipillows' ||
     kind === 'vermiculation' ||
     kind === 'kikko' ||
     kind === 'kagome' ||

@@ -12691,3 +12691,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5個專屬測試（`it.each`的4個seed各檢查64個板塊與每塊一個色調、色調與縫的統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps，共8個測試案例）；加上kinds清單中的新條目，`-t`選中的9項皆通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Voronoi cells as|voronoicells|kinds|catalog|distinct|periodic"`定向測試**2326項通過／3971項未選**。
 - 未驗證：vicsekfractal、tsquarefractal、cantordust、voronoicells未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：Voronoi枕塊（voronoipillows）
+
+- 範圍：新增`voronoipillows`（目前目錄1008→1009種，含plain的gallery 1010項）：與voronoicells相同的Voronoi板塊（8×8格各一個抖動位置點、5×5視窗軟權重分區、64塊板塊與深色細縫），但每塊板塊的高度是隆起的圓頂：`domeHeight·(1 − edge)·smoothstep(clamp(1 − 加權平均距離/0.55))`（加權平均距離`Σw·d/Σw`為平滑函數），height ＝ `0.4·(1 − edge)·(0.8 + 0.2·色調) + 0.5·(1 − edge)·圓頂 + 0.08·grain`；赤陶土色、roughness底0.45；預設0.4 m nominal tile、0.0016 UV-relative relief；與voronoicells共用sampler，新增preset欄位`domeRadius`、`domeHeight`（voronoicells為0.55與0，行為與數值不變，其8個測試案例仍通過）；cache同voronoicells（133,008 B加100 B）。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與紀錄：(1)預覽只看了一版，而且預覽只顯示底色、看不出圓頂；圓頂以探針與測試的高度統計驗證，**我沒有看過打光的3D外觀**。(2)沿用voronoicells的已知缺點（銳角交會處有模糊污點、沒有獨立重寫位置點的模型、測試只檢查可觀測行為）。(3)測試一次通過，無需調整區間。(4)**未量測此材質的耗時**。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：512²取樣、occlusion>0.97的像素以4連通（環繞）分區，每個seed恰好64個區域；區域大小最小1,326–1,850像素、最大4,559–4,956像素；區域內色彩最大差距不超過0.0687；各區域平均色彩最暗0.2770–0.2825、最亮0.6731–0.6768；內部像素占74.27%–75.37%；每塊板塊內部的高度差0.5297–0.5966 relief、峰值高度0.8482–0.9677 relief；256²取樣（seed 0／1／0xffffffff）color 0.0674–0.0689至0.6880–0.6915、平均0.4115–0.4312、roughness 0.45至0.7497–0.7498、AO最低0.5503–0.5504、height至多0.9585–0.9625 relief；512²取樣（四個seed）color 0.0667–0.0676至0.6894–0.6941、平均0.4115–0.4312、height至多0.9646–0.9677 relief；seed 0與1的內部遮罩（512²）35.8%像素不同；seed 7的512²maps平均r／g／b約(116.4, 78.6, 59.4)、法線tilt²最大約0.0820、z分量最小250。我實看了預覽（seed 7，只有底色）。
+- 測試：新增5個專屬測試（`it.each`的4個seed各檢查64個板塊、每塊一個色調與圓頂高度差；色調與縫的統計；seed差異與決定性；C1＋有符號UV週期；actual512 maps，共8個測試案例）；加上kinds清單新條目，`-t`選中的17項（含voronoicells原有8項）皆通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Voronoi pillows as|voronoipillows|Voronoi cells as|kinds|catalog|distinct|periodic"`定向測試**2335項通過／3971項未選**。
+- 未驗證：vicsekfractal、tsquarefractal、cantordust、voronoicells、voronoipillows未跑完整suite與瀏覽器gallery；不push。
