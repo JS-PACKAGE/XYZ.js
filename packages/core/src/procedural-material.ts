@@ -1043,6 +1043,7 @@ export type ProceduralMaterialKind =
   | 'poissondisk'
   | 'graycode'
   | 'zoneplate'
+  | 'kaleidoscope'
   | 'sandpileidentity'
   | 'multiplicativeorder'
   | 'vermiculation'
@@ -2333,6 +2334,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'poissondisk',
   'graycode',
   'zoneplate',
+  'kaleidoscope',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',

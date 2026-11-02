@@ -1106,6 +1106,7 @@ try {
     'poissondisk',
     'graycode',
     'zoneplate',
+    'kaleidoscope',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

@@ -43014,6 +43014,54 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'kaleidoscope': {
+        const p = proceduralMaterialPresets.kaleidoscope,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          field = cachedNoise(
+            p.noiseCells,
+            p.noiseCells,
+            seed ^ (p.seedSalt + 1),
+          ),
+          turns = Array.from({ length: p.folds }, (_, k) => [
+            Math.cos((2 * Math.PI * k) / p.folds),
+            Math.sin((2 * Math.PI * k) / p.folds),
+          ]);
+        // A kaleidoscope: the smooth value-noise field is averaged over the 2 x folds elements
+        // of the dihedral group of the tile centre (every rotation by a whole number of
+        // 360 / folds degrees, with and without a mirror image), so the average has exactly that
+        // symmetry and no crease along the mirror lines, and the contour bands of the average
+        // are the pattern. The disc of radius lies inside the tile, so every rotated point is
+        // inside the tile too.
+        return () => {
+          const dx = fract(u) - 0.5,
+            dy = fract(v) - 0.5;
+          let sum = 0;
+          for (const [c, s] of turns) {
+            const rx = c * dx - s * dy,
+              ry = s * dx + c * dy;
+            sum += field(0.5 + rx, 0.5 + ry) + field(0.5 + rx, 0.5 - ry);
+          }
+          const average = sum / (2 * p.folds),
+            wave = Math.cos(2 * Math.PI * p.bands * average),
+            value = smooth(clamp(wave / p.sharpness / 2 + 0.5)),
+            mask = smooth(clamp((p.radius - Math.hypot(dx, dy)) / p.edgeSoft)),
+            tone = p.toneSpan * value,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.litHeight * mask * (p.baseHeight + (1 - p.baseHeight) * value) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -51858,6 +51906,7 @@ export function createSurfaceSampler(
     kind === 'poissondisk' ||
     kind === 'graycode' ||
     kind === 'zoneplate' ||
+    kind === 'kaleidoscope' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||

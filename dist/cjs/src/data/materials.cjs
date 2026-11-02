@@ -24242,6 +24242,36 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: .08,
 		gapOcclusion: .4
 	}),
+	kaleidoscope: Object.freeze({
+		dark: [
+			26,
+			12,
+			44
+		],
+		light: [
+			255,
+			170,
+			120
+		],
+		roughness: .4,
+		relief: 8e-4,
+		seedSalt: 23614,
+		folds: 8,
+		noiseCells: 10,
+		bands: 13,
+		sharpness: .7,
+		radius: .47,
+		edgeSoft: .01,
+		grainCells: 128,
+		gapTone: .04,
+		toneFloor: .14,
+		toneSpan: .7,
+		grainTone: .03,
+		litHeight: .8,
+		baseHeight: .45,
+		grainHeight: .08,
+		gapOcclusion: .4
+	}),
 	vermiculation: Object.freeze({
 		dark: [
 			60,
@@ -26269,6 +26299,7 @@ var proceduralTileMeters = Object.freeze({
 	poissondisk: .5,
 	graycode: .5,
 	zoneplate: .5,
+	kaleidoscope: .5,
 	vermiculation: .4,
 	kikko: .3,
 	kagome: .3,

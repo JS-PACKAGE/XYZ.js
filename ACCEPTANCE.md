@@ -13037,3 +13037,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Zone plate as|zoneplate|kinds|catalog|distinct|periodic"`定向測試**2388項通過／4082項未選**。
 - 未驗證：poissondisk、graycode與zoneplate未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-03 新增材質：萬花筒（kaleidoscope）
+
+- 範圍：新增`kaleidoscope`（目前目錄1041→1042種，含plain的gallery 1043項）：平滑value noise對tile中心的8重二面體群（每45°旋轉加鏡像，16個元素）取平均，再取平均值的13個等高帶；銅橘色圓盤在深紫色底上，每個0.5 m tile一個圓盤；seed決定noise場；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 131,872 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽看了三版：帶數7時整個圓盤幾乎一整片亮色（對16個值取平均使對比降低），帶數18時中心的細環太密、有混疊風險，最後採13；(2)測試生成器第一次執行時有一個錨點寫錯（把前一個材質的掃描格網寫法當成範本寫反），在寫入檔案前就丟出錯誤，修正後重跑；(3)測試是幾何性質檢查，不用sampler的公式：群元素下的顏色差<0.0305（grain上限為0.03，實測最大0.0289，貼近上限是因為差異完全來自grain，不是留有餘裕的統計量）、非群元素（22.5°與72°旋轉）平均差>0.1；(4)seed差異只檢查顏色相差>0.2的點超過15%，沒有量出實際比例；(5)noise品質與seed選擇品質沒有獨立驗證；(6)256²與512²取樣的亮處占比略有不同，各seed的亮處占比差異大（256²：28.8%–35.4%；512²seed 7為44.8%），測試只採用256²（seed 0／1／0xffffffff）的範圍；(7)建構與取樣耗時**未量測**；(8)測試第一次執行即通過（生成器修正後）。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：對旋轉45°的最大顏色差0.02688／0.02813／0.02687／0.02804，對水平軸鏡像0.02792／0.02768／0.02887／0.02797，對22.5°線鏡像0.02686／0.02819／0.02698／0.02758；旋轉22.5°的平均顏色差0.2263／0.2973／0.2826／0.1775、旋轉72°為0.2484／0.2694／0.2904／0.1923；256²（seed 0／1／0xffffffff）亮處（color>0.5）28.77%–35.37%、color 0.02572–0.02605至0.85398–0.85416、平均0.31689–0.35844、roughness恆為0.4、AO最低0.6、height至多0.8773–0.8778 relief；512²（四個seed）亮處28.97%–44.78%、color 0.02517–0.02536至0.85468–0.85475、平均0.31714–0.41332、AO最低0.6、height至多0.8790–0.8793 relief；seed 0與1相比，512²中color>0.5的取樣31.1%不同；seed 7的512²maps平均r／g／b約(120.6, 77.3, 75.4)、法線tilt²最大約0.0163、z分量最小254。我實看了預覽（seed 7，13帶版本）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Kaleidoscope as|kaleidoscope|kinds|catalog|distinct|periodic"`定向測試**2390項通過／4085項未選**。
+- 未驗證：poissondisk、graycode、zoneplate與kaleidoscope未跑完整suite與瀏覽器gallery；不push。
