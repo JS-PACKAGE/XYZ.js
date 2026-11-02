@@ -31714,3 +31714,238 @@ describe('tsquarefractal: the T-square fractal in a grid of cells', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('superformulacells: a grid of closed superformula curves', () => {
+  const p = proceduralMaterialPresets.superformulacells;
+  type Cell = { shape: number; scale: number; tone: number };
+  type Layout = { count: number; cells: Cell[][] };
+
+  // The superformula radius, and the largest radius of a shape (on 20000 angles, finer than the 4096 of the sampler).
+  const radius = (shape: readonly number[], phi: number): number =>
+    (Math.abs(Math.cos((shape[0] * phi) / 4)) ** shape[2] +
+      Math.abs(Math.sin((shape[0] * phi) / 4)) ** shape[3]) **
+    (-1 / shape[1]);
+  const largest = p.shapes.map((shape) =>
+    Math.max(
+      ...Array.from({ length: 20000 }, (_, i) =>
+        radius(shape, (i / 20000) * Math.PI * 2),
+      ),
+    ),
+  );
+  // The distance from the middle of the cell to the curve at an angle, for a shape and scale, in uv.
+  const boundary = (
+    count: number,
+    shape: number,
+    scale: number,
+    phi: number,
+  ): number =>
+    (p.fill * scale * radius(p.shapes[shape], phi)) /
+    largest[shape] /
+    (2 * count);
+  const angles = Array.from(
+    { length: 24 },
+    (_, i) => (i * Math.PI * 2) / 24 + 0.1,
+  );
+
+  // The shape and scale whose curve passes between the probe points of a cell: 0.006 inside the curve at 24 angles (a tone, not the
+  // paper) and 0.006 outside it (the paper), and the tone found inside; null when no shape and scale fit.
+  const identifyCell = (
+    sample: Sampler,
+    count: number,
+    column: number,
+    row: number,
+  ): Cell | null => {
+    const out = empty(),
+      centreX = (column + 0.5) / count,
+      centreY = (row + 0.5) / count,
+      found: Cell[] = [];
+    for (let shape = 0; shape < p.shapes.length; shape++)
+      for (let scale = 0; scale < p.scales.length; scale++) {
+        let tone = -1,
+          fits = true;
+        for (const phi of angles) {
+          const b = boundary(count, shape, p.scales[scale], phi);
+          sample(
+            centreX + (b - 0.006) * Math.cos(phi),
+            centreY + (b - 0.006) * Math.sin(phi),
+            out,
+          );
+          const inside = out.color;
+          sample(
+            centreX + (b + 0.006) * Math.cos(phi),
+            centreY + (b + 0.006) * Math.sin(phi),
+            out,
+          );
+          const nearest = p.tones.findIndex(
+            (value) => Math.abs(value - inside) < 0.03,
+          );
+          if (
+            nearest < 0 ||
+            (tone >= 0 && nearest !== tone) ||
+            Math.abs(out.color - p.paperTone) > 0.03
+          ) {
+            fits = false;
+            break;
+          }
+          tone = nearest;
+        }
+        if (fits) found.push({ shape, scale, tone });
+      }
+    return found.length === 1 ? found[0] : null;
+  };
+  const layoutOf = (seed: number): Layout => {
+    const sample = createSurfaceSampler('superformulacells', seed);
+    const layouts = p.counts
+      .map((count) => {
+        const cells = Array.from({ length: count }, (_, row) =>
+          Array.from({ length: count }, (_, column) =>
+            identifyCell(sample, count, column, row),
+          ),
+        );
+        return cells.every((line) => line.every((cell) => cell !== null))
+          ? { count, cells: cells as Cell[][] }
+          : null;
+      })
+      .filter((layout) => layout !== null);
+    expect(layouts).toHaveLength(1);
+    return layouts[0];
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'puts one curve of a known shape, scale and tone in every cell (seed %i)',
+    (seed) => {
+      const { count, cells } = layoutOf(seed);
+      expect(count === 3 || count === 4).toBe(true);
+      expect(cells.flat()).toHaveLength(count * count);
+    },
+  );
+
+  it('uses every grid size, shape, scale and tone across seeds, with cells that differ', () => {
+    const counts = new Set<number>(),
+      shapes = new Set<number>(),
+      scales = new Set<number>(),
+      tones = new Set<number>(),
+      key = (cell: Cell): string => `${cell.shape}/${cell.scale}/${cell.tone}`;
+    let pairs = 0,
+      alike = 0;
+    for (let seed = 0; seed < 30; seed++) {
+      const { count, cells } = layoutOf(seed);
+      counts.add(count);
+      for (const cell of cells.flat()) {
+        shapes.add(cell.shape);
+        scales.add(cell.scale);
+        tones.add(cell.tone);
+      }
+      // Cells two apart in a row or in a column are drawn from separate hashes: they are almost never alike.
+      for (let row = 0; row < count; row++)
+        for (let column = 0; column + 2 < count; column++) {
+          pairs += 2;
+          alike += Number(
+            key(cells[row][column]) === key(cells[row][column + 2]),
+          );
+          alike += Number(
+            key(cells[column][row]) === key(cells[column + 2][row]),
+          );
+        }
+    }
+    expect([...counts].sort()).toEqual([...p.counts]);
+    expect(shapes.size).toBe(p.shapes.length);
+    expect(scales.size).toBe(p.scales.length);
+    expect(tones.size).toBe(p.tones.length);
+    expect(pairs).toBeGreaterThan(100);
+    expect(alike).toBeLessThan(pairs * 0.05);
+  });
+
+  it('outlines the curve 0.0012 either side, fills it, and sets height and roughness', () => {
+    for (const seed of seeds) {
+      const { count, cells } = layoutOf(seed),
+        sample = createSurfaceSampler('superformulacells', seed),
+        out = empty();
+      let checked = 0;
+      for (let row = 0; row < count; row++)
+        for (let column = 0; column < count; column++) {
+          const { shape, scale, tone } = cells[row][column],
+            centreX = (column + 0.5) / count,
+            centreY = (row + 0.5) / count;
+          for (const phi of angles.filter((_, i) => i % 4 === 0)) {
+            const b = boundary(count, shape, p.scales[scale], phi),
+              at = (offset: number): void =>
+                sample(
+                  centreX + (b + offset) * Math.cos(phi),
+                  centreY + (b + offset) * Math.sin(phi),
+                  out,
+                );
+            // The outline, 0.0008 either side and on the curve: dark and low.
+            for (const offset of [-0.0008, 0, 0.0008]) {
+              at(offset);
+              expect(out.color).toBeLessThan(0.25);
+            }
+            at(0);
+            expect(
+              Math.abs(out.height / p.relief - p.outlineHeight),
+            ).toBeLessThan(0.03);
+            // Just beyond it: the paper outside, the tone and its height and roughness inside.
+            at(0.0019);
+            expect(Math.abs(out.color - p.paperTone)).toBeLessThan(0.03);
+            expect(
+              Math.abs(out.height / p.relief - p.paperHeight),
+            ).toBeLessThan(0.03);
+            expect(Math.abs(out.roughness - p.paperRoughness)).toBeLessThan(
+              0.03,
+            );
+            at(-0.0019);
+            expect(Math.abs(out.color - p.tones[tone])).toBeLessThan(0.03);
+            expect(
+              Math.abs(
+                out.height / p.relief -
+                  (p.lowHeight +
+                    ((p.highHeight - p.lowHeight) * tone) /
+                      (p.tones.length - 1)),
+              ),
+            ).toBeLessThan(0.03);
+            expect(Math.abs(out.roughness - p.shapeRoughness)).toBeLessThan(
+              0.03,
+            );
+            checked++;
+          }
+        }
+      expect(checked).toBeGreaterThan(count * count * 5);
+    }
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('superformulacells', 0),
+      b = createSurfaceSampler('superformulacells', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

@@ -2013,6 +2013,10 @@
 
 這是作者設計的示意：輪廓寬度上限是方塊邊長的6%，因為第一版（輪廓固定寬、層數5–7）因T方塊碎形會幾乎鋪滿格子，小方塊的輪廓把整張圖畫成一片深色，所以改成上限縮小與層數4–6。不宣稱這是特定文獻中的T-square圖樣，沒有量測碎形維度。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`superformulacells`（超級公式格）使目前目錄1113→1114種，含plain的gallery為1115項。tile切成3乘3或4乘4個格子（seed決定），每個格子中央有一條封閉曲線 r(φ) = (|cos(mφ/4)|^n2 + |sin(mφ/4)|^n3)^(−1/n1)（a = b = 1的Gielis超級公式），縮放成最大半徑為0.9×半個格寬×該格的比例，填上一個色調並加細深色輪廓。每個格子各自由seed從十組參數列 [m, n1, n2, n3]、三種比例（0.7、0.85、1）與六種色調中各挑一個。Metallic與mortar為0。
+
+這是作者設計的示意：十組參數是我挑的常數，沒有取自任何文獻的圖表；奇數m只配n2 = n3，因為n2 ≠ n3時曲線在±π處不閉合。形狀以每個格子中心為原點、用角度（極座標）判斷內外，所以非星形的曲線不在範圍內；最大半徑由4096個角度取樣估計。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

@@ -21569,6 +21569,109 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .74,
 		squareRoughness: .5
 	}),
+	superformulacells: Object.freeze({
+		dark: [
+			30,
+			26,
+			40
+		],
+		light: [
+			246,
+			240,
+			226
+		],
+		roughness: .6,
+		relief: .004,
+		counts: Object.freeze([3, 4]),
+		shapes: Object.freeze([
+			Object.freeze([
+				4,
+				12,
+				15,
+				15
+			]),
+			Object.freeze([
+				3,
+				5,
+				18,
+				18
+			]),
+			Object.freeze([
+				5,
+				2,
+				7,
+				7
+			]),
+			Object.freeze([
+				6,
+				1,
+				1,
+				1
+			]),
+			Object.freeze([
+				8,
+				.5,
+				.5,
+				8
+			]),
+			Object.freeze([
+				10,
+				1,
+				2,
+				2
+			]),
+			Object.freeze([
+				7,
+				3,
+				4,
+				4
+			]),
+			Object.freeze([
+				6,
+				.5,
+				.5,
+				.5
+			]),
+			Object.freeze([
+				5,
+				.5,
+				1.7,
+				1.7
+			]),
+			Object.freeze([
+				12,
+				2,
+				4,
+				6
+			])
+		]),
+		scales: Object.freeze([
+			.7,
+			.85,
+			1
+		]),
+		tones: Object.freeze([
+			.2,
+			.32,
+			.44,
+			.56,
+			.68,
+			.8
+		]),
+		fill: .9,
+		outlineHalf: .0012,
+		edgeSoft: .001,
+		grainCells: 192,
+		paperTone: .94,
+		outlineTone: .08,
+		grainTone: .03,
+		paperHeight: .15,
+		lowHeight: .4,
+		highHeight: .9,
+		outlineHeight: .05,
+		paperRoughness: .74,
+		shapeRoughness: .5
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -30250,6 +30353,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	superformulacells: 1,
 	tsquarefractal: 1,
 	marchingsquares: 1,
 	wangtiles: 1,

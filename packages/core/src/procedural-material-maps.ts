@@ -38356,6 +38356,72 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'superformulacells': {
+        const p = proceduralMaterialPresets.superformulacells,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x32501),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          count =
+            p.counts[Math.floor(hash(3, 1, seed ^ 0x32502) * p.counts.length)],
+          cell = 1 / count,
+          superformula = (shape: readonly number[], phi: number): number =>
+            (Math.abs(Math.cos((shape[0] * phi) / 4)) ** shape[2] +
+              Math.abs(Math.sin((shape[0] * phi) / 4)) ** shape[3]) **
+            (-1 / shape[1]),
+          // One over the largest radius of every shape, found on 4096 angles.
+          inverseLargest = p.shapes.map((shape) => {
+            let largest = 0;
+            for (let i = 0; i < 4096; i++)
+              largest = Math.max(
+                largest,
+                superformula(shape, (i / 4096) * TAU),
+              );
+            return 1 / largest;
+          });
+        return () => {
+          const fx = u * count,
+            fy = v * count,
+            column = Math.floor(fx) % count,
+            row = Math.floor(fy) % count,
+            // The point in uv from the middle of its cell.
+            x = (fx - Math.floor(fx) - 0.5) * cell,
+            y = (fy - Math.floor(fy) - 0.5) * cell,
+            shapeIndex = Math.floor(
+              hash(column, row, seed ^ 0x32503) * p.shapes.length,
+            ),
+            scale =
+              p.scales[
+                Math.floor(hash(column, row, seed ^ 0x32504) * p.scales.length)
+              ],
+            toneIndex = Math.floor(
+              hash(column, row, seed ^ 0x32505) * p.tones.length,
+            ),
+            boundary =
+              p.fill *
+              (cell / 2) *
+              scale *
+              inverseLargest[shapeIndex] *
+              superformula(p.shapes[shapeIndex], Math.atan2(y, x)),
+            inside = boundary - Math.hypot(x, y),
+            fill = cover(inside),
+            outline = cover(p.outlineHalf - Math.abs(inside)),
+            rank = toneIndex / (p.tones.length - 1);
+          let colour: number = p.paperTone,
+            elevation: number = p.paperHeight;
+          colour += (p.tones[toneIndex] - colour) * fill;
+          elevation +=
+            (p.lowHeight + (p.highHeight - p.lowHeight) * rank - elevation) *
+            fill;
+          colour += (p.outlineTone - colour) * outline;
+          elevation += (p.outlineHeight - elevation) * outline;
+          color = clamp(colour + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(elevation);
+          roughness =
+            p.paperRoughness + (p.shapeRoughness - p.paperRoughness) * fill;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -65885,6 +65951,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'superformulacells' ||
     kind === 'tsquarefractal' ||
     kind === 'marchingsquares' ||
     kind === 'wangtiles' ||
