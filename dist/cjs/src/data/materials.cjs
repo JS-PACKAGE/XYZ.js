@@ -16605,6 +16605,46 @@ var proceduralMaterialPresets = Object.freeze({
 		strokeRoughness: .35,
 		paperRoughness: .74
 	}),
+	rushhourjam: Object.freeze({
+		dark: [
+			30,
+			26,
+			46
+		],
+		light: [
+			244,
+			238,
+			220
+		],
+		roughness: .5,
+		relief: .004,
+		size: 6,
+		exitRow: 2,
+		vehicles: 11,
+		attempts: 600,
+		margin: .12,
+		wall: .03,
+		inset: .07,
+		corner: .2,
+		lineHalf: 8e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		cellTone: .9,
+		lineTone: .62,
+		wallTone: .12,
+		carBase: .34,
+		carRange: .36,
+		targetTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		cellHeight: .4,
+		wallHeight: .9,
+		carHeight: .7,
+		wallRoughness: .35,
+		carRoughness: .28,
+		paperRoughness: .74
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -25286,6 +25326,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	rushhourjam: .5,
 	numberlinkpaths: .4,
 	kenkencages: .4,
 	takuzugrid: .4,

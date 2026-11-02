@@ -1577,6 +1577,10 @@
 
 這是作者設計的示意：畫面是填好答案的盤面，真正的Numberlink只給端點數字；不保證只有唯一解；路徑偏曲折短（因為由骨牌連接而成）；6×6固定、數字為3×5點陣；若合併過程停在超過9條路徑，數字會超出點陣表（我對300個seed加九個測試seed都沒遇到，但沒有證明不會發生）。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`rushhourjam`（交通阻塞／Rush Hour）使目前目錄1004→1005種，含plain的gallery為1006項。每tile是一個6×6的滑動車輛盤面：深色的目標車（2格、水平，位於出口那一列）、約10輛長度2（約七成）或3的車與卡車（水平或垂直，圓角矩形、各自有些微不同的灰階深淺），盤面外圍有深色牆，右側出口那一列的牆是開口。車輛互不重疊；水平的車不會放在出口列（否則目標車永遠出不去）。車輛由seed產生：目標車的起始欄隨機，其餘車輛隨機嘗試位置與方向，不重疊就放下，直到約11輛（含目標車）或嘗試次數用完。Metallic與mortar為0。
+
+這是作者設計的示意：畫面只是一個盤面狀態，**不保證有解**（我沒有寫求解器；垂直的車仍可能把目標車永久卡死）、不是難題；顏色只有明度（深目標車與灰階車輛）、沒有色相；車身為簡單圓角矩形、沒有車窗或車燈；6×6固定、出口固定在右側第3列。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

@@ -28356,6 +28356,131 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'rushhourjam': {
+        const p = proceduralMaterialPresets.rushhourjam,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2b701),
+          n = p.size,
+          side = 1 - 2 * p.margin,
+          cell = side / n,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          occupant = new Int16Array(n * n).fill(-1),
+          // Each vehicle: first column and row, then the columns and rows it spans.
+          boxes: number[][] = [],
+          target = Math.min(
+            n - 3,
+            Math.floor(hash(1, 3, seed ^ 0x2b703) * (n - 2)),
+          );
+        // The target car (two cells, horizontal) sits in the exit row; the others are straight cars and trucks
+        // that do not overlap. A horizontal vehicle in the exit row would block it for good, so none is placed there.
+        boxes.push([target, p.exitRow, 2, 1]);
+        occupant[p.exitRow * n + target] = 0;
+        occupant[p.exitRow * n + target + 1] = 0;
+        for (
+          let attempt = 0;
+          attempt < p.attempts && boxes.length < p.vehicles;
+          attempt++
+        ) {
+          const length = hash(attempt, 5, seed ^ 0x2b705) < 0.7 ? 2 : 3,
+            horizontal = hash(attempt, 7, seed ^ 0x2b707) < 0.5,
+            columns = horizontal ? length : 1,
+            rows = horizontal ? 1 : length,
+            x = Math.min(
+              n - columns,
+              Math.floor(hash(attempt, 9, seed ^ 0x2b709) * (n - columns + 1)),
+            ),
+            y = Math.min(
+              n - rows,
+              Math.floor(hash(attempt, 11, seed ^ 0x2b70b) * (n - rows + 1)),
+            );
+          if (horizontal && y === p.exitRow) continue;
+          let free = true;
+          for (let dy = 0; dy < rows; dy++)
+            for (let dx = 0; dx < columns; dx++)
+              if (occupant[(y + dy) * n + x + dx] !== -1) free = false;
+          if (!free) continue;
+          for (let dy = 0; dy < rows; dy++)
+            for (let dx = 0; dx < columns; dx++)
+              occupant[(y + dy) * n + x + dx] = boxes.length;
+          boxes.push([x, y, columns, rows]);
+        }
+        return () => {
+          const lx = u - p.margin,
+            ly = v - p.margin;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            line = 0,
+            body = 0,
+            bodyTone: number = p.carBase,
+            frame = 0;
+          if (lx >= 0 && ly >= 0 && lx < side && ly < side) {
+            const col = Math.min(n - 1, Math.floor(lx / cell)),
+              row = Math.min(n - 1, Math.floor(ly / cell)),
+              fx = lx / cell - col,
+              fy = ly / cell - row,
+              id = occupant[row * n + col];
+            tone = p.cellTone;
+            level = p.cellHeight;
+            line = cover(
+              p.lineHalf -
+                Math.min(Math.min(fx, 1 - fx), Math.min(fy, 1 - fy)) * cell,
+            );
+            if (id !== -1) {
+              const [x, y, columns, rows] = boxes[id],
+                // Signed distance to the vehicle's rounded rectangle, in cell units.
+                qx =
+                  Math.abs(col + fx - x - columns / 2) -
+                  (columns / 2 - p.inset) +
+                  p.corner,
+                qy =
+                  Math.abs(row + fy - y - rows / 2) -
+                  (rows / 2 - p.inset) +
+                  p.corner,
+                distance =
+                  Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) +
+                  Math.min(Math.max(qx, qy), 0) -
+                  p.corner;
+              body = cover(-distance * cell);
+              bodyTone =
+                id === 0
+                  ? p.targetTone
+                  : p.carBase + p.carRange * hash(id, 13, seed ^ 0x2b70d);
+            }
+          } else if (
+            lx >= -p.wall &&
+            ly >= -p.wall &&
+            lx < side + p.wall &&
+            ly < side + p.wall
+          ) {
+            // The wall around the board, open in the exit row on the right.
+            frame = Number(
+              !(
+                lx >= side &&
+                ly >= p.exitRow * cell &&
+                ly < (p.exitRow + 1) * cell
+              ),
+            );
+          }
+          const base = tone + (p.lineTone - tone) * line * (1 - body),
+            withBody = base + (bodyTone - base) * body;
+          color = clamp(
+            withBody +
+              (p.wallTone - withBody) * frame +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            level +
+              (p.carHeight - level) * body +
+              (p.wallHeight - level) * frame,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.carRoughness - p.paperRoughness) * body +
+            (p.wallRoughness - p.paperRoughness) * frame;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -55885,6 +56010,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'rushhourjam' ||
     kind === 'numberlinkpaths' ||
     kind === 'kenkencages' ||
     kind === 'takuzugrid' ||

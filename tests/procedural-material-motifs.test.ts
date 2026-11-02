@@ -14890,3 +14890,128 @@ describe('numberlinkpaths: a solved Numberlink', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('rushhourjam: a Rush Hour board', () => {
+  const p = proceduralMaterialPresets.rushhourjam;
+  const n = p.size;
+  const side = 1 - 2 * p.margin;
+  const cell = side / n;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'has non-overlapping straight vehicles, one target car in the exit row and an open exit (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('rushhourjam', seed),
+        out = empty(),
+        at = (x: number, y: number): number => {
+          sample(p.margin + x * cell, p.margin + y * cell, out);
+          return out.color;
+        },
+        occupied: boolean[] = [],
+        links: number[][] = Array.from({ length: n * n }, () => []);
+      for (let row = 0; row < n; row++)
+        for (let col = 0; col < n; col++) {
+          occupied.push(at(col + 0.5, row + 0.5) < 0.85);
+          const index = row * n + col;
+          // Two neighbouring cells belong to one vehicle when the body runs on past the shared edge; between
+          // different vehicles there is a gap of bare board (measured a little off the hairline grid).
+          if (
+            col < n - 1 &&
+            at(col + 1 - 0.03, row + 0.5) < 0.85 &&
+            at(col + 1 + 0.03, row + 0.5) < 0.85
+          ) {
+            links[index].push(index + 1);
+            links[index + 1].push(index);
+          }
+          if (
+            row < n - 1 &&
+            at(col + 0.5, row + 1 - 0.03) < 0.85 &&
+            at(col + 0.5, row + 1 + 0.03) < 0.85
+          ) {
+            links[index].push(index + n);
+            links[index + n].push(index);
+          }
+        }
+      const seen = new Set<number>();
+      let vehicles = 0,
+        targets = 0;
+      for (let start = 0; start < n * n; start++) {
+        if (!occupied[start] || seen.has(start)) continue;
+        const group = [start];
+        seen.add(start);
+        for (let i = 0; i < group.length; i++)
+          for (const next of links[group[i]])
+            if (!seen.has(next)) {
+              seen.add(next);
+              group.push(next);
+            }
+        for (const index of group) expect(occupied[index]).toBe(true);
+        const xs = group.map((c) => c % n),
+          ys = group.map((c) => Math.floor(c / n)),
+          horizontal = new Set(ys).size === 1,
+          vertical = new Set(xs).size === 1,
+          spanX = Math.max(...xs) - Math.min(...xs) + 1,
+          spanY = Math.max(...ys) - Math.min(...ys) + 1;
+        // Straight, contiguous, two or three cells long.
+        expect(horizontal || vertical).toBe(true);
+        expect(group.length).toBe(horizontal ? spanX : spanY);
+        expect(group.length).toBeGreaterThanOrEqual(2);
+        expect(group.length).toBeLessThanOrEqual(3);
+        const isTarget = at(xs[0] + 0.5, ys[0] + 0.5) < 0.2;
+        if (isTarget) {
+          targets++;
+          expect(horizontal).toBe(true);
+          expect(ys[0]).toBe(p.exitRow);
+          expect(group.length).toBe(2);
+        } else if (horizontal) expect(ys[0]).not.toBe(p.exitRow);
+        vehicles++;
+      }
+      expect(targets).toBe(1);
+      expect(vehicles).toBeGreaterThanOrEqual(8);
+      // The wall around the board is solid except for the opening to the right of the exit row.
+      const mid = p.wall / 2 / cell;
+      for (let i = 0; i < n; i++) {
+        expect(at(i + 0.5, -mid)).toBeLessThan(0.3);
+        expect(at(i + 0.5, n + mid)).toBeLessThan(0.3);
+        expect(at(-mid, i + 0.5)).toBeLessThan(0.3);
+        if (i === p.exitRow) expect(at(n + mid, i + 0.5)).toBeGreaterThan(0.5);
+        else expect(at(n + mid, i + 0.5)).toBeLessThan(0.3);
+      }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('rushhourjam', 0),
+      b = createSurfaceSampler('rushhourjam', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

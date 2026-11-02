@@ -9725,6 +9725,38 @@ export declare const proceduralMaterialPresets: Readonly<{
         strokeRoughness: 0.35;
         paperRoughness: 0.74;
     }>;
+    rushhourjam: Readonly<{
+        dark: readonly [30, 26, 46];
+        light: readonly [244, 238, 220];
+        roughness: 0.5;
+        relief: 0.004;
+        size: 6;
+        exitRow: 2;
+        vehicles: 11;
+        attempts: 600;
+        margin: 0.12;
+        wall: 0.03;
+        inset: 0.07;
+        corner: 0.2;
+        lineHalf: 0.0008;
+        edgeSoft: 0.0011;
+        grainCells: 192;
+        paperTone: 0.94;
+        cellTone: 0.9;
+        lineTone: 0.62;
+        wallTone: 0.12;
+        carBase: 0.34;
+        carRange: 0.36;
+        targetTone: 0.08;
+        grainTone: 0.03;
+        paperHeight: 0.22;
+        cellHeight: 0.4;
+        wallHeight: 0.9;
+        carHeight: 0.7;
+        wallRoughness: 0.35;
+        carRoughness: 0.28;
+        paperRoughness: 0.74;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -16210,6 +16242,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    rushhourjam: 0.5;
     numberlinkpaths: 0.4;
     kenkencages: 0.4;
     takuzugrid: 0.4;
