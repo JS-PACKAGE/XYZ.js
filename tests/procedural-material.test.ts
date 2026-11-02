@@ -1040,6 +1040,7 @@ const kinds: ProceduralMaterialKind[] = [
   'voronoicells',
   'voronoipillows',
   'voronoifacets',
+  'percolationclusters',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',
@@ -162371,6 +162372,252 @@ describe('Voronoi facets as emerald Voronoi plates whose tone ramps across each 
     expect(blue / (512 * 512)).toBeLessThan(107);
     expect(maxTilt).toBeGreaterThan(0.04);
     expect(maxTilt).toBeLessThan(0.055);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Percolation clusters as critical site percolation on a 64 by 64 torus', () => {
+  const p = proceduralMaterialPresets.percolationclusters;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const size = p.size;
+  /** Colour of every lattice node, read at the nodes. */
+  const nodeColors = (seed: number): number[] => {
+    const sample = createSurfaceSampler('percolationclusters', seed),
+      out = empty(),
+      colors: number[] = [];
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample(x / size, y / size, out);
+        colors.push(out.color);
+      }
+    return colors;
+  };
+  /**
+   * Written independently here: the occupied cells are read back from the node colours
+   * (an empty node is below 0.1, an occupied one above 0.2), grouped into clusters with a
+   * flood fill on the wrapped grid, and every occupied cell gets the colour implied by
+   * ln(cluster size) / ln(largest cluster size).
+   */
+  const clusters = (colors: number[]) => {
+    const occupied = colors.map((color) => color > 0.15),
+      label = new Int32Array(size * size).fill(-1),
+      sizes: number[] = [];
+    for (let start = 0; start < occupied.length; start++) {
+      if (!occupied[start] || label[start] >= 0) continue;
+      const id = sizes.length,
+        stack = [start];
+      let count = 0;
+      label[start] = id;
+      while (stack.length) {
+        const cell = stack.pop()!,
+          cx = cell % size,
+          cy = Math.floor(cell / size);
+        count++;
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const next =
+            ((cy + dy + size) % size) * size + ((cx + dx + size) % size);
+          if (occupied[next] && label[next] < 0) {
+            label[next] = id;
+            stack.push(next);
+          }
+        }
+      }
+      sizes.push(count);
+    }
+    return { occupied, label, sizes };
+  };
+  const sharp = (value: number): number =>
+    0.5 + 0.5 * Math.tanh(p.sharpness * value);
+  it('colours every occupied cell by its cluster size and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff, 7]) {
+      const sample = createSurfaceSampler('percolationclusters', seed),
+        a = empty(),
+        nodes = nodeColors(seed),
+        { occupied, label, sizes } = clusters(nodes),
+        largest = Math.max(2, ...sizes);
+      // Every node colour matches the colour implied by its cluster within the grain.
+      let worst = 0;
+      for (let i = 0; i < nodes.length; i++)
+        worst = Math.max(
+          worst,
+          Math.abs(
+            nodes[i] -
+              (occupied[i]
+                ? p.baseTone +
+                  p.lineTone *
+                    sharp(0.5) *
+                    (p.toneFloor +
+                      (1 - p.toneFloor) *
+                        (Math.log(sizes[label[i]]) / Math.log(largest)))
+                : p.baseTone + p.lineTone * sharp(-0.5) * p.toneFloor),
+          ),
+        );
+      expect(worst).toBeLessThan(0.03);
+      // Between 2300 and 2500 of the 4096 cells are occupied, one cluster dominates and
+      // some cells are lone sites.
+      const occupiedCount = occupied.filter(Boolean).length;
+      expect(occupiedCount).toBeGreaterThan(2300);
+      expect(occupiedCount).toBeLessThan(2500);
+      expect(largest).toBeGreaterThan(1000);
+      expect(sizes.filter((count) => count === 1).length).toBeGreaterThan(50);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.035);
+      expect(low).toBeLessThan(0.037);
+      expect(high).toBeGreaterThan(0.78);
+      expect(high).toBeLessThan(0.79);
+      expect(dark / 65536).toBeGreaterThan(0.44);
+      expect(dark / 65536).toBeLessThan(0.49);
+      expect(mean / 65536).toBeGreaterThan(0.38);
+      expect(mean / 65536).toBeLessThan(0.4);
+      expect(roughLow).toBeGreaterThan(0.2);
+      expect(roughLow).toBeLessThan(0.21);
+      expect(roughHigh).toBeCloseTo(p.roughness, 2);
+      expect(heightHigh).toBeGreaterThan(0.98);
+      expect(heightHigh).toBeLessThanOrEqual(1);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('shifts the curve per seed and is deterministic for one seed', () => {
+    const first = nodeColors(0).map((color) => color > 0.5),
+      second = nodeColors(1).map((color) => color > 0.5);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.45);
+    expect(different / first.length).toBeLessThan(0.55);
+    expect(nodeColors(0).map((color) => color > 0.5)).toEqual(first);
+  });
+  it('keeps the trace edges, glow and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('percolationclusters', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [size, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 sulfur maps with gentle trace normals', () => {
+    const maps = generateProceduralMaps('percolationclusters', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(110);
+    expect(red / (512 * 512)).toBeLessThan(115);
+    expect(green / (512 * 512)).toBeGreaterThan(105);
+    expect(green / (512 * 512)).toBeLessThan(110);
+    expect(blue / (512 * 512)).toBeGreaterThan(46);
+    expect(blue / (512 * 512)).toBeLessThan(51);
+    expect(maxTilt).toBeGreaterThan(0.02);
+    expect(maxTilt).toBeLessThan(0.035);
     expect(invalid).toBe(0);
   });
 });

@@ -1077,6 +1077,7 @@ try {
     'voronoicells',
     'voronoipillows',
     'voronoifacets',
+    'percolationclusters',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

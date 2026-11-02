@@ -41177,6 +41177,83 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'percolationclusters': {
+        const p = proceduralMaterialPresets.percolationclusters,
+          count = p.size * p.size,
+          occupied = new Uint8Array(count),
+          parent = new Int32Array(count),
+          marks = new Float64Array(count),
+          tones = new Float64Array(count),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 1),
+          ),
+          find = (cell: number): number => {
+            let root = cell;
+            while (parent[root] !== root) root = parent[root];
+            for (let next = cell; parent[next] !== root;) {
+              const up = parent[next];
+              parent[next] = root;
+              next = up;
+            }
+            return root;
+          };
+        // Site percolation on a size x size torus: a cell is occupied when its hash is
+        // below occupancy (the critical probability of the square lattice is about 0.5927).
+        // Occupied cells that share an edge (wrapping around the torus) form a cluster, found
+        // with union-find; an occupied cell is toned by ln(cluster size) / ln(largest
+        // cluster size), so the biggest cluster glows and lone cells sit at the tone floor.
+        for (let y = 0; y < p.size; y++)
+          for (let x = 0; x < p.size; x++) {
+            const cell = y * p.size + x;
+            parent[cell] = cell;
+            occupied[cell] =
+              hash(x, y, seed ^ p.seedSalt) < p.occupancy ? 1 : 0;
+          }
+        for (let y = 0; y < p.size; y++)
+          for (let x = 0; x < p.size; x++) {
+            const cell = y * p.size + x;
+            if (!occupied[cell]) continue;
+            for (const next of [
+              y * p.size + ((x + 1) % p.size),
+              ((y + 1) % p.size) * p.size + x,
+            ])
+              if (occupied[next]) parent[find(cell)] = find(next);
+          }
+        const sizes = new Int32Array(count);
+        let largest = 2;
+        for (let cell = 0; cell < count; cell++)
+          if (occupied[cell]) {
+            const root = find(cell);
+            sizes[root]++;
+            largest = Math.max(largest, sizes[root]);
+          }
+        for (let cell = 0; cell < count; cell++)
+          if (occupied[cell]) {
+            marks[cell] = 1;
+            tones[cell] = Math.log(sizes[find(cell)]) / Math.log(largest);
+          }
+        const pattern = latticeField(marks, p.size, p.size),
+          toneField = latticeField(tones, p.size, p.size);
+        return () => {
+          // The occupancy map is blended with the C1 smoothstep and re-sharpened with tanh;
+          // inside it the tone follows the blended cluster tone, which fades towards the
+          // empty neighbours.
+          const line =
+              0.5 + 0.5 * Math.tanh(p.sharpness * (pattern(u, v) - 0.5)),
+            tone = toneField(u, v),
+            grain = grainField(u, v);
+          color =
+            p.baseTone +
+            p.lineTone * line * (p.toneFloor + (1 - p.toneFloor) * tone) +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.lineHeight * line * (0.7 + 0.3 * tone) + p.grainHeight * grain;
+          roughness += p.lineRoughness * line;
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -49992,6 +50069,7 @@ export function createSurfaceSampler(
     kind === 'voronoicells' ||
     kind === 'voronoipillows' ||
     kind === 'voronoifacets' ||
+    kind === 'percolationclusters' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||
