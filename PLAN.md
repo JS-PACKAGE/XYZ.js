@@ -1861,6 +1861,10 @@
 
 這是作者設計的示意：只畫7的分割，沒有標註分割的數字或計數；格子是固定大小的方格，沒有Young表（沒有填入數字）；英式與法式只改變方向。預設0.7 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`pairingtables`（配對函數表）使目前目錄1075→1076種，含plain的gallery為1077項。每tile是8×8的數字表，每格寫出把「欄x與列y」配成一個自然數的結果，格子有淡淡的棋盤格底色。seed決定三種配對法之一：Cantor配對（沿斜對角線依序編號：π(x, y) = (x + y)(x + y + 1)/2 + y，最大105）、Szudzik配對（沿正方形外殼依序：x < y 時 y² + x，否則 x² + x + y，最大63）或Morton（Z階，把x與y的二進位位元交錯：y的位元在上，最大63），並決定是否把x與y對調（等於把表轉置）。Metallic與mortar為0。
+
+這是作者設計的示意：固定8×8、最多三位數；沒有標示欄列的座標與公式；Cantor的最大值是3位數，其他兩種最多2位數，所以字會有不同寬度（置中）；點陣字是3×5字形。預設0.8 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

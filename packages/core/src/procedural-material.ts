@@ -648,6 +648,7 @@ export type ProceduralMaterialKind =
   | 'dcbarreljackfaces'
   | 'stfiberadapterfaces'
   | 'to92packagefaces'
+  | 'pairingtables'
   | 'ferrersdiagrams'
   | 'zeckendorfrows'
   | 'cycloidcusps'
@@ -1972,6 +1973,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'dcbarreljackfaces',
   'stfiberadapterfaces',
   'to92packagefaces',
+  'pairingtables',
   'ferrersdiagrams',
   'zeckendorfrows',
   'cycloidcusps',

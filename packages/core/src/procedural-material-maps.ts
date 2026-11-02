@@ -35035,6 +35035,73 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'pairingtables': {
+        const p = proceduralMaterialPresets.pairingtables,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2fe01),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          // The seed picks the way two numbers (column x, row y) are paired into one: Cantor (walking the diagonals), Szudzik
+          // (walking the square shells) or Morton (interleaving the bits of x and y), and whether x and y are swapped.
+          method = Math.floor(hash(8, 1, seed ^ 0x2fe02) * 3),
+          swapped = hash(8, 2, seed ^ 0x2fe03) < 0.5,
+          pair = (x: number, y: number): number => {
+            if (method === 0) return ((x + y) * (x + y + 1)) / 2 + y;
+            if (method === 1) return x < y ? y * y + x : x * x + x + y;
+            let value = 0;
+            for (let bit = 0; bit < 3; bit++)
+              value += (((x >> bit) & 1) + 2 * ((y >> bit) & 1)) * 4 ** bit;
+            return value;
+          },
+          cell = 1 / p.size;
+        return () => {
+          const column = Math.min(p.size - 1, Math.floor(u * p.size)),
+            row = Math.min(p.size - 1, Math.floor(v * p.size)),
+            text = String(swapped ? pair(row, column) : pair(column, row)),
+            px = Math.floor(
+              (u - (column + 0.5) * cell + (2 * text.length - 0.5) * p.pixel) /
+                p.pixel,
+            ),
+            d = px >= 0 ? Math.floor(px / 4) : -1,
+            gx = px - 4 * d,
+            py = Math.floor((v - (row + 0.5) * cell) / p.pixel + 2.5);
+          let glyph = 0;
+          if (
+            d >= 0 &&
+            d < text.length &&
+            gx >= 0 &&
+            gx < 3 &&
+            py >= 0 &&
+            py < 5 &&
+            glyphs[Number(text[d])][py * 3 + gx] === '1'
+          )
+            glyph = 1;
+          const checker = (column + row) % 2,
+            tone = p.paperTone + (p.checkerTone - p.paperTone) * checker;
+          color = clamp(
+            tone +
+              (p.inkTone - tone) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.paperHeight +
+              (p.checkerHeight - p.paperHeight) * checker -
+              p.inkDepth * glyph,
+          );
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -62564,6 +62631,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'pairingtables' ||
     kind === 'ferrersdiagrams' ||
     kind === 'zeckendorfrows' ||
     kind === 'cycloidcusps' ||

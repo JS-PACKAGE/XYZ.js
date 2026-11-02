@@ -24985,3 +24985,165 @@ describe('ferrersdiagrams: the partitions of 7 as boxes', () => {
     expect(different).toBeGreaterThan(0);
   });
 });
+
+describe('pairingtables: Cantor, Szudzik and Morton pairing tables', () => {
+  const p = proceduralMaterialPresets.pairingtables;
+  const shapes = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+
+  // Three independent constructions of the pairing tables (x = column, y = row), by walking the order of enumeration.
+  const enumerate = (
+    method: 'cantor' | 'szudzik' | 'morton',
+  ): Map<string, number> => {
+    const table = new Map<string, number>();
+    let next = 0;
+    if (method === 'cantor') {
+      // Diagonal after diagonal, each from (x = diagonal, y = 0) towards (x = 0, y = diagonal).
+      for (let diagonal = 0; diagonal < 2 * p.size; diagonal++)
+        for (let y = 0; y <= diagonal; y++)
+          table.set(`${diagonal - y},${y}`, next++);
+    } else if (method === 'szudzik') {
+      // Shell after shell: (0, k), (1, k), ..., (k - 1, k), then (k, 0), (k, 1), ..., (k, k).
+      for (let shell = 0; shell < p.size; shell++) {
+        for (let x = 0; x < shell; x++) table.set(`${x},${shell}`, next++);
+        for (let y = 0; y <= shell; y++) table.set(`${shell},${y}`, next++);
+      }
+    } else {
+      // The bits of x and y interleaved, y's bit above x's bit: the Morton number of every position, found by sorting.
+      const positions = Array.from({ length: p.size * p.size }, (_, i) => [
+        i % p.size,
+        Math.floor(i / p.size),
+      ]);
+      const key = ([x, y]: number[]): string =>
+        [2, 1, 0].map((bit) => `${(y >> bit) & 1}${(x >> bit) & 1}`).join('');
+      positions.sort((a, b) => key(a).localeCompare(key(b)));
+      positions.forEach(([x, y]) => table.set(`${x},${y}`, next++));
+    }
+    return table;
+  };
+
+  const decode = (seed: number): number[][] => {
+    const sample = createSurfaceSampler('pairingtables', seed),
+      out = empty(),
+      cell = 1 / p.size,
+      glyphAt = (u: number, centre: number): number | null | undefined => {
+        // A digit, null for a blank slot, undefined for something else.
+        const lines = [0, 1, 2, 3, 4].map((k) =>
+          [0, 1, 2]
+            .map((x) => {
+              sample(u + (x + 0.5) * p.pixel, centre + (k - 2) * p.pixel, out);
+              return out.color < 0.3 ? '#' : '.';
+            })
+            .join(''),
+        );
+        if (lines.every((line) => line === '...')) return null;
+        const digit = shapes.findIndex((shape) =>
+          shape.every((line, i) => line === lines[i]),
+        );
+        return digit < 0 ? undefined : digit;
+      };
+    return Array.from({ length: p.size }, (_, row) =>
+      Array.from({ length: p.size }, (_, column) => {
+        const centre = (row + 0.5) * cell,
+          middle = (column + 0.5) * cell;
+        for (const length of [1, 2, 3]) {
+          const left = middle - (2 * length - 0.5) * p.pixel,
+            digits = Array.from({ length }, (_, i) =>
+              glyphAt(left + 4 * i * p.pixel, centre),
+            ),
+            before = glyphAt(left - 4 * p.pixel, centre),
+            after = glyphAt(left + 4 * length * p.pixel, centre);
+          if (
+            digits.every((digit) => typeof digit === 'number') &&
+            before === null &&
+            after === null
+          )
+            return Number(digits.join(''));
+        }
+        throw new Error(`unreadable cell ${column},${row}`);
+      }),
+    );
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'writes the pairing of column and row in every cell by one of three rules (seed %i)',
+    (seed) => {
+      const table = decode(seed),
+        matches: string[] = [];
+      for (const method of ['cantor', 'szudzik', 'morton'] as const) {
+        const expected = enumerate(method);
+        for (const swapped of [false, true])
+          if (
+            table.every((line, row) =>
+              line.every(
+                (value, column) =>
+                  value ===
+                  expected.get(
+                    swapped ? `${row},${column}` : `${column},${row}`,
+                  ),
+              ),
+            )
+          )
+            matches.push(`${method}:${swapped}`);
+      }
+      expect(matches).toHaveLength(1);
+      // A pairing is one-to-one: no number is repeated.
+      expect(new Set(table.flat()).size).toBe(p.size * p.size);
+    },
+  );
+
+  it('shows every rule, swapped and not, across seeds', () => {
+    const seen = new Set<string>();
+    for (let seed = 0; seed < 40; seed++) {
+      const table = decode(seed);
+      seen.add(table[0].join(',') + '|' + table[1].join(','));
+    }
+    expect(seen.size).toBe(6);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('pairingtables', 0),
+      b = createSurfaceSampler('pairingtables', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(0);
+  });
+});
