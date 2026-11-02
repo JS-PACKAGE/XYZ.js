@@ -12192,3 +12192,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 文件更正：我最初在說明中寫每個像素要量測「約380條弦線」的距離，這是錯的：每個像素只迴圈自己所在圓的弦線，最多約95條（96個點減去固定點）；寫入前（送交commit前）已更正。效能：512×512單次建立約223 ms（Bun、單次量測），比多數材質慢，未最佳化，也不代表瀏覽器或Worker下的表現。
 - 完整套件：沿用`5b0b408dc`上的6439項通過紀錄；之後的slitherlinkloop、masyupearls與本材質只有定向測試加typecheck／eslint／build／API相容／distribution。
 - 真實dev server的pbr3d頁（WebGPU）選取`stringartcurves`：option 995個、status為994 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的弦線圖（心臟線、腎臟線清楚可見）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：數塊謎題（fillominoregions）
+
+- 目錄994→995，含plain的gallery為996項。每tile一個9×9已解開的Fillomino：每格寫著所屬區塊的大小（區塊內數字相同、格數等於該數字），區塊以粗線分隔，相鄰區塊大小必不相同。Metallic／mortar為0，預設tile0.5 m、0.004 UV-relative relief、metallic factor 0。顯示答案、不保證解答唯一；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 設計過程中的失敗與修正：我最先想的是「隨機把盤面切成大小1至6的區塊，若相鄰區塊同大小就整盤重來」，先用獨立腳本模擬2000次，**接受率是0**（9×9盤面上相鄰區塊同大小幾乎必然出現）；改成「區塊長完後若與相鄰區塊同大小就繼續加格直到不同」的建構法後，模擬顯示每500次嘗試約有180至200次成功（約四成，對seed 0、7、1至4），第一次成功通常在前三次內；文件中的「約六成嘗試需重試」就是這個模擬的數字，不是對取樣器本身的量測。
+- 實測：`tests/procedural-material-motifs.test.ts`八百六十四項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）：測試端由點陣逐格讀出數字（必為1至9），以4連通洪填找出所有相同數字的相連群，每個群的格數必須等於其數字（相鄰區塊大小必不同，所以相同數字相連即同一區塊），且至少10個區塊；另以暫時的測試檔對300個額外seed（100至399）重複同一檢查，全部通過（該暫時檔已刪除）；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "fillominoregions|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`fillominoregions`：option 996個、status為995 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的盤面。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

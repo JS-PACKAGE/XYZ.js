@@ -13535,3 +13535,119 @@ describe('stringartcurves: each circle holds exactly the chords i to k·i mod n 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('fillominoregions: every connected group of equal numbers has that many cells', () => {
+  const p = proceduralMaterialPresets.fillominoregions;
+  const n = p.size;
+  const side = 1 - 2 * p.margin;
+  const cell = side / n;
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'has regions whose size equals their number (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('fillominoregions', seed),
+        out = empty(),
+        pixel = cell * p.digitFraction,
+        grid: number[] = [];
+      for (let row = 0; row < n; row++)
+        for (let col = 0; col < n; col++) {
+          const bits: string[] = [];
+          for (let y = 0; y < 5; y++) {
+            let text = '';
+            for (let x = 0; x < 3; x++) {
+              sample(
+                p.margin + (col + 0.5) * cell + (x - 1) * pixel,
+                p.margin + (row + 0.5) * cell + (y - 2) * pixel,
+                out,
+              );
+              text += out.color < 0.3 ? '#' : '.';
+            }
+            bits.push(text);
+          }
+          const digit = art.findIndex((rows) =>
+            rows.every((line, i) => line === bits[i]),
+          );
+          expect(digit).toBeGreaterThanOrEqual(1);
+          grid.push(digit);
+        }
+      // Flood fill each group of equal neighbouring numbers: its cell count must equal the number written in it.
+      const seen = new Set<number>();
+      let regions = 0;
+      for (let start = 0; start < n * n; start++) {
+        if (seen.has(start)) continue;
+        const group = [start];
+        seen.add(start);
+        for (let i = 0; i < group.length; i++) {
+          const x = group[i] % n,
+            y = Math.floor(group[i] / n);
+          for (const [dx, dy] of [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ]) {
+            const nx = x + dx,
+              ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= n || ny >= n) continue;
+            const next = ny * n + nx;
+            if (!seen.has(next) && grid[next] === grid[start]) {
+              seen.add(next);
+              group.push(next);
+            }
+          }
+        }
+        expect(group.length).toBe(grid[start]);
+        regions++;
+      }
+      expect(regions).toBeGreaterThanOrEqual(10);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('fillominoregions', 0),
+      b = createSurfaceSampler('fillominoregions', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

@@ -26825,6 +26825,151 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'fillominoregions': {
+        const p = proceduralMaterialPresets.fillominoregions,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2ad01),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          n = p.size,
+          side = 1 - 2 * p.margin,
+          cell = side / n,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          region = new Int16Array(n * n).fill(-1),
+          sizes: number[] = [],
+          regionAt = (x: number, y: number): number =>
+            x >= 0 && x < n && y >= 0 && y < n ? region[y * n + x] : -1,
+          neighbours = (index: number): number[] => {
+            const x = index % n,
+              y = Math.floor(index / n),
+              list: number[] = [];
+            if (x < n - 1) list.push(index + 1);
+            if (x > 0) list.push(index - 1);
+            if (y < n - 1) list.push(index + n);
+            if (y > 0) list.push(index - n);
+            return list;
+          };
+        // Partition the board into regions whose size is written in every cell, with no two touching
+        // regions of the same size: grow each region to a random size, then keep adding cells while a
+        // touching region already has that size.
+        for (let attempt = 0; attempt < p.attempts; attempt++) {
+          region.fill(-1);
+          sizes.length = 0;
+          let counter = 0,
+            failed = false;
+          const rand = (): number =>
+            hash(attempt * 100003 + counter++, 5, seed ^ 0x2ad03);
+          for (let start = 0; start < n * n && !failed; start++) {
+            if (region[start] !== -1) continue;
+            const id = sizes.length,
+              cells = [start],
+              grow = (): boolean => {
+                const frontier = cells
+                  .flatMap((c) => neighbours(c))
+                  .filter((m) => region[m] === -1);
+                if (frontier.length === 0) return false;
+                const pick =
+                  frontier[
+                    Math.min(
+                      frontier.length - 1,
+                      Math.floor(rand() * frontier.length),
+                    )
+                  ];
+                region[pick] = id;
+                cells.push(pick);
+                return true;
+              },
+              target =
+                1 + Math.min(p.maxTarget - 1, Math.floor(rand() * p.maxTarget));
+            region[start] = id;
+            while (cells.length < target && grow());
+            for (;;) {
+              const around = new Set<number>();
+              for (const c of cells)
+                for (const m of neighbours(c))
+                  if (region[m] !== -1 && region[m] !== id)
+                    around.add(sizes[region[m]]);
+              if (!around.has(cells.length)) break;
+              if (cells.length >= p.maxSize || !grow()) {
+                failed = true;
+                break;
+              }
+            }
+            sizes.push(cells.length);
+          }
+          if (!failed) break;
+        }
+        return () => {
+          const lx = u - p.margin,
+            ly = v - p.margin;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            thin = 0,
+            thick = 0,
+            ink = 0;
+          if (
+            lx >= -p.thickHalf &&
+            lx < side + p.thickHalf &&
+            ly >= -p.thickHalf &&
+            ly < side + p.thickHalf
+          ) {
+            const col = Math.min(n - 1, Math.max(0, Math.floor(lx / cell))),
+              row = Math.min(n - 1, Math.max(0, Math.floor(ly / cell))),
+              fx = lx - col * cell,
+              fy = ly - row * cell,
+              id = region[row * n + col],
+              size = sizes[id],
+              pixel = cell * p.digitFraction,
+              px = Math.floor((fx - (cell / 2 - 1.5 * pixel)) / pixel),
+              py = Math.floor((fy - (cell / 2 - 2.5 * pixel)) / pixel);
+            tone = p.cellTone - p.shadeStep * (size - 1);
+            level = p.cellHeight;
+            // Each side of the cell: a thick line where the neighbour is another region (or off the board),
+            // a thin one inside a region.
+            for (const [distance, other] of [
+              [fx, regionAt(col - 1, row)],
+              [cell - fx, regionAt(col + 1, row)],
+              [fy, regionAt(col, row - 1)],
+              [cell - fy, regionAt(col, row + 1)],
+            ]) {
+              if (other !== id)
+                thick = Math.max(thick, cover(p.thickHalf - distance));
+              else thin = Math.max(thin, cover(p.thinHalf - distance));
+            }
+            if (
+              px >= 0 &&
+              px < 3 &&
+              py >= 0 &&
+              py < 5 &&
+              glyphs[size][py * 3 + px] === '1'
+            )
+              ink = 1;
+          }
+          tone += (p.thinTone - tone) * thin;
+          tone += (p.thickTone - tone) * thick;
+          color = clamp(
+            tone +
+              (p.inkTone - tone) * ink +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * Math.max(ink, thick));
+          roughness =
+            p.paperRoughness +
+            (p.inkRoughness - p.paperRoughness) * Math.max(ink, thick);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -54354,6 +54499,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'fillominoregions' ||
     kind === 'stringartcurves' ||
     kind === 'masyupearls' ||
     kind === 'slitherlinkloop' ||

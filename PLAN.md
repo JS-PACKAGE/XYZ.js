@@ -1537,6 +1537,10 @@
 
 這是作者設計的示意：包絡線是由弦線自然形成的視覺效果，並未另外畫出曲線；k相同點數下，更大的乘數使弦線很密（k=5的圓看起來像模糊的玫瑰）；固定點（k·i≡i）不畫線；點數固定為96。取樣器對每個像素逐一計算到所在圓的最多約95條弦線的距離，512×512單次建立約223 ms，較其他材質慢，未最佳化。預設0.4 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`fillominoregions`（數塊謎題／Fillomino）使目前目錄994→995種，含plain的gallery為996項。每tile是一個9×9已解開的Fillomino盤面：每個格子寫著它所屬區塊的大小（1至9的點陣數字），同一個區塊內的格子數字相同、個數就等於那個數字，區塊之間以較粗的深色線分隔（區塊內部是細線），區塊越大底色越深一點。區塊由seed以隨機生長產生：依格子順序，對每個尚未分配的格子隨機選目標大小1至5並向相鄰的空格生長，若完成時與相鄰的某個區塊大小相同就繼續加格直到不同（因此相鄰的區塊大小必定不同，不會誤合併）；整盤無法完成時（約六成嘗試）重試。Metallic與mortar為0。
+
+這是作者設計的示意：畫面是填好答案的盤面，真正的Fillomino只給部分數字；區塊大小受限於1至9（合併後可能超過5），且為了避免相鄰區塊同大小，區塊大小的分布偏向較大；不保證只有一種解；點陣數字為3×5。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
