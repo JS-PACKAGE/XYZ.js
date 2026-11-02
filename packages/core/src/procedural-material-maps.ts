@@ -40914,6 +40914,87 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'voronoicells': {
+        const p = proceduralMaterialPresets.voronoicells,
+          count = p.cells * p.cells,
+          offsetX = new Float64Array(count),
+          offsetY = new Float64Array(count),
+          tones = new Float64Array(count),
+          distances = new Float64Array(25),
+          weights = new Float64Array(25),
+          owners = new Int32Array(25),
+          inverseSoftness = 1 / p.softness,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 3),
+          );
+        // One jittered site per cell of a periodic cells x cells grid (an offset of up to
+        // jitter / 2 cell widths from the cell centre) and one tone per site.
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const index = row * p.cells + col;
+            offsetX[index] =
+              p.jitter * (hash(col, row, seed ^ p.seedSalt) - 0.5);
+            offsetY[index] =
+              p.jitter * (hash(col, row, seed ^ (p.seedSalt + 1)) - 0.5);
+            tones[index] = hash(col, row, seed ^ (p.seedSalt + 2));
+          }
+        return () => {
+          // Soft Voronoi: every site of the 5 x 5 neighbouring cells gets the weight
+          // exp(-(distance - nearest distance) / softness), so the nearest site dominates
+          // and the weights vary smoothly across every cell boundary (a hard nearest-site
+          // lookup would crease there). The tone is the weighted mean of the sites' tones
+          // and the boundary measure is the Gini impurity 1 - sum w^2 of the normalised
+          // weights: 0 deep inside a cell, 1/2 on an edge between two cells.
+          // The window is 5 x 5 cells: with 3 x 3 the sites that drop out when the point
+          // crosses a cell boundary can still be within a tenth of a cell width of the
+          // nearest distance, which left a visible slope jump there.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            column = Math.floor(x),
+            row = Math.floor(y);
+          let nearest = Infinity,
+            slot = 0;
+          for (let dy = -2; dy <= 2; dy++)
+            for (let dx = -2; dx <= 2; dx++) {
+              const index =
+                  ((row + dy + p.cells) % p.cells) * p.cells +
+                  ((column + dx + p.cells) % p.cells),
+                siteX = column + dx + 0.5 + offsetX[index],
+                siteY = row + dy + 0.5 + offsetY[index];
+              owners[slot] = index;
+              distances[slot] = Math.hypot(x - siteX, y - siteY);
+              nearest = Math.min(nearest, distances[slot]);
+              slot++;
+            }
+          let total = 0,
+            tone = 0;
+          for (let k = 0; k < 25; k++) {
+            weights[k] = Math.exp(-(distances[k] - nearest) * inverseSoftness);
+            total += weights[k];
+            tone += weights[k] * tones[owners[k]];
+          }
+          let impurity = 0;
+          for (let k = 0; k < 25; k++) impurity += (weights[k] / total) ** 2;
+          const edge = 1 - Math.exp(-p.edgeGain * (1 - impurity)),
+            grain = grainField(u, v);
+          tone /= total;
+          color =
+            p.baseTone +
+            p.cellTone * (p.toneFloor + (1 - p.toneFloor) * tone) * (1 - edge) +
+            p.edgeTone * edge +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              (1 - edge) *
+              (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          roughness += p.edgeRoughness * edge;
+          occlusion = 1 - p.edgeOcclusion * edge;
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -49726,6 +49807,7 @@ export function createSurfaceSampler(
     kind === 'vicsekfractal' ||
     kind === 'tsquarefractal' ||
     kind === 'cantordust' ||
+    kind === 'voronoicells' ||
     kind === 'vermiculation' ||
     kind === 'kikko' ||
     kind === 'kagome' ||
