@@ -1060,6 +1060,7 @@ try {
     'tulle',
     'levycurve',
     'hadamardmatrix',
+    'paleytable',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

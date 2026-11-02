@@ -12420,3 +12420,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試（2,016項為−1與第0列全為+1、逐磚比對、統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Hadamard matrix as|hadamardmatrix|kinds|catalog|distinct|periodic"`定向測試**2264項通過／3883項未選**。
 - 未驗證：levycurve、hadamardmatrix未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：佩利表（paleytable）
+
+- 範圍：新增`paleytable`（目前目錄981→982種，含plain的gallery 983項）：61×61個圓角方塊磚，第(row, col)格是`col − row`對質數61的勒壤得符號（對角線→中間色調0.4、非零平方剩餘（30個）→亮玫瑰粉0.7、非剩餘→暗紫紅0.1）；表只依賴`col − row`，呈斜向帶狀並在環面上無縫重複；seed沿環面平移整張表（只有`(sx − sy) mod 61`有差別）；磚縫AO 0.6；roughness恆為0.4；預設0.3 m nominal tile、0.0008 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)我預先猜測每個seed只有一個符合的環面平移，探針顯示是61個（表只依賴`col − row`），測試改為斷言這個結構。(2)寫文件時zh段落誤植了一段無意義的文字（「4×k²皆」），在gates之前的檢查中被我自己發現並從PLAN、DESIGN、TECHNICAL-zh、USAGE-zh四處更正，之後才跑gates與commit。(3)relief沿用0.0008，512²maps法線tilt²最大0.0378。(4)預覽（512²）每格約8像素，圖案呈斜向帶狀，我沒有逐格目視核對。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：256²取樣亮處（color>0.5）占36.34%–36.42%、color 0.0252–0.0259至0.8541–0.8545、平均0.4012–0.4014、AO最低0.6、height至多0.8478–0.8486 relief；512²取樣亮處占36.35%–36.36%、color 0.0251–0.0254至0.8547–0.8549、平均0.4011–0.4014、AO最低0.6、height至多0.8494–0.8504 relief；3,721個磚中心的顏色與測試中獨立寫出的表在恰好61個環面平移下一致（`sx − sy`皆相同，四個seed的`(sx − sy) mod 61`為51、59、10、23；最大誤差約0.0148–0.0149）；seed 0與1的亮區遮罩（512²）37.5%像素不同；seed 7的512²maps平均r／g／b約(116.7, 83.5, 99.1)、法線tilt²最大約0.0378、z分量最小253。
+- 測試：新增5項專屬測試（30個平方剩餘與三種色調格數、61個平移的對角線結構、統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Paley table as|paleytable|kinds|catalog|distinct|periodic"`定向測試**2266項通過／3886項未選**。
+- 未驗證：levycurve、hadamardmatrix、paleytable未跑完整suite與瀏覽器gallery；不push。
