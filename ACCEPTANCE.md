@@ -12971,3 +12971,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
 - gates（工具實跑，重跑後）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Kolakoski as|kolakoski|kinds|catalog|distinct|periodic"`定向測試**2376項通過／4064項未選**。
 - 未驗證：cassiniovals、sterndiatomic與kolakoski未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-03 完整suite與gallery檢查（至kolakoski）
+
+- 完整suite（工具實跑，commit `bda7f8329`，獨立乾淨worktree，期間沒有同時進行其他重負載工作）：**179個測試檔、10,369項測試全部通過，耗時1090.64 s**。上一次完整suite為`719419db4`的10,354項；之後新增cassiniovals、sterndiatomic、kolakoski各5項（含kinds清單條目），合計15項，與增量一致（10,354 + 15 = 10,369）。
+- 瀏覽器gallery（headless Chrome，WebGPU與`?renderer=webgl2`各一次，`/examples/pbr3d/`）：開頁後閒置260 s等範例頁面完成初始化才開始選取；依序選取`cassiniovals`、`sterndiatomic`、`kolakoski`，三者皆出現`Material <kind> `讀數（各約37–54 ms）、readout顯示1035種、選單1036個選項，console error 0。此檢查只涵蓋「可選取、讀數更新、無console錯誤」，**沒有在gallery中逐一目視截圖**。
+- 未驗證：不push；其他瀏覽器、真機GPU差異與效能未量測。
