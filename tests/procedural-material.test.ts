@@ -1019,6 +1019,7 @@ const kinds: ProceduralMaterialKind[] = [
   'dragoncurve',
   'divisorcount',
   'peanocurve',
+  'sacksspiral',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -152808,6 +152809,237 @@ describe('Peano curve as a pink order-3 Peano space-filling trace', () => {
     expect(green / (512 * 512)).toBeLessThan(50);
     expect(blue / (512 * 512)).toBeGreaterThan(68);
     expect(blue / (512 * 512)).toBeLessThan(76);
+    expect(maxTilt).toBeGreaterThan(0.02);
+    expect(maxTilt).toBeLessThan(0.08);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Sacks spiral as integers on an Archimedean spiral with primes lit', () => {
+  const p = proceduralMaterialPresets.sacksspiral;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const isPrime = (n: number): boolean => {
+    if (n < 2) return false;
+    for (let k = 2; k * k <= n; k++) if (n % k === 0) return false;
+    return true;
+  };
+  /** The n-th integer's position (relative to the tile centre) with the spiral turned by the given angle, written independently here. */
+  const spiral = (rotation: number) =>
+    Array.from({ length: p.count }, (_, i) => {
+      const root = Math.sqrt(i + 1),
+        radius = (p.radius / Math.sqrt(p.count)) * root;
+      return {
+        x: radius * Math.cos(2 * Math.PI * root + rotation),
+        y: radius * Math.sin(2 * Math.PI * root + rotation),
+        prime: isPrime(i + 1),
+      };
+    });
+  /** Colour of the independent model (grain excluded) at a point relative to the tile centre. */
+  const modelColor = (
+    points: ReturnType<typeof spiral>,
+    x: number,
+    y: number,
+  ): number => {
+    let primeSum = 0,
+      compositeSum = 0;
+    for (const q of points) {
+      const d2 = ((x - q.x) ** 2 + (y - q.y) ** 2) / p.blobRadius ** 2;
+      if (d2 >= 1) continue;
+      if (q.prime) primeSum += (1 - d2) ** 2;
+      else compositeSum += (1 - d2) ** 2;
+    }
+    const primeBlob = 1 - Math.exp(-p.gain * primeSum),
+      compositeBlob = 1 - Math.exp(-p.gain * compositeSum);
+    return (
+      p.baseTone +
+      p.primeTone * primeBlob +
+      p.compositeTone * compositeBlob * (1 - primeBlob)
+    );
+  };
+  /** Whole-degree rotations whose model reproduces the colour at the centre of every integer's blob. */
+  const fittingRotations = (seed: number): number[] => {
+    const sample = createSurfaceSampler('sacksspiral', seed),
+      out = empty(),
+      fits: number[] = [];
+    for (let degree = 0; degree < 360; degree++) {
+      const points = spiral((2 * Math.PI * degree) / 360);
+      let worst = 0;
+      for (const q of points) {
+        sample(q.x + 0.5, q.y + 0.5, out);
+        worst = Math.max(
+          worst,
+          Math.abs(out.color - modelColor(points, q.x, q.y)),
+        );
+        if (worst >= 0.03) break;
+      }
+      if (worst < 0.03) fits.push(degree);
+    }
+    return fits;
+  };
+  it('puts the integers on the Sacks spiral at exactly one whole-degree rotation and keeps the tones bounded', () => {
+    // There are 95 primes up to 500.
+    expect(spiral(0).filter((q) => q.prime)).toHaveLength(95);
+    for (const seed of [0, 1, 0xffffffff, 7]) {
+      const sample = createSurfaceSampler('sacksspiral', seed),
+        a = empty();
+      expect(fittingRotations(seed)).toHaveLength(1);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.034);
+      expect(low).toBeLessThan(0.037);
+      expect(high).toBeGreaterThan(0.86);
+      expect(high).toBeLessThan(0.88);
+      expect(dark / 65536).toBeGreaterThan(0.028);
+      expect(dark / 65536).toBeLessThan(0.031);
+      expect(mean / 65536).toBeGreaterThan(0.11);
+      expect(mean / 65536).toBeLessThan(0.113);
+      expect(roughLow).toBeGreaterThan(0.25);
+      expect(roughLow).toBeLessThan(0.26);
+      expect(roughHigh).toBeCloseTo(0.4, 6);
+      expect(heightHigh).toBeGreaterThan(0.64);
+      expect(heightHigh).toBeLessThan(0.68);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('turns the spiral per seed and is deterministic for one seed', () => {
+    const first = fittingRotations(0),
+      second = fittingRotations(1);
+    expect(first).not.toEqual(second);
+    expect(fittingRotations(0)).toEqual(first);
+  });
+  it('keeps the blobs, their edges and the grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('sacksspiral', seed),
+        [degree] = fittingRotations(seed),
+        points = spiral((2 * Math.PI * degree) / 360);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      // Points on the compact edge of every blob, where a kink would show.
+      for (const q of points)
+        for (let k = 0; k < 8; k++) {
+          const angle = (k * Math.PI) / 4 + 0.3;
+          check(
+            0.5 + q.x + p.blobRadius * Math.cos(angle),
+            0.5 + q.y + p.blobRadius * Math.sin(angle),
+          );
+        }
+      for (let i = 0; i <= p.grainCells; i++)
+        for (const y of [0, 0.137, 0.5, 0.793]) {
+          check(i / p.grainCells, y);
+          check(y, i / p.grainCells);
+        }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 gold-on-navy maps with gentle dot normals', () => {
+    const maps = generateProceduralMaps('sacksspiral', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(31);
+    expect(red / (512 * 512)).toBeLessThan(36);
+    expect(green / (512 * 512)).toBeGreaterThan(30);
+    expect(green / (512 * 512)).toBeLessThan(35);
+    expect(blue / (512 * 512)).toBeGreaterThan(35);
+    expect(blue / (512 * 512)).toBeLessThan(40);
     expect(maxTilt).toBeGreaterThan(0.02);
     expect(maxTilt).toBeLessThan(0.08);
     expect(invalid).toBe(0);

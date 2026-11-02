@@ -12376,3 +12376,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增專屬測試（遞迴的729個頂點相異且相鄰頂點曼哈頓距離為1、四seed的node盤面與獨立曲線比對、統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Peano curve as|peanocurve|Dragon curve as|kinds|catalog|distinct|periodic"`定向測試**2259項通過／3868項未選**。
 - 未驗證：mandelbrottiles、juliatiles、dragoncurve、divisorcount、peanocurve未跑瀏覽器gallery；divisorcount、peanocurve未跑完整suite；不push。
+
+## 2026-11-02 新增材質：薩克斯螺旋（sacksspiral）
+
+- 範圍：新增`sacksspiral`（目前目錄977→978種，含plain的gallery 979項）：深藍黑底上，整數1到500依薩克斯螺旋排成點陣（半徑`0.45·√(n/500)`、角度`2π√n`），質數（95個）為亮金色圓點、合成數為暗淡金棕色圓點；螺旋位於磚中央、不超出磚邊；seed把整個螺旋旋轉整數度；預設0.4 m nominal tile、0.002 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整紀錄（誠實紀錄）：第一版（圓點半徑0.012、質數色調0.7、合成數色調0.2、gain 2、relief 0.0008）預覽偏暗偏小，探針量到最亮0.667、平均0.077、512²maps法線tilt²最大0.0048；調整為半徑0.014、質數色調0.85、合成數色調0.3、gain 3、relief 0.002後最亮0.871、平均0.111、tilt²最大0.0441。第一版另有一行無意義的`p.baseHeight * 0`與對應的preset欄位，已在測試前移除。每個取樣點走訪500個整數，**未量測耗時**。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：256²取樣亮處（color>0.5）占2.93%–2.96%、color 0.0355–0.0358至0.8670–0.8696、平均0.1114–0.1115、roughness 0.2575–0.4、AO恆為1、height至多0.6547–0.6647 relief（512²取樣亮處占2.94%–2.95%）；四個seed各自在唯一一個整數度旋轉（298°、161°、4°、107°）下，500個圓點中心的顏色與測試中獨立重寫的模型一致（最大誤差0.0143–0.0148）；seed 7的512²maps平均r／g／b約(33.7, 32.8, 37.1)、法線tilt²最大約0.0441、z分量最小252。我實看了預覽（seed 7）。
+- 測試：新增5項專屬測試（95個質數、四seed的整數度旋轉唯一比對與統計、seed旋轉差異與決定性、C1（含500個圓點邊界上的8個方向）＋有符號UV週期、actual512 maps）通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Sacks spiral as|sacksspiral|kinds|catalog|distinct|periodic"`定向測試**2258項通過／3874項未選**。
+- 完整suite（工具實跑）：`884aa151a`（dragoncurve）**179檔／10,046項全數通過（1286.06 s）**；其後的divisorcount、peanocurve、sacksspiral尚未跑完整suite。
+- 未驗證：mandelbrottiles、juliatiles、dragoncurve、divisorcount、peanocurve、sacksspiral未跑瀏覽器gallery；不push。

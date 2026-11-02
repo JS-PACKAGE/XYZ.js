@@ -40731,6 +40731,68 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'sacksspiral': {
+        const p = proceduralMaterialPresets.sacksspiral,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          // The seed turns the whole spiral by a whole number of degrees.
+          rotation =
+            (TAU *
+              Math.floor(hash(0, 0, seed ^ p.seedSalt) * p.rotationSteps)) /
+            p.rotationSteps,
+          inverseRadius2 = 1 / (p.blobRadius * p.blobRadius),
+          scale = p.radius / Math.sqrt(p.count),
+          pointsX = new Float64Array(p.count),
+          pointsY = new Float64Array(p.count),
+          prime = new Uint8Array(p.count);
+        // The Sacks spiral puts the integer n on the Archimedean spiral at radius
+        // scale * sqrt(n) and angle 2 pi sqrt(n), so the perfect squares line up along
+        // one ray; primes are marked bright and composites dim.
+        for (let n = 1; n <= p.count; n++) {
+          const root = Math.sqrt(n);
+          pointsX[n - 1] = scale * root * Math.cos(TAU * root + rotation);
+          pointsY[n - 1] = scale * root * Math.sin(TAU * root + rotation);
+          let isPrime = n > 1;
+          for (let k = 2; k * k <= n && isPrime; k++)
+            if (n % k === 0) isPrime = false;
+          prime[n - 1] = isPrime ? 1 : 0;
+        }
+        return () => {
+          // Every integer owns a compact-support quartic blob, exactly zero beyond
+          // blobRadius, and the spiral stays inside the tile, so the field is C1 and
+          // periodic; sums are squashed by 1 - exp(-gain * sum).
+          const x = fract(u) - 0.5,
+            y = fract(v) - 0.5;
+          let primeSum = 0,
+            compositeSum = 0;
+          for (let i = 0; i < p.count; i++) {
+            const dx = x - pointsX[i],
+              dy = y - pointsY[i],
+              d2 = (dx * dx + dy * dy) * inverseRadius2;
+            if (d2 >= 1) continue;
+            const w = (1 - d2) * (1 - d2);
+            if (prime[i]) primeSum += w;
+            else compositeSum += w;
+          }
+          const primeBlob = 1 - Math.exp(-p.gain * primeSum),
+            compositeBlob = 1 - Math.exp(-p.gain * compositeSum),
+            grain = grainField(u, v);
+          color =
+            p.baseTone +
+            p.primeTone * primeBlob +
+            p.compositeTone * compositeBlob * (1 - primeBlob) +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.primeHeight * primeBlob +
+            p.compositeHeight * compositeBlob * (1 - primeBlob) +
+            p.grainHeight * grain;
+          roughness += p.primeRoughness * primeBlob;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -48516,6 +48578,7 @@ export function createSurfaceSampler(
     kind === 'dragoncurve' ||
     kind === 'divisorcount' ||
     kind === 'peanocurve' ||
+    kind === 'sacksspiral' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
