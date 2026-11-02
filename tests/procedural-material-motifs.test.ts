@@ -22734,3 +22734,154 @@ describe('numberwords: numbers spelled out in English', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('sorobanabacus: soroban beads that show the printed number', () => {
+  const p = proceduralMaterialPresets.sorobanabacus;
+  const digitShapes: Record<string, string[]> = {
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    '2': ['###', '..#', '###', '#..', '###'],
+    '3': ['###', '..#', '###', '..#', '###'],
+    '4': ['#.#', '#.#', '###', '..#', '..#'],
+    '5': ['###', '#..', '###', '..#', '###'],
+    '6': ['###', '#..', '###', '#.#', '###'],
+    '7': ['###', '..#', '.#.', '.#.', '.#.'],
+    '8': ['###', '#.#', '###', '#.#', '###'],
+    '9': ['###', '#.#', '###', '..#', '###'],
+  };
+  const rodPitch = p.frameWidth / p.rods;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows on its beads the same number as the digits printed below (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('sorobanabacus', seed),
+        out = empty(),
+        colorAt = (u: number, v: number): number => {
+          sample(u, v, out);
+          return out.color;
+        },
+        numbers: string[] = [];
+      for (let block = 0; block < p.abacuses; block++) {
+        const top = p.top + block * p.blockPitch,
+          beadAt = (rod: number, y: number): boolean =>
+            colorAt(p.left + (rod + 0.5) * rodPitch, top + y) < 0.3;
+        let beads = '',
+          printed = '';
+        for (let rod = 0; rod < p.rods; rod++) {
+          // One heaven bead sits in one of its two slots; four earth beads fill four of the five slots below the beam.
+          const upper = beadAt(rod, p.heavenFirst),
+            lower = beadAt(rod, p.heavenSecond);
+          expect(upper !== lower).toBe(true);
+          const earth = [0, 1, 2, 3, 4].map((slot) =>
+              beadAt(rod, p.earthFirst + slot * p.slotPitch),
+            ),
+            empty = earth.indexOf(false);
+          expect(earth.filter((present) => !present)).toHaveLength(1);
+          beads += String((lower ? 5 : 0) + empty);
+          // The printed digit under this rod is a 3 x 5 glyph.
+          const start =
+              p.left +
+              p.frameWidth / 2 -
+              ((4 * p.rods - 1) / 2) * p.pixel +
+              4 * rod * p.pixel,
+            lines = [0, 1, 2, 3, 4].map((k) =>
+              [0, 1, 2]
+                .map((x) =>
+                  colorAt(
+                    start + (x + 0.5) * p.pixel,
+                    top + p.labelCentre + (k - 2) * p.pixel,
+                  ) < 0.3
+                    ? '#'
+                    : '.',
+                )
+                .join(''),
+            ),
+            found = Object.entries(digitShapes).find(([, shape]) =>
+              shape.every((line, i) => line === lines[i]),
+            );
+          expect(found).toBeDefined();
+          printed += (found as [string, string[]])[0];
+        }
+        expect(beads).toBe(printed);
+        numbers.push(printed);
+        // The frame ends below the beads: paper just beneath its bottom edge, at the frame side and in the middle.
+        expect(colorAt(p.left, top + p.frameHeight + 0.03)).toBeGreaterThan(
+          0.8,
+        );
+        expect(
+          colorAt(p.left + p.frameWidth / 2, top + p.frameHeight + 0.01),
+        ).toBeGreaterThan(0.8);
+      }
+      expect(new Set(numbers).size).toBe(p.abacuses);
+    },
+  );
+
+  it('shows every digit from 0 to 9 on some rod across seeds', () => {
+    const seen = new Set<string>();
+    for (let seed = 0; seed < 12; seed++) {
+      const sample = createSurfaceSampler('sorobanabacus', seed),
+        out = empty();
+      for (let block = 0; block < p.abacuses; block++)
+        for (let rod = 0; rod < p.rods; rod++) {
+          const top = p.top + block * p.blockPitch,
+            x = p.left + (rod + 0.5) * rodPitch,
+            at = (y: number): boolean => {
+              sample(x, top + y, out);
+              return out.color < 0.3;
+            },
+            gap = [0, 1, 2, 3, 4].findIndex(
+              (slot) => !at(p.earthFirst + slot * p.slotPitch),
+            );
+          seen.add(String((at(p.heavenSecond) ? 5 : 0) + gap));
+        }
+    }
+    expect([...seen].sort()).toEqual([
+      '0',
+      '1',
+      '2',
+      '3',
+      '4',
+      '5',
+      '6',
+      '7',
+      '8',
+      '9',
+    ]);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('sorobanabacus', 0),
+      b = createSurfaceSampler('sorobanabacus', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

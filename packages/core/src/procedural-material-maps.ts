@@ -33603,6 +33603,127 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'sorobanabacus': {
+        const p = proceduralMaterialPresets.sorobanabacus,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2ef01),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          rodPitch = p.frameWidth / p.rods,
+          // One random digit per rod and abacus: a digit d is 5 for the heaven bead (when d >= 5) plus d % 5 earth beads.
+          digits = Array.from({ length: p.abacuses }, (_, abacus) =>
+            Array.from({ length: p.rods }, (_, rod) =>
+              Math.floor(hash(abacus, rod, seed ^ 0x2ef02) * 10),
+            ),
+          );
+        return () => {
+          const block = Math.floor((v - p.top) / p.blockPitch),
+            local = v - p.top - block * p.blockPitch;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            bead = 0;
+          if (block >= 0 && block < p.abacuses) {
+            const x = u - p.left,
+              rod = Math.min(p.rods - 1, Math.max(0, Math.floor(x / rodPitch))),
+              digit = digits[block][rod],
+              rodCentre = (rod + 0.5) * rodPitch,
+              inFrameX = x >= -p.frameHalf && x <= p.frameWidth + p.frameHalf;
+            if (
+              local >= -p.frameHalf &&
+              local <= p.frameHeight + p.frameHalf &&
+              inFrameX
+            ) {
+              // The frame outline, the beam across it and the rods.
+              const frame = Math.max(
+                cover(
+                  p.frameHalf -
+                    Math.min(Math.abs(x), Math.abs(x - p.frameWidth)),
+                ) *
+                  cover(
+                    p.frameHeight / 2 +
+                      p.frameHalf -
+                      Math.abs(local - p.frameHeight / 2),
+                  ),
+                cover(
+                  p.frameHalf -
+                    Math.min(Math.abs(local), Math.abs(local - p.frameHeight)),
+                ) *
+                  cover(
+                    p.frameWidth / 2 +
+                      p.frameHalf -
+                      Math.abs(x - p.frameWidth / 2),
+                  ),
+              );
+              const beam =
+                  cover(p.beamHalf - Math.abs(local - p.beamCentre)) *
+                  cover(p.frameWidth / 2 - Math.abs(x - p.frameWidth / 2)),
+                rodLine =
+                  cover(p.rodHalf - Math.abs(x - rodCentre)) *
+                  cover(
+                    p.frameHeight / 2 - Math.abs(local - p.frameHeight / 2),
+                  );
+              // Beads: the heaven bead sits in slot 1 (against the beam) when the digit is 5 or more and otherwise in slot 0;
+              // the four earth beads fill the five slots below the beam except slot (digit % 5), which stays empty.
+              const heavenSlot = digit >= 5 ? p.heavenSecond : p.heavenFirst,
+                gap = digit % 5,
+                slots: number[] = [heavenSlot];
+              for (let slot = 0; slot < 5; slot++)
+                if (slot !== gap) slots.push(p.earthFirst + slot * p.slotPitch);
+              for (const centre of slots) {
+                const norm = Math.hypot(
+                  (x - rodCentre) / p.beadHalfWidth,
+                  (local - centre) / p.beadHalfHeight,
+                );
+                bead = Math.max(bead, cover((1 - norm) * p.beadHalfHeight));
+              }
+              const ink = Math.max(rodLine * 0.6, frame, beam);
+              tone = p.paperTone + (p.rodTone - p.paperTone) * rodLine;
+              tone = tone + (p.frameTone - tone) * Math.max(frame, beam);
+              level = p.paperHeight + (p.frameRelief - p.paperHeight) * ink;
+            }
+            // The number printed below the frame, one digit under each rod, from the same digits.
+            const labelTop = p.labelCentre - 2.5 * p.pixel,
+              column = Math.floor(
+                (u -
+                  (p.left +
+                    p.frameWidth / 2 -
+                    ((4 * p.rods - 1) / 2) * p.pixel)) /
+                  p.pixel,
+              ),
+              py = Math.floor((local - labelTop) / p.pixel),
+              d = column >= 0 ? Math.floor(column / 4) : -1,
+              gx = column - 4 * d;
+            if (
+              d >= 0 &&
+              d < p.rods &&
+              gx >= 0 &&
+              gx < 3 &&
+              py >= 0 &&
+              py < 5 &&
+              glyphs[digits[block][d]][py * 3 + gx] === '1'
+            )
+              bead = Math.max(bead, 1);
+          }
+          const base = tone + (p.beadTone - tone) * bead;
+          color = clamp(base + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(level + (p.beadHeight - level) * bead);
+          roughness =
+            p.paperRoughness + (p.beadRoughness - p.paperRoughness) * bead;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -61132,6 +61253,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'sorobanabacus' ||
     kind === 'numberwords' ||
     kind === 'dipolefieldlines' ||
     kind === 'mobiusgrid' ||
