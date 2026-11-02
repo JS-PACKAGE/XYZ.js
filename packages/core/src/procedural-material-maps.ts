@@ -40574,14 +40574,18 @@ export function createSurfaceSampler(
       }
       case 'dragoncurve':
       case 'peanocurve':
-      case 'levycurve': {
+      case 'levycurve':
+      case 'minkowskisausage': {
         const peano = kind === 'peanocurve',
           levy = kind === 'levycurve',
+          minkowski = kind === 'minkowskisausage',
           p = peano
             ? proceduralMaterialPresets.peanocurve
             : levy
               ? proceduralMaterialPresets.levycurve
-              : proceduralMaterialPresets.dragoncurve,
+              : minkowski
+                ? proceduralMaterialPresets.minkowskisausage
+                : proceduralMaterialPresets.dragoncurve,
           size = p.cells * 3,
           marks = new Float64Array(size * size),
           glowField = cachedNoise(p.glowCells, p.glowCells, seed ^ p.seedSalt),
@@ -40627,6 +40631,25 @@ export function createSurfaceSampler(
               ySum += digits[2 * k + 1];
             }
             points.push([px, py]);
+          }
+        } else if (minkowski) {
+          // The quadratic Koch (Minkowski sausage) island: the turtle string F+F+F+F with
+          // every F replaced order times by F+F-F-FF+F+F-F, a simple closed loop.
+          let turtle = 'F+F+F+F';
+          for (let level = 0; level < p.order; level++)
+            turtle = turtle
+              .replaceAll('F', 'f')
+              .replaceAll('f', 'F+F-F-FF+F+F-F');
+          let x = 0,
+            y = 0,
+            heading = 0;
+          points.push([0, 0]);
+          for (const symbol of turtle) {
+            if (symbol === 'F') {
+              x += [1, 0, -1, 0][heading];
+              y += [0, 1, 0, -1][heading];
+              points.push([x, y]);
+            } else heading = (heading + (symbol === '+' ? 1 : 3)) % 4;
           }
         } else if (levy) {
           // The Levy C curve: step k heads in direction i^popcount(k), so some edges are
@@ -49043,6 +49066,7 @@ export function createSurfaceSampler(
     kind === 'abundantnumbers' ||
     kind === 'mobiustable' ||
     kind === 'pisanotable' ||
+    kind === 'minkowskisausage' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

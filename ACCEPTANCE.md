@@ -12471,3 +12471,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 完整suite（工具實跑，worktree `/private/tmp/xyz-ct-suite`）：`0eba5fba3`「Add XOR table material」**179檔／10,086項全數通過**（Duration 1239.88s，涵蓋levycurve、hadamardmatrix、paleytable、xortable）；`189c6d89b`「Add Mobius table material」**179檔／10,096項全數通過**（Duration 1257.49s，再涵蓋abundantnumbers、mobiustable）。**pisanotable（`a99516646`）尚未跑完整suite**，只有定向測試與gates。
 - 瀏覽器gallery（工具實跑，`189c6d89b`狀態的乾淨worktree上的vite dev server）：spawned Google Chrome headless（`--enable-unsafe-webgpu --use-angle=metal`）開啟`/examples/pbr3d/`，`#material`選單有986個選項；以`tab.run`內的`page.evaluate`逐一以`input`事件選取`levycurve`、`hadamardmatrix`、`paleytable`、`xortable`、`abundantnumbers`、`mobiustable`並輪詢讀數出現`Material <kind> `，六個全部成功；WebGPU與`?renderer=webgl2`各跑一次，結束時`tab.errors()`的`entries`皆為0筆；狀態列顯示`985 procedural material presets`。這次機器閒置，一次就成功（沒有重現先前`tab.evaluate`的30秒逾時）。
 - 限制：gallery檢查只涵蓋「能選取、讀數更新、console沒有錯誤」，**沒有**逐材質視覺比對，也沒有跨瀏覽器、跨GPU或Windows／Linux驗證；不push。
+
+## 2026-11-02 新增材質：閔考斯基香腸（minkowskisausage）
+
+- 範圍：新增`minkowskisausage`（目前目錄986→987種，含plain的gallery 988項）：深藍黑底上淡藍色細線描出第2階二次科赫島（turtle字串`F+F+F+F`，每個`F`取代為`F+F-F-FF+F+F-F`兩次；256步、256個相異格點的簡單封閉迴圈；768個亮node；線寬三分之一格；36×36格環面、外框約27×27格，偏移(7, 7)；seed沿環面平移）；與`dragoncurve`、`peanocurve`、`levycurve`共用走線sampler分支（新增`minkowski`旗標與頂點串產生）；預設0.25 m nominal tile、0.0008 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整紀錄（誠實紀錄）：階數3有2,048步、外框約107×107格，超出走線分支使用的環面大小，所以只做到階數2。relief沿用0.0008，512²maps法線tilt²最大0.0492。實作前先以獨立小程式確認階數2的步數、相異格點與外框。共用分支重構同時跑了`Levy curve as`、`Dragon curve as`、`Peano curve as`三個區塊，其逐node比對測試仍通過。
+- 實測（工具實跑，seed 0／1／0xffffffff／7，256²取樣）：亮處（color>0.5）占6.38%–6.43%、color 0.0458–0.0460至0.8331–0.8335、平均0.1113–0.1114、roughness 0.2001–0.3999、AO恆為1、height至多0.9887–0.9918 relief；四個seed的108×108 node盤面各自與測試中以區塊遞迴獨立寫出的曲線在唯一一個環面平移下完全一致（(28, 24)、(31, 33)、(30, 32)、(30, 29)，亮node皆768）；seed 0與1的node盤面9.8%不同；seed 7的512²maps平均r／g／b約(26.2, 31.2, 55.1)、法線tilt²最大約0.0492、z分量最小252。我實看了預覽（seed 7）。
+- 測試：新增5項專屬測試（257個頂點／終點等於起點／256個相異格點、四seed的node盤面與獨立曲線比對、統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Minkowski sausage as|minkowskisausage|Levy curve as|Dragon curve as|Peano curve as|kinds|catalog|distinct|periodic"`定向測試**2285項通過／3892項未選**。
+- 未驗證：pisanotable、minkowskisausage未跑完整suite與瀏覽器gallery；不push。
