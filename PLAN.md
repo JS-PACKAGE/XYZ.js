@@ -1473,6 +1473,10 @@
 
 這是作者設計的示意：數字是馬雅二十進位數字的簡化畫法（橫槓與圓點、貝殼零），不是考證過的碑文字形，也沒有馬雅長紀曆的18進位位（長紀曆中第二位只到17）；算式只在10至199範圍內選取，且上格的20位可能是0（以貝殼表示）；刻痕只是比石面暗的凹陷，沒有風化或崩缺。預設0.5 m nominal tile、0.006 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`sortingnetworks`（排序網路）使目前目錄978→979種，含plain的gallery為980項。tile的四個象限各畫一張8條導線的排序網路圖：八條水平導線（由上到下為0至7號），每個比較器是一道垂直的亮色線段，兩端各有一個圓點連到被比較的兩條導線（較小的值放到上方的導線）。每個象限由seed在兩種網路間挑選：Batcher的奇偶合併排序（19個比較器）與雙調排序（24個比較器，取全部遞增的形式）；每個比較器各佔一欄，依執行順序從左排到右。深藍色的面板上帶淡淡的顆粒與細框。Metallic與mortar為0。
+
+這是作者設計的示意：只有8條導線與兩種網路；為了避免巢狀的比較器互相重疊，每個比較器獨佔一欄（因此圖並未把同一層的比較器畫在同一欄，不是標準的分層畫法）；測試端用0-1原理驗證讀回的比較器網路確實把全部256個二進位輸入排序，但沒有證明它是比較器數目最少的網路。預設0.4 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

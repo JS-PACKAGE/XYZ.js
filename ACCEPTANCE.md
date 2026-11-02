@@ -12074,3 +12074,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 設計記錄：我第一次寫貝殼（零）的取樣式時塞進了一串互相抵消的 `* 0` 與 `radius > 0.01 ? 0 : 0` 的雜訊運算，寫完立刻發現並在註冊前整段重寫成乾淨的「橢圓環＝邊距離落在0到壁厚之間」。
 - 實測：`tests/procedural-material-motifs.test.ts`七百零一項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）× 四個象限 × 三欄：測試端以獨立的規則讀取每個數字——中心無墨且環的左緣有墨者為0，其餘由底往上檢查橫槓（在三個橫向位置都有墨），再沿該層掃描數圓點的連續段——然後必須滿足 a、b 在10至199內，且 a + b = c。突變檢查：把取樣器的 `a + b` 改成 `a + b + 1` 後九項解碼測試全部失敗，改回後全過。通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "mayansums|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`mayansums`：option 979個、status為978 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的算式。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：排序網路（sortingnetworks）
+
+- 目錄978→979，含plain的gallery為980項。每tile四個象限各一張8導線的排序網路圖，由seed在Batcher奇偶合併排序（19個比較器）與雙調排序（24個比較器，全遞增形式）間挑選，每個比較器獨佔一欄。Metallic／mortar為0，預設tile0.4 m、0.003 UV-relative relief、metallic factor 0。作者設計；仍在獨立worktree分支`materials/more-textures`作業。
+- 資料來源與驗證：奇偶合併排序的生成式與雙調排序的「全遞增形式」是憑記憶寫的，沒有對照外部資料；它們是否正確完全由測試以0-1原理驗證（見下）。
+- 真實缺陷：測試端第一版的讀取法錯了：我假設每一欄只有兩個亮點，但一條比較器的亮色線段會穿過兩端之間的導線，使中間導線在該欄的位置也是亮的，於是讀取失敗（`no comparator network could be read`）；取樣器本身沒有問題。改為「亮的導線必須從第一條連續到最後一條，比較器連接首尾兩條」後通過。
+- 實測：`tests/procedural-material-motifs.test.ts`七百零三項（本材質兩項）全過。對seed 0至11 × 四個象限，測試端從畫面讀回比較器（試19與24兩種欄數，每欄必須恰有連續亮起的導線，且線段連續），再對全部256個二進位輸入依序執行比較器，要求每個輸出由上到下遞增（0-1原理：能排序全部二進位輸入的網路能排序任意輸入）；且兩種網路都出現（19與24）。另有通道範圍、metallic／mortar 0、wrap與seed差異。突變檢查：把雙調排序第一層的鏡像配對改錯後，網路讀取失敗（測試失敗），還原後全過；但這個突變只驗證到「讀不出網路」，沒有驗證到「讀出但不能排序」的情況。`tests/procedural-material.test.ts`以`-t "sortingnetworks|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`sortingnetworks`：option 980個、status為979 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的網路圖（seed 7的四個象限剛好都是奇偶合併排序；雙調排序只由測試的其他seed讀取確認）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

@@ -8957,6 +8957,33 @@ export declare const proceduralMaterialPresets: Readonly<{
         stoneRoughness: 0.88;
         carveRoughness: 0.74;
     }>;
+    sortingnetworks: Readonly<{
+        dark: readonly [8, 12, 30];
+        light: readonly [120, 255, 200];
+        roughness: 0.42;
+        relief: 0.003;
+        wires: 8;
+        margin: 0.03;
+        wireHalf: 0.0014;
+        barHalf: 0.0022;
+        dotRadius: 0.0062;
+        frameHalf: 0.0022;
+        edgeSoft: 0.0011;
+        grainCells: 192;
+        backgroundTone: 0.06;
+        panelTone: 0.1;
+        wireTone: 0.42;
+        barTone: 0.96;
+        frameTone: 0.3;
+        grainTone: 0.03;
+        wireHeight: 0.35;
+        barHeight: 0.8;
+        panelHeight: 0.2;
+        backgroundHeight: 0.12;
+        frameHeight: 0.4;
+        barRoughness: 0.3;
+        panelRoughness: 0.75;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -15442,6 +15469,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    sortingnetworks: 0.4;
     mayansums: 0.5;
     latinsquares: 0.4;
     hanoitowers: 0.4;

@@ -15575,6 +15575,41 @@ var proceduralMaterialPresets = Object.freeze({
 		stoneRoughness: .88,
 		carveRoughness: .74
 	}),
+	sortingnetworks: Object.freeze({
+		dark: [
+			8,
+			12,
+			30
+		],
+		light: [
+			120,
+			255,
+			200
+		],
+		roughness: .42,
+		relief: .003,
+		wires: 8,
+		margin: .03,
+		wireHalf: .0014,
+		barHalf: .0022,
+		dotRadius: .0062,
+		frameHalf: .0022,
+		edgeSoft: .0011,
+		grainCells: 192,
+		backgroundTone: .06,
+		panelTone: .1,
+		wireTone: .42,
+		barTone: .96,
+		frameTone: .3,
+		grainTone: .03,
+		wireHeight: .35,
+		barHeight: .8,
+		panelHeight: .2,
+		backgroundHeight: .12,
+		frameHeight: .4,
+		barRoughness: .3,
+		panelRoughness: .75
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -24256,6 +24291,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	sortingnetworks: .4,
 	mayansums: .5,
 	latinsquares: .4,
 	hanoitowers: .4,

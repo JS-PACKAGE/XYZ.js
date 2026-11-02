@@ -11566,3 +11566,110 @@ describe('mayansums: the carved base-20 numerals add up', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('sortingnetworks: the drawn comparators really sort', () => {
+  const p = proceduralMaterialPresets.sortingnetworks;
+  const n = p.wires;
+  const side = 0.5 - 2 * p.margin;
+  const wireSpacing = side / n;
+
+  // Read the comparators of one quadrant, trying the two possible column counts (19 and 24).
+  const readNetwork = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    quadrant: number,
+  ): [number, number][] => {
+    const out = empty(),
+      bright = (x: number, y: number): boolean => {
+        sample(
+          (quadrant & 1) * 0.5 + p.margin + x,
+          (quadrant >> 1) * 0.5 + p.margin + y,
+          out,
+        );
+        return out.color > 0.8;
+      };
+    for (const columns of [19, 24]) {
+      const width = side / columns,
+        list: [number, number][] = [];
+      let valid = true;
+      for (let column = 0; column < columns && valid; column++) {
+        const x = (column + 0.5) * width,
+          lit: number[] = [];
+        for (let wire = 0; wire < n; wire++)
+          if (bright(x, (wire + 0.5) * wireSpacing)) lit.push(wire);
+        // The bar crosses the wires between its two dots, so every wire from the first lit one to
+        // the last lit one is bright and the comparator joins those two.
+        valid =
+          lit.length >= 2 && lit.length === lit[lit.length - 1] - lit[0] + 1;
+        if (valid) {
+          for (
+            let y = (lit[0] + 0.5) * wireSpacing;
+            y <= (lit[lit.length - 1] + 0.5) * wireSpacing && valid;
+            y += 0.002
+          )
+            valid = bright(x, y);
+          list.push([lit[0], lit[lit.length - 1]]);
+        }
+      }
+      if (valid) return list;
+    }
+    throw new Error('no comparator network could be read');
+  };
+
+  it('sorts every 0-1 input into ascending order down the wires, using 19 or 24 comparators', () => {
+    const sizes = new Set<number>();
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]) {
+      const sample = createSurfaceSampler('sortingnetworks', seed);
+      for (let quadrant = 0; quadrant < 4; quadrant++) {
+        const network = readNetwork(sample, quadrant);
+        sizes.add(network.length);
+        // By the 0-1 principle a network sorts all inputs if it sorts every binary input.
+        for (let input = 0; input < 2 ** n; input++) {
+          const values = Array.from({ length: n }, (_, i) => (input >> i) & 1);
+          for (const [a, b] of network)
+            if (values[a] > values[b])
+              [values[a], values[b]] = [values[b], values[a]];
+          for (let i = 1; i < n; i++)
+            expect(values[i]).toBeGreaterThanOrEqual(values[i - 1]);
+        }
+      }
+    }
+    // Both families occur among these seeds.
+    expect([...sizes].sort()).toEqual([19, 24]);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('sortingnetworks', 0),
+      b = createSurfaceSampler('sortingnetworks', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

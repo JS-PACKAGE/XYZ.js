@@ -24560,6 +24560,112 @@ export function createSurfaceSampler(
           occlusion = clamp(1 - 0.25 * mark);
         };
       }
+      case 'sortingnetworks': {
+        const p = proceduralMaterialPresets.sortingnetworks,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x29d01),
+          n = p.wires,
+          side = 0.5 - 2 * p.margin,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // Batcher's odd-even merge sort: comparators (i, j) with i < j put the smaller value on wire i.
+          oddEven = (): [number, number][] => {
+            const list: [number, number][] = [];
+            for (let size = 1; size < n; size *= 2)
+              for (let k = size; k >= 1; k = Math.floor(k / 2))
+                for (let j = k % size; j <= n - 1 - k; j += 2 * k)
+                  for (let i = 0; i <= Math.min(k - 1, n - j - k - 1); i++)
+                    if (
+                      Math.floor((i + j) / (2 * size)) ===
+                      Math.floor((i + j + k) / (2 * size))
+                    )
+                      list.push([i + j, i + j + k]);
+            return list;
+          },
+          // The bitonic sorter in its all-ascending form: each merge first compares mirrored wires of a
+          // block, then runs half-cleaners at distances k/4 down to 1.
+          bitonic = (): [number, number][] => {
+            const list: [number, number][] = [];
+            for (let k = 2; k <= n; k *= 2) {
+              for (let i = 0; i < n; i++) {
+                const r = i % k;
+                if (r < k / 2) list.push([i, i - r + (k - 1 - r)]);
+              }
+              for (let j = k / 4; j >= 1; j /= 2)
+                for (let i = 0; i < n; i++)
+                  if ((i & j) === 0 && i % k < k - j) list.push([i, i + j]);
+            }
+            return list;
+          },
+          networks = [0, 1, 2, 3].map((quadrant) =>
+            hash(quadrant, 9, seed ^ 0x29d03) < 0.5 ? oddEven() : bitonic(),
+          );
+        return () => {
+          const quadrant = (u >= 0.5 ? 1 : 0) + (v >= 0.5 ? 2 : 0),
+            lx = u - (quadrant & 1) * 0.5 - p.margin,
+            ly = v - (quadrant >> 1) * 0.5 - p.margin;
+          let tone: number = p.backgroundTone,
+            level: number = p.backgroundHeight,
+            rough: number = p.panelRoughness;
+          if (
+            lx >= -p.frameHalf &&
+            lx <= side + p.frameHalf &&
+            ly >= -p.frameHalf &&
+            ly <= side + p.frameHalf
+          ) {
+            const frame = cover(
+              p.frameHalf -
+                Math.min(
+                  Math.min(Math.abs(lx), Math.abs(lx - side)),
+                  Math.min(Math.abs(ly), Math.abs(ly - side)),
+                ),
+            );
+            tone = p.panelTone;
+            level = p.panelHeight;
+            if (lx >= 0 && lx < side && ly >= 0 && ly < side) {
+              const list = networks[quadrant],
+                columns = list.length,
+                columnWidth = side / columns,
+                wireSpacing = side / n,
+                column = Math.min(columns - 1, Math.floor(lx / columnWidth)),
+                x = (column + 0.5) * columnWidth,
+                wire = Math.min(
+                  n - 1,
+                  Math.max(0, Math.round(ly / wireSpacing - 0.5)),
+                ),
+                wireY = (wire + 0.5) * wireSpacing,
+                [low, high] = list[column],
+                top = (low + 0.5) * wireSpacing,
+                bottom = (high + 0.5) * wireSpacing,
+                wireCover = cover(p.wireHalf - Math.abs(ly - wireY)),
+                bar = Math.min(
+                  cover(p.barHalf - Math.abs(lx - x)),
+                  cover(ly - top + p.barHalf),
+                  cover(bottom - ly + p.barHalf),
+                ),
+                dot = Math.max(
+                  cover(p.dotRadius - Math.hypot(lx - x, ly - top)),
+                  cover(p.dotRadius - Math.hypot(lx - x, ly - bottom)),
+                ),
+                mark = Math.max(bar, dot);
+              tone += (p.wireTone - tone) * wireCover;
+              level += (p.wireHeight - level) * wireCover;
+              tone += (p.barTone - tone) * mark;
+              level += (p.barHeight - level) * mark;
+              rough =
+                p.panelRoughness +
+                (p.barRoughness - p.panelRoughness) *
+                  Math.max(mark, wireCover * 0.5);
+            }
+            tone += (p.frameTone - tone) * frame;
+            level += (p.frameHeight - level) * frame;
+          }
+          color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(level);
+          roughness = rough;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -52089,6 +52195,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'sortingnetworks' ||
     kind === 'mayansums' ||
     kind === 'latinsquares' ||
     kind === 'hanoitowers' ||
