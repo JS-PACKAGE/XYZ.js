@@ -23407,6 +23407,48 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: .15,
 		threadRoughness: -.1
 	}),
+	ammannfilled: Object.freeze({
+		dark: [
+			10,
+			30,
+			34
+		],
+		light: [
+			255,
+			210,
+			120
+		],
+		roughness: .4,
+		relief: 7e-4,
+		seedSalt: 44017,
+		roots: 8,
+		offsets: [
+			.13,
+			-.31,
+			.22,
+			-.04
+		],
+		fills: [
+			.12,
+			.24,
+			.12
+		],
+		fillRim: .15,
+		fillHeight: .05,
+		period: 16,
+		patchRadius: 6.2,
+		gridRange: 6,
+		rotationSteps: 8,
+		threadRadius: .09,
+		gain: 1.6,
+		grainCells: 128,
+		baseTone: .06,
+		threadTone: .7,
+		grainTone: .03,
+		threadHeight: .8,
+		grainHeight: .15,
+		threadRoughness: -.1
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -24900,7 +24942,8 @@ var proceduralTileMeters = Object.freeze({
 	ammannbeenker: .5,
 	heptagridtiling: .5,
 	dodecagridtiling: .5,
-	penrosefilled: .5
+	penrosefilled: .5,
+	ammannfilled: .5
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

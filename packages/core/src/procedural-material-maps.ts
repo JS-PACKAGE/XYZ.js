@@ -41305,19 +41305,22 @@ export function createSurfaceSampler(
       case 'ammannbeenker':
       case 'heptagridtiling':
       case 'dodecagridtiling':
-      case 'penrosefilled': {
+      case 'penrosefilled':
+      case 'ammannfilled': {
         const p =
-            kind === 'penrosefilled'
-              ? proceduralMaterialPresets.penrosefilled
-              : kind === 'dodecagridtiling'
-                ? proceduralMaterialPresets.dodecagridtiling
-                : kind === 'heptagridtiling'
-                  ? proceduralMaterialPresets.heptagridtiling
-                  : kind === 'ammannbeenker'
-                    ? proceduralMaterialPresets.ammannbeenker
-                    : kind === 'penrosestar'
-                      ? proceduralMaterialPresets.penrosestar
-                      : proceduralMaterialPresets.penrosetiling,
+            kind === 'ammannfilled'
+              ? proceduralMaterialPresets.ammannfilled
+              : kind === 'penrosefilled'
+                ? proceduralMaterialPresets.penrosefilled
+                : kind === 'dodecagridtiling'
+                  ? proceduralMaterialPresets.dodecagridtiling
+                  : kind === 'heptagridtiling'
+                    ? proceduralMaterialPresets.heptagridtiling
+                    : kind === 'ammannbeenker'
+                      ? proceduralMaterialPresets.ammannbeenker
+                      : kind === 'penrosestar'
+                        ? proceduralMaterialPresets.penrosestar
+                        : proceduralMaterialPresets.penrosetiling,
           grids = p.offsets.length,
           grainField = cachedNoise(
             p.grainCells,
@@ -49325,6 +49328,7 @@ export function createSurfaceSampler(
     kind === 'heptagridtiling' ||
     kind === 'dodecagridtiling' ||
     kind === 'penrosefilled' ||
+    kind === 'ammannfilled' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
