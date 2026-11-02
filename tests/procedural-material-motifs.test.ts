@@ -25469,3 +25469,175 @@ describe('pythagoreantriples: primitive Pythagorean triples from Euclid formula'
     expect(different).toBeGreaterThan(0);
   });
 });
+
+describe('figuratenumbers: dot patterns of figurate numbers', () => {
+  const p = proceduralMaterialPresets.figuratenumbers;
+  const counts: Record<string, number[]> = {
+    triangular: [1, 2, 3, 4, 5].map((n) => (n * (n + 1)) / 2),
+    square: [1, 2, 3, 4, 5].map((n) => n * n),
+    oblong: [1, 2, 3, 4, 5].map((n) => n * (n + 1)),
+    centredSquare: [1, 2, 3, 4, 5].map((n) => 2 * n * n - 2 * n + 1),
+  };
+  // Width and height of the figure in dot pitches (triangular rows are sqrt(3) / 2 of a pitch apart).
+  const extents = (kind: string, n: number): [number, number] =>
+    kind === 'triangular'
+      ? [n - 1, ((n - 1) * Math.sqrt(3)) / 2]
+      : kind === 'square'
+        ? [n - 1, n - 1]
+        : kind === 'oblong'
+          ? [n, n - 1]
+          : [2 * n - 2, 2 * n - 2];
+
+  // Counts the dots of one cell: connected groups of dark samples (4-neighbours) on a fine grid, with their bounding box.
+  const readCell = (
+    seed: number,
+    column: number,
+    row: number,
+  ): { count: number; box: number[] } => {
+    const sample = createSurfaceSampler('figuratenumbers', seed),
+      out = empty(),
+      step = 0.002,
+      width = Math.round(1 / p.columns / step),
+      height = Math.round(1 / p.rows / step),
+      dark = new Uint8Array(width * height);
+    let minX = width,
+      maxX = -1,
+      minY = height,
+      maxY = -1;
+    for (let y = 0; y < height; y++)
+      for (let x = 0; x < width; x++) {
+        sample(
+          column / p.columns + (x + 0.5) * step,
+          row / p.rows + (y + 0.5) * step,
+          out,
+        );
+        if (out.color < 0.5) {
+          dark[y * width + x] = 1;
+          minX = Math.min(minX, x);
+          maxX = Math.max(maxX, x);
+          minY = Math.min(minY, y);
+          maxY = Math.max(maxY, y);
+        }
+      }
+    let count = 0;
+    const stack: number[] = [];
+    for (let start = 0; start < dark.length; start++) {
+      if (dark[start] !== 1) continue;
+      count++;
+      dark[start] = 2;
+      stack.push(start);
+      while (stack.length > 0) {
+        const at = stack.pop() as number,
+          x = at % width,
+          y = Math.floor(at / width);
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const nx = x + dx,
+            ny = y + dy;
+          if (
+            nx >= 0 &&
+            nx < width &&
+            ny >= 0 &&
+            ny < height &&
+            dark[ny * width + nx] === 1
+          ) {
+            dark[ny * width + nx] = 2;
+            stack.push(ny * width + nx);
+          }
+        }
+      }
+    }
+    return {
+      count,
+      box: [
+        (maxX - minX + 1) * step,
+        (maxY - minY + 1) * step,
+        ((minX + maxX + 1) / 2) * step,
+        ((minY + maxY + 1) / 2) * step,
+      ],
+    };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows triangular, square, oblong and centred square numbers 1 to 5 with the right number of dots (seed %i)',
+    (seed) => {
+      const kinds: string[] = [];
+      for (let row = 0; row < p.rows; row++) {
+        const cells = Array.from({ length: p.columns }, (_, column) =>
+            readCell(seed, column, row),
+          ),
+          kind = Object.keys(counts).find((name) =>
+            counts[name].every(
+              (count, column) => cells[column].count === count,
+            ),
+          );
+        expect(kind).toBeDefined();
+        kinds.push(kind as string);
+        cells.forEach(({ box }, column) => {
+          const [wide, high] = extents(kind as string, column + 1);
+          // The bounding box is the figure's extent plus one dot diameter, and is centred in its cell.
+          expect(box[0]).toBeCloseTo(wide * p.pitch + 2 * p.dotRadius, 2);
+          expect(box[1]).toBeCloseTo(high * p.pitch + 2 * p.dotRadius, 2);
+          expect(box[2]).toBeCloseTo(1 / p.columns / 2, 2);
+          expect(box[3]).toBeCloseTo(1 / p.rows / 2, 2);
+        });
+      }
+      // Each kind appears in exactly one row.
+      expect(new Set(kinds).size).toBe(4);
+    },
+  );
+
+  it('puts the four kinds in different row orders for different seeds', () => {
+    const orders = new Set<string>();
+    for (let seed = 0; seed < 40; seed++) {
+      // The count of the second figure of each row (3, 4, 6 or 5) tells which kind the row shows.
+      const key = Array.from(
+        { length: p.rows },
+        (_, row) => readCell(seed, 1, row).count,
+      ).join(',');
+      orders.add(key);
+      expect(new Set(key.split(',')).size).toBe(4);
+    }
+    expect(orders.size).toBeGreaterThan(12);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('figuratenumbers', 0),
+      b = createSurfaceSampler('figuratenumbers', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(0);
+  });
+});

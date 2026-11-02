@@ -35304,6 +35304,92 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'figuratenumbers': {
+        const p = proceduralMaterialPresets.figuratenumbers,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x30101),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          rowHeight = p.pitch * Math.sqrt(0.75),
+          cellWidth = 1 / p.columns,
+          cellHeight = 1 / p.rows,
+          // The seed shuffles which kind of figurate number goes in which row (Fisher-Yates):
+          // 0 triangular, 1 square, 2 oblong (n by n + 1), 3 centred square (a diamond of 2n - 1 dots across).
+          order = [0, 1, 2, 3];
+        for (let i = order.length - 1; i > 0; i--) {
+          const j = Math.floor(hash(i, 5, seed ^ 0x30102) * (i + 1)),
+            swap = order[i];
+          order[i] = order[j];
+          order[j] = swap;
+        }
+        // Distance from (x, y), measured from the middle of a figure with n dots along its side, to the nearest dot of it.
+        const nearest = (
+          kind: number,
+          n: number,
+          x: number,
+          y: number,
+        ): number => {
+          if (kind === 0) {
+            const line = Math.max(
+                0,
+                Math.min(n - 1, Math.round(y / rowHeight + (n - 1) / 2)),
+              ),
+              index = Math.max(
+                0,
+                Math.min(line, Math.round(x / p.pitch + line / 2)),
+              );
+            return Math.hypot(
+              x - (index - line / 2) * p.pitch,
+              y - (line - (n - 1) / 2) * rowHeight,
+            );
+          }
+          if (kind === 3) {
+            const i = Math.round(x / p.pitch),
+              j = Math.round(y / p.pitch);
+            return Math.abs(i) + Math.abs(j) > n - 1
+              ? Infinity
+              : Math.hypot(x - i * p.pitch, y - j * p.pitch);
+          }
+          const across = kind === 1 ? n : n + 1,
+            i = Math.max(
+              0,
+              Math.min(across - 1, Math.round(x / p.pitch + (across - 1) / 2)),
+            ),
+            j = Math.max(
+              0,
+              Math.min(n - 1, Math.round(y / p.pitch + (n - 1) / 2)),
+            );
+          return Math.hypot(
+            x - (i - (across - 1) / 2) * p.pitch,
+            y - (j - (n - 1) / 2) * p.pitch,
+          );
+        };
+        return () => {
+          const column = Math.min(p.columns - 1, Math.floor(u * p.columns)),
+            row = Math.min(p.rows - 1, Math.floor(v * p.rows)),
+            dot = cover(
+              p.dotRadius -
+                nearest(
+                  order[row],
+                  column + 1,
+                  u - (column + 0.5) * cellWidth,
+                  v - (row + 0.5) * cellHeight,
+                ),
+            ),
+            band = row % 2,
+            tone = p.paperTone + (p.bandTone - p.paperTone) * band,
+            level = p.paperHeight + (p.bandHeight - p.paperHeight) * band;
+          color = clamp(
+            tone +
+              (p.inkTone - tone) * dot +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level + (p.dotHeight - level) * dot);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * dot;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -62833,6 +62919,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'figuratenumbers' ||
     kind === 'pythagoreantriples' ||
     kind === 'hexdumprows' ||
     kind === 'pairingtables' ||
