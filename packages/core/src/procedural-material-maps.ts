@@ -36001,6 +36001,138 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'periodictablecells': {
+        const p = proceduralMaterialPresets.periodictablecells,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x30a01),
+          font: Record<string, string> = {
+            '0': '111101101101111',
+            '1': '010110010010111',
+            '2': '111001111100111',
+            '3': '111001111001111',
+            '4': '101101111001001',
+            '5': '111100111001111',
+            '6': '111100111101111',
+            '7': '111001010010010',
+            '8': '111101111101111',
+            '9': '111101111001111',
+            A: '010101111101101',
+            B: '110101110101110',
+            C: '011100100100011',
+            D: '110101101101110',
+            E: '111100110100111',
+            F: '111100110100100',
+            G: '011100101101011',
+            H: '101101111101101',
+            I: '111010010010111',
+            K: '101101110101101',
+            L: '100100100100111',
+            M: '101111111101101',
+            N: '110101101101101',
+            O: '010101101101010',
+            P: '110101110100100',
+            R: '110101110101101',
+            S: '011100010001110',
+            T: '111010010010010',
+            U: '101101101101111',
+            V: '101101101101010',
+            Z: '111001010100111',
+          },
+          // Symbols of elements 1 to 36 in capitals, and the row and column (0 to 17) of each.
+          symbols =
+            'H HE LI BE B C N O F NE NA MG AL SI P S CL AR K CA SC TI V CR MN FE CO NI CU ZN GA GE AS SE BR KR'.split(
+              ' ',
+            ),
+          placement = (z: number): number[] => {
+            if (z <= 2) return [0, z === 1 ? 0 : 17];
+            if (z <= 10) return [1, z <= 4 ? z - 3 : z + 7];
+            if (z <= 18) return [2, z <= 12 ? z - 11 : z - 1];
+            return [3, z - 19];
+          },
+          nonmetals = new Set([
+            1, 2, 6, 7, 8, 9, 10, 15, 16, 17, 18, 34, 35, 36,
+          ]),
+          metalloids = new Set([5, 14, 32, 33]),
+          gases = new Set([1, 2, 7, 8, 9, 10, 17, 18, 36]),
+          scheme = Math.floor(hash(11, 1, seed ^ 0x30a02) * 3),
+          // Which of the three tones (0 lightest) an element gets.
+          group = (z: number, column: number): number => {
+            if (scheme === 0) return column < 2 ? 0 : column < 12 ? 1 : 2;
+            if (scheme === 1)
+              return nonmetals.has(z) ? 2 : metalloids.has(z) ? 1 : 0;
+            return gases.has(z) ? 2 : z === 35 ? 1 : 0;
+          },
+          grid = Array.from({ length: p.rows * p.columns }, () => 0),
+          cellWidth = 1 / p.columns;
+        for (let z = 1; z <= 36; z++) {
+          const [row, column] = placement(z);
+          grid[row * p.columns + column] = z;
+        }
+        const onText = (
+          text: string,
+          dx: number,
+          dy: number,
+          pixel: number,
+        ): boolean => {
+          const px = Math.floor((dx + (2 * text.length - 0.5) * pixel) / pixel),
+            d = px >= 0 ? Math.floor(px / 4) : -1,
+            gx = px - 4 * d,
+            py = Math.floor(dy / pixel + 2.5);
+          return (
+            d >= 0 &&
+            d < text.length &&
+            gx >= 0 &&
+            gx < 3 &&
+            py >= 0 &&
+            py < 5 &&
+            font[text[d]][py * 3 + gx] === '1'
+          );
+        };
+        return () => {
+          const column = Math.min(p.columns - 1, Math.floor(u / cellWidth)),
+            row = Math.floor((v - p.top) / p.rowPitch),
+            z = row >= 0 && row < p.rows ? grid[row * p.columns + column] : 0;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            ink = 0;
+          if (z > 0) {
+            const centreX = (column + 0.5) * cellWidth,
+              centreY = p.top + (row + 0.5) * p.rowPitch,
+              kind = group(z, column);
+            if (
+              Math.abs(u - centreX) < cellWidth / 2 - p.cellInset &&
+              Math.abs(v - centreY) < p.rowPitch / 2 - p.cellInset
+            ) {
+              tone = [p.firstTone, p.secondTone, p.thirdTone][kind];
+              level = [p.firstHeight, p.secondHeight, p.thirdHeight][kind];
+            }
+            // The symbol sits low in the cell and the atomic number above it.
+            if (
+              onText(
+                symbols[z - 1],
+                u - centreX,
+                v - centreY - p.symbolShift,
+                p.symbolPixel,
+              ) ||
+              onText(
+                String(z),
+                u - centreX,
+                v - centreY - p.numberShift,
+                p.numberPixel,
+              )
+            )
+              ink = 1;
+          }
+          color = clamp(
+            tone +
+              (p.inkTone - tone) * ink +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * ink);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -63530,6 +63662,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'periodictablecells' ||
     kind === 'josephuscircle' ||
     kind === 'gaussianprimes' ||
     kind === 'timestablecircles' ||

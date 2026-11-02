@@ -26686,3 +26686,247 @@ describe('josephuscircle: the order of elimination round a circle', () => {
     expect(different).toBeGreaterThan(0);
   });
 });
+
+describe('periodictablecells: elements 1 to 36 in the periodic table layout', () => {
+  const p = proceduralMaterialPresets.periodictablecells;
+  const shapes: Record<string, string[]> = {
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    '2': ['###', '..#', '###', '#..', '###'],
+    '3': ['###', '..#', '###', '..#', '###'],
+    '4': ['#.#', '#.#', '###', '..#', '..#'],
+    '5': ['###', '#..', '###', '..#', '###'],
+    '6': ['###', '#..', '###', '#.#', '###'],
+    '7': ['###', '..#', '.#.', '.#.', '.#.'],
+    '8': ['###', '#.#', '###', '#.#', '###'],
+    '9': ['###', '#.#', '###', '..#', '###'],
+    A: ['.#.', '#.#', '###', '#.#', '#.#'],
+    B: ['##.', '#.#', '##.', '#.#', '##.'],
+    C: ['.##', '#..', '#..', '#..', '.##'],
+    D: ['##.', '#.#', '#.#', '#.#', '##.'],
+    E: ['###', '#..', '##.', '#..', '###'],
+    F: ['###', '#..', '##.', '#..', '#..'],
+    G: ['.##', '#..', '#.#', '#.#', '.##'],
+    H: ['#.#', '#.#', '###', '#.#', '#.#'],
+    I: ['###', '.#.', '.#.', '.#.', '###'],
+    K: ['#.#', '#.#', '##.', '#.#', '#.#'],
+    L: ['#..', '#..', '#..', '#..', '###'],
+    M: ['#.#', '###', '###', '#.#', '#.#'],
+    N: ['##.', '#.#', '#.#', '#.#', '#.#'],
+    O: ['.#.', '#.#', '#.#', '#.#', '.#.'],
+    P: ['##.', '#.#', '##.', '#..', '#..'],
+    R: ['##.', '#.#', '##.', '#.#', '#.#'],
+    S: ['.##', '#..', '.#.', '..#', '##.'],
+    T: ['###', '.#.', '.#.', '.#.', '.#.'],
+    U: ['#.#', '#.#', '#.#', '#.#', '###'],
+    V: ['#.#', '#.#', '#.#', '#.#', '.#.'],
+    Z: ['###', '..#', '.#.', '#..', '###'],
+  };
+  // Element, symbol (capitals), group (column 1 to 18) and period (row 1 to 4), written out one by one from the table.
+  const elements: [string, number, number][] = [
+    ['H', 1, 1],
+    ['HE', 18, 1],
+    ['LI', 1, 2],
+    ['BE', 2, 2],
+    ['B', 13, 2],
+    ['C', 14, 2],
+    ['N', 15, 2],
+    ['O', 16, 2],
+    ['F', 17, 2],
+    ['NE', 18, 2],
+    ['NA', 1, 3],
+    ['MG', 2, 3],
+    ['AL', 13, 3],
+    ['SI', 14, 3],
+    ['P', 15, 3],
+    ['S', 16, 3],
+    ['CL', 17, 3],
+    ['AR', 18, 3],
+    ['K', 1, 4],
+    ['CA', 2, 4],
+    ['SC', 3, 4],
+    ['TI', 4, 4],
+    ['V', 5, 4],
+    ['CR', 6, 4],
+    ['MN', 7, 4],
+    ['FE', 8, 4],
+    ['CO', 9, 4],
+    ['NI', 10, 4],
+    ['CU', 11, 4],
+    ['ZN', 12, 4],
+    ['GA', 13, 4],
+    ['GE', 14, 4],
+    ['AS', 15, 4],
+    ['SE', 16, 4],
+    ['BR', 17, 4],
+    ['KR', 18, 4],
+  ];
+  // Written out as element numbers: nonmetals, metalloids, gases and the one liquid.
+  const nonmetals = [1, 2, 6, 7, 8, 9, 10, 15, 16, 17, 18, 34, 35, 36],
+    metalloids = [5, 14, 32, 33],
+    gases = [1, 2, 7, 8, 9, 10, 17, 18, 36];
+  const cellWidth = 1 / p.columns;
+
+  const sampleAt = (seed: number) => {
+    const sample = createSurfaceSampler('periodictablecells', seed),
+      out = empty();
+    return (u: number, v: number): number => {
+      sample(u, v, out);
+      return out.color;
+    };
+  };
+  const centre = (group: number, period: number): [number, number] => [
+    (group - 0.5) * cellWidth,
+    p.top + (period - 0.5) * p.rowPitch,
+  ];
+  const readText = (
+    colorAt: (u: number, v: number) => number,
+    text: string,
+    cx: number,
+    cy: number,
+    pixel: number,
+  ): string => {
+    let result = '';
+    for (let d = 0; d < text.length; d++) {
+      const lines = [0, 1, 2, 3, 4].map((k) =>
+        [0, 1, 2]
+          .map((x) =>
+            colorAt(
+              cx - (2 * text.length - 0.5) * pixel + (4 * d + x + 0.5) * pixel,
+              cy + (k - 2) * pixel,
+            ) < 0.3
+              ? '#'
+              : '.',
+          )
+          .join(''),
+      );
+      const found = Object.entries(shapes).find(([, shape]) =>
+        shape.every((line, i) => line === lines[i]),
+      );
+      result += found ? found[0] : '?';
+    }
+    return result;
+  };
+  // The tone class (0 lightest) of the background at the lower-left corner of a cell, away from the glyphs.
+  const toneClass = (
+    colorAt: (u: number, v: number) => number,
+    group: number,
+    period: number,
+  ): number => {
+    const [cx, cy] = centre(group, period),
+      tone = colorAt(cx - cellWidth / 2 + 0.006, cy + p.rowPitch / 2 - 0.006);
+    return tone > 0.86 ? 0 : tone > 0.76 ? 1 : 2;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'writes the symbol and atomic number of every element in its place (seed %i)',
+    (seed) => {
+      const colorAt = sampleAt(seed);
+      elements.forEach(([symbol, group, period], index) => {
+        const [cx, cy] = centre(group, period);
+        // Symbol low in the cell and the atomic number above it, each centred on the cell.
+        expect(
+          readText(colorAt, symbol, cx, cy + p.symbolShift, p.symbolPixel),
+        ).toBe(symbol);
+        expect(
+          readText(
+            colorAt,
+            String(index + 1),
+            cx,
+            cy + p.numberShift,
+            p.numberPixel,
+          ),
+        ).toBe(String(index + 1));
+      });
+      // The cells that no element of the first four periods fills are empty paper.
+      for (const [group, period] of [
+        [5, 1],
+        [10, 2],
+        [3, 3],
+        [12, 1],
+      ]) {
+        const [cx, cy] = centre(group, period);
+        expect(colorAt(cx, cy)).toBeGreaterThan(0.85);
+      }
+    },
+  );
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shades the cells by block, by kind or by state, the same way for all 36 elements (seed %i)',
+    (seed) => {
+      const colorAt = sampleAt(seed),
+        classes = elements.map(([, group, period]) =>
+          toneClass(colorAt, group, period),
+        ),
+        expected = [
+          // By block of the column: groups 1-2, 3-12 and 13-18.
+          elements.map(([, group]) => (group < 3 ? 0 : group < 13 ? 1 : 2)),
+          // By kind: metals, metalloids, nonmetals.
+          elements.map((_, i) =>
+            nonmetals.includes(i + 1) ? 2 : metalloids.includes(i + 1) ? 1 : 0,
+          ),
+          // By state at 25 degrees Celsius: solids, the liquid bromine, gases.
+          elements.map((_, i) =>
+            gases.includes(i + 1) ? 2 : i + 1 === 35 ? 1 : 0,
+          ),
+        ];
+      expect(
+        expected.filter((scheme) =>
+          scheme.every((value, i) => value === classes[i]),
+        ),
+      ).toHaveLength(1);
+    },
+  );
+
+  it('uses all three ways of shading across seeds', () => {
+    const used = new Set<string>();
+    for (let seed = 0; seed < 30; seed++) {
+      const colorAt = sampleAt(seed);
+      // Helium, carbon (nonmetal and p block), iron (metal, d block, solid) tell the three schemes apart.
+      used.add(
+        [2, 6, 26]
+          .map((z) =>
+            toneClass(colorAt, elements[z - 1][1], elements[z - 1][2]),
+          )
+          .join(''),
+      );
+    }
+    expect(used.size).toBe(3);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('periodictablecells', 0),
+      b = createSurfaceSampler('periodictablecells', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(0);
+  });
+});
