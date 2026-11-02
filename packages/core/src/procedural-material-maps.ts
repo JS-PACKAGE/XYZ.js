@@ -36828,6 +36828,53 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'thuemorsegrid': {
+        const p = proceduralMaterialPresets.thuemorsegrid,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x31301),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          size =
+            p.sizes[Math.floor(hash(3, 1, seed ^ 0x31302) * p.sizes.length)],
+          offset = Math.floor(hash(5, 2, seed ^ 0x31303) * p.offsets),
+          byColumns = hash(7, 3, seed ^ 0x31304) < 0.5,
+          cellSize = 1 / size,
+          dark = new Uint8Array(size * size);
+        for (let k = 0; k < size * size; k++) {
+          let rest = k + offset,
+            parity = 0;
+          while (rest > 0) {
+            parity ^= rest & 1;
+            rest >>= 1;
+          }
+          dark[k] = parity;
+        }
+        return () => {
+          const x = (u - Math.floor(u)) * size,
+            y = (v - Math.floor(v)) * size,
+            column = Math.min(size - 1, Math.floor(x)),
+            row = Math.min(size - 1, Math.floor(y)),
+            edge = Math.min(x - column, column + 1 - x, y - row, row + 1 - y),
+            face = cover((edge - p.groove) * cellSize),
+            isDark =
+              dark[byColumns ? column * size + row : row * size + column] === 1,
+            tone = isDark ? p.darkTone : p.lightTone;
+          color = clamp(
+            p.groutTone +
+              (tone - p.groutTone) * face +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.groutHeight +
+              ((isDark ? p.darkHeight : p.lightHeight) - p.groutHeight) * face,
+          );
+          roughness =
+            p.groutRoughness +
+            ((isDark ? p.darkRoughness : p.lightRoughness) - p.groutRoughness) *
+              face;
+          occlusion = clamp(0.8 + 0.2 * face);
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -64357,6 +64404,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'thuemorsegrid' ||
     kind === 'recamanarcs' ||
     kind === 'happynumberchains' ||
     kind === 'lookandsayrows' ||

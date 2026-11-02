@@ -27958,3 +27958,154 @@ describe('recamanarcs: the Recaman sequence as arcs', () => {
     expect(different).toBeGreaterThan(0);
   });
 });
+
+describe('thuemorsegrid: cells coloured by the Thue-Morse sequence', () => {
+  const p = proceduralMaterialPresets.thuemorsegrid;
+  // Thue-Morse by the textbook doubling rule (t(2k) = t(k), t(2k + 1) = 1 - t(k)), independent of the sampler's bit loop.
+  const thueMorse = (length: number): number[] => {
+    const t = [0];
+    for (let k = 1; k < length; k++)
+      t.push(k % 2 === 0 ? t[k / 2] : 1 - t[(k - 1) / 2]);
+    return t;
+  };
+  const sequence = thueMorse(32 * 32 + p.offsets);
+
+  const readGrid = (seed: number, size: number): number[][] => {
+    const sample = createSurfaceSampler('thuemorsegrid', seed),
+      out = empty();
+    return Array.from({ length: size }, (_, row) =>
+      Array.from({ length: size }, (_, column) => {
+        sample((column + 0.5) / size, (row + 0.5) / size, out);
+        return out.color < 0.5 ? 1 : 0;
+      }),
+    );
+  };
+  // All (offset, numbering) pairs for which the picture is the Thue-Morse sequence at that size.
+  const matches = (
+    seed: number,
+    size: number,
+  ): { offset: number; byColumns: boolean }[] => {
+    const grid = readGrid(seed, size),
+      found: { offset: number; byColumns: boolean }[] = [];
+    for (let offset = 0; offset < p.offsets; offset++)
+      for (const byColumns of [false, true])
+        if (
+          grid.every((line, row) =>
+            line.every(
+              (bit, column) =>
+                bit ===
+                sequence[
+                  offset +
+                    (byColumns ? column * size + row : row * size + column)
+                ],
+            ),
+          )
+        )
+          found.push({ offset, byColumns });
+    return found;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'colours cells with the Thue-Morse sequence at exactly one size (seed %i)',
+    (seed) => {
+      const sizes = p.sizes.filter((size) => matches(seed, size).length > 0);
+      expect(sizes).toHaveLength(1);
+      const size = sizes[0],
+        [match] = matches(seed, size),
+        grid = readGrid(seed, size),
+        order: number[] = [];
+      for (let k = 0; k < size * size; k++)
+        order.push(
+          match.byColumns
+            ? grid[k % size][Math.floor(k / size)]
+            : grid[Math.floor(k / size)][k % size],
+        );
+      // The Thue-Morse sequence has no three equal bits in a row, and the two members of every pair (2j, 2j + 1) differ.
+      expect(order.join('')).not.toMatch(/000|111/);
+      for (let k = 0; k + 1 < order.length; k++)
+        if ((match.offset + k) % 2 === 0)
+          expect(order[k]).not.toBe(order[k + 1]);
+    },
+  );
+
+  it('draws grooves between cells and the cell colours match their height', () => {
+    const sample = createSurfaceSampler('thuemorsegrid', 7),
+      out = empty(),
+      size = p.sizes.find(
+        (candidate) => matches(7, candidate).length > 0,
+      ) as number,
+      grid = readGrid(7, size);
+    for (let row = 0; row < size; row++)
+      for (let column = 0; column < size; column++) {
+        sample((column + 0.5) / size, (row + 0.5) / size, out);
+        const faceHeight = out.height;
+        // The line between this cell and the next one to the right is grout: lower than the cell and mid-toned.
+        sample((column + 1) / size, (row + 0.5) / size, out);
+        expect(out.height).toBeLessThan(faceHeight);
+        expect(out.color).toBeGreaterThan(0.3);
+        expect(out.color).toBeLessThan(0.6);
+        // 0.02 of a cell into the next cell is still inside the groove (it is 0.06 of a cell wide), 0.1 of a cell is already its face.
+        sample((column + 1.02) / size, (row + 0.5) / size, out);
+        expect(out.color).toBeGreaterThan(0.3);
+        expect(out.color).toBeLessThan(0.6);
+        sample((column + 1.1) / size, (row + 0.5) / size, out);
+        expect(out.color < 0.25 || out.color > 0.75).toBe(true);
+        sample((column + 0.5) / size, (row + 0.5) / size, out);
+        expect(out.color < 0.5).toBe(grid[row][column] === 1);
+      }
+  });
+
+  it('uses every size, both numberings and many offsets across seeds', () => {
+    const sizes = new Set<number>(),
+      numberings = new Set<boolean>(),
+      offsets = new Set<number>();
+    for (let seed = 0; seed < 60; seed++) {
+      const size = p.sizes.find(
+          (candidate) => matches(seed, candidate).length > 0,
+        ) as number,
+        [match] = matches(seed, size);
+      sizes.add(size);
+      numberings.add(match.byColumns);
+      offsets.add(match.offset);
+    }
+    expect([...sizes].sort((a, b) => a - b)).toEqual([...p.sizes]);
+    expect(numberings.size).toBe(2);
+    expect(offsets.size).toBeGreaterThan(20);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('thuemorsegrid', 0),
+      b = createSurfaceSampler('thuemorsegrid', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
