@@ -18778,3 +18778,109 @@ describe('conicsections: conics drawn from the focus and directrix rule', () => 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('rosecurves: rhodonea roses in a three-by-three grid', () => {
+  const p = proceduralMaterialPresets.rosecurves;
+
+  // Points of the rose r = R cos(k theta), k = numerator / denominator, relative to the panel centre. The curve closes
+  // within denominator * 2 pi, so the parameter runs over 2 pi per unit of denominator.
+  const rosePoints = (
+    numerator: number,
+    denominator: number,
+    count: number,
+  ): [number, number][] => {
+    const k = numerator / denominator,
+      points: [number, number][] = [];
+    for (let i = 0; i < count; i++) {
+      const theta = (2 * Math.PI * denominator * i) / count,
+        r = p.radius * Math.cos(k * theta);
+      points.push([r * Math.cos(theta), r * Math.sin(theta)]);
+    }
+    return points;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws each of the nine roses r = cos(k theta) once, passing through its own parametric points (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('rosecurves', seed),
+        out = empty(),
+        step = 0.003,
+        third = 1 / 3,
+        curves = p.curves.map(([a, b]) => rosePoints(a, b, 1000)),
+        used: number[] = [];
+      for (let row = 0; row < 3; row++)
+        for (let column = 0; column < 3; column++) {
+          const cx = (column + 0.5) * third,
+            cy = (row + 0.5) * third,
+            dark: [number, number][] = [];
+          for (let y = -third / 2 + step / 2; y < third / 2; y += step)
+            for (let x = -third / 2 + step / 2; x < third / 2; x += step) {
+              sample(cx + x, cy + y, out);
+              if (out.color < 0.3) dark.push([x, y]);
+            }
+          expect(dark.length).toBeGreaterThan(100);
+          // How many dark pixels lie within a pixel or two of a candidate's curve.
+          const fits = curves.map((points) => {
+            let near = 0;
+            for (const [x, y] of dark) {
+              if (
+                points.some(([px, py]) => Math.hypot(px - x, py - y) < 0.0055)
+              )
+                near++;
+            }
+            return near / dark.length;
+          });
+          const best = Math.max(...fits),
+            index = fits.indexOf(best);
+          expect(best).toBeGreaterThan(0.97);
+          expect([...fits].sort((a, b) => b - a)[1]).toBeLessThan(0.9);
+          // And the curve is fully drawn: the sampler is dark at (nearly) every parametric point.
+          const drawn = curves[index].filter(([x, y]) => {
+            sample(cx + x, cy + y, out);
+            return out.color < 0.35;
+          }).length;
+          expect(drawn / curves[index].length).toBeGreaterThan(0.97);
+          used.push(index);
+        }
+      expect([...used].sort((a, b) => a - b)).toEqual([
+        0, 1, 2, 3, 4, 5, 6, 7, 8,
+      ]);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('rosecurves', 0),
+      b = createSurfaceSampler('rosecurves', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

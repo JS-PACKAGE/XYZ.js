@@ -31276,6 +31276,58 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'rosecurves': {
+        const p = proceduralMaterialPresets.rosecurves,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2d501),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          panelSize = 1 / 3,
+          // The seed shuffles which rose goes in which panel of the 3 x 3 grid.
+          order = p.curves
+            .map((_, i) => i)
+            .sort(
+              (a, b) => hash(a, 5, seed ^ 0x2d502) - hash(b, 5, seed ^ 0x2d502),
+            );
+        return () => {
+          const column = Math.min(2, Math.floor(u / panelSize)),
+            row = Math.min(2, Math.floor(v / panelSize)),
+            dx = u - (column + 0.5) * panelSize,
+            dy = v - (row + 0.5) * panelSize,
+            [numerator, denominator] = p.curves[order[row * 3 + column]],
+            k = numerator / denominator,
+            rho = Math.hypot(dx, dy),
+            alpha = Math.atan2(dy, dx);
+          let best = Infinity;
+          // The rose is closed after theta runs over 2 q half-turns; the point at angle alpha is on the curve when
+          // rho = (-1)^j R cos(k (alpha + j pi)) for some half-turn j (odd j reach the negative-radius half).
+          for (let j = 0; j < 2 * denominator; j++) {
+            const phase = k * (alpha + Math.PI * j),
+              target = (j % 2 === 0 ? 1 : -1) * p.radius * Math.cos(phase),
+              // Distance estimate |g| / |grad g| for g = rho - target(alpha).
+              slope = (p.radius * k * Math.sin(phase)) / Math.max(rho, 1e-6);
+            best = Math.min(
+              best,
+              Math.abs(rho - target) / Math.sqrt(1 + slope * slope),
+            );
+          }
+          const curve = Math.max(
+            cover(p.curveHalf - best),
+            cover(p.centreRadius - rho),
+          );
+          color = clamp(
+            p.panelTone +
+              (p.curveTone - p.panelTone) * curve +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.panelHeight + (p.curveHeight - p.panelHeight) * curve,
+          );
+          roughness =
+            p.paperRoughness + (p.curveRoughness - p.paperRoughness) * curve;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -58805,6 +58857,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'rosecurves' ||
     kind === 'conicsections' ||
     kind === 'cantorsetrows' ||
     kind === 'mandelbrotbands' ||

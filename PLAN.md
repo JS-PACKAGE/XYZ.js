@@ -1697,6 +1697,10 @@
 
 這是作者設計的示意：只有這四條曲線、軸線固定為水平（不旋轉），沒有座標軸或標示；線寬以隱函數的一階近似距離軟化，所以離頂點很遠的陡處線寬可能略有差異；各面板的焦點位置是為了讓曲線置中而手動設定的（hyperbola焦點往左偏、橢圓往右偏）。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`rosecurves`（玫瑰線）使目前目錄1034→1035種，含plain的gallery為1036項。每tile是3×3九個面板，每個面板畫出一條玫瑰線（rhodonea）r = R·cos(kθ)，k分別為1、2、3、4、5、3/2、5/2、5/3、7/3（整數k給出k或2k片花瓣，分數k給出重疊的多片花瓣，k=1是一個圓），九條曲線在面板中的排列由seed決定。曲線以到極座標隱函數的一階距離估計畫線，並標出原點。Metallic與mortar為0。
+
+這是作者設計的示意：只有這九個k值、振幅固定、沒有旋轉相位；沒有顯示公式或標示；分數k的曲線要走過多圈才閉合（分母乘以2π），取樣器對每個像素在2×分母個半圈上求出到曲線的距離估計，所以在花瓣交會處線寬可能略有差異。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
