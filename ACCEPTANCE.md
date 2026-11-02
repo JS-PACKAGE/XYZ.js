@@ -12784,3 +12784,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Hamming table as|hammingtable|kinds|catalog|distinct|periodic"`定向測試**2340項通過／4010項未選**。
 - 未驗證：hammingtable未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 完整suite與gallery檢查（至hammingtable）
+
+- 完整suite（工具實跑，commit `d580a7c76`，獨立乾淨worktree，期間沒有同時進行其他重負載工作）：**179個測試檔、10,279項測試全部通過，耗時1091.91 s**。上一次完整suite為`235ecc03e`的10,264項；之後新增cyclicwaves、aggregationfrost、hammingtable各5項（含kinds清單條目），合計15項，與增量一致（10,264 + 15 = 10,279）。
+- 瀏覽器gallery（headless Chrome，WebGPU與`?renderer=webgl2`各一次，`/examples/pbr3d/`）：依序選取`cyclicwaves`、`aggregationfrost`、`hammingtable`，三者皆出現`Material <kind> `讀數、readout顯示1017種、選單1018個選項，console error 0。此檢查只涵蓋「可選取、讀數更新、無console錯誤」，**我這次沒有在gallery中逐一目視截圖**（預覽圖是用預覽腳本於各kind實作時看過）。
+- 未驗證：不push；其他瀏覽器、真機GPU差異與效能未量測。
