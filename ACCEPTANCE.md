@@ -12330,3 +12330,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 完整suite（工具實跑，worktree `/private/tmp/xyz-ct-suite`於`22e1acb63`「Add rose curve table material」）：**179檔／10,031項全數通過**，Duration 1076.77s。涵蓋`490a5999f`之後的primesieve、lissajoustable與rhodoneatable，目前所有已commit的材質都已被至少一次完整suite涵蓋（其中`d65d9bd2d`之前的各材質由更早的suite涵蓋，之後依序由`ed3dab90f`、`2dccb07a3`、`490a5999f`與本次涵蓋）。
 - 瀏覽器gallery（工具實跑）：補做`primesieve`、`lissajoustable`、`rhodoneatable`三個材質的`/examples/pbr3d/`檢查——spawned Google Chrome headless（`--enable-unsafe-webgpu --use-angle=metal`）開啟vite dev server（服務`22e1acb63`狀態的乾淨worktree）上的範例頁，逐一以`#material`的`input`事件選取並等待讀數更新；WebGPU與`?renderer=webgl2`各跑一次，結束時`tab.errors()`的`entries`皆為0筆（dropped 0）；狀態列顯示`972 procedural material presets + plain`。兩個多段多邊形材質（lissajoustable、rhodoneatable）每次取樣要量128或192條線段，選取時的CPU成本沒有另外量測，只確認讀數更新與沒有console錯誤。
 - 限制：gallery檢查只涵蓋「能選取、讀數更新、console沒有錯誤」，**沒有**逐材質視覺比對，也沒有跨瀏覽器、跨GPU或Windows／Linux驗證；不push。
+
+## 2026-11-02 新增材質：曼德博集合磚（mandelbrottiles）
+
+- 範圍：新增`mandelbrottiles`（目前目錄972→973種，含plain的gallery 974項）：64×64個圓角方塊磚（沿用modulartable系列的緊湊支撐kernel逐格查詢做法，半寬0.47格，C1），第(col, row)格對複平面（實部−2.2到0.8、虛部−1.5到1.5）中對應小塊的中心`c`迭代`z → z² + c`，色調是逃逸迭代次數（最多48次）除以48後開平方、永不逃逸者（726格）最暗；seed沿環面平移整張表；磚縫AO 0.7；roughness恆為0.4；預設0.3 m nominal tile、0.0008 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**；解析度只有64×64，環面接縫處集合不連續，不是無縫碎形。
+- 調整紀錄（誠實紀錄）：(1)第一版色調是線性的迭代次數比，預覽上大多數區域太暗，改為開平方後採用。(2)relief 0.0012時512²maps的法線tilt²最大為0.0865，降到0.0008後為0.0399（同一批探針的前後值）。
+- 測試修正（誠實紀錄）：(1)我預填的「永不逃逸格數」區間（400–700）失敗（量到726），我依實測改為精確的726（獨立重寫的逃逸時間得到的格數，不是從sampler輸出反推）。(2)沿用前一個材質的「AO最小值等於1 − gapOcclusion」檢查，在256²取樣下失敗（量到0.9558；256²取樣點從不落在磚縫中心，這與gameoflife的256²／512²取樣差異是同一類問題）；我改為「256²取樣的AO最小值大於0.9，且在四格交會的角落（u = v = 1/64）取樣得到恰好0.7」。兩個失敗都是測試期望的錯誤，不是sampler問題。
+- 實測（工具實跑，seed 0／1／0xffffffff／7，512²取樣）：亮處（color>0.5）占3.42%–3.43%、color 0.0102–0.0103至0.9004–0.9029、平均0.2257–0.2259、roughness恆為0.4、AO最低0.7、height至多0.8548–0.8637 relief；4,096個磚中心的顏色與測試中獨立重寫的逃逸時間一致，四個seed各自唯一對應的平移為(21, 1)、(13, 20)、(2, 37)、(48, 47)，最大誤差0.0100（細grain的幅度）；seed 0與1的亮區遮罩6.6%像素不同；seed 7的512²maps平均r／g／b約(30.2, 52.8, 77.7)、法線tilt²最大約0.0399、z分量最小252。我實看了預覽：深藍色的像素風曼德博集合。
+- 測試：新增5項專屬測試（三seed的磚中心顏色與獨立逃逸時間比對（恰有一個平移相符、集合內恰726格）、統計，seed差異與決定性，C1＋有符號UV週期，actual512 maps）通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Mandelbrot tiles as|mandelbrottiles|kinds|catalog|distinct|periodic"`定向測試**2248項通過／3859項未選**。
+- 未驗證：mandelbrottiles未跑完整suite與瀏覽器gallery；不push。

@@ -40490,6 +40490,79 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'mandelbrottiles': {
+        const p = proceduralMaterialPresets.mandelbrottiles,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft,
+          shiftX = Math.floor(hash(0, 0, seed ^ p.seedSalt) * p.cells),
+          shiftY = Math.floor(hash(1, 0, seed ^ p.seedSalt) * p.cells),
+          // Cell (col, row) iterates z -> z^2 + c at the centre c of its patch of the
+          // complex plane (real part from realMinimum to realMaximum, imaginary part
+          // from -imaginaryHalf to imaginaryHalf) and keeps the square root of the escape
+          // iteration count (|z| > 2) over maxIterations; points that never escape sit at insideTone.
+          // The seed only moves the whole table around the torus.
+          tones = new Float64Array(p.cells * p.cells);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const cr =
+                p.realMinimum +
+                ((p.realMaximum - p.realMinimum) * (col + 0.5)) / p.cells,
+              ci = p.imaginaryHalf * (((row + 0.5) * 2) / p.cells - 1);
+            let zr = 0,
+              zi = 0,
+              iteration = 0;
+            while (iteration < p.maxIterations && zr * zr + zi * zi <= 4) {
+              const next = zr * zr - zi * zi + cr;
+              zi = 2 * zr * zi + ci;
+              zr = next;
+              iteration++;
+            }
+            tones[row * p.cells + col] =
+              iteration === p.maxIterations
+                ? -1
+                : Math.sqrt(iteration / p.maxIterations);
+          }
+        return () => {
+          // One compact-support rounded-square kernel per cell (a quartic superellipse
+          // through smoothstep, exactly zero before the cell boundary), so the cell
+          // lookup never jumps and the field is C1.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            ax = (x - col - 0.5) * inverseHalf,
+            ay = (y - row - 0.5) * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            tone =
+              tones[
+                ((row + shiftY) % p.cells) * p.cells +
+                  ((col + shiftX) % p.cells)
+              ],
+            inside = tone < 0,
+            level = inside ? p.insideTone : p.toneFloor + p.toneSpan * tone,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (level - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              dome *
+              (inside ? 0.5 : 1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -48270,6 +48343,7 @@ export function createSurfaceSampler(
     kind === 'primesieve' ||
     kind === 'lissajoustable' ||
     kind === 'rhodoneatable' ||
+    kind === 'mandelbrottiles' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
