@@ -40933,6 +40933,67 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'radicaltable': {
+        const p = proceduralMaterialPresets.radicaltable,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft,
+          shiftX = Math.floor(hash(0, 0, seed ^ p.seedSalt) * p.cells),
+          shiftY = Math.floor(hash(1, 0, seed ^ p.seedSalt) * p.cells),
+          // Cell (col, row) holds n = row * cells + col + 1 and is toned by the share
+          // ln(rad(n)) / ln(n) of its logarithm that the radical rad(n) (the product of its
+          // distinct primes) keeps, raised to toneExponent: the squarefree numbers (ratio 1,
+          // and n = 1 is defined as 1) glow, prime powers 2^k, 3^k ... sink to 1 / k, and the
+          // multiples of 4, 8, 9 ... leave dark stripes. The seed moves the whole table around
+          // the torus.
+          count = p.cells * p.cells,
+          radical = new Float64Array(count + 1).fill(1),
+          tones = new Float64Array(count);
+        for (let prime = 2; prime <= count; prime++)
+          if (radical[prime] === 1)
+            for (let multiple = prime; multiple <= count; multiple += prime)
+              radical[multiple] *= prime;
+        for (let n = 1; n <= count; n++)
+          tones[n - 1] =
+            p.toneSpan *
+            (n === 1 ? 1 : Math.log(radical[n]) / Math.log(n)) **
+              p.toneExponent;
+        return () => {
+          // One compact-support rounded-square kernel per cell (a quartic superellipse
+          // through smoothstep, exactly zero before the cell boundary), so the cell
+          // lookup never jumps and the field is C1.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            ax = (x - col - 0.5) * inverseHalf,
+            ay = (y - row - 0.5) * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            tone =
+              tones[
+                ((row + shiftY) % p.cells) * p.cells +
+                  ((col + shiftX) % p.cells)
+              ],
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'divisorcount': {
         const p = proceduralMaterialPresets.divisorcount,
           grainField = cachedNoise(
@@ -49531,6 +49592,7 @@ export function createSurfaceSampler(
     kind === 'juliatiles' ||
     kind === 'dragoncurve' ||
     kind === 'divisorcount' ||
+    kind === 'radicaltable' ||
     kind === 'goldbachtable' ||
     kind === 'totienttable' ||
     kind === 'peanocurve' ||
