@@ -1019,6 +1019,7 @@ export type ProceduralMaterialKind =
   | 'cyclicwaves'
   | 'aggregationfrost'
   | 'hammingtable'
+  | 'fordcircles'
   | 'sandpileidentity'
   | 'multiplicativeorder'
   | 'vermiculation'
@@ -2285,6 +2286,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'cyclicwaves',
   'aggregationfrost',
   'hammingtable',
+  'fordcircles',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',

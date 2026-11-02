@@ -1082,6 +1082,7 @@ try {
     'cyclicwaves',
     'aggregationfrost',
     'hammingtable',
+    'fordcircles',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

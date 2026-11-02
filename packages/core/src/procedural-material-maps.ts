@@ -41514,6 +41514,73 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'fordcircles': {
+        const p = proceduralMaterialPresets.fordcircles,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseSoft = 1 / p.edgeSoft,
+          shift =
+            Math.floor(hash(0, 0, seed ^ p.seedSalt) * p.shiftSteps) /
+            p.shiftSteps,
+          // Ford circles: for every reduced fraction n / d in [0, 1) with d <= maxDenominator
+          // a disc of radius 1 / (2 d^2) stands on the bottom edge of the tile at u = n / d
+          // (the disc of 0 / 1 spans the whole tile height) and, mirrored about the middle
+          // of the tile, on the top edge. Two discs touch only at one point and never overlap
+          // (the discs of d >= 2 are at most a quarter of the height tall, so the two rows
+          // never meet). The tone falls with d; the seed moves the whole picture sideways
+          // by a multiple of 1 / shiftSteps.
+          centers: number[] = [],
+          radii: number[] = [],
+          tones: number[] = [];
+        for (let d = 1; d <= p.maxDenominator; d++)
+          for (let n = 0; n < d; n++) {
+            let a = n,
+              b = d;
+            while (b !== 0) [a, b] = [b, a % b];
+            if (a !== 1) continue;
+            centers.push(n / d);
+            radii.push(1 / (2 * d * d));
+            tones.push(
+              p.toneSpan *
+                ((p.maxDenominator + 1 - d) / p.maxDenominator) **
+                  p.toneExponent,
+            );
+          }
+        return () => {
+          // Every disc is a compact-support dome (smoothstep of 1 - r^2 / R^2, exactly zero
+          // on its circle); the open discs are disjoint, so at most one is non-zero at any
+          // point and the field is C1.
+          const x = fract(u + shift),
+            y = Math.min(fract(v), 1 - fract(v));
+          let mask = 0,
+            dome = 0,
+            tone = 0;
+          for (let i = 0; i < centers.length; i++) {
+            let dx = x - centers[i];
+            dx -= Math.round(dx);
+            const dy = y - radii[i],
+              r = radii[i],
+              s = (dx * dx + dy * dy) / (r * r);
+            if (s >= 1) continue;
+            mask = smooth(clamp((1 - s) * inverseSoft));
+            dome = smooth(1 - s);
+            tone = tones[i];
+          }
+          const grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.discHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -50334,6 +50401,7 @@ export function createSurfaceSampler(
     kind === 'cyclicwaves' ||
     kind === 'aggregationfrost' ||
     kind === 'hammingtable' ||
+    kind === 'fordcircles' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||

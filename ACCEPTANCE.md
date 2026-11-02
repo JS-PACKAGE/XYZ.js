@@ -12790,3 +12790,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 完整suite（工具實跑，commit `d580a7c76`，獨立乾淨worktree，期間沒有同時進行其他重負載工作）：**179個測試檔、10,279項測試全部通過，耗時1091.91 s**。上一次完整suite為`235ecc03e`的10,264項；之後新增cyclicwaves、aggregationfrost、hammingtable各5項（含kinds清單條目），合計15項，與增量一致（10,264 + 15 = 10,279）。
 - 瀏覽器gallery（headless Chrome，WebGPU與`?renderer=webgl2`各一次，`/examples/pbr3d/`）：依序選取`cyclicwaves`、`aggregationfrost`、`hammingtable`，三者皆出現`Material <kind> `讀數、readout顯示1017種、選單1018個選項，console error 0。此檢查只涵蓋「可選取、讀數更新、無console錯誤」，**我這次沒有在gallery中逐一目視截圖**（預覽圖是用預覽腳本於各kind實作時看過）。
 - 未驗證：不push；其他瀏覽器、真機GPU差異與效能未量測。
+
+## 2026-11-02 新增材質：福特圓（fordcircles）
+
+- 範圍：新增`fordcircles`（目前目錄1017→1018種，含plain的gallery 1019項）：對每個既約分數`n / d`（d ≤ 12，共46個）立一個半徑`1 / (2 d²)`的圓盤於磚底邊（圓心`u = n / d`），並以中線鏡射一份於頂邊（共91個圓盤）；色調隨分母變小而變亮，邊緣柔化，圓盤內有圓頂高度；seed令整張圖水平平移（256階）；預設0.5 m nominal tile、0.0008 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)第一版只有底邊那一排圓盤，實看預覽後小圓盤串只在磚的一側邊緣，另一側大圓之間的縫隙是空的、畫面不對稱，所以加上以中線鏡射的頂邊（第二版預覽實看確認）；(2)我先用相對路徑對`edit`工具下了一個註解修改，工具實際解析到主工作樹而不是`/private/tmp/xyz-ct`，被雜湊不符擋下、**沒有寫入任何東西**，改用絕對路徑重做；之後確認主工作樹`git status`只有使用者原有的` M ACCEPTANCE.md`；(3)第一次執行測試產生腳本時，因為Hamming測試在檔案結尾、找不到下一個describe而中止，沒有寫入任何檔案，修正後重跑；(4)圓盤的切點與互不重疊以探針另行驗證（相鄰法里分數46對、圓心距離與半徑和的差最大1.1e-16；91個圓盤兩兩（含環繞）距離減半徑和的最小值−9.7e-17），**不在測試中**；(5)測試以獨立寫的福特圓幾何對6,000個點比對（離邊緣足夠遠者）並嘗試256個平移、檢查恰好一個符合，**不涵蓋柔化邊緣區的形狀**；(6)建構與取樣耗時**未量測**（取樣每次走過46個圓盤）。
+- 實測（工具實跑）：46個既約分數；四個seed（0／1／0xffffffff／7）各有唯一符合的平移133、45、240、173（各除以256），最大擬合誤差0.01477–0.01488（每個seed用於比較的點約3,875–3,887／6,000）；圓盤面積總和（含鏡射、不含柔化）0.9560；256²（seed 0／1／0xffffffff）亮處（color>0.5）82.45%–82.49%、color 0.03553–0.03645至0.76426–0.76446、平均0.63341–0.63359、roughness恆為0.4、AO最低0.6、height至多0.8205–0.8228 relief；512²（四個seed）亮處82.45%–82.56%、color 0.03518–0.03558至0.76469–0.76490、平均0.63332–0.63349、height至多0.8234–0.8244 relief；seed 0與1相比，512²中color>0.5的取樣26.1%不同；seed 7的512²maps平均r／g／b約(160.5, 136.7, 86.3)、法線tilt²最大約0.0315、z分量最小253。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Ford circles as|fordcircles|kinds|catalog|distinct|periodic"`定向測試**2342項通過／4013項未選**。
+- 未驗證：fordcircles未跑完整suite與瀏覽器gallery；不push。

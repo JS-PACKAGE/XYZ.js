@@ -1045,6 +1045,7 @@ const kinds: ProceduralMaterialKind[] = [
   'cyclicwaves',
   'aggregationfrost',
   'hammingtable',
+  'fordcircles',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',
@@ -163566,6 +163567,222 @@ describe('Hamming table as tiles toned by the Hamming distance between row and c
     expect(blue / (512 * 512)).toBeLessThan(58);
     expect(maxTilt).toBeGreaterThan(0.012);
     expect(maxTilt).toBeLessThan(0.024);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Ford circles as discs of radius 1 / (2 d squared) standing at every reduced fraction n / d', () => {
+  const p = proceduralMaterialPresets.fordcircles;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const gcd = (x: number, y: number): number => (y === 0 ? x : gcd(y, x % y));
+  /** Ford circles written independently here: centre n / d, radius 1 / (2 d^2), tone falling with d. */
+  const circles: { centre: number; radius: number; tone: number }[] = [];
+  for (let denominator = 1; denominator <= p.maxDenominator; denominator++)
+    for (let numerator = 0; numerator < denominator; numerator++)
+      if (gcd(numerator, denominator) === 1)
+        circles.push({
+          centre: numerator / denominator,
+          radius: 1 / (2 * denominator * denominator),
+          tone:
+            p.toneSpan *
+            ((p.maxDenominator + 1 - denominator) / p.maxDenominator) **
+              p.toneExponent,
+        });
+  /**
+   * Expected colour at a point of the unshifted picture: deep inside a disc (squared distance
+   * ratio below 0.75), the disc colour; in the open (above 1.3 of every disc) the gap tone; null
+   * in the soft edge zone, which is not compared.
+   */
+  const expectedColor = (x: number, y0: number): number | null => {
+    const y = Math.min(y0, 1 - y0);
+    let inside: number | null = null,
+      edge = false;
+    for (const circle of circles) {
+      let dx = x - circle.centre;
+      dx -= Math.round(dx);
+      const dy = y - circle.radius,
+        ratio = (dx * dx + dy * dy) / (circle.radius * circle.radius);
+      if (ratio < 0.75) inside = p.toneFloor + circle.tone;
+      else if (ratio < 1.3) edge = true;
+    }
+    return edge ? null : (inside ?? p.gapTone);
+  };
+  const points: [number, number][] = Array.from({ length: 6000 }, (_, i) => [
+    (i * 0.61803398875) % 1,
+    (i * 0.41421356237) % 1,
+  ]);
+  /** Sideways shifts (multiples of 1 / shiftSteps) that reproduce every compared colour. */
+  const fittingShifts = (seed: number): number[] => {
+    const sample = createSurfaceSampler('fordcircles', seed),
+      out = empty(),
+      fits: number[] = [];
+    for (let shift = 0; shift < p.shiftSteps; shift++) {
+      let worst = 0;
+      for (const [u, v] of points) {
+        const expected = expectedColor((u + shift / p.shiftSteps) % 1, v);
+        if (expected === null) continue;
+        sample(u, v, out);
+        worst = Math.max(worst, Math.abs(out.color - expected));
+        if (worst >= 0.03) break;
+      }
+      if (worst < 0.03) fits.push(shift);
+    }
+    return fits;
+  };
+  it('stands one disc on every reduced fraction and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('fordcircles', seed),
+        a = empty();
+      // The fractions n / d of the denominators 1 to 12 are 46 in all (the sum of Euler's
+      // totient 1 + 1 + 2 + 2 + 4 + 2 + 6 + 4 + 6 + 4 + 10 + 4), and exactly one
+      // sideways shift reproduces the compared colours.
+      expect(circles).toHaveLength(46);
+      expect(fittingShifts(seed)).toHaveLength(1);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.035);
+      expect(low).toBeLessThan(0.037);
+      expect(high).toBeGreaterThan(0.76);
+      expect(high).toBeLessThan(0.77);
+      expect(dark / 65536).toBeGreaterThan(0.82);
+      expect(dark / 65536).toBeLessThan(0.83);
+      expect(mean / 65536).toBeGreaterThan(0.63);
+      expect(mean / 65536).toBeLessThan(0.64);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 3);
+      expect(heightHigh).toBeGreaterThan(0.81);
+      expect(heightHigh).toBeLessThan(0.83);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('moves the picture sideways per seed and is deterministic for one seed', () => {
+    const shifts = [0, 1, 0xffffffff, 7].map((seed) => fittingShifts(seed)[0]);
+    expect(new Set(shifts).size).toBe(4);
+    expect(fittingShifts(0)).toEqual([shifts[0]]);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('fordcircles', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.shiftSteps, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 navy and gold disc maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('fordcircles', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(159);
+    expect(red / (512 * 512)).toBeLessThan(162);
+    expect(green / (512 * 512)).toBeGreaterThan(135.5);
+    expect(green / (512 * 512)).toBeLessThan(138);
+    expect(blue / (512 * 512)).toBeGreaterThan(85);
+    expect(blue / (512 * 512)).toBeLessThan(87.5);
+    expect(maxTilt).toBeGreaterThan(0.025);
+    expect(maxTilt).toBeLessThan(0.04);
     expect(invalid).toBe(0);
   });
 });
