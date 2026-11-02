@@ -14647,6 +14647,25 @@ export declare const proceduralMaterialPresets: Readonly<{
         toneHeight: 0.8;
         grainHeight: 0.2;
     }>;
+    aggregationfrost: Readonly<{
+        dark: readonly [4, 10, 24];
+        light: readonly [210, 240, 255];
+        roughness: 0.4;
+        relief: 0.0008;
+        seedSalt: 53671;
+        size: 96;
+        particles: 900;
+        maxSteps: 60000;
+        sharpness: 8;
+        grainCells: 128;
+        baseTone: 0.05;
+        lineTone: 0.72;
+        ageFloor: 0.3;
+        grainTone: 0.03;
+        lineHeight: 0.8;
+        grainHeight: 0.2;
+        lineRoughness: -0.2;
+    }>;
     vermiculation: Readonly<{
         dark: readonly [60, 48, 36];
         light: readonly [220, 204, 172];
@@ -16326,6 +16345,7 @@ export declare const proceduralTileMeters: Readonly<{
     percolationclusters: 0.5;
     isingdomains: 0.5;
     cyclicwaves: 0.5;
+    aggregationfrost: 0.5;
     vermiculation: 0.4;
     kikko: 0.3;
     kagome: 0.3;

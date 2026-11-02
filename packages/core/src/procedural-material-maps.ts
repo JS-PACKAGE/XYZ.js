@@ -41381,6 +41381,82 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'aggregationfrost': {
+        const p = proceduralMaterialPresets.aggregationfrost,
+          count = p.size * p.size,
+          occupied = new Uint8Array(count),
+          marks = new Float64Array(count),
+          tones = new Float64Array(count),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 1),
+          ),
+          touches = (x: number, y: number): boolean =>
+            occupied[y * p.size + ((x + 1) % p.size)] === 1 ||
+            occupied[y * p.size + ((x + p.size - 1) % p.size)] === 1 ||
+            occupied[((y + 1) % p.size) * p.size + x] === 1 ||
+            occupied[((y + p.size - 1) % p.size) * p.size + x] === 1;
+        // Diffusion-limited aggregation on a size x size torus: the cell at the centre is the
+        // first member; every further particle starts on a random free cell, takes
+        // random steps to one of its four neighbours (wrapping around the torus) and sticks
+        // where it first touches the cluster by an edge. Its step number
+        // is the particle's age, and the tone fades from the centre (age 0) to the tips. A walk
+        // that exceeds maxSteps is abandoned and the particle starts again from a new cell.
+        const centre = (p.size >> 1) * p.size + (p.size >> 1);
+        occupied[centre] = 1;
+        marks[centre] = 1;
+        tones[centre] = 1;
+        for (let particle = 1; particle < p.particles; particle++)
+          for (let attempt = 0, stuck = false; !stuck; attempt++) {
+            let x = Math.floor(
+                hash(particle, attempt, seed ^ p.seedSalt) * p.size,
+              ),
+              y = Math.floor(
+                hash(particle, attempt, seed ^ (p.seedSalt + 2)) * p.size,
+              );
+            if (occupied[y * p.size + x]) continue;
+            for (let step = 0; step < p.maxSteps; step++) {
+              if (touches(x, y)) {
+                const cell = y * p.size + x;
+                occupied[cell] = 1;
+                marks[cell] = 1;
+                tones[cell] = 1 - particle / p.particles;
+                stuck = true;
+                break;
+              }
+              const direction = Math.floor(
+                hash(
+                  particle * 65537 + attempt,
+                  step,
+                  seed ^ (p.seedSalt + 3),
+                ) * 4,
+              );
+              if (direction === 0) x = (x + 1) % p.size;
+              else if (direction === 1) x = (x + p.size - 1) % p.size;
+              else if (direction === 2) y = (y + 1) % p.size;
+              else y = (y + p.size - 1) % p.size;
+            }
+          }
+        const pattern = latticeField(marks, p.size, p.size),
+          ageField = latticeField(tones, p.size, p.size);
+        return () => {
+          // The cluster map is blended with the C1 smoothstep and re-sharpened with tanh; the
+          // age tone fades towards the tips of the branches.
+          const line =
+              0.5 + 0.5 * Math.tanh(p.sharpness * (pattern(u, v) - 0.5)),
+            age = ageField(u, v),
+            grain = grainField(u, v);
+          color =
+            p.baseTone +
+            p.lineTone * line * (p.ageFloor + (1 - p.ageFloor) * age) +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.lineHeight * line * (0.7 + 0.3 * age) + p.grainHeight * grain;
+          roughness += p.lineRoughness * line;
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -50199,6 +50275,7 @@ export function createSurfaceSampler(
     kind === 'percolationclusters' ||
     kind === 'isingdomains' ||
     kind === 'cyclicwaves' ||
+    kind === 'aggregationfrost' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||

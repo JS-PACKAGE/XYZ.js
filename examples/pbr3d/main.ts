@@ -1080,6 +1080,7 @@ try {
     'percolationclusters',
     'isingdomains',
     'cyclicwaves',
+    'aggregationfrost',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

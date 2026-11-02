@@ -12766,3 +12766,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試（節點顏色反推狀態、色調與統計為一項；seed差異與決定性；C1＋有符號UV週期；actual512 maps），`-t`選中的5項（含kinds清單新條目）皆通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Cyclic waves as|cyclicwaves|kinds|catalog|distinct|periodic"`定向測試**2336項通過／4004項未選**。
 - 未驗證：cyclicwaves未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：聚集霜（aggregationfrost）
+
+- 範圍：新增`aggregationfrost`（目前目錄1015→1016種，含plain的gallery 1017項）：96×96環面上的擴散限制聚集（DLA；中央格為第一個成員，899個隨機行走者在與團簇共邊時黏住，每步方向與出發點由雜湊決定，單次行走上限60,000步），團簇為冰藍色霜花狀細枝，色調以黏上的先後（年齡）從中央向枝端漸暗；兩個`latticeField`（佔據與年齡）經tanh銳化；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 278,528 B，另有建構時暫存。作者示意，沒有引用特定來源或照片、**沒有對照照片**；不是真實結霜或電擊紋的模擬；目錄中已有名稱相近的`dendriticfrost`與`frost`，兩者為不同材質。
+- 調整與錯誤紀錄（誠實紀錄）：(1)先用獨立的小原型（64×64、520粒子）確認方法與速度，再定為96×96與900粒子；(2)**沒有獨立重寫聚集演算法**（雜湊亂數序列是sampler內部的），測試從節點顏色反推佔據格，以獨立的廣度優先搜尋檢查團簇連通、恰好900格、顏色隨圖距離下降（相關係數低於−0.6）；**這證明團簇是連通的樹狀結構、年齡色調方向正確，不證明隨機行走均勻**；(3)**沒有檢查碎形維數是否符合DLA文獻值，也沒有檢查是否有行走達到60,000步的上限**，所以不宣稱「標準DLA」；(4)第一次執行測試產生腳本時，因為一個期望字串不符（滲流測試的height下限是0.98而非0.99）而中途失敗，沒有寫入任何檔案，修正腳本後重跑，之後型別檢查乾淨、5項選中測試通過；(5)sampler建構在bun中量到約150／135／126／130 ms（四個seed各一次），**單次量測，不是benchmark**，取樣本身**未量測耗時**。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：900個格被佔據，全部可從中央經四鄰邊到達（連通）；最大圖距離59／62／51／59；離中央最遠格（環面最短距離）41.1／40.5／36.9／44.0；被佔據節點顏色0.2564–0.7794、空節點最亮0.0651、中央節點0.7561–0.7733；圖距離與顏色相關係數−0.7945／−0.7536／−0.8800／−0.8088；256²亮處（color>0.5）3.95%–4.06%、color 0.0356–0.0358至0.7725–0.7758、平均0.0922–0.0925、roughness 0.2001–0.3999、AO恆為1、height至多0.9697–0.9848 relief；512²亮處3.97%–4.05%、color 0.0352–0.0353至0.7734–0.7779、平均0.0922–0.0925、height至多0.9795–0.9870 relief；seed 0與1的佔據格14.8%位置不同（color>0.5的節點8.1%）；seed 7的512²maps平均r／g／b約(23.0, 31.2, 45.3)、法線tilt²最大約0.0377、z分量最小253。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試（連通團簇與年齡色調、統計為一項；seed差異與決定性；C1＋有符號UV週期；actual512 maps），`-t`選中的5項（含kinds清單新條目）皆通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Aggregation frost as|aggregationfrost|kinds|catalog|distinct|periodic"`定向測試**2338項通過／4007項未選**。
+- 未驗證：cyclicwaves與aggregationfrost皆未跑完整suite與瀏覽器gallery；不push。
