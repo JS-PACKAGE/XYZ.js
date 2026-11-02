@@ -28909,3 +28909,212 @@ describe('peanocurve: the Peano space-filling curve', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('cliffordattractor: the Clifford attractor', () => {
+  const p = proceduralMaterialPresets.cliffordattractor;
+  const span = 1 - 2 * p.margin;
+  // The orbit of the Clifford map from (0.3, 0.2), written again here (the sampler starts from (0.1, 0.1) and counts far more points).
+  const orbit = (
+    a: number,
+    b: number,
+    c: number,
+    d: number,
+    count: number,
+  ): [number, number][] => {
+    const points: [number, number][] = [];
+    let x = 0.3,
+      y = 0.2;
+    for (let i = 0; i < count + 200; i++) {
+      const nextX = Math.sin(a * y) + c * Math.cos(a * x);
+      y = Math.sin(b * x) + d * Math.cos(b * y);
+      x = nextX;
+      if (i >= 200) points.push([x, y]);
+    }
+    return points;
+  };
+  const position = (
+    point: [number, number],
+    c: number,
+    d: number,
+    mirrorX: boolean,
+    mirrorY: boolean,
+  ): [number, number] => {
+    const fu = (point[0] / (1 + Math.abs(c))) * 0.5 + 0.5,
+      fv = (point[1] / (1 + Math.abs(d))) * 0.5 + 0.5;
+    return [
+      p.margin + span * (mirrorX ? 1 - fu : fu),
+      p.margin + span * (mirrorY ? 1 - fv : fv),
+    ];
+  };
+  const variants = p.maps.flatMap(([a, b, c, d], map) =>
+    [false, true].flatMap((mirrorX) =>
+      [false, true].map((mirrorY) => ({
+        map,
+        a,
+        b,
+        c,
+        d,
+        mirrorX,
+        mirrorY,
+        points: orbit(a, b, c, d, 3000),
+      })),
+    ),
+  );
+  // Share of the orbit points that fall on inked pixels for every parameter set and mirroring.
+  const scores = (seed: number): number[] => {
+    const sample = createSurfaceSampler('cliffordattractor', seed),
+      out = empty();
+    return variants.map(({ points, c, d, mirrorX, mirrorY }) => {
+      let hits = 0;
+      for (const point of points) {
+        const [u, v] = position(point, c, d, mirrorX, mirrorY);
+        sample(u, v, out);
+        if (out.color < p.paperTone - 0.15) hits++;
+      }
+      return hits / points.length;
+    });
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws the orbit of exactly one parameter set and mirroring (seed %i)',
+    (seed) => {
+      const result = scores(seed),
+        best = Math.max(...result);
+      expect(best).toBeGreaterThan(0.99);
+      // The best of the others is below 0.95 (measured: 0.93 at most), the share for a wrong set is far lower.
+      expect(result.filter((score) => score > 0.97)).toHaveLength(1);
+      const { a, b, c, d, mirrorX, mirrorY } = variants[result.indexOf(best)],
+        sample = createSurfaceSampler('cliffordattractor', seed),
+        out = empty(),
+        grid = 64,
+        occupied = new Set<number>();
+      for (const point of orbit(a, b, c, d, 200000)) {
+        const cell = (value: number, half: number): number =>
+          Math.min(
+            grid - 1,
+            Math.floor((value / half) * 0.5 * grid + grid / 2),
+          );
+        occupied.add(
+          cell(point[1], 1 + Math.abs(d)) * grid +
+            cell(point[0], 1 + Math.abs(c)),
+        );
+      }
+      // A cell of the window with no orbit point in it or in its eight neighbours is paper.
+      let checked = 0;
+      for (let row = 1; row < grid - 1; row++)
+        for (let column = 1; column < grid - 1; column++) {
+          let empty9 = true;
+          for (let dy = -1; dy <= 1; dy++)
+            for (let dx = -1; dx <= 1; dx++)
+              if (occupied.has((row + dy) * grid + column + dx)) empty9 = false;
+          if (!empty9) continue;
+          const [u, v] = position(
+            [
+              ((column + 0.5) / grid - 0.5) * 2 * (1 + Math.abs(c)),
+              ((row + 0.5) / grid - 0.5) * 2 * (1 + Math.abs(d)),
+            ],
+            c,
+            d,
+            mirrorX,
+            mirrorY,
+          );
+          sample(u, v, out);
+          expect(out.color).toBeGreaterThan(0.8);
+          checked++;
+        }
+      expect(checked).toBeGreaterThan(100);
+      // The ink density follows the number of points per cell: the sampler counts 800000 points in 256 x 256 cells and shows
+      // log(1 + count) / log(1 + saturation); here 200000 points are counted again (a quarter as many), so the expected level of
+      // every cell that has at least 3 points is log(1 + 4 * count) / log(1 + saturation), and the averages must agree.
+      const fine = 256,
+        counts = new Map<number, number>();
+      for (const point of orbit(a, b, c, d, 200000)) {
+        const cell = (value: number, half: number): number =>
+          Math.min(
+            fine - 1,
+            Math.floor((value / half) * 0.5 * fine + fine / 2),
+          );
+        const key =
+          cell(point[1], 1 + Math.abs(d)) * fine +
+          cell(point[0], 1 + Math.abs(c));
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+      }
+      let expectedSum = 0,
+        actualSum = 0,
+        cellsUsed = 0;
+      for (const [key, count] of counts) {
+        if (count < 3) continue;
+        const column = key % fine,
+          row = Math.floor(key / fine),
+          [u, v] = position(
+            [
+              ((column + 0.5) / fine - 0.5) * 2 * (1 + Math.abs(c)),
+              ((row + 0.5) / fine - 0.5) * 2 * (1 + Math.abs(d)),
+            ],
+            c,
+            d,
+            mirrorX,
+            mirrorY,
+          );
+        sample(u, v, out);
+        expectedSum += Math.min(
+          1,
+          Math.log(1 + 4 * count) / Math.log(1 + p.saturation),
+        );
+        actualSum += (p.paperTone - out.color) / (p.paperTone - p.inkTone);
+        cellsUsed++;
+      }
+      expect(cellsUsed).toBeGreaterThan(300);
+      expect(Math.abs(actualSum - expectedSum) / cellsUsed).toBeLessThan(0.05);
+      // Outside the window margin there is only paper.
+      sample(0.01, 0.5, out);
+      expect(out.color).toBeGreaterThan(0.85);
+      sample(0.5, 0.99, out);
+      expect(out.color).toBeGreaterThan(0.85);
+    },
+  );
+
+  it(
+    'uses every parameter set and mirroring across seeds',
+    { timeout: 120000 },
+    () => {
+      const used = new Set<number>();
+      for (let seed = 0; seed < 120; seed++) {
+        const result = scores(seed);
+        used.add(result.indexOf(Math.max(...result)));
+      }
+      expect(used.size).toBe(variants.length);
+    },
+  );
+
+  it('keeps all channels in range and repeats seamlessly', () => {
+    const a = createSurfaceSampler('cliffordattractor', 0),
+      one = empty(),
+      two = empty();
+    let invalid = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+      }
+    }
+  });
+});

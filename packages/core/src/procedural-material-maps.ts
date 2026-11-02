@@ -37226,6 +37226,70 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'cliffordattractor': {
+        const p = proceduralMaterialPresets.cliffordattractor,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x31901),
+          [a, b, c, d] =
+            p.maps[Math.floor(hash(3, 1, seed ^ 0x31902) * p.maps.length)],
+          mirrorX = hash(5, 2, seed ^ 0x31903) < 0.5,
+          mirrorY = hash(7, 3, seed ^ 0x31904) < 0.5,
+          size = p.gridSize,
+          span = 1 - 2 * p.margin,
+          windowX = 1 + Math.abs(c),
+          windowY = 1 + Math.abs(d),
+          counts = new Uint16Array(size * size),
+          level = new Float32Array(size * size),
+          inverseLog = 1 / Math.log(1 + p.saturation);
+        let x = 0.1,
+          y = 0.1;
+        for (let i = 0; i < p.iterations; i++) {
+          const nextX = Math.sin(a * y) + c * Math.cos(a * x);
+          y = Math.sin(b * x) + d * Math.cos(b * y);
+          x = nextX;
+          if (i < p.warmUp) continue;
+          const column = Math.min(
+              size - 1,
+              Math.floor(((x / windowX) * 0.5 + 0.5) * size),
+            ),
+            row = Math.min(
+              size - 1,
+              Math.floor(((y / windowY) * 0.5 + 0.5) * size),
+            );
+          if (counts[row * size + column] < 65535)
+            counts[row * size + column]++;
+        }
+        for (let k = 0; k < size * size; k++)
+          level[k] = Math.min(1, Math.log(1 + counts[k]) * inverseLog);
+        return () => {
+          const fu = (u - Math.floor(u) - p.margin) / span,
+            fv = (v - Math.floor(v) - p.margin) / span;
+          let ink = 0;
+          if (fu >= 0 && fu < 1 && fv >= 0 && fv < 1) {
+            const gx = (mirrorX ? 1 - fu : fu) * size - 0.5,
+              gy = (mirrorY ? 1 - fv : fv) * size - 0.5,
+              x0 = Math.floor(gx),
+              y0 = Math.floor(gy),
+              tx = gx - x0,
+              ty = gy - y0,
+              at = (cx: number, cy: number): number =>
+                cx < 0 || cx >= size || cy < 0 || cy >= size
+                  ? 0
+                  : level[cy * size + cx];
+            ink =
+              (at(x0, y0) * (1 - tx) + at(x0 + 1, y0) * tx) * (1 - ty) +
+              (at(x0, y0 + 1) * (1 - tx) + at(x0 + 1, y0 + 1) * tx) * ty;
+          }
+          color = clamp(
+            p.paperTone +
+              (p.inkTone - p.paperTone) * ink +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * ink);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -64755,6 +64819,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'cliffordattractor' ||
     kind === 'peanocurve' ||
     kind === 'bitwisetable' ||
     kind === 'golombrulers' ||

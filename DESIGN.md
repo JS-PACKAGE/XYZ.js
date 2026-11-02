@@ -1973,6 +1973,10 @@
 
 這是作者設計的示意：曲線沒有標示起點、終點或編號，只能靠漸層色調分辨方向；81格時一格只有約六個像素寬（以512計），因此建議1024以上。曲線的轉換規則由遞迴建構，並在測試中與另一種「以三進位數字互補」的公式比對。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`cliffordattractor`（克利福德吸引子）使目前目錄1101→1102種，含plain的gallery為1103項。整張tile是克利福德映射 x′＝sin(a·y)＋c·cos(a·x)、y′＝sin(b·x)＋d·cos(b·y) 迭代80萬次後的點密度圖：點數落在256×256的格子中，取對數後雙線性內插成墨色濃淡（深藍墨在淺色紙面上）。seed從五組參數（a,b,c,d）＝（−1.4,1.6,1,0.7）、（1.7,1.7,0.6,1.2）、（−1.7,1.3,−0.1,−1.2）、（−1.7,1.8,−1.9,−0.4）、（1.6,−0.6,−1.2,1.6）中挑一組並決定是否左右、上下鏡射；視窗等於映射的精確範圍（x在1＋|c|以內、y在1＋|d|以內），四周留3%空白，所以整張tile可無縫重複。Metallic與mortar為0。
+
+這是作者設計的示意：沒有座標軸或參數標示；五組參數是我試過八組（其中三組不用）之後挑的：一組只占76格（週期軌道）、兩組占約八成格子（過滿，不容易分辨），在我用的48×48小格統計中；這些「混沌」判斷只是格數統計，沒有數學證明；每個取樣器建立時要迭代80萬次（512單次約135到149 ms，非效能認證）。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

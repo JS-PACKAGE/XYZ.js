@@ -12842,6 +12842,35 @@ export const proceduralMaterialPresets = Object.freeze({
     paperRoughness: 0.74,
     inkRoughness: 0.42,
   }),
+  cliffordattractor: Object.freeze({
+    dark: [20, 22, 46] as const,
+    light: [246, 240, 226] as const,
+    roughness: 0.55,
+    relief: 0.004,
+    // The Clifford map x' = sin(a * y) + c * cos(a * x), y' = sin(b * x) + d * cos(b * y) iterated many times, with the points counted
+    // in a grid. The seed picks one of five parameter sets (a, b, c, d) and whether the picture is mirrored sideways and/or upside
+    // down. The window is the exact range of the map, x within 1 + |c| and y within 1 + |d| of the origin.
+    maps: Object.freeze([
+      Object.freeze([-1.4, 1.6, 1, 0.7]),
+      Object.freeze([1.7, 1.7, 0.6, 1.2]),
+      Object.freeze([-1.7, 1.3, -0.1, -1.2]),
+      Object.freeze([-1.7, 1.8, -1.9, -0.4]),
+      Object.freeze([1.6, -0.6, -1.2, 1.6]),
+    ]),
+    margin: 0.03,
+    gridSize: 256,
+    iterations: 800000,
+    warmUp: 200,
+    saturation: 12,
+    grainCells: 192,
+    paperTone: 0.94,
+    inkTone: 0.08,
+    grainTone: 0.03,
+    paperHeight: 0.2,
+    inkHeight: 0.7,
+    paperRoughness: 0.74,
+    inkRoughness: 0.42,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -19334,6 +19363,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  cliffordattractor: 1,
   peanocurve: 1,
   bitwisetable: 1,
   golombrulers: 1,
