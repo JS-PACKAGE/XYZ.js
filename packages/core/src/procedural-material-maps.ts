@@ -30473,6 +30473,126 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'cayleytables': {
+        const p = proceduralMaterialPresets.cayleytables,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2cc01),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+          ],
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // The five groups of order 8, each on the elements 0..7 with 0 as the identity.
+          groups: ((a: number, b: number) => number)[] = [
+            // Cyclic Z8.
+            (a, b) => (a + b) % 8,
+            // Z4 x Z2, element 2x + y.
+            (a, b) => 2 * (((a >> 1) + (b >> 1)) % 4) + ((a ^ b) & 1),
+            // Z2 x Z2 x Z2.
+            (a, b) => a ^ b,
+            // Dihedral D4, element k + 4m for r^k s^m.
+            (a, b) =>
+              (((a & 3) + (a >> 2 ? 4 - (b & 3) : b & 3)) % 4) +
+              4 * ((a >> 2) ^ (b >> 2)),
+            // Quaternion Q8, element unit + 4 * negative, units 1, i, j, k as 0..3.
+            (a, b) => {
+              const first = a & 3,
+                second = b & 3;
+              let negative = (a >> 2) ^ (b >> 2),
+                unit: number;
+              if (first === 0 || second === 0) unit = first + second;
+              else if (first === second) {
+                unit = 0;
+                negative ^= 1;
+              } else {
+                // Units 1, 2, 3 are i, j, k: i j = k, j k = i, k i = j, and the reverse order is negated.
+                unit = 6 - first - second;
+                if (second !== (first % 3) + 1) negative ^= 1;
+              }
+              return unit + 4 * negative;
+            },
+          ],
+          operation =
+            groups[
+              Math.min(
+                groups.length - 1,
+                Math.floor(hash(1, 1, seed ^ 0x2cc02) * groups.length),
+              )
+            ],
+          // The seed relabels the non-identity elements.
+          labelOrder = [1, 2, 3, 4, 5, 6, 7].sort(
+            (a, b) => hash(a, 9, seed ^ 0x2cc03) - hash(b, 9, seed ^ 0x2cc03),
+          ),
+          label = [0, ...labelOrder],
+          element = label.map((_, i) => label.indexOf(i)),
+          table = Array.from({ length: p.order }, (_, a) =>
+            Array.from(
+              { length: p.order },
+              (_, b) => label[operation(element[a], element[b])],
+            ),
+          );
+        return () => {
+          const x = (u - p.left) / p.cell,
+            y = (v - p.top) / p.cell;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            rough: number = p.paperRoughness,
+            line = 0,
+            glyph = 0,
+            inkTone: number = p.inkTone;
+          if (x >= 0 && y >= 0 && x < p.order + 1 && y < p.order + 1) {
+            const column = Math.floor(x),
+              row = Math.floor(y),
+              fx = x - column,
+              fy = y - row,
+              header = column === 0 || row === 0;
+            let symbol = -1;
+            if (header) {
+              if (column + row > 0)
+                symbol = column === 0 ? row - 1 : column - 1;
+              tone = p.headerTone;
+              level = p.headerLevel;
+              rough = p.headerRoughness;
+              inkTone = p.headerInkTone;
+            } else {
+              symbol = table[row - 1][column - 1];
+              tone = symbol === 0 ? p.identityTone : p.cellTone;
+              level = symbol === 0 ? p.identityLevel : p.cellLevel;
+            }
+            line = cover(
+              p.lineHalf -
+                Math.min(Math.min(fx, 1 - fx), Math.min(fy, 1 - fy)) * p.cell,
+            );
+            const px = Math.floor(((fx - 0.5) * p.cell) / p.digitPixel + 1.5),
+              py = Math.floor(((fy - 0.5) * p.cell) / p.digitPixel + 2.5);
+            if (
+              symbol >= 0 &&
+              px >= 0 &&
+              px < 3 &&
+              py >= 0 &&
+              py < 5 &&
+              glyphs[symbol][py * 3 + px] === '1'
+            )
+              glyph = 1;
+          }
+          const base = tone + (p.lineTone - tone) * line;
+          color = clamp(
+            base +
+              (inkTone - base) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * glyph);
+          roughness = rough + (p.inkRoughness - rough) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -58002,6 +58122,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'cayleytables' ||
     kind === 'hammingcodewords' ||
     kind === 'collatzsequences' ||
     kind === 'delaunaytriangles' ||

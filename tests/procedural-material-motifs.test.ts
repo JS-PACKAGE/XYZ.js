@@ -17557,3 +17557,163 @@ describe('hammingcodewords: Hamming(7,4) code words with one flipped bit each', 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('cayleytables: the multiplication table of a group of order eight', () => {
+  const p = proceduralMaterialPresets.cayleytables;
+  const shapes = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+  ];
+  // Element orders (sorted) and whether the group is abelian identify the five groups of order eight.
+  const signatures = new Map<string, string>([
+    ['1,2,4,4,8,8,8,8|abelian', 'Z8'],
+    ['1,2,2,2,4,4,4,4|abelian', 'Z4xZ2'],
+    ['1,2,2,2,2,2,2,2|abelian', 'Z2^3'],
+    ['1,2,2,2,2,2,4,4|nonabelian', 'D4'],
+    ['1,2,4,4,4,4,4,4|nonabelian', 'Q8'],
+  ]);
+  const n = p.order;
+
+  // Reads the printed table (and checks the headers and shading) for a seed.
+  const decode = (seed: number): { table: number[][]; shaded: boolean[][] } => {
+    const sample = createSurfaceSampler('cayleytables', seed),
+      out = empty(),
+      at = (column: number, row: number, fx: number, fy: number): number => {
+        sample(
+          p.left + (column + fx) * p.cell,
+          p.top + (row + fy) * p.cell,
+          out,
+        );
+        return out.color;
+      },
+      read = (column: number, row: number): number => {
+        const background = at(column, row, 0.08, 0.1),
+          bits: string[] = [];
+        for (let y = 0; y < 5; y++) {
+          let text = '';
+          for (let x = 0; x < 3; x++) {
+            const fx = 0.5 + ((x - 1) * p.digitPixel) / p.cell,
+              fy = 0.5 + ((y - 2) * p.digitPixel) / p.cell;
+            text +=
+              Math.abs(at(column, row, fx, fy) - background) > 0.4 ? '#' : '.';
+          }
+          bits.push(text);
+        }
+        const found = shapes.findIndex((shape) =>
+          shape.every((line, i) => line === bits[i]),
+        );
+        expect(found).toBeGreaterThanOrEqual(0);
+        return found;
+      };
+    // Headers list the elements 0 to 7 along the top and down the left.
+    expect(Array.from({ length: n }, (_, i) => read(i + 1, 0))).toEqual([
+      0, 1, 2, 3, 4, 5, 6, 7,
+    ]);
+    expect(Array.from({ length: n }, (_, i) => read(0, i + 1))).toEqual([
+      0, 1, 2, 3, 4, 5, 6, 7,
+    ]);
+    return {
+      table: Array.from({ length: n }, (_, a) =>
+        Array.from({ length: n }, (_, b) => read(b + 1, a + 1)),
+      ),
+      shaded: Array.from({ length: n }, (_, a) =>
+        Array.from({ length: n }, (_, b) => at(b + 1, a + 1, 0.08, 0.1) < 0.85),
+      ),
+    };
+  };
+  const identify = (table: number[][]): string | undefined => {
+    const orders = Array.from({ length: n }, (_, a) => {
+      let power = a,
+        order = 1;
+      while (power !== 0) {
+        power = table[power][a];
+        order++;
+      }
+      return order;
+    }).sort((x, y) => x - y);
+    const abelian = table.every((row, a) =>
+      row.every((value, b) => value === table[b][a]),
+    );
+    return signatures.get(
+      `${orders.join(',')}|${abelian ? 'abelian' : 'nonabelian'}`,
+    );
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'prints a Cayley table that satisfies the group axioms and is one of the five groups of order eight (seed %i)',
+    (seed) => {
+      const { table, shaded } = decode(seed);
+      // The identity cells (0 in the body) are shaded.
+      for (let a = 0; a < n; a++)
+        for (let b = 0; b < n; b++)
+          expect(shaded[a][b]).toBe(table[a][b] === 0);
+      // Element 0 is the identity and every row and column is a permutation (a Latin square, so every element has an inverse).
+      for (let a = 0; a < n; a++) {
+        expect(table[0][a]).toBe(a);
+        expect(table[a][0]).toBe(a);
+        expect([...table[a]].sort()).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+        expect(table.map((row) => row[a]).sort()).toEqual([
+          0, 1, 2, 3, 4, 5, 6, 7,
+        ]);
+      }
+      // Associativity over all 512 triples.
+      for (let a = 0; a < n; a++)
+        for (let b = 0; b < n; b++)
+          for (let c = 0; c < n; c++)
+            expect(table[table[a][b]][c]).toBe(table[a][table[b][c]]);
+      expect(identify(table)).toBeDefined();
+    },
+  );
+
+  it('shows every one of the five groups across seeds 0 to 59', () => {
+    const found = new Set<string>();
+    for (let seed = 0; seed < 60; seed++) {
+      const name = identify(decode(seed).table);
+      expect(name).toBeDefined();
+      found.add(name as string);
+    }
+    expect([...found].sort()).toEqual(['D4', 'Q8', 'Z2^3', 'Z4xZ2', 'Z8']);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('cayleytables', 0),
+      b = createSurfaceSampler('cayleytables', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

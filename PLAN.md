@@ -1661,6 +1661,10 @@
 
 這是作者設計的示意：只有Hamming(7,4)這一種碼、16列固定是資料0到15，每列最多翻轉一個位元（Hamming碼無法修正兩位元錯誤，所以不畫）；翻轉位置由seed偽隨機決定；點陣數字小尺寸下難以辨識。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`cayleytables`（凱萊表）使目前目錄1025→1026種，含plain的gallery為1027項。每tile是一張8階群的凱萊（乘法）表：9×9格，最上列與最左欄為元素0到7的深色表頭，其餘8×8格的第a列第b欄是a與b的乘積；表中值為0的格子（單位元）底色較暗，因此可以看到每個單位元各自成一條由拉丁方陣決定的圖樣。seed從8階的五個群裡挑一個：循環群Z8、Z4×Z2、Z2×Z2×Z2、二面體群D4、四元數群Q8，並且把元素1到7的標籤打亂（0固定為單位元）。因此每張表都滿足群公理：有單位元、每列每欄是排列、可結合；表的樣子則可看出是否交換、各元素的階。Metallic與mortar為0。
+
+這是作者設計的示意：只有這五個8階群，沒有其他階或群名標示；標籤打亂後表格看起來不再有「規律」；點陣數字在小尺寸下難以辨識。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
