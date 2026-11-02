@@ -37073,6 +37073,67 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'bitwisetable': {
+        const p = proceduralMaterialPresets.bitwisetable,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x31701),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          size =
+            p.sizes[Math.floor(hash(3, 1, seed ^ 0x31702) * p.sizes.length)],
+          operation = Math.floor(hash(5, 2, seed ^ 0x31703) * p.operations),
+          bits = Math.round(Math.log2(size)),
+          cellSize = 1 / size,
+          half = p.bitHalf / (bits + 1),
+          values = new Uint8Array(size * size);
+        for (let row = 0; row < size; row++)
+          for (let column = 0; column < size; column++)
+            values[row * size + column] =
+              operation === 0
+                ? row & column
+                : operation === 1
+                  ? row | column
+                  : row ^ column;
+        return () => {
+          const x = (u - Math.floor(u)) * size,
+            y = (v - Math.floor(v)) * size,
+            column = Math.min(size - 1, Math.floor(x)),
+            row = Math.min(size - 1, Math.floor(y)),
+            edge = Math.min(x - column, column + 1 - x, y - row, row + 1 - y),
+            face = cover((edge - p.groove) * cellSize),
+            value = values[row * size + column],
+            tone =
+              p.lowestTone +
+              ((p.highestTone - p.lowestTone) * value) / (size - 1),
+            slot = Math.round((x - column) * (bits + 1)) - 1,
+            across = Math.abs(x - column - (slot + 1) / (bits + 1)),
+            down = Math.abs(y - row - 0.5),
+            on =
+              slot >= 0 &&
+              slot < bits &&
+              ((value >> (bits - 1 - slot)) & 1) === 1 &&
+              across < half &&
+              down < half,
+            ink = on ? face : 0,
+            inkTone = tone < 0.5 ? p.inkLightTone : p.inkDarkTone,
+            base = p.groutTone + (tone - p.groutTone) * face;
+          color = clamp(
+            base +
+              (inkTone - base) * ink +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.groutHeight +
+              (p.faceHeight - p.groutHeight) * face +
+              (p.inkHeight - p.faceHeight) * ink,
+          );
+          roughness =
+            p.groutRoughness +
+            (p.faceRoughness - p.groutRoughness) * face +
+            (p.inkRoughness - p.faceRoughness) * ink;
+          occlusion = clamp(0.8 + 0.2 * face);
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -64602,6 +64663,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'bitwisetable' ||
     kind === 'golombrulers' ||
     kind === 'henonattractor' ||
     kind === 'digitalroottable' ||

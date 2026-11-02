@@ -28562,3 +28562,134 @@ describe('golombrulers: optimal Golomb rulers', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('bitwisetable: AND, OR and XOR tables in binary', () => {
+  const p = proceduralMaterialPresets.bitwisetable;
+  const operations: ((i: number, j: number) => number)[] = [
+    (i, j) => i & j,
+    (i, j) => i | j,
+    (i, j) => i ^ j,
+  ];
+
+  const read = (
+    seed: number,
+    size: number,
+  ): { value: number; tone: number }[][] => {
+    const sample = createSurfaceSampler('bitwisetable', seed),
+      out = empty(),
+      cell = 1 / size,
+      bits = Math.log2(size);
+    return Array.from({ length: size }, (_, row) =>
+      Array.from({ length: size }, (_, column) => {
+        // The face above the squares (0.3 of a cell above the middle, inside the groove) gives the cell tone.
+        sample((column + 0.5) * cell, (row + 0.2) * cell, out);
+        const tone = out.color;
+        let value = 0;
+        for (let slot = 0; slot < bits; slot++) {
+          sample(
+            (column + (slot + 1) / (bits + 1)) * cell,
+            (row + 0.5) * cell,
+            out,
+          );
+          value = value * 2 + (Math.abs(out.color - tone) > 0.3 ? 1 : 0);
+        }
+        return { value, tone };
+      }),
+    );
+  };
+  const matching = (seed: number): { size: number; operation: number }[] => {
+    const found: { size: number; operation: number }[] = [];
+    for (const size of p.sizes) {
+      const grid = read(seed, size);
+      operations.forEach((operation, index) => {
+        if (
+          grid.every((line, row) =>
+            line.every((cell, column) => cell.value === operation(row, column)),
+          )
+        )
+          found.push({ size, operation: index });
+      });
+    }
+    return found;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows i AND j, i OR j or i XOR j in binary in every cell for exactly one table (seed %i)',
+    (seed) => {
+      const found = matching(seed);
+      expect(found).toHaveLength(1);
+      const { size } = found[0],
+        grid = read(seed, size),
+        byValue = new Map<number, number[]>();
+      for (const line of grid)
+        for (const cell of line)
+          byValue.set(cell.value, [
+            ...(byValue.get(cell.value) ?? []),
+            cell.tone,
+          ]);
+      // Cells are toned linearly by value (0 darkest, size - 1 lightest); the paper grain moves a tone by at most 0.015, and a step
+      // between values is as small as 0.0245 at 32 cells, so every cell is compared with its own expected tone. The values 0 and
+      // size - 1 occur in every table: (size - 1) AND (size - 1), 0 OR (size - 1) and 0 XOR (size - 1).
+      const values = [...byValue.keys()].sort((a, b) => a - b);
+      expect(values[0]).toBe(0);
+      expect(values[values.length - 1]).toBe(size - 1);
+      for (const [value, tones] of byValue)
+        for (const tone of tones)
+          expect(
+            Math.abs(
+              tone -
+                (p.lowestTone +
+                  ((p.highestTone - p.lowestTone) * value) / (size - 1)),
+            ),
+          ).toBeLessThan(0.02);
+    },
+  );
+
+  it('uses every size and every operation across seeds', () => {
+    const sizes = new Set<number>(),
+      tables = new Set<number>();
+    for (let seed = 0; seed < 40; seed++) {
+      const [found] = matching(seed);
+      sizes.add(found.size);
+      tables.add(found.operation);
+    }
+    expect([...sizes].sort((a, b) => a - b)).toEqual([...p.sizes]);
+    expect([...tables].sort()).toEqual([0, 1, 2]);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('bitwisetable', 0),
+      b = createSurfaceSampler('bitwisetable', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
