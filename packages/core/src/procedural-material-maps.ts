@@ -42696,6 +42696,74 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'bayerdither': {
+        const p = proceduralMaterialPresets.bayerdither,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft,
+          shiftX = Math.floor(hash(0, 17, seed ^ p.seedSalt) * p.cells),
+          shiftY = Math.floor(hash(1, 17, seed ^ p.seedSalt) * p.cells),
+          // An ordered-dither ramp: the 8 x 8 Bayer threshold matrix (built by the recursion
+          // M(2 s) = [[4 M, 4 M + 2], [4 M + 3, 4 M + 1]] from M(1) = [0], the values 0 to 63 spread
+          // as evenly as possible) is repeated over the table and a cell glows when its
+          // threshold is below the level of its column, which rises by 2 for every column
+          // from 2 at the edges of the table to 64 (every cell lit) in the middle, so the
+          // glowing share grows smoothly from about 3% to 100% and back, the way a halftone
+          // printer renders a grey ramp. The seed moves it around the torus.
+          bayer = new Int32Array(64),
+          tones = new Float64Array(p.cells * p.cells);
+        for (let size = 1; size < 8; size *= 2)
+          for (let y = size - 1; y >= 0; y--)
+            for (let x = size - 1; x >= 0; x--) {
+              const value = 4 * bayer[y * 8 + x];
+              bayer[y * 8 + x] = value;
+              bayer[y * 8 + x + size] = value + 2;
+              bayer[(y + size) * 8 + x] = value + 3;
+              bayer[(y + size) * 8 + x + size] = value + 1;
+            }
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] =
+              bayer[(row % 8) * 8 + (col % 8)] <
+              2 * Math.min(col, p.cells - 1 - col) + 2
+                ? p.toneSpan
+                : 0;
+        return () => {
+          // One compact-support rounded-square kernel per cell (a quartic superellipse
+          // through smoothstep, exactly zero before the cell boundary), so the cell
+          // lookup never jumps and the field is C1.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            ax = (x - col - 0.5) * inverseHalf,
+            ay = (y - row - 0.5) * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            tone =
+              tones[
+                ((row + shiftY) % p.cells) * p.cells +
+                  ((col + shiftX) % p.cells)
+              ],
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -51535,6 +51603,7 @@ export function createSurfaceSampler(
     kind === 'sterndiatomic' ||
     kind === 'kolakoski' ||
     kind === 'baumsweet' ||
+    kind === 'bayerdither' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||

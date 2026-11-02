@@ -12986,3 +12986,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Baum-Sweet as|baumsweet|kinds|catalog|distinct|periodic"`定向測試**2378項通過／4067項未選**。
 - 未驗證：baumsweet未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-03 新增材質：拜爾抖色（bayerdither）
+
+- 範圍：新增`bayerdither`（目前目錄1036→1037種，含plain的gallery 1038項）：64×64圓角方磚表上的有序抖色灰階漸層：8×8拜爾門檻矩陣（倍增遞迴建立）在整張表上重複，格子的門檻低於所在欄的等級（從邊緣的2每欄加2升到中間的64再降回）就發光，共2,112個格子發光；銀白在深藍底上；seed令表在環面上平移；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 163,840 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽只看了一版；(2)sampler以倍增遞迴建立拜爾矩陣，測試以位元封閉形式（每個位元`j`貢獻`4^(2 − j)·(2·(x_j xor y_j) + y_j)`）這個**獨立的方式**重算；我先寫了一個「交錯後反轉位元」的封閉形式嘗試，探針顯示只有8／64個格子相符、被我放棄，再依遞迴的結構推導出上面的封閉形式，探針確認64／64相符才用於測試；(3)**平移不唯一**：抖色矩陣每8列重複，垂直平移8格不改變任何東西，所以每個seed恰有8個符合的平移，測試明確檢查「水平平移相同、垂直平移彼此差8的倍數」，而不是沿用範本的「唯一解」期望（探針第一次輸出時我才注意到這一點，之後才寫測試）；(4)256²與512²取樣的亮處占比、最小色值與AO不同（38.67%對35.45%、AO 0.7344對0.6），原因是格寬（4與8像素）與取樣點在格內位置不同，測試採用256²的數值；(5)建構與取樣耗時**未量測**；(6)測試第一次執行即通過。
+- 實測（工具實跑）：獨立封閉形式的矩陣含0到63各一次、發光格2,112個；四個seed（0／1／0xffffffff／7）各有8個符合的平移，水平平移14、26、42、43，垂直平移除以8的餘數5、7、5、0，最大擬合誤差0.014990–0.014997；256²（seed 0／1／0xffffffff）亮處（color>0.5）恆為38.67%、color 0.05888–0.05957至0.85409–0.85462、平均0.42440–0.42454、roughness恆為0.4、AO最低0.7344、height至多0.8471–0.8499 relief；512²（四個seed）亮處恆為35.45%、color 0.02511–0.02530至0.85448–0.85485、平均0.36698–0.36712、AO最低0.6、height至多0.8498–0.8508 relief；seed 0與1相比，格中心顏色相差超過0.05的格子31.3%（512²中color>0.5的取樣21.5%不同）；seed 7的512²maps平均r／g／b約(91.3, 95.7, 110.0)、法線tilt²最大約0.0378、z分量最小253。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Bayer dither as|bayerdither|kinds|catalog|distinct|periodic"`定向測試**2380項通過／4070項未選**。
+- 未驗證：baumsweet與bayerdither未跑完整suite與瀏覽器gallery；不push。

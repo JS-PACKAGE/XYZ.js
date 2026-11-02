@@ -1101,6 +1101,7 @@ try {
     'sterndiatomic',
     'kolakoski',
     'baumsweet',
+    'bayerdither',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',
