@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`cheetahfur`（獵豹毛皮）使目前目錄949→950種，含plain的gallery為951項。黃褐色短毛皮上分布著黑色的橢圓斑點，斑點的位置、大小與形狀來自週期Gray-Scott反應擴散（reaction-diffusion）模擬，因此是不規則但間距相近的自然斑點，而非隨機圓點或固定格點；毛皮沿v方向有細纖維紋，斑處roughness略高。不是真實獵豹的毛色漸層、斑點外圍的淺色暈、腹部白毛或毛的方向性，預覽只有單一黃褐色與黑色兩段漸層。
+
+此材質是作者依一般獵豹斑紋外觀所作示意，沒有引用特定來源文件、照片或量測，也沒有對照照片；反應擴散參數（feed 0.04、kill 0.065、6000步、96×96格）、斑的門檻與銳度、warp量、毛色與斑色、0.25 m nominal tile皆作者設定與調整，不宣稱符合任何實際獵豹。反應擴散是這個引擎第一次在建立sampler時執行模擬，其他材質仍是純函數式雜訊。
+
+新增專用sampler與兩個共用helper：`latticeField(values, nx, ny)`是週期lattice取樣器（與既有`cachedNoise`相同的smoothstep混合，C1，`cachedNoise`改為呼叫它）；`grayScott(size, seedCells, feed, kill, steps, seed)`在週期size×size格上執行Gray-Scott（Du 0.2097、Dv 0.105、dt 1，只用加減乘，沒有超越函數，所以位元結果與引擎無關），初始擾動是每個`seedCells×seedCells`抖動格一個3×3區塊（讓任一seed都不會一開始就形成長條），輸出把抑制劑濃度正規化到[0, 1]。取樣時以`warpField`稍微扭曲（±0.015 UV）後查詢pattern，用`0.5 + 0.5·tanh(7·(pattern − level))`取平滑斑點遮罩（level = 0.5 ± 0.1隨5×5慢雜訊移動，所以斑點大小略有差異），毛色＝`0.86·(1 − spot) + 0.05·spot`加沿v方向拉長的200×28纖維雜訊與128²細grain；cache合計96²＋6²＋5²＋200×28＋128² = 31,261個Float64／250,088 B lattice算術預算（非總RAM；建構時另有u、v、nextU、nextV四個96²暫存陣列，約294,912 B，結束後只保留v）。模擬成本：本機bun量測每個sampler建構約169–176 ms、512² maps約271 ms（單次量測，非benchmark）。預設0.25 m nominal tile與0.0015 UV-relative relief（非公尺位移）。
+
 `jade`（軟玉）使目前目錄948→949種，含plain的gallery為950項。拋光的綠色軟玉（nephrite）表面：中綠色的雲霧狀濃淡底色（寬雲加細雲），上面是淡綠色的脈紋（沿雜訊場的等值線，形成封閉或蜿蜒的曲線）與更細的髮絲狀淡脈；表面光滑（roughness低），脈處略粗。不是真實玉石的半透明、內部光散射、棉絮狀雜質、橙色皮殼或真實的脈絡分布，預覽比較像沿等值線繪成的大理石紋。
 
 此材質是作者依一般拋光軟玉外觀所作示意，沒有引用特定來源文件、照片或量測，也沒有對照照片；各雜訊場的格數、雲霧濃淡的權重、脈紋的等值線位置與寬度、深綠與淺綠的色調、roughness與0.15 m nominal tile皆作者設定，不宣稱符合任何實際玉料。

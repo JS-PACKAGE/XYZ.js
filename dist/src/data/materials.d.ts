@@ -13457,6 +13457,34 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.3;
         veinRoughness: 0.06;
     }>;
+    cheetahfur: Readonly<{
+        dark: readonly [18, 12, 8];
+        light: readonly [230, 176, 96];
+        roughness: 0.85;
+        relief: 0.0015;
+        seedSalt: 50414;
+        gridSize: 96;
+        seedCells: 8;
+        feed: 0.04;
+        kill: 0.065;
+        steps: 6000;
+        threshold: 0.5;
+        thresholdVariation: 0.2;
+        sharpness: 7;
+        warpCells: 6;
+        warp: 0.03;
+        sizeCells: 5;
+        fiberColumns: 200;
+        fiberRows: 28;
+        grainCells: 128;
+        furTone: 0.86;
+        spotTone: 0.05;
+        fiberTone: 0.08;
+        grainTone: 0.03;
+        fiberHeight: 0.6;
+        grainHeight: 0.4;
+        spotRoughness: 0.08;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -14785,4 +14813,5 @@ export declare const proceduralTileMeters: Readonly<{
     barchart: 0.25;
     spectrogram: 0.3;
     jade: 0.15;
+    cheetahfur: 0.25;
 }>;

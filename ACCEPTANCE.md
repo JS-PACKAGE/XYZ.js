@@ -12078,3 +12078,14 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增6項專屬測試（三seed統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps；`-t "jade"`的filter另命中既有的相關測試，通過項數因此較多），通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Jade as polished|jade|kinds|catalog|distinct|periodic"`定向測試**2188項通過／3781項未選**。
 - 未驗證：本材質未跑完整suite與瀏覽器gallery（spectrogram亦未做gallery）；不push。
+
+## 2026-11-02 新增材質：獵豹毛皮（cheetahfur，首個反應擴散材質）
+
+- 範圍：新增`cheetahfur`（目前目錄949→950種，含plain的gallery 951項）：黃褐色短毛皮上的黑色橢圓斑點，斑點來自建立sampler時執行的週期Gray-Scott反應擴散（96×96格、feed 0.04、kill 0.065、6000步、Du 0.2097、Dv 0.105），查詢時輕微noise扭曲位置並以`0.5 + 0.5·tanh(7·(pattern − level))`取平滑遮罩；毛色＝兩段調色，另有沿v方向的200×28纖維雜訊與128²grain，斑處roughness＋0.08；預設0.25 m nominal tile、0.0015 UV-relative relief。作者示意，沒有引用特定來源、**沒有對照照片**，沒有斑點外的淺色暈或毛色漸層。
+- 新共用helper：`latticeField`（週期lattice的smoothstep取樣器，`cachedNoise`改為呼叫它，行為不變）與`grayScott`。這是引擎第一個在sampler建構時跑模擬的材質。只用加減乘，沒有超越函數；但**我沒有在其他JS引擎或其他CPU上驗證位元一致性**，「位元結果與引擎無關」是依IEEE 754基本運算的推論，不是跨引擎實測。
+- 失敗與修正（誠實紀錄）：(1)第一版以4%隨機點播種、F 0.0367／K 0.0649、64×64，seed 1最後收斂成兩條筆直的垂直寬帶而不是斑點（預覽看到），seed 0則是斑點；`spot`占比在四個seed間為16%～47%，我把它當失敗。(2)改成「每個抖動格一個3×3區塊」播種後，12個seed中仍有約一半最終場域變成幾乎均勻（正規化後約50%像素在門檻之上、只有1個連通區）。(3)我依12個seed掃描了數組(F, K, 步數, 播種格數, 格數)：64×64＋8×8播種格在所有掃描的(F, K)都整個失敗；F 0.04／K 0.065搭配96×96與8×8播種格，12個seed的斑點數42～45、占比22.6%～23.3%（正規化後門檻0.5），其餘組合要不是半數seed失敗就是斑點太少，才採用。**這個參數是「在我試過的12個seed上穩定」，不保證任意seed都穩定**；測試只涵蓋0、1、0xffffffff與seed 7的maps。(4)初版sampler的tilt²在512²maps達0.34（relief 0.004、纖維200欄的斜率），把relief降到0.0015後降為0.0694。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：斑點（color<0.3）占20.0%–21.4%（256²取樣）、毛色（color>0.7）占71.7%–73.6%、color 0.0286–0.0290至0.9075–0.9097、平均0.662–0.677、roughness 0.85–0.93、height至多0.954–0.962 relief；斑點連通區數（256²、4連通、週期）43–45；seed 0與1的斑點遮罩有32.0%像素不同；seed 7的512²maps平均r／g／b約(161, 123, 68)、r<80的像素占19.8%、法線tilt²最大約0.0694、z分量最小251；sampler建構約169–176 ms、512² maps約271 ms（bun單次量測，非benchmark）。我實看了預覽（seed 7與1的tile）：均勻分布、大小略有差異的黑色橢圓斑點，像獵豹斑紋，但沒有斑點外圍的淺色暈，毛是單色而不是背腹漸層。
+- 測試：新增6項專屬測試（三seed統計含斑點連通區數、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過；含lattice節點點位的C1掃描無法證明未知的非C1。
+- 勘誤：上一個jade段落「未驗證」寫到「spectrogram亦未做gallery」是錯的；同一個`84d430604` commit已記錄spectrogram（及redalder、ecgpaper、barchart）的WebGPU與`?renderer=webgl2` gallery檢查，無錯誤。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Cheetah fur as|cheetahfur|kinds|catalog|distinct|periodic"`定向測試**2184項通過／3792項未選**。
+- 未驗證：本材質未跑完整suite與瀏覽器gallery；不push。

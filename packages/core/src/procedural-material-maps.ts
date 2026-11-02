@@ -36,11 +36,8 @@ function noise(
   return (a + (b - a) * sx) * (1 - sy) + (c + (d - c) * sx) * sy;
 }
 
-/** Immutable periodic lattice: architectural seed work is paid once per sampler. */
-function cachedNoise(nx: number, ny: number, seed: number) {
-  const values = new Float64Array(nx * ny);
-  for (let y = 0; y < ny; y++)
-    for (let x = 0; x < nx; x++) values[y * nx + x] = hash(x, y, seed);
+/** Periodic lattice sampler over given values; every neighbour wraps and the blend is smoothstep (C1). */
+function latticeField(values: Float64Array, nx: number, ny: number) {
   return (u: number, v: number): number => {
     const x = fract(u) * nx,
       y = fract(v) * ny,
@@ -56,6 +53,97 @@ function cachedNoise(nx: number, ny: number, seed: number) {
       d = values[nextY + nextX];
     return (a + (b - a) * sx) * (1 - sy) + (c + (d - c) * sx) * sy;
   };
+}
+
+/** Immutable periodic lattice: architectural seed work is paid once per sampler. */
+function cachedNoise(nx: number, ny: number, seed: number) {
+  const values = new Float64Array(nx * ny);
+  for (let y = 0; y < ny; y++)
+    for (let x = 0; x < nx; x++) values[y * nx + x] = hash(x, y, seed);
+  return latticeField(values, nx, ny);
+}
+
+/**
+ * Gray-Scott reaction-diffusion on a periodic size x size grid, started from one
+ * 3 x 3 perturbation per seedCells x seedCells jittered cell (so no seed can start a
+ * long band) and run for a fixed number of steps. Only additions, subtractions
+ * and multiplications are used, so the result is bit-identical across engines. The
+ * inhibitor concentration is returned normalised to [0, 1].
+ */
+function grayScott(
+  size: number,
+  seedCells: number,
+  feed: number,
+  kill: number,
+  steps: number,
+  seed: number,
+): Float64Array {
+  const count = size * size,
+    diffuseU = 0.2097,
+    diffuseV = 0.105;
+  let u = new Float64Array(count).fill(1),
+    v = new Float64Array(count),
+    nextU = new Float64Array(count),
+    nextV = new Float64Array(count);
+  for (let cy = 0; cy < seedCells; cy++)
+    for (let cx = 0; cx < seedCells; cx++) {
+      const px = Math.floor(((cx + hash(cx, cy, seed)) * size) / seedCells),
+        py = Math.floor(
+          ((cy + hash(cx, cy, seed ^ 0x9e37)) * size) / seedCells,
+        );
+      for (let oy = 0; oy < 3; oy++)
+        for (let ox = 0; ox < 3; ox++) {
+          const i = ((py + oy) % size) * size + ((px + ox) % size);
+          u[i] = 0.5;
+          v[i] = 0.5;
+        }
+    }
+  for (let step = 0; step < steps; step++) {
+    for (let y = 0; y < size; y++) {
+      const above = ((y + size - 1) % size) * size,
+        row = y * size,
+        below = ((y + 1) % size) * size;
+      for (let x = 0; x < size; x++) {
+        const left = (x + size - 1) % size,
+          right = (x + 1) % size,
+          i = row + x,
+          cu = u[i],
+          cv = v[i],
+          reaction = cu * cv * cv;
+        nextU[i] =
+          cu +
+          diffuseU *
+            (u[above + x] +
+              u[below + x] +
+              u[row + left] +
+              u[row + right] -
+              4 * cu) -
+          reaction +
+          feed * (1 - cu);
+        nextV[i] =
+          cv +
+          diffuseV *
+            (v[above + x] +
+              v[below + x] +
+              v[row + left] +
+              v[row + right] -
+              4 * cv) +
+          reaction -
+          (feed + kill) * cv;
+      }
+    }
+    [u, nextU] = [nextU, u];
+    [v, nextV] = [nextV, v];
+  }
+  let low = Infinity,
+    high = -Infinity;
+  for (let i = 0; i < count; i++) {
+    low = Math.min(low, v[i]);
+    high = Math.max(high, v[i]);
+  }
+  const span = high - low || 1;
+  for (let i = 0; i < count; i++) v[i] = (v[i] - low) / span;
+  return v;
 }
 
 export interface SurfaceSample {
@@ -39147,6 +39235,64 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'cheetahfur': {
+        const p = proceduralMaterialPresets.cheetahfur,
+          pattern = latticeField(
+            grayScott(
+              p.gridSize,
+              p.seedCells,
+              p.feed,
+              p.kill,
+              p.steps,
+              seed ^ p.seedSalt,
+            ),
+            p.gridSize,
+            p.gridSize,
+          ),
+          warpField = cachedNoise(
+            p.warpCells,
+            p.warpCells,
+            seed ^ (p.seedSalt + 1),
+          ),
+          sizeField = cachedNoise(
+            p.sizeCells,
+            p.sizeCells,
+            seed ^ (p.seedSalt + 2),
+          ),
+          fiberField = cachedNoise(
+            p.fiberColumns,
+            p.fiberRows,
+            seed ^ (p.seedSalt + 3),
+          ),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 4),
+          );
+        return () => {
+          // Spots from a periodic Gray-Scott pattern (a lattice sampled with the same
+          // C1 smoothstep blend as the value noise), looked up at a lightly noise-warped
+          // position and thresholded through a smooth tanh step whose level also moves
+          // with a slow noise field, so spot sizes and the lattice regularity vary.
+          // Fur is fibre noise elongated along v plus fine grain.
+          const wu = u + p.warp * (warpField(u, v) - 0.5),
+            wv = v + p.warp * (warpField(v + 0.37, u + 0.21) - 0.5),
+            level =
+              p.threshold + p.thresholdVariation * (sizeField(u, v) - 0.5),
+            spot =
+              0.5 + 0.5 * Math.tanh(p.sharpness * (pattern(wu, wv) - level)),
+            fiber = fiberField(u, v),
+            grain = grainField(u, v);
+          color =
+            p.furTone * (1 - spot) +
+            p.spotTone * spot +
+            p.fiberTone * (fiber - 0.5) * (1 - 0.7 * spot) +
+            p.grainTone * (grain - 0.5);
+          height = p.fiberHeight * fiber + p.grainHeight * grain;
+          roughness += p.spotRoughness * spot;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -46904,6 +47050,7 @@ export function createSurfaceSampler(
     kind === 'barchart' ||
     kind === 'spectrogram' ||
     kind === 'jade' ||
+    kind === 'cheetahfur' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
