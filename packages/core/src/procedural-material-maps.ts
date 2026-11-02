@@ -36754,6 +36754,80 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'recamanarcs': {
+        const p = proceduralMaterialPresets.recamanarcs,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x31201),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          count =
+            p.counts[Math.floor(hash(17, 1, seed ^ 0x31202) * p.counts.length)],
+          terms = [0],
+          seen = new Set([0]);
+        for (let n = 1; n < count; n++) {
+          const down = terms[n - 1] - n,
+            value = down > 0 && !seen.has(down) ? down : terms[n - 1] + n;
+          terms.push(value);
+          seen.add(value);
+        }
+        const peak = Math.max(...terms),
+          scale = p.width / peak,
+          // How far (in sequence units) a line or a dot reaches beyond its centre line, for skipping the ones that are far away.
+          lineReach = (p.lineHalf + p.edgeSoft) / scale,
+          dotReach = (p.dotRadius + p.edgeSoft) / scale;
+        return () => {
+          const x = (u - p.left) / scale,
+            y = (p.axis - v) / scale;
+          let arc = 0,
+            dot = 0;
+          for (let n = 1; n < count; n++) {
+            // Odd steps are the half above the line (y >= 0), even steps the half below it.
+            if ((n % 2 === 1) !== y >= 0) continue;
+            const centre = (terms[n] + terms[n - 1]) / 2,
+              radius = Math.abs(terms[n] - terms[n - 1]) / 2;
+            if (
+              Math.abs(x - centre) > radius + lineReach ||
+              Math.abs(y) > radius + lineReach
+            )
+              continue;
+            arc = Math.max(
+              arc,
+              cover(
+                p.lineHalf -
+                  Math.abs(Math.hypot(x - centre, y) - radius) * scale,
+              ),
+            );
+          }
+          if (Math.abs(y) < dotReach)
+            for (const term of terms)
+              if (Math.abs(x - term) < dotReach)
+                dot = Math.max(
+                  dot,
+                  cover(p.dotRadius - Math.hypot(x - term, y) * scale),
+                );
+          const axis =
+              x > -1 && x < peak + 1
+                ? cover(p.axisHalf - Math.abs(y) * scale)
+                : 0,
+            base = p.paperTone + (p.axisTone - p.paperTone) * axis,
+            ink = Math.max(arc, dot);
+          color = clamp(
+            base +
+              (p.arcTone - base) * ink +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            Math.max(
+              p.paperHeight + (p.axisHeight - p.paperHeight) * axis,
+              p.paperHeight + (p.arcHeight - p.paperHeight) * ink,
+            ),
+          );
+          roughness =
+            p.paperRoughness +
+            (p.inkRoughness - p.paperRoughness) * Math.max(ink, axis);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -64283,6 +64357,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'recamanarcs' ||
     kind === 'happynumberchains' ||
     kind === 'lookandsayrows' ||
     kind === 'kaprekarsteps' ||

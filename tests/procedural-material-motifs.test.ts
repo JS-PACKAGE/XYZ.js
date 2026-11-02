@@ -27810,3 +27810,151 @@ describe('happynumberchains: sums of squares of digits until 1 or the cycle thro
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('recamanarcs: the Recaman sequence as arcs', () => {
+  const p = proceduralMaterialPresets.recamanarcs;
+  // The sequence with an array and a membership test (independent of the sampler's Set): a(n) = a(n - 1) - n if that is positive
+  // and not yet in the list, otherwise a(n - 1) + n.
+  const recaman = (count: number): number[] => {
+    const terms = [0];
+    for (let n = 1; n < count; n++) {
+      const down = terms[n - 1] - n;
+      terms.push(down > 0 && !terms.includes(down) ? down : terms[n - 1] + n);
+    }
+    return terms;
+  };
+
+  const matching = (seed: number): number[] => {
+    const sample = createSurfaceSampler('recamanarcs', seed),
+      out = empty(),
+      found: number[] = [];
+    for (const count of p.counts) {
+      const terms = recaman(count),
+        scale = p.width / Math.max(...terms);
+      let ok = true;
+      for (let n = 1; n < count && ok; n++) {
+        const centre = (terms[n] + terms[n - 1]) / 2,
+          radius = Math.abs(terms[n] - terms[n - 1]) / 2,
+          side = n % 2 === 1 ? 1 : -1;
+        // Seven points along the semicircle (above the line for odd n, below for even n) must be dark.
+        for (let k = 1; k <= 7 && ok; k++) {
+          const angle = (k * Math.PI) / 8;
+          sample(
+            p.left + (centre + radius * Math.cos(angle)) * scale,
+            p.axis - side * radius * Math.sin(angle) * scale,
+            out,
+          );
+          ok = out.color < 0.4;
+        }
+      }
+      if (ok) found.push(count);
+    }
+    return found;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws every semicircle of the Recaman sequence for one number of terms and no more (seed %i)',
+    (seed) => {
+      // Candidates whose arcs are all drawn: smaller counts are included in a larger one, so the number of terms is the largest.
+      const found = matching(seed);
+      expect(found.length).toBeGreaterThan(0);
+      const count = Math.max(...found);
+      expect(p.counts).toContain(count);
+      // Beyond the end of the sequence there is only paper.
+      const sample = createSurfaceSampler('recamanarcs', seed),
+        out = empty(),
+        terms = recaman(count),
+        scale = p.width / Math.max(...terms);
+      sample(p.left + (Math.max(...terms) + 5) * scale, p.axis, out);
+      expect(out.color).toBeGreaterThan(0.85);
+    },
+  );
+
+  it('does not draw the arc after the last one where no drawn arc or the axis is near it', () => {
+    let checked = 0;
+    for (let seed = 0; seed < 30; seed++) {
+      const count = Math.max(...matching(seed)),
+        sample = createSurfaceSampler('recamanarcs', seed),
+        out = empty(),
+        terms = recaman(count + 1),
+        scale = p.width / Math.max(...recaman(count)),
+        centre = (terms[count] + terms[count - 1]) / 2,
+        radius = Math.abs(terms[count] - terms[count - 1]) / 2,
+        side = count % 2 === 1 ? 1 : -1;
+      for (let k = 1; k < 24; k++) {
+        const angle = (k * Math.PI) / 24,
+          x = centre + radius * Math.cos(angle),
+          y = side * radius * Math.sin(angle),
+          u = p.left + x * scale,
+          v = p.axis - y * scale;
+        // Only points inside the tile that are not within 0.004 of a drawn semicircle on the same side or of the line itself.
+        if (
+          u < 0.01 ||
+          u > 0.99 ||
+          v < 0.01 ||
+          v > 0.99 ||
+          Math.abs(y) * scale < 0.004
+        )
+          continue;
+        const near = terms.slice(1, count).some((value, i) => {
+          const n = i + 1,
+            c = (terms[n] + terms[n - 1]) / 2,
+            r = Math.abs(terms[n] - terms[n - 1]) / 2;
+          return (
+            (n % 2 === 1 ? 1 : -1) === side &&
+            Math.abs(Math.hypot(x - c, y) - r) * scale < 0.004
+          );
+        });
+        if (near) continue;
+        sample(u, v, out);
+        expect(out.color).toBeGreaterThan(0.85);
+        checked++;
+      }
+    }
+    expect(checked).toBeGreaterThan(20);
+  });
+
+  it('uses every number of terms across seeds', () => {
+    const used = new Set<number>();
+    for (let seed = 0; seed < 30; seed++) used.add(Math.max(...matching(seed)));
+    expect([...used].sort((a, b) => a - b)).toEqual(
+      [...p.counts].sort((a, b) => a - b),
+    );
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('recamanarcs', 0),
+      b = createSurfaceSampler('recamanarcs', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.5002],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(0);
+  });
+});
