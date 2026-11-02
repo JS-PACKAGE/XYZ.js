@@ -12315,3 +12315,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試（三seed的相位掃描曲線成員檢查（101個相位中6–14個全部命中）、角落暗度、統計，seed差異與決定性，C1＋有符號UV週期，actual512 maps）通過；測試的相位掃描驗證「曲線確實是這個頻率比表的曲線」，但不能驗證線條視覺品質（珠狀感）。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Lissajous table as|lissajoustable|kinds|catalog|distinct|periodic"`定向測試**2244項通過／3853項未選**。
 - 未驗證：primesieve、lissajoustable未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：玫瑰線表（rhodoneatable）
+
+- 範圍：新增`rhodoneatable`（目前目錄971→972種，含plain的gallery 973項）：6×6格，第(col, row)格以192點封閉多邊形畫出玫瑰線`r = 0.4·cos((col + 1)/(row + 1)·θ)`（θ從0到2π·(row + 1)，所以每個有理數k都封閉），整體旋轉一個由seed決定的角度（0到0.5弧度）；線處理沿用`lissajoustable`調好的版本（高斯和＋`lineGain = 4`、緊湊光暈核）；預設0.3 m nominal tile、0.0008 UV-relative relief。作者示意，沒有引用特定來源或霓虹燈照片、**沒有對照照片**，不是真實霓虹燈管。
+- 勘誤（誠實紀錄）：我在文件中把光暈核半徑0.1格與「玫瑰線到格界的最短距離」的關係寫成「小於」，但玫瑰線的振幅0.4格使最短距離恰為0.1格，半徑與其**相等**（核在該距離恰好歸零，C1測試通過）；在gates之後、commit前改為「不超過」。
+- 實測（工具實跑，seed 0／1／0xffffffff／7，512²取樣）：亮處（color>0.5）占25.48%–25.53%、color 0.0301至0.7896–0.7899、平均0.2483–0.2484、roughness 0.2–0.4、height至多0.9961–0.9988 relief；各格四個角落的最大color為0.0489–0.0493；在0到0.5弧度之間掃描101個旋轉角，恰有29–30個角度使6×6×64 = 2,304個玫瑰線點全部落在亮度大於0.5的像素上（最小值0.7598–0.7617），其餘角度則否；seed 0與1的亮區遮罩15.0%像素不同；seed 7的512²maps平均r／g／b約(72.3, 40.3, 66.2)、法線tilt²最大約0.0469、z分量最小252；512²取樣約232–243 ms、512² maps約257 ms（bun單次量測，非benchmark）。預覽第一次就採用，我實看了預覽。
+- 測試：新增5項專屬測試（三seed的旋轉角掃描曲線成員檢查（101個角度中22–38個全部命中）、角落暗度、統計，seed差異與決定性，C1＋有符號UV週期，actual512 maps）通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Rose table as|rhodoneatable|kinds|catalog|distinct|periodic"`定向測試**2246項通過／3856項未選**（上述文字勘誤是gates之後的純文字修改，已重新執行對應文件的`prettier --check`通過）。
+- 未驗證：primesieve、lissajoustable、rhodoneatable未跑完整suite與瀏覽器gallery；不push。

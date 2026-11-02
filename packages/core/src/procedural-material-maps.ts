@@ -40420,6 +40420,76 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'rhodoneatable': {
+        const p = proceduralMaterialPresets.rhodoneatable,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          rotation = p.rotationVariation * hash(0, 0, seed ^ p.seedSalt),
+          // Cell (col, row) draws the rose r = cos(k theta) with k = (col + 1)/(row + 1),
+          // theta in [0, 2 pi (row + 1)) so that every rational k closes, as a closed
+          // polyline of segments points in cell units relative to the cell centre; the
+          // seed rotates every rose by the same angle.
+          pointsX = new Float64Array(p.cells * p.cells * p.segments),
+          pointsY = new Float64Array(p.cells * p.cells * p.segments),
+          inverseLine2 = 1 / (p.lineWidth * p.lineWidth),
+          inverseGlow2 = 1 / (p.glowRadius * p.glowRadius);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            for (let k = 0; k < p.segments; k++) {
+              const theta = (TAU * (row + 1) * k) / p.segments,
+                radius =
+                  p.amplitude * Math.cos(((col + 1) / (row + 1)) * theta),
+                i = (row * p.cells + col) * p.segments + k;
+              pointsX[i] = radius * Math.cos(theta + rotation);
+              pointsY[i] = radius * Math.sin(theta + rotation);
+            }
+        return () => {
+          // Same soft union as the Lissajous table: a Gaussian sum over the segments of
+          // the cell's own closed polyline (no crease where the rose crosses itself),
+          // squashed by 1 - exp(-gain * sum), plus a compact smoothstep glow that is
+          // exactly zero at the cell boundary because its radius is below the distance
+          // from the rose (at most amplitude from the centre) to that boundary.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            px = x - col - 0.5,
+            py = y - row - 0.5,
+            base = (row * p.cells + col) * p.segments;
+          let lineSum = 0,
+            glowSum = 0;
+          for (let k = 0; k < p.segments; k++) {
+            const ax = pointsX[base + k],
+              ay = pointsY[base + k],
+              next = base + ((k + 1) % p.segments),
+              bx = pointsX[next] - ax,
+              by = pointsY[next] - ay,
+              length2 = bx * bx + by * by,
+              along = length2
+                ? clamp(((px - ax) * bx + (py - ay) * by) / length2)
+                : 0,
+              dx = px - ax - along * bx,
+              dy = py - ay - along * by,
+              d2 = dx * dx + dy * dy;
+            lineSum += Math.exp(-d2 * inverseLine2);
+            glowSum += smooth(clamp(1 - d2 * inverseGlow2));
+          }
+          const line = 1 - Math.exp(-p.lineGain * lineSum),
+            glow = 1 - Math.exp(-glowSum * 0.1),
+            grain = grainField(u, v);
+          color =
+            p.baseTone +
+            p.lineTone * line +
+            p.glowTone * glow * (1 - line) +
+            p.grainTone * (grain - 0.5);
+          height = p.lineHeight * line + p.grainHeight * grain;
+          roughness += p.lineRoughness * line;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -48199,6 +48269,7 @@ export function createSurfaceSampler(
     kind === 'gcdtable' ||
     kind === 'primesieve' ||
     kind === 'lissajoustable' ||
+    kind === 'rhodoneatable' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
