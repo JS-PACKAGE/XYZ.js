@@ -27150,6 +27150,211 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'nurikabeislands': {
+        const p = proceduralMaterialPresets.nurikabeislands,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2af01),
+          waveField = cachedNoise(p.waveCells, p.waveCells, seed ^ 0x2af03),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          n = p.size,
+          side = 1 - 2 * p.margin,
+          cell = side / n,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          island = new Int16Array(n * n).fill(-1),
+          sizes: number[] = [],
+          anchors: number[] = [],
+          neighbours = (index: number): number[] => {
+            const x = index % n,
+              y = Math.floor(index / n),
+              list: number[] = [];
+            if (x < n - 1) list.push(index + 1);
+            if (x > 0) list.push(index - 1);
+            if (y < n - 1) list.push(index + n);
+            if (y > 0) list.push(index - n);
+            return list;
+          },
+          // A cell may join island id if its neighbours are all free or already in that island.
+          joinable = (cellIndex: number, id: number): boolean =>
+            island[cellIndex] === -1 &&
+            neighbours(cellIndex).every(
+              (other) => island[other] === -1 || island[other] === id,
+            ),
+          pool = (): number[] | null => {
+            for (let y = 0; y < n - 1; y++)
+              for (let x = 0; x < n - 1; x++) {
+                const i = y * n + x;
+                if (
+                  island[i] === -1 &&
+                  island[i + 1] === -1 &&
+                  island[i + n] === -1 &&
+                  island[i + n + 1] === -1
+                )
+                  return [i, i + 1, i + n, i + n + 1];
+              }
+            return null;
+          },
+          seaConnected = (): boolean => {
+            const sea = Array.from({ length: n * n }, (_, i) => i).filter(
+              (i) => island[i] === -1,
+            );
+            if (sea.length === 0) return false;
+            const seen = new Set<number>([sea[0]]),
+              queue = [sea[0]];
+            for (let i = 0; i < queue.length; i++)
+              for (const other of neighbours(queue[i]))
+                if (island[other] === -1 && !seen.has(other)) {
+                  seen.add(other);
+                  queue.push(other);
+                }
+            return seen.size === sea.length;
+          };
+        // A solved Nurikabe: islands that never touch (each with its size as the clue), a sea that is
+        // connected and has no 2 x 2 pool. Place a few islands, then fill any 2 x 2 pool by extending a
+        // neighbouring island or adding a one-cell island; keep the attempt if the sea is connected.
+        for (let attempt = 0; attempt < p.attempts; attempt++) {
+          island.fill(-1);
+          sizes.length = 0;
+          anchors.length = 0;
+          let counter = 0,
+            failed = false;
+          const rand = (): number =>
+              hash(attempt * 100003 + counter++, 3, seed ^ 0x2af05),
+            count = p.minIslands + Math.floor(rand() * (p.extraIslands + 1));
+          for (let k = 0; k < count; k++) {
+            let start = -1;
+            for (let t = 0; t < 40 && start < 0; t++) {
+              const candidate = Math.min(n * n - 1, Math.floor(rand() * n * n));
+              if (
+                joinable(candidate, sizes.length) &&
+                neighbours(candidate).every((other) => island[other] === -1)
+              )
+                start = candidate;
+            }
+            if (start < 0) continue;
+            const id = sizes.length,
+              cells = [start],
+              target =
+                1 + Math.min(p.maxTarget - 1, Math.floor(rand() * p.maxTarget));
+            island[start] = id;
+            while (cells.length < target) {
+              const frontier = cells
+                .flatMap((c) => neighbours(c))
+                .filter((other) => joinable(other, id));
+              if (frontier.length === 0) break;
+              const pick =
+                frontier[
+                  Math.min(
+                    frontier.length - 1,
+                    Math.floor(rand() * frontier.length),
+                  )
+                ];
+              island[pick] = id;
+              cells.push(pick);
+            }
+            sizes.push(cells.length);
+            anchors.push(start);
+          }
+          for (let pass = 0; pass < 60 && !failed; pass++) {
+            const open = pool();
+            if (open === null) break;
+            const options: [number, number][] = [];
+            for (const cellIndex of open) {
+              const owners = new Set(
+                neighbours(cellIndex)
+                  .filter((other) => island[other] !== -1)
+                  .map((other) => island[other]),
+              );
+              if (owners.size === 0) options.push([cellIndex, -1]);
+              else if (owners.size === 1)
+                options.push([cellIndex, [...owners][0]]);
+            }
+            if (options.length === 0) failed = true;
+            else {
+              const [cellIndex, owner] =
+                options[
+                  Math.min(
+                    options.length - 1,
+                    Math.floor(rand() * options.length),
+                  )
+                ];
+              if (owner === -1) {
+                island[cellIndex] = sizes.length;
+                sizes.push(1);
+                anchors.push(cellIndex);
+              } else {
+                island[cellIndex] = owner;
+                sizes[owner]++;
+              }
+            }
+          }
+          if (
+            !failed &&
+            pool() === null &&
+            sizes.every((size) => size <= p.maxSize) &&
+            seaConnected()
+          )
+            break;
+        }
+        return () => {
+          const lx = u - p.margin,
+            ly = v - p.margin;
+          let tone: number = p.islandTone,
+            level: number = p.islandHeight,
+            rough: number = p.islandRoughness,
+            ink = 0,
+            line = 0;
+          if (lx >= 0 && lx < side && ly >= 0 && ly < side) {
+            const col = Math.min(n - 1, Math.floor(lx / cell)),
+              row = Math.min(n - 1, Math.floor(ly / cell)),
+              index = row * n + col,
+              fx = lx - col * cell,
+              fy = ly - row * cell;
+            if (island[index] === -1) {
+              tone = p.seaTone + p.waveTone * (waveField(u, v) - 0.5);
+              level = p.seaHeight;
+              rough = p.seaRoughness;
+            } else {
+              line = cover(
+                p.lineHalf -
+                  Math.min(Math.min(fx, cell - fx), Math.min(fy, cell - fy)),
+              );
+              if (anchors[island[index]] === index) {
+                const pixel = cell * p.digitFraction,
+                  px = Math.floor((fx - (cell / 2 - 1.5 * pixel)) / pixel),
+                  py = Math.floor((fy - (cell / 2 - 2.5 * pixel)) / pixel);
+                if (
+                  px >= 0 &&
+                  px < 3 &&
+                  py >= 0 &&
+                  py < 5 &&
+                  glyphs[sizes[island[index]]][py * 3 + px] === '1'
+                )
+                  ink = 1;
+              }
+            }
+          }
+          const base =
+            tone +
+            (p.lineTone - tone) * line +
+            p.grainTone * (grainField(u, v) - 0.5);
+          color = clamp(base + (p.inkTone - base) * ink);
+          height = clamp(level - p.inkDepth * ink);
+          roughness = rough + (p.inkRoughness - rough) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -54679,6 +54884,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'nurikabeislands' ||
     kind === 'futoshikigrid' ||
     kind === 'fillominoregions' ||
     kind === 'stringartcurves' ||

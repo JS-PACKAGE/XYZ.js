@@ -1553,6 +1553,10 @@
 
 這是作者設計的示意：畫面是填好答案的盤面，真正的Futoshiki只給部分數字與不等號；不等號是由答案推得、全部成立，但不保證整題只有唯一解；不等號是小的細線符號（約0.022個tile寬），在小尺寸下難以辨識；5×5固定。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`nurikabeislands`（島嶼謎題／Nurikabe）使目前目錄996→997種，含plain的gallery為998項。每tile是一個8×8已解開的Nurikabe盤面：淺色格是「島」，深藍的格是連成一片的「海」；每座島只在一格寫著點陣數字，數字等於該島的格數；島與島不會上下左右相接，海是單一連通的區域，且海中沒有任何2×2的方塊（「池塘」）。盤面由seed產生：先放4至7座隨機島嶼，再把出現的2×2池塘用「擴張相鄰島嶼」或「新增一格島」補掉，最後要求海仍然連通與每島不超過9格，不合格就以不同的雜湊重試（我用腳本模擬，約3%的嘗試成功）。Metallic與mortar為0。
+
+這是作者設計的示意：畫面是填好答案的盤面，真正的Nurikabe只給島的數字、需要自己推出海；不保證只有唯一解；數字在島的哪一格（固定為最初的起點格）由seed決定；8×8固定，點陣數字為3×5。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

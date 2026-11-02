@@ -13775,3 +13775,152 @@ describe('futoshikigrid: a Latin square whose inequality signs hold', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('nurikabeislands: a solved Nurikabe', () => {
+  const p = proceduralMaterialPresets.nurikabeislands;
+  const n = p.size;
+  const side = 1 - 2 * p.margin;
+  const cell = side / n;
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'has numbered islands of that size, a connected sea and no 2×2 pool (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('nurikabeislands', seed),
+        out = empty(),
+        pixel = cell * p.digitFraction,
+        land: boolean[] = [],
+        clue: number[] = [];
+      for (let row = 0; row < n; row++)
+        for (let col = 0; col < n; col++) {
+          sample(
+            p.margin + (col + 0.15) * cell,
+            p.margin + (row + 0.15) * cell,
+            out,
+          );
+          land.push(out.color > 0.5);
+          const bits: string[] = [];
+          for (let y = 0; y < 5; y++) {
+            let text = '';
+            for (let x = 0; x < 3; x++) {
+              sample(
+                p.margin + (col + 0.5) * cell + (x - 1) * pixel,
+                p.margin + (row + 0.5) * cell + (y - 2) * pixel,
+                out,
+              );
+              text += out.color < 0.3 && land[land.length - 1] ? '#' : '.';
+            }
+            bits.push(text);
+          }
+          const digit = art.findIndex((rows) =>
+            rows.every((line, i) => line === bits[i]),
+          );
+          // A land cell shows either one of the digits or nothing at all; a sea cell never shows a digit.
+          if (digit === -1)
+            expect(bits.every((line) => line === '...')).toBe(true);
+          clue.push(digit);
+        }
+      const neighbours = (i: number): number[] => {
+        const x = i % n,
+          y = Math.floor(i / n),
+          list: number[] = [];
+        if (x < n - 1) list.push(i + 1);
+        if (x > 0) list.push(i - 1);
+        if (y < n - 1) list.push(i + n);
+        if (y > 0) list.push(i - n);
+        return list;
+      };
+      const flood = (
+        start: number,
+        want: boolean,
+        seen: Set<number>,
+      ): number[] => {
+        const group = [start];
+        seen.add(start);
+        for (let i = 0; i < group.length; i++)
+          for (const next of neighbours(group[i]))
+            if (land[next] === want && !seen.has(next)) {
+              seen.add(next);
+              group.push(next);
+            }
+        return group;
+      };
+      // Every island carries exactly one clue and its size equals that clue.
+      const seen = new Set<number>();
+      let islands = 0;
+      for (let i = 0; i < n * n; i++) {
+        if (!land[i] || seen.has(i)) continue;
+        const group = flood(i, true, seen),
+          clues = group.filter((c) => clue[c] !== -1);
+        expect(clues.length).toBe(1);
+        expect(clue[clues[0]]).toBe(group.length);
+        islands++;
+      }
+      expect(islands).toBeGreaterThanOrEqual(5);
+      // Clues only on land.
+      for (let i = 0; i < n * n; i++)
+        if (clue[i] !== -1) expect(land[i]).toBe(true);
+      // The sea is one connected body.
+      const seaSeen = new Set<number>(),
+        sea = land
+          .map((isLand, i) => (isLand ? -1 : i))
+          .filter((i) => i !== -1);
+      expect(flood(sea[0], false, seaSeen).length).toBe(sea.length);
+      // No 2 x 2 pool.
+      for (let y = 0; y < n - 1; y++)
+        for (let x = 0; x < n - 1; x++) {
+          const i = y * n + x;
+          expect(
+            !land[i] && !land[i + 1] && !land[i + n] && !land[i + n + 1],
+          ).toBe(false);
+        }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('nurikabeislands', 0),
+      b = createSurfaceSampler('nurikabeislands', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

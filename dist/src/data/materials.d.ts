@@ -9487,6 +9487,36 @@ export declare const proceduralMaterialPresets: Readonly<{
         inkRoughness: 0.4;
         paperRoughness: 0.74;
     }>;
+    nurikabeislands: Readonly<{
+        dark: readonly [12, 28, 54];
+        light: readonly [244, 240, 224];
+        roughness: 0.55;
+        relief: 0.004;
+        size: 8;
+        minIslands: 4;
+        extraIslands: 3;
+        maxTarget: 5;
+        maxSize: 9;
+        attempts: 4000;
+        margin: 0.04;
+        digitFraction: 0.13;
+        lineHalf: 0.0008;
+        edgeSoft: 0.0011;
+        grainCells: 192;
+        waveCells: 36;
+        islandTone: 0.94;
+        seaTone: 0.12;
+        waveTone: 0.06;
+        lineTone: 0.5;
+        inkTone: 0.08;
+        grainTone: 0.03;
+        islandHeight: 0.6;
+        seaHeight: 0.18;
+        inkDepth: 0.06;
+        inkRoughness: 0.4;
+        islandRoughness: 0.7;
+        seaRoughness: 0.3;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -15972,6 +16002,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    nurikabeislands: 0.5;
     futoshikigrid: 0.4;
     fillominoregions: 0.5;
     stringartcurves: 0.4;
