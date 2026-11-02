@@ -14177,6 +14177,26 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.2;
         lineRoughness: -0.2;
     }>;
+    hadamardmatrix: Readonly<{
+        dark: readonly [10, 10, 24];
+        light: readonly [230, 235, 255];
+        roughness: 0.4;
+        relief: 0.0008;
+        seedSalt: 44455;
+        cells: 64;
+        kernelHalf: 0.46;
+        edgeSoft: 0.3;
+        grainCells: 128;
+        gapTone: 0.04;
+        toneFloor: 0.14;
+        positiveTone: 0.7;
+        negativeTone: 0.1;
+        grainTone: 0.03;
+        cellHeight: 0.8;
+        toneHeight: 0.12;
+        grainHeight: 0.08;
+        gapOcclusion: 0.4;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -15536,4 +15556,5 @@ export declare const proceduralTileMeters: Readonly<{
     sacksspiral: 0.4;
     tulle: 0.3;
     levycurve: 0.25;
+    hadamardmatrix: 0.3;
 }>;

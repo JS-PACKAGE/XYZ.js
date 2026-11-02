@@ -12411,3 +12411,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增專屬測試（416個相異格點與462條相異邊、四seed的node盤面與獨立曲線比對、統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Levy curve as|levycurve|Dragon curve as|Peano curve as|kinds|catalog|distinct|periodic"`定向測試**2268項通過／3874項未選**。
 - 未驗證：levycurve未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：阿達馬矩陣（hadamardmatrix）
+
+- 範圍：新增`hadamardmatrix`（目前目錄980→981種，含plain的gallery 982項）：64×64個圓角方塊磚，第(row, col)格是Sylvester阿達馬矩陣的對應項（`popcount(row & col)`為偶數→+1亮冷白，奇數→−1暗藍灰；4,096項中2,016項為−1）；seed沿環面平移整張表；磚縫AO 0.6；roughness恆為0.4；預設0.3 m nominal tile、0.0008 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 錯誤與調整紀錄（誠實紀錄）：(1)第一次寫入sampler時我以錯誤的區段終點（取到檔案中較前面的`lissajoustable`）切出模板，產生了編譯錯誤的程式碼，tsc與預覽立即報錯；我還原該檔後以正確的區段重做，沒有進入commit。(2)測試第一次同樣以錯誤的區段切模板（找不到describe）而失敗，之後重做；沒有影響結果。(3)256²取樣下每格只有4個取樣點、沒有落在磚縫中心，最暗color 0.0927–0.0936、AO最低0.7344，與512²的0.0251–0.0253與0.6不同；沿用其他表格類的「AO最低等於1 − gapOcclusion」斷言在此不成立，改為256²區間，並加上四格交會角落（1/64, 1/64）取樣得到恰好0.6的檢查。(4)relief沿用0.0008，512²maps法線tilt²最大0.0378。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：256²取樣亮處（color>0.5）占38.09%（四seed相同，因seed平移為整格）、color 0.0927–0.0936至0.8542–0.8545、平均0.4608–0.4610、AO最低0.7344、height至多0.8487–0.8497 relief；512²取樣亮處占34.91%（四seed相同）、color 0.0251–0.0253至0.8547–0.8549、平均0.3980–0.3981、AO最低0.6、height至多0.8504–0.8509 relief；4,096個磚中心的顏色與測試中獨立寫出的矩陣在唯一一個環面平移下一致（(41, 29)、(0, 18)、(34, 7)、(41, 51)，最大誤差約0.0150）；seed 0與1的亮區遮罩（512²）34.1%像素不同；seed 7的512²maps平均r／g／b約(97.6, 99.5, 115.9)、法線tilt²最大約0.0378、z分量最小253。我實看了預覽（seed 7）：細密、帶斜向條紋感的方塊圖案，**目視看不出巢狀2×2區塊結構**，逐磚正確性由測試比對確認。
+- 測試：新增5項專屬測試（2,016項為−1與第0列全為+1、逐磚比對、統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Hadamard matrix as|hadamardmatrix|kinds|catalog|distinct|periodic"`定向測試**2264項通過／3883項未選**。
+- 未驗證：levycurve、hadamardmatrix未跑完整suite與瀏覽器gallery；不push。

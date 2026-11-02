@@ -40895,6 +40895,61 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'hadamardmatrix': {
+        const p = proceduralMaterialPresets.hadamardmatrix,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft,
+          shiftX = Math.floor(hash(0, 0, seed ^ p.seedSalt) * p.cells),
+          shiftY = Math.floor(hash(1, 0, seed ^ p.seedSalt) * p.cells),
+          // Cell (col, row) is entry (row, col) of the Sylvester Hadamard matrix of order
+          // cells: +1 where popcount(row AND col) is even and -1 where it is odd, so row 0
+          // and column 0 are all +1 and the table is built from nested 2 x 2 blocks. The seed
+          // moves the whole table around the torus.
+          tones = new Float64Array(p.cells * p.cells);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            let bits = 0;
+            for (let rest = row & col; rest; rest >>= 1) bits += rest & 1;
+            tones[row * p.cells + col] =
+              bits % 2 === 0 ? p.positiveTone : p.negativeTone;
+          }
+        return () => {
+          // One compact-support rounded-square kernel per cell (a quartic superellipse
+          // through smoothstep, exactly zero before the cell boundary), so the cell
+          // lookup never jumps and the field is C1.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            ax = (x - col - 0.5) * inverseHalf,
+            ay = (y - row - 0.5) * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            tone =
+              tones[
+                ((row + shiftY) % p.cells) * p.cells +
+                  ((col + shiftX) % p.cells)
+              ],
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -48683,6 +48738,7 @@ export function createSurfaceSampler(
     kind === 'sacksspiral' ||
     kind === 'tulle' ||
     kind === 'levycurve' ||
+    kind === 'hadamardmatrix' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
