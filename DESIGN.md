@@ -1769,6 +1769,10 @@
 
 這是作者設計的示意：只有Burning Ship一種碎形，沒有座標標示；因為取座標時做了鏡射，圖形不是標準的「船」方向，整體視窗看起來像鏡射排列的翅膀；視窗是固定的四個，細節區域（例如小船）依靠固定的迭代上限，更深的放大不在範圍內；逃逸邊緣附近的像素對浮點誤差敏感。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`modularpowers`（模冪表）使目前目錄1050→1051種，含plain的gallery為1052項。每tile是一張10×10的模冪表：深色表頭列是指數k＝1到10，表頭欄是底數a＝2到11，表身每格印出 a^k 除以模數m的餘數；模數m由seed從13、15、17、21、25中挑一個。餘數正好是1的格子用較深的底色，這樣可以看出每個底數的冪次循環（乘法階）；與模數有公因數的底數那一整列則是淺灰底，因為這些底數的冪永遠不會回到1。Metallic與mortar為0。
+
+這是作者設計的示意：只有五個模數、底數2到11、指數1到10，不顯示階的數值或循環長度；兩位數的餘數（例如12、10）幾乎佔滿格寬；一個底數與模數有沒有公因數只以列的底色標出，沒有註明是哪個因數。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

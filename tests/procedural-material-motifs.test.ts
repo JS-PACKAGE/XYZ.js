@@ -21093,3 +21093,165 @@ describe('burningship: smooth escape-time contours of the Burning Ship fractal',
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('modularpowers: powers modulo m', () => {
+  const p = proceduralMaterialPresets.modularpowers;
+  const shapes: Record<string, string[]> = {
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    '2': ['###', '..#', '###', '#..', '###'],
+    '3': ['###', '..#', '###', '..#', '###'],
+    '4': ['#.#', '#.#', '###', '..#', '..#'],
+    '5': ['###', '#..', '###', '..#', '###'],
+    '6': ['###', '#..', '###', '#.#', '###'],
+    '7': ['###', '..#', '.#.', '.#.', '.#.'],
+    '8': ['###', '#.#', '###', '#.#', '###'],
+    '9': ['###', '#.#', '###', '..#', '###'],
+  };
+  // The power by exponentiation by squaring, not by the repeated multiplication of the sampler.
+  const power = (base: number, exponent: number, modulus: number): number => {
+    let result = 1,
+      square = base % modulus,
+      rest = exponent;
+    while (rest > 0) {
+      if (rest % 2 === 1) result = (result * square) % modulus;
+      square = (square * square) % modulus;
+      rest = Math.floor(rest / 2);
+    }
+    return result % modulus;
+  };
+  const reader = (seed: number) => {
+    const sample = createSurfaceSampler('modularpowers', seed),
+      out = empty(),
+      at = (column: number, row: number, fx: number, fy: number): number => {
+        sample(
+          p.left + (column + fx) * p.cell,
+          p.top + (row + fy) * p.cell,
+          out,
+        );
+        return out.color;
+      },
+      tone = (column: number, row: number): number =>
+        at(column, row, 0.12, 0.12),
+      readCell = (column: number, row: number): number => {
+        const background = tone(column, row),
+          dark = (x: number, y: number): boolean =>
+            Math.abs(
+              at(
+                column,
+                row,
+                0.5 + (x * p.digitPixel) / p.cell,
+                0.5 + ((y - 2) * p.digitPixel) / p.cell,
+              ) - background,
+            ) > 0.25;
+        let reach = 0;
+        for (let x = 1; x <= 3; x++)
+          if ([0, 1, 2, 3, 4].some((y) => dark(x, y) || dark(-x, y))) reach = x;
+        const count = (reach + 1) / 2;
+        expect(Number.isInteger(count)).toBe(true);
+        let text = '';
+        for (let d = 0; d < count; d++) {
+          const lines = [0, 1, 2, 3, 4].map((y) =>
+              [0, 1, 2]
+                .map((x) => (dark(-(2 * count - 1) + 4 * d + x, y) ? '#' : '.'))
+                .join(''),
+            ),
+            found = Object.entries(shapes).find(([, shape]) =>
+              shape.every((line, i) => line === lines[i]),
+            );
+          expect(found).toBeDefined();
+          text += (found as [string, string[]])[0];
+        }
+        return Number(text);
+      },
+      // The modulus is the only value in the preset list that reproduces every body cell.
+      modulus = (): number => {
+        const matching = p.moduli.filter((candidate) => {
+          for (let row = 1; row <= p.size; row++)
+            for (let column = 1; column <= p.size; column++)
+              if (
+                readCell(column, row) !==
+                power(p.firstBase + row - 1, column, candidate)
+              )
+                return false;
+          return true;
+        });
+        expect(matching).toHaveLength(1);
+        return matching[0];
+      };
+    return { tone, readCell, modulus };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'lists a^k mod m and marks the ones and the bases sharing a factor with m (seed %i)',
+    (seed) => {
+      const { tone, readCell, modulus } = reader(seed);
+      // The headers count the exponents 1 to 10 and the bases from firstBase.
+      for (let i = 1; i <= p.size; i++) {
+        expect(readCell(i, 0)).toBe(i);
+        expect(readCell(0, i)).toBe(p.firstBase + i - 1);
+      }
+      const m = modulus();
+      for (let row = 1; row <= p.size; row++) {
+        const base = p.firstBase + row - 1;
+        // A base shares a factor with the modulus when some number above 1 divides both.
+        let shared = false;
+        for (let d = 2; d <= base; d++)
+          if (base % d === 0 && m % d === 0) shared = true;
+        for (let column = 1; column <= p.size; column++) {
+          const value = readCell(column, row);
+          expect(tone(column, row)).toBeCloseTo(
+            value === 1 ? p.oneTone : shared ? p.sharedFactorTone : p.plainTone,
+            1,
+          );
+          // A power of a base that shares a factor with m can never be 1.
+          if (shared) expect(value).not.toBe(1);
+        }
+      }
+    },
+  );
+
+  it('uses every modulus of the preset across seeds', () => {
+    const used = new Set<number>();
+    for (let seed = 0; seed < 40; seed++) used.add(reader(seed).modulus());
+    expect([...used].sort((a, b) => a - b)).toEqual(
+      [...p.moduli].sort((a, b) => a - b),
+    );
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('modularpowers', 0),
+      b = createSurfaceSampler('modularpowers', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
