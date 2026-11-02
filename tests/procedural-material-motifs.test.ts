@@ -27550,3 +27550,118 @@ describe('kaprekarsteps: Kaprekar routine chains ending at 6174', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('lookandsayrows: the look-and-say sequence', () => {
+  const p = proceduralMaterialPresets.lookandsayrows;
+  const shapes = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+  // The next term by reading the previous one aloud, done with a regular expression over runs of the same digit.
+  const next = (term: string): string =>
+    term.replace(/(\d)\1*/g, (run) => `${run.length}${run[0]}`);
+
+  const readRows = (seed: number): string[] => {
+    const sample = createSurfaceSampler('lookandsayrows', seed),
+      out = empty(),
+      rows: string[] = [];
+    for (let row = 0; row < p.maxRows; row++) {
+      const centre = p.top + (row + 0.5) * p.rowPitch;
+      let text = '';
+      for (
+        let slot = 0;
+        slot < Math.floor((0.99 - p.left) / (4 * p.pixel));
+        slot++
+      ) {
+        const lines = [0, 1, 2, 3, 4].map((k) =>
+          [0, 1, 2]
+            .map((x) => {
+              sample(
+                p.left + (4 * slot + x + 0.5) * p.pixel,
+                centre + (k - 2) * p.pixel,
+                out,
+              );
+              return out.color < 0.3 ? '#' : '.';
+            })
+            .join(''),
+        );
+        if (lines.every((line) => line === '...')) break;
+        const digit = shapes.findIndex((shape) =>
+          shape.every((line, i) => line === lines[i]),
+        );
+        expect(digit).toBeGreaterThanOrEqual(0);
+        text += digit;
+      }
+      if (text === '') break;
+      rows.push(text);
+    }
+    return rows;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'lists each term as the previous one read aloud, until the next would be too long (seed %i)',
+    (seed) => {
+      const rows = readRows(seed);
+      expect(p.starts.map(String)).toContain(rows[0]);
+      rows.forEach((row, i) => {
+        if (i > 0) expect(row).toBe(next(rows[i - 1]));
+      });
+      // Rows stop because the next term would have more than maxLength digits, or because there are maxRows rows.
+      const upcoming = next(rows[rows.length - 1]);
+      expect(rows.length === p.maxRows || upcoming.length > p.maxLength).toBe(
+        true,
+      );
+      expect(rows.every((row) => row.length <= p.maxLength)).toBe(true);
+    },
+  );
+
+  it('uses every starting digit across seeds', () => {
+    const starts = new Set<string>();
+    for (let seed = 0; seed < 30; seed++) starts.add(readRows(seed)[0]);
+    expect([...starts].sort()).toEqual(p.starts.map(String).sort());
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('lookandsayrows', 0),
+      b = createSurfaceSampler('lookandsayrows', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

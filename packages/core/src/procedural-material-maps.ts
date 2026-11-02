@@ -36580,6 +36580,90 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'lookandsayrows': {
+        const p = proceduralMaterialPresets.lookandsayrows,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x31001),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          terms: string[] = [
+            String(
+              p.starts[
+                Math.floor(hash(16, 1, seed ^ 0x31002) * p.starts.length)
+              ],
+            ),
+          ];
+        // Each next term reads the previous one aloud: the length of every run of equal digits, then the digit.
+        while (terms.length < p.maxRows) {
+          const previous = terms[terms.length - 1];
+          let next = '',
+            run = 1;
+          for (let i = 1; i <= previous.length; i++) {
+            if (previous[i] === previous[i - 1]) run++;
+            else {
+              next += String(run) + previous[i - 1];
+              run = 1;
+            }
+          }
+          if (next.length > p.maxLength) break;
+          terms.push(next);
+        }
+        return () => {
+          const row = Math.floor((v - p.top) / p.rowPitch),
+            fy = (v - p.top) / p.rowPitch - row;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            glyph = 0;
+          if (row >= 0 && row < terms.length) {
+            const text = terms[row],
+              px = Math.floor((u - p.left) / p.pixel),
+              d = px >= 0 ? Math.floor(px / 4) : -1,
+              gx = px - 4 * d,
+              py = Math.floor(((fy - 0.5) * p.rowPitch) / p.pixel + 2.5);
+            if (
+              row % 2 === 1 &&
+              Math.abs(u - p.left - p.stripeWidth / 2) <
+                p.stripeWidth / 2 + p.stripeInset
+            ) {
+              tone = p.stripeTone;
+              level = p.stripeHeight;
+            }
+            // The first digit of each term sits on a darker cell.
+            if (d === 0) {
+              tone = p.labelTone;
+              level = p.labelHeight;
+            }
+            if (
+              d >= 0 &&
+              d < text.length &&
+              gx >= 0 &&
+              gx < 3 &&
+              py >= 0 &&
+              py < 5 &&
+              glyphs[Number(text[d])][py * 3 + gx] === '1'
+            )
+              glyph = 1;
+          }
+          color = clamp(
+            tone +
+              (p.inkTone - tone) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * glyph);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -64109,6 +64193,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'lookandsayrows' ||
     kind === 'kaprekarsteps' ||
     kind === 'roundrobintable' ||
     kind === 'roulettewheel' ||
