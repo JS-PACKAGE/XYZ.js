@@ -11673,3 +11673,98 @@ describe('sortingnetworks: the drawn comparators really sort', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('primesieve: bright cells are exactly the primes of a window of consecutive integers', () => {
+  const p = proceduralMaterialPresets.primesieve;
+  const n = p.size;
+  const cell = (1 - 2 * p.margin) / n;
+
+  // Independent reference: the smallest prime factor by a sieve, grouped like the tones.
+  const limit = 1 + p.firstMax + n * n;
+  const smallest = new Array<number>(limit + 1).fill(0);
+  for (let i = 2; i <= limit; i++)
+    if (smallest[i] === 0)
+      for (let j = i; j <= limit; j += i)
+        if (smallest[j] === 0) smallest[j] = i;
+  const classOf = (value: number): number => {
+    if (value === 1) return 0;
+    if (smallest[value] === value) return 1;
+    const factor = smallest[value];
+    return factor <= 7 ? [0, 0, 2, 3, 0, 4, 0, 5][factor] : 6;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows the number classes of exactly one window start (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('primesieve', seed),
+        out = empty(),
+        decoded: number[] = [];
+      for (let row = 0; row < n; row++)
+        for (let col = 0; col < n; col++) {
+          sample(
+            p.margin + (col + 0.5) * cell,
+            p.margin + (row + 0.5) * cell,
+            out,
+          );
+          // Nearest tone among: 1, prime, then the four prime-factor tones and the "11 or more" tone.
+          const tones = [p.oneTone, p.primeTone, ...p.factorTones];
+          let best = 0;
+          for (let k = 1; k < tones.length; k++)
+            if (
+              Math.abs(tones[k] - out.color) < Math.abs(tones[best] - out.color)
+            )
+              best = k;
+          expect(Math.abs(tones[best] - out.color)).toBeLessThan(0.04);
+          decoded.push(best);
+        }
+      const starts: number[] = [];
+      for (let start = 1; start <= 1 + p.firstMax; start++) {
+        let same = true;
+        for (let i = 0; i < n * n && same; i++)
+          same = classOf(start + i) === decoded[i];
+        if (same) starts.push(start);
+      }
+      expect(starts.length).toBe(1);
+      // Among 256 consecutive integers below 1000 there are roughly 35 to 60 primes.
+      const primes = decoded.filter((kind) => kind === 1).length;
+      expect(primes).toBeGreaterThan(25);
+      expect(primes).toBeLessThan(75);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('primesieve', 0),
+      b = createSurfaceSampler('primesieve', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

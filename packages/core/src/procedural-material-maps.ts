@@ -24666,6 +24666,81 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'primesieve': {
+        const p = proceduralMaterialPresets.primesieve,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x29e01),
+          n = p.size,
+          cell = (1 - 2 * p.margin) / n,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          first =
+            1 +
+            Math.min(
+              p.firstMax,
+              Math.floor(hash(5, 5, seed ^ 0x29e03) * (p.firstMax + 1)),
+            ),
+          // The smallest prime factor of every shown number: 0 for the number 1, the number itself for a
+          // prime. Composites are grouped by 2, 3, 5, 7 and "11 or more".
+          classes = Array.from({ length: n * n }, (_, i) => {
+            const value = first + i;
+            if (value === 1) return 0;
+            let factor = 2;
+            while (factor * factor <= value && value % factor !== 0) factor++;
+            if (factor * factor > value) return 1;
+            return factor === 2
+              ? 2
+              : factor === 3
+                ? 3
+                : factor === 5
+                  ? 4
+                  : factor === 7
+                    ? 5
+                    : 6;
+          });
+        return () => {
+          const lx = u - p.margin,
+            ly = v - p.margin;
+          let tone: number = p.gapTone,
+            level: number = p.gapHeight,
+            rough: number = p.otherRoughness;
+          if (lx >= 0 && lx < n * cell && ly >= 0 && ly < n * cell) {
+            const col = Math.min(n - 1, Math.floor(lx / cell)),
+              row = Math.min(n - 1, Math.floor(ly / cell)),
+              fx = lx - col * cell,
+              fy = ly - row * cell,
+              half = cell / 2 - p.gap,
+              // A rounded square: distance outside the corner-rounded box is negative.
+              qx = Math.abs(fx - cell / 2) - (half - p.cornerRadius),
+              qy = Math.abs(fy - cell / 2) - (half - p.cornerRadius),
+              inside =
+                p.cornerRadius -
+                (Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) +
+                  Math.min(Math.max(qx, qy), 0)),
+              shape = cover(inside),
+              kind = classes[row * n + col],
+              faceTone =
+                kind === 0
+                  ? p.oneTone
+                  : kind === 1
+                    ? p.primeTone
+                    : p.factorTones[kind - 2],
+              faceHeight =
+                kind === 0
+                  ? p.oneHeight
+                  : kind === 1
+                    ? p.primeHeight
+                    : p.compositeHeight;
+            tone += (faceTone - tone) * shape;
+            level += (faceHeight - level) * shape;
+            if (kind === 1) rough += (p.primeRoughness - rough) * shape;
+          }
+          color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(level);
+          roughness = rough;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -52195,6 +52270,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'primesieve' ||
     kind === 'sortingnetworks' ||
     kind === 'mayansums' ||
     kind === 'latinsquares' ||

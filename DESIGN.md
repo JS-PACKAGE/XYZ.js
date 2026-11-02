@@ -1485,6 +1485,10 @@
 
 這是作者設計的示意：只有8條導線與兩種網路；為了避免巢狀的比較器互相重疊，每個比較器獨佔一欄（因此圖並未把同一層的比較器畫在同一欄，不是標準的分層畫法）；測試端用0-1原理驗證讀回的比較器網路確實把全部256個二進位輸入排序，但沒有證明它是比較器數目最少的網路。預設0.4 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`primesieve`（質數篩）使目前目錄979→980種，含plain的gallery為981項。每tile是一個16×16的圓角方格盤面，按行由左到右、由上到下排列256個連續整數，起點由seed在1至745之間挑選。質數的方格是最亮的黃色並且凸起；合成數依「最小質因數」分成2、3、5、7與11以上五級灰黃色（由暗到亮）；數字1（若出現在視窗中）是最暗的方格。因此在畫面上質數的位置正是埃拉托斯特尼篩法留下的空位，2的倍數呈每隔一格的暗直條。Metallic與mortar為0。
+
+這是作者設計的示意：畫面上沒有數字，只能由模式推知；11以上的最小質因數只用一級表示（不再細分11、13、17…）；起點最大745，所以視窗最大到1000（最小質因數最大為31）；亮度是灰階，不是色相；質數的判定用試除法，不是篩法的實作。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
