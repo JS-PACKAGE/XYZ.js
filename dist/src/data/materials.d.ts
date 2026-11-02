@@ -9604,6 +9604,37 @@ export declare const proceduralMaterialPresets: Readonly<{
         paperRoughness: 0.74;
         shadeRoughness: 0.35;
     }>;
+    akarilights: Readonly<{
+        dark: readonly [18, 18, 30];
+        light: readonly [250, 244, 214];
+        roughness: 0.5;
+        relief: 0.004;
+        size: 8;
+        blackChance: 0.26;
+        clueChance: 0.6;
+        margin: 0.05;
+        digitFraction: 0.14;
+        bulbRadius: 0.28;
+        lineHalf: 0.0008;
+        edgeSoft: 0.0011;
+        grainCells: 192;
+        paperTone: 0.94;
+        cellTone: 0.92;
+        blackTone: 0.1;
+        clueTone: 0.9;
+        bulbTone: 0.2;
+        lineTone: 0.5;
+        grainTone: 0.03;
+        paperHeight: 0.22;
+        cellHeight: 0.5;
+        blackHeight: 0.85;
+        bulbHeight: 0.7;
+        inkDepth: 0.06;
+        bulbRoughness: 0.3;
+        blackRoughness: 0.35;
+        paperRoughness: 0.74;
+        clueRoughness: 0.4;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -16089,6 +16120,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    akarilights: 0.4;
     hitorishading: 0.4;
     shikakurects: 0.5;
     tentsandtrees: 0.5;

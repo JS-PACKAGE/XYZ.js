@@ -12233,3 +12233,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 完整測試：在上一個提交（`906a5af93`，目錄999種）的`git archive`乾淨匯出上，以json reporter執行`tests/procedural-material.test.ts`與`tests/procedural-material-motifs.test.ts`兩檔，**6527項全過、0失敗**，耗時約1000秒，執行期間沒有其他重負載。本材質與該次執行之間只有hitorishading一項新增，所以以下只做定向測試。
 - 實測：`tests/procedural-material-motifs.test.ts`九百一十四項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）：由格子左上角判斷是否塗黑，再讀點陣數字（塗黑格的數字是亮的、未塗黑格是暗的，兩種都能辨識為1至7）；至少8個塗黑格；塗黑格不可與右方或下方的格相鄰；任兩個未塗黑格若同列或同欄，數字必須不同；每個塗黑格的數字必須在同列或同欄找得到數字相同的未塗黑格；未塗黑格4連通洪填後必須是一整片；通道範圍、metallic／mortar 0、wrap與seed差異。突變檢查：把取樣器的「塗黑後其餘必須連通」判斷改成永遠為真後，九個seed中的九項失敗，還原後全過。我沒有做300個額外seed的暫時性檢查。`tests/procedural-material.test.ts`以`-t "hitorishading|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`hitorishading`：option 1001個、status為1000 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的盤面。前兩次gallery檢查時無頭瀏覽器連線中斷（`Target closed`／`Session closed`，與材質無關），第三次成功，上述數字是第三次的結果。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：點燈謎題（akarilights）
+
+- 目錄1000→1001，含plain的gallery為1002項。每tile一個8×8已解開的Akari：白格上的燈泡沿列欄照亮到牆為止、所有白格皆被照亮且燈泡互不相見，部分黑牆以反白點陣數字（0至4）標出相鄰燈泡數。Metallic／mortar為0，預設tile0.4 m、0.004 UV-relative relief、metallic factor 0。顯示答案、不保證解答唯一；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 調整：第一版牆的機率是17%，預覽（seed 7）只有約7面牆、盤面太空，改成26%後才有足夠的牆與數字；這是視覺調整，不影響正確性。
+- 實測：`tests/procedural-material-motifs.test.ts`九百二十四項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）：測試端以格子左上角判斷牆、白格中心判斷燈泡、牆上讀反白點陣數字；至少8面牆、至少6顆燈泡；從每顆燈泡沿四個方向走到牆，路上遇到另一顆燈泡就失敗；每個白格都必須至少被一顆燈泡照亮（含自己）；牆上不可有燈泡；每個有數字的牆，數字必須等於上下左右相鄰燈泡數；至少3個數字；通道範圍、metallic／mortar 0、wrap與seed差異。突變檢查：把取樣器「已被照亮的格子不放燈泡」的條件拿掉後，九個seed中的九項失敗，還原後全過。我沒有做300個額外seed的暫時性檢查。`tests/procedural-material.test.ts`以`-t "akarilights|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`akarilights`：option 1002個、status為1001 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的盤面。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

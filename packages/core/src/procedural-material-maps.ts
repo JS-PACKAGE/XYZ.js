@@ -27760,6 +27760,127 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'akarilights': {
+        const p = proceduralMaterialPresets.akarilights,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2b301),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+          ],
+          n = p.size,
+          side = 1 - 2 * p.margin,
+          cell = side / n,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // 0 white, 1 black wall, 2 bulb
+          kind = new Uint8Array(n * n),
+          lit = new Uint8Array(n * n),
+          clue = new Int8Array(n * n).fill(-1),
+          order = Array.from({ length: n * n }, (_, i) => i).sort(
+            (a, b) => hash(a, 3, seed ^ 0x2b303) - hash(b, 3, seed ^ 0x2b303),
+          ),
+          steps = [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ];
+        for (let index = 0; index < n * n; index++)
+          if (hash(index, 5, seed ^ 0x2b305) < p.blackChance) kind[index] = 1;
+        // A bulb lights its row and column until a wall. Any white cell that is not lit yet can take a bulb
+        // without seeing another one, so repeating this lights every white cell with no two bulbs facing.
+        for (const index of order) {
+          if (kind[index] !== 0 || lit[index] === 1) continue;
+          kind[index] = 2;
+          lit[index] = 1;
+          for (const [dx, dy] of steps)
+            for (
+              let x = (index % n) + dx, y = Math.floor(index / n) + dy;
+              x >= 0 && y >= 0 && x < n && y < n && kind[y * n + x] !== 1;
+              x += dx, y += dy
+            )
+              lit[y * n + x] = 1;
+        }
+        // Some walls show how many bulbs touch them.
+        for (let index = 0; index < n * n; index++) {
+          if (
+            kind[index] !== 1 ||
+            hash(index, 7, seed ^ 0x2b307) >= p.clueChance
+          )
+            continue;
+          const x = index % n,
+            y = Math.floor(index / n);
+          clue[index] = steps.filter(
+            ([dx, dy]) =>
+              x + dx >= 0 &&
+              y + dy >= 0 &&
+              x + dx < n &&
+              y + dy < n &&
+              kind[(y + dy) * n + x + dx] === 2,
+          ).length;
+        }
+        return () => {
+          const lx = u - p.margin,
+            ly = v - p.margin;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            rough: number = p.paperRoughness,
+            line = 0,
+            bulb = 0,
+            glyph = 0;
+          if (lx >= 0 && ly >= 0 && lx < side && ly < side) {
+            const col = Math.min(n - 1, Math.floor(lx / cell)),
+              row = Math.min(n - 1, Math.floor(ly / cell)),
+              index = row * n + col,
+              fx = lx / cell - col,
+              fy = ly / cell - row,
+              what = kind[index];
+            tone = what === 1 ? p.blackTone : p.cellTone;
+            level = what === 1 ? p.blackHeight : p.cellHeight;
+            rough = what === 1 ? p.blackRoughness : p.paperRoughness;
+            line = cover(
+              p.lineHalf -
+                Math.min(Math.min(fx, 1 - fx), Math.min(fy, 1 - fy)) * cell,
+            );
+            if (what === 2)
+              bulb = cover(
+                (p.bulbRadius - Math.hypot(fx - 0.5, fy - 0.5)) * cell,
+              );
+            else if (what === 1 && clue[index] !== -1) {
+              const pixel = cell * p.digitFraction,
+                px = Math.floor((fx * cell - (cell / 2 - 1.5 * pixel)) / pixel),
+                py = Math.floor((fy * cell - (cell / 2 - 2.5 * pixel)) / pixel);
+              if (
+                px >= 0 &&
+                px < 3 &&
+                py >= 0 &&
+                py < 5 &&
+                glyphs[clue[index]][py * 3 + px] === '1'
+              )
+                glyph = 1;
+            }
+          }
+          const base = tone + (p.lineTone - tone) * line * (1 - bulb),
+            withBulb = base + (p.bulbTone - base) * bulb;
+          color = clamp(
+            withBulb +
+              (p.clueTone - withBulb) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            level + (p.bulbHeight - level) * bulb - p.inkDepth * glyph,
+          );
+          roughness =
+            rough +
+            (p.bulbRoughness - rough) * bulb +
+            (p.clueRoughness - rough) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -55289,6 +55410,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'akarilights' ||
     kind === 'hitorishading' ||
     kind === 'shikakurects' ||
     kind === 'tentsandtrees' ||

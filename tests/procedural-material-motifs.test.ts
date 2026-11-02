@@ -14331,3 +14331,140 @@ describe('hitorishading: a solved Hitori', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('akarilights: a solved Akari (Light Up)', () => {
+  const p = proceduralMaterialPresets.akarilights;
+  const n = p.size;
+  const cell = (1 - 2 * p.margin) / n;
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'lights every white cell with no two facing bulbs and correct wall counts (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('akarilights', seed),
+        out = empty(),
+        pixel = cell * p.digitFraction,
+        at = (u: number, v: number): number => {
+          sample(p.margin + u * cell, p.margin + v * cell, out);
+          return out.color;
+        },
+        wall: boolean[] = [],
+        bulb: boolean[] = [],
+        clue: number[] = [];
+      for (let row = 0; row < n; row++)
+        for (let col = 0; col < n; col++) {
+          const black = at(col + 0.1, row + 0.1) < 0.5;
+          wall.push(black);
+          bulb.push(!black && at(col + 0.5, row + 0.5) < 0.4);
+          // Wall numbers are light on the dark wall.
+          const bits: string[] = [];
+          for (let y = 0; y < 5; y++) {
+            let text = '';
+            for (let x = 0; x < 3; x++)
+              text +=
+                black &&
+                at(
+                  col + 0.5 + (x - 1) * (pixel / cell),
+                  row + 0.5 + (y - 2) * (pixel / cell),
+                ) > 0.5
+                  ? '#'
+                  : '.';
+            bits.push(text);
+          }
+          const digit = art.findIndex((rows) =>
+            rows.every((line, i) => line === bits[i]),
+          );
+          if (digit === -1)
+            expect(bits.every((line) => line === '...')).toBe(true);
+          clue.push(digit);
+        }
+      expect(wall.filter(Boolean).length).toBeGreaterThanOrEqual(8);
+      expect(bulb.filter(Boolean).length).toBeGreaterThanOrEqual(6);
+      // Walk from every bulb along its row and column until a wall.
+      const seen = Array.from({ length: n * n }, () => 0),
+        directions = [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ];
+      for (let index = 0; index < n * n; index++) {
+        if (!bulb[index]) continue;
+        seen[index]++;
+        for (const [dx, dy] of directions) {
+          let x = (index % n) + dx,
+            y = Math.floor(index / n) + dy;
+          while (x >= 0 && y >= 0 && x < n && y < n && !wall[y * n + x]) {
+            // A bulb that sees another bulb is a violation.
+            expect(bulb[y * n + x]).toBe(false);
+            seen[y * n + x]++;
+            x += dx;
+            y += dy;
+          }
+        }
+      }
+      for (let index = 0; index < n * n; index++) {
+        if (!wall[index]) expect(seen[index]).toBeGreaterThan(0);
+        else {
+          expect(bulb[index]).toBe(false);
+          if (clue[index] !== -1) {
+            const x = index % n,
+              y = Math.floor(index / n);
+            const around = directions.filter(
+              ([dx, dy]) =>
+                x + dx >= 0 &&
+                y + dy >= 0 &&
+                x + dx < n &&
+                y + dy < n &&
+                bulb[(y + dy) * n + x + dx],
+            ).length;
+            expect(clue[index]).toBe(around);
+          }
+        }
+      }
+      expect(clue.filter((c) => c !== -1).length).toBeGreaterThanOrEqual(3);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('akarilights', 0),
+      b = createSurfaceSampler('akarilights', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
