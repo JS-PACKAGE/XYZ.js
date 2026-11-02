@@ -12117,3 +12117,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增6項專屬測試（三seed統計含核連通區、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "H&E stain as|hestain|kinds|catalog|distinct|periodic"`定向測試**2205項通過／3792項未選**。
 - 未驗證：hestain與petricolonies等三個RD材質未做瀏覽器gallery；hestain未跑完整suite；不push。
+
+## 2026-11-02 完整suite與瀏覽器gallery驗證：jade至hestain
+
+- 完整suite（工具實跑，worktree `/private/tmp/xyz-ct-suite`於`0d663c285`「Add Turing maze material」）：**179檔／9,912項全數通過**，Duration 1422.66s。涵蓋`704c7ca63`之後的spectrogram、jade、cheetahfur（含`latticeField`／`grayScott`與`cachedNoise`改為呼叫`latticeField`）與turingmaze；**petricolonies與hestain只有定向測試與gates，沒有完整suite**。
+- 瀏覽器gallery（工具實跑）：補做`jade`、`cheetahfur`、`turingmaze`、`petricolonies`、`hestain`五個材質的`/examples/pbr3d/`檢查——spawned Google Chrome headless（`--enable-unsafe-webgpu --use-angle=metal`）開啟vite dev server（服務`efd0d3337`狀態的乾淨worktree）上的範例頁，逐一以`#material`的`input`事件選取並等待讀數更新；WebGPU與`?renderer=webgl2`各跑一次，結束時`tab.errors()`的`entries`皆為0筆（dropped 0）；狀態列顯示`953 procedural material presets + plain`。四個反應擴散材質在選取時各多花約0.2秒的sampler建構，本次沒有量測主執行緒阻塞時間，只確認讀數更新、沒有console錯誤。
+- 限制：gallery檢查只涵蓋「能選取、讀數更新、console沒有錯誤」，**沒有**逐材質視覺比對，也沒有跨瀏覽器、跨GPU或Windows／Linux驗證；不push。
