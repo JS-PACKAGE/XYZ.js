@@ -27097,3 +27097,170 @@ describe('circleoffifths: major keys, relative minors and key signatures', () =>
     expect(different).toBeGreaterThan(0);
   });
 });
+
+describe('roulettewheel: the 37 pockets of a European wheel', () => {
+  const p = proceduralMaterialPresets.roulettewheel;
+  const shapes = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+  // The order round a European wheel, and the red numbers, written out for comparison.
+  const order = [
+    0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5,
+    24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26,
+  ];
+  const reds = [
+    1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36,
+  ];
+
+  const readWheel = (seed: number): { value: number; tone: number }[] => {
+    const sample = createSurfaceSampler('roulettewheel', seed),
+      out = empty(),
+      colorAt = (u: number, v: number): number => {
+        sample(u, v, out);
+        return out.color;
+      },
+      // Light ink on the dark pockets, dark ink on the light zero: a glyph pixel is whatever differs from the pocket tone.
+      glyphAt = (cx: number, cy: number, ground: number): number | null => {
+        const lines = [0, 1, 2, 3, 4].map((k) =>
+          [0, 1, 2]
+            .map((x) =>
+              Math.abs(
+                colorAt(cx + (x - 1) * p.pixel, cy + (k - 2) * p.pixel) -
+                  ground,
+              ) > 0.25
+                ? '#'
+                : '.',
+            )
+            .join(''),
+        );
+        if (lines.every((line) => line === '...')) return null;
+        const digit = shapes.findIndex((shape) =>
+          shape.every((line, i) => line === lines[i]),
+        );
+        return digit < 0 ? null : digit;
+      };
+    return Array.from({ length: order.length }, (_, slot) => {
+      const sector = (2 * Math.PI) / order.length,
+        angle = slot * sector - Math.PI / 2,
+        // The pocket tone is measured outside the digits, near the rim.
+        tone = colorAt(
+          0.5 + (p.outerRadius - 0.012) * Math.cos(angle),
+          0.5 + (p.outerRadius - 0.012) * Math.sin(angle),
+        ),
+        cx = 0.5 + p.numberRadius * Math.cos(angle),
+        cy = 0.5 + p.numberRadius * Math.sin(angle);
+      for (const length of [2, 1]) {
+        const first = cx - (2 * length - 0.5) * p.pixel + 1.5 * p.pixel,
+          digits = Array.from({ length }, (_, i) =>
+            glyphAt(first + 4 * i * p.pixel, cy, tone),
+          );
+        if (digits.every((digit) => digit !== null))
+          return { value: Number(digits.join('')), tone };
+      }
+      throw new Error(`unreadable pocket ${slot}`);
+    });
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'numbers the pockets in the order of a European wheel, coloured red and black (seed %i)',
+    (seed) => {
+      const pockets = readWheel(seed),
+        values = pockets.map((pocket) => pocket.value);
+      // Every number from 0 to 36 appears exactly once, in the wheel order (rotated, and read in either direction).
+      expect([...values].sort((a, b) => a - b)).toEqual(
+        Array.from({ length: 37 }, (_, i) => i),
+      );
+      const at = order.indexOf(values[0]),
+        forward = values.every((value, i) => value === order[(at + i) % 37]),
+        backward = values.every(
+          (value, i) => value === order[(((at - i) % 37) + 37) % 37],
+        );
+      expect(forward || backward).toBe(true);
+      pockets.forEach(({ value, tone }) => {
+        // Zero is the light pocket, red numbers are mid grey and the other numbers are dark.
+        if (value === 0) expect(tone).toBeGreaterThan(0.65);
+        else if (reds.includes(value)) {
+          expect(tone).toBeGreaterThan(0.3);
+          expect(tone).toBeLessThan(0.65);
+        } else expect(tone).toBeLessThan(0.3);
+      });
+    },
+  );
+
+  it('alternates red and black all the way round the 36 numbered pockets', () => {
+    for (const seed of [0, 7, 5]) {
+      const pockets = readWheel(seed),
+        zero = pockets.findIndex((pocket) => pocket.value === 0),
+        round = Array.from(
+          { length: 36 },
+          (_, i) => pockets[(zero + 1 + i) % 37].tone < 0.3,
+        );
+      // true is a black pocket: they alternate with no two neighbours of the same colour.
+      for (let i = 1; i < round.length; i++)
+        expect(round[i]).not.toBe(round[i - 1]);
+      expect(round.filter(Boolean)).toHaveLength(18);
+    }
+  });
+
+  it('starts at every pocket and reads both ways across seeds', () => {
+    const tops = new Set<number>(),
+      second = new Set<number>();
+    for (let seed = 0; seed < 150; seed++) {
+      const pockets = readWheel(seed);
+      tops.add(pockets[0].value);
+      second.add(
+        (order.indexOf(pockets[1].value) -
+          order.indexOf(pockets[0].value) +
+          37) %
+          37,
+      );
+    }
+    expect(tops.size).toBe(37);
+    expect([...second].sort((a, b) => a - b)).toEqual([1, 36]);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('roulettewheel', 0),
+      b = createSurfaceSampler('roulettewheel', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(0);
+  });
+});

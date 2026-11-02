@@ -36285,6 +36285,117 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'roulettewheel': {
+        const p = proceduralMaterialPresets.roulettewheel,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x30d01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          wheel = [
+            0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23,
+            10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3,
+            26,
+          ],
+          reds = new Set([
+            1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36,
+          ]),
+          start = Math.floor(hash(14, 1, seed ^ 0x30d02) * wheel.length),
+          mirrored = hash(14, 2, seed ^ 0x30d03) < 0.5,
+          count = wheel.length,
+          sector = (2 * Math.PI) / count,
+          // The pocket number in the slot that many steps clockwise from the top.
+          pocketAt = (slot: number): number =>
+            wheel[
+              ((((mirrored ? -slot : slot) + start) % count) + count) % count
+            ];
+        return () => {
+          const x = u - 0.5,
+            y = v - 0.5,
+            radius = Math.hypot(x, y),
+            angle = Math.atan2(y, x) + Math.PI / 2,
+            slot = ((Math.round(angle / sector) % count) + count) % count,
+            centreAngle = slot * sector - Math.PI / 2,
+            value = pocketAt(slot),
+            text = String(value),
+            // Distance (along the arc) from the middle of the slot, and from its edge.
+            across =
+              (angle / sector - Math.round(angle / sector)) * sector * radius,
+            inPocket = radius > p.innerRadius && radius < p.outerRadius ? 1 : 0,
+            pocketTone =
+              value === 0
+                ? p.greenTone
+                : reds.has(value)
+                  ? p.redTone
+                  : p.blackTone,
+            spoke =
+              inPocket *
+              cover(
+                p.spokeHalf -
+                  Math.abs((sector * radius) / 2 - Math.abs(across)),
+              ),
+            rim = Math.max(
+              cover(p.rimHalf - Math.abs(radius - p.outerRadius)),
+              cover(p.rimHalf - Math.abs(radius - p.innerRadius)),
+              spoke,
+            ),
+            hub = cover(p.hubRadius - radius),
+            px = Math.floor(
+              (x -
+                p.numberRadius * Math.cos(centreAngle) +
+                (2 * text.length - 0.5) * p.pixel) /
+                p.pixel,
+            ),
+            digit = px >= 0 ? Math.floor(px / 4) : -1,
+            gx = px - 4 * digit,
+            py = Math.floor(
+              (y - p.numberRadius * Math.sin(centreAngle)) / p.pixel + 2.5,
+            ),
+            ink =
+              inPocket === 1 &&
+              digit >= 0 &&
+              digit < text.length &&
+              gx >= 0 &&
+              gx < 3 &&
+              py >= 0 &&
+              py < 5 &&
+              glyphs[Number(text[digit])][py * 3 + gx] === '1'
+                ? 1
+                : 0,
+            base = p.paperTone + (pocketTone - p.paperTone) * inPocket,
+            withHub = base + (p.hubTone - base) * hub,
+            withLines = withHub + (p.lineTone - withHub) * rim,
+            inkTone = value === 0 ? p.darkInk : p.lightInk;
+          color = clamp(
+            withLines +
+              (inkTone - withLines) * ink +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            Math.max(
+              p.paperHeight + (p.pocketHeight - p.paperHeight) * inPocket,
+              hub * p.hubHeight,
+              rim * p.lineHeight,
+            ) -
+              p.inkDepth * ink,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.inkRoughness - p.paperRoughness) * Math.max(ink, rim, hub);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -63814,6 +63925,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'roulettewheel' ||
     kind === 'circleoffifths' ||
     kind === 'periodictablecells' ||
     kind === 'josephuscircle' ||
