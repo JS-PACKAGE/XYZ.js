@@ -41777,6 +41777,88 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'zernikemodes': {
+        const p = proceduralMaterialPresets.zernikemodes,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseRadius = 1 / p.discRadius,
+          inverseSoft = 1 / p.edgeSoft,
+          shiftX = Math.floor(hash(0, 2, seed ^ p.seedSalt) * p.cells),
+          shiftY = Math.floor(hash(1, 2, seed ^ p.seedSalt) * p.cells),
+          count = p.cells * p.cells,
+          orders = new Int32Array(count),
+          azimuthals = new Int32Array(count),
+          powers: number[][] = [],
+          coefficients: number[][] = [],
+          factorial = (n: number): number => {
+            let result = 1;
+            for (let k = 2; k <= n; k++) result *= k;
+            return result;
+          };
+        // Zernike modes on discs, one per cell in the OSA / ANSI single-index order (index j =
+        // (n (n + 2) + m) / 2, so row after row n = 0 with m = 0, n = 1 with m = -1 and 1,
+        // n = 2 with m = -2, 0 and 2, ...): Z = R(n, |m|; r) cos(m angle) for m >= 0 and
+        // R sin(|m| angle) for m < 0, with the radial polynomial R = sum over k of
+        // (-1)^k (n - k)! / (k! ((n + |m|) / 2 - k)! ((n - |m|) / 2 - k)!) r^(n - 2 k),
+        // which equals 1 at the rim, so |Z| <= 1. The tile's tone is (1 + Z) / 2. The seed
+        // moves the modes around the torus.
+        for (let index = 0, n = 0; index < count; n++)
+          for (let m = -n; m <= n && index < count; m += 2, index++) {
+            const terms = (n - Math.abs(m)) / 2,
+              ks = Array.from({ length: terms + 1 }, (_, k) => k);
+            orders[index] = n;
+            azimuthals[index] = m;
+            powers.push(ks.map((k) => n - 2 * k));
+            coefficients.push(
+              ks.map(
+                (k) =>
+                  ((k % 2 === 0 ? 1 : -1) * factorial(n - k)) /
+                  (factorial(k) *
+                    factorial((n + Math.abs(m)) / 2 - k) *
+                    factorial(terms - k)),
+              ),
+            );
+          }
+        return () => {
+          // Every cell holds a disc whose mask goes smoothly to zero at its rim; the
+          // polynomial is smooth inside the disc, so the field is C1 across the whole tile.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            px = (x - col - 0.5) * inverseRadius,
+            py = (y - row - 0.5) * inverseRadius,
+            radius = Math.hypot(px, py),
+            index =
+              ((row + shiftY) % p.cells) * p.cells + ((col + shiftX) % p.cells),
+            mask = smooth(clamp((1 - radius) * inverseSoft)),
+            dome = smooth(clamp(1 - radius * radius)),
+            grain = grainField(u, v);
+          let radial = 0;
+          const power = powers[index],
+            coefficient = coefficients[index],
+            clamped = Math.min(radius, 1);
+          for (let k = 0; k < power.length; k++)
+            radial += coefficient[k] * clamped ** power[k];
+          const m = azimuthals[index],
+            angle = Math.atan2(py, px),
+            value =
+              radial * (m >= 0 ? Math.cos(m * angle) : Math.sin(-m * angle)),
+            tone = 0.5 + 0.5 * value;
+          color =
+            p.gapTone +
+            (p.toneFloor + p.toneSpan * tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.discHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -50601,6 +50683,7 @@ export function createSurfaceSampler(
     kind === 'gaussianprimes' ||
     kind === 'chromaticant' ||
     kind === 'rule110' ||
+    kind === 'zernikemodes' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||

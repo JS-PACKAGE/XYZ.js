@@ -1086,6 +1086,7 @@ try {
     'gaussianprimes',
     'chromaticant',
     'rule110',
+    'zernikemodes',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

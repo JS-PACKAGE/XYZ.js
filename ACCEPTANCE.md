@@ -12826,3 +12826,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Rule 110 as|rule110|kinds|catalog|distinct|periodic"`定向測試**2348項通過／4022項未選**。
 - 未驗證：fordcircles、gaussianprimes、chromaticant與rule110未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：澤尼克模（zernikemodes）
+
+- 範圍：新增`zernikemodes`（目前目錄1021→1022種，含plain的gallery 1023項）：8×8格圓盤，依OSA／ANSI單一索引畫前64個澤尼克多項式（最後是`n = 10, m = 6`），色調`(1 + Z) / 2`，淡奶白圓盤在深藍黑底上，邊緣柔化；seed令表在環面上平移（以圓盤為單位）；預設0.5 m nominal tile、0.0008 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**；不是真實光學系統的波前。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽只看了一版；(2)OSA／ANSI單一索引與正弦／餘弦的符號慣例是憑記憶採用，**這次沒有對照標準文件**；徑向多項式邊緣為1與`|Z| ≤ 1`是標準理論事實，這裡沒有證明；(3)sampler用階乘級數，測試以Jacobi多項式的二項式和這個**獨立的形式**重算，於每個圓盤半徑0.6處取四個角度（256個點）比對，在64個平移中檢查恰好一個符合；**不證明公式本身對應標準Zernike定義**（測試中的公式也是我寫的）；(4)測試第一次執行有一項失敗：模式列表在n=0時是`m = -0`而期望值是`+0`（`toEqual`區分兩者），改為`m + 0`後重跑通過，同時把一個笨拙的`Math.cos(0)`期望換成1；(5)圓盤內高度變化小，512²maps法線tilt²最大只有0.00126（幾乎平坦），預期如此、未調整；(6)建構與取樣耗時**未量測**。
+- 實測（工具實跑）：四個seed（0／1／0xffffffff／7）各有唯一符合的平移(5, 2)、(2, 5)、(4, 1)、(4, 2)，最大擬合誤差0.01265／0.01343／0.01269／0.01304；256²（seed 0／1／0xffffffff）亮處（color>0.5）16.84%–16.90%、color 0.02549–0.02579至0.83229–0.83345、平均0.30005–0.30010、roughness恆為0.4、AO最低0.6、height至多0.8587–0.8693 relief；512²（四個seed）亮處16.83%–16.86%、color 0.02517–0.02525至0.8337–0.8339、平均0.30003–0.30012、height至多0.8653–0.8723 relief；seed 0與1相比，512²中color>0.5的取樣24.1%不同；seed 7的512²maps平均r／g／b約(82.0, 79.2, 79.8)、法線tilt²最大約0.00126、z分量最小255。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Zernike modes as|zernikemodes|kinds|catalog|distinct|periodic"`定向測試**2350項通過／4025項未選**。
+- 未驗證：fordcircles、gaussianprimes、chromaticant、rule110與zernikemodes未跑完整suite與瀏覽器gallery；不push。

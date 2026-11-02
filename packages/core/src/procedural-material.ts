@@ -1023,6 +1023,7 @@ export type ProceduralMaterialKind =
   | 'gaussianprimes'
   | 'chromaticant'
   | 'rule110'
+  | 'zernikemodes'
   | 'sandpileidentity'
   | 'multiplicativeorder'
   | 'vermiculation'
@@ -2293,6 +2294,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'gaussianprimes',
   'chromaticant',
   'rule110',
+  'zernikemodes',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',

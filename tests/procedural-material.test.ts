@@ -1049,6 +1049,7 @@ const kinds: ProceduralMaterialKind[] = [
   'gaussianprimes',
   'chromaticant',
   'rule110',
+  'zernikemodes',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',
@@ -164479,6 +164480,258 @@ describe('Rule 110 as the elementary cellular automaton drawn as a 96 by 96 spac
     expect(blue / (512 * 512)).toBeLessThan(47.5);
     expect(maxTilt).toBeGreaterThan(0.04);
     expect(maxTilt).toBeLessThan(0.055);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Zernike modes as the first 64 Zernike polynomials, one per disc', () => {
+  const p = proceduralMaterialPresets.zernikemodes;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const cells = 8,
+    radius = 0.6,
+    angles = [0.3, 1.7, 3.1, 4.4];
+  /** Binomial coefficient, written independently here. */
+  const binomial = (n: number, k: number): number => {
+    let result = 1;
+    for (let i = 1; i <= k; i++) result = (result * (n - k + i)) / i;
+    return k < 0 || k > n ? 0 : result;
+  };
+  /** OSA / ANSI order: n = 0, 1, 2 ... with m = -n, -n + 2 ... n; the first 64 modes. */
+  const modes: { n: number; m: number }[] = [];
+  for (let n = 0; modes.length < cells * cells; n++)
+    for (let m = -n; m <= n && modes.length < cells * cells; m += 2)
+      modes.push({ n, m: m + 0 });
+  /**
+   * Zernike polynomial written independently here through the Jacobi polynomial form
+   * R = (-1)^k r^|m| P_k^(|m|, 0)(1 - 2 r^2) with k = (n - |m|) / 2, summed with binomial
+   * coefficients, instead of the factorial series the sampler uses.
+   */
+  const zernike = (index: number, r: number, angle: number): number => {
+    const { n, m } = modes[index],
+      order = Math.abs(m),
+      k = (n - order) / 2;
+    let sum = 0;
+    for (let s = 0; s <= k; s++)
+      sum +=
+        binomial(k + order, k - s) *
+        binomial(k, s) *
+        (-r * r) ** s *
+        (1 - r * r) ** (k - s);
+    return (
+      (k % 2 === 0 ? 1 : -1) *
+      r ** order *
+      sum *
+      (m >= 0 ? Math.cos(m * angle) : Math.sin(-m * angle))
+    );
+  };
+  const expectedColor = (index: number, angle: number): number =>
+    p.toneFloor + p.toneSpan * (0.5 + 0.5 * zernike(index, radius, angle));
+  /** Colour read inside every disc at radius 0.6 of the disc and four angles, grain included. */
+  const discColors = (seed: number): number[] => {
+    const sample = createSurfaceSampler('zernikemodes', seed),
+      out = empty(),
+      colors: number[] = [];
+    for (let row = 0; row < cells; row++)
+      for (let col = 0; col < cells; col++)
+        for (const angle of angles) {
+          sample(
+            (col + 0.5 + p.discRadius * radius * Math.cos(angle)) / cells,
+            (row + 0.5 + p.discRadius * radius * Math.sin(angle)) / cells,
+            out,
+          );
+          colors.push(out.color);
+        }
+    return colors;
+  };
+  /** Mode shifts (x, y) around the torus that reproduce every colour read. */
+  const fittingShifts = (colors: number[]): [number, number][] => {
+    const fits: [number, number][] = [];
+    for (let sy = 0; sy < cells; sy++)
+      for (let sx = 0; sx < cells; sx++) {
+        let worst = 0;
+        for (let row = 0; row < cells && worst < 0.03; row++)
+          for (let col = 0; col < cells; col++)
+            for (let q = 0; q < angles.length; q++)
+              worst = Math.max(
+                worst,
+                Math.abs(
+                  colors[(row * cells + col) * angles.length + q] -
+                    expectedColor(
+                      ((row + sy) % cells) * cells + ((col + sx) % cells),
+                      angles[q],
+                    ),
+                ),
+              );
+        if (worst < 0.03) fits.push([sx, sy]);
+      }
+    return fits;
+  };
+  it('draws every Zernike mode on its disc and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('zernikemodes', seed),
+        a = empty();
+      // The last of the 64 modes is n = 10, m = 6; the first ones are Z(0, 0), Z(1, -1),
+      // Z(1, 1), Z(2, -2), Z(2, 0) and Z(2, 2); the unit-rim radial polynomial is 1 at r = 1; and
+      // exactly one torus shift reproduces every colour read inside the discs to within the grain.
+      expect(modes[63]).toEqual({ n: 10, m: 6 });
+      expect(modes.slice(0, 6)).toEqual([
+        { n: 0, m: 0 },
+        { n: 1, m: -1 },
+        { n: 1, m: 1 },
+        { n: 2, m: -2 },
+        { n: 2, m: 0 },
+        { n: 2, m: 2 },
+      ]);
+      expect(zernike(4, 1, 0)).toBeCloseTo(1, 12);
+      expect(zernike(63, 1, 0)).toBeCloseTo(1, 12);
+      expect(fittingShifts(discColors(seed))).toHaveLength(1);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.025);
+      expect(low).toBeLessThan(0.026);
+      expect(high).toBeGreaterThan(0.83);
+      expect(high).toBeLessThan(0.835);
+      expect(dark / 65536).toBeGreaterThan(0.165);
+      expect(dark / 65536).toBeLessThan(0.172);
+      expect(mean / 65536).toBeGreaterThan(0.299);
+      expect(mean / 65536).toBeLessThan(0.301);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 3);
+      expect(heightHigh).toBeGreaterThan(0.85);
+      expect(heightHigh).toBeLessThan(0.875);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('moves the modes around the torus per seed and is deterministic for one seed', () => {
+    const shifts = [0, 1, 0xffffffff, 7].map((seed) =>
+      fittingShifts(discColors(seed))[0].join(','),
+    );
+    expect(new Set(shifts).size).toBe(4);
+    expect(discColors(0)).toEqual(discColors(0));
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('zernikemodes', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [cells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 pale disc maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('zernikemodes', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(81);
+    expect(red / (512 * 512)).toBeLessThan(83);
+    expect(green / (512 * 512)).toBeGreaterThan(78.5);
+    expect(green / (512 * 512)).toBeLessThan(80);
+    expect(blue / (512 * 512)).toBeGreaterThan(79);
+    expect(blue / (512 * 512)).toBeLessThan(80.5);
+    expect(maxTilt).toBeGreaterThan(0.0008);
+    expect(maxTilt).toBeLessThan(0.002);
     expect(invalid).toBe(0);
   });
 });
