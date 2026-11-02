@@ -38166,6 +38166,143 @@ export function createSurfaceSampler(
           occlusion = 1 - 0.2 * line;
         };
       }
+      case 'marchingsquares': {
+        const p = proceduralMaterialPresets.marchingsquares,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x32301),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          balls =
+            p.ballSets[
+              Math.floor(hash(3, 1, seed ^ 0x32302) * p.ballSets.length)
+            ],
+          size =
+            p.gridSizes[
+              Math.floor(hash(5, 2, seed ^ 0x32303) * p.gridSizes.length)
+            ],
+          cell = 1 / size,
+          wrap = (d: number): number => d - Math.round(d),
+          // The field at the corners (column, row) of the grid; the grid wraps around, so there are size x size corners.
+          corners = new Float64Array(size * size);
+        for (let row = 0; row < size; row++)
+          for (let column = 0; column < size; column++) {
+            let sum = 0;
+            for (const [bx, by, radius] of balls) {
+              const dx = wrap(column * cell - bx),
+                dy = wrap(row * cell - by);
+              sum += (radius * radius) / (dx * dx + dy * dy + p.epsilon);
+            }
+            corners[row * size + column] = sum;
+          }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            column = Math.min(size - 1, Math.floor(fu * size)),
+            row = Math.min(size - 1, Math.floor(fv * size)),
+            right = (column + 1) % size,
+            below = (row + 1) % size,
+            // Corner values: top left, top right, bottom right, bottom left.
+            values = [
+              corners[row * size + column],
+              corners[row * size + right],
+              corners[below * size + right],
+              corners[below * size + column],
+            ],
+            inside = values.map((value) => value >= p.threshold),
+            x0 = column * cell,
+            y0 = row * cell,
+            // Crossing point on each edge (top, right, bottom, left) by linear interpolation, or null when both ends are on one side.
+            crossing = (
+              a: number,
+              b: number,
+              ax: number,
+              ay: number,
+              bx: number,
+              by: number,
+            ): [number, number] | null => {
+              if (inside[a] === inside[b]) return null;
+              const t = (p.threshold - values[a]) / (values[b] - values[a]);
+              return [ax + (bx - ax) * t, ay + (by - ay) * t];
+            },
+            edges = [
+              crossing(0, 1, x0, y0, x0 + cell, y0),
+              crossing(1, 2, x0 + cell, y0, x0 + cell, y0 + cell),
+              crossing(3, 2, x0, y0 + cell, x0 + cell, y0 + cell),
+              crossing(0, 3, x0, y0, x0, y0 + cell),
+            ];
+          let nearest = Infinity;
+          const reach = (a: [number, number], b: [number, number]): void => {
+            const dx = b[0] - a[0],
+              dy = b[1] - a[1],
+              along = Math.min(
+                1,
+                Math.max(
+                  0,
+                  ((fu - a[0]) * dx + (fv - a[1]) * dy) /
+                    (dx * dx + dy * dy || 1),
+                ),
+              );
+            nearest = Math.min(
+              nearest,
+              Math.hypot(fu - a[0] - dx * along, fv - a[1] - dy * along),
+            );
+          };
+          const crossings = edges.filter(
+            (edge): edge is [number, number] => edge !== null,
+          );
+          if (crossings.length === 2) reach(crossings[0], crossings[1]);
+          else if (crossings.length === 4) {
+            // A saddle (opposite corners inside): with the middle inside the inside corners are joined and the outside corners are
+            // cut off, otherwise the inside corners are cut off. Corner k is cut off by joining the edges on either side of it:
+            // corner 0 by the top and left edges, 1 by top and right, 2 by right and bottom, 3 by bottom and left.
+            const middleInside =
+                (values[0] + values[1] + values[2] + values[3]) / 4 >=
+                p.threshold,
+              cut = [0, 1, 2, 3].filter((k) => inside[k] !== middleInside),
+              between = [
+                [0, 3],
+                [0, 1],
+                [1, 2],
+                [2, 3],
+              ];
+            for (const k of cut)
+              reach(
+                edges[between[k][0]] as [number, number],
+                edges[between[k][1]] as [number, number],
+              );
+          }
+          const line = cover(p.lineHalf - nearest),
+            dots = [
+              [x0, y0, 0],
+              [x0 + cell, y0, 1],
+              [x0 + cell, y0 + cell, 2],
+              [x0, y0 + cell, 3],
+            ];
+          let dot = 0,
+            dotTone: number = p.outsideDotTone;
+          for (const [cx, cy, k] of dots) {
+            const covered = cover(p.dotRadius - Math.hypot(fu - cx, fv - cy));
+            if (covered > dot) {
+              dot = covered;
+              dotTone = inside[k] ? p.insideDotTone : p.outsideDotTone;
+            }
+          }
+          const base = p.paperTone + (dotTone - p.paperTone) * dot;
+          color = clamp(
+            base +
+              (p.lineTone - base) * line +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.paperHeight +
+              (p.lineHeight - p.paperHeight) * Math.max(line, dot),
+          );
+          roughness =
+            p.paperRoughness +
+            (p.lineRoughness - p.paperRoughness) * Math.max(line, dot);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -65695,6 +65832,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'marchingsquares' ||
     kind === 'wangtiles' ||
     kind === 'htreefractal' ||
     kind === 'lsystemplant' ||

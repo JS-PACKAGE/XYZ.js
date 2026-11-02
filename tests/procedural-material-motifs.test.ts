@@ -31032,3 +31032,368 @@ describe('wangtiles: Wang tiles with matching coloured sides', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('marchingsquares: the contour of a metaball field by marching squares', () => {
+  const p = proceduralMaterialPresets.marchingsquares;
+  type Segment = [number, number, number, number];
+  type Candidate = {
+    set: number;
+    size: number;
+    corners: number[][];
+    segments: Segment[];
+  };
+
+  // The field (sum of radius^2 / (distance^2 + epsilon), distances wrapping around the tile) at the corners of a size x size grid.
+  const field = (set: number, size: number): number[][] =>
+    Array.from({ length: size }, (_, row) =>
+      Array.from({ length: size }, (_, column) =>
+        p.ballSets[set].reduce((sum, [bx, by, radius]) => {
+          const dx = column / size - bx,
+            dy = row / size - by;
+          return (
+            sum +
+            (radius * radius) /
+              ((dx - Math.round(dx)) ** 2 +
+                (dy - Math.round(dy)) ** 2 +
+                p.epsilon)
+          );
+        }, 0),
+      ),
+    );
+  // Marching squares by the classic table: the case number has TL = 8, TR = 4, BR = 2, BL = 1 for the corners above the threshold; the
+  // table lists the pairs of edges (0 top, 1 right, 2 bottom, 3 left) joined by a segment. Cases 5 and 10 are saddles, decided by the
+  // average of the four corners.
+  const table: Record<number, number[][]> = {
+    1: [[3, 2]],
+    2: [[2, 1]],
+    3: [[3, 1]],
+    4: [[0, 1]],
+    6: [[0, 2]],
+    7: [[3, 0]],
+    8: [[3, 0]],
+    9: [[0, 2]],
+    11: [[0, 1]],
+    12: [[3, 1]],
+    13: [[2, 1]],
+    14: [[3, 2]],
+  };
+  const segmentsOf = (corners: number[][]): Segment[] => {
+    const size = corners.length,
+      cell = 1 / size,
+      result: Segment[] = [];
+    for (let row = 0; row < size; row++)
+      for (let column = 0; column < size; column++) {
+        const tl = corners[row][column],
+          tr = corners[row][(column + 1) % size],
+          br = corners[(row + 1) % size][(column + 1) % size],
+          bl = corners[(row + 1) % size][column],
+          mask =
+            (tl >= p.threshold ? 8 : 0) |
+            (tr >= p.threshold ? 4 : 0) |
+            (br >= p.threshold ? 2 : 0) |
+            (bl >= p.threshold ? 1 : 0),
+          x = column * cell,
+          y = row * cell,
+          at = (a: number, b: number): number => (p.threshold - a) / (b - a),
+          // Where the contour crosses each edge.
+          point = (edge: number): [number, number] =>
+            edge === 0
+              ? [x + at(tl, tr) * cell, y]
+              : edge === 1
+                ? [x + cell, y + at(tr, br) * cell]
+                : edge === 2
+                  ? [x + at(bl, br) * cell, y + cell]
+                  : [x, y + at(tl, bl) * cell];
+        let pairs: number[][] = table[mask] ?? [];
+        if (mask === 5 || mask === 10) {
+          const centreInside = (tl + tr + br + bl) / 4 >= p.threshold;
+          // TR and BL inside (5), or TL and BR inside (10): with the middle inside the inside corners are joined and the outside
+          // corners are cut off, otherwise the inside corners are cut off.
+          pairs =
+            mask === 5
+              ? centreInside
+                ? [
+                    [0, 3],
+                    [1, 2],
+                  ]
+                : [
+                    [0, 1],
+                    [3, 2],
+                  ]
+              : centreInside
+                ? [
+                    [0, 1],
+                    [3, 2],
+                  ]
+                : [
+                    [0, 3],
+                    [1, 2],
+                  ];
+        }
+        for (const [a, b] of pairs) result.push([...point(a), ...point(b)]);
+      }
+    return result;
+  };
+  const candidates: Candidate[] = p.ballSets.flatMap((_, set) =>
+    p.gridSizes.map((size) => {
+      const corners = field(set, size);
+      return { set, size, corners, segments: segmentsOf(corners) };
+    }),
+  );
+
+  // The distance from a point to the nearest contour segment.
+  const distanceToContour = (
+    segments: Segment[],
+    x: number,
+    y: number,
+  ): number =>
+    Math.min(
+      ...segments.map(([ax, ay, bx, by]) => {
+        // The offset from the segment start, wrapped around the tile.
+        const ox = x - ax - Math.round(x - ax),
+          oy = y - ay - Math.round(y - ay),
+          dx = bx - ax,
+          dy = by - ay,
+          along = Math.min(
+            1,
+            Math.max(0, (ox * dx + oy * dy) / (dx * dx + dy * dy || 1)),
+          );
+        return Math.hypot(ox - dx * along, oy - dy * along);
+      }),
+    );
+  // Does every corner dot show its side of the threshold (dark inside, lighter outside)? A corner the line passes within 0.006 of
+  // (so that the line covers part of its dot) is left out.
+  const cornersMatch = (
+    seed: number,
+    { size, corners, segments }: Candidate,
+  ): boolean => {
+    const sample = createSurfaceSampler('marchingsquares', seed),
+      out = empty();
+    return corners.every((line, row) =>
+      line.every((value, column) => {
+        sample(column / size, row / size, out);
+        const want = value >= p.threshold ? p.insideDotTone : p.outsideDotTone;
+        return (
+          Math.abs(out.color - want) < 0.06 ||
+          distanceToContour(segments, column / size, row / size) < 0.006
+        );
+      }),
+    );
+  };
+
+  // The ball set and grid size drawn for a seed: every candidate whose corner dots match. A grid of 16 is a part of a grid of 32 (its
+  // corners are every second one), so both can match; the larger grid is the one drawn, and nothing else may match.
+  const identify = (seed: number): Candidate => {
+    const matching = candidates.filter((candidate) =>
+        cornersMatch(seed, candidate),
+      ),
+      largest = matching.reduce((best, candidate) =>
+        candidate.size > best.size ? candidate : best,
+      );
+    expect(
+      matching
+        .filter((candidate) => candidate !== largest)
+        .every(
+          (candidate) =>
+            candidate.set === largest.set &&
+            largest.size % candidate.size === 0,
+        ),
+    ).toBe(true);
+    return largest;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws the marching-squares contour of one ball set at one grid size, with the dots (seed %i)',
+    (seed) => {
+      const found = identify(seed);
+      const { size, segments } = found,
+        sample = createSurfaceSampler('marchingsquares', seed),
+        out = empty();
+      expect(segments.length).toBeGreaterThan(20);
+      // The middle of every segment is on the line (dark), and the middle of every cell without a segment is paper.
+      for (const [ax, ay, bx, by] of segments) {
+        sample((ax + bx) / 2, (ay + by) / 2, out);
+        expect(out.color).toBeLessThan(0.3);
+      }
+      const cellsWithSegments = new Set(
+        segments.map(
+          ([ax, ay, bx, by]) =>
+            `${Math.floor(((ax + bx) / 2) * size)},${Math.floor(((ay + by) / 2) * size)}`,
+        ),
+      );
+      let empties = 0;
+      for (let row = 0; row < size; row++)
+        for (let column = 0; column < size; column++) {
+          if (cellsWithSegments.has(`${column},${row}`)) continue;
+          sample((column + 0.5) / size, (row + 0.5) / size, out);
+          expect(out.color).toBeGreaterThan(0.85);
+          empties++;
+        }
+      expect(empties).toBeGreaterThan(size);
+    },
+  );
+
+  it('draws the line with a half width of 0.0016 and no more', () => {
+    for (const seed of seeds) {
+      const { segments, size } = identify(seed),
+        sample = createSurfaceSampler('marchingsquares', seed),
+        out = empty(),
+        cellOf = (x: number, y: number): string =>
+          `${Math.floor(x * size)},${Math.floor(y * size)}`;
+      let checked = 0;
+      for (const [ax, ay, bx, by] of segments) {
+        const length = Math.hypot(bx - ax, by - ay);
+        if (length < 0.01 || checked >= 60) continue;
+        const mx = (ax + bx) / 2,
+          my = (ay + by) / 2,
+          nx = -(by - ay) / length,
+          ny = (bx - ax) / length;
+        // A line is drawn only inside the cell of its segment, so a segment that runs within 0.0032 of a cell edge is left out here.
+        if (
+          [-1, 1].some(
+            (side) =>
+              cellOf(mx + nx * 0.0032 * side, my + ny * 0.0032 * side) !==
+              cellOf(mx, my),
+          )
+        )
+          continue;
+        // Across the segment: 0.0011 off its middle is still line, 0.0023 is paper, unless another segment or a dot is that close.
+        const qx = mx + nx * 0.0023,
+          qy = my + ny * 0.0023;
+        if (
+          distanceToContour(segments, qx, qy) < 0.0021 ||
+          Math.hypot(
+            qx * size - Math.round(qx * size),
+            qy * size - Math.round(qy * size),
+          ) /
+            size <
+            0.006
+        )
+          continue;
+        sample(mx + nx * 0.0011, my + ny * 0.0011, out);
+        expect(out.color).toBeLessThan(0.3);
+        sample(mx - nx * 0.0011, my - ny * 0.0011, out);
+        expect(out.color).toBeLessThan(0.3);
+        sample(qx, qy, out);
+        expect(out.color).toBeGreaterThan(0.8);
+        checked++;
+      }
+      expect(checked).toBeGreaterThan(20);
+    }
+  });
+
+  it('joins the corners of saddle cells (opposite corners above the threshold) by the middle value', () => {
+    const kinds = new Set<boolean>();
+    let checked = 0;
+    for (let seed = 0; seed < 80; seed++) {
+      const { size, corners, segments } = identify(seed),
+        sample = createSurfaceSampler('marchingsquares', seed),
+        out = empty();
+      for (let row = 0; row < size; row++)
+        for (let column = 0; column < size; column++) {
+          const tl = corners[row][column],
+            tr = corners[row][(column + 1) % size],
+            br = corners[(row + 1) % size][(column + 1) % size],
+            bl = corners[(row + 1) % size][column],
+            above = [tl, tr, br, bl].map((value) => value >= p.threshold);
+          if (!(
+            above[0] === above[2] &&
+            above[1] === above[3] &&
+            above[0] !== above[1]
+          ))
+            continue;
+          kinds.add((tl + tr + br + bl) / 4 >= p.threshold);
+          const inCell = segments.filter(
+            ([ax, ay, bx, by]) =>
+              Math.floor(((ax + bx) / 2) * size) === column &&
+              Math.floor(((ay + by) / 2) * size) === row,
+          );
+          expect(inCell).toHaveLength(2);
+          for (const [ax, ay, bx, by] of inCell) {
+            sample((ax + bx) / 2, (ay + by) / 2, out);
+            expect(out.color).toBeLessThan(0.3);
+            checked++;
+          }
+        }
+    }
+    // Both kinds of saddle (middle above and below the threshold) were drawn.
+    expect([...kinds].sort()).toEqual([false, true]);
+    expect(checked).toBeGreaterThanOrEqual(4);
+  });
+
+  it('draws dots of radius 0.0034 on the corners, away from the line', () => {
+    for (const seed of seeds) {
+      const { size, corners, segments } = identify(seed),
+        sample = createSurfaceSampler('marchingsquares', seed),
+        out = empty();
+      let checked = 0;
+      for (let row = 0; row < size; row++)
+        for (let column = 0; column < size; column++) {
+          if (distanceToContour(segments, column / size, row / size) < 0.012)
+            continue;
+          const want =
+            corners[row][column] >= p.threshold
+              ? p.insideDotTone
+              : p.outsideDotTone;
+          sample(column / size + 0.0026, row / size, out);
+          expect(Math.abs(out.color - want)).toBeLessThan(0.06);
+          sample(column / size, row / size - 0.0026, out);
+          expect(Math.abs(out.color - want)).toBeLessThan(0.06);
+          sample(column / size + 0.0046, row / size, out);
+          expect(out.color).toBeGreaterThan(0.85);
+          sample(column / size, row / size - 0.0046, out);
+          expect(out.color).toBeGreaterThan(0.85);
+          checked++;
+        }
+      expect(checked).toBeGreaterThan(size * size * 0.3);
+    }
+  });
+
+  it('uses every ball set and grid size across seeds', () => {
+    const sets = new Set<number>(),
+      sizes = new Set<number>();
+    for (let seed = 0; seed < 80; seed++) {
+      const found = identify(seed);
+      sets.add(found.set);
+      sizes.add(found.size);
+    }
+    expect(sets.size).toBe(p.ballSets.length);
+    expect([...sizes].sort((a, b) => a - b)).toEqual([...p.gridSizes]);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('marchingsquares', 0),
+      b = createSurfaceSampler('marchingsquares', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

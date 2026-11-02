@@ -2013,6 +2013,10 @@
 
 這是作者設計的示意：這是「依邊色一致的方式隨機鋪滿」的圖案（先隨機決定每條邊的顏色，再讓兩側的磚取同一個顏色），不是從一組固定的王氏磚集合挑出磚來鋪，也沒有證明或標示這個磚集合的性質（例如是否能非週期鋪滿）；顏色只用亮度區分，不是色相。預設1 m nominal tile、0.005 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`marchingsquares`（行進方塊等值線）使目前目錄1111→1112種，含plain的gallery為1113項。一個環繞tile邊界的metaball場（每顆球貢獻 半徑²／（距離²＋epsilon），距離環繞計算）在方格的角點取值，高於門檻（1）的角點畫深色小點、低於門檻的畫較淡的點；等值線則以經典marching squares（16種情形，兩個鞍點格用四角平均值決定）畫成穿過每個格子的直線段，端點由線性內插落在格邊上。seed決定十組球（每組5–7顆）之一與格數（16、24、32）。Metallic與mortar為0。
+
+這是作者設計的示意：球的位置與半徑是我用固定偏移的亂數產生器寫入preset的常數，不是外部資料；前八組在這三種格數下都沒有鞍點格，後兩組是我另外用隨機搜尋挑出「兩種鞍點（中心高於／低於門檻）都出現」的組合，目的是讓鞍點分支有真實資料可測。已知限制：線只畫在自己線段所在的格子內，貼著格邊平行走的線段在鄰格那一側的線寬會被格邊切掉（線端點與相鄰格的線段在格邊上相接，一般看不出來，我沒有量化這個現象）。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
