@@ -20630,3 +20630,197 @@ describe('gcdtable: greatest common divisors', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('bitwiselogic: bit-by-bit logic on eight-bit numbers', () => {
+  const p = proceduralMaterialPresets.bitwiselogic;
+  const shapes: Record<string, string[]> = {
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    A: ['.#.', '#.#', '###', '#.#', '#.#'],
+    N: ['##.', '#.#', '#.#', '#.#', '#.#'],
+    D: ['##.', '#.#', '#.#', '#.#', '##.'],
+    O: ['###', '#.#', '#.#', '#.#', '###'],
+    R: ['##.', '#.#', '##.', '#.#', '#.#'],
+    X: ['#.#', '#.#', '.#.', '#.#', '#.#'],
+  };
+  // The definitions are written as truth tables here, not with the bit operators the sampler uses.
+  const table: Record<string, number[][]> = {
+    AND: [
+      [0, 0],
+      [0, 1],
+    ],
+    OR: [
+      [0, 1],
+      [1, 1],
+    ],
+    XOR: [
+      [0, 1],
+      [1, 0],
+    ],
+    NAND: [
+      [1, 1],
+      [1, 0],
+    ],
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'applies each operation to every bit pair and labels the block with it (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('bitwiselogic', seed),
+        out = empty(),
+        at = (block: number, row: number, x: number, fy: number): number => {
+          sample(
+            x,
+            p.top + block * p.blockPitch + (row + fy) * p.rowPitch,
+            out,
+          );
+          return out.color;
+        },
+        // Read the characters of a cell whose horizontal extent is [left, left + width).
+        readCell = (
+          block: number,
+          row: number,
+          left: number,
+          width: number,
+          maxCount: number,
+        ): string => {
+          const centre = left + width / 2,
+            background = at(block, row, left + 0.04 * width, 0.05),
+            dark = (x: number, y: number): boolean =>
+              Math.abs(
+                at(
+                  block,
+                  row,
+                  centre + x * p.digitPixel,
+                  0.5 + ((y - 2) * p.digitPixel) / p.rowPitch,
+                ) - background,
+              ) > 0.25;
+          let reach = 0;
+          for (let x = 1; x <= 2 * maxCount - 1; x++)
+            if ([0, 1, 2, 3, 4].some((y) => dark(x, y) || dark(-x, y)))
+              reach = x;
+          if (reach === 0) return '';
+          const count = (reach + 1) / 2;
+          expect(Number.isInteger(count)).toBe(true);
+          let text = '';
+          for (let d = 0; d < count; d++) {
+            const lines = [0, 1, 2, 3, 4].map((y) =>
+                [0, 1, 2]
+                  .map((x) =>
+                    dark(-(2 * count - 1) + 4 * d + x, y) ? '#' : '.',
+                  )
+                  .join(''),
+              ),
+              found = Object.entries(shapes).find(([, shape]) =>
+                shape.every((line, i) => line === lines[i]),
+              );
+            expect(found).toBeDefined();
+            text += (found as [string, string[]])[0];
+          }
+          return text;
+        },
+        bit = (block: number, row: number, column: number): number => {
+          const text = readCell(
+            block,
+            row,
+            p.left + p.labelCell + column * p.cell,
+            p.cell,
+            1,
+          );
+          expect(['0', '1']).toContain(text);
+          return Number(text);
+        };
+      const seen: string[] = [];
+      for (let block = 0; block < p.ops.length; block++) {
+        // The letter O and the digit 0 are drawn the same, and labels hold no digits.
+        const op = readCell(block, 1, p.left, p.labelCell, 4).replaceAll(
+          '0',
+          'O',
+        );
+        expect(p.ops).toContain(op);
+        seen.push(op);
+        // Only the second operand's row is labelled.
+        expect(readCell(block, 0, p.left, p.labelCell, 4)).toBe('');
+        expect(readCell(block, 3, p.left, p.labelCell, 4)).toBe('');
+        let ones = 0;
+        for (let column = 0; column < p.bits; column++) {
+          const a = bit(block, 0, column),
+            b = bit(block, 1, column),
+            result = bit(block, 3, column);
+          expect(result).toBe(table[op][a][b]);
+          // The result row shades its 1 bits darker than its 0 bits.
+          const centre = p.left + p.labelCell + (column + 0.5) * p.cell;
+          expect(at(block, 3, centre - 0.45 * p.cell, 0.05) < 0.8).toBe(
+            result === 1,
+          );
+          ones += result;
+        }
+        expect(ones).toBeLessThanOrEqual(p.bits);
+      }
+      // Every operation appears once, in a seed-dependent order.
+      expect([...seen].sort()).toEqual([...p.ops].sort());
+    },
+  );
+
+  it('orders the operations differently for different seeds', () => {
+    const readOrder = (seed: number): string => {
+      const sample = createSurfaceSampler('bitwiselogic', seed),
+        out = empty(),
+        keys: number[] = [];
+      for (let block = 0; block < p.ops.length; block++) {
+        // The label's ink pattern identifies the operation: count dark pixels of the label cell.
+        let ink = 0;
+        for (let y = 0; y < 40; y++)
+          for (let x = 0; x < 120; x++) {
+            sample(
+              p.left + (x / 120) * p.labelCell,
+              p.top + block * p.blockPitch + p.rowPitch + (y / 40) * p.rowPitch,
+              out,
+            );
+            ink += Number(out.color < 0.5);
+          }
+        keys.push(ink);
+      }
+      return keys.join(',');
+    };
+    const orders = new Set<string>();
+    for (let seed = 0; seed < 12; seed++) orders.add(readOrder(seed));
+    expect(orders.size).toBeGreaterThan(2);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('bitwiselogic', 0),
+      b = createSurfaceSampler('bitwiselogic', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

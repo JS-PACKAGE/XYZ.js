@@ -32491,6 +32491,115 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'bitwiselogic': {
+        const p = proceduralMaterialPresets.bitwiselogic,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2e201),
+          glyphs: Record<string, string> = {
+            '0': '111101101101111',
+            '1': '010110010010111',
+            A: '010101111101101',
+            N: '110101101101101',
+            D: '110101101101110',
+            O: '111101101101111',
+            R: '110101110101101',
+            X: '101101010101101',
+          },
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          operations: Record<string, (a: number, b: number) => number> = {
+            AND: (a, b) => a & b,
+            OR: (a, b) => a | b,
+            XOR: (a, b) => a ^ b,
+            NAND: (a, b) => (a & b) ^ 1,
+          },
+          // The seed shuffles which operation goes in which block.
+          order = p.ops
+            .map((_, i) => i)
+            .sort(
+              (a, b) => hash(a, 9, seed ^ 0x2e202) - hash(b, 9, seed ^ 0x2e202),
+            ),
+          problems = order.map((opIndex, block) => {
+            const op = p.ops[opIndex],
+              a = Array.from({ length: p.bits }, (_, j) =>
+                hash(block, j, seed ^ 0x2e203) < 0.5 ? 1 : 0,
+              ),
+              b = Array.from({ length: p.bits }, (_, j) =>
+                hash(block, j + 32, seed ^ 0x2e203) < 0.5 ? 1 : 0,
+              );
+            return {
+              op,
+              a,
+              b,
+              result: a.map((bit, j) => operations[op](bit, b[j])),
+            };
+          });
+        return () => {
+          const block = Math.floor((v - p.top) / p.blockPitch),
+            local = v - p.top - block * p.blockPitch,
+            row = Math.floor(local / p.rowPitch),
+            labelEdge = p.left + p.labelCell,
+            bitColumn = Math.floor((u - labelEdge) / p.cell);
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            rule = 0,
+            glyph = 0;
+          if (
+            block >= 0 &&
+            block < p.ops.length &&
+            row >= 0 &&
+            row < 4 &&
+            u >= p.left &&
+            bitColumn < p.bits
+          ) {
+            const { op, a, b, result } = problems[block],
+              fy = local / p.rowPitch - row,
+              inLabel = bitColumn < 0,
+              cellLeft = inLabel ? p.left : labelEdge + bitColumn * p.cell,
+              cellWidth = inLabel ? p.labelCell : p.cell,
+              fx = (u - cellLeft) / cellWidth;
+            let text = '';
+            if (inLabel) text = row === 2 ? '' : row === 1 ? op : '';
+            else if (row === 0) text = String(a[bitColumn]);
+            else if (row === 1) text = String(b[bitColumn]);
+            else if (row === 3) text = String(result[bitColumn]);
+            if (!inLabel && row !== 2) {
+              const bit = Number(text);
+              if (row === 3) {
+                tone = bit === 1 ? p.resultOneTone : p.resultTone;
+                level = bit === 1 ? p.resultOneHeight : p.resultHeight;
+              } else if (bit === 1) {
+                tone = p.oneTone;
+                level = p.oneHeight;
+              }
+            }
+            if (row === 2)
+              rule = cover(p.ruleHalf - Math.abs(fy - 0.5) * p.rowPitch);
+            const count = text.length,
+              first = -(2 * count - 1),
+              px = Math.floor(((fx - 0.5) * cellWidth) / p.digitPixel + 0.5),
+              py = Math.floor(((fy - 0.5) * p.rowPitch) / p.digitPixel + 2.5);
+            if (count > 0 && py >= 0 && py < 5)
+              for (let d = 0; d < count; d++) {
+                const gx = px - (first + 4 * d);
+                if (gx >= 0 && gx < 3 && glyphs[text[d]][py * 3 + gx] === '1')
+                  glyph = 1;
+              }
+          }
+          const base = tone + (p.lineTone - tone) * rule;
+          color = clamp(
+            base +
+              (p.inkTone - base) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            level + (p.ruleHeight - level) * rule - p.inkDepth * glyph,
+          );
+          roughness =
+            p.cellRoughness + (p.inkRoughness - p.cellRoughness) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -60020,6 +60129,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'bitwiselogic' ||
     kind === 'gcdtable' ||
     kind === 'percolationclusters' ||
     kind === 'abeliansandpile' ||
