@@ -18172,3 +18172,86 @@ describe('matrixproducts: three-by-three matrix multiplications', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('kochsnowflake: the snowflake after zero to three Koch iterations', () => {
+  const p = proceduralMaterialPresets.kochsnowflake;
+  const baseArea = (Math.sqrt(3) / 4) * p.side * p.side;
+  // Area after n iterations: A0 (8/5 - (3/5) (4/9)^n); the boundary grows by 4/3 each time.
+  const areaRatio = (n: number): number => 8 / 5 - (3 / 5) * (4 / 9) ** n;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws four snowflakes whose areas and boundary lengths follow the Koch recurrences (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('kochsnowflake', seed),
+        out = empty(),
+        n = 360,
+        cell = 0.5 / n,
+        levels = new Set<number>(),
+        edgeCounts: number[] = [];
+      for (let panel = 0; panel < 4; panel++) {
+        const u0 = panel % 2 === 0 ? 0 : 0.5,
+          v0 = panel < 2 ? 0 : 0.5;
+        let fill = 0,
+          edge = 0;
+        for (let y = 0; y < n; y++)
+          for (let x = 0; x < n; x++) {
+            sample(u0 + (x + 0.5) * cell, v0 + (y + 0.5) * cell, out);
+            if (out.color < 0.5) edge++;
+            else if (out.color < 0.88) fill++;
+          }
+        // The line is centred on the boundary, so half of its pixels lie inside the shape.
+        const area = (fill + edge / 2) * cell * cell,
+          ratio = area / baseArea,
+          // Levels 2 and 3 differ by only 4%, so pick the nearest prediction and demand a close match.
+          errors = [0, 1, 2, 3].map((k) => Math.abs(ratio / areaRatio(k) - 1)),
+          level = errors.indexOf(Math.min(...errors));
+        expect(Math.min(...errors)).toBeLessThan(0.015);
+        levels.add(level);
+        // The boundary length of level k is (4/3)^k times that of the triangle; the line's pixel count follows it.
+        edgeCounts[level] = edge * cell * cell;
+      }
+      // Each of the iterations 0 to 3 appears exactly once.
+      expect([...levels].sort()).toEqual([0, 1, 2, 3]);
+      for (let k = 1; k <= 3; k++) {
+        const grown = edgeCounts[k] / edgeCounts[0];
+        expect(Math.abs(grown / (4 / 3) ** k - 1)).toBeLessThan(0.15);
+      }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('kochsnowflake', 0),
+      b = createSurfaceSampler('kochsnowflake', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

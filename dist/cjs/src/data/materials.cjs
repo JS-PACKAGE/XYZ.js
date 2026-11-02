@@ -17557,6 +17557,35 @@ var proceduralMaterialPresets = Object.freeze({
 		bracketRoughness: .4,
 		inkRoughness: .4
 	}),
+	kochsnowflake: Object.freeze({
+		dark: [
+			18,
+			34,
+			60
+		],
+		light: [
+			244,
+			244,
+			232
+		],
+		roughness: .5,
+		relief: .004,
+		side: .36,
+		levels: 4,
+		edgeHalf: .0024,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .95,
+		fillTone: .8,
+		edgeTone: .14,
+		grainTone: .03,
+		paperHeight: .22,
+		fillHeight: .42,
+		edgeHeight: .8,
+		paperRoughness: .74,
+		fillRoughness: .6,
+		edgeRoughness: .35
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -26238,6 +26267,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	kochsnowflake: .5,
 	matrixproducts: .4,
 	signedencodings: .4,
 	romannumerals: .4,

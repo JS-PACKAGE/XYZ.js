@@ -30968,6 +30968,88 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'kochsnowflake': {
+        const p = proceduralMaterialPresets.kochsnowflake,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2d001),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          radius = p.side / Math.sqrt(3),
+          // The four panels show the snowflake after 0, 1, 2 and 3 Koch iterations, in an order and at rotations drawn
+          // by the seed. Each is a closed polyline around its panel centre.
+          order = [0, 1, 2, 3].sort(
+            (a, b) => hash(a, 7, seed ^ 0x2d002) - hash(b, 7, seed ^ 0x2d002),
+          ),
+          panels = order.map((iterations, panel) => {
+            const cx = panel % 2 === 0 ? 0.25 : 0.75,
+              cy = panel < 2 ? 0.25 : 0.75,
+              turn = 2 * Math.PI * hash(panel, 9, seed ^ 0x2d003);
+            let xs = [0, 1, 2].map(
+                (k) => cx + radius * Math.cos(turn + (2 * Math.PI * k) / 3),
+              ),
+              ys = [0, 1, 2].map(
+                (k) => cy + radius * Math.sin(turn + (2 * Math.PI * k) / 3),
+              );
+            for (let step = 0; step < iterations; step++) {
+              const nextX: number[] = [],
+                nextY: number[] = [];
+              for (let i = 0; i < xs.length; i++) {
+                const ax = xs[i],
+                  ay = ys[i],
+                  bx = xs[(i + 1) % xs.length],
+                  by = ys[(i + 1) % xs.length],
+                  dx = (bx - ax) / 3,
+                  dy = (by - ay) / 3,
+                  // The bump on the middle third points away from the centre.
+                  mx = ax + 1.5 * dx,
+                  my = ay + 1.5 * dy,
+                  sign = (mx - cx) * -dy + (my - cy) * dx >= 0 ? 1 : -1,
+                  tx = ax + dx + 0.5 * dx + sign * -dy * (Math.sqrt(3) / 2),
+                  ty = ay + dy + 0.5 * dy + sign * dx * (Math.sqrt(3) / 2);
+                nextX.push(ax, ax + dx, tx, ax + 2 * dx);
+                nextY.push(ay, ay + dy, ty, ay + 2 * dy);
+              }
+              xs = nextX;
+              ys = nextY;
+            }
+            return { xs, ys };
+          });
+        return () => {
+          const panel = (v >= 0.5 ? 2 : 0) + (u >= 0.5 ? 1 : 0),
+            { xs, ys } = panels[panel];
+          let crossings = 0,
+            edge = 0;
+          for (let i = 0; i < xs.length; i++) {
+            const j = i + 1 === xs.length ? 0 : i + 1,
+              ex = xs[j] - xs[i],
+              ey = ys[j] - ys[i],
+              wx = u - xs[i],
+              wy = v - ys[i],
+              t = clamp((wx * ex + wy * ey) / (ex * ex + ey * ey));
+            // Even-odd rule: count the edges a ray towards +u crosses.
+            if (ys[i] > v !== ys[j] > v && u < xs[i] + ((v - ys[i]) * ex) / ey)
+              crossings++;
+            edge = Math.max(
+              edge,
+              cover(p.edgeHalf - Math.hypot(wx - ex * t, wy - ey * t)),
+            );
+          }
+          const inside = crossings % 2,
+            filled = p.paperTone + (p.fillTone - p.paperTone) * inside,
+            tone = filled + (p.edgeTone - filled) * edge;
+          color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(
+            p.paperHeight +
+              (p.fillHeight - p.paperHeight) * inside +
+              (p.edgeHeight - p.fillHeight) * edge,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.fillRoughness - p.paperRoughness) * inside +
+            (p.edgeRoughness - p.fillRoughness) * edge;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -58497,6 +58579,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'kochsnowflake' ||
     kind === 'matrixproducts' ||
     kind === 'signedencodings' ||
     kind === 'romannumerals' ||
