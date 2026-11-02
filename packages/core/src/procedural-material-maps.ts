@@ -37626,6 +37626,92 @@ export function createSurfaceSampler(
           occlusion = 1 - 0.2 * line;
         };
       }
+      case 'braiddiagram': {
+        const p = proceduralMaterialPresets.braiddiagram,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x31d01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          count =
+            p.strands[
+              Math.floor(hash(3, 1, seed ^ 0x31d02) * p.strands.length)
+            ],
+          levels = count * p.levelsPerStrand,
+          pitch = (p.bottom - p.top) / levels,
+          spacing = p.width / (count - 1),
+          crossings: number[] = [],
+          overLeft: boolean[] = [],
+          // layout[level][place] is the strand (numbered by its starting place) at that place at the start of the level.
+          layout: number[][] = [
+            Array.from({ length: count }, (_, place) => place),
+          ];
+        // One crossing per level, between two neighbouring places, never the same pair twice in a row (that would undo itself or
+        // just repeat), with the left or the right strand on top.
+        for (let level = 0; level < levels; level++) {
+          let at = Math.floor(hash(level, 5, seed ^ 0x31d03) * (count - 1));
+          if (level > 0 && at === crossings[level - 1])
+            at =
+              (at +
+                1 +
+                Math.floor(hash(level, 6, seed ^ 0x31d04) * (count - 2))) %
+              (count - 1);
+          crossings.push(at);
+          overLeft.push(hash(level, 7, seed ^ 0x31d05) < 0.5);
+          const next = [...layout[level]];
+          next[at] = layout[level][at + 1];
+          next[at + 1] = layout[level][at];
+          layout.push(next);
+        }
+        return () => {
+          const fv = v - Math.floor(v),
+            fu = u - Math.floor(u),
+            level = Math.floor((fv - p.top) / pitch);
+          let shade: number = p.paperTone,
+            rimAmount = 0,
+            strandAmount = 0;
+          if (level >= 0 && level < levels) {
+            const t = (fv - p.top) / pitch - level,
+              smoothT = t * t * (3 - 2 * t),
+              at = crossings[level],
+              starts = layout[level],
+              order: number[] = [];
+            // Paint order: the strands not crossing, then the under strand of the crossing, then the over strand.
+            for (let place = 0; place < count; place++)
+              if (place !== at && place !== at + 1) order.push(place);
+            order.push(
+              overLeft[level] ? at + 1 : at,
+              overLeft[level] ? at : at + 1,
+            );
+            for (const place of order) {
+              const target =
+                  place === at ? at + 1 : place === at + 1 ? at : place,
+                x = p.left + (place + (target - place) * smoothT) * spacing,
+                // Slope of the strand (horizontal travel per unit of height), so that its width is measured across it.
+                slope = ((target - place) * spacing * 6 * t * (1 - t)) / pitch,
+                distance = Math.abs(fu - x) / Math.hypot(1, slope),
+                core = cover(p.halfWidth - distance),
+                rim = cover(p.halfWidth + p.outline - distance),
+                tone =
+                  p.firstTone +
+                  ((p.lastTone - p.firstTone) * starts[place]) / (count - 1);
+              shade += (p.outlineTone - shade) * rim;
+              shade += (tone - shade) * core;
+              rimAmount = Math.max(rimAmount, rim);
+              strandAmount = Math.max(strandAmount, core);
+            }
+          }
+          color = clamp(shade + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(
+            p.paperHeight +
+              (p.outlineHeight - p.paperHeight) * rimAmount +
+              (p.strandHeight - p.outlineHeight) * strandAmount,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.strandRoughness - p.paperRoughness) * rimAmount;
+          occlusion = 1 - 0.2 * rimAmount;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -65155,6 +65241,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'braiddiagram' ||
     kind === 'youngtableaux' ||
     kind === 'euclidsquares' ||
     kind === 'voronoicells' ||

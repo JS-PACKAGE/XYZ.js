@@ -29760,3 +29760,204 @@ describe('youngtableaux: standard Young tableaux', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('braiddiagram: a braid diagram', () => {
+  const p = proceduralMaterialPresets.braiddiagram;
+  const toneOf = (strand: number, count: number): number =>
+    p.firstTone + ((p.lastTone - p.firstTone) * strand) / (count - 1);
+
+  // The strand at every place along a line of the picture, by its tone (-1 when the place is paper or the tone fits no strand).
+  const readLine = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    v: number,
+    count: number,
+  ): number[] => {
+    const out = empty();
+    return Array.from({ length: count }, (_, place) => {
+      sample(p.left + place * (p.width / (count - 1)), v, out);
+      const strand = Array.from({ length: count }, (_, id) => id).find(
+        (id) => Math.abs(out.color - toneOf(id, count)) < 0.04,
+      );
+      return strand ?? -1;
+    });
+  };
+
+  // The number of strands: the only one for which the top line shows every strand, in order of starting place.
+  const strandCount = (seed: number): number => {
+    const sample = createSurfaceSampler('braiddiagram', seed),
+      fits = p.strands.filter((count) =>
+        readLine(sample, p.top + 0.002, count).every(
+          (strand, place) => strand === place,
+        ),
+      );
+    expect(fits).toHaveLength(1);
+    return fits[0];
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws a braid: every level swaps two neighbouring strands, one over the other (seed %i)',
+    (seed) => {
+      const count = strandCount(seed),
+        levels = count * p.levelsPerStrand,
+        pitch = (p.bottom - p.top) / levels,
+        spacing = p.width / (count - 1),
+        sample = createSurfaceSampler('braiddiagram', seed),
+        out = empty(),
+        lines = Array.from({ length: levels + 1 }, (_, boundary) =>
+          readLine(
+            sample,
+            boundary === levels
+              ? p.bottom - 0.002
+              : p.top + boundary * pitch + (boundary === 0 ? 0.002 : 0),
+            count,
+          ),
+        ),
+        places: number[] = [];
+      let leftOver = 0,
+        rightOver = 0;
+      for (let level = 0; level < levels; level++) {
+        const before = lines[level],
+          after = lines[level + 1];
+        // Every strand is seen at every place, and exactly two neighbouring places have swapped.
+        expect([...before].sort()).toEqual(
+          Array.from({ length: count }, (_, id) => id),
+        );
+        const changed = before
+          .map((strand, place) => (strand === after[place] ? -1 : place))
+          .filter((place) => place >= 0);
+        expect(changed).toHaveLength(2);
+        const [first, second] = changed;
+        expect(second).toBe(first + 1);
+        expect(after[first]).toBe(before[second]);
+        expect(after[second]).toBe(before[first]);
+        places.push(first);
+        // Half way, the strand in the middle between the two places is the one on top.
+        const v = p.top + (level + 0.5) * pitch;
+        sample(p.left + (first + 0.5) * spacing, v, out);
+        const onTop = [before[first], before[second]].find(
+          (strand) => Math.abs(out.color - toneOf(strand, count)) < 0.04,
+        );
+        expect(onTop).toBeDefined();
+        if (onTop === before[first]) leftOver++;
+        else rightOver++;
+        // A quarter and three quarters of the way down both strands are seen, at the places of the S-curve between their two places.
+        for (const t of [0.25, 0.75]) {
+          const shift = t * t * (3 - 2 * t);
+          for (const [strand, start, end] of [
+            [before[first], first, second],
+            [before[second], second, first],
+          ]) {
+            sample(
+              p.left + (start + (end - start) * shift) * spacing,
+              p.top + (level + t) * pitch,
+              out,
+            );
+            expect(Math.abs(out.color - toneOf(strand, count))).toBeLessThan(
+              0.04,
+            );
+          }
+        }
+      }
+      // The same pair of places is never crossed twice in a row, and over and under both occur.
+      places.forEach((place, level) => {
+        if (level > 0) expect(place).not.toBe(places[level - 1]);
+      });
+      expect(leftOver).toBeGreaterThan(0);
+      expect(rightOver).toBeGreaterThan(0);
+      // The permutation at the bottom has the parity of the number of crossings (every crossing swaps two neighbours).
+      const bottom = lines[levels];
+      let inversions = 0;
+      for (let i = 0; i < count; i++)
+        for (let j = i + 1; j < count; j++)
+          inversions += Number(bottom[i] > bottom[j]);
+      expect(inversions % 2).toBe(levels % 2);
+      // Above the first and below the last level there is only paper.
+      sample(p.left, p.top - 0.02, out);
+      expect(out.color).toBeGreaterThan(0.85);
+      sample(p.left, p.bottom + 0.02, out);
+      expect(out.color).toBeGreaterThan(0.85);
+    },
+  );
+
+  it('measures the width of a strand across it: wider along a line where the strand is slanted', () => {
+    for (const seed of seeds) {
+      const count = strandCount(seed),
+        levels = count * p.levelsPerStrand,
+        pitch = (p.bottom - p.top) / levels,
+        spacing = p.width / (count - 1),
+        sample = createSurfaceSampler('braiddiagram', seed),
+        out = empty();
+      for (let level = 0; level < 6; level++) {
+        // The two strands crossing at this level (the places that swap), read at the top of the level.
+        const before = readLine(
+            sample,
+            p.top + level * pitch + (level === 0 ? 0.002 : 0),
+            count,
+          ),
+          after = readLine(sample, p.top + (level + 1) * pitch, count),
+          first = before.findIndex((strand, place) => strand !== after[place]),
+          t = 0.1,
+          shift = t * t * (3 - 2 * t),
+          centre = p.left + (first + shift) * spacing,
+          v = p.top + (level + t) * pitch,
+          slope = (spacing * 6 * t * (1 - t)) / pitch;
+        // Scan across the strand that starts at the left place of the crossing: the run of its tone around its middle.
+        let widthSum = 0;
+        for (let step = -150; step <= 150; step++) {
+          sample(centre + step * 0.0004, v, out);
+          widthSum +=
+            Number(Math.abs(out.color - toneOf(before[first], count)) < 0.04) *
+            0.0004;
+        }
+        expect(widthSum).toBeGreaterThan(
+          2 * p.halfWidth * Math.hypot(1, slope) * 0.9,
+        );
+        expect(widthSum).toBeLessThan(
+          2 * p.halfWidth * Math.hypot(1, slope) * 1.1,
+        );
+      }
+    }
+  });
+
+  it('uses every number of strands across seeds', () => {
+    const used = new Set<number>();
+    for (let seed = 0; seed < 30; seed++) used.add(strandCount(seed));
+    expect([...used].sort((a, b) => a - b)).toEqual([...p.strands]);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('braiddiagram', 0),
+      b = createSurfaceSampler('braiddiagram', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
