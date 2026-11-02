@@ -1024,6 +1024,7 @@ export type ProceduralMaterialKind =
   | 'chromaticant'
   | 'rule110'
   | 'zernikemodes'
+  | 'supershapes'
   | 'sandpileidentity'
   | 'multiplicativeorder'
   | 'vermiculation'
@@ -2295,6 +2296,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'chromaticant',
   'rule110',
   'zernikemodes',
+  'supershapes',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',

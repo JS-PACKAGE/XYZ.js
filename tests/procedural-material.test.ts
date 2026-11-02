@@ -1050,6 +1050,7 @@ const kinds: ProceduralMaterialKind[] = [
   'chromaticant',
   'rule110',
   'zernikemodes',
+  'supershapes',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',
@@ -164732,6 +164733,231 @@ describe('Zernike modes as the first 64 Zernike polynomials, one per disc', () =
     expect(blue / (512 * 512)).toBeLessThan(80.5);
     expect(maxTilt).toBeGreaterThan(0.0008);
     expect(maxTilt).toBeLessThan(0.002);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Superformula shapes as a chart of 64 stars and flowers by fold count and sharpness', () => {
+  const p = proceduralMaterialPresets.supershapes;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const cells = 8;
+  /**
+   * Radius of a shape at an angle relative to its longest radius, written independently here:
+   * cos^4 + sin^4 of x is 1 - sin^2(2x) / 2, so the radius is (2 - sin^2(2x))^(-1 / n)
+   * with x = m angle / 4.
+   */
+  const edgeOf = (col: number, row: number, angle: number): number =>
+    (2 - Math.sin((2 * p.folds[col] * angle) / 4) ** 2) **
+    (-1 / p.sharpness[row]);
+  /**
+   * Expected colour at (u, v) for the chart shifted by (sx, sy) cells: deep inside a shape (the
+   * rim more than 0.06 of a cell away) the shape's tone, outside the rim (by more than 0.005
+   * disc radius) the gap tone, null in the soft rim zone, which is not compared.
+   */
+  const expectedColor = (
+    u: number,
+    v: number,
+    sx: number,
+    sy: number,
+  ): number | null => {
+    const x = u * cells,
+      y = v * cells,
+      col = Math.floor(x),
+      row = Math.floor(y),
+      px = (x - col - 0.5) / p.discRadius,
+      py = (y - row - 0.5) / p.discRadius,
+      radius = Math.hypot(px, py),
+      shapeCol = (col + sx) % cells,
+      shapeRow = (row + sy) % cells,
+      edge = edgeOf(shapeCol, shapeRow, Math.atan2(py, px));
+    if ((edge - radius) * p.discRadius > 0.06)
+      return (
+        p.toneFloor + (p.toneSpan * (shapeCol + shapeRow)) / (2 * (cells - 1))
+      );
+    return radius > edge + 0.005 ? p.gapTone : null;
+  };
+  const points: [number, number][] = Array.from({ length: 8000 }, (_, i) => [
+    (i * 0.61803398875) % 1,
+    (i * 0.41421356237) % 1,
+  ]);
+  /** Chart shifts (x, y) around the torus that reproduce every compared colour. */
+  const fittingShifts = (seed: number): [number, number][] => {
+    const sample = createSurfaceSampler('supershapes', seed),
+      out = empty(),
+      fits: [number, number][] = [];
+    for (let sy = 0; sy < cells; sy++)
+      for (let sx = 0; sx < cells; sx++) {
+        let worst = 0;
+        for (const [u, v] of points) {
+          const expected = expectedColor(u, v, sx, sy);
+          if (expected === null) continue;
+          sample(u, v, out);
+          worst = Math.max(worst, Math.abs(out.color - expected));
+          if (worst >= 0.03) break;
+        }
+        if (worst < 0.03) fits.push([sx, sy]);
+      }
+    return fits;
+  };
+  it('draws every superformula shape on its cell and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('supershapes', seed),
+        a = empty();
+      // At angle pi / m (a tip) every shape reaches the full radius 1, and at angle 0 (a valley
+      // between two tips) it falls to 2^(-1 / n) (about 0.138 for the spikiest row, n = 0.35,
+      // and 0.871 for the roundest, n = 5); the sampler agrees with the independent formula
+      // at 8000 points (outside the soft rim zone) for exactly one chart shift.
+      expect(edgeOf(3, 4, Math.PI / 8)).toBeCloseTo(1, 12);
+      expect(edgeOf(0, 0, 0)).toBeCloseTo(2 ** (-1 / 0.35), 12);
+      expect(edgeOf(0, 7, 0)).toBeCloseTo(2 ** (-1 / 5), 12);
+      expect(fittingShifts(seed)).toHaveLength(1);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.025);
+      expect(low).toBeLessThan(0.026);
+      expect(high).toBeGreaterThan(0.853);
+      expect(high).toBeLessThan(0.855);
+      expect(dark / 65536).toBeGreaterThan(0.17);
+      expect(dark / 65536).toBeLessThan(0.172);
+      expect(mean / 65536).toBeGreaterThan(0.2025);
+      expect(mean / 65536).toBeLessThan(0.2027);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 3);
+      expect(heightHigh).toBeGreaterThan(0.85);
+      expect(heightHigh).toBeLessThan(0.875);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('moves the chart around the torus per seed and is deterministic for one seed', () => {
+    const shifts = [0, 1, 0xffffffff, 7].map((seed) =>
+      fittingShifts(seed)[0].join(','),
+    );
+    expect(new Set(shifts).size).toBe(4);
+    expect(fittingShifts(0)).toEqual([fittingShifts(0)[0]]);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('supershapes', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [cells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 mint star maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('supershapes', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(34);
+    expect(red / (512 * 512)).toBeLessThan(35.5);
+    expect(green / (512 * 512)).toBeGreaterThan(57.5);
+    expect(green / (512 * 512)).toBeLessThan(59);
+    expect(blue / (512 * 512)).toBeGreaterThan(63.5);
+    expect(blue / (512 * 512)).toBeLessThan(65.5);
+    expect(maxTilt).toBeGreaterThan(0.03);
+    expect(maxTilt).toBeLessThan(0.045);
     expect(invalid).toBe(0);
   });
 });

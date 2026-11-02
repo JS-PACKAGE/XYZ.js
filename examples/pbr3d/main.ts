@@ -1087,6 +1087,7 @@ try {
     'chromaticant',
     'rule110',
     'zernikemodes',
+    'supershapes',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

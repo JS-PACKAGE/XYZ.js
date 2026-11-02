@@ -12841,3 +12841,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 完整suite（工具實跑，commit `45b2eb7c4`，獨立乾淨worktree，期間沒有同時進行其他重負載工作）：**179個測試檔、10,304項測試全部通過，耗時1200.02 s**。上一次完整suite為`d580a7c76`的10,279項；之後新增fordcircles、gaussianprimes、chromaticant、rule110、zernikemodes各5項（含kinds清單條目），合計25項，與增量一致（10,279 + 25 = 10,304）。
 - 瀏覽器gallery（headless Chrome，WebGPU與`?renderer=webgl2`各一次，`/examples/pbr3d/`）：依序選取`fordcircles`、`gaussianprimes`、`chromaticant`、`rule110`、`zernikemodes`，五者皆出現`Material <kind> `讀數、readout顯示1022種、選單1023個選項，console error 0。第一次開頁時`#material`等待逾時（dev server載入龐大模組很慢），重試等待後正常。此檢查只涵蓋「可選取、讀數更新、無console錯誤」，**沒有在gallery中逐一目視截圖**（預覽圖是用預覽腳本於各kind實作時看過）。
 - 未驗證：不push；其他瀏覽器、真機GPU差異與效能未量測。
+
+## 2026-11-02 新增材質：超橢圓星形（supershapes）
+
+- 範圍：新增`supershapes`（目前目錄1022→1023種，含plain的gallery 1024項）：8×8格簡化超公式形狀圖鑑，欄為摺數2–16（偶數）、列為尖銳指數0.35–5，形狀半徑`(2·(cos⁴(m·t / 4) + sin⁴(m·t / 4)))^(−1 / n)`（尖角為1、谷為`2^(−1 / n)`），薄荷綠星形與花形在深藍黑底上，邊緣柔化、內部圓頂高度；seed令圖鑑在環面上平移（以格為單位）；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache只有131,072 B的細grain。作者示意，沒有引用特定來源或照片、**沒有對照照片**；這是我簡化的公式（指數4、a = b = 1），不是完整的Gielis superformula，也沒有對照原論文的參數。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽只看了一版；(2)選擇只取偶數m與四次方，是為了讓半徑函數在角度分支切口上平滑，並把n的最小值定為0.35以避免形狀中心的尖端落在柔化邊緣內造成原點處的不可微；(3)測試以`cos⁴x + sin⁴x = 1 − sin²(2x) / 2`這個獨立的形式重算，比對8,000個點並在64個平移中檢查恰好一個符合，**不涵蓋柔化邊緣區的形狀**（該區由C1與有界檢查涵蓋，並通過）；(4)測試第一次執行有一項失敗：我把測試註解與期望寫成「角度0是尖角」，實際上角度0是谷、尖角在`π / m`（sampler的註解本來就是對的），已修正測試後重跑通過；(5)建構與取樣耗時**未量測**。
+- 實測（工具實跑）：四個seed（0／1／0xffffffff／7）各有唯一符合的平移(7, 1)、(5, 5)、(7, 7)、(3, 4)，最大擬合誤差0.01473／0.01497／0.01479／0.01489（每個seed在8,000個點中有7,057–7,098個用於比較，其中2,129–2,167個在形狀內）；256²（seed 0／1／0xffffffff）亮處（color>0.5）17.07%–17.13%、color 0.02528–0.02590至0.85335–0.85415、平均0.20254–0.20261、roughness恆為0.4、AO最低0.6、height至多0.8583–0.8717 relief；512²（四個seed）亮處17.13%–17.19%、color 0.02520–0.02528至0.85391–0.85458、平均0.20219–0.20228、height至多0.8600–0.8736 relief；seed 0與1相比，512²中color>0.5的取樣28.0%不同；seed 7的512²maps平均r／g／b約(34.7, 58.1, 64.4)、法線tilt²最大約0.0378、z分量最小253。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Superformula shapes as|supershapes|kinds|catalog|distinct|periodic"`定向測試**2352項通過／4028項未選**。
+- 未驗證：supershapes未跑完整suite與瀏覽器gallery；不push。

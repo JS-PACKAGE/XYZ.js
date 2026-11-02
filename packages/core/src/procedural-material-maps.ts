@@ -41859,6 +41859,52 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'supershapes': {
+        const p = proceduralMaterialPresets.supershapes,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseRadius = 1 / p.discRadius,
+          inverseSoft = 1 / p.edgeSoft,
+          shiftX = Math.floor(hash(0, 3, seed ^ p.seedSalt) * p.cells),
+          shiftY = Math.floor(hash(1, 3, seed ^ p.seedSalt) * p.cells);
+        // A chart of Gielis-style superformula shapes, one per cell: the column sets the number
+        // of folds m (2, 4 ... 16) and the row sets the sharpness exponent n (0.35 spiky ...
+        // 5 nearly round). A shape's radius at the angle t, relative to its longest radius,
+        // is (2 (cos^4 (m t / 4) + sin^4 (m t / 4)))^(-1 / n), which is 1 along the m
+        // tips and 2^(-1 / n) in between; the fourth powers and even m keep it smooth across
+        // the branch cut of the angle. The tile's tone grows with column plus row. The seed
+        // moves the chart around the torus.
+        return () => {
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            px = (x - col - 0.5) * inverseRadius,
+            py = (y - row - 0.5) * inverseRadius,
+            radius = Math.hypot(px, py),
+            shapeCol = (col + shiftX) % p.cells,
+            shapeRow = (row + shiftY) % p.cells,
+            quarter = (p.folds[shapeCol] * Math.atan2(py, px)) / 4,
+            fourth = Math.cos(quarter) ** 4 + Math.sin(quarter) ** 4,
+            edge = (2 * fourth) ** (-1 / p.sharpness[shapeRow]),
+            mask = smooth(clamp((edge - radius) * inverseSoft * p.discRadius)),
+            dome = smooth(clamp(1 - (radius / edge) ** 2)),
+            tone = (shapeCol + shapeRow) / (2 * (p.cells - 1)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + p.toneSpan * tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.discHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -50684,6 +50730,7 @@ export function createSurfaceSampler(
     kind === 'chromaticant' ||
     kind === 'rule110' ||
     kind === 'zernikemodes' ||
+    kind === 'supershapes' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||
