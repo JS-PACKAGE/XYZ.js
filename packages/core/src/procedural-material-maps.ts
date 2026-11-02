@@ -36396,6 +36396,93 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'roundrobintable': {
+        const p = proceduralMaterialPresets.roundrobintable,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x30e01),
+          glyphs: Record<string, string> = {
+            '0': '111101101101111',
+            '1': '010110010010111',
+            '2': '111001111100111',
+            '3': '111001111001111',
+            '4': '101101111001001',
+            '5': '111100111001111',
+            '6': '111100111101111',
+            '7': '111001010010010',
+            '8': '111101111101111',
+            '9': '111101111001111',
+            '-': '000000111000000',
+          },
+          which = Math.floor(hash(15, 1, seed ^ 0x30e02) * p.teamCounts.length),
+          teams = p.teamCounts[which],
+          pixel = p.pixels[which],
+          rounds = teams - 1,
+          // Team numbers 1 .. teams in a seeded random order (Fisher-Yates), then the circle method: the first team stays and the
+          // others move one place round the circle after every round.
+          circle = Array.from({ length: teams }, (_, i) => i + 1);
+        for (let i = teams - 1; i > 0; i--) {
+          const j = Math.floor(hash(i, 4, seed ^ 0x30e03) * (i + 1)),
+            swap = circle[i];
+          circle[i] = circle[j];
+          circle[j] = swap;
+        }
+        const texts: string[] = [];
+        for (let round = 0; round < rounds; round++) {
+          const matches = Array.from(
+            { length: teams / 2 },
+            (_, i) => circle[i] + '-' + circle[teams - 1 - i],
+          );
+          texts.push(String(round + 1) + '  ' + matches.join('  '));
+          circle.splice(1, 0, circle.pop() as number);
+        }
+        const rowPitch = p.height / rounds;
+        return () => {
+          const row = Math.floor((v - p.top) / rowPitch),
+            fy = (v - p.top) / rowPitch - row;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            glyph = 0;
+          if (row >= 0 && row < rounds) {
+            const text = texts[row],
+              px = Math.floor((u - p.left) / pixel),
+              d = px >= 0 ? Math.floor(px / 4) : -1,
+              gx = px - 4 * d,
+              py = Math.floor(((fy - 0.5) * rowPitch) / pixel + 2.5);
+            if (
+              row % 2 === 1 &&
+              Math.abs(u - p.left - p.stripeWidth / 2) <
+                p.stripeWidth / 2 + p.stripeInset
+            ) {
+              tone = p.stripeTone;
+              level = p.stripeHeight;
+            }
+            // The round number (the first character) sits on a darker label.
+            if (d === 0) {
+              tone = p.labelTone;
+              level = p.labelHeight;
+            }
+            if (
+              d >= 0 &&
+              d < text.length &&
+              gx >= 0 &&
+              gx < 3 &&
+              py >= 0 &&
+              py < 5 &&
+              text[d] !== ' ' &&
+              glyphs[text[d]][py * 3 + gx] === '1'
+            )
+              glyph = 1;
+          }
+          color = clamp(
+            tone +
+              (p.inkTone - tone) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * glyph);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -63925,6 +64012,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'roundrobintable' ||
     kind === 'roulettewheel' ||
     kind === 'circleoffifths' ||
     kind === 'periodictablecells' ||

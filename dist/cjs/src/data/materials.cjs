@@ -20204,6 +20204,39 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .74,
 		inkRoughness: .4
 	}),
+	roundrobintable: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		teamCounts: Object.freeze([8, 10]),
+		left: .02,
+		top: .035,
+		height: .9,
+		pixels: Object.freeze([.0095, .007]),
+		stripeInset: .006,
+		stripeWidth: .96,
+		grainCells: 192,
+		paperTone: .94,
+		stripeTone: .9,
+		labelTone: .78,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		stripeHeight: .3,
+		labelHeight: .42,
+		inkDepth: .06,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -28885,6 +28918,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	roundrobintable: .8,
 	roulettewheel: .9,
 	circleoffifths: .9,
 	periodictablecells: 1,

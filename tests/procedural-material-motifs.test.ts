@@ -27264,3 +27264,152 @@ describe('roulettewheel: the 37 pockets of a European wheel', () => {
     expect(different).toBeGreaterThan(0);
   });
 });
+
+describe('roundrobintable: a league schedule where every pair meets once', () => {
+  const p = proceduralMaterialPresets.roundrobintable;
+  const shapes: Record<string, string[]> = {
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    '2': ['###', '..#', '###', '#..', '###'],
+    '3': ['###', '..#', '###', '..#', '###'],
+    '4': ['#.#', '#.#', '###', '..#', '..#'],
+    '5': ['###', '#..', '###', '..#', '###'],
+    '6': ['###', '#..', '###', '#.#', '###'],
+    '7': ['###', '..#', '.#.', '.#.', '.#.'],
+    '8': ['###', '#.#', '###', '#.#', '###'],
+    '9': ['###', '#.#', '###', '..#', '###'],
+    '-': ['...', '...', '###', '...', '...'],
+  };
+
+  // Reads the table with one candidate (number of teams, pixel size): rows of text, or null when a glyph does not read.
+  const read = (seed: number, index: number): string[] | null => {
+    const sample = createSurfaceSampler('roundrobintable', seed),
+      out = empty(),
+      rounds = p.teamCounts[index] - 1,
+      pixel = p.pixels[index],
+      rowPitch = p.height / rounds,
+      rows: string[] = [];
+    for (let row = 0; row < rounds; row++) {
+      const centre = p.top + (row + 0.5) * rowPitch;
+      let text = '';
+      for (
+        let slot = 0;
+        slot < Math.floor((0.97 - p.left) / (4 * pixel));
+        slot++
+      ) {
+        const lines = [0, 1, 2, 3, 4].map((k) =>
+          [0, 1, 2]
+            .map((x) => {
+              sample(
+                p.left + (4 * slot + x + 0.5) * pixel,
+                centre + (k - 2) * pixel,
+                out,
+              );
+              return out.color < 0.3 ? '#' : '.';
+            })
+            .join(''),
+        );
+        if (lines.every((line) => line === '...')) text += ' ';
+        else {
+          const found = Object.entries(shapes).find(([, shape]) =>
+            shape.every((line, i) => line === lines[i]),
+          );
+          if (!found) return null;
+          text += found[0];
+        }
+      }
+      rows.push(text.trim());
+    }
+    return rows;
+  };
+
+  const tableFor = (seed: number): { teams: number; rows: string[] } => {
+    const candidates = p.teamCounts
+      .map((teams, index) => ({ teams, rows: read(seed, index) }))
+      .filter(
+        (candidate) =>
+          candidate.rows !== null &&
+          candidate.rows.every((row) => /^\d+( +\d+-\d+)+$/.test(row)),
+      );
+    expect(candidates).toHaveLength(1);
+    return { teams: candidates[0].teams, rows: candidates[0].rows as string[] };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'lists n - 1 rounds of n / 2 matches in which every team plays once per round and every pair meets once (seed %i)',
+    (seed) => {
+      const { teams, rows } = tableFor(seed),
+        pairs = new Set<string>();
+      expect(rows).toHaveLength(teams - 1);
+      rows.forEach((row, round) => {
+        const [label, ...matches] = row.split(/ +/);
+        expect(Number(label)).toBe(round + 1);
+        expect(matches).toHaveLength(teams / 2);
+        const playing: number[] = [];
+        for (const match of matches) {
+          const [a, b] = match.split('-').map(Number);
+          expect(a).not.toBe(b);
+          playing.push(a, b);
+          const key = `${Math.min(a, b)},${Math.max(a, b)}`;
+          expect(pairs.has(key)).toBe(false);
+          pairs.add(key);
+        }
+        // Every team plays exactly once in a round.
+        expect([...playing].sort((x, y) => x - y)).toEqual(
+          Array.from({ length: teams }, (_, i) => i + 1),
+        );
+      });
+      expect(pairs.size).toBe((teams * (teams - 1)) / 2);
+    },
+  );
+
+  it('uses both league sizes and different team numberings across seeds', () => {
+    const sizes = new Set<number>(),
+      firsts = new Set<string>();
+    for (let seed = 0; seed < 30; seed++) {
+      const { teams, rows } = tableFor(seed);
+      sizes.add(teams);
+      firsts.add(`${teams}:${rows[0]}`);
+    }
+    expect([...sizes].sort((a, b) => a - b)).toEqual(
+      [...p.teamCounts].sort((a, b) => a - b),
+    );
+    expect(firsts.size).toBeGreaterThan(20);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('roundrobintable', 0),
+      b = createSurfaceSampler('roundrobintable', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(0);
+  });
+});
