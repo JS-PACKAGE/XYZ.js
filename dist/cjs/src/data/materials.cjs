@@ -15806,6 +15806,46 @@ var proceduralMaterialPresets = Object.freeze({
 		onRoughness: .26,
 		panelRoughness: .78
 	}),
+	othelloboard: Object.freeze({
+		dark: [
+			6,
+			40,
+			24
+		],
+		light: [
+			230,
+			244,
+			236
+		],
+		roughness: .5,
+		relief: .004,
+		size: 8,
+		margin: .025,
+		startPlies: 14,
+		extraPlies: 18,
+		lineHalf: .0012,
+		frameHalf: .004,
+		discRadius: .4,
+		rimWidth: .05,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .05,
+		feltTone: .36,
+		lineTone: .15,
+		frameTone: .12,
+		blackTone: .07,
+		whiteTone: .95,
+		rimTone: .5,
+		rimStrength: .5,
+		grainTone: .04,
+		paperHeight: .12,
+		feltHeight: .3,
+		lineHeight: .22,
+		frameHeight: .5,
+		discHeight: .82,
+		discRoughness: .28,
+		feltRoughness: .82
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -24487,6 +24527,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	othelloboard: .4,
 	binaryclock: .4,
 	pianoroll: .5,
 	skyscraperpuzzles: .4,

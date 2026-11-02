@@ -25233,6 +25233,178 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'othelloboard': {
+        const p = proceduralMaterialPresets.othelloboard,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2a301),
+          n = p.size,
+          side = 0.5 - 2 * p.margin,
+          cell = side / n,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          directions = [-1, 0, 1].flatMap((dy) =>
+            [-1, 0, 1]
+              .filter((dx) => dx !== 0 || dy !== 0)
+              .map((dx) => [dx, dy]),
+          ),
+          // The discs a move at (x, y) by a player (1 black, 2 white) flips: in each direction a run of
+          // opposing discs that is closed by one of the player's own.
+          flips = (
+            board: Uint8Array,
+            x: number,
+            y: number,
+            player: number,
+          ): number[] => {
+            const taken: number[] = [];
+            if (board[y * n + x] !== 0) return taken;
+            for (const [dx, dy] of directions) {
+              const run: number[] = [];
+              let cx = x + dx,
+                cy = y + dy;
+              while (
+                cx >= 0 &&
+                cx < n &&
+                cy >= 0 &&
+                cy < n &&
+                board[cy * n + cx] === 3 - player
+              ) {
+                run.push(cy * n + cx);
+                cx += dx;
+                cy += dy;
+              }
+              if (
+                run.length > 0 &&
+                cx >= 0 &&
+                cx < n &&
+                cy >= 0 &&
+                cy < n &&
+                board[cy * n + cx] === player
+              )
+                taken.push(...run);
+            }
+            return taken;
+          },
+          moves = (board: Uint8Array, player: number): number[] => {
+            const list: number[] = [];
+            for (let i = 0; i < n * n; i++)
+              if (flips(board, i % n, Math.floor(i / n), player).length > 0)
+                list.push(i);
+            return list;
+          };
+        // Standard start position, then seeded random legal play with black first; a player with no
+        // move passes. The four panels show the position after the seeded number of plies and the
+        // three positions that follow it, one move at a time.
+        let board: Uint8Array = new Uint8Array(n * n),
+          player = 1,
+          ply = 0;
+        board[3 * n + 3] = 2;
+        board[3 * n + 4] = 1;
+        board[4 * n + 3] = 1;
+        board[4 * n + 4] = 2;
+        const play = (): void => {
+            let options = moves(board, player);
+            if (options.length === 0) {
+              player = 3 - player;
+              options = moves(board, player);
+            }
+            if (options.length === 0) return;
+            const pick =
+                options[
+                  Math.min(
+                    options.length - 1,
+                    Math.floor(
+                      hash(
+                        ply * 97 + options.length,
+                        options[0] * 64 + options[options.length - 1],
+                        seed ^ 0x2a305,
+                      ) * options.length,
+                    ),
+                  )
+                ],
+              next = new Uint8Array(board);
+            for (const index of flips(
+              board,
+              pick % n,
+              Math.floor(pick / n),
+              player,
+            ))
+              next[index] = player;
+            next[pick] = player;
+            board = next;
+            player = 3 - player;
+            ply++;
+          },
+          total =
+            p.startPlies +
+            Math.min(
+              p.extraPlies,
+              Math.floor(hash(1, 1, seed ^ 0x2a303) * (p.extraPlies + 1)),
+            ),
+          boards: Uint8Array[] = [];
+        while (ply < total) play();
+        boards.push(board);
+        for (let i = 0; i < 3; i++) {
+          play();
+          boards.push(board);
+        }
+        return () => {
+          const quadrant = (u >= 0.5 ? 1 : 0) + (v >= 0.5 ? 2 : 0),
+            lx = u - (quadrant & 1) * 0.5 - p.margin,
+            ly = v - (quadrant >> 1) * 0.5 - p.margin;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            rough: number = p.feltRoughness;
+          if (
+            lx >= -p.frameHalf &&
+            lx <= side + p.frameHalf &&
+            ly >= -p.frameHalf &&
+            ly <= side + p.frameHalf
+          ) {
+            const frame = cover(
+              p.frameHalf -
+                Math.min(
+                  Math.min(Math.abs(lx), Math.abs(lx - side)),
+                  Math.min(Math.abs(ly), Math.abs(ly - side)),
+                ),
+            );
+            if (lx >= 0 && lx < side && ly >= 0 && ly < side) {
+              const col = Math.min(n - 1, Math.floor(lx / cell)),
+                row = Math.min(n - 1, Math.floor(ly / cell)),
+                fx = lx - col * cell,
+                fy = ly - row * cell,
+                line = cover(
+                  p.lineHalf -
+                    Math.min(Math.min(fx, cell - fx), Math.min(fy, cell - fy)),
+                ),
+                disc = boards[quadrant][row * n + col];
+              tone = p.feltTone + p.grainTone * (grainField(u, v) - 0.5);
+              level = p.feltHeight;
+              tone += (p.lineTone - tone) * line;
+              level += (p.lineHeight - level) * line;
+              if (disc !== 0) {
+                const radius = Math.hypot(fx - cell / 2, fy - cell / 2) / cell,
+                  body = cover((p.discRadius - radius) * cell),
+                  rim = cover(
+                    (p.rimWidth -
+                      Math.abs(radius - p.discRadius + p.rimWidth / 2)) *
+                      cell,
+                  );
+                tone +=
+                  ((disc === 1 ? p.blackTone : p.whiteTone) - tone) * body;
+                tone += (p.rimTone - tone) * rim * p.rimStrength;
+                level += (p.discHeight - level) * body;
+                rough += (p.discRoughness - rough) * body;
+              }
+            }
+            tone += (p.frameTone - tone) * frame;
+            level += (p.frameHeight - level) * frame;
+          }
+          color = clamp(tone);
+          height = clamp(level);
+          roughness = rough;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -52762,6 +52934,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'othelloboard' ||
     kind === 'binaryclock' ||
     kind === 'pianoroll' ||
     kind === 'skyscraperpuzzles' ||

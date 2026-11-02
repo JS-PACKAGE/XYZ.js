@@ -12156,3 +12156,139 @@ describe('binaryclock: the four faces show consecutive seconds in binary coded d
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('othelloboard: each board is one legal Reversi move after the previous one', () => {
+  const p = proceduralMaterialPresets.othelloboard;
+  const n = p.size;
+  const side = 0.5 - 2 * p.margin;
+  const cell = side / n;
+
+  // Independent reference: the discs flipped when `colour` plays at (row, col), scanning eight rays.
+  const flippedBy = (
+    board: number[][],
+    row: number,
+    col: number,
+    colour: number,
+  ): [number, number][] => {
+    const flipped: [number, number][] = [];
+    if (board[row][col] !== 0) return flipped;
+    for (let dr = -1; dr <= 1; dr++)
+      for (let dc = -1; dc <= 1; dc++) {
+        if (dr === 0 && dc === 0) continue;
+        const ray: [number, number][] = [];
+        let r = row + dr,
+          c = col + dc;
+        while (
+          r >= 0 &&
+          r < n &&
+          c >= 0 &&
+          c < n &&
+          board[r][c] === 3 - colour
+        ) {
+          ray.push([r, c]);
+          r += dr;
+          c += dc;
+        }
+        if (
+          ray.length > 0 &&
+          r >= 0 &&
+          r < n &&
+          c >= 0 &&
+          c < n &&
+          board[r][c] === colour
+        )
+          flipped.push(...ray);
+      }
+    return flipped;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows four boards linked by legal moves with exactly the right flips (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('othelloboard', seed),
+        out = empty(),
+        boards: number[][][] = [];
+      for (let quadrant = 0; quadrant < 4; quadrant++) {
+        const board: number[][] = [];
+        for (let row = 0; row < n; row++) {
+          const line: number[] = [];
+          for (let col = 0; col < n; col++) {
+            sample(
+              (quadrant & 1) * 0.5 + p.margin + (col + 0.5) * cell,
+              (quadrant >> 1) * 0.5 + p.margin + (row + 0.5) * cell,
+              out,
+            );
+            // Black discs are dark, white discs bright, the empty felt in between.
+            line.push(out.color < 0.2 ? 1 : out.color > 0.7 ? 2 : 0);
+          }
+          board.push(line);
+        }
+        boards.push(board);
+      }
+      // The first board is already several moves into the game.
+      const count = (board: number[][]): number =>
+        board.flat().filter((value) => value !== 0).length;
+      expect(count(boards[0])).toBeGreaterThanOrEqual(4 + p.startPlies);
+      for (let k = 0; k < 3; k++) {
+        const before = boards[k],
+          after = boards[k + 1],
+          added: [number, number][] = [];
+        for (let r = 0; r < n; r++)
+          for (let c = 0; c < n; c++)
+            if (before[r][c] === 0 && after[r][c] !== 0) added.push([r, c]);
+        // Exactly one disc is placed, every other changed disc was flipped, and no disc disappeared.
+        expect(added.length).toBe(1);
+        const [row, col] = added[0],
+          colour = after[row][col],
+          expected = flippedBy(before, row, col, colour)
+            .map(([r, c]) => `${r},${c}`)
+            .sort(),
+          actual: string[] = [];
+        for (let r = 0; r < n; r++)
+          for (let c = 0; c < n; c++) {
+            if (before[r][c] !== 0 && before[r][c] !== after[r][c])
+              actual.push(`${r},${c}`);
+            if (before[r][c] !== 0) expect(after[r][c]).not.toBe(0);
+          }
+        expect(expected.length).toBeGreaterThan(0);
+        expect(actual.sort()).toEqual(expected);
+      }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('othelloboard', 0),
+      b = createSurfaceSampler('othelloboard', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

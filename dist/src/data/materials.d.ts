@@ -9129,6 +9129,38 @@ export declare const proceduralMaterialPresets: Readonly<{
         onRoughness: 0.26;
         panelRoughness: 0.78;
     }>;
+    othelloboard: Readonly<{
+        dark: readonly [6, 40, 24];
+        light: readonly [230, 244, 236];
+        roughness: 0.5;
+        relief: 0.004;
+        size: 8;
+        margin: 0.025;
+        startPlies: 14;
+        extraPlies: 18;
+        lineHalf: 0.0012;
+        frameHalf: 0.004;
+        discRadius: 0.4;
+        rimWidth: 0.05;
+        edgeSoft: 0.0011;
+        grainCells: 192;
+        paperTone: 0.05;
+        feltTone: 0.36;
+        lineTone: 0.15;
+        frameTone: 0.12;
+        blackTone: 0.07;
+        whiteTone: 0.95;
+        rimTone: 0.5;
+        rimStrength: 0.5;
+        grainTone: 0.04;
+        paperHeight: 0.12;
+        feltHeight: 0.3;
+        lineHeight: 0.22;
+        frameHeight: 0.5;
+        discHeight: 0.82;
+        discRoughness: 0.28;
+        feltRoughness: 0.82;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -15614,6 +15646,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    othelloboard: 0.4;
     binaryclock: 0.4;
     pianoroll: 0.5;
     skyscraperpuzzles: 0.4;
