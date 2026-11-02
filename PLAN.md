@@ -1833,6 +1833,10 @@
 
 這是作者設計的示意：只有三個預設圖與預設的著色（不是由取樣器現場搜尋出來的）；頂點位置固定，沒有標示頂點編號；立方體畫成兩個同向的方形加四條連線（不是立體透視圖）；同一個亮度的兩個頂點不會相鄰，但不同亮度之間沒有順序意義。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`runlengthrows`（遊程編碼列）使目前目錄1068→1069種，含plain的gallery為1070項。每tile由上而下有五組：每組上面是一列20格的黑白格子（黑色是深色格、白色是淺灰格），格子由長度2到6的隨機遊程（連續同色的一段）交替組成（最後一段可能被列尾截短）；列的下方用點陣字寫出這一列的遊程編碼——每一段的長度後接字母W（白）或B（黑），例如「5W4B6W4B1W」。起始的顏色與各段長度由seed決定。Metallic與mortar為0。
+
+這是作者設計的示意：只有黑白兩色的一維遊程編碼，沒有其他壓縮法或解碼說明；段長只在2到6之間（最後一段除外），所以編碼最長約20個字元，長度剛好放得進tile；字母W與B的點陣是簡化字形，在小尺寸下W與B可能不易分辨。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

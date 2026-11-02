@@ -34371,6 +34371,116 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'runlengthrows': {
+        const p = proceduralMaterialPresets.runlengthrows,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2f701),
+          glyphs: Record<string, string> = {
+            '0': '111101101101111',
+            '1': '010110010010111',
+            '2': '111001111100111',
+            '3': '111001111001111',
+            '4': '101101111001001',
+            '5': '111100111001111',
+            '6': '111100111101111',
+            '7': '111001010010010',
+            '8': '111101111101111',
+            '9': '111101111001111',
+            W: '101101111111101',
+            B: '110101110101110',
+          },
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // Each block is a row of black and white cells built from random runs, and below it the run-length code of that
+          // row: the length of each run followed by W (white) or B (black).
+          blocks = Array.from({ length: p.blocks }, (_, block) => {
+            const bits: number[] = [];
+            let colour = hash(block, 0, seed ^ 0x2f702) < 0.5 ? 0 : 1,
+              run = 0;
+            while (bits.length < p.cells) {
+              const length = Math.min(
+                p.cells - bits.length,
+                p.shortest +
+                  Math.floor(
+                    hash(block, ++run, seed ^ 0x2f703) *
+                      (p.longest - p.shortest + 1),
+                  ),
+              );
+              for (let i = 0; i < length; i++) bits.push(colour);
+              colour = 1 - colour;
+            }
+            const runs: { colour: number; length: number }[] = [];
+            for (const bit of bits) {
+              if (runs.length > 0 && runs[runs.length - 1].colour === bit)
+                runs[runs.length - 1].length++;
+              else runs.push({ colour: bit, length: 1 });
+            }
+            return {
+              bits,
+              text: runs
+                .map((r) => String(r.length) + (r.colour === 1 ? 'B' : 'W'))
+                .join(''),
+            };
+          });
+        return () => {
+          const block = Math.floor((v - p.top) / p.blockPitch),
+            local = v - p.top - block * p.blockPitch;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            cellCover = 0,
+            glyph = 0;
+          if (block >= 0 && block < p.blocks) {
+            const { bits, text } = blocks[block],
+              x = (u - p.left) / p.cell,
+              column = Math.floor(x);
+            if (
+              column >= 0 &&
+              column < p.cells &&
+              local >= 0 &&
+              local < p.cellHeight
+            ) {
+              const fx = x - column,
+                inside =
+                  Math.min(
+                    Math.min(fx, 1 - fx) * p.cell,
+                    local,
+                    p.cellHeight - local,
+                  ) - p.gap;
+              cellCover = cover(inside);
+              tone = bits[column] === 1 ? p.blackTone : p.whiteTone;
+              level = bits[column] === 1 ? p.blackHeight : p.whiteHeight;
+            }
+            const px = Math.floor((u - p.left) / p.pixel),
+              py = Math.floor((local - p.textTop) / p.pixel),
+              d = px >= 0 ? Math.floor(px / 4) : -1,
+              gx = px - 4 * d;
+            if (
+              d >= 0 &&
+              d < text.length &&
+              gx >= 0 &&
+              gx < 3 &&
+              py >= 0 &&
+              py < 5 &&
+              glyphs[text[d]][py * 3 + gx] === '1'
+            )
+              glyph = 1;
+          }
+          const base = p.paperTone + (tone - p.paperTone) * cellCover;
+          color = clamp(
+            base +
+              (p.inkTone - base) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.paperHeight +
+              (level - p.paperHeight) * cellCover -
+              p.inkDepth * glyph,
+          );
+          roughness =
+            p.paperRoughness + (p.cellRoughness - p.paperRoughness) * cellCover;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -61900,6 +62010,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'runlengthrows' ||
     kind === 'graphcoloring' ||
     kind === 'bubblesortpasses' ||
     kind === 'binaryheaptree' ||

@@ -23898,3 +23898,124 @@ describe('graphcoloring: a graph whose vertices are shaded by a proper colouring
     expect(different).toBeGreaterThan(0);
   });
 });
+
+describe('runlengthrows: rows of cells with their run-length code', () => {
+  const p = proceduralMaterialPresets.runlengthrows;
+  const shapes: Record<string, string[]> = {
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    '2': ['###', '..#', '###', '#..', '###'],
+    '3': ['###', '..#', '###', '..#', '###'],
+    '4': ['#.#', '#.#', '###', '..#', '..#'],
+    '5': ['###', '#..', '###', '..#', '###'],
+    '6': ['###', '#..', '###', '#.#', '###'],
+    '7': ['###', '..#', '.#.', '.#.', '.#.'],
+    '8': ['###', '#.#', '###', '#.#', '###'],
+    '9': ['###', '#.#', '###', '..#', '###'],
+    W: ['#.#', '#.#', '###', '###', '#.#'],
+    B: ['##.', '#.#', '##.', '#.#', '##.'],
+  };
+  // The run-length code of a list of cells: each run's length followed by W for 0 and B for 1, written with a index loop.
+  const encode = (bits: number[]): string => {
+    let code = '',
+      start = 0;
+    for (let i = 1; i <= bits.length; i++)
+      if (i === bits.length || bits[i] !== bits[start]) {
+        code += String(i - start) + (bits[start] === 1 ? 'B' : 'W');
+        start = i;
+      }
+    return code;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'writes under every row of cells its run-length code (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('runlengthrows', seed),
+        out = empty(),
+        colorAt = (u: number, v: number): number => {
+          sample(u, v, out);
+          return out.color;
+        },
+        codes = new Set<string>();
+      for (let block = 0; block < p.blocks; block++) {
+        const top = p.top + block * p.blockPitch,
+          // Black cells are dark, white ones pale grey and the paper between rows lighter still.
+          bits = Array.from({ length: p.cells }, (_, column) =>
+            colorAt(p.left + (column + 0.5) * p.cell, top + p.cellHeight / 2) <
+            0.4
+              ? 1
+              : 0,
+          );
+        let text = '';
+        for (let slot = 0; slot < 30; slot++) {
+          const lines = [0, 1, 2, 3, 4].map((k) =>
+            [0, 1, 2]
+              .map((x) =>
+                colorAt(
+                  p.left + (4 * slot + x + 0.5) * p.pixel,
+                  top + p.textTop + (k + 0.5) * p.pixel,
+                ) < 0.3
+                  ? '#'
+                  : '.',
+              )
+              .join(''),
+          );
+          if (lines.every((line) => line === '...')) break;
+          const found = Object.entries(shapes).find(([, shape]) =>
+            shape.every((line, i) => line === lines[i]),
+          );
+          expect(found).toBeDefined();
+          text += (found as [string, string[]])[0];
+        }
+        expect(text).toBe(encode(bits));
+        // Every run but possibly the last has a length between the shortest and the longest allowed.
+        const lengths = [...text.matchAll(/(\d+)[WB]/g)].map((match) =>
+          Number(match[1]),
+        );
+        expect(lengths.reduce((sum, length) => sum + length, 0)).toBe(p.cells);
+        lengths.slice(0, -1).forEach((length) => {
+          expect(length).toBeGreaterThanOrEqual(p.shortest);
+          expect(length).toBeLessThanOrEqual(p.longest);
+        });
+        codes.add(text);
+      }
+      expect(codes.size).toBeGreaterThan(p.blocks - 2);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('runlengthrows', 0),
+      b = createSurfaceSampler('runlengthrows', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
