@@ -2001,6 +2001,10 @@
 
 這是作者設計的示意：沒有標示層次；這棵樹不是空間填滿的（1/√2的比例在極限下才趨近填滿整個矩形），樹的外框沿一個方向約占tile的七成、沿另一個方向約占全部（哪個方向依是否轉九十度；我只看過轉了的那種預覽，另一種是由幾何推算），所以一個方向有空白而另一個方向接近相接；樹只畫在一個tile內（沒有周期性延伸）；渲染時每個像素會走訪樹的一部分節點（用範圍估計剪掉太遠的子樹），512單次取樣在這台機器上約134到184 ms（單次量測，不是效能認證），比大多數其他材質慢。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`wangtiles`（王氏磁磚）使目前目錄1110→1111種，含plain的gallery為1112項。整張tile是一個方格陣列，每片方磚的四邊（上、右、下、左）各有一種顏色，並以兩條對角線把磚分成四個三角形，各塗成那一邊的顏色；相鄰的兩片磚相接的邊顏色一定相同（包括跨過整張tile邊界的環繞相接）。邊的顏色是由低到高的灰階（3或4種），seed決定每邊的磚數（6、8、10）、顏色數與每條邊的顏色；磚的邊與對角線有深色細線。Metallic與mortar為0。
+
+這是作者設計的示意：這是「依邊色一致的方式隨機鋪滿」的圖案（先隨機決定每條邊的顏色，再讓兩側的磚取同一個顏色），不是從一組固定的王氏磚集合挑出磚來鋪，也沒有證明或標示這個磚集合的性質（例如是否能非週期鋪滿）；顏色只用亮度區分，不是色相。預設1 m nominal tile、0.005 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

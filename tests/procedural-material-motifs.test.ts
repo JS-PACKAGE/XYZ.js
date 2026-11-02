@@ -30839,3 +30839,196 @@ describe('htreefractal: the H-tree', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('wangtiles: Wang tiles with matching coloured sides', () => {
+  const p = proceduralMaterialPresets.wangtiles;
+  const toneOf = (colour: number, colours: number): number =>
+    p.lowTone + ((p.highTone - p.lowTone) * colour) / (colours - 1);
+
+  type Reading = { top: number; right: number; bottom: number; left: number };
+  // The colour index of a tone for a number of colours, or -1 when it is not within 0.04 of any of them.
+  const colourOf = (tone: number, colours: number): number =>
+    Array.from({ length: colours }, (_, colour) => colour).find(
+      (colour) => Math.abs(tone - toneOf(colour, colours)) < 0.04,
+    ) ?? -1;
+
+  // The four sides of every tile of a count x count grid: the tone 0.2 of a tile from the middle towards each side.
+  const readTiles = (
+    seed: number,
+    count: number,
+    colours: number,
+  ): Reading[][] => {
+    const sample = createSurfaceSampler('wangtiles', seed),
+      out = empty(),
+      at = (column: number, row: number, dx: number, dy: number): number => {
+        sample((column + dx) / count, (row + dy) / count, out);
+        return colourOf(out.color, colours);
+      };
+    return Array.from({ length: count }, (_, row) =>
+      Array.from({ length: count }, (_, column) => ({
+        top: at(column, row, 0.5, 0.2),
+        right: at(column, row, 0.8, 0.5),
+        bottom: at(column, row, 0.5, 0.8),
+        left: at(column, row, 0.2, 0.5),
+      })),
+    );
+  };
+  // A reading fits when every side is one of the colours and every touching pair (also across the edge of the tile) matches.
+  const fits = (tiles: Reading[][]): boolean => {
+    const count = tiles.length;
+    return tiles.every((line, row) =>
+      line.every(
+        (tile, column) =>
+          [tile.top, tile.right, tile.bottom, tile.left].every(
+            (colour) => colour >= 0,
+          ) &&
+          tile.bottom === tiles[(row + 1) % count][column].top &&
+          tile.right === line[(column + 1) % count].left,
+      ),
+    );
+  };
+  const matching = (seed: number): { count: number; colours: number }[] => {
+    const found: { count: number; colours: number }[] = [];
+    for (const count of p.counts)
+      for (const colours of p.colourCounts)
+        if (fits(readTiles(seed, count, colours)))
+          found.push({ count, colours });
+    return found;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'lays tiles whose touching sides all have the same colour, wrapping around (seed %i)',
+    (seed) => {
+      const found = matching(seed);
+      expect(found).toHaveLength(1);
+      const { count, colours } = found[0],
+        tiles = readTiles(seed, count, colours),
+        used = new Set(
+          tiles
+            .flat()
+            .flatMap((tile) => [tile.top, tile.right, tile.bottom, tile.left]),
+        ),
+        distinctTiles = new Set(
+          tiles
+            .flat()
+            .map(
+              (tile) => `${tile.top}${tile.right}${tile.bottom}${tile.left}`,
+            ),
+        );
+      // Every colour is used, and the tiles are not all alike.
+      expect(used.size).toBe(colours);
+      expect(distinctTiles.size).toBeGreaterThan(
+        Math.min(12, count * count * 0.3),
+      );
+    },
+  );
+
+  it('puts each side colour in its own triangle, up to the diagonals', () => {
+    for (const seed of seeds) {
+      const { count, colours } = matching(seed)[0],
+        tiles = readTiles(seed, count, colours),
+        sample = createSurfaceSampler('wangtiles', seed),
+        out = empty(),
+        read = (
+          column: number,
+          row: number,
+          dx: number,
+          dy: number,
+        ): number => {
+          sample((column + dx) / count, (row + dy) / count, out);
+          return colourOf(out.color, colours);
+        };
+      for (let row = 0; row < 3; row++)
+        for (let column = 0; column < count; column++) {
+          const tile = tiles[row][column];
+          // 0.03 of a tile either side of each of the four diagonal half lines (their middles are at 0.25 and 0.75 of the tile).
+          expect(read(column, row, 0.271, 0.229)).toBe(tile.top);
+          expect(read(column, row, 0.229, 0.271)).toBe(tile.left);
+          expect(read(column, row, 0.729, 0.229)).toBe(tile.top);
+          expect(read(column, row, 0.771, 0.271)).toBe(tile.right);
+          expect(read(column, row, 0.771, 0.729)).toBe(tile.right);
+          expect(read(column, row, 0.729, 0.771)).toBe(tile.bottom);
+          expect(read(column, row, 0.229, 0.729)).toBe(tile.left);
+          expect(read(column, row, 0.271, 0.771)).toBe(tile.bottom);
+        }
+    }
+  });
+
+  it('draws dark lines along the tile edges and the diagonals, half a width 0.0016 on each side', () => {
+    for (const seed of seeds) {
+      const { count } = matching(seed)[0],
+        sample = createSurfaceSampler('wangtiles', seed),
+        out = empty(),
+        tile = 1 / count;
+      for (let k = 0; k < 20; k++) {
+        const left = ((k * 3) % count) * tile,
+          top = ((k * 5 + 1) % count) * tile;
+        // On a vertical edge: line within the half width, face beyond it.
+        sample(left, top + tile * 0.3, out);
+        expect(out.color).toBeLessThan(0.2);
+        sample(left + 0.0012, top + tile * 0.3, out);
+        expect(out.color).toBeLessThan(0.25);
+        sample(left + 0.0035, top + tile * 0.3, out);
+        expect(out.color).toBeGreaterThan(0.2);
+        // On the two diagonals of the tile (the point (0.35, 0.35) and (0.65, 0.35) of the tile).
+        sample(left + tile * 0.35, top + tile * 0.35, out);
+        expect(out.color).toBeLessThan(0.2);
+        sample(left + tile * 0.65, top + tile * 0.35, out);
+        expect(out.color).toBeLessThan(0.2);
+        // Away from every line: a face (never as dark as a line).
+        sample(left + tile * 0.5, top + tile * 0.2, out);
+        expect(out.color).toBeGreaterThan(0.2);
+      }
+    }
+  });
+
+  it('uses every size and number of colours across seeds', () => {
+    const counts = new Set<number>(),
+      colourCounts = new Set<number>();
+    for (let seed = 0; seed < 30; seed++) {
+      const [found] = matching(seed);
+      counts.add(found.count);
+      colourCounts.add(found.colours);
+    }
+    expect([...counts].sort((a, b) => a - b)).toEqual([...p.counts]);
+    expect([...colourCounts].sort((a, b) => a - b)).toEqual([
+      ...p.colourCounts,
+    ]);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('wangtiles', 0),
+      b = createSurfaceSampler('wangtiles', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

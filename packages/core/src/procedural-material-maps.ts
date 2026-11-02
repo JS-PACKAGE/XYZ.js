@@ -38102,6 +38102,70 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'wangtiles': {
+        const p = proceduralMaterialPresets.wangtiles,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x32201),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          count =
+            p.counts[Math.floor(hash(3, 1, seed ^ 0x32202) * p.counts.length)],
+          colours =
+            p.colourCounts[
+              Math.floor(hash(5, 2, seed ^ 0x32203) * p.colourCounts.length)
+            ],
+          // The colour of every edge: horizontal[row][column] is the edge above the tile at (row, column), vertical[row][column] the
+          // edge on its left; the tile below uses the same horizontal edge as its top, the tile to the right the same vertical edge as
+          // its left (wrapping around), so every pair of touching sides matches.
+          horizontal = Array.from({ length: count * count }, (_, k) =>
+            Math.floor(
+              hash(k % count, Math.floor(k / count), seed ^ 0x32204) * colours,
+            ),
+          ),
+          vertical = Array.from({ length: count * count }, (_, k) =>
+            Math.floor(
+              hash(k % count, Math.floor(k / count), seed ^ 0x32205) * colours,
+            ),
+          ),
+          toneOf = (colour: number): number =>
+            p.lowTone + ((p.highTone - p.lowTone) * colour) / (colours - 1);
+        return () => {
+          const x = (u - Math.floor(u)) * count,
+            y = (v - Math.floor(v)) * count,
+            column = Math.min(count - 1, Math.floor(x)),
+            row = Math.min(count - 1, Math.floor(y)),
+            lx = x - column,
+            ly = y - row,
+            below = (row + 1) % count,
+            right = (column + 1) % count,
+            // Which side's triangle the point is in: the four triangles meet at the middle of the tile.
+            upper = ly < lx,
+            lower = ly < 1 - lx,
+            colour =
+              upper && lower
+                ? horizontal[row * count + column]
+                : !upper && !lower
+                  ? horizontal[below * count + column]
+                  : !upper && lower
+                    ? vertical[row * count + column]
+                    : vertical[row * count + right],
+            // Distance to the nearest line (a tile edge or a diagonal), in tile widths.
+            edge = Math.min(lx, 1 - lx, ly, 1 - ly),
+            diagonal =
+              Math.min(Math.abs(lx - ly), Math.abs(lx + ly - 1)) / Math.SQRT2,
+            line = cover(p.lineHalf - Math.min(edge, diagonal) / count),
+            tone = toneOf(colour);
+          color = clamp(
+            tone +
+              (p.lineTone - tone) * line +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(p.faceHeight + (p.lineHeight - p.faceHeight) * line);
+          roughness =
+            p.faceRoughness + (p.lineRoughness - p.faceRoughness) * line;
+          occlusion = 1 - 0.2 * line;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -65631,6 +65695,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'wangtiles' ||
     kind === 'htreefractal' ||
     kind === 'lsystemplant' ||
     kind === 'quadtreecells' ||
