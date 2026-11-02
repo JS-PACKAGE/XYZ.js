@@ -30265,6 +30265,101 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'collatzsequences': {
+        const p = proceduralMaterialPresets.collatzsequences,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2ca01),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // The Collatz sequence of a start value: halve an even number, otherwise triple it and add one, down to 1.
+          chain = (start: number): number[] => {
+            const terms = [start];
+            for (let n = start; n !== 1;) {
+              n = n % 2 === 0 ? n / 2 : 3 * n + 1;
+              terms.push(n);
+            }
+            return terms;
+          },
+          candidates: number[][] = [];
+        for (let start = 2; start <= p.candidateLimit; start++) {
+          const terms = chain(start);
+          if (terms.length <= p.columns) candidates.push(terms);
+        }
+        // The seed picks which start values are shown, in shuffled order.
+        const rows = candidates
+          .map((terms, i) => ({ terms, key: hash(i, 0, seed ^ 0x2ca02) }))
+          .sort((a, b) => a.key - b.key)
+          .slice(0, p.rows)
+          .map((entry) => entry.terms);
+        return () => {
+          const row = Math.floor((v - p.top) / p.rowPitch),
+            column = Math.floor(
+              (u - (1 - p.columns * p.columnPitch) / 2) / p.columnPitch,
+            );
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            rough: number = p.paperRoughness,
+            line = 0,
+            glyph = 0;
+          if (
+            row >= 0 &&
+            row < p.rows &&
+            column >= 0 &&
+            column < p.columns &&
+            column < rows[row].length
+          ) {
+            const value = rows[row][column],
+              odd = value % 2 === 1,
+              fx =
+                (u - (1 - p.columns * p.columnPitch) / 2) / p.columnPitch -
+                column,
+              fy = (v - p.top) / p.rowPitch - row,
+              digits = String(value).split('').map(Number),
+              start = -(2 * digits.length - 1),
+              px = Math.floor(
+                ((fx - 0.5) * p.columnPitch) / p.digitPixel + 0.5,
+              ),
+              py = Math.floor(((fy - 0.5) * p.rowPitch) / p.digitPixel + 2.5);
+            tone = odd ? p.oddTone : p.evenTone;
+            level = odd ? p.oddHeight : p.evenHeight;
+            rough = p.cellRoughness;
+            line = cover(
+              p.lineHalf -
+                Math.min(
+                  Math.min(fx * p.columnPitch, (1 - fx) * p.columnPitch),
+                  Math.min(fy * p.rowPitch, (1 - fy) * p.rowPitch),
+                ),
+            );
+            if (py >= 0 && py < 5)
+              for (let d = 0; d < digits.length; d++) {
+                const gx = px - (start + 4 * d);
+                if (gx >= 0 && gx < 3 && glyphs[digits[d]][py * 3 + gx] === '1')
+                  glyph = 1;
+              }
+          }
+          const base = tone + (p.lineTone - tone) * line;
+          color = clamp(
+            base +
+              (p.inkTone - base) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * glyph);
+          roughness = rough + (p.inkRoughness - rough) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -57794,6 +57889,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'collatzsequences' ||
     kind === 'delaunaytriangles' ||
     kind === 'convexhullpoints' ||
     kind === 'pascaltrianglenumbers' ||

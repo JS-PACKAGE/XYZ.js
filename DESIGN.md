@@ -1661,6 +1661,10 @@
 
 這是作者設計的示意：只畫出三角剖分的結果，沒有畫外接圓或演算過程；點數最多18（受最小間距限制，部分seed較少）；點的位置是seed決定的偽隨機，對「四點幾乎共圓」的近似平手情況沒有特別處理，這些情況是否判成德勞內三角形取決於浮點誤差，可能出現互相重疊的三角形，我沒有針對這種情況加入保護；每像素要掃過約30個三角形與約47條邊，每像素成本比多數材質高（512×512單次渲染約0.4秒，Bun環境）。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`collatzsequences`（考拉茲序列）使目前目錄1023→1024種，含plain的gallery為1025項。每tile有10列，每列是一個起始值的考拉茲（冰雹）序列：偶數折半、奇數乘3加1，一路算到1為止，每個數字佔一格（最多13格），用3×5點陣數字寫出；奇數的格子底色較暗，所以可以看到「乘3加1」的上升步驟；序列結束後該列剩下的格子留白。起始值由seed從2到60之間序列長度不超過13項的21個值裡洗牌後取10個（互不相同），例如3、13、21、53、40等；每個序列只含該起始值自己的軌跡。Metallic與mortar為0。
+
+這是作者設計的示意：只列出序列長度不超過13項的起始值（不含如27這種很長的軌跡），所以並不代表考拉茲猜想本身；數字最多三位（例如53的序列含160）；點陣數字在小尺寸下難以辨識。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

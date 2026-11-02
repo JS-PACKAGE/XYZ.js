@@ -17282,3 +17282,138 @@ describe('delaunaytriangles: a scatter of points and its Delaunay triangulation'
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('collatzsequences: hailstone sequences down to 1', () => {
+  const p = proceduralMaterialPresets.collatzsequences;
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+  const left = (1 - p.columns * p.columnPitch) / 2;
+  const steps = (start: number): number => {
+    let n = start,
+      count = 1;
+    while (n !== 1) {
+      n = n % 2 === 0 ? n / 2 : 3 * n + 1;
+      count++;
+    }
+    return count;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'lists each row as a Collatz sequence ending at 1, with odd terms shaded (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('collatzsequences', seed),
+        out = empty(),
+        at = (u: number, v: number): number => {
+          sample(u, v, out);
+          return out.color;
+        },
+        starts: number[] = [];
+      for (let row = 0; row < p.rows; row++) {
+        const terms: number[] = [];
+        for (let column = 0; column < p.columns; column++) {
+          const x0 = left + column * p.columnPitch,
+            y0 = p.top + row * p.rowPitch,
+            cx = x0 + p.columnPitch / 2,
+            cy = y0 + p.rowPitch / 2,
+            ink = (offset: number, line: number): boolean =>
+              at(cx + offset * p.digitPixel, cy + (line - 2) * p.digitPixel) <
+              0.3,
+            anyInk = (offset: number): boolean =>
+              [0, 1, 2, 3, 4].some(
+                (line) => ink(offset, line) || ink(-offset, line),
+              ),
+            reach = [5, 3, 1].find((offset) => anyInk(offset));
+          if (reach === undefined) {
+            // After the sequence ends the rest of the row is bare paper.
+            for (let rest = column; rest < p.columns; rest++) {
+              const rx = left + rest * p.columnPitch + p.columnPitch / 2;
+              expect(at(rx, cy)).toBeGreaterThan(0.85);
+            }
+            break;
+          }
+          const count = reach === 5 ? 3 : reach === 3 ? 2 : 1,
+            first = -(2 * count - 1);
+          let value = 0;
+          for (let d = 0; d < count; d++) {
+            const rows = [0, 1, 2, 3, 4].map((line) =>
+              [0, 1, 2]
+                .map((offset) =>
+                  ink(first + 4 * d + offset, line) ? '#' : '.',
+                )
+                .join(''),
+            );
+            const digit = art.findIndex((shape) =>
+              shape.every((text, i) => text === rows[i]),
+            );
+            expect(digit).toBeGreaterThanOrEqual(0);
+            value = value * 10 + digit;
+          }
+          terms.push(value);
+          // Odd terms sit on a darker cell.
+          expect(
+            at(x0 + 0.06 * p.columnPitch, y0 + 0.1 * p.rowPitch) < 0.85,
+          ).toBe(value % 2 === 1);
+        }
+        expect(terms.length).toBeGreaterThanOrEqual(2);
+        expect(terms[terms.length - 1]).toBe(1);
+        for (let i = 0; i + 1 < terms.length; i++)
+          expect(terms[i + 1]).toBe(
+            terms[i] % 2 === 0 ? terms[i] / 2 : 3 * terms[i] + 1,
+          );
+        // Only the final term is 1, and the start is one of the values whose sequence fits the row.
+        expect(terms.slice(0, -1)).not.toContain(1);
+        expect(terms[0]).toBeGreaterThanOrEqual(2);
+        expect(terms[0]).toBeLessThanOrEqual(p.candidateLimit);
+        expect(steps(terms[0])).toBe(terms.length);
+        starts.push(terms[0]);
+      }
+      expect(new Set(starts).size).toBe(p.rows);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('collatzsequences', 0),
+      b = createSurfaceSampler('collatzsequences', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
