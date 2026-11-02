@@ -15590,3 +15590,119 @@ describe('colormapregions: a map coloured so touching regions differ', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('draughtsposition: a draughts position', () => {
+  const p = proceduralMaterialPresets.draughtsposition;
+  const n = p.size;
+  const cell = (1 - 2 * p.margin) / n;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'has a checkered board with men and kings only on the dark squares and a sensible number of each side (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('draughtsposition', seed),
+        out = empty(),
+        at = (col: number, row: number, dx: number, dy: number): number => {
+          sample(
+            p.margin + (col + 0.5 + dx) * cell,
+            p.margin + (row + 0.5 + dy) * cell,
+            out,
+          );
+          return out.color;
+        },
+        counts = { pale: 0, charcoal: 0 };
+      for (let row = 0; row < n; row++)
+        for (let col = 0; col < n; col++) {
+          // The square's own colour is read near its corner, away from any piece.
+          const corner = at(col, row, -0.45, -0.45),
+            dark = (row + col) % 2 === 1;
+          expect(dark ? corner < 0.5 : corner > 0.7).toBe(true);
+          // A piece shows as a disc: pale on a dark square is far lighter than the square, charcoal far darker.
+          const middle = at(col, row, 0.3, 0),
+            pale = dark && middle > 0.8,
+            charcoal = dark && middle < 0.2;
+          // Nothing sits on a light square: it stays the plain light-square tone (a pale piece would be lighter, a charcoal one darker).
+          if (!dark) {
+            expect(middle).toBeGreaterThan(0.75);
+            expect(middle).toBeLessThan(0.93);
+          }
+          if (pale) counts.pale++;
+          if (charcoal) counts.charcoal++;
+          if (pale || charcoal) {
+            // A king has an inner ring of the opposite tone; a man's disc is plain all the way across.
+            const ring = at(col, row, p.ringRadius, 0),
+              king = pale ? ring < 0.3 : ring > 0.7;
+            const plain = pale ? ring > 0.8 : ring < 0.2;
+            expect(king || plain).toBe(true);
+          } else if (dark) expect(Math.abs(middle - corner)).toBeLessThan(0.1);
+        }
+      expect(counts.pale).toBeGreaterThanOrEqual(p.minPieces);
+      expect(counts.pale).toBeLessThanOrEqual(p.maxPieces);
+      expect(counts.charcoal).toBeGreaterThanOrEqual(p.minPieces);
+      expect(counts.charcoal).toBeLessThanOrEqual(p.maxPieces);
+    },
+  );
+
+  it('crowns some pieces: kings (ring inside the disc) turn up across the seeds but not on every piece', () => {
+    const out = empty();
+    let kings = 0,
+      men = 0;
+    for (const seed of [...seeds, 1, 2, 3, 4, 5, 6]) {
+      const sample = createSurfaceSampler('draughtsposition', seed);
+      for (let row = 0; row < n; row++)
+        for (let col = 0; col < n; col++) {
+          if ((row + col) % 2 === 0) continue;
+          const read = (dx: number): number => {
+            sample(
+              p.margin + (col + 0.5 + dx) * cell,
+              p.margin + (row + 0.5) * cell,
+              out,
+            );
+            return out.color;
+          };
+          const middle = read(0.3);
+          if (middle > 0.2 && middle < 0.8) continue;
+          // The inner ring contrasts with the disc only on a king.
+          if (Math.abs(read(p.ringRadius) - middle) > 0.5) kings++;
+          else men++;
+        }
+    }
+    expect(kings).toBeGreaterThan(0);
+    expect(men).toBeGreaterThan(kings);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('draughtsposition', 0),
+      b = createSurfaceSampler('draughtsposition', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

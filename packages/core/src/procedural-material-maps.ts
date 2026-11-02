@@ -29014,6 +29014,85 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'draughtsposition': {
+        const p = proceduralMaterialPresets.draughtsposition,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2bd01),
+          n = p.size,
+          side = 1 - 2 * p.margin,
+          cell = side / n,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // The dark squares (where the game is played) in a random order; the two sides take consecutive runs.
+          playable = Array.from({ length: n * n }, (_, i) => i)
+            .filter((index) => (Math.floor(index / n) + (index % n)) % 2 === 1)
+            .sort(
+              (a, b) => hash(a, 3, seed ^ 0x2bd03) - hash(b, 3, seed ^ 0x2bd03),
+            ),
+          // piece[index]: 0 none, 1 pale man, 2 charcoal man, 3 pale king, 4 charcoal king.
+          piece = new Uint8Array(n * n),
+          span = p.maxPieces - p.minPieces + 1;
+        let used = 0;
+        for (let team = 0; team < 2; team++) {
+          const count =
+            p.minPieces +
+            Math.min(
+              span - 1,
+              Math.floor(hash(team, 7, seed ^ 0x2bd07) * span),
+            );
+          for (let k = 0; k < count; k++) {
+            const index = playable[used++];
+            piece[index] =
+              1 +
+              team +
+              2 * Number(hash(index, 9, seed ^ 0x2bd09) < p.kingChance);
+          }
+        }
+        return () => {
+          const lx = u - p.margin,
+            ly = v - p.margin;
+          let tone: number = p.tableTone,
+            level: number = p.tableHeight,
+            rough: number = p.tableRoughness,
+            disc = 0,
+            ring = 0,
+            pieceTone: number = p.paleTone,
+            ringTone: number = p.charcoalTone;
+          if (lx >= 0 && ly >= 0 && lx < side && ly < side) {
+            const col = Math.min(n - 1, Math.floor(lx / cell)),
+              row = Math.min(n - 1, Math.floor(ly / cell)),
+              here = piece[row * n + col],
+              distance = Math.hypot(
+                lx / cell - col - 0.5,
+                ly / cell - row - 0.5,
+              );
+            tone = (row + col) % 2 === 1 ? p.darkSquare : p.lightSquare;
+            level = p.squareHeight;
+            rough = p.squareRoughness;
+            if (here !== 0) {
+              const charcoal = here === 2 || here === 4;
+              pieceTone = charcoal ? p.charcoalTone : p.paleTone;
+              ringTone = charcoal ? p.paleTone : p.charcoalTone;
+              disc = cover((p.pieceRadius - distance) * cell);
+              if (here >= 3)
+                ring = cover(
+                  (p.ringWidth / 2 - Math.abs(distance - p.ringRadius)) * cell,
+                );
+            }
+          }
+          const withDisc = tone + (pieceTone - tone) * disc,
+            withRing = withDisc + (ringTone - withDisc) * ring,
+            grain = grainField(u * p.grainStretch, v) - 0.5;
+          color = clamp(withRing + p.grainTone * grain * (1 - disc));
+          height = clamp(
+            level +
+              (p.pieceHeight - level) * disc +
+              (p.ringHeight - p.pieceHeight) * ring,
+          );
+          roughness = rough + (p.pieceRoughness - rough) * disc;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -56543,6 +56622,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'draughtsposition' ||
     kind === 'colormapregions' ||
     kind === 'chinesecheckersboard' ||
     kind === 'euclideanrhythms' ||

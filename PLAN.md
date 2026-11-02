@@ -1601,6 +1601,10 @@
 
 這是作者設計的示意：因為地圖是環面（左右、上下相接），它不受平面圖的四色定理保證——所以不一定能用4色，有三分之一左右的seed需要5色（上面的實測），名稱不代表只用4色；相鄰關係以掃描偵測，長度小於約0.002個tile寬的極短邊界理論上可能漏掉（我用1024網格對seed 2、3重新掃描時沒有發現遺漏，但沒有對所有seed證明）；顏色只有明度。取樣器建立時額外花約32 ms（100個seed平均、在Bun的量測，不是效能認證）。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`draughtsposition`（西洋跳棋盤面／draughts, checkers）使目前目錄1010→1011種，含plain的gallery為1012項。每tile是一個8×8的西洋跳棋盤：淺色桌面上一個黑白（實為淺棕與深棕）相間的棋盤，棋子只放在深色格（第(列+行)為奇數的格子）。兩方各有6至12顆棋子（由seed隨機決定），一方是淡色圓盤、另一方是炭黑色圓盤；約兩成的棋子是「王」，圓盤中央有一個與盤色相反的同心圓環。棋子位置由seed隨機選取：把32個深色格隨機排序，兩方依序取用，所以不會重疊也不會落在淺色格。Metallic與mortar為0。
+
+這是作者設計的示意：不是合法的對局狀態——棋子位置是隨機的，不保證符合任何走子歷史（例如兵可能出現在對方的底線而沒有升王，兩方的棋子也可能混在同一個區域）；也沒有表示輪到誰走；顏色只有明度（淡色棋與淺色格的對比小，炭黑棋與深色格的對比也有限）；木紋只是低振幅雜訊。預設0.5 m nominal tile、0.006 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

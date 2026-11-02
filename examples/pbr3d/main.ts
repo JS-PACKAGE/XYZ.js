@@ -711,6 +711,7 @@ try {
     'dcbarreljackfaces',
     'stfiberadapterfaces',
     'to92packagefaces',
+    'draughtsposition',
     'colormapregions',
     'chinesecheckersboard',
     'euclideanrhythms',
