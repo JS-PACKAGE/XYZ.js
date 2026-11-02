@@ -40803,6 +40803,57 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'vicsekfractal': {
+        const p = proceduralMaterialPresets.vicsekfractal,
+          size = 3 ** p.order,
+          marks = new Float64Array(size * size),
+          depths = new Float64Array(size * size),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 1),
+          ),
+          shiftX = Math.floor(hash(0, 0, seed ^ p.seedSalt) * size),
+          shiftY = Math.floor(hash(1, 0, seed ^ p.seedSalt) * size);
+        // The Vicsek fractal on a 3^order x 3^order lattice: a cell survives while, at every
+        // base-3 digit pair (x digit, y digit) from the coarsest to the finest, at least one
+        // of the two digits is 1 (the plus shape). A removed cell remembers the level where
+        // it first fell out: depth (order - level) / order, so the largest corner pits are
+        // the deepest. The seed moves the whole lattice around the torus.
+        for (let y = 0; y < size; y++)
+          for (let x = 0; x < size; x++) {
+            let removedAt = -1;
+            for (let level = 0; level < p.order && removedAt < 0; level++) {
+              const unit = 3 ** (p.order - 1 - level);
+              if (
+                Math.floor(x / unit) % 3 !== 1 &&
+                Math.floor(y / unit) % 3 !== 1
+              )
+                removedAt = level;
+            }
+            const index = ((y + shiftY) % size) * size + ((x + shiftX) % size);
+            marks[index] = removedAt < 0 ? 1 : 0;
+            depths[index] = removedAt < 0 ? 0 : (p.order - removedAt) / p.order;
+          }
+        const pattern = latticeField(marks, size, size),
+          depthField = latticeField(depths, size, size);
+        return () => {
+          // The surviving-cell map is blended with the C1 smoothstep and re-sharpened with
+          // tanh; the removed cells are shaded by their depth, fading out where the line is.
+          const line =
+              0.5 + 0.5 * Math.tanh(p.sharpness * (pattern(u, v) - 0.5)),
+            depth = depthField(u, v),
+            grain = grainField(u, v);
+          color =
+            p.baseTone +
+            p.lineTone * line +
+            p.depthTone * depth * (1 - line) +
+            p.grainTone * (grain - 0.5);
+          height = p.lineHeight * line + p.grainHeight * grain;
+          roughness += p.lineRoughness * line;
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -49612,6 +49663,7 @@ export function createSurfaceSampler(
     kind === 'pisanotable' ||
     kind === 'minkowskisausage' ||
     kind === 'squarekoch' ||
+    kind === 'vicsekfractal' ||
     kind === 'vermiculation' ||
     kind === 'kikko' ||
     kind === 'kagome' ||

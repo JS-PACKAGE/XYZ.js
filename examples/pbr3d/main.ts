@@ -1071,6 +1071,7 @@ try {
     'pisanotable',
     'minkowskisausage',
     'squarekoch',
+    'vicsekfractal',
     'vermiculation',
     'kikko',
     'kagome',

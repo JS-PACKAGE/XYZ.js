@@ -12651,3 +12651,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試（島嶼以遞迴獨立重寫、頂點／邊結構、唯一環面平移與統計為一項；seed差異與決定性；C1＋有符號UV週期；actual512 maps）通過，`Minkowski sausage as`原有測試仍通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Square Koch as|squarekoch|Minkowski sausage as|Dragon curve as|Levy curve as|Peano curve as|kinds|catalog|distinct|periodic"`定向測試**2326項通過／3947項未選**（其中部分describe名稱可能與實際不符而未選到，我沒有逐一確認這幾個名稱各自選中了多少項）。
 - 未驗證：totienttable、goldbachtable、radicaltable、squarekoch未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：維澤克碎形（vicsekfractal）
+
+- 範圍：新增`vicsekfractal`（目前目錄1004→1005種，含plain的gallery 1006項）：81×81 lattice上的第4階維澤克碎形（十字形：每次把方格切成3×3、保留十字形的五塊、挖掉四個角；格子存活的條件是各層三進位數字對中至少一個為1）；存活格625個，以金色細線（略微凸起，height高於周圍）呈現；被挖掉的格依被挖掉的層（level 0到3，格數2,916／1,620／900／500）以`depth = (4 − level) / 4`上不同深淺的暗青綠；seed把lattice沿環面平移；新增走線之外的獨立sampler case（兩個`latticeField`：存活圖與深度圖）；預設0.5 m nominal tile、0.0008 UV-relative relief；cache 81² × 2 + 128² = 29,506個Float64／236,048 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與紀錄：(1)預覽只看了一版。(2)我在初稿文件中寫「平面的線條與色塊，不是浮雕」，這是錯的（存活格有height，是略微凸起的線），commit前已更正。(3)測試一次通過，無需調整區間；測試中的層級格數與存活格數是由獨立的細分模型算出，並與我的封閉形式（4·27²、5·4·9²、25·4·3²、125·4）一致。(4)**未量測耗時**。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：存活格625、被挖掉的格依層2,916／1,620／900／500；256²取樣亮處（color>0.5）占9.18%–9.24%、color 0.0687–0.0698至0.7830–0.7838、平均0.2184–0.2185、roughness 0.2001–0.3999、AO恆為1、height至多0.9902–0.9947 relief；512²取樣亮處占9.18%–9.22%、color 0.0678–0.0688至0.7841–0.7844、平均0.2184–0.2185、height至多0.9964–0.9976 relief；每個seed的81×81 node恰好一種環面平移（seed 0為(43, 9)、1為(13, 9)、0xffffffff為(73, 77)、7為(60, 0)）使6,561個node的顏色（含深度色調）與獨立模型一致，最大誤差0.0149以內（門檻0.03）、亮node數625；seed 0與1的亮node有13.1%不同；seed 7的512²maps平均r／g／b約(58.8, 68.6, 51.2)、法線tilt²最大約0.0426、z分量最小252。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試（細分模型、層級格數、唯一環面平移與統計為一項；seed差異與決定性；C1＋有符號UV週期；actual512 maps），`-t`選中的5項（含kinds清單中的新條目）皆通過。`Square Koch as`原有測試仍通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Vicsek fractal as|vicsekfractal|Square Koch as|kinds|catalog|distinct|periodic"`定向測試**2319項通過／3959項未選**。
+- 未驗證：vicsekfractal未跑完整suite與瀏覽器gallery；squarekoch之前的材質已在4185bd67a的完整suite（當時進行中，結果另記）；totienttable、goldbachtable、radicaltable、squarekoch的瀏覽器gallery（WebGPU與`?renderer=webgl2`各一次，`errors()`為0，readout顯示「1004 procedural material presets」、選單1005項）已跑過，範圍同前，只確認可選取、readout更新、無console錯誤；不push。

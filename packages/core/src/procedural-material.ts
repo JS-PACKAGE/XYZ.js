@@ -1008,6 +1008,7 @@ export type ProceduralMaterialKind =
   | 'pisanotable'
   | 'minkowskisausage'
   | 'squarekoch'
+  | 'vicsekfractal'
   | 'vermiculation'
   | 'kikko'
   | 'kagome'
@@ -2261,6 +2262,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'pisanotable',
   'minkowskisausage',
   'squarekoch',
+  'vicsekfractal',
   'vermiculation',
   'kikko',
   'kagome',
