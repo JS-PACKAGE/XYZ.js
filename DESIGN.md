@@ -1745,6 +1745,10 @@
 
 這是作者設計的示意：只有8位元的無號數加法，沒有負數、溢位標記或十進位對照；進位只用較淺的小字，不單獨著色（程序材質只有深到淺的亮度漸層）。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`abeliansandpile`（阿貝爾沙堆）使目前目錄1044→1045種，含plain的gallery為1046項。每tile是在81×81格的網格正中央一格丟下數千顆沙粒後得到的穩定沙堆：只要某格有4顆以上就每4顆分給上下左右四個鄰格各1顆，直到所有格子都不超過3顆，離開網格的沙粒就消失。每格依沙粒數0到3用四個亮度（最暗到最亮）塗色。沙粒數由seed從4000、5200、6400三個值挑一個。這種沙堆的最終形狀與倒塌（toppling）的順序無關（阿貝爾性質），所以結果是確定的，並且具有正方形的八重對稱。Metallic與mortar為0。
+
+這是作者設計的示意：只有中央一點來源、只有三種顆粒數，沒有其他初始配置；格子之間沒有線條，格線與像素對不齊時邊緣會有輕微的階梯（81格對應的像素數不是整數）。堆的範圍只占tile的一部分，其餘是0顆的底色。取樣器第一次呼叫時需要模擬整個沙堆，之後才是查表；預覽腳本在512²量到的單次時間約224毫秒（Bun，未做正式效能量測）。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

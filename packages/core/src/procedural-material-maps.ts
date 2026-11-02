@@ -32296,6 +32296,50 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'abeliansandpile': {
+        const p = proceduralMaterialPresets.abeliansandpile,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2df01),
+          n = p.size,
+          centre = (n - 1) / 2,
+          counts = new Int32Array(n * n),
+          // Every grain lands on the centre cell and any cell holding four or more grains gives one to each neighbour
+          // per four it holds; grains that leave the grid are lost. The final pile does not depend on the order of the
+          // topplings, so a stack of cells is enough.
+          stack: number[] = [centre * n + centre];
+        counts[centre * n + centre] =
+          p.grains[Math.floor(hash(1, 2, seed ^ 0x2df02) * p.grains.length)];
+        while (stack.length > 0) {
+          const index = stack.pop() as number,
+            batches = counts[index] >> 2;
+          if (batches === 0) continue;
+          counts[index] -= batches << 2;
+          const x = index % n,
+            y = (index - x) / n;
+          for (const [nx, ny] of [
+            [x - 1, y],
+            [x + 1, y],
+            [x, y - 1],
+            [x, y + 1],
+          ])
+            if (nx >= 0 && nx < n && ny >= 0 && ny < n) {
+              counts[ny * n + nx] += batches;
+              if (counts[ny * n + nx] >= 4) stack.push(ny * n + nx);
+            }
+        }
+        return () => {
+          const count =
+            counts[
+              Math.min(n - 1, Math.floor(v * n)) * n +
+                Math.min(n - 1, Math.floor(u * n))
+            ];
+          color = clamp(
+            p.tones[count] + p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(p.heights[count]);
+          roughness = p.cellRoughness;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -59825,6 +59869,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'abeliansandpile' ||
     kind === 'binaryaddition' ||
     kind === 'roundingmodes' ||
     kind === 'bellcurvebands' ||

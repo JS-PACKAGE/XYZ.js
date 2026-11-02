@@ -20243,3 +20243,130 @@ describe('binaryaddition: eight-bit sums with carries', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('abeliansandpile: a stable sandpile', () => {
+  const p = proceduralMaterialPresets.abeliansandpile,
+    n = p.size;
+  // The independent reference: topple every unstable cell once per round, all at the same time, on two buffers. The sampler
+  // topples one cell at a time with a stack; the final pile of an abelian sandpile must not depend on that order.
+  const settle = (grains: number): Uint8Array => {
+    let current = new Int32Array(n * n),
+      next = new Int32Array(n * n);
+    current[((n - 1) / 2) * n + (n - 1) / 2] = grains;
+    for (;;) {
+      let toppled = false;
+      next.fill(0);
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          const count = current[y * n + x],
+            give = count >= 4 ? 1 : 0;
+          next[y * n + x] += count - 4 * give;
+          if (give === 0) continue;
+          toppled = true;
+          if (x > 0) next[y * n + x - 1]++;
+          if (x < n - 1) next[y * n + x + 1]++;
+          if (y > 0) next[(y - 1) * n + x]++;
+          if (y < n - 1) next[(y + 1) * n + x]++;
+        }
+      [current, next] = [next, current];
+      if (!toppled) break;
+    }
+    return Uint8Array.from(current);
+  };
+  const references = p.grains.map(settle);
+  const observe = (seed: number): Uint8Array => {
+    const sample = createSurfaceSampler('abeliansandpile', seed),
+      out = empty(),
+      cells = new Uint8Array(n * n);
+    for (let y = 0; y < n; y++)
+      for (let x = 0; x < n; x++) {
+        sample((x + 0.5) / n, (y + 0.5) / n, out);
+        // The cell tone, less its small paper grain, is the nearest of the four tones.
+        let best = 0;
+        for (let k = 1; k < 4; k++)
+          if (
+            Math.abs(out.color - p.tones[k]) <
+            Math.abs(out.color - p.tones[best])
+          )
+            best = k;
+        cells[y * n + x] = best;
+      }
+    return cells;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'matches an independent simultaneous-toppling simulation and has the square symmetries (seed %i)',
+    (seed) => {
+      const cells = observe(seed),
+        match = references.findIndex((reference) =>
+          reference.every((value, i) => value === cells[i]),
+        );
+      expect(match).toBeGreaterThanOrEqual(0);
+      // The dihedral symmetries of the square: mirror in both axes and across the diagonal.
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          expect(cells[y * n + x]).toBe(cells[y * n + (n - 1 - x)]);
+          expect(cells[y * n + x]).toBe(cells[(n - 1 - y) * n + x]);
+          expect(cells[y * n + x]).toBe(cells[x * n + y]);
+        }
+      // The pile is a stable sandpile that leaves the corners and the edge of the tile empty so that tiles do not touch.
+      let corner = 0;
+      for (let i = 0; i < n; i++)
+        corner +=
+          cells[i] +
+          cells[(n - 1) * n + i] +
+          cells[i * n] +
+          cells[i * n + n - 1];
+      expect(corner).toBe(0);
+    },
+  );
+
+  it('uses all three grain counts across seeds', () => {
+    const used = new Set<number>();
+    for (let seed = 0; seed < 24; seed++) {
+      const cells = observe(seed);
+      used.add(
+        references.findIndex((reference) =>
+          reference.every((value, i) => value === cells[i]),
+        ),
+      );
+    }
+    expect([...used].sort()).toEqual([0, 1, 2]);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('abeliansandpile', 0),
+      b = createSurfaceSampler('abeliansandpile', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

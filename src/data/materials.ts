@@ -11125,6 +11125,21 @@ export const proceduralMaterialPresets = Object.freeze({
     cellRoughness: 0.55,
     inkRoughness: 0.4,
   }),
+  abeliansandpile: Object.freeze({
+    dark: [26, 32, 58] as const,
+    light: [246, 242, 222] as const,
+    roughness: 0.6,
+    relief: 0.004,
+    size: 81,
+    // Grains dropped on the centre cell; the seed picks one count.
+    grains: Object.freeze([4000, 5200, 6400]),
+    grainCells: 192,
+    // Tone and height for a cell holding 0, 1, 2 or 3 grains.
+    tones: Object.freeze([0.08, 0.36, 0.64, 0.92]),
+    heights: Object.freeze([0.1, 0.35, 0.6, 0.85]),
+    grainTone: 0.03,
+    cellRoughness: 0.6,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -17617,6 +17632,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  abeliansandpile: 0.6,
   binaryaddition: 0.5,
   roundingmodes: 0.5,
   bellcurvebands: 0.6,
