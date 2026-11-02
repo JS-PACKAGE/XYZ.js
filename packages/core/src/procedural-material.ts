@@ -1050,6 +1050,7 @@ export type ProceduralMaterialKind =
   | 'happynumbers'
   | 'stringart'
   | 'moirefringes'
+  | 'diamondsquare'
   | 'sandpileidentity'
   | 'multiplicativeorder'
   | 'vermiculation'
@@ -2347,6 +2348,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'happynumbers',
   'stringart',
   'moirefringes',
+  'diamondsquare',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',

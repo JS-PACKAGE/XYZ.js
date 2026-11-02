@@ -1076,6 +1076,7 @@ const kinds: ProceduralMaterialKind[] = [
   'happynumbers',
   'stringart',
   'moirefringes',
+  'diamondsquare',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',
@@ -170814,6 +170815,293 @@ describe('Moire fringes as two soft line gratings multiplied, with fringes at th
     expect(blue / (512 * 512)).toBeLessThan(74.5);
     expect(maxTilt).toBeGreaterThan(0.025);
     expect(maxTilt).toBeLessThan(0.032);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Diamond-square as a plasma heightfield from the diamond-square midpoint displacement on a 64 by 64 torus', () => {
+  const p = proceduralMaterialPresets.diamondsquare;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const size = p.size;
+  const trailingZeros = (n: number): number => {
+    if (n === 0) return Infinity;
+    let count = 0;
+    for (; (n & 1) === 0; n >>= 1) count++;
+    return count;
+  };
+  /**
+   * The heights at the vertices read back from the sampler: the colour at (x / 64, y / 64) is
+   * floor + span (1/2 + height / scale), so height = (tone - 1/2) scale, with the mean taken off
+   * (a constant the differences do not see). The tone must not be clamped at any vertex.
+   */
+  const readHeights = (seed: number): number[] => {
+    const sample = createSurfaceSampler('diamondsquare', seed),
+      out = empty(),
+      heights: number[] = [];
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample(x / size, y / size, out);
+        const tone = (out.color - p.toneFloor) / p.toneSpan;
+        expect(tone).toBeGreaterThan(0.01);
+        expect(tone).toBeLessThan(0.99);
+        heights.push((tone - 0.5) * p.scale);
+      }
+    return heights;
+  };
+  /**
+   * For every vertex except the origin: the level (5 - the number of trailing zeros of the
+   * smaller coordinate, which is the number of halvings of the step), the four parents (the
+   * four diagonal neighbours half a step away for a square-step vertex, the four axis
+   * neighbours for a diamond-step vertex, wrapped round the torus), and |height - mean of the
+   * parents|, all written independently here from the coordinates alone.
+   */
+  const deviations = (
+    heights: number[],
+  ): { level: number; amount: number }[] => {
+    const at = (x: number, y: number): number =>
+      heights[((y + size) % size) * size + ((x + size) % size)];
+    const list: { level: number; amount: number }[] = [];
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        if (x === 0 && y === 0) continue;
+        const zeros = Math.min(trailingZeros(x), trailingZeros(y)),
+          half = 1 << zeros,
+          squareStep = (x / half) % 2 === 1 && (y / half) % 2 === 1,
+          parents = squareStep
+            ? [
+                [x - half, y - half],
+                [x + half, y - half],
+                [x - half, y + half],
+                [x + half, y + half],
+              ]
+            : [
+                [x - half, y],
+                [x + half, y],
+                [x, y - half],
+                [x, y + half],
+              ];
+        list.push({
+          level: 5 - zeros,
+          amount: Math.abs(
+            at(x, y) -
+              parents.reduce((sum, [px, py]) => sum + at(px, py), 0) / 4,
+          ),
+        });
+      }
+    return list;
+  };
+  it('follows the diamond-square rule at every vertex and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('diamondsquare', seed),
+        a = empty();
+      // Every one of the 4095 vertices (3, 12, 48, 192, 768 and 3072 on the six levels) differs
+      // from the mean of its parents by no more than decay^level (0.03 of allowance for the
+      // grain in the read-back), and on the levels with 192 or more vertices the mean difference
+      // is 0.45 to 0.56 of the allowed amount, as it is for amounts spread evenly over
+      // +-decay^level (the mean would be a half). Between the vertices the tone follows a
+      // smoothstep blend of the four surrounding heights, written independently here.
+      const heights = readHeights(seed),
+        list = deviations(heights);
+      expect(list).toHaveLength(4095);
+      for (let level = 0; level < 6; level++) {
+        const amounts = list
+          .filter((entry) => entry.level === level)
+          .map((entry) => entry.amount);
+        expect(amounts).toHaveLength(3 * 4 ** level);
+        expect(Math.max(...amounts)).toBeLessThanOrEqual(
+          p.decay ** level + 0.03,
+        );
+        if (level >= 3) {
+          const ratio =
+            amounts.reduce((sum, value) => sum + value, 0) /
+            amounts.length /
+            p.decay ** level;
+          expect(ratio).toBeGreaterThan(0.45);
+          expect(ratio).toBeLessThan(0.56);
+        }
+      }
+      const heightMean =
+        heights.reduce((sum, value) => sum + value, 0) / heights.length;
+      let worst = 0;
+      for (let i = 0; i < 3000; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1,
+          x = u * size,
+          y = v * size,
+          column = Math.floor(x),
+          row = Math.floor(y),
+          blend = (f: number): number => f * f * (3 - 2 * f),
+          at = (cx: number, cy: number): number =>
+            heights[(cy % size) * size + (cx % size)] - heightMean;
+        const top =
+            at(column, row) * (1 - blend(x - column)) +
+            at(column + 1, row) * blend(x - column),
+          bottom =
+            at(column, row + 1) * (1 - blend(x - column)) +
+            at(column + 1, row + 1) * blend(x - column),
+          expected =
+            p.toneFloor +
+            p.toneSpan *
+              (0.5 +
+                (top * (1 - blend(y - row)) + bottom * blend(y - row)) /
+                  p.scale);
+        sample(u, v, a);
+        worst = Math.max(worst, Math.abs(a.color - expected));
+      }
+      expect(worst).toBeLessThan(0.02);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.207);
+      expect(low).toBeLessThan(0.31);
+      expect(high).toBeGreaterThan(0.698);
+      expect(high).toBeLessThan(0.771);
+      expect(dark / 65536).toBeGreaterThan(0.37);
+      expect(dark / 65536).toBeLessThan(0.52);
+      expect(mean / 65536).toBeGreaterThan(0.4899);
+      expect(mean / 65536).toBeLessThan(0.4901);
+      expect(occlusionLow).toBeGreaterThan(0.63);
+      expect(occlusionLow).toBeLessThan(0.7);
+      expect(heightHigh).toBeGreaterThan(0.65);
+      expect(heightHigh).toBeLessThan(0.74);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('draws a different heightfield per seed and is deterministic for one seed', () => {
+    const first = readHeights(0),
+      second = readHeights(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(
+        Math.abs(first[i] - second[i]) > (0.05 * p.scale) / p.toneSpan,
+      );
+    expect(different / first.length).toBeGreaterThan(0.5);
+    expect(different / first.length).toBeLessThan(0.7);
+    expect(readHeights(0)).toEqual(first);
+  });
+  it('keeps the vertices, blends and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('diamondsquare', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [size, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 amber plasma maps with raised highs and shaded lows', () => {
+    const maps = generateProceduralMaps('diamondsquare', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(130.5);
+    expect(red / (512 * 512)).toBeLessThan(131.5);
+    expect(green / (512 * 512)).toBeGreaterThan(104);
+    expect(green / (512 * 512)).toBeLessThan(105);
+    expect(blue / (512 * 512)).toBeGreaterThan(82.5);
+    expect(blue / (512 * 512)).toBeLessThan(84);
+    expect(maxTilt).toBeGreaterThan(0.001);
+    expect(maxTilt).toBeLessThan(0.0016);
     expect(invalid).toBe(0);
   });
 });

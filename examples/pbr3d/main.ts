@@ -1113,6 +1113,7 @@ try {
     'happynumbers',
     'stringart',
     'moirefringes',
+    'diamondsquare',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

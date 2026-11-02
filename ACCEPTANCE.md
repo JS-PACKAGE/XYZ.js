@@ -13113,3 +13113,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Moire fringes as|moirefringes|kinds|catalog|distinct|periodic"`定向測試**2402項通過／4103項未選**。
 - 未驗證：stringart與moirefringes未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-03 新增材質：鑽石方塊（diamondsquare）
+
+- 範圍：新增`diamondsquare`（目前目錄1048→1049種，含plain的gallery 1050項）：64×64頂點環面上的鑽石—方塊（diamond-square）中點位移法電漿高度場（6個層級，每級先方塊步再鑽石步取平均，加上`±0.55^層級`的hash隨機量，減去平均高度，頂點之間以smoothstep混合）；琥珀色亮處與深紫色暗處的雲狀圖樣；seed改變所有隨機量；預設0.5 m nominal tile、0.004 UV-relative relief（比多數新材質的0.0008大，因為起伏平緩）；保留的cache 163,840 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽與參數看了多次修改：第一版色調尺度4，對比太低（雲狀棕色）；改尺度2.2後，探針顯示隨機的最粗層級會把整張圖的平均高度推高或推低，seed 1有1,377個頂點（三分之一）的色調被截斷在下限，讀回的高度失真，所以加上減去平均高度，修正後四個seed都沒有頂點被截斷；又因為法線tilt²只有3×10⁻⁵（圖幾乎是平的），把relief提高到0.004（tilt² 0.00126）；(2)**測試第一次執行失敗（編譯）**：測試中的變數`mean`與同一個`it`內後面的統計變數同名，改名`heightMean`；(3)**測試第二次執行卡住1,800 s直到逾時**：我的`trailingZeros`對0會無限迴圈（頂點在座標0的軸上），我在探針中把0定義為99所以探針沒事，測試版沒有；逾時後我終止了殘留的vitest程序，修正（`n === 0`回傳`Infinity`）後重跑，9 s通過；(4)測試的結構是由頂點座標獨立推導（層級、父點、平均），但**不**證明隨機量真的是均勻分布（只測了平均比例0.45–0.56，實測0.487–0.520），不證明頻譜有`1/f`性質，seed選擇品質也只檢查頂點色調差異的比例；(5)256²與512²取樣的亮處占比與最小AO不同，測試採用256²的數值（亮處範圍37%–52%相當寬，各seed差異大）；(6)建構與取樣耗時**未量測**。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：各層級頂點數3／12／48／192／768／3072；`|差|／0.55^層級`的最大值最粗層級0.75–0.90、其餘層級到1.014（層級1、2）、1.044（層級3）、1.100（層級4）、1.224（層級5），層級3到5平均比例0.487–0.520；頂點色調的範圍0.1897–0.7709、沒有頂點被截斷；頂點之間的smoothstep重算與sampler最大差0.0043–0.0046；256²（seed 0／1／0xffffffff）亮處（color>0.5）37.78%–51.50%、color 0.2088–0.3088至0.6999–0.7702、平均0.48998–0.49001、AO最低0.6387–0.6973、height至多0.6513–0.7338 relief；512²（四個seed）亮處37.74%–51.46%、color 0.1903–0.3063至0.6763–0.7709、平均0.48998–0.49001、AO最低0.6289–0.6962、height至多0.6244–0.7352 relief；seed 0與1相比，頂點色調相差超過0.05的頂點60.2%（512²中color>0.5的取樣42.0%不同）；seed 7的512²maps平均r／g／b約(131.1, 104.5, 83.3)、法線tilt²最大約0.00126、z分量最小255。我實看了預覽（seed 7，最後版本；前面幾版也有看）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Diamond-square as|diamondsquare|kinds|catalog|distinct|periodic"`定向測試**2404項通過／4106項未選**。
+- 未驗證：stringart、moirefringes與diamondsquare未跑完整suite與瀏覽器gallery；不push。

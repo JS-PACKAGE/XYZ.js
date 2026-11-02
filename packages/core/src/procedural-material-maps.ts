@@ -43410,6 +43410,83 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'diamondsquare': {
+        const p = proceduralMaterialPresets.diamondsquare,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          heights = new Float64Array(p.size * p.size),
+          wrap = (n: number): number => (n + p.size) % p.size,
+          at = (x: number, y: number): number =>
+            heights[wrap(y) * p.size + wrap(x)];
+        // Diamond-square on the size x size torus: the corner (0, 0) starts at 0, and for every
+        // step width s = size, size / 2, ..., 2 (level 0, 1, ...) the square step sets the
+        // middle of every s x s square to the mean of its four corners and the diamond step sets the
+        // middle of every edge to the mean of its four neighbours (half a step away), each plus a
+        // random amount of up to +-decay^level that comes from the hash. Heights are wrapped
+        // around the torus; the seed changes all the random amounts.
+        for (let step = p.size, level = 0; step >= 2; step >>= 1, level++) {
+          const half = step >> 1,
+            spread = p.decay ** level;
+          for (let y = 0; y < p.size; y += step)
+            for (let x = 0; x < p.size; x += step)
+              heights[wrap(y + half) * p.size + wrap(x + half)] =
+                (at(x, y) +
+                  at(x + step, y) +
+                  at(x, y + step) +
+                  at(x + step, y + step)) /
+                  4 +
+                (2 * hash(x + half, y + half, seed ^ (p.seedSalt + level)) -
+                  1) *
+                  spread;
+          for (let y = 0; y < p.size; y += step)
+            for (let x = 0; x < p.size; x += step) {
+              heights[wrap(y) * p.size + wrap(x + half)] =
+                (at(x + half, y - half) +
+                  at(x, y) +
+                  at(x + step, y) +
+                  at(x + half, y + half)) /
+                  4 +
+                (2 * hash(x + half, y, seed ^ (p.seedSalt + level)) - 1) *
+                  spread;
+              heights[wrap(y + half) * p.size + wrap(x)] =
+                (at(x - half, y + half) +
+                  at(x, y) +
+                  at(x, y + step) +
+                  at(x + half, y + half)) /
+                  4 +
+                (2 * hash(x, y + half, seed ^ (p.seedSalt + level)) - 1) *
+                  spread;
+            }
+        }
+        // The mean height is taken off so that the picture is centred (the random amounts at the
+        // coarsest levels would otherwise move the whole picture up or down).
+        const meanHeight =
+          heights.reduce((sum, value) => sum + value, 0) / heights.length;
+        for (let i = 0; i < heights.length; i++) heights[i] -= meanHeight;
+        // The tone is 1/2 + height / scale, clamped; between the vertices the four surrounding
+        // heights are blended with a smoothstep in both directions, so the field is C1.
+        return () => {
+          const x = fract(u) * p.size,
+            y = fract(v) * p.size,
+            column = Math.floor(x),
+            row = Math.floor(y),
+            sx = smooth(x - column),
+            sy = smooth(y - row),
+            top = at(column, row) * (1 - sx) + at(column + 1, row) * sx,
+            bottom =
+              at(column, row + 1) * (1 - sx) + at(column + 1, row + 1) * sx,
+            level = clamp(0.5 + (top * (1 - sy) + bottom * sy) / p.scale),
+            tone = p.toneSpan * level,
+            grain = grainField(u, v);
+          color = p.toneFloor + tone + p.grainTone * (grain - 0.5);
+          height = p.litHeight * level + p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - level);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -52261,6 +52338,7 @@ export function createSurfaceSampler(
     kind === 'happynumbers' ||
     kind === 'stringart' ||
     kind === 'moirefringes' ||
+    kind === 'diamondsquare' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||
