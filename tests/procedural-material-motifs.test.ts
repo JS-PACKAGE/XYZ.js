@@ -13651,3 +13651,127 @@ describe('fillominoregions: every connected group of equal numbers has that many
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('futoshikigrid: a Latin square whose inequality signs hold', () => {
+  const p = proceduralMaterialPresets.futoshikigrid;
+  const n = p.size;
+  const pitch = p.cellSize + p.gap;
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'has each of 1 to n once per row and column and every drawn sign points at the smaller number (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('futoshikigrid', seed),
+        out = empty(),
+        dark = (u: number, v: number): boolean => {
+          sample(u, v, out);
+          return out.color < 0.3;
+        },
+        cellU = (col: number): number => p.margin + col * pitch,
+        pixel = p.cellSize * p.digitFraction,
+        grid: number[][] = [];
+      for (let row = 0; row < n; row++) {
+        const line: number[] = [];
+        for (let col = 0; col < n; col++) {
+          const bits: string[] = [];
+          for (let y = 0; y < 5; y++) {
+            let text = '';
+            for (let x = 0; x < 3; x++)
+              text += dark(
+                cellU(col) + p.cellSize / 2 + (x - 1) * pixel,
+                cellU(row) + p.cellSize / 2 + (y - 2) * pixel,
+              )
+                ? '#'
+                : '.';
+            bits.push(text);
+          }
+          const digit = art.findIndex((rows) =>
+            rows.every((text, i) => text === bits[i]),
+          );
+          expect(digit).toBeGreaterThanOrEqual(1);
+          line.push(digit);
+        }
+        grid.push(line);
+      }
+      const digits = Array.from({ length: n }, (_, i) => i + 1);
+      for (let i = 0; i < n; i++) {
+        expect([...grid[i]].sort((a, b) => a - b)).toEqual(digits);
+        expect(grid.map((line) => line[i]).sort((a, b) => a - b)).toEqual(
+          digits,
+        );
+      }
+      // Signs: the apex of the chevron sits at the smaller number's side; neither end inked means no sign.
+      let signs = 0;
+      const reach = p.signReach;
+      for (let row = 0; row < n; row++)
+        for (let col = 0; col < n; col++) {
+          if (col < n - 1) {
+            const gu = cellU(col) + p.cellSize + p.gap / 2,
+              gv = cellU(row) + p.cellSize / 2,
+              left = dark(gu - reach, gv),
+              right = dark(gu + reach, gv);
+            expect(left && right).toBe(false);
+            if (left || right) {
+              signs++;
+              expect(grid[row][col] < grid[row][col + 1]).toBe(left);
+            }
+          }
+          if (row < n - 1) {
+            const gu = cellU(col) + p.cellSize / 2,
+              gv = cellU(row) + p.cellSize + p.gap / 2,
+              up = dark(gu, gv - reach),
+              below = dark(gu, gv + reach);
+            expect(up && below).toBe(false);
+            if (up || below) {
+              signs++;
+              expect(grid[row][col] < grid[row + 1][col]).toBe(up);
+            }
+          }
+        }
+      expect(signs).toBeGreaterThanOrEqual(6);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('futoshikigrid', 0),
+      b = createSurfaceSampler('futoshikigrid', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

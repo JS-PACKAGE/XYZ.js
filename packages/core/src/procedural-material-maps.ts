@@ -26970,6 +26970,186 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'futoshikigrid': {
+        const p = proceduralMaterialPresets.futoshikigrid,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2ae01),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+          ],
+          n = p.size,
+          pitch = p.cellSize + p.gap,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          shuffled = (salt: number): number[] =>
+            Array.from({ length: n }, (_, i) => i).sort(
+              (a, b) =>
+                hash(a, salt, seed ^ 0x2ae03) - hash(b, salt, seed ^ 0x2ae03),
+            ),
+          rows = shuffled(1),
+          columns = shuffled(2),
+          symbols = shuffled(3),
+          // A Latin square of 1..n: the cyclic square with rows, columns and symbols shuffled.
+          grid = Array.from(
+            { length: n * n },
+            (_, index) =>
+              symbols[(rows[Math.floor(index / n)] + columns[index % n]) % n] +
+              1,
+          ),
+          // Inequality signs between neighbouring cells: -1 none, 0 the first cell is smaller, 1 the second.
+          across = Array.from({ length: n * (n - 1) }, (_, index) => {
+            const row = Math.floor(index / (n - 1)),
+              col = index % (n - 1);
+            return hash(index, 7, seed ^ 0x2ae05) < p.signChance
+              ? Number(grid[row * n + col] > grid[row * n + col + 1])
+              : -1;
+          }),
+          down = Array.from({ length: (n - 1) * n }, (_, index) => {
+            const row = Math.floor(index / n),
+              col = index % n;
+            return hash(index, 9, seed ^ 0x2ae07) < p.signChance
+              ? Number(grid[row * n + col] > grid[(row + 1) * n + col])
+              : -1;
+          }),
+          // Distance from (x, y) to the segment a-b.
+          segment = (
+            x: number,
+            y: number,
+            ax: number,
+            ay: number,
+            bx: number,
+            by: number,
+          ): number => {
+            const dx = bx - ax,
+              dy = by - ay,
+              t = clamp(((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy));
+            return Math.hypot(x - ax - t * dx, y - ay - t * dy);
+          };
+        return () => {
+          const lx = u - p.margin,
+            ly = v - p.margin,
+            col = Math.floor(lx / pitch),
+            row = Math.floor(ly / pitch),
+            fx = lx - col * pitch,
+            fy = ly - row * pitch;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            ink = 0,
+            frame = 0,
+            sign = 0;
+          if (lx >= 0 && ly >= 0 && col < n && row < n) {
+            const inCellX = fx < p.cellSize,
+              inCellY = fy < p.cellSize;
+            if (inCellX && inCellY) {
+              tone = p.cellTone;
+              level = p.cellHeight;
+              frame = cover(
+                p.frameHalf -
+                  Math.min(
+                    Math.min(fx, p.cellSize - fx),
+                    Math.min(fy, p.cellSize - fy),
+                  ),
+              );
+              const pixel = p.cellSize * p.digitFraction,
+                px = Math.floor((fx - (p.cellSize / 2 - 1.5 * pixel)) / pixel),
+                py = Math.floor((fy - (p.cellSize / 2 - 2.5 * pixel)) / pixel);
+              if (
+                px >= 0 &&
+                px < 3 &&
+                py >= 0 &&
+                py < 5 &&
+                glyphs[grid[row * n + col]][py * 3 + px] === '1'
+              )
+                ink = 1;
+            } else if (!inCellX && inCellY && col < n - 1) {
+              // Sign between this cell and the one to its right: '<' when the left one is smaller (apex on the left).
+              const state = across[row * (n - 1) + col],
+                cx = p.cellSize + p.gap / 2,
+                cy = p.cellSize / 2;
+              if (state !== -1) {
+                const apex = state === 0 ? -1 : 1;
+                sign = Math.max(
+                  cover(
+                    p.signHalf -
+                      segment(
+                        fx,
+                        fy,
+                        cx + apex * p.signReach,
+                        cy,
+                        cx - apex * p.signReach,
+                        cy - p.signReach,
+                      ),
+                  ),
+                  cover(
+                    p.signHalf -
+                      segment(
+                        fx,
+                        fy,
+                        cx + apex * p.signReach,
+                        cy,
+                        cx - apex * p.signReach,
+                        cy + p.signReach,
+                      ),
+                  ),
+                );
+              }
+            } else if (inCellX && !inCellY && row < n - 1) {
+              // Sign between this cell and the one below: the apex is up when the upper one is smaller.
+              const state = down[row * n + col],
+                cx = p.cellSize / 2,
+                cy = p.cellSize + p.gap / 2;
+              if (state !== -1) {
+                const apex = state === 0 ? -1 : 1;
+                sign = Math.max(
+                  cover(
+                    p.signHalf -
+                      segment(
+                        fx,
+                        fy,
+                        cx,
+                        cy + apex * p.signReach,
+                        cx - p.signReach,
+                        cy - apex * p.signReach,
+                      ),
+                  ),
+                  cover(
+                    p.signHalf -
+                      segment(
+                        fx,
+                        fy,
+                        cx,
+                        cy + apex * p.signReach,
+                        cx + p.signReach,
+                        cy - apex * p.signReach,
+                      ),
+                  ),
+                );
+              }
+            }
+          }
+          tone += (p.frameTone - tone) * frame;
+          color = clamp(
+            tone +
+              (p.inkTone - tone) * ink +
+              (p.signTone - tone) * sign +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            level +
+              (p.frameHeight - level) * frame -
+              p.inkDepth * Math.max(ink, sign),
+          );
+          roughness =
+            p.paperRoughness +
+            (p.inkRoughness - p.paperRoughness) * Math.max(ink, sign);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -54499,6 +54679,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'futoshikigrid' ||
     kind === 'fillominoregions' ||
     kind === 'stringartcurves' ||
     kind === 'masyupearls' ||

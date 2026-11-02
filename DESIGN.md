@@ -1549,6 +1549,10 @@
 
 這是作者設計的示意：畫面是填好答案的盤面，真正的Fillomino只給部分數字；區塊大小受限於1至9（合併後可能超過5），且為了避免相鄰區塊同大小，區塊大小的分布偏向較大；不保證只有一種解；點陣數字為3×5。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`futoshikigrid`（不等式謎題／Futoshiki）使目前目錄995→996種，含plain的gallery為997項。每tile是一個5×5的已解開Futoshiki盤面：25個方格各寫一個1至5的點陣數字，每列每欄1至5恰好各出現一次（拉丁方陣，由循環拉丁方經列、欄、符號置換而得）；相鄰兩格之間以約55%的機率畫上不等號：橫向相鄰用「<」「>」，縱向相鄰用「∧」「∨」，尖端（頂點）指向較小的數那一側。方格是淺色底、細框，格間留有空隙供畫不等號。Metallic與mortar為0。
+
+這是作者設計的示意：畫面是填好答案的盤面，真正的Futoshiki只給部分數字與不等號；不等號是由答案推得、全部成立，但不保證整題只有唯一解；不等號是小的細線符號（約0.022個tile寬），在小尺寸下難以辨識；5×5固定。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
