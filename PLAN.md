@@ -1693,6 +1693,10 @@
 
 這是作者設計的示意：只有8步（第7步的區間窄於一個像素時只看得到淡淡的條紋）、只有這三種挖掉的比例；每條帶的邊緣以到區間邊界的距離軟化；帶與帶之間為紙面。預設0.8 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`conicsections`（圓錐曲線）使目前目錄1033→1034種，含plain的gallery為1035項。每tile分成2×2四個面板，分別畫出離心率e為0、0.6、1、1.6的圓、橢圓、拋物線與雙曲線，面板的排列由seed決定。曲線依「到焦點的距離r = e × 到準線的距離」這條定義畫出（半通徑l固定為0.09 UV；以r = |l − e·x'|表示，x'是沿軸線相對焦點的位移），焦點是一個小圓點，準線（e > 0時）是一條虛線；拋物線與雙曲線延伸到面板邊界為止，雙曲線的兩支都畫出。Metallic與mortar為0。
+
+這是作者設計的示意：只有這四條曲線、軸線固定為水平（不旋轉），沒有座標軸或標示；線寬以隱函數的一階近似距離軟化，所以離頂點很遠的陡處線寬可能略有差異；各面板的焦點位置是為了讓曲線置中而手動設定的（hyperbola焦點往左偏、橢圓往右偏）。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

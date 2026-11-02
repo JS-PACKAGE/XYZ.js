@@ -18636,3 +18636,145 @@ describe('cantorsetrows: stages of the Cantor construction', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('conicsections: conics drawn from the focus and directrix rule', () => {
+  const p = proceduralMaterialPresets.conicsections;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'puts a circle, an ellipse, a parabola and a hyperbola in the four panels, each satisfying distance to focus = e x distance to directrix (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('conicsections', seed),
+        out = empty(),
+        step = 0.001,
+        centres = [
+          [0.25, 0.25],
+          [0.75, 0.25],
+          [0.25, 0.75],
+          [0.75, 0.75],
+        ],
+        assigned: number[] = [];
+      for (const [cx, cy] of centres) {
+        // The dark curve pixels of this panel, with their offsets from the panel centre.
+        const dark: [number, number][] = [];
+        for (let y = -p.panelHalf + step / 2; y < p.panelHalf; y += step)
+          for (let x = -p.panelHalf + step / 2; x < p.panelHalf; x += step) {
+            sample(cx + x, cy + y, out);
+            if (out.color < 0.3) dark.push([x, y]);
+          }
+        expect(dark.length).toBeGreaterThan(200);
+        // A candidate conic: the focus sits at (shift, 0) from the panel centre and the directrix is the vertical line
+        // l / e to the right of the focus; pixels near the focus are the focus dot and are ignored.
+        const fits = p.eccentricities.map((e, kind) => {
+          const fx = p.focusShifts[kind];
+          let tested = 0,
+            matching = 0;
+          for (const [x, y] of dark) {
+            const r = Math.hypot(x - fx, y);
+            if (r < 0.014) continue;
+            tested++;
+            // Residual of r = e * (distance to the directrix); a circle (e = 0) is r = l.
+            const residual =
+              e === 0
+                ? Math.abs(r - p.latusRectum)
+                : Math.abs(r - e * Math.abs(x - fx - p.latusRectum / e));
+            matching += Number(residual < 0.0075);
+          }
+          return matching / tested;
+        });
+        const best = Math.max(...fits),
+          kind = fits.indexOf(best);
+        expect(best).toBeGreaterThan(0.98);
+        expect([...fits].sort((a, b) => b - a)[1]).toBeLessThan(0.6);
+        // A hyperbola has two branches: pixels near the vertex of each (x' = l / (1 + e) and x' = l / (e - 1) from the focus).
+        const e = p.eccentricities[kind];
+        if (e > 1) {
+          const fx = p.focusShifts[kind];
+          expect(
+            dark.some(
+              ([x, y]) =>
+                Math.abs(x - fx - p.latusRectum / (e - 1)) < 0.003 &&
+                Math.abs(y) < 0.003,
+            ),
+          ).toBe(true);
+          expect(
+            dark.some(
+              ([x, y]) =>
+                Math.abs(x - fx - p.latusRectum / (1 + e)) < 0.003 &&
+                Math.abs(y) < 0.003,
+            ),
+          ).toBe(true);
+        }
+        assigned.push(kind);
+      }
+      // Each of the four conics appears exactly once.
+      expect([...assigned].sort()).toEqual([0, 1, 2, 3]);
+    },
+  );
+
+  it('shows more than one arrangement across seeds', () => {
+    const arrangements = new Set<string>(),
+      out = empty();
+    for (let seed = 0; seed < 20; seed++) {
+      const sample = createSurfaceSampler('conicsections', seed);
+      // Which panel holds the circle: the only panel with dark pixels at distance latusRectum to the right, left and
+      // below the panel centre (where its focus dot sits).
+      const circles: number[] = [];
+      [
+        [0.25, 0.25],
+        [0.75, 0.25],
+        [0.25, 0.75],
+        [0.75, 0.75],
+      ].forEach(([cx, cy], panel) => {
+        const onCircle = [
+          [p.latusRectum, 0],
+          [-p.latusRectum, 0],
+          [0, p.latusRectum],
+        ].every(([dx, dy]) => {
+          sample(cx + dx, cy + dy, out);
+          return out.color < 0.3;
+        });
+        if (onCircle) circles.push(panel);
+      });
+      expect(circles.length).toBe(1);
+      const circlePanel = circles[0];
+      arrangements.add(String(circlePanel));
+    }
+    expect(arrangements.size).toBeGreaterThan(1);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('conicsections', 0),
+      b = createSurfaceSampler('conicsections', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

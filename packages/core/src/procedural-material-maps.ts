@@ -31212,6 +31212,70 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'conicsections': {
+        const p = proceduralMaterialPresets.conicsections,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2d401),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // The seed assigns the four eccentricities (circle, ellipse, parabola, hyperbola) to the four panels.
+          order = [0, 1, 2, 3].sort(
+            (a, b) => hash(a, 3, seed ^ 0x2d402) - hash(b, 3, seed ^ 0x2d402),
+          );
+        return () => {
+          const panel = (v >= 0.5 ? 2 : 0) + (u >= 0.5 ? 1 : 0),
+            cx = panel % 2 === 0 ? 0.25 : 0.75,
+            cy = panel < 2 ? 0.25 : 0.75;
+          let inside = 0,
+            curve = 0,
+            guide = 0;
+          if (
+            Math.abs(u - cx) < p.panelHalf &&
+            Math.abs(v - cy) < p.panelHalf
+          ) {
+            inside = 1;
+            const kind = order[panel],
+              e = p.eccentricities[kind],
+              fx = cx + p.focusShifts[kind],
+              dx = u - fx,
+              dy = v - cy,
+              r = Math.hypot(dx, dy),
+              // A conic is the set of points whose distance r to the focus is e times their distance to the directrix:
+              // r = |l - e x'|, with l the semi-latus rectum and x' the offset from the focus along the axis.
+              signed = p.latusRectum - e * dx,
+              f = r - Math.abs(signed),
+              slope = Math.hypot(
+                dx / (r || 1) + e * Math.sign(signed),
+                dy / (r || 1),
+              );
+            curve = cover(p.curveHalf - Math.abs(f) / (slope || 1));
+            // The directrix, dashed, and the focus.
+            if (e > 0) {
+              const along = Math.abs(dx - p.latusRectum / e),
+                dash =
+                  ((dy % p.dashPeriod) + p.dashPeriod) % p.dashPeriod <
+                  p.dashPeriod * p.dashDuty
+                    ? 1
+                    : 0;
+              guide = cover(p.guideHalf - along) * dash;
+            }
+            curve = Math.max(curve, cover(p.focusRadius - r));
+          }
+          const base = p.paperTone + (p.panelTone - p.paperTone) * inside,
+            withGuide = base + (p.guideTone - base) * guide,
+            tone = withGuide + (p.curveTone - withGuide) * curve;
+          color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(
+            p.paperHeight +
+              (p.panelHeight - p.paperHeight) * inside +
+              (p.guideHeight - p.panelHeight) * guide * inside +
+              (p.curveHeight - p.panelHeight) * curve,
+          );
+          roughness =
+            p.paperRoughness + (p.curveRoughness - p.paperRoughness) * curve;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -58741,6 +58805,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'conicsections' ||
     kind === 'cantorsetrows' ||
     kind === 'mandelbrotbands' ||
     kind === 'newtonbasins' ||
