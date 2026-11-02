@@ -1729,6 +1729,10 @@
 
 這是作者設計的示意：只有一條標準常態曲線、σ只在三個值中擇一，沒有座標軸標示或數值；曲線的線寬依斜率修正；色帶只用亮度表示（程序材質只有深到淺的亮度漸層）；曲線高度固定，所以不同σ的曲線面積不同（只是形狀相似），這個圖示是為了說明「比例」而非機率密度的絕對值。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`roundingmodes`（取整方式）使目前目錄1042→1043種，含plain的gallery為1044項。每tile是一張取整方式對照表：深色表頭是X與四捨五入的五種方式的代號——FL（無條件捨去，floor）、CE（無條件進位，ceiling）、TR（朝零截斷，truncation）、RN（四捨五入，遇到.5朝遠離零的方向）與RE（四捨五入，遇到.5取偶數，銀行家捨入）；下面12列各是一個數x（取到小數1位）以及它在這五種方式下的整數結果。x由seed從20個預設值（−3.5到6.5，含負數、0與各種恰為.5的數）中挑12個、依由小到大排列；恰為.5的那幾列，RN與RE兩欄的底色較深，因為只有在這種情況這兩種方式的結果可能不同（例如2.5：RN得3、RE得2；3.5：兩者皆4）。結果為0時一律印成「0」，不印負號。Metallic與mortar為0。
+
+這是作者設計的示意：只有這五種方式、只有一位小數的x；挑選的數值池是固定的，沒有任意數；點陣文字在小尺寸下難以辨識（x欄的四個字元恰好填滿格子寬度）。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

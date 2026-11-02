@@ -32051,6 +32051,134 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'roundingmodes': {
+        const p = proceduralMaterialPresets.roundingmodes,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2dd01),
+          glyphs: Record<string, string> = {
+            '0': '111101101101111',
+            '1': '010110010010111',
+            '2': '111001111100111',
+            '3': '111001111001111',
+            '4': '101101111001001',
+            '5': '111100111001111',
+            '6': '111100111101111',
+            '7': '111001010010010',
+            '8': '111101111101111',
+            '9': '111101111001111',
+            '.': '000000000000010',
+            '-': '000000111000000',
+            X: '101101010101101',
+            F: '111100110100100',
+            L: '100100100100111',
+            C: '011100100100011',
+            E: '111100110100111',
+            T: '111010010010010',
+            R: '110101110101101',
+            N: '101111111101101',
+          },
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // Five ways to turn x into an integer: floor, ceiling, truncation toward zero, rounding half away from
+          // zero and rounding half to even. Exact halves are where the last two differ.
+          roundHalfAway = (x: number): number =>
+            Math.sign(x) * Math.floor(Math.abs(x) + 0.5),
+          roundHalfEven = (x: number): number => {
+            const down = Math.floor(x),
+              fraction = x - down;
+            if (fraction < 0.5) return down;
+            if (fraction > 0.5) return down + 1;
+            return down % 2 === 0 ? down : down + 1;
+          },
+          modes = [
+            Math.floor,
+            Math.ceil,
+            Math.trunc,
+            roundHalfAway,
+            roundHalfEven,
+          ],
+          headers = ['X', 'FL', 'CE', 'TR', 'RN', 'RE'],
+          // The seed draws distinct rows from the pool and lists them in ascending order.
+          picks = p.pool
+            .map((tenths) => ({
+              tenths,
+              key: hash(tenths + 100, 0, seed ^ 0x2dd02),
+            }))
+            .sort((a, b) => a.key - b.key)
+            .slice(0, p.rows)
+            .map((entry) => entry.tenths)
+            .sort((a, b) => a - b),
+          // Integers print without a sign for zero.
+          text = (value: number): string => (value === 0 ? '0' : String(value)),
+          rows = picks.map((tenths) => {
+            const x = tenths / 10;
+            return [x.toFixed(1), ...modes.map((mode) => text(mode(x)))];
+          });
+        return () => {
+          const row = Math.floor((v - p.top) / p.rowPitch) - 1,
+            x = (u - p.left) / p.cell,
+            column = Math.floor(x);
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            rough: number = p.paperRoughness,
+            inkTone: number = p.inkTone,
+            line = 0,
+            glyph = 0;
+          if (row >= -1 && row < p.rows && column >= 0 && column < 6) {
+            const fx = x - column,
+              fy = (v - p.top) / p.rowPitch - (row + 1),
+              content = row < 0 ? headers[column] : rows[row][column];
+            if (row < 0) {
+              tone = p.headerTone;
+              level = p.headerHeight;
+              rough = p.headerRoughness;
+              inkTone = p.headerInkTone;
+            } else {
+              tone = row % 2 === 1 ? p.stripeTone : p.paperTone;
+              level = row % 2 === 1 ? p.stripeHeight : p.paperHeight;
+              rough = p.cellRoughness;
+              // Rows where x ends in .5: the two rounding modes that differ there are shaded.
+              if (
+                column >= 4 &&
+                Math.abs(Math.abs(picks[row] % 10) - 5) === 0
+              ) {
+                tone = p.halfTone;
+                level = p.halfHeight;
+              }
+            }
+            line = cover(
+              p.lineHalf -
+                Math.min(
+                  Math.min(fx * p.cell, (1 - fx) * p.cell),
+                  Math.min(fy * p.rowPitch, (1 - fy) * p.rowPitch),
+                ),
+            );
+            const count = content.length,
+              first = -(2 * count - 1),
+              px = Math.floor(((fx - 0.5) * p.cell) / p.digitPixel + 0.5),
+              py = Math.floor(((fy - 0.5) * p.rowPitch) / p.digitPixel + 2.5);
+            if (py >= 0 && py < 5)
+              for (let d = 0; d < count; d++) {
+                const gx = px - (first + 4 * d);
+                if (
+                  gx >= 0 &&
+                  gx < 3 &&
+                  glyphs[content[d]][py * 3 + gx] === '1'
+                )
+                  glyph = 1;
+              }
+          }
+          const base = tone + (p.lineTone - tone) * line;
+          color = clamp(
+            base +
+              (inkTone - base) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * glyph);
+          roughness = rough + (p.inkRoughness - rough) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -59580,6 +59708,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'roundingmodes' ||
     kind === 'bellcurvebands' ||
     kind === 'ieee754floats' ||
     kind === 'vennregions' ||

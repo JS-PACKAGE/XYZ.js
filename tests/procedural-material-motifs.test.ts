@@ -19961,3 +19961,157 @@ describe('bellcurvebands: a normal curve shaded by standard deviations', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('roundingmodes: numbers rounded five ways', () => {
+  const p = proceduralMaterialPresets.roundingmodes;
+  const shapes: Record<string, string[]> = {
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    '2': ['###', '..#', '###', '#..', '###'],
+    '3': ['###', '..#', '###', '..#', '###'],
+    '4': ['#.#', '#.#', '###', '..#', '..#'],
+    '5': ['###', '#..', '###', '..#', '###'],
+    '6': ['###', '#..', '###', '#.#', '###'],
+    '7': ['###', '..#', '.#.', '.#.', '.#.'],
+    '8': ['###', '#.#', '###', '#.#', '###'],
+    '9': ['###', '#.#', '###', '..#', '###'],
+    '.': ['...', '...', '...', '...', '.#.'],
+    '-': ['...', '...', '###', '...', '...'],
+    X: ['#.#', '#.#', '.#.', '#.#', '#.#'],
+    F: ['###', '#..', '##.', '#..', '#..'],
+    L: ['#..', '#..', '#..', '#..', '###'],
+    C: ['.##', '#..', '#..', '#..', '.##'],
+    E: ['###', '#..', '##.', '#..', '###'],
+    T: ['###', '.#.', '.#.', '.#.', '.#.'],
+    R: ['##.', '#.#', '##.', '#.#', '#.#'],
+    N: ['#.#', '###', '###', '#.#', '#.#'],
+  };
+  // Rounding half to even, written here by comparing the two neighbouring integers instead of the sampler's fraction test.
+  const halfEven = (x: number): number => {
+    const low = Math.floor(x),
+      high = Math.ceil(x);
+    if (x - low < high - x) return low;
+    if (x - low > high - x) return high;
+    return low % 2 === 0 ? low : high;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'lists each number with its floor, ceiling, truncation, half-away-from-zero and half-to-even roundings (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('roundingmodes', seed),
+        out = empty(),
+        at = (column: number, row: number, fx: number, fy: number): number => {
+          sample(
+            p.left + (column + fx) * p.cell,
+            p.top + (row + fy) * p.rowPitch,
+            out,
+          );
+          return out.color;
+        },
+        // Read the text of a cell: characters are 4 pixels apart, centred on the cell.
+        readCell = (column: number, row: number): string => {
+          const background = at(column, row, 0.04, 0.1),
+            dark = (x: number, y: number): boolean =>
+              Math.abs(
+                at(
+                  column,
+                  row,
+                  0.5 + (x * p.digitPixel) / p.cell,
+                  0.5 + ((y - 2) * p.digitPixel) / p.rowPitch,
+                ) - background,
+              ) > 0.4;
+          // Count characters from the ink extent: 2 characters span pixels -3..3, 3 span -5..5, 4 span -7..7, 5 span -9..9.
+          let reach = 0;
+          for (let x = 1; x <= 7; x++)
+            if ([0, 1, 2, 3, 4].some((y) => dark(x, y) || dark(-x, y)))
+              reach = x;
+          const count = (reach + 1) / 2;
+          let text = '';
+          for (let d = 0; d < count; d++) {
+            const rows = [0, 1, 2, 3, 4].map((y) =>
+                [0, 1, 2]
+                  .map((x) =>
+                    dark(-(2 * count - 1) + 4 * d + x, y) ? '#' : '.',
+                  )
+                  .join(''),
+              ),
+              found = Object.entries(shapes).find(([, shape]) =>
+                shape.every((line, i) => line === rows[i]),
+              );
+            expect(found).toBeDefined();
+            text += (found as [string, string[]])[0];
+          }
+          return text;
+        };
+      expect(Array.from({ length: 6 }, (_, c) => readCell(c, 0))).toEqual([
+        'X',
+        'FL',
+        'CE',
+        'TR',
+        'RN',
+        'RE',
+      ]);
+      const xs: number[] = [];
+      for (let row = 1; row <= p.rows; row++) {
+        const x = Number(readCell(0, row)),
+          cells = [1, 2, 3, 4, 5].map((c) => Number(readCell(c, row)));
+        expect(readCell(0, row)).toBe(x.toFixed(1));
+        // Truncation toward zero is written with plain arithmetic here.
+        const truncated = x < 0 ? -Math.floor(-x) : Math.floor(x),
+          // Half away from zero: add 0.5 to the magnitude and drop the fraction.
+          away = (x < 0 ? -1 : 1) * Math.floor(Math.abs(x) + 0.5);
+        expect(cells[0]).toBe(Math.floor(x) + 0);
+        expect(cells[1]).toBe(Math.ceil(x) + 0);
+        expect(cells[2]).toBe(truncated === 0 ? 0 : truncated);
+        expect(cells[3]).toBe(away === 0 ? 0 : away);
+        expect(cells[4]).toBe(halfEven(x) + 0);
+        // The last two columns are shaded exactly where x is half way between integers (where they can differ).
+        const isHalf = Math.abs(x - Math.trunc(x)) === 0.5;
+        expect(at(4, row, 0.04, 0.1) < 0.85).toBe(isHalf);
+        expect(at(5, row, 0.04, 0.1) < 0.85).toBe(isHalf);
+        expect(at(1, row, 0.04, 0.1) < 0.85).toBe(false);
+        xs.push(x);
+      }
+      // Distinct values in ascending order drawn from the pool.
+      expect(xs).toEqual([...xs].sort((a, b) => a - b));
+      expect(new Set(xs).size).toBe(p.rows);
+      for (const x of xs) expect(p.pool).toContain(Math.round(x * 10));
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('roundingmodes', 0),
+      b = createSurfaceSampler('roundingmodes', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

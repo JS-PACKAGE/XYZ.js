@@ -711,6 +711,7 @@ try {
     'dcbarreljackfaces',
     'stfiberadapterfaces',
     'to92packagefaces',
+    'roundingmodes',
     'bellcurvebands',
     'ieee754floats',
     'vennregions',
