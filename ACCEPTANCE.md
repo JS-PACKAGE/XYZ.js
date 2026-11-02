@@ -12868,3 +12868,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Walsh matrix as|walshmatrix|kinds|catalog|distinct|periodic"`定向測試**2356項通過／4034項未選**。
 - 未驗證：supershapes、hermitemodes與walshmatrix未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：澤肯多夫表（zeckendorftable）
+
+- 範圍：新增`zeckendorftable`（目前目錄1025→1026種，含plain的gallery 1027項）：48×48圓角方磚表，第`row`列第`col`欄放`n = row·48 + col + 1`，色調`0.7·((項數 − 1) / (最大項數 − 1))`，項數為`n`的澤肯多夫表示所用的斐波那契數個數（1到8，貪心法）；萊姆綠在深綠黑底上；seed令表在環面上平移；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 149,504 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)第一版色調用`項數 / 最大項數`，實看預覽後對比很低（多數數字落在3到5項、全是差不多的中綠），改成從1項算起的`(項數 − 1) / (最大項數 − 1)`，再看一次預覽對比稍好、但大部分磚仍是中間的綠色（分佈本身的結果，未用更強的指數硬拉）；(2)文件初稿把預覽中的塊狀結構說成「自相似」，我沒有驗證，已改為只描述所見；(3)貪心澤肯多夫表示同時是最少項數表示是標準定理，這裡沒有證明；測試以動態規劃求最少斐波那契項數**獨立取代**sampler的貪心法，所以兩者在2,304個數字上一致被測到；(4)建構與取樣耗時**未量測**。
+- 實測（工具實跑）：項數1到8的數字個數為16、105、362、693、710、351、65、2（合計2,304），最大項數8；四個seed（0／1／0xffffffff／7）各有唯一符合的平移(38, 40)、(16, 12)、(41, 36)、(1, 7)，最大擬合誤差0.01498／0.01498／0.01495／0.01479；256²（seed 0／1／0xffffffff）亮處（color>0.5）34.91%–34.96%、color 0.02548–0.02601至0.85044–0.85170、平均0.35986–0.35992、roughness恆為0.4、AO最低0.6、height至多0.8356–0.8390 relief；512²（四個seed）亮處34.28%–34.29%、color 0.02525–0.02535至0.84195–0.85237、平均0.35983–0.35995、height至多0.8361–0.8439 relief；seed 0與1相比，格中心顏色相差超過0.05的格子76.0%（512²中color>0.5的取樣36.6%不同）；seed 7的512²maps平均r／g／b約(75.8, 104.6, 53.4)、法線tilt²最大約0.0280、z分量最小253。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Zeckendorf table as|zeckendorftable|kinds|catalog|distinct|periodic"`定向測試**2358項通過／4037項未選**。
+- 未驗證：supershapes、hermitemodes、walshmatrix與zeckendorftable未跑完整suite與瀏覽器gallery；不push。

@@ -42045,6 +42045,79 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'zeckendorftable': {
+        const p = proceduralMaterialPresets.zeckendorftable,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft,
+          shiftX = Math.floor(hash(0, 6, seed ^ p.seedSalt) * p.cells),
+          shiftY = Math.floor(hash(1, 6, seed ^ p.seedSalt) * p.cells),
+          // Cell (col, row) holds n = row * cells + col + 1 and is toned by the number of terms
+          // in its Zeckendorf representation (the sum of non-consecutive Fibonacci numbers
+          // 1, 2, 3, 5, 8 ..., found greedily, which is also the fewest Fibonacci numbers that
+          // add up to n), as a share of the way from one term to the largest count in the table, raised to toneExponent:
+          // the Fibonacci numbers themselves (one term) are the darkest. The seed moves the table
+          // around the torus.
+          count = p.cells * p.cells,
+          fibonacci: number[] = [1, 2],
+          terms = new Int32Array(count + 1),
+          tones = new Float64Array(count);
+        while (
+          fibonacci[fibonacci.length - 1] + fibonacci[fibonacci.length - 2] <=
+          count
+        )
+          fibonacci.push(
+            fibonacci[fibonacci.length - 1] + fibonacci[fibonacci.length - 2],
+          );
+        let most = 0;
+        for (let n = 1; n <= count; n++) {
+          let rest = n;
+          for (let i = fibonacci.length - 1; i >= 0 && rest > 0; i--)
+            if (fibonacci[i] <= rest) {
+              rest -= fibonacci[i];
+              terms[n]++;
+            }
+          most = Math.max(most, terms[n]);
+        }
+        for (let n = 1; n <= count; n++)
+          tones[n - 1] =
+            p.toneSpan * ((terms[n] - 1) / (most - 1)) ** p.toneExponent;
+        return () => {
+          // One compact-support rounded-square kernel per cell (a quartic superellipse
+          // through smoothstep, exactly zero before the cell boundary), so the cell
+          // lookup never jumps and the field is C1.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            ax = (x - col - 0.5) * inverseHalf,
+            ay = (y - row - 0.5) * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            tone =
+              tones[
+                ((row + shiftY) % p.cells) * p.cells +
+                  ((col + shiftX) % p.cells)
+              ],
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -50873,6 +50946,7 @@ export function createSurfaceSampler(
     kind === 'supershapes' ||
     kind === 'hermitemodes' ||
     kind === 'walshmatrix' ||
+    kind === 'zeckendorftable' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||

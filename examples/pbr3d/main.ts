@@ -1090,6 +1090,7 @@ try {
     'supershapes',
     'hermitemodes',
     'walshmatrix',
+    'zeckendorftable',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

@@ -1027,6 +1027,7 @@ export type ProceduralMaterialKind =
   | 'supershapes'
   | 'hermitemodes'
   | 'walshmatrix'
+  | 'zeckendorftable'
   | 'sandpileidentity'
   | 'multiplicativeorder'
   | 'vermiculation'
@@ -2301,6 +2302,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'supershapes',
   'hermitemodes',
   'walshmatrix',
+  'zeckendorftable',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',
