@@ -16593,3 +16593,138 @@ describe('barchartbars: bars whose heights match the printed values', () => {
     expect(different).toBeGreaterThan(20);
   });
 });
+
+describe('truthtablelogic: the truth table of a four-input Boolean function', () => {
+  const p = proceduralMaterialPresets.truthtablelogic;
+  const columns = p.inputs + 1;
+  const rows = 1 << p.inputs;
+  const shapes: Record<string, string[]> = {
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    A: ['.#.', '#.#', '###', '#.#', '#.#'],
+    B: ['##.', '#.#', '##.', '#.#', '##.'],
+    C: ['.##', '#..', '#..', '#..', '.##'],
+    D: ['##.', '#.#', '#.#', '#.#', '##.'],
+    X: ['#.#', '#.#', '.#.', '#.#', '#.#'],
+  };
+  // The eight functions the output may follow, written out again here from their definitions.
+  const candidates: ((
+    a: number,
+    b: number,
+    c: number,
+    d: number,
+  ) => boolean)[] = [
+    (a, b, c, d) => Boolean(a && b) || c !== d,
+    (a, b, c, d) => a !== b && Boolean(c || d),
+    (a, b, c) => Boolean(a ? b : c),
+    (a, b, c, d) => !(a || b) || Boolean(c && d),
+    (a, b, c, d) => Boolean(a || c) && Boolean(b || d),
+    (a, b, c, d) => a + b + c >= 2 !== Boolean(d),
+    (a, b, c, d) => Boolean(a && !b) || Boolean(c && !d),
+    (a, b, c, d) => (a + b + c + d) % 2 === 1,
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'lists every input combination in order and an output that follows one Boolean function (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('truthtablelogic', seed),
+        out = empty(),
+        at = (column: number, row: number, fx: number, fy: number): number => {
+          sample(
+            p.left + (column + fx) * p.columnWidth,
+            p.top + (row + fy) * p.rowHeight,
+            out,
+          );
+          return out.color;
+        },
+        read = (column: number, row: number): string => {
+          // Ink differs strongly from the cell's own tone near its corner (dark digits on pale cells, pale on the header).
+          const background = at(column, row, 0.08, 0.1),
+            bits: string[] = [];
+          for (let y = 0; y < 5; y++) {
+            let text = '';
+            for (let x = 0; x < 3; x++) {
+              const fx = 0.5 + ((x - 1) * p.digitPixel) / p.columnWidth,
+                fy = 0.5 + ((y - 2) * p.digitPixel) / p.rowHeight;
+              text +=
+                Math.abs(at(column, row, fx, fy) - background) > 0.4
+                  ? '#'
+                  : '.';
+            }
+            bits.push(text);
+          }
+          const found = Object.entries(shapes).find(([, shape]) =>
+            shape.every((line, i) => line === bits[i]),
+          );
+          expect(found).toBeDefined();
+          return (found as [string, string[]])[0];
+        };
+      // Header: A B C D then X.
+      expect(Array.from({ length: columns }, (_, c) => read(c, 0))).toEqual([
+        'A',
+        'B',
+        'C',
+        'D',
+        'X',
+      ]);
+      const output: number[] = [];
+      for (let row = 0; row < rows; row++) {
+        // The input columns count up in binary, most significant bit (A) first.
+        for (let c = 0; c < p.inputs; c++)
+          expect(read(c, row + 1)).toBe(
+            String((row >> (p.inputs - 1 - c)) & 1),
+          );
+        const bit = Number(read(p.inputs, row + 1));
+        output.push(bit);
+        // A row whose output is 1 is shaded.
+        expect(at(p.inputs, row + 1, 0.08, 0.1) < 0.85).toBe(bit === 1);
+      }
+      const matching = candidates.filter((f) =>
+        output.every(
+          (bit, row) =>
+            Boolean(bit) ===
+            f((row >> 3) & 1, (row >> 2) & 1, (row >> 1) & 1, row & 1),
+        ),
+      );
+      expect(matching.length).toBeGreaterThanOrEqual(1);
+      // It is a real function of the inputs, not constant.
+      expect(new Set(output).size).toBe(2);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('truthtablelogic', 0),
+      b = createSurfaceSampler('truthtablelogic', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

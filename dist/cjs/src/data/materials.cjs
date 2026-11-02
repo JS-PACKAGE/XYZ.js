@@ -17145,6 +17145,46 @@ var proceduralMaterialPresets = Object.freeze({
 		barRoughness: .45,
 		inkRoughness: .4
 	}),
+	truthtablelogic: Object.freeze({
+		dark: [
+			20,
+			30,
+			50
+		],
+		light: [
+			246,
+			242,
+			224
+		],
+		roughness: .55,
+		relief: .004,
+		inputs: 4,
+		left: .15,
+		top: .041,
+		columnWidth: .14,
+		rowHeight: .054,
+		digitPixel: .0085,
+		lineHalf: 7e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		cellTone: .92,
+		onTone: .74,
+		headerTone: .14,
+		outputHeaderTone: .3,
+		lineTone: .58,
+		inkTone: .08,
+		headerInkTone: .94,
+		grainTone: .03,
+		paperHeight: .22,
+		cellLevel: .5,
+		onLevel: .62,
+		headerLevel: .85,
+		inkDepth: .06,
+		paperRoughness: .74,
+		headerRoughness: .35,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -25826,6 +25866,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	truthtablelogic: .4,
 	barchartbars: .4,
 	regressionscatter: .4,
 	piechartwedges: .5,

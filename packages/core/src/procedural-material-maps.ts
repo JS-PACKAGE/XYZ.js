@@ -29772,6 +29772,112 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'truthtablelogic': {
+        const p = proceduralMaterialPresets.truthtablelogic,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2c501),
+          // 3 x 5 dot matrices: the bits 0 and 1 and the header letters A, B, C, D (inputs) and X (output).
+          glyphs: Record<string, string> = {
+            '0': '111101101101111',
+            '1': '010110010010111',
+            A: '010101111101101',
+            B: '110101110101110',
+            C: '011100100100011',
+            D: '110101101101110',
+            X: '101101010101101',
+          },
+          letters = ['A', 'B', 'C', 'D'],
+          columns = p.inputs + 1,
+          rows = 1 << p.inputs,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // The output is one of eight Boolean functions of the four inputs, chosen by the seed.
+          functions: ((
+            a: number,
+            b: number,
+            c: number,
+            d: number,
+          ) => number)[] = [
+            (a, b, c, d) => (a & b) | (c ^ d),
+            (a, b, c, d) => (a ^ b) & (c | d),
+            (a, b, c) => (a ? b : c),
+            (a, b, c, d) => (1 - (a | b)) | (c & d),
+            (a, b, c, d) => (a | c) & (b | d),
+            (a, b, c, d) => (a + b + c >= 2 ? 1 : 0) ^ d,
+            (a, b, c, d) => (a & (1 - b)) | (c & (1 - d)),
+            (a, b, c, d) => a ^ b ^ c ^ d,
+          ],
+          chosen =
+            functions[
+              Math.min(
+                functions.length - 1,
+                Math.floor(hash(1, 3, seed ^ 0x2c503) * functions.length),
+              )
+            ],
+          output = Array.from({ length: rows }, (_, row) =>
+            chosen((row >> 3) & 1, (row >> 2) & 1, (row >> 1) & 1, row & 1),
+          );
+        return () => {
+          const x = (u - p.left) / p.columnWidth,
+            y = (v - p.top) / p.rowHeight;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            rough: number = p.paperRoughness,
+            line = 0,
+            glyph = 0,
+            inkTone: number = p.inkTone;
+          if (x >= 0 && y >= 0 && x < columns && y < rows + 1) {
+            const column = Math.floor(x),
+              row = Math.floor(y) - 1,
+              fx = x - column,
+              fy = y - Math.floor(y),
+              last = column === columns - 1;
+            let symbol: string;
+            if (row < 0) {
+              symbol = last ? 'X' : letters[column];
+              tone = last ? p.outputHeaderTone : p.headerTone;
+              level = p.headerLevel;
+              rough = p.headerRoughness;
+              inkTone = p.headerInkTone;
+            } else {
+              const bit = last
+                ? output[row]
+                : (row >> (p.inputs - 1 - column)) & 1;
+              symbol = String(bit);
+              tone = last && bit === 1 ? p.onTone : p.cellTone;
+              level = last && bit === 1 ? p.onLevel : p.cellLevel;
+            }
+            line = cover(
+              p.lineHalf -
+                Math.min(
+                  Math.min(fx * p.columnWidth, (1 - fx) * p.columnWidth),
+                  Math.min(fy * p.rowHeight, (1 - fy) * p.rowHeight),
+                ),
+            );
+            const px = Math.floor(
+                ((fx - 0.5) * p.columnWidth) / p.digitPixel + 1.5,
+              ),
+              py = Math.floor(((fy - 0.5) * p.rowHeight) / p.digitPixel + 2.5);
+            if (
+              px >= 0 &&
+              px < 3 &&
+              py >= 0 &&
+              py < 5 &&
+              glyphs[symbol][py * 3 + px] === '1'
+            )
+              glyph = 1;
+          }
+          const base = tone + (p.lineTone - tone) * line;
+          color = clamp(
+            base +
+              (inkTone - base) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * glyph);
+          roughness = rough + (p.inkRoughness - rough) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -57301,6 +57407,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'truthtablelogic' ||
     kind === 'barchartbars' ||
     kind === 'regressionscatter' ||
     kind === 'piechartwedges' ||
