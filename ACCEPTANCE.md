@@ -12709,3 +12709,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試（獨立掃描式單位元、高度分布與對稱性與`e + e = e`、唯一環面平移與統計為一項；seed差異與決定性；C1＋有符號UV週期；actual512 maps），`-t`選中的5項（含kinds清單新條目）皆通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Sandpile identity as|sandpileidentity|kinds|catalog|distinct|periodic"`定向測試**2326項通過／3985項未選**。
 - 未驗證：sandpileidentity未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：乘法階表（multiplicativeorder）
+
+- 範圍：新增`multiplicativeorder`（目前目錄1010→1011種，含plain的gallery 1012項）：48×48方格，格代表模`n = row + 2`（2到49）下的剩餘`a = col + 1`（1到48）；與n有公因數者（887格）以`insideTone`最暗，否則以`ord_n(a)/φ(n)`取1.5次方上色（比值1為原根共406格、階為1共189格、最大階46），冰藍色在深藏青底上；seed把整張表在環面上平移；沿用Mandelbrot方塊的「內部」色調處理與totienttable的方格參數；預設0.3 m nominal tile、0.0008 UV-relative relief；cache `Float64Array(2304)`加`Float64Array(128²)`，共149,504 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**；只是比值表示，不是定理證明。
+- 調整與紀錄：(1)預覽只看了一版；沒有檢查a ≥ n的剩餘是否讓表出現明顯的週期性重複。(2)測試一次通過，無需調整區間；887／406／189／46是測試中以獨立重複乘法與互質計數算出的值，並非與理論值比對。(3)我在文件初稿把「原根只存在於n為2、4、質數的冪或2倍質數的冪」寫成事實，這是標準的數論事實但我沒有在測試中驗證，commit前已在文件加註。(4)seed 0與1的格子中心色差>0.05的比例（59.9%）在寫測試前先量測，高於沿用的門檻；seed 0與1的亮區遮罩（512²）20.4%像素不同。(5)**未量測耗時**。
+- 實測（工具實跑）：沒有乘法階887格、原根406格、階為1的189格、最大階46；256²取樣（seed 0／1／0xffffffff）亮處（color>0.5）占12.50%–12.64%、color 0.0055–0.0058至0.8541–0.8544、平均0.2146–0.2153、AO最低0.6、height至多0.8753–0.8768 relief；512²取樣（四個seed）亮處占12.47%–12.74%、color 0.0052–0.0054至0.8545–0.8547、平均0.2142–0.2163、height至多0.8772–0.8784 relief；每個seed恰好一種環面平移（seed 0為(28, 20)、1為(38, 22)、0xffffffff為(20, 37)、7為(37, 9)）使2304格中心顏色與獨立重寫的色調一致，最大誤差0.0150以內（門檻0.03）；seed 7的512²maps平均r／g／b約(45.4, 59.2, 78.2)、法線tilt²最大約0.0300、z分量最小253。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試（獨立重寫的乘法階與格數統計、唯一環面平移與統計為一項；seed差異與決定性；C1＋有符號UV週期；actual512 maps），`-t`選中的5項（含kinds清單新條目）皆通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Multiplicative order as|multiplicativeorder|kinds|catalog|distinct|periodic"`定向測試**2328項通過／3988項未選**。
+- 未驗證：sandpileidentity、multiplicativeorder未跑完整suite與瀏覽器gallery；不push。

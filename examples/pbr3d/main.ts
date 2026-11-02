@@ -1077,6 +1077,7 @@ try {
     'voronoicells',
     'voronoipillows',
     'sandpileidentity',
+    'multiplicativeorder',
     'vermiculation',
     'kikko',
     'kagome',
