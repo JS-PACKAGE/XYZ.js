@@ -20492,3 +20492,141 @@ describe('percolationclusters: open sites and their clusters', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('gcdtable: greatest common divisors', () => {
+  const p = proceduralMaterialPresets.gcdtable;
+  const shapes: Record<string, string[]> = {
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    '2': ['###', '..#', '###', '#..', '###'],
+    '3': ['###', '..#', '###', '..#', '###'],
+    '4': ['#.#', '#.#', '###', '..#', '..#'],
+    '5': ['###', '#..', '###', '..#', '###'],
+    '6': ['###', '#..', '###', '#.#', '###'],
+    '7': ['###', '..#', '.#.', '.#.', '.#.'],
+    '8': ['###', '#.#', '###', '#.#', '###'],
+    '9': ['###', '#.#', '###', '..#', '###'],
+  };
+  // The largest number that divides both, found by trying every candidate rather than with Euclid's algorithm.
+  const greatest = (a: number, b: number): number => {
+    let best = 1;
+    for (let d = 2; d <= Math.min(a, b); d++)
+      if (a % d === 0 && b % d === 0) best = d;
+    return best;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'lists the divisor of every row and column number, darker for larger ones (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('gcdtable', seed),
+        out = empty(),
+        at = (column: number, row: number, fx: number, fy: number): number => {
+          sample(
+            p.left + (column + fx) * p.cell,
+            p.top + (row + fy) * p.cell,
+            out,
+          );
+          return out.color;
+        },
+        tone = (column: number, row: number): number =>
+          at(column, row, 0.12, 0.12),
+        readCell = (column: number, row: number): number => {
+          const background = tone(column, row),
+            dark = (x: number, y: number): boolean =>
+              Math.abs(
+                at(
+                  column,
+                  row,
+                  0.5 + (x * p.digitPixel) / p.cell,
+                  0.5 + ((y - 2) * p.digitPixel) / p.cell,
+                ) - background,
+              ) > 0.25;
+          let reach = 0;
+          for (let x = 1; x <= 3; x++)
+            if ([0, 1, 2, 3, 4].some((y) => dark(x, y) || dark(-x, y)))
+              reach = x;
+          const count = (reach + 1) / 2;
+          expect(Number.isInteger(count)).toBe(true);
+          let text = '';
+          for (let d = 0; d < count; d++) {
+            const lines = [0, 1, 2, 3, 4].map((y) =>
+                [0, 1, 2]
+                  .map((x) =>
+                    dark(-(2 * count - 1) + 4 * d + x, y) ? '#' : '.',
+                  )
+                  .join(''),
+              ),
+              found = Object.entries(shapes).find(([, shape]) =>
+                shape.every((line, i) => line === lines[i]),
+              );
+            expect(found).toBeDefined();
+            text += (found as [string, string[]])[0];
+          }
+          return Number(text);
+        };
+      const columnStart = readCell(1, 0),
+        rowStart = readCell(0, 1);
+      expect(p.starts).toContain(columnStart);
+      expect(p.starts).toContain(rowStart);
+      let coprime = 0;
+      for (let i = 1; i <= p.size; i++) {
+        // Both header sequences count up by one.
+        expect(readCell(i, 0)).toBe(columnStart + i - 1);
+        expect(readCell(0, i)).toBe(rowStart + i - 1);
+      }
+      for (let row = 1; row <= p.size; row++)
+        for (let column = 1; column <= p.size; column++) {
+          const value = readCell(column, row),
+            expected = greatest(rowStart + row - 1, columnStart + column - 1);
+          expect(value).toBe(expected);
+          // Cells with divisor 1 are the lightest; the others get darker as the divisor grows.
+          expect(tone(column, row)).toBeCloseTo(
+            expected === 1
+              ? p.coprimeTone
+              : p.divisorFloor + p.divisorRange / expected,
+            1,
+          );
+          if (expected === 1) coprime++;
+        }
+      // Most cells of such a table are coprime pairs (the density of coprime pairs is 6 / pi^2, about 0.61).
+      expect(coprime).toBeGreaterThan(0.4 * p.size * p.size);
+      expect(coprime).toBeLessThan(0.8 * p.size * p.size);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('gcdtable', 0),
+      b = createSurfaceSampler('gcdtable', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

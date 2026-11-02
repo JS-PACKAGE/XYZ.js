@@ -1753,6 +1753,10 @@
 
 這是作者設計的示意：只有正方晶格的位點滲流，群集不跨越tile邊界相連（網格在邊緣被切斷，相鄰tile的群集不會接在一起，tile縫處會看到斷開）；格子之間沒有線，大小只分三級，亮度只表示群集大小，不是其他物理量。p的三個值是固定的，也沒有標示臨界值或「是否貫穿」。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`gcdtable`（最大公因數表）使目前目錄1046→1047種，含plain的gallery為1048項。每tile是一張12×12的最大公因數表：深色的表頭列與表頭欄各是連續12個整數，起點由seed從1、5、13、25中分別挑（列與欄各挑一個，可以不同），表身每格是該列數與該欄數的最大公因數（用數字印出）。互質（最大公因數為1）的格子最淺，其餘格子的亮度隨公因數變大而變深（亮度＝0.5＋0.44÷公因數）。Metallic與mortar為0。
+
+這是作者設計的示意：只有12×12的範圍、只有四個起點，沒有質因數分解或公式；亮度只代表公因數的大小，不是分類。兩位數的數字（例如12、16）幾乎佔滿格寬。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

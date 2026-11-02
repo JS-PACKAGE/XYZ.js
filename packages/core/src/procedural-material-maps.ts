@@ -32403,6 +32403,94 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'gcdtable': {
+        const p = proceduralMaterialPresets.gcdtable,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2e101),
+          glyphs: Record<string, string> = {
+            '0': '111101101101111',
+            '1': '010110010010111',
+            '2': '111001111100111',
+            '3': '111001111001111',
+            '4': '101101111001001',
+            '5': '111100111001111',
+            '6': '111100111101111',
+            '7': '111001010010010',
+            '8': '111101111101111',
+            '9': '111101111001111',
+          },
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          gcd = (a: number, b: number): number => {
+            while (b !== 0) [a, b] = [b, a % b];
+            return a;
+          },
+          rowStart =
+            p.starts[Math.floor(hash(5, 6, seed ^ 0x2e102) * p.starts.length)],
+          columnStart =
+            p.starts[Math.floor(hash(7, 8, seed ^ 0x2e103) * p.starts.length)];
+        return () => {
+          const x = (u - p.left) / p.cell,
+            y = (v - p.top) / p.cell,
+            column = Math.floor(x),
+            row = Math.floor(y);
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            rough: number = p.paperRoughness,
+            inkTone: number = p.inkTone,
+            line = 0,
+            glyph = 0;
+          if (column >= 0 && column <= p.size && row >= 0 && row <= p.size) {
+            const fx = x - column,
+              fy = y - row,
+              header = row === 0 || column === 0;
+            let value = 0;
+            if (row === 0 && column > 0) value = columnStart + column - 1;
+            else if (column === 0 && row > 0) value = rowStart + row - 1;
+            else if (row > 0)
+              value = gcd(rowStart + row - 1, columnStart + column - 1);
+            if (header) {
+              tone = p.headerTone;
+              level = p.headerHeight;
+              rough = p.headerRoughness;
+              inkTone = p.headerInkTone;
+            } else {
+              tone =
+                value === 1
+                  ? p.coprimeTone
+                  : p.divisorFloor + p.divisorRange / value;
+              level = value === 1 ? p.coprimeHeight : p.divisorHeight;
+              rough = p.cellRoughness;
+            }
+            line = cover(
+              p.lineHalf -
+                Math.min(Math.min(fx, 1 - fx), Math.min(fy, 1 - fy)) * p.cell,
+            );
+            if (value > 0) {
+              const text = String(value),
+                count = text.length,
+                first = -(2 * count - 1),
+                px = Math.floor(((fx - 0.5) * p.cell) / p.digitPixel + 0.5),
+                py = Math.floor(((fy - 0.5) * p.cell) / p.digitPixel + 2.5);
+              if (py >= 0 && py < 5)
+                for (let d = 0; d < count; d++) {
+                  const gx = px - (first + 4 * d);
+                  if (gx >= 0 && gx < 3 && glyphs[text[d]][py * 3 + gx] === '1')
+                    glyph = 1;
+                }
+            }
+          }
+          const base = tone + (p.lineTone - tone) * line;
+          color = clamp(
+            base +
+              (inkTone - base) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * glyph);
+          roughness = rough + (p.inkRoughness - rough) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -59932,6 +60020,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'gcdtable' ||
     kind === 'percolationclusters' ||
     kind === 'abeliansandpile' ||
     kind === 'binaryaddition' ||
