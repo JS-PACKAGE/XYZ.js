@@ -15432,3 +15432,161 @@ describe('chinesecheckersboard: a Chinese checkers board a few moves in', () => 
     expect(different).toBeGreaterThan(5);
   });
 });
+
+describe('colormapregions: a map coloured so touching regions differ', () => {
+  const p = proceduralMaterialPresets.colormapregions;
+  const grid = 256;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'keeps the regions separate and gives every pair of touching regions different tones (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('colormapregions', seed),
+        out = empty(),
+        border: boolean[] = [],
+        tone: number[] = [];
+      for (let y = 0; y < grid; y++)
+        for (let x = 0; x < grid; x++) {
+          sample((x + 0.5) / grid, (y + 0.5) / grid, out);
+          border.push(out.color < 0.18);
+          // Which of the region tones this pixel is nearest to (meaningless on a border).
+          tone.push(
+            p.regionTones.reduce(
+              (best, value, i) =>
+                Math.abs(value - out.color) <
+                Math.abs(p.regionTones[best] - out.color)
+                  ? i
+                  : best,
+              0,
+            ),
+          );
+        }
+      const at = (x: number, y: number): number =>
+        (((y % grid) + grid) % grid) * grid + (((x % grid) + grid) % grid);
+      // Regions: periodic 4-connected components of the pixels that are not on a border line. Specks of a few
+      // pixels left between border strips at a vertex are not regions and are treated like border pixels.
+      const region = new Int32Array(grid * grid).fill(-1),
+        members: number[][] = [];
+      for (let start = 0; start < grid * grid; start++) {
+        if (border[start] || region[start] !== -1) continue;
+        const id = members.length,
+          stack = [start],
+          found: number[] = [];
+        region[start] = id;
+        while (stack.length > 0) {
+          const index = stack.pop() as number,
+            x = index % grid,
+            y = Math.floor(index / grid);
+          found.push(index);
+          for (const [dx, dy] of [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ]) {
+            const next = at(x + dx, y + dy);
+            if (!border[next] && region[next] === -1) {
+              region[next] = id;
+              stack.push(next);
+            }
+          }
+        }
+        members.push(found);
+      }
+      for (const found of members)
+        if (found.length < 100) for (const index of found) region[index] = -1;
+      const regions = members.filter((found) => found.length >= 100).length;
+      expect(regions).toBe(p.cells * p.cells);
+      // Every region has one dominant tone among the five available (the soft edge of a border blends a few
+      // pixels towards the border tone, so a small share of pixels may read as a neighbouring tone).
+      const votes = new Map<number, number[]>();
+      for (let index = 0; index < grid * grid; index++) {
+        if (region[index] === -1) continue;
+        if (!votes.has(region[index]))
+          votes.set(region[index], [0, 0, 0, 0, 0]);
+        (votes.get(region[index]) as number[])[tone[index]]++;
+      }
+      const dominant = new Map<number, number>();
+      for (const [id, counts] of votes) {
+        const best = counts.indexOf(Math.max(...counts));
+        expect(counts[best]).toBeGreaterThanOrEqual(
+          0.9 * counts.reduce((sum, count) => sum + count, 0),
+        );
+        dominant.set(id, best);
+      }
+      // Across a thin stretch of border (a run of at most four border pixels) the two regions it separates
+      // must differ in tone; wider runs near a vertex could cross a sliver and are skipped.
+      let pairs = 0;
+      for (let y = 0; y < grid; y++)
+        for (let x = 0; x < grid; x++) {
+          if (!border[at(x, y)]) continue;
+          for (const [dx, dy] of [
+            [1, 0],
+            [0, 1],
+          ]) {
+            let before = -1,
+              after = -1,
+              back = 0,
+              forward = 0;
+            for (let k = 1; k <= 4 && before === -1; k++) {
+              before = region[at(x - dx * k, y - dy * k)];
+              back = k;
+            }
+            for (let k = 1; k <= 4 && after === -1; k++) {
+              after = region[at(x + dx * k, y + dy * k)];
+              forward = k;
+            }
+            if (
+              before === -1 ||
+              after === -1 ||
+              before === after ||
+              back + forward > 5
+            )
+              continue;
+            pairs++;
+            expect(dominant.get(before)).not.toBe(dominant.get(after));
+          }
+        }
+      expect(pairs).toBeGreaterThan(200);
+      // At most five tones are used, and at least three.
+      const used = new Set(dominant.values());
+      expect(used.size).toBeLessThanOrEqual(5);
+      expect(used.size).toBeGreaterThanOrEqual(3);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('colormapregions', 0),
+      b = createSurfaceSampler('colormapregions', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

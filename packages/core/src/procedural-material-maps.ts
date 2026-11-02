@@ -28884,6 +28884,136 @@ export function createSurfaceSampler(
           occlusion = 1 - 0.3 * hole * (1 - marble);
         };
       }
+      case 'colormapregions': {
+        const p = proceduralMaterialPresets.colormapregions,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2bc01),
+          cells = p.cells,
+          count = cells * cells,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          sites = Array.from(
+            { length: count },
+            (_, index): [number, number] => [
+              ((index % cells) +
+                0.5 +
+                p.jitter * (2 * hash(index, 3, seed ^ 0x2bc03) - 1)) /
+                cells,
+              (Math.floor(index / cells) +
+                0.5 +
+                p.jitter * (2 * hash(index, 5, seed ^ 0x2bc05) - 1)) /
+                cells,
+            ],
+          ),
+          // The owner of a point (its nearest site, periodic) and its distance to the border with the second-nearest site.
+          lookup = (x: number, y: number): [number, number] => {
+            const ci = Math.floor(x * cells),
+              cj = Math.floor(y * cells);
+            let first = -1,
+              firstDistance = Infinity,
+              firstX = 0,
+              firstY = 0,
+              secondDistance = Infinity,
+              secondX = 0,
+              secondY = 0;
+            for (let dj = -1; dj <= 1; dj++)
+              for (let di = -1; di <= 1; di++) {
+                const index =
+                    ((((cj + dj) % cells) + cells) % cells) * cells +
+                    ((((ci + di) % cells) + cells) % cells),
+                  sx = sites[index][0] + Math.floor((ci + di) / cells),
+                  sy = sites[index][1] + Math.floor((cj + dj) / cells),
+                  distance = (sx - x) * (sx - x) + (sy - y) * (sy - y);
+                if (distance < firstDistance) {
+                  secondDistance = firstDistance;
+                  secondX = firstX;
+                  secondY = firstY;
+                  first = index;
+                  firstDistance = distance;
+                  firstX = sx;
+                  firstY = sy;
+                } else if (distance < secondDistance) {
+                  secondDistance = distance;
+                  secondX = sx;
+                  secondY = sy;
+                }
+              }
+            return [
+              first,
+              (secondDistance - firstDistance) /
+                (2 * Math.hypot(secondX - firstX, secondY - firstY)),
+            ];
+          },
+          neighbours = Array.from({ length: count }, () => new Set<number>()),
+          owner = new Int16Array(p.scan * p.scan);
+        // Which regions touch: scan a periodic grid and note where the owner changes, including across
+        // diagonals so that regions meeting only at a short edge or a corner are separated too.
+        for (let j = 0; j < p.scan; j++)
+          for (let i = 0; i < p.scan; i++)
+            owner[j * p.scan + i] = lookup(
+              (i + 0.5) / p.scan,
+              (j + 0.5) / p.scan,
+            )[0];
+        for (let j = 0; j < p.scan; j++)
+          for (let i = 0; i < p.scan; i++) {
+            const here = owner[j * p.scan + i];
+            for (const [dx, dy] of [
+              [1, 0],
+              [0, 1],
+              [1, 1],
+              [1, -1],
+            ]) {
+              const other =
+                owner[
+                  ((j + dy + p.scan) % p.scan) * p.scan +
+                    ((i + dx + p.scan) % p.scan)
+                ];
+              if (other !== here) {
+                neighbours[here].add(other);
+                neighbours[other].add(here);
+              }
+            }
+          }
+        // Colour the map with as few tones as possible: try four, then five, by backtracking.
+        const order = Array.from({ length: count }, (_, i) => i).sort(
+            (a, b) => neighbours[b].size - neighbours[a].size,
+          ),
+          tones = new Array<number>(count).fill(-1);
+        let nodes = 0;
+        const paint = (position: number, palette: number): boolean => {
+          if (position === count) return true;
+          if (++nodes > p.nodeLimit) return false;
+          const region = order[position];
+          for (let tone = 0; tone < palette; tone++) {
+            if ([...neighbours[region]].some((other) => tones[other] === tone))
+              continue;
+            tones[region] = tone;
+            if (paint(position + 1, palette)) return true;
+            tones[region] = -1;
+          }
+          return false;
+        };
+        for (let palette = 4; palette <= p.regionTones.length; palette++) {
+          tones.fill(-1);
+          nodes = 0;
+          if (paint(0, palette)) break;
+        }
+        return () => {
+          const [region, distance] = lookup(u, v),
+            border = cover(p.borderHalf - distance),
+            tone =
+              p.regionTones[Math.max(0, tones[region])] +
+              p.grainTone * (grainField(u, v) - 0.5);
+          color = clamp(tone + (p.borderTone - tone) * border);
+          height = clamp(
+            p.regionHeight + (p.borderHeight - p.regionHeight) * border,
+          );
+          roughness =
+            p.regionRoughness +
+            (p.borderRoughness - p.regionRoughness) * border;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -56413,6 +56543,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'colormapregions' ||
     kind === 'chinesecheckersboard' ||
     kind === 'euclideanrhythms' ||
     kind === 'hidatochain' ||
