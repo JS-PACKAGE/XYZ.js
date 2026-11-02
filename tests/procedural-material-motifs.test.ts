@@ -25761,3 +25761,108 @@ describe('dyckpaths: the 14 Dyck paths of semilength 4', () => {
     expect(different).toBeGreaterThan(0);
   });
 });
+
+describe('sacksspiral: primes on the Sacks spiral', () => {
+  const p = proceduralMaterialPresets.sacksspiral;
+  const isPrime = (n: number): boolean => {
+    if (n < 2) return false;
+    for (let d = 2; d * d <= n; d++) if (n % d === 0) return false;
+    return true;
+  };
+  // The dots of one variant, found by trial division and the polar formula (radius c sqrt(n), angle 2 pi sqrt(n)).
+  const dotsFor = (last: number, mode: number): [number, number][] => {
+    const scale = p.outerRadius / Math.sqrt(last),
+      dots: [number, number][] = [];
+    for (let n = 2; n <= last; n++)
+      if (isPrime(n) && (mode === 0 || n % 4 === (mode === 1 ? 1 : 3)))
+        dots.push([
+          0.5 + scale * Math.sqrt(n) * Math.cos(2 * Math.PI * Math.sqrt(n)),
+          0.5 + scale * Math.sqrt(n) * Math.sin(2 * Math.PI * Math.sqrt(n)),
+        ]);
+    return dots;
+  };
+
+  const matching = (seed: number): [number, number][] => {
+    const sample = createSurfaceSampler('sacksspiral', seed),
+      out = empty(),
+      colorAt = (u: number, v: number): number => {
+        sample(u, v, out);
+        return out.color;
+      },
+      found: [number, number][] = [];
+    for (const last of p.lasts)
+      for (const mode of [0, 1, 2]) {
+        const dots = dotsFor(last, mode);
+        if (!dots.every(([x, y]) => colorAt(x, y) < 0.4)) continue;
+        // Empty places: a grid of points farther than 0.012 from every dot must be paper.
+        let empties = 0,
+          ok = true;
+        for (let j = 0; j < 80 && ok; j++)
+          for (let i = 0; i < 80 && ok; i++) {
+            const u = (i + 0.5) / 80,
+              v = (j + 0.5) / 80;
+            if (dots.every(([x, y]) => Math.hypot(u - x, v - y) > 0.012)) {
+              empties++;
+              ok = colorAt(u, v) > 0.85;
+            }
+          }
+        if (ok && empties > 3000) found.push([last, mode]);
+      }
+    return found;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'puts exactly the primes of one variant at their spiral positions (seed %i)',
+    (seed) => {
+      expect(matching(seed)).toHaveLength(1);
+    },
+  );
+
+  it('uses every last number and every kind of prime across seeds', () => {
+    const lasts = new Set<number>(),
+      modes = new Set<number>();
+    for (let seed = 0; seed < 40; seed++) {
+      const [[last, mode]] = matching(seed);
+      lasts.add(last);
+      modes.add(mode);
+    }
+    expect([...lasts].sort()).toEqual([...p.lasts].sort());
+    expect([...modes].sort()).toEqual([0, 1, 2]);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('sacksspiral', 0),
+      b = createSurfaceSampler('sacksspiral', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(0);
+  });
+});

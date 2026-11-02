@@ -35466,6 +35466,73 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'sacksspiral': {
+        const p = proceduralMaterialPresets.sacksspiral,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x30301),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          last =
+            p.lasts[Math.floor(hash(5, 2, seed ^ 0x30302) * p.lasts.length)],
+          // 0: every prime, 1: primes 4k + 1, 2: primes 4k + 3.
+          mode = Math.floor(hash(5, 3, seed ^ 0x30303) * 3),
+          scale = p.outerRadius / Math.sqrt(last),
+          composite = new Uint8Array(last + 1),
+          buckets: number[][] = Array.from(
+            { length: p.buckets * p.buckets },
+            () => [],
+          ),
+          points: number[] = [];
+        for (let n = 2; n <= last; n++) {
+          if (composite[n] === 1) continue;
+          for (let multiple = n * n; multiple <= last; multiple += n)
+            composite[multiple] = 1;
+          if (mode === 1 && n % 4 !== 1) continue;
+          if (mode === 2 && n % 4 !== 3) continue;
+          const angle = 2 * Math.PI * Math.sqrt(n),
+            x = 0.5 + scale * Math.sqrt(n) * Math.cos(angle),
+            y = 0.5 + scale * Math.sqrt(n) * Math.sin(angle),
+            id = points.length / 2;
+          points.push(x, y);
+          // Every bucket that the dot (plus its soft edge) can reach.
+          const reach = p.dotRadius + p.edgeSoft;
+          for (
+            let by = Math.max(0, Math.floor((y - reach) * p.buckets));
+            by <= Math.min(p.buckets - 1, Math.floor((y + reach) * p.buckets));
+            by++
+          )
+            for (
+              let bx = Math.max(0, Math.floor((x - reach) * p.buckets));
+              bx <=
+              Math.min(p.buckets - 1, Math.floor((x + reach) * p.buckets));
+              bx++
+            )
+              buckets[by * p.buckets + bx].push(id);
+        }
+        return () => {
+          let dot = 0;
+          for (const id of buckets[
+            Math.min(p.buckets - 1, Math.floor(v * p.buckets)) * p.buckets +
+              Math.min(p.buckets - 1, Math.floor(u * p.buckets))
+          ])
+            dot = Math.max(
+              dot,
+              cover(
+                p.dotRadius -
+                  Math.hypot(u - points[2 * id], v - points[2 * id + 1]),
+              ),
+            );
+          color = clamp(
+            p.paperTone +
+              (p.inkTone - p.paperTone) * dot +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * dot);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * dot;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -62995,6 +63062,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'sacksspiral' ||
     kind === 'dyckpaths' ||
     kind === 'figuratenumbers' ||
     kind === 'pythagoreantriples' ||
