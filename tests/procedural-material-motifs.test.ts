@@ -14193,3 +14193,141 @@ describe('shikakurects: a solved Shikaku', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('hitorishading: a solved Hitori', () => {
+  const p = proceduralMaterialPresets.hitorishading;
+  const n = p.size;
+  const cell = (1 - 2 * p.margin) / n;
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shades non-touching duplicates so the rest has no repeats and stays connected (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('hitorishading', seed),
+        out = empty(),
+        pixel = cell * p.digitFraction,
+        at = (u: number, v: number): number => {
+          sample(p.margin + u * cell, p.margin + v * cell, out);
+          return out.color;
+        },
+        shaded: boolean[] = [],
+        value: number[] = [];
+      for (let row = 0; row < n; row++)
+        for (let col = 0; col < n; col++) {
+          const dark = at(col + 0.1, row + 0.1) < 0.5,
+            bits: string[] = [];
+          for (let y = 0; y < 5; y++) {
+            let text = '';
+            // A digit is dark on a light cell and light on a shaded cell.
+            for (let x = 0; x < 3; x++) {
+              const sampled = at(
+                col + 0.5 + (x - 1) * (pixel / cell),
+                row + 0.5 + (y - 2) * (pixel / cell),
+              );
+              text += (dark ? sampled > 0.5 : sampled < 0.3) ? '#' : '.';
+            }
+            bits.push(text);
+          }
+          const digit = art.findIndex((rows) =>
+            rows.every((line, i) => line === bits[i]),
+          );
+          expect(digit).toBeGreaterThanOrEqual(1);
+          shaded.push(dark);
+          value.push(digit);
+        }
+      expect(shaded.filter(Boolean).length).toBeGreaterThanOrEqual(8);
+      const same = (a: number, b: number): boolean =>
+        a % n === b % n || Math.floor(a / n) === Math.floor(b / n);
+      for (let a = 0; a < n * n; a++) {
+        // Shaded cells never touch orthogonally.
+        if (shaded[a]) {
+          if (a % n < n - 1) expect(shaded[a + 1]).toBe(false);
+          if (a < n * (n - 1)) expect(shaded[a + n]).toBe(false);
+        }
+        for (let b = a + 1; b < n * n; b++) {
+          if (!same(a, b) || shaded[a] || shaded[b]) continue;
+          expect(value[a]).not.toBe(value[b]);
+        }
+        // A shaded number repeats an unshaded one in its row or column; otherwise shading it would be pointless.
+        if (shaded[a])
+          expect(
+            Array.from({ length: n * n }, (_, b) => b).some(
+              (b) =>
+                b !== a && same(a, b) && !shaded[b] && value[b] === value[a],
+            ),
+          ).toBe(true);
+      }
+      // The unshaded cells form one connected body.
+      const open = Array.from({ length: n * n }, (_, i) => i).filter(
+          (i) => !shaded[i],
+        ),
+        seen = new Set<number>([open[0]]),
+        queue = [open[0]];
+      for (let i = 0; i < queue.length; i++) {
+        const x = queue[i] % n,
+          y = Math.floor(queue[i] / n);
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const nx = x + dx,
+            ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= n || ny >= n) continue;
+          const next = ny * n + nx;
+          if (!shaded[next] && !seen.has(next)) {
+            seen.add(next);
+            queue.push(next);
+          }
+        }
+      }
+      expect(seen.size).toBe(open.length);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('hitorishading', 0),
+      b = createSurfaceSampler('hitorishading', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

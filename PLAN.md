@@ -1557,6 +1557,10 @@
 
 這是作者設計的示意：畫面是填好答案的盤面，真正的Shikaku只給數字、要自己畫出長方形；不保證只有唯一解；長方形面積限制在9以內（單一點陣數字）；10×10固定、點陣數字為3×5。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`hitorishading`（數字塗黑謎題／Hitori）使目前目錄999→1000種，含plain的gallery為1001項。每tile是一個7×7已解開的Hitori盤面：每格寫著1至7的點陣數字，被塗黑的格子是深色底、數字反白；塗黑的格子上下左右都不相接，沒塗黑的格子連成一整片，且沒塗黑的格子在每一列、每一欄中都沒有重複的數字；每個塗黑格的數字都和同列或同欄某個沒塗黑格相同（因此塗黑它才有意義）。盤面由seed產生：先做一個經列、欄、符號置換的7×7拉丁方陣，依隨機順序塗黑格子（不與已塗黑者相鄰且塗黑後其餘仍連通）直到約13格，再把每個塗黑格的數字改成同列或同欄某個沒塗黑格的數字。Metallic與mortar為0。
+
+這是作者設計的示意：畫面是填好答案的盤面（塗黑已畫出），真正的Hitori只給數字、要自己決定塗哪些格；不保證只有唯一解，也不保證只有這一種塗法合規；沒塗黑的格構成拉丁方陣的一部分，因此看起來比一般題目更「規則」；塗黑的數量約13格（可能因無法再塗而更少）；7×7固定、點陣數字為3×5。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

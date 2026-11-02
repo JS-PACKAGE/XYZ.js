@@ -27622,6 +27622,144 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'hitorishading': {
+        const p = proceduralMaterialPresets.hitorishading,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2b201),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+          ],
+          n = p.size,
+          side = 1 - 2 * p.margin,
+          cell = side / n,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          shuffled = (salt: number): number[] =>
+            Array.from({ length: n }, (_, i) => i).sort(
+              (a, b) =>
+                hash(a, salt, seed ^ 0x2b203) - hash(b, salt, seed ^ 0x2b203),
+            ),
+          rows = shuffled(1),
+          columns = shuffled(2),
+          symbols = shuffled(3),
+          // A Latin square of 1..n, then some cells are shaded and take the number of an unshaded cell in their row or column.
+          numbers = Array.from(
+            { length: n * n },
+            (_, index) =>
+              symbols[(rows[Math.floor(index / n)] + columns[index % n]) % n] +
+              1,
+          ),
+          shaded = new Uint8Array(n * n),
+          order = Array.from({ length: n * n }, (_, i) => i).sort(
+            (a, b) => hash(a, 5, seed ^ 0x2b205) - hash(b, 5, seed ^ 0x2b205),
+          ),
+          neighbours = (index: number): number[] => {
+            const x = index % n,
+              y = Math.floor(index / n),
+              list: number[] = [];
+            if (x < n - 1) list.push(index + 1);
+            if (x > 0) list.push(index - 1);
+            if (y < n - 1) list.push(index + n);
+            if (y > 0) list.push(index - n);
+            return list;
+          },
+          // The cells that are not shaded must stay in one piece.
+          connected = (): boolean => {
+            const open = Array.from({ length: n * n }, (_, i) => i).filter(
+                (i) => shaded[i] === 0,
+              ),
+              seen = new Set<number>([open[0]]),
+              queue = [open[0]];
+            for (let i = 0; i < queue.length; i++)
+              for (const other of neighbours(queue[i]))
+                if (shaded[other] === 0 && !seen.has(other)) {
+                  seen.add(other);
+                  queue.push(other);
+                }
+            return seen.size === open.length;
+          };
+        let count = 0;
+        for (const index of order) {
+          if (count >= p.targetShaded) break;
+          if (neighbours(index).some((other) => shaded[other] === 1)) continue;
+          shaded[index] = 1;
+          if (connected()) count++;
+          else shaded[index] = 0;
+        }
+        const original = numbers.slice();
+        for (let index = 0; index < n * n; index++) {
+          if (shaded[index] === 0) continue;
+          const x = index % n,
+            y = Math.floor(index / n),
+            partners: number[] = [];
+          for (let k = 0; k < n; k++) {
+            if (k !== x && shaded[y * n + k] === 0) partners.push(y * n + k);
+            if (k !== y && shaded[k * n + x] === 0) partners.push(k * n + x);
+          }
+          numbers[index] =
+            original[
+              partners[
+                Math.min(
+                  partners.length - 1,
+                  Math.floor(hash(index, 7, seed ^ 0x2b207) * partners.length),
+                )
+              ]
+            ];
+        }
+        return () => {
+          const lx = u - p.margin,
+            ly = v - p.margin;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            rough: number = p.paperRoughness,
+            line = 0,
+            glyph = 0,
+            isShaded = false;
+          if (lx >= 0 && ly >= 0 && lx < side && ly < side) {
+            const col = Math.min(n - 1, Math.floor(lx / cell)),
+              row = Math.min(n - 1, Math.floor(ly / cell)),
+              index = row * n + col,
+              fx = lx - col * cell,
+              fy = ly - row * cell,
+              pixel = cell * p.digitFraction,
+              px = Math.floor((fx - (cell / 2 - 1.5 * pixel)) / pixel),
+              py = Math.floor((fy - (cell / 2 - 2.5 * pixel)) / pixel);
+            isShaded = shaded[index] === 1;
+            tone = isShaded ? p.shadeTone : p.cellTone;
+            level = isShaded ? p.shadeHeight : p.cellHeight;
+            rough = isShaded ? p.shadeRoughness : p.paperRoughness;
+            line = cover(
+              p.lineHalf -
+                Math.min(Math.min(fx, cell - fx), Math.min(fy, cell - fy)),
+            );
+            if (
+              px >= 0 &&
+              px < 3 &&
+              py >= 0 &&
+              py < 5 &&
+              glyphs[numbers[index]][py * 3 + px] === '1'
+            )
+              glyph = 1;
+          }
+          const ink = isShaded ? p.shadeGlyphTone : p.inkTone,
+            base = tone + (p.lineTone - tone) * line;
+          color = clamp(
+            base +
+              (ink - base) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * glyph);
+          roughness = rough + (p.inkRoughness - rough) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -55151,6 +55289,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'hitorishading' ||
     kind === 'shikakurects' ||
     kind === 'tentsandtrees' ||
     kind === 'nurikabeislands' ||
