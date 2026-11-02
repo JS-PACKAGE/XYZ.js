@@ -1070,6 +1070,7 @@ try {
     'mobiustable',
     'pisanotable',
     'minkowskisausage',
+    'squarekoch',
     'vermiculation',
     'kikko',
     'kagome',

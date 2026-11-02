@@ -40660,17 +40660,21 @@ export function createSurfaceSampler(
       case 'dragoncurve':
       case 'peanocurve':
       case 'levycurve':
-      case 'minkowskisausage': {
+      case 'minkowskisausage':
+      case 'squarekoch': {
         const peano = kind === 'peanocurve',
+          koch = kind === 'squarekoch',
           levy = kind === 'levycurve',
           minkowski = kind === 'minkowskisausage',
           p = peano
             ? proceduralMaterialPresets.peanocurve
-            : levy
-              ? proceduralMaterialPresets.levycurve
-              : minkowski
-                ? proceduralMaterialPresets.minkowskisausage
-                : proceduralMaterialPresets.dragoncurve,
+            : koch
+              ? proceduralMaterialPresets.squarekoch
+              : levy
+                ? proceduralMaterialPresets.levycurve
+                : minkowski
+                  ? proceduralMaterialPresets.minkowskisausage
+                  : proceduralMaterialPresets.dragoncurve,
           size = p.cells * 3,
           marks = new Float64Array(size * size),
           glowField = cachedNoise(p.glowCells, p.glowCells, seed ^ p.seedSalt),
@@ -40717,14 +40721,15 @@ export function createSurfaceSampler(
             }
             points.push([px, py]);
           }
-        } else if (minkowski) {
-          // The quadratic Koch (Minkowski sausage) island: the turtle string F+F+F+F with
-          // every F replaced order times by F+F-F-FF+F+F-F, a simple closed loop.
+        } else if (minkowski || koch) {
+          // The quadratic Koch island: the turtle string F+F+F+F with every F replaced order
+          // times by F+F-F-FF+F+F-F (the Minkowski sausage, a simple closed loop) or by
+          // F+F-F-F+F (the type 1 island, whose edges touch at corners).
           let turtle = 'F+F+F+F';
           for (let level = 0; level < p.order; level++)
             turtle = turtle
               .replaceAll('F', 'f')
-              .replaceAll('f', 'F+F-F-FF+F+F-F');
+              .replaceAll('f', koch ? 'F+F-F-F+F' : 'F+F-F-FF+F+F-F');
           let x = 0,
             y = 0,
             heading = 0;
@@ -49606,6 +49611,7 @@ export function createSurfaceSampler(
     kind === 'mobiustable' ||
     kind === 'pisanotable' ||
     kind === 'minkowskisausage' ||
+    kind === 'squarekoch' ||
     kind === 'vermiculation' ||
     kind === 'kikko' ||
     kind === 'kagome' ||

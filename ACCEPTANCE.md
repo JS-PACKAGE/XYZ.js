@@ -12642,3 +12642,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試（根基以試除法獨立重寫、唯一環面平移與統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過，`Goldbach table as`原有測試仍通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Radical table as|radicaltable|Goldbach table as|kinds|catalog|distinct|periodic"`定向測試**2315項通過／3953項未選**。
 - 未驗證：totienttable、goldbachtable、radicaltable未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：方形科赫島（squarekoch）
+
+- 範圍：新增`squarekoch`（目前目錄1003→1004種，含plain的gallery 1005項）：第3階第一型二次科赫島（turtle字串`F+F+F+F`、`F`取代為`F+F−F−F+F`三次：500個單位步、376個相異格點的封閉迴圈，邊在角落接觸、500條邊沒有重複走過），鮭魚粉色細線與微光暈在暗赤褐底上；外框27×27格，放在32×32格環面上、偏移(2, 2)，與相鄰拼貼的島之間約有4格空白；seed把曲線沿環面平移；共用走線sampler分支（只新增頂點串與取代規則）；預設0.25 m nominal tile、0.0008 UV-relative relief；cache 96² + 8² + 128² = 25,664個Float64／205,312 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**；我沒有查證「type 1」名稱的標準文獻，這裡不聲稱來源。
+- 調整與紀錄：(1)預覽只看了一版；階數3先算過外框為27×27格；階數4未嘗試（2,500步、外框約135格，超過此分支使用的環面大小）。(2)我在初稿文件中寫「四周各留約4格空白」，這個說法不精確（左右各2格、與相鄰島之間共約4格），commit前已更正為「與相鄰拼貼的島之間約有4格空白」。(3)測試一次通過，無需調整區間；亮node數1,376 = 376頂點 + 500條邊×2連接node。(4)**未量測耗時**。
+- 實測（工具實跑）：501個頂點、376個相異、500條相異邊（無重複邊）、外框0到27；256²取樣亮處（color>0.5）占12.59%（四個seed相同）、color 0.0459–0.0461至0.8330–0.8336、平均0.1694–0.1695、roughness 0.2001–0.3999、AO恆為1、height至多0.9915–0.9944 relief；512²取樣亮處占16.32%（與256²不同是因為取樣密度不同）、color 0.0455–0.0456至0.8342–0.8345、平均0.1785–0.1787、height至多0.9965–0.9981 relief；每個seed的96×96 node恰好一種環面平移（seed 0為(18, 3)、1為(23, 13)、0xffffffff為(2, 0)、7為(2, 30)）與獨立遞迴重寫的島嶼一致、亮node數1,376；seed 0與1的node有24.3%不同；seed 7的512²maps平均r／g／b約(68.6, 36.9, 34.9)、法線tilt²最大約0.0468、z分量最小252。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試（島嶼以遞迴獨立重寫、頂點／邊結構、唯一環面平移與統計為一項；seed差異與決定性；C1＋有符號UV週期；actual512 maps）通過，`Minkowski sausage as`原有測試仍通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Square Koch as|squarekoch|Minkowski sausage as|Dragon curve as|Levy curve as|Peano curve as|kinds|catalog|distinct|periodic"`定向測試**2326項通過／3947項未選**（其中部分describe名稱可能與實際不符而未選到，我沒有逐一確認這幾個名稱各自選中了多少項）。
+- 未驗證：totienttable、goldbachtable、radicaltable、squarekoch未跑完整suite與瀏覽器gallery；不push。
