@@ -11620,6 +11620,32 @@ export declare const proceduralMaterialPresets: Readonly<{
         paperRoughness: 0.74;
         inkRoughness: 0.4;
     }>;
+    projectilearcs: Readonly<{
+        dark: readonly [26, 32, 58];
+        light: readonly [246, 242, 222];
+        roughness: 0.55;
+        relief: 0.004;
+        angles: readonly number[];
+        ranges: readonly number[];
+        ground: 0.45;
+        pitch: 0.5;
+        lineHalf: 0.0032;
+        envelopeHalf: 0.0026;
+        groundHalf: 0.0028;
+        edgeSoft: 0.0011;
+        grainCells: 192;
+        paperTone: 0.94;
+        arcTone: 0.1;
+        envelopeTone: 0.5;
+        groundTone: 0.3;
+        grainTone: 0.03;
+        paperHeight: 0.2;
+        arcHeight: 0.8;
+        envelopeHeight: 0.55;
+        groundHeight: 0.65;
+        paperRoughness: 0.74;
+        inkRoughness: 0.4;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -18105,6 +18131,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    projectilearcs: 0.6;
     isbn10checks: 0.5;
     runlengthrows: 0.5;
     graphcoloring: 0.6;

@@ -34572,6 +34572,72 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'projectilearcs': {
+        const p = proceduralMaterialPresets.projectilearcs,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2f901),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          range =
+            p.ranges[Math.floor(hash(2, 9, seed ^ 0x2f902) * p.ranges.length)],
+          shots = p.angles.map((degrees) => {
+            const theta = (degrees * Math.PI) / 180;
+            return {
+              tan: Math.tan(theta),
+              cos2: Math.cos(theta) ** 2,
+              reach: range * Math.sin(2 * theta),
+            };
+          });
+        return () => {
+          // Distance from the middle line of the tile, and height above the ground line of this band (upwards, in [0, pitch)).
+          const x = Math.abs(u - 0.5),
+            offset = p.ground - v,
+            y = offset - p.pitch * Math.floor(offset / p.pitch);
+          let arc = 0;
+          // Each shot follows y = x tan(theta) - x^2 / (2 L cos^2(theta)) until it lands at x = L sin(2 theta); the distance to
+          // the curve is taken along the vertical and divided by the length of the tangent vector.
+          for (const shot of shots) {
+            if (x > shot.reach + p.lineHalf) continue;
+            const curve = x * shot.tan - (x * x) / (2 * range * shot.cos2),
+              slope = shot.tan - x / (range * shot.cos2);
+            arc = Math.max(
+              arc,
+              cover(p.lineHalf - Math.abs(y - curve) / Math.hypot(1, slope)),
+            );
+          }
+          // The safety parabola that touches every trajectory: y = L / 2 - x^2 / (2 L).
+          let envelope = 0;
+          if (x <= range) {
+            const curve = range / 2 - (x * x) / (2 * range),
+              slope = -x / range;
+            envelope = cover(
+              p.envelopeHalf - Math.abs(y - curve) / Math.hypot(1, slope),
+            );
+          }
+          const ground =
+              cover(p.groundHalf - Math.min(y, p.pitch - y)) *
+              cover(range + 0.01 - x),
+            withEnvelope =
+              p.paperTone + (p.envelopeTone - p.paperTone) * envelope,
+            withGround = withEnvelope + (p.groundTone - withEnvelope) * ground;
+          color = clamp(
+            withGround +
+              (p.arcTone - withGround) * arc +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.paperHeight +
+              (p.envelopeHeight - p.paperHeight) * envelope +
+              (p.groundHeight - p.paperHeight) * ground * (1 - envelope) +
+              (p.arcHeight - p.paperHeight) * arc * 0.5,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.inkRoughness - p.paperRoughness) *
+              Math.max(arc, envelope, ground);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -62101,6 +62167,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'projectilearcs' ||
     kind === 'isbn10checks' ||
     kind === 'runlengthrows' ||
     kind === 'graphcoloring' ||

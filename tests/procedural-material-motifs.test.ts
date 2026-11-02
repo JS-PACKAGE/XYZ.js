@@ -24157,3 +24157,155 @@ describe('isbn10checks: ISBN-10 numbers with valid check digits', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('projectilearcs: shots at several angles and their safety parabola', () => {
+  const p = proceduralMaterialPresets.projectilearcs;
+  // The path of a shot with v^2 / g = range: x(t) = sqrt(range) cos(a) t and y(t) = sqrt(range) sin(a) t - t^2 / 2 (g = 1),
+  // which lands at t = 2 sqrt(range) sin(a), i.e. at x = range sin(2a).
+  const pathPoints = (
+    range: number,
+    degrees: number,
+    count: number,
+  ): [number, number][] => {
+    const a = (degrees * Math.PI) / 180,
+      flight = 2 * Math.sqrt(range) * Math.sin(a);
+    return Array.from({ length: count + 1 }, (_, i) => {
+      const t = (flight * i) / count;
+      return [
+        Math.sqrt(range) * Math.cos(a) * t,
+        Math.sqrt(range) * Math.sin(a) * t - (t * t) / 2,
+      ];
+    });
+  };
+  // Screen position of a point at distance x from the middle line (to the right) and height y above the ground of band 0.
+  const screen = (x: number, y: number): [number, number] => [
+    0.5 + x,
+    p.ground - y,
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws every shot as a parabola from the middle and the envelope that touches them (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('projectilearcs', seed),
+        out = empty(),
+        colorAt = (u: number, v: number): number => {
+          sample(u, v, out);
+          return out.color;
+        },
+        // The range is the one for which the top of every path (at half its flight) is drawn.
+        matching = p.ranges.filter((range) =>
+          p.angles.every((degrees) => {
+            const top = pathPoints(range, degrees, 2)[1];
+            return colorAt(...screen(top[0], top[1])) < 0.4;
+          }),
+        );
+      expect(matching).toHaveLength(1);
+      const range = matching[0];
+      // Every point along each path, on both sides of the middle, is dark.
+      for (const degrees of p.angles)
+        for (const [x, y] of pathPoints(range, degrees, 60).slice(1, -1)) {
+          expect(colorAt(...screen(x, y))).toBeLessThan(0.4);
+          expect(colorAt(...screen(-x, y))).toBeLessThan(0.4);
+        }
+      // The maximum range is at 45 degrees and the paths land at range * sin(2 angle): the last point is on the ground line.
+      const landings = p.angles.map(
+        (degrees) => pathPoints(range, degrees, 2)[2][0],
+      );
+      expect(Math.max(...landings)).toBeCloseTo(
+        range * Math.sin(Math.PI / 2),
+        10,
+      );
+      // The safety parabola y = range / 2 - x^2 / (2 range) lies above every path and touches it at one point.
+      const envelope = (x: number): number => range / 2 - (x * x) / (2 * range);
+      for (const degrees of p.angles)
+        for (const [x, y] of pathPoints(range, degrees, 40))
+          expect(envelope(x) - y).toBeGreaterThan(-1e-12);
+      for (let i = 1; i < 20; i++) {
+        const x = (range * i) / 20;
+        expect(colorAt(...screen(x, envelope(x)))).toBeLessThan(0.75);
+      }
+      // Away from every line the picture is paper: a grid of points whose distance to all lines exceeds 0.012 is pale.
+      const lines: [number, number][] = [];
+      for (const degrees of p.angles)
+        for (const [x, y] of pathPoints(range, degrees, 300))
+          lines.push([x, y]);
+      for (let i = 0; i <= 300; i++)
+        lines.push([(range * i) / 300, envelope((range * i) / 300)]);
+      for (let i = 0; i <= 300; i++) lines.push([(range * i) / 300, 0]);
+      let checked = 0;
+      for (let j = 0; j < 50; j++)
+        for (let i = 0; i < 50; i++) {
+          const u = (i + 0.5) / 50,
+            v = (j + 0.5) / 50,
+            x = Math.abs(u - 0.5),
+            offset = p.ground - v,
+            y = offset - p.pitch * Math.floor(offset / p.pitch);
+          let nearest = Infinity;
+          for (const [lx, ly] of lines)
+            nearest = Math.min(
+              nearest,
+              Math.hypot(x - lx, y - ly),
+              Math.hypot(x - lx, y - ly - p.pitch),
+              Math.hypot(x - lx, y - ly + p.pitch),
+            );
+          if (nearest > 0.012) {
+            expect(colorAt(u, v)).toBeGreaterThan(0.85);
+            checked++;
+          }
+        }
+      expect(checked).toBeGreaterThan(1500);
+    },
+  );
+
+  it('uses all three ranges across seeds', () => {
+    const used = new Set<number>();
+    for (let seed = 0; seed < 30; seed++) {
+      const sample = createSurfaceSampler('projectilearcs', seed),
+        out = empty();
+      // The top of the 45 degree path sits at x = range / 2, height range / 4.
+      const index = p.ranges.findIndex((range) => {
+        sample(0.5 + range / 2, p.ground - range / 4, out);
+        return out.color < 0.4;
+      });
+      expect(index).toBeGreaterThanOrEqual(0);
+      used.add(index);
+    }
+    expect([...used].sort()).toEqual([0, 1, 2]);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('projectilearcs', 0),
+      b = createSurfaceSampler('projectilearcs', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(0);
+  });
+});

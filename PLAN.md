@@ -1841,6 +1841,10 @@
 
 這是作者設計的示意：只有隨機產生的書號，不是真實的書；語區、出版者與書名的位數固定為1、3、5位（真實ISBN-10的出版者與書名欄位長度不固定）；沒有ISBN-13、條碼或換算。字符是3×5點陣字，X與連字號為簡化字形。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`projectilearcs`（拋體軌跡）使目前目錄1070→1071種，含plain的gallery為1072項。每tile由上而下重複兩個「噴泉」：同一速度的五發拋射體，仰角15°、30°、45°、60°、75°，從tile中線出發向左右兩側對稱飛行，畫成深色的拋物線（無空氣阻力）並落在淺灰色的地面線上；另有一條較淡的「安全拋物線」y = L/2 − x²/(2L)，與每一條軌跡相切、位於所有軌跡之上。其中 L = v²/g 是最大射程，由seed從0.4、0.44、0.48個tile寬中選一個；仰角45°的軌跡落在x = L，其他軌跡落在L·sin(2θ)。Metallic與mortar為0。
+
+這是作者設計的示意：理想的真空拋體，水平與垂直使用同一個長度單位（形狀沒有被拉伸）；沒有標註角度、數字或座標軸，也不是物理模擬；兩個噴泉完全一樣，只是沿垂直方向週期重複。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

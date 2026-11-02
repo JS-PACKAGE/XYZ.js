@@ -711,6 +711,7 @@ try {
     'dcbarreljackfaces',
     'stfiberadapterfaces',
     'to92packagefaces',
+    'projectilearcs',
     'isbn10checks',
     'runlengthrows',
     'graphcoloring',
