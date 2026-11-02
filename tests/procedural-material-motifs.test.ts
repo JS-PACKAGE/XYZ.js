@@ -15706,3 +15706,118 @@ describe('draughtsposition: a draughts position', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('multiplicationtable: a times table', () => {
+  const p = proceduralMaterialPresets.multiplicationtable;
+  const cells = p.factors + 1;
+  const cell = (1 - 2 * p.margin) / cells;
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'lists the factors along the edges and every product inside, squares highlighted (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('multiplicationtable', seed),
+        out = empty(),
+        at = (col: number, row: number, fx: number, fy: number): number => {
+          sample(
+            p.margin + (col + fx) * cell,
+            p.margin + (row + fy) * cell,
+            out,
+          );
+          return out.color;
+        },
+        pixel = p.digitFraction;
+      const read = (col: number, row: number): number | null => {
+        // Ink differs strongly from the cell's own tone (dark digits on light cells, light digits on the header).
+        const background = at(col, row, 0.06, 0.06),
+          ink: boolean[][] = [];
+        for (let c = -3; c <= 3; c++) {
+          const column: boolean[] = [];
+          for (let r = -2; r <= 2; r++)
+            column.push(
+              Math.abs(
+                at(col, row, 0.5 + c * pixel, 0.5 + r * pixel) - background,
+              ) > 0.4,
+            );
+          ink.push(column);
+        }
+        if (!ink.some((column) => column.some(Boolean))) return null;
+        const glyphAt = (first: number): number => {
+          const rows = [0, 1, 2, 3, 4].map((y) =>
+            [0, 1, 2].map((x) => (ink[first + 3 + x][y] ? '#' : '.')).join(''),
+          );
+          return art.findIndex((shape) =>
+            shape.every((line, i) => line === rows[i]),
+          );
+        };
+        const digits = ink[3].some(Boolean)
+          ? [glyphAt(-1)]
+          : [glyphAt(-3), glyphAt(1)];
+        for (const digit of digits) expect(digit).toBeGreaterThanOrEqual(0);
+        return digits.reduce((sum, digit) => sum * 10 + digit, 0);
+      };
+      // The corner cell is blank; the header cells are dark with light digits.
+      expect(read(0, 0)).toBeNull();
+      expect(at(0, 0, 0.06, 0.06)).toBeLessThan(0.3);
+      for (let i = 1; i < cells; i++) {
+        expect(read(i, 0)).toBe(i);
+        expect(read(0, i)).toBe(i);
+        expect(at(i, 0, 0.06, 0.06)).toBeLessThan(0.3);
+      }
+      for (let row = 1; row < cells; row++)
+        for (let col = 1; col < cells; col++) {
+          expect(read(col, row)).toBe(col * row);
+          // Squares sit on the diagonal and have a slightly darker background than the other products.
+          const background = at(col, row, 0.06, 0.06);
+          expect(background < 0.85).toBe(col === row);
+        }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('multiplicationtable', 0),
+      b = createSurfaceSampler('multiplicationtable', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

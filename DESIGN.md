@@ -1613,6 +1613,10 @@
 
 這是作者設計的示意：不是合法的對局狀態——棋子位置是隨機的，不保證符合任何走子歷史（例如兵可能出現在對方的底線而沒有升王，兩方的棋子也可能混在同一個區域）；也沒有表示輪到誰走；顏色只有明度（淡色棋與淺色格的對比小，炭黑棋與深色格的對比也有限）；木紋只是低振幅雜訊。預設0.5 m nominal tile、0.006 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`multiplicationtable`（乘法表／times table）使目前目錄1011→1012種，含plain的gallery為1013項。每tile是一張9×9的乘法表：第一列與第一欄是深色底、反白點陣數字的因數1至9（左上角空白），其餘81格是對應的乘積（1至81，個位數置中、兩位數以3×5字形並排），對角線上的平方數（1、4、9、…、81）底色稍暗。表格以淺紙色為底，細格線。內容是確定的，不隨seed改變；seed只影響紙張的細微雜訊。Metallic與mortar為0。
+
+這是作者設計的示意：因數只到9（不是12×12的常見大表）；因為內容固定、不同seed只有雜訊差異；點陣數字在小尺寸下難以辨識。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

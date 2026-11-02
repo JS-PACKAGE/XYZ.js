@@ -29093,6 +29093,82 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'multiplicationtable': {
+        const p = proceduralMaterialPresets.multiplicationtable,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2be01),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          cells = p.factors + 1,
+          side = 1 - 2 * p.margin,
+          cell = side / cells,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5));
+        return () => {
+          const lx = u - p.margin,
+            ly = v - p.margin;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            rough: number = p.paperRoughness,
+            line = 0,
+            glyph = 0,
+            inkTone: number = p.inkTone;
+          if (lx >= 0 && ly >= 0 && lx < side && ly < side) {
+            const col = Math.min(cells - 1, Math.floor(lx / cell)),
+              row = Math.min(cells - 1, Math.floor(ly / cell)),
+              fx = lx / cell - col,
+              fy = ly / cell - row,
+              header = col === 0 || row === 0,
+              // The first row and column list the factors 1..factors; the rest hold the products.
+              value = header ? Math.max(col, row) : col * row;
+            line = cover(
+              p.lineHalf -
+                Math.min(Math.min(fx, 1 - fx), Math.min(fy, 1 - fy)) * cell,
+            );
+            if (header) {
+              tone = p.headerTone;
+              level = p.headerHeight;
+              rough = p.headerRoughness;
+              inkTone = p.headerInkTone;
+            } else {
+              tone = col === row ? p.squareTone : p.cellTone;
+              level = col === row ? p.squareHeight : p.cellHeight;
+            }
+            // Pixel column and row of the dot matrix from the cell centre: one digit is centred (columns -1..1),
+            // two digits sit either side of a one-pixel gap (columns -3..-1 and 1..3). The corner cell stays blank.
+            const pixel = p.digitFraction,
+              px = Math.floor((fx - 0.5 + 0.5 * pixel) / pixel),
+              py = Math.floor((fy - 0.5 + 0.5 * pixel) / pixel) + 2,
+              digits =
+                value >= 10 ? [Math.floor(value / 10), value % 10] : [value];
+            if (value > 0 && py >= 0 && py < 5)
+              for (let k = 0; k < digits.length; k++) {
+                const gx = px - (digits.length === 1 ? -1 : 4 * k - 3);
+                if (gx >= 0 && gx < 3 && glyphs[digits[k]][py * 3 + gx] === '1')
+                  glyph = 1;
+              }
+          }
+          const base = tone + (p.lineTone - tone) * line;
+          color = clamp(
+            base +
+              (inkTone - base) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * glyph);
+          roughness = rough + (p.inkRoughness - rough) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -56622,6 +56698,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'multiplicationtable' ||
     kind === 'draughtsposition' ||
     kind === 'colormapregions' ||
     kind === 'chinesecheckersboard' ||
