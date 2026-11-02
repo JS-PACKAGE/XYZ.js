@@ -12358,3 +12358,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增專屬測試（四seed的node盤面與獨立龍形曲線比對、統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Dragon curve as|dragoncurve|kinds|catalog|distinct|periodic"`定向測試**2252項通過／3865項未選**。
 - 未驗證：mandelbrottiles、juliatiles、dragoncurve未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：因數個數表（divisorcount）
+
+- 範圍：新增`divisorcount`（目前目錄975→976種，含plain的gallery 977項）：48×48個圓角方塊磚，第(col, row)格代表`n = row × 48 + col + 1`（1到2304），色調為`0.14 + 0.7·(d(n)/40)^0.75`（`d(n)`為因數個數；質數342個偏暗，最大`d`為`n = 1680`的40）；每列48格是12的倍數，12的倍數形成亮直條；seed沿環面平移整張表；磚縫AO 0.6；roughness恆為0.4；預設0.3 m nominal tile、0.0008 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整紀錄（誠實紀錄）：第一版色調用開平方（指數0.5），預覽上大部分格子太接近、整體單調，改為指數0.75（新增`toneExponent`欄位）；只看了這兩版預覽，沒有掃描其他指數。
+- 實測（工具實跑）：256²取樣（seed 0／1／0xffffffff）亮處（color>0.5）占5.58%–6.13%、color 0.0252–0.0258至0.8466–0.8502、平均0.2529–0.2565、AO最低0.6、height至多0.8372–0.8389 relief；512²取樣（seed 0／1／0xffffffff／7）亮處占5.70%–5.98%；2,304個磚中心的顏色與測試中以試除法獨立算出的因數個數表在唯一一個環面平移下一致（(6, 14)、(45, 46)、(4, 3)、(43, 5)，最大誤差約0.0149–0.0150）；seed 0與1的亮區遮罩11.3%像素不同；seed 7的512²maps平均r／g／b約(41.4, 75.7, 78.2)、法線tilt²最大約0.0280、z分量最小253。我實看了預覽（seed 7）。
+- 測試：新增5項專屬測試（逐磚比對、質數342個且最大因數個數為40（n = 1680）、統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Divisor count as|divisorcount|kinds|catalog|distinct|periodic"`定向測試**2254項通過／3868項未選**。
+- 未驗證：mandelbrottiles、juliatiles、dragoncurve、divisorcount未跑瀏覽器gallery；divisorcount未跑完整suite；不push。

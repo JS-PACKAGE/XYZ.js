@@ -990,7 +990,8 @@ export type ProceduralMaterialKind =
   | 'rhodoneatable'
   | 'mandelbrottiles'
   | 'juliatiles'
-  | 'dragoncurve';
+  | 'dragoncurve'
+  | 'divisorcount';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2215,6 +2216,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'mandelbrottiles',
   'juliatiles',
   'dragoncurve',
+  'divisorcount',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
