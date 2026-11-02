@@ -12938,3 +12938,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過（型別修正後）。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Chess queens as|chessqueens|kinds|catalog|distinct|periodic"`定向測試**2370項通過／4055項未選**。
 - 未驗證：paperfolding、rudinshapiro、graecolatin、thuemorse與chessqueens未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-03 完整suite與gallery檢查（至chessqueens）
+
+- 完整suite（工具實跑，commit `719419db4`，獨立乾淨worktree，期間沒有同時進行其他重負載工作）：**179個測試檔、10,354項測試全部通過，耗時1041.17 s**。上一次完整suite為`c0170767e`的10,329項；之後新增paperfolding、rudinshapiro、graecolatin、thuemorse、chessqueens各5項（含kinds清單條目），合計25項，與增量一致（10,329 + 25 = 10,354）。
+- 瀏覽器gallery（headless Chrome，WebGPU與`?renderer=webgl2`各一次，`/examples/pbr3d/`）：這次依上一輪的教訓，**開頁後閒置250 s等範例頁面完成初始化**才開始選取；依序選取`paperfolding`、`rudinshapiro`、`graecolatin`、`thuemorse`、`chessqueens`，五者皆出現`Material <kind> `讀數（各約30–54 ms）、readout顯示1032種、選單1033個選項，console error 0。此檢查只涵蓋「可選取、讀數更新、無console錯誤」，**沒有在gallery中逐一目視截圖**。
+- 未驗證：不push；其他瀏覽器、真機GPU差異與效能未量測。
