@@ -1709,6 +1709,10 @@
 
 這是作者設計的示意：只有這九個k值、振幅固定、沒有旋轉相位；沒有顯示公式或標示；分數k的曲線要走過多圈才閉合（分母乘以2π），取樣器對每個像素在2×分母個半圈上求出到曲線的距離估計，所以在花瓣交會處線寬可能略有差異。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`cassiniovals`（卡西尼卵形線）使目前目錄1035→1036種，含plain的gallery為1037項。每tile以兩個焦點為中心，畫出一族卡西尼卵形線：曲線上每一點到兩焦點的距離之積 |PF₁|·|PF₂| = b² 是常數，b = 比例 × a（a為兩焦點間距的一半，由seed從0.13、0.18、0.23 UV挑一種），比例取0.4、0.7、0.9、1、1.15、1.35、1.6。比例小於1時曲線分成兩個各自包住一個焦點的卵形；比例等於1時是伯努利雙紐線（8字形，畫得較粗）；比例大於1時是包住兩個焦點的單一曲線。兩個焦點以小圓點標出。Metallic與mortar為0。
+
+這是作者設計的示意：只有這7個比例、固定水平放置、沒有座標軸或標示；線寬以隱函數的一階距離估計軟化（在兩焦點的中點，梯度為零，我加了下限1e-6避免除以零，見下方紀錄）；只在三種焦距裡擇一。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

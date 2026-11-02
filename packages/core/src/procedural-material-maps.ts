@@ -31328,6 +31328,60 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'cassiniovals': {
+        const p = proceduralMaterialPresets.cassiniovals,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2d601),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          half =
+            p.halfSeparations[
+              Math.min(
+                p.halfSeparations.length - 1,
+                Math.floor(
+                  hash(1, 1, seed ^ 0x2d602) * p.halfSeparations.length,
+                ),
+              )
+            ];
+        return () => {
+          // Cassini ovals are the curves on which the product of the distances to two foci is constant.
+          const dxLeft = u - (0.5 - half),
+            dxRight = u - (0.5 + half),
+            dy = v - 0.5,
+            r1 = Math.hypot(dxLeft, dy),
+            r2 = Math.hypot(dxRight, dy),
+            product = r1 * r2,
+            // Gradient of r1 r2 is r2 * (unit vector from focus 1) + r1 * (unit vector from focus 2).
+            gx = (r2 * dxLeft) / (r1 || 1) + (r1 * dxRight) / (r2 || 1),
+            gy = (r2 * dy) / (r1 || 1) + (r1 * dy) / (r2 || 1),
+            slope = Math.max(Math.hypot(gx, gy), 1e-6);
+          let curve = 0;
+          p.ratios.forEach((ratio) => {
+            const target = (ratio * half) ** 2,
+              width = ratio === 1 ? p.lemniscateHalf : p.curveHalf;
+            curve = Math.max(
+              curve,
+              cover(width - Math.abs(product - target) / slope),
+            );
+          });
+          curve = Math.max(
+            curve,
+            cover(p.focusRadius - r1),
+            cover(p.focusRadius - r2),
+          );
+          color = clamp(
+            p.paperTone +
+              (p.curveTone - p.paperTone) * curve +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.paperHeight + (p.curveHeight - p.paperHeight) * curve,
+          );
+          roughness =
+            p.paperRoughness + (p.curveRoughness - p.paperRoughness) * curve;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -58857,6 +58911,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'cassiniovals' ||
     kind === 'rosecurves' ||
     kind === 'conicsections' ||
     kind === 'cantorsetrows' ||

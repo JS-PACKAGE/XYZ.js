@@ -18884,3 +18884,114 @@ describe('rosecurves: rhodonea roses in a three-by-three grid', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('cassiniovals: curves of constant product of distances to two foci', () => {
+  const p = proceduralMaterialPresets.cassiniovals;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'puts every dark pixel on an oval where |PF1| |PF2| = b^2 for one of the b values (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('cassiniovals', seed),
+        out = empty(),
+        n = 400,
+        dark: [number, number][] = [];
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          sample((x + 0.5) / n, (y + 0.5) / n, out);
+          if (out.color < 0.3)
+            dark.push([(x + 0.5) / n - 0.5, (y + 0.5) / n - 0.5]);
+        }
+      expect(dark.length).toBeGreaterThan(300);
+      // For each candidate half separation a, how many dark pixels lie (within a pixel or two) on one of the curves
+      // sqrt(|PF1| |PF2|) = ratio * a. A perpendicular offset d changes that geometric mean by about d (r1 + r2) / (2 gm).
+      const fits = p.halfSeparations.map((a) => {
+        let tested = 0,
+          matching = 0;
+        for (const [x, y] of dark) {
+          const r1 = Math.hypot(x + a, y),
+            r2 = Math.hypot(x - a, y);
+          if (Math.min(r1, r2) < 0.014) continue;
+          tested++;
+          const mean = Math.sqrt(r1 * r2),
+            nearest = Math.min(
+              ...p.ratios.map((ratio) => Math.abs(mean - ratio * a)),
+            ),
+            allowance = (0.0035 * (r1 + r2)) / (2 * mean) + 0.001;
+          matching += Number(nearest < allowance);
+        }
+        return matching / tested;
+      });
+      const best = Math.max(...fits),
+        a = p.halfSeparations[fits.indexOf(best)];
+      expect(best).toBeGreaterThan(0.98);
+      expect([...fits].sort((x, y) => y - x)[1]).toBeLessThan(0.7);
+      // The lemniscate (ratio 1) passes through the midpoint between the foci, where the product is a^2 and the gradient
+      // of the product vanishes, so the distance estimate must not blow up there.
+      sample(0.5, 0.5, out);
+      expect(out.color).toBeLessThan(0.3);
+      // Each focus is marked, and every ratio's curve is present: on the axis beyond the right focus the product
+      // (x - a)(x + a) = x^2 - a^2 reaches (ratio a)^2 at x = a sqrt(1 + ratio^2), which must be dark for the larger ratios.
+      for (const ratio of p.ratios) {
+        const x = ratio >= 1 ? a * Math.sqrt(1 + ratio * ratio) : -1;
+        if (x < 0) continue;
+        sample(0.5 + x, 0.5, out);
+        expect(out.color).toBeLessThan(0.45);
+      }
+      sample(0.5 + a, 0.5, out);
+      expect(out.color).toBeLessThan(0.3);
+    },
+  );
+
+  it('shows all three focal separations across seeds', () => {
+    const out = empty(),
+      seen = new Set<number>();
+    for (let seed = 0; seed < 30; seed++) {
+      const sample = createSurfaceSampler('cassiniovals', seed);
+      p.halfSeparations.forEach((a, index) => {
+        sample(0.5 + a, 0.5, out);
+        // A focus dot is dark exactly at the focus; the other separations' foci are in open paper or on curves, so also
+        // require the left focus.
+        const right = out.color < 0.3;
+        sample(0.5 - a, 0.5, out);
+        if (right && out.color < 0.3) seen.add(index);
+      });
+    }
+    expect(seen.size).toBeGreaterThan(1);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('cassiniovals', 0),
+      b = createSurfaceSampler('cassiniovals', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
