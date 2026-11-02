@@ -29878,6 +29878,61 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'fouriersquarewaves': {
+        const p = proceduralMaterialPresets.fouriersquarewaves,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2c601),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // The partial sum of the square wave's Fourier series with n odd harmonics, (4/pi) * sum sin(k t) / k
+          // for k = 1, 3, ..., 2n - 1, and its slope in t.
+          wave = (terms: number, phase: number): [number, number] => {
+            let value = 0,
+              slope = 0;
+            for (let k = 1; k <= 2 * terms - 1; k += 2) {
+              value += Math.sin(k * phase) / k;
+              slope += Math.cos(k * phase);
+            }
+            return [(4 / Math.PI) * value, (4 / Math.PI) * slope];
+          };
+        return () => {
+          const row = Math.floor((v - p.top) / p.panelHeight);
+          let panel = 0,
+            axis = 0,
+            reference = 0,
+            curve = 0;
+          if (row >= 0 && row < p.panels) {
+            const centre = p.top + (row + 0.5) * p.panelHeight,
+              phase = 2 * Math.PI * p.periods * u,
+              [value, slope] = wave(row + 1, phase),
+              // Distance to the curve, corrected for its slope; the curve sits a gain of amplitude from its axis.
+              dv = v - (centre - p.amplitude * value),
+              dvdu = -p.amplitude * slope * 2 * Math.PI * p.periods,
+              distance = Math.abs(dv) / Math.sqrt(1 + dvdu * dvdu);
+            panel = 1;
+            axis = cover(p.axisHalf - Math.abs(v - centre));
+            // The ideal square wave's two levels for reference, as faint rules.
+            reference = Math.max(
+              cover(p.refHalf - Math.abs(v - (centre - p.amplitude))),
+              cover(p.refHalf - Math.abs(v - (centre + p.amplitude))),
+            );
+            curve = cover(p.curveHalf - distance);
+          }
+          const base = p.paperTone + (p.panelTone - p.paperTone) * panel,
+            withAxis = base + (p.axisTone - base) * axis,
+            withReference = withAxis + (p.refTone - withAxis) * reference,
+            tone = withReference + (p.curveTone - withReference) * curve;
+          color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(
+            p.paperHeight +
+              (p.panelLevel - p.paperHeight) * panel +
+              (p.curveHeight - p.panelLevel) * curve,
+          );
+          roughness =
+            p.paperRoughness + (p.curveRoughness - p.paperRoughness) * curve;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -57407,6 +57462,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'fouriersquarewaves' ||
     kind === 'truthtablelogic' ||
     kind === 'barchartbars' ||
     kind === 'regressionscatter' ||

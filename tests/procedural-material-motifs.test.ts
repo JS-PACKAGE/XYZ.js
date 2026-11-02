@@ -16728,3 +16728,93 @@ describe('truthtablelogic: the truth table of a four-input Boolean function', ()
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('fouriersquarewaves: square waves rebuilt from one to six harmonics', () => {
+  const p = proceduralMaterialPresets.fouriersquarewaves;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws each panel as the partial Fourier sum of a square wave, with more ripple and a steeper edge as harmonics are added (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('fouriersquarewaves', seed),
+        out = empty(),
+        step = 0.0005,
+        // (4 / pi) * sum over odd k up to 2n - 1 of sin(k t) / k, written out here independently of the sampler.
+        partial = (terms: number, t: number): number => {
+          let sum = 0;
+          for (let m = 0; m < terms; m++)
+            sum += Math.sin((2 * m + 1) * t) / (2 * m + 1);
+          return (4 / Math.PI) * sum;
+        },
+        overshoots: number[] = [];
+      for (let panel = 0; panel < p.panels; panel++) {
+        const centre = p.top + (panel + 0.5) * p.panelHeight;
+        let compared = 0,
+          highest = -Infinity;
+        for (let column = 0; column < 400; column++) {
+          const u = (column + 0.5) / 400,
+            dark: number[] = [];
+          for (
+            let v = centre - p.panelHeight / 2 + 0.002;
+            v < centre + p.panelHeight / 2 - 0.002;
+            v += step
+          ) {
+            sample(u, v, out);
+            if (out.color < 0.3) dark.push(v);
+          }
+          expect(dark.length).toBeGreaterThan(0);
+          const value = partial(panel + 1, 2 * Math.PI * p.periods * u),
+            expected = centre - p.amplitude * value;
+          highest = Math.max(highest, value);
+          // Where the curve is steep its dark run is tall; compare only the shallow stretches.
+          if (dark.length * step > 0.0075) continue;
+          const middle = dark.reduce((sum, v) => sum + v, 0) / dark.length;
+          expect(Math.abs(middle - expected)).toBeLessThan(0.0015);
+          compared++;
+        }
+        expect(compared).toBeGreaterThan(150);
+        overshoots.push(highest);
+      }
+      // One harmonic is a plain sine (amplitude 4/pi); with more of them the plateau ripples and the first overshoot
+      // approaches the Gibbs value of about 1.179 of the square wave's level.
+      expect(overshoots[0]).toBeCloseTo(4 / Math.PI, 1);
+      expect(overshoots[p.panels - 1]).toBeGreaterThan(1.1);
+      expect(overshoots[p.panels - 1]).toBeLessThan(1.2);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('fouriersquarewaves', 0),
+      b = createSurfaceSampler('fouriersquarewaves', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
