@@ -1593,6 +1593,10 @@
 
 這是作者設計的示意：不是遊戲規則驗證——分配是隨機的，不代表任何合法的Mancala對局狀態（真實對局的石子分佈取決於雙方走法）；也沒有畫出玩家標記或對戰方向；石子小（半徑約0.0125個tile寬），在小尺寸下難以辨識；顏色只有明度（木色由暗到亮的線性色帶）。預設0.6 m nominal tile、0.006 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`hidatochain`（數字連鎖謎題／Hidato）使目前目錄1006→1007種，含plain的gallery為1008項。每tile是一個7×7已解開的Hidato盤面：49格各寫一個1至49的點陣數字（單位數置中、兩位數以3×5字形並排），每個數字恰好出現一次，且相鄰的兩個數字k與k+1必定在上下左右或斜角相鄰（國王走法），所以1到49連成一條走遍全盤的路徑。起點「1」與終點「49」以深色底、反白數字標示，另有約22%的格子底色稍暗（模擬「給定的數字」）。路徑由seed以回溯搜尋產生：從隨機的起點出發，每一步優先走「之後可走的空格最少」的相鄰格（Warnsdorff規則，同分以雜湊決定）。Metallic與mortar為0。
+
+這是作者設計的示意：畫面是填好全部數字的盤面，真正的Hidato只給部分數字；底色較暗的「給定」格只是隨機裝飾，與題目是否有唯一解無關；不保證只有唯一解；回溯搜尋有節點上限（100000個），我對300個seed加九個測試seed都找得到解（獨立腳本量測的最大節點數約2650），若超過上限盤面會停在未走完的路徑上，未驗證其外觀；7×7固定。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

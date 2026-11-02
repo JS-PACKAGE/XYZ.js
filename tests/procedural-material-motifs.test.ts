@@ -15126,3 +15126,125 @@ describe('mancalaboard: a mid-game Mancala board', () => {
     expect(different).toBeGreaterThan(20);
   });
 });
+
+describe('hidatochain: a solved Hidato', () => {
+  const p = proceduralMaterialPresets.hidatochain;
+  const n = p.size;
+  const total = n * n;
+  const cell = (1 - 2 * p.margin) / n;
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'numbers every cell once so that consecutive numbers are king-move neighbours (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('hidatochain', seed),
+        out = empty(),
+        at = (col: number, row: number, fx: number, fy: number): number => {
+          sample(
+            p.margin + (col + fx) * cell,
+            p.margin + (row + fy) * cell,
+            out,
+          );
+          return out.color;
+        },
+        pixel = p.digitFraction,
+        value: number[] = [],
+        dark: boolean[] = [];
+      for (let row = 0; row < n; row++)
+        for (let col = 0; col < n; col++) {
+          const background = at(col, row, 0.06, 0.06);
+          dark.push(background < 0.5);
+          // The 7 x 5 pixel field around the cell centre; ink differs strongly from the cell's own tone.
+          const ink: boolean[][] = [];
+          for (let c = -3; c <= 3; c++) {
+            const column: boolean[] = [];
+            for (let r = -2; r <= 2; r++)
+              column.push(
+                Math.abs(
+                  at(col, row, 0.5 + c * pixel, 0.5 + r * pixel) - background,
+                ) > 0.4,
+              );
+            ink.push(column);
+          }
+          const glyphAt = (first: number): number => {
+            const rows = [0, 1, 2, 3, 4].map((y) =>
+              [0, 1, 2]
+                .map((x) => (ink[first + 3 + x][y] ? '#' : '.'))
+                .join(''),
+            );
+            return art.findIndex((shape) =>
+              shape.every((line, i) => line === rows[i]),
+            );
+          };
+          // Ink in the middle column means one centred digit; otherwise two digits either side of a gap.
+          const single = ink[3].some(Boolean),
+            digits = single ? [glyphAt(-1)] : [glyphAt(-3), glyphAt(1)];
+          for (const digit of digits) expect(digit).toBeGreaterThanOrEqual(0);
+          value.push(digits.reduce((sum, digit) => sum * 10 + digit, 0));
+        }
+      expect([...value].sort((a, b) => a - b)).toEqual(
+        Array.from({ length: total }, (_, i) => i + 1),
+      );
+      const where = (k: number): [number, number] => {
+        const index = value.indexOf(k);
+        return [index % n, Math.floor(index / n)];
+      };
+      for (let k = 1; k < total; k++) {
+        const [ax, ay] = where(k),
+          [bx, by] = where(k + 1);
+        expect(Math.max(Math.abs(ax - bx), Math.abs(ay - by))).toBe(1);
+      }
+      // Only the first and last cells are drawn dark.
+      expect(dark.filter(Boolean).length).toBe(2);
+      expect(dark[value.indexOf(1)]).toBe(true);
+      expect(dark[value.indexOf(total)]).toBe(true);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('hidatochain', 0),
+      b = createSurfaceSampler('hidatochain', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

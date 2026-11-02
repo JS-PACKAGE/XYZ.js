@@ -28584,6 +28584,133 @@ export function createSurfaceSampler(
           occlusion = 1 - 0.35 * hole * (1 - stone);
         };
       }
+      case 'hidatochain': {
+        const p = proceduralMaterialPresets.hidatochain,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2b901),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          n = p.size,
+          total = n * n,
+          side = 1 - 2 * p.margin,
+          cell = side / n,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          numbers = new Int16Array(total),
+          // The up to eight king-move neighbours of a cell.
+          neighbours = (index: number): number[] => {
+            const x = index % n,
+              y = Math.floor(index / n),
+              list: number[] = [];
+            for (let dy = -1; dy <= 1; dy++)
+              for (let dx = -1; dx <= 1; dx++)
+                if (
+                  (dx !== 0 || dy !== 0) &&
+                  x + dx >= 0 &&
+                  y + dy >= 0 &&
+                  x + dx < n &&
+                  y + dy < n
+                )
+                  list.push((y + dy) * n + x + dx);
+            return list;
+          };
+        let nodes = 0;
+        // A path through every cell by king moves, found by backtracking with the Warnsdorff rule
+        // (visit the neighbour with the fewest onward moves first, ties broken by a hash).
+        const extend = (index: number, step: number): boolean => {
+          numbers[index] = step;
+          if (step === total) return true;
+          if (++nodes > p.nodeLimit) return false;
+          const options = neighbours(index)
+            .filter((other) => numbers[other] === 0)
+            .map((other) => ({
+              other,
+              onward: neighbours(other).filter((q) => numbers[q] === 0).length,
+              tie: hash(other, nodes, seed ^ 0x2b903),
+            }))
+            .sort((a, b) => a.onward - b.onward || a.tie - b.tie);
+          for (const { other } of options) {
+            if (extend(other, step + 1)) return true;
+            if (nodes > p.nodeLimit) return false;
+          }
+          numbers[index] = 0;
+          return false;
+        };
+        extend(
+          Math.min(total - 1, Math.floor(hash(1, 2, seed ^ 0x2b905) * total)),
+          1,
+        );
+        const given = Array.from(
+          { length: total },
+          (_, index) =>
+            numbers[index] === 1 ||
+            numbers[index] === total ||
+            hash(index, 9, seed ^ 0x2b907) < p.givenChance,
+        );
+        return () => {
+          const lx = u - p.margin,
+            ly = v - p.margin;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            rough: number = p.paperRoughness,
+            line = 0,
+            glyph = 0,
+            inkTone: number = p.inkTone;
+          if (lx >= 0 && ly >= 0 && lx < side && ly < side) {
+            const col = Math.min(n - 1, Math.floor(lx / cell)),
+              row = Math.min(n - 1, Math.floor(ly / cell)),
+              index = row * n + col,
+              fx = lx / cell - col,
+              fy = ly / cell - row,
+              value = numbers[index],
+              isEnd = value === 1 || value === total;
+            tone = isEnd ? p.endTone : given[index] ? p.givenTone : p.cellTone;
+            level = isEnd
+              ? p.endHeight
+              : given[index]
+                ? p.givenHeight
+                : p.cellHeight;
+            rough = isEnd ? p.endRoughness : p.paperRoughness;
+            inkTone = isEnd ? p.endInkTone : p.inkTone;
+            line = cover(
+              p.lineHalf -
+                Math.min(Math.min(fx, 1 - fx), Math.min(fy, 1 - fy)) * cell,
+            );
+            // Pixel column and row of the dot matrix, counted from the cell centre. One digit is centred
+            // (columns -1..1); two digits sit either side of a one-pixel gap (columns -3..-1 and 1..3).
+            const pixel = p.digitFraction,
+              px = Math.floor((fx - 0.5 + 0.5 * pixel) / pixel),
+              py = Math.floor((fy - 0.5 + 0.5 * pixel) / pixel) + 2,
+              digits =
+                value >= 10 ? [Math.floor(value / 10), value % 10] : [value];
+            if (py >= 0 && py < 5)
+              for (let k = 0; k < digits.length; k++) {
+                const gx = px - (digits.length === 1 ? -1 : 4 * k - 3);
+                if (gx >= 0 && gx < 3 && glyphs[digits[k]][py * 3 + gx] === '1')
+                  glyph = 1;
+              }
+          }
+          const base = tone + (p.lineTone - tone) * line;
+          color = clamp(
+            base +
+              (inkTone - base) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * glyph);
+          roughness = rough + (p.inkRoughness - rough) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -56113,6 +56240,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'hidatochain' ||
     kind === 'mancalaboard' ||
     kind === 'rushhourjam' ||
     kind === 'numberlinkpaths' ||
