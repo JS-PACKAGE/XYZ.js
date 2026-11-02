@@ -1076,6 +1076,7 @@ try {
     'cantordust',
     'voronoicells',
     'voronoipillows',
+    'sandpileidentity',
     'vermiculation',
     'kikko',
     'kagome',

@@ -55,6 +55,50 @@ function latticeField(values: Float64Array, nx: number, ny: number) {
   };
 }
 
+const sandpileIdentities = new Map<number, Uint8Array>();
+
+/**
+ * The identity element of the abelian sandpile group of a size x size grid whose border
+ * cells lose grains to a sink: stabilise twice the all-3 configuration, subtract that result
+ * from twice the all-3 configuration and stabilise again (Dhar). A cell with 4 or more
+ * grains topples, giving one grain to each of its four neighbours; the end state does not
+ * depend on the order. The result depends only on size, so it is computed once.
+ */
+function sandpileIdentity(size: number): Uint8Array {
+  const known = sandpileIdentities.get(size);
+  if (known) return known;
+  const stabilise = (heights: Int32Array): void => {
+    const pending: number[] = [];
+    for (let i = 0; i < heights.length; i++)
+      if (heights[i] >= 4) pending.push(i);
+    while (pending.length) {
+      const i = pending.pop()!,
+        toppled = heights[i] >> 2;
+      if (!toppled) continue;
+      heights[i] -= 4 * toppled;
+      const x = i % size,
+        y = (i - x) / size;
+      for (const [exists, neighbour] of [
+        [x > 0, i - 1],
+        [x < size - 1, i + 1],
+        [y > 0, i - size],
+        [y < size - 1, i + size],
+      ] as const)
+        if (exists) {
+          heights[neighbour] += toppled;
+          if (heights[neighbour] >= 4) pending.push(neighbour);
+        }
+    }
+  };
+  const full = new Int32Array(size * size).fill(6);
+  stabilise(full);
+  const remainder = full.map((height) => 6 - height);
+  stabilise(remainder);
+  const identity = Uint8Array.from(remainder);
+  sandpileIdentities.set(size, identity);
+  return identity;
+}
+
 /** Immutable periodic lattice: architectural seed work is paid once per sampler. */
 function cachedNoise(nx: number, ny: number, seed: number) {
   const values = new Float64Array(nx * ny);
@@ -41005,6 +41049,40 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'sandpileidentity': {
+        const p = proceduralMaterialPresets.sandpileidentity,
+          identity = sandpileIdentity(p.size),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 1),
+          ),
+          shiftX = Math.floor(hash(0, 0, seed ^ p.seedSalt) * p.size),
+          shiftY = Math.floor(hash(1, 0, seed ^ p.seedSalt) * p.size),
+          // One lattice per threshold "height >= level" (levels 1 to 3), each shifted around
+          // the torus by the seed; the tone is the number of thresholds a cell passes.
+          fields = [1, 2, 3].map((level) => {
+            const values = new Float64Array(p.size * p.size);
+            for (let y = 0; y < p.size; y++)
+              for (let x = 0; x < p.size; x++)
+                values[
+                  ((y + shiftY) % p.size) * p.size + ((x + shiftX) % p.size)
+                ] = identity[y * p.size + x] >= level ? 1 : 0;
+            return latticeField(values, p.size, p.size);
+          });
+        return () => {
+          // Each threshold map is blended with the C1 smoothstep and re-sharpened with
+          // tanh, so the four height levels keep crisp steps between them.
+          let tone = 0;
+          for (const field of fields)
+            tone += 0.5 + 0.5 * Math.tanh(p.sharpness * (field(u, v) - 0.5));
+          tone /= 3;
+          const grain = grainField(u, v);
+          color = p.baseTone + p.toneSpan * tone + p.grainTone * (grain - 0.5);
+          height = p.toneHeight * tone + p.grainHeight * grain;
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -49819,6 +49897,7 @@ export function createSurfaceSampler(
     kind === 'cantordust' ||
     kind === 'voronoicells' ||
     kind === 'voronoipillows' ||
+    kind === 'sandpileidentity' ||
     kind === 'vermiculation' ||
     kind === 'kikko' ||
     kind === 'kagome' ||

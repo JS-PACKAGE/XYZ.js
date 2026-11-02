@@ -1039,6 +1039,7 @@ const kinds: ProceduralMaterialKind[] = [
   'cantordust',
   'voronoicells',
   'voronoipillows',
+  'sandpileidentity',
   'vermiculation',
   'kikko',
   'kagome',
@@ -161639,6 +161640,260 @@ describe('Voronoi pillows as domed clay plates of jittered sites with dark seams
     expect(blue / (512 * 512)).toBeLessThan(62);
     expect(maxTilt).toBeGreaterThan(0.07);
     expect(maxTilt).toBeLessThan(0.095);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Sandpile identity as the identity element of the 64 by 64 abelian sandpile group in gold', () => {
+  const p = proceduralMaterialPresets.sandpileidentity;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const size = p.size;
+  /** Topples every cell with 4 or more grains by sweeping, written independently here: a toppling cell gives one grain to each neighbour and the border loses grains to the sink. */
+  const stabilise = (grid: number[][]): void => {
+    for (let changed = true; changed;) {
+      changed = false;
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          if (grid[y][x] < 4) continue;
+          const toppled = Math.floor(grid[y][x] / 4);
+          grid[y][x] -= 4 * toppled;
+          if (x > 0) grid[y][x - 1] += toppled;
+          if (x < size - 1) grid[y][x + 1] += toppled;
+          if (y > 0) grid[y - 1][x] += toppled;
+          if (y < size - 1) grid[y + 1][x] += toppled;
+          changed = true;
+        }
+    }
+  };
+  /** The identity element: stabilise 2 c_max - stabilise(2 c_max) with c_max = 3 everywhere. */
+  const levels = ((): number[][] => {
+    const full = Array.from({ length: size }, () =>
+      new Array<number>(size).fill(6),
+    );
+    stabilise(full);
+    const rest = full.map((row) => row.map((height) => 6 - height));
+    stabilise(rest);
+    return rest;
+  })();
+  const sharp = (value: number): number =>
+    0.5 + 0.5 * Math.tanh(p.sharpness * value);
+  /** Colour at a lattice node (without grain) for a lattice shifted by (shiftX, shiftY). */
+  const expectedColor = (
+    x: number,
+    y: number,
+    shiftX: number,
+    shiftY: number,
+  ): number => {
+    const level =
+      levels[(y - shiftY + size) % size][(x - shiftX + size) % size];
+    let tone = 0;
+    for (const threshold of [1, 2, 3])
+      tone += sharp(level >= threshold ? 0.5 : -0.5);
+    return p.baseTone + (p.toneSpan * tone) / 3;
+  };
+  /** Colour of every lattice node, read at the nodes. */
+  const nodeColors = (seed: number): number[] => {
+    const sample = createSurfaceSampler('sandpileidentity', seed),
+      out = empty(),
+      colors: number[] = [];
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample(x / size, y / size, out);
+        colors.push(out.color);
+      }
+    return colors;
+  };
+  /** Torus shifts that reproduce every node colour to within the grain. */
+  const fittingShifts = (colors: number[]): [number, number][] => {
+    const fits: [number, number][] = [];
+    for (let sy = 0; sy < size; sy++)
+      for (let sx = 0; sx < size; sx++) {
+        let worst = 0;
+        for (let y = 0; y < size && worst < 0.03; y++)
+          for (let x = 0; x < size; x++)
+            worst = Math.max(
+              worst,
+              Math.abs(colors[y * size + x] - expectedColor(x, y, sx, sy)),
+            );
+        if (worst < 0.03) fits.push([sx, sy]);
+      }
+    return fits;
+  };
+  it('draws the 64 by 64 sandpile identity at exactly one torus shift and keeps the tones bounded', () => {
+    // The identity has 396 cells of height 0, 152 of height 1, 1476 of height 2 and 2072 of
+    // height 3, is mirror and transpose symmetric, and adding it to itself and toppling gives
+    // it back (e + e = e), which is what makes it the identity of the group.
+    const counts = [0, 0, 0, 0];
+    for (const row of levels) for (const height of row) counts[height]++;
+    expect(counts).toEqual([396, 152, 1476, 2072]);
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        expect(levels[y][x]).toBe(levels[y][size - 1 - x]);
+        expect(levels[y][x]).toBe(levels[size - 1 - y][x]);
+        expect(levels[y][x]).toBe(levels[x][y]);
+      }
+    const doubled = levels.map((row) => row.map((height) => 2 * height));
+    stabilise(doubled);
+    expect(doubled).toEqual(levels);
+    for (const seed of [0, 1, 0xffffffff, 7]) {
+      const sample = createSurfaceSampler('sandpileidentity', seed),
+        a = empty(),
+        nodes = nodeColors(seed);
+      expect(fittingShifts(nodes)).toHaveLength(1);
+      // Cells of height 2 or 3 pass two or three thresholds and are bright.
+      expect(nodes.filter((color) => color > 0.5)).toHaveLength(3548);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.036);
+      expect(low).toBeLessThan(0.038);
+      expect(high).toBeGreaterThan(0.78);
+      expect(high).toBeLessThan(0.79);
+      expect(dark / 65536).toBeGreaterThan(0.862);
+      expect(dark / 65536).toBeLessThan(0.864);
+      expect(mean / 65536).toBeGreaterThan(0.602);
+      expect(mean / 65536).toBeLessThan(0.604);
+      expect(roughLow).toBeCloseTo(p.roughness, 6);
+      expect(roughHigh).toBeCloseTo(p.roughness, 2);
+      expect(heightHigh).toBeGreaterThan(0.98);
+      expect(heightHigh).toBeLessThanOrEqual(1);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('shifts the curve per seed and is deterministic for one seed', () => {
+    const first = nodeColors(0).map((color) => color > 0.5),
+      second = nodeColors(1).map((color) => color > 0.5);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.2);
+    expect(different / first.length).toBeLessThan(0.27);
+    expect(nodeColors(0).map((color) => color > 0.5)).toEqual(first);
+  });
+  it('keeps the trace edges, glow and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('sandpileidentity', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [size, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 gold maps with gentle trace normals', () => {
+    const maps = generateProceduralMaps('sandpileidentity', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(163);
+    expect(red / (512 * 512)).toBeLessThan(167);
+    expect(green / (512 * 512)).toBeGreaterThan(142);
+    expect(green / (512 * 512)).toBeLessThan(146);
+    expect(blue / (512 * 512)).toBeGreaterThan(92);
+    expect(blue / (512 * 512)).toBeLessThan(96);
+    expect(maxTilt).toBeGreaterThan(0.025);
+    expect(maxTilt).toBeLessThan(0.035);
     expect(invalid).toBe(0);
   });
 });

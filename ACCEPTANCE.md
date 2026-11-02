@@ -12700,3 +12700,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5個專屬測試（`it.each`的4個seed各檢查64個板塊、每塊一個色調與圓頂高度差；色調與縫的統計；seed差異與決定性；C1＋有符號UV週期；actual512 maps，共8個測試案例）；加上kinds清單新條目，`-t`選中的17項（含voronoicells原有8項）皆通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Voronoi pillows as|voronoipillows|Voronoi cells as|kinds|catalog|distinct|periodic"`定向測試**2335項通過／3971項未選**。
 - 未驗證：vicsekfractal、tsquarefractal、cantordust、voronoicells、voronoipillows未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：沙堆單位元（sandpileidentity）
+
+- 範圍：新增`sandpileidentity`（目前目錄1009→1010種，含plain的gallery 1011項）：64×64格阿貝爾沙堆群的單位元（Dhar的方法：每格6粒穩定化後用6相減、再穩定化；高度0到3，396／152／1,476／2,072格，鏡射與轉置皆對稱）；高度門檻1、2、3各一個`latticeField`並以tanh重新銳化，相加除以3為色調，金色深淺對應高度；seed把圖案沿環面平移；單位元以module層級快取（依大小為鍵、每個process只算一次）；預設0.5 m nominal tile、0.0008 UV-relative relief；每個sampler的cache 3×4,096 + 128² = 28,672個Float64／229,376 B，另有共用的4,096 B單位元。作者示意，沒有引用特定來源或照片、**沒有對照照片**；拼貼時會有圖案邊界形成的方框接縫（設計結果，未嘗試隱藏）。
+- 調整與紀錄：(1)預覽只看了一版。(2)我沒有查證Dhar公式的原始文獻；以「`e + e`穩定化後等於`e`」與獨立的掃描式倒塌演算法驗證，**這只證明結果滿足`e + e = e`，沒有另外驗證它對所有可復現組態為單位元**。(3)測試中途有一次失敗：從T方塊碎形測試複製的roughness期望值（約0.2）與此材質的固定roughness 0.4不符，失敗的是複製過來的期望，不是sampler；已改為檢查roughness等於preset值。(4)單位元計算在bun中約69 ms（單次量測，**不是benchmark**），我的計時腳本顯示第一次穩定化2,323,784次倒塌、第二次881,488次；每個取樣點為常數次運算，**未量測取樣耗時**。
+- 實測（工具實跑）：獨立掃描式演算法得到的單位元高度分布為396／152／1,476／2,072，左右、上下、轉置皆對稱，`e + e`穩定化後等於`e`；256²取樣（seed 0／1／0xffffffff）亮處（color>0.5）占86.28%–86.31%、color 0.0364–0.0374至0.7840–0.7844、平均0.6030–0.6031、roughness恆為0.4、AO恆為1、height至多0.9950–0.9973 relief；512²取樣（四個seed）亮處占85.87%–85.88%、color 0.0356–0.0358至0.7846–0.7847、平均0.6034–0.6036、height至多0.9984–0.9991 relief；每個seed的64×64 node恰好一種環面平移（seed 0為(52, 10)、1為(14, 48)、0xffffffff為(9, 46)、7為(6, 37)）使4,096個node顏色與獨立模型一致，最大誤差0.0150以內（門檻0.03）、亮node（高度2或3）數3,548；seed 0與1的亮node有23.3%不同；seed 7的512²maps平均r／g／b約(165.0, 143.7, 93.7)、法線tilt²最大約0.0297、z分量最小253。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試（獨立掃描式單位元、高度分布與對稱性與`e + e = e`、唯一環面平移與統計為一項；seed差異與決定性；C1＋有符號UV週期；actual512 maps），`-t`選中的5項（含kinds清單新條目）皆通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Sandpile identity as|sandpileidentity|kinds|catalog|distinct|periodic"`定向測試**2326項通過／3985項未選**。
+- 未驗證：sandpileidentity未跑完整suite與瀏覽器gallery；不push。

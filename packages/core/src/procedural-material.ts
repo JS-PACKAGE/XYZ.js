@@ -1013,6 +1013,7 @@ export type ProceduralMaterialKind =
   | 'cantordust'
   | 'voronoicells'
   | 'voronoipillows'
+  | 'sandpileidentity'
   | 'vermiculation'
   | 'kikko'
   | 'kagome'
@@ -2271,6 +2272,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'cantordust',
   'voronoicells',
   'voronoipillows',
+  'sandpileidentity',
   'vermiculation',
   'kikko',
   'kagome',

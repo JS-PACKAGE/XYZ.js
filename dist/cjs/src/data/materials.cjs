@@ -23329,6 +23329,29 @@ var proceduralMaterialPresets = Object.freeze({
 		edgeRoughness: .3,
 		edgeOcclusion: .45
 	}),
+	sandpileidentity: Object.freeze({
+		dark: [
+			28,
+			20,
+			8
+		],
+		light: [
+			255,
+			225,
+			150
+		],
+		roughness: .4,
+		relief: 8e-4,
+		seedSalt: 23197,
+		size: 64,
+		sharpness: 8,
+		grainCells: 128,
+		baseTone: .05,
+		toneSpan: .72,
+		grainTone: .03,
+		toneHeight: .8,
+		grainHeight: .2
+	}),
 	vermiculation: Object.freeze({
 		dark: [
 			60,
@@ -25324,6 +25347,7 @@ var proceduralTileMeters = Object.freeze({
 	cantordust: .5,
 	voronoicells: .4,
 	voronoipillows: .4,
+	sandpileidentity: .5,
 	vermiculation: .4,
 	kikko: .3,
 	kagome: .3,
