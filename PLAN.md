@@ -1797,6 +1797,10 @@
 
 這是作者設計的示意：只有一對等量相反的二維線電荷（不是三維點電荷的場，三維的等位線與場線不是圓），沒有電荷符號或數值標示；等位線與場線的間隔是固定的，所以靠近電荷處線非常密，會變成深色的一團；因為取座標時做了鏡射，圖形是鏡射排列的。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`numberwords`（數字的英文拼寫）使目前目錄1059→1060種，含plain的gallery為1061項。每tile是12列的表：左邊是0到99之間的整數，右邊是它的英文名稱（例如FORTY TWO、NINETY）；12個整數由seed從0到99中取12個不重複的數，依由小到大排列；奇偶列底色交替，小於20的數（名稱是單一獨立的字，不是十位加個位）的數字格底色較深。Metallic與mortar為0。
+
+這是作者設計的示意：只有0到99、美式拼寫（NINETY、FORTY），沒有連字號（複合數字以空格分開，例如TWENTY ONE）；字母是3×5點陣大寫字，某些字母（例如M與N、U與V）在小尺寸下相近。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

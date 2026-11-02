@@ -22502,3 +22502,235 @@ describe('dipolefieldlines: equipotentials and field lines of two line charges',
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('numberwords: numbers spelled out in English', () => {
+  const p = proceduralMaterialPresets.numberwords;
+  const letters: Record<string, string[]> = {
+    A: ['.#.', '#.#', '###', '#.#', '#.#'],
+    B: ['##.', '#.#', '##.', '#.#', '##.'],
+    C: ['.##', '#..', '#..', '#..', '.##'],
+    D: ['##.', '#.#', '#.#', '#.#', '##.'],
+    E: ['###', '#..', '##.', '#..', '###'],
+    F: ['###', '#..', '##.', '#..', '#..'],
+    G: ['.##', '#..', '#.#', '#.#', '.##'],
+    H: ['#.#', '#.#', '###', '#.#', '#.#'],
+    I: ['###', '.#.', '.#.', '.#.', '###'],
+    J: ['..#', '..#', '..#', '#.#', '.#.'],
+    K: ['#.#', '#.#', '##.', '#.#', '#.#'],
+    L: ['#..', '#..', '#..', '#..', '###'],
+    M: ['#.#', '###', '###', '#.#', '#.#'],
+    N: ['##.', '#.#', '#.#', '#.#', '#.#'],
+    O: ['.#.', '#.#', '#.#', '#.#', '.#.'],
+    P: ['##.', '#.#', '##.', '#..', '#..'],
+    Q: ['.#.', '#.#', '#.#', '###', '.##'],
+    R: ['##.', '#.#', '##.', '#.#', '#.#'],
+    S: ['.##', '#..', '.#.', '..#', '##.'],
+    T: ['###', '.#.', '.#.', '.#.', '.#.'],
+    U: ['#.#', '#.#', '#.#', '#.#', '###'],
+    V: ['#.#', '#.#', '#.#', '#.#', '.#.'],
+    W: ['#.#', '#.#', '###', '###', '#.#'],
+    X: ['#.#', '#.#', '.#.', '#.#', '#.#'],
+    Y: ['#.#', '#.#', '.#.', '.#.', '.#.'],
+    Z: ['###', '..#', '.#.', '#..', '###'],
+  };
+  const digitShapes: Record<string, string[]> = {
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    '2': ['###', '..#', '###', '#..', '###'],
+    '3': ['###', '..#', '###', '..#', '###'],
+    '4': ['#.#', '#.#', '###', '..#', '..#'],
+    '5': ['###', '#..', '###', '..#', '###'],
+    '6': ['###', '#..', '###', '#.#', '###'],
+    '7': ['###', '..#', '.#.', '.#.', '.#.'],
+    '8': ['###', '#.#', '###', '#.#', '###'],
+    '9': ['###', '#.#', '###', '..#', '###'],
+    ' ': ['...', '...', '...', '...', '...'],
+  };
+  const shapes: Record<string, string[]> = { ...letters, ...digitShapes };
+  // The English name of a number below 100, written here from three separate word lists.
+  const ones = [
+    '',
+    'ONE',
+    'TWO',
+    'THREE',
+    'FOUR',
+    'FIVE',
+    'SIX',
+    'SEVEN',
+    'EIGHT',
+    'NINE',
+  ];
+  const teens = [
+    'TEN',
+    'ELEVEN',
+    'TWELVE',
+    'THIRTEEN',
+    'FOURTEEN',
+    'FIFTEEN',
+    'SIXTEEN',
+    'SEVENTEEN',
+    'EIGHTEEN',
+    'NINETEEN',
+  ];
+  const decades = [
+    '',
+    '',
+    'TWENTY',
+    'THIRTY',
+    'FORTY',
+    'FIFTY',
+    'SIXTY',
+    'SEVENTY',
+    'EIGHTY',
+    'NINETY',
+  ];
+  const name = (n: number): string => {
+    if (n === 0) return 'ZERO';
+    if (n < 10) return ones[n];
+    if (n < 20) return teens[n - 10];
+    return [decades[Math.floor(n / 10)], ones[n % 10]]
+      .filter((part) => part !== '')
+      .join(' ');
+  };
+  const right = p.left + p.numberWidth;
+
+  it('spells all of 0 to 99 with letters of the font', () => {
+    for (let n = 0; n <= p.highest; n++)
+      for (const letter of name(n)) expect(shapes[letter]).toBeDefined();
+    expect(name(0)).toBe('ZERO');
+    expect(name(42)).toBe('FORTY TWO');
+  });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'writes each number and its English name, with names below twenty marked (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('numberwords', seed),
+        out = empty(),
+        rowTop = (row: number): number => p.top + row * p.rowPitch,
+        readText = (row: number, cellLeft: number, slots: number): string => {
+          const start = cellLeft + p.indent;
+          sample(cellLeft + 0.003, rowTop(row) + 0.004, out);
+          const background = out.color,
+            lines = (slot: number) =>
+              [0, 1, 2, 3, 4].map((k) =>
+                [0, 1, 2]
+                  .map((x) => {
+                    sample(
+                      start + (4 * slot + x + 0.5) * p.pixel,
+                      rowTop(row) +
+                        p.rowPitch * (0.5 + ((k - 2) * p.pixel) / p.rowPitch),
+                      out,
+                    );
+                    return Math.abs(out.color - background) > 0.25 ? '#' : '.';
+                  })
+                  .join(''),
+              );
+          let text = '';
+          for (let slot = 0; slot < slots; slot++) {
+            // The letter O and the digit 0 are drawn differently, so exactly one character matches.
+            const exact = Object.entries(shapes).filter(([, shape]) =>
+              shape.every((line, i) => line === lines(slot)[i]),
+            );
+            expect(exact).toHaveLength(1);
+            text += exact[0][0];
+          }
+          return text.replace(/ +$/, '');
+        };
+      const numbers: number[] = [];
+      for (let row = 0; row < p.rows; row++) {
+        const digits = readText(row, p.left, 3),
+          words = readText(row, right, 24),
+          n = Number(digits);
+        expect(words).toBe(name(n));
+        // Names below twenty (single words that are not built from a ten and a digit) mark their number cell.
+        sample(p.left + 0.003, rowTop(row) + 0.004, out);
+        expect(out.color < 0.85 && out.color > 0.6).toBe(n < 20);
+        numbers.push(n);
+      }
+      expect(numbers).toEqual([...numbers].sort((a, b) => a - b));
+      expect(new Set(numbers).size).toBe(p.rows);
+      expect(Math.max(...numbers)).toBeLessThanOrEqual(p.highest);
+    },
+  );
+
+  it('marks exactly the numbers below twenty, including 19 and 20 next to each other', () => {
+    const seen = new Set<number>();
+    for (let seed = 0; seed < 150; seed++) {
+      const sample = createSurfaceSampler('numberwords', seed),
+        out = empty();
+      for (let row = 0; row < p.rows; row++) {
+        const top = p.top + row * p.rowPitch;
+        sample(p.left + 0.003, top + 0.004, out);
+        const marked = out.color < 0.85 && out.color > 0.6,
+          background = out.color;
+        // Read the digits of the number: the first digit's slot holds its top-left ink, so decode both slots.
+        let n = 0;
+        for (let slot = 0; slot < 2; slot++) {
+          const lines = [0, 1, 2, 3, 4].map((k) =>
+            [0, 1, 2]
+              .map((x) => {
+                sample(
+                  p.left + p.indent + (4 * slot + x + 0.5) * p.pixel,
+                  top + p.rowPitch * (0.5 + ((k - 2) * p.pixel) / p.rowPitch),
+                  out,
+                );
+                return Math.abs(out.color - background) > 0.25 ? '#' : '.';
+              })
+              .join(''),
+          );
+          if (lines.every((line) => line === '...')) {
+            // A one-digit number: the digit read so far was the whole number.
+            break;
+          }
+          const digit = Object.entries(digitShapes).find(
+            ([character, shape]) =>
+              character !== ' ' && shape.every((line, i) => line === lines[i]),
+          );
+          expect(digit).toBeDefined();
+          n = n * 10 + Number((digit as [string, string[]])[0]);
+        }
+        expect(marked).toBe(n < 20);
+        seen.add(n);
+      }
+    }
+    // Both sides of the boundary were drawn in some seed.
+    expect(seen.has(19)).toBe(true);
+    expect(seen.has(20)).toBe(true);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('numberwords', 0),
+      b = createSurfaceSampler('numberwords', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

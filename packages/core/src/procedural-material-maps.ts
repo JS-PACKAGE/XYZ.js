@@ -33441,6 +33441,168 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'numberwords': {
+        const p = proceduralMaterialPresets.numberwords,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2ee01),
+          glyphs: Record<string, string> = {
+            '0': '111101101101111',
+            '1': '010110010010111',
+            '2': '111001111100111',
+            '3': '111001111001111',
+            '4': '101101111001001',
+            '5': '111100111001111',
+            '6': '111100111101111',
+            '7': '111001010010010',
+            '8': '111101111101111',
+            '9': '111101111001111',
+            A: '010101111101101',
+            B: '110101110101110',
+            C: '011100100100011',
+            D: '110101101101110',
+            E: '111100110100111',
+            F: '111100110100100',
+            G: '011100101101011',
+            H: '101101111101101',
+            I: '111010010010111',
+            J: '001001001101010',
+            K: '101101110101101',
+            L: '100100100100111',
+            M: '101111111101101',
+            N: '110101101101101',
+            O: '010101101101010',
+            P: '110101110100100',
+            Q: '010101101111011',
+            R: '110101110101101',
+            S: '011100010001110',
+            T: '111010010010010',
+            U: '101101101101111',
+            V: '101101101101010',
+            W: '101101111111101',
+            X: '101101010101101',
+            Y: '101101010010010',
+            Z: '111001010100111',
+            ' ': '000000000000000',
+          },
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          small = [
+            'ZERO',
+            'ONE',
+            'TWO',
+            'THREE',
+            'FOUR',
+            'FIVE',
+            'SIX',
+            'SEVEN',
+            'EIGHT',
+            'NINE',
+            'TEN',
+            'ELEVEN',
+            'TWELVE',
+            'THIRTEEN',
+            'FOURTEEN',
+            'FIFTEEN',
+            'SIXTEEN',
+            'SEVENTEEN',
+            'EIGHTEEN',
+            'NINETEEN',
+          ],
+          tens = [
+            '',
+            '',
+            'TWENTY',
+            'THIRTY',
+            'FORTY',
+            'FIFTY',
+            'SIXTY',
+            'SEVENTY',
+            'EIGHTY',
+            'NINETY',
+          ],
+          spell = (n: number): string => {
+            if (n < 20) return small[n];
+            return (
+              tens[Math.floor(n / 10)] +
+              (n % 10 === 0 ? '' : ' ' + small[n % 10])
+            );
+          },
+          // The seed draws distinct numbers and lists them in ascending order.
+          numbers = Array.from({ length: p.highest + 1 }, (_, n) => ({
+            n,
+            key: hash(n, 13, seed ^ 0x2ee02),
+          }))
+            .sort((a, b) => a.key - b.key)
+            .slice(0, p.rows)
+            .map((entry) => entry.n)
+            .sort((a, b) => a - b),
+          rows = numbers.map((n) => ({
+            number: String(n),
+            words: spell(n),
+            irregular: n < 20,
+          })),
+          right = p.left + p.numberWidth;
+        return () => {
+          const row = Math.floor((v - p.top) / p.rowPitch),
+            fy = (v - p.top) / p.rowPitch - row;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            line = 0,
+            glyph = 0;
+          if (
+            row >= 0 &&
+            row < p.rows &&
+            u >= p.left &&
+            u < right + p.wordWidth
+          ) {
+            const { number, words, irregular } = rows[row],
+              inNumber = u < right,
+              cellLeft = inNumber ? p.left : right,
+              cellWidth = inNumber ? p.numberWidth : p.wordWidth,
+              fx = (u - cellLeft) / cellWidth,
+              text = inNumber ? number : words;
+            if (row % 2 === 1) {
+              tone = p.stripeTone;
+              level = p.stripeHeight;
+            }
+            if (inNumber && irregular) {
+              tone = p.irregularTone;
+              level = p.irregularHeight;
+            }
+            line = cover(
+              p.lineHalf -
+                Math.min(
+                  Math.min(fx * cellWidth, (1 - fx) * cellWidth),
+                  Math.min(fy, 1 - fy) * p.rowPitch,
+                ),
+            );
+            const px = Math.floor((u - cellLeft - p.indent) / p.pixel),
+              py = Math.floor(((fy - 0.5) * p.rowPitch) / p.pixel + 2.5),
+              d = px >= 0 ? Math.floor(px / 4) : -1,
+              gx = px - 4 * d;
+            if (
+              d >= 0 &&
+              d < text.length &&
+              gx >= 0 &&
+              gx < 3 &&
+              py >= 0 &&
+              py < 5 &&
+              glyphs[text[d]][py * 3 + gx] === '1'
+            )
+              glyph = 1;
+          }
+          const base = tone + (p.lineTone - tone) * line;
+          color = clamp(
+            base +
+              (p.inkTone - base) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * glyph);
+          roughness =
+            p.cellRoughness + (p.inkRoughness - p.cellRoughness) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -60970,6 +61132,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'numberwords' ||
     kind === 'dipolefieldlines' ||
     kind === 'mobiusgrid' ||
     kind === 'fordcircles' ||

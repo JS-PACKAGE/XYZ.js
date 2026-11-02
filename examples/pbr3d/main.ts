@@ -711,6 +711,7 @@ try {
     'dcbarreljackfaces',
     'stfiberadapterfaces',
     'to92packagefaces',
+    'numberwords',
     'dipolefieldlines',
     'mobiusgrid',
     'fordcircles',
