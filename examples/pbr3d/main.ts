@@ -1092,6 +1092,7 @@ try {
     'walshmatrix',
     'zeckendorftable',
     'fibonacciword',
+    'paperfolding',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',
