@@ -9517,6 +9517,39 @@ export declare const proceduralMaterialPresets: Readonly<{
         islandRoughness: 0.7;
         seaRoughness: 0.3;
     }>;
+    tentsandtrees: Readonly<{
+        dark: readonly [18, 40, 26];
+        light: readonly [236, 242, 214];
+        roughness: 0.6;
+        relief: 0.004;
+        size: 8;
+        targetTents: 17;
+        margin: 0.05;
+        digitFraction: 0.11;
+        lineHalf: 0.0007;
+        edgeSoft: 0.0011;
+        grainCells: 160;
+        canopyRadius: 0.28;
+        trunkHalf: 0.055;
+        tentApex: 0.18;
+        tentBase: 0.82;
+        tentHalf: 0.36;
+        grassTone: 0.88;
+        clueTone: 0.94;
+        lineTone: 0.55;
+        treeTone: 0.14;
+        tentTone: 0.3;
+        inkTone: 0.08;
+        grainTone: 0.05;
+        clueHeight: 0.2;
+        grassHeight: 0.42;
+        treeHeight: 0.85;
+        tentHeight: 0.65;
+        inkDepth: 0.06;
+        inkRoughness: 0.4;
+        grassRoughness: 0.85;
+        solidRoughness: 0.55;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -16002,6 +16035,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    tentsandtrees: 0.5;
     nurikabeislands: 0.5;
     futoshikigrid: 0.4;
     fillominoregions: 0.5;

@@ -1549,6 +1549,10 @@
 
 這是作者設計的示意：畫面是填好答案的盤面，真正的Nurikabe只給島的數字、需要自己推出海；不保證只有唯一解；數字在島的哪一格（固定為最初的起點格）由seed決定；8×8固定，點陣數字為3×5。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`tentsandtrees`（帳篷謎題／Tents）使目前目錄997→998種，含plain的gallery為999項。每tile是一個8×8已解開的Tents盤面：草地格上有圓形樹冠加樹幹的「樹」與三角形的「帳篷」；每頂帳篷各自緊鄰（上下左右）一棵專屬的樹，帳篷之間連斜角都不相接，樹的數量等於帳篷的數量；盤面右側一欄與下方一列以點陣數字標出每列、每欄的帳篷數。盤面由seed產生：依隨機順序放帳篷（不與已放的帳篷相鄰，含斜角），每頂帳篷在上下左右的空草地中選一格放樹，直到約17頂或沒有位置為止。Metallic與mortar為0。
+
+這是作者設計的示意：畫面是填好答案的盤面，真正的Tents只給樹與行列數字、帳篷要自己推；不保證只有唯一解；帳篷數由seed決定、通常少於目標的17頂（我對12個seed實測為10至16頂）；樹與帳篷的對應在畫面上沒有連線，只能由相鄰關係看出；8×8固定。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

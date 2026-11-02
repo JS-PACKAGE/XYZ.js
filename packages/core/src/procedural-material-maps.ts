@@ -27355,6 +27355,155 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'tentsandtrees': {
+        const p = proceduralMaterialPresets.tentsandtrees,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2b001),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          n = p.size,
+          cell = (1 - 2 * p.margin) / (n + 1),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // 0 grass, 1 tree, 2 tent
+          kind = new Uint8Array(n * n),
+          rowCounts = new Array<number>(n).fill(0),
+          columnCounts = new Array<number>(n).fill(0),
+          order = Array.from({ length: n * n }, (_, i) => i).sort(
+            (a, b) => hash(a, 3, seed ^ 0x2b003) - hash(b, 3, seed ^ 0x2b003),
+          ),
+          touchesTent = (x: number, y: number): boolean => {
+            for (let dy = -1; dy <= 1; dy++)
+              for (let dx = -1; dx <= 1; dx++) {
+                const nx = x + dx,
+                  ny = y + dy;
+                if (
+                  nx >= 0 &&
+                  ny >= 0 &&
+                  nx < n &&
+                  ny < n &&
+                  kind[ny * n + nx] === 2
+                )
+                  return true;
+              }
+            return false;
+          };
+        // Tents that never touch (not even diagonally), each given its own orthogonally adjacent tree.
+        let placed = 0;
+        for (const index of order) {
+          if (placed >= p.targetTents) break;
+          const x = index % n,
+            y = Math.floor(index / n);
+          if (kind[index] !== 0 || touchesTent(x, y)) continue;
+          const spots: number[] = [];
+          if (x < n - 1 && kind[index + 1] === 0) spots.push(index + 1);
+          if (x > 0 && kind[index - 1] === 0) spots.push(index - 1);
+          if (y < n - 1 && kind[index + n] === 0) spots.push(index + n);
+          if (y > 0 && kind[index - n] === 0) spots.push(index - n);
+          if (spots.length === 0) continue;
+          kind[index] = 2;
+          kind[
+            spots[
+              Math.min(
+                spots.length - 1,
+                Math.floor(hash(index, 5, seed ^ 0x2b005) * spots.length),
+              )
+            ]
+          ] = 1;
+          rowCounts[y]++;
+          columnCounts[x]++;
+          placed++;
+        }
+        return () => {
+          const lx = u - p.margin,
+            ly = v - p.margin;
+          const rough: number = p.grassRoughness;
+          let tone: number = p.grassTone,
+            level: number = p.clueHeight,
+            line = 0,
+            solid = 0,
+            solidTone: number = p.treeTone,
+            ink = 0;
+          if (
+            lx >= 0 &&
+            ly >= 0 &&
+            lx < cell * (n + 1) &&
+            ly < cell * (n + 1)
+          ) {
+            const col = Math.floor(lx / cell),
+              row = Math.floor(ly / cell),
+              fx = lx / cell - col,
+              fy = ly / cell - row;
+            line = cover(
+              p.lineHalf -
+                Math.min(Math.min(fx, 1 - fx), Math.min(fy, 1 - fy)) * cell,
+            );
+            if (col < n && row < n) {
+              level = p.grassHeight;
+              const here = kind[row * n + col];
+              if (here === 1) {
+                const canopy = p.canopyRadius - Math.hypot(fx - 0.5, fy - 0.4),
+                  trunk = Math.min(
+                    p.trunkHalf - Math.abs(fx - 0.5),
+                    Math.min(fy - 0.5, 0.86 - fy),
+                  );
+                solid = cover(Math.max(canopy, trunk) * cell);
+                level = p.grassHeight + (p.treeHeight - p.grassHeight) * solid;
+              } else if (here === 2) {
+                const half =
+                  (p.tentHalf * (fy - p.tentApex)) / (p.tentBase - p.tentApex);
+                solid = cover(
+                  Math.min(
+                    half - Math.abs(fx - 0.5),
+                    Math.min(fy - p.tentApex, p.tentBase - fy),
+                  ) * cell,
+                );
+                solidTone = p.tentTone;
+                level = p.grassHeight + (p.tentHeight - p.grassHeight) * solid;
+              }
+            } else if (col !== row) {
+              // Clue strip: the tent count of this row (right) or column (bottom).
+              tone = p.clueTone;
+              const count = col === n ? rowCounts[row] : columnCounts[col],
+                pixel = cell * p.digitFraction,
+                px = Math.floor((fx * cell - (cell / 2 - 1.5 * pixel)) / pixel),
+                py = Math.floor((fy * cell - (cell / 2 - 2.5 * pixel)) / pixel);
+              if (
+                px >= 0 &&
+                px < 3 &&
+                py >= 0 &&
+                py < 5 &&
+                glyphs[count][py * 3 + px] === '1'
+              )
+                ink = 1;
+            } else {
+              line = 0;
+              tone = p.clueTone;
+            }
+          }
+          const base = tone + (solidTone - tone) * solid,
+            withLine = base + (p.lineTone - base) * line,
+            solidRough = rough + (p.solidRoughness - rough) * solid;
+          color = clamp(
+            withLine +
+              (p.inkTone - withLine) * ink +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * ink);
+          roughness = solidRough + (p.inkRoughness - solidRough) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -54884,6 +55033,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'tentsandtrees' ||
     kind === 'nurikabeislands' ||
     kind === 'futoshikigrid' ||
     kind === 'fillominoregions' ||

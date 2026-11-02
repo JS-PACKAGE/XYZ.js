@@ -16341,6 +16341,47 @@ var proceduralMaterialPresets = Object.freeze({
 		islandRoughness: .7,
 		seaRoughness: .3
 	}),
+	tentsandtrees: Object.freeze({
+		dark: [
+			18,
+			40,
+			26
+		],
+		light: [
+			236,
+			242,
+			214
+		],
+		roughness: .6,
+		relief: .004,
+		size: 8,
+		targetTents: 17,
+		margin: .05,
+		digitFraction: .11,
+		lineHalf: 7e-4,
+		edgeSoft: .0011,
+		grainCells: 160,
+		canopyRadius: .28,
+		trunkHalf: .055,
+		tentApex: .18,
+		tentBase: .82,
+		tentHalf: .36,
+		grassTone: .88,
+		clueTone: .94,
+		lineTone: .55,
+		treeTone: .14,
+		tentTone: .3,
+		inkTone: .08,
+		grainTone: .05,
+		clueHeight: .2,
+		grassHeight: .42,
+		treeHeight: .85,
+		tentHeight: .65,
+		inkDepth: .06,
+		inkRoughness: .4,
+		grassRoughness: .85,
+		solidRoughness: .55
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -25022,6 +25063,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	tentsandtrees: .5,
 	nurikabeislands: .5,
 	futoshikigrid: .4,
 	fillominoregions: .5,

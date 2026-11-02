@@ -13924,3 +13924,148 @@ describe('nurikabeislands: a solved Nurikabe', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('tentsandtrees: a solved Tents puzzle', () => {
+  const p = proceduralMaterialPresets.tentsandtrees;
+  const n = p.size;
+  const cell = (1 - 2 * p.margin) / (n + 1);
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'has non-touching tents that pair one-to-one with adjacent trees and matching counts (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('tentsandtrees', seed),
+        out = empty(),
+        pixel = cell * p.digitFraction,
+        at = (col: number, row: number, fx: number, fy: number): number => {
+          sample(
+            p.margin + (col + fx) * cell,
+            p.margin + (row + fy) * cell,
+            out,
+          );
+          return out.color;
+        },
+        // Tree: a wide canopy at mid height and no wide base; tent: wide base and a narrow top.
+        grid: string[] = [];
+      for (let row = 0; row < n; row++)
+        for (let col = 0; col < n; col++) {
+          const canopy = at(col, row, 0.3, 0.4) < 0.5,
+            base = at(col, row, 0.25, 0.78) < 0.5;
+          expect(canopy && base).toBe(false);
+          grid.push(canopy ? 'tree' : base ? 'tent' : 'grass');
+        }
+      const digitAt = (col: number, row: number): number => {
+        const bits: string[] = [];
+        for (let y = 0; y < 5; y++) {
+          let text = '';
+          for (let x = 0; x < 3; x++)
+            text +=
+              at(
+                col,
+                row,
+                0.5 + ((x - 1) * pixel) / cell,
+                0.5 + ((y - 2) * pixel) / cell,
+              ) < 0.3
+                ? '#'
+                : '.';
+          bits.push(text);
+        }
+        return art.findIndex((rows) =>
+          rows.every((line, i) => line === bits[i]),
+        );
+      };
+      const tents: number[] = [],
+        trees: number[] = [];
+      grid.forEach((what, i) => {
+        if (what === 'tent') tents.push(i);
+        if (what === 'tree') trees.push(i);
+      });
+      expect(tents.length).toBeGreaterThanOrEqual(8);
+      // No two tents touch, not even diagonally.
+      for (const a of tents)
+        for (const b of tents)
+          if (a < b)
+            expect(
+              Math.max(
+                Math.abs((a % n) - (b % n)),
+                Math.abs(Math.floor(a / n) - Math.floor(b / n)),
+              ),
+            ).toBeGreaterThan(1);
+      // Row and column clues equal the tent counts.
+      for (let i = 0; i < n; i++) {
+        expect(digitAt(n, i)).toBe(
+          tents.filter((t) => Math.floor(t / n) === i).length,
+        );
+        expect(digitAt(i, n)).toBe(tents.filter((t) => t % n === i).length);
+      }
+      // A perfect matching between tents and orthogonally adjacent trees (augmenting paths).
+      const adjacent = (a: number, b: number): boolean =>
+        Math.abs((a % n) - (b % n)) +
+          Math.abs(Math.floor(a / n) - Math.floor(b / n)) ===
+        1;
+      const owner = new Map<number, number>();
+      const augment = (tent: number, seen: Set<number>): boolean => {
+        for (const tree of trees) {
+          if (!adjacent(tent, tree) || seen.has(tree)) continue;
+          seen.add(tree);
+          const held = owner.get(tree);
+          if (held === undefined || augment(held, seen)) {
+            owner.set(tree, tent);
+            return true;
+          }
+        }
+        return false;
+      };
+      for (const tent of tents) expect(augment(tent, new Set())).toBe(true);
+      // Every tree belongs to a tent too, so the counts agree.
+      expect(trees.length).toBe(tents.length);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('tentsandtrees', 0),
+      b = createSurfaceSampler('tentsandtrees', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
