@@ -14145,7 +14145,9 @@ export declare const proceduralMaterialPresets: Readonly<{
         seedSalt: 28689;
         columns: 7;
         rowPairs: 4;
+        outer: 1;
         inner: 0;
+        innerDegrees: 0;
         threadRadius: 0.15;
         gain: 1.8;
         shiftSteps: 64;
@@ -14359,8 +14361,32 @@ export declare const proceduralMaterialPresets: Readonly<{
         seedSalt: 25024;
         columns: 7;
         rowPairs: 4;
+        outer: 1;
         inner: 0.5;
+        innerDegrees: 0;
         threadRadius: 0.1;
+        gain: 1.8;
+        shiftSteps: 64;
+        grainCells: 128;
+        baseTone: 0.08;
+        threadTone: 0.78;
+        grainTone: 0.03;
+        threadHeight: 0.85;
+        grainHeight: 0.15;
+        threadRoughness: -0.1;
+    }>;
+    kagome: Readonly<{
+        dark: readonly [22, 28, 10];
+        light: readonly [200, 220, 120];
+        roughness: 0.6;
+        relief: 0.0009;
+        seedSalt: 19040;
+        columns: 7;
+        rowPairs: 4;
+        outer: 0;
+        inner: number;
+        innerDegrees: 30;
+        threadRadius: 0.12;
         gain: 1.8;
         shiftSteps: 64;
         grainCells: 128;
@@ -15739,4 +15765,5 @@ export declare const proceduralTileMeters: Readonly<{
     minkowskisausage: 0.25;
     vermiculation: 0.4;
     kikko: 0.3;
+    kagome: 0.3;
 }>;

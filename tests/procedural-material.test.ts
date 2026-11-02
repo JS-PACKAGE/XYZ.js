@@ -1031,6 +1031,7 @@ const kinds: ProceduralMaterialKind[] = [
   'minkowskisausage',
   'vermiculation',
   'kikko',
+  'kagome',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -155634,6 +155635,282 @@ describe('Kikko as amber tortoiseshell hexagons with inner hexagons', () => {
     expect(green / (512 * 512)).toBeLessThan(66);
     expect(blue / (512 * 512)).toBeGreaterThan(21);
     expect(blue / (512 * 512)).toBeLessThan(27);
+    expect(maxTilt).toBeGreaterThan(0.02);
+    expect(maxTilt).toBeLessThan(0.08);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Kagome as a bamboo basket-weave lattice of hexagons and triangles', () => {
+  const p = proceduralMaterialPresets.kagome;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const root3 = Math.sqrt(3),
+    periodX = p.columns * root3,
+    periodY = p.rowPairs * 3,
+    rows = p.rowPairs * 2;
+  /** Every thread of the pointy-top honeycomb (circumradius 1) as a segment, each shared edge kept once, written independently here. */
+  const threads = (() => {
+    const out: [number, number, number, number][] = [],
+      seen = new Set<string>(),
+      wrapKey = (x: number, y: number): string =>
+        `${Math.round((((x % periodX) + periodX) % periodX) * 1000) % Math.round(periodX * 1000)},${Math.round((((y % periodY) + periodY) % periodY) * 1000) % Math.round(periodY * 1000)}`;
+    for (let j = 0; j < rows; j++)
+      for (let k = 0; k < p.columns; k++) {
+        const cx = root3 * (k + 0.5 * (j % 2)),
+          cy = 1.5 * j,
+          corners = Array.from({ length: 6 }, (_, i) => [
+            cx + Math.cos(((90 + 60 * i) * Math.PI) / 180),
+            cy + Math.sin(((90 + 60 * i) * Math.PI) / 180),
+          ]);
+        // kagome has no outer hexagon edges: the lattice is the six midpoint-to-midpoint
+        // edges of each hexagon.
+        for (let i = 0; i < (p.outer ? 6 : 0); i++) {
+          const [ax, ay] = corners[i],
+            [bx, by] = corners[(i + 1) % 6],
+            key = wrapKey((ax + bx) / 2, (ay + by) / 2);
+          if (seen.has(key)) continue;
+          seen.add(key);
+          out.push([ax, ay, bx, by]);
+        }
+        for (let i = 0; i < 6; i++) {
+          const angle = (degrees: number): [number, number] => [
+            cx + p.inner * Math.cos((degrees * Math.PI) / 180),
+            cy + p.inner * Math.sin((degrees * Math.PI) / 180),
+          ];
+          out.push([
+            ...angle(90 + p.innerDegrees + 60 * i),
+            ...angle(90 + p.innerDegrees + 60 * (i + 1)),
+          ]);
+        }
+      }
+    return out;
+  })();
+  /** Colour of the independent model (grain excluded) at a point in honeycomb units. */
+  const modelColor = (x: number, y: number): number => {
+    let sum = 0;
+    for (const [ax, ay, bx, by] of threads)
+      for (let ix = -1; ix <= 1; ix++)
+        for (let iy = -1; iy <= 1; iy++) {
+          const sx = ax + ix * periodX,
+            sy = ay + iy * periodY,
+            hx = bx - ax,
+            hy = by - ay,
+            along = Math.max(
+              0,
+              Math.min(
+                1,
+                ((x - sx) * hx + (y - sy) * hy) / (hx * hx + hy * hy),
+              ),
+            ),
+            d2 =
+              ((x - sx - along * hx) ** 2 + (y - sy - along * hy) ** 2) /
+              p.threadRadius ** 2;
+          if (d2 < 1) sum += (1 - d2) ** 2;
+        }
+    return p.baseTone + p.threadTone * (1 - Math.exp(-p.gain * sum));
+  };
+  const probes: [number, number][] = Array.from({ length: 48 }, (_, i) => [
+    (i * 0.61803398875) % 1,
+    (i * 0.41421356237) % 1,
+  ]);
+  /** Torus shifts (in 1/shiftSteps of the tile) at which the model reproduces the sampler at 48 points. */
+  const fittingShifts = (seed: number): [number, number][] => {
+    const sample = createSurfaceSampler('kagome', seed),
+      out = empty(),
+      got = probes.map(([u, v]) => {
+        sample(u, v, out);
+        return out.color;
+      }),
+      fits: [number, number][] = [];
+    for (let sy = 0; sy < p.shiftSteps; sy++)
+      for (let sx = 0; sx < p.shiftSteps; sx++) {
+        let worst = 0;
+        for (let i = 0; i < probes.length && worst < 0.03; i++) {
+          const u = (probes[i][0] + sx / p.shiftSteps) % 1,
+            v = (probes[i][1] + sy / p.shiftSteps) % 1;
+          worst = Math.max(
+            worst,
+            Math.abs(got[i] - modelColor(u * periodX, v * periodY)),
+          );
+        }
+        if (worst < 0.03) fits.push([sx, sy]);
+      }
+    return fits;
+  };
+  it('draws 336 lines (six midpoint edges per hexagon) and matches the model at the honeycomb translations of one torus shift', () => {
+    expect(threads).toHaveLength(336);
+    for (const seed of [0, 1, 0xffffffff, 7]) {
+      const sample = createSurfaceSampler('kagome', seed),
+        a = empty(),
+        fits = fittingShifts(seed);
+      // The honeycomb repeats under 8 of the 64 x 64 shifts: x mod 32 and y mod 8 are fixed.
+      expect(fits).toHaveLength(8);
+      for (const [sx, sy] of fits) {
+        expect(sx % 32).toBe(fits[0][0] % 32);
+        expect(sy % 8).toBe(fits[0][1] % 8);
+      }
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.065);
+      expect(low).toBeLessThan(0.067);
+      expect(high).toBeGreaterThan(0.87);
+      expect(high).toBeLessThan(0.875);
+      expect(dark / 65536).toBeGreaterThan(0.26);
+      expect(dark / 65536).toBeLessThan(0.264);
+      expect(mean / 65536).toBeGreaterThan(0.264);
+      expect(mean / 65536).toBeLessThan(0.265);
+      expect(roughLow).toBeGreaterThan(0.5);
+      expect(roughLow).toBeLessThan(0.501);
+      expect(roughHigh).toBeCloseTo(p.roughness, 6);
+      expect(heightHigh).toBeGreaterThan(0.97);
+      expect(heightHigh).toBeLessThanOrEqual(1);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('shifts the net per seed and is deterministic for one seed', () => {
+    const first = fittingShifts(0),
+      second = fittingShifts(1);
+    expect(first[0]).not.toEqual(second[0]);
+    expect(fittingShifts(0)).toEqual(first);
+  });
+  it('keeps the threads, their compact edges and the grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('kagome', seed),
+        [shiftX, shiftY] = fittingShifts(seed)[0];
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      // Points on the compact edge of every thread (both sides at the middle and the ends), where a kink would show.
+      for (const [ax, ay, bx, by] of threads)
+        for (const along of [0, 0.5, 1])
+          for (const side of [-1, 1]) {
+            const px = ax + along * (bx - ax),
+              py = ay + along * (by - ay),
+              nx = -(by - ay),
+              ny = bx - ax,
+              x = px + (side * p.threadRadius * nx) / Math.hypot(nx, ny),
+              y = py + (side * p.threadRadius * ny) / Math.hypot(nx, ny);
+            check(
+              (((x / periodX - shiftX / p.shiftSteps) % 1) + 1) % 1,
+              (((y / periodY - shiftY / p.shiftSteps) % 1) + 1) % 1,
+            );
+          }
+      for (let i = 0; i <= p.grainCells; i++)
+        for (const y of [0, 0.137, 0.5, 0.793]) {
+          check(i / p.grainCells, y);
+          check(y, i / p.grainCells);
+        }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 straw-line maps with gentle line normals', () => {
+    const maps = generateProceduralMaps('kagome', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(66);
+    expect(red / (512 * 512)).toBeLessThan(73);
+    expect(green / (512 * 512)).toBeGreaterThan(75);
+    expect(green / (512 * 512)).toBeLessThan(82);
+    expect(blue / (512 * 512)).toBeGreaterThan(36);
+    expect(blue / (512 * 512)).toBeLessThan(43);
     expect(maxTilt).toBeGreaterThan(0.02);
     expect(maxTilt).toBeLessThan(0.08);
     expect(invalid).toBe(0);

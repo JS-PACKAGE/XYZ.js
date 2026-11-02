@@ -40837,11 +40837,14 @@ export function createSurfaceSampler(
         };
       }
       case 'tulle':
-      case 'kikko': {
+      case 'kikko':
+      case 'kagome': {
         const p =
-            kind === 'kikko'
-              ? proceduralMaterialPresets.kikko
-              : proceduralMaterialPresets.tulle,
+            kind === 'kagome'
+              ? proceduralMaterialPresets.kagome
+              : kind === 'kikko'
+                ? proceduralMaterialPresets.kikko
+                : proceduralMaterialPresets.tulle,
           grainField = cachedNoise(
             p.grainCells,
             p.grainCells,
@@ -40859,7 +40862,8 @@ export function createSurfaceSampler(
             p.shiftSteps,
           inverseRadius2 = 1 / (p.threadRadius * p.threadRadius),
           reach = 0.5 + p.threadRadius,
-          segmentCount = p.columns * rows * (p.inner > 0 ? 9 : 3),
+          segmentCount =
+            p.columns * rows * (3 * p.outer + (p.inner > 0 ? 6 : 0)),
           middleX = new Float64Array(segmentCount),
           middleY = new Float64Array(segmentCount),
           halfX = new Float64Array(segmentCount),
@@ -40877,11 +40881,13 @@ export function createSurfaceSampler(
                 centerX + scale * Math.cos((degrees * Math.PI) / 180),
                 centerY + scale * Math.sin((degrees * Math.PI) / 180),
               ];
-            for (const [from, to] of [
-              [30, -30],
-              [90, 30],
-              [150, 90],
-            ]) {
+            for (const [from, to] of p.outer
+              ? [
+                  [30, -30],
+                  [90, 30],
+                  [150, 90],
+                ]
+              : []) {
               const [ax, ay] = corner(from),
                 [bx, by] = corner(to);
               middleX[i] = (ax + bx) / 2;
@@ -40892,8 +40898,11 @@ export function createSurfaceSampler(
             }
             if (p.inner > 0)
               for (let side = 0; side < 6; side++) {
-                const [ax, ay] = corner(90 - 60 * side, p.inner),
-                  [bx, by] = corner(30 - 60 * side, p.inner);
+                const [ax, ay] = corner(
+                    90 - 60 * side + p.innerDegrees,
+                    p.inner,
+                  ),
+                  [bx, by] = corner(30 - 60 * side + p.innerDegrees, p.inner);
                 middleX[i] = (ax + bx) / 2;
                 middleY[i] = (ay + by) / 2;
                 halfX[i] = (bx - ax) / 2;
@@ -49088,6 +49097,7 @@ export function createSurfaceSampler(
     kind === 'minkowskisausage' ||
     kind === 'vermiculation' ||
     kind === 'kikko' ||
+    kind === 'kagome' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

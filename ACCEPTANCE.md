@@ -12498,3 +12498,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試（504條線段、四seed的平移對稱結構與統計、seed差異與決定性、C1（含504條線兩側邊界在中間與兩端的點）＋有符號UV週期、actual512 maps）通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Kikko as|kikko|Tulle as|kinds|catalog|distinct|periodic"`定向測試**2283項通過／3906項未選**。
 - 未驗證：kikko未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：籠目（kagome）
+
+- 範圍：新增`kagome`（目前目錄989→990種，含plain的gallery 991項）：深橄欖綠底上淺稻草色細線的籠目格子（連接蜂巢每個六邊形六條邊的中點：`outer 0`、`inner √3/2`、`innerDegrees 30`，得到三向直線的六邊形與三角形格；7欄×8列、336條線段；水平垂直週期比`7√3 : 12`；seed以1/64磚為單位平移）；與`tulle`、`kikko`共用蜂巢線段sampler分支並新增`outer`與`innerDegrees`欄位（tulle、kikko行為不變）；預設0.3 m nominal tile、0.0009 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**；不含上下交織。
+- 調整紀錄（誠實紀錄）：預覽只看了一版（線半徑0.12、gain 1.8）；relief沿用kikko的0.0009，512²maps法線tilt²最大0.0323；共用分支修改同時跑了`Tulle as`與`Kikko as`區塊，兩者的逐模型比對測試仍通過；每個取樣點走訪336條線段，**未量測耗時**。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：256²取樣亮處（color>0.5）占26.21%–26.29%、color 0.0653–0.0658至0.8712–0.8724、平均0.2644–0.2645、roughness 0.5001–0.6、AO恆為1、height至多0.9880–0.9905 relief；512²取樣亮處占25.94%–25.95%、color 0.0652至0.8728–0.8736、平均0.2652–0.2653、height至多0.9929–0.9958 relief；四個seed各自在恰好8個環面平移下與測試中獨立重寫的模型一致（最大誤差0.0120–0.0138；這8個平移是蜂巢本身的平移對稱）；seed 0與1的亮區遮罩（512²）29.4%像素不同；seed 7的512²maps平均r／g／b約(69.2, 78.9, 39.2)、法線tilt²最大約0.0323、z分量最小253。我實看了預覽（seed 7）。
+- 測試：新增5項專屬測試（336條線段、四seed的平移對稱結構與統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Kagome as|kagome|Kikko as|Tulle as|kinds|catalog|distinct|periodic"`定向測試**2288項通過／3906項未選**。
+- 未驗證：kikko、kagome未跑完整suite與瀏覽器gallery；不push。
