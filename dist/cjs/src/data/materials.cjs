@@ -20925,6 +20925,121 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .72,
 		inkRoughness: .42
 	}),
+	quadtreecells: Object.freeze({
+		dark: [
+			24,
+			34,
+			46
+		],
+		light: [
+			236,
+			238,
+			226
+		],
+		roughness: .6,
+		relief: .005,
+		shapes: Object.freeze([
+			Object.freeze([
+				0,
+				.5,
+				.5,
+				.36,
+				0
+			]),
+			Object.freeze([
+				0,
+				.38,
+				.55,
+				.27,
+				0
+			]),
+			Object.freeze([
+				0,
+				.62,
+				.42,
+				.31,
+				0
+			]),
+			Object.freeze([
+				1,
+				.5,
+				.5,
+				.33,
+				.06
+			]),
+			Object.freeze([
+				1,
+				.45,
+				.52,
+				.28,
+				.09
+			]),
+			Object.freeze([
+				2,
+				.5,
+				.5,
+				.42,
+				.26
+			]),
+			Object.freeze([
+				2,
+				.5,
+				.5,
+				.24,
+				.4
+			]),
+			Object.freeze([
+				3,
+				1.5,
+				.1,
+				.2,
+				.5
+			]),
+			Object.freeze([
+				3,
+				2.5,
+				.6,
+				.15,
+				.45
+			]),
+			Object.freeze([
+				3,
+				1,
+				.3,
+				.28,
+				.55
+			]),
+			Object.freeze([
+				4,
+				.12,
+				.04,
+				0,
+				0
+			]),
+			Object.freeze([
+				4,
+				.33,
+				-.08,
+				0,
+				0
+			])
+		]),
+		minDepth: 2,
+		maxDepth: 6,
+		lineHalf: .0025,
+		lineFraction: .07,
+		edgeSoft: .0011,
+		grainCells: 192,
+		outsideTone: .9,
+		insideTone: .62,
+		depthShade: .025,
+		lineTone: .1,
+		grainTone: .03,
+		cellHeight: .5,
+		lineHeight: .12,
+		cellRoughness: .62,
+		lineRoughness: .88
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -29606,6 +29721,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	quadtreecells: 1,
 	countingrods: 1,
 	braiddiagram: 1,
 	youngtableaux: 1,

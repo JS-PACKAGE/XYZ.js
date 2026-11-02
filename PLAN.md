@@ -1989,6 +1989,10 @@
 
 這是作者設計的示意：算籌的零是空位，沒有圓圈符號；沒有負數（紅黑籌）、小數或乘除；只畫到五位數；右邊的算籌需要比對左邊的數字才有意義；3×5點陣字很小，建議1024以上。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`quadtreecells`（四叉樹格）使目前目錄1107→1108種，含plain的gallery為1109項。整張tile是自適應四叉樹：單位正方形先一律切成四個，再依規則一層一層繼續切——當形狀函數在一個方格的四個角與中心不是同一個正負號（形狀的邊緣穿過這個方格）時就再切四份，直到最大深度6（64×64的最細格）；至少一律切到深度2。形狀由seed從12個預設中挑一個：圓盤三個、圓環兩個、橢圓兩個、波浪線三個、斜線兩個。形狀內的格子較深色，越深的格子再略深一點，格子之間有深色細邊界，邊界半寬為`min(0.0025, 0.07×格邊長)`，所以小格的邊界較細。Metallic與mortar為0。
+
+這是作者設計的示意：沒有標示深度或形狀名稱；切割規則只檢查四個角與中心，如果形狀的細部比格子小，可能漏掉（這12個形狀在目前的最大深度下沒有這個問題；另外我發現在這12個形狀上，拿掉「中心」這個取樣點也得到完全相同的結果，所以中心取樣在這些形狀上是多餘的，我保留它是為了萬一增加更細的形狀）；形狀只畫在一個tile內，不會跨tile邊界延伸，所以貼圖不是連續花紋；斜線的形狀會切到大部分格子，使整張都是細格。預設1 m nominal tile、0.005 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

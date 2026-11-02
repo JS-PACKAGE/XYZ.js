@@ -37809,6 +37809,70 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'quadtreecells': {
+        const p = proceduralMaterialPresets.quadtreecells,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x31f01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          [kind, a, b, c, d] =
+            p.shapes[Math.floor(hash(3, 1, seed ^ 0x31f02) * p.shapes.length)],
+          // The shape function: negative inside the shape, positive outside, zero on its edge.
+          shape = (x: number, y: number): number => {
+            if (kind === 0) return Math.hypot(x - a, y - b) - c;
+            if (kind === 1) return Math.abs(Math.hypot(x - a, y - b) - c) - d;
+            if (kind === 2) return Math.hypot((x - a) / c, (y - b) / d) - 1;
+            if (kind === 3)
+              return y - (d + c * Math.sin(2 * Math.PI * (a * x + b)));
+            return (
+              (x - 0.5) * Math.cos(2 * Math.PI * a) +
+              (y - 0.5) * Math.sin(2 * Math.PI * a) -
+              b
+            );
+          },
+          crosses = (x: number, y: number, size: number): boolean => {
+            const signs = [
+              shape(x, y) < 0,
+              shape(x + size, y) < 0,
+              shape(x, y + size) < 0,
+              shape(x + size, y + size) < 0,
+              shape(x + size / 2, y + size / 2) < 0,
+            ];
+            return signs.some((sign) => sign !== signs[0]);
+          };
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let x = 0,
+            y = 0,
+            size = 1,
+            depth = 0;
+          // Walk down from the whole tile into the square that holds this point, splitting while the rule says so.
+          while (
+            depth < p.maxDepth &&
+            (depth < p.minDepth || crosses(x, y, size))
+          ) {
+            size /= 2;
+            if (fu >= x + size) x += size;
+            if (fv >= y + size) y += size;
+            depth++;
+          }
+          const edge = Math.min(fu - x, x + size - fu, fv - y, y + size - fv),
+            line = cover(Math.min(p.lineHalf, p.lineFraction * size) - edge),
+            inside = shape(x + size / 2, y + size / 2) < 0,
+            tone =
+              (inside ? p.insideTone : p.outsideTone) - p.depthShade * depth;
+          color = clamp(
+            tone +
+              (p.lineTone - tone) * line +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(p.cellHeight + (p.lineHeight - p.cellHeight) * line);
+          roughness =
+            p.cellRoughness + (p.lineRoughness - p.cellRoughness) * line;
+          occlusion = 1 - 0.2 * line;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -65338,6 +65402,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'quadtreecells' ||
     kind === 'countingrods' ||
     kind === 'braiddiagram' ||
     kind === 'youngtableaux' ||

@@ -13024,6 +13024,47 @@ export const proceduralMaterialPresets = Object.freeze({
     paperRoughness: 0.72,
     inkRoughness: 0.42,
   }),
+  quadtreecells: Object.freeze({
+    dark: [24, 34, 46] as const,
+    light: [236, 238, 226] as const,
+    roughness: 0.6,
+    relief: 0.005,
+    // An adaptive quadtree: the unit tile is split into four squares, again and again, wherever a shape's edge passes through (the
+    // shape function changes sign among a square's four corners and middle). Every square is split at least to minDepth and at
+    // most to maxDepth. Cells inside the shape are darker; deeper cells are a little darker still. The seed picks one of the shapes:
+    // [kind, a, b, c, d] with kind 0 a disc (centre a, b, radius c), 1 a ring (centre a, b, radius c, half width d), 2 an ellipse
+    // (centre a, b, half axes c, d), 3 a wave line (cycles a, phase b, amplitude c, middle height d), 4 a slanted line (angle a in
+    // turns, offset b from the middle of the tile).
+    shapes: Object.freeze([
+      Object.freeze([0, 0.5, 0.5, 0.36, 0]),
+      Object.freeze([0, 0.38, 0.55, 0.27, 0]),
+      Object.freeze([0, 0.62, 0.42, 0.31, 0]),
+      Object.freeze([1, 0.5, 0.5, 0.33, 0.06]),
+      Object.freeze([1, 0.45, 0.52, 0.28, 0.09]),
+      Object.freeze([2, 0.5, 0.5, 0.42, 0.26]),
+      Object.freeze([2, 0.5, 0.5, 0.24, 0.4]),
+      Object.freeze([3, 1.5, 0.1, 0.2, 0.5]),
+      Object.freeze([3, 2.5, 0.6, 0.15, 0.45]),
+      Object.freeze([3, 1, 0.3, 0.28, 0.55]),
+      Object.freeze([4, 0.12, 0.04, 0, 0]),
+      Object.freeze([4, 0.33, -0.08, 0, 0]),
+    ]),
+    minDepth: 2,
+    maxDepth: 6,
+    lineHalf: 0.0025,
+    lineFraction: 0.07,
+    edgeSoft: 0.0011,
+    grainCells: 192,
+    outsideTone: 0.9,
+    insideTone: 0.62,
+    depthShade: 0.025,
+    lineTone: 0.1,
+    grainTone: 0.03,
+    cellHeight: 0.5,
+    lineHeight: 0.12,
+    cellRoughness: 0.62,
+    lineRoughness: 0.88,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -19516,6 +19557,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  quadtreecells: 1,
   countingrods: 1,
   braiddiagram: 1,
   youngtableaux: 1,

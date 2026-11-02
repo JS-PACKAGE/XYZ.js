@@ -30177,3 +30177,204 @@ describe('countingrods: Chinese counting rod numerals', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('quadtreecells: an adaptive quadtree around a shape', () => {
+  const p = proceduralMaterialPresets.quadtreecells;
+  const grid = 2 ** p.maxDepth;
+  type Shape = readonly number[];
+  type Leaf = { x: number; y: number; size: number; depth: number };
+
+  // The shape functions again (negative inside, positive outside), with the shape parameters from the preset.
+  const value = ([kind, a, b, c, d]: Shape, x: number, y: number): number => {
+    switch (kind) {
+      case 0:
+        return Math.sqrt((x - a) ** 2 + (y - b) ** 2) - c;
+      case 1:
+        return Math.abs(Math.sqrt((x - a) ** 2 + (y - b) ** 2) - c) - d;
+      case 2:
+        return Math.sqrt(((x - a) / c) ** 2 + ((y - b) / d) ** 2) - 1;
+      case 3:
+        return y - (d + c * Math.sin(2 * Math.PI * (a * x + b)));
+      default:
+        return (
+          (x - 0.5) * Math.cos(2 * Math.PI * a) +
+          (y - 0.5) * Math.sin(2 * Math.PI * a) -
+          b
+        );
+    }
+  };
+  // The leaves by recursion: a square is split into four when it is above minDepth, or when the shape function does not have one sign
+  // at its four corners and its middle, as long as it is above maxDepth.
+  const leaves = (shape: Shape): Leaf[] => {
+    const found: Leaf[] = [];
+    const visit = (x: number, y: number, size: number, depth: number): void => {
+      const signs = [
+          [0, 0],
+          [size, 0],
+          [0, size],
+          [size, size],
+          [size / 2, size / 2],
+        ].map(([dx, dy]) => value(shape, x + dx, y + dy) < 0),
+        mixed = signs.some((sign) => sign !== signs[0]);
+      if (depth < p.maxDepth && (depth < p.minDepth || mixed)) {
+        const half = size / 2;
+        for (const [dx, dy] of [
+          [0, 0],
+          [half, 0],
+          [0, half],
+          [half, half],
+        ])
+          visit(x + dx, y + dy, half, depth + 1);
+      } else found.push({ x, y, size, depth });
+    };
+    visit(0, 0, 1, 0);
+    return found;
+  };
+  // Which leaf every cell of the finest grid belongs to.
+  const owners = (shape: Shape): { owner: number[][]; all: Leaf[] } => {
+    const all = leaves(shape),
+      owner = Array.from({ length: grid }, () => Array<number>(grid).fill(-1));
+    all.forEach((leaf, index) => {
+      for (
+        let row = Math.round(leaf.y * grid);
+        row < Math.round((leaf.y + leaf.size) * grid);
+        row++
+      )
+        for (
+          let column = Math.round(leaf.x * grid);
+          column < Math.round((leaf.x + leaf.size) * grid);
+          column++
+        )
+          owner[row][column] = index;
+    });
+    return { owner, all };
+  };
+  const candidates = p.shapes.map((shape) => ({ shape, ...owners(shape) }));
+
+  // Does the picture have a border exactly between cells of different leaves (and along the outside), and the tone of every leaf?
+  const matches = (
+    seed: number,
+    { shape, owner, all }: { shape: Shape; owner: number[][]; all: Leaf[] },
+  ): boolean => {
+    const sample = createSurfaceSampler('quadtreecells', seed),
+      out = empty();
+    for (let row = 0; row < grid; row++)
+      for (let column = 0; column <= grid; column++) {
+        sample(column / grid, (row + 0.5) / grid, out);
+        if (
+          out.color < 0.25 !==
+          (column === 0 ||
+            column === grid ||
+            owner[row][column - 1] !== owner[row][column])
+        )
+          return false;
+      }
+    for (let row = 0; row <= grid; row++)
+      for (let column = 0; column < grid; column++) {
+        sample((column + 0.5) / grid, row / grid, out);
+        if (
+          out.color < 0.25 !==
+          (row === 0 ||
+            row === grid ||
+            owner[row - 1][column] !== owner[row][column])
+        )
+          return false;
+      }
+    return all.every((leaf) => {
+      sample(
+        leaf.x + leaf.size / 2 + leaf.size * 0.2,
+        leaf.y + leaf.size / 2 + leaf.size * 0.15,
+        out,
+      );
+      const inside =
+        value(shape, leaf.x + leaf.size / 2, leaf.y + leaf.size / 2) < 0;
+      return (
+        Math.abs(
+          out.color -
+            ((inside ? p.insideTone : p.outsideTone) -
+              p.depthShade * leaf.depth),
+        ) < 0.035
+      );
+    });
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'splits squares exactly where the shape passes through, and tones them by inside and depth (seed %i)',
+    (seed) => {
+      const found = candidates.filter((candidate) => matches(seed, candidate));
+      expect(found).toHaveLength(1);
+      // The leaves are never shallower than the minimum depth (some shapes cross every square of that depth, so the shallowest leaf may
+      // be deeper), and the deepest ones reach the maximum.
+      expect(
+        Math.min(...found[0].all.map((leaf) => leaf.depth)),
+      ).toBeGreaterThanOrEqual(p.minDepth);
+      expect(Math.max(...found[0].all.map((leaf) => leaf.depth))).toBe(
+        p.maxDepth,
+      );
+    },
+  );
+
+  it('draws borders thinner for smaller cells: half width min(lineHalf, lineFraction * size) on each side of an edge', () => {
+    for (const seed of seeds) {
+      const found = candidates.filter((candidate) => matches(seed, candidate)),
+        sample = createSurfaceSampler('quadtreecells', seed),
+        out = empty();
+      let checked = 0;
+      for (const leaf of found[0].all) {
+        if (leaf.x === 0 || checked >= 80) continue;
+        const half = Math.min(p.lineHalf, p.lineFraction * leaf.size),
+          v = leaf.y + leaf.size / 2;
+        // Inside the half width from the left edge of the leaf is the border; beyond half plus the soft edge is the face.
+        sample(leaf.x + 0.6 * half, v, out);
+        expect(out.color).toBeLessThan(0.25);
+        sample(leaf.x + 1.8 * half, v, out);
+        expect(out.color).toBeGreaterThan(0.4);
+        checked++;
+      }
+      expect(checked).toBe(80);
+    }
+  });
+
+  it('uses every shape across seeds', { timeout: 120000 }, () => {
+    const used = new Set<number>();
+    for (let seed = 0; seed < 100; seed++)
+      used.add(candidates.findIndex((candidate) => matches(seed, candidate)));
+    expect(used.size).toBe(candidates.length);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('quadtreecells', 0),
+      b = createSurfaceSampler('quadtreecells', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
