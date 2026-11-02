@@ -20492,6 +20492,125 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .74,
 		inkRoughness: .42
 	}),
+	golombrulers: Object.freeze({
+		dark: [
+			30,
+			26,
+			22
+		],
+		light: [
+			240,
+			226,
+			188
+		],
+		roughness: .55,
+		relief: .004,
+		rulers: Object.freeze([
+			Object.freeze([
+				0,
+				1,
+				3
+			]),
+			Object.freeze([
+				0,
+				1,
+				4,
+				6
+			]),
+			Object.freeze([
+				0,
+				1,
+				4,
+				9,
+				11
+			]),
+			Object.freeze([
+				0,
+				1,
+				4,
+				10,
+				12,
+				17
+			]),
+			Object.freeze([
+				0,
+				1,
+				4,
+				10,
+				18,
+				23,
+				25
+			]),
+			Object.freeze([
+				0,
+				1,
+				4,
+				9,
+				15,
+				22,
+				32,
+				34
+			]),
+			Object.freeze([
+				0,
+				1,
+				5,
+				12,
+				25,
+				27,
+				35,
+				41,
+				44
+			]),
+			Object.freeze([
+				0,
+				1,
+				6,
+				10,
+				23,
+				26,
+				34,
+				41,
+				53,
+				55
+			]),
+			Object.freeze([
+				0,
+				1,
+				4,
+				13,
+				28,
+				33,
+				47,
+				54,
+				64,
+				70,
+				72
+			])
+		]),
+		left: .05,
+		width: .9,
+		top: .05,
+		rowPitch: .1,
+		barHalf: .012,
+		markHalf: .0028,
+		markReach: .034,
+		unitHalf: .0011,
+		unitReach: .026,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .92,
+		barTone: .7,
+		unitTone: .45,
+		markTone: .08,
+		grainTone: .035,
+		paperHeight: .2,
+		barHeight: .45,
+		unitHeight: .5,
+		markHeight: .78,
+		paperRoughness: .72,
+		inkRoughness: .45
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -29173,6 +29292,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	golombrulers: 1,
 	henonattractor: 1,
 	digitalroottable: 1,
 	thuemorsegrid: 1,

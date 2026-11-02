@@ -28415,3 +28415,150 @@ describe('henonattractor: the Henon attractor', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('golombrulers: optimal Golomb rulers', () => {
+  const p = proceduralMaterialPresets.golombrulers;
+  const scale = p.width / 72;
+
+  // The marks of every row, read from the picture: dark runs along a line above the bar (only the tall marks reach it).
+  const readRow = (seed: number, row: number): number[] => {
+    const sample = createSurfaceSampler('golombrulers', seed),
+      out = empty(),
+      dy = -0.025,
+      v = p.top + (row + 0.5) * p.rowPitch + dy,
+      centres: number[] = [];
+    let start: number | undefined;
+    for (let step = -40; step <= 76 / 0.04; step++) {
+      const x = step * 0.04;
+      sample(p.left + x * scale, v, out);
+      const dark = out.color < 0.3;
+      if (dark && start === undefined) start = x;
+      if (!dark && start !== undefined) {
+        centres.push((start + x - 0.04) / 2);
+        start = undefined;
+      }
+    }
+    return centres.map((centre) => Math.round(centre) + 0); // + 0 turns -0 into 0
+  };
+  const differences = (marks: number[]): number[] =>
+    marks.flatMap((a, i) => marks.slice(i + 1).map((b) => Math.abs(b - a)));
+  // The shortest length of a ruler with the given number of marks and no repeated distance, by exhaustive search.
+  const shortest = (marks: number): number => {
+    const search = (
+      placed: number[],
+      used: Set<number>,
+      last: number,
+      limit: number,
+    ): boolean => {
+      if (placed.length === marks) return true;
+      for (let next = last + 1; next <= limit; next++) {
+        const added = placed.map((mark) => next - mark);
+        if (
+          added.some((d) => used.has(d)) ||
+          new Set(added).size !== added.length
+        )
+          continue;
+        added.forEach((d) => used.add(d));
+        const found = search([...placed, next], used, next, limit);
+        added.forEach((d) => used.delete(d));
+        if (found) return true;
+      }
+      return false;
+    };
+    for (let limit = marks - 1; ; limit++)
+      if (search([0], new Set(), 0, limit)) return limit;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws nine rulers with 3 to 11 marks and no repeated distance, each as given or mirrored (seed %i)',
+    (seed) => {
+      for (let row = 0; row < 9; row++) {
+        const marks = readRow(seed, row),
+          length = Math.max(...marks);
+        expect(marks).toHaveLength(row + 3);
+        expect(marks[0]).toBe(0);
+        expect(new Set(differences(marks)).size).toBe(
+          differences(marks).length,
+        );
+        const asGiven = [...p.rulers[row]],
+          mirrored = asGiven.map((mark) => length - mark).reverse();
+        expect([asGiven, mirrored]).toContainEqual(marks);
+      }
+    },
+  );
+
+  it('uses shortest possible lengths for 3 to 8 marks (exhaustive search) and the given lengths for 9 to 11', () => {
+    for (let marks = 3; marks <= 8; marks++)
+      expect(p.rulers[marks - 3][marks - 1]).toBe(shortest(marks));
+    // Not searched here: 9 to 11 marks (lengths 44, 55, 72 are from the published optimal rulers and are only checked for repeated distances).
+    for (const ruler of p.rulers)
+      expect(new Set(differences([...ruler])).size).toBe(
+        differences([...ruler]).length,
+      );
+  });
+
+  it('draws a small tick under the bar at every unit and nothing beyond the ends', () => {
+    const sample = createSurfaceSampler('golombrulers', 7),
+      out = empty();
+    for (let row = 0; row < 9; row++) {
+      const length = p.rulers[row][row + 2],
+        v = p.top + (row + 0.5) * p.rowPitch + 0.02;
+      for (let x = 0; x <= length + 3; x++) {
+        sample(p.left + x * scale, v, out);
+        if (x <= length) expect(out.color).toBeLessThan(0.6);
+        else expect(out.color).toBeGreaterThan(0.85);
+        // Half way between two units, under the bar, there is paper.
+        sample(p.left + (x + 0.5) * scale, v, out);
+        expect(out.color).toBeGreaterThan(0.85);
+      }
+    }
+  });
+
+  it('mirrors some rows and not others across seeds', () => {
+    const mirroredRows = new Set<number>(),
+      plainRows = new Set<number>();
+    for (let seed = 0; seed < 20; seed++)
+      for (let row = 0; row < 9; row++) {
+        const marks = readRow(seed, row);
+        (marks[1] === 1 ? plainRows : mirroredRows).add(row);
+      }
+    expect(mirroredRows.size).toBe(9);
+    expect(plainRows.size).toBe(9);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('golombrulers', 0),
+      b = createSurfaceSampler('golombrulers', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

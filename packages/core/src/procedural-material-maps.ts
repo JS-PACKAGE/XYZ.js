@@ -37013,6 +37013,66 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'golombrulers': {
+        const p = proceduralMaterialPresets.golombrulers,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x31601),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          longestRuler = p.rulers[p.rulers.length - 1],
+          scale = p.width / longestRuler[longestRuler.length - 1],
+          mirrored = p.rulers.map(
+            (_, row) => hash(row, 1, seed ^ 0x31602) < 0.5,
+          );
+        return () => {
+          const fv = v - Math.floor(v),
+            row = Math.floor((fv - p.top) / p.rowPitch);
+          let bar = 0,
+            unit = 0,
+            mark = 0;
+          if (row >= 0 && row < p.rulers.length) {
+            const marks = p.rulers[row],
+              length = marks[marks.length - 1],
+              dy = fv - (p.top + (row + 0.5) * p.rowPitch),
+              x = (u - Math.floor(u) - p.left) / scale,
+              within = cover(x * scale) * cover((length - x) * scale);
+            bar = cover(p.barHalf - Math.abs(dy)) * within;
+            if (dy > p.barHalf && dy < p.unitReach)
+              unit =
+                cover(p.unitHalf - Math.abs(x - Math.round(x)) * scale) *
+                within;
+            for (const m of marks) {
+              const distance =
+                Math.abs(x - (mirrored[row] ? length - m : m)) * scale;
+              if (distance < p.markHalf + p.edgeSoft)
+                mark = Math.max(
+                  mark,
+                  cover(p.markHalf - distance) *
+                    cover(p.markReach - Math.abs(dy)),
+                );
+            }
+          }
+          const base = p.paperTone + (p.barTone - p.paperTone) * bar,
+            withUnit = base + (p.unitTone - base) * unit;
+          color = clamp(
+            withUnit +
+              (p.markTone - withUnit) * mark +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            Math.max(
+              p.paperHeight + (p.barHeight - p.paperHeight) * bar,
+              p.paperHeight + (p.unitHeight - p.paperHeight) * unit,
+              p.paperHeight + (p.markHeight - p.paperHeight) * mark,
+            ),
+          );
+          roughness =
+            p.paperRoughness +
+            (p.inkRoughness - p.paperRoughness) *
+              Math.max(bar * 0.5, unit, mark);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -64542,6 +64602,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'golombrulers' ||
     kind === 'henonattractor' ||
     kind === 'digitalroottable' ||
     kind === 'thuemorsegrid' ||
