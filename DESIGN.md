@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`pizza`（披薩）使目前目錄956→957種，含plain的gallery為958項。融化起司上散布紅棕色香腸片（pepperoni）的披薩表面示意：5×5格、每格以72%機率放一片稍有抖動與大小變化的圓片（所以每個seed約14–20片，沿格子排列、不是真實的隨機散布），起司底色淺黃，帶較深的烤焦色塊（blister）與淡淡露出的番茄醬色，香腸片中央略高、帶少量油亮斑點且roughness較低。不是真實披薩的香腸片捲邊、起司拉絲與油光、餅皮邊緣或其他配料，香腸片也是棕紅而不是鮮紅（單一暗→亮漸層），預覽比較像圓點花紋。
+
+此材質是作者示意，沒有引用特定來源、食物照片或量測，也沒有對照照片；格數、出現機率0.72、圓片半徑0.3 ± 16%、抖動0.12、色調與0.25 m nominal tile皆作者設定與調整。第一版（全格皆有、半徑變化10%、油斑96格）看起來像整齊的棕色圓點格子，我加入隨機缺席、加大半徑變化、把油斑改成44格的柔和斑點後採用，仍然看得出格子排列。
+
+新增專用sampler：每格一片圓片，中心有抖動，最大半徑0.348格加抖動0.12格小於半格，所以圓片在自己的格界前就歸零、逐格查詢不會產生跳變；圓片輪廓是`smoothstep(clamp((1 − r²)/0.12))`（C1），並以`present`（hash < 0.72）決定是否出現；起司＝`0.86 − 0.3·blister − 0.12·sauce + 0.04·(128²細grain − 0.5)`，其中blister與sauce是9×9與6×6慢雜訊通過tanh門檻（0.62、0.7）的平滑遮罩；香腸片＝`0.12 + 0.1·dome + 0.1·speck`，speck是44×44雜訊的tanh斑點；顏色是兩者以圓片遮罩混合；height ＝ `0.6·dome·mask + 0.25·blister雜訊 + 0.15·grain`；香腸片處roughness降低0.2；cache合計25×4個每格陣列（offsetX、offsetY、halves、present）＋9² ＋6² ＋44² ＋128² = 18,537個Float64／148,296 B lattice算術預算（非總RAM）。預設0.25 m nominal tile與0.004 UV-relative relief（非公尺位移）。實測（工具實跑，seed 0／1／0xffffffff／7，256²取樣）：香腸片（color<0.3）占14.5%–22.1%、連通區14–20、起司（color>0.6）占59.3%–70.6%、color 0.1240至0.8776–0.8791、平均0.609–0.646、roughness 0.35–0.55、height至多0.918–0.963 relief；seed 0與1的香腸片遮罩18.3%像素不同；seed 7的512²maps平均r／g／b約(189.7, 139.6, 83.4)、法線tilt²最大約0.0329。我實看了預覽：淺黃色起司底上有棕紅色圓片，圓片沿5×5格子排列，像圓點花紋，不太像真實披薩。未新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `invaders`（街機外星人）使目前目錄955→956種，含plain的gallery為957項。綠色LED點陣面板上的街機風格像素外星人：三列各一種造型（8×8、11×8、12×8像素），每列在一個42×33的LED格上重複3次；每顆LED是圓角方塊，未亮的LED保留暗綠色。seed只改變細grain，**圖樣固定**。造型是作者依一般街機外星人風格手寫的像素圖，**不保證與任何既有遊戲的圖案相同**，也沒有發光（emission）——亮度只是底色。
 
 此材質是作者示意，沒有引用特定來源、遊戲截圖或美術資產，也沒有對照照片；三個像素圖、LED格數42×33、間距與0.3 m nominal tile皆作者設定。第一版relief 0.002時，512²maps的法線tilt²最大為0.197，我降到0.001後為0.0588。

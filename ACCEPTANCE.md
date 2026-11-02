@@ -12150,3 +12150,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試（三seed的LED節點與獨立重寫的版面規則逐一比對加統計、seed只影響grain與決定性、C1＋有符號UV週期、actual512 maps）通過；測試中的版面規則（欄位寬14、置中取`floor`、列距11、上方留1格）是獨立重寫的，改動sampler版面時需同步。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Invaders as|invaders|kinds|catalog|distinct|periodic"`定向測試**2214項通過／3801項未選**。
 - 未驗證：mackerel、fairisle、invaders未跑完整suite與瀏覽器gallery（petricolonies、hestain完整suite亦未做）；不push。
+
+## 2026-11-02 新增材質：披薩（pizza）
+
+- 範圍：新增`pizza`（目前目錄956→957種，含plain的gallery 958項）：5×5格、每格以72%機率放一片抖動0.12格、半徑0.3 ± 16%格的香腸片圓盤（最大半徑加抖動0.468格小於半格，歸零於自己的格界前，沿用sweetcorn的逐格查詢做法；輪廓為`smoothstep(clamp((1 − r²)/0.12))`，C1），起司以9×9與6×6慢雜訊的tanh門檻產生烤焦與醬色，香腸片有44×44油亮斑點、中央較高、roughness較低；預設0.25 m nominal tile、0.004 UV-relative relief。作者示意，沒有引用特定來源或食物照片、**沒有對照照片**。
+- 外觀限制與調整（誠實紀錄）：第一版（所有格皆有、半徑變化10%、96×96油斑）看起來像整齊的棕色圓點格子，油斑呈明顯方塊；加入隨機缺席、半徑變化加到16%、油斑改為44×44並降低銳度後採用，但圓片仍沿5×5格排列，預覽比較像圓點花紋，不像真實披薩（沒有捲邊、拉絲與油光）；香腸片是棕紅而非鮮紅，因為單一暗→亮漸層。我沒有再提高抖動，因為逐格查詢要求半徑加抖動小於半格；若要更自然的散布需要改用更大的鄰域視窗（如granola的5×5做法），這次沒做。
+- 實測（工具實跑，seed 0／1／0xffffffff／7，256²取樣）：香腸片（color<0.3）占14.5%–22.1%、連通區14–20、起司（color>0.6）占59.3%–70.6%、color 0.1240至0.8776–0.8791、平均0.609–0.646、roughness 0.35–0.55、height至多0.918–0.963 relief；seed 0與1的香腸片遮罩18.3%像素不同；seed 7的512²maps平均r／g／b約(189.7, 139.6, 83.4)、r<128的像素占13.7%、法線tilt²最大約0.0329、z分量最小253。
+- 測試：新增6項專屬測試（三seed統計含圓片連通區、seed差異與決定性、C1＋有符號UV週期含各雜訊格點、actual512 maps）通過；C1掃描無法證明未知的非C1。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Pizza as|pizza|kinds|catalog|distinct|periodic"`定向測試**2218項通過／3804項未選**。
+- 未驗證：mackerel、fairisle、invaders、pizza未跑完整suite與瀏覽器gallery（petricolonies、hestain完整suite亦未做）；不push。

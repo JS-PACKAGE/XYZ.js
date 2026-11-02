@@ -39628,6 +39628,92 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'pizza': {
+        const p = proceduralMaterialPresets.pizza,
+          count = p.cells * p.cells,
+          offsetX = new Float64Array(count),
+          offsetY = new Float64Array(count),
+          halves = new Float64Array(count),
+          present = new Float64Array(count),
+          blisterField = cachedNoise(
+            p.blisterCells,
+            p.blisterCells,
+            seed ^ (p.seedSalt + 1),
+          ),
+          sauceField = cachedNoise(
+            p.sauceCells,
+            p.sauceCells,
+            seed ^ (p.seedSalt + 2),
+          ),
+          speckField = cachedNoise(
+            p.speckCells,
+            p.speckCells,
+            seed ^ (p.seedSalt + 3),
+          ),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 4),
+          ),
+          inverseSoft = 1 / p.edgeSoft;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = row * p.cells + col,
+              salt = seed ^ p.seedSalt;
+            offsetX[i] = p.jitter * 2 * (hash(col, row, salt) - 0.5);
+            offsetY[i] = p.jitter * 2 * (hash(col, row, salt + 5) - 0.5);
+            halves[i] =
+              p.radius *
+              (1 + p.radiusVariation * 2 * (hash(col, row, salt + 6) - 0.5));
+            present[i] = Number(hash(col, row, salt + 7) < p.presence);
+          }
+        return () => {
+          // One pepperoni disc per cell, centred with a jitter; the largest radius plus
+          // the jitter stays below half a cell, so the disc is zero before its cell
+          // boundary and the per-cell lookup never jumps. The disc profile is a
+          // smoothstep of 1 - r^2 (C1). Cheese browns where a slow noise passes a smooth
+          // tanh threshold (blisters), the red sauce shows through a second threshold,
+          // and a fast noise gives grease specks on the pepperoni.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            i = row * p.cells + col,
+            ax = (x - col - 0.5 - offsetX[i]) / halves[i],
+            ay = (y - row - 0.5 - offsetY[i]) / halves[i],
+            s = ax * ax + ay * ay,
+            mask = present[i] * smooth(clamp((1 - s) * inverseSoft)),
+            dome = present[i] * smooth(clamp(1 - s)),
+            blisterValue = blisterField(u, v),
+            blister =
+              0.5 +
+              0.5 *
+                Math.tanh(p.blisterSharpness * (blisterValue - p.blisterLevel)),
+            sauce =
+              0.5 +
+              0.5 *
+                Math.tanh(p.sauceSharpness * (sauceField(u, v) - p.sauceLevel)),
+            speck =
+              0.5 +
+              0.5 *
+                Math.tanh(p.speckSharpness * (speckField(u, v) - p.speckLevel)),
+            grain = grainField(u, v),
+            cheese =
+              p.cheeseTone -
+              p.blisterDepth * blister -
+              p.sauceDepth * sauce +
+              p.grainTone * (grain - 0.5),
+            pepperoni =
+              p.pepperoniTone + p.domeTone * dome + p.speckTone * speck;
+          color = cheese * (1 - mask) + pepperoni * mask;
+          height =
+            p.domeHeight * dome * mask +
+            p.blisterHeight * blisterValue +
+            p.grainHeight * grain;
+          roughness += p.pepperoniRoughness * mask;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -47392,6 +47478,7 @@ export function createSurfaceSampler(
     kind === 'mackerel' ||
     kind === 'fairisle' ||
     kind === 'invaders' ||
+    kind === 'pizza' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

@@ -22027,6 +22027,48 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: .2,
 		litRoughness: -.2
 	}),
+	pizza: Object.freeze({
+		dark: [
+			96,
+			24,
+			14
+		],
+		light: [
+			250,
+			214,
+			128
+		],
+		roughness: .55,
+		relief: .004,
+		seedSalt: 37162,
+		cells: 5,
+		jitter: .12,
+		radius: .3,
+		radiusVariation: .16,
+		presence: .72,
+		edgeSoft: .12,
+		blisterCells: 9,
+		blisterLevel: .62,
+		blisterSharpness: 10,
+		sauceCells: 6,
+		sauceLevel: .7,
+		sauceSharpness: 9,
+		speckCells: 44,
+		speckLevel: .8,
+		speckSharpness: 9,
+		grainCells: 128,
+		cheeseTone: .86,
+		grainTone: .04,
+		blisterDepth: .3,
+		sauceDepth: .12,
+		pepperoniTone: .12,
+		domeTone: .1,
+		speckTone: .1,
+		domeHeight: .6,
+		blisterHeight: .25,
+		grainHeight: .15,
+		pepperoniRoughness: -.2
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -23480,7 +23522,8 @@ var proceduralTileMeters = Object.freeze({
 	hestain: .05,
 	mackerel: .3,
 	fairisle: .3,
-	invaders: .3
+	invaders: .3,
+	pizza: .25
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;
