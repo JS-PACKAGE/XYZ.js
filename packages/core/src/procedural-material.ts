@@ -1020,6 +1020,7 @@ export type ProceduralMaterialKind =
   | 'aggregationfrost'
   | 'hammingtable'
   | 'fordcircles'
+  | 'gaussianprimes'
   | 'sandpileidentity'
   | 'multiplicativeorder'
   | 'vermiculation'
@@ -2287,6 +2288,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'aggregationfrost',
   'hammingtable',
   'fordcircles',
+  'gaussianprimes',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',

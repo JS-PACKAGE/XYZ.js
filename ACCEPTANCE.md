@@ -12799,3 +12799,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Ford circles as|fordcircles|kinds|catalog|distinct|periodic"`定向測試**2342項通過／4013項未選**。
 - 未驗證：fordcircles未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：高斯質數（gaussianprimes）
+
+- 範圍：新增`gaussianprimes`（目前目錄1018→1019種，含plain的gallery 1020項）：64×64圓角方磚，每格是高斯整數`a + bi`（a、b各−32到31），高斯質數的格子發光（軸上者要求`|x|`為除以4餘3的質數，其他要求範數為質數），強度隨離原點距離減弱；seed令表在環面上平移；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 163,840 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽只看了一版；(2)sampler以標準定理的公式（軸上看餘3、其他看範數是否為質數）判斷，測試以**獨立的暴力因子搜尋**判斷高斯質數，兩者在4096格一致，但我**沒有另外證明該定理**；(3)測試骨架沿用Hamming測試，改寫時已先檢查roughness（恆定0.4）、AO與統計的期望；256²與512²的統計不同（亮處14.94%–14.98%對11.58%–11.63%、AO最低0.7344對0.6），原因是格子只有4（或8）像素寬、取樣點落在格內的位置不同，測試採用256²的數值；(4)建構與取樣耗時**未量測**。
+- 實測（工具實跑）：844個高斯質數、24個在軸上；四個seed（0／1／0xffffffff／7）各有唯一符合的平移(22, 34)、(40, 21)、(51, 61)、(51, 37)，最大擬合誤差0.01499–0.01500；256²（seed 0／1／0xffffffff）亮處（color>0.5）14.94%–14.98%、color 0.05897–0.05967至0.8357–0.8397、平均0.21017–0.21026、roughness恆為0.4、AO最低0.7344、height至多0.8395–0.8433 relief；512²（四個seed）亮處11.58%–11.63%、color 0.02517–0.02532至0.8353–0.8390、平均0.18475–0.18484、AO最低0.6、height至多0.8443–0.8462 relief；seed 0與1相比，512²中color>0.5的取樣23.1%不同；seed 7的512²maps平均r／g／b約(58.5, 30.3, 49.1)、法線tilt²最大約0.0377、z分量最小253。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Gaussian primes as|gaussianprimes|kinds|catalog|distinct|periodic"`定向測試**2344項通過／4016項未選**。
+- 未驗證：fordcircles與gaussianprimes未跑完整suite與瀏覽器gallery；不push。

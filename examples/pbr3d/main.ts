@@ -1083,6 +1083,7 @@ try {
     'aggregationfrost',
     'hammingtable',
     'fordcircles',
+    'gaussianprimes',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',
