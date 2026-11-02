@@ -13620,6 +13620,30 @@ export declare const proceduralMaterialPresets: Readonly<{
         ridgeHeight: 0.8;
         fuzzHeight: 0.2;
     }>;
+    invaders: Readonly<{
+        dark: readonly [6, 12, 8];
+        light: readonly [150, 255, 120];
+        roughness: 0.35;
+        relief: 0.001;
+        seedSalt: 6782;
+        pitchColumns: 14;
+        spritesPerRow: 3;
+        spriteRows: 8;
+        rowPitch: 11;
+        sprites: readonly [readonly ["...##...", "..####..", ".######.", "##.##.##", "########", "..#..#..", ".#.##.#.", "#.#..#.#"], readonly ["..#.....#..", "...#...#...", "..#######..", ".##.###.##.", "###########", "#.#######.#", "#.#.....#.#", "...##.##..."], readonly ["....####....", ".##########.", "############", "###..##..###", "############", "...##..##...", "..##.##.##..", "##........##"]];
+        sharpness: 7;
+        cellEdge: 0.12;
+        cellSharpness: 14;
+        glowTone: 0.06;
+        offTone: 0.04;
+        unlitTone: 0.1;
+        litTone: 0.72;
+        cellHeight: 0.8;
+        grainCells: 128;
+        grainTone: 0.02;
+        grainHeight: 0.2;
+        litRoughness: -0.2;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -14954,4 +14978,5 @@ export declare const proceduralTileMeters: Readonly<{
     hestain: 0.05;
     mackerel: 0.3;
     fairisle: 0.3;
+    invaders: 0.3;
 }>;

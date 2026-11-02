@@ -12141,3 +12141,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試（三seed的針目節點與規則逐一比對加統計、seed只影響絨毛與決定性、C1＋有符號UV週期、actual512 maps）通過；節點測試中的規則是在測試裡獨立重寫一份，與sampler的規則改動需同步。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Fair Isle as|fairisle|kinds|catalog|distinct|periodic"`定向測試**2212項通過／3798項未選**。
 - 未驗證：mackerel、fairisle未跑完整suite與瀏覽器gallery（petricolonies、hestain完整suite亦未做）；不push。
+
+## 2026-11-02 新增材質：街機外星人（invaders）
+
+- 範圍：新增`invaders`（目前目錄955→956種，含plain的gallery 957項）：三個像素sprite（8×8、11×8、12×8，字串陣列放在`src/data/materials.ts`的preset）各置中於14格寬欄位、每列重複3次，排成42×33的LED點陣；像素圖用`latticeField`混合後以tanh重新銳化，每顆LED是`cos²`切出的圓角方塊（C∞，LED之間留縫）；暗處LED保留暗綠色；預設0.3 m nominal tile、0.001 UV-relative relief。作者示意，沒有引用特定來源、遊戲截圖或美術資產、**沒有對照照片**；sprite是我依一般街機風格憑印象手寫的，**不保證與任何既有遊戲的圖案相同**，也不應被當作任何遊戲的美術重製；沒有發光。seed只改變grain，圖樣固定。
+- 調整紀錄（誠實紀錄）：第一版relief 0.002時，512²maps的法線tilt²最大為0.197，降到0.001後為0.0588（同一批探針的前後值）；預覽第一次就採用。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：color 0.0305–0.0307至0.8688–0.8691、亮處（color>0.5）占18.0%（512²取樣）、平均0.2445、roughness 0.150–0.350、height至多0.9976–0.9987 relief；1,386個LED節點中426顆亮、最亮的未亮節點0.1507、最暗的亮節點0.8496，沒有節點落在0.3到0.5之間；seed 7的512²maps平均r／g／b約(41.2, 71.4, 35.4)、法線tilt²最大約0.0588、z分量最小251。我實看了預覽：暗綠底上整齊的綠色像素外星人，LED縫清楚。
+- 測試：新增5項專屬測試（三seed的LED節點與獨立重寫的版面規則逐一比對加統計、seed只影響grain與決定性、C1＋有符號UV週期、actual512 maps）通過；測試中的版面規則（欄位寬14、置中取`floor`、列距11、上方留1格）是獨立重寫的，改動sampler版面時需同步。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Invaders as|invaders|kinds|catalog|distinct|periodic"`定向測試**2214項通過／3801項未選**。
+- 未驗證：mackerel、fairisle、invaders未跑完整suite與瀏覽器gallery（petricolonies、hestain完整suite亦未做）；不push。

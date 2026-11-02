@@ -39577,6 +39577,57 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'invaders': {
+        const p = proceduralMaterialPresets.invaders,
+          columns = p.pitchColumns * p.spritesPerRow,
+          rows = p.rowPitch * p.sprites.length,
+          pixels = new Float64Array(columns * rows),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          );
+        // Rows of arcade-style sprites on an LED grid: one lattice node per pixel,
+        // sprites centred in a pitchColumns-wide slot and repeated spritesPerRow times.
+        p.sprites.forEach((sprite, row) => {
+          const left = Math.floor((p.pitchColumns - sprite[0].length) / 2);
+          for (let y = 0; y < sprite.length; y++)
+            for (let x = 0; x < sprite[y].length; x++) {
+              if (sprite[y][x] !== '#') continue;
+              for (let slot = 0; slot < p.spritesPerRow; slot++)
+                pixels[
+                  (row * p.rowPitch + 1 + y) * columns +
+                    slot * p.pitchColumns +
+                    left +
+                    x
+                ] = 1;
+            }
+        });
+        const pattern = latticeField(pixels, columns, rows);
+        return () => {
+          // The pixel map goes through the same C1 blend and tanh re-sharpening as the
+          // other lattice patterns. Each LED is a rounded square cut by cos^2 in both
+          // axes (a C-infinity cell mask, gaps where cos is zero between nodes).
+          const lit =
+              0.5 + 0.5 * Math.tanh(p.sharpness * (pattern(u, v) - 0.5)),
+            cx = Math.cos(Math.PI * columns * u),
+            cy = Math.cos(Math.PI * rows * v),
+            cell =
+              (0.5 +
+                0.5 * Math.tanh(p.cellSharpness * (cx * cx - p.cellEdge))) *
+              (0.5 + 0.5 * Math.tanh(p.cellSharpness * (cy * cy - p.cellEdge))),
+            glow = pattern(u, v),
+            grain = grainField(u, v);
+          color =
+            p.offTone +
+            cell * (p.unlitTone + p.litTone * lit) +
+            p.glowTone * glow * (1 - cell) +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * cell + p.grainHeight * grain;
+          roughness += p.litRoughness * lit * cell;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -47340,6 +47391,7 @@ export function createSurfaceSampler(
     kind === 'hestain' ||
     kind === 'mackerel' ||
     kind === 'fairisle' ||
+    kind === 'invaders' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

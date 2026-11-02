@@ -21964,6 +21964,69 @@ var proceduralMaterialPresets = Object.freeze({
 		ridgeHeight: .8,
 		fuzzHeight: .2
 	}),
+	invaders: Object.freeze({
+		dark: [
+			6,
+			12,
+			8
+		],
+		light: [
+			150,
+			255,
+			120
+		],
+		roughness: .35,
+		relief: .001,
+		seedSalt: 6782,
+		pitchColumns: 14,
+		spritesPerRow: 3,
+		spriteRows: 8,
+		rowPitch: 11,
+		sprites: [
+			[
+				`...##...`,
+				`..####..`,
+				`.######.`,
+				`##.##.##`,
+				`########`,
+				`..#..#..`,
+				`.#.##.#.`,
+				`#.#..#.#`
+			],
+			[
+				`..#.....#..`,
+				`...#...#...`,
+				`..#######..`,
+				`.##.###.##.`,
+				`###########`,
+				`#.#######.#`,
+				`#.#.....#.#`,
+				`...##.##...`
+			],
+			[
+				`....####....`,
+				`.##########.`,
+				`############`,
+				`###..##..###`,
+				`############`,
+				`...##..##...`,
+				`..##.##.##..`,
+				`##........##`
+			]
+		],
+		sharpness: 7,
+		cellEdge: .12,
+		cellSharpness: 14,
+		glowTone: .06,
+		offTone: .04,
+		unlitTone: .1,
+		litTone: .72,
+		cellHeight: .8,
+		grainCells: 128,
+		grainTone: .02,
+		grainHeight: .2,
+		litRoughness: -.2
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -23416,7 +23479,8 @@ var proceduralTileMeters = Object.freeze({
 	petricolonies: .12,
 	hestain: .05,
 	mackerel: .3,
-	fairisle: .3
+	fairisle: .3,
+	invaders: .3
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

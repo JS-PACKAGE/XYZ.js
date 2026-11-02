@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`invaders`（街機外星人）使目前目錄955→956種，含plain的gallery為957項。綠色LED點陣面板上的街機風格像素外星人：三列各一種造型（8×8、11×8、12×8像素），每列在一個42×33的LED格上重複3次；每顆LED是圓角方塊，未亮的LED保留暗綠色。seed只改變細grain，**圖樣固定**。造型是作者依一般街機外星人風格手寫的像素圖，**不保證與任何既有遊戲的圖案相同**，也沒有發光（emission）——亮度只是底色。
+
+此材質是作者示意，沒有引用特定來源、遊戲截圖或美術資產，也沒有對照照片；三個像素圖、LED格數42×33、間距與0.3 m nominal tile皆作者設定。第一版relief 0.002時，512²maps的法線tilt²最大為0.197，我降到0.001後為0.0588。
+
+新增專用sampler：建構時把三個sprite（字串陣列，放在`src/data/materials.ts`的preset）各置於14格寬的欄位中央並重複3次，排成42×33的0／1像素圖（每列間距11格、上方留1格）；用`latticeField`以C1 smoothstep混合並以`0.5 + 0.5·tanh(7·(pattern − 0.5))`重新銳化；每顆LED以`cos²`在兩軸上切成圓角方塊（`0.5 + 0.5·tanh(14·(cos²(π·42·u) − 0.12))`乘以v向對應項，C∞，兩顆LED之間留縫）；顏色＝`0.04 + cell·(0.1 + 0.72·lit) + 0.06·glow·(1 − cell) + 0.02·(128²細grain − 0.5)`；height ＝ `0.8·cell + 0.2·grain`；亮處roughness降低0.2；cache合計42×33 + 128² = 17,770個Float64／142,160 B lattice算術預算（非總RAM）。預設0.3 m nominal tile與0.001 UV-relative relief（非公尺位移）。實測（工具實跑，seed 0／1／0xffffffff／7，512²取樣）：color 0.0305–0.0307至0.8688–0.8691、亮處（color>0.5）占18.0%、平均0.2445、roughness 0.150–0.350、height至多0.9976–0.9987 relief；1,386個LED節點中426顆亮、其餘最亮0.1507、最暗亮顆0.8496，沒有節點落在0.3到0.5之間；seed 7的512²maps平均r／g／b約(41.2, 71.4, 35.4)、法線tilt²最大約0.0588。我實看了預覽：暗綠底上排列整齊的綠色像素外星人，LED格縫清楚，一眼就是復古街機。未新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `fairisle`（費爾島針織）使目前目錄954→955種，含plain的gallery為956項。北歐費爾島（Fair Isle）針織毛衣圖樣的示意：40×30針的針目，每針是一個斜向的V形針腳；圖樣由15列為一組的橫帶構成（實心帶、交替的小點帶、以及每8針重複、帶開孔中心的菱形圖案），單一深藍與淺灰兩色，細絨毛以160²雜訊表示。seed只改變細絨毛，**圖樣本身與seed無關**。不是真實針織的毛圈與紗線粗細變化、色線的浮線（floats）或不規則的針目張力，也只有深藍與淺灰兩色（單一暗→亮漸層）。
 
 此材質是作者示意，沒有引用特定來源、費爾島圖樣圖譜或照片，也沒有對照照片；針目數40×30、圖樣的帶與菱形規則、色調、roughness 0.92與0.3 m nominal tile皆作者設定，不宣稱符合任何真實的費爾島圖樣。第一版relief 0.004時，512²maps的法線tilt²最大為0.335，我降到0.0015後為0.0668。
