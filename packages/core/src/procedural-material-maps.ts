@@ -33932,6 +33932,56 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'substitutionwords': {
+        const p = proceduralMaterialPresets.substitutionwords,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2f201),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          rule =
+            p.rules[Math.floor(hash(4, 4, seed ^ 0x2f202) * p.rules.length)],
+          words: string[] = ['0'];
+        for (let row = 1; row < rule.rows; row++)
+          words.push(
+            [...words[row - 1]]
+              .map((letter) => (letter === '0' ? rule.zero : rule.one))
+              .join(''),
+          );
+        // Every cell of the longest row has this width, so that all rows share one grid.
+        const cell = p.width / words[words.length - 1].length;
+        return () => {
+          const row = Math.floor((v - p.top) / p.rowPitch),
+            fy = (v - p.top) / p.rowPitch - row,
+            column = Math.floor((u - p.left) / cell);
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            fill = 0;
+          if (
+            row >= 0 &&
+            row < rule.rows &&
+            column >= 0 &&
+            column < words[row].length &&
+            fy * p.rowPitch < p.cellHeight
+          ) {
+            const one = words[row][column] === '1',
+              fx = (u - p.left) / cell - column,
+              inside = Math.min(
+                Math.min(fx * cell, (1 - fx) * cell),
+                fy * p.rowPitch,
+                p.cellHeight - fy * p.rowPitch,
+              );
+            fill = cover(inside - p.gap);
+            tone = one ? p.oneTone : p.zeroTone;
+            level = one ? p.oneHeight : p.zeroHeight;
+          }
+          const base = p.paperTone + (tone - p.paperTone) * fill;
+          color = clamp(base + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(p.paperHeight + (level - p.paperHeight) * fill);
+          roughness =
+            p.paperRoughness + (p.cellRoughness - p.paperRoughness) * fill;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -61461,6 +61511,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'substitutionwords' ||
     kind === 'stemandleaf' ||
     kind === 'boxplots' ||
     kind === 'sorobanabacus' ||

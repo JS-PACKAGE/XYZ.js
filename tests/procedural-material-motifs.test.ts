@@ -23127,3 +23127,135 @@ describe('stemandleaf: a stem-and-leaf plot with its median marked', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('substitutionwords: rows produced by a letter substitution', () => {
+  const p = proceduralMaterialPresets.substitutionwords;
+  // The word of every row for a rule, applying the substitution with string replacement instead of the sampler's mapping.
+  const wordsFor = (rule: (typeof p.rules)[number]): string[] => {
+    const rows = ['0'];
+    while (rows.length < rule.rows)
+      rows.push(
+        rows[rows.length - 1]
+          .replace(/0/g, 'a')
+          .replace(/1/g, rule.one)
+          .replace(/a/g, rule.zero),
+      );
+    return rows;
+  };
+
+  // Rows read from the picture at cell centres: '1' dark, '0' mid grey, nothing past the end of the row.
+  const decode = (
+    seed: number,
+    rule: (typeof p.rules)[number],
+  ): string[] | null => {
+    const sample = createSurfaceSampler('substitutionwords', seed),
+      out = empty(),
+      longest = wordsFor(rule)[rule.rows - 1].length,
+      cell = p.width / longest,
+      rows: string[] = [];
+    for (let row = 0; row < rule.rows; row++) {
+      let text = '';
+      for (let column = 0; column < longest; column++) {
+        sample(
+          p.left + (column + 0.5) * cell,
+          p.top + row * p.rowPitch + p.cellHeight / 2,
+          out,
+        );
+        if (out.color < 0.3) text += '1';
+        else if (out.color < 0.8) text += '0';
+        else break;
+      }
+      rows.push(text);
+    }
+    return rows;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows each row as the previous row with every letter replaced, for exactly one rule (seed %i)',
+    (seed) => {
+      const matches = p.rules
+        .map((rule, index) => ({
+          index,
+          same: decode(seed, rule)?.join('/') === wordsFor(rule).join('/'),
+        }))
+        .filter((entry) => entry.same);
+      expect(matches).toHaveLength(1);
+      const rule = p.rules[matches[0].index],
+        rows = wordsFor(rule);
+      // Known structure of the three rules, checked on the words that were read back.
+      if (matches[0].index === 0) {
+        // Fibonacci word: the lengths are Fibonacci numbers, each row is the previous one followed by the one before it,
+        // and a 1 is never followed by another 1.
+        expect(rows.map((row) => row.length).slice(0, 6)).toEqual([
+          1, 2, 3, 5, 8, 13,
+        ]);
+        for (let i = 2; i < rows.length; i++)
+          expect(rows[i]).toBe(rows[i - 1] + rows[i - 2]);
+        for (const row of rows) expect(row).not.toContain('11');
+      } else if (matches[0].index === 1) {
+        // Thue-Morse: each row is the previous one followed by its complement, and there are no three equal letters in a row.
+        for (let i = 1; i < rows.length; i++)
+          expect(rows[i]).toBe(
+            rows[i - 1] +
+              [...rows[i - 1]]
+                .map((letter) => (letter === '0' ? '1' : '0'))
+                .join(''),
+          );
+        for (const row of rows) expect(row).not.toMatch(/000|111/);
+      } else {
+        // Period doubling: lengths double and no two 1s are adjacent.
+        expect(rows.map((row) => row.length)).toEqual([1, 2, 4, 8, 16, 32, 64]);
+        for (const row of rows) expect(row).not.toContain('11');
+      }
+      expect(rows[rule.rows - 1].length).toBeGreaterThan(30);
+    },
+  );
+
+  it('uses every rule across seeds', () => {
+    const used = new Set<number>();
+    for (let seed = 0; seed < 30; seed++) {
+      const index = p.rules.findIndex(
+        (rule) => decode(seed, rule)?.join('/') === wordsFor(rule).join('/'),
+      );
+      expect(index).toBeGreaterThanOrEqual(0);
+      used.add(index);
+    }
+    expect([...used].sort()).toEqual([0, 1, 2]);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('substitutionwords', 0),
+      b = createSurfaceSampler('substitutionwords', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(0);
+  });
+});

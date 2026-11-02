@@ -1821,6 +1821,10 @@
 
 這是作者設計的示意：只有兩位數的整數、固定29個值，沒有圖例（例如「5|3 = 53」）或其他統計量；資料是雜湊亂數產生的，不是真實資料；同一個值出現多次時重複畫出多片葉；某一列沒有任何葉時只畫莖。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`substitutionwords`（替換序列）使目前目錄1063→1064種，含plain的gallery為1065項。每tile由上而下是一列列由0與1組成的字：第一列是「0」，之後每一列都是把上一列每個字母依規則替換而成（0變成01，1依規則變成0、10或00）；1用深色格、0用中灰色格，所有列共用同一個格寬而靠左對齊，所以可以看出字不斷增長的階梯形狀。規則由seed從三個預設中挑一個：費氏字（0→01、1→0，長度為1、2、3、5、8…，共9列）、Thue–Morse序列（0→01、1→10，長度加倍，共7列）與週期倍增序列（0→01、1→00，長度加倍，共7列）。Metallic與mortar為0。
+
+這是作者設計的示意：只有這三個替換規則與固定的列數；沒有標示規則或索引；列數受tile寬度限制（最長的一列至少有55或64個格），所以格子很窄，小尺寸下深色與中灰色的差別不明顯；seed只影響規則的選擇，同一個規則的畫面對不同seed完全相同（紙面顆粒除外）。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
