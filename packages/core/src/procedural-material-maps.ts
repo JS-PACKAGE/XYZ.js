@@ -41306,21 +41306,24 @@ export function createSurfaceSampler(
       case 'heptagridtiling':
       case 'dodecagridtiling':
       case 'penrosefilled':
-      case 'ammannfilled': {
+      case 'ammannfilled':
+      case 'heptagridfilled': {
         const p =
-            kind === 'ammannfilled'
-              ? proceduralMaterialPresets.ammannfilled
-              : kind === 'penrosefilled'
-                ? proceduralMaterialPresets.penrosefilled
-                : kind === 'dodecagridtiling'
-                  ? proceduralMaterialPresets.dodecagridtiling
-                  : kind === 'heptagridtiling'
-                    ? proceduralMaterialPresets.heptagridtiling
-                    : kind === 'ammannbeenker'
-                      ? proceduralMaterialPresets.ammannbeenker
-                      : kind === 'penrosestar'
-                        ? proceduralMaterialPresets.penrosestar
-                        : proceduralMaterialPresets.penrosetiling,
+            kind === 'heptagridfilled'
+              ? proceduralMaterialPresets.heptagridfilled
+              : kind === 'ammannfilled'
+                ? proceduralMaterialPresets.ammannfilled
+                : kind === 'penrosefilled'
+                  ? proceduralMaterialPresets.penrosefilled
+                  : kind === 'dodecagridtiling'
+                    ? proceduralMaterialPresets.dodecagridtiling
+                    : kind === 'heptagridtiling'
+                      ? proceduralMaterialPresets.heptagridtiling
+                      : kind === 'ammannbeenker'
+                        ? proceduralMaterialPresets.ammannbeenker
+                        : kind === 'penrosestar'
+                          ? proceduralMaterialPresets.penrosestar
+                          : proceduralMaterialPresets.penrosetiling,
           grids = p.offsets.length,
           grainField = cachedNoise(
             p.grainCells,
@@ -49329,6 +49332,7 @@ export function createSurfaceSampler(
     kind === 'dodecagridtiling' ||
     kind === 'penrosefilled' ||
     kind === 'ammannfilled' ||
+    kind === 'heptagridfilled' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
