@@ -1901,6 +1901,10 @@
 
 這是作者設計的示意：點數固定為72；沒有標註k值；用線段而不是曲線，因此細節是由72條弦形成的包絡；k與72有公因數時有些弦重合或退化成點（i到自己）而不畫。預設0.9 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`gaussianprimes`（高斯質數）使目前目錄1085→1086種，含plain的gallery為1087項。整張tile是高斯整數 a + bi 的40×40視窗（a向右增加、b向上增加）：若 a + bi 是高斯質數就在那一格畫一個深色圓點，棋盤格交錯底色。判斷規則是：a、b都不為0時，範數 a² + b² 是質數；a或b有一個為0時，另一個的絕對值是形如 4k + 3 的質數。視窗左下角 [a, b] 由seed從 [0, 0]、[−20, −20]、[−12, −30]、[5, −8]、[−35, 4]、[18, 21] 六種中選一個。Metallic與mortar為0。
+
+這是作者設計的示意：沒有標出座標軸或數字；視窗固定為40×40；沒有畫出單位（±1、±i）與合成數。預設0.8 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

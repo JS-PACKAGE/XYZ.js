@@ -35849,6 +35849,69 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'gaussianprimes': {
+        const p = proceduralMaterialPresets.gaussianprimes,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x30801),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          corner =
+            p.corners[
+              Math.floor(hash(9, 1, seed ^ 0x30802) * p.corners.length)
+            ],
+          cell = 1 / p.size,
+          // The largest norm a^2 + b^2 any window can reach, and a sieve of Eratosthenes up to it.
+          farthest =
+            Math.max(...p.corners.flat().map((value) => Math.abs(value))) +
+            p.size,
+          limit = 2 * farthest * farthest,
+          composite = new Uint8Array(limit + 1);
+        composite[0] = 1;
+        composite[1] = 1;
+        for (let n = 2; n * n <= limit; n++)
+          if (composite[n] === 0)
+            for (let multiple = n * n; multiple <= limit; multiple += n)
+              composite[multiple] = 1;
+        // a + b i is a Gaussian prime when its norm a^2 + b^2 is a prime, or when one of a, b is zero and the other is, up to
+        // sign, a prime of the form 4k + 3.
+        const gaussianPrime = (a: number, b: number): boolean => {
+          if (a === 0 || b === 0) {
+            const n = Math.abs(a + b);
+            return n % 4 === 3 && composite[n] === 0;
+          }
+          return composite[a * a + b * b] === 0;
+        };
+        return () => {
+          const column = Math.min(p.size - 1, Math.floor(u * p.size)),
+            row = Math.min(p.size - 1, Math.floor(v * p.size)),
+            // Rows go down the picture while b goes up.
+            prime = gaussianPrime(
+              corner[0] + column,
+              corner[1] + (p.size - 1 - row),
+            ),
+            dot = prime
+              ? cover(
+                  p.dotRadius -
+                    Math.hypot(
+                      u - (column + 0.5) * cell,
+                      v - (row + 0.5) * cell,
+                    ),
+                )
+              : 0,
+            band = (column + row) % 2,
+            paper = p.paperTone + (p.stripeTone - p.paperTone) * band,
+            level = p.paperHeight + (p.stripeHeight - p.paperHeight) * band;
+          color = clamp(
+            paper +
+              (p.dotTone - paper) * dot +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level + (p.dotHeight - level) * dot);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * dot;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -63378,6 +63441,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'gaussianprimes' ||
     kind === 'timestablecircles' ||
     kind === 'divisorcountbars' ||
     kind === 'cobwebplots' ||

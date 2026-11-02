@@ -26428,3 +26428,110 @@ describe('timestablecircles: times tables drawn as chords on a circle', () => {
     expect(different).toBeGreaterThan(0);
   });
 });
+
+describe('gaussianprimes: Gaussian primes in a 40 by 40 window', () => {
+  const p = proceduralMaterialPresets.gaussianprimes;
+  const isPrime = (n: number): boolean => {
+    if (n < 2) return false;
+    for (let d = 2; d * d <= n; d++) if (n % d === 0) return false;
+    return true;
+  };
+  // Gaussian primes: norm a^2 + b^2 prime, or a or b zero and the other of the form 4k + 3 (a prime) in absolute value. Checked by
+  // trial division and, as a cross-check of the rule, by brute-force search for a Gaussian-integer factorisation.
+  const gaussianPrime = (a: number, b: number): boolean =>
+    a === 0 || b === 0
+      ? isPrime(Math.abs(a + b)) && Math.abs(a + b) % 4 === 3
+      : isPrime(a * a + b * b);
+  const factorable = (a: number, b: number): boolean => {
+    // a + b i = (x + y i)(z + w i) with both factors of norm > 1: try every x + y i whose norm divides the norm of a + b i.
+    const norm = a * a + b * b;
+    for (let x = -Math.ceil(Math.sqrt(norm)); x <= Math.sqrt(norm); x++)
+      for (let y = -Math.ceil(Math.sqrt(norm)); y <= Math.sqrt(norm); y++) {
+        const factorNorm = x * x + y * y;
+        if (factorNorm <= 1 || factorNorm >= norm || norm % factorNorm !== 0)
+          continue;
+        // (a + b i) / (x + y i) = (a + b i)(x - y i) / factorNorm
+        if (
+          (a * x + b * y) % factorNorm === 0 &&
+          (b * x - a * y) % factorNorm === 0
+        )
+          return true;
+      }
+    return false;
+  };
+
+  it('agrees with a brute-force factorisation on small Gaussian integers', () => {
+    for (let a = -9; a <= 9; a++)
+      for (let b = -9; b <= 9; b++) {
+        if (a * a + b * b < 2) continue;
+        expect(gaussianPrime(a, b)).toBe(!factorable(a, b));
+      }
+  });
+
+  const matches = (seed: number): number[][] => {
+    const sample = createSurfaceSampler('gaussianprimes', seed),
+      out = empty(),
+      found: number[][] = [];
+    for (const corner of p.corners) {
+      let ok = true;
+      for (let row = 0; row < p.size && ok; row++)
+        for (let column = 0; column < p.size && ok; column++) {
+          sample((column + 0.5) / p.size, (row + 0.5) / p.size, out);
+          ok =
+            out.color < 0.4 ===
+            gaussianPrime(corner[0] + column, corner[1] + p.size - 1 - row);
+        }
+      if (ok) found.push([...corner]);
+    }
+    return found;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'puts a dot exactly at each Gaussian prime of one window (seed %i)',
+    (seed) => {
+      expect(matches(seed)).toHaveLength(1);
+    },
+  );
+
+  it('uses every window across seeds', () => {
+    const used = new Set<string>();
+    for (let seed = 0; seed < 40; seed++) used.add(matches(seed).join('|'));
+    expect(used.size).toBe(p.corners.length);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('gaussianprimes', 0),
+      b = createSurfaceSampler('gaussianprimes', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(0);
+  });
+});
