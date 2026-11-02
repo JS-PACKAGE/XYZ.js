@@ -12944,3 +12944,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 完整suite（工具實跑，commit `719419db4`，獨立乾淨worktree，期間沒有同時進行其他重負載工作）：**179個測試檔、10,354項測試全部通過，耗時1041.17 s**。上一次完整suite為`c0170767e`的10,329項；之後新增paperfolding、rudinshapiro、graecolatin、thuemorse、chessqueens各5項（含kinds清單條目），合計25項，與增量一致（10,329 + 25 = 10,354）。
 - 瀏覽器gallery（headless Chrome，WebGPU與`?renderer=webgl2`各一次，`/examples/pbr3d/`）：這次依上一輪的教訓，**開頁後閒置250 s等範例頁面完成初始化**才開始選取；依序選取`paperfolding`、`rudinshapiro`、`graecolatin`、`thuemorse`、`chessqueens`，五者皆出現`Material <kind> `讀數（各約30–54 ms）、readout顯示1032種、選單1033個選項，console error 0。此檢查只涵蓋「可選取、讀數更新、無console錯誤」，**沒有在gallery中逐一目視截圖**。
 - 未驗證：不push；其他瀏覽器、真機GPU差異與效能未量測。
+
+## 2026-11-03 新增材質：卡西尼卵形線（cassiniovals）
+
+- 範圍：新增`cassiniovals`（目前目錄1032→1033種，含plain的gallery 1034項）：8×8圖鑑，欄為焦點半距離`f`（0.15到0.85）、列為亮環數（2到9），色調`(1 + cos(2π·環數·|z² − f²| / (1 + f²))) / 2`（`|z² − f²|`為到兩個焦點的距離積），亮環就是卡西尼卵形線；圓盤邊緣柔化；琥珀金在深藍黑底上；seed令圖鑑在環面上平移（以格為單位）；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache只有131,072 B的細grain。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽只看了一版；(2)sampler用複數形式`|z² − f²|`，測試以直接取點到兩個焦點的距離再相乘這個**獨立的形式**重算，比對8,000個點並在64個平移中檢查恰好一個符合，**不涵蓋圓盤邊緣柔化區的形狀**；亮環的拓樸（距離積小於、等於、大於`f²`時分別為兩個圈、八字形、一個圈）是標準數學事實，**沒有用程式檢查**；(3)我原先在測試裡寫了「圓盤中心的距離積等於`f²`」的斷言，但它只是把同一條公式再算一次，違反測試守則（不寫同義反覆），已在commit前刪除；(4)文件初稿把預覽中的不同焦點距離描述為「左側的欄像同心圓、右側的欄有雙環」，但seed 7的平移讓它們不在固定的左右位置，這是錯的描述，gates後、commit前已改成不依賴位置的敘述；(5)512²maps法線tilt²最大只有0.0052（幾乎平坦），預期如此、未調整；(6)建構與取樣耗時**未量測**。
+- 實測（工具實跑）：四個seed（0／1／0xffffffff／7）各有唯一符合的平移(2, 3)、(5, 4)、(0, 0)、(6, 2)，最大擬合誤差0.01476–0.01490（每個seed在8,000個點中有6,501個用於比較，其中3,857個在圓盤內）；256²（seed 0／1／0xffffffff）亮處（color>0.5）26.06%–26.09%、color 0.02548–0.02589至0.83253–0.83313、平均0.28494–0.28509、roughness恆為0.4、AO最低0.6、height至多0.8689–0.8720 relief；512²（四個seed）亮處25.95%–25.97%、color 0.02511–0.02530至0.83407–0.83474、平均0.28489–0.28502、height至多0.8717–0.8764 relief；seed 0與1相比，512²中color>0.5的取樣28.0%不同；seed 7的512²maps平均r／g／b約(78.4, 68.1, 58.5)、法線tilt²最大約0.0052、z分量最小255。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Cassini ovals as|cassiniovals|kinds|catalog|distinct|periodic"`定向測試**2372項通過／4058項未選**。
+- 未驗證：cassiniovals未跑完整suite與瀏覽器gallery；不push。

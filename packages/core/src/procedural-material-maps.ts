@@ -42468,6 +42468,58 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'cassiniovals': {
+        const p = proceduralMaterialPresets.cassiniovals,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseRadius = 1 / p.discRadius,
+          inverseSoft = 1 / p.edgeSoft,
+          shiftX = Math.floor(hash(0, 13, seed ^ p.seedSalt) * p.cells),
+          shiftY = Math.floor(hash(1, 13, seed ^ p.seedSalt) * p.cells);
+        // A chart of Cassini ovals, one per cell: the column sets the half distance f between
+        // the two foci (-f, 0) and (f, 0) inside a unit disc (0.15, 0.25 ... 0.85) and the row
+        // sets the number of bright rings (2, 3 ... 9). The product of the distances to the two foci
+        // is |z^2 - f^2| for the point z = x + i y, at most 1 + f^2 on the unit disc, and the
+        // tone is (1 + cos (2 pi rings |z^2 - f^2| / (1 + f^2))) / 2, so the rings are the Cassini
+        // ovals themselves: two separate loops around the foci for a product below f^2,
+        // the figure of eight at f^2 (the lemniscate), and one loop around both above it. The seed moves the
+        // chart around the torus.
+        return () => {
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            px = (x - col - 0.5) * inverseRadius,
+            py = (y - row - 0.5) * inverseRadius,
+            radius = Math.hypot(px, py),
+            shapeCol = (col + shiftX) % p.cells,
+            shapeRow = (row + shiftY) % p.cells,
+            focus = p.firstFocus + p.focusStep * shapeCol,
+            rings = p.firstRings + shapeRow,
+            real = px * px - py * py - focus * focus,
+            imaginary = 2 * px * py,
+            product = Math.hypot(real, imaginary),
+            tone =
+              0.5 +
+              0.5 *
+                Math.cos((2 * Math.PI * rings * product) / (1 + focus * focus)),
+            mask = smooth(clamp((1 - radius) * inverseSoft * p.discRadius)),
+            dome = smooth(clamp(1 - radius * radius)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + p.toneSpan * tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.discHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -51303,6 +51355,7 @@ export function createSurfaceSampler(
     kind === 'graecolatin' ||
     kind === 'thuemorse' ||
     kind === 'chessqueens' ||
+    kind === 'cassiniovals' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||

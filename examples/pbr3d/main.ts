@@ -1097,6 +1097,7 @@ try {
     'graecolatin',
     'thuemorse',
     'chessqueens',
+    'cassiniovals',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

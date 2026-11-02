@@ -1060,6 +1060,7 @@ const kinds: ProceduralMaterialKind[] = [
   'graecolatin',
   'thuemorse',
   'chessqueens',
+  'cassiniovals',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',
@@ -166995,6 +166996,232 @@ describe('Chess queens as a 10 by 10 chequer with ten non-attacking queens', () 
     expect(blue / (512 * 512)).toBeLessThan(68);
     expect(maxTilt).toBeGreaterThan(0.002);
     expect(maxTilt).toBeLessThan(0.0045);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Cassini ovals as a chart of 64 discs of oval rings by focus distance and ring count', () => {
+  const p = proceduralMaterialPresets.cassiniovals;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const cells = 8;
+  /**
+   * Tone of a cell at the disc position (x, y): the product of the distances to the two foci
+   * (-f, 0) and (f, 0), written independently here with two distances instead of the
+   * complex form |z^2 - f^2| the sampler uses, in (1 + cos(2 pi rings product / (1 + f^2))) / 2.
+   */
+  const toneAt = (col: number, row: number, x: number, y: number): number => {
+    const focus = p.firstFocus + p.focusStep * col,
+      product = Math.hypot(x - focus, y) * Math.hypot(x + focus, y);
+    return (
+      0.5 +
+      0.5 *
+        Math.cos(
+          (2 * Math.PI * (p.firstRings + row) * product) / (1 + focus * focus),
+        )
+    );
+  };
+  /**
+   * Expected colour at (u, v) for the chart shifted by (sx, sy) cells: well inside the disc
+   * (radius up to 0.85) the tone colour, outside the rim (beyond 1.005) the gap tone, null in
+   * the soft rim zone, which is not compared.
+   */
+  const expectedColor = (
+    u: number,
+    v: number,
+    sx: number,
+    sy: number,
+  ): number | null => {
+    const x = u * cells,
+      y = v * cells,
+      col = Math.floor(x),
+      row = Math.floor(y),
+      px = (x - col - 0.5) / p.discRadius,
+      py = (y - row - 0.5) / p.discRadius,
+      radius = Math.hypot(px, py);
+    if (radius <= 0.85)
+      return (
+        p.toneFloor +
+        p.toneSpan * toneAt((col + sx) % cells, (row + sy) % cells, px, py)
+      );
+    return radius > 1.005 ? p.gapTone : null;
+  };
+  const points: [number, number][] = Array.from({ length: 8000 }, (_, i) => [
+    (i * 0.61803398875) % 1,
+    (i * 0.41421356237) % 1,
+  ]);
+  /** Chart shifts (x, y) around the torus that reproduce every compared colour. */
+  const fittingShifts = (seed: number): [number, number][] => {
+    const sample = createSurfaceSampler('cassiniovals', seed),
+      out = empty(),
+      fits: [number, number][] = [];
+    for (let sy = 0; sy < cells; sy++)
+      for (let sx = 0; sx < cells; sx++) {
+        let worst = 0;
+        for (const [u, v] of points) {
+          const expected = expectedColor(u, v, sx, sy);
+          if (expected === null) continue;
+          sample(u, v, out);
+          worst = Math.max(worst, Math.abs(out.color - expected));
+          if (worst >= 0.03) break;
+        }
+        if (worst < 0.03) fits.push([sx, sy]);
+      }
+    return fits;
+  };
+  it('draws every Cassini oval chart cell and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('cassiniovals', seed),
+        a = empty();
+      // The sampler agrees with the independently written formula at 8000 points (outside the
+      // soft rim zone) for exactly one chart shift.
+      expect(fittingShifts(seed)).toHaveLength(1);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.025);
+      expect(low).toBeLessThan(0.026);
+      expect(high).toBeGreaterThan(0.832);
+      expect(high).toBeLessThan(0.834);
+      expect(dark / 65536).toBeGreaterThan(0.26);
+      expect(dark / 65536).toBeLessThan(0.262);
+      expect(mean / 65536).toBeGreaterThan(0.2848);
+      expect(mean / 65536).toBeLessThan(0.2852);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 3);
+      expect(heightHigh).toBeGreaterThan(0.865);
+      expect(heightHigh).toBeLessThan(0.875);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('moves the chart around the torus per seed and is deterministic for one seed', () => {
+    const shifts = [0, 1, 0xffffffff, 7].map((seed) =>
+      fittingShifts(seed)[0].join(','),
+    );
+    expect(new Set(shifts).size).toBe(4);
+    expect(fittingShifts(0)).toEqual([fittingShifts(0)[0]]);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('cassiniovals', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [cells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 gold oval maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('cassiniovals', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(77.5);
+    expect(red / (512 * 512)).toBeLessThan(79.5);
+    expect(green / (512 * 512)).toBeGreaterThan(67);
+    expect(green / (512 * 512)).toBeLessThan(69);
+    expect(blue / (512 * 512)).toBeGreaterThan(57.5);
+    expect(blue / (512 * 512)).toBeLessThan(59.5);
+    expect(maxTilt).toBeGreaterThan(0.004);
+    expect(maxTilt).toBeLessThan(0.0065);
     expect(invalid).toBe(0);
   });
 });
