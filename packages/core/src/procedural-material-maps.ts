@@ -34879,6 +34879,83 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'zeckendorfrows': {
+        const p = proceduralMaterialPresets.zeckendorfrows,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2fc01),
+          glyphs: Record<string, string> = {
+            '0': '111101101101111',
+            '1': '010110010010111',
+            '2': '111001111100111',
+            '3': '111001111001111',
+            '4': '101101111001001',
+            '5': '111100111001111',
+            '6': '111100111101111',
+            '7': '111001010010010',
+            '8': '111101111101111',
+            '9': '111101111001111',
+          },
+          first = 1 + Math.floor(hash(6, 1, seed ^ 0x2fc02) * p.firstMax),
+          fibonacci: number[] = [1, 2];
+        while (fibonacci.length < p.bits)
+          fibonacci.push(
+            fibonacci[fibonacci.length - 1] + fibonacci[fibonacci.length - 2],
+          );
+        // Zeckendorf form: the greedy choice of the largest Fibonacci number that still fits never picks two neighbours.
+        const texts = Array.from({ length: 2 * p.rows }, (_, index) => {
+          const n = first + index;
+          let rest = n,
+            digits = '';
+          for (let bit = p.bits - 1; bit >= 0; bit--) {
+            const take = fibonacci[bit] <= rest;
+            if (take) rest -= fibonacci[bit];
+            digits += take ? '1' : '0';
+          }
+          return String(n).padStart(2, ' ') + ' ' + digits;
+        });
+        return () => {
+          const row = Math.floor((v - p.top) / p.rowPitch),
+            fy = (v - p.top) / p.rowPitch - row,
+            column = u < 0.5 ? 0 : 1;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            glyph = 0;
+          if (row >= 0 && row < p.rows) {
+            const text = texts[column * p.rows + row],
+              px = Math.floor((u - p.columnLeft[column]) / p.pixel),
+              d = px >= 0 ? Math.floor(px / 4) : -1,
+              gx = px - 4 * d,
+              py = Math.floor(((fy - 0.5) * p.rowPitch) / p.pixel + 2.5);
+            if (
+              row % 2 === 1 &&
+              Math.abs(u - p.columnLeft[column] - p.stripeWidth / 2) <
+                p.stripeWidth / 2 + p.stripeInset
+            ) {
+              tone = p.stripeTone;
+              level = p.stripeHeight;
+            }
+            if (
+              d >= 0 &&
+              d < text.length &&
+              gx >= 0 &&
+              gx < 3 &&
+              py >= 0 &&
+              py < 5 &&
+              text[d] !== ' ' &&
+              glyphs[text[d]][py * 3 + gx] === '1'
+            )
+              glyph = 1;
+          }
+          color = clamp(
+            tone +
+              (p.inkTone - tone) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * glyph);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -62408,6 +62485,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'zeckendorfrows' ||
     kind === 'cycloidcusps' ||
     kind === 'sternbrocottree' ||
     kind === 'projectilearcs' ||

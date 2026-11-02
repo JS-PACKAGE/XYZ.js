@@ -1853,6 +1853,10 @@
 
 這是作者設計的示意：理想的曲線，各格以同一個「最遠點離格中心的距離」縮放，所以不同k的滾動圓半徑不同；沒有標註k值或公式；曲線以360段折線近似，並不是解析距離，在尖點處線條可能略有不同。預設0.9 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`zeckendorfrows`（Zeckendorf表示列）使目前目錄1073→1074種，含plain的gallery為1075項。每tile有兩欄、每欄12列，共24個連續整數：每列左邊是十進位數字，右邊是八位的Zeckendorf表示——以費氏數 34、21、13、8、5、3、2、1 為位值（最高位在左）的0與1，且任兩個相鄰位不會同時是1（例如 34 寫成 10000000、35 寫成 10000001、29 寫成 01010000）。起始數由seed從1到31選一個，所以最大的數不超過54（34 + 13 + 5 + 2）。奇數列有淡淡的底色條。Metallic與mortar為0。
+
+這是作者設計的示意：只有費氏位值的0與1，沒有列出位值的標題或加總式；點陣字是3×5字形，沒有零以外的前導零說明（Zeckendorf的位數固定為8位，所以數字前面可能有零）。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

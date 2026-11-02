@@ -24674,3 +24674,142 @@ describe('cycloidcusps: epicycloids and hypocycloids with k cusps', () => {
     expect(different).toBeGreaterThan(0);
   });
 });
+
+describe('zeckendorfrows: numbers as sums of non-neighbouring Fibonacci numbers', () => {
+  const p = proceduralMaterialPresets.zeckendorfrows;
+  const shapes: Record<string, string[]> = {
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    '2': ['###', '..#', '###', '#..', '###'],
+    '3': ['###', '..#', '###', '..#', '###'],
+    '4': ['#.#', '#.#', '###', '..#', '..#'],
+    '5': ['###', '#..', '###', '..#', '###'],
+    '6': ['###', '#..', '###', '#.#', '###'],
+    '7': ['###', '..#', '.#.', '.#.', '.#.'],
+    '8': ['###', '#.#', '###', '#.#', '###'],
+    '9': ['###', '#.#', '###', '..#', '###'],
+  };
+  // The Fibonacci weights, least significant bit last: 1, 2, 3, 5, 8, 13, 21, 34.
+  const weights = [34, 21, 13, 8, 5, 3, 2, 1];
+  // Every bit pattern without two neighbouring ones, by the number it adds up to: found by trying all 256 patterns.
+  const patterns = new Map<number, string>();
+  for (let mask = 0; mask < 256; mask++) {
+    const bits = mask.toString(2).padStart(8, '0');
+    if (!bits.includes('11')) {
+      const sum = weights.reduce(
+        (total, weight, i) => total + (bits[i] === '1' ? weight : 0),
+        0,
+      );
+      expect(patterns.has(sum)).toBe(false);
+      patterns.set(sum, bits);
+    }
+  }
+
+  const decode = (seed: number): string[] => {
+    const sample = createSurfaceSampler('zeckendorfrows', seed),
+      out = empty(),
+      colorAt = (u: number, v: number): number => {
+        sample(u, v, out);
+        return out.color;
+      },
+      rows: string[] = [];
+    for (let column = 0; column < 2; column++)
+      for (let row = 0; row < p.rows; row++) {
+        const centre = p.top + (row + 0.5) * p.rowPitch;
+        let text = '';
+        // A character is a digit glyph, or blank when it has no ink at all; the second slot (index 2) is always blank.
+        for (let slot = 0; slot < 11; slot++) {
+          const lines = [0, 1, 2, 3, 4].map((k) =>
+            [0, 1, 2]
+              .map((x) =>
+                colorAt(
+                  p.columnLeft[column] + (4 * slot + x + 0.5) * p.pixel,
+                  centre + (k - 2) * p.pixel,
+                ) < 0.3
+                  ? '#'
+                  : '.',
+              )
+              .join(''),
+          );
+          if (lines.every((line) => line === '...')) text += ' ';
+          else {
+            const found = Object.entries(shapes).find(([, shape]) =>
+              shape.every((line, i) => line === lines[i]),
+            );
+            expect(found).toBeDefined();
+            text += (found as [string, string[]])[0];
+          }
+        }
+        rows.push(text);
+      }
+    return rows;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'lists 24 consecutive numbers with their Zeckendorf digits (seed %i)',
+    (seed) => {
+      const rows = decode(seed),
+        first = Number(rows[0].slice(0, 2));
+      expect(first).toBeGreaterThanOrEqual(1);
+      expect(first).toBeLessThanOrEqual(p.firstMax);
+      rows.forEach((text, index) => {
+        expect(text[2]).toBe(' ');
+        expect(Number(text.slice(0, 2))).toBe(first + index);
+        expect(text.slice(3)).toBe(patterns.get(first + index));
+        // The digits really add up to the number, and no two neighbouring digits are both 1.
+        expect(
+          weights.reduce(
+            (total, weight, i) => total + (text[3 + i] === '1' ? weight : 0),
+            0,
+          ),
+        ).toBe(first + index);
+        expect(text.slice(3)).not.toContain('11');
+      });
+    },
+  );
+
+  it('starts at different numbers for different seeds', () => {
+    const starts = new Set<number>();
+    for (let seed = 0; seed < 60; seed++)
+      starts.add(Number(decode(seed)[0].slice(0, 2)));
+    expect(starts.size).toBeGreaterThan(15);
+    expect(Math.min(...starts)).toBeGreaterThanOrEqual(1);
+    expect(Math.max(...starts)).toBeLessThanOrEqual(p.firstMax);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('zeckendorfrows', 0),
+      b = createSurfaceSampler('zeckendorfrows', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
