@@ -12673,3 +12673,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 ## 2026-11-02 紀錄：完整suite（through squarekoch）
 
 - 完整suite（工具實跑，`/private/tmp/xyz-ct-suite`）：在`4185bd67a`（squarekoch）**179個檔案、10,202項全數通過，1373.99 s**；這次涵蓋totienttable、goldbachtable、radicaltable、squarekoch；**vicsekfractal（`022733c8b`）與tsquarefractal尚未跑完整suite**。測試數隨新增材質增加，這是當時的數字，不代表目前。totienttable、goldbachtable、radicaltable、squarekoch的瀏覽器gallery已另外跑過（記於上方vicsekfractal段落）。
+
+## 2026-11-02 新增材質：康托爾塵（cantordust）
+
+- 範圍：新增`cantordust`（目前目錄1006→1007種，含plain的gallery 1008項）：81×81 lattice上的第4階二維康托爾集（每次把方格切成3×3、只保留四個角、挖掉十字形的五塊；格子存活的條件是各層三進位數字對中x與y的數字都不是1）；存活格256個，以金黃色小圓點呈現；被挖掉的格依被挖掉的層（level 0到3，格數3,645／1,620／720／320）以`depth = (4 − level) / 4`上不同深淺的暗色；seed把lattice沿環面平移；與vicsekfractal共用sampler分支，新增preset欄位`rule`（vicsekfractal為0、cantordust為2；規則1未實作）；預設0.5 m nominal tile、0.0008 UV-relative relief；cache 81² × 2 + 128² = 29,506個Float64／236,048 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與紀錄：(1)預覽只看了一版；亮的部分只有約3%，畫面主體是暗褐色的深度色調，我沒有嘗試放大點的半徑。(2)為共用分支，我在vicsekfractal的preset新增`rule: 0`，其行為與數值不變，其`Vicsek fractal as`測試仍通過。(3)測試一次通過，無需調整區間；測試中的層級格數與存活格數由獨立的細分模型算出，並與封閉形式（5·27²、4·5·9²、16·5·9、64·5）一致。(4)**未量測耗時**。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：存活格256、被挖掉的格依層3,645／1,620／720／320；256²取樣亮處（color>0.5）占2.96%–2.98%、color 0.0688–0.0705至0.7819–0.7838、平均0.1861–0.1864、roughness 0.2001–0.3999、AO恆為1、height至多0.9818–0.9934 relief；512²取樣亮處占2.97%–2.98%、color 0.0678–0.0682至0.7834–0.7844、平均0.1862–0.1864、height至多0.9917–0.9974 relief；每個seed的81×81 node恰好一種環面平移（seed 0為(74, 64)、1為(62, 2)、0xffffffff為(47, 31)、7為(64, 29)）使6,561個node顏色（含深度色調）與獨立模型一致，最大誤差0.0149以內（門檻0.03）、亮node數256；seed 0與1的亮node有7.6%不同；seed 7的512²maps平均r／g／b約(54.0, 43.8, 41.9)、法線tilt²最大約0.0426、z分量最小252。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試（細分模型、層級格數、唯一環面平移與統計為一項；seed差異與決定性；C1＋有符號UV週期；actual512 maps），`-t`選中的5項（含kinds清單中的新條目）皆通過；`Vicsek fractal as`原有測試仍通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Cantor dust as|cantordust|Vicsek fractal as|kinds|catalog|distinct|periodic"`定向測試**2323項通過／3965項未選**。
+- 未驗證：vicsekfractal、tsquarefractal、cantordust未跑完整suite與瀏覽器gallery；不push。

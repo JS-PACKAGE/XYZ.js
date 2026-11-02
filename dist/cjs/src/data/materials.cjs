@@ -23202,6 +23202,7 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .4,
 		relief: 8e-4,
 		seedSalt: 29125,
+		rule: 0,
 		order: 4,
 		sharpness: 8,
 		grainCells: 128,
@@ -23233,6 +23234,32 @@ var proceduralMaterialPresets = Object.freeze({
 		baseTone: .05,
 		lineTone: .5,
 		levelTone: .22,
+		grainTone: .03,
+		lineHeight: .8,
+		grainHeight: .2,
+		lineRoughness: -.2
+	}),
+	cantordust: Object.freeze({
+		dark: [
+			8,
+			8,
+			24
+		],
+		light: [
+			255,
+			200,
+			120
+		],
+		roughness: .4,
+		relief: 8e-4,
+		seedSalt: 51735,
+		rule: 2,
+		order: 4,
+		sharpness: 8,
+		grainCells: 128,
+		baseTone: .05,
+		lineTone: .72,
+		depthTone: .14,
 		grainTone: .03,
 		lineHeight: .8,
 		grainHeight: .2,
@@ -25230,6 +25257,7 @@ var proceduralTileMeters = Object.freeze({
 	squarekoch: .25,
 	vicsekfractal: .5,
 	tsquarefractal: .5,
+	cantordust: .5,
 	vermiculation: .4,
 	kikko: .3,
 	kagome: .3,

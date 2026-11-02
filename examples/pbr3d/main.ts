@@ -1073,6 +1073,7 @@ try {
     'squarekoch',
     'vicsekfractal',
     'tsquarefractal',
+    'cantordust',
     'vermiculation',
     'kikko',
     'kagome',

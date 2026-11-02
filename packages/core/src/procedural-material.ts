@@ -1010,6 +1010,7 @@ export type ProceduralMaterialKind =
   | 'squarekoch'
   | 'vicsekfractal'
   | 'tsquarefractal'
+  | 'cantordust'
   | 'vermiculation'
   | 'kikko'
   | 'kagome'
@@ -2265,6 +2266,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'squarekoch',
   'vicsekfractal',
   'tsquarefractal',
+  'cantordust',
   'vermiculation',
   'kikko',
   'kagome',

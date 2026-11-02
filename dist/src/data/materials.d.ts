@@ -14436,6 +14436,7 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.4;
         relief: 0.0008;
         seedSalt: 29125;
+        rule: 0;
         order: 4;
         sharpness: 8;
         grainCells: 128;
@@ -14459,6 +14460,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         baseTone: 0.05;
         lineTone: 0.5;
         levelTone: 0.22;
+        grainTone: 0.03;
+        lineHeight: 0.8;
+        grainHeight: 0.2;
+        lineRoughness: -0.2;
+    }>;
+    cantordust: Readonly<{
+        dark: readonly [8, 8, 24];
+        light: readonly [255, 200, 120];
+        roughness: 0.4;
+        relief: 0.0008;
+        seedSalt: 51735;
+        rule: 2;
+        order: 4;
+        sharpness: 8;
+        grainCells: 128;
+        baseTone: 0.05;
+        lineTone: 0.72;
+        depthTone: 0.14;
         grainTone: 0.03;
         lineHeight: 0.8;
         grainHeight: 0.2;
@@ -16134,6 +16153,7 @@ export declare const proceduralTileMeters: Readonly<{
     squarekoch: 0.25;
     vicsekfractal: 0.5;
     tsquarefractal: 0.5;
+    cantordust: 0.5;
     vermiculation: 0.4;
     kikko: 0.3;
     kagome: 0.3;
