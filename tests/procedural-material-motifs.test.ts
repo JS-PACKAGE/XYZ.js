@@ -14069,3 +14069,127 @@ describe('tentsandtrees: a solved Tents puzzle', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('shikakurects: a solved Shikaku', () => {
+  const p = proceduralMaterialPresets.shikakurects;
+  const n = p.size;
+  const cell = (1 - 2 * p.margin) / n;
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'splits the board into rectangles that each hold one clue equal to their area (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('shikakurects', seed),
+        out = empty(),
+        pixel = cell * p.digitFraction,
+        at = (u: number, v: number): number => {
+          sample(p.margin + u * cell, p.margin + v * cell, out);
+          return out.color;
+        },
+        clue: number[] = [];
+      for (let row = 0; row < n; row++)
+        for (let col = 0; col < n; col++) {
+          const bits: string[] = [];
+          for (let y = 0; y < 5; y++) {
+            let text = '';
+            for (let x = 0; x < 3; x++)
+              text +=
+                at(
+                  col + 0.5 + (x - 1) * (pixel / cell),
+                  row + 0.5 + (y - 2) * (pixel / cell),
+                ) < 0.3
+                  ? '#'
+                  : '.';
+            bits.push(text);
+          }
+          const digit = art.findIndex((rows) =>
+            rows.every((line, i) => line === bits[i]),
+          );
+          if (digit === -1)
+            expect(bits.every((line) => line === '...')).toBe(true);
+          clue.push(digit);
+        }
+      // Thick walls between cells (measured on the boundary itself, away from the digits) split the board.
+      const wall = (col: number, row: number, across: boolean): boolean =>
+        across ? at(col + 1, row + 0.2) < 0.3 : at(col + 0.2, row + 1) < 0.3;
+      const seen = new Set<number>();
+      let regions = 0;
+      for (let start = 0; start < n * n; start++) {
+        if (seen.has(start)) continue;
+        const group = [start];
+        seen.add(start);
+        for (let i = 0; i < group.length; i++) {
+          const col = group[i] % n,
+            row = Math.floor(group[i] / n),
+            next: number[] = [];
+          if (col < n - 1 && !wall(col, row, true)) next.push(group[i] + 1);
+          if (col > 0 && !wall(col - 1, row, true)) next.push(group[i] - 1);
+          if (row < n - 1 && !wall(col, row, false)) next.push(group[i] + n);
+          if (row > 0 && !wall(col, row - 1, false)) next.push(group[i] - n);
+          for (const other of next)
+            if (!seen.has(other)) {
+              seen.add(other);
+              group.push(other);
+            }
+        }
+        const xs = group.map((c) => c % n),
+          ys = group.map((c) => Math.floor(c / n)),
+          width = Math.max(...xs) - Math.min(...xs) + 1,
+          height = Math.max(...ys) - Math.min(...ys) + 1,
+          clues = group.filter((c) => clue[c] !== -1);
+        expect(group.length).toBe(width * height);
+        expect(clues.length).toBe(1);
+        expect(clue[clues[0]]).toBe(group.length);
+        regions++;
+      }
+      expect(regions).toBeGreaterThanOrEqual(12);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('shikakurects', 0),
+      b = createSurfaceSampler('shikakurects', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

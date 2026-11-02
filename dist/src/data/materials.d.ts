@@ -9550,6 +9550,33 @@ export declare const proceduralMaterialPresets: Readonly<{
         grassRoughness: 0.85;
         solidRoughness: 0.55;
     }>;
+    shikakurects: Readonly<{
+        dark: readonly [30, 22, 44];
+        light: readonly [250, 242, 222];
+        roughness: 0.55;
+        relief: 0.004;
+        size: 10;
+        maxArea: 9;
+        stopChance: 0.4;
+        margin: 0.05;
+        digitFraction: 0.12;
+        thinHalf: 0.0007;
+        thickHalf: 0.0034;
+        edgeSoft: 0.0011;
+        grainCells: 192;
+        paperTone: 0.94;
+        cellTone: 0.9;
+        tintRange: 0.08;
+        thinTone: 0.62;
+        thickTone: 0.1;
+        inkTone: 0.1;
+        grainTone: 0.03;
+        paperHeight: 0.22;
+        cellHeight: 0.5;
+        inkDepth: 0.06;
+        inkRoughness: 0.4;
+        paperRoughness: 0.74;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -16035,6 +16062,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    shikakurects: 0.5;
     tentsandtrees: 0.5;
     nurikabeislands: 0.5;
     futoshikigrid: 0.4;

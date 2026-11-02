@@ -1553,6 +1553,10 @@
 
 這是作者設計的示意：畫面是填好答案的盤面，真正的Tents只給樹與行列數字、帳篷要自己推；不保證只有唯一解；帳篷數由seed決定、通常少於目標的17頂（我對12個seed實測為10至16頂）；樹與帳篷的對應在畫面上沒有連線，只能由相鄰關係看出；8×8固定。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`shikakurects`（矩形分割謎題／Shikaku）使目前目錄998→999種，含plain的gallery為1000項。每tile是一個10×10已解開的Shikaku盤面：整個盤面被切成若干長方形，每個長方形內恰有一格寫著點陣數字，數字等於該長方形的格數；長方形之間以較粗的深色線分隔，內部是細線，每個長方形的底色有些微的隨機深淺。切法由seed決定：從整個盤面開始，沿較長的一邊在隨機位置切成兩塊，面積不超過9的小塊以40%的機率提前停止（面積不超過2的一定停止），較大的一律繼續切；數字放在長方形內的隨機一格。Metallic與mortar為0。
+
+這是作者設計的示意：畫面是填好答案的盤面，真正的Shikaku只給數字、要自己畫出長方形；不保證只有唯一解；長方形面積限制在9以內（單一點陣數字）；10×10固定、點陣數字為3×5。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

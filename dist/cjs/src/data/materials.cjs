@@ -16382,6 +16382,41 @@ var proceduralMaterialPresets = Object.freeze({
 		grassRoughness: .85,
 		solidRoughness: .55
 	}),
+	shikakurects: Object.freeze({
+		dark: [
+			30,
+			22,
+			44
+		],
+		light: [
+			250,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		size: 10,
+		maxArea: 9,
+		stopChance: .4,
+		margin: .05,
+		digitFraction: .12,
+		thinHalf: 7e-4,
+		thickHalf: .0034,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		cellTone: .9,
+		tintRange: .08,
+		thinTone: .62,
+		thickTone: .1,
+		inkTone: .1,
+		grainTone: .03,
+		paperHeight: .22,
+		cellHeight: .5,
+		inkDepth: .06,
+		inkRoughness: .4,
+		paperRoughness: .74
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -25063,6 +25098,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	shikakurects: .5,
 	tentsandtrees: .5,
 	nurikabeislands: .5,
 	futoshikigrid: .4,

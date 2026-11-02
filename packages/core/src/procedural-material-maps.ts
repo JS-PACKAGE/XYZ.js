@@ -27504,6 +27504,124 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'shikakurects': {
+        const p = proceduralMaterialPresets.shikakurects,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2b101),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          n = p.size,
+          side = 1 - 2 * p.margin,
+          cell = side / n,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          region = new Int16Array(n * n).fill(-1),
+          areas: number[] = [],
+          clues: number[] = [],
+          pending: number[][] = [[0, 0, n, n]];
+        // Cut the board into rectangles by repeatedly splitting along the longer side; a rectangle that is
+        // small enough may stop early, a larger one always keeps splitting.
+        for (let counter = 0; pending.length > 0; counter++) {
+          const [x, y, w, h] = pending.pop() as number[],
+            area = w * h;
+          if (
+            area <= p.maxArea &&
+            (area <= 2 || hash(counter, 11, seed ^ 0x2b103) < p.stopChance)
+          ) {
+            const id = areas.length;
+            areas.push(area);
+            for (let dy = 0; dy < h; dy++)
+              for (let dx = 0; dx < w; dx++) region[(y + dy) * n + x + dx] = id;
+            const pick = Math.min(
+              area - 1,
+              Math.floor(hash(counter, 13, seed ^ 0x2b105) * area),
+            );
+            clues.push((y + Math.floor(pick / w)) * n + x + (pick % w));
+            continue;
+          }
+          const vertical =
+              w === h ? hash(counter, 17, seed ^ 0x2b107) < 0.5 : w > h,
+            span = vertical ? w : h,
+            cut =
+              1 +
+              Math.min(
+                span - 2,
+                Math.floor(hash(counter, 19, seed ^ 0x2b109) * (span - 1)),
+              );
+          if (vertical) pending.push([x, y, cut, h], [x + cut, y, w - cut, h]);
+          else pending.push([x, y, w, cut], [x, y + cut, w, h - cut]);
+        }
+        const regionAt = (x: number, y: number): number =>
+          x >= 0 && x < n && y >= 0 && y < n ? region[y * n + x] : -1;
+        return () => {
+          const lx = u - p.margin,
+            ly = v - p.margin;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            thin = 0,
+            thick = 0,
+            ink = 0;
+          if (
+            lx >= -p.thickHalf &&
+            lx < side + p.thickHalf &&
+            ly >= -p.thickHalf &&
+            ly < side + p.thickHalf
+          ) {
+            const col = Math.min(n - 1, Math.max(0, Math.floor(lx / cell))),
+              row = Math.min(n - 1, Math.max(0, Math.floor(ly / cell))),
+              fx = lx - col * cell,
+              fy = ly - row * cell,
+              id = region[row * n + col],
+              pixel = cell * p.digitFraction,
+              px = Math.floor((fx - (cell / 2 - 1.5 * pixel)) / pixel),
+              py = Math.floor((fy - (cell / 2 - 2.5 * pixel)) / pixel);
+            tone =
+              p.cellTone + p.tintRange * (hash(id, 23, seed ^ 0x2b10b) - 0.5);
+            level = p.cellHeight;
+            for (const [distance, other] of [
+              [fx, regionAt(col - 1, row)],
+              [cell - fx, regionAt(col + 1, row)],
+              [fy, regionAt(col, row - 1)],
+              [cell - fy, regionAt(col, row + 1)],
+            ]) {
+              if (other !== id)
+                thick = Math.max(thick, cover(p.thickHalf - distance));
+              else thin = Math.max(thin, cover(p.thinHalf - distance));
+            }
+            if (
+              clues[id] === row * n + col &&
+              px >= 0 &&
+              px < 3 &&
+              py >= 0 &&
+              py < 5 &&
+              glyphs[areas[id]][py * 3 + px] === '1'
+            )
+              ink = 1;
+          }
+          tone += (p.thinTone - tone) * thin;
+          tone += (p.thickTone - tone) * thick;
+          const mark = Math.max(ink, thick);
+          color = clamp(
+            tone +
+              (p.inkTone - tone) * ink +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * mark);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * mark;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -55033,6 +55151,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'shikakurects' ||
     kind === 'tentsandtrees' ||
     kind === 'nurikabeislands' ||
     kind === 'futoshikigrid' ||
