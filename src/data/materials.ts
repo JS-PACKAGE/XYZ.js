@@ -11231,6 +11231,34 @@ export const proceduralMaterialPresets = Object.freeze({
     cellRoughness: 0.55,
     inkRoughness: 0.4,
   }),
+  logisticbifurcation: Object.freeze({
+    dark: [26, 32, 58] as const,
+    light: [246, 242, 222] as const,
+    roughness: 0.6,
+    relief: 0.004,
+    // The plot has columns x rows cells; each column is one growth rate r and each row one band of x in [0, 1].
+    columns: 256,
+    rows: 256,
+    // The map x -> r x (1 - x) starts from x0, runs transient steps unplotted, then records steps values.
+    start: 0.4,
+    transient: 300,
+    recorded: 500,
+    // The seed picks which range of r the tile shows.
+    windows: Object.freeze([
+      Object.freeze([2.5, 4]),
+      Object.freeze([3.4, 4]),
+      Object.freeze([3.55, 3.95]),
+    ]),
+    grainCells: 192,
+    paperTone: 0.94,
+    inkTone: 0.08,
+    // A cell with n recorded values is inked by min(1, log2(1 + n) / saturation).
+    saturation: 4,
+    grainTone: 0.03,
+    paperHeight: 0.15,
+    inkHeight: 0.8,
+    cellRoughness: 0.6,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -17723,6 +17751,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  logisticbifurcation: 0.6,
   bitwiselogic: 0.5,
   gcdtable: 0.5,
   percolationclusters: 0.6,

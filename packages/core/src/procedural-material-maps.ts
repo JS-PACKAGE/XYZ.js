@@ -32600,6 +32600,43 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'logisticbifurcation': {
+        const p = proceduralMaterialPresets.logisticbifurcation,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2e301),
+          [rMin, rMax] =
+            p.windows[
+              Math.floor(hash(2, 5, seed ^ 0x2e302) * p.windows.length)
+            ],
+          counts = new Uint16Array(p.columns * p.rows);
+        // Iterate the logistic map at the middle of every column's range of r and count the values that land in each row.
+        for (let column = 0; column < p.columns; column++) {
+          const r = rMin + ((column + 0.5) / p.columns) * (rMax - rMin);
+          let x = p.start;
+          for (let step = 0; step < p.transient + p.recorded; step++) {
+            x = r * x * (1 - x);
+            if (step >= p.transient) {
+              const row = Math.min(p.rows - 1, Math.floor((1 - x) * p.rows));
+              counts[row * p.columns + column]++;
+            }
+          }
+        }
+        return () => {
+          const count =
+              counts[
+                Math.min(p.rows - 1, Math.floor(v * p.rows)) * p.columns +
+                  Math.min(p.columns - 1, Math.floor(u * p.columns))
+              ],
+            ink = Math.min(1, Math.log2(1 + count) / p.saturation);
+          color = clamp(
+            p.paperTone +
+              (p.inkTone - p.paperTone) * ink +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * ink);
+          roughness = p.cellRoughness;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -60129,6 +60166,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'logisticbifurcation' ||
     kind === 'bitwiselogic' ||
     kind === 'gcdtable' ||
     kind === 'percolationclusters' ||

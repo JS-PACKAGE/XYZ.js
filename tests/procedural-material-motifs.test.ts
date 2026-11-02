@@ -20824,3 +20824,141 @@ describe('bitwiselogic: bit-by-bit logic on eight-bit numbers', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('logisticbifurcation: long-run values of the logistic map', () => {
+  const p = proceduralMaterialPresets.logisticbifurcation;
+  const occupied = (seed: number): boolean[][] => {
+    const sample = createSurfaceSampler('logisticbifurcation', seed),
+      out = empty(),
+      columns: boolean[][] = [];
+    for (let column = 0; column < p.columns; column++) {
+      const rows: boolean[] = [];
+      for (let row = 0; row < p.rows; row++) {
+        sample((column + 0.5) / p.columns, (row + 0.5) / p.rows, out);
+        // One recorded value already darkens a cell by about 0.2; the paper grain moves the tone by less than 0.02.
+        rows.push(out.color < p.paperTone - 0.1);
+      }
+      columns.push(rows);
+    }
+    return columns;
+  };
+  const rowOf = (x: number): number =>
+    Math.min(p.rows - 1, Math.floor((1 - x) * p.rows));
+  const rateOf = (window: readonly number[], column: number): number =>
+    window[0] + ((column + 0.5) / p.columns) * (window[1] - window[0]);
+  // The rows reached from the preset's start value, written with a differently ordered formula than the sampler's.
+  const cycleRows = (r: number): Set<number> => {
+    const rows = new Set<number>();
+    let x = p.start;
+    for (let step = 0; step < p.transient + p.recorded; step++) {
+      x = r * x - r * x * x;
+      if (step >= p.transient) rows.add(rowOf(x));
+    }
+    return rows;
+  };
+  const topRow = (rows: boolean[]): number => rows.indexOf(true);
+  const bottomRow = (rows: boolean[]): number => rows.lastIndexOf(true);
+  const identify = (columns: boolean[][]): number => {
+    // The highest value the map ever reaches is r / 4, so for chaotic rates the topmost inked row says which rates are shown.
+    const scores = p.windows.map((window) => {
+      let hits = 0,
+        total = 0;
+      for (let column = 0; column < p.columns; column++) {
+        const r = rateOf(window, column);
+        if (r < 3.7) continue;
+        total++;
+        hits += Number(Math.abs(topRow(columns[column]) - rowOf(r / 4)) <= 1);
+      }
+      return total === 0 ? 0 : hits / total;
+    });
+    const best = scores.indexOf(Math.max(...scores));
+    expect(scores[best]).toBeGreaterThan(0.95);
+    return best;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows the attractor of the logistic map at every rate (seed %i)',
+    (seed) => {
+      const columns = occupied(seed),
+        window = p.windows[identify(columns)];
+      let cyclic = 0,
+        cyclicMatches = 0,
+        chaotic = 0,
+        chaoticMatches = 0,
+        threeCycle = 0;
+      for (let column = 0; column < p.columns; column++) {
+        const r = rateOf(window, column),
+          rows = columns[column];
+        if (r < 3.56) {
+          // Fixed point and the first period doublings: the inked rows are exactly the rows of the cycle.
+          const expected = cycleRows(r);
+          cyclic++;
+          cyclicMatches += Number(
+            rows.every((inked, row) => inked === expected.has(row)),
+          );
+        } else if (r >= 3.835 && r <= 3.84) {
+          // Inside the period-3 window the map settles on three values.
+          const expected = cycleRows(r);
+          expect(expected.size).toBe(3);
+          expect(rows.every((inked, row) => inked === expected.has(row))).toBe(
+            true,
+          );
+          threeCycle++;
+        } else if (r >= 3.7) {
+          // Chaotic rates fill the band between f(r / 4) and r / 4.
+          chaotic++;
+          chaoticMatches += Number(
+            Math.abs(bottomRow(rows) - rowOf((r * r * (4 - r)) / 16)) <= 1,
+          );
+        }
+      }
+      if (cyclic > 0) expect(cyclicMatches / cyclic).toBeGreaterThan(0.97);
+      expect(chaotic).toBeGreaterThan(20);
+      expect(chaoticMatches / chaotic).toBeGreaterThan(0.9);
+      if (window[0] <= 3.835 && window[1] >= 3.84)
+        expect(threeCycle).toBeGreaterThan(0);
+    },
+  );
+
+  it('uses all three rate ranges across seeds', () => {
+    const used = new Set<number>();
+    for (let seed = 0; seed < 24; seed++) used.add(identify(occupied(seed)));
+    expect([...used].sort()).toEqual([0, 1, 2]);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('logisticbifurcation', 0),
+      b = createSurfaceSampler('logisticbifurcation', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
