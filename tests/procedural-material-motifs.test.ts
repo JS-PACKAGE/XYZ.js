@@ -16818,3 +16818,121 @@ describe('fouriersquarewaves: square waves rebuilt from one to six harmonics', (
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('pascaltrianglenumbers: the first rows of Pascal triangle', () => {
+  const p = proceduralMaterialPresets.pascaltrianglenumbers;
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'lists binomial coefficients where every entry is the sum of the two above it, with the odd ones on discs (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('pascaltrianglenumbers', seed),
+        out = empty(),
+        at = (u: number, v: number): number => {
+          sample(u, v, out);
+          return out.color;
+        },
+        centre = (n: number, k: number): [number, number] => [
+          0.5 + (k - n / 2) * p.columnPitch,
+          p.top + n * p.rowPitch,
+        ],
+        triangle: number[][] = [];
+      for (let n = 0; n < p.rows; n++) {
+        const row: number[] = [];
+        for (let k = 0; k <= n; k++) {
+          const [cx, cy] = centre(n, k),
+            ink = (column: number, line: number): boolean =>
+              at(cx + column * p.digitPixel, cy + (line - 2) * p.digitPixel) <
+              0.3,
+            // The widest ink column tells how many digits there are: 1 (columns -1..1), 2 (-3..3) or 3 (-5..5).
+            reach = [5, 3, 1].find((column) =>
+              [0, 1, 2, 3, 4].some(
+                (line) => ink(column, line) || ink(-column, line),
+              ),
+            ),
+            count = reach === 5 ? 3 : reach === 3 ? 2 : 1,
+            start = -(2 * count - 1);
+          expect(reach).toBeDefined();
+          let value = 0;
+          for (let d = 0; d < count; d++) {
+            const rows = [0, 1, 2, 3, 4].map((line) =>
+              [0, 1, 2]
+                .map((column) =>
+                  ink(start + 4 * d + column, line) ? '#' : '.',
+                )
+                .join(''),
+            );
+            const digit = art.findIndex((shape) =>
+              shape.every((text, i) => text === rows[i]),
+            );
+            expect(digit).toBeGreaterThanOrEqual(0);
+            value = value * 10 + digit;
+          }
+          row.push(value);
+          // Odd entries lie on a darker disc, even entries on bare paper.
+          expect(at(cx, cy + 0.03) < 0.85).toBe(value % 2 === 1);
+        }
+        triangle.push(row);
+      }
+      expect(triangle[0]).toEqual([1]);
+      for (let n = 1; n < p.rows; n++) {
+        expect(triangle[n][0]).toBe(1);
+        expect(triangle[n][n]).toBe(1);
+        for (let k = 1; k < n; k++)
+          expect(triangle[n][k]).toBe(
+            triangle[n - 1][k - 1] + triangle[n - 1][k],
+          );
+        // Each row adds up to a power of two, and is symmetric.
+        expect(triangle[n].reduce((sum, value) => sum + value, 0)).toBe(2 ** n);
+        expect(triangle[n]).toEqual([...triangle[n]].reverse());
+      }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('pascaltrianglenumbers', 0),
+      b = createSurfaceSampler('pascaltrianglenumbers', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

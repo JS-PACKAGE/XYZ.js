@@ -29933,6 +29933,86 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'pascaltrianglenumbers': {
+        const p = proceduralMaterialPresets.pascaltrianglenumbers,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2c701),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // Row n of Pascal's triangle: each entry is the sum of the two above it.
+          triangle: number[][] = [[1]];
+        for (let n = 1; n < p.rows; n++)
+          triangle.push(
+            Array.from(
+              { length: n + 1 },
+              (_, k) =>
+                (k > 0 ? triangle[n - 1][k - 1] : 0) +
+                (k < n ? triangle[n - 1][k] : 0),
+            ),
+          );
+        return () => {
+          const n = Math.round((v - p.top) / p.rowPitch);
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            rough: number = p.paperRoughness,
+            disc = 0,
+            glyph = 0;
+          if (n >= 0 && n < p.rows) {
+            const k = Math.round((u - 0.5) / p.columnPitch + n / 2);
+            if (k >= 0 && k <= n) {
+              const dx = u - (0.5 + (k - n / 2) * p.columnPitch),
+                dy = v - (p.top + n * p.rowPitch),
+                value = triangle[n][k],
+                odd = value % 2 === 1,
+                digits = String(value).split('').map(Number),
+                start = -(2 * digits.length - 1),
+                px = Math.floor(dx / p.digitPixel + 0.5),
+                py = Math.floor(dy / p.digitPixel + 2.5);
+              // Odd entries sit on a darker disc, so the Sierpinski pattern of the odd numbers shows.
+              disc = odd ? cover(p.discRadius - Math.hypot(dx, dy)) : 0;
+              tone = odd ? p.oddTone : p.evenTone;
+              level = odd ? p.oddHeight : p.evenHeight;
+              rough = p.discRoughness;
+              if (py >= 0 && py < 5)
+                for (let d = 0; d < digits.length; d++) {
+                  const gx = px - (start + 4 * d);
+                  if (
+                    gx >= 0 &&
+                    gx < 3 &&
+                    glyphs[digits[d]][py * 3 + gx] === '1'
+                  )
+                    glyph = 1;
+                }
+            }
+          }
+          const base = p.paperTone + (tone - p.paperTone) * disc;
+          color = clamp(
+            base +
+              (p.inkTone - base) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.paperHeight + (level - p.paperHeight) * disc - p.inkDepth * glyph,
+          );
+          roughness =
+            p.paperRoughness +
+            (rough - p.paperRoughness) * disc +
+            (p.inkRoughness - p.paperRoughness) * glyph * (1 - disc);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -57462,6 +57542,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'pascaltrianglenumbers' ||
     kind === 'fouriersquarewaves' ||
     kind === 'truthtablelogic' ||
     kind === 'barchartbars' ||

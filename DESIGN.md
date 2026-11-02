@@ -1649,6 +1649,10 @@
 
 這是作者設計的示意：只畫了1至6個諧波，沒有更高階；曲線是用解析公式逐像素計算的，不是描點連線；縱向比例固定，沒有座標軸刻度或標示；「約9%的過衝」是Gibbs現象的理論值（過衝約為整個跳躍幅度的9%，使峰值約為方波高度的1.179倍），測試只驗證量測得到的第6個面板最大值介於1.1與1.2之間，不是精確等於。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`pascaltrianglenumbers`（帕斯卡三角形數字）使目前目錄1020→1021種，含plain的gallery為1022項。每tile是帕斯卡三角形的前10列（第0到第9列，最大的數是126），以3×5點陣數字置中排列成三角形；每個數是上一列左上與右上兩數之和，奇數放在一個較暗的圓盤上、偶數直接落在紙面上，因此奇數圓盤自然呈現謝爾賓斯基三角形的圖樣。內容是確定的，seed只影響紙張的細微雜訊。Metallic與mortar為0。
+
+這是作者設計的示意：只畫了前10列；奇偶圓盤與數字都是確定的；沒有二項式展開式或列和標示；點陣數字在小尺寸下難以辨識。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
