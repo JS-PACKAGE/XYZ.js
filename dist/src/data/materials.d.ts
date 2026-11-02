@@ -11251,6 +11251,33 @@ export declare const proceduralMaterialPresets: Readonly<{
         cellRoughness: 0.55;
         lineRoughness: 0.4;
     }>;
+    dipolefieldlines: Readonly<{
+        dark: readonly [26, 32, 58];
+        light: readonly [246, 242, 222];
+        roughness: 0.55;
+        relief: 0.004;
+        separations: readonly number[];
+        extent: 1.2;
+        potentialStep: 0.4;
+        fieldStep: 0.3141592653589793;
+        lineHalf: 0.008;
+        coreRadius: 0.03;
+        edgeSoft: 0.008;
+        grainCells: 192;
+        positiveTone: 0.94;
+        negativeTone: 0.82;
+        potentialTone: 0.08;
+        fieldTone: 0.4;
+        positiveCoreTone: 0.05;
+        negativeCoreTone: 0.55;
+        grainTone: 0.03;
+        paperHeight: 0.2;
+        fieldHeight: 0.35;
+        lineHeight: 0.8;
+        coreHeight: 0.9;
+        cellRoughness: 0.55;
+        lineRoughness: 0.4;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -17736,6 +17763,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    dipolefieldlines: 0.6;
     mobiusgrid: 0.6;
     fordcircles: 0.6;
     vectorfieldarrows: 0.6;

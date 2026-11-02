@@ -22373,3 +22373,132 @@ describe('mobiusgrid: a checkered grid carried through a Moebius map', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('dipolefieldlines: equipotentials and field lines of two line charges', () => {
+  const p = proceduralMaterialPresets.dipolefieldlines;
+  const fold = (t: number): number => 1 - Math.abs(2 * t - 1);
+
+  // The complex function log((z - b) / (z - a)) has the potential as its real part and the angle difference as its
+  // imaginary part, and the length of its derivative, 2 half / (r1 r2), is the common gradient length.
+  const predict = (half: number, u: number, v: number) => {
+    const x = p.extent * (2 * fold(u) - 1),
+      y = p.extent * (2 * fold(v) - 1),
+      r1 = Math.hypot(x + half, y),
+      r2 = Math.hypot(x - half, y),
+      // (z - b) / (z - a) with z - a = (x + half) + iy and z - b = (x - half) + iy.
+      denominator = (x + half) ** 2 + y * y,
+      quotientRe = ((x - half) * (x + half) + y * y) / denominator,
+      quotientIm = (y * (x + half) - (x - half) * y) / denominator,
+      potential = Math.log(Math.hypot(quotientRe, quotientIm)),
+      angle = Math.atan2(quotientIm, quotientRe),
+      gradient = (2 * half) / (r1 * r2),
+      distanceToLevel = (value: number, step: number): number =>
+        Math.abs(value - step * Math.round(value / step)) / gradient,
+      potentialDistance = distanceToLevel(potential, p.potentialStep),
+      fieldDistance = distanceToLevel(angle, p.fieldStep);
+    return {
+      potentialDistance,
+      fieldDistance,
+      positive: potential > 0,
+      nearCharge: Math.min(r1, r2) < p.coreRadius + 0.02,
+      spacing: Math.min(p.potentialStep, p.fieldStep) / gradient,
+    };
+  };
+  const agreementOf = (seed: number, n: number): number[] => {
+    const sample = createSurfaceSampler('dipolefieldlines', seed),
+      out = empty(),
+      agreement = p.separations.map(() => 0);
+    for (let j = 0; j < n; j++)
+      for (let i = 0; i < n; i++) {
+        const u = (i + 0.5) / n,
+          v = (j + 0.5) / n;
+        sample(u, v, out);
+        p.separations.forEach((half, k) => {
+          const expected = predict(half, u, v);
+          // Skip the charges' cores, places where lines are packed closer than 8 line widths, and the soft edges of lines.
+          const soft = (distance: number): boolean =>
+            Math.abs(distance - p.lineHalf) < 0.005;
+          if (
+            expected.nearCharge ||
+            expected.spacing < 8 * p.lineHalf ||
+            soft(expected.potentialDistance) ||
+            soft(expected.fieldDistance)
+          ) {
+            agreement[k]++;
+            return;
+          }
+          if (
+            expected.potentialDistance < p.lineHalf ||
+            expected.fieldDistance < p.lineHalf
+          )
+            agreement[k] += Number(out.color < 0.6);
+          else
+            agreement[k] += Number(
+              Math.abs(
+                out.color -
+                  (expected.positive ? p.positiveTone : p.negativeTone),
+              ) < 0.05,
+            );
+        });
+      }
+    return agreement.map((count) => count / (n * n));
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws the equipotentials and field lines of one of the preset separations (seed %i)',
+    (seed) => {
+      const ranked = agreementOf(seed, 128).sort((a, b) => b - a);
+      expect(ranked[0]).toBeGreaterThan(0.995);
+      // Neighbouring separations differ only in where the lines run, so the runner-up still agrees at most places.
+      expect(ranked[0] - ranked[1]).toBeGreaterThan(0.05);
+    },
+  );
+
+  it('uses every separation across seeds', () => {
+    const used = new Set<number>();
+    for (let seed = 0; seed < 30; seed++) {
+      const agreement = agreementOf(seed, 48);
+      used.add(agreement.indexOf(Math.max(...agreement)));
+    }
+    expect([...used].sort()).toEqual([0, 1, 2]);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('dipolefieldlines', 0),
+      b = createSurfaceSampler('dipolefieldlines', 1),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      moved = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        // Close to a charge the lines are so dense that the last bit of u + 1 can move a sample.
+        moved += Number(Math.abs(two.color - one.color) > 1e-9);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(moved).toBeLessThan(10);
+    expect(different).toBeGreaterThan(50);
+  });
+});

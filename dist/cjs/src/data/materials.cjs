@@ -18894,6 +18894,45 @@ var proceduralMaterialPresets = Object.freeze({
 		cellRoughness: .55,
 		lineRoughness: .4
 	}),
+	dipolefieldlines: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		separations: Object.freeze([
+			.25,
+			.4,
+			.55
+		]),
+		extent: 1.2,
+		potentialStep: .4,
+		fieldStep: .3141592653589793,
+		lineHalf: .008,
+		coreRadius: .03,
+		edgeSoft: .008,
+		grainCells: 192,
+		positiveTone: .94,
+		negativeTone: .82,
+		potentialTone: .08,
+		fieldTone: .4,
+		positiveCoreTone: .05,
+		negativeCoreTone: .55,
+		grainTone: .03,
+		paperHeight: .2,
+		fieldHeight: .35,
+		lineHeight: .8,
+		coreHeight: .9,
+		cellRoughness: .55,
+		lineRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -27575,6 +27614,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	dipolefieldlines: .6,
 	mobiusgrid: .6,
 	fordcircles: .6,
 	vectorfieldarrows: .6,

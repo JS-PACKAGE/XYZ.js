@@ -1793,6 +1793,10 @@
 
 這是作者設計的示意：只有三個預設變換，沒有標示極點與固定點；在對應到z平面無窮遠的那一點附近格線無限密，會變成一整片深色（見圖中心深色的團塊）；線寬只在畫面上均勻，不代表z平面的線寬；因為取座標時做了鏡射，圖形是鏡射排列的。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`dipolefieldlines`（偶極場線）使目前目錄1058→1059種，含plain的gallery為1060項。每tile是一對相反電荷的二維線電荷（位於(−h, 0)的正電荷與(h, 0)的負電荷，h由seed從0.25、0.4、0.55挑一個，單位是視窗半寬）的等位線與電場線：電位 V = ln(r₂/r₁)（r₁、r₂是到正、負電荷的距離）每隔0.4畫一條深色等位線（阿波羅尼斯圓），夾角差 θ₁ − θ₂ 每隔18度（π/10）畫一條較淡的電場線（通過兩個電荷的圓）；V大於0的區域用較亮的底色、小於0的用較暗的底色，兩個電荷各畫一個小圓核（正電荷最深、負電荷較淺）。線寬以梯度長度 2h/(r₁r₂) 換算，在畫面上是均勻的。座標以折疊方式取得，所以圖在tile邊界連續並鏡射。Metallic與mortar為0。
+
+這是作者設計的示意：只有一對等量相反的二維線電荷（不是三維點電荷的場，三維的等位線與場線不是圓），沒有電荷符號或數值標示；等位線與場線的間隔是固定的，所以靠近電荷處線非常密，會變成深色的一團；因為取座標時做了鏡射，圖形是鏡射排列的。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

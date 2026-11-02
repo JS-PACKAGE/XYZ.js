@@ -33373,6 +33373,74 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'dipolefieldlines': {
+        const p = proceduralMaterialPresets.dipolefieldlines,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2ed01),
+          half =
+            p.separations[
+              Math.floor(hash(1, 9, seed ^ 0x2ed02) * p.separations.length)
+            ],
+          // A tent fold makes the picture continuous across the tile edge.
+          fold = (t: number): number => 1 - Math.abs(2 * t - 1),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5));
+        return () => {
+          const x = p.extent * (2 * fold(u) - 1),
+            y = p.extent * (2 * fold(v) - 1),
+            // Vectors from the positive charge at (-half, 0) and from the negative one at (half, 0) to the point.
+            ax = x + half,
+            bx = x - half,
+            r1 = Math.hypot(ax, y),
+            r2 = Math.hypot(bx, y),
+            // The potential of the pair of line charges, and the angle difference that is constant along a field line.
+            potential = Math.log(r2 / r1),
+            angle = Math.atan2(y, bx) - Math.atan2(y, ax),
+            wrapped = Math.atan2(Math.sin(angle), Math.cos(angle)),
+            // The gradient of the potential has the same length as the gradient of the angle difference.
+            gradient = Math.hypot(
+              ax / (r1 * r1) - bx / (r2 * r2),
+              y / (r1 * r1) - y / (r2 * r2),
+            ),
+            potentialLine = cover(
+              p.lineHalf -
+                (Math.abs(
+                  potential / p.potentialStep -
+                    Math.round(potential / p.potentialStep),
+                ) *
+                  p.potentialStep) /
+                  gradient,
+            ),
+            fieldLine = cover(
+              p.lineHalf -
+                (Math.abs(
+                  wrapped / p.fieldStep - Math.round(wrapped / p.fieldStep),
+                ) *
+                  p.fieldStep) /
+                  gradient,
+            ),
+            core = Math.max(cover(p.coreRadius - r1), cover(p.coreRadius - r2));
+          const base = potential > 0 ? p.positiveTone : p.negativeTone,
+            withField = base + (p.fieldTone - base) * fieldLine,
+            withPotential =
+              withField + (p.potentialTone - withField) * potentialLine,
+            coreTone = r1 < r2 ? p.positiveCoreTone : p.negativeCoreTone;
+          color = clamp(
+            withPotential +
+              (coreTone - withPotential) * core +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          const lines = Math.max(potentialLine, fieldLine);
+          height = clamp(
+            (potential > 0 ? p.paperHeight : p.fieldHeight) +
+              (p.lineHeight - p.paperHeight) * lines +
+              (p.coreHeight - p.lineHeight) * core,
+          );
+          roughness =
+            p.cellRoughness + (p.lineRoughness - p.cellRoughness) * lines;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -60902,6 +60970,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'dipolefieldlines' ||
     kind === 'mobiusgrid' ||
     kind === 'fordcircles' ||
     kind === 'vectorfieldarrows' ||
