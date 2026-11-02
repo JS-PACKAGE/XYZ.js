@@ -12213,3 +12213,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增7項專屬測試（三seed統計、seed差異與決定性、五波向量等強度的頻譜檢查、C1＋有符號UV週期、actual512 maps）通過；頻譜測試直接驗證了「五個波向量等強度、其餘向量幾乎無能量」，但不能驗證觀感上的五重對稱。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Quasicrystal as|quasicrystal|kinds|catalog|distinct|periodic"`定向測試**2229項通過／3823項未選**。
 - 未驗證：morse、couscous、datamatrix、sudoku、quasicrystal未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 完整suite與瀏覽器gallery驗證：morse至quasicrystal
+
+- 完整suite（工具實跑，worktree `/private/tmp/xyz-ct-suite`於`ed3dab90f`「Add Sudoku material」）：**179檔／9,973項全數通過**，Duration 1097.09s。涵蓋`d65d9bd2d`之後的morse、couscous、datamatrix與sudoku；**quasicrystal只有定向測試與gates，沒有完整suite**。
+- 瀏覽器gallery（工具實跑）：補做`couscous`、`datamatrix`、`sudoku`、`quasicrystal`四個材質的`/examples/pbr3d/`檢查（morse已在上一次`6971149bb`的gallery檢查涵蓋）——spawned Google Chrome headless（`--enable-unsafe-webgpu --use-angle=metal`）開啟vite dev server（服務`5e8f0978f`狀態的乾淨worktree）上的範例頁，逐一以`#material`的`input`事件選取並等待讀數更新；WebGPU與`?renderer=webgl2`各跑一次，結束時`tab.errors()`的`entries`皆為0筆（dropped 0）；狀態列顯示`962 procedural material presets + plain`。
+- 限制：gallery檢查只涵蓋「能選取、讀數更新、console沒有錯誤」，**沒有**逐材質視覺比對，也沒有跨瀏覽器、跨GPU或Windows／Linux驗證；不push。
