@@ -1960,7 +1960,7 @@ Root 匯出 `ProceduralMaterial`、共四百五十九種的 `ProceduralMaterialK
 
 這是作者設計的示意：只有邏輯斯蒂映射，沒有座標軸標示、數值或其他映射；每個欄位只用該欄中央的r，不是整段r的平均；混沌區的點分布受浮點運算細節影響，所以只有圖形輪廓與週期區是穩定的。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
-`burningship`（燃燒船碎形）使目前目錄1049→1050種，含plain的gallery為1051項。每tile是Burning Ship碎形的平滑逃逸時間等值帶：對每個點c，迭代 z → (|Re z| + i|Im z|)² + c（比Mandelbrot集多了對實部與虛部各取絕對值），超過界限（256）就停，用「逃逸步數加上超出界限的小數修正」的平滑逃逸時間決定亮度，並疊加一條隨逃逸時間變化的等值帶；沒有逃逸的點用最暗的底色。視窗由seed從四個預設區域（整體、船桅附近、小船、更細部的小船）挑一個，以折疊方式取座標，所以圖在tile邊界連續，而且左右上下鏡射。Metallic與mortar為0。
+`burningship`（燃燒船碎形）使目前目錄1049→1050種，含plain的gallery為1051項。每tile是Burning Ship碎形的平滑逃逸時間等值帶：對每個點c，迭代 z → (|Re z| + i|Im z|)² + c（比Mandelbrot集多了對實部與虛部各取絕對值），超過界限（256）就停，用「逃逸步數加上超出界限的小數修正」的平滑逃逸時間決定亮度，並疊加一條隨逃逸時間變化的等值帶；沒有逃逸的點用最暗的底色。視窗由seed從四個預設區域（一個整體視窗與三個放大視窗，座標見preset；放大視窗的名稱與位置我沒有逐一對照過已知的碎形圖鑑）挑一個，以折疊方式取座標，所以圖在tile邊界連續，而且左右上下鏡射。Metallic與mortar為0。
 
 這是作者設計的示意：只有Burning Ship一種碎形，沒有座標標示；因為取座標時做了鏡射，圖形不是標準的「船」方向，整體視窗看起來像鏡射排列的翅膀；視窗是固定的四個，細節區域（例如小船）依靠固定的迭代上限，更深的放大不在範圍內；逃逸邊緣附近的像素對浮點誤差敏感。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
