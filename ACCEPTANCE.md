@@ -12238,3 +12238,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試（三seed的活細胞數、再演化12代的每代變動比例、統計，seed差異與決定性，C1＋有符號UV週期，actual512 maps）通過；測試**不能**驗證sampler內部的康威規則實作是否完全正確（初始盤面來自sampler內部的hash，測試無法取得），它只驗證結果是「有活細胞、持續演化但不是雜訊」的盤面，生命遊戲規則本身以我在預覽中看到的典型結構（方塊、蜂巢、閃爍器、滑翔機）作旁證。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Game of Life as|gameoflife|kinds|catalog|distinct|periodic"`定向測試**2230項通過／3832項未選**。
 - 未驗證：hilbertcurve、gameoflife未跑完整suite與瀏覽器gallery（quasicrystal亦未）；不push。
+
+## 2026-11-02 新增材質：基本元胞自動機（elementaryautomata）
+
+- 範圍：新增`elementaryautomata`（目前目錄964→965種，含plain的gallery 966項）：四段Wolfram基本元胞自動機（規則30、90、110以第64欄的單一活細胞開局，規則184以重複的`x % 3 ≠ 2`圖樣開局），每段32列、128欄，欄在環面上相接，建構時依`(rule >> (left·4 + center·2 + right)) & 1`演化；seed只把整張圖的欄旋轉；128×128的0／1格用`latticeField`混合並以tanh重新銳化，每個細胞為`cos²`切出的圓角方塊LED；預設0.3 m nominal tile、0.001 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 順帶修正（誠實紀錄）：上一個材質`gameoflife`的範例選項文字原寫「a settled Conway soup」（靜止的康威湯），但探針顯示盤面250代後仍在演化，與文件／ACCEPTANCE的「尚未完全靜止」說法矛盾；本commit把`examples/pbr3d/index.html`的選項文字改為「an evolved Conway soup」。
+- 實作過程的疏失（誠實紀錄）：我寫測試時從gameoflife的測試區塊當模板，其中一個字串替換假設該區塊有「綠通道不得小於紅通道」的色序檢查，但gameoflife的區塊沒有這個檢查，腳本因此在寫檔前丟出錯誤，這一次沒有寫入任何測試（`vitest`只跑到kinds清單那1項），我發現後移除該替換並重新產生測試，沒有把未寫入的測試當成通過；另一個小疏失是我在日文README把「ルール30」打成「ルールA30」，在gates之前已改正。
+- 實測（工具實跑，seed 0／1／0xffffffff／7，512²取樣）：亮處（color>0.5）占23.39%（四個seed完全相同）、color 0.0940–0.0942至0.9094–0.9095、平均0.2803–0.2804、roughness 0.25–0.45、height至多0.9983–0.9995 relief；16,384個細胞node中亮的3,893個、沒有node顏色落在0.3到0.6之間；四個seed取到的盤面都與獨立重寫的四條規則自動機完全一致，只差一個欄旋轉（seed 0／1／0xffffffff／7分別旋轉74／4／49／31欄）；seed 0與1的亮區遮罩29.6%像素不同；seed 7的512²maps平均r／g／b約(84.4, 53.7, 20.8)、法線tilt²最大約0.0038、z分量最小255（relief 0.001，沒有調整）。我實看了預覽：規則30的混沌三角形、規則90的Sierpinski三角形、規則110與184的結構。
+- 測試：新增5項專屬測試（三seed的盤面與獨立自動機逐node比對（恰有一個旋轉相符）、統計，seed差異與決定性，C1＋有符號UV週期，actual512 maps）通過；測試中的規則表（30／90／110／184）與開局是獨立重寫的，與sampler需同步。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Elementary automata as|elementaryautomata|kinds|catalog|distinct|periodic"`定向測試**2232項通過／3835項未選**。
+- 未驗證：hilbertcurve、gameoflife、elementaryautomata（以及quasicrystal之後的各項）未跑完整suite與瀏覽器gallery；不push。

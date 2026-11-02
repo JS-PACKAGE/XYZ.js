@@ -979,7 +979,8 @@ export type ProceduralMaterialKind =
   | 'sudoku'
   | 'quasicrystal'
   | 'hilbertcurve'
-  | 'gameoflife';
+  | 'gameoflife'
+  | 'elementaryautomata';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2193,6 +2194,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'quasicrystal',
   'hilbertcurve',
   'gameoflife',
+  'elementaryautomata',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

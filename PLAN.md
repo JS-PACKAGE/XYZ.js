@@ -1095,6 +1095,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`elementaryautomata`（基本元胞自動機）使目前目錄964→965種，含plain的gallery為966項。琥珀色LED點陣上並排四段Wolfram基本元胞自動機（每段32列、128欄，欄在環面上相接）：規則30（單一活細胞開局的混沌三角形）、規則90（Sierpinski三角形）、規則110（複雜的不對稱結構）與規則184（以重複的「110」圖樣開局的斜條紋交通流）；seed只把整張圖的欄做環狀旋轉，圖案本身固定。每個細胞是圓角方塊LED，熄滅的LED保留暗褐色。因為是環面，規則30等的三角形在128欄的寬度內不會碰到邊界，所以看起來與無限寬的結果相同。
+
+此材質是作者示意，沒有引用特定來源或照片，也沒有對照照片；欄數128、每段32列、四條規則與開局圖樣、琥珀色調與0.3 m nominal tile皆作者設定。第一版（尚未調整）預覽就採用；512²maps的法線tilt²最大只有0.0038（relief 0.001），沒有調整。
+
+新增專用sampler：建構時對每個規則段先寫入開局列（單一活細胞位於第64欄；規則184是重複的`x % 3 ≠ 2`圖樣），之後每一列依規則編號的位元表（`(rule >> (left·4 + center·2 + right)) & 1`）在環狀欄上演化；整張圖的欄再依seed旋轉；128×128的0／1格用`latticeField`以C1 smoothstep混合並以`0.5 + 0.5·tanh(8·(pattern − 0.5))`重新銳化，每個細胞為`cos²`在兩軸切出的圓角方塊LED（C∞）；顏色＝`0.04 + cell·(0.08 + 0.78·lit) + 0.02·(128²細grain − 0.5)`；height ＝ `0.8·cell + 0.2·grain`；亮處roughness降低0.2；cache合計128² + 128² = 32,768個Float64／262,144 B lattice算術預算（非總RAM）。預設0.3 m nominal tile與0.001 UV-relative relief（非公尺位移）。實測（工具實跑，seed 0／1／0xffffffff／7，512²取樣）：亮處（color>0.5）占23.39%（四個seed完全相同）、color 0.0940–0.0942至0.9094–0.9095、平均0.2803–0.2804、roughness 0.25–0.45、height至多0.9983–0.9995 relief；16,384個細胞node中亮的為3,893個、沒有node顏色落在0.3到0.6之間；四個seed取到的盤面都與測試中獨立重寫的四條規則自動機完全一致，只差一個欄旋轉（seed 0、1、0xffffffff、7的旋轉分別為74、4、49、31欄）；seed 0與1的亮區遮罩29.6%像素不同；seed 7的512²maps平均r／g／b約(84.4, 53.7, 20.8)、法線tilt²最大約0.0038。我實看了預覽：琥珀色的規則30混沌三角形、規則90的Sierpinski三角形、規則110的結構與規則184的斜條紋，一眼就是Wolfram的元胞自動機海報，但規則30與90、110的三角形只佔每段的中央區，其餘是暗色空白。未新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `gameoflife`（生命遊戲）使目前目錄963→964種，含plain的gallery為965項。暗藍綠LED點陣上的康威生命遊戲（Conway's Game of Life）湯：64×64的環面，以seed決定的38%密度隨機開局，演化250代，亮綠色的活細胞形成方塊、蜂巢、閃爍器與滑翔機等結構。**演化後的盤面並未完全靜止**（仍有滑翔機與閃爍器在動；後續12代每代仍有約4%–9%的細胞改變），只是一張靜態快照。每個細胞是圓角方塊的LED，熄滅的LED保留暗色。
 
 此材質是作者示意，沒有引用特定來源或真實螢幕照片，也沒有對照照片；盤面64×64、密度0.38、250代、色調與0.2 m nominal tile皆作者設定。第一版relief 0.0015時512²maps的法線tilt²最大為0.0900，降到0.001後為0.0422（同一批探針的前後值）。生命遊戲只在sampler建構時跑一次，建構約30 ms。

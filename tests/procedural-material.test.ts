@@ -1006,6 +1006,7 @@ const kinds: ProceduralMaterialKind[] = [
   'quasicrystal',
   'hilbertcurve',
   'gameoflife',
+  'elementaryautomata',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -149988,6 +149989,211 @@ describe('Game of Life as an evolved Conway soup on an LED grid', () => {
     expect(blue / (512 * 512)).toBeLessThan(46);
     expect(maxTilt).toBeGreaterThan(0.02);
     expect(maxTilt).toBeLessThan(0.07);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Elementary automata as Wolfram rules 30, 90, 110 and 184 on amber LEDs', () => {
+  const p = proceduralMaterialPresets.elementaryautomata;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const size = 128;
+  /** Lit state of every LED node (128 x 128), read at the node centres. */
+  const pixelNodes = (seed: number): boolean[] => {
+    const sample = createSurfaceSampler('elementaryautomata', seed),
+      out = empty(),
+      nodes: boolean[] = [];
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample(x / size, y / size, out);
+        nodes.push(out.color > 0.5);
+      }
+    return nodes;
+  };
+  /** The four bands (rules 30, 90, 110, 184 over 32 rows each), written independently here. */
+  const expectedBoard = (shift: number): boolean[] => {
+    const board: boolean[] = new Array(size * size).fill(false);
+    [30, 90, 110, 184].forEach((rule, band) => {
+      let row = Array.from({ length: size }, (_, x) =>
+        band === 3 ? Number(x % 3 !== 2) : Number(x === 64),
+      );
+      for (let y = 0; y < 32; y++) {
+        row.forEach((cell, x) => {
+          board[(band * 32 + y) * size + ((x + shift) % size)] = cell === 1;
+        });
+        row = row.map((cell, x) => {
+          const left = row[(x + size - 1) % size],
+            right = row[(x + 1) % size];
+          return (rule >> (left * 4 + cell * 2 + right)) & 1;
+        });
+      }
+    });
+    return board;
+  };
+  it('draws every rule band exactly as the automaton evolves and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('elementaryautomata', seed),
+        a = empty();
+      const nodes = pixelNodes(seed);
+      expect(nodes.filter(Boolean).length).toBe(3893);
+      // The seed only rotates the columns; some rotation must reproduce every node.
+      let matching = 0;
+      for (let shift = 0; shift < size; shift++) {
+        const expected = expectedBoard(shift);
+        matching += Number(expected.every((cell, i) => cell === nodes[i]));
+      }
+      expect(matching).toBe(1);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.105);
+      expect(low).toBeLessThan(0.115);
+      expect(high).toBeGreaterThan(0.9);
+      expect(high).toBeLessThan(0.92);
+      expect(dark / 65536).toBeGreaterThan(0.225);
+      expect(dark / 65536).toBeLessThan(0.25);
+      expect(mean / 65536).toBeGreaterThan(0.295);
+      expect(mean / 65536).toBeLessThan(0.32);
+      expect(roughLow).toBeGreaterThan(0.249);
+      expect(roughLow).toBeLessThan(0.26);
+      expect(roughHigh).toBeCloseTo(p.roughness, 2);
+      expect(heightHigh).toBeGreaterThan(0.97);
+      expect(heightHigh).toBeLessThanOrEqual(1);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('rotates the columns per seed and is deterministic for one seed', () => {
+    const first = pixelNodes(0),
+      second = pixelNodes(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.2);
+    expect(pixelNodes(0)).toEqual(first);
+  });
+  it('keeps the cell edges and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('elementaryautomata', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [size, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 amber-on-brown LED maps with gentle normals', () => {
+    const maps = generateProceduralMaps('elementaryautomata', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(79);
+    expect(red / (512 * 512)).toBeLessThan(90);
+    expect(green / (512 * 512)).toBeGreaterThan(49);
+    expect(green / (512 * 512)).toBeLessThan(58);
+    expect(blue / (512 * 512)).toBeGreaterThan(17);
+    expect(blue / (512 * 512)).toBeLessThan(25);
+    expect(maxTilt).toBeGreaterThan(0.002);
+    expect(maxTilt).toBeLessThan(0.01);
     expect(invalid).toBe(0);
   });
 });

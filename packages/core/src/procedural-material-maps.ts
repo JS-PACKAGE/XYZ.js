@@ -40025,6 +40025,63 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'elementaryautomata': {
+        const p = proceduralMaterialPresets.elementaryautomata,
+          columns = p.columns,
+          rows = p.bandRows * p.rules.length,
+          cells = new Float64Array(columns * rows),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          shift = Math.floor(hash(0, 0, seed ^ p.seedSalt) * columns);
+        // One band per Wolfram elementary rule: row 0 of a band is a single live cell
+        // (or a repeating pattern when startPeriods asks for one), every next row
+        // applies the rule on a ring of columns, and the seed rotates the columns.
+        p.rules.forEach((rule, band) => {
+          let row = new Uint8Array(columns),
+            next = new Uint8Array(columns);
+          const period = p.startPeriods[band];
+          for (let x = 0; x < columns; x++)
+            row[x] = period
+              ? Number(x % period !== period - 1)
+              : Number(x === columns >> 1);
+          for (let y = 0; y < p.bandRows; y++) {
+            for (let x = 0; x < columns; x++)
+              cells[
+                (band * p.bandRows + y) * columns + ((x + shift) % columns)
+              ] = row[x];
+            for (let x = 0; x < columns; x++) {
+              const left = row[(x + columns - 1) % columns],
+                right = row[(x + 1) % columns];
+              next[x] = (rule >> (left * 4 + row[x] * 2 + right)) & 1;
+            }
+            [row, next] = [next, row];
+          }
+        });
+        const pattern = latticeField(cells, columns, rows);
+        return () => {
+          // The cell lattice is blended with the C1 smoothstep and re-sharpened with
+          // tanh; each cell is an LED-like rounded square cut by cos^2 on both axes.
+          const lit =
+              0.5 + 0.5 * Math.tanh(p.sharpness * (pattern(u, v) - 0.5)),
+            cx = Math.cos(Math.PI * columns * u),
+            cy = Math.cos(Math.PI * rows * v),
+            cell =
+              (0.5 +
+                0.5 * Math.tanh(p.cellSharpness * (cx * cx - p.cellEdge))) *
+              (0.5 + 0.5 * Math.tanh(p.cellSharpness * (cy * cy - p.cellEdge))),
+            grain = grainField(u, v);
+          color =
+            p.offTone +
+            cell * (p.unlitTone + p.litTone * lit) +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * cell + p.grainHeight * grain;
+          roughness += p.litRoughness * lit * cell;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -47797,6 +47854,7 @@ export function createSurfaceSampler(
     kind === 'quasicrystal' ||
     kind === 'hilbertcurve' ||
     kind === 'gameoflife' ||
+    kind === 'elementaryautomata' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
