@@ -1577,6 +1577,10 @@
 
 這是作者設計的示意：畫面是填好答案的盤面，真正的Takuzu只給部分格子；不保證只有唯一解；回溯搜尋有節點上限（100000個節點）——我對300個seed量測的最大節點數約2400，遠低於上限，但若某個seed超過上限，盤面會留下未填格並被畫成空心圓環，這個情形我沒有遇到也未驗證其外觀；8×8固定。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`kenkencages`（算術方陣謎題／KenKen）使目前目錄1002→1003種，含plain的gallery為1004項。每tile是一個4×4已解開的KenKen盤面：16格各寫一個大的1至4點陣數字，每列每欄1至4恰好各出現一次（拉丁方陣，由循環拉丁方經列、欄、符號置換而得）；盤面被粗線切成「籠」（1至3格的相連區塊，各有些微不同的底色），每個籠在第一格（依列優先順序）的左上角以小號點陣字寫出目標數與運算符：單格籠只寫數字本身；兩格籠可為加（＋）、乘（×）、減（−，大減小）或除（÷，大除以小且需整除）；三格籠為加或乘。運算符是3×5點陣：「＋」「×」「−」「÷」。目標由答案算出，因此全部成立。Metallic與mortar為0。
+
+這是作者設計的示意：畫面是填好答案的盤面，真正的KenKen只給籠與目標（不顯示答案）；不保證只有唯一解（我沒有寫求解器檢查）；籠最多3格；4×4固定；大數字與小標籤都是點陣、在小尺寸下難以辨識。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

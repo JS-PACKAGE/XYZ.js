@@ -27981,6 +27981,197 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'kenkencages': {
+        const p = proceduralMaterialPresets.kenkencages,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2b501),
+          // Digits 0-9 and the four operators (+ x - and the division sign) as 3 x 5 dot matrices.
+          glyphs: Record<string, string> = {
+            '0': '111101101101111',
+            '1': '010110010010111',
+            '2': '111001111100111',
+            '3': '111001111001111',
+            '4': '101101111001001',
+            '5': '111100111001111',
+            '6': '111100111101111',
+            '7': '111001010010010',
+            '8': '111101111101111',
+            '9': '111101111001111',
+            '+': '000010111010000',
+            '*': '000101010101000',
+            '-': '000000111000000',
+            '/': '010000111000010',
+          },
+          n = p.size,
+          side = 1 - 2 * p.margin,
+          cell = side / n,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          shuffled = (salt: number): number[] =>
+            Array.from({ length: n }, (_, i) => i).sort(
+              (a, b) =>
+                hash(a, salt, seed ^ 0x2b503) - hash(b, salt, seed ^ 0x2b503),
+            ),
+          rows = shuffled(1),
+          columns = shuffled(2),
+          symbols = shuffled(3),
+          // A Latin square of 1..n: the cyclic square with rows, columns and symbols shuffled.
+          values = Array.from(
+            { length: n * n },
+            (_, index) =>
+              symbols[(rows[Math.floor(index / n)] + columns[index % n]) % n] +
+              1,
+          ),
+          cage = new Int16Array(n * n).fill(-1),
+          labels: string[] = [],
+          corners: number[] = [],
+          neighbours = (index: number): number[] => {
+            const x = index % n,
+              y = Math.floor(index / n),
+              list: number[] = [];
+            if (x < n - 1) list.push(index + 1);
+            if (x > 0) list.push(index - 1);
+            if (y < n - 1) list.push(index + n);
+            if (y > 0) list.push(index - n);
+            return list;
+          };
+        // Grow cages of 1 to maxCage cells, then label each with a target and an operator its digits satisfy.
+        let counter = 0;
+        for (let start = 0; start < n * n; start++) {
+          if (cage[start] !== -1) continue;
+          const id = labels.length,
+            cells = [start],
+            target =
+              1 +
+              Math.min(
+                p.maxCage - 1,
+                Math.floor(hash(counter++, 3, seed ^ 0x2b505) * p.maxCage),
+              );
+          cage[start] = id;
+          while (cells.length < target) {
+            const frontier = cells
+              .flatMap((c) => neighbours(c))
+              .filter((other) => cage[other] === -1);
+            if (frontier.length === 0) break;
+            const pick =
+              frontier[
+                Math.min(
+                  frontier.length - 1,
+                  Math.floor(
+                    hash(counter++, 5, seed ^ 0x2b507) * frontier.length,
+                  ),
+                )
+              ];
+            cage[pick] = id;
+            cells.push(pick);
+          }
+          const digits = cells.map((c) => values[c]),
+            options: string[] = digits.length === 1 ? [''] : ['+', '*'];
+          if (digits.length === 2) {
+            options.push('-');
+            if (Math.max(...digits) % Math.min(...digits) === 0)
+              options.push('/');
+          }
+          const operator =
+              options[
+                Math.min(
+                  options.length - 1,
+                  Math.floor(
+                    hash(counter++, 7, seed ^ 0x2b509) * options.length,
+                  ),
+                )
+              ],
+            sum = digits.reduce((a, b) => a + b, 0),
+            product = digits.reduce((a, b) => a * b, 1),
+            result = {
+              '': digits[0],
+              '+': sum,
+              '*': product,
+              '-': Math.max(...digits) - Math.min(...digits),
+              '/': Math.max(...digits) / Math.min(...digits),
+            }[operator] as number;
+          labels.push(String(result) + operator);
+          corners.push(Math.min(...cells));
+        }
+        const cageAt = (x: number, y: number): number =>
+          x >= 0 && x < n && y >= 0 && y < n ? cage[y * n + x] : -1;
+        return () => {
+          const lx = u - p.margin,
+            ly = v - p.margin;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            thin = 0,
+            thick = 0,
+            ink = 0,
+            label = 0;
+          if (
+            lx >= -p.thickHalf &&
+            lx < side + p.thickHalf &&
+            ly >= -p.thickHalf &&
+            ly < side + p.thickHalf
+          ) {
+            const col = Math.min(n - 1, Math.max(0, Math.floor(lx / cell))),
+              row = Math.min(n - 1, Math.max(0, Math.floor(ly / cell))),
+              index = row * n + col,
+              fx = lx - col * cell,
+              fy = ly - row * cell,
+              id = cage[index],
+              pixel = cell * p.digitFraction,
+              px = Math.floor((fx - (cell / 2 - 1.5 * pixel)) / pixel),
+              py = Math.floor((fy - (p.digitY * cell - 2.5 * pixel)) / pixel);
+            tone =
+              p.cellTone + p.tintRange * (hash(id, 11, seed ^ 0x2b50b) - 0.5);
+            level = p.cellHeight;
+            for (const [distance, other] of [
+              [fx, cageAt(col - 1, row)],
+              [cell - fx, cageAt(col + 1, row)],
+              [fy, cageAt(col, row - 1)],
+              [cell - fy, cageAt(col, row + 1)],
+            ]) {
+              if (other !== id)
+                thick = Math.max(thick, cover(p.thickHalf - distance));
+              else thin = Math.max(thin, cover(p.thinHalf - distance));
+            }
+            if (
+              px >= 0 &&
+              px < 3 &&
+              py >= 0 &&
+              py < 5 &&
+              glyphs[String(values[index])][py * 3 + px] === '1'
+            )
+              ink = 1;
+            if (corners[id] === index) {
+              const small = cell * p.labelFraction,
+                lpx = Math.floor((fx - p.labelX * cell) / small),
+                lpy = Math.floor((fy - p.labelY * cell) / small),
+                letter = Math.floor(lpx / 4),
+                text = labels[id];
+              if (
+                lpy >= 0 &&
+                lpy < 5 &&
+                lpx >= 0 &&
+                letter < text.length &&
+                lpx % 4 < 3 &&
+                glyphs[text[letter]][lpy * 3 + (lpx % 4)] === '1'
+              )
+                label = 1;
+            }
+          }
+          tone += (p.thinTone - tone) * thin;
+          tone += (p.thickTone - tone) * thick;
+          const mark = Math.max(ink, thick, label);
+          color = clamp(
+            tone +
+              (p.inkTone - tone) * ink +
+              (p.labelTone - tone) * label +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * mark);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * mark;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -55510,6 +55701,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'kenkencages' ||
     kind === 'takuzugrid' ||
     kind === 'akarilights' ||
     kind === 'hitorishading' ||

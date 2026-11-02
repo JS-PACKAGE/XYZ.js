@@ -14556,3 +14556,193 @@ describe('takuzugrid: a solved Takuzu (Binairo)', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('kenkencages: a solved KenKen', () => {
+  const p = proceduralMaterialPresets.kenkencages;
+  const n = p.size;
+  const cell = (1 - 2 * p.margin) / n;
+  const art: Record<string, string[]> = {
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    '2': ['###', '..#', '###', '#..', '###'],
+    '3': ['###', '..#', '###', '..#', '###'],
+    '4': ['#.#', '#.#', '###', '..#', '..#'],
+    '5': ['###', '#..', '###', '..#', '###'],
+    '6': ['###', '#..', '###', '#.#', '###'],
+    '7': ['###', '..#', '.#.', '.#.', '.#.'],
+    '8': ['###', '#.#', '###', '#.#', '###'],
+    '9': ['###', '#.#', '###', '..#', '###'],
+    '+': ['...', '.#.', '###', '.#.', '...'],
+    '*': ['...', '#.#', '.#.', '#.#', '...'],
+    '-': ['...', '...', '###', '...', '...'],
+    '/': ['.#.', '...', '###', '...', '.#.'],
+  };
+  const read = (bits: string[]): string | null => {
+    const found = Object.entries(art).find(([, rows]) =>
+      rows.every((line, i) => line === bits[i]),
+    );
+    return found ? found[0] : null;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'has a Latin square whose cages satisfy their targets and operators (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('kenkencages', seed),
+        out = empty(),
+        at = (col: number, row: number, fx: number, fy: number): number => {
+          sample(
+            p.margin + (col + fx) * cell,
+            p.margin + (row + fy) * cell,
+            out,
+          );
+          return out.color;
+        },
+        pixel = p.digitFraction,
+        small = p.labelFraction,
+        values: number[] = [],
+        labels = new Map<number, string>();
+      for (let row = 0; row < n; row++)
+        for (let col = 0; col < n; col++) {
+          const bits: string[] = [];
+          for (let y = 0; y < 5; y++) {
+            let text = '';
+            for (let x = 0; x < 3; x++)
+              text +=
+                at(
+                  col,
+                  row,
+                  0.5 + (x - 1) * pixel,
+                  p.digitY + (y - 2) * pixel,
+                ) < 0.3
+                  ? '#'
+                  : '.';
+            bits.push(text);
+          }
+          const digit = read(bits);
+          expect(digit).not.toBeNull();
+          values.push(Number(digit));
+          // A label, if any, is read letter by letter from the top-left corner until a blank letter.
+          let label = '';
+          for (let k = 0; k < 4; k++) {
+            const letterBits: string[] = [];
+            for (let y = 0; y < 5; y++) {
+              let text = '';
+              for (let x = 0; x < 3; x++)
+                text +=
+                  at(
+                    col,
+                    row,
+                    p.labelX + (k * 4 + x + 0.5) * small,
+                    p.labelY + (y + 0.5) * small,
+                  ) < 0.3
+                    ? '#'
+                    : '.';
+              letterBits.push(text);
+            }
+            if (letterBits.every((line) => line === '...')) break;
+            const letter = read(letterBits);
+            expect(letter).not.toBeNull();
+            label += letter;
+          }
+          if (label !== '') labels.set(row * n + col, label);
+        }
+      // Latin square.
+      const wanted = Array.from({ length: n }, (_, i) => i + 1);
+      for (let i = 0; i < n; i++) {
+        expect(values.slice(i * n, i * n + n).sort((a, b) => a - b)).toEqual(
+          wanted,
+        );
+        expect(
+          Array.from({ length: n }, (_, r) => values[r * n + i]).sort(
+            (a, b) => a - b,
+          ),
+        ).toEqual(wanted);
+      }
+      // Cages: cells joined unless a thick wall is drawn on the boundary between them.
+      const wall = (col: number, row: number, across: boolean): boolean =>
+        across ? at(col, row, 1, 0.5) < 0.3 : at(col, row, 0.5, 1) < 0.3;
+      const seen = new Set<number>();
+      let cages = 0;
+      for (let start = 0; start < n * n; start++) {
+        if (seen.has(start)) continue;
+        const group = [start];
+        seen.add(start);
+        for (let i = 0; i < group.length; i++) {
+          const col = group[i] % n,
+            row = Math.floor(group[i] / n),
+            next: number[] = [];
+          if (col < n - 1 && !wall(col, row, true)) next.push(group[i] + 1);
+          if (col > 0 && !wall(col - 1, row, true)) next.push(group[i] - 1);
+          if (row < n - 1 && !wall(col, row, false)) next.push(group[i] + n);
+          if (row > 0 && !wall(col, row - 1, false)) next.push(group[i] - n);
+          for (const other of next)
+            if (!seen.has(other)) {
+              seen.add(other);
+              group.push(other);
+            }
+        }
+        expect(group.length).toBeLessThanOrEqual(p.maxCage);
+        // The one label of a cage sits in its first cell in reading order.
+        const labelled = group.filter((c) => labels.has(c));
+        expect(labelled).toEqual([Math.min(...group)]);
+        const label = labels.get(labelled[0]) as string,
+          operator = /[+*\-/]$/.test(label) ? label.slice(-1) : '',
+          target = Number(operator === '' ? label : label.slice(0, -1)),
+          digits = group.map((c) => values[c]);
+        if (group.length === 1) expect(operator).toBe('');
+        else expect(operator).not.toBe('');
+        if (operator === '') expect(target).toBe(digits[0]);
+        if (operator === '+')
+          expect(target).toBe(digits.reduce((a, b) => a + b, 0));
+        if (operator === '*')
+          expect(target).toBe(digits.reduce((a, b) => a * b, 1));
+        if (operator === '-') {
+          expect(digits.length).toBe(2);
+          expect(target).toBe(Math.max(...digits) - Math.min(...digits));
+        }
+        if (operator === '/') {
+          expect(digits.length).toBe(2);
+          expect(target * Math.min(...digits)).toBe(Math.max(...digits));
+        }
+        cages++;
+      }
+      expect(cages).toBeGreaterThanOrEqual(5);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('kenkencages', 0),
+      b = createSurfaceSampler('kenkencages', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
