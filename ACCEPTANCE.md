@@ -12627,3 +12627,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試（分拆數以試除法獨立重寫、唯一環面平移與統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過，`Totient table as`原有測試仍通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Goldbach table as|goldbachtable|Totient table as|kinds|catalog|distinct|periodic"`定向測試**2313項通過／3950項未選**。
 - 未驗證：totienttable、goldbachtable未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 紀錄：完整suite與瀏覽器gallery（through spirographtable）
+
+- 完整suite（工具實跑，`/private/tmp/xyz-ct-suite`，detached worktree）：在`fb0e5de3f`（ammannfilled）**179個檔案、10,165項全數通過，1242.78 s**；在`08023e473`（spirographtable）**179個檔案、10,182項全數通過，1288.66 s**。這兩次涵蓋ammannbeenker、heptagridtiling、dodecagridtiling、penrosefilled、ammannfilled、heptagridfilled、dodecagridfilled、spirographtable；**totienttable（`0fb1ef19c`）與goldbachtable（`1684c5707`）尚未跑完整suite**。測試數隨新增材質增加，這是當時的數字，不代表目前。
+- 瀏覽器gallery（`examples/pbr3d`，headless Chrome，vite dev server 服務於clean worktree；WebGPU與`?renderer=webgl2`各一次）：dodecagridtiling、penrosefilled、ammannfilled（共3種）與heptagridfilled、dodecagridfilled、spirographtable（共3種）依序從`#material`選單選取，每種在畫面readout出現`Material <kind> `，`errors()`為0項；readout顯示「997 procedural material presets」（前一批）與「1000 procedural material presets」（後一批），選單分別有998與1001個選項。**檢查範圍只是「可選取、readout更新、沒有console錯誤」**，不是畫面像素或效能驗證；我沒有看這些選取後的畫面截圖。totienttable與goldbachtable尚未跑gallery。
+- 仍未驗證：我所用的是單一機器（macOS arm64、headless Chrome、`--use-angle=metal`），不宣稱其他瀏覽器或平台；不push。
