@@ -40490,8 +40490,12 @@ export function createSurfaceSampler(
           return;
         };
       }
-      case 'mandelbrottiles': {
-        const p = proceduralMaterialPresets.mandelbrottiles,
+      case 'mandelbrottiles':
+      case 'juliatiles': {
+        const julia = kind === 'juliatiles',
+          p = julia
+            ? proceduralMaterialPresets.juliatiles
+            : proceduralMaterialPresets.mandelbrottiles,
           grainField = cachedNoise(
             p.grainCells,
             p.grainCells,
@@ -40501,11 +40505,14 @@ export function createSurfaceSampler(
           inverseSoft = 1 / p.edgeSoft,
           shiftX = Math.floor(hash(0, 0, seed ^ p.seedSalt) * p.cells),
           shiftY = Math.floor(hash(1, 0, seed ^ p.seedSalt) * p.cells),
-          // Cell (col, row) iterates z -> z^2 + c at the centre c of its patch of the
-          // complex plane (real part from realMinimum to realMaximum, imaginary part
-          // from -imaginaryHalf to imaginaryHalf) and keeps the square root of the escape
-          // iteration count (|z| > 2) over maxIterations; points that never escape sit at insideTone.
-          // The seed only moves the whole table around the torus.
+          // Cell (col, row) iterates z -> z^2 + c for the point of the complex plane at
+          // its centre (real part from realMinimum to realMaximum, imaginary part from
+          // -imaginaryHalf to imaginaryHalf) and keeps the square root of the escape
+          // iteration count (|z| > 2) over maxIterations; points that never escape sit
+          // at insideTone. Mandelbrot: z starts at 0 and c is the cell's point; Julia: z
+          // starts at the cell's point and c is one fixed constant. The seed only moves
+          // the whole table around the torus.
+          juliaConstant = proceduralMaterialPresets.juliatiles,
           tones = new Float64Array(p.cells * p.cells);
         for (let row = 0; row < p.cells; row++)
           for (let col = 0; col < p.cells; col++) {
@@ -40513,12 +40520,14 @@ export function createSurfaceSampler(
                 p.realMinimum +
                 ((p.realMaximum - p.realMinimum) * (col + 0.5)) / p.cells,
               ci = p.imaginaryHalf * (((row + 0.5) * 2) / p.cells - 1);
-            let zr = 0,
-              zi = 0,
+            const offsetReal = julia ? juliaConstant.juliaReal : cr,
+              offsetImaginary = julia ? juliaConstant.juliaImaginary : ci;
+            let zr = julia ? cr : 0,
+              zi = julia ? ci : 0,
               iteration = 0;
             while (iteration < p.maxIterations && zr * zr + zi * zi <= 4) {
-              const next = zr * zr - zi * zi + cr;
-              zi = 2 * zr * zi + ci;
+              const next = zr * zr - zi * zi + offsetReal;
+              zi = 2 * zr * zi + offsetImaginary;
               zr = next;
               iteration++;
             }
@@ -48344,6 +48353,7 @@ export function createSurfaceSampler(
     kind === 'lissajoustable' ||
     kind === 'rhodoneatable' ||
     kind === 'mandelbrottiles' ||
+    kind === 'juliatiles' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
