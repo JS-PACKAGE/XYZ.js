@@ -24813,3 +24813,175 @@ describe('zeckendorfrows: numbers as sums of non-neighbouring Fibonacci numbers'
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('ferrersdiagrams: the partitions of 7 as boxes', () => {
+  const p = proceduralMaterialPresets.ferrersdiagrams;
+  // Independent list of the partitions of 7: every composition of 7 (one bit per gap between seven units), its parts sorted
+  // from large to small, duplicates removed.
+  const partitionsOfSeven = (): string[] => {
+    const found = new Set<string>();
+    for (let mask = 0; mask < 1 << 6; mask++) {
+      const parts: number[] = [];
+      let run = 1;
+      for (let gap = 0; gap < 6; gap++) {
+        if ((mask >> gap) & 1) {
+          parts.push(run);
+          run = 1;
+        } else run++;
+      }
+      parts.push(run);
+      found.add(parts.sort((a, b) => b - a).join(','));
+    }
+    return [...found].sort();
+  };
+  const transpose = (parts: number[]): number[] =>
+    Array.from(
+      { length: parts[0] },
+      (_, column) => parts.filter((part) => part > column).length,
+    );
+
+  // Reads the boxes of the diagram in a cell: its bounding box from a fine scan, then a box-centre check, giving the row
+  // lengths from the top row to the bottom row.
+  const readCell = (seed: number, column: number, row: number): number[] => {
+    const sample = createSurfaceSampler('ferrersdiagrams', seed),
+      out = empty(),
+      cellWidth = 1 / p.columns,
+      cellHeight = 1 / p.rows,
+      step = 0.002;
+    let minX = Infinity,
+      maxX = -Infinity,
+      minY = Infinity,
+      maxY = -Infinity;
+    for (
+      let y = row * cellHeight + step / 2;
+      y < (row + 1) * cellHeight;
+      y += step
+    )
+      for (
+        let x = column * cellWidth + step / 2;
+        x < (column + 1) * cellWidth;
+        x += step
+      ) {
+        sample(x, y, out);
+        if (out.color < 0.75) {
+          minX = Math.min(minX, x);
+          maxX = Math.max(maxX, x);
+          minY = Math.min(minY, y);
+          maxY = Math.max(maxY, y);
+        }
+      }
+    const width = Math.round((maxX - minX) / p.box),
+      height = Math.round((maxY - minY) / p.box),
+      lengths: number[] = [];
+    // The diagram is centred in its cell.
+    expect(minX).toBeCloseTo(
+      (column + 0.5) * cellWidth - (width * p.box) / 2,
+      2,
+    );
+    expect(minY).toBeCloseTo(
+      (row + 0.5) * cellHeight - (height * p.box) / 2,
+      2,
+    );
+    for (let line = 0; line < height; line++) {
+      let length = 0;
+      for (let across = 0; across < width; across++) {
+        sample(
+          minX + (across + 0.5) * p.box - step / 2,
+          minY + (line + 0.5) * p.box - step / 2,
+          out,
+        );
+        if (out.color < 0.75) length++;
+      }
+      lengths.push(length);
+    }
+    return lengths;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws every partition of 7 exactly once as left-aligned rows of boxes (seed %i)',
+    (seed) => {
+      const partitions: string[] = [];
+      let english = 0,
+        french = 0;
+      for (let row = 0; row < p.rows; row++)
+        for (let column = 0; column < p.columns; column++) {
+          const lengths = readCell(seed, column, row);
+          // The rows never have a gap on their left: every row is a run starting at the left edge of the diagram.
+          expect(lengths.every((length) => length >= 1)).toBe(true);
+          expect(lengths.reduce((a, b) => a + b, 0)).toBe(p.total);
+          const sorted = [...lengths].sort((a, b) => b - a);
+          // Drawn with the longest row on top (English) or at the bottom (French).
+          const topDown = lengths.every(
+              (length, i) => i === 0 || lengths[i - 1] >= length,
+            ),
+            bottomUp = lengths.every(
+              (length, i) => i === 0 || lengths[i - 1] <= length,
+            );
+          expect(topDown || bottomUp).toBe(true);
+          if (new Set(lengths).size > 1) {
+            if (topDown) english++;
+            else french++;
+          }
+          partitions.push(sorted.join(','));
+        }
+      // Either all the diagrams with different rows are English or all are French.
+      expect(english === 0 || french === 0).toBe(true);
+      expect([...partitions].sort()).toEqual(partitionsOfSeven());
+      expect(partitions).toHaveLength(15);
+    },
+  );
+
+  it('shows English and French drawings, plain and transposed, across seeds', () => {
+    // Cell 1 is the partition 6 + 1 or, transposed, 2 + 1 + 1 + 1 + 1 + 1; either read top to bottom or bottom to top.
+    const plain = [6, 1],
+      allowed = [
+        plain,
+        [...plain].reverse(),
+        transpose(plain),
+        [...transpose(plain)].reverse(),
+      ],
+      variants = new Set<string>();
+    for (let seed = 0; seed < 40; seed++) {
+      const lengths = readCell(seed, 1, 0);
+      expect(allowed).toContainEqual(lengths);
+      variants.add(lengths.join(','));
+    }
+    expect(variants.size).toBe(4);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('ferrersdiagrams', 0),
+      b = createSurfaceSampler('ferrersdiagrams', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(0);
+  });
+});

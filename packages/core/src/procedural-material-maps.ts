@@ -34956,6 +34956,85 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'ferrersdiagrams': {
+        const p = proceduralMaterialPresets.ferrersdiagrams,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2fd01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // The seed picks the English (longest row on top) or French (longest row at the bottom) way of drawing, and whether the
+          // diagrams are drawn as they are or transposed (every row turned into a column).
+          french = hash(7, 3, seed ^ 0x2fd02) < 0.5,
+          transposed = hash(7, 4, seed ^ 0x2fd03) < 0.5,
+          cellWidth = 1 / p.columns,
+          cellHeight = 1 / p.rows,
+          partitions: number[][] = [];
+        // All partitions of the total into non-increasing parts, in reverse lexicographic order: [7], [6, 1], [5, 2], ...
+        const split = (
+          rest: number,
+          largest: number,
+          parts: number[],
+        ): void => {
+          if (rest === 0) {
+            partitions.push(parts);
+            return;
+          }
+          for (let part = Math.min(rest, largest); part >= 1; part--)
+            split(rest - part, part, [...parts, part]);
+        };
+        split(p.total, p.total, []);
+        const shapes = partitions.map((parts) =>
+          transposed
+            ? Array.from(
+                { length: parts[0] },
+                (_, column) => parts.filter((part) => part > column).length,
+              )
+            : parts,
+        );
+        return () => {
+          const column = Math.min(p.columns - 1, Math.floor(u * p.columns)),
+            row = Math.min(p.rows - 1, Math.floor(v * p.rows)),
+            parts = shapes[row * p.columns + column],
+            // Each diagram is centred in its cell by its own width (the longest row) and height (the number of rows).
+            lx = u - column * cellWidth - (cellWidth - parts[0] * p.box) / 2,
+            ly = v - row * cellHeight - (cellHeight - parts.length * p.box) / 2,
+            // Distance down the diagram from its first row: the top edge (English) or the bottom edge (French).
+            down = french ? parts.length * p.box - ly : ly,
+            line = Math.floor(down / p.box),
+            across = Math.floor(lx / p.box);
+          let fill = 0,
+            ink = 0;
+          if (
+            line >= 0 &&
+            line < parts.length &&
+            across >= 0 &&
+            across < parts[line]
+          ) {
+            const inLine = down - line * p.box,
+              inAcross = lx - across * p.box;
+            fill = 1;
+            ink = cover(
+              2 * p.lineHalf -
+                Math.min(inAcross, p.box - inAcross, inLine, p.box - inLine),
+            );
+          }
+          const base = p.paperTone + (p.fillTone - p.paperTone) * fill;
+          color = clamp(
+            base +
+              (p.inkTone - base) * ink +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.paperHeight +
+              (p.fillHeight - p.paperHeight) * fill +
+              (p.inkHeight - p.fillHeight) * ink,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.inkRoughness - p.paperRoughness) * Math.max(fill, ink);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -62485,6 +62564,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'ferrersdiagrams' ||
     kind === 'zeckendorfrows' ||
     kind === 'cycloidcusps' ||
     kind === 'sternbrocottree' ||

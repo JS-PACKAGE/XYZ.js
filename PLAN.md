@@ -1857,6 +1857,10 @@
 
 這是作者設計的示意：只有費氏位值的0與1，沒有列出位值的標題或加總式；點陣字是3×5字形，沒有零以外的前導零說明（Zeckendorf的位數固定為8位，所以數字前面可能有零）。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`ferrersdiagrams`（費勒斯圖）使目前目錄1074→1075種，含plain的gallery為1076項。每tile是5×3格，每格畫7的一個整數分割（共15個分割）的費勒斯圖：每一列是一排灰色小方格（邊框為深色），列的長度依序是分割的各個部分，靠左對齊，每個圖依自己的寬與高置中在格內；例如[7]是一長排、[6, 1]是6格加下面1格。15個格依「反字典序」排列（[7]、[6, 1]、[5, 2]、[5, 1, 1]、…、[1, 1, 1, 1, 1, 1, 1]）。seed決定兩件事：用英式（最長列在上）還是法式（最長列在下）畫，以及整個圖是否轉置（把每列變成每行，即共軛分割，這會讓15個格依序換成轉置後的分割）。Metallic與mortar為0。
+
+這是作者設計的示意：只畫7的分割，沒有標註分割的數字或計數；格子是固定大小的方格，沒有Young表（沒有填入數字）；英式與法式只改變方向。預設0.7 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
