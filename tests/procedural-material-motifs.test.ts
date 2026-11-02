@@ -20962,3 +20962,134 @@ describe('logisticbifurcation: long-run values of the logistic map', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('burningship: smooth escape-time contours of the Burning Ship fractal', () => {
+  const p = proceduralMaterialPresets.burningship;
+  const fold = (t: number): number => 1 - Math.abs(2 * t - 1);
+
+  // The tone a view predicts at a point: z -> (|Re z| + i |Im z|)^2 + c written as an explicit complex product.
+  const predict = (
+    view: (typeof p.views)[number],
+    u: number,
+    v: number,
+  ): number => {
+    const c = {
+      re: view.x + view.extent * (2 * fold(u) - 1),
+      im: view.y + view.extent * (2 * fold(v) - 1),
+    };
+    let z = { re: 0, im: 0 },
+      steps = 0;
+    while (steps < view.iterations && Math.hypot(z.re, z.im) <= p.bailout) {
+      const w = { re: Math.abs(z.re), im: Math.abs(z.im) };
+      z = {
+        re: w.re * w.re - w.im * w.im + c.re,
+        im: w.re * w.im + w.im * w.re + c.im,
+      };
+      steps++;
+    }
+    if (steps >= view.iterations) return p.insideTone;
+    const nu =
+        steps +
+        1 -
+        Math.log2(Math.log(Math.hypot(z.re, z.im)) / Math.log(p.bailout)),
+      level = nu / (nu + p.scale);
+    return (
+      p.lowTone +
+      (p.highTone - p.lowTone) * level +
+      p.bandDepth * Math.cos((2 * Math.PI * nu) / p.bandPeriod)
+    );
+  };
+  const agreementOf = (seed: number, n: number): number[] => {
+    const sample = createSurfaceSampler('burningship', seed),
+      out = empty(),
+      agreement = p.views.map(() => 0);
+    for (let y = 0; y < n; y++)
+      for (let x = 0; x < n; x++) {
+        const u = (x + 0.5) / n,
+          v = (y + 0.5) / n;
+        sample(u, v, out);
+        p.views.forEach((view, i) => {
+          agreement[i] += Number(
+            Math.abs(out.color - predict(view, u, v)) < 0.02,
+          );
+        });
+      }
+    return agreement.map((count) => count / (n * n));
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'matches the smooth escape time of exactly one of the four views (seed %i)',
+    (seed) => {
+      const ranked = agreementOf(seed, 80).sort((a, b) => b - a);
+      // The chosen view reproduces the rendering nearly everywhere (pixels on the fractal's edge can differ by one
+      // iteration), and no other view comes close.
+      expect(ranked[0]).toBeGreaterThan(0.97);
+      expect(ranked[1]).toBeLessThan(0.8);
+    },
+  );
+
+  it('shows every view across seeds and differs from the Mandelbrot set by the absolute values', () => {
+    const views = new Set<number>();
+    for (let seed = 0; seed < 30; seed++) {
+      const agreement = agreementOf(seed, 24);
+      views.add(agreement.indexOf(Math.max(...agreement)));
+    }
+    expect(views.size).toBe(p.views.length);
+    // Seed-independent geometry: the orbit of c = -1.2 + 0.1i stays bounded in the Mandelbrot iteration but escapes once the
+    // absolute values are taken, while c = 0.5 escapes and c = -0.5 stays in under both.
+    const escapes = (re: number, im: number, folded: boolean): boolean => {
+      let zr = 0,
+        zi = 0;
+      for (let step = 0; step < 200 && Math.hypot(zr, zi) <= 4; step++)
+        [zr, zi] = [
+          zr * zr - zi * zi + re,
+          (folded ? 2 * Math.abs(zr * zi) : 2 * zr * zi) + im,
+        ];
+      return Math.hypot(zr, zi) > 4;
+    };
+    expect(escapes(0.5, 0, true)).toBe(true);
+    expect(escapes(-0.5, 0, true)).toBe(false);
+    expect(escapes(-1.2, 0.1, false)).toBe(false);
+    expect(escapes(-1.2, 0.1, true)).toBe(true);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('burningship', 0),
+      b = createSurfaceSampler('burningship', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      moved = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        // Points on the fractal's edge can flip by one iteration when adding 1 changes the last bit of u, so a small share
+        // of the samples may differ.
+        moved += Number(Math.abs(two.color - one.color) > 1e-9);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(moved).toBeLessThan(10);
+    expect(different).toBeGreaterThan(50);
+  });
+});

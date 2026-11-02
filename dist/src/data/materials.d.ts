@@ -10995,6 +10995,47 @@ export declare const proceduralMaterialPresets: Readonly<{
         inkHeight: 0.8;
         cellRoughness: 0.6;
     }>;
+    burningship: Readonly<{
+        dark: readonly [30, 12, 8];
+        light: readonly [252, 236, 190];
+        roughness: 0.5;
+        relief: 0.004;
+        views: readonly (Readonly<{
+            x: -0.45;
+            y: -0.5;
+            extent: 1.7;
+            iterations: 100;
+        }> | Readonly<{
+            x: -1.7443;
+            y: -0.0173;
+            extent: 0.04;
+            iterations: 200;
+        }> | Readonly<{
+            x: -1.62;
+            y: -0.03;
+            extent: 0.12;
+            iterations: 160;
+        }> | Readonly<{
+            x: -1.861;
+            y: -0.002;
+            extent: 0.02;
+            iterations: 200;
+        }>)[];
+        bailout: 256;
+        insideTone: 0.05;
+        lowTone: 0.2;
+        highTone: 0.94;
+        scale: 8;
+        bandDepth: 0.08;
+        bandPeriod: 3;
+        grainCells: 192;
+        grainTone: 0.015;
+        insideHeight: 0.2;
+        heightSpan: 0.5;
+        insideRoughness: 0.8;
+        roughnessBase: 0.4;
+        roughnessSpan: 0.3;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -17480,6 +17521,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    burningship: 0.6;
     logisticbifurcation: 0.6;
     bitwiselogic: 0.5;
     gcdtable: 0.5;
