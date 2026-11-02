@@ -30687,6 +30687,134 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'signedencodings': {
+        const p = proceduralMaterialPresets.signedencodings,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2ce01),
+          glyphs: Record<string, string> = {
+            '0': '111101101101111',
+            '1': '010110010010111',
+            '2': '111001111100111',
+            '3': '111001111001111',
+            '4': '101101111001001',
+            '5': '111100111001111',
+            '6': '111100111101111',
+            '7': '111001010010010',
+            '8': '111101111101111',
+            '9': '111101111001111',
+            '-': '000000111000000',
+            U: '101101101101111',
+            C: '011100100100011',
+            S: '011100010001110',
+            M: '101111111101101',
+          },
+          rows = 1 << p.bits,
+          half = rows >> 1,
+          // The seed picks how the four bits are read as a signed number: two's complement, one's complement or
+          // sign and magnitude. Each gives a code for the header and the value (with a negative zero where it has one).
+          encodings = [
+            {
+              code: '2C',
+              value: (r: number) => (r < half ? r : r - rows),
+              zero: -1,
+            },
+            {
+              code: '1C',
+              value: (r: number) => (r < half ? r : -(rows - 1 - r)),
+              zero: rows - 1,
+            },
+            {
+              code: 'SM',
+              value: (r: number) => (r < half ? r : -(r - half)),
+              zero: half,
+            },
+          ],
+          encoding =
+            encodings[
+              Math.min(
+                encodings.length - 1,
+                Math.floor(hash(1, 1, seed ^ 0x2ce02) * encodings.length),
+              )
+            ],
+          // Each row is ten cells: four bits, a gap, the unsigned value in two cells, a gap, then the signed value
+          // in two cells (a minus sign and a digit).
+          lines = Array.from({ length: rows }, (_, r) => {
+            const signed = encoding.value(r),
+              negative = signed < 0 || r === encoding.zero;
+            return [
+              ...r.toString(2).padStart(p.bits, '0'),
+              ' ',
+              ...String(r).padStart(2, ' '),
+              ' ',
+              negative ? '-' : ' ',
+              String(Math.abs(signed)),
+            ];
+          }),
+          header = [
+            ' ',
+            ' ',
+            ' ',
+            ' ',
+            ' ',
+            ' ',
+            'U',
+            ' ',
+            encoding.code[0],
+            encoding.code[1],
+          ];
+        return () => {
+          const row = Math.floor((v - p.top) / p.rowPitch) - 1,
+            x = (u - p.left) / p.cell,
+            column = Math.floor(x);
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            rough: number = p.paperRoughness,
+            inkTone: number = p.inkTone,
+            glyph = 0;
+          if (row >= -1 && row < rows && column >= 0 && column < 10) {
+            const fx = x - column,
+              fy = (v - p.top) / p.rowPitch - (row + 1),
+              symbol = row < 0 ? header[column] : lines[row][column];
+            if (row < 0) {
+              if (column >= 8) {
+                tone = p.headerTone;
+                level = p.headerHeight;
+                rough = p.headerRoughness;
+                inkTone = p.headerInkTone;
+              }
+            } else {
+              const negative = lines[row][8] === '-';
+              if (column === 0) {
+                tone = p.signBitTone;
+                level = p.signBitHeight;
+                rough = p.cellRoughness;
+              } else if (negative && column !== 4 && column !== 7) {
+                tone = p.negativeTone;
+                level = p.negativeHeight;
+                rough = p.cellRoughness;
+              }
+            }
+            const px = Math.floor(((fx - 0.5) * p.cell) / p.digitPixel + 1.5),
+              py = Math.floor(((fy - 0.5) * p.rowPitch) / p.digitPixel + 2.5);
+            if (
+              symbol !== ' ' &&
+              px >= 0 &&
+              px < 3 &&
+              py >= 0 &&
+              py < 5 &&
+              glyphs[symbol][py * 3 + px] === '1'
+            )
+              glyph = 1;
+          }
+          color = clamp(
+            tone +
+              (inkTone - tone) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * glyph);
+          roughness = rough + (p.inkRoughness - rough) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -58216,6 +58344,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'signedencodings' ||
     kind === 'romannumerals' ||
     kind === 'cayleytables' ||
     kind === 'hammingcodewords' ||

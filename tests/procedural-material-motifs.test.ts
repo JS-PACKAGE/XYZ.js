@@ -17849,3 +17849,151 @@ describe('romannumerals: decimal numbers beside their Roman numerals', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('signedencodings: four-bit patterns read as signed numbers', () => {
+  const p = proceduralMaterialPresets.signedencodings;
+  const shapes: Record<string, string[]> = {
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    '2': ['###', '..#', '###', '#..', '###'],
+    '3': ['###', '..#', '###', '..#', '###'],
+    '4': ['#.#', '#.#', '###', '..#', '..#'],
+    '5': ['###', '#..', '###', '..#', '###'],
+    '6': ['###', '#..', '###', '#.#', '###'],
+    '7': ['###', '..#', '.#.', '.#.', '.#.'],
+    '8': ['###', '#.#', '###', '#.#', '###'],
+    '9': ['###', '#.#', '###', '..#', '###'],
+    '-': ['...', '...', '###', '...', '...'],
+    U: ['#.#', '#.#', '#.#', '#.#', '###'],
+    C: ['.##', '#..', '#..', '#..', '.##'],
+    S: ['.##', '#..', '.#.', '..#', '##.'],
+    M: ['#.#', '###', '###', '#.#', '#.#'],
+  };
+  const rows = 1 << p.bits;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows every bit pattern with its unsigned value and the signed value of the named encoding (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('signedencodings', seed),
+        out = empty(),
+        at = (column: number, row: number, fx: number, fy: number): number => {
+          sample(
+            p.left + (column + fx) * p.cell,
+            p.top + (row + fy) * p.rowPitch,
+            out,
+          );
+          return out.color;
+        },
+        read = (column: number, row: number): string => {
+          const background = at(column, row, 0.08, 0.1),
+            bits: string[] = [];
+          for (let y = 0; y < 5; y++) {
+            let text = '';
+            for (let x = 0; x < 3; x++) {
+              const fx = 0.5 + ((x - 1) * p.digitPixel) / p.cell,
+                fy = 0.5 + ((y - 2) * p.digitPixel) / p.rowPitch;
+              text +=
+                Math.abs(at(column, row, fx, fy) - background) > 0.4
+                  ? '#'
+                  : '.';
+            }
+            bits.push(text);
+          }
+          if (bits.every((line) => line === '...')) return ' ';
+          const found = Object.entries(shapes).find(([, shape]) =>
+            shape.every((line, i) => line === bits[i]),
+          );
+          expect(found).toBeDefined();
+          return (found as [string, string[]])[0];
+        };
+      // Header: U above the unsigned column and the encoding's two-letter code above the signed one.
+      expect(read(6, 0)).toBe('U');
+      const code = read(8, 0) + read(9, 0);
+      expect(['2C', '1C', 'SM']).toContain(code);
+      const readValue = (r: number): number => {
+        // The signed value written in the table, with a leading minus sign for negatives (and for a negative zero).
+        const sign = read(8, r + 1) === '-' ? -1 : 1,
+          magnitude = Number(read(9, r + 1));
+        return sign * magnitude;
+      };
+      let negativeZeros = 0;
+      for (let r = 0; r < rows; r++) {
+        const bits = Array.from({ length: p.bits }, (_, c) =>
+          read(c, r + 1),
+        ).join('');
+        expect(bits).toBe(r.toString(2).padStart(p.bits, '0'));
+        expect(read(4, r + 1)).toBe(' ');
+        expect(read(7, r + 1)).toBe(' ');
+        expect(
+          Number(
+            read(5, r + 1) === ' '
+              ? read(6, r + 1)
+              : read(5, r + 1) + read(6, r + 1),
+          ),
+        ).toBe(r);
+        const top = (r >> 3) & 1,
+          low = r & 7,
+          // What each encoding says the pattern means.
+          expected =
+            code === '2C'
+              ? -8 * top + low
+              : code === '1C'
+                ? top
+                  ? -(7 - low)
+                  : low
+                : top
+                  ? -low
+                  : low,
+          negativeZero = top === 1 && expected === 0;
+        expect(readValue(r)).toBe(expected);
+        const writtenSign = read(8, r + 1) === '-';
+        expect(writtenSign).toBe(expected < 0 || negativeZero);
+        negativeZeros += Number(negativeZero);
+        // Negative rows are shaded; so is the sign bit's column.
+        const shaded = (column: number): boolean =>
+          at(column, r + 1, 0.08, 0.1) < 0.9;
+        expect(shaded(9)).toBe(writtenSign);
+        expect(shaded(5)).toBe(writtenSign);
+        expect(at(0, r + 1, 0.08, 0.1) < 0.82).toBe(true);
+      }
+      // Two's complement has no negative zero; the other two encodings have exactly one.
+      expect(negativeZeros).toBe(code === '2C' ? 0 : 1);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('signedencodings', 0),
+      b = createSurfaceSampler('signedencodings', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

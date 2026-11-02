@@ -1669,6 +1669,10 @@
 
 這是作者設計的示意：只到199（不含D、M，所以沒有500以上的數字）；只使用標準的減法寫法，不畫古代的IIII等變體；點陣字母在小尺寸下難以辨識（I與數字1的圖形不同，但很小時仍可能混淆）。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`signedencodings`（帶號整數編碼）使目前目錄1027→1028種，含plain的gallery為1029項。每tile是一張4位元的對照表：16列依序列出0000到1111，每列有二進位位元（最高位元所在的欄底色最深，是符號位元）、無號數值（0到15，標頭為U），以及帶號數值（標頭為編碼代號）。seed從三種帶號編碼挑一種：二補數（2C，1000是−8到1111是−1）、一補數（1C，1000是−7，1111是「−0」）、符號大小（SM，1000是「−0」、1001是−1到1111是−7）；負值的列（包括「−0」）底色略深，並以「−」符號寫在帶號數值前面。Metallic與mortar為0。
+
+這是作者設計的示意：只有4位元、只有這三種編碼，沒有溢位或運算示意；一補數與符號大小有「負零」，二補數沒有，這個差異就是這三者並列的目的；點陣數字在小尺寸下難以辨識。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
