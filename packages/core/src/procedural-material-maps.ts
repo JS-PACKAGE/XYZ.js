@@ -40959,16 +40959,23 @@ export function createSurfaceSampler(
         };
       }
       case 'voronoicells':
-      case 'voronoipillows': {
+      case 'voronoipillows':
+      case 'voronoifacets': {
         const p =
-            kind === 'voronoipillows'
-              ? proceduralMaterialPresets.voronoipillows
-              : proceduralMaterialPresets.voronoicells,
+            kind === 'voronoifacets'
+              ? proceduralMaterialPresets.voronoifacets
+              : kind === 'voronoipillows'
+                ? proceduralMaterialPresets.voronoipillows
+                : proceduralMaterialPresets.voronoicells,
           count = p.cells * p.cells,
           offsetX = new Float64Array(count),
           offsetY = new Float64Array(count),
           tones = new Float64Array(count),
+          gradientX = new Float64Array(count),
+          gradientY = new Float64Array(count),
           distances = new Float64Array(25),
+          fromX = new Float64Array(25),
+          fromY = new Float64Array(25),
           weights = new Float64Array(25),
           owners = new Int32Array(25),
           inverseSoftness = 1 / p.softness,
@@ -40987,12 +40994,17 @@ export function createSurfaceSampler(
             offsetY[index] =
               p.jitter * (hash(col, row, seed ^ (p.seedSalt + 1)) - 0.5);
             tones[index] = hash(col, row, seed ^ (p.seedSalt + 2));
+            gradientX[index] =
+              p.facet * 2 * (hash(col, row, seed ^ (p.seedSalt + 4)) - 0.5);
+            gradientY[index] =
+              p.facet * 2 * (hash(col, row, seed ^ (p.seedSalt + 5)) - 0.5);
           }
         return () => {
           // Soft Voronoi: every site of the 5 x 5 neighbouring cells gets the weight
           // exp(-(distance - nearest distance) / softness), so the nearest site dominates
           // and the weights vary smoothly across every cell boundary (a hard nearest-site
           // lookup would crease there). The tone is the weighted mean of the sites' tones
+          // (plus, for the facet kind, each site's linear tone ramp)
           // and the boundary measure is the Gini impurity 1 - sum w^2 of the normalised
           // weights: 0 deep inside a cell, 1/2 on an edge between two cells.
           // The window is 5 x 5 cells: with 3 x 3 the sites that drop out when the point
@@ -41012,7 +41024,9 @@ export function createSurfaceSampler(
                 siteX = column + dx + 0.5 + offsetX[index],
                 siteY = row + dy + 0.5 + offsetY[index];
               owners[slot] = index;
-              distances[slot] = Math.hypot(x - siteX, y - siteY);
+              fromX[slot] = x - siteX;
+              fromY[slot] = y - siteY;
+              distances[slot] = Math.hypot(fromX[slot], fromY[slot]);
               nearest = Math.min(nearest, distances[slot]);
               slot++;
             }
@@ -41022,7 +41036,11 @@ export function createSurfaceSampler(
           for (let k = 0; k < 25; k++) {
             weights[k] = Math.exp(-(distances[k] - nearest) * inverseSoftness);
             total += weights[k];
-            tone += weights[k] * tones[owners[k]];
+            tone +=
+              weights[k] *
+              (tones[owners[k]] +
+                gradientX[owners[k]] * fromX[k] +
+                gradientY[owners[k]] * fromY[k]);
             meanDistance += weights[k] * distances[k];
           }
           let impurity = 0;
@@ -41030,6 +41048,9 @@ export function createSurfaceSampler(
           const edge = 1 - Math.exp(-p.edgeGain * (1 - impurity)),
             grain = grainField(u, v);
           tone /= total;
+          // With facets every site's tone is a linear ramp across its plate, so the mean can
+          // leave [0, 1]; the C1 smoothstep keeps it in range.
+          if (p.facet) tone = smooth(clamp(tone));
           meanDistance /= total;
           color =
             p.baseTone +
@@ -49970,6 +49991,7 @@ export function createSurfaceSampler(
     kind === 'cantordust' ||
     kind === 'voronoicells' ||
     kind === 'voronoipillows' ||
+    kind === 'voronoifacets' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||

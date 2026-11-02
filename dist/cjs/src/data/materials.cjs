@@ -23284,6 +23284,7 @@ var proceduralMaterialPresets = Object.freeze({
 		softness: .02,
 		edgeGain: 10,
 		domeRadius: .55,
+		facet: 0,
 		domeHeight: 0,
 		grainCells: 128,
 		baseTone: .06,
@@ -23316,6 +23317,7 @@ var proceduralMaterialPresets = Object.freeze({
 		softness: .02,
 		edgeGain: 10,
 		domeRadius: .55,
+		facet: 0,
 		domeHeight: .5,
 		grainCells: 128,
 		baseTone: .06,
@@ -23380,6 +23382,39 @@ var proceduralMaterialPresets = Object.freeze({
 		toneHeight: .12,
 		grainHeight: .08,
 		gapOcclusion: .4
+	}),
+	voronoifacets: Object.freeze({
+		dark: [
+			4,
+			24,
+			20
+		],
+		light: [
+			150,
+			255,
+			215
+		],
+		roughness: .3,
+		relief: .0012,
+		seedSalt: 19697,
+		cells: 8,
+		jitter: .8,
+		softness: .02,
+		edgeGain: 10,
+		domeRadius: .55,
+		domeHeight: 0,
+		facet: .35,
+		grainCells: 128,
+		baseTone: .05,
+		cellTone: .7,
+		toneFloor: .3,
+		edgeTone: .02,
+		grainTone: .02,
+		cellHeight: .8,
+		toneHeight: .2,
+		grainHeight: .06,
+		edgeRoughness: .4,
+		edgeOcclusion: .45
 	}),
 	vermiculation: Object.freeze({
 		dark: [
@@ -25378,6 +25413,7 @@ var proceduralTileMeters = Object.freeze({
 	voronoipillows: .4,
 	sandpileidentity: .5,
 	multiplicativeorder: .3,
+	voronoifacets: .4,
 	vermiculation: .4,
 	kikko: .3,
 	kagome: .3,

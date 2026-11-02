@@ -14494,6 +14494,7 @@ export declare const proceduralMaterialPresets: Readonly<{
         softness: 0.02;
         edgeGain: 10;
         domeRadius: 0.55;
+        facet: 0;
         domeHeight: 0;
         grainCells: 128;
         baseTone: 0.06;
@@ -14518,6 +14519,7 @@ export declare const proceduralMaterialPresets: Readonly<{
         softness: 0.02;
         edgeGain: 10;
         domeRadius: 0.55;
+        facet: 0;
         domeHeight: 0.5;
         grainCells: 128;
         baseTone: 0.06;
@@ -14566,6 +14568,31 @@ export declare const proceduralMaterialPresets: Readonly<{
         toneHeight: 0.12;
         grainHeight: 0.08;
         gapOcclusion: 0.4;
+    }>;
+    voronoifacets: Readonly<{
+        dark: readonly [4, 24, 20];
+        light: readonly [150, 255, 215];
+        roughness: 0.3;
+        relief: 0.0012;
+        seedSalt: 19697;
+        cells: 8;
+        jitter: 0.8;
+        softness: 0.02;
+        edgeGain: 10;
+        domeRadius: 0.55;
+        domeHeight: 0;
+        facet: 0.35;
+        grainCells: 128;
+        baseTone: 0.05;
+        cellTone: 0.7;
+        toneFloor: 0.3;
+        edgeTone: 0.02;
+        grainTone: 0.02;
+        cellHeight: 0.8;
+        toneHeight: 0.2;
+        grainHeight: 0.06;
+        edgeRoughness: 0.4;
+        edgeOcclusion: 0.45;
     }>;
     vermiculation: Readonly<{
         dark: readonly [60, 48, 36];
@@ -16242,6 +16269,7 @@ export declare const proceduralTileMeters: Readonly<{
     voronoipillows: 0.4;
     sandpileidentity: 0.5;
     multiplicativeorder: 0.3;
+    voronoifacets: 0.4;
     vermiculation: 0.4;
     kikko: 0.3;
     kagome: 0.3;

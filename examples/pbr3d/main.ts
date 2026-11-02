@@ -1076,6 +1076,7 @@ try {
     'cantordust',
     'voronoicells',
     'voronoipillows',
+    'voronoifacets',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',
