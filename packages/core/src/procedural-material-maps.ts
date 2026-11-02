@@ -30013,6 +30013,129 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'convexhullpoints': {
+        const p = proceduralMaterialPresets.convexhullpoints,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2c801),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          span = 1 - 2 * p.margin,
+          // One candidate scatter: points with a minimum spacing, kept off the tile edge so the tile stays seamless, and
+          // their hull by Andrew's monotone chain (counter-clockwise in (u, v)). It is "clear" when no hull vertex is nearly
+          // collinear with its neighbours and no inner point hugs a hull edge, so the hull reads unambiguously.
+          scatter = (
+            round: number,
+          ): { xs: number[]; ys: number[]; hull: number[]; clear: boolean } => {
+            const xs: number[] = [],
+              ys: number[] = [];
+            for (
+              let attempt = 0;
+              attempt < p.attempts && xs.length < p.points;
+              attempt++
+            ) {
+              const x =
+                  p.margin +
+                  span * hash(attempt, 1 + 2 * round, seed ^ 0x2c802),
+                y =
+                  p.margin +
+                  span * hash(attempt, 2 + 2 * round, seed ^ 0x2c802);
+              if (
+                xs.every(
+                  (px, i) => Math.hypot(px - x, ys[i] - y) >= p.minSpacing,
+                )
+              ) {
+                xs.push(x);
+                ys.push(y);
+              }
+            }
+            const order = xs
+                .map((_, i) => i)
+                .sort((a, b) => xs[a] - xs[b] || ys[a] - ys[b]),
+              turn = (a: number, b: number, c: number): number =>
+                (xs[b] - xs[a]) * (ys[c] - ys[a]) -
+                (ys[b] - ys[a]) * (xs[c] - xs[a]),
+              length = (a: number, b: number): number =>
+                Math.hypot(xs[b] - xs[a], ys[b] - ys[a]),
+              hull: number[] = [];
+            for (const pass of [order, [...order].reverse()]) {
+              const start = hull.length;
+              for (const i of pass) {
+                while (
+                  hull.length >= start + 2 &&
+                  turn(hull[hull.length - 2], hull[hull.length - 1], i) <= 0
+                )
+                  hull.pop();
+                hull.push(i);
+              }
+              hull.pop();
+            }
+            let clear = hull.length >= 3;
+            for (let i = 0; clear && i < hull.length; i++) {
+              const before = hull[(i + hull.length - 1) % hull.length],
+                here = hull[i],
+                after = hull[(i + 1) % hull.length];
+              if (
+                Math.abs(turn(before, after, here)) / length(before, after) <
+                p.vertexClear
+              )
+                clear = false;
+              for (let k = 0; clear && k < xs.length; k++)
+                if (
+                  !hull.includes(k) &&
+                  turn(here, after, k) / length(here, after) < p.edgeClear
+                )
+                  clear = false;
+            }
+            return { xs, ys, hull, clear };
+          };
+        let chosen = scatter(0);
+        for (let round = 1; !chosen.clear && round < p.rounds; round++)
+          chosen = scatter(round);
+        const { xs, ys, hull } = chosen,
+          onHull = xs.map((_, i) => hull.includes(i));
+        return () => {
+          let inside = hull.length >= 3 ? 1 : 0,
+            edge = 0,
+            dot = 0;
+          for (let i = 0; i < hull.length; i++) {
+            const a = hull[i],
+              b = hull[(i + 1) % hull.length],
+              ex = xs[b] - xs[a],
+              ey = ys[b] - ys[a],
+              wx = u - xs[a],
+              wy = v - ys[a],
+              t = clamp((wx * ex + wy * ey) / (ex * ex + ey * ey));
+            if (ex * wy - ey * wx < 0) inside = 0;
+            edge = Math.max(
+              edge,
+              cover(p.edgeHalf - Math.hypot(wx - ex * t, wy - ey * t)),
+            );
+          }
+          for (let i = 0; i < xs.length; i++)
+            dot = Math.max(
+              dot,
+              cover(
+                (onHull[i] ? p.cornerRadius : p.innerRadius) -
+                  Math.hypot(u - xs[i], v - ys[i]),
+              ),
+            );
+          const filled = p.paperTone + (p.fillTone - p.paperTone) * inside,
+            lined = filled + (p.edgeTone - filled) * edge,
+            tone = lined + (p.dotTone - lined) * dot;
+          color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(
+            p.paperHeight +
+              (p.fillHeight - p.paperHeight) * inside +
+              (p.edgeHeight - p.fillHeight) * edge * inside +
+              (p.dotHeight - p.edgeHeight) * dot,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.fillRoughness - p.paperRoughness) * inside +
+            (p.dotRoughness - p.fillRoughness) * dot;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -57542,6 +57665,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'convexhullpoints' ||
     kind === 'pascaltrianglenumbers' ||
     kind === 'fouriersquarewaves' ||
     kind === 'truthtablelogic' ||

@@ -16936,3 +16936,168 @@ describe('pascaltrianglenumbers: the first rows of Pascal triangle', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('convexhullpoints: a scatter of points and its convex hull', () => {
+  const p = proceduralMaterialPresets.convexhullpoints;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'marks exactly the extreme points as hull vertices and outlines the polygon they form (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('convexhullpoints', seed),
+        out = empty(),
+        n = 400,
+        grid = new Float64Array(n * n);
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          sample((x + 0.5) / n, (y + 0.5) / n, out);
+          grid[y * n + x] = out.color;
+        }
+      // Dots are the connected dark blobs; their area gives the radius and their centroid the position.
+      const seen = new Uint8Array(n * n),
+        dots: { x: number; y: number; r: number }[] = [];
+      for (let start = 0; start < n * n; start++) {
+        if (seen[start] || grid[start] >= 0.2) continue;
+        const stack = [start];
+        let area = 0,
+          sx = 0,
+          sy = 0;
+        seen[start] = 1;
+        while (stack.length > 0) {
+          const cell = stack.pop() as number,
+            cx = cell % n,
+            cy = (cell - cx) / n;
+          area++;
+          sx += cx + 0.5;
+          sy += cy + 0.5;
+          for (const [dx, dy] of [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ]) {
+            const nx = cx + dx,
+              ny = cy + dy;
+            if (
+              nx < 0 ||
+              ny < 0 ||
+              nx >= n ||
+              ny >= n ||
+              seen[ny * n + nx] ||
+              grid[ny * n + nx] >= 0.2
+            )
+              continue;
+            seen[ny * n + nx] = 1;
+            stack.push(ny * n + nx);
+          }
+        }
+        dots.push({
+          x: sx / area / n,
+          y: sy / area / n,
+          r: Math.sqrt(area / Math.PI) / n,
+        });
+      }
+      expect(dots.length).toBeGreaterThanOrEqual(10);
+      expect(dots.length).toBeLessThanOrEqual(p.points);
+      // Every point keeps its minimum spacing and stays off the tile edge.
+      for (const [i, a] of dots.entries()) {
+        expect(a.x).toBeGreaterThan(p.margin - 0.01);
+        expect(a.x).toBeLessThan(1 - p.margin + 0.01);
+        expect(a.y).toBeGreaterThan(p.margin - 0.01);
+        expect(a.y).toBeLessThan(1 - p.margin + 0.01);
+        for (const b of dots.slice(i + 1))
+          expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThan(
+            p.minSpacing - 0.005,
+          );
+      }
+      // Which points are extreme: the maximiser of some direction is a hull vertex (checked over 1440 directions).
+      const extreme = new Set<number>();
+      for (let k = 0; k < 1440; k++) {
+        const dx = Math.cos((2 * Math.PI * k) / 1440),
+          dy = Math.sin((2 * Math.PI * k) / 1440);
+        let best = 0;
+        for (const [i, d] of dots.entries())
+          if (d.x * dx + d.y * dy > dots[best].x * dx + dots[best].y * dy)
+            best = i;
+        extreme.add(best);
+      }
+      const large = new Set(
+        dots.map((d, i) => (d.r > 0.0115 ? i : -1)).filter((i) => i >= 0),
+      );
+      expect([...large].sort((a, b) => a - b)).toEqual(
+        [...extreme].sort((a, b) => a - b),
+      );
+      expect(extreme.size).toBeGreaterThanOrEqual(3);
+      // The hull is outlined: walking the extreme points by angle around their centre, the middle of each edge is on a line.
+      const hull = [...extreme].map((i) => dots[i]),
+        mx = hull.reduce((s, d) => s + d.x, 0) / hull.length,
+        my = hull.reduce((s, d) => s + d.y, 0) / hull.length;
+      hull.sort(
+        (a, b) =>
+          Math.atan2(a.y - my, a.x - mx) - Math.atan2(b.y - my, b.x - mx),
+      );
+      for (let i = 0; i < hull.length; i++) {
+        const a = hull[i],
+          b = hull[(i + 1) % hull.length];
+        sample((a.x + b.x) / 2, (a.y + b.y) / 2, out);
+        expect(out.color).toBeGreaterThan(0.35);
+        expect(out.color).toBeLessThan(0.65);
+        // Convex: the next vertex never turns clockwise.
+        const c = hull[(i + 2) % hull.length];
+        expect(
+          (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x),
+        ).toBeGreaterThan(0);
+      }
+      // Every interior point lies inside the polygon, and the polygon's fill is darker than the paper outside.
+      for (const [i, d] of dots.entries()) {
+        if (extreme.has(i)) continue;
+        for (let k = 0; k < hull.length; k++) {
+          const a = hull[k],
+            b = hull[(k + 1) % hull.length];
+          expect(
+            (b.x - a.x) * (d.y - a.y) - (b.y - a.y) * (d.x - a.x),
+          ).toBeGreaterThan(0);
+        }
+      }
+      sample(0.5, 0.5, out);
+      const fillColor = out.color;
+      sample(0.01, 0.01, out);
+      expect(out.color).toBeGreaterThan(fillColor + 0.05);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('convexhullpoints', 0),
+      b = createSurfaceSampler('convexhullpoints', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

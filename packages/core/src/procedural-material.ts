@@ -648,6 +648,7 @@ export type ProceduralMaterialKind =
   | 'dcbarreljackfaces'
   | 'stfiberadapterfaces'
   | 'to92packagefaces'
+  | 'convexhullpoints'
   | 'pascaltrianglenumbers'
   | 'fouriersquarewaves'
   | 'truthtablelogic'
@@ -1918,6 +1919,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'dcbarreljackfaces',
   'stfiberadapterfaces',
   'to92packagefaces',
+  'convexhullpoints',
   'pascaltrianglenumbers',
   'fouriersquarewaves',
   'truthtablelogic',
