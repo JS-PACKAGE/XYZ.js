@@ -1093,6 +1093,7 @@ try {
     'zeckendorftable',
     'fibonacciword',
     'paperfolding',
+    'rudinshapiro',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

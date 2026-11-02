@@ -12902,3 +12902,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨；第一次執行即通過（探針數值先量好才寫界線）。
 - gates（工具實跑，重跑後）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Paper folding as|paperfolding|kinds|catalog|distinct|periodic"`定向測試**2362項通過／4043項未選**。
 - 未驗證：paperfolding未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-03 新增材質：魯丁—夏皮羅序列（rudinshapiro）
+
+- 範圍：新增`rudinshapiro`（目前目錄1028→1029種，含plain的gallery 1030項）：魯丁—夏皮羅序列`a(n)`（n的二進位中相鄰兩個1的組數為偶數則+1、奇數則−1）依列寫進64×64圓角方磚表，+1發光；列長為2的冪，64欄都不是由上到下恆定，呈格子呢般的圖案；粉紅在深藍灰底上；seed令表在環面上平移；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 163,840 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽只看了一版，「格子呢」是我對預覽的描述；(2)sampler用「相鄰1的組數」公式，測試以夏皮羅多項式的倍增遞迴這個**獨立的方式**（`P' = P接Q`、`Q' = P接−Q`）產生序列，檢查前16項、前4,096項+1的個數，並在4,096個平移中檢查恰好一個符合；兩種方式產生同一序列是標準理論事實，這裡只在4,096項上實測一致、沒有證明對所有n成立；序列的其他標準性質（如部分和約為√n）**未驗證**；(3)256²與512²取樣的亮處占比、最小色值與AO不同（38.09%對34.91%、AO 0.7344對0.6），原因是格寬（4與8像素）與取樣點在格內位置不同，測試採用256²的數值；(4)從摺紙序列的生成器改寫時，我第一次把檔案中的全域名稱替換放在區塊替換之前，導致區塊標記找不到而中止（沒有寫入任何檔案），修正順序後重跑；探針第一次也因變數`P`與探針模板中的預設變數同名而語法錯誤，改名後重跑；這些都只是臨時腳本問題，沒有影響倉庫內容；(5)建構與取樣耗時**未量測**；(6)測試第一次執行即通過。
+- 實測（工具實跑）：獨立夏皮羅倍增法的序列長度正好4,096、前16項`+++-++-++++---+-`、前4,096項有2,080個+1（2,016個−1）；四個seed（0／1／0xffffffff／7）各有唯一符合的平移(2, 30)、(56, 2)、(56, 25)、(24, 29)，最大擬合誤差0.014994–0.015000；256²（seed 0／1／0xffffffff）亮處（color>0.5）恆為38.09%、color 0.05932–0.05980至0.85417–0.85460、平均0.41975–0.41994、roughness恆為0.4、AO最低0.7344、height至多0.8480–0.8495 relief；512²（四個seed）亮處恆為34.91%、color 0.02523–0.02533至0.85461–0.85484、平均0.36301–0.36320、AO最低0.6、height至多0.8501–0.8508 relief；seed 0與1相比，格中心顏色相差超過0.05的格子50.0%（512²中color>0.5的取樣34.4%不同）；seed 7的512²maps平均r／g／b約(98.9, 77.0, 94.3)、法線tilt²最大約0.0399、z分量最小253。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Rudin-Shapiro as|rudinshapiro|kinds|catalog|distinct|periodic"`定向測試**2364項通過／4046項未選**。
+- 未驗證：paperfolding與rudinshapiro未跑完整suite與瀏覽器gallery；不push。

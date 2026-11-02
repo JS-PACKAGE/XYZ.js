@@ -1030,6 +1030,7 @@ export type ProceduralMaterialKind =
   | 'zeckendorftable'
   | 'fibonacciword'
   | 'paperfolding'
+  | 'rudinshapiro'
   | 'sandpileidentity'
   | 'multiplicativeorder'
   | 'vermiculation'
@@ -2307,6 +2308,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'zeckendorftable',
   'fibonacciword',
   'paperfolding',
+  'rudinshapiro',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',
