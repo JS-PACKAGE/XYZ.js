@@ -33316,6 +33316,63 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'mobiusgrid': {
+        const p = proceduralMaterialPresets.mobiusgrid,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2ec01),
+          [ar, ai, br, bi, cr, ci, dr, di] =
+            p.maps[Math.floor(hash(2, 8, seed ^ 0x2ec02) * p.maps.length)],
+          // A tent fold makes the picture continuous across the tile edge.
+          fold = (t: number): number => 1 - Math.abs(2 * t - 1),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // |ad - bc|, the factor by which the map scales lengths together with 1 / |c z + d|^2.
+          determinant = Math.hypot(
+            ar * dr - ai * di - (br * cr - bi * ci),
+            ar * di + ai * dr - (br * ci + bi * cr),
+          );
+        return () => {
+          const wr = p.extent * (2 * fold(u) - 1),
+            wi = p.extent * (2 * fold(v) - 1),
+            // z = (d w - b) / (-c w + a): numerator and denominator as complex numbers.
+            nr = dr * wr - di * wi - br,
+            ni = dr * wi + di * wr - bi,
+            qr = ar - (cr * wr - ci * wi),
+            qi = -(cr * wi + ci * wr) + ai,
+            norm = qr * qr + qi * qi,
+            zr = (nr * qr + ni * qi) / norm,
+            zi = (ni * qr - nr * qi) / norm,
+            // c z + d for the length scale of the map at z.
+            sr = cr * zr - ci * zi + dr,
+            si = cr * zi + ci * zr + di,
+            scale = determinant / (sr * sr + si * si),
+            gx = zr / p.step,
+            gy = zi / p.step,
+            // Distance in the w plane to the nearest vertical or horizontal grid line of the z plane.
+            lineDistance =
+              Math.min(
+                Math.abs(gx - Math.round(gx)),
+                Math.abs(gy - Math.round(gy)),
+              ) *
+              p.step *
+              scale,
+            line = cover(p.lineHalf - lineDistance),
+            parity = (((Math.floor(gx) + Math.floor(gy)) % 2) + 2) % 2,
+            fill = parity === 0 ? p.paperTone : p.checkerTone;
+          color = clamp(
+            fill +
+              (p.lineTone - fill) * line +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            (parity === 0 ? p.paperHeight : p.checkerHeight) +
+              (p.lineHeight - p.paperHeight) * line,
+          );
+          roughness =
+            p.cellRoughness + (p.lineRoughness - p.cellRoughness) * line;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -60845,6 +60902,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'mobiusgrid' ||
     kind === 'fordcircles' ||
     kind === 'vectorfieldarrows' ||
     kind === 'wordsquares' ||

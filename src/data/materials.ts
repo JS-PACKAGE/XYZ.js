@@ -11509,6 +11509,34 @@ export const proceduralMaterialPresets = Object.freeze({
     paperRoughness: 0.74,
     fillRoughness: 0.5,
   }),
+  mobiusgrid: Object.freeze({
+    dark: [26, 32, 58] as const,
+    light: [246, 242, 222] as const,
+    roughness: 0.55,
+    relief: 0.004,
+    // Moebius maps w = (a z + b) / (c z + d), each as [Re a, Im a, Re b, Im b, Re c, Im c, Re d, Im d]; the seed picks one
+    // and the picture shows the image of a square grid under it. Every determinant is non-zero.
+    maps: Object.freeze([
+      Object.freeze([0, 0, 1, 0, 1, 0, 0, 0]),
+      Object.freeze([1, 0, 0, 0, 0, 0.45, 1, 0]),
+      Object.freeze([1, 0, 0, 0.5, 0.3, 0, 1, 0.5]),
+    ]),
+    // Half the width of the view in the w plane, and the spacing of the grid lines in the z plane.
+    extent: 2,
+    step: 0.5,
+    lineHalf: 0.012,
+    edgeSoft: 0.01,
+    grainCells: 192,
+    paperTone: 0.94,
+    checkerTone: 0.8,
+    lineTone: 0.08,
+    grainTone: 0.03,
+    paperHeight: 0.2,
+    checkerHeight: 0.4,
+    lineHeight: 0.8,
+    cellRoughness: 0.55,
+    lineRoughness: 0.4,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -18001,6 +18029,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  mobiusgrid: 0.6,
   fordcircles: 0.6,
   vectorfieldarrows: 0.6,
   wordsquares: 0.5,

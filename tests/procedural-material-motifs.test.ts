@@ -22211,3 +22211,165 @@ describe('fordcircles: Ford circles', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('mobiusgrid: a checkered grid carried through a Moebius map', () => {
+  const p = proceduralMaterialPresets.mobiusgrid;
+  const fold = (t: number): number => 1 - Math.abs(2 * t - 1);
+  type Complex = { re: number; im: number };
+  const mul = (a: Complex, b: Complex): Complex => ({
+    re: a.re * b.re - a.im * b.im,
+    im: a.re * b.im + a.im * b.re,
+  });
+  const add = (a: Complex, b: Complex): Complex => ({
+    re: a.re + b.re,
+    im: a.im + b.im,
+  });
+  const sub = (a: Complex, b: Complex): Complex => ({
+    re: a.re - b.re,
+    im: a.im - b.im,
+  });
+  const div = (a: Complex, b: Complex): Complex => {
+    const norm = b.re * b.re + b.im * b.im;
+    return {
+      re: (a.re * b.re + a.im * b.im) / norm,
+      im: (a.im * b.re - a.re * b.im) / norm,
+    };
+  };
+  const modulus = (a: Complex): number => Math.hypot(a.re, a.im);
+
+  // What map `index` predicts at (u, v): the distance in the w plane to the nearest grid line of the z plane and the parity
+  // of the grid cell. z = f^-1(w) and the local scale |f'(z)| = |ad - bc| / |c z + d|^2 are written with complex values.
+  const predict = (index: number, u: number, v: number) => {
+    const [ar, ai, br, bi, cr, ci, dr, di] = p.maps[index],
+      a = { re: ar, im: ai },
+      b = { re: br, im: bi },
+      c = { re: cr, im: ci },
+      d = { re: dr, im: di },
+      w = {
+        re: p.extent * (2 * fold(u) - 1),
+        im: p.extent * (2 * fold(v) - 1),
+      },
+      z = div(sub(mul(d, w), b), sub(a, mul(c, w))),
+      derivative = modulus(
+        div(
+          sub(mul(a, d), mul(b, c)),
+          mul(add(mul(c, z), d), add(mul(c, z), d)),
+        ),
+      ),
+      gx = z.re / p.step,
+      gy = z.im / p.step;
+    return {
+      distance:
+        Math.min(Math.abs(gx - Math.round(gx)), Math.abs(gy - Math.round(gy))) *
+        p.step *
+        derivative,
+      spacing: p.step * derivative,
+      parity: (((Math.floor(gx) + Math.floor(gy)) % 2) + 2) % 2,
+    };
+  };
+  const agreementOf = (seed: number, n: number): number[] => {
+    const sample = createSurfaceSampler('mobiusgrid', seed),
+      out = empty(),
+      agreement = p.maps.map(() => 0);
+    let counted = 0;
+    for (let j = 0; j < n; j++)
+      for (let i = 0; i < n; i++) {
+        const u = (i + 0.5) / n,
+          v = (j + 0.5) / n;
+        sample(u, v, out);
+        counted++;
+        p.maps.forEach((_, k) => {
+          const expected = predict(k, u, v);
+          // Nothing is decided where the lines are packed closer than a few line widths, or within 0.006 of the soft edge of a line
+          // (the edge softness is 0.01 wide).
+          if (
+            expected.spacing < 8 * p.lineHalf ||
+            Math.abs(expected.distance - p.lineHalf) < 0.006
+          ) {
+            agreement[k]++;
+            return;
+          }
+          const inked = out.color < 0.5;
+          if (expected.distance < p.lineHalf) agreement[k] += Number(inked);
+          else
+            agreement[k] += Number(
+              !inked &&
+                Math.abs(
+                  out.color -
+                    (expected.parity === 0 ? p.paperTone : p.checkerTone),
+                ) < 0.05,
+            );
+        });
+      }
+    return agreement.map((count) => count / counted);
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws the image of the square grid under exactly one of the preset maps (seed %i)',
+    (seed) => {
+      const ranked = agreementOf(seed, 128).sort((a, b) => b - a);
+      expect(ranked[0]).toBeGreaterThan(0.995);
+      expect(ranked[1]).toBeLessThan(0.9);
+    },
+  );
+
+  it('uses every map across seeds and preserves the symmetry of the fold', () => {
+    const used = new Set<number>();
+    for (let seed = 0; seed < 30; seed++) {
+      const agreement = agreementOf(seed, 40);
+      used.add(agreement.indexOf(Math.max(...agreement)));
+    }
+    expect([...used].sort()).toEqual([0, 1, 2]);
+    // The folded view is mirror symmetric about the tile's middle lines.
+    const sample = createSurfaceSampler('mobiusgrid', 7),
+      one = empty(),
+      two = empty();
+    for (let i = 0; i < 200; i++) {
+      const u = (i + 0.31) / 200,
+        v = 0.2137;
+      sample(u, v, one);
+      sample(1 - u, v, two);
+      // The paper grain is not mirrored, so only the grain amplitude (0.03) separates the two sides.
+      expect(two.color).toBeCloseTo(one.color, 1);
+    }
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('mobiusgrid', 0),
+      b = createSurfaceSampler('mobiusgrid', 1),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      moved = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        // Near the point where the map sends infinity the lines are so dense that the last bit of u + 1 can matter.
+        moved += Number(Math.abs(two.color - one.color) > 1e-9);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(moved).toBeLessThan(10);
+    expect(different).toBeGreaterThan(50);
+  });
+});

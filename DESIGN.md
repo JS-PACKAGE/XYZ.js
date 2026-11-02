@@ -1797,6 +1797,10 @@
 
 這是作者設計的示意：只有 0 到 1 之間的分數、上限只有三個值，沒有標示分數；分母為1的兩個大圓（0/1與1/1）半徑為0.5，所以占滿tile高度並分居左右兩邊；上限8與6、6與4的差別只是幾個很小的圓，在小尺寸下幾乎看不出差別。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`mobiusgrid`（莫比烏斯格網）使目前目錄1057→1058種，含plain的gallery為1059項。每tile是一個黑白棋盤式的方格網經過莫比烏斯變換 w = (az + b)/(cz + d) 之後的樣子：在z平面上的垂直與水平格線（間距0.5）與方格的棋盤式明暗，變換後格線變成圓或直線（圓與圓在交點仍然垂直，因為這是保角變換），方格的明暗跟著搬過來。取樣器對每個像素先用反變換 z = (dw − b)/(−cw + a) 求出z，再用該點的縮放比例 |ad − bc|/|cz + d|² 把z平面中到最近格線的距離換成w平面（畫面上）的距離，使線寬在畫面上是均勻的。變換由seed從三個預設中挑一個：反演 w = 1/z、一個橢圓型變換與一個螺旋（loxodromic）型變換；座標以折疊方式取得，所以圖在tile邊界連續並左右、上下鏡射。Metallic與mortar為0。
+
+這是作者設計的示意：只有三個預設變換，沒有標示極點與固定點；在對應到z平面無窮遠的那一點附近格線無限密，會變成一整片深色（見圖中心深色的團塊）；線寬只在畫面上均勻，不代表z平面的線寬；因為取座標時做了鏡射，圖形是鏡射排列的。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
