@@ -9256,6 +9256,35 @@ export declare const proceduralMaterialPresets: Readonly<{
         inkRoughness: 0.4;
         paperRoughness: 0.74;
     }>;
+    hexresourceboard: Readonly<{
+        dark: readonly [12, 30, 52];
+        light: readonly [240, 226, 170];
+        roughness: 0.5;
+        relief: 0.005;
+        radius: 0.088;
+        resources: readonly [4, 3, 4, 4, 3, 1];
+        numbers: readonly [2, 3, 3, 4, 4, 5, 5, 6, 6, 8, 8, 9, 9, 10, 10, 11, 11, 12];
+        attempts: 400;
+        gap: 0.003;
+        tokenRadius: 0.034;
+        pixel: 0.0066;
+        edgeSoft: 0.0011;
+        grainCells: 192;
+        waveCells: 28;
+        seaTone: 0.1;
+        waveTone: 0.05;
+        resourceTones: readonly [0.26, 0.4, 0.54, 0.7, 0.84, 0.97];
+        tokenTone: 0.94;
+        inkTone: 0.08;
+        grainTone: 0.04;
+        seaHeight: 0.1;
+        tileHeight: 0.55;
+        tokenHeight: 0.8;
+        inkDepth: 0.06;
+        tileRoughness: 0.5;
+        seaRoughness: 0.3;
+        tokenRoughness: 0.36;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -15741,6 +15770,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    hexresourceboard: 0.5;
     bowlingscoresheet: 0.5;
     dewbeads: 0.3;
     goboards: 0.4;

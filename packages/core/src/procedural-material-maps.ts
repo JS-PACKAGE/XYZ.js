@@ -25828,6 +25828,151 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'hexresourceboard': {
+        const p = proceduralMaterialPresets.hexresourceboard,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2a701),
+          waveField = cachedNoise(p.waveCells, p.waveCells, seed ^ 0x2a703),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          sqrt3 = Math.sqrt(3),
+          desert = p.resources.length - 1,
+          neighbours = [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+            [1, -1],
+            [-1, 1],
+          ],
+          shuffled = <T>(list: readonly T[], salt: number): T[] =>
+            list
+              .map((value, index) => ({
+                value,
+                key: hash(index, salt, seed ^ 0x2a705),
+              }))
+              .sort((a, b) => a.key - b.key)
+              .map((entry) => entry.value),
+          // The nineteen hexagons of the board in axial coordinates (q, r) with |q|, |r|, |q + r| <= 2.
+          cells: [number, number][] = [],
+          resource = new Map<string, number>(),
+          token = new Map<string, number>();
+        for (let r = -2; r <= 2; r++)
+          for (let q = -2; q <= 2; q++)
+            if (Math.abs(q + r) <= 2) cells.push([q, r]);
+        // Resource types in the usual 4 / 3 / 4 / 4 / 3 / 1 mix (the last is the desert), shuffled by the seed.
+        const typeList = p.resources.flatMap((count, type) =>
+          Array.from({ length: count }, () => type),
+        );
+        shuffled(typeList, 1).forEach((type, index) =>
+          resource.set(cells[index][0] + ',' + cells[index][1], type),
+        );
+        // Number tokens go on every hexagon but the desert; reshuffle until no two of the red numbers
+        // (6 and 8) touch, the Catan rule.
+        const land = cells.filter(
+          ([q, r]) => resource.get(q + ',' + r) !== desert,
+        );
+        for (let attempt = 0; attempt < p.attempts; attempt++) {
+          shuffled(p.numbers, 11 + attempt).forEach((value, index) =>
+            token.set(land[index][0] + ',' + land[index][1], value),
+          );
+          const red = (q: number, r: number): boolean =>
+            [6, 8].includes(token.get(q + ',' + r) ?? 0);
+          if (
+            !land.some(
+              ([q, r]) =>
+                red(q, r) && neighbours.some(([dq, dr]) => red(q + dq, r + dr)),
+            )
+          )
+            break;
+        }
+        return () => {
+          const x = u - 0.5,
+            y = v - 0.5,
+            fq = ((sqrt3 / 3) * x - y / 3) / p.radius,
+            fr = ((2 / 3) * y) / p.radius;
+          // Round fractional axial coordinates to the hexagon containing the point (cube rounding).
+          let rq = Math.round(fq),
+            rr = Math.round(fr);
+          const rs = Math.round(-fq - fr),
+            dq = Math.abs(rq - fq),
+            dr = Math.abs(rr - fr),
+            ds = Math.abs(rs + fq + fr);
+          if (dq > dr && dq > ds) rq = -rr - rs;
+          else if (dr > ds) rr = -rq - rs;
+          const key = rq + ',' + rr,
+            type = resource.get(key);
+          let tone: number = p.seaTone + p.waveTone * (waveField(u, v) - 0.5),
+            level: number = p.seaHeight,
+            rough: number = p.seaRoughness,
+            ink = 0;
+          if (type !== undefined) {
+            const cx = p.radius * sqrt3 * (rq + rr / 2),
+              cy = p.radius * 1.5 * rr,
+              dx = x - cx,
+              dy = y - cy,
+              inradius = (p.radius * sqrt3) / 2,
+              edge =
+                inradius -
+                Math.max(
+                  Math.abs(dx),
+                  Math.abs(dx) / 2 + (Math.abs(dy) * sqrt3) / 2,
+                ) -
+                p.gap,
+              shape = cover(edge);
+            tone +=
+              (p.resourceTones[type] +
+                p.grainTone * (grainField(u, v) - 0.5) -
+                tone) *
+              shape;
+            level += (p.tileHeight - level) * shape;
+            rough += (p.tileRoughness - rough) * shape;
+            const value = token.get(key);
+            if (value !== undefined) {
+              const body = cover(p.tokenRadius - Math.hypot(dx, dy));
+              tone += (p.tokenTone - tone) * body;
+              level += (p.tokenHeight - level) * body;
+              rough += (p.tokenRoughness - rough) * body;
+              const digits = value >= 10 ? 2 : 1,
+                left = cx - ((digits * 4 - 1) / 2) * p.pixel,
+                top = cy - 2.5 * p.pixel,
+                px = Math.floor((x - left) / p.pixel),
+                py = Math.floor((y - top) / p.pixel);
+              if (
+                py >= 0 &&
+                py < 5 &&
+                px >= 0 &&
+                px < digits * 4 - 1 &&
+                px % 4 !== 3
+              ) {
+                const digit =
+                  digits === 2
+                    ? px < 3
+                      ? Math.floor(value / 10)
+                      : value % 10
+                    : value;
+                if (glyphs[digit][py * 3 + (px % 4)] === '1') ink = 1;
+              }
+            }
+          }
+          color = clamp(tone + (p.inkTone - tone) * ink);
+          height = clamp(level - p.inkDepth * ink);
+          roughness = rough;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -53357,6 +53502,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'hexresourceboard' ||
     kind === 'bowlingscoresheet' ||
     kind === 'dewbeads' ||
     kind === 'goboards' ||

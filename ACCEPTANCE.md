@@ -12147,3 +12147,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 真實缺陷（測試）：測試第一次執行九項失敗：量測累計得分位數時，我用亮度＜0.5判定「墨」，把格子左邊的框線（色調0.45）也算進去，使文字寬度量成整個格寬；改成墨的門檻0.3（墨約0.1）。再來「所有投球剛好用完一次」的斷言是錯的：第10格全倒或補中時，剩下的球是獎勵球而不屬於任何格的計分，已改為「剩下的球至多2個」。
 - 實測：`tests/procedural-material-motifs.test.ts`七百九十四項（本材質十項）全過。九個seed（0、7、4294967295、1至6）× 四局：由點陣讀出每個投球格的符號（X、/、-、數字，含第10格三個方格），依符號與「剩下的瓶數」推回每一球的瓶數（X必須出現在乾淨的瓶位、/必須出現在已有倒下的瓶之後、不得超過剩下的瓶數）；第1至9格要嘛單獨一個X、要嘛兩球，第10格兩或三球；再量墨的寬度得到累計得分的位數並逐位讀出，與測試端另寫的標準計分（全倒＋後兩球、補中＋後一球）逐格相等；通道範圍、metallic／mortar 0、wrap與seed差異。突變檢查：把取樣器的全倒獎勵少算一球後，九個seed全部失敗，還原後全過。`tests/procedural-material.test.ts`以`-t "bowlingscoresheet|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`bowlingscoresheet`：option 989個、status為988 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的計分表。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：六邊形資源島（hexresourceboard）
+
+- 目錄988→989，含plain的gallery為990項。每tile中央是19個六邊形（3-4-5-4-3）組成的島，六級亮度表示六種地形（4、3、4、4、3、1塊，最亮的一種為單塊的「沙漠」），18個非沙漠六邊形各有一枚2至12的數字標記（2、3、3、4、4、5、5、6、6、8、8、9、9、10、10、11、11、12），6與8不相鄰（卡坦島規則，seed洗牌後重試）。Metallic／mortar為0，預設tile0.5 m、0.005 UV-relative relief、metallic factor 0。地形只以亮度區分、規則憑記憶；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 設計記錄：第一版草稿的地形洗牌寫成了兩次排序（先用`indexOf`再用索引鍵），既難讀又有重複值時會錯；註冊前整段改寫為單一的`shuffled`輔助函式。
+- 實測：`tests/procedural-material-motifs.test.ts`八百零四項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）：測試端以軸座標算出19個六邊形中心，在各六邊形標記下方0.055處取亮度並對最近的六個地形亮度分類（誤差＜0.06）；六種地形的數量排序後必須等於`[4,3,4,4,3,1]`的排序；在中心以點陣解碼數字標記（單一字形讀取成功即單位數），18個非沙漠六邊形各有一枚，標記排序後必須恰等於清單；對每個6或8，向六個鄰格中的三個方向與其反方向檢查，鄰格不得是6或8；通道範圍、metallic／mortar 0、wrap與seed差異。取樣器的400次重試上限在這些seed中從未用盡（測試通過即代表都找到合法配置），但這不證明所有seed都如此。`tests/procedural-material.test.ts`以`-t "hexresourceboard|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`hexresourceboard`：option 990個、status為989 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的島嶼。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

@@ -12720,3 +12720,136 @@ describe('bowlingscoresheet: the cumulative scores follow from the rolls', () =>
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('hexresourceboard: resources and number tokens follow the Catan layout rules', () => {
+  const p = proceduralMaterialPresets.hexresourceboard;
+  const sqrt3 = Math.sqrt(3);
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'has the right resource counts, one token per non-desert hexagon, and no touching 6 or 8 (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('hexresourceboard', seed),
+        out = empty(),
+        read = (cx: number, cy: number): number => {
+          const bits: string[] = [];
+          for (let y = 0; y < 5; y++) {
+            let text = '';
+            for (let x = 0; x < 3; x++) {
+              sample(
+                0.5 + cx + (x - 1) * p.pixel,
+                0.5 + cy + (y - 2) * p.pixel,
+                out,
+              );
+              text += out.color < 0.4 ? '#' : '.';
+            }
+            bits.push(text);
+          }
+          return art.findIndex((rows) =>
+            rows.every((text, i) => text === bits[i]),
+          );
+        },
+        types = new Map<string, number>(),
+        tokens = new Map<string, number>();
+      for (let r = -2; r <= 2; r++)
+        for (let q = -2; q <= 2; q++) {
+          if (Math.abs(q + r) > 2) continue;
+          const cx = p.radius * sqrt3 * (q + r / 2),
+            cy = p.radius * 1.5 * r;
+          // Resource: the tile tone just below the token, matched to the nearest of the six tones.
+          sample(0.5 + cx, 0.5 + cy + 0.055, out);
+          let type = 0;
+          for (let k = 1; k < p.resourceTones.length; k++)
+            if (
+              Math.abs(p.resourceTones[k] - out.color) <
+              Math.abs(p.resourceTones[type] - out.color)
+            )
+              type = k;
+          expect(Math.abs(p.resourceTones[type] - out.color)).toBeLessThan(
+            0.06,
+          );
+          types.set(`${q},${r}`, type);
+          // Token: a single digit reads as a glyph in the middle window; two digits leave its middle column blank.
+          const single = read(cx, cy),
+            value =
+              single >= 0
+                ? single
+                : read(cx - 2 * p.pixel, cy) * 10 + read(cx + 2 * p.pixel, cy);
+          if (type !== p.resources.length - 1) tokens.set(`${q},${r}`, value);
+        }
+      expect(types.size).toBe(19);
+      // The six resource types in the 4 / 3 / 4 / 4 / 3 / 1 mix.
+      const counts = p.resources.map(
+        (_, type) =>
+          [...types.values()].filter((value) => value === type).length,
+      );
+      expect(counts.sort()).toEqual([...p.resources].sort());
+      // One number token on every hexagon except the single desert, using each number the right number of times.
+      expect(tokens.size).toBe(18);
+      expect([...tokens.values()].sort((a, b) => a - b)).toEqual([
+        ...p.numbers,
+      ]);
+      // The red numbers 6 and 8 never sit on neighbouring hexagons.
+      const offsets = [
+        [1, 0],
+        [0, 1],
+        [-1, 1],
+      ];
+      for (const [key, value] of tokens) {
+        if (value !== 6 && value !== 8) continue;
+        const [q, r] = key.split(',').map(Number);
+        for (const [dq, dr] of offsets)
+          expect([6, 8]).not.toContain(tokens.get(`${q + dq},${r + dr}`));
+        for (const [dq, dr] of offsets)
+          expect([6, 8]).not.toContain(tokens.get(`${q - dq},${r - dr}`));
+      }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('hexresourceboard', 0),
+      b = createSurfaceSampler('hexresourceboard', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

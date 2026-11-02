@@ -15970,6 +15970,76 @@ var proceduralMaterialPresets = Object.freeze({
 		inkRoughness: .4,
 		paperRoughness: .74
 	}),
+	hexresourceboard: Object.freeze({
+		dark: [
+			12,
+			30,
+			52
+		],
+		light: [
+			240,
+			226,
+			170
+		],
+		roughness: .5,
+		relief: .005,
+		radius: .088,
+		resources: [
+			4,
+			3,
+			4,
+			4,
+			3,
+			1
+		],
+		numbers: [
+			2,
+			3,
+			3,
+			4,
+			4,
+			5,
+			5,
+			6,
+			6,
+			8,
+			8,
+			9,
+			9,
+			10,
+			10,
+			11,
+			11,
+			12
+		],
+		attempts: 400,
+		gap: .003,
+		tokenRadius: .034,
+		pixel: .0066,
+		edgeSoft: .0011,
+		grainCells: 192,
+		waveCells: 28,
+		seaTone: .1,
+		waveTone: .05,
+		resourceTones: [
+			.26,
+			.4,
+			.54,
+			.7,
+			.84,
+			.97
+		],
+		tokenTone: .94,
+		inkTone: .08,
+		grainTone: .04,
+		seaHeight: .1,
+		tileHeight: .55,
+		tokenHeight: .8,
+		inkDepth: .06,
+		tileRoughness: .5,
+		seaRoughness: .3,
+		tokenRoughness: .36
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -24651,6 +24721,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	hexresourceboard: .5,
 	bowlingscoresheet: .5,
 	dewbeads: .3,
 	goboards: .4,
