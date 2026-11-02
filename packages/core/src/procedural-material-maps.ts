@@ -36133,6 +36133,158 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'circleoffifths': {
+        const p = proceduralMaterialPresets.circleoffifths,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x30b01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // A 3 x 5 font for the characters the key names need: letters, digits, # (sharp), b (flat) and m (minor).
+          font: Record<string, string> = {
+            A: '010101111101101',
+            B: '110101110101110',
+            C: '011100100100011',
+            D: '110101101101110',
+            E: '111100110100111',
+            F: '111100110100100',
+            G: '011100101101011',
+            '0': '111101101101111',
+            '1': '010110010010111',
+            '2': '111001111100111',
+            '3': '111001111001111',
+            '4': '101101111001001',
+            '5': '111100111001111',
+            '6': '111100111101111',
+            '#': '010111010111010',
+            b: '100100110101110',
+            m: '000101111101101',
+          },
+          majors = [
+            'C',
+            'G',
+            'D',
+            'A',
+            'E',
+            'B',
+            'F#',
+            'Db',
+            'Ab',
+            'Eb',
+            'Bb',
+            'F',
+          ],
+          minors = [
+            'Am',
+            'Em',
+            'Bm',
+            'F#m',
+            'C#m',
+            'G#m',
+            'Ebm',
+            'Bbm',
+            'Fm',
+            'Cm',
+            'Gm',
+            'Dm',
+          ],
+          signatures = [
+            '0',
+            '1#',
+            '2#',
+            '3#',
+            '4#',
+            '5#',
+            '6#',
+            '5b',
+            '4b',
+            '3b',
+            '2b',
+            '1b',
+          ],
+          top = Math.floor(hash(12, 1, seed ^ 0x30b02) * 12),
+          mirrored = hash(12, 2, seed ^ 0x30b03) < 0.5,
+          sector = Math.PI / 6,
+          // Which key (index into the lists above) is in the slot that many steps clockwise from the top.
+          keyAt = (slot: number): number =>
+            ((((mirrored ? -slot : slot) + top) % 12) + 12) % 12,
+          onText = (
+            text: string,
+            dx: number,
+            dy: number,
+            pixel: number,
+          ): boolean => {
+            const px = Math.floor(
+                (dx + (2 * text.length - 0.5) * pixel) / pixel,
+              ),
+              d = px >= 0 ? Math.floor(px / 4) : -1,
+              gx = px - 4 * d,
+              py = Math.floor(dy / pixel + 2.5);
+            return (
+              d >= 0 &&
+              d < text.length &&
+              gx >= 0 &&
+              gx < 3 &&
+              py >= 0 &&
+              py < 5 &&
+              font[text[d]][py * 3 + gx] === '1'
+            );
+          };
+        return () => {
+          const x = u - 0.5,
+            y = v - 0.5,
+            radius = Math.hypot(x, y),
+            slot =
+              ((Math.round((Math.atan2(y, x) + Math.PI / 2) / sector) % 12) +
+                12) %
+              12,
+            cos = Math.cos(slot * sector - Math.PI / 2),
+            sin = Math.sin(slot * sector - Math.PI / 2),
+            key = keyAt(slot),
+            inRing = radius < p.rings[0] && radius > p.rings[2],
+            band = inRing ? slot % 2 : 0,
+            tone = p.paperTone + (p.sectorTone - p.paperTone) * band,
+            level = p.paperHeight + (p.sectorHeight - p.paperHeight) * band,
+            ring = Math.max(
+              ...p.rings.map((ringRadius) =>
+                cover(p.ringHalf - Math.abs(radius - ringRadius)),
+              ),
+            ),
+            ink =
+              onText(
+                majors[key],
+                x - p.majorRadius * cos,
+                y - p.majorRadius * sin,
+                p.majorPixel,
+              ) ||
+              onText(
+                minors[key],
+                x - p.minorRadius * cos,
+                y - p.minorRadius * sin,
+                p.minorPixel,
+              ) ||
+              onText(
+                signatures[key],
+                x - p.signatureRadius * cos,
+                y - p.signatureRadius * sin,
+                p.signaturePixel,
+              )
+                ? 1
+                : 0,
+            withRing = tone + (p.ringTone - tone) * ring;
+          color = clamp(
+            withRing +
+              (p.inkTone - withRing) * ink +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            Math.max(level, ring * p.ringHeight) - p.inkDepth * ink,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.inkRoughness - p.paperRoughness) * Math.max(ink, ring);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -63662,6 +63814,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'circleoffifths' ||
     kind === 'periodictablecells' ||
     kind === 'josephuscircle' ||
     kind === 'gaussianprimes' ||

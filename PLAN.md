@@ -1913,6 +1913,10 @@
 
 這是作者設計的示意：只畫前四個週期（沒有鑭系與錒系，也沒有第5週期以後）；元素符號為了簡化字形一律用大寫（He寫成HE），小尺寸時「MN」與「NA」等字樣可能不易分辨；分類採常見的教科書分法（類金屬為B、Si、Ge、As；非金屬含惰性氣體；氫算非金屬與氣體），不同教材對個別元素的分類可能不同；不標示圖例。資料是由作者依記憶輸入、再用測試檔另外手寫一份比對，沒有對照外部資料來源。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`circleoffifths`（五度圈）使目前目錄1088→1089種，含plain的gallery為1090項。整張tile是一幅五度圈：外圈依序（順時針）寫出12個大調主音（C、G、D、A、E、B、F#、Db、Ab、Eb、Bb、F，每一個比前一個高純五度），中圈寫出各自的關係小調（Am、Em、Bm、F#m、C#m、G#m、Ebm、Bbm、Fm、Cm、Gm、Dm），內圈寫出調號的升降記號數（0、1#到6#、5b到1b），12個扇形交錯淡淡的底色，三圈之間有細線。seed決定頭頂是哪一個調（12種），並決定五度是順時針還是逆時針遞增（逆時針時變成四度圈）。Metallic與mortar為0。
+
+這是作者設計的示意：只寫大調、關係小調與調號數，不畫譜號與音符；F#／Gb這一格只寫F#（6升）；音名用大寫字母加「#」「b」（升降記號用簡化的點陣符號，「#」畫成雙橫雙直的符號）與小寫的m，小尺寸時「b」與「B」、「#」與其他字可能不易分辨。調號與關係小調的資料是我依記憶輸入，測試檔用音高計算（五度＝7個半音、關係小調＝低三個半音、升降記號數＝(音高×7) mod 12）另外驗證，但沒有對照外部資料來源，也沒有驗證同音異名（如C#m與Dbm）的拼法選擇是否符合慣例。預設0.9 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

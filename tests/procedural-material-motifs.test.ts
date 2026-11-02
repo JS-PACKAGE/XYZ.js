@@ -26930,3 +26930,170 @@ describe('periodictablecells: elements 1 to 36 in the periodic table layout', ()
     expect(different).toBeGreaterThan(0);
   });
 });
+
+describe('circleoffifths: major keys, relative minors and key signatures', () => {
+  const p = proceduralMaterialPresets.circleoffifths;
+  const shapes: Record<string, string[]> = {
+    A: ['.#.', '#.#', '###', '#.#', '#.#'],
+    B: ['##.', '#.#', '##.', '#.#', '##.'],
+    C: ['.##', '#..', '#..', '#..', '.##'],
+    D: ['##.', '#.#', '#.#', '#.#', '##.'],
+    E: ['###', '#..', '##.', '#..', '###'],
+    F: ['###', '#..', '##.', '#..', '#..'],
+    G: ['.##', '#..', '#.#', '#.#', '.##'],
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    '2': ['###', '..#', '###', '#..', '###'],
+    '3': ['###', '..#', '###', '..#', '###'],
+    '4': ['#.#', '#.#', '###', '..#', '..#'],
+    '5': ['###', '#..', '###', '..#', '###'],
+    '6': ['###', '#..', '###', '#.#', '###'],
+    '#': ['.#.', '###', '.#.', '###', '.#.'],
+    b: ['#..', '#..', '##.', '#.#', '##.'],
+    m: ['...', '#.#', '###', '#.#', '#.#'],
+  };
+  const naturals: Record<string, number> = {
+    C: 0,
+    D: 2,
+    E: 4,
+    F: 5,
+    G: 7,
+    A: 9,
+    B: 11,
+  };
+  // Pitch class (0 to 11) of a key name such as "F#", "Bb" or "C#m"; a trailing m only marks a minor key.
+  const pitchClass = (name: string): number =>
+    (naturals[name[0]] +
+      (name[1] === '#' ? 1 : name[1] === 'b' ? -1 : 0) +
+      12) %
+    12;
+
+  const readSlots = (
+    seed: number,
+  ): { major: string; minor: string; signature: string }[] => {
+    const sample = createSurfaceSampler('circleoffifths', seed),
+      out = empty(),
+      // The character in a 3 x 5 slot centred at (cx, cy): a character, null when there is no ink, undefined if unknown.
+      glyphAt = (
+        cx: number,
+        cy: number,
+        pixel: number,
+      ): string | null | undefined => {
+        const lines = [0, 1, 2, 3, 4].map((k) =>
+          [0, 1, 2]
+            .map((x) => {
+              sample(cx + (x - 1) * pixel, cy + (k - 2) * pixel, out);
+              return out.color < 0.3 ? '#' : '.';
+            })
+            .join(''),
+        );
+        if (lines.every((line) => line === '...')) return null;
+        return Object.entries(shapes).find(([, shape]) =>
+          shape.every((line, i) => line === lines[i]),
+        )?.[0];
+      },
+      // A text of one to three characters centred at (cx, cy): the longest length for which every glyph slot reads as a character.
+      textAt = (cx: number, cy: number, pixel: number): string => {
+        for (const length of [3, 2, 1]) {
+          const first = cx - (2 * length - 0.5) * pixel + 1.5 * pixel,
+            slots = Array.from({ length }, (_, i) =>
+              glyphAt(first + 4 * i * pixel, cy, pixel),
+            );
+          if (slots.every((slot) => typeof slot === 'string'))
+            return slots.join('');
+        }
+        throw new Error('unreadable text');
+      };
+    return Array.from({ length: 12 }, (_, slot) => {
+      const angle = (slot * Math.PI) / 6 - Math.PI / 2,
+        at = (radius: number, pixel: number): string =>
+          textAt(
+            0.5 + radius * Math.cos(angle),
+            0.5 + radius * Math.sin(angle),
+            pixel,
+          );
+      return {
+        major: at(p.majorRadius, p.majorPixel),
+        minor: at(p.minorRadius, p.minorPixel),
+        signature: at(p.signatureRadius, p.signaturePixel),
+      };
+    });
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'puts the keys a fifth apart with their relative minors and signatures (seed %i)',
+    (seed) => {
+      const slots = readSlots(seed),
+        majors = slots.map((slot) => pitchClass(slot.major));
+      // Round the circle each key is a fifth (7 semitones) above the previous one, or each is a fifth below (the other way).
+      const steps = new Set(
+        majors.map((pc, i) => (majors[(i + 1) % 12] - pc + 12) % 12),
+      );
+      expect(steps.size).toBe(1);
+      expect([7, 5]).toContain([...steps][0]);
+      expect(new Set(majors).size).toBe(12);
+      slots.forEach((slot, i) => {
+        const pc = majors[i];
+        // The relative minor starts a minor third (3 semitones) below the major key and is written with a trailing m.
+        expect(slot.minor.endsWith('m')).toBe(true);
+        expect(pitchClass(slot.minor)).toBe((pc + 9) % 12);
+        expect(slot.major.endsWith('m')).toBe(false);
+        // The key signature: the number of sharps going up the circle of fifths from C, or of flats going down.
+        const sharps = (pc * 7) % 12;
+        expect(slot.signature).toBe(
+          sharps === 0 ? '0' : sharps <= 6 ? `${sharps}#` : `${12 - sharps}b`,
+        );
+      });
+    },
+  );
+
+  it('starts the circle at every key and goes both ways across seeds', () => {
+    const tops = new Set<number>(),
+      directions = new Set<number>();
+    for (let seed = 0; seed < 100; seed++) {
+      const slots = readSlots(seed),
+        first = pitchClass(slots[0].major),
+        second = pitchClass(slots[1].major);
+      tops.add(first);
+      directions.add((second - first + 12) % 12);
+    }
+    expect(tops.size).toBe(12);
+    expect([...directions].sort()).toEqual([5, 7]);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('circleoffifths', 0),
+      b = createSurfaceSampler('circleoffifths', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(0);
+  });
+});
