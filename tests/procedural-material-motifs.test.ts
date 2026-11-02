@@ -11768,3 +11768,108 @@ describe('primesieve: bright cells are exactly the primes of a window of consecu
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('knockoutbracket: every winner advances from one of the two boxes that feed it', () => {
+  const p = proceduralMaterialPresets.knockoutbracket;
+  const rounds = Math.round(Math.log2(p.teams)) + 1;
+  const pitchY = (1 - 2 * p.topMargin) / p.teams;
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'reads sixteen teams in round one and a consistent tree above them (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('knockoutbracket', seed),
+        out = empty(),
+        read = (left: number, cy: number): number => {
+          const bits: string[] = [];
+          for (let y = 0; y < 5; y++) {
+            let text = '';
+            for (let x = 0; x < 3; x++) {
+              sample(left + (x + 0.5) * p.pixel, cy + (y - 2) * p.pixel, out);
+              text += out.color < 0.45 ? '#' : '.';
+            }
+            bits.push(text);
+          }
+          return art.findIndex((rows) =>
+            rows.every((text, i) => text === bits[i]),
+          );
+        },
+        tree: number[][] = [];
+      for (let round = 0; round < rounds; round++) {
+        const count = p.teams / 2 ** round,
+          centreX = p.left + round * p.columnPitch + p.boxWidth / 2,
+          line: number[] = [];
+        for (let i = 0; i < count; i++) {
+          const cy = p.topMargin + (i + 0.5) * 2 ** round * pitchY,
+            // A single digit reads as a valid glyph in the middle window; two digits leave its middle column blank.
+            single = read(centreX - 1.5 * p.pixel, cy);
+          line.push(
+            single >= 0
+              ? single
+              : read(centreX - 3.5 * p.pixel, cy) * 10 +
+                  read(centreX + 0.5 * p.pixel, cy),
+          );
+        }
+        tree.push(line);
+      }
+      expect([...tree[0]].sort((a, b) => a - b)).toEqual(
+        Array.from({ length: p.teams }, (_, i) => i + 1),
+      );
+      for (let round = 1; round < rounds; round++)
+        tree[round].forEach((winner, i) => {
+          expect([
+            tree[round - 1][2 * i],
+            tree[round - 1][2 * i + 1],
+          ]).toContain(winner);
+        });
+      expect(tree[rounds - 1].length).toBe(1);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('knockoutbracket', 0),
+      b = createSurfaceSampler('knockoutbracket', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

@@ -12088,3 +12088,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 目錄979→980，含plain的gallery為981項。每tile一個16×16圓角方格盤面，列出256個連續整數（起點由seed在1至745挑選）；質數最亮且凸起，合成數依最小質因數（2、3、5、7、11以上）分五級，數字1最暗。Metallic／mortar為0，預設tile0.5 m、0.004 UV-relative relief、metallic factor 0。畫面無數字；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
 - 實測：`tests/procedural-material-motifs.test.ts`七百一十三項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）：測試端以另一種演算法（埃拉托斯特尼篩）算出1至1000之間每個數的最小質因數並分級，取樣器則用試除法；由格中心亮度判定每格的等級（與最近的預期亮度相差＜0.04），再對所有起點1至745逐一比對256格的等級序列，必須恰有一個起點完全吻合；質數格數在25與75之間；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "primesieve|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`primesieve`：option 981個、status為980 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的盤面。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：淘汰賽對戰表（knockoutbracket）
+
+- 目錄980→981，含plain的gallery為982項。每tile一張16隊單敗淘汰賽的賽程樹：第一輪為seed洗牌的1至16號，往右到冠軍共五欄方框，每個勝者號碼取自餵入它的兩個方框之一（勝負隨機）。Metallic／mortar為0，預設tile0.5 m、0.004 UV-relative relief、metallic factor 0。無比分與隊名；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 設計記錄：第一版取樣式含兩個從未使用的變數（`nextLeft`、`elbowX`），我用`void`語句把它們「用掉」以壓住警告；看圖確認排版正確後，在送交verify前把這兩個變數與`void`語句整段刪除。
+- 實測：`tests/procedural-material-motifs.test.ts`七百二十三項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）：測試端依版面常數逐欄逐箱讀取點陣數字（單一字形讀取成功即單位數，沿用前面幾個材質修正後的判斷），第一輪16個號碼排序後必須恰為1至16，之後每一欄的每個勝者號碼必須是餵入它的兩個方框號碼之一，最後一欄恰一個方框；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "knockoutbracket|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 效能：512×512單次建立約117 ms（Bun、單次量測；每像素要迴圈檢查四欄連線），未最佳化。
+- 真實dev server的pbr3d頁（WebGPU）選取`knockoutbracket`：option 982個、status為981 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的賽程樹。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

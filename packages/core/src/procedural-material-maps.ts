@@ -24741,6 +24741,145 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'knockoutbracket': {
+        const p = proceduralMaterialPresets.knockoutbracket,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x29f01),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          rounds = Math.round(Math.log2(p.teams)) + 1,
+          pitchY = (1 - 2 * p.topMargin) / p.teams,
+          // Round 0 is a seeded shuffle of the teams 1..16; in every later round each slot holds the
+          // winner of the two slots feeding it, chosen at random.
+          slots: number[][] = [
+            Array.from({ length: p.teams }, (_, i) => i + 1).sort(
+              (a, b) => hash(a, 3, seed ^ 0x29f03) - hash(b, 3, seed ^ 0x29f03),
+            ),
+          ];
+        for (let round = 1; round < rounds; round++) {
+          const previous = slots[round - 1],
+            current: number[] = [];
+          for (let i = 0; i < previous.length / 2; i++)
+            current.push(
+              hash(round, i, seed ^ 0x29f05) < 0.5
+                ? previous[2 * i]
+                : previous[2 * i + 1],
+            );
+          slots.push(current);
+        }
+        // Vertical centre of slot i of a round: the middle of the pair of slots that feed it.
+        const centre = (round: number, i: number): number =>
+          p.topMargin + (i + 0.5) * 2 ** round * pitchY;
+        return () => {
+          const column = Math.floor(
+              (u - p.left + (p.columnPitch - p.boxWidth) / 2) / p.columnPitch,
+            ),
+            round = Math.min(rounds - 1, Math.max(0, column)),
+            boxLeft = p.left + round * p.columnPitch,
+            count = slots[round].length,
+            index = Math.min(
+              count - 1,
+              Math.max(
+                0,
+                Math.floor((v - p.topMargin) / (2 ** round * pitchY)),
+              ),
+            ),
+            cy = centre(round, index);
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            rough: number = p.paperRoughness,
+            ink = 0;
+          // Connectors from this column's boxes to the next: out of the box, vertical join, into the winner's box.
+          let line = 0;
+          for (let r = 0; r < rounds - 1; r++) {
+            const fromRight = p.left + r * p.columnPitch + p.boxWidth,
+              mid = fromRight + (p.columnPitch - p.boxWidth) / 2,
+              next = p.left + (r + 1) * p.columnPitch;
+            if (u < fromRight - 0.001 || u > next + 0.001) continue;
+            const pair = Math.min(
+              slots[r + 1].length - 1,
+              Math.max(
+                0,
+                Math.floor((v - p.topMargin) / (2 ** (r + 1) * pitchY)),
+              ),
+            );
+            const upper = centre(r, 2 * pair),
+              lower = centre(r, 2 * pair + 1),
+              target = centre(r + 1, pair);
+            const horizontal = Math.max(
+              Math.min(cover(p.lineHalf - Math.abs(v - upper)), cover(mid - u)),
+              Math.min(cover(p.lineHalf - Math.abs(v - lower)), cover(mid - u)),
+              Math.min(
+                cover(p.lineHalf - Math.abs(v - target)),
+                cover(u - mid),
+              ),
+            );
+            const vertical = Math.min(
+              cover(p.lineHalf - Math.abs(u - mid)),
+              cover(v - upper + p.lineHalf),
+              cover(lower - v + p.lineHalf),
+            );
+            line = Math.max(line, horizontal, vertical);
+          }
+          if (
+            u >= boxLeft &&
+            u < boxLeft + p.boxWidth &&
+            Math.abs(v - cy) < p.boxHeight / 2 &&
+            v >= p.topMargin &&
+            v < 1 - p.topMargin
+          ) {
+            const finalBox = round === rounds - 1,
+              value = slots[round][index],
+              digits = value >= 10 ? 2 : 1,
+              left =
+                boxLeft + p.boxWidth / 2 - ((digits * 4 - 1) / 2) * p.pixel,
+              top = cy - 2.5 * p.pixel,
+              px = Math.floor((u - left) / p.pixel),
+              py = Math.floor((v - top) / p.pixel);
+            tone = finalBox ? p.finalTone : p.boxTone;
+            level = finalBox ? p.finalHeight : p.levelHeight;
+            rough = p.boxRoughness;
+            if (
+              py >= 0 &&
+              py < 5 &&
+              px >= 0 &&
+              px < digits * 4 - 1 &&
+              px % 4 !== 3
+            ) {
+              const digit =
+                digits === 2
+                  ? px < 3
+                    ? Math.floor(value / 10)
+                    : value % 10
+                  : value;
+              if (glyphs[digit][py * 3 + (px % 4)] === '1') ink = 1;
+            }
+          } else {
+            tone += (p.lineTone - tone) * line;
+            level += (p.lineHeight - level) * line;
+          }
+          color = clamp(
+            tone +
+              (p.inkTone - tone) * ink +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * ink);
+          roughness = rough;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -52270,6 +52409,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'knockoutbracket' ||
     kind === 'primesieve' ||
     kind === 'sortingnetworks' ||
     kind === 'mayansums' ||
