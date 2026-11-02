@@ -20370,3 +20370,125 @@ describe('abeliansandpile: a stable sandpile', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('percolationclusters: open sites and their clusters', () => {
+  const p = proceduralMaterialPresets.percolationclusters,
+    n = p.size;
+  const tones = [p.closedTone, p.smallTone, p.mediumTone, p.largestTone];
+  const observe = (seed: number): number[] => {
+    const sample = createSurfaceSampler('percolationclusters', seed),
+      out = empty(),
+      cells: number[] = [];
+    for (let y = 0; y < n; y++)
+      for (let x = 0; x < n; x++) {
+        sample((x + 0.5) / n, (y + 0.5) / n, out);
+        // 0 closed, 1 small cluster, 2 medium cluster, 3 largest cluster: the nearest tone, less the small paper grain.
+        let best = 0;
+        for (let k = 1; k < 4; k++)
+          if (
+            Math.abs(out.color - tones[k]) < Math.abs(out.color - tones[best])
+          )
+            best = k;
+        cells.push(best);
+      }
+    return cells;
+  };
+  const openFraction = (cells: number[]): number =>
+    cells.filter((cell) => cell > 0).length / (n * n);
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shades each cluster by its size, found again with a union-find (seed %i)',
+    (seed) => {
+      const cells = observe(seed),
+        parent = Array.from({ length: n * n }, (_, i) => i),
+        find = (i: number): number => {
+          while (parent[i] !== i) {
+            parent[i] = parent[parent[i]];
+            i = parent[i];
+          }
+          return i;
+        };
+      // Join every open site to its open right and lower neighbour (no wrap-around at the tile edge).
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          if (cells[y * n + x] === 0) continue;
+          if (x + 1 < n && cells[y * n + x + 1] > 0)
+            parent[find(y * n + x)] = find(y * n + x + 1);
+          if (y + 1 < n && cells[(y + 1) * n + x] > 0)
+            parent[find(y * n + x)] = find((y + 1) * n + x);
+        }
+      const sizes = new Map<number, number>();
+      for (let i = 0; i < n * n; i++)
+        if (cells[i] > 0) sizes.set(find(i), (sizes.get(find(i)) ?? 0) + 1);
+      const largest = Math.max(...sizes.values());
+      for (let i = 0; i < n * n; i++) {
+        if (cells[i] === 0) continue;
+        const size = sizes.get(find(i)) as number;
+        expect(cells[i]).toBe(
+          size === largest ? 3 : size >= p.mediumSize ? 2 : 1,
+        );
+      }
+      // Some cluster is largest, and the open fraction is close to one of the preset probabilities (within about 4.5 sigma).
+      expect(largest).toBeGreaterThan(p.mediumSize);
+      expect(
+        Math.min(
+          ...p.openings.map((opening) =>
+            Math.abs(openFraction(cells) - opening),
+          ),
+        ),
+      ).toBeLessThan(0.047);
+    },
+  );
+
+  it('uses the lowest and the highest opening probability across seeds', () => {
+    const nearest = new Set<number>();
+    for (let seed = 0; seed < 24; seed++) {
+      const fraction = openFraction(observe(seed));
+      nearest.add(
+        p.openings.indexOf(
+          [...p.openings].sort(
+            (a, b) => Math.abs(a - fraction) - Math.abs(b - fraction),
+          )[0],
+        ),
+      );
+    }
+    expect(nearest.has(0)).toBe(true);
+    expect(nearest.has(2)).toBe(true);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('percolationclusters', 0),
+      b = createSurfaceSampler('percolationclusters', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

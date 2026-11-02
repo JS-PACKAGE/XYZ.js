@@ -10888,6 +10888,26 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainTone: 0.03;
         cellRoughness: 0.6;
     }>;
+    percolationclusters: Readonly<{
+        dark: readonly [26, 32, 58];
+        light: readonly [246, 242, 222];
+        roughness: 0.6;
+        relief: 0.004;
+        size: 48;
+        openings: readonly number[];
+        mediumSize: 8;
+        grainCells: 192;
+        closedTone: 0.94;
+        smallTone: 0.62;
+        mediumTone: 0.38;
+        largestTone: 0.08;
+        closedHeight: 0.12;
+        smallHeight: 0.4;
+        mediumHeight: 0.6;
+        largestHeight: 0.85;
+        grainTone: 0.03;
+        cellRoughness: 0.6;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -17373,6 +17393,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    percolationclusters: 0.6;
     abeliansandpile: 0.6;
     binaryaddition: 0.5;
     roundingmodes: 0.5;

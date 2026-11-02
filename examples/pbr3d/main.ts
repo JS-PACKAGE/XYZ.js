@@ -711,6 +711,7 @@ try {
     'dcbarreljackfaces',
     'stfiberadapterfaces',
     'to92packagefaces',
+    'percolationclusters',
     'abeliansandpile',
     'binaryaddition',
     'roundingmodes',

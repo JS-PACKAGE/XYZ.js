@@ -1741,6 +1741,10 @@
 
 這是作者設計的示意：只有中央一點來源、只有三種顆粒數，沒有其他初始配置；格子之間沒有線條，格線與像素對不齊時邊緣會有輕微的階梯（81格對應的像素數不是整數）。堆的範圍只占tile的一部分，其餘是0顆的底色。取樣器第一次呼叫時需要模擬整個沙堆，之後才是查表；預覽腳本在512²量到的單次時間約224毫秒（Bun，未做正式效能量測）。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`percolationclusters`（滲流群集）使目前目錄1045→1046種，含plain的gallery為1047項。每tile是48×48格的位點滲流（site percolation）示意：每一格各自以機率p「打開」，沿邊相鄰的打開格連成一個群集；最大的群集用最深的亮度，其餘大小至少8格的用中間亮度，更小的用較淺的亮度，沒打開的格子是紙面底色。p由seed從0.56、0.5927、0.63三個值挑一個（0.5927是正方晶格位點滲流的臨界值）。Metallic與mortar為0。
+
+這是作者設計的示意：只有正方晶格的位點滲流，群集不跨越tile邊界相連（網格在邊緣被切斷，相鄰tile的群集不會接在一起，tile縫處會看到斷開）；格子之間沒有線，大小只分三級，亮度只表示群集大小，不是其他物理量。p的三個值是固定的，也沒有標示臨界值或「是否貫穿」。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

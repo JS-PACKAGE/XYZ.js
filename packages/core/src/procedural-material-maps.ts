@@ -32340,6 +32340,69 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'percolationclusters': {
+        const p = proceduralMaterialPresets.percolationclusters,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2e001),
+          n = p.size,
+          opening =
+            p.openings[
+              Math.floor(hash(3, 4, seed ^ 0x2e002) * p.openings.length)
+            ],
+          open = new Uint8Array(n * n),
+          label = new Int32Array(n * n).fill(-1),
+          sizes: number[] = [];
+        for (let i = 0; i < n * n; i++)
+          open[i] = hash(i % n, (i / n) | 0, seed ^ 0x2e003) < opening ? 1 : 0;
+        // Label the clusters of open sites that touch along an edge.
+        for (let start = 0; start < n * n; start++) {
+          if (open[start] === 0 || label[start] >= 0) continue;
+          const id = sizes.length,
+            stack = [start];
+          let size = 0;
+          label[start] = id;
+          while (stack.length > 0) {
+            const index = stack.pop() as number,
+              x = index % n,
+              y = (index - x) / n;
+            size++;
+            for (const next of [
+              x > 0 ? index - 1 : -1,
+              x < n - 1 ? index + 1 : -1,
+              y > 0 ? index - n : -1,
+              y < n - 1 ? index + n : -1,
+            ])
+              if (next >= 0 && open[next] === 1 && label[next] < 0) {
+                label[next] = id;
+                stack.push(next);
+              }
+          }
+          sizes.push(size);
+        }
+        const largest = Math.max(0, ...sizes);
+        return () => {
+          const index =
+              Math.min(n - 1, Math.floor(v * n)) * n +
+              Math.min(n - 1, Math.floor(u * n)),
+            size = label[index] < 0 ? 0 : sizes[label[index]];
+          let tone: number = p.closedTone,
+            level: number = p.closedHeight;
+          if (size > 0)
+            if (size === largest) {
+              tone = p.largestTone;
+              level = p.largestHeight;
+            } else if (size >= p.mediumSize) {
+              tone = p.mediumTone;
+              level = p.mediumHeight;
+            } else {
+              tone = p.smallTone;
+              level = p.smallHeight;
+            }
+          color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(level);
+          roughness = p.cellRoughness;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -59869,6 +59932,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'percolationclusters' ||
     kind === 'abeliansandpile' ||
     kind === 'binaryaddition' ||
     kind === 'roundingmodes' ||
