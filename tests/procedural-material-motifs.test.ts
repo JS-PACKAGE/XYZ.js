@@ -25964,3 +25964,183 @@ describe('sierpinskipascal: Pascal triangle modulo 2 in two triangles', () => {
     expect(different).toBeGreaterThan(0);
   });
 });
+
+describe('cobwebplots: the logistic map and its cobweb', () => {
+  const p = proceduralMaterialPresets.cobwebplots;
+  // Plot units (0 to 1 both ways) to tile coordinates; y goes up in the plot and down in the tile.
+  const toTile = (x: number, y: number): [number, number] => [
+    p.origin + x * p.size,
+    p.origin + (1 - y) * p.size,
+  ];
+  const cobweb = (rate: number, start: number): [number, number][] => {
+    const points: [number, number][] = [[start, 0]];
+    let x = start;
+    for (let i = 0; i < p.iterations; i++) {
+      const next = rate * x * (1 - x);
+      points.push([x, next], [next, next]);
+      x = next;
+    }
+    return points;
+  };
+
+  const matching = (seed: number, thorough = true): [number, number][] => {
+    const sample = createSurfaceSampler('cobwebplots', seed),
+      out = empty(),
+      colorAt = (u: number, v: number): number => {
+        sample(u, v, out);
+        return out.color;
+      },
+      found: [number, number][] = [];
+    for (const rate of p.rates)
+      for (const start of p.starts) {
+        const points = cobweb(rate, start);
+        // The middle of every segment of the cobweb is dark.
+        let ok = points.every(([x, y], i) => {
+          if (i === 0) return true;
+          const [px, py] = points[i - 1];
+          return (
+            Math.hypot(x - px, y - py) < 1e-9 ||
+            colorAt(...toTile((x + px) / 2, (y + py) / 2)) < 0.3
+          );
+        });
+        if (!ok) continue;
+        if (!thorough) {
+          found.push([rate, start]);
+          continue;
+        }
+        // Lines drawn: the cobweb, the parabola, the diagonal and the frame; far from all of them the picture is paper.
+        const lines: [number, number][] = [];
+        for (let k = 1; k < points.length; k++)
+          for (let s = 0; s <= 40; s++)
+            lines.push([
+              points[k - 1][0] + ((points[k][0] - points[k - 1][0]) * s) / 40,
+              points[k - 1][1] + ((points[k][1] - points[k - 1][1]) * s) / 40,
+            ]);
+        for (let s = 0; s <= 400; s++) {
+          const x = s / 400;
+          lines.push(
+            [x, rate * x * (1 - x)],
+            [x, x],
+            [x, 0],
+            [x, 1],
+            [0, x],
+            [1, x],
+          );
+        }
+        let empties = 0;
+        for (let j = 0; j < 70 && ok; j++)
+          for (let i = 0; i < 70 && ok; i++) {
+            const u = (i + 0.5) / 70,
+              v = (j + 0.5) / 70,
+              x = (u - p.origin) / p.size,
+              y = 1 - (v - p.origin) / p.size;
+            if (
+              lines.every(
+                ([lx, ly]) => Math.hypot(x - lx, y - ly) * p.size > 0.012,
+              )
+            ) {
+              empties++;
+              ok = colorAt(u, v) > 0.85;
+            }
+          }
+        if (ok && empties > 3000) found.push([rate, start]);
+      }
+    return found;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws the cobweb of the logistic map for exactly one growth rate and start (seed %i)',
+    (seed) => {
+      expect(matching(seed)).toHaveLength(1);
+    },
+  );
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws the parabola and the diagonal as thin grey lines (seed %i)',
+    (seed) => {
+      const [[rate, start]] = matching(seed, false),
+        sample = createSurfaceSampler('cobwebplots', seed),
+        out = empty(),
+        web = cobweb(rate, start),
+        near = (x: number, y: number): boolean => {
+          for (let k = 1; k < web.length; k++)
+            for (let s = 0; s <= 20; s++) {
+              const px = web[k - 1][0] + ((web[k][0] - web[k - 1][0]) * s) / 20,
+                py = web[k - 1][1] + ((web[k][1] - web[k - 1][1]) * s) / 20;
+              if (Math.hypot(x - px, y - py) * p.size < 0.02) return true;
+            }
+          return false;
+        };
+      let diagonals = 0,
+        curves = 0;
+      for (let i = 1; i < 40; i++) {
+        const x = i / 40;
+        if (!near(x, x)) {
+          sample(...toTile(x, x), out);
+          expect(out.color).toBeGreaterThan(0.45);
+          expect(out.color).toBeLessThan(0.8);
+          diagonals++;
+        }
+        const y = rate * x * (1 - x);
+        if (!near(x, y)) {
+          sample(...toTile(x, y), out);
+          expect(out.color).toBeGreaterThan(0.25);
+          expect(out.color).toBeLessThan(0.6);
+          curves++;
+        }
+      }
+      expect(diagonals).toBeGreaterThan(10);
+      expect(curves).toBeGreaterThan(10);
+    },
+  );
+
+  it('uses every growth rate and start across seeds', () => {
+    const rates = new Set<number>(),
+      starts = new Set<number>();
+    for (let seed = 0; seed < 40; seed++) {
+      const cheap = matching(seed, false);
+      expect(cheap).toHaveLength(1);
+      const [[rate, start]] = cheap;
+      rates.add(rate);
+      starts.add(start);
+    }
+    expect(rates.size).toBe(p.rates.length);
+    expect(starts.size).toBe(p.starts.length);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('cobwebplots', 0),
+      b = createSurfaceSampler('cobwebplots', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(0);
+  });
+});

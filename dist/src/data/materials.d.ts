@@ -11892,6 +11892,36 @@ export declare const proceduralMaterialPresets: Readonly<{
         paperRoughness: 0.74;
         inkRoughness: 0.4;
     }>;
+    cobwebplots: Readonly<{
+        dark: readonly [26, 32, 58];
+        light: readonly [246, 242, 222];
+        roughness: 0.55;
+        relief: 0.004;
+        rates: readonly number[];
+        starts: readonly number[];
+        iterations: 14;
+        origin: 0.08;
+        size: 0.84;
+        pathHalf: 0.0028;
+        curveHalf: 0.0022;
+        diagonalHalf: 0.0018;
+        boxHalf: 0.0012;
+        edgeSoft: 0.0011;
+        grainCells: 192;
+        paperTone: 0.94;
+        pathTone: 0.1;
+        curveTone: 0.42;
+        diagonalTone: 0.62;
+        boxTone: 0.7;
+        grainTone: 0.03;
+        paperHeight: 0.2;
+        pathHeight: 0.8;
+        curveHeight: 0.55;
+        diagonalHeight: 0.45;
+        boxHeight: 0.4;
+        paperRoughness: 0.74;
+        inkRoughness: 0.4;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -18377,6 +18407,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    cobwebplots: 0.8;
     sierpinskipascal: 0.8;
     sacksspiral: 1;
     dyckpaths: 0.7;

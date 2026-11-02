@@ -35564,6 +35564,94 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'cobwebplots': {
+        const p = proceduralMaterialPresets.cobwebplots,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x30501),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          rate =
+            p.rates[Math.floor(hash(7, 1, seed ^ 0x30502) * p.rates.length)],
+          start =
+            p.starts[Math.floor(hash(7, 2, seed ^ 0x30503) * p.starts.length)],
+          // The cobweb in plot units (0 to 1 both ways), as segments [x0, y0, x1, y1]: up from (x, 0) to the curve, across to the
+          // diagonal, then up or down to the curve again, and so on.
+          segments: number[][] = [];
+        let x = start,
+          y = 0;
+        for (let i = 0; i < p.iterations; i++) {
+          const next = rate * x * (1 - x);
+          segments.push([x, y, x, next], [x, next, next, next]);
+          x = next;
+          y = next;
+        }
+        return () => {
+          const plotX = (u - p.origin) / p.size,
+            plotY = 1 - (v - p.origin) / p.size,
+            inX = plotX >= 0 && plotX <= 1;
+          let path = 0;
+          for (const segment of segments) {
+            const dx = segment[2] - segment[0],
+              dy = segment[3] - segment[1],
+              length2 = dx * dx + dy * dy;
+            if (length2 === 0) continue;
+            const t = clamp(
+              ((plotX - segment[0]) * dx + (plotY - segment[1]) * dy) / length2,
+            );
+            path = Math.max(
+              path,
+              cover(
+                p.pathHalf -
+                  p.size *
+                    Math.hypot(
+                      plotX - segment[0] - t * dx,
+                      plotY - segment[1] - t * dy,
+                    ),
+              ),
+            );
+          }
+          // The parabola y = f(x) and the diagonal y = x, with the vertical gap divided by the length of the slope vector.
+          const curve = inX
+              ? cover(
+                  p.curveHalf -
+                    (p.size * Math.abs(plotY - rate * plotX * (1 - plotX))) /
+                      Math.hypot(1, rate * (1 - 2 * plotX)),
+                )
+              : 0,
+            diagonal = inX
+              ? cover(
+                  p.diagonalHalf -
+                    (p.size * Math.abs(plotY - plotX)) / Math.SQRT2,
+                )
+              : 0,
+            edgeX = Math.min(Math.abs(plotX), Math.abs(plotX - 1)),
+            edgeY = Math.min(Math.abs(plotY), Math.abs(plotY - 1)),
+            box = Math.max(
+              plotY >= 0 && plotY <= 1 ? cover(p.boxHalf - p.size * edgeX) : 0,
+              inX ? cover(p.boxHalf - p.size * edgeY) : 0,
+            ),
+            withBox = p.paperTone + (p.boxTone - p.paperTone) * box,
+            withDiagonal = withBox + (p.diagonalTone - withBox) * diagonal,
+            withCurve = withDiagonal + (p.curveTone - withDiagonal) * curve;
+          color = clamp(
+            withCurve +
+              (p.pathTone - withCurve) * path +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          const level = Math.max(
+            p.paperHeight,
+            box * p.boxHeight,
+            diagonal * p.diagonalHeight,
+            curve * p.curveHeight,
+          );
+          height = clamp(level + (p.pathHeight - level) * path);
+          roughness =
+            p.paperRoughness +
+            (p.inkRoughness - p.paperRoughness) *
+              Math.max(path, curve, diagonal, box);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -63093,6 +63181,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'cobwebplots' ||
     kind === 'sierpinskipascal' ||
     kind === 'sacksspiral' ||
     kind === 'dyckpaths' ||

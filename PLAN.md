@@ -1889,6 +1889,10 @@
 
 這是作者設計的示意：只有奇數／偶數兩種顏色，不標註數字；方格是硬邊的（深色方格沒有邊線，邊緣沒有抗鋸齒的色階，只有紋理的顆粒）；深度最多7（128×128個方格），更深在512像素以下會變成不到4像素；兩個三角形在tile邊緣與對角線處的深色格會相連、顯得較粗。預設0.8 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`cobwebplots`（蛛網圖）使目前目錄1082→1083種，含plain的gallery為1084項。整張tile畫一幅邏輯斯諦映射 f(x) = r·x·(1 − x) 的蛛網圖：一個細框方形座標、灰色的拋物線 y = f(x) 與對角線 y = x，以及深色的蛛網——從 (x₀, 0) 垂直走到拋物線，水平走到對角線，再垂直走到拋物線，如此反覆14次迭代。seed從r = 2.8、3.2、3.5、3.74、3.9中選一個、並從x₀ = 0.11、0.27、0.46、0.83中選一個（共20種組合）。Metallic與mortar為0。
+
+這是作者設計的示意：只畫14次迭代，沒有標註r、x₀或座標軸數字；座標軸是一個細方框；r較大時蛛網沒有收斂到不動點，14步之後仍在變動，不代表任何長期行為的結論。預設0.8 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
