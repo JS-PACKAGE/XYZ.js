@@ -1039,6 +1039,7 @@ export type ProceduralMaterialKind =
   | 'kolakoski'
   | 'baumsweet'
   | 'bayerdither'
+  | 'wangtiles'
   | 'sandpileidentity'
   | 'multiplicativeorder'
   | 'vermiculation'
@@ -2325,6 +2326,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'kolakoski',
   'baumsweet',
   'bayerdither',
+  'wangtiles',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',

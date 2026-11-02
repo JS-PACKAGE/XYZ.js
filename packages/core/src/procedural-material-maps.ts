@@ -42764,6 +42764,80 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'wangtiles': {
+        const p = proceduralMaterialPresets.wangtiles,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft,
+          reachSquared = p.reach * p.reach,
+          horizontal = new Uint8Array(p.cells * p.cells),
+          vertical = new Uint8Array(p.cells * p.cells);
+        // A random Wang tiling on a cells x cells torus: every edge between two tiles has one
+        // of two colours (0 dark, 1 light), chosen at random, and a tile is drawn with the colours
+        // of its own four edges (top, bottom, left, right), so the two tiles that meet at an edge
+        // always agree on its colour, the matching rule of Wang tiles. horizontal[i][j] is the
+        // colour of the edge above tile (i, j) (and below tile (i - 1, j)), vertical[i][j] the
+        // colour of the edge left of tile (i, j). The tone of a point of a tile is the average of
+        // its four edge colours weighted by (1 - d^2 / reach^2)^2 for the distance d to
+        // the middle of each edge (0 beyond reach), which is smooth.
+        for (let i = 0; i < p.cells; i++)
+          for (let j = 0; j < p.cells; j++) {
+            horizontal[i * p.cells + j] =
+              hash(i, j, seed ^ p.seedSalt) < 0.5 ? 0 : 1;
+            vertical[i * p.cells + j] =
+              hash(i, j, seed ^ (p.seedSalt + 1)) < 0.5 ? 0 : 1;
+          }
+        return () => {
+          // One compact-support rounded-square kernel per cell (a quartic superellipse
+          // through smoothstep, exactly zero before the cell boundary), so the cell
+          // lookup never jumps and the field is C1.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            fx = x - col - 0.5,
+            fy = y - row - 0.5,
+            ax = fx * inverseHalf,
+            ay = fy * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            below = (row + 1) % p.cells,
+            right = (col + 1) % p.cells,
+            // Distances (squared) to the middles of the top, bottom, left and right edges.
+            weights = [
+              [horizontal[row * p.cells + col], fx * fx + (fy + 0.5) ** 2],
+              [horizontal[below * p.cells + col], fx * fx + (fy - 0.5) ** 2],
+              [vertical[row * p.cells + col], (fx + 0.5) ** 2 + fy * fy],
+              [vertical[row * p.cells + right], (fx - 0.5) ** 2 + fy * fy],
+            ];
+          let total = 0,
+            weighted = 0;
+          for (const [edge, distanceSquared] of weights) {
+            const falloff =
+              Math.max(0, 1 - distanceSquared / reachSquared) ** 2;
+            total += falloff;
+            weighted += falloff * edge;
+          }
+          const tone = (p.toneSpan * weighted) / total,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -51604,6 +51678,7 @@ export function createSurfaceSampler(
     kind === 'kolakoski' ||
     kind === 'baumsweet' ||
     kind === 'bayerdither' ||
+    kind === 'wangtiles' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||

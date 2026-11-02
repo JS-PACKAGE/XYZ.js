@@ -1065,6 +1065,7 @@ const kinds: ProceduralMaterialKind[] = [
   'kolakoski',
   'baumsweet',
   'bayerdither',
+  'wangtiles',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',
@@ -168126,6 +168127,267 @@ describe('Bayer dither as an ordered-dither ramp with the 8 by 8 Bayer matrix on
     expect(blue / (512 * 512)).toBeLessThan(111);
     expect(maxTilt).toBeGreaterThan(0.035);
     expect(maxTilt).toBeLessThan(0.045);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Wang tiles as a random 16 by 16 Wang tiling whose tiles agree in colour on every shared edge', () => {
+  const p = proceduralMaterialPresets.wangtiles;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const cells = 16;
+  type Edges = {
+    top: number[];
+    bottom: number[];
+    left: number[];
+    right: number[];
+    ambiguous: number;
+  };
+  /**
+   * The four edge colours of every tile read back from the sampler: the tone 0.4 of a cell
+   * from the centre towards each edge, which is dominated by that edge's colour, decides
+   * dark (0) or light (1) at the midpoint of the tone range.
+   */
+  const readEdges = (seed: number): Edges => {
+    const sample = createSurfaceSampler('wangtiles', seed),
+      out = empty(),
+      edges: Edges = { top: [], bottom: [], left: [], right: [], ambiguous: 0 },
+      bit = (row: number, col: number, dx: number, dy: number): number => {
+        sample((col + 0.5 + dx) / cells, (row + 0.5 + dy) / cells, out);
+        const tone = (out.color - p.toneFloor) / p.toneSpan;
+        if (Math.abs(tone - 0.5) < 0.1) edges.ambiguous++;
+        return tone > 0.5 ? 1 : 0;
+      };
+    for (let row = 0; row < cells; row++)
+      for (let col = 0; col < cells; col++) {
+        edges.top.push(bit(row, col, 0, -0.4));
+        edges.bottom.push(bit(row, col, 0, 0.4));
+        edges.left.push(bit(row, col, -0.4, 0));
+        edges.right.push(bit(row, col, 0.4, 0));
+      }
+    return edges;
+  };
+  /** Tone at (u, v) from the read-back edges, written independently here with explicit tuples. */
+  const expectedTone = (edges: Edges, u: number, v: number): number | null => {
+    const x = u * cells,
+      y = v * cells,
+      col = Math.floor(x),
+      row = Math.floor(y),
+      fx = x - col - 0.5,
+      fy = y - row - 0.5,
+      norm = (fx / p.kernelHalf) ** 4 + (fy / p.kernelHalf) ** 4;
+    if (norm > 0.65) return null;
+    const index = row * cells + col,
+      terms: [number, number][] = [
+        [edges.top[index], fx * fx + (fy + 0.5) ** 2],
+        [edges.bottom[index], fx * fx + (fy - 0.5) ** 2],
+        [edges.left[index], (fx + 0.5) ** 2 + fy * fy],
+        [edges.right[index], (fx - 0.5) ** 2 + fy * fy],
+      ];
+    let total = 0,
+      weighted = 0;
+    for (const [edge, distance] of terms) {
+      const falloff = Math.max(0, 1 - distance / p.reach ** 2) ** 2;
+      total += falloff;
+      weighted += falloff * edge;
+    }
+    return p.toneFloor + (p.toneSpan * weighted) / total;
+  };
+  it('draws a matching Wang tiling and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('wangtiles', seed),
+        a = empty();
+      // Every shared edge has one colour from both sides (the bottom of a tile is the top of
+      // the one below, the right is the left of the next, wrapping around the torus: the Wang
+      // matching rule), all 16 kinds of tile (the combinations of four edge colours) occur, no
+      // read-back is ambiguous, and the tone at 2000 points inside the tiles follows the
+      // independent weighted formula within the grain.
+      const edges = readEdges(seed);
+      expect(edges.ambiguous).toBe(0);
+      let mismatches = 0;
+      const kinds = new Set<number>();
+      for (let row = 0; row < cells; row++)
+        for (let col = 0; col < cells; col++) {
+          const index = row * cells + col;
+          mismatches += Number(
+            edges.bottom[index] !==
+              edges.top[((row + 1) % cells) * cells + col],
+          );
+          mismatches += Number(
+            edges.right[index] !==
+              edges.left[row * cells + ((col + 1) % cells)],
+          );
+          kinds.add(
+            edges.top[index] * 8 +
+              edges.bottom[index] * 4 +
+              edges.left[index] * 2 +
+              edges.right[index],
+          );
+        }
+      expect(mismatches).toBe(0);
+      expect(kinds.size).toBe(16);
+      let worst = 0,
+        compared = 0;
+      for (let i = 0; i < 4000; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1,
+          expected = expectedTone(edges, u, v);
+        if (expected === null) continue;
+        sample(u, v, a);
+        worst = Math.max(worst, Math.abs(a.color - expected));
+        compared++;
+      }
+      expect(compared).toBeGreaterThan(2400);
+      expect(worst).toBeLessThan(0.03);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.025);
+      expect(low).toBeLessThan(0.026);
+      expect(high).toBeGreaterThan(0.853);
+      expect(high).toBeLessThan(0.855);
+      expect(dark / 65536).toBeGreaterThan(0.325);
+      expect(dark / 65536).toBeLessThan(0.33);
+      expect(mean / 65536).toBeGreaterThan(0.356);
+      expect(mean / 65536).toBeLessThan(0.359);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 3);
+      expect(heightHigh).toBeGreaterThan(0.842);
+      expect(heightHigh).toBeLessThan(0.847);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('draws a different tiling per seed and is deterministic for one seed', () => {
+    const first = readEdges(0),
+      second = readEdges(1);
+    let different = 0;
+    for (let i = 0; i < first.top.length; i++)
+      different += Number(first.top[i] !== second.top[i]);
+    expect(different / first.top.length).toBeGreaterThan(0.35);
+    expect(different / first.top.length).toBeLessThan(0.65);
+    expect(readEdges(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('wangtiles', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [cells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 amber quilt maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('wangtiles', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(101.5);
+    expect(red / (512 * 512)).toBeLessThan(104);
+    expect(green / (512 * 512)).toBeGreaterThan(75);
+    expect(green / (512 * 512)).toBeLessThan(77);
+    expect(blue / (512 * 512)).toBeGreaterThan(56.5);
+    expect(blue / (512 * 512)).toBeLessThan(58.5);
+    expect(maxTilt).toBeGreaterThan(0.005);
+    expect(maxTilt).toBeLessThan(0.009);
     expect(invalid).toBe(0);
   });
 });

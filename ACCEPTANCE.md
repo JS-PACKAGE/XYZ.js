@@ -12995,3 +12995,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Bayer dither as|bayerdither|kinds|catalog|distinct|periodic"`定向測試**2380項通過／4070項未選**。
 - 未驗證：baumsweet與bayerdither未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-03 新增材質：王氏磁磚（wangtiles）
+
+- 範圍：新增`wangtiles`（目前目錄1037→1038種，含plain的gallery 1039項）：16×16圓角方磚表上的隨機王氏鋪磚：每條邊隨機選深或亮，每塊磁磚依自己四邊的顏色畫出（共用一邊的兩塊磁磚在該邊顏色一致），磁磚內部色調為四邊顏色依到邊中點距離加權`(1 − d²/0.9²)²`的平滑平均；琥珀色在深紫底上；seed決定所有邊的顏色；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 131,584 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽只看了一版；(2)配對規則在sampler中是構造出來的（兩側磁磚共用同一份邊資料），所以測試的「兩側讀回一致」主要防止日後改成各磁磚獨立取色；真正獨立的部分是以測試內另外寫的加權公式（輸入為讀回的邊顏色）重算約2,500個點的色調；(3)seed差異測試只檢查seed 0與1的上邊顏色不同的比例介於35%與65%之間，這個比例我**沒有**在探針中另外量出數字，測試通過是唯一的證據；(4)256²與512²取樣的亮處占比略有不同（32.56%–32.89%對31.69%–32.56%），測試採用256²的數值；(5)建構與取樣耗時**未量測**；(6)測試第一次執行即通過。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：共用邊兩側讀回顏色不一致0處，16種磁磚全部出現，讀回無模稜兩可（離中點皆≥0.1）；以讀回邊顏色用獨立公式重算2,541個點，最大色差0.01445–0.01485；上邊與左邊共512條中亮邊243–249條；256²（seed 0／1／0xffffffff）亮處（color>0.5）32.56%–32.89%、color 0.02570–0.02586至0.85340–0.85405、平均0.35701–0.35805、roughness恆為0.4、AO最低0.6、height至多0.8422–0.8461 relief；512²（四個seed）亮處31.69%–32.56%、color 0.02520–0.02542至0.85425–0.85473、平均0.35193–0.35792、AO最低0.6、height至多0.8477–0.8491 relief；seed 0與1相比，512²中color>0.5的取樣30.0%不同；seed 7的512²maps平均r／g／b約(102.7, 75.9, 57.6)、法線tilt²最大約0.0068、z分量最小255。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Wang tiles as|wangtiles|kinds|catalog|distinct|periodic"`定向測試**2382項通過／4073項未選**。
+- 未驗證：baumsweet、bayerdither與wangtiles未跑完整suite與瀏覽器gallery；不push。

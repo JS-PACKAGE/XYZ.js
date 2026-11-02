@@ -1102,6 +1102,7 @@ try {
     'kolakoski',
     'baumsweet',
     'bayerdither',
+    'wangtiles',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',
