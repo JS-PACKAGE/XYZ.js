@@ -12549,3 +12549,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增6項專屬測試（154塊／335條邊／182個頂點／歐拉示性數1／邊長1／頂點邊數2到9／27、58、69三種菱形、四seed的旋轉唯一比對與統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過；`Ammann-Beenker as`原有測試仍通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Heptagrid tiling as|heptagridtiling|Ammann-Beenker as|kinds|catalog|distinct|periodic"`定向測試**2295項通過／3923項未選**。
 - 未驗證：ammannbeenker、heptagridtiling未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 完整suite與瀏覽器gallery驗證：kikko至heptagridtiling
+
+- 完整suite（工具實跑，worktree `/private/tmp/xyz-ct-suite`）：`f6d1b6438`「Add Penrose star material」**179檔／10,135項全數通過**（Duration 1336.14s，涵蓋kikko、kagome、penrosetiling、penrosestar；先前`c2fcaeac8`的10,113項涵蓋至vermiculation）。**ammannbeenker、heptagridtiling（`cc65098fb`）尚未跑完整suite**，只有定向測試與gates（其中共用的多重網格分支重構同時跑過Penrose兩個區塊）。
+- 瀏覽器gallery（工具實跑）：spawned Google Chrome headless（`--enable-unsafe-webgpu --use-angle=metal`）開啟`/examples/pbr3d/`（vite dev server服務乾淨worktree）；以`tab.run`內的`page.evaluate`逐一以`input`事件選取並輪詢讀數出現`Material <kind> `：`f6d1b6438`狀態下的`kikko`、`kagome`、`penrosetiling`、`penrosestar`（選單993個選項、狀態列`992 procedural material presets`），以及`cc65098fb`狀態下的`ammannbeenker`、`heptagridtiling`（選單995個選項、狀態列`994 procedural material presets`），六個全部成功；WebGPU與`?renderer=webgl2`各跑一次，結束時`tab.errors()`的`entries`皆為0筆。
+- 限制：gallery檢查只涵蓋「能選取、讀數更新、console沒有錯誤」，**沒有**逐材質視覺比對，也沒有跨瀏覽器、跨GPU或Windows／Linux驗證；不push。
