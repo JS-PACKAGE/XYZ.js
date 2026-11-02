@@ -1024,6 +1024,7 @@ const kinds: ProceduralMaterialKind[] = [
   'levycurve',
   'hadamardmatrix',
   'paleytable',
+  'xortable',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -153982,6 +153983,220 @@ describe('Paley table as quadratic residues modulo 61', () => {
     expect(green / (512 * 512)).toBeLessThan(87);
     expect(blue / (512 * 512)).toBeGreaterThan(96);
     expect(blue / (512 * 512)).toBeLessThan(103);
+    expect(maxTilt).toBeGreaterThan(0.02);
+    expect(maxTilt).toBeLessThan(0.06);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('XOR table as row XOR column on lime tiles', () => {
+  const p = proceduralMaterialPresets.xortable;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const cells = 64;
+  /** Tone of cell (row, col): row XOR col over cells - 1, written independently here. */
+  const tones = Array.from(
+    { length: cells * cells },
+    (_, i) =>
+      (p.toneSpan * (Math.floor(i / cells) ^ (i % cells))) / (cells - 1),
+  );
+  const expectedColor = (tone: number): number => p.toneFloor + tone;
+  /** Colour read at the centre of every cell, grain included. */
+  const cellColors = (seed: number): number[] => {
+    const sample = createSurfaceSampler('xortable', seed),
+      out = empty(),
+      colors: number[] = [];
+    for (let row = 0; row < cells; row++)
+      for (let col = 0; col < cells; col++) {
+        sample((col + 0.5) / cells, (row + 0.5) / cells, out);
+        colors.push(out.color);
+      }
+    return colors;
+  };
+  /** Table shifts (x, y) around the torus that reproduce every cell colour. */
+  const fittingShifts = (colors: number[]): [number, number][] => {
+    const fits: [number, number][] = [];
+    for (let sy = 0; sy < cells; sy++)
+      for (let sx = 0; sx < cells; sx++) {
+        let worst = 0;
+        for (let row = 0; row < cells && worst < 0.03; row++)
+          for (let col = 0; col < cells; col++)
+            worst = Math.max(
+              worst,
+              Math.abs(
+                colors[row * cells + col] -
+                  expectedColor(
+                    tones[((row + sy) % cells) * cells + ((col + sx) % cells)],
+                  ),
+              ),
+            );
+        if (worst < 0.03) fits.push([sx, sy]);
+      }
+    return fits;
+  };
+  it('colours every cell by row XOR column and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('xortable', seed),
+        a = empty();
+      // XOR with 32 on both axes is the same as adding 32 on both, so exactly two torus
+      // shifts reproduce every cell colour: one and the same shifted by (32, 32).
+      const fits = fittingShifts(cellColors(seed));
+      expect(fits).toHaveLength(2);
+      expect(fits[1]).toEqual([
+        (fits[0][0] + 32) % cells,
+        (fits[0][1] + 32) % cells,
+      ]);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      // On the 256 x 256 grid every sample is 4 per cell, so none lands in a gap centre.
+      expect(low).toBeGreaterThan(0.06);
+      expect(low).toBeLessThan(0.062);
+      expect(high).toBeGreaterThan(0.853);
+      expect(high).toBeLessThan(0.855);
+      expect(dark / 65536).toBeGreaterThan(0.36);
+      expect(dark / 65536).toBeLessThan(0.367);
+      expect(mean / 65536).toBeGreaterThan(0.415);
+      expect(mean / 65536).toBeLessThan(0.416);
+      expect(occlusionLow).toBeGreaterThan(0.73);
+      expect(occlusionLow).toBeLessThan(0.74);
+      // The corner shared by four tiles lies in the gap, where the kernels are exactly zero.
+      sample(1 / cells, 1 / cells, a);
+      expect(a.occlusion).toBeCloseTo(1 - p.gapOcclusion, 6);
+      expect(heightHigh).toBeGreaterThan(0.84);
+      expect(heightHigh).toBeLessThan(0.85);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('moves the table around the torus per seed and is deterministic for one seed', () => {
+    const first = cellColors(0),
+      second = cellColors(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(Math.abs(first[i] - second[i]) > 0.05);
+    expect(different / first.length).toBeGreaterThan(0.2);
+    expect(cellColors(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('xortable', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [cells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 lime tile maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('xortable', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(70);
+    expect(red / (512 * 512)).toBeLessThan(77);
+    expect(green / (512 * 512)).toBeGreaterThan(98);
+    expect(green / (512 * 512)).toBeLessThan(105);
+    expect(blue / (512 * 512)).toBeGreaterThan(46);
+    expect(blue / (512 * 512)).toBeLessThan(53);
     expect(maxTilt).toBeGreaterThan(0.02);
     expect(maxTilt).toBeLessThan(0.06);
     expect(invalid).toBe(0);

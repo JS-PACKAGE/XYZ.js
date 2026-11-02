@@ -1061,6 +1061,7 @@ try {
     'levycurve',
     'hadamardmatrix',
     'paleytable',
+    'xortable',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

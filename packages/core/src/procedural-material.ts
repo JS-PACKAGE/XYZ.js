@@ -997,7 +997,8 @@ export type ProceduralMaterialKind =
   | 'tulle'
   | 'levycurve'
   | 'hadamardmatrix'
-  | 'paleytable';
+  | 'paleytable'
+  | 'xortable';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2229,6 +2230,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'levycurve',
   'hadamardmatrix',
   'paleytable',
+  'xortable',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

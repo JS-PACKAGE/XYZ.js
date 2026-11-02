@@ -12429,3 +12429,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試（30個平方剩餘與三種色調格數、61個平移的對角線結構、統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Paley table as|paleytable|kinds|catalog|distinct|periodic"`定向測試**2266項通過／3886項未選**。
 - 未驗證：levycurve、hadamardmatrix、paleytable未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：互斥或表（xortable）
+
+- 範圍：新增`xortable`（目前目錄982→983種，含plain的gallery 984項）：64×64個圓角方塊磚，第(row, col)格色調為`0.14 + 0.7·(row XOR col)/63`（主對角線最暗、越大越亮的萊姆綠；經典的XOR texture／尼姆和表）；seed沿環面平移整張表；磚縫AO 0.6；roughness恆為0.4；預設0.3 m nominal tile、0.0008 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)我預先猜測每個seed只有一個符合的環面平移，探針顯示是2個（兩軸同時加32等同於`row XOR col`不變），測試改為斷言恰有兩個平移且彼此差(32, 32)。(2)256²取樣每格只有4個取樣點，不會落在磚縫中心，最暗color 0.0602–0.0607、AO最低0.7344，與512²取樣的0.0251–0.0254與0.6不同，測試的256²區間依此訂定（同hadamardmatrix）。(3)relief沿用0.0008，512²maps法線tilt²最大0.0378。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：256²取樣亮處（color>0.5）占36.40%–36.46%、color 0.0602–0.0607至0.8538–0.8541、平均0.4153–0.4154、AO最低0.7344、height至多0.8453–0.8484 relief（seed 0／1／0xffffffff）；512²取樣亮處占29.12%–29.20%、color 0.0251–0.0254至0.8538–0.8548、平均0.3593–0.3594、AO最低0.6、height至多0.8478–0.8506 relief；4,096個磚中心的顏色與測試中獨立寫出的表在恰好2個環面平移下一致（彼此差(32, 32)；第一個平移(52, 2)、(14, 2)、(6, 24)、(46, 2)；最大誤差約0.0150）；seed 0與1的亮區遮罩（512²）48.4%像素不同；seed 7的512²maps平均r／g／b約(73.4, 101.9, 49.5)、法線tilt²最大約0.0378、z分量最小253。我實看了預覽（seed 7）。
+- 測試：新增5項專屬測試（兩個平移的結構、逐磚比對、統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "XOR table as|xortable|kinds|catalog|distinct|periodic"`定向測試**2268項通過／3889項未選**。
+- 未驗證：levycurve、hadamardmatrix、paleytable、xortable未跑完整suite與瀏覽器gallery；不push。
