@@ -12859,3 +12859,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Hermite-Gauss modes as|hermitemodes|kinds|catalog|distinct|periodic"`定向測試**2354項通過／4031項未選**。
 - 未驗證：supershapes與hermitemodes未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：沃爾什矩陣（walshmatrix）
+
+- 範圍：新增`walshmatrix`（目前目錄1024→1025種，含plain的gallery 1026項）：32×32沃爾什—阿達馬矩陣（頻序；第`r`列的阿達馬列為`位元反轉(格雷碼(r))`，第`c`欄為`(−1)^popcount(h & c)`），+1亮（列漸暗0.3）、−1停在底色調，圓角方磚，琥珀金在深藍底上；seed令表在環面上平移；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 139,264 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽只看了一版；(2)sampler以格雷碼加位元反轉建立頻序，測試以Sylvester倍增法加依變號次數排序這個**獨立的方式**建立整張表，檢查各列變號次數為0到31，並從sampler每格中心顏色讀回±1、檢查讀回的矩陣是阿達馬矩陣（任兩列內積0，不論平移），再在1,024個平移中檢查恰好一個符合；(3)256²與512²取樣的亮處占比不同（32.09%–32.17%對37.06%），原因是格寬（8與16像素）與取樣點在格內的位置不同；(4)這次第一次執行測試即通過（我先量好探針數值再寫界線）；(5)建構與取樣耗時**未量測**。
+- 實測（工具實跑）：獨立建立的沃爾什矩陣各列變號次數為0、1、……、31；四個seed（0／1／0xffffffff／7）讀回的矩陣皆為阿達馬矩陣（不正交列對為0），各有唯一符合的平移(12, 22)、(4, 1)、(22, 13)、(2, 6)，最大擬合誤差0.01499／0.01499／0.01500／0.01498；256²（seed 0／1／0xffffffff）亮處（color>0.5）32.09%–32.17%、color 0.02581–0.02604至0.85314–0.85387、平均0.32965–0.32984、roughness恆為0.4、AO最低0.6、height至多0.8431–0.8452 relief；512²（四個seed）亮處恆為37.06%、color 0.02523–0.02538至0.85422–0.85461、平均0.33488–0.33499、height至多0.8463–0.8492 relief；seed 0與1相比，格中心顏色相差超過0.05的格子76.2%（512²中color>0.5的取樣35.9%不同）；seed 7的512²maps平均r／g／b約(90.7, 74.9, 44.0)、法線tilt²最大約0.0177、z分量最小254。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Walsh matrix as|walshmatrix|kinds|catalog|distinct|periodic"`定向測試**2356項通過／4034項未選**。
+- 未驗證：supershapes、hermitemodes與walshmatrix未跑完整suite與瀏覽器gallery；不push。

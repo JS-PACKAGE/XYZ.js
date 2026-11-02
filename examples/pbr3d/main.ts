@@ -1089,6 +1089,7 @@ try {
     'zernikemodes',
     'supershapes',
     'hermitemodes',
+    'walshmatrix',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',
