@@ -29370,6 +29370,97 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'analogclocks': {
+        const p = proceduralMaterialPresets.analogclocks,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2c101),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          cell = (1 - 2 * p.margin) / Math.max(p.columns, p.rows),
+          // Each clock shows a random time; the hands are set from it the way a real clock turns them:
+          // the minute hand 6 degrees per minute, the hour hand 30 degrees per hour plus half a degree per minute.
+          clocks = Array.from({ length: p.columns * p.rows }, (_, index) => {
+            const hour = Math.min(
+                11,
+                Math.floor(hash(index, 3, seed ^ 0x2c103) * 12),
+              ),
+              minute = Math.min(
+                59,
+                Math.floor(hash(index, 5, seed ^ 0x2c105) * 60),
+              );
+            return {
+              minuteAngle: (minute / 60) * 2 * Math.PI,
+              hourAngle: ((hour + minute / 60) / 12) * 2 * Math.PI,
+            };
+          }),
+          // Distance from (x, y) to the segment from the origin to (tx, ty).
+          segment = (x: number, y: number, tx: number, ty: number): number => {
+            const t = clamp((x * tx + y * ty) / (tx * tx + ty * ty));
+            return Math.hypot(x - t * tx, y - t * ty);
+          };
+        return () => {
+          const x = (u - p.margin) / cell,
+            y = (v - p.margin) / cell;
+          let face = 0,
+            rim = 0,
+            ink = 0;
+          if (x >= 0 && y >= 0 && x < p.columns && y < p.rows) {
+            const column = Math.floor(x),
+              row = Math.floor(y),
+              clock = clocks[row * p.columns + column],
+              px = (x - column - 0.5) / p.faceRadius,
+              py = (y - row - 0.5) / p.faceRadius,
+              radius = Math.hypot(px, py),
+              unit = p.faceRadius * cell,
+              // Twelve tick marks around the rim: distance to the nearest one along the arc, in face radii.
+              tickPhase = (((Math.atan2(px, -py) / (Math.PI / 6)) % 1) + 1) % 1,
+              nearTick =
+                Math.min(tickPhase, 1 - tickPhase) * (Math.PI / 6) * radius,
+              tick =
+                cover((p.tickWidth - nearTick) * unit) *
+                cover((radius - p.tickInner) * unit) *
+                cover((p.tickOuter - radius) * unit),
+              hour = cover(
+                (p.hourWidth -
+                  segment(
+                    px,
+                    py,
+                    p.hourLength * Math.sin(clock.hourAngle),
+                    -p.hourLength * Math.cos(clock.hourAngle),
+                  )) *
+                  unit,
+              ),
+              minute = cover(
+                (p.minuteWidth -
+                  segment(
+                    px,
+                    py,
+                    p.minuteLength * Math.sin(clock.minuteAngle),
+                    -p.minuteLength * Math.cos(clock.minuteAngle),
+                  )) *
+                  unit,
+              ),
+              hub = cover((p.hubRadius - radius) * unit);
+            face = cover((1 - radius) * unit);
+            rim = face * cover((p.rimWidth - (1 - radius)) * unit);
+            ink = face * Math.max(tick, hour, minute, hub);
+          }
+          const faceTone = p.wallTone + (p.faceTone - p.wallTone) * face,
+            rimTone = faceTone + (p.rimTone - faceTone) * rim,
+            faceHeight = p.wallHeight + (p.faceHeight - p.wallHeight) * face,
+            rimHeight = faceHeight + (p.rimHeight - faceHeight) * rim,
+            faceRoughness =
+              p.wallRoughness + (p.faceRoughness - p.wallRoughness) * face;
+          color = clamp(
+            rimTone +
+              (p.inkTone - rimTone) * ink +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(rimHeight + (p.handHeight - rimHeight) * ink);
+          roughness = faceRoughness + (p.metalRoughness - faceRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -56899,6 +56990,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'analogclocks' ||
     kind === 'treemaprects' ||
     kind === 'moonphases' ||
     kind === 'multiplicationtable' ||

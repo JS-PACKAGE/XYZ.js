@@ -16099,3 +16099,114 @@ describe('treemaprects: rectangles whose areas follow their labelled values', ()
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('analogclocks: a wall of clocks set to random times', () => {
+  const p = proceduralMaterialPresets.analogclocks;
+  const cell = (1 - 2 * p.margin) / Math.max(p.columns, p.rows);
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'turns the hour hand with the minutes and puts the minute hand on a whole minute (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('analogclocks', seed),
+        out = empty(),
+        steps = 720,
+        // The angles (clockwise from twelve, in degrees) of the dark arcs met going once round a circle of the given radius.
+        arcs = (cx: number, cy: number, radius: number): number[] => {
+          const dark: boolean[] = [];
+          for (let i = 0; i < steps; i++) {
+            const angle = (i / steps) * 2 * Math.PI;
+            sample(
+              cx + radius * p.faceRadius * cell * Math.sin(angle),
+              cy - radius * p.faceRadius * cell * Math.cos(angle),
+              out,
+            );
+            dark.push(out.color < 0.3);
+          }
+          const found: number[] = [];
+          let start = dark.findIndex(
+            (value, i) => value && !dark[(i + steps - 1) % steps],
+          );
+          if (start === -1) return dark.every(Boolean) ? [0] : [];
+          for (let seen = 0; seen < steps;) {
+            if (!dark[start % steps]) {
+              start++;
+              seen++;
+              continue;
+            }
+            let length = 0;
+            while (dark[(start + length) % steps] && seen + length < steps)
+              length++;
+            found.push((((start + (length - 1) / 2) / steps) * 360) % 360);
+            start += length;
+            seen += length;
+          }
+          return found;
+        },
+        gap = (a: number, b: number): number => {
+          const d = Math.abs(a - b) % 360;
+          return Math.min(d, 360 - d);
+        };
+      let checked = 0;
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const cx = p.margin + (col + 0.5) * cell,
+            cy = p.margin + (row + 0.5) * cell,
+            minuteArcs = arcs(cx, cy, 0.65);
+          // Only the minute hand reaches this far out.
+          expect(minuteArcs.length).toBe(1);
+          const minuteAngle = minuteArcs[0];
+          // A whole number of minutes: a multiple of 6 degrees.
+          expect(
+            gap(minuteAngle, Math.round(minuteAngle / 6) * 6),
+          ).toBeLessThan(2);
+          const inner = arcs(cx, cy, 0.3);
+          // The hour hand is the arc that is not the minute hand; when they overlap there is a single merged arc.
+          const others = inner.filter((angle) => gap(angle, minuteAngle) > 12);
+          if (others.length === 0) continue;
+          expect(others.length).toBe(1);
+          // The hour hand sits at 30 degrees per hour plus half a degree per minute, so its angle minus the minute
+          // hand's angle over twelve is a whole number of hours (a multiple of 30 degrees).
+          const hourOffset = (((others[0] - minuteAngle / 12) % 30) + 30) % 30;
+          expect(Math.min(hourOffset, 30 - hourOffset)).toBeLessThan(3);
+          checked++;
+        }
+      expect(checked).toBeGreaterThanOrEqual(8);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('analogclocks', 0),
+      b = createSurfaceSampler('analogclocks', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

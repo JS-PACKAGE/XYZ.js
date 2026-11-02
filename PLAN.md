@@ -1617,6 +1617,10 @@
 
 這是作者設計的示意：不是常見的「squarified」樹狀圖演算法，只是平衡二分遞迴，長方形的長寬比不保證很接近正方形（我沒有量測最壞長寬比）；數值是隨機的，沒有任何實際資料意義；標籤為固定大小的點陣，長方形很窄時標籤可能超出邊界（測試只確認九個seed的標籤能被正確讀出，沒有檢查標籤是否完全落在長方形內，也沒有證明不會超出）；顏色只有明度。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`analogclocks`（類比時鐘）使目前目錄1014→1015種，含plain的gallery為1016項。每tile是一面4×4的時鐘牆：灰色牆面上16個圓形鐘面（淡色鐘面、深色邊框、十二個刻度），每個鐘各自顯示一個由seed隨機決定的時刻（1至12點、0至59整分）。指針的角度依真實時鐘的轉法計算：分針每分鐘轉6°；時針每小時轉30°再加上每分鐘0.5°，所以時針會隨分鐘慢慢移動，而不是停在整點的位置。時針較短較粗（長度為鐘面半徑的0.5倍），分針較長較細（0.8倍），中心有一個小圓座。Metallic與mortar為0。
+
+這是作者設計的示意：沒有秒針、沒有數字、也沒有區分上午下午；刻度只有12個、沒有分刻度；指針是簡單的直線棒、沒有裝飾形狀；鐘面各自獨立隨機，同一面牆上時間不連貫；顏色只有明度。預設0.5 m nominal tile、0.005 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
