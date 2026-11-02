@@ -12306,3 +12306,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 完整suite（工具實跑，worktree `/private/tmp/xyz-ct-suite`於`490a5999f`「Add GCD table material」）：**179檔／10,016項全數通過**，Duration 1230.21s。涵蓋`2dccb07a3`之後的modulartable、pascalmod3、collatzsteps與gcdtable；**primesieve只有定向測試與gates，沒有完整suite**。這是本輪第一次測試總數超過一萬項。
 - 瀏覽器gallery（工具實跑）：補做`modulartable`、`pascalmod3`、`collatzsteps`、`gcdtable`四個材質的`/examples/pbr3d/`檢查——spawned Google Chrome headless（`--enable-unsafe-webgpu --use-angle=metal`）開啟vite dev server（服務`490a5999f`狀態的乾淨worktree）上的範例頁，逐一以`#material`的`input`事件選取並等待讀數更新；WebGPU與`?renderer=webgl2`各跑一次，結束時`tab.errors()`的`entries`皆為0筆（dropped 0）；狀態列顯示`969 procedural material presets + plain`。
 - 限制：gallery檢查只涵蓋「能選取、讀數更新、console沒有錯誤」，**沒有**逐材質視覺比對，也沒有跨瀏覽器、跨GPU或Windows／Linux驗證；不push。
+
+## 2026-11-02 新增材質：李薩如曲線表（lissajoustable）
+
+- 範圍：新增`lissajoustable`（目前目錄970→971種，含plain的gallery 972項）：6×6格，第(col, row)格以128點封閉多邊形畫出李薩如曲線`x = sin((col + 1)·t + φ)`、`y = sin((row + 1)·t)`，每個取樣點對該格的128條線段取平方距離：線為`1 − exp(−4·Σ exp(−d²/0.018²))`（高斯和，自交處無折痕）、光暈為`1 − exp(−0.1·Σ smoothstep(clamp(1 − d²/0.12²)))`（緊湊核）；seed決定共同相位φ（0.25π到0.75π）；預設0.3 m nominal tile、0.0008 UV-relative relief。作者示意，沒有引用特定來源或示波器照片、**沒有對照照片**，不是真實示波器畫面。
+- 失敗與修正（誠實紀錄）：(1)第一版用96段、線寬0.022的高斯和，預覽上線條有明顯的珠狀起伏（相鄰線段重疊處的高斯和較大）；加入`lineGain = 4`並提高到128段後才變平滑，最終預覽仍略有珠狀感。(2)第一版光暈是寬0.07的高斯，在格界不為零；第一次執行C1測試失敗（最大二階差分比值2.2×10⁷，約等於相鄰格之間2×10⁻³的函數跳變，是光暈跨格界造成的）。這是sampler的真實缺陷，不是測試問題；我把光暈改為半徑0.12格的緊湊smoothstep核（小於曲線到格界的最短距離0.14格，故在格界恰好為零；線的高斯在該距離約為10⁻²⁷）後測試通過。(3)改光暈後平均color由0.243–0.244變為0.2473–0.2487，我重新量測並把測試與文件的區間改為新的值；相位掃描的結果在改光暈後重跑，仍為46–47個相位。(4)relief 0.0012時，512²maps的法線tilt²最大為0.0965，降到0.0008後為0.0444（同一批探針的前後值）。
+- 實測（工具實跑，seed 0／1／0xffffffff／7，512²取樣）：亮處（color>0.5）占25.07%–25.24%、color 0.0302至0.7696–0.7698、平均0.2473–0.2487、roughness 0.2–0.4、height至多0.9970–0.9986 relief；各格四個角落的最大color為0.0482–0.0494；在0.25π到0.75π之間掃描501個相位，恰有46–47個相位使6×6×64 = 2,304個曲線點全部落在亮度大於0.5的像素上（最小值0.7500–0.7503），其餘相位則否；seed 0與1的亮區遮罩25.6%像素不同；seed 7的512²maps平均r／g／b約(31.2, 72.1, 43.1)、法線tilt²最大約0.0444、z分量最小252；512²取樣約182–201 ms、512² maps約216 ms（bun單次量測，非benchmark）。我實看了預覽：綠色李薩如曲線表。
+- 測試：新增5項專屬測試（三seed的相位掃描曲線成員檢查（101個相位中6–14個全部命中）、角落暗度、統計，seed差異與決定性，C1＋有符號UV週期，actual512 maps）通過；測試的相位掃描驗證「曲線確實是這個頻率比表的曲線」，但不能驗證線條視覺品質（珠狀感）。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Lissajous table as|lissajoustable|kinds|catalog|distinct|periodic"`定向測試**2244項通過／3853項未選**。
+- 未驗證：primesieve、lissajoustable未跑完整suite與瀏覽器gallery；不push。

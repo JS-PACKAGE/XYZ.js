@@ -1012,6 +1012,7 @@ const kinds: ProceduralMaterialKind[] = [
   'collatzsteps',
   'gcdtable',
   'primesieve',
+  'lissajoustable',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -151236,6 +151237,231 @@ describe('Prime sieve as primes bright among multiples of 2, 3, 5 and 7', () => 
     expect(green / (512 * 512)).toBeLessThan(96);
     expect(blue / (512 * 512)).toBeGreaterThan(49);
     expect(blue / (512 * 512)).toBeLessThan(61);
+    expect(maxTilt).toBeGreaterThan(0.02);
+    expect(maxTilt).toBeLessThan(0.07);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Lissajous table as a grid of oscilloscope curves with frequency ratios', () => {
+  const p = proceduralMaterialPresets.lissajoustable;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const cells = 6;
+  /** Brightness at one cell's curve points x = sin((col + 1) t + phase), y = sin((row + 1) t). */
+  const curveMinimum = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    phase: number,
+  ): number => {
+    const out = empty();
+    let minimum = 1;
+    for (let row = 0; row < cells; row++)
+      for (let col = 0; col < cells; col++)
+        for (let k = 0; k < 64; k++) {
+          const angle = (2 * Math.PI * (k + 0.5)) / 64;
+          sample(
+            (col + 0.5 + p.amplitude * Math.sin((col + 1) * angle + phase)) /
+              cells,
+            (row + 0.5 + p.amplitude * Math.sin((row + 1) * angle)) / cells,
+            out,
+          );
+          minimum = Math.min(minimum, out.color);
+        }
+    return minimum;
+  };
+  const tracedMask = (seed: number): boolean[] => {
+    const sample = createSurfaceSampler('lissajoustable', seed),
+      out = empty(),
+      mask: boolean[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        mask.push(out.color > 0.5);
+      }
+    return mask;
+  };
+  it('traces every cell on its frequency-ratio curve and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('lissajoustable', seed),
+        a = empty();
+      // Some phase in the seed's range puts every one of the 6 x 6 x 64 curve points on
+      // bright pixels, and most other phases do not (so the curves really are the
+      // frequency-ratio curves of this table and not a generic bright texture).
+      let bestMinimum = 0,
+        matching = 0;
+      for (let i = 0; i <= 100; i++) {
+        const minimum = curveMinimum(
+          sample,
+          Math.PI * (p.phaseMinimum + (p.phaseVariation * i) / 100),
+        );
+        bestMinimum = Math.max(bestMinimum, minimum);
+        matching += Number(minimum > 0.5);
+      }
+      expect(bestMinimum).toBeGreaterThan(0.74);
+      expect(matching).toBeGreaterThanOrEqual(6);
+      expect(matching).toBeLessThanOrEqual(14);
+      let cornerMaximum = 0;
+      for (let row = 0; row < cells; row++)
+        for (let col = 0; col < cells; col++)
+          for (const [cx, cy] of [
+            [0.02, 0.02],
+            [0.98, 0.02],
+            [0.02, 0.98],
+            [0.98, 0.98],
+          ]) {
+            sample((col + cx) / cells, (row + cy) / cells, a);
+            cornerMaximum = Math.max(cornerMaximum, a.color);
+          }
+      expect(cornerMaximum).toBeLessThan(0.06);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.029);
+      expect(low).toBeLessThan(0.032);
+      expect(high).toBeGreaterThan(0.76);
+      expect(high).toBeLessThan(0.78);
+      expect(dark / 65536).toBeGreaterThan(0.24);
+      expect(dark / 65536).toBeLessThan(0.26);
+      expect(mean / 65536).toBeGreaterThan(0.244);
+      expect(mean / 65536).toBeLessThan(0.253);
+      expect(roughLow).toBeGreaterThan(0.199);
+      expect(roughLow).toBeLessThan(0.21);
+      expect(roughHigh).toBeCloseTo(p.roughness, 2);
+      expect(heightHigh).toBeGreaterThan(0.98);
+      expect(heightHigh).toBeLessThanOrEqual(1);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('shifts the curve phase per seed and is deterministic for one seed', () => {
+    const first = tracedMask(0),
+      second = tracedMask(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.1);
+    expect(tracedMask(0)).toEqual(first);
+  });
+  it('keeps the curve strokes, glow and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('lissajoustable', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [cells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 phosphor-green maps with gentle normals', () => {
+    const maps = generateProceduralMaps('lissajoustable', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(26);
+    expect(red / (512 * 512)).toBeLessThan(35);
+    expect(green / (512 * 512)).toBeGreaterThan(66);
+    expect(green / (512 * 512)).toBeLessThan(76);
+    expect(blue / (512 * 512)).toBeGreaterThan(38);
+    expect(blue / (512 * 512)).toBeLessThan(47);
     expect(maxTilt).toBeGreaterThan(0.02);
     expect(maxTilt).toBeLessThan(0.07);
     expect(invalid).toBe(0);

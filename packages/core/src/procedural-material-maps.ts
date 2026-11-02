@@ -40352,6 +40352,74 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'lissajoustable': {
+        const p = proceduralMaterialPresets.lissajoustable,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          phase =
+            Math.PI *
+            (p.phaseMinimum + p.phaseVariation * hash(0, 0, seed ^ p.seedSalt)),
+          // Cell (col, row) draws x = sin((col + 1) t + phase), y = sin((row + 1) t),
+          // 0 <= t < 2 pi, sampled as a closed polyline of segments points whose
+          // positions are stored in cell units relative to the cell centre.
+          pointsX = new Float64Array(p.cells * p.cells * p.segments),
+          pointsY = new Float64Array(p.cells * p.cells * p.segments),
+          inverseLine2 = 1 / (p.lineWidth * p.lineWidth),
+          inverseGlow2 = 1 / (p.glowRadius * p.glowRadius);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            for (let k = 0; k < p.segments; k++) {
+              const t = (TAU * k) / p.segments,
+                i = (row * p.cells + col) * p.segments + k;
+              pointsX[i] = p.amplitude * Math.sin((col + 1) * t + phase);
+              pointsY[i] = p.amplitude * Math.sin((row + 1) * t);
+            }
+        return () => {
+          // Soft union of Gaussians of the squared distance to every segment of the
+          // cell's own closed polyline: sum_i exp(-d_i^2 / w^2) is smooth where the
+          // curve crosses itself (a plain minimum of distances would have a crease),
+          // and 1 - exp(-sum) squashes it into [0, 1]. The glow uses a compact smoothstep
+          // kernel whose radius stays below the curve's distance to the cell boundary, so
+          // it is exactly zero there and neighbouring cells never jump into each other.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            px = x - col - 0.5,
+            py = y - row - 0.5,
+            base = (row * p.cells + col) * p.segments;
+          let lineSum = 0,
+            glowSum = 0;
+          for (let k = 0; k < p.segments; k++) {
+            const ax = pointsX[base + k],
+              ay = pointsY[base + k],
+              next = base + ((k + 1) % p.segments),
+              bx = pointsX[next] - ax,
+              by = pointsY[next] - ay,
+              length2 = bx * bx + by * by,
+              along = clamp(((px - ax) * bx + (py - ay) * by) / length2),
+              dx = px - ax - along * bx,
+              dy = py - ay - along * by,
+              d2 = dx * dx + dy * dy;
+            lineSum += Math.exp(-d2 * inverseLine2);
+            glowSum += smooth(clamp(1 - d2 * inverseGlow2));
+          }
+          const line = 1 - Math.exp(-p.lineGain * lineSum),
+            glow = 1 - Math.exp(-glowSum * 0.1),
+            grain = grainField(u, v);
+          color =
+            p.baseTone +
+            p.lineTone * line +
+            p.glowTone * glow * (1 - line) +
+            p.grainTone * (grain - 0.5);
+          height = p.lineHeight * line + p.grainHeight * grain;
+          roughness += p.lineRoughness * line;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -48130,6 +48198,7 @@ export function createSurfaceSampler(
     kind === 'collatzsteps' ||
     kind === 'gcdtable' ||
     kind === 'primesieve' ||
+    kind === 'lissajoustable' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
