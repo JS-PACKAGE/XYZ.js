@@ -993,7 +993,8 @@ export type ProceduralMaterialKind =
   | 'dragoncurve'
   | 'divisorcount'
   | 'peanocurve'
-  | 'sacksspiral';
+  | 'sacksspiral'
+  | 'tulle';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2221,6 +2222,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'divisorcount',
   'peanocurve',
   'sacksspiral',
+  'tulle',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

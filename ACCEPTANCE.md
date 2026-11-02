@@ -12386,3 +12386,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Sacks spiral as|sacksspiral|kinds|catalog|distinct|periodic"`定向測試**2258項通過／3874項未選**。
 - 完整suite（工具實跑）：`884aa151a`（dragoncurve）**179檔／10,046項全數通過（1286.06 s）**；其後的divisorcount、peanocurve、sacksspiral尚未跑完整suite。
 - 未驗證：mandelbrottiles、juliatiles、dragoncurve、divisorcount、peanocurve、sacksspiral未跑瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：薄紗網（tulle）
+
+- 範圍：新增`tulle`（目前目錄978→979種，含plain的gallery 980項）：深紫黑底上由象牙白細線編成的六角蜂巢網（尖頂六邊形，7欄×8列共56個、168條線段，每條共用邊只存一次；水平垂直週期比`7√3 : 12`，六邊形約拉伸1.04%；三線交會的節點因權重相加而較亮；seed以1/64磚為單位平移整張網）；預設0.3 m nominal tile、0.0012 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**；沒有半透明。
+- 調整與錯誤紀錄（誠實紀錄）：(1)第一版線半徑0.2、gain 1.5，預覽偏粗，改為0.15與1.8（只看了這兩版預覽）。(2)relief 0.0015時512²maps法線tilt²最大0.0643，降到0.0012後為0.0424。(3)探針的獨立模型第一次有bug（邊去重的鍵寫錯，得到176條而非168條線段），那次seed 0xffffffff找不到符合的平移；修正後四個seed都有符合的平移。(4)我最初猜測每個seed只會有一個符合的平移，實測是8個（蜂巢本身的平移對稱：x模32、y模8固定），測試改為斷言這個結構。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：256²取樣亮處（color>0.5）占19.57%–19.59%、color 0.0651–0.0657至0.8686–0.8695、平均0.2215–0.2217、roughness 0.5505–0.65、AO恆為1、height至多0.9827–0.9866 relief（512²取樣亮處占19.65%–19.66%）；四個seed各自在8個環面平移下與測試中獨立重寫的蜂巢模型一致（最大誤差0.0113–0.0138）；seed 0與1的亮區遮罩（512²）33.8%像素不同；seed 7的512²maps平均r／g／b約(74.7, 69.8, 74.3)、法線tilt²最大約0.0424、z分量最小252。我實看了預覽（seed 7）。每個取樣點走訪168條線段，**未量測耗時**。
+- 測試：新增5項專屬測試（168條線段、四seed的平移對稱結構與統計、seed差異與決定性、C1（含168條線兩側邊界在中間與兩端的點）＋有符號UV週期、actual512 maps）通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Tulle as|tulle|kinds|catalog|distinct|periodic"`定向測試**2260項通過／3877項未選**。
+- 未驗證：mandelbrottiles、juliatiles、dragoncurve、divisorcount、peanocurve、sacksspiral、tulle未跑瀏覽器gallery；sacksspiral之後的tulle未跑完整suite；不push。

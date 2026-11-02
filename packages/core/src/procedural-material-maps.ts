@@ -40793,6 +40793,92 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'tulle': {
+        const p = proceduralMaterialPresets.tulle,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          root3 = Math.sqrt(3),
+          rows = p.rowPairs * 2,
+          periodX = p.columns * root3,
+          periodY = p.rowPairs * 3,
+          shiftU =
+            Math.floor(hash(0, 0, seed ^ p.seedSalt) * p.shiftSteps) /
+            p.shiftSteps,
+          shiftV =
+            Math.floor(hash(1, 0, seed ^ p.seedSalt) * p.shiftSteps) /
+            p.shiftSteps,
+          inverseRadius2 = 1 / (p.threadRadius * p.threadRadius),
+          reach = 0.5 + p.threadRadius,
+          segmentCount = p.columns * rows * 3,
+          middleX = new Float64Array(segmentCount),
+          middleY = new Float64Array(segmentCount),
+          halfX = new Float64Array(segmentCount),
+          halfY = new Float64Array(segmentCount);
+        // A pointy-top honeycomb of circumradius 1 (width sqrt(3), rows 1.5 apart); the
+        // columns x row pairs rectangle tiles the square with about 1% stretch. Every
+        // hexagon owns the three edges towards its east, north-east and north-west
+        // neighbours, so each edge is stored once.
+        for (let j = 0, i = 0; j < rows; j++)
+          for (let k = 0; k < p.columns; k++) {
+            const centerX = root3 * (k + 0.5 * (j % 2)),
+              centerY = 1.5 * j,
+              corner = (degrees: number): [number, number] => [
+                centerX + Math.cos((degrees * Math.PI) / 180),
+                centerY + Math.sin((degrees * Math.PI) / 180),
+              ];
+            for (const [from, to] of [
+              [30, -30],
+              [90, 30],
+              [150, 90],
+            ]) {
+              const [ax, ay] = corner(from),
+                [bx, by] = corner(to);
+              middleX[i] = (ax + bx) / 2;
+              middleY[i] = (ay + by) / 2;
+              halfX[i] = (bx - ax) / 2;
+              halfY[i] = (by - ay) / 2;
+              i++;
+            }
+          }
+        return () => {
+          // Every edge is a thread: a compact-support quartic profile (1 - d^2 / r^2)^2 of
+          // the distance to its segment, exactly zero beyond threadRadius, summed over the
+          // edges (so the knots where three threads meet are brighter) and squashed by
+          // 1 - exp(-gain * sum). The squared distance to a segment is C1, so the field is.
+          const x = (fract(u + shiftU) * periodX) % periodX,
+            y = fract(v + shiftV) * periodY;
+          let sum = 0;
+          for (let i = 0; i < segmentCount; i++) {
+            let dx = x - middleX[i],
+              dy = y - middleY[i];
+            dx -= periodX * Math.round(dx / periodX);
+            dy -= periodY * Math.round(dy / periodY);
+            if (Math.abs(dx) > reach || Math.abs(dy) > reach) continue;
+            const along =
+                2 *
+                  clamp(
+                    0.5 +
+                      (0.5 * (dx * halfX[i] + dy * halfY[i])) /
+                        (halfX[i] * halfX[i] + halfY[i] * halfY[i]),
+                  ) -
+                1,
+              ex = dx - along * halfX[i],
+              ey = dy - along * halfY[i],
+              d2 = (ex * ex + ey * ey) * inverseRadius2;
+            if (d2 < 1) sum += (1 - d2) * (1 - d2);
+          }
+          const thread = 1 - Math.exp(-p.gain * sum),
+            grain = grainField(u, v);
+          color =
+            p.baseTone + p.threadTone * thread + p.grainTone * (grain - 0.5);
+          height = p.threadHeight * thread + p.grainHeight * grain;
+          roughness += p.threadRoughness * thread;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -48579,6 +48665,7 @@ export function createSurfaceSampler(
     kind === 'divisorcount' ||
     kind === 'peanocurve' ||
     kind === 'sacksspiral' ||
+    kind === 'tulle' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
