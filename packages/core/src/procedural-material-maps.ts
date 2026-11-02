@@ -26180,6 +26180,226 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'hashibridges': {
+        const p = proceduralMaterialPresets.hashibridges,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2a901),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          n = p.size,
+          side = 1 - 2 * p.margin,
+          cell = side / n,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          island = new Int8Array(n * n).fill(-1),
+          // Bridge counts per cell and direction: a cell between two islands has the same count on both
+          // sides, an island cell only on the sides its bridges leave through.
+          toLeft = new Uint8Array(n * n),
+          toRight = new Uint8Array(n * n),
+          toUp = new Uint8Array(n * n),
+          toDown = new Uint8Array(n * n),
+          crossing = new Uint8Array(n * n),
+          numbers: number[] = [],
+          positions: number[] = [],
+          steps = [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ];
+        const rand = (a: number, b: number): number =>
+          hash(a, b, seed ^ 0x2a903);
+        // The cells strictly between two islands in line, or null if they are not in line.
+        const between = (a: number, b: number): number[] | null => {
+          const ax = a % n,
+            ay = Math.floor(a / n),
+            bx = b % n,
+            by = Math.floor(b / n);
+          if (ax !== bx && ay !== by) return null;
+          const cells: number[] = [],
+            dx = Math.sign(bx - ax),
+            dy = Math.sign(by - ay);
+          for (
+            let x = ax + dx, y = ay + dy;
+            x !== bx || y !== by;
+            x += dx, y += dy
+          )
+            cells.push(y * n + x);
+          return cells;
+        };
+        const connect = (a: number, b: number, count: number): void => {
+          const middle = between(a, b) as number[],
+            horizontal = Math.floor(a / n) === Math.floor(b / n),
+            low = Math.min(a, b),
+            high = Math.max(a, b);
+          for (const index of middle) {
+            crossing[index] = horizontal ? 1 : 2;
+            if (horizontal) {
+              toLeft[index] = count;
+              toRight[index] = count;
+            } else {
+              toUp[index] = count;
+              toDown[index] = count;
+            }
+          }
+          if (horizontal) {
+            toRight[low] = count;
+            toLeft[high] = count;
+          } else {
+            toDown[low] = count;
+            toUp[high] = count;
+          }
+          numbers[island[a]] += count;
+          numbers[island[b]] += count;
+        };
+        const addIsland = (cellIndex: number): void => {
+          island[cellIndex] = positions.length;
+          positions.push(cellIndex);
+          numbers.push(0);
+        };
+        // Grow a connected set of islands: from a random island, go in a random direction, skip at least
+        // one cell, and put a new island at the end of a clear path (no crossing, not next to another island).
+        addIsland(Math.floor(rand(1, 1) * n) * n + Math.floor(rand(2, 2) * n));
+        for (
+          let attempt = 0;
+          attempt < p.attempts && positions.length < p.islands;
+          attempt++
+        ) {
+          const from =
+              positions[
+                Math.min(
+                  positions.length - 1,
+                  Math.floor(rand(attempt, 3) * positions.length),
+                )
+              ],
+            [dx, dy] = steps[Math.min(3, Math.floor(rand(attempt, 4) * 4))],
+            length = 2 + Math.min(3, Math.floor(rand(attempt, 5) * 4)),
+            x = (from % n) + dx * length,
+            y = Math.floor(from / n) + dy * length;
+          if (x < 0 || x >= n || y < 0 || y >= n) continue;
+          const target = y * n + x;
+          if (island[target] !== -1 || crossing[target] !== 0) continue;
+          const path = between(from, target) as number[];
+          if (
+            path.some((index) => island[index] !== -1 || crossing[index] !== 0)
+          )
+            continue;
+          if (
+            steps.some(([sx, sy]) => {
+              const nx = x + sx,
+                ny = y + sy;
+              return (
+                nx >= 0 &&
+                nx < n &&
+                ny >= 0 &&
+                ny < n &&
+                island[ny * n + nx] !== -1 &&
+                ny * n + nx !== path[path.length - 1]
+              );
+            })
+          )
+            continue;
+          addIsland(target);
+          connect(from, target, rand(attempt, 6) < p.doubleChance ? 2 : 1);
+        }
+        // Extra single or double bridges between islands in line with nothing in the way.
+        for (let i = 0; i < positions.length; i++)
+          for (let j = i + 1; j < positions.length; j++) {
+            const middle = between(positions[i], positions[j]);
+            if (
+              middle === null ||
+              middle.length === 0 ||
+              rand(i * 31 + j, 7) >= p.extraChance
+            )
+              continue;
+            if (
+              middle.some(
+                (index) => island[index] !== -1 || crossing[index] !== 0,
+              )
+            )
+              continue;
+            connect(
+              positions[i],
+              positions[j],
+              rand(i * 31 + j, 8) < p.doubleChance ? 2 : 1,
+            );
+          }
+        return () => {
+          const lx = u - p.margin,
+            ly = v - p.margin;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            ink = 0,
+            fill = 0;
+          if (lx >= 0 && lx < side && ly >= 0 && ly < side) {
+            const col = Math.min(n - 1, Math.floor(lx / cell)),
+              row = Math.min(n - 1, Math.floor(ly / cell)),
+              index = row * n + col,
+              dx = lx - (col + 0.5) * cell,
+              dy = ly - (row + 0.5) * cell,
+              radius = Math.hypot(dx, dy);
+            // Faint lattice dots help the eye.
+            tone -= (p.paperTone - p.gridTone) * cover(0.0016 - radius);
+            // Bridges: one centred line or two lines either side, over the half cell they cover.
+            const lines = (count: number, across: number): number =>
+              count === 1
+                ? cover(p.bridgeHalf - Math.abs(across))
+                : count === 2
+                  ? Math.max(
+                      cover(p.bridgeHalf - Math.abs(across - p.doubleOffset)),
+                      cover(p.bridgeHalf - Math.abs(across + p.doubleOffset)),
+                    )
+                  : 0;
+            const horizontal =
+                dx < 0 ? lines(toLeft[index], dy) : lines(toRight[index], dy),
+              vertical =
+                dy < 0 ? lines(toUp[index], dx) : lines(toDown[index], dx);
+            ink = Math.max(horizontal, vertical);
+            if (island[index] !== -1) {
+              const number = numbers[island[index]],
+                body = cover(p.islandRadius - radius),
+                ring = cover(p.ringHalf - Math.abs(radius - p.islandRadius));
+              fill = body;
+              tone += (p.islandTone - tone) * body;
+              level += (p.islandHeight - level) * body;
+              // The number in the middle of the island.
+              const px = Math.floor((dx + 1.5 * p.pixel) / p.pixel),
+                py = Math.floor((dy + 2.5 * p.pixel) / p.pixel);
+              ink = Math.max(
+                body > 0.5 ? 0 : ink,
+                ring,
+                px >= 0 &&
+                  px < 3 &&
+                  py >= 0 &&
+                  py < 5 &&
+                  glyphs[number][py * 3 + px] === '1'
+                  ? 1
+                  : 0,
+              );
+            }
+            level += (p.bridgeHeight - level) * ink * (1 - fill);
+          }
+          color = clamp(
+            tone +
+              (p.inkTone - tone) * ink +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * ink);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -53709,6 +53929,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'hashibridges' ||
     kind === 'kakuropuzzle' ||
     kind === 'hexresourceboard' ||
     kind === 'bowlingscoresheet' ||

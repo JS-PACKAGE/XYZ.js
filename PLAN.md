@@ -1521,6 +1521,10 @@
 
 這是作者設計的示意：畫面是填好答案的盤面，真正的Kakuro只顯示線索並隱藏白格中的數字；盤面版面由隨機黑格挑選，通過條件只有「每段白格長度至少2」，不保證解答唯一，也不保證是好謎題；版面搜尋每個seed最多嘗試6000次，我只驗證了209個seed（9個測試seed加額外200個）都找到版面；點陣數字為3×5，兩位數的線索寬約0.045個tile。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`hashibridges`（橋樑謎題／Hashiwokakero）使目前目錄990→991種，含plain的gallery為992項。每tile是一個9×9格點上已解開的橋樑謎題：圓形的島嶼內寫著1至8的點陣數字，島嶼之間以橫向或縱向的單線或雙線橋樑相連，每座島嶼的數字等於連到它的橋樑總數（雙線算2），橋樑不交叉，所有島嶼互相連通。版面由seed生成：從一座島開始，沿隨機方向隔開至少一格放新島並連一道橋（約40%為雙橋），共約15座島（受嘗試次數限制，可能較少），再為兩座中間無障礙且在同一直線上的島隨機加橋（約30%的配對）。米白紙面、淡淡的格點，島嶼為淺色圓盤配深色細環與數字。Metallic與mortar為0。
+
+這是作者設計的示意：畫面是填好橋樑的答案，真正的謎題只給島嶼數字並隱藏橋樑；生成方式保證連通與不交叉，但不保證橋樑配置是這組數字的唯一解（原本的謎題要求唯一解），島嶼數目有時少於15；單橋與雙橋的間距很小（雙線相距約0.016個tile）。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

@@ -12161,3 +12161,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 真實缺陷（測試抓到）：第一版版面搜尋上限是300次，測試第一次執行只有seed 0失敗：白格全部讀成數字0。原因是隨機黑格的版面只有約0.5%能通過「每段白格至少兩格」，seed 0的第一個合法版面出現在第328次嘗試，超過上限，取樣器因而保留了一個沒有填數字的版面。我另寫腳本在3000次嘗試中統計：九個seed各有13至20個合法版面，第一個出現的位置從第4次到第328次不等。因此上限改為6000次；取樣器建立時間在200個seed中最壞為16.6 ms。
 - 實測：`tests/procedural-material-motifs.test.ts`八百一十四項（本材質十項）全過。九個seed（0、7、4294967295、1至6）：測試端由角落亮度分辨黑白格（第一列與欄必為黑格），讀出每個白格的點陣數字（必為1至9）與黑格右上、左下的一至兩位數線索，對橫向與縱向每一條最大連續白格：長度至少2、數字互不重複、和等於其起點左邊或上方黑格的對應線索，且至少有10條連續格；另外以暫時的測試檔對200個額外的seed（100至299）重複同一個解碼檢查，全部通過（該暫時檔已刪除）；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "kakuropuzzle|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`kakuropuzzle`：option 991個、status為990 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的盤面。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：橋樑謎題（hashibridges）
+
+- 目錄990→991，含plain的gallery為992項。每tile一個9×9格點上已解開的Hashiwokakero：圓形島嶼內寫1至8的數字，以橫向或縱向的單／雙線橋相連，島的數字等於連到它的橋數、橋不交叉、全部連通；約15座島。Metallic／mortar為0，預設tile0.5 m、0.004 UV-relative relief、metallic factor 0。顯示答案、不保證解答唯一；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 測試端的一個錯誤：測試第一次只有seed 6失敗（`expected 2 to be 1`）：我原先要求兩座「相鄰在同一直線」的島之間沿途三個取樣點的橋數必須相同，但兩座島若沒有橋相連，中間仍可能被另一座島之間的垂直橋橫切，取樣點剛好落在橫切處時多出一道線；取樣器沒有問題。改為「三個取樣點中取最小值，最小值為0就視為沒有橋；有橋時三點必須一致」。
+- 實測：`tests/procedural-material-motifs.test.ts`八百二十四項（本材質十項）全過。九個seed（0、7、4294967295、1至6）：測試端由點陣在每個格點讀出島嶼數字（1至8，橋線穿過中心的格子不會被誤讀成數字），對每座島沿右與下方向找下一座同線的島，在連線上三個位置量中心線與兩側線得到單橋／雙橋／無橋；然後驗證：沒有任何格子同時被橫向與縱向的橋穿過；每座島的數字等於接到它的橋數總和；所有島嶼經由橋連通。突變檢查：把取樣器的一端島數字少加橋數後，九個seed中的九項失敗，還原後全過。`tests/procedural-material.test.ts`以`-t "hashibridges|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`hashibridges`：option 992個、status為991 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的謎題。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

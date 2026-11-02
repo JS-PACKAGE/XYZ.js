@@ -13030,3 +13030,166 @@ describe('kakuropuzzle: every run has distinct digits that add up to its clue', 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('hashibridges: a consistent Hashiwokakero solution', () => {
+  const p = proceduralMaterialPresets.hashibridges;
+  const n = p.size;
+  const side = 1 - 2 * p.margin;
+  const cell = side / n;
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'has islands whose numbers equal their bridges, no crossings, all connected (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('hashibridges', seed),
+        out = empty(),
+        centre = (index: number): [number, number] => [
+          p.margin + ((index % n) + 0.5) * cell,
+          p.margin + (Math.floor(index / n) + 0.5) * cell,
+        ],
+        ink = (u: number, v: number): boolean => {
+          sample(u, v, out);
+          return out.color < 0.3;
+        },
+        numberAt = (index: number): number => {
+          const [cu, cv] = centre(index),
+            bits: string[] = [];
+          for (let y = 0; y < 5; y++) {
+            let text = '';
+            for (let x = 0; x < 3; x++)
+              text += ink(cu + (x - 1) * p.pixel, cv + (y - 2) * p.pixel)
+                ? '#'
+                : '.';
+            bits.push(text);
+          }
+          return art.findIndex((rows) =>
+            rows.every((text, i) => text === bits[i]),
+          );
+        },
+        islands = new Map<number, number>();
+      for (let index = 0; index < n * n; index++) {
+        const value = numberAt(index);
+        if (value >= 1) islands.set(index, value);
+      }
+      expect(islands.size).toBeGreaterThanOrEqual(6);
+      // For every island and each direction right / down, find the next island in line and count the bridge between them.
+      const edges: [number, number, number][] = [],
+        horizontalCells = new Set<number>(),
+        verticalCells = new Set<number>();
+      for (const [a] of islands)
+        for (const [dx, dy] of [
+          [1, 0],
+          [0, 1],
+        ]) {
+          let x = (a % n) + dx,
+            y = Math.floor(a / n) + dy;
+          while (x < n && y < n && !islands.has(y * n + x)) {
+            x += dx;
+            y += dy;
+          }
+          if (x >= n || y >= n) continue;
+          const b = y * n + x,
+            [au, av] = centre(a),
+            [bu, bv] = centre(b),
+            counts = [0.5, 0.35, 0.65].map((t) => {
+              const mu = au + (bu - au) * t,
+                mv = av + (bv - av) * t,
+                // Lines run along the segment; look across it.
+                across: [number, number] = dx === 1 ? [0, 1] : [1, 0],
+                middle = ink(mu, mv),
+                side1 = ink(
+                  mu + across[0] * p.doubleOffset,
+                  mv + across[1] * p.doubleOffset,
+                ),
+                side2 = ink(
+                  mu - across[0] * p.doubleOffset,
+                  mv - across[1] * p.doubleOffset,
+                );
+              return middle ? 1 : side1 && side2 ? 2 : 0;
+            });
+          // A bridge looks the same all along its length. Without one, a sample can still hit an unrelated
+          // bridge crossing the line, so the smallest of the three counts decides.
+          const count = Math.min(...counts);
+          if (count === 0) continue;
+          expect(new Set(counts).size).toBe(1);
+          edges.push([a, b, count]);
+          for (let k = 1; k < Math.abs(b - a) / (dx === 1 ? 1 : n); k++)
+            (dx === 1 ? horizontalCells : verticalCells).add(
+              a + k * (dx === 1 ? 1 : n),
+            );
+        }
+      // No cell is crossed by a horizontal and a vertical bridge.
+      for (const index of horizontalCells)
+        expect(verticalCells.has(index)).toBe(false);
+      // Each island's number is the number of bridges attached to it.
+      const total = new Map<number, number>(
+        [...islands.keys()].map((index) => [index, 0]),
+      );
+      for (const [a, b, count] of edges) {
+        total.set(a, (total.get(a) ?? 0) + count);
+        total.set(b, (total.get(b) ?? 0) + count);
+      }
+      for (const [index, value] of islands)
+        expect(total.get(index)).toBe(value);
+      // All islands are connected through the bridges.
+      const seen = new Set<number>([[...islands.keys()][0]]),
+        queue = [[...islands.keys()][0]];
+      for (let i = 0; i < queue.length; i++)
+        for (const [a, b] of edges) {
+          const next = a === queue[i] ? b : b === queue[i] ? a : -1;
+          if (next >= 0 && !seen.has(next)) {
+            seen.add(next);
+            queue.push(next);
+          }
+        }
+      expect(seen.size).toBe(islands.size);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('hashibridges', 0),
+      b = createSurfaceSampler('hashibridges', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

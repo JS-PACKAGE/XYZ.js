@@ -9317,6 +9317,37 @@ export declare const proceduralMaterialPresets: Readonly<{
         inkRoughness: 0.4;
         paperRoughness: 0.74;
     }>;
+    hashibridges: Readonly<{
+        dark: readonly [20, 24, 40];
+        light: readonly [244, 240, 224];
+        roughness: 0.55;
+        relief: 0.004;
+        size: 9;
+        islands: 15;
+        attempts: 400;
+        doubleChance: 0.4;
+        extraChance: 0.3;
+        margin: 0.05;
+        islandRadius: 0.035;
+        ringHalf: 0.0022;
+        bridgeHalf: 0.0017;
+        doubleOffset: 0.008;
+        pixel: 0.0078;
+        edgeSoft: 0.0011;
+        grainCells: 192;
+        paperTone: 0.93;
+        islandTone: 0.86;
+        inkTone: 0.1;
+        gridTone: 0.8;
+        gridHalf: 0.0006;
+        grainTone: 0.03;
+        paperHeight: 0.2;
+        islandHeight: 0.55;
+        bridgeHeight: 0.4;
+        inkDepth: 0.06;
+        inkRoughness: 0.4;
+        paperRoughness: 0.74;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -15802,6 +15833,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    hashibridges: 0.5;
     kakuropuzzle: 0.5;
     hexresourceboard: 0.5;
     bowlingscoresheet: 0.5;
