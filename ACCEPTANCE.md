@@ -12067,3 +12067,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 目錄976→977，含plain的gallery為978項。每tile 2×2個方陣（5、6、7、8階），每格一個亮度等級（0.16至0.96等距），每個等級在每列每欄恰出現一次；方陣是循環拉丁方經seed打亂列、欄、符號所得。Metallic／mortar為0，預設tile0.4 m、0.003 UV-relative relief、metallic factor 0。作者設計；仍在獨立worktree分支`materials/more-textures`作業。
 - 實測：`tests/procedural-material-motifs.test.ts`六百九十一項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）× 四個方陣：由格中心亮度換算回等級（沿用前兩個材質發現的`-0`問題，換算後加`+ 0`），每一列、每一欄排序後必須恰為0至n−1；這就是拉丁方的定義，與取樣器的「循環方陣加置換」是不同的寫法。我本來還加了一個「n種亮度各出現」的檢查，但那是列檢查的必然結果（重言式），送交verify前已刪除。通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "latinsquares|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`latinsquares`：option 978個、status為977 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的方陣。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：馬雅數字加法（mayansums）
+
+- 目錄977→978，含plain的gallery為979項。四個象限各在灰色粗石面刻一道 a + b = c，數字為二十進位（上格20位、下格個位；貝殼＝0、圓點＝1、橫槓＝5），a、b由seed在10至199間挑選。Metallic／mortar為0，預設tile0.5 m、0.006 UV-relative relief、metallic factor 0。簡化字形（非考證碑文），不含長紀曆；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 設計記錄：我第一次寫貝殼（零）的取樣式時塞進了一串互相抵消的 `* 0` 與 `radius > 0.01 ? 0 : 0` 的雜訊運算，寫完立刻發現並在註冊前整段重寫成乾淨的「橢圓環＝邊距離落在0到壁厚之間」。
+- 實測：`tests/procedural-material-motifs.test.ts`七百零一項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）× 四個象限 × 三欄：測試端以獨立的規則讀取每個數字——中心無墨且環的左緣有墨者為0，其餘由底往上檢查橫槓（在三個橫向位置都有墨），再沿該層掃描數圓點的連續段——然後必須滿足 a、b 在10至199內，且 a + b = c。突變檢查：把取樣器的 `a + b` 改成 `a + b + 1` 後九項解碼測試全部失敗，改回後全過。通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "mayansums|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`mayansums`：option 979個、status為978 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的算式。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

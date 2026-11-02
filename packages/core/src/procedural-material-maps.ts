@@ -24423,6 +24423,143 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'mayansums': {
+        const p = proceduralMaterialPresets.mayansums,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x29c01),
+          coarseField = cachedNoise(
+            p.coarseCells,
+            p.coarseCells,
+            seed ^ 0x29c03,
+          ),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          span = p.maximum - p.minimum + 1,
+          // One sum per quadrant: a + b = c with a and b in the allowed range, written in base 20 as
+          // a 20s digit above a units digit.
+          sums = [0, 1, 2, 3].map((quadrant) => {
+            const a =
+                p.minimum +
+                Math.min(
+                  span - 1,
+                  Math.floor(hash(quadrant, 1, seed ^ 0x29c05) * span),
+                ),
+              b =
+                p.minimum +
+                Math.min(
+                  span - 1,
+                  Math.floor(hash(quadrant, 2, seed ^ 0x29c07) * span),
+                );
+            return [a, b, a + b];
+          }),
+          // Carving coverage of a base-20 digit (0 to 19) in its cell; x is from the cell centre, y from its top.
+          // Zero is a shell (an elliptical ring), five is a bar, one is a dot; bars sit at the bottom.
+          digit = (value: number, x: number, y: number): number => {
+            if (value === 0) {
+              const edge =
+                (1 -
+                  Math.hypot(
+                    x / p.shellRadiusX,
+                    (y - p.cellHeight / 2) / p.shellRadiusY,
+                  )) *
+                p.shellRadiusY;
+              return Math.min(cover(edge), 1 - cover(edge - p.shellWall));
+            }
+            const bars = Math.floor(value / 5),
+              dots = value % 5;
+            let carve = 0;
+            for (let level = 0; level < bars; level++) {
+              const centreY = p.cellHeight - (level + 0.5) * p.levelHeight;
+              carve = Math.max(
+                carve,
+                Math.min(
+                  cover(p.barHalfWidth - Math.abs(x)),
+                  cover(p.barHalfHeight - Math.abs(y - centreY)),
+                ),
+              );
+            }
+            const dotsY = p.cellHeight - (bars + 0.5) * p.levelHeight;
+            for (let i = 0; i < dots; i++)
+              carve = Math.max(
+                carve,
+                cover(
+                  p.dotRadius -
+                    Math.hypot(
+                      x - (i - (dots - 1) / 2) * p.dotPitch,
+                      y - dotsY,
+                    ),
+                ),
+              );
+            return carve;
+          };
+        return () => {
+          const quadrant = (u >= 0.5 ? 1 : 0) + (v >= 0.5 ? 2 : 0),
+            lx = u - (quadrant & 1) * 0.5,
+            ly = v - (quadrant >> 1) * 0.5,
+            stride = p.cellWidth + p.signWidth,
+            slot = Math.floor((lx - p.left) / stride),
+            into = lx - p.left - slot * stride;
+          let carve = 0,
+            sign = 0;
+          if (slot >= 0 && slot < 3) {
+            if (into < p.cellWidth) {
+              const centerX = p.left + slot * stride + p.cellWidth / 2,
+                value = sums[quadrant][slot];
+              if (ly >= p.topY && ly < p.topY + p.cellHeight)
+                carve = digit(
+                  Math.floor(value / 20),
+                  lx - centerX,
+                  ly - p.topY,
+                );
+              else if (
+                ly >= p.topY + p.cellHeight + p.rowGap &&
+                ly < p.topY + 2 * p.cellHeight + p.rowGap
+              )
+                carve = digit(
+                  value % 20,
+                  lx - centerX,
+                  ly - p.topY - p.cellHeight - p.rowGap,
+                );
+            } else if (slot < 2) {
+              // The operator between the columns: a plus, then an equals sign.
+              const dxs = Math.abs(
+                  lx - (p.left + slot * stride + p.cellWidth + p.signWidth / 2),
+                ),
+                dys = ly - (p.topY + p.cellHeight + p.rowGap / 2),
+                half = p.signWidth * 0.32,
+                thick = 0.004;
+              sign =
+                slot === 0
+                  ? Math.max(
+                      Math.min(cover(half - dxs), cover(thick - Math.abs(dys))),
+                      Math.min(cover(thick - dxs), cover(half - Math.abs(dys))),
+                    )
+                  : Math.min(
+                      cover(half - dxs),
+                      Math.max(
+                        cover(thick - Math.abs(dys - 0.009)),
+                        cover(thick - Math.abs(dys + 0.009)),
+                      ),
+                    );
+            }
+          }
+          const mark = Math.max(carve, sign * p.signStrength),
+            grain = grainField(u, v) - 0.5,
+            stone =
+              p.stoneTone +
+              p.grainTone * grain +
+              p.coarseTone * (coarseField(u, v) - 0.5);
+          color = clamp(stone + (p.carveTone - stone) * mark);
+          height = clamp(
+            p.stoneHeight +
+              p.heightGrain * grain +
+              (p.carveHeight - p.stoneHeight) * mark,
+          );
+          roughness =
+            p.stoneRoughness + (p.carveRoughness - p.stoneRoughness) * mark;
+          occlusion = clamp(1 - 0.25 * mark);
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -51952,6 +52089,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'mayansums' ||
     kind === 'latinsquares' ||
     kind === 'hanoitowers' ||
     kind === 'eightqueens' ||

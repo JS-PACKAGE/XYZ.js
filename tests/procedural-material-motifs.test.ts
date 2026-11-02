@@ -11469,3 +11469,100 @@ describe('latinsquares: every brightness level occurs once in each row and colum
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('mayansums: the carved base-20 numerals add up', () => {
+  const p = proceduralMaterialPresets.mayansums;
+  const stride = p.cellWidth + p.signWidth;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'reads a + b = c in every quadrant (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('mayansums', seed),
+        out = empty();
+      for (let quadrant = 0; quadrant < 4; quadrant++) {
+        const ox = (quadrant & 1) * 0.5,
+          oy = (quadrant >> 1) * 0.5,
+          carved = (x: number, y: number): boolean => {
+            sample(ox + x, oy + y, out);
+            return out.color < 0.35;
+          },
+          // Read one digit (0 to 19) of a cell: a hollow ring is 0; otherwise filled bars of five from
+          // the bottom, then a row of separate dots.
+          readDigit = (centreX: number, top: number): number => {
+            const rowY = (level: number): number =>
+              top + p.cellHeight - (level + 0.5) * p.levelHeight;
+            if (
+              !carved(centreX, top + p.cellHeight / 2) &&
+              carved(
+                centreX - p.shellRadiusX + p.shellWall / 2,
+                top + p.cellHeight / 2,
+              )
+            )
+              return 0;
+            let bars = 0;
+            while (
+              bars < 4 &&
+              [-0.04, 0, 0.04].every((dx) => carved(centreX + dx, rowY(bars)))
+            )
+              bars++;
+            let dots = 0,
+              inside = false;
+            for (let x = -0.06; x <= 0.06; x += 0.0015) {
+              const dark = carved(centreX + x, rowY(bars));
+              dots += Number(dark && !inside);
+              inside = dark;
+            }
+            return bars * 5 + dots;
+          };
+        const numbers = [0, 1, 2].map((slot) => {
+          const centreX = p.left + slot * stride + p.cellWidth / 2;
+          return (
+            readDigit(centreX, p.topY) * 20 +
+            readDigit(centreX, p.topY + p.cellHeight + p.rowGap)
+          );
+        });
+        expect(numbers[0]).toBeGreaterThanOrEqual(p.minimum);
+        expect(numbers[0]).toBeLessThanOrEqual(p.maximum);
+        expect(numbers[1]).toBeGreaterThanOrEqual(p.minimum);
+        expect(numbers[1]).toBeLessThanOrEqual(p.maximum);
+        expect(numbers[0] + numbers[1]).toBe(numbers[2]);
+      }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('mayansums', 0),
+      b = createSurfaceSampler('mayansums', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
