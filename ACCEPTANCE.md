@@ -12850,3 +12850,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Superformula shapes as|supershapes|kinds|catalog|distinct|periodic"`定向測試**2352項通過／4028項未選**。
 - 未驗證：supershapes未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：厄米—高斯模（hermitemodes）
+
+- 範圍：新增`hermitemodes`（目前目錄1023→1024種，含plain的gallery 1025項）：8×8格的雷射橫模TEM(m, n)圖表（m、n各0到7），每格顯示強度`(f_m(x)·f_n(y) / (峰值_m·峰值_n))²`（`f_k = H_k(x)·exp(−x² / 2)`，座標範圍−4.2到4.2），橘紅亮瓣在深紫黑底上，圓角方塊磚；seed令圖表在環面上平移（以格為單位）；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache為131,072 B的細grain加8個峰值。作者示意，沒有引用特定來源或照片、**沒有對照照片**；不是雷射光束的物理模擬（所有模共用同一個範圍，真實光束的光腰會隨模階變化）。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽只看了一版，整體偏暗、高階模亮瓣很密，未再調整；(2)文件初稿把預覽描述成「左上是小光斑」，但seed 7的平移讓小光斑（m = n = 0）出現在中間偏左的一格，這是錯的描述，gates之後、commit前已改成不依賴位置的敘述；(3)sampler用遞迴式、4,097點的峰值格；測試以明確的厄米多項式和與8,193點的峰值格這個**獨立的形式**重算，比對8,000個點並在64個平移中檢查恰好一個符合，**不涵蓋kernel邊緣柔化區的形狀**；(4)厄米—高斯模是雷射橫模與簡諧振子本徵態、以及`m = 7`的古典轉折點約`√15`是標準事實，這裡沒有驗證；(5)取樣耗時**未量測**，啟動時找峰值的耗時也未量測。
+- 實測（工具實跑）：一維峰值`k = 0 … 7`為1.0000、1.2131、2.2920、5.4226、14.9596、46.3971、158.1936、584.0201；四個seed（0／1／0xffffffff／7）各有唯一符合的平移(0, 2)、(2, 4)、(3, 4)、(5, 1)，最大擬合誤差0.01500／0.01489／0.01482／0.01477（每個seed在8,000個點中有6,718個用於比較，其中5,081個在kernel內）；256²（seed 0／1／0xffffffff）亮處（color>0.5）4.81%–4.83%、color 0.02551–0.02588至0.84838–0.85010、平均0.15925–0.15940、roughness恆為0.4、AO最低0.6、height至多0.8541–0.8609 relief；512²（四個seed）亮處4.55%–4.57%、color 0.02519–0.02543至0.8526–0.8544、平均0.15929–0.15944、height至多0.8671–0.8774 relief；seed 0與1相比，512²中color>0.5的取樣9.1%不同；seed 7的512²maps平均r／g／b約(47.4, 19.4, 29.7)、法線tilt²最大約0.00274、z分量最小255。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Hermite-Gauss modes as|hermitemodes|kinds|catalog|distinct|periodic"`定向測試**2354項通過／4031項未選**。
+- 未驗證：supershapes與hermitemodes未跑完整suite與瀏覽器gallery；不push。

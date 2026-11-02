@@ -1025,6 +1025,7 @@ export type ProceduralMaterialKind =
   | 'rule110'
   | 'zernikemodes'
   | 'supershapes'
+  | 'hermitemodes'
   | 'sandpileidentity'
   | 'multiplicativeorder'
   | 'vermiculation'
@@ -2297,6 +2298,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'rule110',
   'zernikemodes',
   'supershapes',
+  'hermitemodes',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',

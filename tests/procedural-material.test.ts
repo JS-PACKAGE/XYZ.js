@@ -1051,6 +1051,7 @@ const kinds: ProceduralMaterialKind[] = [
   'rule110',
   'zernikemodes',
   'supershapes',
+  'hermitemodes',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',
@@ -164958,6 +164959,249 @@ describe('Superformula shapes as a chart of 64 stars and flowers by fold count a
     expect(blue / (512 * 512)).toBeLessThan(65.5);
     expect(maxTilt).toBeGreaterThan(0.03);
     expect(maxTilt).toBeLessThan(0.045);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Hermite-Gauss modes as a chart of the laser beam modes TEM(m, n) from 0 to 7', () => {
+  const p = proceduralMaterialPresets.hermitemodes;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const cells = 8;
+  const factorial = (n: number): number => (n < 2 ? 1 : n * factorial(n - 1));
+  /**
+   * The oscillator function H_k(x) exp(-x^2 / 2), written independently here with the explicit
+   * sum H_k(x) = k! sum_j (-1)^j (2 x)^(k - 2 j) / (j! (k - 2 j)!) instead of the recurrence.
+   */
+  const oscillator = (k: number, x: number): number => {
+    let sum = 0;
+    for (let j = 0; 2 * j <= k; j++)
+      sum +=
+        ((j % 2 === 0 ? 1 : -1) * (2 * x) ** (k - 2 * j)) /
+        (factorial(j) * factorial(k - 2 * j));
+    return factorial(k) * sum * Math.exp((-x * x) / 2);
+  };
+  /** Largest |oscillator| over the extent, on a grid of a different size from the sampler's. */
+  const peaks = Array.from({ length: cells }, (_, k) => {
+    let peak = 0;
+    for (let i = 0; i <= 8192; i++)
+      peak = Math.max(
+        peak,
+        Math.abs(oscillator(k, ((2 * i) / 8192 - 1) * p.extent)),
+      );
+    return peak;
+  });
+  /**
+   * Expected colour at (u, v) for the chart shifted by (sx, sy) cells: well inside the
+   * rounded-square kernel (quartic norm at most 0.65) the intensity colour, outside it (norm above
+   * 1.02) the gap tone, null in between, which is not compared.
+   */
+  const expectedColor = (
+    u: number,
+    v: number,
+    sx: number,
+    sy: number,
+  ): number | null => {
+    const x = u * cells,
+      y = v * cells,
+      col = Math.floor(x),
+      row = Math.floor(y),
+      fx = x - col - 0.5,
+      fy = y - row - 0.5,
+      norm = (fx / p.kernelHalf) ** 4 + (fy / p.kernelHalf) ** 4,
+      modeX = (col + sx) % cells,
+      modeY = (row + sy) % cells;
+    if (norm <= 0.65) {
+      const amplitude =
+        (oscillator(modeX, fx * 2 * p.extent) *
+          oscillator(modeY, fy * 2 * p.extent)) /
+        (peaks[modeX] * peaks[modeY]);
+      return p.toneFloor + p.toneSpan * amplitude * amplitude;
+    }
+    return norm > 1.02 ? p.gapTone : null;
+  };
+  const points: [number, number][] = Array.from({ length: 8000 }, (_, i) => [
+    (i * 0.61803398875) % 1,
+    (i * 0.41421356237) % 1,
+  ]);
+  /** Chart shifts (x, y) around the torus that reproduce every compared colour. */
+  const fittingShifts = (seed: number): [number, number][] => {
+    const sample = createSurfaceSampler('hermitemodes', seed),
+      out = empty(),
+      fits: [number, number][] = [];
+    for (let sy = 0; sy < cells; sy++)
+      for (let sx = 0; sx < cells; sx++) {
+        let worst = 0;
+        for (const [u, v] of points) {
+          const expected = expectedColor(u, v, sx, sy);
+          if (expected === null) continue;
+          sample(u, v, out);
+          worst = Math.max(worst, Math.abs(out.color - expected));
+          if (worst >= 0.03) break;
+        }
+        if (worst < 0.03) fits.push([sx, sy]);
+      }
+    return fits;
+  };
+  it('draws every Hermite-Gauss mode on its cell and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('hermitemodes', seed),
+        a = empty();
+      // The mode (0, 0) peaks at 1 (a Gaussian), the mode (1, 0) has a node on the vertical
+      // centre line (H_1 is odd), the largest 1D peak grows quickly with the index (about 584
+      // at k = 7), and the sampler agrees with the independent formula at 8000 points (outside
+      // the soft rim zone of the kernel) for exactly one chart shift.
+      expect(peaks[0]).toBeCloseTo(1, 6);
+      expect(oscillator(1, 0)).toBeCloseTo(0, 12);
+      expect(peaks[7]).toBeGreaterThan(580);
+      expect(peaks[7]).toBeLessThan(590);
+      expect(fittingShifts(seed)).toHaveLength(1);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.025);
+      expect(low).toBeLessThan(0.026);
+      expect(high).toBeGreaterThan(0.848);
+      expect(high).toBeLessThan(0.851);
+      expect(dark / 65536).toBeGreaterThan(0.047);
+      expect(dark / 65536).toBeLessThan(0.049);
+      expect(mean / 65536).toBeGreaterThan(0.159);
+      expect(mean / 65536).toBeLessThan(0.16);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 3);
+      expect(heightHigh).toBeGreaterThan(0.85);
+      expect(heightHigh).toBeLessThan(0.865);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('moves the chart around the torus per seed and is deterministic for one seed', () => {
+    const shifts = [0, 1, 0xffffffff, 7].map((seed) =>
+      fittingShifts(seed)[0].join(','),
+    );
+    expect(new Set(shifts).size).toBe(4);
+    expect(fittingShifts(0)).toEqual([fittingShifts(0)[0]]);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('hermitemodes', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [cells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 red laser mode maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('hermitemodes', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(46.5);
+    expect(red / (512 * 512)).toBeLessThan(48.5);
+    expect(green / (512 * 512)).toBeGreaterThan(18.5);
+    expect(green / (512 * 512)).toBeLessThan(20.5);
+    expect(blue / (512 * 512)).toBeGreaterThan(29);
+    expect(blue / (512 * 512)).toBeLessThan(30.5);
+    expect(maxTilt).toBeGreaterThan(0.002);
+    expect(maxTilt).toBeLessThan(0.0035);
     expect(invalid).toBe(0);
   });
 });

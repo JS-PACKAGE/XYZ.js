@@ -41905,6 +41905,82 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'hermitemodes': {
+        const p = proceduralMaterialPresets.hermitemodes,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft,
+          shiftX = Math.floor(hash(0, 4, seed ^ p.seedSalt) * p.cells),
+          shiftY = Math.floor(hash(1, 4, seed ^ p.seedSalt) * p.cells),
+          // The 1D oscillator function f_k(x) = H_k(x) exp(-x^2 / 2) for the physicists' Hermite
+          // polynomial H_k, by the recurrence H_(k+1) = 2 x H_k - 2 k H_(k-1).
+          hermite = (k: number, x: number): number => {
+            let previous = 1,
+              current = 2 * x;
+            if (k === 0) return Math.exp((-x * x) / 2);
+            for (let j = 1; j < k; j++)
+              [previous, current] = [
+                current,
+                2 * x * current - 2 * j * previous,
+              ];
+            return current * Math.exp((-x * x) / 2);
+          },
+          // The largest |f_k| over [-extent, extent], found on a fine grid, so that the
+          // intensity (f_m f_n / (peak_m peak_n))^2 of the 2D mode TEM(m, n) peaks at about 1.
+          peaks = Array.from({ length: p.cells }, (_, k) => {
+            let peak = 0;
+            for (let i = 0; i <= 4096; i++)
+              peak = Math.max(
+                peak,
+                Math.abs(hermite(k, ((2 * i) / 4096 - 1) * p.extent)),
+              );
+            return peak;
+          });
+        // A chart of the Hermite-Gauss modes (the transverse modes of a laser beam and the
+        // states of the 2D harmonic oscillator): the column is the index m along x and the row
+        // is the index n along y (both 0 to 7), and every cell shows the intensity
+        // I = (f_m(x) f_n(y) / (peak_m peak_n))^2, bright lobes separated by dark nodal lines.
+        // The seed moves the chart around the torus.
+        return () => {
+          // One compact-support rounded-square kernel per cell (a quartic superellipse
+          // through smoothstep, exactly zero before the cell boundary), so the cell
+          // lookup never jumps and the field is C1.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            fx = x - col - 0.5,
+            fy = y - row - 0.5,
+            ax = fx * inverseHalf,
+            ay = fy * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            modeX = (col + shiftX) % p.cells,
+            modeY = (row + shiftY) % p.cells,
+            amplitude =
+              (hermite(modeX, fx * 2 * p.extent) *
+                hermite(modeY, fy * 2 * p.extent)) /
+              (peaks[modeX] * peaks[modeY]),
+            tone = amplitude * amplitude,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + p.toneSpan * tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -50731,6 +50807,7 @@ export function createSurfaceSampler(
     kind === 'rule110' ||
     kind === 'zernikemodes' ||
     kind === 'supershapes' ||
+    kind === 'hermitemodes' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||
