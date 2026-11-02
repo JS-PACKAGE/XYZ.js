@@ -12835,3 +12835,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Zernike modes as|zernikemodes|kinds|catalog|distinct|periodic"`定向測試**2350項通過／4025項未選**。
 - 未驗證：fordcircles、gaussianprimes、chromaticant、rule110與zernikemodes未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 完整suite與gallery檢查（至zernikemodes）
+
+- 完整suite（工具實跑，commit `45b2eb7c4`，獨立乾淨worktree，期間沒有同時進行其他重負載工作）：**179個測試檔、10,304項測試全部通過，耗時1200.02 s**。上一次完整suite為`d580a7c76`的10,279項；之後新增fordcircles、gaussianprimes、chromaticant、rule110、zernikemodes各5項（含kinds清單條目），合計25項，與增量一致（10,279 + 25 = 10,304）。
+- 瀏覽器gallery（headless Chrome，WebGPU與`?renderer=webgl2`各一次，`/examples/pbr3d/`）：依序選取`fordcircles`、`gaussianprimes`、`chromaticant`、`rule110`、`zernikemodes`，五者皆出現`Material <kind> `讀數、readout顯示1022種、選單1023個選項，console error 0。第一次開頁時`#material`等待逾時（dev server載入龐大模組很慢），重試等待後正常。此檢查只涵蓋「可選取、讀數更新、無console錯誤」，**沒有在gallery中逐一目視截圖**（預覽圖是用預覽腳本於各kind實作時看過）。
+- 未驗證：不push；其他瀏覽器、真機GPU差異與效能未量測。
