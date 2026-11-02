@@ -12886,3 +12886,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Fibonacci word as|fibonacciword|kinds|catalog|distinct|periodic"`定向測試**2360項通過／4040項未選**。
 - 未驗證：supershapes、hermitemodes、walshmatrix、zeckendorftable與fibonacciword未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-03 完整suite與gallery檢查（至fibonacciword）
+
+- 完整suite（工具實跑，commit `c0170767e`，獨立乾淨worktree，期間沒有同時進行其他重負載工作）：**179個測試檔、10,329項測試全部通過，耗時1253.13 s**。上一次完整suite為`45b2eb7c4`的10,304項；之後新增supershapes、hermitemodes、walshmatrix、zeckendorftable、fibonacciword各5項（含kinds清單條目），合計25項，與增量一致（10,304 + 25 = 10,329）。
+- 瀏覽器gallery（headless Chrome，WebGPU與`?renderer=webgl2`各一次，`/examples/pbr3d/`）：依序選取`supershapes`、`hermitemodes`、`walshmatrix`、`zeckendorftable`、`fibonacciword`，五者皆出現`Material <kind> `讀數、readout顯示1027種、選單1028個選項，console error 0。
+- 這次檢查中途的失敗紀錄（誠實紀錄）：前幾次嘗試中，瀏覽器分頁在選取`walshmatrix`時被工具判定「Browser code execution hung」而被關閉；起初我懷疑是`walshmatrix`本身有無窮迴圈，所以做了排查：在Bun中以512／1024／2048的尺寸生成`walshmatrix`、`zeckendorftable`、`fibonacciword`的maps都只要約0.04–0.34 s，並在瀏覽器中直接import模組、建立`walshmatrix`的sampler與生成512和1024的maps，也都是0.1–0.3 s、正常完成，所以不是材質本身。實際原因我判斷是這個範例頁面在啟動時會逐一建立全部（現在1,027種）預設材質，頁面載入期間主執行緒很忙，我的測試程式在載入完成前就開始選取，被工具判為卡死；證據是：頁面載入後**閒置等待240 s**再選取，五個新材質在WebGPU與WebGL2下都立即成功（各約30–80 ms）。我沒有量測確切的頁面初始化時間（大約數分鐘），這個原因是推論而非逐步剖析證明；此初始化時間隨目錄成長而增加，是這個範例頁面既有的設計。此檢查只涵蓋「可選取、讀數更新、無console錯誤」，**沒有在gallery中逐一目視截圖**。
+- 未驗證：不push；其他瀏覽器、真機GPU差異與效能未量測。
