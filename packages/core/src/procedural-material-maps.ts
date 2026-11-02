@@ -35390,6 +35390,82 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'dyckpaths': {
+        const p = proceduralMaterialPresets.dyckpaths,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x30201),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          steps = 2 * p.semilength,
+          cellWidth = 1 / p.columns,
+          cellHeight = 1 / p.rows,
+          width = steps * p.unit,
+          paths: number[][] = [],
+          // Heights of the path at its nine points (0 at both ends), built by trying every step up or down.
+          walk = (heights: number[]): void => {
+            const last = heights[heights.length - 1],
+              remaining = steps - (heights.length - 1);
+            if (remaining === 0) {
+              if (last === 0) paths.push(heights);
+              return;
+            }
+            walk([...heights, last + 1]);
+            if (last > 0) walk([...heights, last - 1]);
+          };
+        walk([0]);
+        // The seed shuffles the order of the paths (Fisher-Yates).
+        for (let i = paths.length - 1; i > 0; i--) {
+          const j = Math.floor(hash(i, 7, seed ^ 0x30202) * (i + 1)),
+            swap = paths[i];
+          paths[i] = paths[j];
+          paths[j] = swap;
+        }
+        return () => {
+          const column = Math.min(p.columns - 1, Math.floor(u * p.columns)),
+            row = Math.min(p.rows - 1, Math.floor(v * p.rows)),
+            heights = paths[row * p.columns + column],
+            // The path starts at the left end of the baseline, which is centred across the cell and sits low in it; y goes up.
+            x = u - column * cellWidth - (cellWidth - width) / 2,
+            y = (row + 0.5) * cellHeight + (p.semilength * p.unit) / 2 - v;
+          let line = 0,
+            dots = 0;
+          for (let step = 0; step < steps; step++) {
+            const x0 = step * p.unit,
+              y0 = heights[step] * p.unit,
+              t = clamp((x - x0) / p.unit),
+              dx = x - x0 - t * p.unit,
+              dy = y - y0 - t * (heights[step + 1] - heights[step]) * p.unit;
+            line = Math.max(line, cover(p.lineHalf - Math.hypot(dx, dy)));
+            dots = Math.max(
+              dots,
+              cover(p.dotRadius - Math.hypot(x - x0, y - y0)),
+            );
+          }
+          dots = Math.max(dots, cover(p.dotRadius - Math.hypot(x - width, y)));
+          const base =
+              cover(p.baseHalf - Math.abs(y)) *
+              cover(p.unit * 0.5 + width / 2 - Math.abs(x - width / 2)),
+            band = row % 2,
+            paper = p.paperTone + (p.stripeTone - p.paperTone) * band,
+            level = p.paperHeight + (p.stripeHeight - p.paperHeight) * band,
+            ink = Math.max(line, dots),
+            ground = paper + (p.baseTone - paper) * base;
+          color = clamp(
+            ground +
+              (p.inkTone - ground) * ink +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            level +
+              (p.baseHeight - level) * base +
+              (p.inkHeight - level - (p.baseHeight - level) * base) * ink,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.inkRoughness - p.paperRoughness) * Math.max(ink, base);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -62919,6 +62995,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'dyckpaths' ||
     kind === 'figuratenumbers' ||
     kind === 'pythagoreantriples' ||
     kind === 'hexdumprows' ||

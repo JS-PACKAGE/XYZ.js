@@ -25641,3 +25641,123 @@ describe('figuratenumbers: dot patterns of figurate numbers', () => {
     expect(different).toBeGreaterThan(0);
   });
 });
+
+describe('dyckpaths: the 14 Dyck paths of semilength 4', () => {
+  const p = proceduralMaterialPresets.dyckpaths;
+  const steps = 2 * p.semilength;
+  // Independent list: every one of the 2^8 sequences of up (+1) and down (-1) steps, kept if no prefix sum is negative and the
+  // total is 0 (as a string of 'U' and 'D').
+  const dyck = new Set<string>();
+  for (let mask = 0; mask < 1 << steps; mask++) {
+    let level = 0,
+      word = '',
+      valid = true;
+    for (let bit = steps - 1; bit >= 0 && valid; bit--) {
+      const up = (mask >> bit) & 1;
+      level += up ? 1 : -1;
+      word += up ? 'U' : 'D';
+      valid = level >= 0;
+    }
+    if (valid && level === 0) dyck.add(word);
+  }
+
+  const decode = (seed: number): string[] => {
+    const sample = createSurfaceSampler('dyckpaths', seed),
+      out = empty(),
+      cellWidth = 1 / p.columns,
+      cellHeight = 1 / p.rows,
+      width = steps * p.unit,
+      scan = 0.0015,
+      words: string[] = [];
+    for (let row = 0; row < p.rows; row++)
+      for (let column = 0; column < p.columns; column++) {
+        const baseline = (row + 0.5) * cellHeight + (p.semilength * p.unit) / 2,
+          left = column * cellWidth + (cellWidth - width) / 2;
+        let height = 0,
+          word = '';
+        for (let step = 0; step < steps; step++) {
+          // Height of the dark line at the middle of the step: the mean of the dark samples going down the column.
+          const x = left + (step + 0.5) * p.unit;
+          let sum = 0,
+            dark = 0;
+          for (
+            let v = row * cellHeight + scan / 2;
+            v < (row + 1) * cellHeight;
+            v += scan
+          ) {
+            sample(x, v, out);
+            if (out.color < 0.3) {
+              sum += baseline - v;
+              dark++;
+            }
+          }
+          expect(dark).toBeGreaterThan(0);
+          // The middle of an up step is half a unit above the point it starts from, and of a down step half a unit below.
+          const middle = sum / dark / p.unit;
+          expect(
+            Math.abs(middle - height - 0.5) < 0.1 ||
+              Math.abs(middle - height + 0.5) < 0.1,
+          ).toBe(true);
+          const up =
+            Math.abs(middle - height - 0.5) < Math.abs(middle - height + 0.5);
+          word += up ? 'U' : 'D';
+          height += up ? 1 : -1;
+        }
+        words.push(word);
+      }
+    return words;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws each of the 14 Dyck paths exactly once (seed %i)',
+    (seed) => {
+      const words = decode(seed);
+      expect(dyck.size).toBe(14);
+      expect(words).toHaveLength(14);
+      expect(new Set(words).size).toBe(14);
+      for (const word of words) expect(dyck.has(word)).toBe(true);
+    },
+  );
+
+  it('shuffles the order of the paths differently for different seeds', () => {
+    const orders = new Set<string>();
+    for (let seed = 0; seed < 30; seed++) orders.add(decode(seed).join(','));
+    expect(orders.size).toBeGreaterThan(25);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('dyckpaths', 0),
+      b = createSurfaceSampler('dyckpaths', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(0);
+  });
+});
