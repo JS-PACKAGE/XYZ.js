@@ -27413,3 +27413,140 @@ describe('roundrobintable: a league schedule where every pair meets once', () =>
     expect(different).toBeGreaterThan(0);
   });
 });
+
+describe('kaprekarsteps: Kaprekar routine chains ending at 6174', () => {
+  const p = proceduralMaterialPresets.kaprekarsteps;
+  const shapes: Record<string, string[]> = {
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    '2': ['###', '..#', '###', '#..', '###'],
+    '3': ['###', '..#', '###', '..#', '###'],
+    '4': ['#.#', '#.#', '###', '..#', '..#'],
+    '5': ['###', '#..', '###', '..#', '###'],
+    '6': ['###', '#..', '###', '#.#', '###'],
+    '7': ['###', '..#', '.#.', '.#.', '.#.'],
+    '8': ['###', '#.#', '###', '#.#', '###'],
+    '9': ['###', '#.#', '###', '..#', '###'],
+    '-': ['...', '...', '###', '...', '...'],
+    '=': ['...', '###', '...', '###', '...'],
+  };
+  const digitsOf = (text: string): string => [...text].sort().join('');
+
+  const readChains = (seed: number): string[][] => {
+    const sample = createSurfaceSampler('kaprekarsteps', seed),
+      out = empty(),
+      chains: string[][] = [];
+    for (let column = 0; column < p.columns; column++)
+      for (let chain = 0; chain < p.chains; chain++) {
+        const lines: string[] = [];
+        for (let line = 0; line < p.maxSteps; line++) {
+          const centre =
+            p.top + chain * p.blockPitch + (line + 0.5) * p.linePitch;
+          let text = '';
+          for (let slot = 0; slot < 14; slot++) {
+            const rows = [0, 1, 2, 3, 4].map((k) =>
+              [0, 1, 2]
+                .map((x) => {
+                  sample(
+                    p.left[column] + (4 * slot + x + 0.5) * p.pixel,
+                    centre + (k - 2) * p.pixel,
+                    out,
+                  );
+                  return out.color < 0.3 ? '#' : '.';
+                })
+                .join(''),
+            );
+            if (rows.every((row) => row === '...')) {
+              text += ' ';
+              continue;
+            }
+            const found = Object.entries(shapes).find(([, shape]) =>
+              shape.every((row, i) => row === rows[i]),
+            );
+            expect(found).toBeDefined();
+            text += (found as [string, string[]])[0];
+          }
+          if (text.trim() === '') break;
+          lines.push(text);
+        }
+        chains.push(lines);
+      }
+    return chains;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'writes each chain as correct subtractions that end at 6174 (seed %i)',
+    (seed) => {
+      const chains = readChains(seed);
+      expect(chains).toHaveLength(p.columns * p.chains);
+      for (const lines of chains) {
+        expect(lines.length).toBeGreaterThanOrEqual(1);
+        expect(lines.length).toBeLessThanOrEqual(p.maxSteps);
+        lines.forEach((line, i) => {
+          const match = /^(\d{4})-(\d{4})=(\d{4})$/.exec(line);
+          expect(match).not.toBeNull();
+          const [, large, small, difference] = match as RegExpExecArray;
+          // The two operands are the digits of one number arranged from large to small and from small to large.
+          expect(large).toBe([...digitsOf(large)].reverse().join(''));
+          expect(small).toBe(digitsOf(large));
+          expect(Number(large) - Number(small)).toBe(Number(difference));
+          // The next line takes the digits of this difference.
+          if (i + 1 < lines.length)
+            expect(lines[i + 1].slice(0, 4)).toBe(
+              [...digitsOf(difference)].reverse().join(''),
+            );
+          else expect(difference).toBe('6174');
+        });
+        // Not a number with four equal digits to start with: the first line's digits are not all the same.
+        expect(new Set(lines[0].slice(0, 4)).size).toBeGreaterThan(1);
+        // 6174 only ever appears at the very end.
+        expect(lines.slice(0, -1).some((line) => line.endsWith('=6174'))).toBe(
+          false,
+        );
+      }
+    },
+  );
+
+  it('chooses different starting numbers for different seeds', () => {
+    const firsts = new Set<string>();
+    for (let seed = 0; seed < 25; seed++)
+      for (const lines of readChains(seed)) firsts.add(lines[0]);
+    expect(firsts.size).toBeGreaterThan(60);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('kaprekarsteps', 0),
+      b = createSurfaceSampler('kaprekarsteps', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

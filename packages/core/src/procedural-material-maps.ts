@@ -36483,6 +36483,103 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'kaprekarsteps': {
+        const p = proceduralMaterialPresets.kaprekarsteps,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x30f01),
+          glyphs: Record<string, string> = {
+            '0': '111101101101111',
+            '1': '010110010010111',
+            '2': '111001111100111',
+            '3': '111001111001111',
+            '4': '101101111001001',
+            '5': '111100111001111',
+            '6': '111100111101111',
+            '7': '111001010010010',
+            '8': '111101111101111',
+            '9': '111101111001111',
+            '-': '000000111000000',
+            '=': '000111000111000',
+          },
+          // One chain per block (column-major): the lines "desc-asc=difference" from a starting number until 6174.
+          blocks: string[][] = [];
+        for (let block = 0; block < p.columns * p.chains; block++) {
+          let digits: string;
+          for (let attempt = 0; ; attempt++) {
+            const start =
+              1000 + Math.floor(hash(block, attempt, seed ^ 0x30f02) * 9000);
+            digits = String(start);
+            if (new Set(digits).size > 1 && digits !== '6174') break;
+          }
+          const lines: string[] = [];
+          while (digits !== '6174' && lines.length < p.maxSteps) {
+            const sorted = [...digits].sort(),
+              ascending = sorted.join(''),
+              descending = sorted.reverse().join(''),
+              difference = String(
+                Number(descending) - Number(ascending),
+              ).padStart(4, '0');
+            lines.push(descending + '-' + ascending + '=' + difference);
+            digits = difference;
+          }
+          blocks.push(lines);
+        }
+        return () => {
+          const column = u < 0.5 ? 0 : 1,
+            localV = v - p.top,
+            chain = Math.floor(localV / p.blockPitch),
+            line = Math.floor((localV - chain * p.blockPitch) / p.linePitch),
+            fy = (localV - chain * p.blockPitch) / p.linePitch - line;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            glyph = 0;
+          if (
+            chain >= 0 &&
+            chain < p.chains &&
+            line >= 0 &&
+            line < p.maxSteps
+          ) {
+            const text = blocks[column * p.chains + chain][line] ?? '',
+              px = Math.floor((u - p.left[column]) / p.pixel),
+              d = px >= 0 ? Math.floor(px / 4) : -1,
+              gx = px - 4 * d,
+              py = Math.floor(((fy - 0.5) * p.linePitch) / p.pixel + 2.5);
+            if (text !== '') {
+              if (
+                line % 2 === 1 &&
+                Math.abs(u - p.left[column] - p.stripeWidth / 2) <
+                  p.stripeWidth / 2 + p.stripeInset
+              ) {
+                tone = p.stripeTone;
+                level = p.stripeHeight;
+              }
+              // The difference (the last four characters) is on a darker cell.
+              if (d >= 10 && d < 14) {
+                tone = p.resultTone;
+                level = p.resultHeight;
+              }
+              if (
+                d >= 0 &&
+                d < text.length &&
+                gx >= 0 &&
+                gx < 3 &&
+                py >= 0 &&
+                py < 5 &&
+                glyphs[text[d]][py * 3 + gx] === '1'
+              )
+                glyph = 1;
+            }
+          }
+          color = clamp(
+            tone +
+              (p.inkTone - tone) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * glyph);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -64012,6 +64109,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'kaprekarsteps' ||
     kind === 'roundrobintable' ||
     kind === 'roulettewheel' ||
     kind === 'circleoffifths' ||

@@ -1925,6 +1925,10 @@
 
 這是作者設計的示意：只有賽程，沒有隊名、場地或比分；n只用8與10（沒有輪空的奇數隊情形）；沒有區分主客場；點陣字是3×5字形，字高依n而定（n = 10時較小）。預設0.8 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`kaprekarsteps`（卡普雷卡爾步驟）使目前目錄1091→1092種，含plain的gallery為1093項。整張tile分成2欄×2個區塊，每個區塊是一條卡普雷卡爾常式（Kaprekar's routine）的演算鏈：從一個四位數（不是四位全相同，也不是6174）開始，把各位數字由大到小排成一個數、由小到大排成另一個數，兩者相減得到差，再對這個差（補零成四位）重複，直到得到6174為止；每一步寫成一行「大-小=差」（例如7641-1467=6174），差的四個字元有較深的底色，奇數行有淡淡的底色條。四個起點由seed決定。一條鏈最多7步（四位數的卡普雷卡爾常式最多7步）。Metallic與mortar為0。
+
+這是作者設計的示意：只處理四位數、只寫出每步的算式（起點本身由第一行的位數隱含，沒有另外寫出）；沒有標註步數或說明6174是不動點；有些鏈較短，區塊下半留白。預設0.8 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
