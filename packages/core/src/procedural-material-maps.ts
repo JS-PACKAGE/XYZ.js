@@ -35713,6 +35713,142 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'timestablecircles': {
+        const p = proceduralMaterialPresets.timestablecircles,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x30701),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          cellSize = 1 / p.cells,
+          reach = p.lineHalf + p.edgeSoft,
+          // The seed picks nine different multipliers (Fisher-Yates shuffle of kMin .. kMax, first nine kept).
+          multipliers = Array.from(
+            { length: p.kMax - p.kMin + 1 },
+            (_, i) => p.kMin + i,
+          );
+        for (let i = multipliers.length - 1; i > 0; i--) {
+          const j = Math.floor(hash(i, 9, seed ^ 0x30702) * (i + 1)),
+            swap = multipliers[i];
+          multipliers[i] = multipliers[j];
+          multipliers[j] = swap;
+        }
+        // Chords as [x0, y0, x1, y1] and dots as [x, y]; a bucket grid lists, for each small square of the tile, the chords
+        // (index >= 0) and dots (index < 0, as -1 - index) that come within reach of it.
+        const chords: number[][] = [],
+          dotPoints: number[][] = [],
+          buckets: number[][] = Array.from(
+            { length: p.buckets * p.buckets },
+            () => [],
+          ),
+          around = (x: number, y: number, entry: number): void => {
+            for (
+              let by = Math.max(0, Math.floor((y - reach) * p.buckets));
+              by <=
+              Math.min(p.buckets - 1, Math.floor((y + reach) * p.buckets));
+              by++
+            )
+              for (
+                let bx = Math.max(0, Math.floor((x - reach) * p.buckets));
+                bx <=
+                Math.min(p.buckets - 1, Math.floor((x + reach) * p.buckets));
+                bx++
+              ) {
+                const bucket = buckets[by * p.buckets + bx];
+                if (bucket[bucket.length - 1] !== entry) bucket.push(entry);
+              }
+          };
+        for (let cell = 0; cell < p.cells * p.cells; cell++) {
+          const k = multipliers[cell],
+            cx = ((cell % p.cells) + 0.5) * cellSize,
+            cy = (Math.floor(cell / p.cells) + 0.5) * cellSize,
+            at = (i: number): number[] => [
+              cx +
+                p.radius * Math.cos((2 * Math.PI * i) / p.points - Math.PI / 2),
+              cy +
+                p.radius * Math.sin((2 * Math.PI * i) / p.points - Math.PI / 2),
+            ];
+          for (let i = 0; i < p.points; i++) {
+            const [x0, y0] = at(i),
+              j = (k * i) % p.points;
+            around(x0, y0, -1 - dotPoints.length);
+            dotPoints.push([x0, y0]);
+            if (j === i) continue;
+            const [x1, y1] = at(j),
+              steps = Math.ceil(Math.hypot(x1 - x0, y1 - y0) * p.buckets * 2);
+            for (let step = 0; step <= steps; step++)
+              around(
+                x0 + ((x1 - x0) * step) / steps,
+                y0 + ((y1 - y0) * step) / steps,
+                chords.length,
+              );
+            chords.push([x0, y0, x1, y1]);
+          }
+        }
+        return () => {
+          const column = Math.min(p.cells - 1, Math.floor(u * p.cells)),
+            row = Math.min(p.cells - 1, Math.floor(v * p.cells));
+          let chord = 0,
+            dots = 0;
+          for (const entry of buckets[
+            Math.min(p.buckets - 1, Math.floor(v * p.buckets)) * p.buckets +
+              Math.min(p.buckets - 1, Math.floor(u * p.buckets))
+          ]) {
+            if (entry < 0) {
+              const dot = dotPoints[-1 - entry];
+              dots = Math.max(
+                dots,
+                cover(p.dotRadius - Math.hypot(u - dot[0], v - dot[1])),
+              );
+            } else {
+              const line = chords[entry],
+                dx = line[2] - line[0],
+                dy = line[3] - line[1],
+                t = clamp(
+                  ((u - line[0]) * dx + (v - line[1]) * dy) /
+                    (dx * dx + dy * dy),
+                );
+              chord = Math.max(
+                chord,
+                cover(
+                  p.lineHalf -
+                    Math.hypot(u - line[0] - t * dx, v - line[1] - t * dy),
+                ),
+              );
+            }
+          }
+          const ring = cover(
+              p.ringHalf -
+                Math.abs(
+                  Math.hypot(
+                    u - (column + 0.5) * cellSize,
+                    v - (row + 0.5) * cellSize,
+                  ) - p.radius,
+                ),
+            ),
+            band = (row + column) % 2,
+            paper = p.paperTone + (p.stripeTone - p.paperTone) * band,
+            level = p.paperHeight + (p.stripeHeight - p.paperHeight) * band,
+            withRing = paper + (p.ringTone - paper) * ring,
+            withChord = withRing + (p.chordTone - withRing) * chord;
+          color = clamp(
+            withChord +
+              (p.dotTone - withChord) * dots +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            Math.max(
+              level,
+              ring * p.ringHeight,
+              chord * p.chordHeight,
+              dots * p.dotHeight,
+            ),
+          );
+          roughness =
+            p.paperRoughness +
+            (p.inkRoughness - p.paperRoughness) * Math.max(ring, chord, dots);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -63242,6 +63378,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'timestablecircles' ||
     kind === 'divisorcountbars' ||
     kind === 'cobwebplots' ||
     kind === 'sierpinskipascal' ||

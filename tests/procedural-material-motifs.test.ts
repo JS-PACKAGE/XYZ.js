@@ -26246,3 +26246,185 @@ describe('divisorcountbars: stacks of boxes for the number of divisors', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('timestablecircles: times tables drawn as chords on a circle', () => {
+  const p = proceduralMaterialPresets.timestablecircles;
+  const cell = 1 / p.cells;
+  const pointAt = (
+    column: number,
+    row: number,
+    i: number,
+  ): [number, number] => {
+    const angle = (2 * Math.PI * i) / p.points - Math.PI / 2;
+    return [
+      (column + 0.5) * cell + p.radius * Math.cos(angle),
+      (row + 0.5) * cell + p.radius * Math.sin(angle),
+    ];
+  };
+  const chordsOf = (column: number, row: number, k: number): number[][] =>
+    Array.from({ length: p.points }, (_, i) => [i, (k * i) % p.points])
+      .filter(([i, j]) => i !== j)
+      .map(([i, j]) => [
+        ...pointAt(column, row, i),
+        ...pointAt(column, row, j),
+      ]);
+  const distanceToSegment = (
+    x: number,
+    y: number,
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+  ): number => {
+    const dx = x1 - x0,
+      dy = y1 - y0,
+      t = Math.max(
+        0,
+        Math.min(1, ((x - x0) * dx + (y - y0) * dy) / (dx * dx + dy * dy)),
+      );
+    return Math.hypot(x - x0 - t * dx, y - y0 - t * dy);
+  };
+  // Chord midpoints of "i to k i (mod points)" in one cell, the points being at angle 2 pi i / points - pi / 2.
+  const midpoints = (
+    column: number,
+    row: number,
+    k: number,
+  ): [number, number][] => {
+    const result: [number, number][] = [];
+    for (let i = 0; i < p.points; i++) {
+      const j = (k * i) % p.points;
+      if (j === i) continue;
+      const a = (2 * Math.PI * i) / p.points - Math.PI / 2,
+        b = (2 * Math.PI * j) / p.points - Math.PI / 2;
+      result.push([
+        (column + 0.5) * cell + (p.radius * (Math.cos(a) + Math.cos(b))) / 2,
+        (row + 0.5) * cell + (p.radius * (Math.sin(a) + Math.sin(b))) / 2,
+      ]);
+    }
+    return result;
+  };
+
+  const readMultipliers = (seed: number): number[][] => {
+    const sample = createSurfaceSampler('timestablecircles', seed),
+      out = empty(),
+      colorAt = (u: number, v: number): number => {
+        sample(u, v, out);
+        return out.color;
+      };
+    return Array.from({ length: p.cells * p.cells }, (_, index) => {
+      const column = index % p.cells,
+        row = Math.floor(index / p.cells),
+        found: number[] = [];
+      for (let k = p.kMin; k <= p.kMax; k++) {
+        if (!midpoints(column, row, k).every(([u, v]) => colorAt(u, v) < 0.4))
+          continue;
+        // The chords of k must be all that is drawn: the middle of any other chord between two of the points is paper unless it
+        // lies close to one of k's chords (where lines cross).
+        const own = chordsOf(column, row, k);
+        let stray = false;
+        for (let a = 0; a < p.points && !stray; a++)
+          for (let b = a + 1; b < p.points && !stray; b++) {
+            const [ax, ay] = pointAt(column, row, a),
+              [bx, by] = pointAt(column, row, b),
+              u = (ax + bx) / 2,
+              v = (ay + by) / 2;
+            // Chords between neighbouring points run along the ring (also drawn), and lines cross at the chords of k.
+            if (
+              Math.abs(
+                Math.hypot(u - (column + 0.5) * cell, v - (row + 0.5) * cell) -
+                  p.radius,
+              ) < 0.006 ||
+              own.some(
+                ([x0, y0, x1, y1]) =>
+                  distanceToSegment(u, v, x0, y0, x1, y1) < 0.006,
+              )
+            )
+              continue;
+            stray = colorAt(u, v) < 0.5;
+          }
+        if (!stray) found.push(k);
+      }
+      return found;
+    });
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws, in every cell, the chords of one multiplier and all nine differ (seed %i)',
+    (seed) => {
+      const cells = readMultipliers(seed);
+      // Every cell shows the chords of exactly one multiplier from kMin to kMax.
+      cells.forEach((found) => expect(found).toHaveLength(1));
+      const multipliers = cells.map(([k]) => k);
+      expect(new Set(multipliers).size).toBe(p.cells * p.cells);
+      multipliers.forEach((k) => {
+        expect(k).toBeGreaterThanOrEqual(p.kMin);
+        expect(k).toBeLessThanOrEqual(p.kMax);
+      });
+    },
+  );
+
+  it('draws a dark dot at every point and leaves the outside of the ring empty', () => {
+    const sample = createSurfaceSampler('timestablecircles', 7),
+      out = empty();
+    // Every one of the 72 points on the ring is a dark dot.
+    for (let index = 0; index < p.cells * p.cells; index++) {
+      const column = index % p.cells,
+        row = Math.floor(index / p.cells);
+      for (let i = 0; i < p.points; i++) {
+        const a = (2 * Math.PI * i) / p.points - Math.PI / 2;
+        sample(
+          (column + 0.5) * cell + p.radius * Math.cos(a),
+          (row + 0.5) * cell + p.radius * Math.sin(a),
+          out,
+        );
+        expect(out.color).toBeLessThan(0.3);
+      }
+      // Outside the ring, away from the dots, the cell is empty (paper or its faint band).
+      sample((column + 0.5) * cell + p.radius + 0.02, (row + 0.5) * cell, out);
+      expect(out.color).toBeGreaterThan(0.85);
+    }
+  });
+
+  it('uses every multiplier across seeds', () => {
+    const used = new Set<number>();
+    for (let seed = 0; seed < 20; seed++)
+      for (const [k] of readMultipliers(seed)) used.add(k);
+    expect(used.size).toBe(p.kMax - p.kMin + 1);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('timestablecircles', 0),
+      b = createSurfaceSampler('timestablecircles', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(0);
+  });
+});
