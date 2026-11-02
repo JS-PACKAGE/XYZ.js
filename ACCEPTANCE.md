@@ -12751,3 +12751,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試（節點顏色反推自旋、上色邏輯與統計為一項；seed差異與決定性；C1＋有符號UV週期；actual512 maps），`-t`選中的5項（含kinds清單新條目）皆通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Ising domains as|isingdomains|kinds|catalog|distinct|periodic"`定向測試**2334項通過／4001項未選**。
 - 未驗證：sandpileidentity、multiplicativeorder、voronoifacets、percolationclusters、isingdomains未跑完整suite；voronoifacets、percolationclusters、isingdomains的瀏覽器gallery尚未跑；不push。
+
+## 2026-11-02 紀錄：完整suite與瀏覽器gallery（through isingdomains）
+
+- 完整suite（工具實跑，`/private/tmp/xyz-ct-suite`，commit `235ecc03e`）：**179個檔案、10,264項全數通過，1160.28 s**；這次執行期間我沒有並行跑其他重負載工作（為了釐清上一次在`a3184de0b`出現過的、未查明的單次失敗是否與負載有關；這一次通過**不能證明**上一次失敗確實是負載造成，只是沒有再出現）。涵蓋sandpileidentity、multiplicativeorder、voronoifacets、percolationclusters、isingdomains（以及之前已涵蓋的所有材質）。測試數隨新增材質增加，這是當時的數字，不代表目前。
+- 瀏覽器gallery（`examples/pbr3d`，headless Chrome；WebGPU與`?renderer=webgl2`各一次）：voronoifacets、percolationclusters、isingdomains依序從`#material`選單選取，每種在畫面readout出現`Material <kind> `，`errors()`為0項；readout顯示「1014 procedural material presets」、選單1015項（sandpileidentity與multiplicativeorder已在前一次gallery檢查，readout「1011」）。**檢查範圍只是「可選取、readout更新、沒有console錯誤」**，不是畫面像素或效能驗證，我沒有看這些選取後的畫面截圖。
+- 仍未驗證：單一機器（macOS arm64、headless Chrome、`--use-angle=metal`），不宣稱其他瀏覽器或平台；不push。
