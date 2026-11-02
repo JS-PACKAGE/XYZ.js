@@ -1096,6 +1096,7 @@ try {
     'rudinshapiro',
     'graecolatin',
     'thuemorse',
+    'chessqueens',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

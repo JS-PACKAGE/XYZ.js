@@ -42391,6 +42391,83 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'chessqueens': {
+        const p = proceduralMaterialPresets.chessqueens,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft,
+          solutions: number[][] = [],
+          placed: number[] = [],
+          usedColumn = new Uint8Array(p.cells),
+          usedUp = new Uint8Array(2 * p.cells),
+          usedDown = new Uint8Array(2 * p.cells),
+          tones = new Float64Array(p.cells * p.cells);
+        // Every way of placing cells queens on a cells x cells board so that none attacks another
+        // (one per row, column and diagonal) is found by backtracking row by row (724 of them
+        // for the 10 x 10 board), and the seed picks one of them. The board is drawn as a
+        // chequer of dark squares (tone 0) and light squares, with a glowing tile on every queen.
+        // The board is not shifted around the torus (a shifted board would no longer
+        // be a solution on its diagonals).
+        const place = (row: number): void => {
+          if (row === p.cells) {
+            solutions.push(placed.slice());
+            return;
+          }
+          for (let column = 0; column < p.cells; column++) {
+            const up = row + column,
+              down = row - column + p.cells - 1;
+            if (usedColumn[column] || usedUp[up] || usedDown[down]) continue;
+            usedColumn[column] = usedUp[up] = usedDown[down] = 1;
+            placed[row] = column;
+            place(row + 1);
+            usedColumn[column] = usedUp[up] = usedDown[down] = 0;
+          }
+        };
+        place(0);
+        const chosen =
+          solutions[
+            Math.floor(hash(0, 12, seed ^ p.seedSalt) * solutions.length)
+          ];
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] =
+              chosen[row] === col
+                ? p.queenTone
+                : (row + col) % 2 === 1
+                  ? p.lightSquare
+                  : 0;
+        return () => {
+          // One compact-support rounded-square kernel per cell (a quartic superellipse
+          // through smoothstep, exactly zero before the cell boundary), so the cell
+          // lookup never jumps and the field is C1.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            ax = (x - col - 0.5) * inverseHalf,
+            ay = (y - row - 0.5) * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            tone = tones[row * p.cells + col],
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -51225,6 +51302,7 @@ export function createSurfaceSampler(
     kind === 'rudinshapiro' ||
     kind === 'graecolatin' ||
     kind === 'thuemorse' ||
+    kind === 'chessqueens' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||

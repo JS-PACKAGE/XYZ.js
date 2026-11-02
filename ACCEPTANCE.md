@@ -12929,3 +12929,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Thue-Morse as|thuemorse|kinds|catalog|distinct|periodic"`定向測試**2368項通過／4052項未選**。
 - 未驗證：paperfolding、rudinshapiro、graecolatin與thuemorse未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-03 新增材質：棋盤皇后（chessqueens）
+
+- 範圍：新增`chessqueens`（目前目錄1031→1032種，含plain的gallery 1033項）：10×10棋盤格（深色與灰色格交錯）放上十個互不攻擊的皇后（象牙白磚）；10×10棋盤共724種放法，sampler以回溯法找出並依`floor(hash · 724)`挑一種；棋盤不做環面平移（皇后的斜線不繞過環面，平移後就不再是解）；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 131,872 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽只看了一版；(2)測試以位元遮罩這個**獨立的求解器**重新求出724個解，從sampler讀回棋盤、檢查恰有十個皇后且是其中一個解（所以沒有兩個皇后共欄或共斜線）、格色範圍、四個seed選出不同的解；**不驗證seed如何選解**，也沒有逐一對照sampler的解列表順序是否與獨立求解器相同（兩者依設計都由小到大的欄逐列搜尋）；(3)文件初稿寫「探針中獨立求解器的列舉順序與sampler相同」，這句我並沒有實測，gates之後、commit前已改成只說依設計相同、未逐一對照；(4)測試第一次型別檢查失敗：我把讀回結果的變數命名為`dark`與同一個測試內統計用的`dark`計數器衝突（`Cannot redeclare block-scoped variable`），改名為`darkColors`／`lightColors`後通過；(5)sampler建構量到約23.6（第一次，含JIT）、3.6、2.8、2.7、2.5 ms（單次量測，不是benchmark），取樣耗時**未量測**。
+- 實測（工具實跑）：獨立位元遮罩求解器求得724個解；四個seed（0／1／0xffffffff／7）讀回的皇后位置（每列的欄，0起算）為`4970286135`、`4295186370`、`0718529364`、`6257903148`，皆恰有十個皇后且皆是724個解之一；深色格顏色0.1257–0.1537、淺色格0.3261–0.3540；256²（seed 0／1／0xffffffff）亮處（color>0.5）7.15%–7.16%、color 0.02544–0.02566至0.85364–0.85385、平均0.22649–0.22932、roughness恆為0.4、AO最低0.6、height至多0.7520–0.7563 relief；512²（四個seed）亮處7.17%–7.18%、color 0.02520–0.02546至0.85459–0.85471、平均0.22649–0.22933、height至多0.7561–0.7589 relief；seed 0與1相比，512²中color>0.5的取樣10.0%不同；seed 7的512²maps平均r／g／b約(69.9, 61.4, 67.0)、法線tilt²最大約0.00298、z分量最小255。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過（型別修正後）。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Chess queens as|chessqueens|kinds|catalog|distinct|periodic"`定向測試**2370項通過／4055項未選**。
+- 未驗證：paperfolding、rudinshapiro、graecolatin、thuemorse與chessqueens未跑完整suite與瀏覽器gallery；不push。

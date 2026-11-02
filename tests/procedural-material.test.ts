@@ -1059,6 +1059,7 @@ const kinds: ProceduralMaterialKind[] = [
   'rudinshapiro',
   'graecolatin',
   'thuemorse',
+  'chessqueens',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',
@@ -166760,6 +166761,240 @@ describe('Thue-Morse as the Thue-Morse sequence written row by row into a 48 by 
     expect(blue / (512 * 512)).toBeLessThan(61);
     expect(maxTilt).toBeGreaterThan(0.025);
     expect(maxTilt).toBeLessThan(0.035);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Chess queens as a 10 by 10 chequer with ten non-attacking queens', () => {
+  const p = proceduralMaterialPresets.chessqueens;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const cells = 10;
+  /**
+   * Every placement of ten non-attacking queens (one per row), written independently here with
+   * bit masks of the used columns and the two diagonal directions instead of the sampler's arrays
+   * of flags; the row-by-row lowest-column-first order is lexicographic.
+   */
+  const solutions: number[][] = [];
+  const search = (
+    row: number,
+    columns: number,
+    down: number,
+    up: number,
+    current: number[],
+  ): void => {
+    if (row === cells) {
+      solutions.push([...current]);
+      return;
+    }
+    let free = ~(columns | down | up) & ((1 << cells) - 1);
+    while (free !== 0) {
+      const bit = free & -free;
+      free ^= bit;
+      current.push(31 - Math.clz32(bit));
+      search(
+        row + 1,
+        columns | bit,
+        (down | bit) << 1,
+        (up | bit) >> 1,
+        current,
+      );
+      current.pop();
+    }
+  };
+  search(0, 0, 0, 0, []);
+  /** The board read back at the cell centres: the queen column of every row and the other tiles' colours. */
+  const readBoard = (
+    seed: number,
+  ): { queens: number[]; dark: number[]; light: number[]; count: number } => {
+    const sample = createSurfaceSampler('chessqueens', seed),
+      out = empty(),
+      queens: number[] = [],
+      dark: number[] = [],
+      light: number[] = [];
+    let count = 0;
+    for (let row = 0; row < cells; row++) {
+      let queen = -1;
+      for (let col = 0; col < cells; col++) {
+        sample((col + 0.5) / cells, (row + 0.5) / cells, out);
+        if (out.color > 0.6) {
+          count++;
+          queen = col;
+        } else
+          (((row + col) % 2 === 1 ? light : dark) as number[]).push(out.color);
+      }
+      queens.push(queen);
+    }
+    return { queens, dark, light, count };
+  };
+  it('draws a valid ten-queens solution on a chequer and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('chessqueens', seed),
+        a = empty();
+      // The 10 by 10 board has 724 solutions; the board read back from the sampler has exactly ten
+      // queens, one in every row (the column of each is a different one), and is one of those 724
+      // placements, so no two queens share a column or a diagonal; the other tiles are dark
+      // (below 0.16) on one colour of the chequer and light (0.32 to 0.36) on the other.
+      expect(solutions).toHaveLength(724);
+      const {
+        queens,
+        dark: darkColors,
+        light: lightColors,
+        count,
+      } = readBoard(seed);
+      expect(count).toBe(cells);
+      expect(
+        solutions.some((solution) => solution.join(',') === queens.join(',')),
+      ).toBe(true);
+      expect(Math.max(...darkColors)).toBeLessThan(0.16);
+      expect(Math.min(...lightColors)).toBeGreaterThan(0.32);
+      expect(Math.max(...lightColors)).toBeLessThan(0.36);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.025);
+      expect(low).toBeLessThan(0.026);
+      expect(high).toBeGreaterThan(0.853);
+      expect(high).toBeLessThan(0.854);
+      expect(dark / 65536).toBeGreaterThan(0.0714);
+      expect(dark / 65536).toBeLessThan(0.0716);
+      expect(mean / 65536).toBeGreaterThan(0.226);
+      expect(mean / 65536).toBeLessThan(0.23);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 3);
+      expect(heightHigh).toBeGreaterThan(0.75);
+      expect(heightHigh).toBeLessThan(0.76);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('picks a different solution per seed and is deterministic for one seed', () => {
+    const boards = [0, 1, 0xffffffff, 7].map((seed) =>
+      readBoard(seed).queens.join(','),
+    );
+    expect(new Set(boards).size).toBe(4);
+    expect(readBoard(0)).toEqual(readBoard(0));
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('chessqueens', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [cells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 ivory chessboard maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('chessqueens', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(69);
+    expect(red / (512 * 512)).toBeLessThan(71);
+    expect(green / (512 * 512)).toBeGreaterThan(60.5);
+    expect(green / (512 * 512)).toBeLessThan(62.5);
+    expect(blue / (512 * 512)).toBeGreaterThan(66);
+    expect(blue / (512 * 512)).toBeLessThan(68);
+    expect(maxTilt).toBeGreaterThan(0.002);
+    expect(maxTilt).toBeLessThan(0.0045);
     expect(invalid).toBe(0);
   });
 });
