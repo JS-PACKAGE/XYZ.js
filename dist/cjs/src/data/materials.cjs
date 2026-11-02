@@ -17979,6 +17979,69 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .74,
 		curveRoughness: .35
 	}),
+	vennregions: Object.freeze({
+		dark: [
+			28,
+			26,
+			56
+		],
+		light: [
+			248,
+			242,
+			224
+		],
+		roughness: .55,
+		relief: .004,
+		radius: .2,
+		centres: Object.freeze([
+			.4,
+			.44,
+			.6,
+			.44,
+			.5,
+			.6132
+		]),
+		regionLabels: Object.freeze([
+			.3,
+			.4,
+			.7,
+			.4,
+			.5,
+			.74,
+			.5,
+			.34,
+			.4,
+			.58,
+			.6,
+			.58,
+			.5,
+			.5
+		]),
+		maxCount: 40,
+		totalsLeft: .04,
+		totalsTop: [
+			.05,
+			.12,
+			.19
+		],
+		glyphPitch: .045,
+		digitPixel: .008,
+		outlineHalf: .0022,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .95,
+		layerTone: .07,
+		outlineTone: .2,
+		inkTone: .06,
+		grainTone: .02,
+		paperHeight: .22,
+		layerHeight: .07,
+		outlineHeight: .7,
+		inkDepth: .08,
+		paperRoughness: .74,
+		outlineRoughness: .4,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -26660,6 +26723,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	vennregions: .5,
 	bezierconstruction: .6,
 	luhnnumbers: .4,
 	twosourceripples: .5,

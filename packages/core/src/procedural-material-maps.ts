@@ -31745,6 +31745,120 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'vennregions': {
+        const p = proceduralMaterialPresets.vennregions,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2da01),
+          glyphs: Record<string, string> = {
+            '0': '111101101101111',
+            '1': '010110010010111',
+            '2': '111001111100111',
+            '3': '111001111001111',
+            '4': '101101111001001',
+            '5': '111100111001111',
+            '6': '111100111101111',
+            '7': '111001010010010',
+            '8': '111101111101111',
+            '9': '111101111001111',
+            '=': '000111000111000',
+            A: '010101111101101',
+            B: '110101110101110',
+            C: '011100100100011',
+          },
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // Element counts of the seven regions, in the order A only, B only, C only, AB, AC, BC, ABC.
+          counts = Array.from({ length: 7 }, (_, i) =>
+            Math.min(
+              p.maxCount,
+              Math.floor(hash(i, 1, seed ^ 0x2da02) * (p.maxCount + 1)),
+            ),
+          ),
+          [a, b, c, ab, ac, bc, abc] = counts,
+          // Each circle holds its own region, the two pairs it belongs to, and the centre.
+          totals = [
+            { letter: 'A', value: a + ab + ac + abc },
+            { letter: 'B', value: b + ab + bc + abc },
+            { letter: 'C', value: c + ac + bc + abc },
+          ],
+          // Text laid out at a fixed pitch from a left edge: label glyph, '=', digits.
+          totalText = totals.map(({ letter, value }) => [
+            ...(letter + '=' + value),
+          ]);
+        return () => {
+          let layers = 0,
+            outline = 0,
+            glyph = 0;
+          for (let k = 0; k < 3; k++) {
+            const distance = Math.hypot(
+              u - p.centres[2 * k],
+              v - p.centres[2 * k + 1],
+            );
+            layers += cover(p.radius - distance);
+            outline = Math.max(
+              outline,
+              cover(p.outlineHalf - Math.abs(distance - p.radius)),
+            );
+          }
+          // Region counts, centred on their label positions.
+          for (let region = 0; region < 7; region++) {
+            const text = String(counts[region]),
+              start = -(2 * text.length - 1),
+              px = Math.floor(
+                (u - p.regionLabels[2 * region]) / p.digitPixel + 0.5,
+              ),
+              py = Math.floor(
+                (v - p.regionLabels[2 * region + 1]) / p.digitPixel + 2.5,
+              );
+            if (py >= 0 && py < 5)
+              for (let d = 0; d < text.length; d++) {
+                const gx = px - (start + 4 * d);
+                if (gx >= 0 && gx < 3 && glyphs[text[d]][py * 3 + gx] === '1')
+                  glyph = 1;
+              }
+          }
+          // Totals at the top left, one line each.
+          for (let line = 0; line < 3; line++) {
+            const py = Math.floor((v - p.totalsTop[line]) / p.digitPixel + 2.5),
+              column = Math.floor((u - p.totalsLeft) / p.glyphPitch);
+            if (
+              py >= 0 &&
+              py < 5 &&
+              column >= 0 &&
+              column < totalText[line].length
+            ) {
+              const px = Math.floor(
+                (u - p.totalsLeft - (column + 0.5) * p.glyphPitch) /
+                  p.digitPixel +
+                  1.5,
+              );
+              if (
+                px >= 0 &&
+                px < 3 &&
+                glyphs[totalText[line][column]][py * 3 + px] === '1'
+              )
+                glyph = 1;
+            }
+          }
+          const tone =
+              p.paperTone -
+              p.layerTone * layers +
+              (p.outlineTone - (p.paperTone - p.layerTone * layers)) * outline,
+            ink = tone + (p.inkTone - tone) * glyph;
+          color = clamp(ink + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(
+            p.paperHeight +
+              p.layerHeight * layers +
+              (p.outlineHeight - p.paperHeight) * outline -
+              p.inkDepth * glyph,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.outlineRoughness - p.paperRoughness) * outline +
+            (p.inkRoughness - p.paperRoughness) * glyph * (1 - outline);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -59274,6 +59388,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'vennregions' ||
     kind === 'bezierconstruction' ||
     kind === 'luhnnumbers' ||
     kind === 'twosourceripples' ||

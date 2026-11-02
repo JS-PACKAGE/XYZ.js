@@ -19448,3 +19448,233 @@ describe('bezierconstruction: cubic Bezier curves with the de Casteljau construc
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('vennregions: a three-set Venn diagram with region counts and set totals', () => {
+  const p = proceduralMaterialPresets.vennregions;
+  const art: Record<string, string[]> = {
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    '2': ['###', '..#', '###', '#..', '###'],
+    '3': ['###', '..#', '###', '..#', '###'],
+    '4': ['#.#', '#.#', '###', '..#', '..#'],
+    '5': ['###', '#..', '###', '..#', '###'],
+    '6': ['###', '#..', '###', '#.#', '###'],
+    '7': ['###', '..#', '.#.', '.#.', '.#.'],
+    '8': ['###', '#.#', '###', '#.#', '###'],
+    '9': ['###', '#.#', '###', '..#', '###'],
+    '=': ['...', '###', '...', '###', '...'],
+    A: ['.#.', '#.#', '###', '#.#', '#.#'],
+    B: ['##.', '#.#', '##.', '#.#', '##.'],
+    C: ['.##', '#..', '#..', '#..', '.##'],
+  };
+  // Which of the circles A, B, C contain each region's label, by the preset's own geometry.
+  const membership = [
+    [1, 0, 0],
+    [0, 1, 0],
+    [0, 0, 1],
+    [1, 1, 0],
+    [1, 0, 1],
+    [0, 1, 1],
+    [1, 1, 1],
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'puts each count in its own region, and the three totals add up the regions inside each circle (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('vennregions', seed),
+        out = empty(),
+        at = (u: number, v: number): number => {
+          sample(u, v, out);
+          return out.color;
+        },
+        // Reads the 3 x 5 matrix centred at (cx, cy); dark pixels are ink.
+        pattern = (cx: number, cy: number): string[] =>
+          [0, 1, 2, 3, 4].map((line) =>
+            [0, 1, 2]
+              .map((x) =>
+                at(
+                  cx + (x - 1) * p.digitPixel,
+                  cy + (line - 2) * p.digitPixel,
+                ) < 0.3
+                  ? '#'
+                  : '.',
+              )
+              .join(''),
+          ),
+        symbol = (cx: number, cy: number): string | undefined =>
+          Object.entries(art).find(([, shape]) =>
+            shape.every((line, i) => line === pattern(cx, cy)[i]),
+          )?.[0],
+        readNumber = (cx: number, cy: number): number => {
+          // Count the digits by the widest ink column (1, 2 or 3 digits are centred on the point).
+          const anyInk = (offset: number): boolean =>
+              [0, 1, 2, 3, 4].some(
+                (line) =>
+                  at(
+                    cx + offset * p.digitPixel,
+                    cy + (line - 2) * p.digitPixel,
+                  ) < 0.3 ||
+                  at(
+                    cx - offset * p.digitPixel,
+                    cy + (line - 2) * p.digitPixel,
+                  ) < 0.3,
+              ),
+            reach = [5, 3, 1].find((offset) => anyInk(offset)),
+            count = reach === 5 ? 3 : reach === 3 ? 2 : 1;
+          let value = 0;
+          for (let d = 0; d < count; d++) {
+            const digit = symbol(
+              cx - (2 * count - 1) * p.digitPixel + (4 * d + 1) * p.digitPixel,
+              cy,
+            );
+            expect(digit).toBeDefined();
+            value = value * 10 + Number(digit);
+          }
+          return value;
+        },
+        counts = Array.from({ length: 7 }, (_, region) =>
+          readNumber(
+            p.regionLabels[2 * region],
+            p.regionLabels[2 * region + 1],
+          ),
+        );
+      // Each label sits inside exactly the circles its region belongs to.
+      for (let region = 0; region < 7; region++) {
+        const [x, y] = [
+          p.regionLabels[2 * region],
+          p.regionLabels[2 * region + 1],
+        ];
+        for (let k = 0; k < 3; k++) {
+          const inside =
+            Math.hypot(x - p.centres[2 * k], y - p.centres[2 * k + 1]) <
+            p.radius;
+          expect(inside).toBe(membership[region][k] === 1);
+        }
+      }
+      for (const count of counts) expect(count).toBeLessThanOrEqual(p.maxCount);
+      // The totals "A=..", "B=..", "C=..": read the letter, the equals sign and the digits left to right.
+      const totals = [0, 1, 2].map((line) => {
+        let text = '';
+        for (let column = 0; column < 6; column++) {
+          const cx = p.totalsLeft + (column + 0.5) * p.glyphPitch,
+            shape = pattern(cx, p.totalsTop[line]);
+          if (shape.every((row) => row === '...')) break;
+          const found = Object.entries(art).find(([, candidate]) =>
+            candidate.every((row, i) => row === shape[i]),
+          );
+          expect(found).toBeDefined();
+          text += (found as [string, string[]])[0];
+        }
+        return text;
+      });
+      expect(totals.map((text) => text.slice(0, 2))).toEqual([
+        'A=',
+        'B=',
+        'C=',
+      ]);
+      const [a, b, c, ab, ac, bc, abc] = counts,
+        sizes = totals.map((text) => Number(text.slice(2)));
+      // |A| is everything inside circle A, and so on.
+      expect(sizes).toEqual([
+        a + ab + ac + abc,
+        b + ab + bc + abc,
+        c + ac + bc + abc,
+      ]);
+      // Inclusion-exclusion: the union is |A| + |B| + |C| - |A n B| - |A n C| - |B n C| + |A n B n C|.
+      expect(
+        sizes[0] +
+          sizes[1] +
+          sizes[2] -
+          (ab + abc) -
+          (ac + abc) -
+          (bc + abc) +
+          abc,
+      ).toBe(a + b + c + ab + ac + bc + abc);
+      // Each circle's outline passes through its four extreme points, and its middle is not outlined.
+      for (let k = 0; k < 3; k++) {
+        const cx = p.centres[2 * k],
+          cy = p.centres[2 * k + 1];
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ])
+          expect(at(cx + dx * p.radius, cy + dy * p.radius)).toBeLessThan(0.4);
+      }
+      // The shading follows the circle's edge: just inside is darker than just outside, at the three extreme points that
+      // lie outside the other circles (left of A, right of B, below C).
+      for (const [k, dx, dy] of [
+        [0, -1, 0],
+        [1, 1, 0],
+        [2, 0, 1],
+      ] as const) {
+        const cx = p.centres[2 * k],
+          cy = p.centres[2 * k + 1];
+        expect(
+          at(cx + dx * (p.radius - 0.012), cy + dy * (p.radius - 0.012)),
+        ).toBeLessThan(
+          at(cx + dx * (p.radius + 0.012), cy + dy * (p.radius + 0.012)) - 0.03,
+        );
+      }
+      // Overlaps are shaded darker: the mean background tone falls with the number of circles a point lies in (ink and
+      // outlines, which are much darker, are left out).
+      const sums = [0, 0, 0, 0],
+        numbers = [0, 0, 0, 0],
+        n = 160;
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          const px = (x + 0.5) / n,
+            py = (y + 0.5) / n,
+            tone = at(px, py);
+          if (tone < 0.5) continue;
+          const inside = [0, 1, 2].filter(
+            (k) =>
+              Math.hypot(px - p.centres[2 * k], py - p.centres[2 * k + 1]) <
+              p.radius,
+          ).length;
+          sums[inside] += tone;
+          numbers[inside]++;
+        }
+      const means = sums.map((sum, i) => sum / numbers[i]);
+      for (let i = 1; i < 4; i++)
+        expect(means[i]).toBeLessThan(means[i - 1] - 0.03);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('vennregions', 0),
+      b = createSurfaceSampler('vennregions', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
