@@ -21887,3 +21887,167 @@ describe('wordsquares: letter squares that read the same across and down', () =>
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('vectorfieldarrows: arrows along a vector field', () => {
+  const p = proceduralMaterialPresets.vectorfieldarrows,
+    n = p.nodes,
+    cell = 1 / n;
+  // Each node's arrow: its direction (from the principal axis of the ink, signed towards the heavier half, which holds the
+  // head), its length (the ink's extent along that axis) and its darkness.
+  const measure = (seed: number, patch: number) => {
+    const sample = createSurfaceSampler('vectorfieldarrows', seed),
+      out = empty(),
+      arrows: { angle: number; length: number; tone: number }[] = [];
+    for (let row = 0; row < n; row++)
+      for (let column = 0; column < n; column++) {
+        const points: [number, number, number][] = [];
+        let darkest = 1;
+        for (let j = 0; j < patch; j++)
+          for (let i = 0; i < patch; i++) {
+            const dx = ((i + 0.5) / patch - 0.5) * cell,
+              dy = ((j + 0.5) / patch - 0.5) * cell;
+            sample((column + 0.5) * cell + dx, (row + 0.5) * cell + dy, out);
+            if (out.color < p.paperTone - 0.15) {
+              points.push([dx, dy, p.paperTone - out.color]);
+              darkest = Math.min(darkest, out.color);
+            }
+          }
+        const mean = [0, 1].map(
+          (k) =>
+            points.reduce((sum, point) => sum + point[k], 0) / points.length,
+        );
+        let sxx = 0,
+          sxy = 0,
+          syy = 0;
+        for (const [x, y, w] of points) {
+          sxx += w * (x - mean[0]) ** 2;
+          sxy += w * (x - mean[0]) * (y - mean[1]);
+          syy += w * (y - mean[1]) ** 2;
+        }
+        const axis = 0.5 * Math.atan2(2 * sxy, sxx - syy),
+          ux = Math.cos(axis),
+          uy = Math.sin(axis),
+          projections = points.map(([x, y]) => x * ux + y * uy),
+          // The head half (towards the tip) carries more ink than the shaft half: compare the ink on both sides of the node centre.
+          forward = points.reduce(
+            (sum, point, k) => sum + (projections[k] > 0 ? point[2] : 0),
+            0,
+          ),
+          backward = points.reduce(
+            (sum, point, k) => sum + (projections[k] < 0 ? point[2] : 0),
+            0,
+          ),
+          angle = forward >= backward ? axis : axis + Math.PI;
+        arrows.push({
+          angle,
+          length: Math.max(...projections) - Math.min(...projections),
+          tone: darkest,
+        });
+      }
+    return arrows;
+  };
+  const wrap = (angle: number): number =>
+    Math.abs(Math.atan2(Math.sin(angle), Math.cos(angle)));
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'points every arrow along exactly one of the preset fields with a length that follows its strength (seed %i)',
+    (seed) => {
+      const arrows = measure(seed, 80),
+        fits = p.fields.map(([a, b, c, d]) => {
+          let good = 0,
+            lengthGood = 0;
+          const vectors = arrows.map((_, index) => {
+              const x = ((index % n) + 0.5) / n - 0.5,
+                y = (Math.floor(index / n) + 0.5) / n - 0.5;
+              return [a * x + b * y, c * x + d * y] as const;
+            }),
+            strongest = Math.max(...vectors.map(([x, y]) => Math.hypot(x, y)));
+          arrows.forEach((arrow, index) => {
+            const [x, y] = vectors[index];
+            good += Number(wrap(arrow.angle - Math.atan2(y, x)) < 0.15);
+            const expected =
+              cell *
+              (p.shortest +
+                (p.longest - p.shortest) * (Math.hypot(x, y) / strongest));
+            lengthGood += Number(
+              Math.abs(arrow.length - expected) < 0.1 * cell,
+            );
+          });
+          return {
+            good: good / arrows.length,
+            lengthGood: lengthGood / arrows.length,
+          };
+        }),
+        ranked = fits.map((fit) => fit.good).sort((x, y) => y - x);
+      expect(ranked[0]).toBeGreaterThan(0.95);
+      expect(ranked[1]).toBeLessThan(0.7);
+      const best = fits.reduce((winner, fit) =>
+        fit.good > winner.good ? fit : winner,
+      );
+      expect(best.lengthGood).toBeGreaterThan(0.95);
+    },
+  );
+
+  it('uses every field across seeds and darkens the stronger arrows', () => {
+    const used = new Set<number>();
+    for (let seed = 0; seed < 24; seed++) {
+      const arrows = measure(seed, 32),
+        scores = p.fields.map(([a, b, c, d]) =>
+          arrows.reduce((sum, arrow, index) => {
+            const x = ((index % n) + 0.5) / n - 0.5,
+              y = (Math.floor(index / n) + 0.5) / n - 0.5;
+            return (
+              sum +
+              Number(
+                wrap(arrow.angle - Math.atan2(c * x + d * y, a * x + b * y)) <
+                  0.15,
+              )
+            );
+          }, 0),
+        );
+      used.add(scores.indexOf(Math.max(...scores)));
+      // The strongest arrow is darker than the weakest one.
+      const lengths = arrows.map((arrow) => arrow.length),
+        longest = lengths.indexOf(Math.max(...lengths)),
+        shortest = lengths.indexOf(Math.min(...lengths));
+      expect(arrows[longest].tone).toBeLessThan(arrows[shortest].tone);
+    }
+    expect([...used].sort()).toEqual([0, 1, 2, 3]);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('vectorfieldarrows', 0),
+      b = createSurfaceSampler('vectorfieldarrows', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

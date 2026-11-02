@@ -33195,6 +33195,69 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'vectorfieldarrows': {
+        const p = proceduralMaterialPresets.vectorfieldarrows,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2ea01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          [a, b, c, d] =
+            p.fields[Math.floor(hash(5, 6, seed ^ 0x2ea02) * p.fields.length)],
+          n = p.nodes,
+          cell = 1 / n,
+          vector = (column: number, row: number): [number, number] => {
+            const x = (column + 0.5) / n - 0.5,
+              y = (row + 0.5) / n - 0.5;
+            return [a * x + b * y, c * x + d * y];
+          };
+        let strongest = 0;
+        for (let row = 0; row < n; row++)
+          for (let column = 0; column < n; column++)
+            strongest = Math.max(strongest, Math.hypot(...vector(column, row)));
+        return () => {
+          const column = Math.min(n - 1, Math.floor(u * n)),
+            row = Math.min(n - 1, Math.floor(v * n)),
+            [fx, fy] = vector(column, row),
+            magnitude = Math.hypot(fx, fy),
+            share = magnitude / strongest,
+            length = cell * (p.shortest + (p.longest - p.shortest) * share),
+            // Coordinates along the arrow (a) and across it (s), from the middle of the node cell.
+            dx = u - (column + 0.5) * cell,
+            dy = v - (row + 0.5) * cell,
+            along = (dx * fx + dy * fy) / magnitude,
+            across = (-dx * fy + dy * fx) / magnitude,
+            tail = -length / 2,
+            // Short arrows shrink the head so that it never reaches past the tail.
+            headLength = Math.min(p.headLength, 0.6 * length),
+            headHalf = (p.headHalf * headLength) / p.headLength,
+            neck = length / 2 - headLength,
+            // Signed distance inside the shaft (a rectangle) and the head (a triangle narrowing towards the tip).
+            shaft = Math.min(
+              p.shaftHalf - Math.abs(across),
+              along - tail,
+              neck - along,
+            ),
+            head =
+              Math.min(
+                ((length / 2 - along) / headLength) * headHalf -
+                  Math.abs(across),
+                along - neck,
+              ) * 0.9,
+            inside = cover(Math.max(shaft, head));
+          const tone = p.weakTone + (p.strongTone - p.weakTone) * share;
+          color = clamp(
+            p.paperTone +
+              (tone - p.paperTone) * inside +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.paperHeight + (p.arrowHeight - p.paperHeight) * inside,
+          );
+          roughness =
+            p.paperRoughness + (p.arrowRoughness - p.paperRoughness) * inside;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -60724,6 +60787,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'vectorfieldarrows' ||
     kind === 'wordsquares' ||
     kind === 'caesarcipher' ||
     kind === 'baseconversion' ||
