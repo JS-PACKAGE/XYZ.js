@@ -12402,3 +12402,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 瀏覽器gallery（工具實跑，`bc58b5229`狀態的乾淨worktree上的vite dev server）：spawned Google Chrome headless（`--enable-unsafe-webgpu --use-angle=metal`）開啟`/examples/pbr3d/`，`#material`選單有980個選項；逐一以`input`事件選取`mandelbrottiles`、`juliatiles`、`dragoncurve`、`divisorcount`、`peanocurve`、`sacksspiral`、`tulle`並等待讀數出現`Material <kind> `，七個全部成功；WebGPU與`?renderer=webgl2`各跑一次，結束時`tab.errors()`的`entries`皆為0筆；狀態列顯示`979 procedural material presets`。
 - 過程紀錄（誠實紀錄）：前兩次嘗試用`tab.evaluate`在30秒內逾時（第一次mandelbrottiles的讀數等待失敗、之後的cell被中止；第二次於同時跑完整suite時進行，之後在機器閒置時重試也逾時一次），原因我沒有查明；改用`tab.run`內的`page.evaluate`逐步輪詢（每次最多15秒）後全部成功，所以上述結果來自第三種做法，不是第一次嘗試。
 - 限制：gallery檢查只涵蓋「能選取、讀數更新、console沒有錯誤」，**沒有**逐材質視覺比對，也沒有跨瀏覽器、跨GPU或Windows／Linux驗證；不push。
+
+## 2026-11-02 新增材質：列維曲線（levycurve）
+
+- 範圍：新增`levycurve`（目前目錄979→980種，含plain的gallery 981項）：深青黑底上薄荷綠細線描出第9階列維C曲線（512步，第`k`步方向為`i^popcount(k)`；416個相異格點、462條相異邊，50步折返重複描繪；1,340個亮node；線寬三分之一格；48×48格環面、外框約39×39格，偏移(8, 16)；seed沿環面平移）；與`dragoncurve`、`peanocurve`共用走線sampler分支（新增`levy`旗標與頂點串產生）；預設0.25 m nominal tile、0.0008 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**；曲線不封閉。
+- 調整紀錄（誠實紀錄）：relief沿用dragoncurve的0.0008，未另外調整（512²maps法線tilt²最大0.0543）。實作前先以獨立小程式確認階數9的格點／邊個數與外框，再決定環面大小。接線時html選項的字串替換第一次因prettier排版不同而失敗（只改到部分檔案），改以實際內容重做；沒有影響結果。共用分支重構同時跑了`Dragon curve as`、`Peano curve as`區塊，兩者的逐node比對測試仍通過。
+- 實測（工具實跑，seed 0／1／0xffffffff／7，256²取樣）：亮處（color>0.5）占7.08%–7.12%、color 0.0457–0.0459至0.8328–0.8339、平均0.1109–0.1112、roughness 0.2001–0.3999、AO恆為1、height至多0.9872–0.9944 relief；四個seed的144×144 node盤面各自與測試中獨立以位元計數寫出的列維曲線在唯一一個環面平移下完全一致（(26, 39)、(12, 40)、(40, 7)、(29, 40)，亮node皆1,340）；seed 0與1的node盤面11.3%不同；seed 7的512²maps平均r／g／b約(16.8, 46.0, 43.5)、法線tilt²最大約0.0543、z分量最小252。我實看了預覽（seed 7）。
+- 測試：新增專屬測試（416個相異格點與462條相異邊、四seed的node盤面與獨立曲線比對、統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Levy curve as|levycurve|Dragon curve as|Peano curve as|kinds|catalog|distinct|periodic"`定向測試**2268項通過／3874項未選**。
+- 未驗證：levycurve未跑完整suite與瀏覽器gallery；不push。

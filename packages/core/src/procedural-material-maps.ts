@@ -40573,11 +40573,15 @@ export function createSurfaceSampler(
         };
       }
       case 'dragoncurve':
-      case 'peanocurve': {
+      case 'peanocurve':
+      case 'levycurve': {
         const peano = kind === 'peanocurve',
+          levy = kind === 'levycurve',
           p = peano
             ? proceduralMaterialPresets.peanocurve
-            : proceduralMaterialPresets.dragoncurve,
+            : levy
+              ? proceduralMaterialPresets.levycurve
+              : proceduralMaterialPresets.dragoncurve,
           size = p.cells * 3,
           marks = new Float64Array(size * size),
           glowField = cachedNoise(p.glowCells, p.glowCells, seed ^ p.seedSalt),
@@ -40623,6 +40627,18 @@ export function createSurfaceSampler(
               ySum += digits[2 * k + 1];
             }
             points.push([px, py]);
+          }
+        } else if (levy) {
+          // The Levy C curve: step k heads in direction i^popcount(k), so some edges are
+          // walked twice and are simply marked again.
+          let x = 0,
+            y = 0;
+          for (let step = 0; step < 1 << p.order; step++) {
+            let bits = 0;
+            for (let rest = step; rest; rest >>= 1) bits += rest & 1;
+            x += [1, 0, -1, 0][bits % 4];
+            y += [0, 1, 0, -1][bits % 4];
+            points.push([x, y]);
           }
         } else {
           let x = 1,
@@ -48666,6 +48682,7 @@ export function createSurfaceSampler(
     kind === 'peanocurve' ||
     kind === 'sacksspiral' ||
     kind === 'tulle' ||
+    kind === 'levycurve' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
