@@ -1007,6 +1007,7 @@ const kinds: ProceduralMaterialKind[] = [
   'hilbertcurve',
   'gameoflife',
   'elementaryautomata',
+  'modulartable',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -150194,6 +150195,201 @@ describe('Elementary automata as Wolfram rules 30, 90, 110 and 184 on amber LEDs
     expect(blue / (512 * 512)).toBeLessThan(25);
     expect(maxTilt).toBeGreaterThan(0.002);
     expect(maxTilt).toBeLessThan(0.01);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Modular table as a mod-11 multiplication table of raised tiles', () => {
+  const p = proceduralMaterialPresets.modulartable;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const cells = 31,
+    modulus = 11;
+  /** Tone read at the centre of every cell: (color - 0.12) / 0.8, grain included. */
+  const cellTones = (seed: number): number[] => {
+    const sample = createSurfaceSampler('modulartable', seed),
+      out = empty(),
+      tones: number[] = [];
+    for (let row = 0; row < cells; row++)
+      for (let col = 0; col < cells; col++) {
+        sample((col + 0.5) / cells, (row + 0.5) / cells, out);
+        tones.push((out.color - 0.12) / 0.8);
+      }
+    return tones;
+  };
+  /** Offsets (a, b) whose table (a + col)(b + row) mod 11 matches every cell, written independently here. */
+  const fittingOffsets = (tones: number[]): [number, number][] => {
+    const fits: [number, number][] = [];
+    for (let a = 0; a < modulus; a++)
+      for (let b = 0; b < modulus; b++) {
+        let worst = 0;
+        for (let row = 0; row < cells; row++)
+          for (let col = 0; col < cells; col++)
+            worst = Math.max(
+              worst,
+              Math.abs(
+                tones[row * cells + col] -
+                  (((a + col) * (b + row)) % modulus) / (modulus - 1),
+              ),
+            );
+        if (worst < 0.03) fits.push([a, b]);
+      }
+    return fits;
+  };
+  it('colours every cell by the multiplication table residue and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('modulartable', seed),
+        a = empty();
+      // Exactly one pair of offsets reproduces all 961 cell tones to within the grain.
+      expect(fittingOffsets(cellTones(seed))).toHaveLength(1);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.034);
+      expect(low).toBeLessThan(0.038);
+      expect(high).toBeGreaterThan(0.93);
+      expect(high).toBeLessThan(0.94);
+      expect(dark / 65536).toBeGreaterThan(0.34);
+      expect(dark / 65536).toBeLessThan(0.385);
+      expect(mean / 65536).toBeGreaterThan(0.36);
+      expect(mean / 65536).toBeLessThan(0.385);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 3);
+      expect(heightHigh).toBeGreaterThan(0.86);
+      expect(heightHigh).toBeLessThan(0.9);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('picks different table offsets per seed and is deterministic for one seed', () => {
+    const first = cellTones(0),
+      second = cellTones(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(Math.abs(first[i] - second[i]) > 0.05);
+    expect(different / first.length).toBeGreaterThan(0.2);
+    expect(cellTones(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('modulartable', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [cells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 warm mosaic maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('modulartable', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(103);
+    expect(red / (512 * 512)).toBeLessThan(115);
+    expect(green / (512 * 512)).toBeGreaterThan(80);
+    expect(green / (512 * 512)).toBeLessThan(92);
+    expect(blue / (512 * 512)).toBeGreaterThan(62);
+    expect(blue / (512 * 512)).toBeLessThan(74);
+    expect(maxTilt).toBeGreaterThan(0.02);
+    expect(maxTilt).toBeLessThan(0.07);
     expect(invalid).toBe(0);
   });
 });

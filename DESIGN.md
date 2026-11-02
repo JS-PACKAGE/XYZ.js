@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`modulartable`（模運算乘法表）使目前目錄965→966種，含plain的gallery為967項。31×31個圓角方塊磚排成的鑲嵌：第(col, row)格的色調由模11乘法表的餘數`((a + col)·(b + row)) mod 11`決定（從暗紫到金黃共11階，seed決定偏移a與b），磚面凸起、磚縫較暗並帶遮蔽（AO）。因為0的餘數出現在`a + col`或`b + row`是11的倍數時，整行或整列會變成暗磚的帶狀，其餘部分呈現乘法表的對稱圖案。不是任何真實鑲嵌或磁磚，只是數學圖案。
+
+此材質是作者示意，沒有引用特定來源或照片，也沒有對照照片；31×31格、模數11、11階色調、磚大小與0.3 m nominal tile皆作者設定。第一版relief 0.003時512²maps的法線tilt²最大為0.2140，降到0.0012後為0.0412（同一批探針的前後值）。
+
+新增專用sampler（沒有per-cell陣列，色調即時算出）：每格擁有一個緊湊支撐的圓角方塊kernel（四次超橢圓經過smoothstep：`mask = smooth(clamp((1 − (ax⁴ + ay⁴))/0.3))`，半寬0.46格，在格界前恰好歸零，所以逐格查詢不會有跳變，C1）；色調`tone = (((a + col)·(b + row)) mod 11)/10`；顏色＝`0.05 + (0.12 + 0.8·tone − 0.05)·mask + 0.03·(128²細grain − 0.5)`；height ＝ `0.8·dome·(0.88 + 0.12·tone) + 0.08·grain`；磚縫AO為0.6（`gapOcclusion` 0.4）；roughness恆為0.5；金屬factor為0；cache只有128²細grain = 16,384個Float64／131,072 B lattice算術預算（非總RAM）。預設0.3 m nominal tile與0.0012 UV-relative relief（非公尺位移）。實測（工具實跑，seed 0／1／0xffffffff／7，512²取樣）：亮處（color>0.5）占35.6%–36.9%、color 0.0351–0.0354至0.9345–0.9347、平均0.369–0.379、roughness恆為0.5、AO最低0.6、height至多0.8755–0.8791 relief；961個磚中心的色調與乘法表一致（四個seed分別唯一對應偏移(a, b) = (10, 1)、(2, 9)、(1, 3)、(1, 1)，最大誤差0.0178–0.0185，即細grain的幅度）；seed 0與1的亮區遮罩36.7%像素不同；seed 7的512²maps平均r／g／b約(109.0, 86.0, 67.8)、法線tilt²最大約0.0412。我實看了預覽：金黃與暗紫的方塊鑲嵌，有明顯的對稱圖案與暗色帶，像模運算的視覺化。未新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `elementaryautomata`（基本元胞自動機）使目前目錄964→965種，含plain的gallery為966項。琥珀色LED點陣上並排四段Wolfram基本元胞自動機（每段32列、128欄，欄在環面上相接）：規則30（單一活細胞開局的混沌三角形）、規則90（Sierpinski三角形）、規則110（複雜的不對稱結構）與規則184（以重複的「110」圖樣開局的斜條紋交通流）；seed只把整張圖的欄做環狀旋轉，圖案本身固定。每個細胞是圓角方塊LED，熄滅的LED保留暗褐色。因為是環面，規則30等的三角形在128欄的寬度內不會碰到邊界，所以看起來與無限寬的結果相同。
 
 此材質是作者示意，沒有引用特定來源或照片，也沒有對照照片；欄數128、每段32列、四條規則與開局圖樣、琥珀色調與0.3 m nominal tile皆作者設定。第一版（尚未調整）預覽就採用；512²maps的法線tilt²最大只有0.0038（relief 0.001），沒有調整。

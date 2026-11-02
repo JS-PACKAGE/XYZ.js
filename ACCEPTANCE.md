@@ -12248,3 +12248,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試（三seed的盤面與獨立自動機逐node比對（恰有一個旋轉相符）、統計，seed差異與決定性，C1＋有符號UV週期，actual512 maps）通過；測試中的規則表（30／90／110／184）與開局是獨立重寫的，與sampler需同步。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Elementary automata as|elementaryautomata|kinds|catalog|distinct|periodic"`定向測試**2232項通過／3835項未選**。
 - 未驗證：hilbertcurve、gameoflife、elementaryautomata（以及quasicrystal之後的各項）未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：模運算乘法表（modulartable）
+
+- 範圍：新增`modulartable`（目前目錄965→966種，含plain的gallery 967項）：31×31個圓角方塊磚，每格擁有一個緊湊支撐的圓角方塊kernel（四次超橢圓經smoothstep，半寬0.46格，在格界前恰好歸零，延用sweetcorn的逐格查詢做法，C1），色調由`((a + col)·(b + row)) mod 11 / 10`決定（seed決定偏移a、b），磚縫AO 0.6；沒有per-cell陣列；預設0.3 m nominal tile、0.0012 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整紀錄（誠實紀錄）：第一版relief 0.003時，512²maps的法線tilt²最大為0.2140，降到0.0012後為0.0412（同一批探針的前後值）；預覽第一次就採用。
+- 測試修正（誠實紀錄）：我把elementaryautomata的測試區塊當模板時，maps測試沿用了「occlusion恆為255」的檢查，但本材質的磚縫AO是0.6（約153），第一次執行該測試失敗（88,672個不合格像素）；這是測試的假設錯誤而不是sampler問題，我把檢查改為「occlusion不低於150且三個通道相同」後通過。另外在typecheck時發現種子差異測試仍引用模板的`pixelNodes`（本材質沒有此helper），改為`cellTones`後通過；兩個問題都在commit前由實跑發現。
+- 實測（工具實跑，seed 0／1／0xffffffff／7，512²取樣）：亮處（color>0.5）占35.6%–36.9%、color 0.0351–0.0354至0.9345–0.9347、平均0.369–0.379、roughness恆為0.5、AO最低0.6、height至多0.8755–0.8791 relief；961個磚中心的色調與乘法表一致（四個seed分別唯一對應偏移(a, b) = (10, 1)、(2, 9)、(1, 3)、(1, 1)，最大誤差0.0178–0.0185，等於細grain的幅度）；seed 0與1的亮區遮罩36.7%像素不同；seed 7的512²maps平均r／g／b約(109.0, 86.0, 67.8)、法線tilt²最大約0.0412、z分量最小252。我實看了預覽：金黃與暗紫的方塊鑲嵌，有明顯的對稱圖案與暗色帶。
+- 測試：新增5項專屬測試（三seed的磚中心色調與獨立重寫的乘法表比對（恰有一組偏移相符）、統計，seed差異與決定性，C1＋有符號UV週期，actual512 maps）通過；比對容差0.03是依細grain幅度（±0.015/0.8）設定。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Modular table as|modulartable|kinds|catalog|distinct|periodic"`定向測試**2234項通過／3838項未選**。
+- 未驗證：modulartable未跑完整suite與瀏覽器gallery；不push。

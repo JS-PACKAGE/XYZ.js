@@ -1044,6 +1044,7 @@ try {
     'hilbertcurve',
     'gameoflife',
     'elementaryautomata',
+    'modulartable',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

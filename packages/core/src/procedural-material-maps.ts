@@ -40082,6 +40082,49 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'modulartable': {
+        const p = proceduralMaterialPresets.modulartable,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft,
+          // The table is (a + column) x (b + row) mod modulus, where the seed picks the
+          // offsets a and b; the tone of a cell is that residue over modulus - 1.
+          offsetA = Math.floor(hash(0, 0, seed ^ p.seedSalt) * p.modulus),
+          offsetB = Math.floor(hash(1, 0, seed ^ p.seedSalt) * p.modulus);
+        return () => {
+          // Every cell owns one rounded-square kernel with a compact support inside the
+          // cell (a quartic superellipse run through smoothstep), so the per-cell tone
+          // lookup never jumps: the kernel is exactly zero before the cell boundary.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            ax = (x - col - 0.5) * inverseHalf,
+            ay = (y - row - 0.5) * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            tone =
+              (((offsetA + col) * (offsetB + row)) % p.modulus) /
+              (p.modulus - 1),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + p.toneSpan * tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -47855,6 +47898,7 @@ export function createSurfaceSampler(
     kind === 'hilbertcurve' ||
     kind === 'gameoflife' ||
     kind === 'elementaryautomata' ||
+    kind === 'modulartable' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
