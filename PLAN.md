@@ -1689,6 +1689,10 @@
 
 這是作者設計的示意：只有這四個視窗，沒有互動縮放；內部是用迭代次數上限判斷的，集合邊緣的像素會因上限而略有差異（暫時性測試的120個額外seed中，最佳視窗的吻合率全為1.0000（第二名最高0.265），但那是0.02的容差與80×80格點的結果，不代表所有像素都一致）；亮度只表示逃逸速度、不是色相；三角波折疊使圖樣鏡射。每像素最多160次迭代，512×512單次渲染約0.15秒（Bun，預覽腳本，只量一次）。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`cantorsetrows`（康托集合列）使目前目錄1032→1033種，含plain的gallery為1034項。每tile由上到下疊著8條橫帶，第k條（k=0到7）是康托構造進行k步之後的集合：第0條是整條，每多一步就把每個區間的中間一段挖掉。seed從三種「挖掉的比例」挑一種：三分之一（經典的康托集合，第k條有2^k個長度為(1/3)^k的區間）、五分之一（每步保留五分之二，留下較多）、二分之一（每步保留四分之一，留下較少）；第k條共2^k個等長區間、總長度為(1−r)^k（r為挖掉的比例）。Metallic與mortar為0。
+
+這是作者設計的示意：只有8步（第7步的區間窄於一個像素時只看得到淡淡的條紋）、只有這三種挖掉的比例；每條帶的邊緣以到區間邊界的距離軟化；帶與帶之間為紙面。預設0.8 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

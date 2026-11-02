@@ -31157,6 +31157,61 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'cantorsetrows': {
+        const p = proceduralMaterialPresets.cantorsetrows,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2d301),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // The seed picks the fraction removed from the middle of every interval at each step: a third gives the
+          // classic Cantor set, a fifth or a half a fatter or a leaner one.
+          removed =
+            p.removed[
+              Math.min(
+                p.removed.length - 1,
+                Math.floor(hash(1, 1, seed ^ 0x2d302) * p.removed.length),
+              )
+            ],
+          keep = (1 - removed) / 2,
+          // Signed distance from u to the edge of the set after the given number of steps: positive inside an interval,
+          // negative in a gap.
+          depth = (position: number, steps: number): number => {
+            let start = 0,
+              length = 1;
+            for (let step = 0; step < steps; step++) {
+              const part = length * keep;
+              if (position < start + part) length = part;
+              else if (position >= start + length - part) {
+                start += length - part;
+                length = part;
+              } else
+                return -Math.min(
+                  position - (start + part),
+                  start + length - part - position,
+                );
+            }
+            return Math.min(position - start, start + length - position);
+          };
+        return () => {
+          const row = Math.floor((v - p.top) / p.rowPitch);
+          let bar = 0;
+          if (row >= 0 && row < p.rows) {
+            const centre = p.top + (row + 0.5) * p.rowPitch,
+              vertical = p.barThickness / 2 - Math.abs(v - centre);
+            // The bar of this row is the set after `row` steps.
+            bar = cover(vertical) * cover(depth(u, row));
+          }
+          color = clamp(
+            p.paperTone +
+              (p.barTone - p.paperTone) * bar +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(p.paperHeight + (p.barLevel - p.paperHeight) * bar);
+          roughness =
+            p.paperRoughness + (p.barRoughness - p.paperRoughness) * bar;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -58686,6 +58741,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'cantorsetrows' ||
     kind === 'mandelbrotbands' ||
     kind === 'newtonbasins' ||
     kind === 'kochsnowflake' ||

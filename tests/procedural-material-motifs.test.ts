@@ -18515,3 +18515,124 @@ describe('mandelbrotbands: smooth escape-time contours of the Mandelbrot set', (
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('cantorsetrows: stages of the Cantor construction', () => {
+  const p = proceduralMaterialPresets.cantorsetrows;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows row k as 2^k equal intervals whose total length is (1 - r)^k (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('cantorsetrows', seed),
+        out = empty(),
+        n = 40000,
+        step = 1 / n,
+        rowCentre = (row: number): number => p.top + (row + 0.5) * p.rowPitch,
+        // Runs of dark samples along a row, as [start, length] in u.
+        runs = (row: number): [number, number][] => {
+          const found: [number, number][] = [];
+          let start = -1;
+          for (let i = 0; i < n; i++) {
+            sample((i + 0.5) * step, rowCentre(row), out);
+            const dark = out.color < 0.5;
+            if (dark && start < 0) start = i;
+            if (!dark && start >= 0) {
+              found.push([start * step, (i - start) * step]);
+              start = -1;
+            }
+          }
+          if (start >= 0) found.push([start * step, 1 - start * step]);
+          return found;
+        },
+        first = runs(1),
+        // The fraction removed in each step is read from the first split: two intervals sharing 1 - r of the unit length.
+        measured = 1 - first.reduce((sum, [, length]) => sum + length, 0),
+        removed = p.removed.reduce((best, candidate) =>
+          Math.abs(candidate - measured) < Math.abs(best - measured)
+            ? candidate
+            : best,
+        );
+      expect(Math.abs(measured - removed)).toBeLessThan(0.002);
+      expect(first.length).toBe(2);
+      // The kept parts are symmetric about the middle.
+      expect(first[0][0]).toBeCloseTo(0, 3);
+      expect(first[1][0] + first[1][1]).toBeCloseTo(1, 3);
+      const keep = (1 - removed) / 2;
+      for (let row = 0; row <= 5; row++) {
+        const found = runs(row);
+        expect(found.length).toBe(2 ** row);
+        const expectedLength = keep ** row;
+        for (const [, length] of found)
+          expect(Math.abs(length - expectedLength)).toBeLessThan(3 * step);
+        // Total measure (1 - r)^row.
+        expect(found.reduce((sum, [, length]) => sum + length, 0)).toBeCloseTo(
+          (1 - removed) ** row,
+          2,
+        );
+      }
+      // Vertically each bar is barThickness tall and the paper between rows is bare. At the middle of row k's first
+      // interval, rows 0 to k all have a bar and the later rows are in a gap.
+      for (let row = 0; row <= 5; row++) {
+        let dark = 0;
+        for (let i = 0; i < 8000; i++) {
+          sample(keep ** row / 2, i / 8000, out);
+          dark += Number(out.color < 0.5);
+        }
+        expect(Math.abs(dark / 8000 - (row + 1) * p.barThickness)).toBeLessThan(
+          0.003,
+        );
+      }
+    },
+  );
+
+  it('shows all three removal fractions across seeds', () => {
+    const seen = new Set<number>(),
+      out = empty();
+    for (let seed = 0; seed < 40; seed++) {
+      const sample = createSurfaceSampler('cantorsetrows', seed);
+      let dark = 0;
+      for (let i = 0; i < 2000; i++) {
+        sample((i + 0.5) / 2000, p.top + 1.5 * p.rowPitch, out);
+        dark += Number(out.color < 0.5);
+      }
+      // Row 1's dark fraction is 1 - r.
+      seen.add(Math.round((1 - dark / 2000) * 100));
+    }
+    expect([...seen].sort((a, b) => a - b)).toEqual([20, 33, 50]);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('cantorsetrows', 0),
+      b = createSurfaceSampler('cantorsetrows', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
