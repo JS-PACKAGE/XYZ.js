@@ -1046,6 +1046,7 @@ export type ProceduralMaterialKind =
   | 'kaleidoscope'
   | 'recamanarcs'
   | 'phasevortices'
+  | 'euclidsteps'
   | 'sandpileidentity'
   | 'multiplicativeorder'
   | 'vermiculation'
@@ -2339,6 +2340,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'kaleidoscope',
   'recamanarcs',
   'phasevortices',
+  'euclidsteps',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',

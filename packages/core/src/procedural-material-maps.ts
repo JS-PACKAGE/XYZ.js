@@ -43174,6 +43174,73 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'euclidsteps': {
+        const p = proceduralMaterialPresets.euclidsteps,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft,
+          shiftX = Math.floor(hash(0, 22, seed ^ p.seedSalt) * p.cells),
+          shiftY = Math.floor(hash(1, 22, seed ^ p.seedSalt) * p.cells),
+          // Euclid's algorithm on every pair: the cell in row i and column j holds the number
+          // of division steps (a, b) -> (b, a mod b) that the algorithm needs to bring the pair
+          // (i + 1, j + 1) to a zero remainder, from 1 (b divides a, as on the diagonal) to the
+          // longest of the table, and its tone rises with the step count. The seed moves the
+          // table around the torus.
+          steps = new Int32Array(p.cells * p.cells),
+          tones = new Float64Array(p.cells * p.cells);
+        let longest = 1;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            let a = row + 1,
+              b = col + 1,
+              count = 0;
+            while (b !== 0) {
+              const remainder = a % b;
+              a = b;
+              b = remainder;
+              count++;
+            }
+            steps[row * p.cells + col] = count;
+            longest = Math.max(longest, count);
+          }
+        for (let i = 0; i < steps.length; i++)
+          tones[i] = (p.toneSpan * (steps[i] - 1)) / (longest - 1);
+        return () => {
+          // One compact-support rounded-square kernel per cell (a quartic superellipse
+          // through smoothstep, exactly zero before the cell boundary), so the cell
+          // lookup never jumps and the field is C1.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            ax = (x - col - 0.5) * inverseHalf,
+            ay = (y - row - 0.5) * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            tone =
+              tones[
+                ((row + shiftY) % p.cells) * p.cells +
+                  ((col + shiftX) % p.cells)
+              ],
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -52021,6 +52088,7 @@ export function createSurfaceSampler(
     kind === 'kaleidoscope' ||
     kind === 'recamanarcs' ||
     kind === 'phasevortices' ||
+    kind === 'euclidsteps' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||

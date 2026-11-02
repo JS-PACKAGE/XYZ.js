@@ -1109,6 +1109,7 @@ try {
     'kaleidoscope',
     'recamanarcs',
     'phasevortices',
+    'euclidsteps',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

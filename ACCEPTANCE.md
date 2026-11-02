@@ -13071,3 +13071,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Phase vortices as|phasevortices|kinds|catalog|distinct|periodic"`定向測試**2394項通過／4091項未選**。
 - 未驗證：recamanarcs與phasevortices未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-03 新增材質：輾轉相除步數（euclidsteps）
+
+- 範圍：新增`euclidsteps`（目前目錄1044→1045種，含plain的gallery 1046項）：64×64圓角方磚表，第`i`列第`j`欄是數對`(i + 1, j + 1)`做歐幾里得輾轉相除法所需的除法步數（1到9步，色調隨步數增加）；暗紫到金色；seed讓表在環面上平移；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 180,224 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽看了兩版：第一版暗褐到橘色，對比低、顏色偏髒，改成暗紫到金色（表內容不變）；(2)文件中「最長的是接近黃金比例的數對」是標準理論（Lamé定理），**本次沒有驗證**，只有「步數1到9的格子數」是實測；(3)測試以遞迴這個獨立的方式重算整張表並檢查各步數的格子數，並對4,096個平移逐一比對，每個seed恰有一個平移符合；(4)256²與512²取樣的亮處占比、最高色值與AO不同，原因是格寬（4與8像素）與取樣點在格內位置不同，而且只有一格有最長的9步，所以取樣到的最高色值隨取樣格網而不同，測試採用256²的數值；(5)建構與取樣耗時**未量測**；(6)測試第一次執行即通過（探針數值先量好才寫界線）。
+- 實測（工具實跑）：1到9步的格子數280／671／1006／1005／699／327／94／13／1；四個seed（0／1／0xffffffff／7）各有唯一符合的平移(38, 62)、(47, 26)、(35, 15)、(43, 31)，最大擬合誤差0.014989–0.014999；256²（seed 0／1／0xffffffff）亮處（color>0.5）8.52%–8.62%、color 0.06021–0.06042至0.84833–0.85052、平均0.31565–0.31568、roughness恆為0.4、AO最低0.7344、height至多0.8270–0.8390 relief；512²（四個seed）亮處6.41%–6.47%、color 0.02517–0.02538至0.84374–0.85155、平均0.27447–0.27450、AO最低0.6、height至多0.8331–0.8420 relief；seed 0與1相比，格中心顏色相差超過0.05的格子82.1%（512²中color>0.5的取樣11.9%不同）；seed 7的512²maps平均r／g／b約(80.2, 63.1, 61.8)、法線tilt²最大約0.0377、z分量最小253。我實看了預覽（seed 7，暗紫到金色版本）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Euclid steps as|euclidsteps|kinds|catalog|distinct|periodic"`定向測試**2396項通過／4094項未選**。
+- 未驗證：recamanarcs、phasevortices與euclidsteps未跑完整suite與瀏覽器gallery；不push。
