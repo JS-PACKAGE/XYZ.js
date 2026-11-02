@@ -12747,6 +12747,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 
 - 目錄1068→1069，含plain的gallery為1070項。每tile五組：一列20格黑白格子（由長度2到6的隨機遊程交替組成），下方用點陣字寫出它的遊程編碼（每段長度加W或B，例如5W4B6W4B1W）。Metallic／mortar為0，預設tile0.5 m、0.004 UV-relative relief、metallic factor 0。作者設計。仍在獨立worktree分支`materials/more-textures`作業。
 - 完整套件：最近一次在`git archive`乾淨匯出的`4c2ca747e`（目錄1064種）執行兩個測試檔，**7269項通過、0失敗**（約1008秒）。此後的骰子點數和、二元堆積樹、氣泡排序、圖著色與本材質只跑定向測試，尚未再跑完整套件（已累積五個材質，下一個材質之後會再跑）。
-- 草稿的問題：取樣器第一版草稿中有一個`* glyph * 0`的無用項、一個沒用到的`gapTone`/`gap`重複鍵與一句描述不符的註解（「最後一段較短時併入前一段」其實沒有這樣做，最後一段只是被列尾截短），註冊前重讀時發現，寫成乾淨版本。
+- 草稿的問題：取樣器第一版草稿中有一個`* glyph * 0`的無用項、一個沒用到的`gapTone`鍵與一句描述不符的註解（「最後一段較短時併入前一段」其實沒有這樣做，最後一段只是被列尾截短），註冊前重讀時發現，寫成乾淨版本。
 - 實測：`tests/procedural-material-motifs.test.ts`一千六百三十五項（本材質十項）全過，`tsc`、eslint通過，測試第一次執行即通過。九個seed（0、7、4294967295、1至6）：測試端讀出每組20格的黑白（格中心亮度）與下方的點陣字（12個字形：十個數字與W、B），並用自己的索引迴圈算出遊程編碼，必須與讀出的文字完全相同；各段長度總和為20；除最後一段外每段長度在2到6之間；五組的編碼幾乎都不同（至少四種）。突變檢查：(1)把編碼中的W與B互換，十項中的九項失敗；(2)把交替顏色的規則改成每三段才換色（使相鄰段同色、段長超過上限），十項中的九項失敗；都已還原並確認`git diff --stat`只含本材質的111行。沒有做300個額外seed的暫時性測試。`tests/procedural-material.test.ts`以`-t "runlengthrows|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`runlengthrows`：嚴格斷言的檢查（option為1070個、status含「1069 procedural material presets」、含該kind、`tab.errors()`為空）第一次嘗試即符合；25球渲染，實看512 seed7 2×2拼貼的盤面（第一組為5W4B6W4B1W）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
