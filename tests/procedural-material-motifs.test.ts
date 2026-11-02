@@ -16492,3 +16492,104 @@ describe('regressionscatter: a scatter plot with its least-squares line', () => 
     expect(different).toBeGreaterThan(20);
   });
 });
+
+describe('barchartbars: bars whose heights match the printed values', () => {
+  const p = proceduralMaterialPresets.barchartbars;
+  const pitch = p.barWidth + p.barGap;
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws each bar as many units high as its printed value (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('barchartbars', seed),
+        out = empty(),
+        at = (u: number, v: number): number => {
+          sample(u, v, out);
+          return out.color;
+        },
+        step = 0.0005,
+        values: number[] = [];
+      for (let i = 0; i < p.bars; i++) {
+        const x = p.left + i * pitch + p.barWidth / 2 + 0.012;
+        // Walk up from just above the axis while the pixel is bar-coloured (the grid rules and paper are lighter).
+        let y = p.baseline - 0.01;
+        while (at(x, y) < 0.75 && y > 0) y -= step;
+        const top = y + step,
+          units = (p.baseline - top) / p.unit,
+          value = Math.round(units);
+        expect(Math.abs(units - value)).toBeLessThan(0.06);
+        expect(value).toBeGreaterThanOrEqual(1);
+        expect(value).toBeLessThanOrEqual(p.maxValue);
+        // The printed label sits centred above the bar.
+        const cx = p.left + i * pitch + p.barWidth / 2,
+          originY = top - p.labelGap - 5 * p.digitPixel,
+          rows: string[] = [];
+        for (let row = 0; row < 5; row++) {
+          let text = '';
+          for (let col = 0; col < 3; col++)
+            text +=
+              at(
+                cx + (col - 1) * p.digitPixel,
+                originY + (row + 0.5) * p.digitPixel,
+              ) < 0.2
+                ? '#'
+                : '.';
+          rows.push(text);
+        }
+        expect(
+          art.findIndex((shape) => shape.every((line, r) => line === rows[r])),
+        ).toBe(value);
+        values.push(value);
+      }
+      // The values vary from bar to bar.
+      expect(new Set(values).size).toBeGreaterThanOrEqual(3);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('barchartbars', 0),
+      b = createSurfaceSampler('barchartbars', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.7],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(20);
+  });
+});

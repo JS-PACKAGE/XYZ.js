@@ -29682,6 +29682,96 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'barchartbars': {
+        const p = proceduralMaterialPresets.barchartbars,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2c401),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          pitch = p.barWidth + p.barGap,
+          values = Array.from(
+            { length: p.bars },
+            (_, index) =>
+              1 +
+              Math.min(
+                p.maxValue - 1,
+                Math.floor(hash(index, 3, seed ^ 0x2c403) * p.maxValue),
+              ),
+          );
+        return () => {
+          const span = u >= p.left - p.barGap && u < p.left + p.bars * pitch,
+            slot = Math.floor((u - p.left) / pitch),
+            across = u - p.left - slot * pitch,
+            axis = span ? cover(p.axisHalf - Math.abs(v - p.baseline)) : 0;
+          let tone: number = p.paperTone,
+            bar = 0,
+            glyph = 0,
+            grid = 0;
+          // Faint horizontal rules at every whole value above the axis, across the bars' span only.
+          const up = (p.baseline - v) / p.unit;
+          if (span && up > 0 && up <= p.maxValue + 0.5)
+            grid = cover(p.gridHalf - Math.abs(up - Math.round(up)) * p.unit);
+          if (slot >= 0 && slot < p.bars && across < p.barWidth) {
+            const value = values[slot],
+              top = p.baseline - value * p.unit;
+            tone =
+              p.toneLow +
+              ((p.toneHigh - p.toneLow) * (value - 1)) / (p.maxValue - 1);
+            bar = cover(
+              Math.min(
+                Math.min(across, p.barWidth - across),
+                Math.min(p.baseline - v, v - top),
+              ),
+            );
+            // The value as a dot-matrix digit centred above the bar.
+            const px = Math.floor(
+                (across - p.barWidth / 2) / p.digitPixel + 1.5,
+              ),
+              py = Math.floor(
+                (v - (top - p.labelGap - 5 * p.digitPixel)) / p.digitPixel,
+              );
+            if (
+              px >= 0 &&
+              px < 3 &&
+              py >= 0 &&
+              py < 5 &&
+              glyphs[value][py * 3 + px] === '1'
+            )
+              glyph = 1;
+          }
+          const withGrid = p.paperTone + (p.gridTone - p.paperTone) * grid,
+            withBar = withGrid + (tone - withGrid) * bar,
+            withAxis = withBar + (p.axisTone - withBar) * axis;
+          color = clamp(
+            withAxis +
+              (p.inkTone - withAxis) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.paperHeight +
+              (p.barHeight - p.paperHeight) * bar +
+              (p.axisHeight - p.barHeight) * axis -
+              p.inkDepth * glyph,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.barRoughness - p.paperRoughness) * bar +
+            (p.inkRoughness - p.barRoughness) * Math.max(axis, glyph);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -57211,6 +57301,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'barchartbars' ||
     kind === 'regressionscatter' ||
     kind === 'piechartwedges' ||
     kind === 'analogclocks' ||

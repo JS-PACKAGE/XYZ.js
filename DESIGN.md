@@ -1637,6 +1637,10 @@
 
 這是作者設計的示意：因為「最小間距」的拒絕取樣有次數上限，點數可能少於28（我沒有統計各seed的實際點數，測試只要求至少15個）；沒有座標軸刻度數字、標題或圖例；不計算相關係數或殘差；雜訊近似常態但不是嚴格的常態分佈；顏色只有明度（深色點、中灰色線、淡色格線）。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`barchartbars`（長條圖）使目前目錄1017→1018種，含plain的gallery為1019項。每tile是一張長條圖：淡色紙上一條深色基準線，上方並排10根長條，每根的高度是**整數個單位**（單位為0.075個tile高，值為1至9，由seed隨機決定），並在長條頂端上方以3×5點陣數字置中寫出該值；每個整數高度處有一條很淡的水平格線；長條的底色依數值線性對應到由暗到亮的色帶（值大者較亮）。Metallic與mortar為0。
+
+這是作者設計的示意：沒有座標軸刻度數字、標題或圖例；所有長條共用同一個高度單位；數值是隨機的，沒有資料意義；長條只到9個單位（最高約0.675個tile高）；顏色只有明度。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
