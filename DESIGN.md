@@ -1837,6 +1837,10 @@
 
 這是作者設計的示意：只有8個數的氣泡排序，沒有標出每一趟交換了哪些相鄰對，也不是其他排序法；即使提前排好，之後的列也照畫（內容相同）；深色底色只表示「已就定位」，不是交換次數。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`graphcoloring`（圖著色）使目前目錄1067→1068種，含plain的gallery為1069項。每tile畫一個圖：頂點是圓，邊是直線；每個頂點依它的顏色類別填上一個亮度（程序材質只有深到淺的亮度漸層，所以用四個亮度代表最多四個顏色），並且是「合法著色」——任何一條邊的兩端不會是同一個亮度。圖由seed從三個預設中挑一個：立方體（8個頂點，2色）、彼得森圖（10個頂點，3色）與五輻的輪圖（一個中心頂點接5個外圈頂點，4色）；每個圖用的色數都是該圖的色數（用最少的顏色著色）。Metallic與mortar為0。
+
+這是作者設計的示意：只有三個預設圖與預設的著色（不是由取樣器現場搜尋出來的）；頂點位置固定，沒有標示頂點編號；立方體畫成兩個同向的方形加四條連線（不是立體透視圖）；同一個亮度的兩個頂點不會相鄰，但不同亮度之間沒有順序意義。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

@@ -19268,6 +19268,150 @@ var proceduralMaterialPresets = Object.freeze({
 		cellRoughness: .55,
 		inkRoughness: .4
 	}),
+	graphcoloring: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		graphs: Object.freeze([
+			Object.freeze({
+				vertices: Object.freeze([
+					Object.freeze([.12, .12]),
+					Object.freeze([.88, .12]),
+					Object.freeze([.88, .88]),
+					Object.freeze([.12, .88]),
+					Object.freeze([.32, .32]),
+					Object.freeze([.6799999999999999, .32]),
+					Object.freeze([.6799999999999999, .6799999999999999]),
+					Object.freeze([.32, .6799999999999999])
+				]),
+				edges: Object.freeze([
+					Object.freeze([0, 1]),
+					Object.freeze([1, 2]),
+					Object.freeze([2, 3]),
+					Object.freeze([3, 0]),
+					Object.freeze([4, 5]),
+					Object.freeze([5, 6]),
+					Object.freeze([6, 7]),
+					Object.freeze([7, 4]),
+					Object.freeze([0, 4]),
+					Object.freeze([1, 5]),
+					Object.freeze([2, 6]),
+					Object.freeze([3, 7])
+				]),
+				colors: Object.freeze([
+					0,
+					1,
+					0,
+					1,
+					1,
+					0,
+					1,
+					0
+				])
+			}),
+			Object.freeze({
+				vertices: Object.freeze([
+					Object.freeze([.5, .12]),
+					Object.freeze([.8614, .3826]),
+					Object.freeze([.7234, .8074]),
+					Object.freeze([.2766, .8074]),
+					Object.freeze([.1386, .3826]),
+					Object.freeze([.5, .31]),
+					Object.freeze([.6807, .4413]),
+					Object.freeze([.6117, .6537]),
+					Object.freeze([.3883, .6537]),
+					Object.freeze([.3193, .4413])
+				]),
+				edges: Object.freeze([
+					Object.freeze([0, 1]),
+					Object.freeze([1, 2]),
+					Object.freeze([2, 3]),
+					Object.freeze([3, 4]),
+					Object.freeze([4, 0]),
+					Object.freeze([0, 5]),
+					Object.freeze([1, 6]),
+					Object.freeze([2, 7]),
+					Object.freeze([3, 8]),
+					Object.freeze([4, 9]),
+					Object.freeze([5, 7]),
+					Object.freeze([7, 9]),
+					Object.freeze([9, 6]),
+					Object.freeze([6, 8]),
+					Object.freeze([8, 5])
+				]),
+				colors: Object.freeze([
+					0,
+					1,
+					0,
+					1,
+					2,
+					1,
+					0,
+					2,
+					2,
+					1
+				])
+			}),
+			Object.freeze({
+				vertices: Object.freeze([
+					Object.freeze([.5, .5]),
+					Object.freeze([.5, .12]),
+					Object.freeze([.8614, .3826]),
+					Object.freeze([.7234, .8074]),
+					Object.freeze([.2766, .8074]),
+					Object.freeze([.1386, .3826])
+				]),
+				edges: Object.freeze([
+					Object.freeze([1, 2]),
+					Object.freeze([2, 3]),
+					Object.freeze([3, 4]),
+					Object.freeze([4, 5]),
+					Object.freeze([5, 1]),
+					Object.freeze([0, 1]),
+					Object.freeze([0, 2]),
+					Object.freeze([0, 3]),
+					Object.freeze([0, 4]),
+					Object.freeze([0, 5])
+				]),
+				colors: Object.freeze([
+					3,
+					0,
+					1,
+					0,
+					1,
+					2
+				])
+			})
+		]),
+		classTones: Object.freeze([
+			.92,
+			.66,
+			.4,
+			.14
+		]),
+		vertexRadius: .05,
+		ringHalf: .004,
+		edgeHalf: .0035,
+		edgeSoft: .0012,
+		grainCells: 192,
+		paperTone: .94,
+		lineTone: .1,
+		grainTone: .03,
+		paperHeight: .2,
+		vertexHeight: .5,
+		lineHeight: .8,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -27949,6 +28093,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	graphcoloring: .6,
 	bubblesortpasses: .5,
 	binaryheaptree: .6,
 	dicesumbars: .5,

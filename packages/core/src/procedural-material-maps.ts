@@ -34298,6 +34298,79 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'graphcoloring': {
+        const p = proceduralMaterialPresets.graphcoloring,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2f601),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          graph =
+            p.graphs[Math.floor(hash(7, 3, seed ^ 0x2f602) * p.graphs.length)],
+          // Distance from a point to the segment between two points.
+          segment = (
+            x: number,
+            y: number,
+            ax: number,
+            ay: number,
+            bx: number,
+            by: number,
+          ): number => {
+            const dx = bx - ax,
+              dy = by - ay,
+              t = clamp(((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy));
+            return Math.hypot(x - (ax + t * dx), y - (ay + t * dy));
+          };
+        return () => {
+          let edge = 0,
+            fill = 0,
+            ring = 0,
+            tone: number = p.paperTone;
+          for (const [a, b] of graph.edges)
+            edge = Math.max(
+              edge,
+              cover(
+                p.edgeHalf -
+                  segment(
+                    u,
+                    v,
+                    graph.vertices[a][0],
+                    graph.vertices[a][1],
+                    graph.vertices[b][0],
+                    graph.vertices[b][1],
+                  ),
+              ),
+            );
+          graph.vertices.forEach(([x, y], index) => {
+            const distance = Math.hypot(u - x, v - y);
+            if (distance < p.vertexRadius) {
+              fill = 1;
+              tone = p.classTones[graph.colors[index]];
+            }
+            ring = Math.max(
+              ring,
+              cover(p.ringHalf - Math.abs(distance - p.vertexRadius)),
+            );
+          });
+          // Edges run under the vertices.
+          const base = p.paperTone + (p.lineTone - p.paperTone) * edge,
+            withFill = base + (tone - base) * fill;
+          color = clamp(
+            withFill +
+              (p.lineTone - withFill) * ring +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.paperHeight +
+              (p.vertexHeight - p.paperHeight) * fill +
+              (p.lineHeight - p.vertexHeight) *
+                Math.max(ring, edge * (1 - fill)),
+          );
+          roughness =
+            p.paperRoughness +
+            (p.inkRoughness - p.paperRoughness) * Math.max(edge, ring, fill);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -61827,6 +61900,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'graphcoloring' ||
     kind === 'bubblesortpasses' ||
     kind === 'binaryheaptree' ||
     kind === 'dicesumbars' ||

@@ -23741,3 +23741,160 @@ describe('bubblesortpasses: the rows of bubble sort', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('graphcoloring: a graph whose vertices are shaded by a proper colouring', () => {
+  const p = proceduralMaterialPresets.graphcoloring;
+  // The fewest colours that properly colour a graph with n vertices and the given adjacency, by trying 1, 2, 3, ... colours.
+  const chromaticNumber = (n: number, adjacent: boolean[][]): number => {
+    for (let colours = 1; colours <= n; colours++) {
+      const assignment = new Array<number>(n).fill(-1);
+      const place = (vertex: number): boolean => {
+        if (vertex === n) return true;
+        for (let colour = 0; colour < colours; colour++) {
+          if (
+            assignment.every(
+              (other, index) => other !== colour || !adjacent[vertex][index],
+            )
+          ) {
+            assignment[vertex] = colour;
+            if (place(vertex + 1)) return true;
+            assignment[vertex] = -1;
+          }
+        }
+        return false;
+      };
+      if (place(0)) return colours;
+    }
+    return n;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows a graph read back from the picture with a proper colouring that uses as few colours as possible (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('graphcoloring', seed),
+        out = empty(),
+        colorAt = (u: number, v: number): number => {
+          sample(u, v, out);
+          return out.color;
+        },
+        // A vertex is there when its ring (dark) is found at eight angles around the vertex radius.
+        hasVertex = (x: number, y: number): boolean =>
+          Array.from({ length: 8 }, (_, k) => (k * Math.PI) / 4).every(
+            (angle) =>
+              colorAt(
+                x + p.vertexRadius * Math.cos(angle),
+                y + p.vertexRadius * Math.sin(angle),
+              ) < 0.35,
+          ),
+        fitting = p.graphs.filter((graph) =>
+          graph.vertices.every(([x, y]) => hasVertex(x, y)),
+        );
+      // The preset whose vertices are all drawn is unique, and no other vertex is drawn: the picture is that graph.
+      expect(fitting).toHaveLength(1);
+      const graph = fitting[0],
+        n = graph.vertices.length,
+        adjacent = Array.from({ length: n }, () =>
+          new Array<boolean>(n).fill(false),
+        );
+      // An edge is drawn between two vertices when five points along the segment between their circles are all dark.
+      for (let a = 0; a < n; a++)
+        for (let b = a + 1; b < n; b++) {
+          const [ax, ay] = graph.vertices[a],
+            [bx, by] = graph.vertices[b],
+            length = Math.hypot(bx - ax, by - ay),
+            inset = (p.vertexRadius + 0.02) / length,
+            drawn = [0, 1, 2, 3, 4].every((k) => {
+              const t = inset + ((1 - 2 * inset) * k) / 4;
+              return colorAt(ax + t * (bx - ax), ay + t * (by - ay)) < 0.4;
+            });
+          adjacent[a][b] = adjacent[b][a] = drawn;
+        }
+      // The tone at each vertex's centre tells its colour class: the nearest of the class tones.
+      const classes = graph.vertices.map(([x, y]) => {
+        const tone = colorAt(x, y);
+        return p.classTones.reduce(
+          (best, candidate, k) =>
+            Math.abs(tone - candidate) < Math.abs(tone - p.classTones[best])
+              ? k
+              : best,
+          0,
+        );
+      });
+      let edges = 0;
+      for (let a = 0; a < n; a++)
+        for (let b = a + 1; b < n; b++)
+          if (adjacent[a][b]) {
+            edges++;
+            // No edge joins two vertices of the same class.
+            expect(classes[a]).not.toBe(classes[b]);
+          }
+      expect(edges).toBeGreaterThanOrEqual(n);
+      // The colouring uses as few colours as the graph needs.
+      expect(new Set(classes).size).toBe(chromaticNumber(n, adjacent));
+    },
+  );
+
+  it('uses all three graphs across seeds', () => {
+    const used = new Set<number>();
+    for (let seed = 0; seed < 30; seed++) {
+      const sample = createSurfaceSampler('graphcoloring', seed),
+        out = empty();
+      // The number of vertices is 8, 10 or 6: probe a vertex position that exists in just one of the graphs.
+      const probe = (x: number, y: number): boolean =>
+        Array.from({ length: 8 }, (_, k) => (k * Math.PI) / 4).every(
+          (angle) => {
+            sample(
+              x + p.vertexRadius * Math.cos(angle),
+              y + p.vertexRadius * Math.sin(angle),
+              out,
+            );
+            return out.color < 0.35;
+          },
+        );
+      used.add(
+        probe(0.5, 0.5)
+          ? 2
+          : probe(p.graphs[0].vertices[0][0], p.graphs[0].vertices[0][1])
+            ? 0
+            : 1,
+      );
+    }
+    expect([...used].sort()).toEqual([0, 1, 2]);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('graphcoloring', 0),
+      b = createSurfaceSampler('graphcoloring', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(0);
+  });
+});
