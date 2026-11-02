@@ -1525,6 +1525,10 @@
 
 這是作者設計的示意：畫面是填好橋樑的答案，真正的謎題只給島嶼數字並隱藏橋樑；生成方式保證連通與不交叉，但不保證橋樑配置是這組數字的唯一解（原本的謎題要求唯一解），島嶼數目有時少於15；單橋與雙橋的間距很小（雙線相距約0.016個tile）。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`slitherlinkloop`（四角迴路謎題／Slitherlink）使目前目錄991→992種，含plain的gallery為993項。每tile是一個7×7格的已解開Slitherlink盤面：格點以小圓點表示，一條粗的深色封閉迴路沿格線繞行，迴路內部的格子底色略深；每格中央寫著（點陣數字0至3）該格四邊中有幾邊是迴路的一部分。迴路是一塊隨機生長的連通區域（約佔55%的格子）的外輪廓：seed決定生長順序，只接受外輪廓每個格點都連著0或2條邊、且走一圈能經過全部迴路格點（只有一個迴圈，不含孔洞或只在角落接觸的區塊）的區域。Metallic與mortar為0。
+
+這是作者設計的示意：畫面同時顯示答案（迴路）與所有格子的數字，真正的謎題只給部分數字並隱藏迴路；區域由隨機生長產生，形狀偏向從某個角落長出（預覽中常是從上方延伸的形狀），不保證解答唯一；7×7是固定的。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

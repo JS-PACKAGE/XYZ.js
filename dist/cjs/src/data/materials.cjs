@@ -16119,6 +16119,42 @@ var proceduralMaterialPresets = Object.freeze({
 		inkRoughness: .4,
 		paperRoughness: .74
 	}),
+	slitherlinkloop: Object.freeze({
+		dark: [
+			16,
+			22,
+			44
+		],
+		light: [
+			250,
+			238,
+			200
+		],
+		roughness: .52,
+		relief: .004,
+		size: 7,
+		fill: .55,
+		attempts: 800,
+		margin: .045,
+		dotRadius: .0075,
+		loopHalf: .0055,
+		pixel: .0125,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .93,
+		dotTone: .3,
+		loopTone: .1,
+		numberTone: .28,
+		insideTone: .86,
+		grainTone: .03,
+		paperHeight: .22,
+		insideHeight: .3,
+		loopHeight: .62,
+		dotHeight: .5,
+		inkDepth: .05,
+		loopRoughness: .36,
+		paperRoughness: .74
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -24800,6 +24836,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	slitherlinkloop: .5,
 	hashibridges: .5,
 	kakuropuzzle: .5,
 	hexresourceboard: .5,

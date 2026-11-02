@@ -12168,3 +12168,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試端的一個錯誤：測試第一次只有seed 6失敗（`expected 2 to be 1`）：我原先要求兩座「相鄰在同一直線」的島之間沿途三個取樣點的橋數必須相同，但兩座島若沒有橋相連，中間仍可能被另一座島之間的垂直橋橫切，取樣點剛好落在橫切處時多出一道線；取樣器沒有問題。改為「三個取樣點中取最小值，最小值為0就視為沒有橋；有橋時三點必須一致」。
 - 實測：`tests/procedural-material-motifs.test.ts`八百二十四項（本材質十項）全過。九個seed（0、7、4294967295、1至6）：測試端由點陣在每個格點讀出島嶼數字（1至8，橋線穿過中心的格子不會被誤讀成數字），對每座島沿右與下方向找下一座同線的島，在連線上三個位置量中心線與兩側線得到單橋／雙橋／無橋；然後驗證：沒有任何格子同時被橫向與縱向的橋穿過；每座島的數字等於接到它的橋數總和；所有島嶼經由橋連通。突變檢查：把取樣器的一端島數字少加橋數後，九個seed中的九項失敗，還原後全過。`tests/procedural-material.test.ts`以`-t "hashibridges|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`hashibridges`：option 992個、status為991 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的謎題。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：四角迴路謎題（slitherlinkloop）
+
+- 目錄991→992，含plain的gallery為993項。每tile一個7×7格已解開的Slitherlink：小圓點格點、一條沿格線的粗封閉迴路（隨機生長的連通區域的外輪廓），每格寫著四邊中屬於迴路的邊數（0至3）。Metallic／mortar為0，預設tile0.5 m、0.004 UV-relative relief、metallic factor 0。顯示答案與全部數字、不保證解答唯一；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 真實視覺缺陷（測試抓到）：第一版每條迴路邊是由兩端的格點各畫「從格點到邊中點」的一半，兩半在中點交接且邊緣用抗鋸齒，使兩半在中點各只有0.5的覆蓋度——每條邊正中間有一條淡淡的細縫。測試用中點取樣判定「迴路邊」，結果九個seed全部失敗（亮度約0.5，剛好在門檻上）。把每半多延伸半個線寬使兩半重疊後修好，細縫消失，測試全過。起初我以為是測試端的問題，直到用中點檢查值才確認是取樣器的真實缺陷。
+- 設計記錄：第一版草稿的線段計算含有一堆無用變數（`void edgeX`之類），註冊前已整段改寫為「最近格點的四條出邊各畫半條」。
+- 實測：`tests/procedural-material-motifs.test.ts`八百三十四項（本材質十項）全過。九個seed（0、7、4294967295、1至6）：測試端由中點亮度讀出所有橫向與縱向的迴路邊，由點陣字形讀出每格數字（0至3），逐格要求數字等於該格四邊中迴路邊的數目；每個格點連著0或2條迴路邊、且至少12個迴路格點，並以廣度優先搜尋確認所有迴路格點連成一個連通的環；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "slitherlinkloop|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 完整套件：在`git archive`匯出的`5b0b408dc`（hashibridges狀態）上以json報告完整執行`procedural-material`與`procedural-material-motifs`兩檔：**6439項通過、0失敗**（1076 s）；這次執行期間我只做不會產生大量負載的工作（寫程式與單項測試），沒有同時跑其他verify，所以先前`4bf8dba72`上那次「1項失敗」沒有再出現，但我仍無法確認它的原因。之後的kakuropuzzle、hashibridges以外的材質（本材質）只有定向測試加typecheck／eslint／build／API相容／distribution。
+- 真實dev server的pbr3d頁（WebGPU）選取`slitherlinkloop`：option 993個、status為992 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的盤面。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

@@ -9348,6 +9348,34 @@ export declare const proceduralMaterialPresets: Readonly<{
         inkRoughness: 0.4;
         paperRoughness: 0.74;
     }>;
+    slitherlinkloop: Readonly<{
+        dark: readonly [16, 22, 44];
+        light: readonly [250, 238, 200];
+        roughness: 0.52;
+        relief: 0.004;
+        size: 7;
+        fill: 0.55;
+        attempts: 800;
+        margin: 0.045;
+        dotRadius: 0.0075;
+        loopHalf: 0.0055;
+        pixel: 0.0125;
+        edgeSoft: 0.0011;
+        grainCells: 192;
+        paperTone: 0.93;
+        dotTone: 0.3;
+        loopTone: 0.1;
+        numberTone: 0.28;
+        insideTone: 0.86;
+        grainTone: 0.03;
+        paperHeight: 0.22;
+        insideHeight: 0.3;
+        loopHeight: 0.62;
+        dotHeight: 0.5;
+        inkDepth: 0.05;
+        loopRoughness: 0.36;
+        paperRoughness: 0.74;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -15833,6 +15861,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    slitherlinkloop: 0.5;
     hashibridges: 0.5;
     kakuropuzzle: 0.5;
     hexresourceboard: 0.5;

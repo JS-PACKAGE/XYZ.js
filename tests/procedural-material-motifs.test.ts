@@ -13193,3 +13193,133 @@ describe('hashibridges: a consistent Hashiwokakero solution', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('slitherlinkloop: one closed loop whose edges match the numbers', () => {
+  const p = proceduralMaterialPresets.slitherlinkloop;
+  const n = p.size;
+  const side = 1 - 2 * p.margin;
+  const cell = side / n;
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'forms a single cycle and every cell number counts the loop edges around it (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('slitherlinkloop', seed),
+        out = empty(),
+        dark = (u: number, v: number): boolean => {
+          sample(u, v, out);
+          return out.color < 0.5;
+        },
+        // Loop edges: a dark bar at the middle of the segment between two neighbouring dots.
+        horizontal: boolean[][] = [],
+        vertical: boolean[][] = [];
+      for (let y = 0; y <= n; y++) {
+        horizontal.push(
+          Array.from({ length: n }, (_, x) =>
+            dark(p.margin + (x + 0.5) * cell, p.margin + y * cell),
+          ),
+        );
+        vertical.push(
+          Array.from(
+            { length: n + 1 },
+            (_, x) =>
+              y < n && dark(p.margin + x * cell, p.margin + (y + 0.5) * cell),
+          ),
+        );
+      }
+      // Cell numbers from the dot-matrix glyphs.
+      for (let row = 0; row < n; row++)
+        for (let col = 0; col < n; col++) {
+          const bits: string[] = [];
+          for (let y = 0; y < 5; y++) {
+            let text = '';
+            for (let x = 0; x < 3; x++)
+              text += dark(
+                p.margin + (col + 0.5) * cell + (x - 1) * p.pixel,
+                p.margin + (row + 0.5) * cell + (y - 2) * p.pixel,
+              )
+                ? '#'
+                : '.';
+            bits.push(text);
+          }
+          const number = art.findIndex((rows) =>
+              rows.every((line, i) => line === bits[i]),
+            ),
+            around = [
+              horizontal[row][col],
+              horizontal[row + 1][col],
+              vertical[row][col],
+              vertical[row][col + 1],
+            ].filter(Boolean).length;
+          expect(number).toBe(around);
+        }
+      // Every dot touches 0 or 2 loop edges, and the loop edges form one connected cycle.
+      const neighbours = (x: number, y: number): [number, number][] => {
+        const list: [number, number][] = [];
+        if (x < n && horizontal[y][x]) list.push([x + 1, y]);
+        if (x > 0 && horizontal[y][x - 1]) list.push([x - 1, y]);
+        if (y < n && vertical[y][x]) list.push([x, y + 1]);
+        if (y > 0 && vertical[y - 1][x]) list.push([x, y - 1]);
+        return list;
+      };
+      const onLoop: [number, number][] = [];
+      for (let y = 0; y <= n; y++)
+        for (let x = 0; x <= n; x++) {
+          const degree = neighbours(x, y).length;
+          expect([0, 2]).toContain(degree);
+          if (degree === 2) onLoop.push([x, y]);
+        }
+      expect(onLoop.length).toBeGreaterThanOrEqual(12);
+      const seen = new Set<string>([onLoop[0].join(',')]),
+        queue = [onLoop[0]];
+      for (let i = 0; i < queue.length; i++)
+        for (const next of neighbours(queue[i][0], queue[i][1]))
+          if (!seen.has(next.join(','))) {
+            seen.add(next.join(','));
+            queue.push(next);
+          }
+      expect(seen.size).toBe(onLoop.length);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('slitherlinkloop', 0),
+      b = createSurfaceSampler('slitherlinkloop', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

@@ -26400,6 +26400,188 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'slitherlinkloop': {
+        const p = proceduralMaterialPresets.slitherlinkloop,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2aa01),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+          ],
+          n = p.size,
+          side = 1 - 2 * p.margin,
+          cell = side / n,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          region = new Uint8Array(n * n),
+          inRegion = (x: number, y: number): number =>
+            x >= 0 && x < n && y >= 0 && y < n ? region[y * n + x] : 0,
+          // Loop edges are the borders of the region: the horizontal edge (x, y) runs between dots (x, y)
+          // and (x + 1, y), the vertical edge (x, y) between dots (x, y) and (x, y + 1).
+          horizontal = (x: number, y: number): boolean =>
+            inRegion(x, y - 1) !== inRegion(x, y),
+          vertical = (x: number, y: number): boolean =>
+            inRegion(x - 1, y) !== inRegion(x, y),
+          // The dots joined to dot (x, y) by a loop edge.
+          linked = (x: number, y: number): number[] => {
+            const list: number[] = [];
+            if (x < n && horizontal(x, y)) list.push(y * (n + 1) + x + 1);
+            if (x > 0 && horizontal(x - 1, y)) list.push(y * (n + 1) + x - 1);
+            if (y < n && vertical(x, y)) list.push((y + 1) * (n + 1) + x);
+            if (y > 0 && vertical(x, y - 1)) list.push((y - 1) * (n + 1) + x);
+            return list;
+          },
+          // The outline of a connected, hole-free region without corner contacts is one closed loop: every
+          // dot has 0 or 2 loop edges, and walking from any loop dot returns after visiting them all.
+          singleLoop = (): boolean => {
+            let total = 0,
+              start = -1;
+            for (let y = 0; y <= n; y++)
+              for (let x = 0; x <= n; x++) {
+                const degree = linked(x, y).length;
+                if (degree !== 0 && degree !== 2) return false;
+                if (degree === 2) {
+                  total++;
+                  start = start < 0 ? y * (n + 1) + x : start;
+                }
+              }
+            if (start < 0) return false;
+            let previous = -1,
+              current = start,
+              visited = 0;
+            do {
+              const next = linked(
+                  current % (n + 1),
+                  Math.floor(current / (n + 1)),
+                ),
+                forward =
+                  next.find((candidate) => candidate !== previous) ?? next[0];
+              previous = current;
+              current = forward;
+              visited++;
+            } while (current !== start && visited <= total);
+            return visited === total;
+          };
+        for (let attempt = 0; attempt < p.attempts; attempt++) {
+          region.fill(0);
+          region[
+            Math.min(
+              n * n - 1,
+              Math.floor(hash(attempt, 1, seed ^ 0x2aa03) * n * n),
+            )
+          ] = 1;
+          let count = 1;
+          const target = Math.round(p.fill * n * n);
+          for (let move = 0; move < 400 && count < target; move++) {
+            const index = Math.min(
+                n * n - 1,
+                Math.floor(
+                  hash(attempt * 1000 + move, 2, seed ^ 0x2aa05) * n * n,
+                ),
+              ),
+              x = index % n,
+              y = Math.floor(index / n);
+            if (
+              region[index] === 1 ||
+              inRegion(x + 1, y) +
+                inRegion(x - 1, y) +
+                inRegion(x, y + 1) +
+                inRegion(x, y - 1) ===
+                0
+            )
+              continue;
+            region[index] = 1;
+            count++;
+          }
+          if (singleLoop()) break;
+        }
+        return () => {
+          const lx = u - p.margin,
+            ly = v - p.margin,
+            dotX = Math.round(lx / cell),
+            dotY = Math.round(ly / cell),
+            ox = lx - dotX * cell,
+            oy = ly - dotY * cell;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            loop = 0,
+            dot = 0,
+            number = 0;
+          if (
+            lx >= -p.dotRadius &&
+            lx < side + p.dotRadius &&
+            ly >= -p.dotRadius &&
+            ly < side + p.dotRadius
+          ) {
+            if (lx >= 0 && lx < side && ly >= 0 && ly < side) {
+              const col = Math.min(n - 1, Math.floor(lx / cell)),
+                row = Math.min(n - 1, Math.floor(ly / cell)),
+                fx = lx - col * cell,
+                fy = ly - row * cell;
+              if (region[row * n + col] === 1) {
+                tone = p.insideTone;
+                level = p.insideHeight;
+              }
+              // The number of loop edges around the cell, in 3 x 5 dot matrix in its middle.
+              const around =
+                  Number(horizontal(col, row)) +
+                  Number(horizontal(col, row + 1)) +
+                  Number(vertical(col, row)) +
+                  Number(vertical(col + 1, row)),
+                px = Math.floor((fx - (cell / 2 - 1.5 * p.pixel)) / p.pixel),
+                py = Math.floor((fy - (cell / 2 - 2.5 * p.pixel)) / p.pixel);
+              if (
+                px >= 0 &&
+                px < 3 &&
+                py >= 0 &&
+                py < 5 &&
+                glyphs[around][py * 3 + px] === '1'
+              )
+                number = 1;
+            }
+            // The loop edges leaving the nearest dot, each a bar from the dot half way to the next dot (the
+            // next dot draws the other half), each reaching a half width beyond its half so the halves overlap
+            // (no hairline at the middle) and corners are filled.
+            const half = p.loopHalf,
+              reach = cell / 2;
+            if (dotX >= 0 && dotX <= n && dotY >= 0 && dotY <= n) {
+              const bar = (along: number, across: number): number =>
+                Math.min(
+                  cover(half - Math.abs(across)),
+                  cover(along + half),
+                  cover(reach + half - along),
+                );
+              if (dotX < n && horizontal(dotX, dotY))
+                loop = Math.max(loop, bar(ox, oy));
+              if (dotX > 0 && horizontal(dotX - 1, dotY))
+                loop = Math.max(loop, bar(-ox, oy));
+              if (dotY < n && vertical(dotX, dotY))
+                loop = Math.max(loop, bar(oy, ox));
+              if (dotY > 0 && vertical(dotX, dotY - 1))
+                loop = Math.max(loop, bar(-oy, ox));
+              dot = cover(p.dotRadius - Math.hypot(ox, oy));
+            }
+          }
+          const base = tone + (p.dotTone - tone) * dot;
+          color = clamp(
+            base +
+              (p.loopTone - base) * loop +
+              (p.numberTone - base) * number * (1 - loop) +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            level +
+              (p.dotHeight - level) * dot +
+              (p.loopHeight - level) * loop -
+              p.inkDepth * number,
+          );
+          roughness =
+            p.paperRoughness + (p.loopRoughness - p.paperRoughness) * loop;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -53929,6 +54111,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'slitherlinkloop' ||
     kind === 'hashibridges' ||
     kind === 'kakuropuzzle' ||
     kind === 'hexresourceboard' ||
