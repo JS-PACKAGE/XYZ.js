@@ -20457,6 +20457,41 @@ var proceduralMaterialPresets = Object.freeze({
 		faceRoughness: .62,
 		inkRoughness: .4
 	}),
+	henonattractor: Object.freeze({
+		dark: [
+			22,
+			24,
+			52
+		],
+		light: [
+			244,
+			240,
+			226
+		],
+		roughness: .55,
+		relief: .004,
+		maps: Object.freeze([
+			Object.freeze([1.4, .3]),
+			Object.freeze([1.35, .3]),
+			Object.freeze([1.4, .25]),
+			Object.freeze([1.2, .3])
+		]),
+		windowX: 1.35,
+		windowY: .45,
+		margin: .03,
+		gridSize: 256,
+		iterations: 6e5,
+		warmUp: 200,
+		saturation: 8,
+		grainCells: 192,
+		paperTone: .94,
+		inkTone: .1,
+		grainTone: .03,
+		paperHeight: .2,
+		inkHeight: .7,
+		paperRoughness: .74,
+		inkRoughness: .42
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -29138,6 +29173,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	henonattractor: 1,
 	digitalroottable: 1,
 	thuemorsegrid: 1,
 	recamanarcs: 1,

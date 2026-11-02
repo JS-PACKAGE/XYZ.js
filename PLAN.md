@@ -1949,6 +1949,10 @@
 
 這是作者設計的示意：沒有表頭（看不出i與j的值），也沒有圖例說明三種表的差別；字形是3×5點陣，在512以下的小格（18格）接近極限，建議1024以上。i²＋j²的表只出現部分數根（平方對9取餘只有0、1、4、7），因此色階有缺口。預設1 m nominal tile、0.005 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`henonattractor`（埃農吸引子）使目前目錄1097→1098種，含plain的gallery為1099項。整張tile是埃農映射 x′＝1−a·x²＋y、y′＝b·x 迭代60萬次後的點密度圖：點數落在256×256的格子中，取對數後雙線性內插成墨色濃淡，淺色紙面上的深藍弧線就是吸引子的細密層次。seed從四組混沌參數（a,b）＝（1.4,0.3）、（1.35,0.3）、（1.4,0.25）、（1.2,0.3）中挑一組，並決定是否左右、上下鏡射；視窗固定為x∈[−1.35,1.35]、y∈[−0.45,0.45]，因此y方向相對x約拉長1.5倍；視窗四周有3%的留白，所以整張tile可無縫重複。Metallic與mortar為0。
+
+這是作者設計的示意：沒有座標軸、刻度或參數標示；y方向是拉長的，不是等比例；弧線很細，在512以下只有一兩個像素寬。四組參數是從我用腳本試過的組合中挑出會產生混沌（填滿多數格子）的幾組，沒有做數學證明。這次也試了a＝1.3、b＝0.3與a＝1.25、b＝0.3，但它們只占7個格子（是週期軌道），所以沒有被使用。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。每個取樣器建立時要迭代60萬次（512單次約111到160 ms，非效能認證）。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

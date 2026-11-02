@@ -28261,3 +28261,157 @@ describe('digitalroottable: tables of digital roots', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('henonattractor: the Henon attractor', () => {
+  const p = proceduralMaterialPresets.henonattractor;
+  const span = 1 - 2 * p.margin;
+  // The orbit of the Henon map from (0.1, 0.1), written again here (the sampler starts from the origin and counts many more points).
+  const orbit = (a: number, b: number, count: number): [number, number][] => {
+    const points: [number, number][] = [];
+    let x = 0.1,
+      y = 0.1;
+    for (let i = 0; i < count + 200; i++) {
+      const nextX = 1 - a * x * x + y;
+      y = b * x;
+      x = nextX;
+      if (i >= 200) points.push([x, y]);
+    }
+    return points;
+  };
+  const position = (
+    point: [number, number],
+    mirrorX: boolean,
+    mirrorY: boolean,
+  ): [number, number] => {
+    const fu = (point[0] / p.windowX) * 0.5 + 0.5,
+      fv = (point[1] / p.windowY) * 0.5 + 0.5;
+    return [
+      p.margin + span * (mirrorX ? 1 - fu : fu),
+      p.margin + span * (mirrorY ? 1 - fv : fv),
+    ];
+  };
+  const variants = p.maps.flatMap(([a, b], map) =>
+    [false, true].flatMap((mirrorX) =>
+      [false, true].map((mirrorY) => ({
+        map,
+        a,
+        b,
+        mirrorX,
+        mirrorY,
+        points: orbit(a, b, 3000),
+      })),
+    ),
+  );
+  // Share of the orbit points that fall on inked pixels for every parameter pair and mirroring.
+  const scores = (seed: number): number[] => {
+    const sample = createSurfaceSampler('henonattractor', seed),
+      out = empty();
+    return variants.map(({ points, mirrorX, mirrorY }) => {
+      let hits = 0;
+      for (const point of points) {
+        const [u, v] = position(point, mirrorX, mirrorY);
+        sample(u, v, out);
+        if (out.color < p.paperTone - 0.15) hits++;
+      }
+      return hits / points.length;
+    });
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws the orbit of exactly one parameter pair and mirroring (seed %i)',
+    (seed) => {
+      const result = scores(seed),
+        best = Math.max(...result);
+      expect(best).toBeGreaterThan(0.98);
+      expect(result.filter((score) => score > 0.7)).toHaveLength(1);
+      const { a, b, mirrorX, mirrorY } = variants[result.indexOf(best)],
+        sample = createSurfaceSampler('henonattractor', seed),
+        out = empty(),
+        grid = 64,
+        occupied = new Set<number>();
+      for (const point of orbit(a, b, 30000)) {
+        const cell = (value: number, half: number): number =>
+          Math.floor((value / half) * 0.5 * grid + grid / 2);
+        occupied.add(
+          cell(point[1], p.windowY) * grid + cell(point[0], p.windowX),
+        );
+      }
+      // A cell of the window with no orbit point in it or in its eight neighbours is paper.
+      let checked = 0;
+      for (let row = 1; row < grid - 1; row++)
+        for (let column = 1; column < grid - 1; column++) {
+          let empty9 = true;
+          for (let dy = -1; dy <= 1; dy++)
+            for (let dx = -1; dx <= 1; dx++)
+              if (occupied.has((row + dy) * grid + column + dx)) empty9 = false;
+          if (!empty9) continue;
+          const [u, v] = position(
+            [
+              ((column + 0.5) / grid - 0.5) * 2 * p.windowX,
+              ((row + 0.5) / grid - 0.5) * 2 * p.windowY,
+            ],
+            mirrorX,
+            mirrorY,
+          );
+          sample(u, v, out);
+          expect(out.color).toBeGreaterThan(0.85);
+          checked++;
+        }
+      expect(checked).toBeGreaterThan(500);
+      // Outside the window margin there is only paper.
+      sample(0.01, 0.5, out);
+      expect(out.color).toBeGreaterThan(0.85);
+      sample(0.5, 0.99, out);
+      expect(out.color).toBeGreaterThan(0.85);
+    },
+  );
+
+  it(
+    'uses every parameter pair and mirroring across seeds',
+    { timeout: 30000 },
+    () => {
+      const used = new Set<number>();
+      for (let seed = 0; seed < 40; seed++) {
+        const result = scores(seed);
+        used.add(result.indexOf(Math.max(...result)));
+      }
+      expect(used.size).toBe(variants.length);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('henonattractor', 0),
+      b = createSurfaceSampler('henonattractor', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
