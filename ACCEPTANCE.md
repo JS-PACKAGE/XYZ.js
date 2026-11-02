@@ -12591,3 +12591,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增6項專屬測試（154塊／335條邊／182個頂點／歐拉示性數1／邊長1／頂點邊數2到9／27、58、69塊菱形、四seed的旋轉唯一比對（含菱形中心的內部色調）與統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過；`Heptagrid tiling as`、`Ammann filled as`、`Penrose filled as`原有測試仍通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Heptagrid filled as|heptagridfilled|Heptagrid tiling as|Ammann filled as|Penrose filled as|kinds|catalog|distinct|periodic"`定向測試**2312項通過／3930項未選**。
 - 未驗證：heptagridfilled未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：上色十二重網格拼貼（dodecagridfilled）
+
+- 範圍：新增`dodecagridfilled`（目前目錄998→999種，含plain的gallery 1000項）：與`dodecagridtiling`相同的十二重補丁（六組網格與偏移；151塊瓷磚、330條邊、180個頂點、歐拉示性數1、頂點邊數2到10；30°菱形／60°菱形／正方形各41／70／40塊），瓷磚內部有色調（30°菱形0.10、60°菱形0.18、正方形0.26；權重為四條邊各自`smooth(clamp(有號距離 / 0.15))`的連乘）、內部高度加成0.05，邊緣為淺萊姆綠細線、森林綠底；seed把補丁旋轉30°的整數倍；使用`penrosefilled`加入的多重網格sampler填色功能（只新增preset）；預設0.5 m nominal tile、0.0007 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**；色調只依瓷磚形狀，不是真正的配色規則。
+- 調整與紀錄：(1)預覽只看了一版。(2)吸取heptagridfilled類別對應弄反的教訓，先以方向夾角`(k − j)·30°`算出類別0與4是30°、1與3是60°、2是90°正方形，再寫`fills`。(3)填色功能的折痕問題已在penrosefilled修正，C1測試一次通過；測試一次通過，無需調整區間。(4)結構檢查同dodecagridtiling，是構造自洽性的檢查，不是形式證明；每個取樣點走訪330條邊與151塊瓷磚，**未量測耗時**；旋轉比對門檻為最大誤差小於0.03，未逐seed記錄實際最大誤差。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：256²取樣亮處（color>0.5）占11.54%–11.72%、color 0.0455–0.0456至0.7705–0.7736、平均0.2002–0.2004、roughness 0.3–0.4、AO恆為1、height至多0.9341–0.9421 relief；512²取樣亮處占11.51%–11.53%、color 0.0452至0.7734–0.7746、平均0.2002–0.2004、height至多0.9419–0.9487 relief；四個seed各自在恰好一個旋轉步（第0、7、1、7步，共12步）下，頂點與瓷磚中心（含內部色調）的顏色與測試中獨立重寫的模型一致；seed 0與1的亮區遮罩（512²）14.1%像素不同；seed 7的512²maps平均r／g／b約(51.3, 75.1, 41.3)、法線tilt²最大約0.0335、z分量最小253。我實看了預覽（seed 7）。
+- 測試：新增6項專屬測試（151塊／330條邊／180個頂點／歐拉示性數1／邊長1／頂點邊數2到10／41、70、40塊瓷磚、四seed的旋轉唯一比對（含瓷磚中心的內部色調）與統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過；`Dodecagrid tiling as`與`Heptagrid filled as`原有測試仍通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Dodecagrid filled as|dodecagridfilled|Dodecagrid tiling as|Heptagrid filled as|kinds|catalog|distinct|periodic"`定向測試**2310項通過／3938項未選**。
+- 未驗證：heptagridfilled、dodecagridfilled未跑完整suite與瀏覽器gallery；不push。

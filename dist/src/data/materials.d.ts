@@ -14597,6 +14597,31 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.15;
         threadRoughness: -0.1;
     }>;
+    dodecagridfilled: Readonly<{
+        dark: readonly [14, 30, 14];
+        light: readonly [200, 255, 150];
+        roughness: 0.4;
+        relief: 0.0007;
+        seedSalt: 53489;
+        roots: 12;
+        offsets: readonly [0.13, -0.31, 0.22, 0.07, -0.19, 0.08];
+        fills: readonly [0.1, 0.18, 0.26, 0.18, 0.1];
+        fillRim: 0.15;
+        fillHeight: 0.05;
+        period: 16;
+        patchRadius: 6.2;
+        gridRange: 6;
+        rotationSteps: 12;
+        threadRadius: 0.09;
+        gain: 1.6;
+        grainCells: 128;
+        baseTone: 0.06;
+        threadTone: 0.7;
+        grainTone: 0.03;
+        threadHeight: 0.8;
+        grainHeight: 0.15;
+        threadRoughness: -0.1;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -15974,4 +15999,5 @@ export declare const proceduralTileMeters: Readonly<{
     penrosefilled: 0.5;
     ammannfilled: 0.5;
     heptagridfilled: 0.5;
+    dodecagridfilled: 0.5;
 }>;
