@@ -15015,3 +15015,114 @@ describe('rushhourjam: a Rush Hour board', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('mancalaboard: a mid-game Mancala board', () => {
+  const p = proceduralMaterialPresets.mancalaboard;
+  const containers = 2 * p.pits + 2;
+  const centre = (index: number): [number, number] =>
+    index < 2 * p.pits
+      ? [
+          p.pitStart + (index % p.pits) * p.pitPitch,
+          p.pitRows[Math.floor(index / p.pits)],
+        ]
+      : [p.storeCenters[index - 2 * p.pits], 0.5];
+  const slots = (index: number): [number, number][] => {
+    const pit = index < 2 * p.pits,
+      columns = pit ? p.pitSlotColumns : p.storeSlotColumns,
+      total = pit ? p.pitCapacity : p.storeCapacity,
+      [cx, cy] = centre(index);
+    return Array.from({ length: total }, (_, slot) => [
+      cx + ((slot % columns) - (columns - 1) / 2) * p.slotPitch,
+      cy +
+        (Math.floor(slot / columns) - (total / columns - 1) / 2) * p.slotPitch,
+    ]);
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'keeps all stones in the pits and stores, clustered, with the right total (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('mancalaboard', seed),
+        out = empty(),
+        at = (u: number, v: number): number => {
+          sample(u, v, out);
+          return out.color;
+        };
+      let total = 0;
+      for (let index = 0; index < containers; index++) {
+        const [cx, cy] = centre(index),
+          lit = slots(index).map(([x, y]) => ({
+            light: at(x, y) > 0.9,
+            distance: Math.hypot(x - cx, y - cy),
+          })),
+          count = lit.filter((slot) => slot.light).length;
+        total += count;
+        // The container itself is dark where no stone lies, and stones gather nearest the middle.
+        expect(count).toBeLessThanOrEqual(lit.length);
+        const farthestStone = Math.max(
+            0,
+            ...lit.filter((slot) => slot.light).map((slot) => slot.distance),
+          ),
+          nearestEmpty = Math.min(
+            Infinity,
+            ...lit.filter((slot) => !slot.light).map((slot) => slot.distance),
+          );
+        expect(farthestStone).toBeLessThanOrEqual(nearestEmpty + 1e-9);
+      }
+      expect(total).toBe(p.stones);
+      // Every light pixel is part of a stone: it lies near some slot of some container.
+      const allSlots = Array.from({ length: containers }, (_, index) =>
+        slots(index),
+      ).flat();
+      let stray = 0;
+      for (let y = 0; y < 192; y++)
+        for (let x = 0; x < 192; x++) {
+          const u = (x + 0.5) / 192,
+            v = (y + 0.5) / 192;
+          if (
+            at(u, v) > 0.9 &&
+            !allSlots.some(
+              ([sx, sy]) => Math.hypot(u - sx, v - sy) <= p.stoneRadius + 0.004,
+            )
+          )
+            stray++;
+        }
+      expect(stray).toBe(0);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('mancalaboard', 0),
+      b = createSurfaceSampler('mancalaboard', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.5],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(20);
+  });
+});

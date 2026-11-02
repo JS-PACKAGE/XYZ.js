@@ -28481,6 +28481,109 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'mancalaboard': {
+        const p = proceduralMaterialPresets.mancalaboard,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2b801),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // Containers 0..2*pits-1 are the pits (row by row), then the two stores.
+          containers = 2 * p.pits + 2,
+          counts = new Array<number>(containers).fill(0),
+          capacity = (index: number): number =>
+            index < 2 * p.pits ? p.pitCapacity : p.storeCapacity;
+        // Spread the stones over the pits and stores at random; a full container takes no more.
+        for (let stone = 0; stone < p.stones; stone++) {
+          const open = Array.from({ length: containers }, (_, i) => i).filter(
+              (i) => counts[i] < capacity(i),
+            ),
+            pick =
+              open[
+                Math.min(
+                  open.length - 1,
+                  Math.floor(hash(stone, 3, seed ^ 0x2b803) * open.length),
+                )
+              ];
+          counts[pick]++;
+        }
+        // Where each container sits, and its slots for stones, nearest the middle first.
+        const centreOf = (index: number): [number, number] =>
+            index < 2 * p.pits
+              ? [
+                  p.pitStart + (index % p.pits) * p.pitPitch,
+                  p.pitRows[Math.floor(index / p.pits)],
+                ]
+              : [p.storeCenters[index - 2 * p.pits], 0.5],
+          slotGrid = (columns: number, total: number): [number, number][] =>
+            Array.from({ length: total }, (_, slot): [number, number] => [
+              ((slot % columns) - (columns - 1) / 2) * p.slotPitch,
+              (Math.floor(slot / columns) - (total / columns - 1) / 2) *
+                p.slotPitch,
+            ]).sort((a, b) => Math.hypot(a[0], a[1]) - Math.hypot(b[0], b[1])),
+          pitSlots = slotGrid(p.pitSlotColumns, p.pitCapacity),
+          storeSlots = slotGrid(p.storeSlotColumns, p.storeCapacity);
+        return () => {
+          // The board is a rounded rectangle; pits are circles and stores are rounded slots cut into it.
+          const qx =
+              Math.abs(u - (p.boardLeft + p.boardRight) / 2) -
+              ((p.boardRight - p.boardLeft) / 2 - p.boardCorner),
+            qy =
+              Math.abs(v - (p.boardTop + p.boardBottom) / 2) -
+              ((p.boardBottom - p.boardTop) / 2 - p.boardCorner),
+            board = cover(
+              p.boardCorner -
+                (Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) +
+                  Math.min(Math.max(qx, qy), 0)),
+            );
+          let hole = 0,
+            stone = 0;
+          for (let index = 0; index < containers; index++) {
+            const [cx, cy] = centreOf(index);
+            if (index < 2 * p.pits)
+              hole = Math.max(
+                hole,
+                cover(p.pitRadius - Math.hypot(u - cx, v - cy)),
+              );
+            else {
+              const sx = Math.abs(u - cx) - (p.storeHalfWidth - p.pitRadius),
+                sy = Math.abs(v - cy) - (p.storeHalfHeight - p.pitRadius);
+              hole = Math.max(
+                hole,
+                cover(
+                  p.pitRadius -
+                    (Math.hypot(Math.max(sx, 0), Math.max(sy, 0)) +
+                      Math.min(Math.max(sx, sy), 0)),
+                ),
+              );
+            }
+            const slots = index < 2 * p.pits ? pitSlots : storeSlots;
+            for (let slot = 0; slot < counts[index]; slot++) {
+              const [dx, dy] = slots[slot];
+              stone = Math.max(
+                stone,
+                cover(p.stoneRadius - Math.hypot(u - cx - dx, v - cy - dy)),
+              );
+            }
+          }
+          const boardTone = p.tableTone + (p.boardTone - p.tableTone) * board,
+            tone = boardTone + (p.pitTone - boardTone) * hole,
+            boardLevel =
+              p.tableHeight + (p.boardHeight - p.tableHeight) * board,
+            level = boardLevel + (p.pitHeight - boardLevel) * hole,
+            boardRough =
+              p.tableRoughness + (p.boardRoughness - p.tableRoughness) * board,
+            rough = boardRough + (p.pitRoughness - boardRough) * hole,
+            grain = grainField(u * p.grainStretch, v) - 0.5;
+          color = clamp(
+            tone +
+              (p.stoneTone - tone) * stone +
+              p.grainTone * grain * (1 - hole),
+          );
+          height = clamp(level + (p.stoneHeight - level) * stone);
+          roughness = rough + (p.stoneRoughness - rough) * stone;
+          occlusion = 1 - 0.35 * hole * (1 - stone);
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -56010,6 +56113,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'mancalaboard' ||
     kind === 'rushhourjam' ||
     kind === 'numberlinkpaths' ||
     kind === 'kenkencages' ||

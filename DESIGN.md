@@ -1589,6 +1589,10 @@
 
 這是作者設計的示意：畫面只是一個盤面狀態，**不保證有解**（我沒有寫求解器；垂直的車仍可能把目標車永久卡死）、不是難題；顏色只有明度（深目標車與灰階車輛）、沒有色相；車身為簡單圓角矩形、沒有車窗或車燈；6×6固定、出口固定在右側第3列。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`mancalaboard`（播棋／Mancala）使目前目錄1005→1006種，含plain的gallery為1007項。每tile是一個木質的Mancala棋盤：淺色桌面上有一塊圓角的棋盤，棋盤兩側各一個長條形的「倉庫」、中間上下兩排各6個圓形的「坑」，坑與倉庫是深色的凹洞，其中放著淺色的小圓石子。石子共48顆，由seed隨機分配到12個坑與2個倉庫（每個坑最多12顆、倉庫最多24顆，超過上限的容器不再接受）；每個容器內的石子由中心向外依序排列。桌面與棋盤有些微的木紋明暗變化（沿水平方向拉長的雜訊）。Metallic與mortar為0。
+
+這是作者設計的示意：不是遊戲規則驗證——分配是隨機的，不代表任何合法的Mancala對局狀態（真實對局的石子分佈取決於雙方走法）；也沒有畫出玩家標記或對戰方向；石子小（半徑約0.0125個tile寬），在小尺寸下難以辨識；顏色只有明度（木色由暗到亮的線性色帶）。預設0.6 m nominal tile、0.006 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
