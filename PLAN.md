@@ -1785,6 +1785,10 @@
 
 這是作者設計的示意：只有四個線性向量場，箭頭只標示格點的方向與相對大小，沒有數值標示或流線；箭頭長度只用0.3到0.88個格寬表示相對大小，不是向量的實際長度；箭頭的頭在很短時按比例縮小，以免超過尾端。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`fordcircles`（福特圓）使目前目錄1056→1057種，含plain的gallery為1058項。每tile畫出福特圓：對每個最簡分數 p/q（0 ≤ p/q ≤ 1，分母q不超過某個上限），在數線上的 p/q 處畫一個與數線相切、直徑為 1/q² 的圓；Farey序列中相鄰的兩個分數（p·q′ − p′·q 的絕對值為1）的圓彼此相切。數線在tile底邊，圓依分母q由大（分母1，最深）到小（較淺）用不同亮度填色，並描深色細邊。分母上限由seed從4、6、8挑一個。Metallic與mortar為0。
+
+這是作者設計的示意：只有 0 到 1 之間的分數、上限只有三個值，沒有標示分數；分母為1的兩個大圓（0/1與1/1）半徑為0.5，所以占滿tile高度並分居左右兩邊；上限8與6、6與4的差別只是幾個很小的圓，在小尺寸下幾乎看不出差別。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

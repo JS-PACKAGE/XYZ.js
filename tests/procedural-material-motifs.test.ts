@@ -22051,3 +22051,163 @@ describe('vectorfieldarrows: arrows along a vector field', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('fordcircles: Ford circles', () => {
+  const p = proceduralMaterialPresets.fordcircles;
+  const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+  // All fractions p/q in lowest terms with 0 <= p/q <= 1 and q <= limit, written here with a different loop order.
+  const fractions = (limit: number): [number, number][] => {
+    const list: [number, number][] = [];
+    for (let q = 1; q <= limit; q++)
+      for (let numerator = 0; numerator <= q; numerator++)
+        if (gcd(q, numerator) === 1) list.push([numerator, q]);
+    return list;
+  };
+  const circleOf = ([numerator, q]: [number, number]) => ({
+    x: numerator / q,
+    y: 1 / (2 * q * q),
+    r: 1 / (2 * q * q),
+  });
+  // The tone class a point should have for a given limit: -1 when it is too close to an outline to tell.
+  const expected = (limit: number, u: number, v: number): number => {
+    const y = 1 - v;
+    if (y < 0.012 || y > 0.988) return -1;
+    let result = 0;
+    for (const fraction of fractions(limit)) {
+      const c = circleOf(fraction),
+        distance = Math.hypot(u - c.x, y - c.y) - c.r;
+      if (Math.abs(distance) < 0.006) return -1;
+      if (distance < 0) result = fraction[1];
+    }
+    return result;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'fills exactly the Ford circles of one limit and touches neighbours at their tangent points (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('fordcircles', seed),
+        out = empty(),
+        biggest = Math.max(...p.limits),
+        // Circle centres of every denominator up to the largest limit tell which circles exist: filled means present.
+        present = (fraction: [number, number]): boolean => {
+          const c = circleOf(fraction);
+          sample(c.x, 1 - c.y, out);
+          return out.color < 0.85;
+        },
+        matches = p.limits.filter((limit) =>
+          fractions(biggest).every(
+            (fraction) => present(fraction) === fraction[1] <= limit,
+          ),
+        );
+      expect(matches).toHaveLength(1);
+      const best = matches[0],
+        n = 160;
+      let counted = 0,
+        agreed = 0;
+      for (let j = 0; j < n; j++)
+        for (let i = 0; i < n; i++) {
+          const u = (i + 0.5) / n,
+            v = (j + 0.5) / n;
+          sample(u, v, out);
+          // 0 for paper, otherwise the denominator whose fill tone is nearest.
+          const observed =
+              out.color > 0.85
+                ? 0
+                : p.tones.reduce(
+                    (winner, tone, k) =>
+                      Math.abs(out.color - tone) <
+                      Math.abs(out.color - p.tones[winner])
+                        ? k
+                        : winner,
+                    0,
+                  ) + 1,
+            want = expected(best, u, v);
+          if (want === -1) continue;
+          counted++;
+          agreed += Number(want === observed);
+        }
+      expect(counted).toBeGreaterThan(0.9 * n * n);
+      expect(agreed / counted).toBeGreaterThan(0.9995);
+      const list = fractions(best);
+      // Ford circles of Farey neighbours (|p q' - p' q| = 1) are tangent: the distance between the centres is the sum of the
+      // radii; the dark outline passes through the point of tangency.
+      let pairs = 0;
+      for (const a of list)
+        for (const b of list) {
+          if (
+            a[0] * b[1] >= b[0] * a[1] ||
+            Math.abs(a[0] * b[1] - b[0] * a[1]) !== 1
+          )
+            continue;
+          const ca = circleOf(a),
+            cb = circleOf(b);
+          expect(Math.hypot(ca.x - cb.x, ca.y - cb.y)).toBeCloseTo(
+            ca.r + cb.r,
+            12,
+          );
+          const tangent = {
+            x: (ca.x * cb.r + cb.x * ca.r) / (ca.r + cb.r),
+            y: (2 * ca.r * cb.r) / (ca.r + cb.r),
+          };
+          sample(tangent.x, 1 - tangent.y, out);
+          expect(out.color).toBeLessThan(0.3);
+          pairs++;
+        }
+      expect(pairs).toBeGreaterThan(5);
+    },
+  );
+
+  it('uses every limit across seeds', () => {
+    const used = new Set<number>(),
+      sample = (seed: number): number => {
+        const s = createSurfaceSampler('fordcircles', seed),
+          out = empty();
+        // The circle of 1/8 only exists for the limit of 8, and the circles of 1/5 and 1/7 for 6 and 8: look at their centres.
+        const probe = (x: number, denominator: number): boolean => {
+          s(x, 1 - 1 / (2 * denominator * denominator), out);
+          return out.color < 0.85;
+        };
+        return probe(1 / 8, 8) ? 8 : probe(1 / 5, 5) ? 6 : 4;
+      };
+    for (let seed = 0; seed < 30; seed++) used.add(sample(seed));
+    expect([...used].sort((a, b) => a - b)).toEqual(
+      [...p.limits].sort((a, b) => a - b),
+    );
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('fordcircles', 0),
+      b = createSurfaceSampler('fordcircles', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

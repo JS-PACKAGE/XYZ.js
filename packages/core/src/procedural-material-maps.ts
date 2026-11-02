@@ -33258,6 +33258,64 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'fordcircles': {
+        const p = proceduralMaterialPresets.fordcircles,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2eb01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          gcd = (a: number, b: number): number => {
+            while (b !== 0) [a, b] = [b, a % b];
+            return a;
+          },
+          limit =
+            p.limits[Math.floor(hash(6, 7, seed ^ 0x2eb02) * p.limits.length)],
+          // The circle for p / q touches the axis at p / q, has diameter 1 / q^2 and is tangent to the circles of its Farey neighbours.
+          circles: { x: number; radius: number; denominator: number }[] = [];
+        for (let q = 1; q <= limit; q++)
+          for (let numerator = 0; numerator <= q; numerator++)
+            if (gcd(numerator, q) === 1)
+              circles.push({
+                x: numerator / q,
+                radius: 1 / (2 * q * q),
+                denominator: q,
+              });
+        return () => {
+          // y measured upwards from the axis, which runs along the bottom edge of the tile.
+          const y = 1 - v;
+          let fill = 0,
+            outline = 0,
+            tone: number = p.paperTone;
+          for (const circle of circles) {
+            const distance =
+              Math.hypot(u - circle.x, y - circle.radius) - circle.radius;
+            if (distance < 0) {
+              fill = 1;
+              tone = p.tones[circle.denominator - 1];
+            }
+            outline = Math.max(
+              outline,
+              cover(p.outlineHalf - Math.abs(distance)),
+            );
+          }
+          const axis = cover(p.axisHalf - Math.min(y, 1 - y)),
+            base = p.paperTone + (tone - p.paperTone) * fill,
+            ink = Math.max(outline, axis);
+          color = clamp(
+            base +
+              (p.outlineTone - base) * ink +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.paperHeight +
+              (p.fillHeight - p.paperHeight) * fill +
+              (p.outlineHeight - p.fillHeight) * ink,
+          );
+          roughness =
+            p.paperRoughness + (p.fillRoughness - p.paperRoughness) * fill;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -60787,6 +60845,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'fordcircles' ||
     kind === 'vectorfieldarrows' ||
     kind === 'wordsquares' ||
     kind === 'caesarcipher' ||
