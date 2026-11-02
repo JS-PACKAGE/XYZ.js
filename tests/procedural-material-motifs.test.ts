@@ -23592,3 +23592,152 @@ describe('binaryheaptree: a complete binary tree that satisfies the heap propert
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('bubblesortpasses: the rows of bubble sort', () => {
+  const p = proceduralMaterialPresets.bubblesortpasses;
+  const digitShapes: string[][] = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+  // One pass of bubble sort written with a while loop and a running index.
+  const onePass = (row: number[]): number[] => {
+    const next = row.slice();
+    let i = 0;
+    while (i < next.length - 1) {
+      if (next[i] > next[i + 1]) {
+        const larger = next[i];
+        next[i] = next[i + 1];
+        next[i + 1] = larger;
+      }
+      i++;
+    }
+    return next;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows each row as one bubble-sort pass applied to the row above, with the settled right end shaded (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('bubblesortpasses', seed),
+        out = empty(),
+        colorAt = (u: number, v: number): number => {
+          sample(u, v, out);
+          return out.color;
+        },
+        matrix: number[][] = [];
+      for (let row = 0; row < p.size; row++) {
+        const cells: number[] = [];
+        for (let column = 0; column < p.size; column++) {
+          const cx = p.left + (column + 0.5) * p.cell,
+            cy = p.top + (row + 0.5) * p.rowPitch,
+            lines = [0, 1, 2, 3, 4].map((k) =>
+              [0, 1, 2]
+                .map((x) =>
+                  colorAt(cx + (x - 1) * p.pixel, cy + (k - 2) * p.pixel) < 0.3
+                    ? '#'
+                    : '.',
+                )
+                .join(''),
+            ),
+            digit = digitShapes.findIndex((shape) =>
+              shape.every((line, i) => line === lines[i]),
+            );
+          expect(digit).toBeGreaterThanOrEqual(1);
+          cells.push(digit);
+          // Cells in the last `row` columns have reached their final place and are darker; the others are paler.
+          const corner = colorAt(
+            p.left + column * p.cell + 0.012,
+            p.top + row * p.rowPitch + 0.012,
+          );
+          expect(corner < 0.75).toBe(column >= p.size - row);
+        }
+        matrix.push(cells);
+      }
+      // The first row is some order of 1..size, and each later row is one pass applied to the one before.
+      expect([...matrix[0]].sort((a, b) => a - b)).toEqual(
+        Array.from({ length: p.size }, (_, i) => i + 1),
+      );
+      for (let row = 1; row < p.size; row++)
+        expect(matrix[row]).toEqual(onePass(matrix[row - 1]));
+      // After size - 1 passes the row is sorted.
+      expect(matrix[p.size - 1]).toEqual(
+        Array.from({ length: p.size }, (_, i) => i + 1),
+      );
+      // Settled cells hold their final values: the largest ones, in order.
+      for (let row = 1; row < p.size; row++)
+        for (let column = p.size - row; column < p.size; column++)
+          expect(matrix[row][column]).toBe(column + 1);
+    },
+  );
+
+  it('starts from different orders for different seeds', () => {
+    const firstRows = new Set<string>();
+    for (let seed = 0; seed < 20; seed++) {
+      const sample = createSurfaceSampler('bubblesortpasses', seed),
+        out = empty(),
+        cells: number[] = [];
+      for (let column = 0; column < p.size; column++) {
+        const cx = p.left + (column + 0.5) * p.cell,
+          cy = p.top + 0.5 * p.rowPitch,
+          lines = [0, 1, 2, 3, 4].map((k) =>
+            [0, 1, 2]
+              .map((x) => {
+                sample(cx + (x - 1) * p.pixel, cy + (k - 2) * p.pixel, out);
+                return out.color < 0.3 ? '#' : '.';
+              })
+              .join(''),
+          );
+        cells.push(
+          digitShapes.findIndex((shape) =>
+            shape.every((line, i) => line === lines[i]),
+          ),
+        );
+      }
+      firstRows.add(cells.join(''));
+    }
+    expect(firstRows.size).toBeGreaterThan(15);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('bubblesortpasses', 0),
+      b = createSurfaceSampler('bubblesortpasses', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

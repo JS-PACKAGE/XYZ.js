@@ -34214,6 +34214,90 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'bubblesortpasses': {
+        const p = proceduralMaterialPresets.bubblesortpasses,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2f501),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // A random order of 1..size, then one row per pass of bubble sort (compare neighbours from the left and swap the
+          // pair when the left one is larger): after pass k the k largest values are in their final places on the right.
+          start = Array.from({ length: p.size }, (_, i) => ({
+            value: i + 1,
+            key: hash(i, 2, seed ^ 0x2f502),
+          }))
+            .sort((a, b) => a.key - b.key)
+            .map((entry) => entry.value),
+          rows: number[][] = [start];
+        for (let pass = 1; pass < p.size; pass++) {
+          const next = [...rows[pass - 1]];
+          for (let i = 0; i + 1 < p.size; i++)
+            if (next[i] > next[i + 1])
+              [next[i], next[i + 1]] = [next[i + 1], next[i]];
+          rows.push(next);
+        }
+        return () => {
+          const x = (u - p.left) / p.cell,
+            y = (v - p.top) / p.rowPitch,
+            column = Math.floor(x),
+            row = Math.floor(y);
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            roughBase: number = p.paperRoughness,
+            frame = 0,
+            glyph = 0;
+          if (column >= 0 && column < p.size && row >= 0 && row < p.size) {
+            const fx = x - column,
+              fy = y - row,
+              insideX = Math.min(fx, 1 - fx) * p.cell - p.cellInset,
+              insideY = Math.min(fy, 1 - fy) * p.rowPitch - p.cellInset;
+            frame = cover(Math.min(insideX, insideY));
+            // The cells on the right that have reached their final place after this many passes are darker.
+            const settled = column >= p.size - row;
+            tone = settled ? p.settledTone : p.cellTone;
+            level = settled ? p.settledHeight : p.cellHeight;
+            roughBase = p.cellRoughness;
+            const px = Math.floor(((fx - 0.5) * p.cell) / p.pixel + 1.5),
+              py = Math.floor(((fy - 0.5) * p.rowPitch) / p.pixel + 2.5);
+            if (
+              px >= 0 &&
+              px < 3 &&
+              py >= 0 &&
+              py < 5 &&
+              glyphs[rows[row][column]][py * 3 + px] === '1'
+            )
+              glyph = 1;
+          }
+          const base = p.paperTone + (tone - p.paperTone) * frame;
+          color = clamp(
+            base +
+              (p.inkTone - base) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.paperHeight +
+              (level - p.paperHeight) * frame -
+              p.inkDepth * glyph,
+          );
+          roughness =
+            p.paperRoughness +
+            (roughBase - p.paperRoughness) * frame +
+            (p.inkRoughness - roughBase) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -61743,6 +61827,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'bubblesortpasses' ||
     kind === 'binaryheaptree' ||
     kind === 'dicesumbars' ||
     kind === 'substitutionwords' ||
