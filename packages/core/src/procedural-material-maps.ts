@@ -32179,6 +32179,123 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'binaryaddition': {
+        const p = proceduralMaterialPresets.binaryaddition,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2de01),
+          glyphs: Record<string, string> = {
+            '0': '111101101101111',
+            '1': '010110010010111',
+            '+': '000010111010000',
+          },
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          columns = p.bits + 2,
+          // Each problem adds two random 8-bit numbers. Position j counts from the least significant bit; carries[j] is the
+          // carry into position j (none into position 0), and the sum has one more bit than the operands.
+          problems = Array.from({ length: p.problems }, (_, problem) => {
+            const a = Array.from({ length: p.bits }, (_, j) =>
+                hash(problem, j, seed ^ 0x2de02) < 0.5 ? 1 : 0,
+              ),
+              b = Array.from({ length: p.bits }, (_, j) =>
+                hash(problem, j + 32, seed ^ 0x2de02) < 0.5 ? 1 : 0,
+              ),
+              carries = new Array<number>(p.bits + 1).fill(0),
+              sum = new Array<number>(p.bits + 1).fill(0);
+            for (let j = 0; j < p.bits; j++) {
+              const total = a[j] + b[j] + carries[j];
+              sum[j] = total % 2;
+              carries[j + 1] = total >> 1;
+            }
+            sum[p.bits] = carries[p.bits];
+            return { a, b, carries, sum };
+          });
+        return () => {
+          const block = Math.floor((v - p.top) / p.blockPitch),
+            local = v - p.top - block * p.blockPitch,
+            row = Math.floor(local / p.rowPitch),
+            x = (u - p.left) / p.cell,
+            column = Math.floor(x);
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            rough: number = p.paperRoughness,
+            rule = 0,
+            glyph = 0,
+            inkTone: number = p.inkTone;
+          if (
+            block >= 0 &&
+            block < p.problems &&
+            row >= 0 &&
+            row < 5 &&
+            column >= 0 &&
+            column < columns
+          ) {
+            const { a, b, carries, sum } = problems[block],
+              fx = x - column,
+              fy = local / p.rowPitch - row,
+              // Column c holds bit position bits - c + 1 (column 1 is the carry-out position, the last column is bit 0).
+              position = p.bits + 1 - column;
+            let symbol = ' ',
+              pixel: number = p.digitPixel;
+            if (row === 0) {
+              // The carry into each position, small, above that position's column.
+              if (position >= 1 && position <= p.bits)
+                symbol = String(carries[position]);
+              tone = p.carryTone;
+              level = p.carryHeight;
+              pixel = p.carryPixel;
+              inkTone = p.carryInkTone;
+            } else if (row === 1)
+              symbol =
+                position >= 0 && position < p.bits ? String(a[position]) : ' ';
+            else if (row === 2)
+              symbol =
+                column === 0
+                  ? '+'
+                  : position >= 0 && position < p.bits
+                    ? String(b[position])
+                    : ' ';
+            else if (row === 4) {
+              symbol =
+                position >= 0 && position <= p.bits
+                  ? String(sum[position])
+                  : ' ';
+              if (column >= 1) {
+                tone = p.sumTone;
+                level = p.sumHeight;
+              }
+            }
+            rough = p.cellRoughness;
+            if (row === 3)
+              rule =
+                column >= 0
+                  ? cover(p.ruleHalf - Math.abs(fy - 0.5) * p.rowPitch)
+                  : 0;
+            const px = Math.floor(((fx - 0.5) * p.cell) / pixel + 1.5),
+              py = Math.floor(((fy - 0.5) * p.rowPitch) / pixel + 2.5);
+            if (
+              symbol !== ' ' &&
+              px >= 0 &&
+              px < 3 &&
+              py >= 0 &&
+              py < 5 &&
+              glyphs[symbol][py * 3 + px] === '1'
+            )
+              glyph = 1;
+          }
+          const base = tone + (p.lineTone - tone) * rule;
+          color = clamp(
+            base +
+              (inkTone - base) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            level + (p.ruleHeight - level) * rule - p.inkDepth * glyph,
+          );
+          roughness = rough + (p.inkRoughness - rough) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -59708,6 +59825,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'binaryaddition' ||
     kind === 'roundingmodes' ||
     kind === 'bellcurvebands' ||
     kind === 'ieee754floats' ||

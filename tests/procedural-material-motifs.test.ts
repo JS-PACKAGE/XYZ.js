@@ -20115,3 +20115,131 @@ describe('roundingmodes: numbers rounded five ways', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('binaryaddition: eight-bit sums with carries', () => {
+  const p = proceduralMaterialPresets.binaryaddition;
+  const shapes: Record<string, string[]> = {
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    '+': ['...', '.#.', '###', '.#.', '...'],
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'adds two numbers per problem and shows each carry above its column (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('binaryaddition', seed),
+        out = empty(),
+        at = (
+          block: number,
+          column: number,
+          row: number,
+          fx: number,
+          fy: number,
+        ): number => {
+          sample(
+            p.left + (column + fx) * p.cell,
+            p.top + block * p.blockPitch + (row + fy) * p.rowPitch,
+            out,
+          );
+          return out.color;
+        },
+        // Read one symbol: '' for an empty cell, otherwise the matching character.
+        read = (block: number, column: number, row: number): string => {
+          const pixel = row === 0 ? p.carryPixel : p.digitPixel,
+            background = at(block, column, row, 0.04, 0.05),
+            lines = [0, 1, 2, 3, 4].map((y) =>
+              [0, 1, 2]
+                .map((x) =>
+                  Math.abs(
+                    at(
+                      block,
+                      column,
+                      row,
+                      0.5 + ((x - 1) * pixel) / p.cell,
+                      0.5 + ((y - 2) * pixel) / p.rowPitch,
+                    ) - background,
+                  ) > 0.25
+                    ? '#'
+                    : '.',
+                )
+                .join(''),
+            );
+          if (lines.every((line) => line === '...')) return '';
+          const found = Object.entries(shapes).find(([, shape]) =>
+            shape.every((line, i) => line === lines[i]),
+          );
+          expect(found).toBeDefined();
+          return (found as [string, string[]])[0];
+        };
+      const sums = new Set<number>();
+      for (let block = 0; block < p.problems; block++) {
+        // Column c holds bit position 9 - c: column 1 is the carry out, column 9 the least significant bit.
+        const bitAt = (row: number, position: number): number => {
+          const symbol = read(block, 9 - position, row);
+          expect(['0', '1']).toContain(symbol);
+          return Number(symbol);
+        };
+        const a = Array.from({ length: 8 }, (_, j) => bitAt(1, j)),
+          b = Array.from({ length: 8 }, (_, j) => bitAt(2, j)),
+          s = Array.from({ length: 9 }, (_, j) => bitAt(4, j)),
+          // The carry row holds the carry into positions 1 to 8; nothing comes into position 0.
+          carry = [0, ...Array.from({ length: 8 }, (_, j) => bitAt(0, j + 1))];
+        // Cells that must stay empty: the carry-out column of both operands, the carry over the units column, the sign column
+        // on every row but the second operand's, and the sum's sign column.
+        expect(read(block, 1, 1)).toBe('');
+        expect(read(block, 1, 2)).toBe('');
+        expect(read(block, 9, 0)).toBe('');
+        expect(read(block, 0, 1)).toBe('');
+        expect(read(block, 0, 2)).toBe('+');
+        expect(read(block, 0, 4)).toBe('');
+        // Full-adder rule at every position: a + b + carry in = sum bit + 2 * carry out.
+        for (let j = 0; j < 8; j++) {
+          const carryOut = j === 7 ? s[8] : carry[j + 1];
+          expect(a[j] + b[j] + carry[j]).toBe(s[j] + 2 * carryOut);
+        }
+        const value = (bits: number[]): number =>
+          bits.reduce((total, bit, j) => total + bit * 2 ** j, 0);
+        expect(value(a) + value(b)).toBe(value(s));
+        sums.add(value(a) * 1000 + value(b));
+      }
+      // The three problems are different from each other.
+      expect(sums.size).toBe(p.problems);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('binaryaddition', 0),
+      b = createSurfaceSampler('binaryaddition', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

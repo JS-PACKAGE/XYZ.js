@@ -1733,6 +1733,10 @@
 
 這是作者設計的示意：只有這五種方式、只有一位小數的x；挑選的數值池是固定的，沒有任意數；點陣文字在小尺寸下難以辨識（x欄的四個字元恰好填滿格子寬度）。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`binaryaddition`（二進位加法）使目前目錄1043→1044種，含plain的gallery為1045項。每tile由上而下排三道直式加法，各自把兩個隨機的8位元二進位數相加：每道題上方一列小字是進位（進到第1到第8位的進位），接著是加數A、帶「+」號的加數B、一條橫線，最下面是9位元的和（比加數多一位以容納最高位的進位）；和的那一列有較深的底色。進位列的小字放在「會收到這個進位的那一欄」的正上方，最低位（個位）不會收到進位所以沒有字。每一欄都滿足全加器的規則：A位 + B位 + 進來的進位 = 和的位 + 2 × 出去的進位。三道題的A、B由seed決定（雜湊亂數），沒有刻意挑進位鏈。Metallic與mortar為0。
+
+這是作者設計的示意：只有8位元的無號數加法，沒有負數、溢位標記或十進位對照；進位只用較淺的小字，不單獨著色（程序材質只有深到淺的亮度漸層）。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
