@@ -39296,8 +39296,12 @@ export function createSurfaceSampler(
           return;
         };
       }
-      case 'turingmaze': {
-        const p = proceduralMaterialPresets.turingmaze,
+      case 'turingmaze':
+      case 'vermiculation': {
+        const p =
+            kind === 'vermiculation'
+              ? proceduralMaterialPresets.vermiculation
+              : proceduralMaterialPresets.turingmaze,
           pattern = latticeField(
             grayScott(
               p.gridSize,
@@ -39344,7 +39348,7 @@ export function createSurfaceSampler(
             ink = ridge * (p.inkLevel + p.inkVariation * inkField(u, v)),
             grain = grainField(u, v);
           color = p.paperTone - p.inkDepth * ink + p.grainTone * (grain - 0.5);
-          height = p.ridgeHeight * ridge + p.grainHeight * grain;
+          height = p.baseHeight + p.ridgeHeight * ridge + p.grainHeight * grain;
           roughness += p.inkRoughness * ink;
           return;
         };
@@ -49067,6 +49071,7 @@ export function createSurfaceSampler(
     kind === 'mobiustable' ||
     kind === 'pisanotable' ||
     kind === 'minkowskisausage' ||
+    kind === 'vermiculation' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

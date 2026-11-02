@@ -12480,3 +12480,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試（257個頂點／終點等於起點／256個相異格點、四seed的node盤面與獨立曲線比對、統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Minkowski sausage as|minkowskisausage|Levy curve as|Dragon curve as|Peano curve as|kinds|catalog|distinct|periodic"`定向測試**2285項通過／3892項未選**。
 - 未驗證：pisanotable、minkowskisausage未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：蟲跡雕紋（vermiculation）
+
+- 範圍：新增`vermiculation`（目前目錄987→988種，含plain的gallery 989項）：淺棕褐色石面上刻有彎曲分叉、互不相連的深色蠕蟲狀溝槽（約20到30條、占約35%面積），圖案來自週期性Gray-Scott反應擴散（`feed 0.078`、`kill 0.061`、96×96、6000步），溝槽較深、較粗糙（roughness 0.85→約0.93）、較低；與`turingmaze`共用sampler分支，並在共用公式新增`baseHeight`欄位（`height = baseHeight + ridgeHeight·ridge + grainHeight·grain`；turingmaze的`baseHeight`為0、行為不變）；預設0.4 m nominal tile、0.0015 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整紀錄（誠實紀錄）：先以調查腳本在96×96、`seedCells 8`、6000／9000步下掃描12個seed（0到9、0xffffffff、12345），亮區35%–37%、24到31個連通元件，6000與9000步幾乎相同；只掃描這一組參數，另在64×64掃描過coral（0.0545／0.062，單一連通網路）、mitosis（0.0367／0.0649，不穩定：部分seed全面均勻）等，沒有採用。relief未調整，512²maps法線tilt²最大0.0512。共用分支修改同時跑了`Turing maze as`區塊，原有測試仍通過。
+- 實測（工具實跑，seed 0／1／0xffffffff，256²取樣）：溝槽（color<0.5）占34.76%–36.02%、石面（color>0.8）占58.33%–59.48%、溝槽4連通元件22–28個、石面連通元件恰為1個、邊緣相鄰格對4,418–4,610、color 0.1270–0.1331至0.9293–0.9297、平均0.6455–0.6528、roughness 0.85–0.9297、height至多0.9978–0.9990 relief；seed 0與1的溝槽遮罩（256²）46.8%像素不同；seed 7的512²maps平均r／g／b約(161.0, 146.5, 121.9)、r<128的像素占36.3%、法線tilt²最大約0.0512、z分量最小252。單次量測（bun於本機）：sampler建構（含反應擴散）每個seed約110–132 ms、512² maps約157 ms，不是基準測試。我實看了預覽（seed 7）。
+- 測試：新增專屬測試（三seed的溝槽／石面比例、溝槽元件數與石面單一連通、邊緣數、色調與roughness區間、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過；`Turing maze as`原有測試仍通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Vermiculation as|vermiculation|Turing maze as|kinds|catalog|distinct|periodic"`定向測試**2280項通過／3904項未選**。
+- 未驗證：pisanotable、minkowskisausage、vermiculation未跑完整suite與瀏覽器gallery；不push。

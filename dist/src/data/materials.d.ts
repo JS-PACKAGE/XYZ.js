@@ -13508,6 +13508,7 @@ export declare const proceduralMaterialPresets: Readonly<{
         paperTone: 0.94;
         inkDepth: 0.86;
         grainTone: 0.05;
+        baseHeight: 0;
         ridgeHeight: 0.7;
         grainHeight: 0.3;
         inkRoughness: -0.15;
@@ -14320,6 +14321,34 @@ export declare const proceduralMaterialPresets: Readonly<{
         lineHeight: 0.8;
         grainHeight: 0.2;
         lineRoughness: -0.2;
+    }>;
+    vermiculation: Readonly<{
+        dark: readonly [60, 48, 36];
+        light: readonly [220, 204, 172];
+        roughness: 0.85;
+        relief: 0.0015;
+        seedSalt: 32298;
+        gridSize: 96;
+        seedCells: 8;
+        feed: 0.078;
+        kill: 0.061;
+        steps: 6000;
+        threshold: 0.5;
+        thresholdVariation: 0.24;
+        sharpness: 9;
+        warpCells: 5;
+        warp: 0.05;
+        sizeCells: 7;
+        inkLevel: 0.85;
+        inkVariation: 0.15;
+        grainCells: 160;
+        paperTone: 0.9;
+        inkDepth: 0.75;
+        grainTone: 0.06;
+        baseHeight: 0.7;
+        ridgeHeight: -0.55;
+        grainHeight: 0.3;
+        inkRoughness: 0.08;
     }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
@@ -15687,4 +15716,5 @@ export declare const proceduralTileMeters: Readonly<{
     mobiustable: 0.3;
     pisanotable: 0.3;
     minkowskisausage: 0.25;
+    vermiculation: 0.4;
 }>;

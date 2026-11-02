@@ -1029,6 +1029,7 @@ const kinds: ProceduralMaterialKind[] = [
   'mobiustable',
   'pisanotable',
   'minkowskisausage',
+  'vermiculation',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -155128,6 +155129,241 @@ describe('Minkowski sausage as a pale blue quadratic Koch island trace', () => {
     expect(blue / (512 * 512)).toBeLessThan(57);
     expect(maxTilt).toBeGreaterThan(0.02);
     expect(maxTilt).toBeLessThan(0.08);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Vermiculation as worm-like reaction-diffusion grooves cut into pale stone', () => {
+  const p = proceduralMaterialPresets.vermiculation;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const spotMask = (seed: number, size: number): boolean[] => {
+    const sample = createSurfaceSampler('vermiculation', seed),
+      out = empty(),
+      mask: boolean[] = [];
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        mask.push(out.color < 0.5);
+      }
+    return mask;
+  };
+  /** Number of 4-connected regions of one kind on the wrapped grid. */
+  const countRegions = (
+    mask: boolean[],
+    size: number,
+    want: boolean,
+  ): number => {
+    const seen = new Uint8Array(size * size);
+    let spots = 0;
+    for (let start = 0; start < mask.length; start++) {
+      if (mask[start] !== want || seen[start]) continue;
+      spots++;
+      seen[start] = 1;
+      const stack = [start];
+      while (stack.length) {
+        const cell = stack.pop()!,
+          cx = cell % size,
+          cy = Math.floor(cell / size);
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const next =
+            ((cy + dy + size) % size) * size + ((cx + dx + size) % size);
+          if (mask[next] === want && !seen[next]) {
+            seen[next] = 1;
+            stack.push(next);
+          }
+        }
+      }
+    }
+    return spots;
+  };
+  /** Count of neighbouring cell pairs that straddle an ink edge. */
+  const countEdges = (mask: boolean[], size: number): number => {
+    let edges = 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        const i = y * size + x;
+        edges += Number(mask[i] !== mask[y * size + ((x + 1) % size)]);
+        edges += Number(mask[i] !== mask[((y + 1) % size) * size + x]);
+      }
+    return edges;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps separate worm-like grooves in one connected stone surface with bounded tones for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('vermiculation', seed),
+        a = empty();
+      let ink = 0,
+        paper = 0,
+        low = 1,
+        high = 0,
+        mean = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          ink += Number(a.color < 0.5);
+          paper += Number(a.color > 0.8);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          mean += a.color;
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      const mask = spotMask(seed, 256);
+      // The grooves are separate worms (20 to 30 of them) in one connected stone surface.
+      expect(ink / 65536).toBeGreaterThan(0.34);
+      expect(ink / 65536).toBeLessThan(0.37);
+      expect(paper / 65536).toBeGreaterThan(0.57);
+      expect(paper / 65536).toBeLessThan(0.6);
+      expect(countRegions(mask, 256, true)).toBeGreaterThanOrEqual(20);
+      expect(countRegions(mask, 256, true)).toBeLessThanOrEqual(30);
+      expect(countRegions(mask, 256, false)).toBe(1);
+      expect(countEdges(mask, 256)).toBeGreaterThan(4350);
+      expect(countEdges(mask, 256)).toBeLessThan(4700);
+      expect(low).toBeGreaterThan(0.12);
+      expect(low).toBeLessThan(0.14);
+      expect(high).toBeGreaterThan(0.928);
+      expect(high).toBeLessThan(0.931);
+      expect(mean / 65536).toBeGreaterThan(0.64);
+      expect(mean / 65536).toBeLessThan(0.66);
+      expect(roughLow).toBeCloseTo(p.roughness, 3);
+      expect(roughHigh).toBeGreaterThan(0.927);
+      expect(roughHigh).toBeLessThan(0.931);
+      expect(heightHigh).toBeGreaterThan(0.99);
+      expect(heightHigh).toBeLessThanOrEqual(1);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('re-draws the worm grooves per seed and is deterministic for one seed', () => {
+    const first = spotMask(0, 128),
+      second = spotMask(1, 128);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.2);
+    expect(spotMask(0, 128)).toEqual(first);
+  });
+  it('keeps the grooves, their density and the stone grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('vermiculation', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.gridSize, p.warpCells, p.sizeCells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 tan-stone maps with dark grooves and gentle normals', () => {
+    const maps = generateProceduralMaps('vermiculation', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      dark = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      dark += Number(maps.baseColor[i] < 128);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.normal[i + 2] < 245,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(158);
+    expect(red / (512 * 512)).toBeLessThan(164);
+    expect(green / (512 * 512)).toBeGreaterThan(143);
+    expect(green / (512 * 512)).toBeLessThan(150);
+    expect(blue / (512 * 512)).toBeGreaterThan(118);
+    expect(blue / (512 * 512)).toBeLessThan(125);
+    expect(dark / (512 * 512)).toBeGreaterThan(0.34);
+    expect(dark / (512 * 512)).toBeLessThan(0.39);
+    expect(maxTilt).toBeGreaterThan(0.02);
+    expect(maxTilt).toBeLessThan(0.07);
     expect(invalid).toBe(0);
   });
 });
