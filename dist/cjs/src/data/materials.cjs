@@ -21101,6 +21101,41 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .74,
 		inkRoughness: .45
 	}),
+	htreefractal: Object.freeze({
+		dark: [
+			26,
+			34,
+			52
+		],
+		light: [
+			242,
+			238,
+			222
+		],
+		roughness: .58,
+		relief: .004,
+		depths: Object.freeze([
+			6,
+			7,
+			8,
+			9
+		]),
+		rootHalf: .25,
+		ratio: Math.SQRT1_2,
+		widthStart: .0034,
+		widthFloor: 85e-5,
+		widthDecay: .88,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		rootTone: .08,
+		leafTone: .5,
+		grainTone: .03,
+		paperHeight: .2,
+		inkHeight: .72,
+		paperRoughness: .74,
+		inkRoughness: .42
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -29782,6 +29817,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	htreefractal: 1,
 	lsystemplant: 1,
 	quadtreecells: 1,
 	countingrods: 1,

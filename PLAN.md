@@ -1997,6 +1997,10 @@
 
 這是作者設計的示意：植物是示意的線條畫，沒有葉子、花或粗細變化（所有線段寬度相同）；L-system文法是我記得的常見寫法（沒有外部來源可對照）；對稱的文法（第四組）鏡射後與原圖相同，所以seed的鏡射旗標對它沒有效果；植物只畫在一個tile內，不會跨tile邊界延伸。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`htreefractal`（H樹）使目前目錄1109→1110種，含plain的gallery為1111項。整張tile畫出H樹：一條線段（H的橫槓），在它的兩端各畫一條垂直於它、長度為它的1/√2的線段，這兩條再各自在兩端畫更短的垂直線段，如此一層層深入到seed挑的深度（6、7、8或9）。第0層的線段置中、半長0.25；seed另外決定整棵樹是否轉九十度。線段越深越細（線寬由0.0034每層乘0.88、下限0.00085），色調由最深的主幹（第0層）漸變成較淺的灰藍（最深的一層）。Metallic與mortar為0。
+
+這是作者設計的示意：沒有標示層次；這棵樹不是空間填滿的（1/√2的比例在極限下才趨近填滿整個矩形），樹的外框沿一個方向約占tile的七成、沿另一個方向約占全部（哪個方向依是否轉九十度；我只看過轉了的那種預覽，另一種是由幾何推算），所以一個方向有空白而另一個方向接近相接；樹只畫在一個tile內（沒有周期性延伸）；渲染時每個像素會走訪樹的一部分節點（用範圍估計剪掉太遠的子樹），512單次取樣在這台機器上約195到305 ms（單次量測，不是效能認證），比大多數其他材質慢。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

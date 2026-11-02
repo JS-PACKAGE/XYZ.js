@@ -711,6 +711,7 @@ try {
     'dcbarreljackfaces',
     'stfiberadapterfaces',
     'to92packagefaces',
+    'htreefractal',
     'lsystemplant',
     'quadtreecells',
     'countingrods',

@@ -38035,6 +38035,73 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'htreefractal': {
+        const p = proceduralMaterialPresets.htreefractal,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x32101),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          maxDepth =
+            p.depths[Math.floor(hash(3, 1, seed ^ 0x32102) * p.depths.length)],
+          turned = hash(5, 2, seed ^ 0x32103) < 0.5,
+          // A segment of half length h and everything below it stay inside a box that reaches 1 / (1 - ratio²) h along the segment
+          // and ratio / (1 - ratio²) h across it (the half lengths of every second level add up), so within the hypotenuse of that.
+          growth = 1 / (1 - p.ratio ** 2),
+          subtreeReach = Math.hypot(growth, p.ratio * growth),
+          widthAt = (depth: number): number =>
+            Math.max(p.widthFloor, p.widthStart * p.widthDecay ** depth);
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            // The point relative to the tile centre, turned a quarter when the seed says so.
+            px = turned ? fv - 0.5 : fu - 0.5,
+            py = turned ? fu - 0.5 : fv - 0.5;
+          let ink = 0,
+            inkDepth = 0;
+          // Depth-first walk over the segments, skipping subtrees too far away to touch the point with any of their widths.
+          const visit = (
+            cx: number,
+            cy: number,
+            half: number,
+            horizontal: boolean,
+            depth: number,
+          ): void => {
+            const dx = Math.max(0, Math.abs(px - cx) - (horizontal ? half : 0)),
+              dy = Math.max(0, Math.abs(py - cy) - (horizontal ? 0 : half)),
+              covered = cover(widthAt(depth) - Math.hypot(dx, dy));
+            if (covered > ink) {
+              ink = covered;
+              inkDepth = depth;
+            }
+            if (depth === maxDepth) return;
+            if (
+              Math.hypot(px - cx, py - cy) >
+              half * subtreeReach + p.widthStart + p.edgeSoft
+            )
+              return;
+            const childHalf = half * p.ratio;
+            if (horizontal) {
+              visit(cx - half, cy, childHalf, false, depth + 1);
+              visit(cx + half, cy, childHalf, false, depth + 1);
+            } else {
+              visit(cx, cy - half, childHalf, true, depth + 1);
+              visit(cx, cy + half, childHalf, true, depth + 1);
+            }
+          };
+          visit(0, 0, p.rootHalf, true, 0);
+          const tone =
+            p.rootTone + ((p.leafTone - p.rootTone) * inkDepth) / maxDepth;
+          color = clamp(
+            p.paperTone +
+              (tone - p.paperTone) * ink +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * ink);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -65564,6 +65631,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'htreefractal' ||
     kind === 'lsystemplant' ||
     kind === 'quadtreecells' ||
     kind === 'countingrods' ||

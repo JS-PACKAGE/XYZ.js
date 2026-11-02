@@ -30631,3 +30631,211 @@ describe('lsystemplant: L-system plants drawn by a turtle', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('htreefractal: the H-tree', () => {
+  const p = proceduralMaterialPresets.htreefractal;
+  type Segment = {
+    ax: number;
+    ay: number;
+    bx: number;
+    by: number;
+    depth: number;
+  };
+  type Variant = { depth: number; turned: boolean; segments: Segment[] };
+
+  // The segments level by level (breadth first, not by recursion): each segment has a segment across each of its two ends that is
+  // 1 / sqrt(2) times as long. Written again here; turned trees swap the two axes.
+  const build = (maxDepth: number, turned: boolean): Variant => {
+    const segments: Segment[] = [];
+    let level: { x: number; y: number; half: number; horizontal: boolean }[] = [
+      { x: 0, y: 0, half: p.rootHalf, horizontal: true },
+    ];
+    for (let depth = 0; depth <= maxDepth; depth++) {
+      const next: typeof level = [];
+      for (const { x, y, half, horizontal } of level) {
+        const [ax, ay, bx, by] = horizontal
+          ? [x - half, y, x + half, y]
+          : [x, y - half, x, y + half];
+        segments.push(
+          turned
+            ? { ax: ay + 0.5, ay: ax + 0.5, bx: by + 0.5, by: bx + 0.5, depth }
+            : { ax: ax + 0.5, ay: ay + 0.5, bx: bx + 0.5, by: by + 0.5, depth },
+        );
+        next.push(
+          { x: ax, y: ay, half: half * p.ratio, horizontal: !horizontal },
+          { x: bx, y: by, half: half * p.ratio, horizontal: !horizontal },
+        );
+      }
+      level = next;
+    }
+    return { depth: maxDepth, turned, segments };
+  };
+  const variants = p.depths.flatMap((depth) =>
+    [false, true].map((turned) => build(depth, turned)),
+  );
+  const distanceTo = (segments: Segment[], u: number, v: number): number => {
+    let nearest = Infinity;
+    for (const { ax, ay, bx, by } of segments) {
+      const dx = bx - ax,
+        dy = by - ay,
+        along = Math.min(
+          1,
+          Math.max(0, ((u - ax) * dx + (v - ay) * dy) / (dx * dx + dy * dy)),
+        );
+      nearest = Math.min(
+        nearest,
+        Math.hypot(u - ax - dx * along, v - ay - dy * along),
+      );
+    }
+    return nearest;
+  };
+  // A point three quarters of the way along a segment. (Not its middle: the two segments across the ends of a segment are centred on
+  // those ends, so the middle of a segment of the next level lies on ink of the previous one, and a tree one level deeper would
+  // pass for the picture.)
+  const probe = (s: Segment): [number, number] => [
+    s.ax + 0.75 * (s.bx - s.ax),
+    s.ay + 0.75 * (s.by - s.ay),
+  ];
+  // A deeper tree contains the shallower ones (same orientation), so the picture is the inked variant with most segments.
+  const inked = (seed: number): Variant[] => {
+    const sample = createSurfaceSampler('htreefractal', seed),
+      out = empty();
+    return variants.filter(({ segments }) =>
+      segments.every((s) => {
+        sample(...probe(s), out);
+        return out.color < p.paperTone - 0.15;
+      }),
+    );
+  };
+  const fullest = (candidates: Variant[]): Variant =>
+    candidates.reduce((a, b) =>
+      b.segments.length > a.segments.length ? b : a,
+    );
+  const widthAt = (depth: number): number =>
+    Math.max(p.widthFloor, p.widthStart * p.widthDecay ** depth);
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws every segment of one depth and orientation and none of any other (seed %i)',
+    (seed) => {
+      const best = fullest(inked(seed)),
+        sample = createSurfaceSampler('htreefractal', seed),
+        out = empty();
+      expect(p.depths).toContain(best.depth);
+      let checked = 0;
+      for (const other of variants) {
+        if (other === best) continue;
+        for (const segment of other.segments) {
+          const [u, v] = probe(segment);
+          // A segment of another picture, away from every segment of this tree: only paper there.
+          if (distanceTo(best.segments, u, v) < 0.01) continue;
+          sample(u, v, out);
+          expect(out.color).toBeGreaterThan(p.paperTone - 0.05);
+          checked++;
+        }
+      }
+      expect(checked).toBeGreaterThan(500);
+    },
+  );
+
+  it('thins and lightens the segments with depth: width and tone are those of their level', () => {
+    for (const seed of seeds) {
+      const best = fullest(inked(seed)),
+        sample = createSurfaceSampler('htreefractal', seed),
+        out = empty();
+      // Levels 0 to 5: from level 6 on (in a tree of depth 9) the deeper segments come within 0.012 of the probe point.
+      for (let depth = 0; depth < Math.min(best.depth, 6); depth++) {
+        const width = widthAt(depth),
+          // Segments of this level with no other segment within 0.012 of the point three quarters along them (the parent touches
+          // the middle, so the probe point is the place to see the width on its own).
+          alone = best.segments.filter(
+            (segment) =>
+              segment.depth === depth &&
+              !best.segments.some(
+                (other) =>
+                  other !== segment &&
+                  distanceTo([other], ...probe(segment)) < 0.012,
+              ),
+          );
+        expect(alone.length).toBeGreaterThan(0);
+        for (const segment of alone.slice(0, 4)) {
+          const horizontal = Math.abs(segment.ay - segment.by) < 1e-9,
+            [u, v] = probe(segment),
+            across = (offset: number): [number, number] =>
+              horizontal ? [u, v + offset] : [u + offset, v];
+          for (const sign of [-1, 1]) {
+            sample(...across(sign * 0.5 * width), out);
+            expect(out.color).toBeLessThan(p.paperTone - 0.1);
+            sample(...across(sign * (1.5 * width + 0.0006)), out);
+            expect(out.color).toBeGreaterThan(p.paperTone - 0.06);
+          }
+          // The ink across the segment adds up to its full width 2 * width (the edge profile is symmetric about the half width).
+          const tone =
+            p.rootTone + ((p.leafTone - p.rootTone) * depth) / best.depth;
+          let inkWidth = 0;
+          for (let step = -40; step <= 40; step++) {
+            sample(...across(step * 0.0001 * (width / 0.0034 + 0.3)), out);
+            inkWidth +=
+              ((p.paperTone - out.color) / (p.paperTone - tone)) *
+              0.0001 *
+              (width / 0.0034 + 0.3);
+          }
+          expect(Math.abs(inkWidth - 2 * width) / (2 * width)).toBeLessThan(
+            0.08,
+          );
+          sample(u, v, out);
+          expect(
+            Math.abs(
+              out.color -
+                (p.rootTone + ((p.leafTone - p.rootTone) * depth) / best.depth),
+            ),
+          ).toBeLessThan(0.05);
+        }
+      }
+    }
+  });
+
+  it('uses every depth and both orientations across seeds', () => {
+    const used = new Set<string>();
+    for (let seed = 0; seed < 40; seed++) {
+      const best = fullest(inked(seed));
+      used.add(`${best.depth}${best.turned}`);
+    }
+    expect(used.size).toBe(variants.length);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('htreefractal', 0),
+      b = createSurfaceSampler('htreefractal', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
