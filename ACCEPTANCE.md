@@ -12808,3 +12808,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Gaussian primes as|gaussianprimes|kinds|catalog|distinct|periodic"`定向測試**2344項通過／4016項未選**。
 - 未驗證：fordcircles與gaussianprimes未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：彩色螞蟻（chromaticant）
+
+- 範圍：新增`chromaticant`（目前目錄1019→1020種，含plain的gallery 1021項）：96×96環面上的多色蘭頓螞蟻（規則`RRLLLRLLLRRR`、100,000步、從中央面朝上開始），12種顏色的格子以圓角方磚呈現，色調`0.7·顏色 / 11`；螞蟻與seed無關，seed只令棋盤在環面上平移；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 214,016 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)先用獨立的小原型各跑一次五個規則（RLLR、LLRR、RLR、LRRRRRLLR、RRLLLRLLLRRR），實看其中三個的預覽後選了RRLLLRLLLRRR（LLRR與RLR只印出非零格數、沒有看圖）；(2)螞蟻是確定性的，所以測試**以不同寫法（方向向量）獨立重新模擬**並比對12種顏色的格數與每格中心顏色（9,216個平移中恰好一個符合）；(3)**沒有分析規則的動力學**（例如是否出現高速公路），只驗證sampler與獨立模擬一致；(4)測試註解初稿把4,347個非零顏色的格子寫成「被走過的格子」，這是錯的（一格被走12次會回到顏色0），跑完測試後已更正並重跑確認；(5)sampler建構量到約29.3（第一次，含JIT）、9.5、9.1、6.9、1.9 ms（單次量測，不是benchmark），取樣耗時**未量測**。
+- 實測（工具實跑）：12種顏色（0到11）在9,216格中的數量為4,869、521、293、180、337、246、1,288、292、234、275、319、362；四個seed（0／1／0xffffffff／7）各有唯一符合的平移(87, 75)、(74, 2)、(55, 37)、(76, 34)，最大擬合誤差0.01496–0.01500；256²（seed 0／1／0xffffffff）亮處（color>0.5）17.75%–17.89%、color 0.02549–0.02601至0.85372–0.85416、平均0.23586–0.23604、roughness恆為0.4、AO最低0.6、height至多0.8440–0.8460 relief；512²（四個seed）亮處21.15%–21.20%、color 0.02526–0.02547至0.8545–0.8549、平均0.23939–0.23951、height至多0.8483–0.8503 relief；seed 0與1相比，512²中color>0.5的取樣31.7%不同；seed 7的512²maps平均r／g／b約(64.4, 73.3, 63.5)、法線tilt²最大約0.0468、z分量最小252。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Chromatic ant as|chromaticant|kinds|catalog|distinct|periodic"`定向測試**2346項通過／4019項未選**。
+- 未驗證：fordcircles、gaussianprimes與chromaticant未跑完整suite與瀏覽器gallery；不push。

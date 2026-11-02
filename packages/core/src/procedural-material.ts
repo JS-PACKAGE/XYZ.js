@@ -1021,6 +1021,7 @@ export type ProceduralMaterialKind =
   | 'hammingtable'
   | 'fordcircles'
   | 'gaussianprimes'
+  | 'chromaticant'
   | 'sandpileidentity'
   | 'multiplicativeorder'
   | 'vermiculation'
@@ -2289,6 +2290,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'hammingtable',
   'fordcircles',
   'gaussianprimes',
+  'chromaticant',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',

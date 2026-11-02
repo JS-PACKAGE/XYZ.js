@@ -41653,6 +41653,73 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'chromaticant': {
+        const p = proceduralMaterialPresets.chromaticant,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft,
+          shiftX = Math.floor(hash(0, 0, seed ^ p.seedSalt) * p.cells),
+          shiftY = Math.floor(hash(1, 0, seed ^ p.seedSalt) * p.cells),
+          // A multi-colour Langton's ant on a cells x cells torus, started at the middle of the
+          // blank board heading up: on a cell of colour c it turns right when rule[c] is R and
+          // left when it is L, advances the cell to the colour (c + 1) mod rule.length and
+          // steps forward (wrapping around). After steps moves, a cell's tone is its colour
+          // divided by (rule.length - 1). The seed moves the whole board around the torus.
+          colors = new Uint8Array(p.cells * p.cells),
+          tones = new Float64Array(p.cells * p.cells),
+          turns = Array.from(p.rule, (letter) => (letter === 'R' ? 1 : 3));
+        for (
+          let x = p.cells >> 1, y = p.cells >> 1, heading = 0, step = 0;
+          step < p.steps;
+          step++
+        ) {
+          const cell = y * p.cells + x,
+            color = colors[cell];
+          heading = (heading + turns[color]) & 3;
+          colors[cell] = (color + 1) % p.rule.length;
+          if (heading === 0) y = (y + p.cells - 1) % p.cells;
+          else if (heading === 1) x = (x + 1) % p.cells;
+          else if (heading === 2) y = (y + 1) % p.cells;
+          else x = (x + p.cells - 1) % p.cells;
+        }
+        for (let i = 0; i < colors.length; i++)
+          tones[i] = (p.toneSpan * colors[i]) / (p.rule.length - 1);
+        return () => {
+          // One compact-support rounded-square kernel per cell (a quartic superellipse
+          // through smoothstep, exactly zero before the cell boundary), so the cell
+          // lookup never jumps and the field is C1.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            ax = (x - col - 0.5) * inverseHalf,
+            ay = (y - row - 0.5) * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            tone =
+              tones[
+                ((row + shiftY) % p.cells) * p.cells +
+                  ((col + shiftX) % p.cells)
+              ],
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -50475,6 +50542,7 @@ export function createSurfaceSampler(
     kind === 'hammingtable' ||
     kind === 'fordcircles' ||
     kind === 'gaussianprimes' ||
+    kind === 'chromaticant' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||

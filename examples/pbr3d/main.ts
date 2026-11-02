@@ -1084,6 +1084,7 @@ try {
     'hammingtable',
     'fordcircles',
     'gaussianprimes',
+    'chromaticant',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',
