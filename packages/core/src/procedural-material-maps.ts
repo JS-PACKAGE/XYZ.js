@@ -40854,6 +40854,62 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'tsquarefractal': {
+        const p = proceduralMaterialPresets.tsquarefractal,
+          size = 2 ** (p.order + 1),
+          marks = new Float64Array(size * size),
+          levels = new Float64Array(size * size),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 1),
+          ),
+          shiftX = Math.floor(hash(0, 0, seed ^ p.seedSalt) * size),
+          shiftY = Math.floor(hash(1, 0, seed ^ p.seedSalt) * size);
+        // The T-square fractal on a 2^(order + 1) lattice: a square of side 2^order at the
+        // centre, then squares of half the side centred on the four corners of every square
+        // of the previous level, order levels in all. A covered cell keeps the deepest level
+        // (smallest squares are drawn last) as (level + 1) / order. The seed moves the whole
+        // lattice around the torus.
+        let squares: [number, number][] = [[size / 2, size / 2]];
+        for (let level = 0; level < p.order; level++) {
+          const side = 2 ** (p.order - level),
+            next: [number, number][] = [];
+          for (const [centerX, centerY] of squares) {
+            for (let y = centerY - side / 2; y < centerY + side / 2; y++)
+              for (let x = centerX - side / 2; x < centerX + side / 2; x++) {
+                const index =
+                  ((((y + shiftY) % size) + size) % size) * size +
+                  ((((x + shiftX) % size) + size) % size);
+                marks[index] = 1;
+                levels[index] = (level + 1) / p.order;
+              }
+            for (const dy of [-side / 2, side / 2])
+              for (const dx of [-side / 2, side / 2])
+                next.push([centerX + dx, centerY + dy]);
+          }
+          squares = next;
+        }
+        const pattern = latticeField(marks, size, size),
+          levelField = latticeField(levels, size, size);
+        return () => {
+          // The covered-cell map is blended with the C1 smoothstep and re-sharpened with
+          // tanh; inside it the tone follows the blended level of the cell.
+          const line =
+              0.5 + 0.5 * Math.tanh(p.sharpness * (pattern(u, v) - 0.5)),
+            level = levelField(u, v),
+            grain = grainField(u, v);
+          color =
+            p.baseTone +
+            p.lineTone * line +
+            p.levelTone * level +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.lineHeight * line * (0.7 + 0.3 * level) + p.grainHeight * grain;
+          roughness += p.lineRoughness * line;
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -49664,6 +49720,7 @@ export function createSurfaceSampler(
     kind === 'minkowskisausage' ||
     kind === 'squarekoch' ||
     kind === 'vicsekfractal' ||
+    kind === 'tsquarefractal' ||
     kind === 'vermiculation' ||
     kind === 'kikko' ||
     kind === 'kagome' ||

@@ -1035,6 +1035,7 @@ const kinds: ProceduralMaterialKind[] = [
   'minkowskisausage',
   'squarekoch',
   'vicsekfractal',
+  'tsquarefractal',
   'vermiculation',
   'kikko',
   'kagome',
@@ -160653,6 +160654,261 @@ describe('Vicsek fractal as a gold plus-shaped fractal on dark teal', () => {
     expect(blue / (512 * 512)).toBeLessThan(53);
     expect(maxTilt).toBeGreaterThan(0.035);
     expect(maxTilt).toBeLessThan(0.05);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('T-square fractal as nested cream squares on dark brown', () => {
+  const p = proceduralMaterialPresets.tsquarefractal;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const size = 64;
+  /**
+   * The order-5 T-square fractal written independently here by recursion: a square of side
+   * 32 at the centre, then squares of half the side on the four corners of every square, five
+   * levels; every cell keeps the deepest level that covers it (-1 when none does).
+   */
+  const levels = ((): number[][] => {
+    const grid = Array.from({ length: size }, () =>
+      new Array<number>(size).fill(-1),
+    );
+    const draw = (
+      cx: number,
+      cy: number,
+      side: number,
+      level: number,
+    ): void => {
+      if (level >= p.order) return;
+      for (let y = cy - side / 2; y < cy + side / 2; y++)
+        for (let x = cx - side / 2; x < cx + side / 2; x++) {
+          const wx = ((x % size) + size) % size,
+            wy = ((y % size) + size) % size;
+          grid[wy][wx] = Math.max(grid[wy][wx], level);
+        }
+      for (const dy of [-1, 1])
+        for (const dx of [-1, 1])
+          draw(cx + (dx * side) / 2, cy + (dy * side) / 2, side / 2, level + 1);
+    };
+    draw(size / 2, size / 2, size / 2, 0);
+    return grid;
+  })();
+  const sharp = (value: number): number =>
+    0.5 + 0.5 * Math.tanh(p.sharpness * value);
+  /** Colour at a lattice node (without grain) for a lattice shifted by (shiftX, shiftY). */
+  const expectedColor = (
+    x: number,
+    y: number,
+    shiftX: number,
+    shiftY: number,
+  ): number => {
+    const level =
+      levels[(y - shiftY + size) % size][(x - shiftX + size) % size];
+    return level < 0
+      ? p.baseTone + p.lineTone * sharp(-0.5)
+      : p.baseTone +
+          p.lineTone * sharp(0.5) +
+          (p.levelTone * (level + 1)) / p.order;
+  };
+  /** Colour of every lattice node, read at the nodes. */
+  const nodeColors = (seed: number): number[] => {
+    const sample = createSurfaceSampler('tsquarefractal', seed),
+      out = empty(),
+      colors: number[] = [];
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample(x / size, y / size, out);
+        colors.push(out.color);
+      }
+    return colors;
+  };
+  /** Torus shifts that reproduce every node colour to within the grain. */
+  const fittingShifts = (colors: number[]): [number, number][] => {
+    const fits: [number, number][] = [];
+    for (let sy = 0; sy < size; sy++)
+      for (let sx = 0; sx < size; sx++) {
+        let worst = 0;
+        for (let y = 0; y < size && worst < 0.03; y++)
+          for (let x = 0; x < size; x++)
+            worst = Math.max(
+              worst,
+              Math.abs(colors[y * size + x] - expectedColor(x, y, sx, sy)),
+            );
+        if (worst < 0.03) fits.push([sx, sy]);
+      }
+    return fits;
+  };
+  it('draws the order-5 T-square fractal at exactly one torus shift and keeps the tones bounded', () => {
+    // 3124 of the 4096 cells are covered; the deepest level covering a cell is 0 for 324 of
+    // them, 1 for 432, 2 for 576, 3 for 768 and 4 for 1024, and 972 cells stay bare.
+    const counts = new Map<number, number>();
+    for (const row of levels)
+      for (const level of row) counts.set(level, (counts.get(level) ?? 0) + 1);
+    expect([...counts.entries()].sort((l, r) => l[0] - r[0])).toEqual([
+      [-1, 972],
+      [0, 324],
+      [1, 432],
+      [2, 576],
+      [3, 768],
+      [4, 1024],
+    ]);
+    for (const seed of [0, 1, 0xffffffff, 7]) {
+      const sample = createSurfaceSampler('tsquarefractal', seed),
+        a = empty(),
+        nodes = nodeColors(seed);
+      expect(fittingShifts(nodes)).toHaveLength(1);
+      expect(nodes.filter((color) => color > 0.5)).toHaveLength(3124);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.036);
+      expect(low).toBeLessThan(0.037);
+      expect(high).toBeGreaterThan(0.78);
+      expect(high).toBeLessThan(0.79);
+      expect(dark / 65536).toBeGreaterThan(0.757);
+      expect(dark / 65536).toBeLessThan(0.759);
+      expect(mean / 65536).toBeGreaterThan(0.55);
+      expect(mean / 65536).toBeLessThan(0.551);
+      expect(roughLow).toBeGreaterThan(0.2);
+      expect(roughLow).toBeLessThan(0.21);
+      expect(roughHigh).toBeCloseTo(p.roughness, 2);
+      expect(heightHigh).toBeGreaterThan(0.98);
+      expect(heightHigh).toBeLessThanOrEqual(1);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('shifts the curve per seed and is deterministic for one seed', () => {
+    const first = nodeColors(0).map((color) => color > 0.5),
+      second = nodeColors(1).map((color) => color > 0.5);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.3);
+    expect(different / first.length).toBeLessThan(0.4);
+    expect(nodeColors(0).map((color) => color > 0.5)).toEqual(first);
+  });
+  it('keeps the trace edges, glow and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('tsquarefractal', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [size, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 cream-on-brown maps with gentle trace normals', () => {
+    const maps = generateProceduralMaps('tsquarefractal', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(150);
+    expect(red / (512 * 512)).toBeLessThan(154);
+    expect(green / (512 * 512)).toBeGreaterThan(131);
+    expect(green / (512 * 512)).toBeLessThan(135);
+    expect(blue / (512 * 512)).toBeGreaterThan(95);
+    expect(blue / (512 * 512)).toBeLessThan(98);
+    expect(maxTilt).toBeGreaterThan(0.02);
+    expect(maxTilt).toBeLessThan(0.035);
     expect(invalid).toBe(0);
   });
 });

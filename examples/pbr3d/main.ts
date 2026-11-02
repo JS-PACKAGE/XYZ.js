@@ -1072,6 +1072,7 @@ try {
     'minkowskisausage',
     'squarekoch',
     'vicsekfractal',
+    'tsquarefractal',
     'vermiculation',
     'kikko',
     'kagome',

@@ -12660,3 +12660,16 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試（細分模型、層級格數、唯一環面平移與統計為一項；seed差異與決定性；C1＋有符號UV週期；actual512 maps），`-t`選中的5項（含kinds清單中的新條目）皆通過。`Square Koch as`原有測試仍通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Vicsek fractal as|vicsekfractal|Square Koch as|kinds|catalog|distinct|periodic"`定向測試**2319項通過／3959項未選**。
 - 未驗證：vicsekfractal未跑完整suite與瀏覽器gallery；squarekoch之前的材質已在4185bd67a的完整suite（當時進行中，結果另記）；totienttable、goldbachtable、radicaltable、squarekoch的瀏覽器gallery（WebGPU與`?renderer=webgl2`各一次，`errors()`為0，readout顯示「1004 procedural material presets」、選單1005項）已跑過，範圍同前，只確認可選取、readout更新、無console錯誤；不push。
+
+## 2026-11-02 新增材質：T方塊碎形（tsquarefractal）
+
+- 範圍：新增`tsquarefractal`（目前目錄1005→1006種，含plain的gallery 1007項）：64×64 lattice上的第5階T方塊碎形（正中央邊長32的方塊，之後每層在上一層每個方塊的四個角各放一個邊長減半、以該角為中心的方塊；5層共341個方塊重疊）；被覆蓋的格子3,124個（占4,096格的76.3%，各層最深覆蓋格數324／432／576／768／1,024），未覆蓋的972格形成深褐色十字與T形骨架，覆蓋區為奶油色並依最深層略有色調；seed把lattice沿環面平移；獨立的sampler case（兩個`latticeField`：覆蓋圖與層級圖）；預設0.5 m nominal tile、0.0008 UV-relative relief；cache 64² × 2 + 128² = 24,576個Float64／196,608 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與紀錄：(1)預覽只看了一版；亮的是覆蓋區而不是方塊邊界線，我沒有嘗試改成邊界線樣式。(2)測試一次通過，無需調整區間；測試的層級格數由獨立的遞迴模型算出。(3)探針與測試中最大誤差約0.0150，正好是grain的最大振幅（0.03×0.5），不是模型誤差。(4)**未量測耗時**。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：被覆蓋3,124格、未覆蓋972格；256²取樣亮處（color>0.5）占75.78%（四個seed相同）、color 0.0362–0.0366至0.7833–0.7843、平均0.5505–0.5506、roughness 0.2001–0.3999、AO恆為1、height至多0.9905–0.9960 relief；512²取樣亮處占75.64%–75.65%、color 0.0355–0.0356至0.7842–0.7846、平均0.5505–0.5506、height至多0.9963–0.9984 relief；每個seed的64×64 node恰好一種環面平移（seed 0為(26, 49)、1為(24, 40)、0xffffffff為(56, 59)、7為(39, 48)）使4,096個node顏色（含各層色調）與獨立模型一致、亮node數3,124；seed 0與1的亮node有35.1%不同；seed 7的512²maps平均r／g／b約(152.1, 132.9, 96.3)、法線tilt²最大約0.0260、z分量最小253。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試（遞迴模型、層級格數、唯一環面平移與統計為一項；seed差異與決定性；C1＋有符號UV週期；actual512 maps），`-t`選中的5項（含kinds清單中的新條目）皆通過；`Vicsek fractal as`原有測試仍通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "T-square fractal as|tsquarefractal|Vicsek fractal as|kinds|catalog|distinct|periodic"`定向測試**2321項通過／3962項未選**。
+- 未驗證：vicsekfractal、tsquarefractal未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 紀錄：完整suite（through squarekoch）
+
+- 完整suite（工具實跑，`/private/tmp/xyz-ct-suite`）：在`4185bd67a`（squarekoch）**179個檔案、10,202項全數通過，1373.99 s**；這次涵蓋totienttable、goldbachtable、radicaltable、squarekoch；**vicsekfractal（`022733c8b`）與tsquarefractal尚未跑完整suite**。測試數隨新增材質增加，這是當時的數字，不代表目前。totienttable、goldbachtable、radicaltable、squarekoch的瀏覽器gallery已另外跑過（記於上方vicsekfractal段落）。
