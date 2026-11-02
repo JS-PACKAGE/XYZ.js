@@ -40572,6 +40572,87 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'dragoncurve': {
+        const p = proceduralMaterialPresets.dragoncurve,
+          size = p.cells * 3,
+          marks = new Float64Array(size * size),
+          glowField = cachedNoise(p.glowCells, p.glowCells, seed ^ p.seedSalt),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 1),
+          ),
+          shiftX = Math.floor(hash(0, 0, seed ^ (p.seedSalt + 2)) * p.cells),
+          shiftY = Math.floor(hash(1, 0, seed ^ (p.seedSalt + 2)) * p.cells),
+          wrap = (value: number): number =>
+            (((value + p.cells) % p.cells) + p.cells) % p.cells;
+        // The Heighway dragon curve of the given order: 2^order unit steps whose turns
+        // follow the regular paper-folding sequence (step k = 2^m (2j + 1) turns left
+        // for even j and right for odd j). Cells sit at every third lattice coordinate and the
+        // two connector nodes between consecutive cells fill the coordinates between them,
+        // so a line is a third of a cell wide.
+        let x = 1,
+          y = 0,
+          dx = 1,
+          dy = 0;
+        const mark = (cellX: number, cellY: number): void => {
+          marks[
+            3 * wrap(cellY + p.offsetY + shiftY) * size +
+              3 * wrap(cellX + p.offsetX + shiftX)
+          ] = 1;
+        };
+        const connect = (
+          fromX: number,
+          fromY: number,
+          toX: number,
+          toY: number,
+        ): void => {
+          for (const along of [1, 2])
+            marks[
+              ((3 * wrap(fromY + p.offsetY + shiftY) +
+                along * (toY - fromY) +
+                size) %
+                size) *
+                size +
+                ((3 * wrap(fromX + p.offsetX + shiftX) +
+                  along * (toX - fromX) +
+                  size) %
+                  size)
+            ] = 1;
+        };
+        mark(0, 0);
+        mark(1, 0);
+        connect(0, 0, 1, 0);
+        for (let step = 1; step < 1 << p.order; step++) {
+          let odd = step;
+          while (odd % 2 === 0) odd /= 2;
+          if (((odd - 1) / 2) % 2 === 0) [dx, dy] = [-dy, dx];
+          else [dx, dy] = [dy, -dx];
+          const nextX = x + dx,
+            nextY = y + dy;
+          mark(nextX, nextY);
+          connect(x, y, nextX, nextY);
+          x = nextX;
+          y = nextY;
+        }
+        const pattern = latticeField(marks, size, size);
+        return () => {
+          // The node map is blended with the C1 smoothstep and re-sharpened with tanh;
+          // a soft glow follows the unsharpened blend.
+          const line =
+              0.5 + 0.5 * Math.tanh(p.sharpness * (pattern(u, v) - 0.5)),
+            glow = pattern(u, v) * (1 - p.glowVariation * glowField(u, v)),
+            grain = grainField(u, v);
+          color =
+            p.baseTone +
+            p.lineTone * line +
+            p.glowTone * glow * (1 - line) +
+            p.grainTone * (grain - 0.5);
+          height = p.lineHeight * line + p.grainHeight * grain;
+          roughness += p.lineRoughness * line;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -48354,6 +48435,7 @@ export function createSurfaceSampler(
     kind === 'rhodoneatable' ||
     kind === 'mandelbrottiles' ||
     kind === 'juliatiles' ||
+    kind === 'dragoncurve' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

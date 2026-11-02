@@ -14051,6 +14051,28 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.08;
         gapOcclusion: 0.3;
     }>;
+    dragoncurve: Readonly<{
+        dark: readonly [16, 6, 28];
+        light: readonly [255, 214, 100];
+        roughness: 0.4;
+        relief: 0.0008;
+        seedSalt: 54438;
+        order: 9;
+        cells: 40;
+        offsetX: 9;
+        offsetY: 10;
+        sharpness: 8;
+        glowCells: 9;
+        grainCells: 128;
+        baseTone: 0.06;
+        lineTone: 0.76;
+        glowTone: 0.1;
+        glowVariation: 0.14;
+        grainTone: 0.03;
+        lineHeight: 0.8;
+        grainHeight: 0.2;
+        lineRoughness: -0.2;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -15404,4 +15426,5 @@ export declare const proceduralTileMeters: Readonly<{
     rhodoneatable: 0.3;
     mandelbrottiles: 0.3;
     juliatiles: 0.3;
+    dragoncurve: 0.25;
 }>;

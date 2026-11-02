@@ -12349,3 +12349,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試（三seed的磚中心顏色與獨立朱利亞逃逸時間比對（恰有一個平移相符、集合內恰404格）、統計，seed差異與決定性，C1＋有符號UV週期，actual512 maps，AO以四格交會角落取樣）通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Julia tiles as|juliatiles|Mandelbrot tiles as|kinds|catalog|distinct|periodic"`定向測試**2253項通過／3859項未選**。
 - 未驗證：mandelbrottiles、juliatiles未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：龍形曲線（dragoncurve）
+
+- 範圍：新增`dragoncurve`（目前目錄974→975種，含plain的gallery 976項）：深紫黑底上金黃色細線描出第9階海威龍形曲線（512個單位步，轉向依摺紙序列；361個相異格點、1,385個亮node；線寬三分之一格；40×40格環面、曲線外框約27×32格；seed沿環面平移）；預設0.25 m nominal tile、0.0008 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**；曲線不封閉。
+- 調整與錯誤紀錄（誠實紀錄）：(1)第一版線寬為半格（每格2個lattice node），預覽上相鄰線幾乎連成一片，改為每格3個node。(2)改寬度時只改了連接點座標，漏改`mark()`的格點座標，預覽出現大片只有點的區域；探針量到亮node 1,376個（預期1,385個），修正後為1,385個。(3)relief 0.0015時512²maps的法線tilt²最大為0.1602（法線z分量最小244），降到0.0008後為0.0517（252）。(4)gates第一次在eslint失敗（`no-useless-assignment`：`let x = 0`之後立刻`x = 1`），改為直接以`x = 1`宣告後重跑，之後全數通過。
+- 實測（工具實跑，seed 0／1／0xffffffff／7，256²取樣）：亮處（color>0.5）占9.38%–9.44%、color 0.0457–0.0460至0.8329–0.8337、平均0.1359–0.1361、roughness 0.2001–0.3999、AO恆為1、height至多0.9871–0.9940 relief；四個seed的120×120 node盤面各自與測試中獨立重寫的龍形曲線在唯一一個環面平移下完全一致（(11, 27)、(38, 16)、(6, 16)、(13, 25)，亮node皆1,385）；seed 0與1的node盤面16.0%不同；seed 7的512²maps平均r／g／b約(48.5, 34.3, 37.8)。我實看了預覽（seed 7）。
+- 測試：新增專屬測試（四seed的node盤面與獨立龍形曲線比對、統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Dragon curve as|dragoncurve|kinds|catalog|distinct|periodic"`定向測試**2252項通過／3865項未選**。
+- 未驗證：mandelbrottiles、juliatiles、dragoncurve未跑完整suite與瀏覽器gallery；不push。
