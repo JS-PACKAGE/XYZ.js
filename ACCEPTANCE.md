@@ -12718,3 +12718,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試（獨立重寫的乘法階與格數統計、唯一環面平移與統計為一項；seed差異與決定性；C1＋有符號UV週期；actual512 maps），`-t`選中的5項（含kinds清單新條目）皆通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Multiplicative order as|multiplicativeorder|kinds|catalog|distinct|periodic"`定向測試**2328項通過／3988項未選**。
 - 未驗證：sandpileidentity、multiplicativeorder未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 紀錄：完整suite與瀏覽器gallery（through voronoipillows）
+
+- 完整suite（工具實跑，`/private/tmp/xyz-ct-suite`，detached worktree，commit `a3184de0b`）：**第一次執行為「1個檔案失敗、178個檔案通過；1項測試失敗、10,234項通過（共10,235項），1643.29 s」**；我當時只用`tail`截取輸出，沒有保存失敗測試的名稱與訊息，**所以不知道是哪一項失敗、原因也沒有查明**。之後在同一個commit上：(1)除了`tests/procedural-material.test.ts`之外的178個檔案單獨執行，**3,929項全數通過（9.29 s）**；(2)`tests/procedural-material.test.ts`單獨重跑，**6,306項全數通過（1261.01 s）**。我推測第一次失敗可能與當時同時執行的gates與瀏覽器工作造成的負載（逾時類測試）有關，但**這只是推測、沒有證據**，所以這個失敗應視為「未解釋的單次失敗」，不是已證明的偶發問題。涵蓋vicsekfractal、tsquarefractal、cantordust、voronoicells、voronoipillows；**sandpileidentity（`dabff834e`）與multiplicativeorder（`34d6c224a`）尚未跑完整suite**。
+- 瀏覽器gallery（`examples/pbr3d`，headless Chrome；WebGPU與`?renderer=webgl2`各一次）：vicsekfractal、tsquarefractal、cantordust、voronoicells、voronoipillows依序從`#material`選單選取，每種在畫面readout出現`Material <kind> `，`errors()`為0項；readout顯示「1009 procedural material presets」、選單1010項。**檢查範圍只是「可選取、readout更新、沒有console錯誤」**，不是畫面像素或效能驗證，我沒有看這些選取後的畫面截圖；sandpileidentity與multiplicativeorder尚未跑gallery。
+- 仍未驗證：單一機器（macOS arm64、headless Chrome、`--use-angle=metal`），不宣稱其他瀏覽器或平台；不push。
