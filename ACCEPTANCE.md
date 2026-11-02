@@ -12962,3 +12962,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Stern diatomic as|sterndiatomic|kinds|catalog|distinct|periodic"`定向測試**2374項通過／4061項未選**。
 - 未驗證：cassiniovals與sterndiatomic未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-03 新增材質：科拉科斯基序列（kolakoski）
+
+- 範圍：新增`kolakoski`（目前目錄1034→1035種，含plain的gallery 1036項）：科拉科斯基序列`1 2 2 1 1 2 1 2 2 1 …`（等於自己各個連續相同符號的長度）從seed決定的起點（4,096個可能的起點之一）開始的2,304項，依列寫進48×48圓角方磚表，1發光、2停在底色調；青綠在深紫黑底上；不做環面平移；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 149,504 B，另有建構時`Uint8Array(6403)`暫存。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽只看了一版；(2)sampler以單次掃描讀取自己的項當作游程長度，測試以反覆做游程解碼`R(s)`（從`(1, 2, 2)`出發）這個**獨立的方式**產生序列，檢查前20項、前100項的自我描述性質（這是對獨立模型本身的檢查），並把sampler每格中心的顏色對4,096個起點逐一比對、檢查恰好一個符合；游程解碼的不動點是科拉科斯基序列是標準理論事實，這裡只在約6,500項上實測一致、沒有證明對所有n成立；(3)**寫sampler產生迴圈時，我一度寫成`kolakoski[write++] = kolakoski[write - 1] === 1 ? 2 : 1`，在第一次執行前閱讀程式碼時就發現JavaScript會因`write++`先遞增而讀到未寫入的格子，改寫成先算符號再寫入，所以沒有執行過錯誤版本**；(4)測試產生腳本前兩次都因為從Stern測試改寫時的標記不符而中止（Stern的describe已在檔尾所以找不到下一個describe；第一個測試的名稱標記也不同），沒有寫入任何檔案，修正後重跑；(5)第一次gates的eslint失敗：測試中有一個遺留未使用的`tones`輔助函式（`'tones' is assigned a value but never used`），已刪除並重新跑完整gates，下面的結果是重跑後的；(6)建構與取樣耗時**未量測**。
+- 實測（工具實跑）：獨立游程解碼法的序列長度6,526、前20項`12211212212211211221`、從起點0開始的2,304項有1,154個1；四個seed（0／1／0xffffffff／7）各有唯一符合的起點867、3651、2016、3029，最大擬合誤差0.01486–0.01497；256²（seed 0／1／0xffffffff）亮處（color>0.5）35.38%–35.75%、color 0.02571–0.02588至0.85422–0.85446、平均0.36060–0.36366、roughness恆為0.4、AO最低0.6、height至多0.8480–0.8490 relief；512²（四個seed）亮處35.61%–36.17%、color 0.02524–0.02554至0.85474–0.85481、平均0.36291–0.36600、height至多0.8493–0.8502 relief；seed 0與1相比，格中心顏色相差超過0.05的格子57.6%（512²中color>0.5的取樣41.3%不同）；seed 7的512²maps平均r／g／b約(41.6, 89.8, 89.0)、法線tilt²最大約0.0296、z分量最小253。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
+- gates（工具實跑，重跑後）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Kolakoski as|kolakoski|kinds|catalog|distinct|periodic"`定向測試**2376項通過／4064項未選**。
+- 未驗證：cassiniovals、sterndiatomic與kolakoski未跑完整suite與瀏覽器gallery；不push。

@@ -1099,6 +1099,7 @@ try {
     'chessqueens',
     'cassiniovals',
     'sterndiatomic',
+    'kolakoski',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',
