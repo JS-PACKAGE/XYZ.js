@@ -1075,6 +1075,7 @@ const kinds: ProceduralMaterialKind[] = [
   'euclidsteps',
   'happynumbers',
   'stringart',
+  'moirefringes',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',
@@ -170568,6 +170569,251 @@ describe('String art as threads joining each of 96 points on a circle to its mul
     expect(blue / (512 * 512)).toBeLessThan(50.5);
     expect(maxTilt).toBeGreaterThan(0.04);
     expect(maxTilt).toBeLessThan(0.07);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Moire fringes as two soft line gratings multiplied, with fringes at the difference of their wave vectors', () => {
+  const p = proceduralMaterialPresets.moirefringes;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  type Peak = { m: number; n: number; amplitude: number };
+  /**
+   * The strongest spatial frequencies of the picture, read back from the sampler: the colour at
+   * the centres of a 128 by 128 grid is analysed with a discrete Fourier transform written here
+   * (m cycles across u, n cycles across v; only the half plane n > 0, or n = 0 and m > 0,
+   * since the picture is real; m from -8 to 8 and n from 0 to 40), amplitudes sorted down.
+   */
+  const spectrum = (seed: number): Peak[] => {
+    const sample = createSurfaceSampler('moirefringes', seed),
+      out = empty(),
+      size = 128,
+      image = new Float64Array(size * size);
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        image[y * size + x] = out.color;
+      }
+    const peaks: Peak[] = [];
+    for (let n = 0; n <= 40; n++)
+      for (let m = -8; m <= 8; m++) {
+        if (n === 0 && m <= 0) continue;
+        let real = 0,
+          imaginary = 0;
+        for (let y = 0; y < size; y++)
+          for (let x = 0; x < size; x++) {
+            const phase =
+              (-2 * Math.PI * (m * (x + 0.5) + n * (y + 0.5))) / size;
+            real += image[y * size + x] * Math.cos(phase);
+            imaginary += image[y * size + x] * Math.sin(phase);
+          }
+        peaks.push({
+          m,
+          n,
+          amplitude: Math.hypot(real, imaginary) / (size * size),
+        });
+      }
+    return peaks.sort((x, y) => y.amplitude - x.amplitude);
+  };
+  /**
+   * The two gratings (the two strongest peaks with n of 10 or more, which are their wave
+   * vectors) and the strongest low-frequency peak (n of 8 or less, the fringes).
+   */
+  const read = (
+    seed: number,
+  ): { gratings: Peak[]; fringes: Peak; nextLow: Peak } => {
+    const peaks = spectrum(seed),
+      low = peaks.filter(({ n }) => n <= 8);
+    return {
+      gratings: peaks
+        .filter(({ n, m }) => n >= 10 && Math.abs(m) <= 4)
+        .slice(0, 2),
+      fringes: low[0],
+      nextLow: low[1],
+    };
+  };
+  it('draws the two gratings and their fringes and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('moirefringes', seed),
+        a = empty();
+      // The two gratings are the two strongest peaks (amplitude 0.115 to 0.125) and one of them
+      // is (0, base) with a base from the list; the strongest low-frequency peak (amplitude
+      // 0.075 to 0.085) is exactly the difference of the two wave vectors (turned into the
+      // half plane), is one of the listed beat vectors, and the next low-frequency peak is
+      // below 0.02.
+      const { gratings, fringes, nextLow } = read(seed);
+      expect(gratings).toHaveLength(2);
+      for (const grating of gratings) {
+        expect(grating.amplitude).toBeGreaterThan(0.115);
+        expect(grating.amplitude).toBeLessThan(0.125);
+      }
+      const pure = gratings.find(({ m }) => m === 0);
+      expect(pure).toBeDefined();
+      expect(p.frequencies).toContain((pure as Peak).n);
+      let beatM = gratings[1].m - gratings[0].m,
+        beatN = gratings[1].n - gratings[0].n;
+      if (beatN < 0 || (beatN === 0 && beatM < 0)) {
+        beatM = 0 - beatM;
+        beatN = 0 - beatN;
+      }
+      expect([fringes.m, fringes.n]).toEqual([beatM, beatN]);
+      expect(p.beats.some(([x, y]) => x === beatM && y === beatN)).toBe(true);
+      expect(fringes.amplitude).toBeGreaterThan(0.075);
+      expect(fringes.amplitude).toBeLessThan(0.085);
+      expect(nextLow.amplitude).toBeLessThan(0.02);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0255);
+      expect(low).toBeLessThan(0.0259);
+      expect(high).toBeGreaterThan(0.854);
+      expect(high).toBeLessThan(0.8548);
+      expect(dark / 65536).toBeGreaterThan(0.217);
+      expect(dark / 65536).toBeLessThan(0.219);
+      expect(mean / 65536).toBeGreaterThan(0.2231);
+      expect(mean / 65536).toBeLessThan(0.2233);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 3);
+      expect(heightHigh).toBeGreaterThan(0.877);
+      expect(heightHigh).toBeLessThan(0.8795);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('picks a different grating pair per seed and is deterministic for one seed', () => {
+    const reads = [0, 1, 0xffffffff, 7].map(read);
+    expect(
+      new Set(
+        reads.map(({ gratings }) =>
+          gratings
+            .map(({ m, n }) => m + ':' + n)
+            .sort()
+            .join(' '),
+        ),
+      ).size,
+    ).toBe(4);
+    expect(read(0)).toEqual(reads[0]);
+  });
+  it('keeps the bars, fringes and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('moirefringes', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 pale blue grating maps with raised bars and shaded ground', () => {
+    const maps = generateProceduralMaps('moirefringes', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(51.5);
+    expect(red / (512 * 512)).toBeLessThan(52.5);
+    expect(green / (512 * 512)).toBeGreaterThan(59);
+    expect(green / (512 * 512)).toBeLessThan(60);
+    expect(blue / (512 * 512)).toBeGreaterThan(73.5);
+    expect(blue / (512 * 512)).toBeLessThan(74.5);
+    expect(maxTilt).toBeGreaterThan(0.025);
+    expect(maxTilt).toBeLessThan(0.032);
     expect(invalid).toBe(0);
   });
 });

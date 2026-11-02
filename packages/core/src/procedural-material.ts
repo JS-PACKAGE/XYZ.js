@@ -1049,6 +1049,7 @@ export type ProceduralMaterialKind =
   | 'euclidsteps'
   | 'happynumbers'
   | 'stringart'
+  | 'moirefringes'
   | 'sandpileidentity'
   | 'multiplicativeorder'
   | 'vermiculation'
@@ -2345,6 +2346,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'euclidsteps',
   'happynumbers',
   'stringart',
+  'moirefringes',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',

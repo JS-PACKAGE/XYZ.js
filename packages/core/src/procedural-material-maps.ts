@@ -43363,6 +43363,53 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'moirefringes': {
+        const p = proceduralMaterialPresets.moirefringes,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          base =
+            p.frequencies[
+              Math.floor(hash(0, 25, seed ^ p.seedSalt) * p.frequencies.length)
+            ],
+          [beatU, beatV] =
+            p.beats[
+              Math.floor(hash(1, 25, seed ^ p.seedSalt) * p.beats.length)
+            ],
+          phaseOne = hash(2, 25, seed ^ p.seedSalt),
+          phaseTwo = hash(3, 25, seed ^ p.seedSalt);
+        // Moire fringes: two line gratings with soft bars, one with base cycles per tile across
+        // the tile (lines along u), the other with the whole-number wave vector (beatU, base +
+        // beatV), are laid over each other and the light passes only where both are open, the
+        // product of the two. Where the bars of the two gratings coincide a bright fringe
+        // shows, where they interleave a dark one, and the fringes repeat with the difference
+        // of the wave vectors, (beatU, beatV) cycles per tile (all wave vectors are whole
+        // numbers, so the tile repeats). The seed picks base and beat vector and the phases.
+        return () => {
+          const one = Math.cos(2 * Math.PI * (base * fract(v) + phaseOne)),
+            two = Math.cos(
+              2 *
+                Math.PI *
+                (beatU * fract(u) + (base + beatV) * fract(v) + phaseTwo),
+            ),
+            open =
+              smooth(clamp(one / p.softness + 0.5)) *
+              smooth(clamp(two / p.softness + 0.5)),
+            tone = p.toneSpan * open,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * open +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.litHeight * open * (p.baseHeight + (1 - p.baseHeight) * open) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - open);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -52213,6 +52260,7 @@ export function createSurfaceSampler(
     kind === 'euclidsteps' ||
     kind === 'happynumbers' ||
     kind === 'stringart' ||
+    kind === 'moirefringes' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||

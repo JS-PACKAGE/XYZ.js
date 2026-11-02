@@ -1112,6 +1112,7 @@ try {
     'euclidsteps',
     'happynumbers',
     'stringart',
+    'moirefringes',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

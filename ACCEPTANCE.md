@@ -13104,3 +13104,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "String art as|stringart|kinds|catalog|distinct|periodic"`定向測試**2400項通過／4100項未選**。
 - 未驗證：stringart未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-03 新增材質：莫列條紋（moirefringes）
+
+- 範圍：新增`moirefringes`（目前目錄1047→1048種，含plain的gallery 1049項）：兩組柔邊線條光柵（整數波向量，第一組為`(0, base)`、第二組為`(beatU, base + beatV)`）相乘，條紋以兩波向量之差重複；淡藍色在深藍黑色底上；seed從`base`（16／20／24／28）、8種差向量與兩個相位中選；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 131,072 B（沒有表）。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽看了兩個seed；(2)測試生成器第一次執行時因為這是檔案最後一個describe，沒有後繼describe可當切片終點而丟出錯誤（寫入前就停止，沒有半成品），修正後重跑；(3)測試第一次執行失敗：把低頻峰的向量換到半平面時，`-beatN`在`beatN = 0`時得到`-0`，`toEqual`區分`+0`與`-0`而不通過（測試程式的錯誤，不是sampler的問題），改成`0 - beatN`後通過；(4)測試用離散傅立葉轉換讀回頻率成分，證明條紋頻率等於兩個光柵波向量之差，**不**驗證條紋與柔邊的形狀，seed選擇品質也只檢查光柵組合各不相同；(5)256²與512²取樣的亮處占比略有不同，測試採用256²的數值；(6)建構與取樣耗時**未量測**。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：兩個光柵的波向量(0, 28)與(2, 28)、(0, 20)與(1, 20)、(0, 28)與(3, 28)、(0, 20)與(1, 21)，差向量(2, 0)／(1, 0)／(3, 0)／(1, 1)；光柵峰振幅0.1206–0.1207、差向量峰0.0795–0.0796、次強低頻峰0.0057–0.0127；256²（seed 0／1／0xffffffff）亮處（color>0.5）21.81%–21.88%、color 0.02559–0.02581至0.85430–0.85456、平均0.22320–0.22321、roughness恆為0.4、AO最低0.6、height至多0.8781–0.8788 relief；512²（四個seed）亮處21.72%–21.86%、color 0.02512–0.02528至0.85446–0.85481、平均0.22315–0.22321、AO最低0.6、height至多0.8786–0.8795 relief；seed 0與1相比，512²中color>0.5的取樣34.5%不同；seed 7的512²maps平均r／g／b約(52.0, 59.5, 74.0)、法線tilt²最大約0.0286、z分量最小253。我實看了預覽（seed 7與seed 0）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Moire fringes as|moirefringes|kinds|catalog|distinct|periodic"`定向測試**2402項通過／4103項未選**。
+- 未驗證：stringart與moirefringes未跑完整suite與瀏覽器gallery；不push。
