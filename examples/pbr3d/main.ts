@@ -1095,6 +1095,7 @@ try {
     'paperfolding',
     'rudinshapiro',
     'graecolatin',
+    'thuemorse',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

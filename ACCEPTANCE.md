@@ -12920,3 +12920,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Graeco-Latin square as|graecolatin|kinds|catalog|distinct|periodic"`定向測試**2366項通過／4049項未選**。
 - 未驗證：paperfolding、rudinshapiro與graecolatin未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-03 新增材質：圖厄—莫爾斯序列（thuemorse）
+
+- 範圍：新增`thuemorse`（目前目錄1030→1031種，含plain的gallery 1032項）：圖厄—莫爾斯序列`t(n)`（n的二進位中1的個數的奇偶）依列寫進48×48圓角方磚表（48不是2的冪，各列滑動成斜向帶狀的編織圖案），1發光；萊姆綠在深褐黑底上；seed令表在環面上平移；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 149,504 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽只看了一版；(2)sampler用「1的個數的奇偶」，測試以替換規則`0 → 01`、`1 → 10`這個**獨立的方式**產生字，檢查前16個字母、前2,304個字母1的個數（1,152），並在2,304個平移中檢查恰好一個符合；兩種方式產生同一序列是標準理論事實，這裡只在2,304個字母上實測一致、沒有證明對所有n成立；(3)選48作列長是因為2的冪的列長會讓表退化成兩個一維序列的逐位元互斥或，這是推理，**我沒有實際渲染2的冪列長來比較**；(4)亮處占比隨seed與格寬略有不同（256²是5.3像素、512²是10.7像素），不是序列改變；(5)為了從Rudin–Shapiro描述改寫成測試，我另寫了一個新的測試產生腳本；(6)建構與取樣耗時**未量測**；(7)測試第一次執行即通過。
+- 實測（工具實跑）：獨立替換法的字長度4,096（替換到不少於2,304個字母）、前16個字母`0110100110010110`、前2,304個字母有1,152個1；四個seed（0／1／0xffffffff／7）各有唯一符合的平移(4, 39)、(30, 19)、(29, 21)、(42, 27)，最大擬合誤差0.014973–0.014996；256²（seed 0／1／0xffffffff）亮處（color>0.5）35.50%–36.46%、color 0.02533–0.02577至0.85424–0.85440、平均0.36143–0.36918、roughness恆為0.4、AO最低0.6、height至多0.8473–0.8493 relief；512²（四個seed）亮處35.66%–36.16%、color 0.02510–0.02536至0.85471–0.85489、平均0.36342–0.36594、height至多0.8494–0.8502 relief；seed 0與1相比，格中心顏色相差超過0.05的格子52.4%（512²中color>0.5的取樣37.6%不同）；seed 7的512²maps平均r／g／b約(59.1, 91.8, 60.0)、法線tilt²最大約0.0296、z分量最小253。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Thue-Morse as|thuemorse|kinds|catalog|distinct|periodic"`定向測試**2368項通過／4052項未選**。
+- 未驗證：paperfolding、rudinshapiro、graecolatin與thuemorse未跑完整suite與瀏覽器gallery；不push。

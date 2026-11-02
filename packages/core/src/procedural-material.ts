@@ -1032,6 +1032,7 @@ export type ProceduralMaterialKind =
   | 'paperfolding'
   | 'rudinshapiro'
   | 'graecolatin'
+  | 'thuemorse'
   | 'sandpileidentity'
   | 'multiplicativeorder'
   | 'vermiculation'
@@ -2311,6 +2312,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'paperfolding',
   'rudinshapiro',
   'graecolatin',
+  'thuemorse',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',
