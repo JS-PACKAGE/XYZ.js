@@ -19123,3 +19123,139 @@ describe('twosourceripples: interference of two circular waves', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('luhnnumbers: sixteen-digit numbers marked as passing or failing the Luhn check', () => {
+  const p = proceduralMaterialPresets.luhnnumbers;
+  const shapes: Record<string, string[]> = {
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    '2': ['###', '..#', '###', '#..', '###'],
+    '3': ['###', '..#', '###', '..#', '###'],
+    '4': ['#.#', '#.#', '###', '..#', '..#'],
+    '5': ['###', '#..', '###', '..#', '###'],
+    '6': ['###', '#..', '###', '#.#', '###'],
+    '7': ['###', '..#', '.#.', '.#.', '.#.'],
+    '8': ['###', '#.#', '###', '#.#', '###'],
+    '9': ['###', '#.#', '###', '..#', '###'],
+    V: ['...', '..#', '#.#', '.#.', '...'],
+    X: ['#.#', '#.#', '.#.', '#.#', '#.#'],
+  };
+  // The Luhn check as it is usually stated: from the right, double every second digit, subtract 9 from any result
+  // above 9, add everything up; the number is valid when the total is a multiple of 10.
+  const luhnValid = (digits: number[]): boolean => {
+    let total = 0;
+    for (
+      let i = digits.length - 1, double = false;
+      i >= 0;
+      i--, double = !double
+    ) {
+      let value = digits[i];
+      if (double) {
+        value *= 2;
+        if (value > 9) value -= 9;
+      }
+      total += value;
+    }
+    return total % 10 === 0;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'marks a number with a check mark exactly when it passes the Luhn check (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('luhnnumbers', seed),
+        out = empty(),
+        // Cell column of digit i: groups of four separated by one blank cell.
+        columnOf = (digit: number): number =>
+          digit + Math.floor(digit / p.groupSize),
+        markColumn = columnOf(p.digits - 1) + 2,
+        at = (column: number, row: number, fx: number, fy: number): number => {
+          sample(
+            p.left + (column + fx) * p.cell,
+            p.top + (row + fy) * p.rowPitch,
+            out,
+          );
+          return out.color;
+        },
+        read = (column: number, row: number): string => {
+          const background = at(column, row, 0.08, 0.1),
+            bits: string[] = [];
+          for (let y = 0; y < 5; y++) {
+            let text = '';
+            for (let x = 0; x < 3; x++) {
+              const fx = 0.5 + ((x - 1) * p.digitPixel) / p.cell,
+                fy = 0.5 + ((y - 2) * p.digitPixel) / p.rowPitch;
+              text +=
+                Math.abs(at(column, row, fx, fy) - background) > 0.4
+                  ? '#'
+                  : '.';
+            }
+            bits.push(text);
+          }
+          const found = Object.entries(shapes).find(([, shape]) =>
+            shape.every((line, i) => line === bits[i]),
+          );
+          expect(found).toBeDefined();
+          return (found as [string, string[]])[0];
+        };
+      let valid = 0;
+      const seen = new Set<string>();
+      for (let row = 0; row < p.rows; row++) {
+        const digits = Array.from({ length: p.digits }, (_, i) =>
+            Number(read(columnOf(i), row)),
+          ),
+          mark = read(markColumn, row);
+        // The gaps between groups hold nothing.
+        for (const gap of [4, 9, 14, 19]) {
+          const middle = at(gap, row, 0.5, 0.5);
+          expect(middle).toBeGreaterThan(0.85);
+        }
+        expect(mark === 'V').toBe(luhnValid(digits));
+        valid += Number(mark === 'V');
+        // The check digit (the last) has the darker cell.
+        expect(at(columnOf(p.digits - 1), row, 0.08, 0.1) < 0.85).toBe(true);
+        expect(at(columnOf(0), row, 0.08, 0.1) > 0.85).toBe(true);
+        seen.add(digits.join(''));
+      }
+      expect(seen.size).toBe(p.rows);
+      // A mix of passing and failing numbers.
+      expect(valid).toBeGreaterThanOrEqual(1);
+      expect(valid).toBeLessThanOrEqual(p.rows - 1);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('luhnnumbers', 0),
+      b = createSurfaceSampler('luhnnumbers', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

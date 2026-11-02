@@ -31426,6 +31426,117 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'luhnnumbers': {
+        const p = proceduralMaterialPresets.luhnnumbers,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2d801),
+          glyphs: Record<string, string> = {
+            '0': '111101101101111',
+            '1': '010110010010111',
+            '2': '111001111100111',
+            '3': '111001111001111',
+            '4': '101101111001001',
+            '5': '111100111001111',
+            '6': '111100111101111',
+            '7': '111001010010010',
+            '8': '111101111101111',
+            '9': '111101111001111',
+            // A check mark for a number that passes the Luhn test and a cross for one that fails it.
+            V: '000001101010000',
+            X: '101101010101101',
+          },
+          // Luhn sum: from the right, every second digit (starting with the one next to the check digit) is doubled
+          // and, when that gives more than 9, reduced by 9.
+          luhnSum = (digits: number[]): number =>
+            digits.reduceRight((sum, digit, index) => {
+              const fromRight = digits.length - 1 - index,
+                doubled = fromRight % 2 === 1 ? digit * 2 : digit;
+              return sum + (doubled > 9 ? doubled - 9 : doubled);
+            }, 0),
+          rows = Array.from({ length: p.rows }, (_, row) => {
+            const digits = Array.from({ length: p.digits - 1 }, (_, i) =>
+              Math.min(9, Math.floor(hash(row, i, seed ^ 0x2d802) * 10)),
+            );
+            // Append the check digit that makes the whole number sum to a multiple of 10.
+            digits.push((10 - (luhnSum([...digits, 0]) % 10)) % 10);
+            const valid = hash(row, 99, seed ^ 0x2d803) < p.validShare;
+            if (!valid) {
+              // Change one of the other digits, which always breaks the Luhn sum.
+              const at = Math.min(
+                p.digits - 2,
+                Math.floor(hash(row, 98, seed ^ 0x2d803) * (p.digits - 1)),
+              );
+              digits[at] =
+                (digits[at] +
+                  1 +
+                  Math.min(8, Math.floor(hash(row, 97, seed ^ 0x2d803) * 9))) %
+                10;
+            }
+            return { digits, valid };
+          }),
+          // Cells of a row: the digits in groups separated by a blank cell, then a blank cell and the mark.
+          layout = (): (number | 'mark' | null)[] => {
+            const cells: (number | 'mark' | null)[] = [];
+            for (let i = 0; i < p.digits; i++) {
+              if (i > 0 && i % p.groupSize === 0) cells.push(null);
+              cells.push(i);
+            }
+            cells.push(null, 'mark');
+            return cells;
+          },
+          cells = layout();
+        return () => {
+          const row = Math.floor((v - p.top) / p.rowPitch),
+            x = (u - p.left) / p.cell,
+            column = Math.floor(x);
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            rough: number = p.paperRoughness,
+            glyph = 0;
+          if (
+            row >= 0 &&
+            row < p.rows &&
+            column >= 0 &&
+            column < cells.length
+          ) {
+            const fx = x - column,
+              fy = (v - p.top) / p.rowPitch - row,
+              slot = cells[column],
+              striped = row % 2 === 1;
+            tone = striped ? p.stripeTone : p.paperTone;
+            level = striped ? p.stripeHeight : p.paperHeight;
+            rough = striped ? p.cellRoughness : p.paperRoughness;
+            let symbol = ' ';
+            if (slot === 'mark') symbol = rows[row].valid ? 'V' : 'X';
+            else if (slot !== null) {
+              symbol = String(rows[row].digits[slot]);
+              if (slot === p.digits - 1) {
+                tone = p.checkDigitTone;
+                level = p.checkDigitHeight;
+                rough = p.cellRoughness;
+              }
+            }
+            const px = Math.floor(((fx - 0.5) * p.cell) / p.digitPixel + 1.5),
+              py = Math.floor(((fy - 0.5) * p.rowPitch) / p.digitPixel + 2.5);
+            if (
+              symbol !== ' ' &&
+              px >= 0 &&
+              px < 3 &&
+              py >= 0 &&
+              py < 5 &&
+              glyphs[symbol][py * 3 + px] === '1'
+            )
+              glyph = 1;
+          }
+          color = clamp(
+            tone +
+              (p.inkTone - tone) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * glyph);
+          roughness = rough + (p.inkRoughness - rough) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -58955,6 +59066,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'luhnnumbers' ||
     kind === 'twosourceripples' ||
     kind === 'cassiniovals' ||
     kind === 'rosecurves' ||

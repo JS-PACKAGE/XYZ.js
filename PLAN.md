@@ -1709,6 +1709,10 @@
 
 這是作者設計的示意：只有兩個等振幅、同相位的點波源，沒有衰減也沒有反射邊界（三角波折疊只是為了接縫連續，不是物理上的鏡射）；亮度只是干涉強度、不是色相。預設0.5 m nominal tile、0.006 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽（波長0.04 UV在512×512只有約20個像素，更小尺寸會出現混疊）；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`luhnnumbers`（盧恩校驗碼數字）使目前目錄1037→1038種，含plain的gallery為1039項。每tile有10列16位數字（每4位一組，組間留空），每列最後一位是校驗碼（底色較深），列尾有一個符號：打勾表示整個數字通過Luhn校驗（從右邊起每隔一位乘2、大於9則減9，全部加總是10的倍數），打叉表示沒有通過。每列的前15位由seed抽出、校驗碼由它算出；約六成的列保持有效，其餘則把其中一位改成別的數字（改變任何一位都必然破壞Luhn總和），所以標記與實際校驗結果一致。Metallic與mortar為0。
+
+這是作者設計的示意：數字是隨機的，不是真實的卡號（也不模擬任何發卡機構的開頭規則或長度），僅用於示意Luhn演算法；每個tile的有效比例由seed的偽隨機決定（約六成，而非固定數量）；第2、4、…列有略深的底色；點陣數字在小尺寸下難以辨識。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
