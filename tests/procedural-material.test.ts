@@ -1071,6 +1071,7 @@ const kinds: ProceduralMaterialKind[] = [
   'zoneplate',
   'kaleidoscope',
   'recamanarcs',
+  'phasevortices',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',
@@ -169608,6 +169609,249 @@ describe("Recaman arcs as the first 60 steps of Recaman's sequence drawn as half
     expect(blue / (512 * 512)).toBeLessThan(56);
     expect(maxTilt).toBeGreaterThan(0.04);
     expect(maxTilt).toBeLessThan(0.07);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Phase vortices as spokes of the phase of a complex field that vanishes at 16 vortices', () => {
+  const p = proceduralMaterialPresets.phasevortices;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const radius = 0.02,
+    around = 96,
+    pitch = 1 / (2 * p.periods);
+  /**
+   * How many times the colour crosses the middle of the tone range going once round a circle of
+   * radius 0.02 (96 samples) about (u, v): twice the number of bright arcs.
+   */
+  const crossings = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    u: number,
+    v: number,
+  ): number => {
+    const out = empty(),
+      lit: boolean[] = [];
+    for (let i = 0; i < around; i++) {
+      const angle = (2 * Math.PI * i) / around;
+      sample(u + radius * Math.cos(angle), v + radius * Math.sin(angle), out);
+      lit.push(out.color > 0.5);
+    }
+    return lit.filter((value, i) => value !== lit[(i + 1) % around]).length;
+  };
+  /**
+   * The vortex lattice read back from the sampler. The vortices are 1/4 apart both ways, so one
+   * cell of 1/4 by 1/4 is scanned in steps of 0.005: the points whose circle crosses 12 times
+   * (6 spokes) enclose a vortex, and the circular mean of those points (period 1/4, so a
+   * vortex at the edge of the cell is not split) is the vortex position modulo 1/4.
+   */
+  const readVortices = (
+    seed: number,
+  ): { u: number; v: number; hits: number } => {
+    const sample = createSurfaceSampler('phasevortices', seed),
+      hits: number[][] = [];
+    for (let iy = 0; iy < 50; iy++)
+      for (let ix = 0; ix < 50; ix++) {
+        const u = ix * 0.005 + 0.0025,
+          v = iy * 0.005 + 0.0025;
+        if (crossings(sample, u, v) === 2 * p.spokes) hits.push([u, v]);
+      }
+    const mean = (axis: number): number => {
+      let cosine = 0,
+        sine = 0;
+      for (const hit of hits) {
+        cosine += Math.cos((2 * Math.PI * hit[axis]) / pitch);
+        sine += Math.sin((2 * Math.PI * hit[axis]) / pitch);
+      }
+      return (
+        ((((Math.atan2(sine, cosine) * pitch) / (2 * Math.PI)) % pitch) +
+          pitch) %
+        pitch
+      );
+    };
+    return { u: mean(0), v: mean(1), hits: hits.length };
+  };
+  it('draws 6 spokes round each of the 16 vortices and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('phasevortices', seed),
+        a = empty();
+      // The points whose circle crosses 12 times form one small blob (30 to 50 scan points); at
+      // all 16 lattice points (the scanned position plus multiples of 1/4) a circle crosses 12
+      // times, that is exactly 6 bright spokes meet at every vortex, and at the 16 points half
+      // way between the vortices (1/8 off in both directions) a circle crosses 0 times: no
+      // winding there. The number of times the phase turns, the topological property of a vortex,
+      // is read from the colour alone.
+      const vortices = readVortices(seed);
+      expect(vortices.hits).toBeGreaterThan(30);
+      expect(vortices.hits).toBeLessThan(50);
+      let atVortex = 0,
+        between = 0;
+      for (let i = 0; i < 4; i++)
+        for (let j = 0; j < 4; j++) {
+          atVortex += Number(
+            crossings(
+              sample,
+              vortices.u + i * pitch,
+              vortices.v + j * pitch,
+            ) ===
+              2 * p.spokes,
+          );
+          between += Number(
+            crossings(
+              sample,
+              vortices.u + (i + 0.5) * pitch,
+              vortices.v + (j + 0.5) * pitch,
+            ) === 0,
+          );
+        }
+      expect(atVortex).toBe(16);
+      expect(between).toBe(16);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0253);
+      expect(low).toBeLessThan(0.0258);
+      expect(high).toBeGreaterThan(0.853);
+      expect(high).toBeLessThan(0.855);
+      expect(dark / 65536).toBeGreaterThan(0.278);
+      expect(dark / 65536).toBeLessThan(0.286);
+      expect(mean / 65536).toBeGreaterThan(0.268);
+      expect(mean / 65536).toBeLessThan(0.271);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 3);
+      expect(heightHigh).toBeGreaterThan(0.873);
+      expect(heightHigh).toBeLessThan(0.878);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('moves the vortex lattice per seed and is deterministic for one seed', () => {
+    const lattices = [0, 1, 0xffffffff, 7].map(readVortices);
+    expect(
+      new Set(lattices.map(({ u, v }) => u.toFixed(2) + ',' + v.toFixed(2)))
+        .size,
+    ).toBe(4);
+    expect(readVortices(0)).toEqual(lattices[0]);
+  });
+  it('keeps the spokes, vortex cores and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('phasevortices', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 lilac vortex maps with raised spokes and rings', () => {
+    const maps = generateProceduralMaps('phasevortices', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(62);
+    expect(red / (512 * 512)).toBeLessThan(63.5);
+    expect(green / (512 * 512)).toBeGreaterThan(52.5);
+    expect(green / (512 * 512)).toBeLessThan(54);
+    expect(blue / (512 * 512)).toBeGreaterThan(90);
+    expect(blue / (512 * 512)).toBeLessThan(91.5);
+    expect(maxTilt).toBeGreaterThan(0.007);
+    expect(maxTilt).toBeLessThan(0.011);
     expect(invalid).toBe(0);
   });
 });

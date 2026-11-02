@@ -1045,6 +1045,7 @@ export type ProceduralMaterialKind =
   | 'zoneplate'
   | 'kaleidoscope'
   | 'recamanarcs'
+  | 'phasevortices'
   | 'sandpileidentity'
   | 'multiplicativeorder'
   | 'vermiculation'
@@ -2337,6 +2338,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'zoneplate',
   'kaleidoscope',
   'recamanarcs',
+  'phasevortices',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',

@@ -1108,6 +1108,7 @@ try {
     'zoneplate',
     'kaleidoscope',
     'recamanarcs',
+    'phasevortices',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

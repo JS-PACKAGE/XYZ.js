@@ -43127,6 +43127,53 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'phasevortices': {
+        const p = proceduralMaterialPresets.phasevortices,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          shiftX = hash(0, 21, seed ^ p.seedSalt),
+          shiftY = hash(1, 21, seed ^ p.seedSalt);
+        // The phase of the complex field F = cos(2 pi (periods x + a)) + i cos(2 pi (periods y
+        // + b)). F vanishes where both cosines do, at periods^2 x 4 = 16 isolated points
+        // (vortices) per tile, and the phase turns once (clockwise or anticlockwise) around each.
+        // The colour shows lines of the phase, spokes = cos(spokes x phase) above spokeLevel, so
+        // around every vortex exactly 'spokes' bright spokes meet; the height adds rings of
+        // constant |F|. Near a vortex the spokes fade out inside core (in |F|), which keeps the
+        // field smooth there.
+        return () => {
+          const real = Math.cos(2 * Math.PI * (p.periods * fract(u) + shiftX)),
+            imaginary = Math.cos(2 * Math.PI * (p.periods * fract(v) + shiftY)),
+            magnitude = Math.hypot(real, imaginary),
+            // The unit vector of the phase, raised to the power spokes by repeated products.
+            unitX = magnitude > 0 ? real / magnitude : 1,
+            unitY = magnitude > 0 ? imaginary / magnitude : 0;
+          let powerX = 1,
+            powerY = 0;
+          for (let i = 0; i < p.spokes; i++) {
+            const nextX = powerX * unitX - powerY * unitY;
+            powerY = powerX * unitY + powerY * unitX;
+            powerX = nextX;
+          }
+          const fade = smooth(clamp(magnitude / p.core)),
+            spoke = smooth(clamp((fade * powerX - p.spokeLevel) / p.edgeSoft)),
+            ring = 0.5 + 0.5 * Math.cos(2 * Math.PI * p.rings * magnitude),
+            tone = p.toneSpan * spoke,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * spoke +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.litHeight *
+              (p.baseHeight + (1 - p.baseHeight) * (0.6 * spoke + 0.4 * ring)) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - spoke);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -51973,6 +52020,7 @@ export function createSurfaceSampler(
     kind === 'zoneplate' ||
     kind === 'kaleidoscope' ||
     kind === 'recamanarcs' ||
+    kind === 'phasevortices' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||

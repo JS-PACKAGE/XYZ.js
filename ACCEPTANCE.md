@@ -13062,3 +13062,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Recaman arcs as|recamanarcs|kinds|catalog|distinct|periodic"`定向測試**2392項通過／4088項未選**。
 - 未驗證：recamanarcs未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-03 新增材質：相位渦旋（phasevortices）
+
+- 範圍：新增`phasevortices`（目前目錄1043→1044種，含plain的gallery 1045項）：複數場`cos(2π(2x + a)) + i·cos(2π(2y + b))`的相位圖，每個tile有16個渦旋（相距1/4），顏色畫`cos(6·相位)`高於門檻的亮線（每個渦旋恰好6條輻條），高度加上`|F|`等值環；淡紫色在深紫黑色底上；seed決定平移`(a, b)`；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 131,072 B（沒有表）。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽只看了一版；(2)探針第一次用算術平均估計渦旋位置，seed 0xffffffff的渦旋剛好落在掃描格邊緣，兩側的掃描點被平均到中間，造成16個格點位置全部判斷錯誤（badVortex 16）；改用週期1/4的圓周平均後所有seed都通過，測試也採用圓周平均；(3)測試生成器第一次執行時找不到範本段落（prettier把含撇號的標題改成雙引號），修正錨點後重跑，沒有寫入任何半成品；(4)測試靠拓撲性質：繞半徑0.02的圓數顏色穿過次數，16個渦旋位置都12次、渦旋之間正中間0次，**不**驗證相位轉動方向，也不驗證高度環形狀與seed選擇品質；(5)256²與512²取樣的亮處占比略有不同，測試採用256²的數值；(6)建構與取樣耗時**未量測**；(7)測試第一次執行即通過（探針數值先量好才寫界線，生成器修正後）。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：圍繞渦旋的圓穿過12次的掃描點39／37／39／39個；渦旋位置對1/4取餘數(0.0489, 0.1670)、(0.1113, 0.1263)、(0.1783, 0.0075)、(0.2261, 0.0380)；16個渦旋位置都恰好12次穿過（各seed 16／16），渦旋之間正中間都是0次（各seed 16／16）；256²（seed 0／1／0xffffffff）亮處（color>0.5）27.96%–28.45%、color 0.02537–0.02567至0.85410–0.85439、平均0.26940–0.27032、roughness恆為0.4、AO最低0.6、height至多0.8749–0.8772 relief；512²（四個seed）亮處28.08%–28.17%、color 0.02511–0.02520至0.85459–0.85484、平均0.26949–0.26977、AO最低0.6、height至多0.8782–0.8789 relief；seed 0與1相比，512²中color>0.5的取樣46.8%不同；seed 7的512²maps平均r／g／b約(62.7, 53.2, 90.7)、法線tilt²最大約0.0090、z分量最小254。我實看了預覽（seed 7，2×2 tile）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Phase vortices as|phasevortices|kinds|catalog|distinct|periodic"`定向測試**2394項通過／4091項未選**。
+- 未驗證：recamanarcs與phasevortices未跑完整suite與瀏覽器gallery；不push。
