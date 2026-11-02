@@ -1001,6 +1001,7 @@ const kinds: ProceduralMaterialKind[] = [
   'pizza',
   'morse',
   'couscous',
+  'datamatrix',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -148910,6 +148911,210 @@ describe('Couscous as tiny pale semolina granules over occluded gaps', () => {
     expect(covered / (512 * 512)).toBeLessThan(0.24);
     expect(maxTilt).toBeGreaterThan(0.03);
     expect(maxTilt).toBeLessThan(0.09);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Data Matrix as square 2D barcodes with an L finder', () => {
+  const p = proceduralMaterialPresets.datamatrix;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const pitch = p.symbolModules + p.quietModules,
+    size = pitch * p.symbolsPerSide;
+  /** Dark state of every module node of the whole tile, read at the module centres. */
+  const moduleNodes = (seed: number): boolean[] => {
+    const sample = createSurfaceSampler('datamatrix', seed),
+      out = empty(),
+      nodes: boolean[] = [];
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample(x / size, y / size, out);
+        nodes.push(out.color < 0.5);
+      }
+    return nodes;
+  };
+  it('draws the L finder, clock track and empty quiet zone exactly and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('datamatrix', seed),
+        a = empty();
+      const nodes = moduleNodes(seed),
+        last = p.symbolModules - 1;
+      let wrong = 0,
+        inner = 0,
+        innerDark = 0,
+        unlitQuiet = 0;
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          const mx = x % pitch,
+            my = y % pitch,
+            dark = nodes[y * size + x];
+          if (mx > last || my > last) {
+            unlitQuiet += Number(!dark);
+            wrong += Number(dark);
+          } else if (mx === 0 || my === last) wrong += Number(!dark);
+          else if (my === 0) wrong += Number(dark !== (mx % 2 === 0));
+          else if (mx === last) wrong += Number(dark !== (my % 2 === 1));
+          else {
+            inner++;
+            innerDark += Number(dark);
+          }
+        }
+      expect(wrong).toBe(0);
+      expect(unlitQuiet).toBe(640);
+      expect(inner).toBe(1024);
+      expect(innerDark / inner).toBeGreaterThan(0.47);
+      expect(innerDark / inner).toBeLessThan(0.57);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color < 0.5);
+          mean += a.color;
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.08);
+      expect(low).toBeLessThan(0.095);
+      expect(high).toBeGreaterThan(0.95);
+      expect(high).toBeLessThan(0.96);
+      expect(dark / 65536).toBeGreaterThan(0.35);
+      expect(dark / 65536).toBeLessThan(0.4);
+      expect(mean / 65536).toBeGreaterThan(0.625);
+      expect(mean / 65536).toBeLessThan(0.655);
+      expect(roughLow).toBeGreaterThan(0.399);
+      expect(roughLow).toBeLessThan(0.41);
+      expect(roughHigh).toBeCloseTo(p.roughness, 2);
+      expect(heightHigh).toBeGreaterThan(0.98);
+      expect(heightHigh).toBeLessThanOrEqual(1);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('re-draws the data modules per seed and is deterministic for one seed', () => {
+    const first = moduleNodes(0),
+      second = moduleNodes(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.15);
+    expect(moduleNodes(0)).toEqual(first);
+  });
+  it('keeps the module edges, finder and paper grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('datamatrix', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [size, p.inkCells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 neutral black-on-white maps with gentle ink normals', () => {
+    const maps = generateProceduralMaps('datamatrix', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(157);
+    expect(red / (512 * 512)).toBeLessThan(169);
+    expect(green / (512 * 512)).toBeGreaterThan(157);
+    expect(green / (512 * 512)).toBeLessThan(169);
+    expect(blue / (512 * 512)).toBeGreaterThan(154);
+    expect(blue / (512 * 512)).toBeLessThan(167);
+    expect(maxTilt).toBeGreaterThan(0.012);
+    expect(maxTilt).toBeLessThan(0.04);
     expect(invalid).toBe(0);
   });
 });

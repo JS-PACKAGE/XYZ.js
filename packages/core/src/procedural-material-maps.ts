@@ -39768,6 +39768,53 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'datamatrix': {
+        const p = proceduralMaterialPresets.datamatrix,
+          pitch = p.symbolModules + p.quietModules,
+          size = pitch * p.symbolsPerSide,
+          modules = new Float64Array(size * size),
+          inkField = cachedNoise(p.inkCells, p.inkCells, seed ^ p.seedSalt),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 1),
+          ),
+          last = p.symbolModules - 1;
+        // Square Data Matrix style symbols: a solid L finder on the left and bottom,
+        // an alternating clock track on the top and right, and seeded random data
+        // modules inside; each symbol is followed by quietModules empty modules.
+        for (let sy = 0; sy < p.symbolsPerSide; sy++)
+          for (let sx = 0; sx < p.symbolsPerSide; sx++)
+            for (let y = 0; y < p.symbolModules; y++)
+              for (let x = 0; x < p.symbolModules; x++) {
+                let dark: boolean;
+                if (x === 0 || y === last) dark = true;
+                else if (y === 0) dark = x % 2 === 0;
+                else if (x === last) dark = y % 2 === 1;
+                else
+                  dark =
+                    hash(
+                      x + sx * pitch,
+                      y + sy * pitch,
+                      seed ^ (p.seedSalt + 2),
+                    ) < p.dataChance;
+                modules[(sy * pitch + y) * size + sx * pitch + x] = dark
+                  ? 1
+                  : 0;
+              }
+        const pattern = latticeField(modules, size, size);
+        return () => {
+          // Module lattice, blended with the C1 smoothstep and re-sharpened with tanh.
+          const mark =
+              0.5 + 0.5 * Math.tanh(p.sharpness * (pattern(u, v) - 0.5)),
+            ink = mark * (p.inkFloor + (1 - p.inkFloor) * inkField(u, v)),
+            grain = grainField(u, v);
+          color = p.paperTone - p.inkDepth * ink + p.grainTone * (grain - 0.5);
+          height = p.inkHeight * ink + p.grainHeight * grain;
+          roughness += p.inkRoughness * ink;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -47535,6 +47582,7 @@ export function createSurfaceSampler(
     kind === 'pizza' ||
     kind === 'morse' ||
     kind === 'couscous' ||
+    kind === 'datamatrix' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

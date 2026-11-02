@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`datamatrix`（Data Matrix二維碼）使目前目錄959→960種，含plain的gallery為961項。奶油白標籤上的黑色方形二維碼：每個符號是18×18模組，左邊與下邊是實心的L形定位圖案，上邊與右邊是黑白交替的時序軌，內部16×16是由seed決定的隨機資料模組（約一半為黑），符號之間留4模組的靜區，一個tile是2×2個符號。**資料是隨機的，不是有效的Data Matrix編碼**（沒有Reed-Solomon糾錯、也不能被掃描器解碼），只模仿外觀。模組因平滑混合而略帶圓角。
+
+此材質是作者示意，沒有引用Data Matrix規格（ISO/IEC 16022）以外的來源、也沒有對照照片或掃描驗證；符號為18×18模組、靜區4模組、資料機率0.5、色調與0.12 m nominal tile皆作者設定，不宣稱符合任何規格版本的符號大小或資料編排。
+
+新增專用sampler：建構時對44×44的模組格寫入0／1（每個符號：`x = 0`或`y = 17`為黑；上緣`y = 0`在偶數`x`為黑；右緣`x = 17`在奇數`y`為黑；其餘模組以hash < 0.5為黑，每個符號用不同的位置鹽值；靜區全白）；用`latticeField`以C1 smoothstep混合並以`0.5 + 0.5·tanh(8·(pattern − 0.5))`重新銳化；墨＝標記×(0.9 + 0.1·7×7雜訊)；顏色＝`0.94 − 0.84·ink + 0.03·(160²紙grain − 0.5)`；height ＝ `0.7·ink + 0.3·grain`；墨處roughness降低0.15；cache合計44² + 7² + 160² = 27,585個Float64／220,680 B lattice算術預算（非總RAM）。預設0.12 m nominal tile與0.0008 UV-relative relief（非公尺位移）。實測（工具實跑，seed 0／1／0xffffffff／7，512²取樣）：墨（color<0.5）占36.2%–38.4%、color 0.0866–0.0899至0.9546–0.9547、平均0.633–0.646、roughness 0.40–0.55、height至多0.9857–0.9936 relief；1,936個模組節點中，所有定位L、時序軌與靜區節點都與規則一致（靜區640個節點全白、內部1,024個資料節點的黑色比例為49.8%–53.7%）、沒有節點顏色落在0.3到0.7之間；seed 0與1的墨遮罩27.2%像素不同；seed 7的512²maps平均r／g／b約(163.0, 163.0, 160.6)、法線tilt²最大約0.0235。我實看了預覽：奶油白底上整齊的黑色方形碼，L形定位與時序軌清楚，像Data Matrix，但模組是圓角的、資料沒有任何意義。未新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `couscous`（庫斯庫斯）使目前目錄958→959種，含plain的gallery為960項。淡米黃色的微小球狀穀粒（semolina）緊密堆疊的表面：26×26格、每格一粒略帶旋轉與大小變化的圓粒，彼此重疊，粒縫露出較暗的底色並帶遮蔽（AO）。不是真實庫斯庫斯的粒徑分布、表面細粉、蒸煮後的結塊或光澤，預覽也只有單一暗褐到淺米黃的漸層，粒子形狀比較圓而均勻。
 
 此材質是作者示意，沒有引用特定來源、食物照片或量測，也沒有對照照片；它直接沿用granola／tilledsoil／sherpafleece共用的重疊旋轉橢圓粒子sampler（關閉了第二層chunk層：`chunkChance`為0），格數26、粒徑0.58 ± 0.15格、色調與0.1 m nominal tile皆作者設定。第一版粒子較小（0.5）且底色偏暗（0.1），預覽上粒縫太黑；我把粒徑加到0.58、底色提高到0.26後採用。relief 0.008時512²maps的法線tilt²最大為0.731，0.002時為0.1425，最後取0.0012得0.0570（同一批探針的三個值）。

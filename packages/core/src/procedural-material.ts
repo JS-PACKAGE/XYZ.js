@@ -974,7 +974,8 @@ export type ProceduralMaterialKind =
   | 'invaders'
   | 'pizza'
   | 'morse'
-  | 'couscous';
+  | 'couscous'
+  | 'datamatrix';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2183,6 +2184,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'pizza',
   'morse',
   'couscous',
+  'datamatrix',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

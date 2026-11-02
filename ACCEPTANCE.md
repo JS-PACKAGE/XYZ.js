@@ -12184,3 +12184,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增6項專屬測試（三seed統計、seed差異與決定性、C1＋有符號UV週期含各雜訊格點、actual512 maps）通過；piece視窗是否截斷無法由機率式C1掃描證明（既有說明），本材質最大粒徑小於granola所推導的5×5視窗上限，沒有另做推導測試。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Couscous as|couscous|kinds|catalog|distinct|periodic"`定向測試**2222項通過／3812項未選**。
 - 未驗證：morse、couscous未跑完整suite（couscous與morse的瀏覽器gallery亦未做）；不push。
+
+## 2026-11-02 新增材質：Data Matrix二維碼（datamatrix）
+
+- 範圍：新增`datamatrix`（目前目錄959→960種，含plain的gallery 961項）：44×44模組格（2×2個18×18符號，每個符號後留4模組靜區），符號的左緣與下緣為實心L、上緣與右緣為黑白交替時序軌、內部16×16以hash < 0.5為黑（每個符號不同的位置鹽值）；模組圖用`latticeField`混合後以tanh重新銳化；預設0.12 m nominal tile、0.0008 UV-relative relief。作者示意，沒有引用規格細節以外的來源、**沒有對照照片或掃描驗證**；資料是隨機的，不是有效編碼（沒有糾錯碼、不能被掃描器解碼），模組因平滑混合而略帶圓角。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：墨（color<0.5）占36.2%–38.4%（512²取樣）、color 0.0866–0.0899至0.9546–0.9547、平均0.633–0.646、roughness 0.40–0.55、height至多0.9857–0.9936 relief；1,936個模組節點中，所有定位L、時序軌與靜區節點與規則一致（640個靜區節點全白、1,024個內部資料節點的黑色比例49.8%–53.7%）、沒有節點顏色落在0.3到0.7之間；seed 0與1的墨遮罩27.2%像素不同；seed 7的512²maps平均r／g／b約(163.0, 163.0, 160.6)、法線tilt²最大約0.0235、z分量最小254。我實看了預覽（2×2 tile）：奶油白底上整齊的黑色方碼，L形定位與時序軌清楚。
+- 測試過程的疏失（誠實紀錄）：我用morse的測試區塊當模板，第一次寫入時把morse之後的couscous測試區塊一併複製進檔案（重複的describe），在執行前用搜尋發現並刪除了重複的那份，沒有進入commit；測試與文件中的區間都是依探針與測試實跑的值設定。
+- 勘誤（誠實紀錄）：文件第一版把內部資料節點的黑色比例寫成「50.0%–53.7%」，實測的最小值是49.8%（四個seed為49.8%／50.7%／51.2%／53.7%），在commit前已改正。
+- 測試：新增5項專屬測試（三seed的L形定位、時序軌、靜區與資料比例逐節點比對加統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過；測試中的符號規則（左與下為L、上緣偶數x、右緣奇數y）是獨立重寫的。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Data Matrix as|datamatrix|kinds|catalog|distinct|periodic"`定向測試**2222項通過／3817項未選**（文件的49.8%勘誤是gates之後的純文字修改，已重新執行對應文件的`prettier --check`通過）。
+- 未驗證：morse、couscous、datamatrix未跑完整suite與瀏覽器gallery；不push。
