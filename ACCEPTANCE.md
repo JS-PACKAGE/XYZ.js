@@ -12068,3 +12068,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 完整suite（工具實跑，worktree `/private/tmp/xyz-ct-suite`於`704c7ca63`「Add bar chart material」，與spectrogram的gates同時執行）：**179檔／9,881項全數通過**，Duration 1166.97s。涵蓋`9a1be8a97`之後的tilledsoil、granola／tilledsoil的5×5修正、sherpafleece、redalder、ecgpaper與barchart；spectrogram則只有定向測試與gates。
 - 瀏覽器gallery（工具實跑）：補做`redalder`、`ecgpaper`、`barchart`、`spectrogram`四個材質的`/examples/pbr3d/`檢查——spawned Google Chrome headless（`--enable-unsafe-webgpu --use-angle=metal`）開啟vite dev server（服務`958012aeb`狀態的乾淨worktree）上的範例頁，逐一以`#material`的`input`事件選取四個kind並等待讀數更新；WebGPU與`?renderer=webgl2`各跑一次，兩次結束時`tab.errors()`的`entries`皆為0筆（dropped 0）；狀態列顯示`948 procedural material presets + plain`。
 - 限制：gallery檢查只涵蓋「能選取、讀數更新、console沒有錯誤」，**沒有**逐材質視覺比對，也沒有跨瀏覽器、跨GPU或Windows／Linux驗證；不push。
+
+## 2026-11-02 新增材質：軟玉（jade）
+
+- 範圍：新增`jade`（目前目錄948→949種，含plain的gallery 950項）：拋光綠色軟玉——`0.7·cloud(5×5) + 0.3·fine(18×18)`的雲霧底色，加沿7×7雜訊場等值線的淡脈（`exp(−((n − c)/w)²)`，C∞）與13×13雜訊場等值線的髮絲脈（兩者以聯集合併），脈處roughness＋0.06；預設0.15 m nominal tile、0.0008 UV-relative relief。作者示意，沒有引用特定來源、**沒有對照照片**，無半透明感，脈走向（封閉曲線）比真實玉石規則。
+- 實作過程的疏失（誠實紀錄）：我在第一次撰寫sampler時，在`color`的最終算式前留下了一段半途改寫的殘留（一個乘以0的無用`color =`賦值），在渲染前的程式閱讀就發現並刪除，沒有進入commit。這是本輪第三次在撰寫新sampler時留下這類殘留片段（ecgpaper、barchart與本材質），我之後會在寫完sampler後先搜尋`* 0`之類的殘留再渲染。
+- 設計選擇的原因：脈紋用等值線帶`exp(−((n − c)/w)²)`而不是脊狀`|n − c|`，因為後者在`n = c`處有折角、不是C1。
+- 實測（工具實跑）：三seed 512²取樣淡脈（color>0.6）占2.3–4.9%、color 0.201–0.768、平均0.376–0.399、roughness 0.20–0.26、height至多0.859–0.902 relief；seed 0與1的脈遮罩8.5%像素不同；seed 7的512²maps平均r／g／b約(77, 115, 87)、法線tilt²最大約0.0057、z分量最小255。
+- 測試：新增6項專屬測試（三seed統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps；`-t "jade"`的filter另命中既有的相關測試，通過項數因此較多），通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Jade as polished|jade|kinds|catalog|distinct|periodic"`定向測試**2188項通過／3781項未選**。
+- 未驗證：本材質未跑完整suite與瀏覽器gallery（spectrogram亦未做gallery）；不push。

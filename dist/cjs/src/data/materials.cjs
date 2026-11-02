@@ -21719,6 +21719,40 @@ var proceduralMaterialPresets = Object.freeze({
 		grainCells: 128,
 		grainHeight: .4
 	}),
+	jade: Object.freeze({
+		dark: [
+			14,
+			52,
+			34
+		],
+		light: [
+			182,
+			220,
+			176
+		],
+		roughness: .2,
+		relief: 8e-4,
+		seedSalt: 31454,
+		cloudCells: 5,
+		fineCells: 18,
+		fineWeight: .3,
+		veinCells: 7,
+		veinCenter: .5,
+		veinWidth: .045,
+		hairCells: 13,
+		hairCenter: .45,
+		hairWidth: .03,
+		grainCells: 128,
+		baseTone: .36,
+		cloudTone: .34,
+		veinTone: .28,
+		hairTone: .16,
+		grainTone: .02,
+		cloudHeight: .5,
+		veinHeight: .2,
+		grainHeight: .3,
+		veinRoughness: .06
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -23164,7 +23198,8 @@ var proceduralTileMeters = Object.freeze({
 	redalder: .18,
 	ecgpaper: .3,
 	barchart: .25,
-	spectrogram: .3
+	spectrogram: .3,
+	jade: .15
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

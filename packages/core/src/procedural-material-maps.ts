@@ -39089,6 +39089,64 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'jade': {
+        const p = proceduralMaterialPresets.jade,
+          cloudField = cachedNoise(
+            p.cloudCells,
+            p.cloudCells,
+            seed ^ p.seedSalt,
+          ),
+          fineField = cachedNoise(
+            p.fineCells,
+            p.fineCells,
+            seed ^ (p.seedSalt + 1),
+          ),
+          veinField = cachedNoise(
+            p.veinCells,
+            p.veinCells,
+            seed ^ (p.seedSalt + 2),
+          ),
+          hairField = cachedNoise(
+            p.hairCells,
+            p.hairCells,
+            seed ^ (p.seedSalt + 3),
+          ),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 4),
+          ),
+          inverseVein2 = 1 / (p.veinWidth * p.veinWidth),
+          inverseHair2 = 1 / (p.hairWidth * p.hairWidth);
+        return () => {
+          // Polished nephrite: cloudy tone from a broad plus a fine periodic noise
+          // field. Pale veins are thin bands around one iso-contour of a noise field,
+          // exp(-((n - c) / w)^2), which is C-infinity (a ridge |n - c| would not be
+          // C1); a second, thinner contour family gives hairline veins. The veins
+          // join as the union 1 - prod(1 - x) so tone stays inside [0, 1].
+          const cloud =
+              (1 - p.fineWeight) * cloudField(u, v) +
+              p.fineWeight * fineField(u, v),
+            veinDistance = veinField(u, v) - p.veinCenter,
+            hairDistance = hairField(u, v) - p.hairCenter,
+            vein = Math.exp(-veinDistance * veinDistance * inverseVein2),
+            hair = Math.exp(-hairDistance * hairDistance * inverseHair2),
+            veins = 1 - (1 - vein) * (1 - hair),
+            grain = grainField(u, v);
+          color =
+            p.baseTone +
+            p.cloudTone * (cloud - 0.5) +
+            p.veinTone * vein +
+            p.hairTone * hair * (1 - vein) +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cloudHeight * cloud +
+            p.veinHeight * veins +
+            p.grainHeight * grain;
+          roughness += p.veinRoughness * veins;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -46845,6 +46903,7 @@ export function createSurfaceSampler(
     kind === 'ecgpaper' ||
     kind === 'barchart' ||
     kind === 'spectrogram' ||
+    kind === 'jade' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

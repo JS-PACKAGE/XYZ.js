@@ -1095,6 +1095,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`jade`（軟玉）使目前目錄948→949種，含plain的gallery為950項。拋光的綠色軟玉（nephrite）表面：中綠色的雲霧狀濃淡底色（寬雲加細雲），上面是淡綠色的脈紋（沿雜訊場的等值線，形成封閉或蜿蜒的曲線）與更細的髮絲狀淡脈；表面光滑（roughness低），脈處略粗。不是真實玉石的半透明、內部光散射、棉絮狀雜質、橙色皮殼或真實的脈絡分布，預覽比較像沿等值線繪成的大理石紋。
+
+此材質是作者依一般拋光軟玉外觀所作示意，沒有引用特定來源文件、照片或量測，也沒有對照照片；各雜訊場的格數、雲霧濃淡的權重、脈紋的等值線位置與寬度、深綠與淺綠的色調、roughness與0.15 m nominal tile皆作者設定，不宣稱符合任何實際玉料。
+
+新增專用sampler：雲霧 = `0.7·cloud(5×5) + 0.3·fine(18×18)`的週期雜訊；脈紋是雜訊場等值線附近的薄帶`exp(−((n − c)/w)²)`（C∞；若用`|n − c|`的脊狀則不是C1），`n`為7×7雜訊、`c = 0.5`、`w = 0.045`，另有13×13雜訊、`c = 0.45`、`w = 0.03`的髮絲脈，兩者以聯集`1 − Π(1 − x)`合併；底色另有128²細grain；cache合計25＋324＋49＋169＋16,384 = 16,951個Float64／135,608 B lattice算術預算（非總RAM）。顏色是顏料，height約0.5 relief×雲霧＋0.2×脈＋0.3×grain；脈處roughness升高0.06；金屬factor為0、無mortar、AO 1。預設0.15 m nominal tile與0.0008 UV-relative relief（非公尺位移）。實測（工具實跑，seed 0／1／0xffffffff，512²取樣）：color>0.6的淡脈占2.3–4.9%（隨seed差異大），color 0.201–0.768，全圖平均0.376–0.399，roughness 0.20–0.26，height至多0.859–0.902 relief；seed 0與1的脈遮罩有8.5%像素不同；seed 7的512²maps平均r／g／b約(77, 115, 87)、法線tilt²最大約0.0057。我實看了預覽：中綠色的雲霧底上有淡綠色的等值線脈，像大理石紋的綠色石材；脈線的走向（封閉曲線與直角轉折）比真實玉石的脈絡規則、不自然，而且完全沒有半透明感。未新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `spectrogram`（頻譜圖）使目前目錄947→948種，含plain的gallery為949項。深藍底的聲音頻譜圖風格：12條被顫音（vibrato）彎成波浪的黃色諧波水平線、5條垂直的寬頻爆發亮帶、散布的雜訊斑點，並由一個時間—頻率能量場決定哪裡顯示（局部暗淡）。不是真實音訊的頻譜、真實的諧波比例、時間／頻率刻度、色階圖例或文字；所有諧波使用相同的顫音幅度（真實聲音的高次諧波波動較大），顏色是單一暗藍到亮黃的線性漸層而非真實頻譜圖常見的多色色階。
 
 此材質是作者依一般頻譜圖（spectrogram）外觀所作示意，沒有引用特定來源文件、照片、音訊資料或量測，也沒有對照任何實際頻譜圖；諧波數（12）、顫音幅度與次數、漂移量、能量場解析度與門檻、爆發數與權重、暗藍與亮黃的色調、roughness與0.3 m nominal tile皆作者設定。

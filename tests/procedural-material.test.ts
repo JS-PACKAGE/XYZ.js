@@ -990,6 +990,7 @@ const kinds: ProceduralMaterialKind[] = [
   'ecgpaper',
   'barchart',
   'spectrogram',
+  'jade',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -146584,6 +146585,188 @@ describe('Spectrogram with vibrato-bent harmonic lines and vertical bursts on a 
     expect(bright / (512 * 512)).toBeLessThan(0.08);
     expect(maxTilt).toBeGreaterThan(0.07);
     expect(maxTilt).toBeLessThan(0.11);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Jade as polished green nephrite with cloudy tone and pale iso-contour veins', () => {
+  const p = proceduralMaterialPresets.jade;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const veinMask = (seed: number): boolean[] => {
+    const sample = createSurfaceSampler('jade', seed),
+      out = empty(),
+      mask: boolean[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        mask.push(out.color > 0.6);
+      }
+    return mask;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps a mid green ground with a few percent pale veins and a bounded range for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('jade', seed),
+        a = empty();
+      let vein = 0,
+        low = 1,
+        high = 0,
+        mean = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 512; y++)
+        for (let x = 0; x < 512; x++) {
+          sample((x + 0.5) / 512, (y + 0.5) / 512, a);
+          vein += Number(a.color > 0.6);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          mean += a.color;
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(vein / 262144).toBeGreaterThan(0.015);
+      expect(vein / 262144).toBeLessThan(0.07);
+      expect(low).toBeGreaterThan(0.19);
+      expect(low).toBeLessThan(0.23);
+      expect(high).toBeGreaterThan(0.72);
+      expect(high).toBeLessThan(0.79);
+      expect(mean / 262144).toBeGreaterThan(0.37);
+      expect(mean / 262144).toBeLessThan(0.41);
+      expect(roughLow).toBeCloseTo(p.roughness, 3);
+      expect(roughHigh).toBeCloseTo(p.roughness + p.veinRoughness, 3);
+      expect(heightHigh).toBeGreaterThan(0.8);
+      expect(heightHigh).toBeLessThan(1);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('re-draws the clouds and veins per seed and is deterministic for one seed', () => {
+    const first = veinMask(0),
+      second = veinMask(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.03);
+    expect(veinMask(0)).toEqual(first);
+  });
+  it('keeps the clouds, iso-contour veins, hairlines and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('jade', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [
+        p.cloudCells,
+        p.fineCells,
+        p.veinCells,
+        p.hairCells,
+        p.grainCells,
+      ])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 green dielectric maps with nearly flat polished normals', () => {
+    const maps = generateProceduralMaps('jade', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.baseColor[i + 1] < maps.baseColor[i] ||
+          maps.baseColor[i + 1] < maps.baseColor[i + 2] ||
+          maps.normal[i + 2] < 250,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(72);
+    expect(red / (512 * 512)).toBeLessThan(82);
+    expect(green / (512 * 512)).toBeGreaterThan(110);
+    expect(green / (512 * 512)).toBeLessThan(120);
+    expect(blue / (512 * 512)).toBeGreaterThan(82);
+    expect(blue / (512 * 512)).toBeLessThan(92);
+    expect(maxTilt).toBeGreaterThan(0.003);
+    expect(maxTilt).toBeLessThan(0.009);
     expect(invalid).toBe(0);
   });
 });

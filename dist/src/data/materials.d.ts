@@ -13431,6 +13431,32 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainCells: 128;
         grainHeight: 0.4;
     }>;
+    jade: Readonly<{
+        dark: readonly [14, 52, 34];
+        light: readonly [182, 220, 176];
+        roughness: 0.2;
+        relief: 0.0008;
+        seedSalt: 31454;
+        cloudCells: 5;
+        fineCells: 18;
+        fineWeight: 0.3;
+        veinCells: 7;
+        veinCenter: 0.5;
+        veinWidth: 0.045;
+        hairCells: 13;
+        hairCenter: 0.45;
+        hairWidth: 0.03;
+        grainCells: 128;
+        baseTone: 0.36;
+        cloudTone: 0.34;
+        veinTone: 0.28;
+        hairTone: 0.16;
+        grainTone: 0.02;
+        cloudHeight: 0.5;
+        veinHeight: 0.2;
+        grainHeight: 0.3;
+        veinRoughness: 0.06;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -14758,4 +14784,5 @@ export declare const proceduralTileMeters: Readonly<{
     ecgpaper: 0.3;
     barchart: 0.25;
     spectrogram: 0.3;
+    jade: 0.15;
 }>;
