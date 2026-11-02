@@ -12061,3 +12061,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 目錄975→976，含plain的gallery為977項。每tile 2×2個木框面板，各有三根立柱與六個圓盤，依閱讀順序是最佳解法（左柱搬到右柱共63步）進行到第0、21、42、63步的狀態；圓盤越大越寬越亮。Metallic／mortar為0，預設tile0.4 m、0.006 UV-relative relief、metallic factor 0。解法與步數固定，seed只改木紋；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
 - 實測：`tests/procedural-material-motifs.test.ts`六百八十一項（本材質十項）全過。第一次執行時九項解碼測試失敗，原因是測試端：圓盤寬度略小於理論值時`Math.round`回傳`-0`，`toEqual`以`Object.is`比較視`-0`與`0`不同（與前一個巴斯卡材質同類錯誤），取樣器沒有問題；加上`+ 0`後通過。測試端以經典的遞迴解法（`solve(n, from, to, via)`產生63步，逐步套用）作為獨立參考，取樣器則用迭代法（最小盤依固定方向循環、其餘每步只有一個合法移動）；對九個seed（0、7、4294967295、1至6）× 四個面板 × 三根柱，由底往上在每個圓盤的中心高度偵測有無圓盤（避開比最小圓盤更細的立柱），再向左右掃描量出寬度並換算為圓盤編號，堆疊必須與參考解法在對應步數的狀態完全相同；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "hanoitowers|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`hanoitowers`：option 977個、status為976 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的面板（對比偏低，圓盤亮度不大）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：拉丁方陣（latinsquares）
+
+- 目錄976→977，含plain的gallery為978項。每tile 2×2個方陣（5、6、7、8階），每格一個亮度等級（0.16至0.96等距），每個等級在每列每欄恰出現一次；方陣是循環拉丁方經seed打亂列、欄、符號所得。Metallic／mortar為0，預設tile0.4 m、0.003 UV-relative relief、metallic factor 0。作者設計；仍在獨立worktree分支`materials/more-textures`作業。
+- 實測：`tests/procedural-material-motifs.test.ts`六百九十一項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）× 四個方陣：由格中心亮度換算回等級（沿用前兩個材質發現的`-0`問題，換算後加`+ 0`），每一列、每一欄排序後必須恰為0至n−1；這就是拉丁方的定義，與取樣器的「循環方陣加置換」是不同的寫法。我本來還加了一個「n種亮度各出現」的檢查，但那是列檢查的必然結果（重言式），送交verify前已刪除。通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "latinsquares|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`latinsquares`：option 978個、status為977 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的方陣。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

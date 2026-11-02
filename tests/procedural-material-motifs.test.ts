@@ -11391,3 +11391,81 @@ describe('hanoitowers: the panels show the optimal solution after 0, 1/3, 2/3 an
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('latinsquares: every brightness level occurs once in each row and column', () => {
+  const p = proceduralMaterialPresets.latinsquares;
+  const side = 0.5 - 2 * p.margin;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'forms four Latin squares of order 5, 6, 7 and 8 (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('latinsquares', seed),
+        out = empty();
+      for (let quadrant = 0; quadrant < 4; quadrant++) {
+        const n = p.orders[quadrant],
+          cell = side / n,
+          grid: number[][] = [];
+        for (let row = 0; row < n; row++) {
+          const line: number[] = [];
+          for (let col = 0; col < n; col++) {
+            sample(
+              (quadrant & 1) * 0.5 + p.margin + (col + 0.5) * cell,
+              (quadrant >> 1) * 0.5 + p.margin + (row + 0.5) * cell,
+              out,
+            );
+            // "+ 0" turns a rounded -0 into 0.
+            line.push(
+              Math.round(
+                ((out.color - p.lowTone) / (p.highTone - p.lowTone)) * (n - 1),
+              ) + 0,
+            );
+          }
+          grid.push(line);
+        }
+        const symbols = Array.from({ length: n }, (_, i) => i);
+        for (let i = 0; i < n; i++) {
+          expect([...grid[i]].sort((a, b) => a - b)).toEqual(symbols);
+          expect(grid.map((line) => line[i]).sort((a, b) => a - b)).toEqual(
+            symbols,
+          );
+        }
+      }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('latinsquares', 0),
+      b = createSurfaceSampler('latinsquares', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

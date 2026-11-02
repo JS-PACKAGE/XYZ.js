@@ -24342,6 +24342,87 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'latinsquares': {
+        const p = proceduralMaterialPresets.latinsquares,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x29b01),
+          side = 0.5 - 2 * p.margin,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          shuffled = (n: number, quadrant: number, salt: number): number[] =>
+            Array.from({ length: n }, (_, i) => i).sort(
+              (a, b) =>
+                hash(a, quadrant * 8 + salt, seed ^ 0x29b03) -
+                hash(b, quadrant * 8 + salt, seed ^ 0x29b03),
+            ),
+          // The cyclic square (i + j) mod n with its rows, columns and symbols shuffled: every
+          // symbol occurs exactly once in each row and each column.
+          squares = p.orders.map((n, quadrant) => {
+            const rows = shuffled(n, quadrant, 1),
+              columns = shuffled(n, quadrant, 2),
+              symbols = shuffled(n, quadrant, 3);
+            return Array.from(
+              { length: n * n },
+              (_, index) =>
+                symbols[(rows[Math.floor(index / n)] + columns[index % n]) % n],
+            );
+          });
+        return () => {
+          const quadrant = (u >= 0.5 ? 1 : 0) + (v >= 0.5 ? 2 : 0),
+            n = p.orders[quadrant],
+            cell = side / n,
+            lx = u - (quadrant & 1) * 0.5 - p.margin,
+            ly = v - (quadrant >> 1) * 0.5 - p.margin;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            rough: number = p.paperRoughness;
+          if (
+            lx >= -p.frameHalf &&
+            lx <= side + p.frameHalf &&
+            ly >= -p.frameHalf &&
+            ly <= side + p.frameHalf
+          ) {
+            const frame = cover(
+              p.frameHalf -
+                Math.min(
+                  Math.min(Math.abs(lx), Math.abs(lx - side)),
+                  Math.min(Math.abs(ly), Math.abs(ly - side)),
+                ),
+            );
+            if (lx >= 0 && lx < side && ly >= 0 && ly < side) {
+              const col = Math.min(n - 1, Math.floor(lx / cell)),
+                row = Math.min(n - 1, Math.floor(ly / cell)),
+                fx = lx - col * cell,
+                fy = ly - row * cell,
+                inner = cover(
+                  Math.min(Math.min(fx, cell - fx), Math.min(fy, cell - fy)) -
+                    p.gap,
+                ),
+                symbol = squares[quadrant][row * n + col];
+              tone =
+                p.paperTone +
+                (p.lowTone +
+                  ((p.highTone - p.lowTone) * symbol) / (n - 1) -
+                  p.paperTone) *
+                  inner;
+              level =
+                p.paperHeight +
+                (p.cellHeight -
+                  p.heightStep * (1 - symbol / (n - 1)) -
+                  p.paperHeight) *
+                  inner;
+              rough =
+                p.paperRoughness + (p.cellRoughness - p.paperRoughness) * inner;
+            }
+            tone += (p.frameTone - tone) * frame;
+            level += (p.frameHeight - level) * frame;
+          }
+          color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(level);
+          roughness = rough;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -51871,6 +51952,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'latinsquares' ||
     kind === 'hanoitowers' ||
     kind === 'eightqueens' ||
     kind === 'cantordust' ||
