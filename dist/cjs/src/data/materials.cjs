@@ -15929,6 +15929,47 @@ var proceduralMaterialPresets = Object.freeze({
 		leafRoughness: .62,
 		dropRoughness: .1
 	}),
+	bowlingscoresheet: Object.freeze({
+		dark: [
+			26,
+			24,
+			36
+		],
+		light: [
+			248,
+			242,
+			222
+		],
+		roughness: .58,
+		relief: .003,
+		games: 4,
+		frames: 10,
+		left: .04,
+		top: .03,
+		rowHeight: .24,
+		frameWidth: .088,
+		lastFrameWidth: .12,
+		boxWidth: .03,
+		boxHeight: .05,
+		pixel: .0058,
+		scorePixel: .0072,
+		strikeChance: .3,
+		spareChance: .3,
+		lineHalf: 7e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		boxTone: .86,
+		lineTone: .45,
+		inkTone: .1,
+		grainTone: .03,
+		paperHeight: .25,
+		boxLevel: .4,
+		lineHeight: .3,
+		inkDepth: .06,
+		inkRoughness: .4,
+		paperRoughness: .74
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -24610,6 +24651,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	bowlingscoresheet: .5,
 	dewbeads: .3,
 	goboards: .4,
 	othelloboard: .4,

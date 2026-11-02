@@ -12544,3 +12544,179 @@ describe('dewbeads: separate round domes of the drop sizes', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('bowlingscoresheet: the cumulative scores follow from the rolls', () => {
+  const p = proceduralMaterialPresets.bowlingscoresheet;
+  // Independent 3x5 drawings: digits 0-9 then X (strike), / (spare), - (miss).
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+    ['#.#', '#.#', '.#.', '#.#', '#.#'],
+    ['..#', '..#', '.#.', '#..', '#..'],
+    ['...', '...', '###', '...', '...'],
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'reads the roll symbols and scores of four games and rescoring the rolls gives the same totals (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('bowlingscoresheet', seed),
+        out = empty(),
+        ink = (u: number, v: number): boolean => {
+          sample(u, v, out);
+          // Ink is much darker than the 0.45 frame lines, which must not count.
+          return out.color < 0.3;
+        },
+        readGlyph = (
+          centreU: number,
+          centreV: number,
+          pixel: number,
+        ): number => {
+          const bits: string[] = [];
+          for (let y = 0; y < 5; y++) {
+            let text = '';
+            for (let x = 0; x < 3; x++)
+              text += ink(centreU + (x - 1) * pixel, centreV + (y - 2) * pixel)
+                ? '#'
+                : '.';
+            bits.push(text);
+          }
+          return bits.every((line) => line === '...')
+            ? -1
+            : art.findIndex((rows) =>
+                rows.every((text, i) => text === bits[i]),
+              );
+        };
+      for (let game = 0; game < p.games; game++) {
+        const rowTop = p.top + game * p.rowHeight,
+          rolls: number[] = [],
+          totals: number[] = [];
+        for (let frame = 0; frame < p.frames; frame++) {
+          const last = frame === p.frames - 1,
+            width = last ? p.lastFrameWidth : p.frameWidth,
+            left = p.left + frame * p.frameWidth,
+            boxes = last ? 3 : 2,
+            symbols: number[] = [];
+          for (let box = 0; box < boxes; box++) {
+            const symbol = readGlyph(
+              left + width - (boxes - box) * p.boxWidth + p.boxWidth / 2,
+              rowTop + p.boxHeight / 2,
+              p.pixel,
+            );
+            if (symbol >= 0) symbols.push(symbol);
+          }
+          // Turn symbols into pin counts, tracking the pins standing in the current rack.
+          let standing = 10;
+          for (const symbol of symbols) {
+            const pins =
+              symbol === 10 || symbol === 11
+                ? standing
+                : symbol === 12
+                  ? 0
+                  : symbol;
+            if (symbol === 10) expect(standing).toBe(10);
+            if (symbol === 11) expect(standing).toBeLessThan(10);
+            expect(pins).toBeLessThanOrEqual(standing);
+            rolls.push(pins);
+            standing = pins === standing ? 10 : standing - pins;
+          }
+          // Frames 1 to 9 end on a strike or after two rolls; the tenth has a third roll only after a strike or spare.
+          if (!last)
+            expect(symbols.length === 1 ? symbols[0] : 2).toBe(
+              symbols.length === 1 ? 10 : 2,
+            );
+          else expect([2, 3]).toContain(symbols.length);
+          // The cumulative score: measure the width of the ink to get the digit count, then read the digits.
+          const scoreV = rowTop + p.boxHeight + (p.rowHeight - p.boxHeight) / 2;
+          let leftmost = Infinity,
+            rightmost = -Infinity;
+          for (let x = 0; x < width; x += p.scorePixel / 2)
+            for (let dy = -2; dy <= 2; dy++)
+              if (ink(left + x, scoreV + dy * p.scorePixel)) {
+                leftmost = Math.min(leftmost, x);
+                rightmost = Math.max(rightmost, x);
+              }
+          const digitCount = Math.round(
+              ((rightmost - leftmost) / p.scorePixel + 1 + 1) / 4,
+            ),
+            textLeft = left + (width - (digitCount * 4 - 1) * p.scorePixel) / 2;
+          let total = 0;
+          for (let d = 0; d < digitCount; d++) {
+            const digit = readGlyph(
+              textLeft + (d * 4 + 1.5) * p.scorePixel,
+              scoreV,
+              p.scorePixel,
+            );
+            expect(digit).toBeGreaterThanOrEqual(0);
+            expect(digit).toBeLessThanOrEqual(9);
+            total = total * 10 + digit;
+          }
+          totals.push(total);
+        }
+        // Independent scoring: frames 1 to 10 with the usual strike and spare bonuses from the following rolls.
+        let position = 0,
+          sum = 0;
+        for (let frame = 0; frame < p.frames; frame++) {
+          if (rolls[position] === 10) {
+            sum += 10 + rolls[position + 1] + rolls[position + 2];
+            position += 1;
+          } else {
+            sum +=
+              rolls[position] +
+              rolls[position + 1] +
+              (rolls[position] + rolls[position + 1] === 10
+                ? rolls[position + 2]
+                : 0);
+            position += 2;
+          }
+          expect(totals[frame]).toBe(sum);
+        }
+        // What is left after the tenth frame are only its bonus rolls: two after a strike, one after a spare.
+        expect(rolls.length - position).toBeLessThanOrEqual(2);
+      }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('bowlingscoresheet', 0),
+      b = createSurfaceSampler('bowlingscoresheet', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

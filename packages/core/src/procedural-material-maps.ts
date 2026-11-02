@@ -25634,6 +25634,200 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'bowlingscoresheet': {
+        const p = proceduralMaterialPresets.bowlingscoresheet,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2a601),
+          // 3 x 5 glyphs: 0-9, then X (strike), / (spare) and - (miss).
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+            '101101010101101',
+            '001001010100100',
+            '000000111000000',
+          ],
+          strike = 10,
+          spare = 11,
+          miss = 12,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // One game per row: random rolls (a strike or spare with a fixed chance, otherwise any
+          // number of the pins left), the symbols of each frame and the cumulative score.
+          sheets = Array.from({ length: p.games }, (_, game) => {
+            let counter = 0;
+            const rand = (): number =>
+                hash(game * 131 + counter++, 17, seed ^ 0x2a603),
+              roll = (standing: number): number =>
+                rand() < (standing === 10 ? p.strikeChance : p.spareChance)
+                  ? standing
+                  : Math.min(standing - 1, Math.floor(rand() * standing)),
+              rolls: number[] = [],
+              symbols: number[][] = [];
+            for (let frame = 0; frame < p.frames; frame++) {
+              const last = frame === p.frames - 1,
+                shown: number[] = [];
+              let standing = 10,
+                thrown = 0,
+                finished: boolean;
+              // A frame ends after a strike or two rolls; the tenth frame earns a third roll after a strike or spare.
+              do {
+                const pins = roll(standing);
+                rolls.push(pins);
+                thrown++;
+                shown.push(
+                  pins === standing
+                    ? standing === 10
+                      ? strike
+                      : spare
+                    : pins === 0
+                      ? miss
+                      : pins,
+                );
+                // Knocking down every standing pin clears the rack (a miss also leaves ten standing, so test the pins).
+                const cleared = pins === standing,
+                  start = rolls.length - thrown;
+                standing = cleared ? 10 : standing - pins;
+                // The tenth frame earns a third roll after a strike or a spare in its first two rolls.
+                finished = last
+                  ? thrown === 3 ||
+                    (thrown === 2 &&
+                      rolls[start] !== 10 &&
+                      rolls[start] + rolls[start + 1] !== 10)
+                  : cleared || thrown === 2;
+              } while (!finished);
+              symbols.push(shown);
+            }
+            // Cumulative scores per frame, with the strike and spare bonuses.
+            const totals: number[] = [];
+            let index = 0,
+              sum = 0;
+            for (let frame = 0; frame < p.frames; frame++) {
+              if (rolls[index] === 10) {
+                sum += 10 + rolls[index + 1] + rolls[index + 2];
+                index += 1;
+              } else if (rolls[index] + rolls[index + 1] === 10) {
+                sum += 10 + rolls[index + 2];
+                index += 2;
+              } else {
+                sum += rolls[index] + rolls[index + 1];
+                index += 2;
+              }
+              totals.push(sum);
+            }
+            return { symbols, totals };
+          });
+        return () => {
+          const row = Math.floor((v - p.top) / p.rowHeight),
+            sheetWidth = (p.frames - 1) * p.frameWidth + p.lastFrameWidth,
+            inside =
+              row >= 0 &&
+              row < p.games &&
+              u >= p.left &&
+              u < p.left + sheetWidth;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            ink = 0,
+            line = 0;
+          if (inside) {
+            const sheet = sheets[row],
+              ly = v - p.top - row * p.rowHeight,
+              frame = Math.min(
+                p.frames - 1,
+                Math.floor((u - p.left) / p.frameWidth),
+              ),
+              width = frame === p.frames - 1 ? p.lastFrameWidth : p.frameWidth,
+              lx = u - p.left - frame * p.frameWidth,
+              shown = sheet.symbols[frame],
+              boxes = frame === p.frames - 1 ? 3 : 2;
+            tone = p.boxTone;
+            level = p.boxLevel;
+            line = Math.max(
+              cover(p.lineHalf - Math.min(lx, width - lx)),
+              cover(p.lineHalf - Math.min(ly, p.rowHeight - ly)),
+            );
+            if (ly < p.boxHeight) {
+              // The roll boxes in the top right of the frame; a symbol list shorter than the boxes is right aligned
+              // in frames 1 to 9 (a strike sits in the right box) and left aligned in the tenth.
+              for (let box = 0; box < boxes; box++) {
+                const boxLeft = width - (boxes - box) * p.boxWidth,
+                  slot =
+                    frame === p.frames - 1 ? box : box - (boxes - shown.length);
+                line = Math.max(
+                  line,
+                  cover(p.lineHalf - Math.abs(lx - boxLeft)),
+                );
+                if (
+                  slot >= 0 &&
+                  slot < shown.length &&
+                  lx >= boxLeft &&
+                  lx < boxLeft + p.boxWidth
+                ) {
+                  const px = Math.floor(
+                      (lx - boxLeft - (p.boxWidth - 3 * p.pixel) / 2) / p.pixel,
+                    ),
+                    py = Math.floor(
+                      (ly - (p.boxHeight - 5 * p.pixel) / 2) / p.pixel,
+                    );
+                  if (
+                    px >= 0 &&
+                    px < 3 &&
+                    py >= 0 &&
+                    py < 5 &&
+                    glyphs[shown[slot]][py * 3 + px] === '1'
+                  )
+                    ink = 1;
+                }
+              }
+              line = Math.max(
+                line,
+                cover(p.lineHalf - Math.abs(ly - p.boxHeight)),
+              );
+            } else {
+              // The cumulative score, centred in the lower part of the frame.
+              const digits = String(sheet.totals[frame]),
+                textWidth = (digits.length * 4 - 1) * p.scorePixel,
+                px = Math.floor((lx - (width - textWidth) / 2) / p.scorePixel),
+                py = Math.floor(
+                  (ly -
+                    p.boxHeight -
+                    (p.rowHeight - p.boxHeight - 5 * p.scorePixel) / 2) /
+                    p.scorePixel,
+                );
+              if (
+                py >= 0 &&
+                py < 5 &&
+                px >= 0 &&
+                px < digits.length * 4 - 1 &&
+                px % 4 !== 3 &&
+                glyphs[Number(digits[Math.floor(px / 4)])][
+                  py * 3 + (px % 4)
+                ] === '1'
+              )
+                ink = 1;
+            }
+          }
+          const base = tone + (p.lineTone - tone) * line;
+          color = clamp(
+            base +
+              (p.inkTone - base) * ink +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            level + (p.lineHeight - level) * line - p.inkDepth * ink,
+          );
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -53163,6 +53357,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'bowlingscoresheet' ||
     kind === 'dewbeads' ||
     kind === 'goboards' ||
     kind === 'othelloboard' ||
