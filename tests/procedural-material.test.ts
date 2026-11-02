@@ -1005,6 +1005,7 @@ const kinds: ProceduralMaterialKind[] = [
   'sudoku',
   'quasicrystal',
   'hilbertcurve',
+  'gameoflife',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -149782,6 +149783,211 @@ describe('Hilbert curve as a closed space-filling circuit trace', () => {
     expect(blue / (512 * 512)).toBeLessThan(132);
     expect(maxTilt).toBeGreaterThan(0.02);
     expect(maxTilt).toBeLessThan(0.08);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Game of Life as an evolved Conway soup on an LED grid', () => {
+  const p = proceduralMaterialPresets.gameoflife;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const size = 64;
+  /** Alive state of every LED node, read at the node centres. */
+  const pixelNodes = (seed: number): boolean[] => {
+    const sample = createSurfaceSampler('gameoflife', seed),
+      out = empty(),
+      nodes: boolean[] = [];
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample(x / size, y / size, out);
+        nodes.push(out.color > 0.5);
+      }
+    return nodes;
+  };
+  /** One Conway generation on the torus, written independently of the sampler. */
+  const generation = (board: boolean[]): boolean[] =>
+    board.map((alive, i) => {
+      const x = i % size,
+        y = Math.floor(i / size);
+      let neighbours = 0;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++)
+          if (dx || dy)
+            neighbours += Number(
+              board[((y + dy + size) % size) * size + ((x + dx + size) % size)],
+            );
+      return neighbours === 3 || (neighbours === 2 && alive);
+    });
+  it('leaves a lively but sparse soup with crisp cells and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('gameoflife', seed),
+        a = empty();
+      const nodes = pixelNodes(seed),
+        alive = nodes.filter(Boolean).length;
+      expect(alive).toBeGreaterThan(250);
+      expect(alive).toBeLessThan(420);
+      // Still evolving a little (gliders and blinkers) but far from random noise.
+      let board = nodes;
+      for (let step = 0; step < 12; step++) {
+        const next = generation(board);
+        let changed = 0;
+        for (let i = 0; i < next.length; i++)
+          changed += Number(next[i] !== board[i]);
+        expect(changed).toBeGreaterThan(0);
+        expect(changed / (size * size)).toBeLessThan(0.12);
+        board = next;
+      }
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.09);
+      expect(low).toBeLessThan(0.095);
+      expect(high).toBeGreaterThan(0.9);
+      expect(high).toBeLessThan(0.92);
+      expect(dark / 65536).toBeGreaterThan(0.055);
+      expect(dark / 65536).toBeLessThan(0.1);
+      expect(mean / 65536).toBeGreaterThan(0.15);
+      expect(mean / 65536).toBeLessThan(0.185);
+      expect(roughLow).toBeGreaterThan(0.249);
+      expect(roughLow).toBeLessThan(0.26);
+      expect(roughHigh).toBeCloseTo(p.roughness, 2);
+      expect(heightHigh).toBeGreaterThan(0.97);
+      expect(heightHigh).toBeLessThanOrEqual(1);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('grows a different soup per seed and is deterministic for one seed', () => {
+    const first = pixelNodes(0),
+      second = pixelNodes(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.04);
+    expect(pixelNodes(0)).toEqual(first);
+  });
+  it('keeps the cell edges and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('gameoflife', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [size, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 dark-green LED maps with gentle normals', () => {
+    const maps = generateProceduralMaps('gameoflife', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(18);
+    expect(red / (512 * 512)).toBeLessThan(24);
+    expect(green / (512 * 512)).toBeGreaterThan(42);
+    expect(green / (512 * 512)).toBeLessThan(49);
+    expect(blue / (512 * 512)).toBeGreaterThan(39);
+    expect(blue / (512 * 512)).toBeLessThan(46);
+    expect(maxTilt).toBeGreaterThan(0.02);
+    expect(maxTilt).toBeLessThan(0.07);
     expect(invalid).toBe(0);
   });
 });

@@ -39961,6 +39961,70 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'gameoflife': {
+        const p = proceduralMaterialPresets.gameoflife,
+          size = p.size,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          );
+        // Conway's Game of Life on a size x size torus from a seeded random soup; the
+        // generations are run once while the sampler is built, so every cell is
+        // either alive or dead in the final lattice.
+        let alive = new Uint8Array(size * size),
+          next = new Uint8Array(size * size);
+        for (let y = 0; y < size; y++)
+          for (let x = 0; x < size; x++)
+            alive[y * size + x] = Number(
+              hash(x, y, seed ^ (p.seedSalt + 1)) < p.density,
+            );
+        for (let generation = 0; generation < p.generations; generation++) {
+          for (let y = 0; y < size; y++) {
+            const above = ((y + size - 1) % size) * size,
+              row = y * size,
+              below = ((y + 1) % size) * size;
+            for (let x = 0; x < size; x++) {
+              const left = (x + size - 1) % size,
+                right = (x + 1) % size,
+                neighbours =
+                  alive[above + left] +
+                  alive[above + x] +
+                  alive[above + right] +
+                  alive[row + left] +
+                  alive[row + right] +
+                  alive[below + left] +
+                  alive[below + x] +
+                  alive[below + right];
+              next[row + x] = Number(
+                neighbours === 3 || (neighbours === 2 && alive[row + x] === 1),
+              );
+            }
+          }
+          [alive, next] = [next, alive];
+        }
+        const pattern = latticeField(Float64Array.from(alive), size, size);
+        return () => {
+          // The final board is blended with the C1 smoothstep and re-sharpened with
+          // tanh; each cell is an LED-like rounded square cut by cos^2 on both axes.
+          const lit =
+              0.5 + 0.5 * Math.tanh(p.sharpness * (pattern(u, v) - 0.5)),
+            cx = Math.cos(Math.PI * size * u),
+            cy = Math.cos(Math.PI * size * v),
+            cell =
+              (0.5 +
+                0.5 * Math.tanh(p.cellSharpness * (cx * cx - p.cellEdge))) *
+              (0.5 + 0.5 * Math.tanh(p.cellSharpness * (cy * cy - p.cellEdge))),
+            grain = grainField(u, v);
+          color =
+            p.offTone +
+            cell * (p.unlitTone + p.litTone * lit) +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * cell + p.grainHeight * grain;
+          roughness += p.litRoughness * lit * cell;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -47732,6 +47796,7 @@ export function createSurfaceSampler(
     kind === 'sudoku' ||
     kind === 'quasicrystal' ||
     kind === 'hilbertcurve' ||
+    kind === 'gameoflife' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

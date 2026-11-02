@@ -1095,6 +1095,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`gameoflife`（生命遊戲）使目前目錄963→964種，含plain的gallery為965項。暗藍綠LED點陣上的康威生命遊戲（Conway's Game of Life）湯：64×64的環面，以seed決定的38%密度隨機開局，演化250代，亮綠色的活細胞形成方塊、蜂巢、閃爍器與滑翔機等結構。**演化後的盤面並未完全靜止**（仍有滑翔機與閃爍器在動；後續12代每代仍有約4%–9%的細胞改變），只是一張靜態快照。每個細胞是圓角方塊的LED，熄滅的LED保留暗色。
+
+此材質是作者示意，沒有引用特定來源或真實螢幕照片，也沒有對照照片；盤面64×64、密度0.38、250代、色調與0.2 m nominal tile皆作者設定。第一版relief 0.0015時512²maps的法線tilt²最大為0.0900，降到0.001後為0.0422（同一批探針的前後值）。生命遊戲只在sampler建構時跑一次，建構約30 ms。
+
+新增專用sampler：建構時以hash < 0.38初始化64×64環面，依康威規則（3個鄰居誕生、2或3個鄰居存活）執行250代；最終盤面用`latticeField`以C1 smoothstep混合並以`0.5 + 0.5·tanh(8·(pattern − 0.5))`重新銳化；每個細胞是`cos²`在兩軸切出的圓角方塊LED（`0.5 + 0.5·tanh(12·(cos²(π·64·u) − 0.06))`乘以v向對應項，C∞）；顏色＝`0.04 + cell·(0.08 + 0.78·lit) + 0.02·(128²細grain − 0.5)`；height ＝ `0.8·cell + 0.2·grain`；亮處roughness降低0.2；cache合計64² + 128² = 20,480個Float64／163,840 B lattice算術預算（非總RAM；建構時另有兩個64²的Uint8盤面與一個Float64轉換陣列為暫存）。預設0.2 m nominal tile與0.001 UV-relative relief（非公尺位移）。實測（工具實跑，seed 0／1／0xffffffff／7，512²取樣）：亮處（color>0.5）占3.7%–5.5%、color 0.0411–0.0413至0.9090–0.9096、平均0.133–0.150、roughness 0.25–0.45、height至多0.9976–0.9988 relief；4,096個細胞node中活細胞272–401個、沒有node顏色落在0.3到0.6之間；以我在測試中獨立重寫的康威規則從取到的盤面再演化12代，每代改變的細胞為157–383個（占3.8%–9.4%）；seed 0與1的亮區遮罩8.1%像素不同；seed 7的512²maps平均r／g／b約(20.7, 45.2, 42.1)、法線tilt²最大約0.0422。我實看了預覽：暗色LED點陣上散布著亮綠色的方塊、蜂巢、閃爍器與滑翔機，一眼就是生命遊戲。未新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `hilbertcurve`（希爾伯特曲線）使目前目錄962→963種，含plain的gallery為964項。深藍黑底上一條青藍色的電路走線，走的是第4階希爾伯特空間填充曲線：16×16個格子每格恰好經過一次，並在拼貼邊界處把終點接回起點形成封閉迴圈（希爾伯特曲線的起點與終點是環面上相鄰的格子）；線寬約半格，線外有淡淡的光暈。seed選擇八種方形對稱（鏡射與轉置）之一並把曲線沿環面平移，所以統計不變、只有走向與位置改變。不是真實電路板（沒有焊盤、通孔或多層走線）。
 
 此材質是作者示意，沒有引用特定來源或電路板照片，也沒有對照照片；階數4、線寬為半格、tanh銳度8、青藍色調與0.2 m nominal tile皆作者設定。第一版relief 0.002時512²maps的法線tilt²最大為0.0901，我降到0.0015後為0.0512（同一批探針的前後值）。

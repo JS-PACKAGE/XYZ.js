@@ -12228,3 +12228,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試（四個seed的node度數、連接點、單一256格封閉迴圈、統計，seed差異與決定性，C1＋有符號UV週期，actual512 maps）通過；迴圈測試直接驗證「單一封閉迴圈且每格恰好經過一次」，不依賴與參考圖形的視覺比對。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Hilbert curve as|hilbertcurve|kinds|catalog|distinct|periodic"`定向測試**2228項通過／3829項未選**。
 - 未驗證：quasicrystal、hilbertcurve未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：生命遊戲（gameoflife）
+
+- 範圍：新增`gameoflife`（目前目錄963→964種，含plain的gallery 965項）：64×64環面以hash < 0.38初始化，依康威規則演化250代（只在sampler建構時跑一次，約30 ms）；最終盤面用`latticeField`混合並以tanh重新銳化，每個細胞為`cos²`切出的圓角方塊LED（C∞）；預設0.2 m nominal tile、0.001 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**。盤面**不是穩定態**（仍有滑翔機與閃爍器），只是演化250代後的快照。
+- 調整紀錄（誠實紀錄）：第一版relief 0.0015時，512²maps的法線tilt²最大為0.0900，降到0.001後為0.0422（同一批探針的前後值）。我原本預期250代後盤面大致靜止並想以「靜止」描述，探針量到每代仍有約4%–9%的細胞改變，所以文件與測試改為「仍在演化」的說法。
+- 測試修正（誠實紀錄）：第一次執行測試時，最低color的區間（我從512²探針取0.04–0.043）失敗（量到0.0938）；測試用的是256²取樣，其取樣點在LED縫隙處的相位與512²不同（256²的取樣點從不落在縫中心），所以最小值、亮處比例與平均都比512²高；我在256²重新量測（亮處6.2%–9.1%、color 0.0938–0.0940至0.9078–0.9086、平均0.156–0.177）後把測試區間改為這些值。文件中的統計沿用512²取樣，兩者不能混用比較。
+- 實測（工具實跑，seed 0／1／0xffffffff／7，512²取樣）：亮處（color>0.5）占3.7%–5.5%、color 0.0411–0.0413至0.9090–0.9096、平均0.133–0.150、roughness 0.25–0.45、height至多0.9976–0.9988 relief；4,096個細胞node中活細胞272–401個、沒有node顏色落在0.3到0.6之間；以測試中獨立重寫的康威規則從取到的盤面再演化12代，每代改變的細胞157–383個（3.8%–9.4%）；seed 0與1的亮區遮罩8.1%像素不同；seed 7的512²maps平均r／g／b約(20.7, 45.2, 42.1)、法線tilt²最大約0.0422、z分量最小252。我實看了預覽：暗色LED點陣上有方塊、蜂巢、閃爍器與滑翔機。
+- 測試：新增5項專屬測試（三seed的活細胞數、再演化12代的每代變動比例、統計，seed差異與決定性，C1＋有符號UV週期，actual512 maps）通過；測試**不能**驗證sampler內部的康威規則實作是否完全正確（初始盤面來自sampler內部的hash，測試無法取得），它只驗證結果是「有活細胞、持續演化但不是雜訊」的盤面，生命遊戲規則本身以我在預覽中看到的典型結構（方塊、蜂巢、閃爍器、滑翔機）作旁證。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Game of Life as|gameoflife|kinds|catalog|distinct|periodic"`定向測試**2230項通過／3832項未選**。
+- 未驗證：hilbertcurve、gameoflife未跑完整suite與瀏覽器gallery（quasicrystal亦未）；不push。
