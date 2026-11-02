@@ -1003,6 +1003,7 @@ const kinds: ProceduralMaterialKind[] = [
   'couscous',
   'datamatrix',
   'sudoku',
+  'quasicrystal',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -149338,6 +149339,223 @@ describe('Sudoku as a newspaper puzzle grid with pixel digits', () => {
     expect(blue / (512 * 512)).toBeLessThan(156);
     expect(maxTilt).toBeGreaterThan(0.015);
     expect(maxTilt).toBeLessThan(0.05);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Quasicrystal as five-wave interference with five-fold symmetry', () => {
+  const p = proceduralMaterialPresets.quasicrystal;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const lightMask = (seed: number): boolean[] => {
+    const sample = createSurfaceSampler('quasicrystal', seed),
+      out = empty(),
+      mask: boolean[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        mask.push(out.color > 0.5);
+      }
+    return mask;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps about half the area light and a bounded range for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('quasicrystal', seed),
+        a = empty();
+      let light = 0,
+        low = 1,
+        high = 0,
+        mean = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 512; y++)
+        for (let x = 0; x < 512; x++) {
+          sample((x + 0.5) / 512, (y + 0.5) / 512, a);
+          light += Number(a.color > 0.5);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          mean += a.color;
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(light / 262144).toBeGreaterThan(0.46);
+      expect(light / 262144).toBeLessThan(0.54);
+      expect(low).toBeGreaterThan(0.06);
+      expect(low).toBeLessThan(0.065);
+      expect(high).toBeGreaterThan(0.935);
+      expect(high).toBeLessThan(0.94001);
+      expect(mean / 262144).toBeGreaterThan(0.47);
+      expect(mean / 262144).toBeLessThan(0.53);
+      expect(roughLow).toBeGreaterThan(0.3);
+      expect(roughLow).toBeLessThan(0.31);
+      expect(roughHigh).toBeGreaterThan(0.64);
+      expect(roughHigh).toBeLessThan(0.65001);
+      expect(heightHigh).toBeGreaterThan(0.99);
+      expect(heightHigh).toBeLessThanOrEqual(1);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('shifts the wave phases per seed and is deterministic for one seed', () => {
+    const first = lightMask(0),
+      second = lightMask(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.3);
+    expect(lightMask(0)).toEqual(first);
+  });
+  it('concentrates the spectrum on the five wave vectors with equal strength', () => {
+    const size = 128;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('quasicrystal', seed),
+        out = empty(),
+        values = new Float64Array(size * size);
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          sample(x / size, y / size, out);
+          values[y * size + x] = out.color;
+        }
+      const amplitude = (kx: number, ky: number): number => {
+        let re = 0,
+          im = 0;
+        for (let y = 0; y < size; y++)
+          for (let x = 0; x < size; x++) {
+            const phase = (2 * Math.PI * (kx * x + ky * y)) / size;
+            re += values[y * size + x] * Math.cos(phase);
+            im -= values[y * size + x] * Math.sin(phase);
+          }
+        return Math.hypot(re, im) / (size * size);
+      };
+      const waves = p.waves.map(([kx, ky]) => amplitude(kx, ky));
+      const strongest = Math.max(...waves),
+        weakest = Math.min(...waves);
+      expect(weakest).toBeGreaterThan(0.1);
+      expect(strongest).toBeLessThan(0.11);
+      expect(strongest / weakest).toBeLessThan(1.02);
+      for (const [kx, ky] of [
+        [3, 5],
+        [6, 1],
+        [9, 9],
+        [1, 10],
+        [7, 3],
+        [12, 12],
+      ])
+        expect(amplitude(kx, ky)).toBeLessThan(0.002);
+    }
+  });
+  it('keeps the interference sum C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('quasicrystal', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [14, 13, 11])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 blue dielectric maps with moderate normals', () => {
+    const maps = generateProceduralMaps('quasicrystal', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.baseColor[i] > maps.baseColor[i + 1] ||
+          maps.baseColor[i + 1] > maps.baseColor[i + 2] ||
+          maps.normal[i + 2] < 220,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(97);
+    expect(red / (512 * 512)).toBeLessThan(110);
+    expect(green / (512 * 512)).toBeGreaterThan(113);
+    expect(green / (512 * 512)).toBeLessThan(126);
+    expect(blue / (512 * 512)).toBeGreaterThan(142);
+    expect(blue / (512 * 512)).toBeLessThan(156);
+    expect(maxTilt).toBeGreaterThan(0.04);
+    expect(maxTilt).toBeLessThan(0.1);
     expect(invalid).toBe(0);
   });
 });

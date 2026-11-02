@@ -12204,3 +12204,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試（三seed的格線逐節點比對、81格字形合法性、數字數量、統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過；測試中的十個字形位元圖與格線規則是獨立重寫的，與sampler需同步。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Sudoku as|sudoku|kinds|catalog|distinct|periodic"`定向測試**2224項通過／3820項未選**。
 - 未驗證：morse、couscous、datamatrix、sudoku未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：準晶干涉（quasicrystal）
+
+- 範圍：新增`quasicrystal`（目前目錄961→962種，含plain的gallery 963項）：`sum = Σᵢ cos(2π·(kxᵢ·u + kyᵢ·v) + φᵢ)`，五個整數波向量(14, 0)、(4, 13)、(−11, 8)、(−11, −8)、(4, −13)（長度14與約13.6、角度0°／72.9°／144.0°／216.0°／287.1°），相位由hash決定；`level = 0.5 + 0.5·tanh(1.5·sum)`（C∞），顏色＝`0.06 + 0.88·level`、height＝level、roughness＝`0.3 + 0.35·(1 − level)`；沒有lattice cache；預設0.3 m nominal tile、0.0015 UV-relative relief。作者示意，沒有引用準晶文獻或繞射圖、**沒有對照照片**；因為波向量是整數，圖案在tile上精確週期，是五波干涉的近似、**不是真正的準晶或Penrose鋪磚**。
+- 調整紀錄（誠實紀錄）：relief 0.004時，512²maps的法線tilt²最大為0.358，降到0.0015後為0.0716（同一批探針的前後值）；預覽第一次就採用。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：亮處（color>0.5）占47.3%–52.8%（512²取樣）、color 0.0600至0.9400、平均0.484–0.517、roughness 0.30–0.65；seed 0與1的亮區遮罩51.5%像素不同；在128×128網格上的離散傅立葉分量，五個波向量處的振幅為0.1051–0.1060（五者彼此相差不到1%），(3, 5)、(6, 1)、(9, 9)、(1, 10)、(7, 3)、(12, 12)等非波向量處皆不超過0.0007；seed 7的512²maps平均r／g／b約(103.4, 119.6, 149.1)、法線tilt²最大約0.0716、z分量最小250。我實看了預覽：深藍的五邊形環與圓點在淺藍底上，看起來五重對稱。
+- 測試：新增7項專屬測試（三seed統計、seed差異與決定性、五波向量等強度的頻譜檢查、C1＋有符號UV週期、actual512 maps）通過；頻譜測試直接驗證了「五個波向量等強度、其餘向量幾乎無能量」，但不能驗證觀感上的五重對稱。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Quasicrystal as|quasicrystal|kinds|catalog|distinct|periodic"`定向測試**2229項通過／3823項未選**。
+- 未驗證：morse、couscous、datamatrix、sudoku、quasicrystal未跑完整suite與瀏覽器gallery；不push。

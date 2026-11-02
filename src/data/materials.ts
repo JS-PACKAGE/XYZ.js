@@ -14022,6 +14022,24 @@ export const proceduralMaterialPresets = Object.freeze({
     grainHeight: 0.3,
     inkRoughness: -0.2,
   }),
+  quasicrystal: Object.freeze({
+    dark: [8, 12, 40] as const,
+    light: [196, 224, 255] as const,
+    roughness: 0.3,
+    relief: 0.0015,
+    seedSalt: 0x9c57,
+    waves: [
+      [14, 0],
+      [4, 13],
+      [-11, 8],
+      [-11, -8],
+      [4, -13],
+    ] as const,
+    contrast: 1.5,
+    toneFloor: 0.06,
+    toneSpan: 0.88,
+    roughnessSpan: 0.35,
+  }),
   makore: Object.freeze({
     dark: [76, 31, 18] as const,
     light: [205, 139, 93] as const,
@@ -15363,4 +15381,5 @@ export const proceduralTileMeters = Object.freeze({
   couscous: 0.1,
   datamatrix: 0.12,
   sudoku: 0.2,
+  quasicrystal: 0.3,
 });

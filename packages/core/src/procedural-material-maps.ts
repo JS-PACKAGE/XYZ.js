@@ -39865,6 +39865,26 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'quasicrystal': {
+        const p = proceduralMaterialPresets.quasicrystal,
+          phases = p.waves.map((_, i) => TAU * hash(i, 0, seed ^ p.seedSalt));
+        return () => {
+          // Five plane waves whose integer wave vectors point at (almost exactly) 72
+          // degree steps interfere into a quasi-periodic, five-fold looking pattern that
+          // is still exactly periodic over the tile because every vector is an integer.
+          // tanh squashes the sum (-5..5) smoothly into 0..1, so it is C-infinity.
+          let sum = 0;
+          for (let i = 0; i < p.waves.length; i++)
+            sum += Math.cos(
+              TAU * (p.waves[i][0] * u + p.waves[i][1] * v) + phases[i],
+            );
+          const level = 0.5 + 0.5 * Math.tanh(p.contrast * sum);
+          color = p.toneFloor + p.toneSpan * level;
+          height = level;
+          roughness += p.roughnessSpan * (1 - level);
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -47634,6 +47654,7 @@ export function createSurfaceSampler(
     kind === 'couscous' ||
     kind === 'datamatrix' ||
     kind === 'sudoku' ||
+    kind === 'quasicrystal' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
