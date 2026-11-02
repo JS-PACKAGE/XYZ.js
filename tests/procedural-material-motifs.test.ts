@@ -15248,3 +15248,84 @@ describe('hidatochain: a solved Hidato', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('euclideanrhythms: sixteen Euclidean rhythm tracks', () => {
+  const p = proceduralMaterialPresets.euclideanrhythms;
+  const cell = (1 - 2 * p.margin) / p.steps;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'spreads each track pulses as evenly as possible around the loop (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('euclideanrhythms', seed),
+        out = empty(),
+        pulseCounts = new Set<number>();
+      for (let track = 0; track < p.tracks; track++) {
+        const onsets: number[] = [];
+        for (let step = 0; step < p.steps; step++) {
+          sample(
+            p.margin + (step + 0.5) * cell,
+            p.margin + (track + 0.5) * cell,
+            out,
+          );
+          // A pad is either lit (bright) or unlit (dark); nothing in between.
+          expect(out.color > 0.7 || out.color < 0.5).toBe(true);
+          if (out.color > 0.7) onsets.push(step);
+        }
+        const k = onsets.length;
+        expect(k).toBeGreaterThanOrEqual(p.minPulses);
+        expect(k).toBeLessThanOrEqual(p.maxPulses);
+        pulseCounts.add(k);
+        // Gaps between consecutive onsets (wrapping around) are floor(n/k) or ceil(n/k), with n mod k of the larger kind.
+        const gaps = onsets.map(
+            (onset, i) =>
+              (onsets[(i + 1) % k] - onset + p.steps) % p.steps || p.steps,
+          ),
+          low = Math.floor(p.steps / k),
+          high = Math.ceil(p.steps / k);
+        for (const gap of gaps) expect(gap === low || gap === high).toBe(true);
+        expect(gaps.reduce((sum, gap) => sum + gap, 0)).toBe(p.steps);
+        expect(gaps.filter((gap) => gap === high && high !== low).length).toBe(
+          high === low ? 0 : p.steps % k,
+        );
+      }
+      // Sixteen tracks do not all use the same number of pulses.
+      expect(pulseCounts.size).toBeGreaterThanOrEqual(3);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('euclideanrhythms', 0),
+      b = createSurfaceSampler('euclideanrhythms', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

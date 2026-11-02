@@ -28711,6 +28711,76 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'euclideanrhythms': {
+        const p = proceduralMaterialPresets.euclideanrhythms,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2ba01),
+          steps = p.steps,
+          tracks = p.tracks,
+          side = 1 - 2 * p.margin,
+          cell = side / steps,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // Euclidean rhythm: k pulses spread as evenly as possible over the steps (Bresenham), then rotated.
+          lit = new Uint8Array(steps * tracks);
+        for (let track = 0; track < tracks; track++) {
+          const pulses =
+              p.minPulses +
+              Math.min(
+                p.maxPulses - p.minPulses,
+                Math.floor(
+                  hash(track, 3, seed ^ 0x2ba03) *
+                    (p.maxPulses - p.minPulses + 1),
+                ),
+              ),
+            rotation = Math.min(
+              steps - 1,
+              Math.floor(hash(track, 5, seed ^ 0x2ba05) * steps),
+            );
+          for (let step = 0; step < steps; step++)
+            lit[track * steps + ((step + rotation) % steps)] = Number(
+              (step * pulses) % steps < pulses,
+            );
+        }
+        return () => {
+          const lx = u - p.margin,
+            ly = v - p.margin;
+          let tone: number = p.panelTone,
+            pad = 0,
+            on = 0;
+          if (lx >= 0 && ly >= 0 && lx < side && ly < side) {
+            const col = Math.min(steps - 1, Math.floor(lx / cell)),
+              row = Math.min(tracks - 1, Math.floor(ly / cell)),
+              fx = lx / cell - col,
+              fy = ly / cell - row,
+              qx = Math.abs(fx - 0.5) - (0.5 - p.padInset) + p.padCorner,
+              qy = Math.abs(fy - 0.5) - (0.5 - p.padInset) + p.padCorner,
+              distance =
+                Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) +
+                Math.min(Math.max(qx, qy), 0) -
+                p.padCorner;
+            pad = cover(-distance * cell);
+            on = lit[row * steps + col] * pad;
+            tone = col % 4 === 0 ? p.beatTone : p.padTone;
+          }
+          const base = p.panelTone + (tone - p.panelTone) * pad;
+          color = clamp(
+            base +
+              (p.litTone - base) * on +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.panelHeight +
+              (p.padHeight - p.panelHeight) * pad +
+              (p.litHeight - p.padHeight) * on,
+          );
+          roughness =
+            p.panelRoughness +
+            (p.padRoughness - p.panelRoughness) * pad +
+            (p.litRoughness - p.padRoughness) * on;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -56240,6 +56310,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'euclideanrhythms' ||
     kind === 'hidatochain' ||
     kind === 'mancalaboard' ||
     kind === 'rushhourjam' ||

@@ -9829,6 +9829,32 @@ export declare const proceduralMaterialPresets: Readonly<{
         paperRoughness: 0.74;
         endRoughness: 0.35;
     }>;
+    euclideanrhythms: Readonly<{
+        dark: readonly [14, 16, 30];
+        light: readonly [250, 236, 190];
+        roughness: 0.5;
+        relief: 0.004;
+        steps: 16;
+        tracks: 16;
+        minPulses: 1;
+        maxPulses: 8;
+        margin: 0.04;
+        padInset: 0.1;
+        padCorner: 0.22;
+        edgeSoft: 0.0011;
+        grainCells: 160;
+        panelTone: 0.1;
+        padTone: 0.26;
+        beatTone: 0.36;
+        litTone: 0.94;
+        grainTone: 0.03;
+        panelHeight: 0.15;
+        padHeight: 0.45;
+        litHeight: 0.8;
+        panelRoughness: 0.7;
+        padRoughness: 0.55;
+        litRoughness: 0.25;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -16314,6 +16340,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    euclideanrhythms: 0.4;
     hidatochain: 0.5;
     mancalaboard: 0.6;
     rushhourjam: 0.5;

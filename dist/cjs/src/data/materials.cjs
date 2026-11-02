@@ -16733,6 +16733,40 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .74,
 		endRoughness: .35
 	}),
+	euclideanrhythms: Object.freeze({
+		dark: [
+			14,
+			16,
+			30
+		],
+		light: [
+			250,
+			236,
+			190
+		],
+		roughness: .5,
+		relief: .004,
+		steps: 16,
+		tracks: 16,
+		minPulses: 1,
+		maxPulses: 8,
+		margin: .04,
+		padInset: .1,
+		padCorner: .22,
+		edgeSoft: .0011,
+		grainCells: 160,
+		panelTone: .1,
+		padTone: .26,
+		beatTone: .36,
+		litTone: .94,
+		grainTone: .03,
+		panelHeight: .15,
+		padHeight: .45,
+		litHeight: .8,
+		panelRoughness: .7,
+		padRoughness: .55,
+		litRoughness: .25
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -25414,6 +25448,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	euclideanrhythms: .4,
 	hidatochain: .5,
 	mancalaboard: .6,
 	rushhourjam: .5,

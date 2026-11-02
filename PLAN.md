@@ -1589,6 +1589,10 @@
 
 這是作者設計的示意：畫面是填好全部數字的盤面，真正的Hidato只給部分數字；底色較暗的「給定」格只是隨機裝飾，與題目是否有唯一解無關；不保證只有唯一解；回溯搜尋有節點上限（100000個），我對300個seed加九個測試seed都找得到解（獨立腳本量測的最大節點數約2650），若超過上限盤面會停在未走完的路徑上，未驗證其外觀；7×7固定。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`euclideanrhythms`（歐幾里得節奏／Euclidean rhythms）使目前目錄1007→1008種，含plain的gallery為1009項。每tile是一個16步×16軌的步進音序器面板：深色面板上排列著16×16個圓角方形的按鍵（pad），亮起的按鍵代表該步有一個脈衝。每一軌是一個「歐幾里得節奏」——在16步中放入k個脈衝（k由seed在1至8之間隨機決定），並盡可能均勻地分佈（用Bresenham式的整除分佈：第i步亮起當且僅當 (i×k) mod 16 < k），再依seed隨機旋轉起點；因此任兩個相鄰脈衝（含繞回）的間隔只可能是⌊16/k⌋或⌈16/k⌉，且較大的間隔恰有 16 mod k 個。每4步（第1、5、9、13欄）的未亮按鍵底色稍亮，標示拍點。Metallic與mortar為0。
+
+這是作者設計的示意：這是靜態圖案，沒有任何音訊；這種「Bresenham」分佈與Bjorklund演算法產生的節奏是旋轉等價的（同一個項鍊），但我沒有逐一證明所有k都等價，也沒有宣稱每條軌道都等同某個特定的傳統節奏名稱；16×16固定；顏色只有明度（深面板、灰按鍵、亮起的米色按鍵）。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
