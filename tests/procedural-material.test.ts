@@ -1019,6 +1019,7 @@ const kinds: ProceduralMaterialKind[] = [
   'juliatiles',
   'dragoncurve',
   'divisorcount',
+  'goldbachtable',
   'totienttable',
   'peanocurve',
   'sacksspiral',
@@ -159694,6 +159695,228 @@ describe('Totient table as tiles toned by the ratio phi(n) / n', () => {
     expect(green / (512 * 512)).toBeLessThan(83);
     expect(blue / (512 * 512)).toBeGreaterThan(35);
     expect(blue / (512 * 512)).toBeLessThan(40);
+    expect(maxTilt).toBeGreaterThan(0.02);
+    expect(maxTilt).toBeLessThan(0.04);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Goldbach table as tiles toned by the number of Goldbach partitions of even n', () => {
+  const p = proceduralMaterialPresets.goldbachtable;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const cells = 48;
+  const isPrime = (n: number): boolean => {
+    if (n < 2) return false;
+    for (let k = 2; k * k <= n; k++) if (n % k === 0) return false;
+    return true;
+  };
+  /** Number of Goldbach partitions of the even n = 2 (i + 2) for every cell i, by trial division, written independently here. */
+  const partitions = Array.from({ length: cells * cells }, (_, i) => {
+    const n = 2 * (i + 2);
+    let count = 0;
+    for (let q = 2; 2 * q <= n; q++) if (isPrime(q) && isPrime(n - q)) count++;
+    return count;
+  });
+  const scaled = partitions.map(
+    (count, i) => (count * Math.log(2 * (i + 2)) ** 2) / (2 * (i + 2)),
+  );
+  const most = Math.max(...scaled);
+  const tones = scaled.map(
+    (value) => p.toneSpan * (value / most) ** p.toneExponent,
+  );
+  const expectedColor = (tone: number): number => p.toneFloor + tone;
+  /** Colour read at the centre of every cell, grain included. */
+  const cellColors = (seed: number): number[] => {
+    const sample = createSurfaceSampler('goldbachtable', seed),
+      out = empty(),
+      colors: number[] = [];
+    for (let row = 0; row < cells; row++)
+      for (let col = 0; col < cells; col++) {
+        sample((col + 0.5) / cells, (row + 0.5) / cells, out);
+        colors.push(out.color);
+      }
+    return colors;
+  };
+  /** Table shifts (x, y) around the torus that reproduce every cell colour. */
+  const fittingShifts = (colors: number[]): [number, number][] => {
+    const fits: [number, number][] = [];
+    for (let sy = 0; sy < cells; sy++)
+      for (let sx = 0; sx < cells; sx++) {
+        let worst = 0;
+        for (let row = 0; row < cells && worst < 0.03; row++)
+          for (let col = 0; col < cells; col++)
+            worst = Math.max(
+              worst,
+              Math.abs(
+                colors[row * cells + col] -
+                  expectedColor(
+                    tones[((row + sy) % cells) * cells + ((col + sx) % cells)],
+                  ),
+              ),
+            );
+        if (worst < 0.03) fits.push([sx, sy]);
+      }
+    return fits;
+  };
+  it('colours every cell by its totient ratio and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('goldbachtable', seed),
+        a = empty();
+      // g(4) = 1 (2 + 2), g(10) = 2 (3 + 7 and 5 + 5), every even number up to 4610 has at
+      // least one partition, and the scaled count peaks at 2310 = 2 3 5 7 11; exactly one
+      // torus shift reproduces every cell colour to within the grain.
+      expect(partitions[0]).toBe(1);
+      expect(partitions[3]).toBe(2);
+      expect(Math.min(...partitions)).toBe(1);
+      expect(2 * (scaled.indexOf(most) + 2)).toBe(2310);
+      expect(fittingShifts(cellColors(seed))).toHaveLength(1);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.025);
+      expect(low).toBeLessThan(0.027);
+      expect(high).toBeGreaterThan(0.84);
+      expect(high).toBeLessThan(0.86);
+      expect(dark / 65536).toBeGreaterThan(0.26);
+      expect(dark / 65536).toBeLessThan(0.3);
+      expect(mean / 65536).toBeGreaterThan(0.375);
+      expect(mean / 65536).toBeLessThan(0.385);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 3);
+      expect(heightHigh).toBeGreaterThan(0.83);
+      expect(heightHigh).toBeLessThan(0.85);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('moves the table around the torus per seed and is deterministic for one seed', () => {
+    const first = cellColors(0),
+      second = cellColors(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(Math.abs(first[i] - second[i]) > 0.05);
+    expect(different / first.length).toBeGreaterThan(0.2);
+    expect(cellColors(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('goldbachtable', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [cells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 violet tile maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('goldbachtable', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(96);
+    expect(red / (512 * 512)).toBeLessThan(100);
+    expect(green / (512 * 512)).toBeGreaterThan(61);
+    expect(green / (512 * 512)).toBeLessThan(66);
+    expect(blue / (512 * 512)).toBeGreaterThan(109);
+    expect(blue / (512 * 512)).toBeLessThan(114);
     expect(maxTilt).toBeGreaterThan(0.02);
     expect(maxTilt).toBeLessThan(0.04);
     expect(invalid).toBe(0);

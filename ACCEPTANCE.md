@@ -12618,3 +12618,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試（φ(n)以互質計數獨立重寫、唯一環面平移與統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過，`Divisor count as`原有測試仍通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Totient table as|totienttable|Divisor count as|kinds|catalog|distinct|periodic"`定向測試**2311項通過／3947項未選**。
 - 未驗證：totienttable未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：哥德巴赫分拆表（goldbachtable）
+
+- 範圍：新增`goldbachtable`（目前目錄1001→1002種，含plain的gallery 1003項）：48×48方格，格代表偶數`n = 2·(row·48 + col + 2)`（4到4610），以`g(n)·ln(n)²/n`（g為哥德巴赫分拆數，即質數`p ≤ n/2`且`n − p`也是質數的個數；乘上`ln(n)²/n`以消掉整體成長）除以表內最大值再取0.75次方上色，紫羅蘭色在暗紫底上，最亮在n = 2310；seed把整張表在環面上平移；沿用divisorcount的方格形狀；預設0.3 m nominal tile、0.0008 UV-relative relief；cache `Uint8Array(4611)`加兩個`Float64Array(2304)`加`Float64Array(128²)`，共172,547 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**；只是分拆數表示，不是猜想的證明。
+- 調整與紀錄：(1)第一版直接以g(n)除以最大值上色，預覽上半部很暗、下半部很亮並在表接縫出現橫向色帶（g(n)隨n成長），所以改成先乘`ln(n)²/n`；第二版預覽的接縫只剩少數較暗的方格（n = 4附近）；第一版沒有保存測試與探針數字，文件與測試只使用第二版。(2)第一次嘗試產生程式碼時，我的腳本在替換不存在的字串（「Euler totient table」）時中途失敗，先前的步驟沒有改到任何檔案（`git status`為乾淨），修正腳本後重跑；中間誤跑的預覽因為沒有sampler而報錯，沒有影響結果。(3)我在sampler註解初稿中寫了「n剛好高於2的冪的數分拆數少」，這沒有驗證，正式版已移除。(4)sampler建構3次約76 ms（第一次）、17 ms、16 ms，單次量測，**不是benchmark**；每個取樣點為常數次運算，**未量測耗時**。測試一次通過，無需調整區間。
+- 實測（工具實跑）：g(4) = 1、g(10) = 2、表內每個偶數至少1個分拆、g最大值171、g(4610) = 72、`g(n)·ln(n)²/n`最大在n = 2310；256²取樣（seed 0／1／0xffffffff）亮處（color>0.5）占26.77%–29.34%、color 0.0257–0.0261至0.8451–0.8511、平均0.3765–0.3830、AO最低0.6、height至多0.8347–0.8425 relief；512²取樣（seed 0／1／0xffffffff／7）亮處占27.77%–29.11%、color 0.0252–0.0255至0.8463–0.8527、平均0.3803–0.3826、height至多0.8418–0.8461 relief；每個seed恰好一種環面平移（seed 0為(33, 9)、1為(21, 40)、0xffffffff為(8, 0)、7為(11, 34)）使2304格中心顏色與獨立試除法重寫的色調一致，最大誤差0.0150以內（門檻0.03）；seed 0與1有39.7%的格子中心色差大於0.05、亮區遮罩（512²）9.1%像素不同；seed 7的512²maps平均r／g／b約(98.0, 63.3, 111.8)、法線tilt²最大約0.0280、z分量最小253。我實看了第二版預覽（seed 7）。
+- 測試：新增5項專屬測試（分拆數以試除法獨立重寫、唯一環面平移與統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過，`Totient table as`原有測試仍通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Goldbach table as|goldbachtable|Totient table as|kinds|catalog|distinct|periodic"`定向測試**2313項通過／3950項未選**。
+- 未驗證：totienttable、goldbachtable未跑完整suite與瀏覽器gallery；不push。

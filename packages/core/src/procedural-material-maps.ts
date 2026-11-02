@@ -40862,6 +40862,77 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'goldbachtable': {
+        const p = proceduralMaterialPresets.goldbachtable,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft,
+          shiftX = Math.floor(hash(0, 0, seed ^ p.seedSalt) * p.cells),
+          shiftY = Math.floor(hash(1, 0, seed ^ p.seedSalt) * p.cells),
+          // Cell (col, row) holds the even number n = 2 (row * cells + col + 2) (4, 6, 8, ...)
+          // and is toned by its number of Goldbach partitions g(n), the primes p <= n / 2
+          // with n - p prime, scaled by ln(n)^2 / n to remove the overall growth of g (a table
+          // toned by g itself would show a hard seam where it wraps), as (that ratio / its
+          // largest value in the table) raised to toneExponent: the comet of bands left over,
+          // where multiples of 6 and 30 stay higher than their neighbours. The seed moves the
+          // whole table around the torus.
+          count = p.cells * p.cells,
+          limit = 2 * (count + 1),
+          composite = new Uint8Array(limit + 1),
+          scaled = new Float64Array(count),
+          tones = new Float64Array(count);
+        composite[0] = composite[1] = 1;
+        for (let n = 2; n * n <= limit; n++)
+          if (!composite[n])
+            for (let multiple = n * n; multiple <= limit; multiple += n)
+              composite[multiple] = 1;
+        let most = 0;
+        for (let i = 0; i < count; i++) {
+          const n = 2 * (i + 2);
+          let partitions = 0;
+          for (let q = 2; 2 * q <= n; q++)
+            if (!composite[q] && !composite[n - q]) partitions++;
+          scaled[i] = (partitions * Math.log(n) ** 2) / n;
+          most = Math.max(most, scaled[i]);
+        }
+        for (let i = 0; i < count; i++)
+          tones[i] = p.toneSpan * (scaled[i] / most) ** p.toneExponent;
+        return () => {
+          // One compact-support rounded-square kernel per cell (a quartic superellipse
+          // through smoothstep, exactly zero before the cell boundary), so the cell
+          // lookup never jumps and the field is C1.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            ax = (x - col - 0.5) * inverseHalf,
+            ay = (y - row - 0.5) * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            tone =
+              tones[
+                ((row + shiftY) % p.cells) * p.cells +
+                  ((col + shiftX) % p.cells)
+              ],
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'divisorcount': {
         const p = proceduralMaterialPresets.divisorcount,
           grainField = cachedNoise(
@@ -49460,6 +49531,7 @@ export function createSurfaceSampler(
     kind === 'juliatiles' ||
     kind === 'dragoncurve' ||
     kind === 'divisorcount' ||
+    kind === 'goldbachtable' ||
     kind === 'totienttable' ||
     kind === 'peanocurve' ||
     kind === 'sacksspiral' ||

@@ -14137,6 +14137,26 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.08;
         gapOcclusion: 0.4;
     }>;
+    goldbachtable: Readonly<{
+        dark: readonly [20, 4, 24];
+        light: readonly [225, 160, 255];
+        roughness: 0.4;
+        relief: 0.0008;
+        seedSalt: 24605;
+        cells: 48;
+        kernelHalf: 0.46;
+        edgeSoft: 0.3;
+        grainCells: 128;
+        gapTone: 0.04;
+        toneFloor: 0.14;
+        toneSpan: 0.7;
+        toneExponent: 0.75;
+        grainTone: 0.03;
+        cellHeight: 0.8;
+        toneHeight: 0.12;
+        grainHeight: 0.08;
+        gapOcclusion: 0.4;
+    }>;
     peanocurve: Readonly<{
         dark: readonly [10, 18, 40];
         light: readonly [255, 130, 170];
@@ -16021,6 +16041,7 @@ export declare const proceduralTileMeters: Readonly<{
     juliatiles: 0.3;
     dragoncurve: 0.25;
     divisorcount: 0.3;
+    goldbachtable: 0.3;
     totienttable: 0.3;
     peanocurve: 0.25;
     sacksspiral: 0.4;

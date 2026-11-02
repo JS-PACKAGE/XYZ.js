@@ -22783,6 +22783,34 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: .08,
 		gapOcclusion: .4
 	}),
+	goldbachtable: Object.freeze({
+		dark: [
+			20,
+			4,
+			24
+		],
+		light: [
+			225,
+			160,
+			255
+		],
+		roughness: .4,
+		relief: 8e-4,
+		seedSalt: 24605,
+		cells: 48,
+		kernelHalf: .46,
+		edgeSoft: .3,
+		grainCells: 128,
+		gapTone: .04,
+		toneFloor: .14,
+		toneSpan: .7,
+		toneExponent: .75,
+		grainTone: .03,
+		cellHeight: .8,
+		toneHeight: .12,
+		grainHeight: .08,
+		gapOcclusion: .4
+	}),
 	peanocurve: Object.freeze({
 		dark: [
 			10,
@@ -25077,6 +25105,7 @@ var proceduralTileMeters = Object.freeze({
 	juliatiles: .3,
 	dragoncurve: .25,
 	divisorcount: .3,
+	goldbachtable: .3,
 	totienttable: .3,
 	peanocurve: .25,
 	sacksspiral: .4,
