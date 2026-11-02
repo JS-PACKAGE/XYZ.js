@@ -1035,6 +1035,7 @@ const kinds: ProceduralMaterialKind[] = [
   'penrosetiling',
   'penrosestar',
   'ammannbeenker',
+  'heptagridtiling',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -156956,6 +156957,352 @@ describe('Ammann-Beenker as an eight-fold tiling patch of squares and rhombi', (
     expect(green / (512 * 512)).toBeLessThan(60);
     expect(blue / (512 * 512)).toBeGreaterThan(44);
     expect(blue / (512 * 512)).toBeLessThan(48);
+    expect(maxTilt).toBeGreaterThan(0.02);
+    expect(maxTilt).toBeLessThan(0.08);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Heptagrid tiling as a seven-fold multigrid rhombus patch in rose lines', () => {
+  const p = proceduralMaterialPresets.heptagridtiling;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const grids = p.offsets.length;
+  const unit = (index: number): [number, number] => [
+    Math.cos((2 * Math.PI * index) / p.roots),
+    Math.sin((2 * Math.PI * index) / p.roots),
+  ];
+  /**
+   * The rhombi of the Penrose tiling written independently here from de Bruijn's
+   * pentagrid: each crossing of a line of grid j with one of grid k gives one rhombus
+   * whose corners are sums of K_l times the fifth roots of unity.
+   */
+  const rhombi = (() => {
+    const out: [number, number][][] = [];
+    for (let j = 0; j < grids; j++)
+      for (let k = j + 1; k < grids; k++)
+        for (let r = -p.gridRange; r <= p.gridRange; r++)
+          for (let s = -p.gridRange; s <= p.gridRange; s++) {
+            const [jx, jy] = unit(j),
+              [kx, ky] = unit(k),
+              determinant = jx * ky - jy * kx,
+              a = r + p.offsets[j],
+              b = s + p.offsets[k],
+              x = (a * ky - b * jy) / determinant,
+              y = (jx * b - kx * a) / determinant,
+              indices = Array.from({ length: grids }, (_, l) =>
+                l === j
+                  ? r
+                  : l === k
+                    ? s
+                    : Math.ceil(x * unit(l)[0] + y * unit(l)[1] - p.offsets[l]),
+              ),
+              corner = (stepJ: number, stepK: number): [number, number] => {
+                let px = 0,
+                  py = 0;
+                for (let l = 0; l < grids; l++) {
+                  const index =
+                    indices[l] + (l === j ? stepJ : 0) + (l === k ? stepK : 0);
+                  px += index * unit(l)[0];
+                  py += index * unit(l)[1];
+                }
+                return [px, py];
+              },
+              corners = [
+                corner(0, 0),
+                corner(1, 0),
+                corner(1, 1),
+                corner(0, 1),
+              ];
+            if (
+              Math.hypot(
+                (corners[0][0] + corners[2][0]) / 2,
+                (corners[0][1] + corners[2][1]) / 2,
+              ) <= p.patchRadius
+            )
+              out.push(corners);
+          }
+    return out;
+  })();
+  const pointKey = ([x, y]: [number, number]): string =>
+    `${Math.round(x * 1000)},${Math.round(y * 1000)}`;
+  const edgeMap = (() => {
+    const out = new Map<string, [[number, number], [number, number]]>();
+    for (const corners of rhombi)
+      for (let side = 0; side < 4; side++) {
+        const from = corners[side],
+          to = corners[(side + 1) % 4],
+          keyFrom = pointKey(from),
+          keyTo = pointKey(to);
+        out.set(
+          keyFrom < keyTo ? `${keyFrom}|${keyTo}` : `${keyTo}|${keyFrom}`,
+          [from, to],
+        );
+      }
+    return out;
+  })();
+  /** The edges turned by whole steps of 36 degrees. */
+  const turned = (step: number) => {
+    const angle = (2 * Math.PI * step) / p.rotationSteps,
+      cosine = Math.cos(angle),
+      sine = Math.sin(angle),
+      turn = ([x, y]: [number, number]): [number, number] => [
+        cosine * x - sine * y,
+        sine * x + cosine * y,
+      ];
+    return [...edgeMap.values()].map(([from, to]) => [turn(from), turn(to)]);
+  };
+  /** Colour of the independent model (grain excluded) at a point in tiling units. */
+  const modelColor = (
+    edges: [number, number][][],
+    x: number,
+    y: number,
+  ): number => {
+    let sum = 0;
+    for (const [[ax, ay], [bx, by]] of edges) {
+      const hx = bx - ax,
+        hy = by - ay,
+        along = Math.max(
+          0,
+          Math.min(1, ((x - ax) * hx + (y - ay) * hy) / (hx * hx + hy * hy)),
+        ),
+        d2 =
+          ((x - ax - along * hx) ** 2 + (y - ay - along * hy) ** 2) /
+          p.threadRadius ** 2;
+      if (d2 < 1) sum += (1 - d2) ** 2;
+    }
+    return p.baseTone + p.threadTone * (1 - Math.exp(-p.gain * sum));
+  };
+  const vertices = [
+    ...new Map(
+      rhombi.flat().map((corner) => [pointKey(corner), corner] as const),
+    ).values(),
+  ];
+  /** Rotation steps whose model reproduces the colour at every third vertex of the patch. */
+  const fittingRotations = (seed: number): number[] => {
+    const sample = createSurfaceSampler('heptagridtiling', seed),
+      out = empty(),
+      fits: number[] = [];
+    for (let step = 0; step < p.rotationSteps; step++) {
+      const edges = turned(step),
+        angle = (2 * Math.PI * step) / p.rotationSteps;
+      let worst = 0;
+      for (let i = 0; i < vertices.length && worst < 0.03; i += 3) {
+        const x =
+            Math.cos(angle) * vertices[i][0] - Math.sin(angle) * vertices[i][1],
+          y =
+            Math.sin(angle) * vertices[i][0] + Math.cos(angle) * vertices[i][1];
+        sample(x / p.period + 0.5, y / p.period + 0.5, out);
+        worst = Math.max(worst, Math.abs(out.color - modelColor(edges, x, y)));
+      }
+      if (worst < 0.03) fits.push(step);
+    }
+    return fits;
+  };
+  it('is a simple patch of 154 rhombi of three kinds with unit edges and seven-fold valences', () => {
+    const lengths = new Set(
+        [...edgeMap.values()].map(([[ax, ay], [bx, by]]) =>
+          Math.hypot(ax - bx, ay - by).toFixed(6),
+        ),
+      ),
+      valence = new Map<string, number>();
+    for (const key of edgeMap.keys())
+      for (const end of key.split('|'))
+        valence.set(end, (valence.get(end) ?? 0) + 1);
+    let fat = 0,
+      thin = 0,
+      middle = 0;
+    for (const [c0, c1, , c3] of rhombi) {
+      const ux = c1[0] - c0[0],
+        uy = c1[1] - c0[1],
+        vx = c3[0] - c0[0],
+        vy = c3[1] - c0[1],
+        angle =
+          (Math.acos(
+            (ux * vx + uy * vy) / (Math.hypot(ux, uy) * Math.hypot(vx, vy)),
+          ) *
+            180) /
+          Math.PI,
+        acute = Math.min(angle, 180 - angle);
+      if (Math.abs(acute - 25.714) < 1) fat++;
+      else if (Math.abs(acute - 51.429) < 1) thin++;
+      else if (Math.abs(acute - 77.143) < 1) middle++;
+    }
+    expect(rhombi).toHaveLength(154);
+    expect(edgeMap.size).toBe(335);
+    expect(vertices).toHaveLength(182);
+    // A disc-like patch has Euler characteristic 1 (V - E + F).
+    expect(vertices.length - edgeMap.size + rhombi.length).toBe(1);
+    expect([...lengths]).toEqual(['1.000000']);
+    expect(Math.min(...valence.values())).toBe(2);
+    expect(Math.max(...valence.values())).toBe(9);
+    // Every rhombus has an acute angle of 25.7, 51.4 or 77.1 degrees (the gaps between the
+    // seven directions): 27, 58 and 69 of them here.
+    expect([fat, thin, middle]).toEqual([27, 58, 69]);
+  });
+  it('draws the patch at exactly one rotation per seed and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff, 7]) {
+      const sample = createSurfaceSampler('heptagridtiling', seed),
+        a = empty();
+      expect(fittingRotations(seed)).toHaveLength(1);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.045);
+      expect(low).toBeLessThan(0.046);
+      expect(high).toBeGreaterThan(0.85);
+      expect(high).toBeLessThan(0.853);
+      expect(dark / 65536).toBeGreaterThan(0.119);
+      expect(dark / 65536).toBeLessThan(0.121);
+      expect(mean / 65536).toBeGreaterThan(0.148);
+      expect(mean / 65536).toBeLessThan(0.1482);
+      expect(roughLow).toBeCloseTo(0.3, 4);
+      expect(roughHigh).toBeCloseTo(p.roughness, 6);
+      expect(heightHigh).toBeGreaterThan(0.975);
+      expect(heightHigh).toBeLessThan(0.995);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('turns the patch per seed and is deterministic for one seed', () => {
+    const first = fittingRotations(0),
+      second = fittingRotations(1);
+    expect(first).not.toEqual(second);
+    expect(fittingRotations(0)).toEqual(first);
+  });
+  it('keeps the edges, their compact borders and the grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('heptagridtiling', seed),
+        [step] = fittingRotations(seed),
+        edges = turned(step);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      // Points on the compact border of every edge (both sides at the middle and the ends), where a kink would show.
+      for (const [[ax, ay], [bx, by]] of edges)
+        for (const along of [0, 0.5, 1])
+          for (const side of [-1, 1]) {
+            const px = ax + along * (bx - ax),
+              py = ay + along * (by - ay),
+              nx = -(by - ay),
+              ny = bx - ax,
+              x = px + (side * p.threadRadius * nx) / Math.hypot(nx, ny),
+              y = py + (side * p.threadRadius * ny) / Math.hypot(nx, ny);
+            check(x / p.period + 0.5, y / p.period + 0.5);
+          }
+      for (let i = 0; i <= p.grainCells; i++)
+        for (const y of [0, 0.137, 0.5, 0.793]) {
+          check(i / p.grainCells, y);
+          check(y, i / p.grainCells);
+        }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 rose-line maps with gentle line normals', () => {
+    const maps = generateProceduralMaps('heptagridtiling', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(61);
+    expect(red / (512 * 512)).toBeLessThan(66);
+    expect(green / (512 * 512)).toBeGreaterThan(21);
+    expect(green / (512 * 512)).toBeLessThan(25);
+    expect(blue / (512 * 512)).toBeGreaterThan(29);
+    expect(blue / (512 * 512)).toBeLessThan(33);
     expect(maxTilt).toBeGreaterThan(0.02);
     expect(maxTilt).toBeLessThan(0.08);
     expect(invalid).toBe(0);
