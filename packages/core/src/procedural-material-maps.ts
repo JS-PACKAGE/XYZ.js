@@ -37290,6 +37290,87 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'voronoicells': {
+        const p = proceduralMaterialPresets.voronoicells,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x31a01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          count =
+            p.counts[Math.floor(hash(3, 1, seed ^ 0x31a02) * p.counts.length)],
+          jitter =
+            p.jitters[
+              Math.floor(hash(5, 2, seed ^ 0x31a03) * p.jitters.length)
+            ],
+          siteX = new Float32Array(count * count),
+          siteY = new Float32Array(count * count),
+          siteTone = new Float32Array(count * count);
+        for (let row = 0; row < count; row++)
+          for (let column = 0; column < count; column++) {
+            const k = row * count + column;
+            siteX[k] =
+              (column +
+                0.5 +
+                (hash(column, row, seed ^ 0x31a04) - 0.5) * 2 * jitter) /
+              count;
+            siteY[k] =
+              (row +
+                0.5 +
+                (hash(column, row, seed ^ 0x31a05) - 0.5) * 2 * jitter) /
+              count;
+            siteTone[k] =
+              p.lowestTone +
+              (p.highestTone - p.lowestTone) *
+                hash(column, row, seed ^ 0x31a06);
+          }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            column = Math.min(count - 1, Math.floor(fu * count)),
+            row = Math.min(count - 1, Math.floor(fv * count));
+          let nearest = Infinity,
+            second = Infinity,
+            tone: number = p.lowestTone;
+          // The sites of the 5 x 5 grid cells around this one (the grid wraps around the tile).
+          for (let dy = -2; dy <= 2; dy++)
+            for (let dx = -2; dx <= 2; dx++) {
+              const wrappedColumn = (column + dx + count * 2) % count,
+                wrappedRow = (row + dy + count * 2) % count,
+                k = wrappedRow * count + wrappedColumn,
+                shiftX = Math.floor((column + dx) / count),
+                shiftY = Math.floor((row + dy) / count),
+                distance = Math.hypot(
+                  fu - (siteX[k] + shiftX),
+                  fv - (siteY[k] + shiftY),
+                );
+              if (distance < nearest) {
+                second = nearest;
+                nearest = distance;
+                tone = siteTone[k];
+              } else if (distance < second) second = distance;
+            }
+          // Half the gap between the two nearest distances is about the distance to the border between the two cells.
+          const border = cover(p.borderHalf - (second - nearest) / 2),
+            dot = cover(p.dotRadius - nearest),
+            face = tone,
+            base = face + (p.borderTone - face) * border;
+          color = clamp(
+            base +
+              (p.dotTone - base) * dot +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.faceHeight +
+              (p.borderHeight - p.faceHeight) * border +
+              (p.dotHeight - p.faceHeight) * dot,
+          );
+          roughness =
+            p.faceRoughness +
+            (p.borderRoughness - p.faceRoughness) * border +
+            (p.dotRoughness - p.faceRoughness) * dot;
+          occlusion = 1 - 0.2 * border;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -64819,6 +64900,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'voronoicells' ||
     kind === 'cliffordattractor' ||
     kind === 'peanocurve' ||
     kind === 'bitwisetable' ||

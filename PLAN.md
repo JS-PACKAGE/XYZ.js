@@ -1969,6 +1969,10 @@
 
 這是作者設計的示意：沒有座標軸或參數標示；五組參數是我試過八組（其中三組不用）之後挑的：一組只占76格（週期軌道）、兩組占約八成格子（過滿，不容易分辨），在我用的48×48小格統計中；這些「混沌」判斷只是格數統計，沒有數學證明；每個取樣器建立時要迭代80萬次（512單次約135到149 ms，非效能認證）。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`voronoicells`（Voronoi細胞）使目前目錄1102→1103種，含plain的gallery為1104項。整張tile是Voronoi分割：每個方格內有一個被抖動的站點（網格邊長5、7、9，抖動量0.25、0.32、0.38個格寬，seed各挑一種；網格環繞整張tile，所以左右、上下無縫相接），每個點取最近站點的色調（每個站點有隨機的中等到淺的灰階），兩個最近站點距離差很小的地方畫較深的細邊界，每個站點中央有一個深色小圓點。Metallic與mortar為0。
+
+這是作者設計的示意：沒有編號或標示，色調只是隨機灰階；邊界寬度用「最近與次近距離之差的一半」近似到邊界的距離，所以在邊界的尖角處（三個細胞交會處）邊界會變得略寬；每個像素檢查周圍5×5格的站點（試過3×3在較早版本的測試中也通過，但我沒有證明3×3在抖動0.38時一定足夠）。預設1 m nominal tile、0.005 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

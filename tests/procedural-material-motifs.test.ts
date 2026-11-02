@@ -29118,3 +29118,234 @@ describe('cliffordattractor: the Clifford attractor', () => {
     }
   });
 });
+
+describe('voronoicells: Voronoi cells around jittered sites', () => {
+  const p = proceduralMaterialPresets.voronoicells;
+  const wrap = (d: number): number => d - Math.round(d);
+  const distance = (a: [number, number], b: [number, number]): number =>
+    Math.hypot(wrap(a[0] - b[0]), wrap(a[1] - b[1]));
+
+  // The sites are the dark dots (darker than any cell or border): found on a fine grid, grouped when they are close (the tile wraps),
+  // and taken as the centre of each group.
+  const readSites = (seed: number): [number, number][] => {
+    const sample = createSurfaceSampler('voronoicells', seed),
+      out = empty(),
+      steps = 640,
+      dark: [number, number][] = [];
+    for (let y = 0; y < steps; y++)
+      for (let x = 0; x < steps; x++) {
+        sample((x + 0.5) / steps, (y + 0.5) / steps, out);
+        if (out.color < 0.15) dark.push([(x + 0.5) / steps, (y + 0.5) / steps]);
+      }
+    // Connected groups of dark samples: a sample joins every group it is close to, which merges those groups into one.
+    let groups: [number, number][][] = [];
+    for (const point of dark) {
+      const near = groups.filter((members) =>
+        members.some((member) => distance(member, point) < 0.004),
+      );
+      groups = [
+        ...groups.filter((members) => !near.includes(members)),
+        [point, ...near.flat()],
+      ];
+    }
+    return groups.map((members) => {
+      // Average the offsets from the first member so that a dot cut by the tile edge stays in one piece.
+      const [x0, y0] = members[0];
+      return [
+        (x0 +
+          members.reduce((sum, [x]) => sum + wrap(x - x0), 0) / members.length +
+          1) %
+          1,
+        (y0 +
+          members.reduce((sum, [, y]) => sum + wrap(y - y0), 0) /
+            members.length +
+          1) %
+          1,
+      ] as [number, number];
+    });
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'puts one dot in each grid cell and tones every point like its nearest dot (seed %i)',
+    (seed) => {
+      const sites = readSites(seed),
+        count = Math.sqrt(sites.length);
+      expect(p.counts).toContain(count);
+      // One site in each cell of the count x count grid, at most the largest jitter away from the middle of its cell.
+      const taken = new Set<number>();
+      let largestOffset = 0;
+      for (const [x, y] of sites) {
+        taken.add(Math.floor(y * count) * count + Math.floor(x * count));
+        largestOffset = Math.max(
+          largestOffset,
+          Math.abs(x * count - Math.floor(x * count) - 0.5),
+          Math.abs(y * count - Math.floor(y * count) - 0.5),
+        );
+      }
+      expect(taken.size).toBe(sites.length);
+      expect(largestOffset).toBeLessThanOrEqual(Math.max(...p.jitters) + 0.02);
+      // Points that are not within 0.02 of a border or 0.012 of a dot take the tone of their nearest dot (toroidal distance).
+      const sample = createSurfaceSampler('voronoicells', seed),
+        out = empty(),
+        tones = sites.map(() => [] as number[]);
+      let state = 12345;
+      const random = (): number => {
+        state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+        return state / 4294967296;
+      };
+      let kept = 0;
+      for (let i = 0; i < 4000; i++) {
+        const point: [number, number] = [random(), random()],
+          ordered = sites
+            .map((site, index) => ({ index, d: distance(site, point) }))
+            .sort((a, b) => a.d - b.d);
+        if (ordered[0].d < 0.012 || (ordered[1].d - ordered[0].d) / 2 < 0.01)
+          continue;
+        sample(point[0], point[1], out);
+        tones[ordered[0].index].push(out.color);
+        kept++;
+      }
+      expect(kept).toBeGreaterThan(1500);
+      // Every point of a cell has (nearly) the cell's tone: the spread inside a cell is only the paper grain.
+      for (const list of tones)
+        if (list.length > 0)
+          expect(Math.max(...list) - Math.min(...list)).toBeLessThan(0.05);
+    },
+  );
+
+  it('shows a dark border between cells and no border inside them', () => {
+    const sample = createSurfaceSampler('voronoicells', 7),
+      out = empty(),
+      sites = readSites(7);
+    let bordersChecked = 0;
+    for (let a = 0; a < sites.length; a++)
+      for (let b = a + 1; b < sites.length; b++) {
+        if (distance(sites[a], sites[b]) > 0.2) continue;
+        // The middle between two sites on the same border line is on their border when no other site is closer to it.
+        const middle: [number, number] = [
+            sites[a][0] + wrap(sites[b][0] - sites[a][0]) / 2,
+            sites[a][1] + wrap(sites[b][1] - sites[a][1]) / 2,
+          ],
+          reach = distance(sites[a], middle);
+        if (
+          sites.some(
+            (site, index) =>
+              index !== a &&
+              index !== b &&
+              distance(site, middle) < reach + 0.02,
+          )
+        )
+          continue;
+        sample(middle[0], middle[1], out);
+        expect(out.color).toBeLessThan(p.borderTone + 0.05);
+        // Across the border (along the line between the two sites): 0.0018 from it is still inside the border (half width 0.0024),
+        // 0.0042 from it is already the face of a cell, which is never as dark as the border.
+        const length = distance(sites[a], sites[b]),
+          along: [number, number] = [
+            wrap(sites[b][0] - sites[a][0]) / length,
+            wrap(sites[b][1] - sites[a][1]) / length,
+          ];
+        for (const sign of [-1, 1]) {
+          sample(
+            middle[0] + sign * 0.0018 * along[0],
+            middle[1] + sign * 0.0018 * along[1],
+            out,
+          );
+          expect(out.color).toBeLessThan(p.borderTone + 0.05);
+          sample(
+            middle[0] + sign * 0.0042 * along[0],
+            middle[1] + sign * 0.0042 * along[1],
+            out,
+          );
+          expect(out.color).toBeGreaterThan(p.borderTone + 0.08);
+        }
+        bordersChecked++;
+      }
+    expect(bordersChecked).toBeGreaterThan(20);
+    // The dots: dark 0.0045 from an isolated site, not dark 0.0095 from it (the dot radius is 0.0065).
+    let dotsChecked = 0;
+    for (const [index, site] of sites.entries()) {
+      if (
+        sites.some(
+          (other, otherIndex) =>
+            otherIndex !== index && distance(other, site) < 0.05,
+        )
+      )
+        continue;
+      sample(site[0] + 0.0045, site[1], out);
+      expect(out.color).toBeLessThan(0.15);
+      sample(site[0] + 0.0095, site[1], out);
+      expect(out.color).toBeGreaterThan(0.2);
+      dotsChecked++;
+    }
+    expect(dotsChecked).toBeGreaterThan(10);
+  });
+
+  it(
+    'uses every grid size and several jitters across seeds',
+    { timeout: 60000 },
+    () => {
+      const counts = new Set<number>(),
+        offsets: [number, number][] = [];
+      for (let seed = 0; seed < 30; seed++) {
+        const sites = readSites(seed),
+          count = Math.sqrt(sites.length);
+        counts.add(count);
+        if (count === 9)
+          offsets.push([
+            Math.max(
+              ...sites.map(([x]) => Math.abs(x * 9 - Math.floor(x * 9) - 0.5)),
+            ),
+            Math.max(
+              ...sites.map(([, y]) =>
+                Math.abs(y * 9 - Math.floor(y * 9) - 0.5),
+              ),
+            ),
+          ]);
+      }
+      expect([...counts].sort((a, b) => a - b)).toEqual([...p.counts]);
+      // With 81 sites the largest offset on each axis is close to the jitter: all three jitters (0.25, 0.32, 0.38) appear, and x and
+      // y use the same one.
+      for (const [x, y] of offsets) expect(Math.abs(x - y)).toBeLessThan(0.05);
+      expect(offsets.some(([x]) => x < 0.27)).toBe(true);
+      expect(offsets.some(([x]) => x > 0.29 && x < 0.33)).toBe(true);
+      expect(offsets.some(([x]) => x > 0.35)).toBe(true);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('voronoicells', 0),
+      b = createSurfaceSampler('voronoicells', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
