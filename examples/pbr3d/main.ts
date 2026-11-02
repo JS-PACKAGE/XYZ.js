@@ -1085,6 +1085,7 @@ try {
     'fordcircles',
     'gaussianprimes',
     'chromaticant',
+    'rule110',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

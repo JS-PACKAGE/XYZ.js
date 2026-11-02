@@ -12817,3 +12817,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Chromatic ant as|chromaticant|kinds|catalog|distinct|periodic"`定向測試**2346項通過／4019項未選**。
 - 未驗證：fordcircles、gaussianprimes與chromaticant未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：規則110（rule110）
+
+- 範圍：新增`rule110`（目前目錄1020→1021種，含plain的gallery 1022項）：一維基本細胞自動機規則110畫成96×96時空圖（第0列隨機、每格以0.5機率亮起；其後每格由上方左／中／右三格環繞決定，位元權重4／2／1），橘色亮格與深紫暗格的圓角方磚；seed決定第0列並令圖水平平移（垂直不平移）；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 204,800 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽只看了一版，畫面高頻、很滿（512²亮處約四成），未再調整；(2)規則110是確定性的，測試從格中心顏色讀回狀態，以獨立寫的規則**驗證第1到95列的每一格都符合規則110**（不符合數為0），不需要找出水平平移（規則平移不變）；為確認檢查不是空轉，我用臨時探針把規則號碼換成30，四個seed得到3,214／3,218／3,193／3,301個不符合的格子；(3)第0列的隨機性（雜湊）**未獨立驗證**；規則110有滑翔體與三角形等結構是標準理論事實，這裡沒有驗證；(4)sampler建構量到約1.5 ms（單次量測，不是benchmark），取樣耗時**未量測**。
+- 實測（工具實跑）：四個seed（0／1／0xffffffff／7）不符合規則110的格子數皆為0；全表亮格5,121／5,127／5,090／5,256個（55.6%／55.6%／55.2%／57.0%）；第0列亮格45／47／52／49個、最後一列51／55／55／58個；顏色與兩個色調的最大誤差0.0150以內；256²（seed 0／1／0xffffffff）亮處（color>0.5）38.10%–38.25%、color 0.02549–0.02613至0.85415–0.85447、平均0.38544–0.38724、roughness恆為0.4、AO最低0.6、height至多0.8472–0.8475 relief；512²（四個seed）亮處39.75%–41.04%、color 0.02523–0.02550至0.85463–0.85485、平均0.3917–0.4008、height至多0.8497–0.8503 relief；seed 0與1相比，格中心顏色相差超過0.05的格子46.5%（512²中color>0.5的取樣33.3%不同）；seed 7的512²maps平均r／g／b約(108.2, 68.9, 46.1)、法線tilt²最大約0.0468、z分量最小252。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Rule 110 as|rule110|kinds|catalog|distinct|periodic"`定向測試**2348項通過／4022項未選**。
+- 未驗證：fordcircles、gaussianprimes、chromaticant與rule110未跑完整suite與瀏覽器gallery；不push。

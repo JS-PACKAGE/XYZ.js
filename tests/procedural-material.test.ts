@@ -1048,6 +1048,7 @@ const kinds: ProceduralMaterialKind[] = [
   'fordcircles',
   'gaussianprimes',
   'chromaticant',
+  'rule110',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',
@@ -164262,6 +164263,220 @@ describe('Chromatic ant as a twelve-colour Langton ant on a 96 by 96 torus', () 
     expect(green / (512 * 512)).toBeLessThan(74.5);
     expect(blue / (512 * 512)).toBeGreaterThan(62.5);
     expect(blue / (512 * 512)).toBeLessThan(64.5);
+    expect(maxTilt).toBeGreaterThan(0.04);
+    expect(maxTilt).toBeLessThan(0.055);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Rule 110 as the elementary cellular automaton drawn as a 96 by 96 space-time diagram', () => {
+  const p = proceduralMaterialPresets.rule110;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const cells = 96;
+  /** Colour a cell is expected to have for its state, grain excluded. */
+  const expectedColor = (on: boolean): number =>
+    p.toneFloor + (on ? p.toneSpan : 0);
+  /** Colour read at the centre of every cell, grain included. */
+  const cellColors = (seed: number): number[] => {
+    const sample = createSurfaceSampler('rule110', seed),
+      out = empty(),
+      colors: number[] = [];
+    for (let row = 0; row < cells; row++)
+      for (let col = 0; col < cells; col++) {
+        sample((col + 0.5) / cells, (row + 0.5) / cells, out);
+        colors.push(out.color);
+      }
+    return colors;
+  };
+  /**
+   * The rule applied row by row to the states read back from the cell colours, with the three
+   * cells above (left, centre, right, wrapping) as the bits 4, 2 and 1 of the rule number,
+   * written independently here: the number of cells that do not follow it.
+   */
+  const violations = (states: boolean[]): number => {
+    let wrong = 0;
+    for (let row = 1; row < cells; row++)
+      for (let col = 0; col < cells; col++) {
+        const above = (row - 1) * cells,
+          left = states[above + ((col + cells - 1) % cells)],
+          centre = states[above + col],
+          right = states[above + ((col + 1) % cells)],
+          index = (left ? 4 : 0) + (centre ? 2 : 0) + (right ? 1 : 0);
+        wrong += Number(
+          states[row * cells + col] !== (((p.rule >> index) & 1) === 1),
+        );
+      }
+    return wrong;
+  };
+  it('follows rule 110 from row to row and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('rule110', seed),
+        a = empty();
+      // Every cell below the first row follows rule 110 from the three cells above it (the
+      // states are read from the cell colours, which sit on the two tones within the grain),
+      // the first row is random with about half of its cells on, and a bit over half of all cells
+      // are on.
+      const colors = cellColors(seed),
+        states = colors.map((color) => color > 0.5);
+      colors.forEach((color, i) =>
+        expect(Math.abs(color - expectedColor(states[i]))).toBeLessThan(0.03),
+      );
+      expect(violations(states)).toBe(0);
+      const firstRow = states.slice(0, cells).filter(Boolean).length;
+      expect(firstRow).toBeGreaterThan(40);
+      expect(firstRow).toBeLessThan(56);
+      expect(states.filter(Boolean).length / states.length).toBeGreaterThan(
+        0.5,
+      );
+      expect(states.filter(Boolean).length / states.length).toBeLessThan(0.6);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.025);
+      expect(low).toBeLessThan(0.027);
+      expect(high).toBeGreaterThan(0.854);
+      expect(high).toBeLessThan(0.855);
+      expect(dark / 65536).toBeGreaterThan(0.375);
+      expect(dark / 65536).toBeLessThan(0.39);
+      expect(mean / 65536).toBeGreaterThan(0.383);
+      expect(mean / 65536).toBeLessThan(0.39);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 3);
+      expect(heightHigh).toBeGreaterThan(0.84);
+      expect(heightHigh).toBeLessThan(0.85);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('draws a different first row per seed and is deterministic for one seed', () => {
+    const first = cellColors(0),
+      second = cellColors(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(Math.abs(first[i] - second[i]) > 0.05);
+    expect(different / first.length).toBeGreaterThan(0.4);
+    expect(different / first.length).toBeLessThan(0.55);
+    expect(cellColors(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('rule110', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [cells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 violet and orange tile maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('rule110', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(107);
+    expect(red / (512 * 512)).toBeLessThan(109.5);
+    expect(green / (512 * 512)).toBeGreaterThan(68);
+    expect(green / (512 * 512)).toBeLessThan(70);
+    expect(blue / (512 * 512)).toBeGreaterThan(45);
+    expect(blue / (512 * 512)).toBeLessThan(47.5);
     expect(maxTilt).toBeGreaterThan(0.04);
     expect(maxTilt).toBeLessThan(0.055);
     expect(invalid).toBe(0);

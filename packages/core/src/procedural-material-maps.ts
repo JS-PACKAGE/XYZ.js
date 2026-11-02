@@ -41720,6 +41720,63 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'rule110': {
+        const p = proceduralMaterialPresets.rule110,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft,
+          shiftX = Math.floor(hash(0, 1, seed ^ p.seedSalt) * p.cells),
+          // An elementary cellular automaton as a space-time diagram: row 0 is a random row
+          // (a cell is on with probability density), and the cell (col, row + 1) is bit
+          // (4 left + 2 centre + right) of the rule number, where left, centre and right are the
+          // three cells above it (the row wraps around). Rule 110 grows gliders and triangles.
+          // The seed changes the first row and moves the picture sideways.
+          tones = new Float64Array(p.cells * p.cells);
+        for (let col = 0; col < p.cells; col++)
+          tones[col] =
+            hash(col, 0, seed ^ p.seedSalt) < p.density ? p.toneSpan : 0;
+        for (let row = 1; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const above = (row - 1) * p.cells,
+              neighbourhood =
+                4 * Number(tones[above + ((col + p.cells - 1) % p.cells)] > 0) +
+                2 * Number(tones[above + col] > 0) +
+                Number(tones[above + ((col + 1) % p.cells)] > 0);
+            tones[row * p.cells + col] =
+              (p.rule >> neighbourhood) & 1 ? p.toneSpan : 0;
+          }
+        return () => {
+          // One compact-support rounded-square kernel per cell (a quartic superellipse
+          // through smoothstep, exactly zero before the cell boundary), so the cell
+          // lookup never jumps and the field is C1.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            ax = (x - col - 0.5) * inverseHalf,
+            ay = (y - row - 0.5) * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            tone = tones[row * p.cells + ((col + shiftX) % p.cells)],
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -50543,6 +50600,7 @@ export function createSurfaceSampler(
     kind === 'fordcircles' ||
     kind === 'gaussianprimes' ||
     kind === 'chromaticant' ||
+    kind === 'rule110' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||
