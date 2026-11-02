@@ -1657,6 +1657,10 @@
 
 這是作者設計的示意：只列出序列長度不超過13項的起始值（不含如27這種很長的軌跡），所以並不代表考拉茲猜想本身；數字最多三位（例如53的序列含160）；點陣數字在小尺寸下難以辨識。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`hammingcodewords`（漢明碼字）使目前目錄1024→1025種，含plain的gallery為1026項。每tile是一張Hamming(7,4)碼字表：表頭是位置1到7與S（校正子），下面16列是資料半位元組0000到1111（列號r）對應的7位元碼字（位置1到7依序為p1 p2 d1 p3 d2 d3 d4，同位位元在位置1、2、4，底色略暗），每列由seed決定是否翻轉其中一個位元（約八分之一的列不翻轉），被翻轉的格子以最深的底色標示；最右欄S是校正子（收到的字中值為1的位置的XOR），它恰好等於被翻轉的位置，0表示沒有錯誤。因此可以讀到：把S指出的那一格翻回來，就得到原本的碼字，其資料位元就是列號。Metallic與mortar為0。
+
+這是作者設計的示意：只有Hamming(7,4)這一種碼、16列固定是資料0到15，每列最多翻轉一個位元（Hamming碼無法修正兩位元錯誤，所以不畫）；翻轉位置由seed偽隨機決定；點陣數字小尺寸下難以辨識。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

@@ -17417,3 +17417,143 @@ describe('collatzsequences: hailstone sequences down to 1', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('hammingcodewords: Hamming(7,4) code words with one flipped bit each', () => {
+  const p = proceduralMaterialPresets.hammingcodewords;
+  const columns = p.bits + 1;
+  const shapes: Record<string, string[]> = {
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    '2': ['###', '..#', '###', '#..', '###'],
+    '3': ['###', '..#', '###', '..#', '###'],
+    '4': ['#.#', '#.#', '###', '..#', '..#'],
+    '5': ['###', '#..', '###', '..#', '###'],
+    '6': ['###', '#..', '###', '#.#', '###'],
+    '7': ['###', '..#', '.#.', '.#.', '.#.'],
+    S: ['.##', '#..', '.#.', '..#', '##.'],
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows code words whose syndrome names the flipped bit, which corrects back to the row number (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('hammingcodewords', seed),
+        out = empty(),
+        at = (column: number, row: number, fx: number, fy: number): number => {
+          sample(
+            p.left + (column + fx) * p.columnWidth,
+            p.top + (row + fy) * p.rowHeight,
+            out,
+          );
+          return out.color;
+        },
+        read = (column: number, row: number): string => {
+          const background = at(column, row, 0.08, 0.1),
+            bits: string[] = [];
+          for (let y = 0; y < 5; y++) {
+            let text = '';
+            for (let x = 0; x < 3; x++) {
+              const fx = 0.5 + ((x - 1) * p.digitPixel) / p.columnWidth,
+                fy = 0.5 + ((y - 2) * p.digitPixel) / p.rowHeight;
+              text +=
+                Math.abs(at(column, row, fx, fy) - background) > 0.4
+                  ? '#'
+                  : '.';
+            }
+            bits.push(text);
+          }
+          const found = Object.entries(shapes).find(([, shape]) =>
+            shape.every((line, i) => line === bits[i]),
+          );
+          expect(found).toBeDefined();
+          return (found as [string, string[]])[0];
+        };
+      // Header: the positions 1 to 7, then S for the syndrome.
+      expect(Array.from({ length: columns }, (_, c) => read(c, 0))).toEqual([
+        '1',
+        '2',
+        '3',
+        '4',
+        '5',
+        '6',
+        '7',
+        'S',
+      ]);
+      const flippedRows: number[] = [];
+      for (let row = 0; row < 16; row++) {
+        const word = [
+            0,
+            ...Array.from({ length: p.bits }, (_, c) =>
+              Number(read(c, row + 1)),
+            ),
+          ],
+          syndrome = Number(read(p.bits, row + 1));
+        // The syndrome is the XOR of the positions that hold a 1, and it is in 0..7.
+        expect(syndrome).toBeLessThanOrEqual(7);
+        let xor = 0;
+        for (let position = 1; position <= p.bits; position++)
+          if (word[position]) xor ^= position;
+        expect(xor).toBe(syndrome);
+        // Flipping the bit it names gives a code word whose data bits (positions 3, 5, 6, 7) are the row number.
+        const fixed = [...word];
+        if (syndrome > 0) fixed[syndrome] ^= 1;
+        expect([fixed[3], fixed[5], fixed[6], fixed[7]]).toEqual([
+          (row >> 3) & 1,
+          (row >> 2) & 1,
+          (row >> 1) & 1,
+          row & 1,
+        ]);
+        expect(fixed[1]).toBe(fixed[3] ^ fixed[5] ^ fixed[7]);
+        expect(fixed[2]).toBe(fixed[3] ^ fixed[6] ^ fixed[7]);
+        expect(fixed[4]).toBe(fixed[5] ^ fixed[6] ^ fixed[7]);
+        // The flipped bit's cell is the darkest shade; parity positions (1, 2, 4) are a middle shade; data bits are palest.
+        for (let position = 1; position <= p.bits; position++) {
+          const tone = at(position - 1, row + 1, 0.08, 0.1),
+            parity = (position & (position - 1)) === 0;
+          if (position === syndrome) expect(tone).toBeLessThan(0.7);
+          else if (parity) expect(tone > 0.7 && tone < 0.885).toBe(true);
+          else expect(tone).toBeGreaterThan(0.885);
+        }
+        if (syndrome > 0) flippedRows.push(row);
+      }
+      // Most rows carry a flipped bit; the seed may leave a few (or, rarely, none) untouched.
+      expect(flippedRows.length).toBeGreaterThanOrEqual(6);
+      expect(flippedRows.length).toBeLessThanOrEqual(16);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('hammingcodewords', 0),
+      b = createSurfaceSampler('hammingcodewords', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

@@ -30360,6 +30360,119 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'hammingcodewords': {
+        const p = proceduralMaterialPresets.hammingcodewords,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2cb01),
+          glyphs: Record<string, string> = {
+            '0': '111101101101111',
+            '1': '010110010010111',
+            '2': '111001111100111',
+            '3': '111001111001111',
+            '4': '101101111001001',
+            '5': '111100111001111',
+            '6': '111100111101111',
+            '7': '111001010010010',
+            S: '011100010001110',
+          },
+          columns = p.bits + 1,
+          rows = 16,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // Hamming(7,4): positions 1 to 7 hold p1 p2 d1 p3 d2 d3 d4, so the parity bits sit at positions 1, 2 and 4 and
+          // each covers the positions whose binary number has that bit set. Row r carries the data nibble r, and the
+          // seed picks one position per row (0 means none) whose bit is flipped; the syndrome, the XOR of the positions
+          // holding a 1, then equals that position.
+          received = Array.from({ length: rows }, (_, row) => {
+            const word = [
+              0,
+              0,
+              0,
+              (row >> 3) & 1,
+              0,
+              (row >> 2) & 1,
+              (row >> 1) & 1,
+              row & 1,
+            ];
+            word[1] = word[3] ^ word[5] ^ word[7];
+            word[2] = word[3] ^ word[6] ^ word[7];
+            word[4] = word[5] ^ word[6] ^ word[7];
+            const error = Math.min(
+              p.bits,
+              Math.floor(hash(row, 5, seed ^ 0x2cb02) * (p.bits + 1)),
+            );
+            if (error > 0) word[error] ^= 1;
+            return { word, error };
+          });
+        return () => {
+          const x = (u - p.left) / p.columnWidth,
+            y = (v - p.top) / p.rowHeight;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            rough: number = p.paperRoughness,
+            line = 0,
+            glyph = 0,
+            inkTone: number = p.inkTone;
+          if (x >= 0 && y >= 0 && x < columns && y < rows + 1) {
+            const column = Math.floor(x),
+              row = Math.floor(y) - 1,
+              fx = x - column,
+              fy = y - Math.floor(y),
+              syndromeColumn = column === p.bits;
+            let symbol: string;
+            if (row < 0) {
+              symbol = syndromeColumn ? 'S' : String(column + 1);
+              tone = syndromeColumn ? p.syndromeHeaderTone : p.headerTone;
+              level = p.headerLevel;
+              rough = p.headerRoughness;
+              inkTone = p.headerInkTone;
+            } else {
+              const { word, error } = received[row];
+              symbol = syndromeColumn
+                ? String(error)
+                : String(word[column + 1]);
+              // Parity bits sit at the power-of-two positions; the flipped bit is shaded darker still.
+              const position = column + 1,
+                parity = !syndromeColumn && (position & column) === 0,
+                flipped = !syndromeColumn && position === error;
+              tone = flipped ? p.errorTone : parity ? p.parityTone : p.cellTone;
+              level = flipped
+                ? p.errorLevel
+                : parity
+                  ? p.parityLevel
+                  : p.cellLevel;
+            }
+            line = cover(
+              p.lineHalf -
+                Math.min(
+                  Math.min(fx * p.columnWidth, (1 - fx) * p.columnWidth),
+                  Math.min(fy * p.rowHeight, (1 - fy) * p.rowHeight),
+                ),
+            );
+            const px = Math.floor(
+                ((fx - 0.5) * p.columnWidth) / p.digitPixel + 1.5,
+              ),
+              py = Math.floor(((fy - 0.5) * p.rowHeight) / p.digitPixel + 2.5);
+            if (
+              px >= 0 &&
+              px < 3 &&
+              py >= 0 &&
+              py < 5 &&
+              glyphs[symbol][py * 3 + px] === '1'
+            )
+              glyph = 1;
+          }
+          const base = tone + (p.lineTone - tone) * line;
+          color = clamp(
+            base +
+              (inkTone - base) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * glyph);
+          roughness = rough + (p.inkRoughness - rough) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -57889,6 +58002,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'hammingcodewords' ||
     kind === 'collatzsequences' ||
     kind === 'delaunaytriangles' ||
     kind === 'convexhullpoints' ||
