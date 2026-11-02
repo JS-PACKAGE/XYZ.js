@@ -12522,3 +12522,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增6項專屬測試（149個菱形／323條邊／175個頂點／歐拉示性數1／邊長1／頂點邊數／95胖54瘦、四seed的旋轉唯一比對與統計、seed差異與決定性、C1（含323條邊兩側邊界在中間與兩端的點）＋有符號UV週期、actual512 maps）通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Penrose tiling as|penrosetiling|kinds|catalog|distinct|periodic"`定向測試**2285項通過／3915項未選**（文件的上述兩處數字更正在gates之後，更正後我重跑了`prettier --check`）。
 - 未驗證：kikko、kagome、penrosetiling未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：潘洛斯星（penrosestar）
+
+- 範圍：新增`penrosestar`（目前目錄991→992種，含plain的gallery 993項）：深紫黑底上桃色細線的近五重對稱潘洛斯菱形補丁（與`penrosetiling`相同的五重網格構造，偏移取接近零的`(0.011, −0.006, 0.004, −0.013, 0.004)`；160個菱形：95個胖菱形、65個瘦菱形；345條邊、186個頂點、頂點邊數2到7、歐拉示性數1；345條邊中258條（75%）在旋轉72°後與另一條邊重合，penrosetiling的一般偏移補丁為72/323（22%）；seed把補丁旋轉36°的整數倍）；與penrosetiling共用sampler分支（只新增preset）；預設0.5 m nominal tile、0.0007 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**；只是一小塊補丁，並非嚴格五重對稱。
+- 調整與錯誤紀錄（誠實紀錄）：(1)偏移是手選的一組，**沒有掃描其他偏移**；預覽只看了一版。(2)我第一次以探針量到72°旋轉重合率63%，那個探針把座標四捨五入後再解析，損失了精度；測試改用精確座標，得到258/345（75%）而讓第一版的「0.6–0.67」斷言失敗，我改為精確的258條，並另以同法確認penrosetiling為72/323（22%）；文件採用精確座標的數字。(3)relief沿用0.0007、512²maps法線tilt²最大0.0401。(4)結構檢查是構造自洽性的檢查，不是形式證明；每個取樣點走訪345條邊，**未量測耗時**；旋轉比對的門檻為最大誤差小於0.03，未逐seed記錄實際最大誤差。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：256²取樣亮處（color>0.5）占12.35%–12.36%、color 0.0453–0.0457至0.8515–0.8528、平均0.1507–0.1509、roughness 0.3–0.4、AO恆為1、height至多0.9857–0.9919 relief；512²取樣亮處占12.30%–12.32%、color 0.0451–0.0453至0.8525–0.8540、平均0.1507–0.1509、height至多0.9916–0.9968 relief；四個seed各自在恰好一個旋轉步（第4、8、9、5步）下與測試中獨立重寫的模型一致；seed 0與1的亮區遮罩（512²）2.9%像素不同（144°旋轉的近對稱補丁）；seed 7的512²maps平均r／g／b約(63.9, 38.1, 43.0)、法線tilt²最大約0.0401、z分量最小252。我實看了預覽（seed 7）。
+- 測試：新增6項專屬測試（160個菱形／345條邊／186個頂點／歐拉示性數1／邊長1／頂點邊數／95胖65瘦／258條邊在72°旋轉後重合、四seed的旋轉唯一比對與統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過；`Penrose tiling as`原有測試仍通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Penrose star as|penrosestar|Penrose tiling as|kinds|catalog|distinct|periodic"`定向測試**2291項通過／3915項未選**。
+- 未驗證：kikko、kagome、penrosetiling、penrosestar未跑完整suite與瀏覽器gallery；不push。

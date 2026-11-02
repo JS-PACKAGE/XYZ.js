@@ -41300,8 +41300,12 @@ export function createSurfaceSampler(
           return;
         };
       }
-      case 'penrosetiling': {
-        const p = proceduralMaterialPresets.penrosetiling,
+      case 'penrosetiling':
+      case 'penrosestar': {
+        const p =
+            kind === 'penrosestar'
+              ? proceduralMaterialPresets.penrosestar
+              : proceduralMaterialPresets.penrosetiling,
           grainField = cachedNoise(
             p.grainCells,
             p.grainCells,
@@ -49236,6 +49240,7 @@ export function createSurfaceSampler(
     kind === 'kikko' ||
     kind === 'kagome' ||
     kind === 'penrosetiling' ||
+    kind === 'penrosestar' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
