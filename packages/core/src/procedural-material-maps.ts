@@ -30815,6 +30815,159 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'matrixproducts': {
+        const p = proceduralMaterialPresets.matrixproducts,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2cf01),
+          glyphs: Record<string, string> = {
+            '0': '111101101101111',
+            '1': '010110010010111',
+            '2': '111001111100111',
+            '3': '111001111001111',
+            '4': '101101111001001',
+            '5': '111100111001111',
+            '6': '111100111101111',
+            '7': '111001010010010',
+            '8': '111101111101111',
+            '9': '111101111001111',
+            '*': '000101010101000',
+            '=': '000111000111000',
+          },
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          n = p.size,
+          // One equation is laid out as: matrix A, a times sign, matrix B, an equals sign, matrix C = A B, each matrix
+          // n columns wide, with a column for each sign.
+          widths = [
+            ...Array.from({ length: n }, () => p.factorWidth),
+            p.symbolWidth,
+            ...Array.from({ length: n }, () => p.factorWidth),
+            p.symbolWidth,
+            ...Array.from({ length: n }, () => p.productWidth),
+          ],
+          starts = widths.map(
+            (_, i) =>
+              p.left + widths.slice(0, i).reduce((sum, w) => sum + w, 0),
+          ),
+          // Entries of A and B are digits drawn by the seed; C is their matrix product.
+          equations = Array.from({ length: p.equations }, (_, e) => {
+            const entry = (kind: number, r: number, c: number): number =>
+                Math.min(
+                  p.maxEntry,
+                  Math.floor(
+                    hash(e * 16 + kind * 4 + r, c, seed ^ 0x2cf02) *
+                      (p.maxEntry + 1),
+                  ),
+                ),
+              a = Array.from({ length: n }, (_, r) =>
+                Array.from({ length: n }, (_, c) => entry(0, r, c)),
+              ),
+              b = Array.from({ length: n }, (_, r) =>
+                Array.from({ length: n }, (_, c) => entry(1, r, c)),
+              ),
+              c = a.map((row) =>
+                b[0].map((_, j) =>
+                  row.reduce((sum, value, k) => sum + value * b[k][j], 0),
+                ),
+              );
+            return { a, b, c };
+          });
+        return () => {
+          const equation = Math.floor((v - p.top) / p.pitch),
+            row = Math.floor((v - p.top - equation * p.pitch) / p.rowHeight);
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            rough: number = p.paperRoughness,
+            bracket = 0,
+            glyph = 0;
+          if (equation >= 0 && equation < p.equations && row >= 0 && row < n) {
+            const column = widths.findIndex(
+              (width, i) => u >= starts[i] && u < starts[i] + width,
+            );
+            if (column >= 0) {
+              const x0 = starts[column],
+                cx = x0 + widths[column] / 2,
+                cy = p.top + equation * p.pitch + (row + 0.5) * p.rowHeight,
+                { a, b, c } = equations[equation];
+              let text: string;
+              if (column < n) text = String(a[row][column]);
+              else if (column === n)
+                text = row === Math.floor(n / 2) ? '*' : ' ';
+              else if (column < 2 * n + 1)
+                text = String(b[row][column - n - 1]);
+              else if (column === 2 * n + 1)
+                text = row === Math.floor(n / 2) ? '=' : ' ';
+              else text = String(c[row][column - 2 * n - 2]);
+              const isSign = column === n || column === 2 * n + 1,
+                product = column > 2 * n + 1;
+              if (!isSign) {
+                tone = product ? p.productTone : p.cellTone;
+                level = product ? p.productHeight : p.cellHeight;
+                rough = p.cellRoughness;
+              }
+              const dx = u - cx,
+                dy = v - cy,
+                digits = text === ' ' ? 0 : text.length,
+                start = -(2 * digits - 1),
+                px = Math.floor(dx / p.digitPixel + 0.5),
+                py = Math.floor(dy / p.digitPixel + 2.5);
+              if (py >= 0 && py < 5)
+                for (let d = 0; d < digits; d++) {
+                  const gx = px - (start + 4 * d);
+                  if (gx >= 0 && gx < 3 && glyphs[text[d]][py * 3 + gx] === '1')
+                    glyph = 1;
+                }
+            }
+          }
+          // Square brackets around each matrix.
+          if (equation >= 0 && equation < p.equations) {
+            const top = p.top + equation * p.pitch,
+              bottom = top + n * p.rowHeight;
+            for (const [first, last] of [
+              [0, n - 1],
+              [n + 1, 2 * n],
+              [2 * n + 2, 3 * n + 1],
+            ]) {
+              const left = starts[first] - 0.004,
+                right = starts[last] + widths[last] + 0.004,
+                vertical =
+                  Math.min(cover(p.bracketHalf - Math.abs(u - left)), 1) +
+                  Math.min(cover(p.bracketHalf - Math.abs(u - right)), 1),
+                within = cover(Math.min(v - top + 0.004, bottom + 0.004 - v)),
+                horizontal =
+                  Math.max(
+                    cover(p.bracketHalf - Math.abs(v - (top - 0.004))),
+                    cover(p.bracketHalf - Math.abs(v - (bottom + 0.004))),
+                  ) *
+                  Math.max(
+                    cover(p.bracketReach - (u - left)) *
+                      cover(u - left + p.bracketHalf),
+                    cover(p.bracketReach - (right - u)) *
+                      cover(right - u + p.bracketHalf),
+                  );
+              bracket = Math.max(
+                bracket,
+                Math.min(1, vertical) * within,
+                horizontal,
+              );
+            }
+          }
+          const base = tone + (p.bracketTone - tone) * bracket;
+          color = clamp(
+            base +
+              (p.inkTone - base) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            level + (p.bracketHeight - level) * bracket - p.inkDepth * glyph,
+          );
+          roughness =
+            rough +
+            (p.bracketRoughness - rough) * bracket +
+            (p.inkRoughness - rough) * glyph * (1 - bracket);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -58344,6 +58497,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'matrixproducts' ||
     kind === 'signedencodings' ||
     kind === 'romannumerals' ||
     kind === 'cayleytables' ||

@@ -17997,3 +17997,178 @@ describe('signedencodings: four-bit patterns read as signed numbers', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('matrixproducts: three-by-three matrix multiplications', () => {
+  const p = proceduralMaterialPresets.matrixproducts;
+  const n = p.size;
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+  const times = ['...', '#.#', '.#.', '#.#', '...'];
+  const equals = ['...', '###', '...', '###', '...'];
+  const widths = [
+    ...Array.from({ length: n }, () => p.factorWidth),
+    p.symbolWidth,
+    ...Array.from({ length: n }, () => p.factorWidth),
+    p.symbolWidth,
+    ...Array.from({ length: n }, () => p.productWidth),
+  ];
+  const starts = widths.map(
+    (_, i) => p.left + widths.slice(0, i).reduce((sum, w) => sum + w, 0),
+  );
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'writes each equation with C equal to the matrix product of A and B (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('matrixproducts', seed),
+        out = empty(),
+        at = (u: number, v: number): number => {
+          sample(u, v, out);
+          return out.color;
+        },
+        cellCentre = (
+          equation: number,
+          row: number,
+          column: number,
+        ): [number, number] => [
+          starts[column] + widths[column] / 2,
+          p.top + equation * p.pitch + (row + 0.5) * p.rowHeight,
+        ],
+        pattern = (cx: number, cy: number, offset: number): string[] =>
+          [0, 1, 2, 3, 4].map((line) =>
+            [0, 1, 2]
+              .map((x) =>
+                at(
+                  cx + (offset + x) * p.digitPixel,
+                  cy + (line - 2) * p.digitPixel,
+                ) < 0.3
+                  ? '#'
+                  : '.',
+              )
+              .join(''),
+          ),
+        // A number is read from the cell centre: its widest ink column gives the digit count (1, 2 or 3).
+        readNumber = (
+          equation: number,
+          row: number,
+          column: number,
+        ): number => {
+          const [cx, cy] = cellCentre(equation, row, column),
+            anyInk = (offset: number): boolean =>
+              [0, 1, 2, 3, 4].some(
+                (line) =>
+                  at(
+                    cx + offset * p.digitPixel,
+                    cy + (line - 2) * p.digitPixel,
+                  ) < 0.3 ||
+                  at(
+                    cx - offset * p.digitPixel,
+                    cy + (line - 2) * p.digitPixel,
+                  ) < 0.3,
+              ),
+            reach = [5, 3, 1].find((offset) => anyInk(offset));
+          expect(reach).toBeDefined();
+          const count = reach === 5 ? 3 : reach === 3 ? 2 : 1;
+          let value = 0;
+          for (let d = 0; d < count; d++) {
+            const shape = pattern(cx, cy, -(2 * count - 1) + 4 * d),
+              digit = art.findIndex((candidate) =>
+                candidate.every((line, i) => line === shape[i]),
+              );
+            expect(digit).toBeGreaterThanOrEqual(0);
+            value = value * 10 + digit;
+          }
+          return value;
+        };
+      for (let equation = 0; equation < p.equations; equation++) {
+        const a = Array.from({ length: n }, (_, r) =>
+            Array.from({ length: n }, (_, c) => readNumber(equation, r, c)),
+          ),
+          b = Array.from({ length: n }, (_, r) =>
+            Array.from({ length: n }, (_, c) =>
+              readNumber(equation, r, n + 1 + c),
+            ),
+          ),
+          c = Array.from({ length: n }, (_, r) =>
+            Array.from({ length: n }, (_, k) =>
+              readNumber(equation, r, 2 * n + 2 + k),
+            ),
+          );
+        for (const row of [...a, ...b])
+          for (const value of row)
+            expect(value).toBeLessThanOrEqual(p.maxEntry);
+        // The signs: a times sign beside the middle row of A, an equals sign beside the middle row of B, nothing elsewhere.
+        for (let row = 0; row < n; row++) {
+          const middle = row === Math.floor(n / 2);
+          for (const [column, shape] of [
+            [n, times],
+            [2 * n + 1, equals],
+          ] as const) {
+            const [cx, cy] = cellCentre(equation, row, column);
+            expect(pattern(cx, cy, -1)).toEqual(
+              middle ? shape : ['...', '...', '...', '...', '...'],
+            );
+          }
+        }
+        // C is the matrix product A B: c[i][j] = sum over k of a[i][k] b[k][j].
+        for (let i = 0; i < n; i++)
+          for (let j = 0; j < n; j++) {
+            let sum = 0;
+            for (let k = 0; k < n; k++) sum += a[i][k] * b[k][j];
+            expect(c[i][j]).toBe(sum);
+          }
+        // The product is shaded darker than the factors.
+        const [fx, fy] = cellCentre(equation, 0, 0),
+          [px, py] = cellCentre(equation, 0, 2 * n + 2);
+        expect(at(fx - 0.02, fy - 0.025)).toBeGreaterThan(
+          at(px - 0.04, py - 0.025),
+        );
+      }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('matrixproducts', 0),
+      b = createSurfaceSampler('matrixproducts', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
