@@ -1681,6 +1681,10 @@
 
 這是作者設計的示意：只畫0到3次迭代，沒有畫更高次，也不是真正的碎形極限；邊長0.36 UV（約三角形外接圓半徑0.208 UV）固定，各面板之間不重疊；每像素要掃描最多192條邊，512×512單次渲染約0.3秒（Bun，來自預覽腳本、只量一次）。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`newtonbasins`（牛頓吸引盆）使目前目錄1030→1031種，含plain的gallery為1032項。每tile是牛頓法求解z^n − 1（n次單位根）的吸引盆圖：複平面上實部與虛部各−1.6到1.6的正方形視窗，每個點依牛頓迭代z ← z − (z^n − 1)/(n z^(n−1))最後收斂到哪個n次單位根而被塗上對應的亮度（根越多、亮度層級越多），收斂越慢的點略微變暗（最多變暗10步）。n由seed從3、4、5挑選；座標經過三角波折疊，所以圖案在tile邊緣連續。Metallic與mortar為0。
+
+這是作者設計的示意：只有z^n − 1這一類多項式、n為3到5；亮度只表示收斂到哪個根與速度，不是色相（程序材質只有深到淺的亮度漸層）；吸引盆邊界是碎形，邊界附近的像素對浮點誤差敏感，每個像素最多迭代40次，無法收斂的點（接近邊界或極點）依最後位置歸類；三角波折疊使圖樣左右、上下鏡射。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

@@ -18255,3 +18255,131 @@ describe('kochsnowflake: the snowflake after zero to three Koch iterations', () 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('newtonbasins: basins of attraction of Newton iteration for z^n - 1', () => {
+  const p = proceduralMaterialPresets.newtonbasins;
+  const fold = (t: number): number => 1 - Math.abs(2 * t - 1);
+
+  // Newton's method on z^n - 1 written with polar powers, independently of the sampler's repeated multiplication:
+  // returns the index of the n-th root of unity the iteration settles on, counted anticlockwise from 1.
+  const basin = (re: number, im: number, n: number): number => {
+    let radius = Math.hypot(re, im),
+      angle = Math.atan2(im, re);
+    for (let step = 0; step < 200; step++) {
+      // z^n and z^(n-1) in polar form.
+      const powRe = radius ** n * Math.cos(n * angle),
+        powIm = radius ** n * Math.sin(n * angle),
+        lowRe = radius ** (n - 1) * Math.cos((n - 1) * angle),
+        lowIm = radius ** (n - 1) * Math.sin((n - 1) * angle),
+        zRe = radius * Math.cos(angle),
+        zIm = radius * Math.sin(angle),
+        // (z^n - 1) / (n z^(n-1)).
+        numRe = powRe - 1,
+        numIm = powIm,
+        denRe = n * lowRe,
+        denIm = n * lowIm,
+        scale = denRe * denRe + denIm * denIm,
+        qRe = (numRe * denRe + numIm * denIm) / scale,
+        qIm = (numIm * denRe - numRe * denIm) / scale,
+        nextRe = zRe - qRe,
+        nextIm = zIm - qIm;
+      radius = Math.hypot(nextRe, nextIm);
+      angle = Math.atan2(nextIm, nextRe);
+    }
+    return ((Math.round(angle / ((2 * Math.PI) / n)) % n) + n) % n;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'colours each point by the root Newton iteration reaches, with one band per root (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('newtonbasins', seed),
+        out = empty(),
+        n = 200,
+        tones: number[] = [];
+      // Collect the rendered tones; they cluster into one band per root, the degree being between 3 and 5.
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          sample((x + 0.5) / n, (y + 0.5) / n, out);
+          tones.push(out.color);
+        }
+      const bandOf = (tone: number, degree: number): number => {
+        // Band k occupies [base_k - shadeMax - slack, base_k + slack]; at most one band can contain a tone.
+        const matches: number[] = [];
+        for (let k = 0; k < degree; k++) {
+          const base =
+            p.lowTone + ((p.highTone - p.lowTone) * k) / (degree - 1);
+          if (
+            tone <= base + 0.02 &&
+            tone >= base - p.shadePerStep * p.shadeSteps - 0.02
+          )
+            matches.push(k);
+        }
+        return matches.length === 1 ? matches[0] : -1;
+      };
+      // The degree is the one for which every tone falls in a band and every band is occupied. A smaller degree's
+      // bands can coincide with some of a larger degree's, but then the larger degree has empty bands.
+      const fits: number[] = [];
+      for (const degree of [3, 4, 5]) {
+        if (!tones.every((tone) => bandOf(tone, degree) >= 0)) continue;
+        const counts = new Array<number>(degree).fill(0);
+        for (const tone of tones) counts[bandOf(tone, degree)]++;
+        if (counts.every((count) => count > 0.05 * tones.length))
+          fits.push(degree);
+      }
+      expect(fits.length).toBe(1);
+      const degree = fits[0],
+        counts = new Array<number>(degree).fill(0);
+      let agree = 0;
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          const k = bandOf(tones[y * n + x], degree),
+            re = -p.extent + 2 * p.extent * fold((x + 0.5) / n),
+            im = -p.extent + 2 * p.extent * fold((y + 0.5) / n);
+          counts[k]++;
+          agree += Number(basin(re, im, degree) === k);
+        }
+      // Points on the fractal boundary are sensitive to rounding; away from it the two agree.
+      expect(agree / (n * n)).toBeGreaterThan(0.975);
+      // The square window is symmetric under a quarter turn, so for four roots the shares are about equal.
+      if (degree === 4)
+        for (const count of counts)
+          expect(Math.abs(count / (n * n) - 0.25)).toBeLessThan(0.03);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('newtonbasins', 0),
+      b = createSurfaceSampler('newtonbasins', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

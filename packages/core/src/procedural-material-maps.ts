@@ -31050,6 +31050,62 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'newtonbasins': {
+        const p = proceduralMaterialPresets.newtonbasins,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2d101),
+          // The seed picks the degree n of the polynomial z^n - 1 whose roots (the n-th roots of unity) Newton's
+          // method converges to.
+          degree = Math.min(
+            p.maxDegree,
+            p.minDegree +
+              Math.floor(
+                hash(1, 1, seed ^ 0x2d102) * (p.maxDegree - p.minDegree + 1),
+              ),
+          ),
+          // A tent fold makes the picture continuous across the tile edge.
+          fold = (t: number): number => 1 - Math.abs(2 * t - 1);
+        return () => {
+          let re = -p.extent + 2 * p.extent * fold(u),
+            im = -p.extent + 2 * p.extent * fold(v),
+            steps = 0;
+          // Newton step for f(z) = z^n - 1: z <- z - (z^n - 1) / (n z^(n-1)).
+          for (; steps < p.maxSteps; steps++) {
+            let powRe = 1,
+              powIm = 0;
+            for (let k = 1; k < degree; k++)
+              [powRe, powIm] = [
+                powRe * re - powIm * im,
+                powRe * im + powIm * re,
+              ];
+            // powRe + i powIm is z^(n-1); z^n = z^(n-1) z.
+            const nRe = powRe * re - powIm * im,
+              nIm = powRe * im + powIm * re,
+              fRe = nRe - 1,
+              fIm = nIm;
+            if (fRe * fRe + fIm * fIm < p.tolerance) break;
+            const dRe = degree * powRe,
+              dIm = degree * powIm,
+              denominator = dRe * dRe + dIm * dIm;
+            if (denominator === 0) break;
+            re -= (fRe * dRe + fIm * dIm) / denominator;
+            im -= (fIm * dRe - fRe * dIm) / denominator;
+          }
+          // The root reached is the one nearest the final point.
+          const sector = (2 * Math.PI) / degree,
+            root =
+              ((Math.round(Math.atan2(im, re) / sector) % degree) + degree) %
+              degree,
+            fraction = degree > 1 ? root / (degree - 1) : 0,
+            tone =
+              p.lowTone +
+              (p.highTone - p.lowTone) * fraction -
+              p.shadePerStep * Math.min(steps, p.shadeSteps);
+          color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(p.heightBase + p.heightSpan * fraction);
+          roughness = clamp(p.roughnessBase + p.roughnessSpan * (1 - fraction));
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -58579,6 +58635,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'newtonbasins' ||
     kind === 'kochsnowflake' ||
     kind === 'matrixproducts' ||
     kind === 'signedencodings' ||
