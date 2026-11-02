@@ -1095,6 +1095,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`gcdtable`（最大公因數表）使目前目錄968→969種，含plain的gallery為970項。32×32個圓角方塊磚：第(col, row)格代表`gcd(col + 1 + a, row + 1 + b)`（歐幾里得演算法，偏移a、b在0到63之間由seed決定），色調為`1 − 1/gcd`——互質的格子（約六成）保持暗色，公因數愈大的格子愈亮，沿著通過格網的直線與斜線亮起。磚面凸起、磚縫較暗並帶遮蔽（AO）。是一個數論圖案，不是任何真實材質。
+
+此材質是作者示意，沒有引用特定來源或照片，也沒有對照照片；32×32格、偏移範圍64、色調`1 − 1/gcd`的映射、青綠色調與0.3 m nominal tile皆作者設定。預覽第一次就採用，沒有調整參數。
+
+新增專用sampler：建構時對每格以歐幾里得演算法算出最大公因數並寫入色調表（Float64，`tone = 1 − 1/gcd`）；每格擁有一個緊湊支撐的圓角方塊kernel（四次超橢圓經smoothstep，半寬0.46格，在格界前恰好歸零，與modulartable／pascalmod3／collatzsteps相同，C1）；顏色＝`0.05 + (0.14 + 0.78·tone − 0.05)·mask + 0.03·(128²細grain − 0.5)`；height ＝ `0.8·dome·(0.88 + 0.12·tone) + 0.08·grain`；磚縫AO為0.6；roughness恆為0.45；金屬factor為0；cache合計32²個Float64（色調表）＋128²細grain = 17,408個Float64／139,264 B lattice算術預算（非總RAM）。預設0.3 m nominal tile與0.0012 UV-relative relief（非公尺位移）。實測（工具實跑，seed 0／1／0xffffffff／7，512²取樣）：亮處（color>0.5）占26.4%–27.9%、color 0.0351–0.0353至0.9088–0.9166、平均0.2555–0.2671、roughness恆為0.45、AO最低0.6、height至多0.8697–0.8733 relief；1,024個磚中心的顏色與測試中獨立重寫的gcd一致，四個seed各自唯一對應的偏移為(21, 59)、(36, 0)、(47, 11)、(12, 36)，最大誤差0.0149–0.0150（即細grain的幅度）；seed 0與1的亮區遮罩40.6%像素不同；seed 7的512²maps平均r／g／b約(44.0, 75.5, 78.9)、法線tilt²最大約0.0400。我實看了預覽：暗藍底上青綠色方塊磚，有斜線與整行整列的規則亮線，像數論的網格圖。未新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `collatzsteps`（考拉茲步數）使目前目錄967→968種，含plain的gallery為969項。32×32個圓角方塊磚：第(col, row)格代表整數`n = row·32 + col + 1`（1到1024），色調是n依考拉茲規則（偶數除以2、奇數乘3加1）走到1所需的步數除以178（1到1024中最長的是n = 871的178步），從暗紫到暖橙共連續變化。磚面凸起、磚縫較暗並帶遮蔽（AO），seed只把整張表沿環面平移。看起來是帶有結構的雜訊（相鄰整數的步數有微妙的關聯，但整體近似隨機），不是任何真實材質，只是數學圖案。
 
 此材質是作者示意，沒有引用特定來源或照片，也沒有對照照片；32×32格、涵蓋1到1024、以178為步數上限、暖橙色調與0.3 m nominal tile皆作者設定。預覽第一次就採用，沒有調整參數。

@@ -22479,6 +22479,34 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: .08,
 		gapOcclusion: .4
 	}),
+	gcdtable: Object.freeze({
+		dark: [
+			10,
+			12,
+			36
+		],
+		light: [
+			140,
+			255,
+			200
+		],
+		roughness: .45,
+		relief: .0012,
+		seedSalt: 27856,
+		cells: 32,
+		offsetRange: 64,
+		kernelHalf: .46,
+		edgeSoft: .3,
+		grainCells: 128,
+		gapTone: .05,
+		toneFloor: .14,
+		toneSpan: .78,
+		grainTone: .03,
+		cellHeight: .8,
+		toneHeight: .12,
+		grainHeight: .08,
+		gapOcclusion: .4
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -23944,7 +23972,8 @@ var proceduralTileMeters = Object.freeze({
 	elementaryautomata: .3,
 	modulartable: .3,
 	pascalmod3: .3,
-	collatzsteps: .3
+	collatzsteps: .3,
+	gcdtable: .3
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

@@ -12282,3 +12282,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試（三seed的磚中心顏色與獨立重寫的考拉茲步數比對（恰有一個平移相符、最大步數正規化為1）、統計，seed差異與決定性，C1＋有符號UV週期，actual512 maps）通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Collatz steps as|collatzsteps|kinds|catalog|distinct|periodic"`定向測試**2238項通過／3844項未選**。
 - 未驗證：modulartable、pascalmod3、collatzsteps未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：最大公因數表（gcdtable）
+
+- 範圍：新增`gcdtable`（目前目錄968→969種，含plain的gallery 970項）：32×32個圓角方塊磚（沿用modulartable系列的緊湊支撐kernel逐格查詢做法，C1）代表`gcd(col + 1 + a, row + 1 + b)`（歐幾里得演算法，偏移a、b在0到63之間由seed決定），色調`1 − 1/gcd`（互質暗、公因數愈大愈亮）；磚縫AO 0.6；roughness恆為0.45；預設0.3 m nominal tile、0.0012 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**。文件中「約六成互質」是數論的已知比例（6/π²，約60.8%），**不是我在這張32×32表上量測的數字**。
+- 調整紀錄（誠實紀錄）：預覽第一次就採用，沒有調整參數。
+- 實測（工具實跑，seed 0／1／0xffffffff／7，512²取樣）：亮處（color>0.5）占26.4%–27.9%、color 0.0351–0.0353至0.9088–0.9166、平均0.2555–0.2671、roughness恆為0.45、AO最低0.6、height至多0.8697–0.8733 relief；1,024個磚中心的顏色與測試中獨立重寫的gcd一致，四個seed各自唯一對應的偏移為(21, 59)、(36, 0)、(47, 11)、(12, 36)，最大誤差0.0149–0.0150（細grain的幅度）；seed 0與1的亮區遮罩40.6%像素不同；seed 7的512²maps平均r／g／b約(44.0, 75.5, 78.9)、法線tilt²最大約0.0400、z分量最小252。我實看了預覽：暗藍底上的青綠色方塊磚與規則的亮線。
+- 測試：新增5項專屬測試（三seed的磚中心顏色與獨立重寫的gcd比對（恰有一組偏移相符）、統計，seed差異與決定性，C1＋有符號UV週期，actual512 maps）通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "GCD table as|gcdtable|kinds|catalog|distinct|periodic"`定向測試**2240項通過／3847項未選**。
+- 未驗證：modulartable、pascalmod3、collatzsteps、gcdtable未跑完整suite與瀏覽器gallery；不push。

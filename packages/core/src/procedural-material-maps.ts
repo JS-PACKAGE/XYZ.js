@@ -40240,6 +40240,56 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'gcdtable': {
+        const p = proceduralMaterialPresets.gcdtable,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft,
+          offsetX = Math.floor(hash(0, 0, seed ^ p.seedSalt) * p.offsetRange),
+          offsetY = Math.floor(hash(1, 0, seed ^ p.seedSalt) * p.offsetRange),
+          // Cell (col, row) holds gcd(col + 1 + offsetX, row + 1 + offsetY) by Euclid's
+          // algorithm, toned as 1 - 1 / gcd so coprime pairs stay dark and larger common
+          // divisors light up along lines through the grid.
+          tones = new Float64Array(p.cells * p.cells);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            let a = col + 1 + offsetX,
+              b = row + 1 + offsetY;
+            while (b) [a, b] = [b, a % b];
+            tones[row * p.cells + col] = 1 - 1 / a;
+          }
+        return () => {
+          // One compact-support rounded-square kernel per cell (a quartic superellipse
+          // through smoothstep, exactly zero before the cell boundary), so the cell
+          // lookup never jumps and the field is C1.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            ax = (x - col - 0.5) * inverseHalf,
+            ay = (y - row - 0.5) * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            tone = tones[row * p.cells + col],
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + p.toneSpan * tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -48016,6 +48066,7 @@ export function createSurfaceSampler(
     kind === 'modulartable' ||
     kind === 'pascalmod3' ||
     kind === 'collatzsteps' ||
+    kind === 'gcdtable' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
