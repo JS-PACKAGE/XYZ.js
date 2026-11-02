@@ -22172,6 +22172,106 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: .3,
 		inkRoughness: -.15
 	}),
+	sudoku: Object.freeze({
+		dark: [
+			22,
+			26,
+			46
+		],
+		light: [
+			236,
+			234,
+			224
+		],
+		roughness: .8,
+		relief: 8e-4,
+		seedSalt: 23820,
+		boxes: 3,
+		cellPixels: 7,
+		digitChance: .4,
+		glyphs: [
+			[
+				`111`,
+				`101`,
+				`101`,
+				`101`,
+				`111`
+			],
+			[
+				`010`,
+				`110`,
+				`010`,
+				`010`,
+				`111`
+			],
+			[
+				`111`,
+				`001`,
+				`111`,
+				`100`,
+				`111`
+			],
+			[
+				`111`,
+				`001`,
+				`111`,
+				`001`,
+				`111`
+			],
+			[
+				`101`,
+				`101`,
+				`111`,
+				`001`,
+				`001`
+			],
+			[
+				`111`,
+				`100`,
+				`111`,
+				`001`,
+				`111`
+			],
+			[
+				`111`,
+				`100`,
+				`111`,
+				`101`,
+				`111`
+			],
+			[
+				`111`,
+				`001`,
+				`001`,
+				`001`,
+				`001`
+			],
+			[
+				`111`,
+				`101`,
+				`111`,
+				`101`,
+				`111`
+			],
+			[
+				`111`,
+				`101`,
+				`111`,
+				`001`,
+				`111`
+			]
+		],
+		sharpness: 8,
+		inkCells: 7,
+		grainCells: 160,
+		paperTone: .92,
+		inkDepth: .8,
+		inkFloor: .88,
+		grainTone: .04,
+		inkHeight: .7,
+		grainHeight: .3,
+		inkRoughness: -.2
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -23629,7 +23729,8 @@ var proceduralTileMeters = Object.freeze({
 	pizza: .25,
 	morse: .3,
 	couscous: .1,
-	datamatrix: .12
+	datamatrix: .12,
+	sudoku: .2
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

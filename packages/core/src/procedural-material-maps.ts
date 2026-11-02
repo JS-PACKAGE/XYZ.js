@@ -39815,6 +39815,56 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'sudoku': {
+        const p = proceduralMaterialPresets.sudoku,
+          size = p.boxes * p.boxes * p.cellPixels,
+          boxPixels = p.boxes * p.cellPixels,
+          cells = p.boxes * p.boxes,
+          marks = new Float64Array(size * size),
+          inkField = cachedNoise(p.inkCells, p.inkCells, seed ^ p.seedSalt),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 1),
+          );
+        // A newspaper puzzle grid: thin rules between cells, two-pixel rules around
+        // each box, and in a seeded share of the cells one 3x5-pixel digit glyph.
+        for (let y = 0; y < size; y++)
+          for (let x = 0; x < size; x++) {
+            const thinX = x % p.cellPixels === 0,
+              thinY = y % p.cellPixels === 0,
+              thickX = x % boxPixels === boxPixels - 1,
+              thickY = y % boxPixels === boxPixels - 1;
+            if (thinX || thinY || thickX || thickY) marks[y * size + x] = 1;
+          }
+        for (let cy = 0; cy < cells; cy++)
+          for (let cx = 0; cx < cells; cx++) {
+            const salt = seed ^ (p.seedSalt + 2);
+            if (hash(cx, cy, salt) >= p.digitChance) continue;
+            const glyph = p.glyphs[1 + Math.floor(hash(cx, cy, salt + 1) * 9)];
+            for (let gy = 0; gy < 5; gy++)
+              for (let gx = 0; gx < 3; gx++)
+                if (glyph[gy][gx] === '1')
+                  marks[
+                    (cy * p.cellPixels + 1 + gy) * size +
+                      cx * p.cellPixels +
+                      2 +
+                      gx
+                  ] = 1;
+          }
+        const pattern = latticeField(marks, size, size);
+        return () => {
+          // The pixel map is blended with the C1 smoothstep and re-sharpened with tanh.
+          const mark =
+              0.5 + 0.5 * Math.tanh(p.sharpness * (pattern(u, v) - 0.5)),
+            ink = mark * (p.inkFloor + (1 - p.inkFloor) * inkField(u, v)),
+            grain = grainField(u, v);
+          color = p.paperTone - p.inkDepth * ink + p.grainTone * (grain - 0.5);
+          height = p.inkHeight * ink + p.grainHeight * grain;
+          roughness += p.inkRoughness * ink;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -47583,6 +47633,7 @@ export function createSurfaceSampler(
     kind === 'morse' ||
     kind === 'couscous' ||
     kind === 'datamatrix' ||
+    kind === 'sudoku' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

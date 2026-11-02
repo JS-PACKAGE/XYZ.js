@@ -12194,3 +12194,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試（三seed的L形定位、時序軌、靜區與資料比例逐節點比對加統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過；測試中的符號規則（左與下為L、上緣偶數x、右緣奇數y）是獨立重寫的。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Data Matrix as|datamatrix|kinds|catalog|distinct|periodic"`定向測試**2222項通過／3817項未選**（文件的49.8%勘誤是gates之後的純文字修改，已重新執行對應文件的`prettier --check`通過）。
 - 未驗證：morse、couscous、datamatrix未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：數獨（sudoku）
+
+- 範圍：新增`sudoku`（目前目錄960→961種，含plain的gallery 962項）：63×63像素格（9×9格、每格7像素）：`x % 7 = 0`或`y % 7 = 0`為細線、每個3×3宮格以兩像素粗的線框起、約四成格子（hash < 0.4）放一個3×5像素數字字形（十個手寫位元圖中的1至9）；像素圖用`latticeField`混合後以tanh重新銳化；預設0.2 m nominal tile、0.0008 UV-relative relief。作者示意，沒有引用特定題目、報紙版面或字體、**沒有對照照片**；數字隨機放置，不是合法或有解的數獨。
+- 調整紀錄（誠實紀錄）：第一版宮格線為三像素粗（`x % 21`為20、0、1），預覽上深色線占面積過大；改為兩像素（`x % 21`為20，連同相鄰的細線）後採用。數字在預覽中偏粗而略糊，是3×5像素字形的限制，沒有為此加大格數。
+- 測試修正（誠實紀錄）：第一次執行測試時，我的「格內除了字形以外不應有深色像素」檢查把兩像素宮格線的內側像素（每個宮格的第3格邊緣，像素座標`x % 21 = 20`）誤算成雜散像素（315個錯誤）；這是測試本身遺漏了宮格線的例外而不是sampler的錯（探針已顯示0個不屬於十個字形的圖樣），我修正測試排除宮格線像素後通過；另外，我在修改測試時一度因為切片錯誤把前一個材質（datamatrix）的測試區塊覆蓋掉，在執行前由`git show HEAD:`取回原區塊還原（`git diff --stat`只剩sudoku的221行新增），沒有進入commit。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：墨（color<0.5）占42.3%–44.0%（512²取樣）、color 0.102–0.110至0.9396–0.9397、平均0.584–0.598、roughness 0.6004–0.8、height至多0.983–0.990 relief；每個seed的81個格子中32–36格放了數字、45–49格為空，沒有任何格子出現不屬於十個字形的圖樣；3,969個像素節點中沒有節點顏色落在0.3到0.7之間；seed 0與1的墨遮罩11.6%像素不同；seed 7的512²maps平均r／g／b約(147.0, 147.5, 150.0)、法線tilt²最大約0.0297、z分量最小253。我實看了預覽（2×2 tile）：淺色格子被深藍灰的線與粗宮格線分開，格內有粗體像素數字。
+- 測試：新增5項專屬測試（三seed的格線逐節點比對、81格字形合法性、數字數量、統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過；測試中的十個字形位元圖與格線規則是獨立重寫的，與sampler需同步。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Sudoku as|sudoku|kinds|catalog|distinct|periodic"`定向測試**2224項通過／3820項未選**。
+- 未驗證：morse、couscous、datamatrix、sudoku未跑完整suite與瀏覽器gallery；不push。

@@ -1002,6 +1002,7 @@ const kinds: ProceduralMaterialKind[] = [
   'morse',
   'couscous',
   'datamatrix',
+  'sudoku',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -149115,6 +149116,228 @@ describe('Data Matrix as square 2D barcodes with an L finder', () => {
     expect(blue / (512 * 512)).toBeLessThan(167);
     expect(maxTilt).toBeGreaterThan(0.012);
     expect(maxTilt).toBeLessThan(0.04);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Sudoku as a newspaper puzzle grid with pixel digits', () => {
+  const p = proceduralMaterialPresets.sudoku;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const size = 63,
+    cells = 9;
+  /** The ten 3 x 5 digit glyphs as one bit string each, written independently here. */
+  const glyphBits = [
+    '111101101101111',
+    '010110010010111',
+    '111001111100111',
+    '111001111001111',
+    '101101111001001',
+    '111100111001111',
+    '111100111101111',
+    '111001001001001',
+    '111101111101111',
+    '111101111001111',
+  ];
+  /** Dark state of every pixel node of the whole tile, read at the pixel centres. */
+  const pixelNodes = (seed: number): boolean[] => {
+    const sample = createSurfaceSampler('sudoku', seed),
+      out = empty(),
+      nodes: boolean[] = [];
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample(x / size, y / size, out);
+        nodes.push(out.color < 0.5);
+      }
+    return nodes;
+  };
+  it('draws the rules exactly, holds only legal digit glyphs and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('sudoku', seed),
+        a = empty();
+      const nodes = pixelNodes(seed);
+      let wrong = 0,
+        digits = 0,
+        blanks = 0;
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          const rule =
+            x % 7 === 0 || y % 7 === 0 || x % 21 === 20 || y % 21 === 20;
+          if (rule) wrong += Number(!nodes[y * size + x]);
+        }
+      for (let cy = 0; cy < cells; cy++)
+        for (let cx = 0; cx < cells; cx++) {
+          let bits = '';
+          let stray = 0;
+          for (let y = 1; y < 7; y++)
+            for (let x = 1; x < 7; x++) {
+              const dark = nodes[(cy * 7 + y) * size + cx * 7 + x],
+                inGlyph = y >= 1 && y <= 5 && x >= 2 && x <= 4;
+              const boxRule =
+                (cx * 7 + x) % 21 === 20 || (cy * 7 + y) % 21 === 20;
+              if (inGlyph) bits += dark ? '1' : '0';
+              else if (!boxRule) stray += Number(dark);
+            }
+          wrong += stray;
+          if (bits === '0'.repeat(15)) blanks++;
+          else if (glyphBits.slice(1).includes(bits)) digits++;
+          else wrong++;
+        }
+      expect(wrong).toBe(0);
+      expect(digits + blanks).toBe(81);
+      expect(digits).toBeGreaterThan(25);
+      expect(digits).toBeLessThan(40);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color < 0.5);
+          mean += a.color;
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.1);
+      expect(low).toBeLessThan(0.115);
+      expect(high).toBeGreaterThan(0.935);
+      expect(high).toBeLessThan(0.945);
+      expect(dark / 65536).toBeGreaterThan(0.41);
+      expect(dark / 65536).toBeLessThan(0.46);
+      expect(mean / 65536).toBeGreaterThan(0.575);
+      expect(mean / 65536).toBeLessThan(0.61);
+      expect(roughLow).toBeGreaterThan(0.6);
+      expect(roughLow).toBeLessThan(0.61);
+      expect(roughHigh).toBeCloseTo(p.roughness, 2);
+      expect(heightHigh).toBeGreaterThan(0.97);
+      expect(heightHigh).toBeLessThanOrEqual(1);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('re-draws the digits per seed and is deterministic for one seed', () => {
+    const first = pixelNodes(0),
+      second = pixelNodes(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.08);
+    expect(pixelNodes(0)).toEqual(first);
+  });
+  it('keeps the rules, digit edges and paper grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('sudoku', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [size, p.inkCells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 grey-blue paper maps with gentle ink normals', () => {
+    const maps = generateProceduralMaps('sudoku', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(141);
+    expect(red / (512 * 512)).toBeLessThan(153);
+    expect(green / (512 * 512)).toBeGreaterThan(141);
+    expect(green / (512 * 512)).toBeLessThan(153);
+    expect(blue / (512 * 512)).toBeGreaterThan(144);
+    expect(blue / (512 * 512)).toBeLessThan(156);
+    expect(maxTilt).toBeGreaterThan(0.015);
+    expect(maxTilt).toBeLessThan(0.05);
     expect(invalid).toBe(0);
   });
 });

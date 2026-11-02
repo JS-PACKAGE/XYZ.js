@@ -13757,6 +13757,27 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.3;
         inkRoughness: -0.15;
     }>;
+    sudoku: Readonly<{
+        dark: readonly [22, 26, 46];
+        light: readonly [236, 234, 224];
+        roughness: 0.8;
+        relief: 0.0008;
+        seedSalt: 23820;
+        boxes: 3;
+        cellPixels: 7;
+        digitChance: 0.4;
+        glyphs: readonly [readonly ["111", "101", "101", "101", "111"], readonly ["010", "110", "010", "010", "111"], readonly ["111", "001", "111", "100", "111"], readonly ["111", "001", "111", "001", "111"], readonly ["101", "101", "111", "001", "001"], readonly ["111", "100", "111", "001", "111"], readonly ["111", "100", "111", "101", "111"], readonly ["111", "001", "001", "001", "001"], readonly ["111", "101", "111", "101", "111"], readonly ["111", "101", "111", "001", "111"]];
+        sharpness: 8;
+        inkCells: 7;
+        grainCells: 160;
+        paperTone: 0.92;
+        inkDepth: 0.8;
+        inkFloor: 0.88;
+        grainTone: 0.04;
+        inkHeight: 0.7;
+        grainHeight: 0.3;
+        inkRoughness: -0.2;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -15096,4 +15117,5 @@ export declare const proceduralTileMeters: Readonly<{
     morse: 0.3;
     couscous: 0.1;
     datamatrix: 0.12;
+    sudoku: 0.2;
 }>;
