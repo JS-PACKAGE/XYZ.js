@@ -18617,6 +18617,54 @@ var proceduralMaterialPresets = Object.freeze({
 		cellRoughness: .55,
 		inkRoughness: .4
 	}),
+	caesarcipher: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		shifts: Object.freeze([
+			3,
+			5,
+			7,
+			13
+		]),
+		messages: Object.freeze([
+			`ATTACKATDAWN`,
+			`HELLOWORLD`,
+			`SECRETMESSAGE`,
+			`MEETATNOON`,
+			`KEEPITSIMPLE`
+		]),
+		columns: 13,
+		left: .05,
+		top: .05,
+		cell: .069,
+		rowPitch: .1,
+		pixel: .0115,
+		lineHalf: 7e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		cipherTone: .84,
+		lineTone: .5,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		cipherHeight: .4,
+		lineHeight: .7,
+		inkDepth: .06,
+		paperRoughness: .74,
+		cellRoughness: .55,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -27298,6 +27346,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	caesarcipher: .5,
 	baseconversion: .5,
 	primefactors: .5,
 	modularpowers: .5,

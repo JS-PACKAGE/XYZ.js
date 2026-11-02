@@ -21559,3 +21559,172 @@ describe('baseconversion: one number in four bases', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('caesarcipher: an alphabet and a message shifted by a fixed number', () => {
+  const p = proceduralMaterialPresets.caesarcipher;
+  const rows: Record<string, string[]> = {
+    A: ['.#.', '#.#', '###', '#.#', '#.#'],
+    B: ['##.', '#.#', '##.', '#.#', '##.'],
+    C: ['.##', '#..', '#..', '#..', '.##'],
+    D: ['##.', '#.#', '#.#', '#.#', '##.'],
+    E: ['###', '#..', '##.', '#..', '###'],
+    F: ['###', '#..', '##.', '#..', '#..'],
+    G: ['.##', '#..', '#.#', '#.#', '.##'],
+    H: ['#.#', '#.#', '###', '#.#', '#.#'],
+    I: ['###', '.#.', '.#.', '.#.', '###'],
+    J: ['..#', '..#', '..#', '#.#', '.#.'],
+    K: ['#.#', '#.#', '##.', '#.#', '#.#'],
+    L: ['#..', '#..', '#..', '#..', '###'],
+    M: ['#.#', '###', '###', '#.#', '#.#'],
+    N: ['##.', '#.#', '#.#', '#.#', '#.#'],
+    O: ['.#.', '#.#', '#.#', '#.#', '.#.'],
+    P: ['##.', '#.#', '##.', '#..', '#..'],
+    Q: ['.#.', '#.#', '#.#', '###', '.##'],
+    R: ['##.', '#.#', '##.', '#.#', '#.#'],
+    S: ['.##', '#..', '.#.', '..#', '##.'],
+    T: ['###', '.#.', '.#.', '.#.', '.#.'],
+    U: ['#.#', '#.#', '#.#', '#.#', '###'],
+    V: ['#.#', '#.#', '#.#', '#.#', '.#.'],
+    W: ['#.#', '#.#', '###', '###', '#.#'],
+    X: ['#.#', '#.#', '.#.', '#.#', '#.#'],
+    Y: ['#.#', '#.#', '.#.', '.#.', '.#.'],
+    Z: ['###', '..#', '.#.', '#..', '###'],
+  };
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const reader = (seed: number) => {
+    const sample = createSurfaceSampler('caesarcipher', seed),
+      out = empty(),
+      // The letter in one cell of a row, or '' when the cell is empty.
+      readCell = (row: number, column: number): string => {
+        sample(
+          p.left + column * p.cell + 0.004,
+          p.top + row * p.rowPitch + 0.004,
+          out,
+        );
+        const background = out.color,
+          lines = [0, 1, 2, 3, 4].map((y) =>
+            [0, 1, 2]
+              .map((x) => {
+                sample(
+                  p.left + (column + 0.5) * p.cell + (x - 1) * p.pixel,
+                  p.top + (row + 0.5) * p.rowPitch + (y - 2) * p.pixel,
+                  out,
+                );
+                return Math.abs(out.color - background) > 0.25 ? '#' : '.';
+              })
+              .join(''),
+          );
+        if (lines.every((line) => line === '...')) return '';
+        const found = Object.entries(rows).find(([, shape]) =>
+          shape.every((line, i) => line === lines[i]),
+        );
+        expect(found).toBeDefined();
+        return (found as [string, string[]])[0];
+      },
+      readRow = (row: number): string => {
+        let text = '';
+        for (let column = 0; column < p.columns; column++) {
+          const letter = readCell(row, column);
+          if (letter === '') break;
+          text += letter;
+        }
+        return text;
+      };
+    return { readCell, readRow };
+  };
+
+  it('draws twenty-six distinct letters', () => {
+    expect(
+      new Set(Object.values(rows).map((shape) => shape.join(''))).size,
+    ).toBe(26);
+  });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'writes the cipher rows as the alphabet and the message shifted by one number (seed %i)',
+    (seed) => {
+      const { readRow } = reader(seed),
+        plain = [readRow(0), readRow(3), readRow(6)],
+        cipher = [readRow(1), readRow(4), readRow(7)];
+      expect(plain[0]).toBe(alphabet.slice(0, 13));
+      expect(plain[1]).toBe(alphabet.slice(13));
+      expect(p.messages).toContain(plain[2]);
+      // The shift is the distance from A to its cipher letter; every other letter must move by the same amount.
+      const shift = alphabet.indexOf(cipher[0][0]);
+      expect(p.shifts).toContain(shift);
+      for (let i = 0; i < 3; i++) {
+        expect(cipher[i]).toHaveLength(plain[i].length);
+        for (let j = 0; j < plain[i].length; j++)
+          expect(
+            (alphabet.indexOf(cipher[i][j]) -
+              alphabet.indexOf(plain[i][j]) +
+              26) %
+              26,
+          ).toBe(shift);
+      }
+      // The spacer rows between the groups hold a thin rule, not letters: dark on the middle line, paper two pixels away.
+      const out = empty(),
+        sample = createSurfaceSampler('caesarcipher', seed);
+      for (const row of [2, 5])
+        for (let column = 0; column < p.columns; column++) {
+          const x = p.left + (column + 0.5) * p.cell,
+            y = p.top + (row + 0.5) * p.rowPitch;
+          sample(x, y, out);
+          expect(out.color).toBeLessThan(0.7);
+          sample(x, y - 2 * p.pixel, out);
+          expect(out.color).toBeGreaterThan(0.85);
+          sample(x, y + 2 * p.pixel, out);
+          expect(out.color).toBeGreaterThan(0.85);
+        }
+    },
+  );
+
+  it('uses every shift and more than one message across seeds', () => {
+    const shifts = new Set<number>(),
+      messages = new Set<string>();
+    for (let seed = 0; seed < 40; seed++) {
+      const { readCell, readRow } = reader(seed);
+      shifts.add(alphabet.indexOf(readCell(1, 0)));
+      messages.add(readRow(6));
+    }
+    expect([...shifts].sort((a, b) => a - b)).toEqual(
+      [...p.shifts].sort((a, b) => a - b),
+    );
+    expect(messages.size).toBeGreaterThan(2);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('caesarcipher', 0),
+      b = createSurfaceSampler('caesarcipher', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

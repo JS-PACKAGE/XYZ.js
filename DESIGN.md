@@ -1781,6 +1781,10 @@
 
 這是作者設計的示意：只有四種進位制、數值限在0到255，沒有負數、小數或其他進位制；點陣字母（A到F）是簡化字形，B與8、D與0在小尺寸下容易混淆（字形本身不同，測試以精確的像素圖案區分）。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`caesarcipher`（凱薩密碼）使目前目錄1053→1054種，含plain的gallery為1055項。每tile由上而下有三組：字母表A到M與其下一列移位後的密文、字母表N到Z與其密文、一段短訊息與其密文（較淺的灰底表示密文列）；每組之間有一條細線。移位量由seed從3、5、7、13中挑一個（每個字母都往後移這麼多，超過Z就繞回A），訊息由seed從五句預設短句中挑一句。Metallic與mortar為0。
+
+這是作者設計的示意：只有凱薩移位（單一固定的移位量），沒有解密提示、頻率分析或其他密碼；預設短句只有五句，字母用3×5點陣字，某些字母（例如M與N、U與V）在小尺寸下相近。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

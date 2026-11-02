@@ -33004,6 +33004,109 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'caesarcipher': {
+        const p = proceduralMaterialPresets.caesarcipher,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2e801),
+          // A 3 x 5 letter font, rows from the top.
+          font: Record<string, string> = {
+            A: '010101111101101',
+            B: '110101110101110',
+            C: '011100100100011',
+            D: '110101101101110',
+            E: '111100110100111',
+            F: '111100110100100',
+            G: '011100101101011',
+            H: '101101111101101',
+            I: '111010010010111',
+            J: '001001001101010',
+            K: '101101110101101',
+            L: '100100100100111',
+            M: '101111111101101',
+            N: '110101101101101',
+            O: '010101101101010',
+            P: '110101110100100',
+            Q: '010101101111011',
+            R: '110101110101101',
+            S: '011100010001110',
+            T: '111010010010010',
+            U: '101101101101111',
+            V: '101101101101010',
+            W: '101101111111101',
+            X: '101101010101101',
+            Y: '101101010010010',
+            Z: '111001010100111',
+          },
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+          shift =
+            p.shifts[Math.floor(hash(4, 9, seed ^ 0x2e802) * p.shifts.length)],
+          message =
+            p.messages[
+              Math.floor(hash(6, 2, seed ^ 0x2e803) * p.messages.length)
+            ],
+          encipher = (text: string): string =>
+            [...text]
+              .map((letter) => letters[(letters.indexOf(letter) + shift) % 26])
+              .join(''),
+          // Rows 0 and 1: A to M and its cipher; rows 3 and 4: N to Z and its cipher; rows 6 and 7: a message and its cipher.
+          alphabetOne = letters.slice(0, 13),
+          alphabetTwo = letters.slice(13),
+          lines = [
+            alphabetOne,
+            encipher(alphabetOne),
+            '',
+            alphabetTwo,
+            encipher(alphabetTwo),
+            '',
+            message,
+            encipher(message),
+          ];
+        return () => {
+          const row = Math.floor((v - p.top) / p.rowPitch),
+            fy = (v - p.top) / p.rowPitch - row,
+            column = Math.floor((u - p.left) / p.cell);
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            line = 0,
+            glyph = 0;
+          if (row >= 0 && row < 8 && column >= 0 && column < p.columns) {
+            const fx = (u - p.left) / p.cell - column,
+              text = lines[row];
+            if (row === 1 || row === 4 || row === 7) {
+              tone = p.cipherTone;
+              level = p.cipherHeight;
+            }
+            if (text === '')
+              line = cover(p.lineHalf - Math.abs(fy - 0.5) * p.rowPitch);
+            else if (column < text.length) {
+              const px = Math.floor(((fx - 0.5) * p.cell) / p.pixel + 1.5),
+                py = Math.floor(((fy - 0.5) * p.rowPitch) / p.pixel + 2.5);
+              if (
+                px >= 0 &&
+                px < 3 &&
+                py >= 0 &&
+                py < 5 &&
+                font[text[column]][py * 3 + px] === '1'
+              )
+                glyph = 1;
+            }
+          }
+          const base = tone + (p.lineTone - tone) * line;
+          color = clamp(
+            base +
+              (p.inkTone - base) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            level + (p.lineHeight - level) * line - p.inkDepth * glyph,
+          );
+          roughness =
+            p.cellRoughness + (p.inkRoughness - p.cellRoughness) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -60533,6 +60636,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'caesarcipher' ||
     kind === 'baseconversion' ||
     kind === 'primefactors' ||
     kind === 'modularpowers' ||
