@@ -33982,6 +33982,103 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'dicesumbars': {
+        const p = proceduralMaterialPresets.dicesumbars,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2f301),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          n = p.sides[Math.floor(hash(3, 6, seed ^ 0x2f302) * p.sides.length)],
+          columns = 2 * n - 1,
+          pitch = p.width / columns,
+          side = p.fill * pitch,
+          stackPitch = p.stack * side,
+          // The number of ordered pairs of faces that add up to each sum 2..2n.
+          ways = Array.from({ length: columns }, (_, i) => {
+            let count = 0;
+            for (let a = 1; a <= n; a++)
+              if (i + 2 - a >= 1 && i + 2 - a <= n) count++;
+            return count;
+          });
+        return () => {
+          const x = (u - p.left) / pitch,
+            column = Math.floor(x);
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            squareCover = 0,
+            glyph = 0;
+          if (column >= 0 && column < columns) {
+            // Squares are stacked up from the baseline, one per pair of faces with that sum; the likeliest sums are darker.
+            const up = (p.baseline - v) / stackPitch,
+              index = Math.floor(up),
+              offset = (up - index) * stackPitch,
+              gap = stackPitch - side;
+            if (up >= 0 && index < ways[column]) {
+              const insideX =
+                  side / 2 - Math.abs((x - column) * pitch - pitch / 2),
+                insideY = Math.min(offset - gap / 2, gap / 2 + side - offset);
+              squareCover = cover(Math.min(insideX, insideY));
+              tone = ways[column] === n ? p.modeTone : p.waysTone;
+              level = ways[column] === n ? p.modeHeight : p.waysHeight;
+            }
+            // The sum printed under the column, one or two digits centred on it.
+            const text = String(column + 2),
+              px = Math.floor(
+                (u -
+                  (p.left +
+                    (column + 0.5) * pitch -
+                    ((4 * text.length - 1) / 2) * p.pixel)) /
+                  p.pixel,
+              ),
+              py = Math.floor((v - p.labelTop) / p.pixel),
+              d = px >= 0 ? Math.floor(px / 4) : -1,
+              gx = px - 4 * d;
+            if (
+              d >= 0 &&
+              d < text.length &&
+              gx >= 0 &&
+              gx < 3 &&
+              py >= 0 &&
+              py < 5 &&
+              glyphs[Number(text[d])][py * 3 + gx] === '1'
+            )
+              glyph = 1;
+          }
+          const axis =
+              cover(p.axisHalf - Math.abs(v - p.baseline)) *
+              cover(p.width / 2 + 0.01 - Math.abs(u - p.left - p.width / 2)),
+            base = p.paperTone + (tone - p.paperTone) * squareCover,
+            withAxis = base + (p.axisTone - base) * axis;
+          color = clamp(
+            withAxis +
+              (p.inkTone - withAxis) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.paperHeight +
+              (level - p.paperHeight) * squareCover +
+              (p.axisHeight - p.paperHeight) * axis -
+              p.inkDepth * glyph,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.inkRoughness - p.paperRoughness) *
+              Math.max(glyph, axis, squareCover);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -61511,6 +61608,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'dicesumbars' ||
     kind === 'substitutionwords' ||
     kind === 'stemandleaf' ||
     kind === 'boxplots' ||

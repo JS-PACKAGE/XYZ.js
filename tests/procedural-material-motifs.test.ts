@@ -23259,3 +23259,169 @@ describe('substitutionwords: rows produced by a letter substitution', () => {
     expect(different).toBeGreaterThan(0);
   });
 });
+
+describe('dicesumbars: how many ways two dice make each sum', () => {
+  const p = proceduralMaterialPresets.dicesumbars;
+  const digitShapes: string[][] = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+  // Pairs of faces (a, b) of two n-sided dice with a given sum, counted by listing all n * n pairs.
+  const waysOf = (n: number, sum: number): number => {
+    let count = 0;
+    for (let a = 1; a <= n; a++)
+      for (let b = 1; b <= n; b++) if (a + b === sum) count++;
+    return count;
+  };
+
+  // Read the bars for a number of sides: the number of squares per column and the sum printed under it, or null when the
+  // picture does not fit that many columns.
+  const read = (seed: number, n: number) => {
+    const sample = createSurfaceSampler('dicesumbars', seed),
+      out = empty(),
+      colorAt = (u: number, v: number): number => {
+        sample(u, v, out);
+        return out.color;
+      },
+      columns = 2 * n - 1,
+      pitch = p.width / columns,
+      side = p.fill * pitch,
+      stackPitch = p.stack * side,
+      counts: number[] = [],
+      sums: number[] = [],
+      tones: number[] = [];
+    for (let column = 0; column < columns; column++) {
+      const centre = p.left + (column + 0.5) * pitch;
+      let count = 0;
+      while (
+        count < 2 * n &&
+        colorAt(centre, p.baseline - (count + 0.5) * stackPitch) < 0.7
+      )
+        count++;
+      counts.push(count);
+      tones.push(colorAt(centre, p.baseline - 0.5 * stackPitch));
+      // The printed sum: one or two glyphs centred on the column; keep the reading in which every slot is a digit and no ink
+      // lies outside the slots.
+      let text = '';
+      for (const length of [2, 1]) {
+        const start = centre - ((4 * length - 1) / 2) * p.pixel,
+          digits: number[] = [];
+        for (let slot = 0; slot < length; slot++) {
+          const lines = [0, 1, 2, 3, 4].map((k) =>
+            [0, 1, 2]
+              .map((x) =>
+                colorAt(
+                  start + (4 * slot + x + 0.5) * p.pixel,
+                  p.labelTop + (k + 0.5) * p.pixel,
+                ) < 0.3
+                  ? '#'
+                  : '.',
+              )
+              .join(''),
+          );
+          digits.push(
+            digitShapes.findIndex((shape) =>
+              shape.every((line, i) => line === lines[i]),
+            ),
+          );
+        }
+        // A reading is right when all digits are found and the neighbouring slot (just past the text) is empty.
+        const past = [0, 1, 2, 3, 4].some(
+          (k) =>
+            colorAt(
+              start + (4 * length + 1.5) * p.pixel,
+              p.labelTop + (k + 0.5) * p.pixel,
+            ) < 0.3,
+        );
+        if (
+          digits.every((digit) => digit >= 0) &&
+          !past &&
+          (length === 2 || digits[0] < 10)
+        ) {
+          text = digits.join('');
+          break;
+        }
+      }
+      sums.push(Number(text));
+    }
+    return { counts, sums, tones };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'stacks one square per pair of faces for each sum under the sum itself (seed %i)',
+    (seed) => {
+      const fitting = p.sides.filter((n) => {
+        const { counts } = read(seed, n);
+        return counts.every((count, i) => count === waysOf(n, i + 2));
+      });
+      expect(fitting).toHaveLength(1);
+      const n = fitting[0],
+        { counts, tones } = read(seed, n);
+      // The printed sums 2..2n: read where the label glyphs are centred (one-digit sums sit in the second slot).
+      expect(counts).toEqual(
+        Array.from({ length: 2 * n - 1 }, (_, i) => waysOf(n, i + 2)),
+      );
+      expect(Math.max(...counts)).toBe(n);
+      // The most likely sum (n + 1) is the darker column.
+      tones.forEach((tone, i) => expect(tone < 0.3).toBe(counts[i] === n));
+      // The totals are symmetric and add up to every pair of faces.
+      expect(counts.reduce((sum, count) => sum + count, 0)).toBe(n * n);
+    },
+  );
+
+  it('uses every die size across seeds', () => {
+    const used = new Set<number>();
+    for (let seed = 0; seed < 30; seed++) {
+      const fitting = p.sides.filter((n) =>
+        read(seed, n).counts.every((count, i) => count === waysOf(n, i + 2)),
+      );
+      expect(fitting).toHaveLength(1);
+      used.add(fitting[0]);
+    }
+    expect([...used].sort()).toEqual([...p.sides].sort());
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('dicesumbars', 0),
+      b = createSurfaceSampler('dicesumbars', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(0);
+  });
+});
