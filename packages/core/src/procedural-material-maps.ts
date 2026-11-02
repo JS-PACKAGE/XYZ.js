@@ -25029,6 +25029,124 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'pianoroll': {
+        const p = proceduralMaterialPresets.pianoroll,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2a101),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          rowHeight = (1 - p.top - p.bottom) / p.pitches,
+          stepWidth = (1 - p.rollLeft - p.rollRight) / p.steps,
+          black = (pitch: number): boolean =>
+            [1, 3, 6, 8, 10].includes(pitch % 12),
+          semitones = [0, 2, 4, 5, 7, 9, 11],
+          // A melody in a major scale: the seed picks the tonic. It starts on the tonic and moves by
+          // one or two scale degrees at a time, never repeating a pitch, in notes of 1 to 4 steps.
+          tonic = Math.min(11, Math.floor(hash(1, 1, seed ^ 0x2a103) * 12)),
+          pitchOf = (degree: number): number =>
+            tonic +
+            (tonic < 6 ? 12 : 0) +
+            12 * Math.floor(degree / 7) +
+            semitones[((degree % 7) + 7) % 7],
+          notes: { start: number; length: number; pitch: number }[] = [],
+          row0 = new Int16Array(p.steps).fill(-1);
+        let degree = 0,
+          step = 0,
+          index = 0;
+        while (step < p.steps) {
+          const length = Math.min(
+            p.steps - step,
+            1 + Math.min(3, Math.floor(hash(index, 2, seed ^ 0x2a105) * 4)),
+          );
+          notes.push({ start: step, length, pitch: pitchOf(degree) });
+          for (let i = 0; i < length; i++) row0[step + i] = pitchOf(degree);
+          step += length;
+          index++;
+          let next = degree;
+          for (let attempt = 0; attempt < 8; attempt++) {
+            const chance = hash(index, 3 + attempt, seed ^ 0x2a107),
+              size = hash(index, 20 + attempt, seed ^ 0x2a109) < 0.5 ? 1 : 2,
+              toward = pitchOf(degree) < p.pitches / 2 ? 1 : -1,
+              // Half of the steps lean towards the middle of the keyboard, the rest go either way.
+              move = (chance < 0.5 ? toward : chance < 0.75 ? 1 : -1) * size,
+              candidate = degree + move,
+              pitch = pitchOf(candidate);
+            if (pitch >= 0 && pitch < p.pitches) {
+              next = candidate;
+              break;
+            }
+          }
+          if (next === degree)
+            next = degree + (pitchOf(degree + 1) < p.pitches ? 1 : -1);
+          degree = next;
+        }
+        return () => {
+          let tone: number = p.blackRowTone,
+            level: number = p.rowHeight,
+            rough: number = p.otherRoughness;
+          const row = Math.floor((v - p.top) / rowHeight),
+            inside = v >= p.top && v < 1 - p.bottom;
+          if (inside) {
+            const pitch = p.pitches - 1 - row,
+              isBlack = black(pitch),
+              fy = v - p.top - row * rowHeight;
+            if (u < p.keyWidth) {
+              // The keyboard strip: white keys with a dark gap, black-key rows darker and raised.
+              tone = isBlack ? p.blackKeyTone : p.whiteKeyTone;
+              level = isBlack ? p.blackKeyHeight : p.keyHeight;
+              const gap = cover(p.lineHalf * 2 - Math.min(fy, rowHeight - fy));
+              tone += (p.lineTone - tone) * gap;
+            } else if (u >= p.rollLeft && u < 1 - p.rollRight) {
+              const lx = u - p.rollLeft,
+                column = Math.min(p.steps - 1, Math.floor(lx / stepWidth)),
+                fx = lx - column * stepWidth,
+                edge = Math.min(fx, stepWidth - fx);
+              tone = isBlack ? p.blackRowTone : p.whiteRowTone;
+              level = isBlack ? p.blackRowHeight : p.rowHeight;
+              const beat = column % 4 === 0 ? cover(p.beatHalf - fx) : 0,
+                grid = Math.max(
+                  cover(p.lineHalf - edge) * 0.7,
+                  beat,
+                  cover(p.lineHalf - Math.min(fy, rowHeight - fy)) * 0.5,
+                );
+              tone += (p.lineTone - tone) * grid;
+              level += (p.lineHeight - level) * grid;
+              if (row0[column] === pitch) {
+                // Which note this cell belongs to, for its own start and end insets.
+                let noteIndex = 0;
+                while (
+                  noteIndex < notes.length - 1 &&
+                  notes[noteIndex + 1].start <= column
+                )
+                  noteIndex++;
+                const note = notes[noteIndex],
+                  left = p.rollLeft + note.start * stepWidth + p.noteInset,
+                  right =
+                    p.rollLeft +
+                    (note.start + note.length) * stepWidth -
+                    p.noteInset,
+                  body = Math.min(
+                    cover(u - left),
+                    cover(right - u),
+                    cover(fy - rowHeight * 0.12),
+                    cover(rowHeight * 0.88 - fy),
+                  );
+                tone +=
+                  (p.noteLow +
+                    ((p.noteHigh - p.noteLow) * pitch) / (p.pitches - 1) -
+                    tone) *
+                  body;
+                level += (p.noteHeight - level) * body;
+                rough += (p.noteRoughness - rough) * body;
+              }
+            }
+          }
+          color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(level);
+          roughness = rough;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -52558,6 +52676,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'pianoroll' ||
     kind === 'skyscraperpuzzles' ||
     kind === 'knockoutbracket' ||
     kind === 'primesieve' ||

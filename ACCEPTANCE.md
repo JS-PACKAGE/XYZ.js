@@ -12104,3 +12104,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`七百三十三項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）× 四題：測試端由點陣逐格讀取全部`(n+2)²`格的數字（角落不讀），中央每列每欄排序後必須恰為1至n；上、下、左、右四側的線索必須分別等於測試端另寫的「嚴格遞增的前綴最大值個數」（過濾出比前面所有樓都高的樓）對該列／欄由該側起算的值；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "skyscraperpuzzles|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 完整套件：另一個在`git archive`匯出的primesieve提交上的完整套件於背景執行，結果見後續進度紀錄；本材質尚不在其範圍內。
 - 真實dev server的pbr3d頁（WebGPU）選取`skyscraperpuzzles`：option 983個、status為982 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的謎題。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：鋼琴捲簾（pianoroll）
+
+- 目錄982→983，含plain的gallery為984項。左側24半音的琴鍵條（白鍵亮列、黑鍵暗列），右側24列×32步格子，畫出一段由seed選定大調音階、從主音出發的隨機走動旋律（每次移動一或兩個音階級、不重複音高，音符長1至4步）。Metallic／mortar為0，預設tile0.5 m、0.004 UV-relative relief、metallic factor 0。作者設計；仍在獨立worktree分支`materials/more-textures`作業。
+- 設計記錄：第一版的旋律起點固定為「主音＋12」，主音在升F以上時起點已在鍵盤最頂端，隨機走動全擠在最上面五列；看圖後把起點改成落在6至17之間（主音小於6時加12），並讓一半的移動偏向鍵盤中央。
+- 實測：`tests/procedural-material-motifs.test.ts`七百四十三項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）：琴鍵條的亮暗列必須與獨立寫的黑鍵集合{1,3,6,8,10}吻合（24個半音全部檢查）；32個步驟的每一步恰有一個亮列（單音）；將相同音高相鄰的步合併成音符，音符至少8個、長度至多4步、相鄰音符的音高差大於0且至多4個半音（一或兩個大調音階級）；所有出現的音級必須落在以第一個音為主音的大調音階內；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "pianoroll|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`pianoroll`：option 984個、status為983 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的捲簾。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

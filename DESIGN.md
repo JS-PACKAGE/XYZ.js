@@ -1497,6 +1497,10 @@
 
 這是作者設計的示意：畫面上是已解開的答案加上全部四邊的線索（真正的謎題只給線索，並隱藏中央的數字）；解是循環拉丁方經列、欄與符號置換而得，所以不是所有可能的解；1至n的數字以點陣印出，7階的格子較小（約0.05 tile）。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`pianoroll`（鋼琴捲簾）使目前目錄982→983種，含plain的gallery為984項。每tile是一張鋼琴捲簾編輯器式的畫面：左側是24個半音（兩個八度）的琴鍵條，白鍵為亮列、黑鍵（每八度的升C、升D、升F、升G、升A）為暗列；右側是24列×32步的格子（每4步有一條較明顯的拍線），其中以亮藍色長條畫出一段旋律。旋律使用一個由seed挑選的大調音階（12個主音之一），從主音開始，每次移動一或兩個音階級（不重複同一音高），每個音符長1至4步，直到填滿32步；音符愈高愈亮。Metallic與mortar為0。
+
+這是作者設計的示意：旋律是隨機走動，沒有節奏或和聲上的音樂性；音高範圍固定為24個半音（兩個八度），主音落在中間偏上的位置；只有大調音階，沒有轉調、和弦或休止；琴鍵條畫成亮暗的列，沒有真實的琴鍵造型。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

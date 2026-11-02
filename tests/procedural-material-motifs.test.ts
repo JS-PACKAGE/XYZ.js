@@ -11976,3 +11976,99 @@ describe('skyscraperpuzzles: the clues count the visible buildings of the solved
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('pianoroll: a stepwise melody in a major scale over a keyboard strip', () => {
+  const p = proceduralMaterialPresets.pianoroll;
+  const rowHeight = (1 - p.top - p.bottom) / p.pitches;
+  const stepWidth = (1 - p.rollLeft - p.rollRight) / p.steps;
+  const blackKeys = new Set([1, 3, 6, 8, 10]);
+  const major = [0, 2, 4, 5, 7, 9, 11];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'has one pitch per step, in a single major scale that starts on its tonic (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('pianoroll', seed),
+        out = empty(),
+        toneAt = (u: number, v: number): number => {
+          sample(u, v, out);
+          return out.color;
+        },
+        rowY = (pitch: number): number =>
+          p.top + (p.pitches - 1 - pitch + 0.5) * rowHeight;
+      // The keyboard strip shows black keys as dark rows and white keys as bright rows.
+      for (let pitch = 0; pitch < p.pitches; pitch++)
+        expect(toneAt(p.keyWidth / 2, rowY(pitch)) > 0.5).toBe(
+          !blackKeys.has(pitch % 12),
+        );
+      const played: number[] = [];
+      for (let step = 0; step < p.steps; step++) {
+        const active: number[] = [];
+        for (let pitch = 0; pitch < p.pitches; pitch++)
+          if (
+            toneAt(p.rollLeft + (step + 0.5) * stepWidth, rowY(pitch)) >
+            p.noteLow - 0.05
+          )
+            active.push(pitch);
+        expect(active.length).toBe(1);
+        played.push(active[0]);
+      }
+      // Merge equal neighbours into notes: the generator never repeats a pitch, so runs are notes of 1 to 4 steps.
+      const notes: { pitch: number; length: number }[] = [];
+      for (const pitch of played)
+        if (notes.length > 0 && notes[notes.length - 1].pitch === pitch)
+          notes[notes.length - 1].length++;
+        else notes.push({ pitch, length: 1 });
+      expect(notes.length).toBeGreaterThanOrEqual(8);
+      for (const note of notes) expect(note.length).toBeLessThanOrEqual(4);
+      for (let i = 1; i < notes.length; i++) {
+        const jump = Math.abs(notes[i].pitch - notes[i - 1].pitch);
+        expect(jump).toBeGreaterThan(0);
+        // One or two scale degrees: at most four semitones in a major scale.
+        expect(jump).toBeLessThanOrEqual(4);
+      }
+      // Every played pitch class lies in the major scale whose tonic is the first note.
+      const classes = new Set(notes.map((note) => note.pitch % 12)),
+        tonics = Array.from({ length: 12 }, (_, tonic) => tonic).filter(
+          (tonic) =>
+            [...classes].every((pc) => major.includes((pc - tonic + 12) % 12)),
+        );
+      expect(tonics).toContain(notes[0].pitch % 12);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('pianoroll', 0),
+      b = createSurfaceSampler('pianoroll', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
