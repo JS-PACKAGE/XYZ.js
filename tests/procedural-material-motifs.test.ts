@@ -14746,3 +14746,147 @@ describe('kenkencages: a solved KenKen', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('numberlinkpaths: a solved Numberlink', () => {
+  const p = proceduralMaterialPresets.numberlinkpaths;
+  const n = p.size;
+  const cell = (1 - 2 * p.margin) / n;
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'joins each pair of equal numbers by a path and the paths fill every cell (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('numberlinkpaths', seed),
+        out = empty(),
+        at = (col: number, row: number, fx: number, fy: number): number => {
+          sample(
+            p.margin + (col + fx) * cell,
+            p.margin + (row + fy) * cell,
+            out,
+          );
+          return out.color;
+        },
+        digitSize = p.digitFraction,
+        clue: number[] = [],
+        links: number[][] = Array.from({ length: n * n }, () => []);
+      for (let row = 0; row < n; row++)
+        for (let col = 0; col < n; col++) {
+          // An endpoint is a dark disc: all four diagonal points inside its radius are dark, away from any stroke.
+          const diagonal = [-1, 1].flatMap((a) =>
+            [-1, 1].map(
+              (b) => at(col, row, 0.5 + 0.22 * a, 0.5 + 0.22 * b) < 0.5,
+            ),
+          );
+          expect(
+            diagonal.every(Boolean) || diagonal.every((value) => !value),
+          ).toBe(true);
+          if (diagonal[0]) {
+            const bits: string[] = [];
+            for (let y = 0; y < 5; y++) {
+              let text = '';
+              for (let x = 0; x < 3; x++)
+                text +=
+                  at(
+                    col,
+                    row,
+                    0.5 + (x - 1) * digitSize,
+                    0.5 + (y - 2) * digitSize,
+                  ) > 0.5
+                    ? '#'
+                    : '.';
+              bits.push(text);
+            }
+            const digit = art.findIndex((rows) =>
+              rows.every((line, i) => line === bits[i]),
+            );
+            expect(digit).toBeGreaterThanOrEqual(1);
+            clue.push(digit);
+          } else clue.push(-1);
+          const index = row * n + col;
+          if (col < n - 1 && at(col, row, 1, 0.5) < 0.5) {
+            links[index].push(index + 1);
+            links[index + 1].push(index);
+          }
+          if (row < n - 1 && at(col, row, 0.5, 1) < 0.5) {
+            links[index].push(index + n);
+            links[index + n].push(index);
+          }
+        }
+      // Every cell is covered: endpoints end one stroke, other cells pass exactly two.
+      for (let index = 0; index < n * n; index++)
+        expect(links[index].length).toBe(clue[index] === -1 ? 2 : 1);
+      // Follow each path from an endpoint; it must end at the other endpoint with the same number.
+      const visited = new Set<number>(),
+        used = new Set<number>();
+      let paths = 0;
+      for (let start = 0; start < n * n; start++) {
+        if (clue[start] === -1 || visited.has(start)) continue;
+        let previous = -1,
+          current = start;
+        visited.add(start);
+        for (;;) {
+          const next = links[current].find((other) => other !== previous);
+          if (next === undefined) break;
+          previous = current;
+          current = next;
+          expect(visited.has(current)).toBe(false);
+          visited.add(current);
+        }
+        expect(current).not.toBe(start);
+        expect(clue[current]).toBe(clue[start]);
+        expect(used.has(clue[start])).toBe(false);
+        used.add(clue[start]);
+        paths++;
+      }
+      expect(visited.size).toBe(n * n);
+      expect(paths).toBeGreaterThanOrEqual(5);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('numberlinkpaths', 0),
+      b = createSurfaceSampler('numberlinkpaths', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

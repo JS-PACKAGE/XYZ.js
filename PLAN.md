@@ -1573,6 +1573,10 @@
 
 這是作者設計的示意：畫面是填好答案的盤面，真正的KenKen只給籠與目標（不顯示答案）；不保證只有唯一解（我沒有寫求解器檢查）；籠最多3格；4×4固定；大數字與小標籤都是點陣、在小尺寸下難以辨識。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`numberlinkpaths`（數字連線謎題／Numberlink）使目前目錄1003→1004種，含plain的gallery為1005項。每tile是一個6×6已解開的Numberlink盤面：約6至9對端點，各是深色圓盤內反白的點陣數字（1至9），同一對數字以一條粗線連起來，所有路徑合起來恰好鋪滿全部36格、互不相交、不分叉也沒有環；不同路徑的線條有些微不同的深淺。盤面由seed產生：先用水平骨牌鋪滿棋盤並以大量隨機「2×2旋轉」得到隨機的骨牌鋪法，再把端點相鄰且屬於不同路徑的骨牌頭尾相接，直到剩下約6至9條路徑。Metallic與mortar為0。
+
+這是作者設計的示意：畫面是填好答案的盤面，真正的Numberlink只給端點數字；不保證只有唯一解；路徑偏曲折短（因為由骨牌連接而成）；6×6固定、數字為3×5點陣；若合併過程停在超過9條路徑，數字會超出點陣表（我對300個seed加九個測試seed都沒遇到，但沒有證明不會發生）。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

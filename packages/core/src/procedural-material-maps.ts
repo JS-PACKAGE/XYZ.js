@@ -28172,6 +28172,190 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'numberlinkpaths': {
+        const p = proceduralMaterialPresets.numberlinkpaths,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2b601),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          n = p.size,
+          side = 1 - 2 * p.margin,
+          cell = side / n,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // links[cell]: neighbouring cells joined to it by the drawn path. Start from horizontal dominoes
+          // and flip pairs of parallel dominoes in 2 x 2 blocks, which keeps a valid domino tiling.
+          partner = Array.from({ length: n * n }, (_, index) =>
+            index % 2 === 0 ? index + 1 : index - 1,
+          );
+        let counter = 0;
+        const rand = (): number => hash(counter++, 3, seed ^ 0x2b603);
+        for (let k = 0; k < p.flips; k++) {
+          const x = Math.min(n - 2, Math.floor(rand() * (n - 1))),
+            y = Math.min(n - 2, Math.floor(rand() * (n - 1))),
+            a = y * n + x,
+            b = a + 1,
+            c = a + n,
+            d = c + 1;
+          if (partner[a] === b && partner[c] === d) {
+            partner[a] = c;
+            partner[c] = a;
+            partner[b] = d;
+            partner[d] = b;
+          } else if (partner[a] === c && partner[b] === d) {
+            partner[a] = b;
+            partner[b] = a;
+            partner[c] = d;
+            partner[d] = c;
+          }
+        }
+        const links: number[][] = partner.map((other) => [other]),
+          pathOf = Array.from({ length: n * n }, (_, index) =>
+            Math.min(index, partner[index]),
+          );
+        // Join paths end to end through adjacent endpoints until only a handful are left.
+        let paths = (n * n) / 2;
+        const target =
+          p.minPaths +
+          Math.min(p.extraPaths, Math.floor(rand() * (p.extraPaths + 1)));
+        while (paths > target) {
+          const options: [number, number][] = [];
+          for (let a = 0; a < n * n; a++) {
+            if (links[a].length !== 1) continue;
+            for (const b of [a + 1, a + n]) {
+              if (
+                b >= n * n ||
+                links[b].length !== 1 ||
+                pathOf[a] === pathOf[b]
+              )
+                continue;
+              if (b === a + 1 && a % n === n - 1) continue;
+              options.push([a, b]);
+            }
+          }
+          if (options.length === 0) break;
+          const [a, b] =
+              options[
+                Math.min(
+                  options.length - 1,
+                  Math.floor(rand() * options.length),
+                )
+              ],
+            from = pathOf[b],
+            into = pathOf[a];
+          links[a].push(b);
+          links[b].push(a);
+          for (let index = 0; index < n * n; index++)
+            if (pathOf[index] === from) pathOf[index] = into;
+          paths--;
+        }
+        // Number the paths in reading order of their first endpoint.
+        const numbers = new Map<number, number>(),
+          clue = new Int8Array(n * n).fill(-1);
+        for (let index = 0; index < n * n; index++) {
+          if (links[index].length !== 1) continue;
+          if (!numbers.has(pathOf[index]))
+            numbers.set(pathOf[index], numbers.size + 1);
+          clue[index] = numbers.get(pathOf[index]) as number;
+        }
+        // Distance from (x, y) to the segment a-b.
+        const segment = (
+          x: number,
+          y: number,
+          ax: number,
+          ay: number,
+          bx: number,
+          by: number,
+        ): number => {
+          const dx = bx - ax,
+            dy = by - ay,
+            t = clamp(((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy));
+          return Math.hypot(x - ax - t * dx, y - ay - t * dy);
+        };
+        return () => {
+          const lx = u - p.margin,
+            ly = v - p.margin;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            line = 0,
+            stroke = 0,
+            strokeTone: number = p.strokeBase,
+            disc = 0,
+            digit = 0;
+          if (lx >= 0 && ly >= 0 && lx < side && ly < side) {
+            const col = Math.min(n - 1, Math.floor(lx / cell)),
+              row = Math.min(n - 1, Math.floor(ly / cell)),
+              index = row * n + col,
+              fx = lx / cell - col,
+              fy = ly / cell - row;
+            tone = p.cellTone;
+            level = p.cellHeight;
+            line = cover(
+              p.lineHalf -
+                Math.min(Math.min(fx, 1 - fx), Math.min(fy, 1 - fy)) * cell,
+            );
+            strokeTone =
+              p.strokeBase +
+              p.strokeRange * hash(pathOf[index], 5, seed ^ 0x2b605);
+            // Each link is drawn as a bar from this cell's centre to the shared edge; the neighbour draws the other half.
+            for (const other of links[index]) {
+              const dx =
+                  other - index === 1 ? 1 : other - index === -1 ? -1 : 0,
+                dy = other - index === n ? 1 : other - index === -n ? -1 : 0;
+              stroke = Math.max(
+                stroke,
+                cover(
+                  (p.strokeHalf -
+                    segment(fx, fy, 0.5, 0.5, 0.5 + dx * 0.5, 0.5 + dy * 0.5)) *
+                    cell,
+                ),
+              );
+            }
+            if (clue[index] !== -1) {
+              disc = cover(
+                (p.discRadius - Math.hypot(fx - 0.5, fy - 0.5)) * cell,
+              );
+              const pixel = p.digitFraction,
+                px = Math.floor((fx - (0.5 - 1.5 * pixel)) / pixel),
+                py = Math.floor((fy - (0.5 - 2.5 * pixel)) / pixel);
+              if (
+                px >= 0 &&
+                px < 3 &&
+                py >= 0 &&
+                py < 5 &&
+                glyphs[clue[index]][py * 3 + px] === '1'
+              )
+                digit = 1;
+            }
+          }
+          const base = tone + (p.lineTone - tone) * line,
+            withStroke = base + (strokeTone - base) * stroke,
+            withDisc = withStroke + (p.discTone - withStroke) * disc;
+          color = clamp(
+            withDisc +
+              (p.digitTone - withDisc) * digit +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          const raised = level + (p.strokeHeight - level) * stroke;
+          height = clamp(
+            raised + (p.discHeight - raised) * disc - p.digitDepth * digit,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.strokeRoughness - p.paperRoughness) * Math.max(stroke, disc);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -55701,6 +55885,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'numberlinkpaths' ||
     kind === 'kenkencages' ||
     kind === 'takuzugrid' ||
     kind === 'akarilights' ||
