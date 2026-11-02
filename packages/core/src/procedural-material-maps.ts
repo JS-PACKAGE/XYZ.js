@@ -42118,6 +42118,62 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'fibonacciword': {
+        const p = proceduralMaterialPresets.fibonacciword,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft,
+          shiftX = Math.floor(hash(0, 7, seed ^ p.seedSalt) * p.cells),
+          shiftY = Math.floor(hash(1, 7, seed ^ p.seedSalt) * p.cells),
+          // The Fibonacci word 0100101001001... written row by row into a cells x cells table
+          // (cells = 55, a Fibonacci number): the n-th letter (n = 1, 2, ...) is
+          // floor((n + 1) / phi^2) - floor(n / phi^2), a Sturmian sequence of slope 1 / phi^2
+          // whose 1s (a share of 1 / phi^2 of the letters) glow. Because the row length is a
+          // Fibonacci number the rows nearly repeat, drifting by a small fixed step, so the
+          // table is covered with slanted quasi-periodic stripes. The seed moves it around the torus.
+          slope = (3 - Math.sqrt(5)) / 2,
+          tones = new Float64Array(p.cells * p.cells);
+        for (let n = 1; n <= p.cells * p.cells; n++)
+          tones[n - 1] =
+            Math.floor((n + 1) * slope) - Math.floor(n * slope) === 1
+              ? p.toneSpan
+              : 0;
+        return () => {
+          // One compact-support rounded-square kernel per cell (a quartic superellipse
+          // through smoothstep, exactly zero before the cell boundary), so the cell
+          // lookup never jumps and the field is C1.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            ax = (x - col - 0.5) * inverseHalf,
+            ay = (y - row - 0.5) * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            tone =
+              tones[
+                ((row + shiftY) % p.cells) * p.cells +
+                  ((col + shiftX) % p.cells)
+              ],
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -50947,6 +51003,7 @@ export function createSurfaceSampler(
     kind === 'hermitemodes' ||
     kind === 'walshmatrix' ||
     kind === 'zeckendorftable' ||
+    kind === 'fibonacciword' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||

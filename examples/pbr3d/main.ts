@@ -1091,6 +1091,7 @@ try {
     'hermitemodes',
     'walshmatrix',
     'zeckendorftable',
+    'fibonacciword',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

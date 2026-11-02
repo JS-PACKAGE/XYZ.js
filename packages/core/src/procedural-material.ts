@@ -1028,6 +1028,7 @@ export type ProceduralMaterialKind =
   | 'hermitemodes'
   | 'walshmatrix'
   | 'zeckendorftable'
+  | 'fibonacciword'
   | 'sandpileidentity'
   | 'multiplicativeorder'
   | 'vermiculation'
@@ -2303,6 +2304,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'hermitemodes',
   'walshmatrix',
   'zeckendorftable',
+  'fibonacciword',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',

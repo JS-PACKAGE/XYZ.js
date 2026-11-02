@@ -12877,3 +12877,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Zeckendorf table as|zeckendorftable|kinds|catalog|distinct|periodic"`定向測試**2358項通過／4037項未選**。
 - 未驗證：supershapes、hermitemodes、walshmatrix與zeckendorftable未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-03 新增材質：斐波那契字（fibonacciword）
+
+- 範圍：新增`fibonacciword`（目前目錄1026→1027種，含plain的gallery 1028項）：把斐波那契字`0100101001001010…`依列寫進55×55圓角方磚表（第`n`個字母`floor((n + 1) / φ²) − floor(n / φ²)`，1發光，約占0.382），列長為斐波那契數所以佈滿接近垂直的準週期條紋；珊瑚紅在深紫黑底上；seed令表在環面上平移；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 155,272 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽只看了一版；(2)sampler用`floor`公式與倍精度常數，測試以替換規則`0 → 01`、`1 → 0`這個**獨立的方式**產生斐波那契字，檢查前16個字母、前3,025個字母中1的個數，並在3,025個平移中檢查恰好一個符合；「兩種方式產生同一序列」是標準理論事實，這裡只在3,025個字母上實測一致、沒有證明對所有n成立；(3)文件初稿把預覽中的斜錯描述成「向右下斜一格」，我沒有確認方向，gates後、commit前已改成只說「錯開一格」；(4)不同seed與取樣格寬造成亮處占比略有差異（約27.2%–27.6%），原因是格寬（4.65與9.3像素）不是整數、取樣點在格內位置隨平移不同，不是序列改變；(5)建構與取樣耗時**未量測**；(6)這次測試第一次執行即通過（探針數值先量好才寫界線）。
+- 實測（工具實跑）：獨立替換法的字長度4,181（替換到不少於3,025個字母）、前16個字母`0100101001001010`、前3,025個字母有1,155個1；四個seed（0／1／0xffffffff／7）各有唯一符合的平移(1, 2)、(47, 4)、(6, 18)、(2, 28)，最大擬合誤差0.01495／0.01475／0.01489／0.01468；256²（seed 0／1／0xffffffff）亮處（color>0.5）27.18%–27.60%、color 0.02536–0.02597至0.85393–0.85422、平均0.30453–0.30639、roughness恆為0.4、AO最低0.6、height至多0.8468–0.8476 relief；512²（四個seed）亮處27.16%–27.57%、color 0.02512–0.02534至0.85454–0.85472、平均0.30452–0.30639、height至多0.8489–0.8501 relief；seed 0與1相比，格中心顏色相差超過0.05的格子74.5%（512²中color>0.5的取樣53.4%不同）；seed 7的512²maps平均r／g／b約(90.5, 42.3, 57.6)、法線tilt²最大約0.0356、z分量最小253。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Fibonacci word as|fibonacciword|kinds|catalog|distinct|periodic"`定向測試**2360項通過／4040項未選**。
+- 未驗證：supershapes、hermitemodes、walshmatrix、zeckendorftable與fibonacciword未跑完整suite與瀏覽器gallery；不push。
