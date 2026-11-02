@@ -30378,3 +30378,256 @@ describe('quadtreecells: an adaptive quadtree around a shape', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('lsystemplant: L-system plants drawn by a turtle', () => {
+  const p = proceduralMaterialPresets.lsystemplant;
+  type Segment = {
+    ax: number;
+    ay: number;
+    bx: number;
+    by: number;
+    depth: number;
+  };
+  type Variant = {
+    grammar: number;
+    iterations: number;
+    mirrored: boolean;
+    segments: Segment[];
+    deepest: number;
+  };
+
+  // Rewrite by regular expression, then walk the turtle (angles in radians, starting upwards), then fit to the tile: written again
+  // here, not sharing code with the sampler.
+  const build = (
+    grammar: number,
+    iterations: number,
+    mirrored: boolean,
+  ): Variant => {
+    const [axiom, ruleX, ruleF, degrees] = p.grammars[grammar];
+    let word = String(axiom);
+    for (let i = 0; i < iterations; i++)
+      word = word.replace(/[FX]/g, (symbol) =>
+        symbol === 'F' ? String(ruleF) : ruleX === '' ? 'X' : String(ruleX),
+      );
+    const raw: Segment[] = [],
+      saved: [number, number, number][] = [];
+    let position: [number, number] = [0, 0],
+      heading = -Math.PI / 2;
+    for (const symbol of word) {
+      if (symbol === 'F') {
+        const next: [number, number] = [
+          position[0] + Math.cos(heading),
+          position[1] + Math.sin(heading),
+        ];
+        raw.push({
+          ax: position[0],
+          ay: position[1],
+          bx: next[0],
+          by: next[1],
+          depth: saved.length,
+        });
+        position = next;
+      } else if (symbol === '+') heading += (Number(degrees) * Math.PI) / 180;
+      else if (symbol === '-') heading -= (Number(degrees) * Math.PI) / 180;
+      else if (symbol === '[') saved.push([position[0], position[1], heading]);
+      else if (symbol === ']')
+        [position[0], position[1], heading] = saved.pop() as [
+          number,
+          number,
+          number,
+        ];
+    }
+    const xs = raw.flatMap((s) => [s.ax, s.bx]),
+      ys = raw.flatMap((s) => [s.ay, s.by]),
+      width = Math.max(...xs) - Math.min(...xs),
+      height = Math.max(...ys) - Math.min(...ys),
+      scale = p.fill / Math.max(width, height),
+      left = (1 - width * scale) / 2,
+      top = (1 - height * scale) / 2,
+      toU = (x: number): number => {
+        const u = left + (x - Math.min(...xs)) * scale;
+        return mirrored ? 1 - u : u;
+      },
+      toV = (y: number): number => top + (y - Math.min(...ys)) * scale;
+    return {
+      grammar,
+      iterations,
+      mirrored,
+      segments: raw.map((s) => ({
+        ax: toU(s.ax),
+        ay: toV(s.ay),
+        bx: toU(s.bx),
+        by: toV(s.by),
+        depth: s.depth,
+      })),
+      deepest: Math.max(...raw.map((s) => s.depth)),
+    };
+  };
+  const variants = p.grammars.flatMap((grammar, index) =>
+    [grammar[4], grammar[5]].flatMap((iterations) =>
+      [false, true].map((mirrored) =>
+        build(index, Number(iterations), mirrored),
+      ),
+    ),
+  );
+  const distanceToSegments = (
+    segments: Segment[],
+    u: number,
+    v: number,
+  ): number => {
+    let nearest = Infinity;
+    for (const { ax, ay, bx, by } of segments) {
+      const dx = bx - ax,
+        dy = by - ay,
+        along = Math.min(
+          1,
+          Math.max(0, ((u - ax) * dx + (v - ay) * dy) / (dx * dx + dy * dy)),
+        );
+      nearest = Math.min(
+        nearest,
+        Math.hypot(u - ax - dx * along, v - ay - dy * along),
+      );
+    }
+    return nearest;
+  };
+
+  // The variants whose every segment shows ink at its middle. A fuller plant contains the thinner ones of the same grammar and
+  // mirroring (rewriting F as FF only subdivides what is already drawn), so the picture is the inked variant with most segments.
+  const inked = (seed: number): Variant[] => {
+    const sample = createSurfaceSampler('lsystemplant', seed),
+      out = empty();
+    return variants.filter(({ segments }) =>
+      segments.every((s) => {
+        sample((s.ax + s.bx) / 2, (s.ay + s.by) / 2, out);
+        return out.color < p.paperTone - 0.15;
+      }),
+    );
+  };
+  const fullest = (candidates: Variant[]): Variant =>
+    candidates.reduce((a, b) =>
+      b.segments.length > a.segments.length ? b : a,
+    );
+  // Two variants are the same picture when their segments' middles coincide (the mirror image of a symmetric plant is itself).
+  const imageKey = (variant: Variant): string =>
+    variant.segments
+      .map(
+        (s) =>
+          `${Math.round(((s.ax + s.bx) / 2) * 1e5)},${Math.round(((s.ay + s.by) / 2) * 1e5)}`,
+      )
+      .sort()
+      .join(';');
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws every segment of one grammar, iteration count and mirroring, and no segment of any other (seed %i)',
+    (seed) => {
+      const best = fullest(inked(seed)),
+        sample = createSurfaceSampler('lsystemplant', seed),
+        out = empty();
+      expect(
+        inked(seed).filter(
+          (variant) =>
+            variant.segments.length === best.segments.length &&
+            imageKey(variant) !== imageKey(best),
+        ),
+      ).toHaveLength(0);
+      // The middle of every segment of any other picture that is not near a segment of this plant is paper.
+      let checked = 0;
+      for (const other of variants) {
+        if (imageKey(other) === imageKey(best)) continue;
+        for (const segment of other.segments) {
+          const u = (segment.ax + segment.bx) / 2,
+            v = (segment.ay + segment.by) / 2;
+          if (distanceToSegments(best.segments, u, v) < 0.01) continue;
+          sample(u, v, out);
+          expect(out.color).toBeGreaterThan(p.paperTone - 0.05);
+          checked++;
+        }
+      }
+      expect(checked).toBeGreaterThan(1000);
+    },
+  );
+
+  it('tones branches from the trunk (dark) to the tips (lighter) by their depth in the plant', () => {
+    for (const seed of seeds) {
+      const variant = fullest(inked(seed)),
+        sample = createSurfaceSampler('lsystemplant', seed),
+        out = empty();
+      let checked = 0;
+      for (const segment of variant.segments) {
+        if (checked >= 150) break;
+        const mid: [number, number] = [
+          (segment.ax + segment.bx) / 2,
+          (segment.ay + segment.by) / 2,
+        ];
+        // Only segments with no other segment within 1.5 half widths of their middle (not even a coinciding one), so that the
+        // nearest segment there is this one; neighbours along the branch are at least half a segment (0.0036) away.
+        if (
+          variant.segments.some(
+            (other) =>
+              other !== segment &&
+              distanceToSegments([other], mid[0], mid[1]) < 1.5 * p.lineHalf,
+          )
+        )
+          continue;
+        sample(mid[0], mid[1], out);
+        expect(
+          Math.abs(
+            out.color -
+              (p.trunkTone +
+                ((p.tipTone - p.trunkTone) * segment.depth) /
+                  Math.max(1, variant.deepest)),
+          ),
+        ).toBeLessThan(0.05);
+        checked++;
+      }
+      expect(checked).toBeGreaterThan(40);
+    }
+  });
+
+  it(
+    'uses every different plant picture across seeds',
+    { timeout: 120000 },
+    () => {
+      const used = new Set<string>();
+      for (let seed = 0; seed < 80; seed++)
+        used.add(imageKey(fullest(inked(seed))));
+      expect(used.size).toBe(new Set(variants.map(imageKey)).size);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('lsystemplant', 0),
+      b = createSurfaceSampler('lsystemplant', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

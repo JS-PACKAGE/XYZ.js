@@ -13065,6 +13065,34 @@ export const proceduralMaterialPresets = Object.freeze({
     cellRoughness: 0.62,
     lineRoughness: 0.88,
   }),
+  lsystemplant: Object.freeze({
+    dark: [24, 40, 28] as const,
+    light: [240, 238, 220] as const,
+    roughness: 0.58,
+    relief: 0.004,
+    // L-system plants drawn with a turtle: every F steps forward one unit and draws, + and - turn by the angle, [ and ] save and
+    // restore the turtle. The seed picks one of four grammars, one of its two iteration counts, and whether the plant is mirrored.
+    // [axiom, rule for X (or empty), rule for F, angle in degrees, shorter iteration count, longer iteration count].
+    grammars: Object.freeze([
+      Object.freeze(['X', 'F+[[X]-X]-F[-FX]+X', 'FF', 25, 4, 5]),
+      Object.freeze(['F', '', 'FF-[-F+F+F]+[+F-F-F]', 22.5, 3, 4]),
+      Object.freeze(['X', 'F[+X]F[-X]+X', 'FF', 20, 5, 6]),
+      Object.freeze(['X', 'F[+X][-X]FX', 'FF', 25.7, 5, 6]),
+    ]),
+    fill: 0.9,
+    bucketCells: 48,
+    lineHalf: 0.0018,
+    edgeSoft: 0.0011,
+    grainCells: 192,
+    paperTone: 0.94,
+    trunkTone: 0.1,
+    tipTone: 0.55,
+    grainTone: 0.03,
+    paperHeight: 0.2,
+    inkHeight: 0.7,
+    paperRoughness: 0.74,
+    inkRoughness: 0.45,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -19557,6 +19585,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  lsystemplant: 1,
   quadtreecells: 1,
   countingrods: 1,
   braiddiagram: 1,

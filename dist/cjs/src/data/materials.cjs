@@ -21040,6 +21040,67 @@ var proceduralMaterialPresets = Object.freeze({
 		cellRoughness: .62,
 		lineRoughness: .88
 	}),
+	lsystemplant: Object.freeze({
+		dark: [
+			24,
+			40,
+			28
+		],
+		light: [
+			240,
+			238,
+			220
+		],
+		roughness: .58,
+		relief: .004,
+		grammars: Object.freeze([
+			Object.freeze([
+				`X`,
+				`F+[[X]-X]-F[-FX]+X`,
+				`FF`,
+				25,
+				4,
+				5
+			]),
+			Object.freeze([
+				`F`,
+				``,
+				`FF-[-F+F+F]+[+F-F-F]`,
+				22.5,
+				3,
+				4
+			]),
+			Object.freeze([
+				`X`,
+				`F[+X]F[-X]+X`,
+				`FF`,
+				20,
+				5,
+				6
+			]),
+			Object.freeze([
+				`X`,
+				`F[+X][-X]FX`,
+				`FF`,
+				25.7,
+				5,
+				6
+			])
+		]),
+		fill: .9,
+		bucketCells: 48,
+		lineHalf: .0018,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		trunkTone: .1,
+		tipTone: .55,
+		grainTone: .03,
+		paperHeight: .2,
+		inkHeight: .7,
+		paperRoughness: .74,
+		inkRoughness: .45
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -29721,6 +29782,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	lsystemplant: 1,
 	quadtreecells: 1,
 	countingrods: 1,
 	braiddiagram: 1,

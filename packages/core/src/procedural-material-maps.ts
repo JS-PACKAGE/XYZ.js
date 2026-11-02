@@ -37873,6 +37873,168 @@ export function createSurfaceSampler(
           occlusion = 1 - 0.2 * line;
         };
       }
+      case 'lsystemplant': {
+        const p = proceduralMaterialPresets.lsystemplant,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x32001),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          [axiom, ruleX, ruleF, angleDegrees, shorter, longer] =
+            p.grammars[
+              Math.floor(hash(3, 1, seed ^ 0x32002) * p.grammars.length)
+            ],
+          iterations = hash(5, 2, seed ^ 0x32003) < 0.5 ? shorter : longer,
+          mirrored = hash(7, 3, seed ^ 0x32004) < 0.5,
+          angle = ((angleDegrees as number) * Math.PI) / 180;
+        // Rewrite the axiom: F and X are replaced by their rules, everything else stays.
+        let word = axiom as string;
+        for (let step = 0; step < (iterations as number); step++) {
+          let next = '';
+          for (const symbol of word)
+            next +=
+              symbol === 'F'
+                ? ruleF
+                : symbol === 'X' && ruleX !== ''
+                  ? ruleX
+                  : symbol;
+          word = next;
+        }
+        // The turtle starts at the origin pointing up (negative y) and draws one unit per F; the stack depth of each segment is kept.
+        const ends: number[] = [],
+          depths: number[] = [],
+          stack: number[][] = [];
+        let x = 0,
+          y = 0,
+          heading = -Math.PI / 2,
+          deepest = 0;
+        for (const symbol of word) {
+          if (symbol === 'F') {
+            ends.push(x, y);
+            x += Math.cos(heading);
+            y += Math.sin(heading);
+            ends.push(x, y);
+            depths.push(stack.length);
+            deepest = Math.max(deepest, stack.length);
+          } else if (symbol === '+') heading += angle;
+          else if (symbol === '-') heading -= angle;
+          else if (symbol === '[') stack.push([x, y, heading]);
+          else if (symbol === ']') [x, y, heading] = stack.pop() as number[];
+        }
+        const count = depths.length;
+        let minX = Infinity,
+          maxX = -Infinity,
+          minY = Infinity,
+          maxY = -Infinity;
+        for (let k = 0; k < ends.length; k += 2) {
+          minX = Math.min(minX, ends[k]);
+          maxX = Math.max(maxX, ends[k]);
+          minY = Math.min(minY, ends[k + 1]);
+          maxY = Math.max(maxY, ends[k + 1]);
+        }
+        // Scale uniformly so the plant fits the tile (fill of its larger side) and centre it.
+        const scale = p.fill / Math.max(maxX - minX, maxY - minY),
+          offsetX = (1 - (maxX - minX) * scale) / 2 - minX * scale,
+          offsetY = (1 - (maxY - minY) * scale) / 2 - minY * scale,
+          segments = new Float32Array(count * 4);
+        for (let k = 0; k < count; k++) {
+          const ax = ends[4 * k] * scale + offsetX,
+            bx = ends[4 * k + 2] * scale + offsetX;
+          segments[4 * k] = mirrored ? 1 - ax : ax;
+          segments[4 * k + 1] = ends[4 * k + 1] * scale + offsetY;
+          segments[4 * k + 2] = mirrored ? 1 - bx : bx;
+          segments[4 * k + 3] = ends[4 * k + 3] * scale + offsetY;
+        }
+        // Bucket grid: every cell lists the segments whose reach touches it.
+        const cells = p.bucketCells,
+          reach = p.lineHalf + p.edgeSoft,
+          cellStart = new Int32Array(cells * cells + 1),
+          bucketRange = (k: number): [number, number, number, number] => [
+            Math.max(
+              0,
+              Math.floor(
+                (Math.min(segments[4 * k], segments[4 * k + 2]) - reach) *
+                  cells,
+              ),
+            ),
+            Math.min(
+              cells - 1,
+              Math.floor(
+                (Math.max(segments[4 * k], segments[4 * k + 2]) + reach) *
+                  cells,
+              ),
+            ),
+            Math.max(
+              0,
+              Math.floor(
+                (Math.min(segments[4 * k + 1], segments[4 * k + 3]) - reach) *
+                  cells,
+              ),
+            ),
+            Math.min(
+              cells - 1,
+              Math.floor(
+                (Math.max(segments[4 * k + 1], segments[4 * k + 3]) + reach) *
+                  cells,
+              ),
+            ),
+          ];
+        for (let k = 0; k < count; k++) {
+          const [x0, x1, y0, y1] = bucketRange(k);
+          for (let cy = y0; cy <= y1; cy++)
+            for (let cx = x0; cx <= x1; cx++) cellStart[cy * cells + cx + 1]++;
+        }
+        for (let c = 0; c < cells * cells; c++)
+          cellStart[c + 1] += cellStart[c];
+        const fill = cellStart.slice(0, cells * cells),
+          members = new Int32Array(cellStart[cells * cells]);
+        for (let k = 0; k < count; k++) {
+          const [x0, x1, y0, y1] = bucketRange(k);
+          for (let cy = y0; cy <= y1; cy++)
+            for (let cx = x0; cx <= x1; cx++)
+              members[fill[cy * cells + cx]++] = k;
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            cell =
+              Math.min(cells - 1, Math.floor(fv * cells)) * cells +
+              Math.min(cells - 1, Math.floor(fu * cells));
+          let nearest = Infinity,
+            depth = 0;
+          for (let m = cellStart[cell]; m < cellStart[cell + 1]; m++) {
+            const k = members[m],
+              ax = segments[4 * k],
+              ay = segments[4 * k + 1],
+              dx = segments[4 * k + 2] - ax,
+              dy = segments[4 * k + 3] - ay,
+              along = Math.min(
+                1,
+                Math.max(
+                  0,
+                  ((fu - ax) * dx + (fv - ay) * dy) / (dx * dx + dy * dy),
+                ),
+              ),
+              distance = Math.hypot(fu - ax - dx * along, fv - ay - dy * along);
+            if (distance < nearest) {
+              nearest = distance;
+              depth = depths[k];
+            }
+          }
+          const ink = cover(p.lineHalf - nearest),
+            tone =
+              p.trunkTone +
+              ((p.tipTone - p.trunkTone) * depth) / Math.max(1, deepest);
+          color = clamp(
+            p.paperTone +
+              (tone - p.paperTone) * ink +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * ink);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -65402,6 +65564,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'lsystemplant' ||
     kind === 'quadtreecells' ||
     kind === 'countingrods' ||
     kind === 'braiddiagram' ||

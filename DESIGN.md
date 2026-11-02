@@ -2001,6 +2001,10 @@
 
 這是作者設計的示意：沒有標示深度或形狀名稱；切割規則只檢查四個角與中心，如果形狀的細部比格子小，可能漏掉（這12個形狀在目前的最大深度下沒有這個問題；另外我發現在這12個形狀上，拿掉「中心」這個取樣點也得到完全相同的結果，所以中心取樣在這些形狀上是多餘的，我保留它是為了萬一增加更細的形狀）；形狀只畫在一個tile內，不會跨tile邊界延伸，所以貼圖不是連續花紋；斜線的形狀會切到大部分格子，使整張都是細格。預設1 m nominal tile、0.005 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`lsystemplant`（L-system植物）使目前目錄1108→1109種，含plain的gallery為1110項。整張tile畫出一棵由L-system（Lindenmayer系統）用海龜繪圖法畫出的分枝植物：F向前走一單位並畫線，+與−依角度轉向，［與］儲存與還原海龜的位置與方向。seed從四組文法中挑一組（公理與規則：X→F+[[X]-X]-F[-FX]+X、F→FF，25°；F→FF-[-F+F+F]+[+F-F-F]，22.5°；X→F[+X]F[-X]+X、F→FF，20°；X→F[+X][-X]FX、F→FF，25.7°）、其中兩個迭代次數之一（4或5、3或4、5或6、5或6），並決定是否左右鏡射；植物等比例縮放並置中，最長邊占tile的90%，線條依分枝深度由主幹的深色漸變成枝梢較淺的灰綠色。Metallic與mortar為0。
+
+這是作者設計的示意：植物是示意的線條畫，沒有葉子、花或粗細變化（所有線段寬度相同）；L-system文法是我記得的常見寫法（沒有外部來源可對照）；對稱的文法（第四組）鏡射後與原圖相同，所以seed的鏡射旗標對它沒有效果；植物只畫在一個tile內，不會跨tile邊界延伸。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
