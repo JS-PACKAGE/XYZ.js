@@ -39346,6 +39346,61 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'petricolonies': {
+        const p = proceduralMaterialPresets.petricolonies,
+          pattern = latticeField(
+            grayScott(
+              p.gridSize,
+              p.seedCells,
+              p.feed,
+              p.kill,
+              p.steps,
+              seed ^ p.seedSalt,
+            ),
+            p.gridSize,
+            p.gridSize,
+          ),
+          warpField = cachedNoise(
+            p.warpCells,
+            p.warpCells,
+            seed ^ (p.seedSalt + 1),
+          ),
+          levelField = cachedNoise(
+            p.sizeCells,
+            p.sizeCells,
+            seed ^ (p.seedSalt + 2),
+          ),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 3),
+          ),
+          inverseRim2 = 1 / (p.rimWidth * p.rimWidth);
+        return () => {
+          // Colonies are the spot regime of the periodic Gray-Scott pattern. The fill is
+          // a smooth tanh step, the darker rim is a thin band around the same
+          // iso-level exp(-((pattern - level) / w)^2) (C-infinity), and the dome height
+          // is fill x pattern, so each colony is a rounded bump on flat agar.
+          const wu = u + p.warp * (warpField(u, v) - 0.5),
+            wv = v + p.warp * (warpField(v + 0.37, u + 0.21) - 0.5),
+            value = pattern(wu, wv),
+            level =
+              p.threshold + p.thresholdVariation * (levelField(u, v) - 0.5),
+            fill = 0.5 + 0.5 * Math.tanh(p.sharpness * (value - level)),
+            rimDistance = value - level,
+            rim =
+              Math.exp(-rimDistance * rimDistance * inverseRim2) * (1 - fill),
+            grain = grainField(u, v);
+          color =
+            p.agarTone +
+            p.colonyTone * fill -
+            p.rimTone * rim +
+            p.grainTone * (grain - 0.5);
+          height = p.domeHeight * fill * value + p.grainHeight * grain;
+          roughness += p.colonyRoughness * fill;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -47105,6 +47160,7 @@ export function createSurfaceSampler(
     kind === 'jade' ||
     kind === 'cheetahfur' ||
     kind === 'turingmaze' ||
+    kind === 'petricolonies' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

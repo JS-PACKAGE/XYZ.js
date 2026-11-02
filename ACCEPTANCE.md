@@ -12099,3 +12099,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增6項專屬測試（三seed統計含墨區連通數與邊界密度、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過；測試的連通區與邊界數是以目前參數的探針值設的區間，參數改動需重新量測。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Turing maze as|turingmaze|kinds|catalog|distinct|periodic"`定向測試**2191項通過／3792項未選**。
 - 未驗證：cheetahfur與turingmaze未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：培養皿菌落（petricolonies）
+
+- 範圍：新增`petricolonies`（目前目錄951→952種，含plain的gallery 953項）：沿用`latticeField`／`grayScott`與`cheetahfur`相同的斑點區參數（96×96格、feed 0.04、kill 0.065、6000步），在琥珀色瓊脂上畫奶油色菌落——`fill = 0.5 + 0.5·tanh(9·(pattern − level))`（level隨5×5慢雜訊移動），緣是同iso-level附近的薄帶`exp(−((pattern − level)/0.12)²)·(1 − fill)`，height＝`0.8·fill·pattern + 0.2·grain`，菌落處roughness＋0.4；預設0.12 m nominal tile、0.0015 UV-relative relief。作者示意，沒有引用特定來源、**沒有對照照片**，沒有皿緣、黏液光澤與同心結構。
+- 調整紀錄（誠實紀錄）：第一版（緣寬0.07、緣色0.2、大小變化0.3、relief 0.003）預覽上緣幾乎看不見，菌落大小也太一致；調整為緣寬0.12、緣色0.4、大小變化0.5後仍只有輕微緣，我主觀判斷可接受。第一版512²maps的法線tilt²最大為0.1168，把relief降到0.0015後為0.0314（法線隨relief縮放，這是同一批探針的前後值）。因斑點區參數沿用cheetahfur，我**沒有**另做參數掃描；菌落數在seed 0／1／0xffffffff／7為43–46。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：菌落（color>0.65）占18.3%–21.4%、瓊脂（color<0.5）占77.1%–80.1%（256²取樣）、菌落連通區43–46、color 0.2736–0.2742至0.8580–0.8585、平均0.490–0.501、roughness 0.32–0.72、height至多0.964–0.975 relief；seed 0與1的菌落遮罩32.2%像素不同；seed 7的512²maps平均r／g／b約(200.8, 166.7, 116.6)、r>200的像素占22.1%、法線tilt²最大約0.0314、z分量最小253；sampler建構約190–309 ms、512² maps約270–304 ms（bun單次量測，非benchmark）。我實看了預覽：奶油色圓點散布在琥珀色底上，緣很淡，看起來更像圓點花紋而不是真的菌落。
+- 測試：新增6項專屬測試（三seed統計含菌落連通區、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Petri colonies as|petricolonies|kinds|catalog|distinct|periodic"`定向測試**2198項通過／3792項未選**。
+- 未驗證：cheetahfur、turingmaze與petricolonies未做瀏覽器gallery；petricolonies未跑完整suite；不push。

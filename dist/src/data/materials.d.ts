@@ -13512,6 +13512,33 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.3;
         inkRoughness: -0.15;
     }>;
+    petricolonies: Readonly<{
+        dark: readonly [150, 96, 38];
+        light: readonly [252, 238, 196];
+        roughness: 0.32;
+        relief: 0.0015;
+        seedSalt: 40561;
+        gridSize: 96;
+        seedCells: 8;
+        feed: 0.04;
+        kill: 0.065;
+        steps: 6000;
+        threshold: 0.5;
+        thresholdVariation: 0.5;
+        sharpness: 9;
+        rimWidth: 0.12;
+        warpCells: 7;
+        warp: 0.03;
+        sizeCells: 5;
+        grainCells: 128;
+        agarTone: 0.42;
+        colonyTone: 0.42;
+        rimTone: 0.4;
+        grainTone: 0.04;
+        domeHeight: 0.8;
+        grainHeight: 0.2;
+        colonyRoughness: 0.4;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -14842,4 +14869,5 @@ export declare const proceduralTileMeters: Readonly<{
     jade: 0.15;
     cheetahfur: 0.25;
     turingmaze: 0.3;
+    petricolonies: 0.12;
 }>;

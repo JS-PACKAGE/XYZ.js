@@ -1095,6 +1095,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`petricolonies`（培養皿菌落）使目前目錄951→952種，含plain的gallery為953項。琥珀色瓊脂（agar）平面上散布奶油色的圓形菌落，菌落位置與形狀來自週期Gray-Scott反應擴散的斑點區，大小有變化；菌落邊緣有一圈略深的細緣，菌落中央略高（height與roughness都隨菌落變化），瓊脂表面有細grain。不是真實培養皿的圓形邊框、菌落的黏液光澤、菌落內的同心結構、氣泡或透明度，預覽只有單一琥珀到奶油色的漸層。
+
+此材質是作者示意，沒有引用特定來源、微生物照片或量測，也沒有對照照片；反應擴散參數與`cheetahfur`相同（feed 0.04、kill 0.065、6000步、96×96格），門檻、銳度、緣寬、琥珀與奶油色調、roughness、0.12 m nominal tile皆作者設定與調整，不宣稱符合任何實際菌種。預覽第一版的緣幾乎看不見，我把緣寬由0.07加到0.12、緣色深度由0.2加到0.4，並把菌落大小變化由0.3加到0.5後採用；調整以我對預覽的主觀判斷為準。
+
+沿用`latticeField`與`grayScott`，專用sampler用`fill = 0.5 + 0.5·tanh(9·(pattern − level))`取平滑菌落遮罩（level = 0.5 ± 0.25隨5×5慢雜訊移動，所以菌落大小不同），緣是同一iso-level附近的薄帶`exp(−((pattern − level)/0.12)²)·(1 − fill)`（C∞，只在菌落外側）；顏色＝`0.42 + 0.42·fill − 0.4·rim + 0.04·(128²細grain − 0.5)`；height ＝ `0.8·fill·pattern + 0.2·grain`，菌落中央（pattern大）較高；菌落處roughness增加0.4；cache合計96²＋7²＋5²＋128² = 25,674個Float64／205,392 B lattice算術預算（非總RAM；建構時另有約294,912 B暫存，結束後只保留v）。預設0.12 m nominal tile與0.0015 UV-relative relief（非公尺位移；第一版0.003時512²maps的法線tilt²最大達0.117，降到0.0015後約0.0314）。模擬成本：本機bun量測每個sampler建構約190–309 ms、512² maps約270–304 ms（單次量測，非benchmark）。
+
 `turingmaze`（圖靈迷宮）使目前目錄950→951種，含plain的gallery為952項。白色紙面上的深色墨跡迷宮：彎曲、分岔、部分封閉的粗條紋，由週期Gray-Scott反應擴散在「迷宮（labyrinth）」參數下產生，墨跡的粗細與濃淡隨慢雜訊略為變化，紙面有細grain。墨跡在測試的seed上形成單一連通網路。這是反應擴散的條紋圖案，**不是指紋**（指紋的脊線間距細得多，且有螺旋與分叉結構），也不是真實印刷或墨水；預覽只有單一墨色到紙色的漸層。
 
 此材質是作者示意，沒有引用特定來源或對照照片；反應擴散參數（feed 0.03、kill 0.057、6000步、96×96格）、門檻與銳度、warp量、墨與紙的色調、0.3 m nominal tile皆作者設定與調整，不宣稱符合任何實際物件。我先嘗試命名為指紋（fingerprint），預覽後發現條紋間距約為其五到十倍、也沒有螺旋，所以改名為`turingmaze`。
