@@ -1100,6 +1100,7 @@ try {
     'cassiniovals',
     'sterndiatomic',
     'kolakoski',
+    'baumsweet',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

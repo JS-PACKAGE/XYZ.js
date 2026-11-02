@@ -1037,6 +1037,7 @@ export type ProceduralMaterialKind =
   | 'cassiniovals'
   | 'sterndiatomic'
   | 'kolakoski'
+  | 'baumsweet'
   | 'sandpileidentity'
   | 'multiplicativeorder'
   | 'vermiculation'
@@ -2321,6 +2322,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'cassiniovals',
   'sterndiatomic',
   'kolakoski',
+  'baumsweet',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',
