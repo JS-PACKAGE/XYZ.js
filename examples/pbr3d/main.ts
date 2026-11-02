@@ -1078,6 +1078,7 @@ try {
     'voronoipillows',
     'voronoifacets',
     'percolationclusters',
+    'isingdomains',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

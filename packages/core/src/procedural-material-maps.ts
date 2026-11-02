@@ -41254,6 +41254,82 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'isingdomains': {
+        const p = proceduralMaterialPresets.isingdomains,
+          count = p.size * p.size,
+          spins = new Int8Array(count),
+          marks = new Float64Array(count),
+          agree = new Float64Array(count),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 1),
+          ),
+          neighbours = (cell: number): number[] => {
+            const x = cell % p.size,
+              y = (cell - x) / p.size;
+            return [
+              y * p.size + ((x + 1) % p.size),
+              y * p.size + ((x + p.size - 1) % p.size),
+              ((y + 1) % p.size) * p.size + x,
+              ((y + p.size - 1) % p.size) * p.size + x,
+            ];
+          };
+        // Metropolis dynamics of the two-dimensional Ising model on a size x size torus at
+        // the given temperature (J = k = 1; the critical temperature is about 2.269), from a
+        // random start, with sweeps sweeps in checkerboard order (all cells of one parity
+        // are independent, so the order inside a half-sweep does not matter). A flip that
+        // changes the energy by dE is accepted when dE <= 0 or when a hash-derived uniform
+        // number is below exp(-dE / temperature).
+        for (let cell = 0; cell < count; cell++)
+          spins[cell] =
+            hash(cell % p.size, Math.floor(cell / p.size), seed ^ p.seedSalt) <
+            0.5
+              ? 1
+              : -1;
+        for (let sweep = 0; sweep < p.sweeps; sweep++)
+          for (let parity = 0; parity < 2; parity++)
+            for (let cell = 0; cell < count; cell++) {
+              if (((cell % p.size) + Math.floor(cell / p.size)) % 2 !== parity)
+                continue;
+              let around = 0;
+              for (const next of neighbours(cell)) around += spins[next];
+              const energyChange = 2 * spins[cell] * around;
+              if (
+                energyChange <= 0 ||
+                hash(cell, sweep * 2 + parity, seed ^ (p.seedSalt + 2)) <
+                  Math.exp(-energyChange / p.temperature)
+              )
+                spins[cell] = -spins[cell];
+            }
+        for (let cell = 0; cell < count; cell++) {
+          marks[cell] = spins[cell] > 0 ? 1 : 0;
+          let same = 0;
+          for (const next of neighbours(cell))
+            same += spins[next] === spins[cell] ? 1 : 0;
+          agree[cell] = same / 4;
+        }
+        const pattern = latticeField(marks, p.size, p.size),
+          agreeField = latticeField(agree, p.size, p.size);
+        return () => {
+          // The up-spin map is blended with the C1 smoothstep and re-sharpened with tanh;
+          // the fraction of neighbours that agree with a cell darkens the domain walls.
+          const line =
+              0.5 + 0.5 * Math.tanh(p.sharpness * (pattern(u, v) - 0.5)),
+            together = agreeField(u, v),
+            grain = grainField(u, v);
+          color =
+            p.baseTone +
+            p.spinTone * line +
+            p.agreeTone * together +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.spinHeight * line +
+            p.agreeHeight * together +
+            p.grainHeight * grain;
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -50070,6 +50146,7 @@ export function createSurfaceSampler(
     kind === 'voronoipillows' ||
     kind === 'voronoifacets' ||
     kind === 'percolationclusters' ||
+    kind === 'isingdomains' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||
