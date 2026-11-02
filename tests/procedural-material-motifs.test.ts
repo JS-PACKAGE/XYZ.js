@@ -29349,3 +29349,201 @@ describe('voronoicells: Voronoi cells around jittered sites', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('euclidsquares: the Euclidean algorithm as squares', () => {
+  const p = proceduralMaterialPresets.euclidsquares;
+  type Variant = {
+    rectangle: number;
+    turned: boolean;
+    flipX: boolean;
+    flipY: boolean;
+  };
+
+  // The square (as an index) that owns every unit cell of a w x h rectangle, by recursion: take squares along the longer side
+  // from the top left corner, then continue in the leftover rectangle.
+  const owners = (w: number, h: number): number[][] => {
+    const grid = Array.from({ length: h }, () => Array<number>(w).fill(-1));
+    let next = 0;
+    const cut = (x: number, y: number, restW: number, restH: number): void => {
+      if (restW === 0 || restH === 0) return;
+      const size = Math.min(restW, restH),
+        runs = Math.floor(Math.max(restW, restH) / size);
+      for (let i = 0; i < runs; i++) {
+        const sx = restW >= restH ? x + i * size : x,
+          sy = restW >= restH ? y : y + i * size;
+        for (let dy = 0; dy < size; dy++)
+          for (let dx = 0; dx < size; dx++) grid[sy + dy][sx + dx] = next;
+        next++;
+      }
+      if (restW >= restH) cut(x + runs * size, y, restW - runs * size, restH);
+      else cut(x, y + runs * size, restW, restH - runs * size);
+    };
+    cut(0, 0, w, h);
+    return grid;
+  };
+  const variants: Variant[] = p.rectangles.flatMap((_, rectangle) =>
+    [false, true].flatMap((turned) =>
+      [false, true].flatMap((flipX) =>
+        [false, true].map((flipY) => ({ rectangle, turned, flipX, flipY })),
+      ),
+    ),
+  );
+  const ownersOf = ({
+    rectangle,
+    turned,
+    flipX,
+    flipY,
+  }: Variant): number[][] => {
+    const [long, short] = p.rectangles[rectangle],
+      base = owners(long, short),
+      // Turn (swap the axes), then mirror.
+      turnedGrid = turned
+        ? base[0].map((_, x) => base.map((row) => row[x]))
+        : base,
+      h = turnedGrid.length,
+      w = turnedGrid[0].length;
+    return Array.from({ length: h }, (_, y) =>
+      Array.from(
+        { length: w },
+        (_, x) => turnedGrid[flipY ? h - 1 - y : y][flipX ? w - 1 - x : x],
+      ),
+    );
+  };
+
+  // For one variant: does every edge between unit cells (and along the outside) show a border exactly where two squares meet, and
+  // is every square toned by its order?
+  const matches = (seed: number, variant: Variant): boolean => {
+    const grid = ownersOf(variant),
+      h = grid.length,
+      w = grid[0].length,
+      scale = p.fill / Math.max(w, h),
+      left = (1 - w * scale) / 2,
+      top = (1 - h * scale) / 2,
+      sample = createSurfaceSampler('euclidsquares', seed),
+      out = empty(),
+      squares = Math.max(...grid.flat()) + 1,
+      owner = (x: number, y: number): number =>
+        x < 0 || y < 0 || x >= w || y >= h ? -1 : grid[y][x];
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x <= w; x++) {
+        sample(left + x * scale, top + (y + 0.5) * scale, out);
+        if (out.color < 0.2 !== (owner(x - 1, y) !== owner(x, y))) return false;
+      }
+    for (let y = 0; y <= h; y++)
+      for (let x = 0; x < w; x++) {
+        sample(left + (x + 0.5) * scale, top + y * scale, out);
+        if (out.color < 0.2 !== (owner(x, y - 1) !== owner(x, y))) return false;
+      }
+    // Tones: the middle of every square, in the order the squares were cut (darkest first). A square's middle cell is its own.
+    for (let k = 0; k < squares; k++) {
+      const cells: [number, number][] = [];
+      grid.forEach((line, y) =>
+        line.forEach((id, x) => id === k && cells.push([x, y])),
+      );
+      const xs = cells.map(([x]) => x),
+        ys = cells.map(([, y]) => y);
+      sample(
+        left + ((Math.min(...xs) + Math.max(...xs) + 1) / 2) * scale,
+        top + ((Math.min(...ys) + Math.max(...ys) + 1) / 2) * scale,
+        out,
+      );
+      if (
+        Math.abs(
+          out.color -
+            (p.firstTone + ((p.lastTone - p.firstTone) * k) / (squares - 1)),
+        ) > 0.04
+      )
+        return false;
+    }
+    return true;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'cuts the rectangle into the squares of the Euclidean algorithm, exactly one variant fits (seed %i)',
+    (seed) => {
+      const found = variants.filter((variant) => matches(seed, variant));
+      expect(found).toHaveLength(1);
+      // Outside the rectangle (and its border) there is only paper.
+      const [long, short] = p.rectangles[found[0].rectangle],
+        sample = createSurfaceSampler('euclidsquares', seed),
+        out = empty(),
+        w = found[0].turned ? short : long,
+        scale = p.fill / Math.max(long, short);
+      sample((1 - w * scale) / 2 - 0.02, 0.5, out);
+      expect(out.color).toBeGreaterThan(0.85);
+      sample((1 + w * scale) / 2 + 0.02, 0.5, out);
+      expect(out.color).toBeGreaterThan(0.85);
+      // The border is about 0.004 wide (half width 0.002): 0.0012 either side of a boundary between two squares is border (dark),
+      // 0.0032 is already the face of a square (never as dark as the border).
+      const grid = ownersOf(found[0]),
+        h = grid.length,
+        gridWidth = grid[0].length,
+        gridScale = p.fill / Math.max(gridWidth, h),
+        left = (1 - gridWidth * gridScale) / 2,
+        top = (1 - h * gridScale) / 2;
+      let checked = 0;
+      for (let y = 0; y < h; y++)
+        for (let x = 1; x < gridWidth; x++) {
+          if (grid[y][x - 1] === grid[y][x]) continue;
+          const boundaryU = left + x * gridScale,
+            v = top + (y + 0.5) * gridScale;
+          for (const sign of [-1, 1]) {
+            sample(boundaryU + sign * 0.0012, v, out);
+            expect(out.color).toBeLessThan(0.2);
+            sample(boundaryU + sign * 0.0032, v, out);
+            expect(out.color).toBeGreaterThan(0.25);
+          }
+          checked++;
+        }
+      expect(checked).toBeGreaterThan(5);
+    },
+  );
+
+  it('uses every rectangle, turn and mirroring across seeds', () => {
+    const rectangles = new Set<number>(),
+      combinations = new Set<string>();
+    for (let seed = 0; seed < 40; seed++) {
+      const [found] = variants.filter((variant) => matches(seed, variant));
+      rectangles.add(found.rectangle);
+      combinations.add(`${found.turned}${found.flipX}${found.flipY}`);
+    }
+    expect(rectangles.size).toBe(p.rectangles.length);
+    expect(combinations.size).toBe(8);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('euclidsquares', 0),
+      b = createSurfaceSampler('euclidsquares', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

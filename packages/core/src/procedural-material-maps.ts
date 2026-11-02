@@ -37371,6 +37371,107 @@ export function createSurfaceSampler(
           occlusion = 1 - 0.2 * border;
         };
       }
+      case 'euclidsquares': {
+        const p = proceduralMaterialPresets.euclidsquares,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x31b01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          [longSide, shortSide] =
+            p.rectangles[
+              Math.floor(hash(3, 1, seed ^ 0x31b02) * p.rectangles.length)
+            ],
+          turned = hash(5, 2, seed ^ 0x31b03) < 0.5,
+          flipX = hash(7, 3, seed ^ 0x31b04) < 0.5,
+          flipY = hash(11, 4, seed ^ 0x31b05) < 0.5,
+          rectWidth = turned ? shortSide : longSide,
+          rectHeight = turned ? longSide : shortSide,
+          scale = p.fill / Math.max(rectWidth, rectHeight),
+          left = (1 - rectWidth * scale) / 2,
+          top = (1 - rectHeight * scale) / 2,
+          squares: { x: number; y: number; size: number }[] = [];
+        // Greedy squares along the longer side of what is left, starting at the top left corner of the rectangle.
+        let restWidth = longSide,
+          restHeight = shortSide,
+          cursorX = 0,
+          cursorY = 0;
+        while (restWidth > 0 && restHeight > 0) {
+          if (restWidth >= restHeight) {
+            const run = Math.floor(restWidth / restHeight);
+            for (let i = 0; i < run; i++)
+              squares.push({
+                x: cursorX + i * restHeight,
+                y: cursorY,
+                size: restHeight,
+              });
+            cursorX += run * restHeight;
+            restWidth -= run * restHeight;
+          } else {
+            const run = Math.floor(restHeight / restWidth);
+            for (let i = 0; i < run; i++)
+              squares.push({
+                x: cursorX,
+                y: cursorY + i * restWidth,
+                size: restWidth,
+              });
+            cursorY += run * restWidth;
+            restHeight -= run * restWidth;
+          }
+        }
+        // Turn and mirror: the squares keep their order, only their places change.
+        for (const square of squares) {
+          const x = turned ? square.y : square.x,
+            y = turned ? square.x : square.y;
+          square.x = flipX ? rectWidth - x - square.size : x;
+          square.y = flipY ? rectHeight - y - square.size : y;
+        }
+        return () => {
+          const x = (u - Math.floor(u) - left) / scale,
+            y = (v - Math.floor(v) - top) / scale;
+          let face = 0,
+            border: number,
+            tone: number = p.firstTone;
+          const index = squares.findIndex(
+            (square) =>
+              x >= square.x &&
+              x < square.x + square.size &&
+              y >= square.y &&
+              y < square.y + square.size,
+          );
+          if (index >= 0) {
+            const square = squares[index],
+              edge = Math.min(
+                x - square.x,
+                square.x + square.size - x,
+                y - square.y,
+                square.y + square.size - y,
+              );
+            face = 1;
+            border = cover(p.borderHalf - edge * scale);
+            tone =
+              p.firstTone +
+              ((p.lastTone - p.firstTone) * index) /
+                Math.max(1, squares.length - 1);
+          } else {
+            // Just outside the rectangle: only the outer half of its border.
+            const outside = Math.max(-x, x - rectWidth, -y, y - rectHeight);
+            border = cover(p.borderHalf - outside * scale);
+          }
+          const base = p.paperTone + (tone - p.paperTone) * face,
+            withBorder = base + (p.borderTone - base) * border;
+          color = clamp(withBorder + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(
+            p.paperHeight +
+              (p.squareHeight - p.paperHeight) * face +
+              (p.borderHeight - p.squareHeight) * border,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.squareRoughness - p.paperRoughness) * face +
+            (p.borderRoughness - p.squareRoughness) * border;
+          occlusion = 1 - 0.2 * border;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -64900,6 +65001,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'euclidsquares' ||
     kind === 'voronoicells' ||
     kind === 'cliffordattractor' ||
     kind === 'peanocurve' ||

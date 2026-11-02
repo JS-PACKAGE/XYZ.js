@@ -1981,6 +1981,10 @@
 
 這是作者設計的示意：沒有編號或標示，色調只是隨機灰階；邊界寬度用「最近與次近距離之差的一半」近似到邊界的距離，所以在邊界的尖角處（三個細胞交會處）邊界會變得略寬；每個像素檢查周圍5×5格的站點（試過3×3在較早版本的測試中也通過，但我沒有證明3×3在抖動0.38時一定足夠）。預設1 m nominal tile、0.005 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`euclidsquares`（歐幾里得方塊）使目前目錄1103→1104種，含plain的gallery為1105項。整張tile畫出歐幾里得輾轉相除法的方塊分割：長方形W×H先沿較長邊從左上角切出盡量多、邊長等於較短邊的正方形，再對剩下的長方形重複，直到沒有剩餘（最後的正方形邊長是gcd(W,H)）。seed從六個長方形（57×22、43×16、49×19、58×35、60×24、55×21）中挑一個，並決定是否轉置、左右鏡射、上下鏡射（共八種方向）；方塊依切出的順序由深（第一個）到淺（最後一個）上色，每個方塊有深色細邊界，外框也有，長方形置中、長邊占94%的tile。Metallic與mortar為0。
+
+這是作者設計的示意：沒有標示數字、商數或gcd；60×24與55×21等會產生許多邊長相同的方塊，只靠色調的順序區分切出順序；長方形置中且四周留白，因此貼圖整體不是無縫連續花紋，只是重複排列。預設1 m nominal tile、0.005 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
