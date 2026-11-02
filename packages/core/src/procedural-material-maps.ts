@@ -28781,6 +28781,109 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'chinesecheckersboard': {
+        const p = proceduralMaterialPresets.chinesecheckersboard,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2bb01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          rowHeight = p.pitch * Math.sqrt(0.75),
+          offset = 2 * p.reach,
+          span = 2 * offset + 1,
+          // slots[(r + offset) * span + (q + offset)]: -2 no hole, -1 empty hole, 0..5 a marble of that colour.
+          slots = new Int8Array(span * span).fill(-2),
+          sites: number[] = [],
+          index = (q: number, r: number): number =>
+            (r + offset) * span + (q + offset);
+        // The board is the union of two opposite triangles (all three cube coordinates >= -reach, or all <= reach):
+        // a hexagon of 61 holes with a triangle of 10 holes on each of the six points, 121 in all.
+        for (let r = -offset; r <= offset; r++)
+          for (let q = -offset; q <= offset; q++) {
+            const s = -q - r;
+            if (Math.min(q, r, s) >= -p.reach || Math.max(q, r, s) <= p.reach) {
+              slots[index(q, r)] = -1;
+              sites.push(index(q, r));
+            }
+          }
+        // Each point of the star starts with ten marbles of its own colour (by 60 degree sector).
+        for (const site of sites) {
+          const q = (site % span) - offset,
+            r = Math.floor(site / span) - offset;
+          if (Math.max(Math.abs(q), Math.abs(r), Math.abs(-q - r)) <= p.reach)
+            continue;
+          const angle =
+            (Math.atan2(rowHeight * r, p.pitch * (q + r / 2)) * 180) / Math.PI;
+          slots[site] = Math.min(
+            5,
+            Math.floor((((angle % 360) + 360) % 360) / 60),
+          );
+        }
+        // A few moves in: swap a random marble with a random empty hole.
+        for (let move = 0; move < p.swaps; move++) {
+          const marbles = sites.filter((site) => slots[site] >= 0),
+            empties = sites.filter((site) => slots[site] === -1),
+            from =
+              marbles[
+                Math.min(
+                  marbles.length - 1,
+                  Math.floor(hash(move, 3, seed ^ 0x2bb03) * marbles.length),
+                )
+              ],
+            to =
+              empties[
+                Math.min(
+                  empties.length - 1,
+                  Math.floor(hash(move, 5, seed ^ 0x2bb05) * empties.length),
+                )
+              ];
+          slots[to] = slots[from];
+          slots[from] = -1;
+        }
+        return () => {
+          const x = u - 0.5,
+            y = v - 0.5,
+            // Nearest lattice site by cube rounding.
+            fr = y / rowHeight,
+            fq = x / p.pitch - fr / 2,
+            fs = -fq - fr;
+          let rq = Math.round(fq),
+            rr = Math.round(fr);
+          const rs = Math.round(fs),
+            dq = Math.abs(rq - fq),
+            dr = Math.abs(rr - fr),
+            ds = Math.abs(rs - fs);
+          if (dq > dr && dq > ds) rq = -rr - rs;
+          else if (dr > ds) rr = -rq - rs;
+          const state =
+              Math.abs(rq) <= offset && Math.abs(rr) <= offset
+                ? slots[index(rq, rr)]
+                : -2,
+            distance =
+              Math.hypot(x - p.pitch * (rq + rr / 2), y - rowHeight * rr) /
+              p.pitch,
+            plate = cover(p.plateRadius * p.pitch - Math.hypot(x, y)),
+            hole =
+              state === -2 ? 0 : cover((p.holeRadius - distance) * p.pitch),
+            marble =
+              state >= 0 ? cover((p.marbleRadius - distance) * p.pitch) : 0,
+            plateTone = p.tableTone + (p.plateTone - p.tableTone) * plate,
+            holeBlend = plateTone + (p.holeTone - plateTone) * hole,
+            plateLevel =
+              p.tableHeight + (p.plateHeight - p.tableHeight) * plate,
+            holeLevel = plateLevel + (p.holeHeight - plateLevel) * hole,
+            plateRough =
+              p.tableRoughness + (p.plateRoughness - p.tableRoughness) * plate,
+            holeRough = plateRough + (p.holeRoughness - plateRough) * hole;
+          color = clamp(
+            holeBlend +
+              (p.marbleTones[Math.max(0, state)] - holeBlend) * marble +
+              p.grainTone * (grainField(u, v) - 0.5) * (1 - hole),
+          );
+          height = clamp(holeLevel + (p.marbleHeight - holeLevel) * marble);
+          roughness = holeRough + (p.marbleRoughness - holeRough) * marble;
+          occlusion = 1 - 0.3 * hole * (1 - marble);
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -56310,6 +56413,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'chinesecheckersboard' ||
     kind === 'euclideanrhythms' ||
     kind === 'hidatochain' ||
     kind === 'mancalaboard' ||

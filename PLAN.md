@@ -1593,6 +1593,10 @@
 
 這是作者設計的示意：這是靜態圖案，沒有任何音訊；這種「Bresenham」分佈與Bjorklund演算法產生的節奏是旋轉等價的（同一個項鍊），但我沒有逐一證明所有k都等價，也沒有宣稱每條軌道都等同某個特定的傳統節奏名稱；16×16固定；顏色只有明度（深面板、灰按鍵、亮起的米色按鍵）。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`chinesecheckersboard`（中國跳棋／Chinese checkers）使目前目錄1008→1009種，含plain的gallery為1010項。每tile是一個木質的中國跳棋星形棋盤：淺色桌面上一個圓形的棋盤板，板上是121個圓孔組成的六角星——中央是半徑4的六角形（61孔），六個星角各有一個10孔的三角形。孔是深色凹洞，其中的彈珠有六種明度（由暗到亮：約0.30、0.42、0.55、0.69、0.83、0.96），每個星角起始時各放10顆同一明度的彈珠，之後由seed隨機把14顆彈珠各自搬到一個隨機的空孔，所以每種明度仍恰好10顆、共60顆。孔位用立方座標（q, r, s=−q−r）與蜂巢格點對應：六角星是「三個座標都≥−4」與「三個座標都≤4」兩個相反三角形的聯集。Metallic與mortar為0。
+
+這是作者設計的示意：六種彈珠只靠明度區分、沒有色相（真實棋具是六種顏色），明度相近的相鄰兩種（差約0.12至0.14）在小尺寸或不同光照下不容易分辨；彈珠的搬動是隨機交換、不代表合法的跳棋走法（沒有檢查跳躍規則）；也沒有標示各玩家的目標角；木紋只是低振幅的雜訊。預設0.6 m nominal tile、0.006 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

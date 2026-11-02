@@ -15329,3 +15329,106 @@ describe('euclideanrhythms: sixteen Euclidean rhythm tracks', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('chinesecheckersboard: a Chinese checkers board a few moves in', () => {
+  const p = proceduralMaterialPresets.chinesecheckersboard;
+  const rowHeight = p.pitch * Math.sqrt(0.75);
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'has a rotation-symmetric 121-hole star holding ten marbles of each of six tones (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('chinesecheckersboard', seed),
+        out = empty(),
+        at = (u: number, v: number): number => {
+          sample(u, v, out);
+          return out.color;
+        },
+        centre = (q: number, r: number): [number, number] => [
+          0.5 + p.pitch * (q + r / 2),
+          0.5 + rowHeight * r,
+        ],
+        holes = new Set<string>(),
+        tones = new Map<string, number>();
+      for (let r = -10; r <= 10; r++)
+        for (let q = -10; q <= 10; q++) {
+          const [cx, cy] = centre(q, r);
+          if (cx < 0.01 || cx > 0.99 || cy < 0.01 || cy > 0.99) continue;
+          // A hole shows its dark rim a little outside the marble; plate and table are lighter there.
+          if (at(cx, cy - 0.39 * p.pitch) > 0.22) continue;
+          holes.add(q + ',' + r);
+          const middle = at(cx, cy);
+          if (middle < 0.22) continue;
+          // A marble: the nearest of the six tones, and it must be close to it.
+          const nearest = p.marbleTones.reduce(
+            (best, tone, i) =>
+              Math.abs(tone - middle) < Math.abs(p.marbleTones[best] - middle)
+                ? i
+                : best,
+            0,
+          );
+          expect(Math.abs(p.marbleTones[nearest] - middle)).toBeLessThan(0.06);
+          tones.set(q + ',' + r, nearest);
+        }
+      expect(holes.size).toBe(121);
+      // Rotating the star by 60 degrees (q, r, s) -> (-r, -s, -q) maps the set of holes onto itself.
+      for (const key of holes) {
+        const [q, r] = key.split(',').map(Number),
+          s = -q - r;
+        expect(holes.has(-r + ',' + -s)).toBe(true);
+      }
+      // The central hexagon of radius 4 is all holes; nothing lies farther than 8 steps from the middle.
+      for (const key of holes) {
+        const [q, r] = key.split(',').map(Number);
+        expect(
+          Math.max(Math.abs(q), Math.abs(r), Math.abs(q + r)),
+        ).toBeLessThanOrEqual(8);
+      }
+      for (let q = -4; q <= 4; q++)
+        for (let r = -4; r <= 4; r++)
+          if (Math.abs(q + r) <= 4) expect(holes.has(q + ',' + r)).toBe(true);
+      // Ten marbles of each tone, and no marble outside a hole.
+      const perTone = [0, 0, 0, 0, 0, 0];
+      for (const [key, tone] of tones) {
+        expect(holes.has(key)).toBe(true);
+        perTone[tone]++;
+      }
+      expect(perTone).toEqual([10, 10, 10, 10, 10, 10]);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('chinesecheckersboard', 0),
+      b = createSurfaceSampler('chinesecheckersboard', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.5],
+        [0.5, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(5);
+  });
+});

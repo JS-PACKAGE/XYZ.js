@@ -9855,6 +9855,33 @@ export declare const proceduralMaterialPresets: Readonly<{
         padRoughness: 0.55;
         litRoughness: 0.25;
     }>;
+    chinesecheckersboard: Readonly<{
+        dark: readonly [30, 20, 12];
+        light: readonly [240, 220, 176];
+        roughness: 0.5;
+        relief: 0.006;
+        pitch: 0.062;
+        reach: 4;
+        swaps: 14;
+        plateRadius: 7.3;
+        holeRadius: 0.42;
+        marbleRadius: 0.36;
+        edgeSoft: 0.0011;
+        grainCells: 160;
+        tableTone: 0.82;
+        plateTone: 0.55;
+        holeTone: 0.12;
+        marbleTones: readonly [0.3, 0.42, 0.55, 0.69, 0.83, 0.96];
+        grainTone: 0.05;
+        tableHeight: 0.1;
+        plateHeight: 0.6;
+        holeHeight: 0.3;
+        marbleHeight: 0.9;
+        tableRoughness: 0.8;
+        plateRoughness: 0.5;
+        holeRoughness: 0.6;
+        marbleRoughness: 0.12;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -16340,6 +16367,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    chinesecheckersboard: 0.6;
     euclideanrhythms: 0.4;
     hidatochain: 0.5;
     mancalaboard: 0.6;
