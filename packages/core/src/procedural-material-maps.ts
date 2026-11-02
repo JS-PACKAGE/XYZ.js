@@ -32787,6 +32787,124 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'primefactors': {
+        const p = proceduralMaterialPresets.primefactors,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2e601),
+          glyphs: Record<string, string> = {
+            '0': '111101101101111',
+            '1': '010110010010111',
+            '2': '111001111100111',
+            '3': '111001111001111',
+            '4': '101101111001001',
+            '5': '111100111001111',
+            '6': '111100111101111',
+            '7': '111001010010010',
+            '8': '111101111101111',
+            '9': '111101111001111',
+            x: '101101010101101',
+          },
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // The prime factors of n in ascending order, by trial division.
+          factorize = (n: number): number[] => {
+            const factors: number[] = [];
+            for (let d = 2; d * d <= n; d++)
+              while (n % d === 0) {
+                factors.push(d);
+                n /= d;
+              }
+            if (n > 1) factors.push(n);
+            return factors;
+          },
+          pool = Array.from(
+            { length: p.highest - p.lowest + 1 },
+            (_, i) => p.lowest + i,
+          ),
+          numbers = pool
+            .map((n) => ({ n, key: hash(n, 3, seed ^ 0x2e602) }))
+            .sort((a, b) => a.key - b.key)
+            .slice(0, p.rows)
+            .map((entry) => entry.n)
+            .sort((a, b) => a - b),
+          rows = numbers.map((n) => {
+            const factors = factorize(n);
+            return {
+              number: String(n),
+              factors: factors.join('x'),
+              prime: factors.length === 1,
+            };
+          });
+        return () => {
+          const row = Math.floor((v - p.top) / p.rowPitch),
+            fy = (v - p.top) / p.rowPitch - row,
+            right = p.left + p.numberWidth;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            line = 0,
+            glyph = 0;
+          if (
+            row >= 0 &&
+            row < p.rows &&
+            u >= p.left &&
+            u < right + p.factorWidth
+          ) {
+            const { number, factors, prime } = rows[row],
+              inNumber = u < right,
+              cellLeft = inNumber ? p.left : right,
+              cellWidth = inNumber ? p.numberWidth : p.factorWidth,
+              fx = (u - cellLeft) / cellWidth,
+              text = inNumber ? number : factors;
+            if (prime) {
+              tone = p.primeTone;
+              level = p.primeHeight;
+            } else if (inNumber) {
+              tone = p.numberTone;
+              level = p.numberHeight;
+            }
+            line = cover(
+              p.lineHalf -
+                Math.min(
+                  Math.min(fx * cellWidth, (1 - fx) * cellWidth),
+                  Math.min(fy, 1 - fy) * p.rowPitch,
+                ),
+            );
+            // The number is centred in its cell; the factors start a little in from the left edge of theirs.
+            const count = text.length,
+              px = Math.floor(
+                (u -
+                  cellLeft -
+                  (inNumber
+                    ? (cellWidth - (4 * count - 1) * p.digitPixel) / 2
+                    : 0.02)) /
+                  p.digitPixel,
+              ),
+              py = Math.floor(((fy - 0.5) * p.rowPitch) / p.digitPixel + 2.5),
+              d = px >= 0 ? Math.floor(px / 4) : -1,
+              gx = px - 4 * d;
+            if (
+              d >= 0 &&
+              d < count &&
+              gx >= 0 &&
+              gx < 3 &&
+              py >= 0 &&
+              py < 5 &&
+              glyphs[text[d]][py * 3 + gx] === '1'
+            )
+              glyph = 1;
+          }
+          const base = tone + (p.lineTone - tone) * line;
+          color = clamp(
+            base +
+              (p.inkTone - base) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * glyph);
+          roughness =
+            p.cellRoughness + (p.inkRoughness - p.cellRoughness) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -60316,6 +60434,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'primefactors' ||
     kind === 'modularpowers' ||
     kind === 'burningship' ||
     kind === 'logisticbifurcation' ||

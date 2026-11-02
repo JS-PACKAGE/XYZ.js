@@ -21255,3 +21255,165 @@ describe('modularpowers: powers modulo m', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('primefactors: integers written as products of primes', () => {
+  const p = proceduralMaterialPresets.primefactors;
+  const shapes: Record<string, string[]> = {
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    '2': ['###', '..#', '###', '#..', '###'],
+    '3': ['###', '..#', '###', '..#', '###'],
+    '4': ['#.#', '#.#', '###', '..#', '..#'],
+    '5': ['###', '#..', '###', '..#', '###'],
+    '6': ['###', '#..', '###', '#.#', '###'],
+    '7': ['###', '..#', '.#.', '.#.', '.#.'],
+    '8': ['###', '#.#', '###', '#.#', '###'],
+    '9': ['###', '#.#', '###', '..#', '###'],
+    x: ['#.#', '#.#', '.#.', '#.#', '#.#'],
+  };
+  const isPrime = (n: number): boolean => {
+    if (n < 2) return false;
+    for (let d = 2; d * d <= n; d++) if (n % d === 0) return false;
+    return true;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'writes every number as the product of its primes in ascending order (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('primefactors', seed),
+        out = empty(),
+        right = p.left + p.numberWidth,
+        rowTop = (row: number): number => p.top + row * p.rowPitch,
+        at = (u: number, row: number, k: number): number => {
+          sample(
+            u,
+            rowTop(row) +
+              p.rowPitch * (0.5 + ((k - 2) * p.digitPixel) / p.rowPitch),
+            out,
+          );
+          return out.color;
+        },
+        // Decode the glyphs of one text whose pixel k starts at cellStart: returns the text or null when a slot is not a glyph.
+        decode = (
+          row: number,
+          cellStart: number,
+          count: number | null,
+        ): { text: string; ink: number } | null => {
+          const background = (() => {
+              sample(cellStart + 0.003, rowTop(row) + 0.004, out);
+              return out.color;
+            })(),
+            dark = (pixelX: number, k: number): boolean =>
+              Math.abs(
+                at(cellStart + (pixelX + 0.5) * p.digitPixel, row, k) -
+                  background,
+              ) > 0.25;
+          let text = '',
+            ink = 0;
+          for (let slot = 0; count === null || slot < count; slot++) {
+            const lines = [0, 1, 2, 3, 4].map((k) =>
+              [0, 1, 2]
+                .map((x) => (dark(4 * slot + x, k) ? '#' : '.'))
+                .join(''),
+            );
+            if (count === null && lines.every((line) => line === '...')) break;
+            const found = Object.entries(shapes).find(([, shape]) =>
+              shape.every((line, i) => line === lines[i]),
+            );
+            if (!found) return null;
+            text += found[0];
+            ink += lines.join('').split('#').length - 1;
+            if (slot > 20) return null;
+          }
+          return { text, ink };
+        },
+        numberOf = (row: number): number => {
+          // The number is centred in its cell: try one and two digits and keep the decoding that accounts for all the ink.
+          for (const count of [2, 1]) {
+            const start =
+                p.left + (p.numberWidth - (4 * count - 1) * p.digitPixel) / 2,
+              decoded = decode(row, start, count);
+            if (!decoded) continue;
+            // All ink in the cell, found by looking at every pixel of the cell's strip, must belong to the glyphs.
+            let total = 0;
+            for (let k = 0; k < 5; k++)
+              for (let x = -3; x < 4 * 2 + 4; x++) {
+                sample(
+                  start + (x + 0.5) * p.digitPixel,
+                  rowTop(row) +
+                    p.rowPitch * (0.5 + ((k - 2) * p.digitPixel) / p.rowPitch),
+                  out,
+                );
+                const u = start + (x + 0.5) * p.digitPixel;
+                if (
+                  u > p.left + 0.004 &&
+                  u < right - 0.004 &&
+                  Math.abs(out.color - 0.9) > 0.3
+                )
+                  total++;
+              }
+            if (total === decoded.ink) return Number(decoded.text);
+          }
+          throw new Error('number not readable in row ' + row);
+        };
+      const numbers: number[] = [];
+      for (let row = 0; row < p.rows; row++) {
+        const n = numberOf(row),
+          decoded = decode(row, right + 0.02, null);
+        expect(decoded).not.toBeNull();
+        const factors = (decoded as { text: string }).text
+          .split('x')
+          .map(Number);
+        expect(factors.every(isPrime)).toBe(true);
+        expect(factors).toEqual([...factors].sort((a, b) => a - b));
+        expect(factors.reduce((product, factor) => product * factor, 1)).toBe(
+          n,
+        );
+        // The prime rows (a single factor equal to the number) are the shaded ones.
+        sample(p.left + 0.004, rowTop(row) + 0.004, out);
+        expect(out.color < 0.85).toBe(isPrime(n));
+        numbers.push(n);
+      }
+      expect(numbers).toEqual([...numbers].sort((a, b) => a - b));
+      expect(new Set(numbers).size).toBe(p.rows);
+      expect(Math.min(...numbers)).toBeGreaterThanOrEqual(p.lowest);
+      expect(Math.max(...numbers)).toBeLessThanOrEqual(p.highest);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('primefactors', 0),
+      b = createSurfaceSampler('primefactors', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
