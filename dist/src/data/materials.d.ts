@@ -13678,6 +13678,31 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.15;
         pepperoniRoughness: -0.2;
     }>;
+    morse: Readonly<{
+        dark: readonly [24, 22, 28];
+        light: readonly [240, 228, 196];
+        roughness: 0.75;
+        relief: 0.0012;
+        seedSalt: 12453;
+        columns: 72;
+        rows: 14;
+        dashLength: 3;
+        dashChance: 0.45;
+        letterMax: 4;
+        wordChance: 0.2;
+        sharpness: 8;
+        rowEdge: 0.8;
+        rowSharpness: 12;
+        inkCells: 9;
+        grainCells: 160;
+        paperTone: 0.9;
+        inkDepth: 0.78;
+        inkFloor: 0.85;
+        grainTone: 0.04;
+        inkHeight: 0.7;
+        grainHeight: 0.3;
+        inkRoughness: -0.25;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -15014,4 +15039,5 @@ export declare const proceduralTileMeters: Readonly<{
     fairisle: 0.3;
     invaders: 0.3;
     pizza: 0.25;
+    morse: 0.3;
 }>;

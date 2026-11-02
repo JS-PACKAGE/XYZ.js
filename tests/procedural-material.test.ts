@@ -999,6 +999,7 @@ const kinds: ProceduralMaterialKind[] = [
   'fairisle',
   'invaders',
   'pizza',
+  'morse',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -148503,6 +148504,220 @@ describe('Pizza as pepperoni discs on blistered melted cheese', () => {
     expect(dark / (512 * 512)).toBeLessThan(0.18);
     expect(maxTilt).toBeGreaterThan(0.02);
     expect(maxTilt).toBeLessThan(0.05);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Morse as rows of dots and dashes inked on paper tape', () => {
+  const p = proceduralMaterialPresets.morse;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** Inked (dark) state of every node of one row, read at the row centres. */
+  const rowNodes = (seed: number, row: number): boolean[] => {
+    const sample = createSurfaceSampler('morse', seed),
+      out = empty(),
+      nodes: boolean[] = [];
+    for (let x = 0; x < p.columns; x++) {
+      sample(x / p.columns, row / p.rows, out);
+      nodes.push(out.color < 0.5);
+    }
+    return nodes;
+  };
+  /** Lengths of the runs of one value that touch neither end of the row. */
+  const interiorRuns = (nodes: boolean[], value: boolean): number[] => {
+    const lengths: number[] = [];
+    let start = 0;
+    while (start < nodes.length) {
+      let end = start;
+      while (end < nodes.length && nodes[end] === nodes[start]) end++;
+      if (nodes[start] === value && start > 0 && end < nodes.length)
+        lengths.push(end - start);
+      start = end;
+    }
+    return lengths;
+  };
+  it('keeps only dots, dashes and legal gaps in every row and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('morse', seed),
+        a = empty();
+      let dots = 0,
+        dashes = 0,
+        wrong = 0;
+      for (let row = 0; row < p.rows; row++) {
+        const nodes = rowNodes(seed, row);
+        for (const length of interiorRuns(nodes, true)) {
+          if (length === 1) dots++;
+          else if (length === 3) dashes++;
+          else wrong++;
+        }
+        for (const length of interiorRuns(nodes, false))
+          if (![1, 3, 7].includes(length)) wrong++;
+      }
+      expect(wrong).toBe(0);
+      expect(dots).toBeGreaterThan(100);
+      expect(dashes).toBeGreaterThan(80);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color < 0.5);
+          mean += a.color;
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.11);
+      expect(low).toBeLessThan(0.125);
+      expect(high).toBeGreaterThan(0.915);
+      expect(high).toBeLessThan(0.925);
+      expect(dark / 65536).toBeGreaterThan(0.11);
+      expect(dark / 65536).toBeLessThan(0.145);
+      expect(mean / 65536).toBeGreaterThan(0.795);
+      expect(mean / 65536).toBeLessThan(0.815);
+      expect(roughLow).toBeGreaterThan(0.5);
+      expect(roughLow).toBeLessThan(0.51);
+      expect(roughHigh).toBeCloseTo(p.roughness, 3);
+      expect(heightHigh).toBeGreaterThan(0.95);
+      expect(heightHigh).toBeLessThan(1);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('writes a different message per seed and is deterministic for one seed', () => {
+    const grab = (seed: number): boolean[] => {
+      const sample = createSurfaceSampler('morse', seed),
+        a = empty(),
+        out: boolean[] = [];
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          out.push(a.color < 0.5);
+        }
+      return out;
+    };
+    const first = grab(0),
+      second = grab(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.08);
+    expect(grab(0)).toEqual(first);
+  });
+  it('keeps the mark edges, row gaps and paper grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('morse', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.columns, p.rows, p.inkCells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 cream paper maps with gentle ink normals', () => {
+    const maps = generateProceduralMaps('morse', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(191);
+    expect(red / (512 * 512)).toBeLessThan(204);
+    expect(green / (512 * 512)).toBeGreaterThan(181);
+    expect(green / (512 * 512)).toBeLessThan(194);
+    expect(blue / (512 * 512)).toBeGreaterThan(157);
+    expect(blue / (512 * 512)).toBeLessThan(170);
+    expect(maxTilt).toBeGreaterThan(0.03);
+    expect(maxTilt).toBeLessThan(0.1);
     expect(invalid).toBe(0);
   });
 });

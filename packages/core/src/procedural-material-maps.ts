@@ -39714,6 +39714,57 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'morse': {
+        const p = proceduralMaterialPresets.morse,
+          marks = new Float64Array(p.columns * p.rows),
+          inkField = cachedNoise(p.inkCells, p.inkCells, seed ^ p.seedSalt),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 1),
+          );
+        // Every row is an independent seeded message: symbols (a dot of one cell or a
+        // dash of dashLength cells) are separated by one blank cell, letters of up to
+        // letterMax symbols by three, and words by seven. The stream is cut at the
+        // row end, which wraps, so a row may join across the tile seam.
+        for (let row = 0; row < p.rows; row++) {
+          let column = 0,
+            counter = 0,
+            symbols = 0;
+          const rowSalt = seed ^ p.seedSalt;
+          while (column < p.columns) {
+            const length =
+              hash(counter++, row, rowSalt) < p.dashChance ? p.dashLength : 1;
+            for (let i = 0; i < length && column + i < p.columns; i++)
+              marks[row * p.columns + column + i] = 1;
+            column += length + 1;
+            symbols++;
+            if (
+              symbols >= 1 &&
+              hash(counter++, row, rowSalt + 1) < symbols / p.letterMax
+            ) {
+              column +=
+                hash(counter++, row, rowSalt + 2) < p.wordChance ? 6 : 2;
+              symbols = 0;
+            }
+          }
+        }
+        const pattern = latticeField(marks, p.columns, p.rows);
+        return () => {
+          // Marks are a lattice blended with the C1 smoothstep and re-sharpened with
+          // tanh; a cos^2 row mask (C-infinity) leaves a gap between rows.
+          const mark =
+              0.5 + 0.5 * Math.tanh(p.sharpness * (pattern(u, v) - 0.5)),
+            cy = Math.cos(Math.PI * p.rows * v),
+            row = 0.5 + 0.5 * Math.tanh(p.rowSharpness * (cy * cy - p.rowEdge)),
+            ink = mark * row * (p.inkFloor + (1 - p.inkFloor) * inkField(u, v)),
+            grain = grainField(u, v);
+          color = p.paperTone - p.inkDepth * ink + p.grainTone * (grain - 0.5);
+          height = p.inkHeight * ink + p.grainHeight * grain;
+          roughness += p.inkRoughness * ink;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -47479,6 +47530,7 @@ export function createSurfaceSampler(
     kind === 'fairisle' ||
     kind === 'invaders' ||
     kind === 'pizza' ||
+    kind === 'morse' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

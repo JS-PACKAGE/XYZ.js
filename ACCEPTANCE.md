@@ -12159,3 +12159,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增6項專屬測試（三seed統計含圓片連通區、seed差異與決定性、C1＋有符號UV週期含各雜訊格點、actual512 maps）通過；C1掃描無法證明未知的非C1。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Pizza as|pizza|kinds|catalog|distinct|periodic"`定向測試**2218項通過／3804項未選**。
 - 未驗證：mackerel、fairisle、invaders、pizza未跑完整suite與瀏覽器gallery（petricolonies、hestain完整suite亦未做）；不push。
+
+## 2026-11-02 新增材質：摩斯電碼（morse）
+
+- 範圍：新增`morse`（目前目錄957→958種，含plain的gallery 959項）：72×14格，每行以hash產生一串隨機符號（點1格、劃3格、符號間空1格、字母間空3格、單字間空7格），標記圖用`latticeField`混合後以tanh重新銳化，列間以`cos²`遮罩（C∞）留縫，奶油色紙上的深灰墨；預設0.3 m nominal tile、0.0012 UV-relative relief。作者示意，沒有引用特定來源或電報紙帶照片、**沒有對照照片**；訊息是隨機符號而不是可譯文字。
+- 調整紀錄（誠實紀錄）：第一版行遮罩門檻0.22時，標記是又高又粗的方塊（行高遠大於格寬），預覽上不像電碼；改為0.8後採用。這是同一個預覽的前後差異，是我的主觀判斷。
+- 實測（工具實跑，seed 0／1／0xffffffff／7，512²取樣）：墨（color<0.5）占12.4%–13.4%、color 0.114–0.119至0.9199–0.9200、平均0.801–0.807、roughness 0.503–0.75、height至多0.966–0.979 relief；各行節點的內部（未觸及行首行尾）亮段長度只有1與3、空段只有1、3、7（每seed約118–139個點與90–108個劃，沒有任何其他長度）；seed 0與1的墨遮罩11.0%像素不同；seed 7的512²maps平均r／g／b約(197.8, 187.8, 163.2)、法線tilt²最大約0.065、z分量最小251。
+- 測試：新增5項專屬測試（三seed的節點行程長度規則加統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過；行程長度測試排除觸及行首行尾的段（週期接縫會把截斷的標記接在一起），因此不驗證接縫處的長度。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Morse as|morse|kinds|catalog|distinct|periodic"`定向測試**2218項通過／3809項未選**。
+- 未驗證：morse未跑完整suite與瀏覽器gallery（mackerel、fairisle、invaders、pizza的瀏覽器gallery亦未做）；不push。
