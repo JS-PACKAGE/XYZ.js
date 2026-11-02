@@ -1055,6 +1055,7 @@ try {
     'juliatiles',
     'dragoncurve',
     'divisorcount',
+    'peanocurve',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

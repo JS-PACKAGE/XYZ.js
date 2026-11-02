@@ -12367,3 +12367,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試（逐磚比對、質數342個且最大因數個數為40（n = 1680）、統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Divisor count as|divisorcount|kinds|catalog|distinct|periodic"`定向測試**2254項通過／3868項未選**。
 - 未驗證：mandelbrottiles、juliatiles、dragoncurve、divisorcount未跑瀏覽器gallery；divisorcount未跑完整suite；不push。
+
+## 2026-11-02 新增材質：皮亞諾曲線（peanocurve）
+
+- 範圍：新增`peanocurve`（目前目錄976→977種，含plain的gallery 978項）：深藍黑底上粉紅色細線描出第3階皮亞諾空間填充曲線（27×27格各經過一次、728步、2,185個亮node，從(0, 0)蛇形走到(26, 26)；線寬三分之一格；32×32格環面，偏移(2, 2)；seed沿環面平移）；與`dragoncurve`共用同一個走線sampler分支（`case 'dragoncurve': case 'peanocurve':`，新增`peano`旗標、改為先產生頂點串再統一標記格點與連接node）；預設0.25 m nominal tile、0.0008 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**；曲線不封閉。
+- 調整與錯誤紀錄（誠實紀錄）：(1)第一版三進位數字翻轉公式把y數字的判斷少算了同組的x數字，預覽只出現不連續的直線段；修正後預覽為連續的皮亞諾曲線。(2)relief沿用dragoncurve的0.0008，未另外調整（512²maps的法線tilt²最大0.0468）。(3)共用分支重構同時跑了`Dragon curve as`區塊，dragoncurve的逐node比對測試仍通過。
+- 實測（工具實跑，seed 0／1／0xffffffff／7，256²取樣）：亮處（color>0.5）占18.33%（四個seed完全相同：seed平移是整格，在256²取樣上等於整數個取樣點的平移）、color 0.0457–0.0461至0.8331–0.8336、平均0.2272–0.2273、roughness 0.2001–0.3999、AO恆為1、height至多0.9913–0.9952 relief；四個seed的96×96 node盤面各自與測試中以區塊遞迴獨立建構的皮亞諾曲線在唯一一個環面平移下完全一致（(0, 4)、(23, 28)、(21, 27)、(24, 29)，亮node皆2,185）；seed 0與1的node盤面23.8%不同；seed 7的512²maps平均r／g／b約(70.3, 45.6, 72.0)、法線tilt²最大約0.0468、z分量最小252。我實看了預覽（seed 7）。
+- 測試：新增專屬測試（遞迴的729個頂點相異且相鄰頂點曼哈頓距離為1、四seed的node盤面與獨立曲線比對、統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Peano curve as|peanocurve|Dragon curve as|kinds|catalog|distinct|periodic"`定向測試**2259項通過／3868項未選**。
+- 未驗證：mandelbrottiles、juliatiles、dragoncurve、divisorcount、peanocurve未跑瀏覽器gallery；divisorcount、peanocurve未跑完整suite；不push。

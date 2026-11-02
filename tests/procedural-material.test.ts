@@ -1018,6 +1018,7 @@ const kinds: ProceduralMaterialKind[] = [
   'juliatiles',
   'dragoncurve',
   'divisorcount',
+  'peanocurve',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -152574,6 +152575,241 @@ describe('Divisor count as tiles toned by the number of divisors of n', () => {
     expect(blue / (512 * 512)).toBeLessThan(83);
     expect(maxTilt).toBeGreaterThan(0.015);
     expect(maxTilt).toBeLessThan(0.05);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Peano curve as a pink order-3 Peano space-filling trace', () => {
+  const p = proceduralMaterialPresets.peanocurve;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const cells = 32,
+    size = 96;
+  /**
+   * The order-3 Peano curve built independently here by block recursion: a 3×3 serpentine
+   * of the previous order, a block mirrored in x on odd rows and in y on odd columns.
+   */
+  const peano = (order: number): [number, number][] => {
+    if (order === 0) return [[0, 0]];
+    const previous = peano(order - 1),
+      side = 3 ** (order - 1),
+      out: [number, number][] = [];
+    for (let column = 0; column < 3; column++)
+      for (let k = 0; k < 3; k++) {
+        const row = column % 2 === 0 ? k : 2 - k;
+        for (const [x, y] of previous)
+          out.push([
+            column * side + (row % 2 === 1 ? side - 1 - x : x),
+            row * side + (column % 2 === 1 ? side - 1 - y : y),
+          ]);
+      }
+    return out;
+  };
+  const points = peano(3);
+  /** The lit nodes of the curve: cells at every third lattice coordinate, two connector nodes between consecutive cells. */
+  const expected = (shiftX: number, shiftY: number): boolean[] => {
+    const out = new Array<boolean>(size * size).fill(false),
+      wrap = (value: number): number => ((value % cells) + cells) % cells;
+    points.forEach(([cx, cy], i) => {
+      const gx = 3 * wrap(cx + 2 + shiftX),
+        gy = 3 * wrap(cy + 2 + shiftY);
+      out[gy * size + gx] = true;
+      if (i === 0) return;
+      const [px, py] = points[i - 1],
+        bx = 3 * wrap(px + 2 + shiftX),
+        by = 3 * wrap(py + 2 + shiftY);
+      for (const along of [1, 2])
+        out[
+          ((by + along * (cy - py) + size) % size) * size +
+            ((bx + along * (cx - px) + size) % size)
+        ] = true;
+    });
+    return out;
+  };
+  /** Lit state of every lattice node, read at the nodes. */
+  const pixelNodes = (seed: number): boolean[] => {
+    const sample = createSurfaceSampler('peanocurve', seed),
+      out = empty(),
+      nodes: boolean[] = [];
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample(x / size, y / size, out);
+        nodes.push(out.color > 0.5);
+      }
+    return nodes;
+  };
+  it('draws the order-3 Peano curve at exactly one torus shift and keeps the tones bounded', () => {
+    // The recursion is a continuous path through every one of the 27×27 cells.
+    expect(new Set(points.map(([x, y]) => y * 27 + x)).size).toBe(729);
+    for (let i = 1; i < points.length; i++)
+      expect(
+        Math.abs(points[i][0] - points[i - 1][0]) +
+          Math.abs(points[i][1] - points[i - 1][1]),
+      ).toBe(1);
+    for (const seed of [0, 1, 0xffffffff, 7]) {
+      const sample = createSurfaceSampler('peanocurve', seed),
+        a = empty(),
+        nodes = pixelNodes(seed),
+        fits: [number, number][] = [];
+      for (let sy = 0; sy < cells; sy++)
+        for (let sx = 0; sx < cells; sx++) {
+          const want = expected(sx, sy);
+          if (want.every((lit, i) => lit === nodes[i])) fits.push([sx, sy]);
+        }
+      expect(fits).toHaveLength(1);
+      expect(nodes.filter(Boolean)).toHaveLength(2185);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.045);
+      expect(low).toBeLessThan(0.047);
+      expect(high).toBeGreaterThan(0.83);
+      expect(high).toBeLessThan(0.84);
+      expect(dark / 65536).toBeGreaterThan(0.18);
+      expect(dark / 65536).toBeLessThan(0.19);
+      expect(mean / 65536).toBeGreaterThan(0.22);
+      expect(mean / 65536).toBeLessThan(0.23);
+      expect(roughLow).toBeGreaterThan(0.2);
+      expect(roughLow).toBeLessThan(0.21);
+      expect(roughHigh).toBeCloseTo(p.roughness, 2);
+      expect(heightHigh).toBeGreaterThan(0.98);
+      expect(heightHigh).toBeLessThanOrEqual(1);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('shifts the curve per seed and is deterministic for one seed', () => {
+    const first = pixelNodes(0),
+      second = pixelNodes(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.2);
+    expect(different / first.length).toBeLessThan(0.3);
+    expect(pixelNodes(0)).toEqual(first);
+  });
+  it('keeps the trace edges, glow and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('peanocurve', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [size, p.glowCells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 pink-on-navy maps with gentle trace normals', () => {
+    const maps = generateProceduralMaps('peanocurve', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(66);
+    expect(red / (512 * 512)).toBeLessThan(75);
+    expect(green / (512 * 512)).toBeGreaterThan(42);
+    expect(green / (512 * 512)).toBeLessThan(50);
+    expect(blue / (512 * 512)).toBeGreaterThan(68);
+    expect(blue / (512 * 512)).toBeLessThan(76);
+    expect(maxTilt).toBeGreaterThan(0.02);
+    expect(maxTilt).toBeLessThan(0.08);
     expect(invalid).toBe(0);
   });
 });

@@ -40572,8 +40572,12 @@ export function createSurfaceSampler(
           return;
         };
       }
-      case 'dragoncurve': {
-        const p = proceduralMaterialPresets.dragoncurve,
+      case 'dragoncurve':
+      case 'peanocurve': {
+        const peano = kind === 'peanocurve',
+          p = peano
+            ? proceduralMaterialPresets.peanocurve
+            : proceduralMaterialPresets.dragoncurve,
           size = p.cells * 3,
           marks = new Float64Array(size * size),
           glowField = cachedNoise(p.glowCells, p.glowCells, seed ^ p.seedSalt),
@@ -40586,55 +40590,72 @@ export function createSurfaceSampler(
           shiftY = Math.floor(hash(1, 0, seed ^ (p.seedSalt + 2)) * p.cells),
           wrap = (value: number): number =>
             (((value + p.cells) % p.cells) + p.cells) % p.cells;
-        // The Heighway dragon curve of the given order: 2^order unit steps whose turns
-        // follow the regular paper-folding sequence (step k = 2^m (2j + 1) turns left
-        // for even j and right for odd j). Cells sit at every third lattice coordinate and the
-        // two connector nodes between consecutive cells fill the coordinates between them,
-        // so a line is a third of a cell wide.
-        let x = 1,
-          y = 0,
-          dx = 1,
-          dy = 0;
-        const mark = (cellX: number, cellY: number): void => {
-          marks[
-            3 * wrap(cellY + p.offsetY + shiftY) * size +
-              3 * wrap(cellX + p.offsetX + shiftX)
-          ] = 1;
-        };
-        const connect = (
-          fromX: number,
-          fromY: number,
-          toX: number,
-          toY: number,
-        ): void => {
+        // The vertex list of the curve. Dragon: the Heighway dragon of the given order,
+        // 2^order unit steps whose turns follow the regular paper-folding sequence (step
+        // k = 2^m (2j + 1) turns left for even j and right for odd j). Peano: the
+        // order-th Peano curve through all 3^order x 3^order cells, whose index in base 3
+        // gives the x digits at even and the y digits at odd positions; an x digit is
+        // reflected (2 - digit) when the y digits before it sum to odd and a y digit when
+        // the x digits up to and including its pair sum to odd.
+        // Cells sit at every third lattice coordinate and the two connector nodes between
+        // consecutive cells fill the coordinates between them, so a line is a third of a
+        // cell wide.
+        const points: [number, number][] = [[0, 0]];
+        if (peano) {
+          const side = 3 ** p.order;
+          points.length = 0;
+          for (let index = 0; index < side * side; index++) {
+            const digits: number[] = [];
+            for (let k = 0, rest = index; k < 2 * p.order; k++) {
+              digits.unshift(rest % 3);
+              rest = Math.floor(rest / 3);
+            }
+            let px = 0,
+              py = 0,
+              xSum = 0,
+              ySum = 0;
+            for (let k = 0; k < p.order; k++) {
+              xSum += digits[2 * k];
+              const xDigit = ySum % 2 ? 2 - digits[2 * k] : digits[2 * k],
+                yDigit = xSum % 2 ? 2 - digits[2 * k + 1] : digits[2 * k + 1];
+              px = px * 3 + xDigit;
+              py = py * 3 + yDigit;
+              ySum += digits[2 * k + 1];
+            }
+            points.push([px, py]);
+          }
+        } else {
+          let x = 1,
+            y = 0,
+            dx = 1,
+            dy = 0;
+          points.push([1, 0]);
+          for (let step = 1; step < 1 << p.order; step++) {
+            let odd = step;
+            while (odd % 2 === 0) odd /= 2;
+            if (((odd - 1) / 2) % 2 === 0) [dx, dy] = [-dy, dx];
+            else [dx, dy] = [dy, -dx];
+            x += dx;
+            y += dy;
+            points.push([x, y]);
+          }
+        }
+        const cellAt = (cell: number, offset: number, shift: number): number =>
+          3 * wrap(cell + offset + shift);
+        points.forEach(([cellX, cellY], i) => {
+          const gridX = cellAt(cellX, p.offsetX, shiftX),
+            gridY = cellAt(cellY, p.offsetY, shiftY);
+          marks[gridY * size + gridX] = 1;
+          if (i === 0) return;
+          const [fromX, fromY] = points[i - 1],
+            baseX = cellAt(fromX, p.offsetX, shiftX),
+            baseY = cellAt(fromY, p.offsetY, shiftY);
           for (const along of [1, 2])
             marks[
-              ((3 * wrap(fromY + p.offsetY + shiftY) +
-                along * (toY - fromY) +
-                size) %
-                size) *
-                size +
-                ((3 * wrap(fromX + p.offsetX + shiftX) +
-                  along * (toX - fromX) +
-                  size) %
-                  size)
+              ((baseY + along * (cellY - fromY) + size) % size) * size +
+                ((baseX + along * (cellX - fromX) + size) % size)
             ] = 1;
-        };
-        mark(0, 0);
-        mark(1, 0);
-        connect(0, 0, 1, 0);
-        for (let step = 1; step < 1 << p.order; step++) {
-          let odd = step;
-          while (odd % 2 === 0) odd /= 2;
-          if (((odd - 1) / 2) % 2 === 0) [dx, dy] = [-dy, dx];
-          else [dx, dy] = [dy, -dx];
-          const nextX = x + dx,
-            nextY = y + dy;
-          mark(nextX, nextY);
-          connect(x, y, nextX, nextY);
-          x = nextX;
-          y = nextY;
-        }
+        });
         const pattern = latticeField(marks, size, size);
         return () => {
           // The node map is blended with the C1 smoothstep and re-sharpened with tanh;
@@ -48494,6 +48515,7 @@ export function createSurfaceSampler(
     kind === 'juliatiles' ||
     kind === 'dragoncurve' ||
     kind === 'divisorcount' ||
+    kind === 'peanocurve' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
