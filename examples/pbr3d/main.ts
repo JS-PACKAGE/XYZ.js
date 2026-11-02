@@ -711,6 +711,7 @@ try {
     'dcbarreljackfaces',
     'stfiberadapterfaces',
     'to92packagefaces',
+    'ieee754floats',
     'vennregions',
     'bezierconstruction',
     'luhnnumbers',

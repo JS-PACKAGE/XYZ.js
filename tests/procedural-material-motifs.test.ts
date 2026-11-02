@@ -19678,3 +19678,135 @@ describe('vennregions: a three-set Venn diagram with region counts and set total
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('ieee754floats: single-precision numbers with their bit fields', () => {
+  const p = proceduralMaterialPresets.ieee754floats;
+  const shapes: Record<string, string[]> = {
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    '2': ['###', '..#', '###', '#..', '###'],
+    '3': ['###', '..#', '###', '..#', '###'],
+    '4': ['#.#', '#.#', '###', '..#', '..#'],
+    '5': ['###', '#..', '###', '..#', '###'],
+    '6': ['###', '#..', '###', '#.#', '###'],
+    '7': ['###', '..#', '.#.', '.#.', '.#.'],
+    '8': ['###', '#.#', '###', '#.#', '###'],
+    '9': ['###', '#.#', '###', '..#', '###'],
+    '.': ['...', '...', '...', '...', '.#.'],
+    '-': ['...', '...', '###', '...', '...'],
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'prints each number as the value its sign, exponent and mantissa bits encode (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('ieee754floats', seed),
+        out = empty(),
+        at = (u: number, v: number): number => {
+          sample(u, v, out);
+          return out.color;
+        },
+        read = (cx: number, cy: number, pixel: number): string => {
+          const rows = [0, 1, 2, 3, 4].map((line) =>
+            [0, 1, 2]
+              .map((x) =>
+                at(cx + (x - 1) * pixel, cy + (line - 2) * pixel) < 0.3
+                  ? '#'
+                  : '.',
+              )
+              .join(''),
+          );
+          if (rows.every((row) => row === '...')) return ' ';
+          const found = Object.entries(shapes).find(([, shape]) =>
+            shape.every((row, i) => row === rows[i]),
+          );
+          expect(found).toBeDefined();
+          return (found as [string, string[]])[0];
+        };
+      const seen = new Set<string>();
+      for (let block = 0; block < p.blocks; block++) {
+        const top = p.top + block * p.blockPitch,
+          bits = Array.from({ length: 32 }, (_, i) =>
+            Number(
+              read(
+                p.bitsLeft + (i + 0.5) * p.bitsPitch,
+                top + p.bitsLine,
+                p.bitsPixel,
+              ),
+            ),
+          );
+        let text = '';
+        for (let column = 0; column < 12; column++) {
+          const symbol = read(
+            p.textLeft + (column + 0.5) * p.textPitch,
+            top + p.textLine,
+            p.textPixel,
+          );
+          if (symbol === ' ') break;
+          text += symbol;
+        }
+        // Decode the bit fields by hand: sign, biased exponent, mantissa.
+        const sign = bits[0],
+          exponent = bits
+            .slice(1, 9)
+            .reduce((value, bit) => value * 2 + bit, 0),
+          mantissa = bits.slice(9).reduce((value, bit) => value * 2 + bit, 0),
+          value =
+            (sign ? -1 : 1) * 2 ** (exponent - 127) * (1 + mantissa / 8388608);
+        expect(exponent).toBeGreaterThanOrEqual(p.exponentMin);
+        expect(exponent).toBeLessThanOrEqual(p.exponentMax);
+        expect(text).toBe(value.toFixed(p.decimals));
+        // The same value through the platform's own float32 encoding gives the same bits.
+        const view = new DataView(new ArrayBuffer(4));
+        view.setFloat32(0, value);
+        expect(view.getUint32(0)).toBe(
+          bits.reduce((word, bit) => word * 2 + bit, 0),
+        );
+        // Field shading: the sign cell darkest, then the exponent, then the mantissa.
+        const toneAt = (cell: number): number =>
+          at(p.bitsLeft + (cell + 0.1) * p.bitsPitch, top + p.bitsLine - 0.012);
+        expect(toneAt(0)).toBeLessThan(0.84);
+        expect(toneAt(4)).toBeGreaterThan(0.8);
+        expect(toneAt(4)).toBeLessThan(0.9);
+        expect(toneAt(20)).toBeGreaterThan(0.9);
+        seen.add(text);
+      }
+      expect(seen.size).toBe(p.blocks);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('ieee754floats', 0),
+      b = createSurfaceSampler('ieee754floats', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

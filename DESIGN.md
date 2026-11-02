@@ -1729,6 +1729,10 @@
 
 這是作者設計的示意：只有三個集合、七個區域，圓的位置與大小固定；區域個數是隨機的，不是真實資料；總數至多三位數（例如A=105）；點陣數字在小尺寸下難以辨識。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`ieee754floats`（IEEE 754單精度浮點數）使目前目錄1040→1041種，含plain的gallery為1042項。每tile由上到下有6組單精度浮點數：每組上面一行是十進位值（取到小數4位，3×5點陣數字、含小數點與負號），下面一行是它的32個位元：1個符號位元（底色最深）、8個指數位元（偏移量127，底色次深）與23個尾數位元（底色最淺），欄位之間以細線分隔。數值依 (−1)^符號 × 2^(指數−127) × (1 + 尾數/2²³) 計算；seed抽出每組的符號、指數（124到133，所以數值的大小約在0.125到128之間）與尾數，所以印出的十進位值與位元是互相對應的。Metallic與mortar為0。
+
+這是作者設計的示意：只有正規化的單精度數、指數固定在124到133、不含0、無限大、NaN與非正規數；十進位值只印4位小數，是把精確值四捨五入後的結果；位元以3×5點陣的0與1寫成，在小尺寸下難以辨識。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

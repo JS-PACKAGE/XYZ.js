@@ -31859,6 +31859,143 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'ieee754floats': {
+        const p = proceduralMaterialPresets.ieee754floats,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2db01),
+          glyphs: Record<string, string> = {
+            '0': '111101101101111',
+            '1': '010110010010111',
+            '2': '111001111100111',
+            '3': '111001111001111',
+            '4': '101101111001001',
+            '5': '111100111001111',
+            '6': '111100111101111',
+            '7': '111001010010010',
+            '8': '111101111101111',
+            '9': '111101111001111',
+            '.': '000000000000010',
+            '-': '000000111000000',
+          },
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // Single-precision numbers: 1 sign bit, 8 exponent bits (bias 127) and 23 mantissa bits, whose value is
+          // (-1)^sign * 2^(exponent - 127) * (1 + mantissa / 2^23). The seed draws the three fields for each block.
+          floats = Array.from({ length: p.blocks }, (_, block) => {
+            const sign = hash(block, 1, seed ^ 0x2db02) < 0.5 ? 1 : 0,
+              exponent = Math.min(
+                p.exponentMax,
+                p.exponentMin +
+                  Math.floor(
+                    hash(block, 2, seed ^ 0x2db02) *
+                      (p.exponentMax - p.exponentMin + 1),
+                  ),
+              ),
+              mantissa =
+                Math.floor(hash(block, 3, seed ^ 0x2db02) * 4096) * 2048 +
+                Math.floor(hash(block, 4, seed ^ 0x2db02) * 2048),
+              value =
+                (sign ? -1 : 1) *
+                2 ** (exponent - 127) *
+                (1 + mantissa / 2 ** 23),
+              bits = [
+                sign,
+                ...Array.from(
+                  { length: 8 },
+                  (_, i) => (exponent >> (7 - i)) & 1,
+                ),
+                ...Array.from(
+                  { length: 23 },
+                  (_, i) => Math.floor(mantissa / 2 ** (22 - i)) % 2,
+                ),
+              ];
+            return { bits, text: [...value.toFixed(p.decimals)] };
+          });
+        return () => {
+          const block = Math.floor((v - p.top) / p.blockPitch);
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            rough: number = p.paperRoughness,
+            divider = 0,
+            glyph = 0;
+          if (block >= 0 && block < p.blocks) {
+            const local = v - p.top - block * p.blockPitch,
+              { bits, text } = floats[block],
+              // The number printed above its bits.
+              textRow = Math.floor((local - p.textLine) / p.textPixel + 2.5),
+              textColumn = Math.floor((u - p.textLeft) / p.textPitch);
+            if (
+              textRow >= 0 &&
+              textRow < 5 &&
+              textColumn >= 0 &&
+              textColumn < text.length
+            ) {
+              const px = Math.floor(
+                (u - p.textLeft - (textColumn + 0.5) * p.textPitch) /
+                  p.textPixel +
+                  1.5,
+              );
+              if (
+                px >= 0 &&
+                px < 3 &&
+                glyphs[text[textColumn]][textRow * 3 + px] === '1'
+              )
+                glyph = 1;
+            }
+            // The 32 bits, with the three fields shaded differently and dividers after the sign and the exponent.
+            const bitRow = Math.floor((local - p.bitsLine) / p.bitsPixel + 2.5),
+              cell = Math.floor((u - p.bitsLeft) / p.bitsPitch);
+            if (
+              Math.abs(local - p.bitsLine) < 2.5 * p.bitsPixel + 0.008 &&
+              cell >= 0 &&
+              cell < 32
+            ) {
+              tone =
+                cell === 0
+                  ? p.signTone
+                  : cell < 9
+                    ? p.exponentTone
+                    : p.mantissaTone;
+              level =
+                cell === 0
+                  ? p.signHeight
+                  : cell < 9
+                    ? p.exponentHeight
+                    : p.mantissaHeight;
+              rough = p.cellRoughness;
+              if (bitRow >= 0 && bitRow < 5) {
+                const px = Math.floor(
+                  (u - p.bitsLeft - (cell + 0.5) * p.bitsPitch) / p.bitsPixel +
+                    1.5,
+                );
+                if (
+                  px >= 0 &&
+                  px < 3 &&
+                  glyphs[String(bits[cell])][bitRow * 3 + px] === '1'
+                )
+                  glyph = 1;
+              }
+            }
+            for (const boundary of [1, 9]) {
+              const edge = p.bitsLeft + boundary * p.bitsPitch;
+              if (Math.abs(local - p.bitsLine) < 2.5 * p.bitsPixel + 0.008)
+                divider = Math.max(
+                  divider,
+                  cover(p.dividerHalf - Math.abs(u - edge)),
+                );
+            }
+          }
+          const base = tone + (p.dividerTone - tone) * divider;
+          color = clamp(
+            base +
+              (p.inkTone - base) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * glyph);
+          roughness = rough + (p.inkRoughness - rough) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -59388,6 +59525,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'ieee754floats' ||
     kind === 'vennregions' ||
     kind === 'bezierconstruction' ||
     kind === 'luhnnumbers' ||
