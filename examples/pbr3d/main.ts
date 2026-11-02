@@ -1056,6 +1056,7 @@ try {
     'juliatiles',
     'dragoncurve',
     'divisorcount',
+    'totienttable',
     'peanocurve',
     'sacksspiral',
     'tulle',

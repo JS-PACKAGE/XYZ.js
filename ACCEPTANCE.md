@@ -12609,3 +12609,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試（旋轉比對的曲線追蹤與統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過，`Rose table as`原有測試仍通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Spirograph table as|spirographtable|Rose table as|kinds|catalog|distinct|periodic"`定向測試**2309項通過／3944項未選**。
 - 未驗證：heptagridfilled、dodecagridfilled、spirographtable未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：歐拉函數表（totienttable）
+
+- 範圍：新增`totienttable`（目前目錄1000→1001種，含plain的gallery 1002項）：48×48方格，格代表`n = row·48 + col + 1`（1到2304），以`φ(n)/n`上色（最小比值48/210在n = 210，對應0；比值1對應頂端，再取1.5次方；2304以內共342個質數，偶數的比值至多0.5），呈琥珀金色直條紋（表寬48為偶數，每欄奇偶固定）在暗褐底上；seed把整張表在環面上平移；沿用divisorcount的方格形狀與參數；預設0.3 m nominal tile、0.0008 UV-relative relief；cache `Int32Array(2305)` 9,220 B加`Float64Array(2304 + 128²)` 149,504 B，共158,724 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**；只是函數值表示，不是定理證明。
+- 調整與紀錄：(1)預覽只看了一版；沿用divisorcount的方格參數，沒有為totient重新調整。(2)預覽有明顯的垂直條紋（表寬48為偶數）；這是取值方式的特性，我沒有以改變表寬去打散，也沒有判斷是否過於單調。(3)測試一次通過，無需調整區間。(4)每個取樣點為常數次運算，**未量測耗時**；seed 0與1的格子中心色差>0.05的比例（78.5%）在寫測試時我只用了沿用自divisorcount的門檻0.2，之後才量測，量測值遠高於門檻。
+- 實測（工具實跑）：n = 210為第一個達到最小比值48/210的整數、2304以內342個質數、偶數比值最大0.5；256²取樣（seed 0／1／0xffffffff）亮處（color>0.5）占22.23%–23.72%、color 0.0255–0.0259至0.8527–0.8529、平均0.3109–0.3183、AO最低0.6、height至多0.8459–0.8471 relief；512²取樣（seed 0／1／0xffffffff／7）亮處占22.13%–22.78%、color 0.0252–0.0254至0.8536–0.8542、平均0.3114–0.3142、height至多0.8486–0.8500 relief；每個seed恰好一種環面平移（seed 0為(39, 33)、1為(23, 23)、0xffffffff為(19, 33)、7為(42, 4)）使2304格中心顏色與獨立重寫的`φ(n)/n`色調一致，最大誤差0.0150以內（門檻0.03）；seed 0與1的亮區遮罩（512²）23.6%像素不同；seed 7的512²maps平均r／g／b約(96.6, 80.1, 37.3)、法線tilt²最大約0.0296、z分量最小253。我實看了預覽（seed 7）。
+- 測試：新增5項專屬測試（φ(n)以互質計數獨立重寫、唯一環面平移與統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過，`Divisor count as`原有測試仍通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Totient table as|totienttable|Divisor count as|kinds|catalog|distinct|periodic"`定向測試**2311項通過／3947項未選**。
+- 未驗證：totienttable未跑完整suite與瀏覽器gallery；不push。

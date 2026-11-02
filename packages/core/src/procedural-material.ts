@@ -993,6 +993,7 @@ export type ProceduralMaterialKind =
   | 'juliatiles'
   | 'dragoncurve'
   | 'divisorcount'
+  | 'totienttable'
   | 'peanocurve'
   | 'sacksspiral'
   | 'tulle'
@@ -2242,6 +2243,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'juliatiles',
   'dragoncurve',
   'divisorcount',
+  'totienttable',
   'peanocurve',
   'sacksspiral',
   'tulle',

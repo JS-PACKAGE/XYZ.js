@@ -40798,6 +40798,70 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'totienttable': {
+        const p = proceduralMaterialPresets.totienttable,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft,
+          shiftX = Math.floor(hash(0, 0, seed ^ p.seedSalt) * p.cells),
+          shiftY = Math.floor(hash(1, 0, seed ^ p.seedSalt) * p.cells),
+          // Cell (col, row) holds n = row * cells + col + 1 and is toned by Euler's totient
+          // ratio phi(n) / n, rescaled so that the smallest ratio in the table is 0 and 1 (at
+          // n = 1 and the primes, which are just below 1) is the top, raised to toneExponent: primes and
+          // other numbers with few small factors glow, while the even numbers (ratio at
+          // most 1/2) and the multiples of 6, 30 or 210 sink into stripes. The seed
+          // moves the whole table around the torus.
+          count = p.cells * p.cells,
+          totient = new Int32Array(count + 1),
+          tones = new Float64Array(count);
+        for (let n = 0; n <= count; n++) totient[n] = n;
+        for (let prime = 2; prime <= count; prime++)
+          if (totient[prime] === prime)
+            for (let multiple = prime; multiple <= count; multiple += prime)
+              totient[multiple] -= totient[multiple] / prime;
+        let least = 1;
+        for (let n = 1; n <= count; n++)
+          least = Math.min(least, totient[n] / n);
+        for (let n = 1; n <= count; n++)
+          tones[n - 1] =
+            p.toneSpan *
+            ((totient[n] / n - least) / (1 - least)) ** p.toneExponent;
+        return () => {
+          // One compact-support rounded-square kernel per cell (a quartic superellipse
+          // through smoothstep, exactly zero before the cell boundary), so the cell
+          // lookup never jumps and the field is C1.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            ax = (x - col - 0.5) * inverseHalf,
+            ay = (y - row - 0.5) * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            tone =
+              tones[
+                ((row + shiftY) % p.cells) * p.cells +
+                  ((col + shiftX) % p.cells)
+              ],
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'divisorcount': {
         const p = proceduralMaterialPresets.divisorcount,
           grainField = cachedNoise(
@@ -49396,6 +49460,7 @@ export function createSurfaceSampler(
     kind === 'juliatiles' ||
     kind === 'dragoncurve' ||
     kind === 'divisorcount' ||
+    kind === 'totienttable' ||
     kind === 'peanocurve' ||
     kind === 'sacksspiral' ||
     kind === 'tulle' ||
