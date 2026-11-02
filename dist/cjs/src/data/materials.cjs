@@ -23139,6 +23139,41 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: .15,
 		threadRoughness: -.1
 	}),
+	penrosetiling: Object.freeze({
+		dark: [
+			8,
+			14,
+			30
+		],
+		light: [
+			170,
+			225,
+			255
+		],
+		roughness: .4,
+		relief: 7e-4,
+		seedSalt: 40465,
+		offsets: [
+			.13,
+			-.31,
+			.22,
+			.07,
+			-.11
+		],
+		period: 16,
+		patchRadius: 6.2,
+		gridRange: 6,
+		rotationSteps: 10,
+		threadRadius: .09,
+		gain: 1.6,
+		grainCells: 128,
+		baseTone: .06,
+		threadTone: .78,
+		grainTone: .03,
+		threadHeight: .85,
+		grainHeight: .15,
+		threadRoughness: -.1
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -24626,7 +24661,8 @@ var proceduralTileMeters = Object.freeze({
 	minkowskisausage: .25,
 	vermiculation: .4,
 	kikko: .3,
-	kagome: .3
+	kagome: .3,
+	penrosetiling: .5
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

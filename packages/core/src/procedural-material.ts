@@ -1005,7 +1005,8 @@ export type ProceduralMaterialKind =
   | 'minkowskisausage'
   | 'vermiculation'
   | 'kikko'
-  | 'kagome';
+  | 'kagome'
+  | 'penrosetiling';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2245,6 +2246,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'vermiculation',
   'kikko',
   'kagome',
+  'penrosetiling',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

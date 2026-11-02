@@ -41300,6 +41300,143 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'penrosetiling': {
+        const p = proceduralMaterialPresets.penrosetiling,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          // The seed turns the whole patch by a multiple of 36 degrees.
+          rotation =
+            (TAU *
+              Math.floor(hash(0, 0, seed ^ p.seedSalt) * p.rotationSteps)) /
+            p.rotationSteps,
+          inverseRadius2 = 1 / (p.threadRadius * p.threadRadius),
+          reach = 0.5 + p.threadRadius,
+          unit = (index: number): [number, number] => [
+            Math.cos((TAU * index) / 5),
+            Math.sin((TAU * index) / 5),
+          ],
+          edges = new Map<string, [number, number, number, number]>();
+        // De Bruijn's pentagrid construction of the Penrose rhombus tiling. Grid j is the
+        // set of lines x . e_j = integer + offsets[j] (the five offsets sum to 0), the unit
+        // vectors e_j are the fifth roots of unity, and every crossing of a line of grid j
+        // with one of grid k is one rhombus. Its four corners are sum_l K_l e_l, where
+        // K_j and K_k take the two integers beside the crossed lines and every other K_l
+        // is ceil(x . e_l - offsets[l]) at the crossing x. Edges shared by two rhombi are
+        // stored once, and only rhombi whose centre lies within patchRadius are kept.
+        for (let j = 0; j < 5; j++)
+          for (let k = j + 1; k < 5; k++)
+            for (let r = -p.gridRange; r <= p.gridRange; r++)
+              for (let s = -p.gridRange; s <= p.gridRange; s++) {
+                const [jx, jy] = unit(j),
+                  [kx, ky] = unit(k),
+                  a = r + p.offsets[j],
+                  b = s + p.offsets[k],
+                  determinant = jx * ky - jy * kx,
+                  x = (a * ky - b * jy) / determinant,
+                  y = (jx * b - kx * a) / determinant,
+                  indices = [0, 1, 2, 3, 4].map((l) => {
+                    if (l === j) return r;
+                    if (l === k) return s;
+                    const [lx, ly] = unit(l);
+                    return Math.ceil(x * lx + y * ly - p.offsets[l]);
+                  }),
+                  corner = (stepJ: number, stepK: number): [number, number] => {
+                    let px = 0,
+                      py = 0;
+                    for (let l = 0; l < 5; l++) {
+                      const [lx, ly] = unit(l),
+                        index =
+                          indices[l] +
+                          (l === j ? stepJ : 0) +
+                          (l === k ? stepK : 0);
+                      px += index * lx;
+                      py += index * ly;
+                    }
+                    return [px, py];
+                  },
+                  corners = [
+                    corner(0, 0),
+                    corner(1, 0),
+                    corner(1, 1),
+                    corner(0, 1),
+                  ];
+                if (
+                  Math.hypot(
+                    (corners[0][0] + corners[2][0]) / 2,
+                    (corners[0][1] + corners[2][1]) / 2,
+                  ) > p.patchRadius
+                )
+                  continue;
+                for (let side = 0; side < 4; side++) {
+                  const from = corners[side],
+                    to = corners[(side + 1) % 4],
+                    keyFrom = `${Math.round(from[0] * 1000)},${Math.round(from[1] * 1000)}`,
+                    keyTo = `${Math.round(to[0] * 1000)},${Math.round(to[1] * 1000)}`;
+                  edges.set(
+                    keyFrom < keyTo
+                      ? `${keyFrom}|${keyTo}`
+                      : `${keyTo}|${keyFrom}`,
+                    [from[0], from[1], to[0], to[1]],
+                  );
+                }
+              }
+        const segmentCount = edges.size,
+          middleX = new Float64Array(segmentCount),
+          middleY = new Float64Array(segmentCount),
+          halfX = new Float64Array(segmentCount),
+          halfY = new Float64Array(segmentCount),
+          cosine = Math.cos(rotation),
+          sine = Math.sin(rotation);
+        let slot = 0;
+        for (const [ax, ay, bx, by] of edges.values()) {
+          const rax = cosine * ax - sine * ay,
+            ray = sine * ax + cosine * ay,
+            rbx = cosine * bx - sine * by,
+            rby = sine * bx + cosine * by;
+          middleX[slot] = (rax + rbx) / 2;
+          middleY[slot] = (ray + rby) / 2;
+          halfX[slot] = (rbx - rax) / 2;
+          halfY[slot] = (rby - ray) / 2;
+          slot++;
+        }
+        return () => {
+          // Every edge is a thread: a compact-support quartic profile (1 - d^2 / r^2)^2 of
+          // the distance to its segment, exactly zero beyond threadRadius, summed over the
+          // edges (so the vertices where several edges meet are brighter) and squashed by
+          // 1 - exp(-gain * sum). The patch stays inside the tile, so the field is C1 and
+          // periodic.
+          const x = (fract(u) - 0.5) * p.period,
+            y = (fract(v) - 0.5) * p.period;
+          let sum = 0;
+          for (let i = 0; i < segmentCount; i++) {
+            const dx = x - middleX[i],
+              dy = y - middleY[i];
+            if (Math.abs(dx) > reach || Math.abs(dy) > reach) continue;
+            const along =
+                2 *
+                  clamp(
+                    0.5 +
+                      (0.5 * (dx * halfX[i] + dy * halfY[i])) /
+                        (halfX[i] * halfX[i] + halfY[i] * halfY[i]),
+                  ) -
+                1,
+              ex = dx - along * halfX[i],
+              ey = dy - along * halfY[i],
+              d2 = (ex * ex + ey * ey) * inverseRadius2;
+            if (d2 < 1) sum += (1 - d2) * (1 - d2);
+          }
+          const thread = 1 - Math.exp(-p.gain * sum),
+            grain = grainField(u, v);
+          color =
+            p.baseTone + p.threadTone * thread + p.grainTone * (grain - 0.5);
+          height = p.threadHeight * thread + p.grainHeight * grain;
+          roughness += p.threadRoughness * thread;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -49098,6 +49235,7 @@ export function createSurfaceSampler(
     kind === 'vermiculation' ||
     kind === 'kikko' ||
     kind === 'kagome' ||
+    kind === 'penrosetiling' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
