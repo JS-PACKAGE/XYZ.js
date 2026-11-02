@@ -12174,3 +12174,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 完整suite（工具實跑，worktree `/private/tmp/xyz-ct-suite`於`d65d9bd2d`「Add pizza material」）：**179檔／9,951項全數通過**，Duration 1151.82s。涵蓋`0d663c285`之後的petricolonies、hestain、mackerel、fairisle、invaders與pizza；**morse只有定向測試與gates，沒有完整suite**。
 - 瀏覽器gallery（工具實跑）：補做`mackerel`、`fairisle`、`invaders`、`pizza`、`morse`五個材質的`/examples/pbr3d/`檢查——spawned Google Chrome headless（`--enable-unsafe-webgpu --use-angle=metal`）開啟vite dev server（服務`6971149bb`狀態的乾淨worktree）上的範例頁，逐一以`#material`的`input`事件選取並等待讀數更新；WebGPU與`?renderer=webgl2`各跑一次，結束時`tab.errors()`的`entries`皆為0筆（dropped 0）；狀態列顯示`958 procedural material presets + plain`。
 - 限制：gallery檢查只涵蓋「能選取、讀數更新、console沒有錯誤」，**沒有**逐材質視覺比對，也沒有跨瀏覽器、跨GPU或Windows／Linux驗證；不push。
+
+## 2026-11-02 新增材質：庫斯庫斯（couscous）
+
+- 範圍：新增`couscous`（目前目錄958→959種，含plain的gallery 960項）：沿用`granola`／`tilledsoil`／`sherpafleece`的共用重疊旋轉橢圓粒子sampler分支（新增`case 'couscous'`與preset選擇），第二層chunk以`chunkChance = 0`關閉，只留26×26格的淡米黃圓粒，粒縫為暗褐底色（AO 0.4）；預設0.1 m nominal tile、0.0012 UV-relative relief。作者示意，沒有引用特定來源或食物照片、**沒有對照照片**。
+- 調整紀錄（誠實紀錄）：第一版粒徑0.5、底色0.1，預覽上粒縫太黑；改為粒徑0.58、底色0.26後採用。relief的取捨：0.008時512²maps的法線tilt²最大為0.731、0.002時為0.1425、最後取0.0012得0.0570（同一批探針的三個值）。
+- 測試修正（誠實紀錄）：我從tilledsoil的測試複製區塊時，maps測試中`occlusion < 200`的比例（`covered`）沿用的是「底色處」的區間（我預填0.12–0.16），實際執行失敗（量到0.2137；該條件還包含部分被粒子遮到的像素，不只是底色處），我依實測值把區間改為0.19–0.24後通過；這個區間是量到後才設定的，不是事前推導。
+- 實測（工具實跑，seed 0／1／0xffffffff／7，512²取樣）：底色處（occlusion<0.46）占13.8%–14.6%、其平均color 0.2583–0.2588、粒子（color>0.5）占74.3%–75.2%、沒有任何像素color<0.2、color 0.2058–0.2071至0.9529–0.9571、平均0.614–0.622、height至多0.9929–0.9954 relief、roughness恆為0.88；seed 0與1的底色遮罩23.4%像素不同（256²）；seed 7的512²maps平均r／g／b約(173.4, 146.4, 98.6)、occlusion<200的像素占21.4%、法線tilt²最大約0.0570、z分量最小251。我實看了預覽：淺米黃圓粒緊密堆疊、粒縫暗褐，像庫斯庫斯或小米，但粒形偏圓、粒徑偏均勻。
+- 測試：新增6項專屬測試（三seed統計、seed差異與決定性、C1＋有符號UV週期含各雜訊格點、actual512 maps）通過；piece視窗是否截斷無法由機率式C1掃描證明（既有說明），本材質最大粒徑小於granola所推導的5×5視窗上限，沒有另做推導測試。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Couscous as|couscous|kinds|catalog|distinct|periodic"`定向測試**2222項通過／3812項未選**。
+- 未驗證：morse、couscous未跑完整suite（couscous與morse的瀏覽器gallery亦未做）；不push。

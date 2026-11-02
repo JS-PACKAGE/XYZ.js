@@ -1000,6 +1000,7 @@ const kinds: ProceduralMaterialKind[] = [
   'invaders',
   'pizza',
   'morse',
+  'couscous',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -148718,6 +148719,197 @@ describe('Morse as rows of dots and dashes inked on paper tape', () => {
     expect(blue / (512 * 512)).toBeLessThan(170);
     expect(maxTilt).toBeGreaterThan(0.03);
     expect(maxTilt).toBeLessThan(0.1);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Couscous as tiny pale semolina granules over occluded gaps', () => {
+  const p = proceduralMaterialPresets.couscous;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const coverMask = (seed: number): boolean[] => {
+    const sample = createSurfaceSampler('couscous', seed),
+      out = empty(),
+      mask: boolean[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        mask.push(out.occlusion > 0.46);
+      }
+    return mask;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'leaves about a seventh gap ground between pale granules and a bounded range for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('couscous', seed),
+        a = empty();
+      let ground = 0,
+        groundSum = 0,
+        flake = 0,
+        dark = 0,
+        low = 1,
+        high = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 512; y++)
+        for (let x = 0; x < 512; x++) {
+          sample((x + 0.5) / 512, (y + 0.5) / 512, a);
+          if (a.occlusion < 0.46) {
+            ground++;
+            groundSum += a.color;
+          }
+          flake += Number(a.color > 0.5);
+          dark += Number(a.color < 0.2);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(ground / 262144).toBeGreaterThan(0.125);
+      expect(ground / 262144).toBeLessThan(0.16);
+      expect(groundSum / ground).toBeGreaterThan(0.255);
+      expect(groundSum / ground).toBeLessThan(0.262);
+      expect(flake / 262144).toBeGreaterThan(0.73);
+      expect(flake / 262144).toBeLessThan(0.77);
+      expect(dark / 262144).toBe(0);
+      expect(low).toBeGreaterThan(0.2);
+      expect(low).toBeLessThan(0.215);
+      expect(high).toBeGreaterThan(0.94);
+      expect(high).toBeLessThan(0.97);
+      expect(mean / 262144).toBeGreaterThan(0.605);
+      expect(mean / 262144).toBeLessThan(0.63);
+      expect(occlusionLow).toBeCloseTo(1 - p.groundOcclusion, 3);
+      expect(heightHigh).toBeGreaterThan(0.98);
+      expect(heightHigh).toBeLessThan(1);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('re-draws the granules per seed and is deterministic for one seed', () => {
+    const first = coverMask(0),
+      second = coverMask(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.15);
+    expect(coverMask(0)).toEqual(first);
+  });
+  it('keeps the overlapping granules, roughened edges and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('couscous', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.flakeCells, p.edgeCells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 semolina-beige dielectric maps with moderate granule-edge normals', () => {
+    const maps = generateProceduralMaps('couscous', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      covered = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      covered += Number(maps.occlusion[i] < 200);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2] ||
+          maps.baseColor[i] < maps.baseColor[i + 1] ||
+          maps.baseColor[i + 1] < maps.baseColor[i + 2] ||
+          maps.normal[i + 2] < 160,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(167);
+    expect(red / (512 * 512)).toBeLessThan(180);
+    expect(green / (512 * 512)).toBeGreaterThan(140);
+    expect(green / (512 * 512)).toBeLessThan(153);
+    expect(blue / (512 * 512)).toBeGreaterThan(92);
+    expect(blue / (512 * 512)).toBeLessThan(105);
+    expect(covered / (512 * 512)).toBeGreaterThan(0.19);
+    expect(covered / (512 * 512)).toBeLessThan(0.24);
+    expect(maxTilt).toBeGreaterThan(0.03);
+    expect(maxTilt).toBeLessThan(0.09);
     expect(invalid).toBe(0);
   });
 });

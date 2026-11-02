@@ -38552,13 +38552,16 @@ export function createSurfaceSampler(
       }
       case 'granola':
       case 'tilledsoil':
-      case 'sherpafleece': {
+      case 'sherpafleece':
+      case 'couscous': {
         const p =
             kind === 'tilledsoil'
               ? proceduralMaterialPresets.tilledsoil
               : kind === 'sherpafleece'
                 ? proceduralMaterialPresets.sherpafleece
-                : proceduralMaterialPresets.granola,
+                : kind === 'couscous'
+                  ? proceduralMaterialPresets.couscous
+                  : proceduralMaterialPresets.granola,
           grainField = cachedNoise(
             p.grainCells,
             p.grainCells,
@@ -47531,6 +47534,7 @@ export function createSurfaceSampler(
     kind === 'invaders' ||
     kind === 'pizza' ||
     kind === 'morse' ||
+    kind === 'couscous' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

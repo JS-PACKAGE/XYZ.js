@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`couscous`（庫斯庫斯）使目前目錄958→959種，含plain的gallery為960項。淡米黃色的微小球狀穀粒（semolina）緊密堆疊的表面：26×26格、每格一粒略帶旋轉與大小變化的圓粒，彼此重疊，粒縫露出較暗的底色並帶遮蔽（AO）。不是真實庫斯庫斯的粒徑分布、表面細粉、蒸煮後的結塊或光澤，預覽也只有單一暗褐到淺米黃的漸層，粒子形狀比較圓而均勻。
+
+此材質是作者示意，沒有引用特定來源、食物照片或量測，也沒有對照照片；它直接沿用granola／tilledsoil／sherpafleece共用的重疊旋轉橢圓粒子sampler（關閉了第二層chunk層：`chunkChance`為0），格數26、粒徑0.58 ± 0.15格、色調與0.1 m nominal tile皆作者設定。第一版粒子較小（0.5）且底色偏暗（0.1），預覽上粒縫太黑；我把粒徑加到0.58、底色提高到0.26後採用。relief 0.008時512²maps的法線tilt²最大為0.731，0.002時為0.1425，最後取0.0012得0.0570（同一批探針的三個值）。
+
+沿用既有的piece sampler（`granola`、`tilledsoil`、`sherpafleece`的共用分支，現在加入`couscous`）：兩層旋轉橢圓粒子以固定5×5鄰域順序合成（`value = value·(1 − m) + piece·m`，`m`是`smooth(1 − q)`的平滑遮罩，因此重疊處維持C1），其中第二層因`chunkChance = 0`沒有任何粒子；顏色＝`0.26·rest + shade·(1 − rest) + 0.04·(128²細grain − 0.5)`；height ＝ `0.8·lift + 0.2·grain`；AO在底色處為0.4（`groundOcclusion` 0.6）；roughness恆為0.88；金屬factor為0；cache合計兩層各7個每格陣列（26²＋8²格）＋64²邊緣雜訊＋128²細grain = 25,660個Float64／205,280 B lattice算術預算（非總RAM）。預設0.1 m nominal tile與0.0012 UV-relative relief（非公尺位移）。實測（工具實跑，seed 0／1／0xffffffff／7，512²取樣）：底色處（occlusion<0.46）占13.8%–14.6%、其平均color 0.2583–0.2588、粒子（color>0.5）占74.3%–75.2%、沒有任何像素color<0.2、color 0.2058–0.2071至0.9529–0.9571、平均0.614–0.622、height至多0.9929–0.9954 relief；seed 0與1的底色遮罩23.4%像素不同（256²）；seed 7的512²maps平均r／g／b約(173.4, 146.4, 98.6)、occlusion<200的像素占21.4%、法線tilt²最大約0.0570。我實看了預覽：淺米黃色的圓粒緊密堆疊，粒縫為暗褐色，一眼是庫斯庫斯或小米類的穀粒表面，但形狀偏圓、粒徑偏均勻。未新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `morse`（摩斯電碼）使目前目錄957→958種，含plain的gallery為959項。奶油色紙帶上的14行摩斯電碼：每行是一串由seed決定的隨機訊息，點為1格、劃為3格，符號之間空1格、字母之間空3格、單字之間空7格，墨跡是深灰色的圓角短條。不是真實電報的內容（訊息是隨機符號而不是可譯的文字）、也沒有穿孔紙帶的孔或墨水暈染；每行在右緣截斷並與左緣相接（週期），所以接縫處的標記可能連在一起。
 
 此材質是作者示意，沒有引用特定來源、電報紙帶照片或量測，也沒有對照照片；欄列數72×14、劃長3格、劃機率0.45、字母最多4個符號、換字機率0.2、色調與0.3 m nominal tile皆作者設定。第一版行遮罩門檻0.22時標記是又高又粗的方塊，看起來不像電碼，我把門檻改為0.8讓每行變細後採用。
