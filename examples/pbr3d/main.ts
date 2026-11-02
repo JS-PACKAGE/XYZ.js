@@ -1098,6 +1098,7 @@ try {
     'thuemorse',
     'chessqueens',
     'cassiniovals',
+    'sterndiatomic',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

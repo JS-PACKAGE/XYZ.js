@@ -12953,3 +12953,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Cassini ovals as|cassiniovals|kinds|catalog|distinct|periodic"`定向測試**2372項通過／4058項未選**。
 - 未驗證：cassiniovals未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-03 新增材質：斯特恩雙原子序列（sterndiatomic）
+
+- 範圍：新增`sterndiatomic`（目前目錄1033→1034種，含plain的gallery 1035項）：48×48圓角方磚表，第`row`列第`col`欄放`n = row·48 + col + 1`，色調`0.7·(s(n) mod 4) / 3`（斯特恩序列`s(n)`；四種色調）；琥珀橘與深藍紫；seed令表在環面上平移；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 149,504 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽只看了一版，畫面很滿、以橘色為主，未再調整；(2)sampler用遞迴式，測試以「把`n − 1`寫成2的冪之和、每個冪至多用兩次」的方法數（超二進位表示）這個**獨立的動態規劃**取代遞迴式，檢查前16項、模4餘數的分布（391、770、377、766），並在2,304個平移中檢查恰好一個符合；超二進位表示的個數等於斯特恩序列是標準理論事實，這裡只在2,304項上實測一致、沒有證明對所有n成立；(3)取模4是因為四個色調間距遠大於grain誤差，**沒有試其他模數**；(4)建構與取樣耗時**未量測**；(5)測試第一次執行即通過。
+- 實測（工具實跑）：獨立動態規劃的前16項`1 1 2 1 3 2 3 1 4 3 5 2 5 3 4 1`、前2,304項模4餘數0到3的個數391、770、377、766、最大`s`為157；四個seed（0／1／0xffffffff／7）各有唯一符合的平移(31, 3)、(29, 42)、(30, 39)、(39, 6)，最大擬合誤差0.01490–0.01500；256²（seed 0／1／0xffffffff）亮處（color>0.5）35.61%–35.64%、color 0.02558–0.02586至0.85415–0.85442、平均0.38884–0.39705、roughness恆為0.4、AO最低0.6、height至多0.8471–0.8486 relief；512²（四個seed）亮處35.46%–35.58%、color 0.02516–0.02556至0.85446–0.85481、平均0.38979–0.39263、height至多0.8490–0.8502 relief；seed 0與1相比，格中心顏色相差超過0.05的格子83.2%（512²中color>0.5的取樣35.5%不同）；seed 7的512²maps平均r／g／b約(106.2, 66.2, 53.3)、法線tilt²最大約0.0296、z分量最小253。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Stern diatomic as|sterndiatomic|kinds|catalog|distinct|periodic"`定向測試**2374項通過／4061項未選**。
+- 未驗證：cassiniovals與sterndiatomic未跑完整suite與瀏覽器gallery；不push。

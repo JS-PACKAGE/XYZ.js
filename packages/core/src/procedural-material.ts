@@ -1035,6 +1035,7 @@ export type ProceduralMaterialKind =
   | 'thuemorse'
   | 'chessqueens'
   | 'cassiniovals'
+  | 'sterndiatomic'
   | 'sandpileidentity'
   | 'multiplicativeorder'
   | 'vermiculation'
@@ -2317,6 +2318,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'thuemorse',
   'chessqueens',
   'cassiniovals',
+  'sterndiatomic',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',
