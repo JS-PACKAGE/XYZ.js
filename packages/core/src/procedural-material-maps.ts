@@ -29237,6 +29237,139 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'treemaprects': {
+        const p = proceduralMaterialPresets.treemaprects,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2c001),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          side = 1 - 2 * p.margin,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          values = Array.from(
+            { length: p.items },
+            (_, index) =>
+              p.minValue +
+              Math.min(
+                p.maxValue - p.minValue,
+                Math.floor(
+                  hash(index, 3, seed ^ 0x2c003) *
+                    (p.maxValue - p.minValue + 1),
+                ),
+              ),
+          ).sort((a, b) => b - a),
+          // Every item gets a rectangle whose area is proportional to its value: split the list into two groups of
+          // nearly equal total, cut the current rectangle across its longer side in that proportion, and recurse.
+          rects: {
+            x: number;
+            y: number;
+            width: number;
+            height: number;
+            value: number;
+          }[] = [],
+          place = (
+            items: number[],
+            x: number,
+            y: number,
+            width: number,
+            height: number,
+          ): void => {
+            if (items.length === 1) {
+              rects.push({ x, y, width, height, value: items[0] });
+              return;
+            }
+            const first: number[] = [],
+              second: number[] = [];
+            let firstSum = 0,
+              secondSum = 0;
+            for (const value of items) {
+              if (firstSum <= secondSum) {
+                first.push(value);
+                firstSum += value;
+              } else {
+                second.push(value);
+                secondSum += value;
+              }
+            }
+            const share = firstSum / (firstSum + secondSum);
+            if (width >= height) {
+              place(first, x, y, width * share, height);
+              place(second, x + width * share, y, width * (1 - share), height);
+            } else {
+              place(first, x, y, width, height * share);
+              place(second, x, y + height * share, width, height * (1 - share));
+            }
+          };
+        place(values, 0, 0, side, side);
+        const maxItem = values[0],
+          minItem = values[values.length - 1];
+        return () => {
+          const lx = u - p.margin,
+            ly = v - p.margin;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            border = 0,
+            glyph = 0;
+          if (lx >= 0 && ly >= 0 && lx < side && ly < side) {
+            const rect =
+                rects.find(
+                  (r) =>
+                    lx >= r.x &&
+                    lx < r.x + r.width &&
+                    ly >= r.y &&
+                    ly < r.y + r.height,
+                ) ?? rects[0],
+              inside = Math.min(
+                lx - rect.x,
+                rect.x + rect.width - lx,
+                ly - rect.y,
+                rect.y + rect.height - ly,
+              );
+            tone =
+              p.toneLow +
+              ((p.toneHigh - p.toneLow) * (rect.value - minItem)) /
+                Math.max(1, maxItem - minItem);
+            level = p.cellHeight;
+            border = cover(p.borderHalf - inside);
+            // The value as a dot-matrix number in the rectangle's top-left corner.
+            const digits =
+                rect.value >= 10
+                  ? [Math.floor(rect.value / 10), rect.value % 10]
+                  : [rect.value],
+              px = Math.floor((lx - rect.x - p.labelInset) / p.digitPixel),
+              py = Math.floor((ly - rect.y - p.labelInset) / p.digitPixel);
+            if (py >= 0 && py < 5)
+              for (let k = 0; k < digits.length; k++) {
+                const gx = px - 4 * k;
+                if (gx >= 0 && gx < 3 && glyphs[digits[k]][py * 3 + gx] === '1')
+                  glyph = 1;
+              }
+          }
+          const base = tone + (p.borderTone - tone) * border;
+          color = clamp(
+            base +
+              (p.inkTone - base) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            level + (p.borderHeight - level) * border - p.inkDepth * glyph,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.borderRoughness - p.paperRoughness) * Math.max(border, glyph);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -56766,6 +56899,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'treemaprects' ||
     kind === 'moonphases' ||
     kind === 'multiplicationtable' ||
     kind === 'draughtsposition' ||

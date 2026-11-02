@@ -1621,6 +1621,10 @@
 
 這是作者設計的示意：不是天文曆表——相位只用單純的餘弦公式（朔望月固定取29.53天），沒有月球的天平動、地球的反照（地球光）或真實的月面地貌；北半球視角（盈月時右側受光），南半球觀察者會看到左右相反；30天只涵蓋29.53天的一個週期，所以第一個與最後一個月亮的相位接近但不是完全相同；顏色只有明度。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`treemaprects`（樹狀圖／treemap）使目前目錄1013→1014種，含plain的gallery為1015項。每tile是一張樹狀圖：一個方形區域被切成12個長方形，每個長方形的**面積正比於它的數值**，數值（4至30的整數，由seed隨機決定）以3×5點陣數字寫在長方形左上角；數值越大底色越亮（線性對應到由暗到亮的色帶）。切法：把數值由大到小排列，分成總和盡可能相等的兩組（輪流把下一個數值放進目前總和較小的組），沿目前長方形較長的一邊按兩組總和的比例切開，再對兩邊遞迴，直到每組只剩一個數值；長方形之間以深色粗線分隔。Metallic與mortar為0。
+
+這是作者設計的示意：不是常見的「squarified」樹狀圖演算法，只是平衡二分遞迴，長方形的長寬比不保證很接近正方形（我沒有量測最壞長寬比）；數值是隨機的，沒有任何實際資料意義；標籤為固定大小的點陣，長方形很窄時標籤可能超出邊界（測試只確認九個seed的標籤能被正確讀出，沒有檢查標籤是否完全落在長方形內，也沒有證明不會超出）；顏色只有明度。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

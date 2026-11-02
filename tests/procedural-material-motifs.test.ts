@@ -15927,3 +15927,175 @@ describe('moonphases: thirty moons through one lunation', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('treemaprects: rectangles whose areas follow their labelled values', () => {
+  const p = proceduralMaterialPresets.treemaprects;
+  const grid = 512;
+  const pixel = 1 / grid;
+  const side = 1 - 2 * p.margin;
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'tiles the square with rectangles whose area share equals their value share (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('treemaprects', seed),
+        out = empty(),
+        colors = new Float64Array(grid * grid);
+      for (let y = 0; y < grid; y++)
+        for (let x = 0; x < grid; x++) {
+          sample((x + 0.5) * pixel, (y + 0.5) * pixel, out);
+          colors[y * grid + x] = out.color;
+        }
+      const inner = (index: number): boolean => {
+        const x = (index % grid) * pixel,
+          y = Math.floor(index / grid) * pixel;
+        return (
+          x >= p.margin && y >= p.margin && x < 1 - p.margin && y < 1 - p.margin
+        );
+      };
+      // Rectangles: 4-connected groups of fill pixels (not the dark borders or ink) inside the board.
+      const region = new Int32Array(grid * grid).fill(-1),
+        boxes: {
+          minX: number;
+          minY: number;
+          maxX: number;
+          maxY: number;
+          count: number;
+        }[] = [];
+      for (let start = 0; start < grid * grid; start++) {
+        if (!inner(start) || colors[start] < 0.2 || region[start] !== -1)
+          continue;
+        const id = boxes.length,
+          box = {
+            minX: Infinity,
+            minY: Infinity,
+            maxX: -Infinity,
+            maxY: -Infinity,
+            count: 0,
+          },
+          stack = [start];
+        region[start] = id;
+        while (stack.length > 0) {
+          const index = stack.pop() as number,
+            x = index % grid,
+            y = Math.floor(index / grid);
+          box.count++;
+          box.minX = Math.min(box.minX, x);
+          box.minY = Math.min(box.minY, y);
+          box.maxX = Math.max(box.maxX, x);
+          box.maxY = Math.max(box.maxY, y);
+          for (const next of [index + 1, index - 1, index + grid, index - grid])
+            if (
+              next >= 0 &&
+              next < grid * grid &&
+              inner(next) &&
+              colors[next] >= 0.2 &&
+              region[next] === -1
+            ) {
+              region[next] = id;
+              stack.push(next);
+            }
+        }
+        boxes.push(box);
+      }
+      // Ink pixels inside a rectangle are dark and so cut holes in its group; the big groups are the rectangles.
+      const rectangles = boxes.filter((box) => box.count > 400);
+      expect(rectangles.length).toBe(p.items);
+      // Read each rectangle's label from its top-left corner (the edge is the border centre, one border half-width out).
+      const at = (u: number, v: number): number => {
+        sample(u, v, out);
+        return out.color;
+      };
+      const values = rectangles.map((box) => {
+        const originX = box.minX * pixel - p.borderHalf + p.labelInset,
+          originY = box.minY * pixel - p.borderHalf + p.labelInset,
+          digits: number[] = [];
+        for (let k = 0; k < 2; k++) {
+          const rows: string[] = [];
+          for (let y = 0; y < 5; y++) {
+            let text = '';
+            for (let x = 0; x < 3; x++)
+              text +=
+                at(
+                  originX + (4 * k + x + 0.5) * p.digitPixel,
+                  originY + (y + 0.5) * p.digitPixel,
+                ) < 0.2
+                  ? '#'
+                  : '.';
+            rows.push(text);
+          }
+          if (k === 1 && rows.every((row) => row === '...')) break;
+          const digit = art.findIndex((shape) =>
+            shape.every((row, i) => row === rows[i]),
+          );
+          expect(digit).toBeGreaterThanOrEqual(0);
+          digits.push(digit);
+        }
+        return digits.reduce((sum, digit) => sum * 10 + digit, 0);
+      });
+      const sum = values.reduce((a, b) => a + b, 0),
+        boardPixels = (side / pixel) ** 2;
+      rectangles.forEach((box, i) => {
+        expect(values[i]).toBeGreaterThanOrEqual(p.minValue);
+        expect(values[i]).toBeLessThanOrEqual(p.maxValue);
+        // The rectangle's full extent is its fill's bounding box widened by the border half-width on every side.
+        const width = (box.maxX - box.minX + 1) * pixel + 2 * p.borderHalf,
+          height = (box.maxY - box.minY + 1) * pixel + 2 * p.borderHalf;
+        expect(
+          Math.abs((width * height) / side ** 2 - values[i] / sum),
+        ).toBeLessThan(0.0025);
+      });
+      // The rectangles' shares add up to (almost) the whole board.
+      expect(
+        rectangles.reduce((total, box) => total + box.count, 0) / boardPixels,
+      ).toBeGreaterThan(0.9);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('treemaprects', 0),
+      b = createSurfaceSampler('treemaprects', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
