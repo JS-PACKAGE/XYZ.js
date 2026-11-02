@@ -37472,6 +37472,160 @@ export function createSurfaceSampler(
           occlusion = 1 - 0.2 * border;
         };
       }
+      case 'youngtableaux': {
+        const p = proceduralMaterialPresets.youngtableaux,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x31c01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          french = hash(7, 3, seed ^ 0x31c02) < 0.5,
+          transposed = hash(7, 4, seed ^ 0x31c03) < 0.5,
+          pixel = p.box * p.pixelFraction,
+          shapes: number[][] = [];
+        // The partitions of the total into at most side parts of at most side, in reverse lexicographic order.
+        const split = (
+          rest: number,
+          largest: number,
+          parts: number[],
+        ): void => {
+          if (rest === 0) {
+            shapes.push(parts);
+            return;
+          }
+          if (parts.length === p.side) return;
+          for (let part = Math.min(rest, largest); part >= 1; part--)
+            split(rest - part, part, [...parts, part]);
+        };
+        split(p.total, p.side, []);
+        // Four different shapes by a seeded shuffle, each filled with 1..total: a number goes into a random box whose upper and left
+        // neighbours (when there are any) are already filled.
+        const order = shapes.map((_, index) => index);
+        for (let i = order.length - 1; i > 0; i--) {
+          const j = Math.floor(hash(i, 5, seed ^ 0x31c04) * (i + 1));
+          [order[i], order[j]] = [order[j], order[i]];
+        }
+        const panelCount = p.panels * p.panels,
+          tableaux = Array.from({ length: panelCount }, (_, panel) => {
+            const shape = shapes[order[panel]],
+              grid = shape.map((length) => Array<number>(length).fill(0));
+            for (let value = 1; value <= p.total; value++) {
+              const open: [number, number][] = [];
+              grid.forEach((line, row) =>
+                line.forEach((entry, column) => {
+                  if (
+                    entry === 0 &&
+                    (row === 0 || grid[row - 1][column] > 0) &&
+                    (column === 0 || line[column - 1] > 0)
+                  )
+                    open.push([row, column]);
+                }),
+              );
+              const [row, column] =
+                open[
+                  Math.floor(
+                    hash(panel, 20 + value, seed ^ 0x31c05) * open.length,
+                  )
+                ];
+              grid[row][column] = value;
+            }
+            return grid;
+          }),
+          cellsWide = p.side,
+          origin = (1 / p.panels - cellsWide * p.box) / 2;
+        return () => {
+          const panelX = Math.min(
+              p.panels - 1,
+              Math.floor((u - Math.floor(u)) * p.panels),
+            ),
+            panelY = Math.min(
+              p.panels - 1,
+              Math.floor((v - Math.floor(v)) * p.panels),
+            ),
+            grid = tableaux[panelY * p.panels + panelX],
+            lx = u - Math.floor(u) - panelX / p.panels - origin,
+            ly = v - Math.floor(v) - panelY / p.panels - origin;
+          // The drawn cell, and the tableau cell it shows (row one at the bottom for French drawing; swapped when transposed).
+          const drawnColumn = Math.floor(lx / p.box),
+            drawnRow = Math.floor(ly / p.box);
+          let face = 0,
+            line = 0,
+            ink = 0,
+            tone: number = p.lowestTone;
+          if (
+            drawnColumn >= 0 &&
+            drawnColumn < cellsWide &&
+            drawnRow >= 0 &&
+            drawnRow < cellsWide
+          ) {
+            const downRow = french ? cellsWide - 1 - drawnRow : drawnRow,
+              row = transposed ? drawnColumn : downRow,
+              column = transposed ? downRow : drawnColumn,
+              value =
+                row < grid.length && column < grid[row].length
+                  ? grid[row][column]
+                  : 0;
+            if (value > 0) {
+              const inAcross = lx - drawnColumn * p.box,
+                inDown = ly - drawnRow * p.box;
+              face = 1;
+              tone =
+                p.lowestTone +
+                ((p.highestTone - p.lowestTone) * (value - 1)) / (p.total - 1);
+              line = cover(
+                p.lineHalf -
+                  Math.min(inAcross, p.box - inAcross, inDown, p.box - inDown),
+              );
+              const text = String(value),
+                px = Math.floor(
+                  (inAcross - p.box / 2) / pixel + (4 * text.length - 1) / 2,
+                ),
+                digit = Math.floor(px / 4),
+                gx = px - 4 * digit,
+                py = Math.floor((inDown - p.box / 2) / pixel + 2.5);
+              if (
+                px >= 0 &&
+                digit < text.length &&
+                gx < 3 &&
+                py >= 0 &&
+                py < 5 &&
+                glyphs[Number(text[digit])][py * 3 + gx] === '1'
+              )
+                ink = 1;
+            }
+          }
+          const base = p.paperTone + (tone - p.paperTone) * face,
+            withLine = base + (p.lineTone - base) * line;
+          color = clamp(
+            withLine +
+              (p.inkTone - withLine) * ink +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.paperHeight +
+              (p.boxHeight - p.paperHeight) * face +
+              (p.lineHeight - p.boxHeight) * line +
+              (p.inkHeight - p.boxHeight) * ink,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.boxRoughness - p.paperRoughness) * face +
+            (p.lineRoughness - p.boxRoughness) * line +
+            (p.inkRoughness - p.boxRoughness) * ink;
+          occlusion = 1 - 0.2 * line;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -65001,6 +65155,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'youngtableaux' ||
     kind === 'euclidsquares' ||
     kind === 'voronoicells' ||
     kind === 'cliffordattractor' ||

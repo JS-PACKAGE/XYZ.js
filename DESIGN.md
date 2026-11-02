@@ -1985,6 +1985,10 @@
 
 這是作者設計的示意：沒有標示數字、商數或gcd；60×24與55×21等會產生許多邊長相同的方塊，只靠色調的順序區分切出順序；長方形置中且四周留白，因此貼圖整體不是無縫連續花紋，只是重複排列。預設1 m nominal tile、0.005 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`youngtableaux`（楊表）使目前目錄1104→1105種，含plain的gallery為1106項。整張tile是2×2個面板，每個面板畫一個10格的標準楊表：形狀是10的分拆（最多5個部分、每部分最多5），格內填入1到10各一次，沿每一列和每一欄嚴格遞增。seed從所有符合條件的形狀中洗牌挑出四個不同的形狀，並用「依序把1到10放進一個隨機的可加格（上方與左方的格子都已填入）」來填數，所以每個面板的填法都是有效的標準楊表（但不是在所有標準楊表上均勻抽樣）；seed另外決定使用英式（第一列在上）或法式（第一列在下）畫法，以及整體是否轉置（轉置後仍是有效的標準楊表）。格子依數字由深（1）到淺（10）上色，數字用3×5點陣字（10用兩位數），格間有深色細線。Metallic與mortar為0。
+
+這是作者設計的示意：沒有標示形狀的分拆或鉤長；一個圖無法分辨它是否被轉置（轉置後仍是標準楊表）；寬度最多5格、點陣字小，512下需要靠像素邊緣讀字，建議1024以上。預設1 m nominal tile、0.005 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

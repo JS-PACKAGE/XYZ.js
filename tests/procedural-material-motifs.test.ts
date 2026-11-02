@@ -29547,3 +29547,216 @@ describe('euclidsquares: the Euclidean algorithm as squares', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('youngtableaux: standard Young tableaux', () => {
+  const p = proceduralMaterialPresets.youngtableaux;
+  const glyphs = [
+    '111101101101111',
+    '010110010010111',
+    '111001111100111',
+    '111001111001111',
+    '101101111001001',
+    '111100111001111',
+    '111100111101111',
+    '111001010010010',
+    '111101111101111',
+    '111101111001111',
+  ];
+  const origin = (1 / p.panels - p.side * p.box) / 2,
+    pixel = p.box * p.pixelFraction;
+
+  // The drawn 5 x 5 cells of one panel: the number in each filled box, or 0 for an empty place.
+  const readPanel = (
+    seed: number,
+    panelX: number,
+    panelY: number,
+  ): number[][] => {
+    const sample = createSurfaceSampler('youngtableaux', seed),
+      out = empty();
+    return Array.from({ length: p.side }, (_, drawnRow) =>
+      Array.from({ length: p.side }, (_, drawnColumn) => {
+        const left = panelX / p.panels + origin + drawnColumn * p.box,
+          top = panelY / p.panels + origin + drawnRow * p.box;
+        // The face of a filled box is darker than the paper; take a spot near its corner, away from the number.
+        sample(left + 0.12 * p.box, top + 0.12 * p.box, out);
+        const face = out.color;
+        if (face > p.paperTone - 0.03) return 0;
+        // Seven pixel columns around the middle (two digits are seven pixels wide, one digit three), five rows.
+        const columns: string[] = [];
+        for (let x = -3; x <= 3; x++) {
+          let bits = '';
+          for (let y = -2; y <= 2; y++) {
+            sample(
+              left + p.box / 2 + x * pixel,
+              top + p.box / 2 + y * pixel,
+              out,
+            );
+            bits += Math.abs(out.color - face) > 0.3 ? '1' : '0';
+          }
+          columns.push(bits);
+        }
+        const glyph = (from: number): number => {
+          const rows = [0, 1, 2, 3, 4]
+            .map((y) => [0, 1, 2].map((x) => columns[from + x][y]).join(''))
+            .join('');
+          return glyphs.indexOf(rows);
+        };
+        const twoDigits = [0, 1, 5, 6].some((x) => columns[x] !== '00000');
+        return twoDigits ? glyph(0) * 10 + glyph(4) : glyph(2);
+      }),
+    );
+  };
+
+  // Which reading of the drawn cells (row one on top or at the bottom, transposed or not) gives a standard Young tableau of
+  // the given total: a Young diagram (rows left-justified and not getting longer downwards, none empty above a filled one) holding
+  // each of 1..total once, increasing along rows and down columns.
+  const tableauReadings = (
+    drawn: number[][],
+    total: number,
+  ): { french: boolean; transposed: boolean; shape: number[] }[] => {
+    const found: { french: boolean; transposed: boolean; shape: number[] }[] =
+      [];
+    for (const french of [false, true])
+      for (const transposed of [false, true]) {
+        const rows = drawn.map((_, row) => {
+          const downRow = french ? drawn.length - 1 - row : row;
+          return drawn[0].map((__, column) =>
+            transposed ? drawn[column][downRow] : drawn[downRow][column],
+          );
+        });
+        // The row `row` of the tableau is the downRow-th row read in this way; for transposed pictures rows and columns swap.
+        const shape = rows
+          .map((line) => line.filter((value) => value > 0).length)
+          .filter((length) => length > 0);
+        const leftJustified = rows.every((line) =>
+          line.every(
+            (value, column) =>
+              value > 0 === column < line.filter((v) => v > 0).length,
+          ),
+        );
+        const nonIncreasing = shape.every(
+          (length, row) => row === 0 || length <= shape[row - 1],
+        );
+        const entries = rows
+          .flat()
+          .filter((value) => value > 0)
+          .sort((a, b) => a - b);
+        const complete =
+          entries.length === total &&
+          entries.every((value, index) => value === index + 1);
+        const increasing = rows.every((line, row) =>
+          line.every(
+            (value, column) =>
+              value === 0 ||
+              ((column === 0 || line[column - 1] < value) &&
+                (row === 0 || rows[row - 1][column] < value)),
+          ),
+        );
+        if (leftJustified && nonIncreasing && complete && increasing)
+          found.push({ french, transposed, shape });
+      }
+    return found;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws four different standard Young tableaux of ten boxes (seed %i)',
+    (seed) => {
+      const shapes = new Set<string>(),
+        sample = createSurfaceSampler('youngtableaux', seed),
+        out = empty();
+      let sampled = 0;
+      for (let panelY = 0; panelY < p.panels; panelY++)
+        for (let panelX = 0; panelX < p.panels; panelX++) {
+          const drawn = readPanel(seed, panelX, panelY),
+            readings = tableauReadings(drawn, p.total);
+          expect(readings.length).toBeGreaterThan(0);
+          for (const reading of readings) {
+            expect(reading.shape.length).toBeLessThanOrEqual(p.side);
+            expect(Math.max(...reading.shape)).toBeLessThanOrEqual(p.side);
+            expect(reading.shape.reduce((a, b) => a + b, 0)).toBe(p.total);
+          }
+          // A box is toned by its number: 1 darkest, 10 lightest.
+          drawn.forEach((line, row) =>
+            line.forEach((value, column) => {
+              if (value === 0) return;
+              sample(
+                panelX / p.panels + origin + column * p.box + 0.12 * p.box,
+                panelY / p.panels + origin + row * p.box + 0.12 * p.box,
+                out,
+              );
+              expect(
+                Math.abs(
+                  out.color -
+                    (p.lowestTone +
+                      ((p.highestTone - p.lowestTone) * (value - 1)) /
+                        (p.total - 1)),
+                ),
+              ).toBeLessThan(0.03);
+            }),
+          );
+          shapes.add(readings[0].shape.join(','));
+          sampled++;
+        }
+      expect(sampled).toBe(4);
+      expect(shapes.size).toBe(4);
+    },
+  );
+
+  it('uses both English and French drawing across seeds, and many shapes', () => {
+    // A transposed tableau is again a standard Young tableau, so a picture cannot tell whether it was transposed; but English and
+    // French drawings are read differently (row one on top or at the bottom), and every valid reading of a picture agrees on that.
+    const styles = new Set<boolean>(),
+      shapes = new Set<string>();
+    for (let seed = 0; seed < 30; seed++)
+      for (let panelY = 0; panelY < p.panels; panelY++)
+        for (let panelX = 0; panelX < p.panels; panelX++) {
+          const readings = tableauReadings(
+            readPanel(seed, panelX, panelY),
+            p.total,
+          );
+          expect(new Set(readings.map((reading) => reading.french)).size).toBe(
+            1,
+          );
+          styles.add(readings[0].french);
+          shapes.add(readings[0].shape.join(','));
+        }
+    expect(styles.size).toBe(2);
+    expect(shapes.size).toBeGreaterThan(10);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('youngtableaux', 0),
+      b = createSurfaceSampler('youngtableaux', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
