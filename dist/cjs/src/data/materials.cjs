@@ -21859,6 +21859,47 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: .2,
 		colonyRoughness: .4
 	}),
+	hestain: Object.freeze({
+		dark: [
+			52,
+			22,
+			96
+		],
+		light: [
+			250,
+			216,
+			232
+		],
+		roughness: .6,
+		relief: 8e-4,
+		seedSalt: 20055,
+		gridSize: 96,
+		seedCells: 8,
+		feed: .04,
+		kill: .065,
+		steps: 6e3,
+		threshold: .6,
+		thresholdVariation: .2,
+		sharpness: 12,
+		haloWidth: .1,
+		haloOffset: .14,
+		warpCells: 7,
+		warp: .03,
+		sizeCells: 5,
+		mottleCells: 14,
+		fiberColumns: 110,
+		fiberRows: 26,
+		grainCells: 128,
+		cytoplasmTone: .8,
+		mottleTone: .14,
+		fiberTone: .1,
+		nucleusTone: .62,
+		haloTone: .04,
+		grainTone: .03,
+		nucleusHeight: .6,
+		grainHeight: .4,
+		nucleusRoughness: .1
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -23308,7 +23349,8 @@ var proceduralTileMeters = Object.freeze({
 	jade: .15,
 	cheetahfur: .25,
 	turingmaze: .3,
-	petricolonies: .12
+	petricolonies: .12,
+	hestain: .05
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

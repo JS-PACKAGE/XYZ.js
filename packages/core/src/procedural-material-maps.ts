@@ -39401,6 +39401,75 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'hestain': {
+        const p = proceduralMaterialPresets.hestain,
+          pattern = latticeField(
+            grayScott(
+              p.gridSize,
+              p.seedCells,
+              p.feed,
+              p.kill,
+              p.steps,
+              seed ^ p.seedSalt,
+            ),
+            p.gridSize,
+            p.gridSize,
+          ),
+          warpField = cachedNoise(
+            p.warpCells,
+            p.warpCells,
+            seed ^ (p.seedSalt + 1),
+          ),
+          levelField = cachedNoise(
+            p.sizeCells,
+            p.sizeCells,
+            seed ^ (p.seedSalt + 2),
+          ),
+          mottleField = cachedNoise(
+            p.mottleCells,
+            p.mottleCells,
+            seed ^ (p.seedSalt + 3),
+          ),
+          fiberField = cachedNoise(
+            p.fiberColumns,
+            p.fiberRows,
+            seed ^ (p.seedSalt + 4),
+          ),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 5),
+          ),
+          inverseHalo2 = 1 / (p.haloWidth * p.haloWidth);
+        return () => {
+          // Nuclei are the small-spot end of the periodic Gray-Scott pattern (a high
+          // threshold leaves only the cores), a smooth tanh step. The pale halo is a thin
+          // band exp(-((pattern - level + offset) / w)^2) around a lower iso-level,
+          // outside the nucleus. Cytoplasm is mottle noise plus fibre noise stretched
+          // along v and a fine grain.
+          const wu = u + p.warp * (warpField(u, v) - 0.5),
+            wv = v + p.warp * (warpField(v + 0.37, u + 0.21) - 0.5),
+            value = pattern(wu, wv),
+            level =
+              p.threshold + p.thresholdVariation * (levelField(u, v) - 0.5),
+            nucleus = 0.5 + 0.5 * Math.tanh(p.sharpness * (value - level)),
+            haloDistance = value - level + p.haloOffset,
+            halo =
+              Math.exp(-haloDistance * haloDistance * inverseHalo2) *
+              (1 - nucleus),
+            grain = grainField(u, v);
+          color =
+            p.cytoplasmTone +
+            p.mottleTone * (mottleField(u, v) - 0.5) +
+            p.fiberTone * (fiberField(u, v) - 0.5) -
+            p.nucleusTone * nucleus +
+            p.haloTone * halo +
+            p.grainTone * (grain - 0.5);
+          height = p.nucleusHeight * nucleus + p.grainHeight * grain;
+          roughness += p.nucleusRoughness * nucleus;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -47161,6 +47230,7 @@ export function createSurfaceSampler(
     kind === 'cheetahfur' ||
     kind === 'turingmaze' ||
     kind === 'petricolonies' ||
+    kind === 'hestain' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

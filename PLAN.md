@@ -1095,6 +1095,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`hestain`（H&E染色組織）使目前目錄952→953種，含plain的gallery為954項。顯微鏡下H&E（蘇木精與伊紅）染色組織切片的示意：淺粉紫色、帶斑駁與沿v方向纖維紋的細胞質底色，上面分布著深紫色、橢圓的細胞核，核的位置與形狀來自週期Gray-Scott反應擴散的斑點區（高門檻只留核心），核外有一圈極淡的亮緣。不是真實的組織學結構：沒有細胞膜、細胞核內的染色質結構、細胞類型差異、血管或組織層次，細胞核分布也比真實組織均勻，且由於單一暗→亮漸層，細胞質偏薰衣草紫而不是伊紅的粉紅色。
+
+此材質是作者示意，沒有引用特定來源、組織學圖譜或量測，也沒有對照照片；反應擴散參數與`cheetahfur`相同（feed 0.04、kill 0.065、6000步、96×96格），核門檻0.6（比cheetahfur的0.5高，所以核較小）、銳度、亮緣、紫粉色調、0.05 m nominal tile皆作者設定與調整，不宣稱符合任何實際組織。預覽第一版細胞質偏暗的薰衣草色（0.72），我把基調提高到0.8並降低亮緣到0.04（也為了讓色調總和不超出[0, 1]），仍然是薰衣草紫而不是粉紅，這是單一漸層的限制。
+
+沿用`latticeField`與`grayScott`，專用sampler用`nucleus = 0.5 + 0.5·tanh(12·(pattern − level))`取平滑核遮罩（level = 0.6 ± 0.1隨5×5慢雜訊移動），亮緣是較低iso-level附近的薄帶`exp(−((pattern − level + 0.14)/0.1)²)·(1 − nucleus)`（C∞）；顏色＝`0.8 + 0.14·(14×14雜訊 − 0.5) + 0.1·(110×26纖維雜訊 − 0.5) − 0.62·nucleus + 0.04·halo + 0.03·(128²細grain − 0.5)`；height ＝ `0.6·nucleus + 0.4·grain`；核處roughness增加0.1；cache合計96²＋7²＋5²＋14²＋110×26＋128² = 28,730個Float64／229,840 B lattice算術預算（非總RAM；建構時另有約294,912 B暫存，結束後只保留v）。預設0.05 m nominal tile與0.0008 UV-relative relief（非公尺位移）。模擬成本：本機bun量測每個sampler建構約190–296 ms、512² maps約281 ms（單次量測，非benchmark）。
+
 `petricolonies`（培養皿菌落）使目前目錄951→952種，含plain的gallery為953項。琥珀色瓊脂（agar）平面上散布奶油色的圓形菌落，菌落位置與形狀來自週期Gray-Scott反應擴散的斑點區，大小有變化；菌落邊緣有一圈略深的細緣，菌落中央略高（height與roughness都隨菌落變化），瓊脂表面有細grain。不是真實培養皿的圓形邊框、菌落的黏液光澤、菌落內的同心結構、氣泡或透明度，預覽只有單一琥珀到奶油色的漸層。
 
 此材質是作者示意，沒有引用特定來源、微生物照片或量測，也沒有對照照片；反應擴散參數與`cheetahfur`相同（feed 0.04、kill 0.065、6000步、96×96格），門檻、銳度、緣寬、琥珀與奶油色調、roughness、0.12 m nominal tile皆作者設定與調整，不宣稱符合任何實際菌種。預覽第一版的緣幾乎看不見，我把緣寬由0.07加到0.12、緣色深度由0.2加到0.4，並把菌落大小變化由0.3加到0.5後採用；調整以我對預覽的主觀判斷為準。

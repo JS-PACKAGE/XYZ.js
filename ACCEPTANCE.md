@@ -12108,3 +12108,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增6項專屬測試（三seed統計含菌落連通區、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Petri colonies as|petricolonies|kinds|catalog|distinct|periodic"`定向測試**2198項通過／3792項未選**。
 - 未驗證：cheetahfur、turingmaze與petricolonies未做瀏覽器gallery；petricolonies未跑完整suite；不push。
+
+## 2026-11-02 新增材質：H&E染色組織（hestain）
+
+- 範圍：新增`hestain`（目前目錄952→953種，含plain的gallery 954項）：沿用`latticeField`／`grayScott`與`cheetahfur`相同的斑點區參數（96×96格、feed 0.04、kill 0.065、6000步），核門檻0.6（較高，所以核較小），深紫色橢圓細胞核疊在斑駁（14×14）加沿v方向纖維（110×26）的淡粉紫細胞質上，核外有一圈極淡的亮緣（較低iso-level附近的薄帶）；預設0.05 m nominal tile、0.0008 UV-relative relief。作者示意，沒有引用特定來源或組織學圖譜、**沒有對照照片**。
+- 限制與調整（誠實紀錄）：第一版細胞質基調0.72、亮緣0.08，預覽上偏暗的薰衣草色；把基調提高到0.8、亮緣降到0.04（同時避免色調總和超出[0, 1]：最大約0.975、最小約0.045）後仍是薰衣草紫而不是伊紅粉紅，這是單一暗→亮漸層的限制，我沒有再調。核分布比真實組織均勻，沒有細胞膜與組織層次。沒有另做參數掃描（斑點區參數沿用cheetahfur）；核數在四個seed為43–45。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：核（color<0.3）占15.8%–16.8%、細胞質（color>0.7）占78.5%–79.7%（256²取樣）、核連通區43–45、color 0.069–0.086至0.917–0.939、平均0.685–0.695、roughness 0.60–0.70、height至多0.985–0.992 relief；seed 0與1的核遮罩28.1%像素不同；seed 7的512²maps平均r／g／b約(188, 155, 189)、r<128的像素占17.9%、法線tilt²最大約0.0192、z分量最小254；sampler建構約190–296 ms、512² maps約281 ms（bun單次量測，非benchmark）。我實看了預覽：深紫色的橢圓核均勻散布在淡薰衣草色的纖維底上，像簡化的組織切片，但偏圓點花紋。
+- 測試：新增6項專屬測試（三seed統計含核連通區、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "H&E stain as|hestain|kinds|catalog|distinct|periodic"`定向測試**2205項通過／3792項未選**。
+- 未驗證：hestain與petricolonies等三個RD材質未做瀏覽器gallery；hestain未跑完整suite；不push。
