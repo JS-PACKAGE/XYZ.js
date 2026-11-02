@@ -12911,3 +12911,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Rudin-Shapiro as|rudinshapiro|kinds|catalog|distinct|periodic"`定向測試**2364項通過／4046項未選**。
 - 未驗證：paperfolding與rudinshapiro未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-03 新增材質：希臘—拉丁方陣（graecolatin）
+
+- 範圍：新增`graecolatin`（目前目錄1029→1030種，含plain的gallery 1031項）：13×13歐拉方陣，每格有顏色符號`(row + col) mod 13`（決定色調`0.7·符號 / 12`）與高度符號`(2·row + col) mod 13`（決定磚高`0.8·dome·(0.4 + 0.6·符號 / 12)`），兩者都是拉丁方陣且正交；深藍到琥珀橘；seed令方陣在環面上平移；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache只有131,072 B的細grain。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽只看了一版，預覽中只看得到顏色符號的斜向鋸齒漸層，高度符號只在浮雕上；(2)測試**不是**與另一個模型比對，而是從sampler在每格中心讀回兩個符號，直接檢查兩個陣列都是拉丁方陣、兩者正交（169個配對全都不同）、讀回值離等級格點不超過0.3個等級；**這不驗證它就是`(row + col)`與`(2·row + col)`這兩個公式**（任何正交拉丁方陣組合都會通過）；(3)探針第一次讀回高度時忘了除以relief（取樣的height是以relief為單位的），使高度符號恆為同一個值，探針顯示高度不是拉丁方陣、配對只有13個，修正後得到169個配對；這個錯誤只在臨時探針，寫進測試的讀回公式一開始就是正確的；(4)256²與512²取樣的亮處占比略有差異（32.74%–32.79%對32.78%–32.86%），原因是格寬與取樣點在格內位置不同；(5)512²maps法線tilt²最大只有0.00458（幾乎平坦），預期如此、未調整；(6)建構與取樣耗時**未量測**；(7)測試第一次執行即通過。
+- 實測（工具實跑）：四個seed（0／1／0xffffffff／7）讀回的兩個符號都涵蓋0到12，兩個陣列都是拉丁方陣（不符合的列與欄為0），169個配對全都不同；顏色符號讀回離格點最大0.2452個等級、高度符號最大0.2384個等級；256²（seed 0／1／0xffffffff）亮處（color>0.5）32.74%–32.79%、color 0.02553–0.02565至0.85370–0.85386、平均0.36529–0.36532、roughness恆為0.4、AO最低0.6、height至多0.8186–0.8189 relief；512²（四個seed）亮處32.78%–32.86%、color 0.02510–0.02527至0.85447–0.85466、平均0.36525–0.36532、height至多0.8192–0.8195 relief；seed 0與1相比，169格的顏色符號全部不同（512²中color>0.5的取樣54.4%不同）；seed 7的512²maps平均r／g／b約(99.5, 80.8, 62.9)、法線tilt²最大約0.00458、z分量最小255。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Graeco-Latin square as|graecolatin|kinds|catalog|distinct|periodic"`定向測試**2366項通過／4049項未選**。
+- 未驗證：paperfolding、rudinshapiro與graecolatin未跑完整suite與瀏覽器gallery；不push。

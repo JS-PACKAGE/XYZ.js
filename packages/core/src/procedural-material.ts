@@ -1031,6 +1031,7 @@ export type ProceduralMaterialKind =
   | 'fibonacciword'
   | 'paperfolding'
   | 'rudinshapiro'
+  | 'graecolatin'
   | 'sandpileidentity'
   | 'multiplicativeorder'
   | 'vermiculation'
@@ -2309,6 +2310,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'fibonacciword',
   'paperfolding',
   'rudinshapiro',
+  'graecolatin',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',

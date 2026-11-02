@@ -1094,6 +1094,7 @@ try {
     'fibonacciword',
     'paperfolding',
     'rudinshapiro',
+    'graecolatin',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

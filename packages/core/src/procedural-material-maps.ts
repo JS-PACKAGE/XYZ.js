@@ -42285,6 +42285,58 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'graecolatin': {
+        const p = proceduralMaterialPresets.graecolatin,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft,
+          shiftX = Math.floor(hash(0, 10, seed ^ p.seedSalt) * p.cells),
+          shiftY = Math.floor(hash(1, 10, seed ^ p.seedSalt) * p.cells),
+          last = p.cells - 1;
+        // A Graeco-Latin (Euler) square of the prime order cells = 13: every cell (row, col)
+        // holds two symbols, the colour symbol (row + col) mod 13 and the height symbol
+        // (multiplier row + col) mod 13 with multiplier 2. Each symbol appears once in every row and
+        // every column of both squares, and the 169 pairs of symbols are all different, because
+        // the two linear forms have a determinant (1 - 2) that is invertible modulo 13. The seed
+        // moves the whole square around the torus.
+        return () => {
+          // One compact-support rounded-square kernel per cell (a quartic superellipse
+          // through smoothstep, exactly zero before the cell boundary), so the cell
+          // lookup never jumps and the field is C1.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            ax = (x - col - 0.5) * inverseHalf,
+            ay = (y - row - 0.5) * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            shiftedRow = (row + shiftY) % p.cells,
+            shiftedCol = (col + shiftX) % p.cells,
+            colorSymbol = (shiftedRow + shiftedCol) % p.cells,
+            heightSymbol = (p.multiplier * shiftedRow + shiftedCol) % p.cells,
+            tone = (p.toneSpan * colorSymbol) / last,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              dome *
+              (p.heightBase + (p.heightSpan * heightSymbol) / last) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -51117,6 +51169,7 @@ export function createSurfaceSampler(
     kind === 'fibonacciword' ||
     kind === 'paperfolding' ||
     kind === 'rudinshapiro' ||
+    kind === 'graecolatin' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||
