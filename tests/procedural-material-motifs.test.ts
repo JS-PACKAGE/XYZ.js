@@ -24019,3 +24019,141 @@ describe('runlengthrows: rows of cells with their run-length code', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('isbn10checks: ISBN-10 numbers with valid check digits', () => {
+  const p = proceduralMaterialPresets.isbn10checks;
+  const shapes: Record<string, string[]> = {
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    '2': ['###', '..#', '###', '#..', '###'],
+    '3': ['###', '..#', '###', '..#', '###'],
+    '4': ['#.#', '#.#', '###', '..#', '..#'],
+    '5': ['###', '#..', '###', '..#', '###'],
+    '6': ['###', '#..', '###', '#.#', '###'],
+    '7': ['###', '..#', '.#.', '.#.', '.#.'],
+    '8': ['###', '#.#', '###', '#.#', '###'],
+    '9': ['###', '#.#', '###', '..#', '###'],
+    X: ['#.#', '#.#', '.#.', '#.#', '#.#'],
+    '-': ['...', '...', '###', '...', '...'],
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'lists ISBN-10 numbers whose weighted digit sum is a multiple of 11 (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('isbn10checks', seed),
+        out = empty(),
+        colorAt = (u: number, v: number): number => {
+          sample(u, v, out);
+          return out.color;
+        },
+        numbers = new Set<string>();
+      for (let row = 0; row < p.rows; row++) {
+        const centre = p.top + (row + 0.5) * p.rowPitch;
+        let text = '';
+        for (let slot = 0; slot < 13; slot++) {
+          const lines = [0, 1, 2, 3, 4].map((k) =>
+            [0, 1, 2]
+              .map((x) =>
+                colorAt(
+                  p.left + (4 * slot + x + 0.5) * p.pixel,
+                  centre + (k - 2) * p.pixel,
+                ) < 0.3
+                  ? '#'
+                  : '.',
+              )
+              .join(''),
+          );
+          const found = Object.entries(shapes).find(([, shape]) =>
+            shape.every((line, i) => line === lines[i]),
+          );
+          expect(found).toBeDefined();
+          text += (found as [string, string[]])[0];
+        }
+        // Beyond the thirteenth character there is nothing more.
+        for (let k = 0; k < 5; k++)
+          expect(
+            colorAt(
+              p.left + (4 * 13 + 1.5) * p.pixel,
+              centre + (k - 2) * p.pixel,
+            ),
+          ).toBeGreaterThan(0.8);
+        // Group - publisher - title - check: 1, 3, 5 and 1 characters.
+        expect(text).toMatch(/^\d-\d{3}-\d{5}-[\dX]$/);
+        const digits = text
+          .replace(/-/g, '')
+          .split('')
+          .map((character) => (character === 'X' ? 10 : Number(character)));
+        // 10 d1 + 9 d2 + ... + 1 d10 must be a multiple of 11.
+        expect(
+          digits.reduce((sum, digit, i) => sum + (10 - i) * digit, 0) % 11,
+        ).toBe(0);
+        // The check digit's cell (the last character) is darker than the row around it.
+        expect(
+          colorAt(p.left + 4 * 12 * p.pixel + 0.001, centre - 0.03),
+        ).toBeLessThan(
+          colorAt(p.left + 4 * 11 * p.pixel + 0.001, centre - 0.03) - 0.05,
+        );
+        numbers.add(text);
+      }
+      expect(numbers.size).toBe(p.rows);
+    },
+  );
+
+  it('writes an X as the check digit for some numbers across seeds', () => {
+    let withX = 0;
+    for (let seed = 0; seed < 40; seed++) {
+      const sample = createSurfaceSampler('isbn10checks', seed),
+        out = empty();
+      for (let row = 0; row < p.rows; row++) {
+        // The X glyph has ink in its top-left and top-right corners and in its middle, unlike every digit.
+        const centre = p.top + (row + 0.5) * p.rowPitch,
+          at = (x: number, y: number): boolean => {
+            sample(
+              p.left + (4 * 12 + x + 0.5) * p.pixel,
+              centre + (y - 2) * p.pixel,
+              out,
+            );
+            return out.color < 0.3;
+          };
+        if (at(0, 0) && at(2, 0) && at(1, 2) && !at(1, 0) && !at(0, 2)) withX++;
+      }
+    }
+    expect(withX).toBeGreaterThan(10);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('isbn10checks', 0),
+      b = createSurfaceSampler('isbn10checks', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

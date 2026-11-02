@@ -1845,6 +1845,10 @@
 
 這是作者設計的示意：只有黑白兩色的一維遊程編碼，沒有其他壓縮法或解碼說明；段長只在2到6之間（最後一段除外），所以編碼最長約20個字元，長度剛好放得進tile；字母W與B的點陣是簡化字形，在小尺寸下W與B可能不易分辨。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`isbn10checks`（ISBN-10檢查碼）使目前目錄1069→1070種，含plain的gallery為1071項。每tile是11列的ISBN-10書號表：每列寫成「語區—出版者—書名—檢查碼」（1、3、5、1個字元，用「-」分隔，例如2-909-58056-3），前9位數字由seed決定，第10位（最右邊、底色較深的那一格）是檢查碼：使 10·d₁ + 9·d₂ + … + 1·d₁₀ 是11的倍數；檢查值為10時寫成X。奇偶列底色交替。Metallic與mortar為0。
+
+這是作者設計的示意：只有隨機產生的書號，不是真實的書；語區、出版者與書名的位數固定為1、3、5位（真實ISBN-10的出版者與書名欄位長度不固定）；沒有ISBN-13、條碼或換算。字符是3×5點陣字，X與連字號為簡化字形。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

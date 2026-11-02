@@ -34481,6 +34481,97 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'isbn10checks': {
+        const p = proceduralMaterialPresets.isbn10checks,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2f801),
+          glyphs: Record<string, string> = {
+            '0': '111101101101111',
+            '1': '010110010010111',
+            '2': '111001111100111',
+            '3': '111001111001111',
+            '4': '101101111001001',
+            '5': '111100111001111',
+            '6': '111100111101111',
+            '7': '111001010010010',
+            '8': '111101111101111',
+            '9': '111101111001111',
+            X: '101101010101101',
+            '-': '000000111000000',
+          },
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // Each row is an ISBN-10 written as group-publisher-title-check: nine random digits and a tenth digit chosen so
+          // that 10 d1 + 9 d2 + ... + 1 d10 is a multiple of 11 (a check value of 10 is written X).
+          rows = Array.from({ length: p.rows }, (_, row) => {
+            const digits = Array.from({ length: 9 }, (_, i) =>
+              Math.floor(hash(row, i, seed ^ 0x2f802) * 10),
+            );
+            let sum = 0;
+            digits.forEach((digit, i) => (sum += (10 - i) * digit));
+            const check = (11 - (sum % 11)) % 11,
+              body = digits.join('');
+            return (
+              body[0] +
+              '-' +
+              body.slice(1, 4) +
+              '-' +
+              body.slice(4, 9) +
+              '-' +
+              (check === 10 ? 'X' : String(check))
+            );
+          });
+        return () => {
+          const row = Math.floor((v - p.top) / p.rowPitch),
+            fy = (v - p.top) / p.rowPitch - row;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            line = 0,
+            glyph = 0;
+          if (row >= 0 && row < p.rows) {
+            const text = rows[row],
+              px = Math.floor((u - p.left) / p.pixel),
+              d = px >= 0 ? Math.floor(px / 4) : -1,
+              gx = px - 4 * d,
+              py = Math.floor(((fy - 0.5) * p.rowPitch) / p.pixel + 2.5);
+            if (
+              u >= p.left - p.stripeInset &&
+              u < p.left + 4 * text.length * p.pixel
+            ) {
+              if (row % 2 === 1) {
+                tone = p.stripeTone;
+                level = p.stripeHeight;
+              }
+              // The check digit (the last character) has its own darker cell.
+              if (d === text.length - 1) {
+                tone = p.checkTone;
+                level = p.checkHeight;
+              }
+              line = cover(p.lineHalf - Math.min(fy, 1 - fy) * p.rowPitch);
+            }
+            if (
+              d >= 0 &&
+              d < text.length &&
+              gx >= 0 &&
+              gx < 3 &&
+              py >= 0 &&
+              py < 5 &&
+              glyphs[text[d]][py * 3 + gx] === '1'
+            )
+              glyph = 1;
+          }
+          const base = tone + (p.lineTone - tone) * line;
+          color = clamp(
+            base +
+              (p.inkTone - base) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * glyph);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -62010,6 +62101,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'isbn10checks' ||
     kind === 'runlengthrows' ||
     kind === 'graphcoloring' ||
     kind === 'bubblesortpasses' ||

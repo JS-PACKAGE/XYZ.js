@@ -711,6 +711,7 @@ try {
     'dcbarreljackfaces',
     'stfiberadapterfaces',
     'to92packagefaces',
+    'isbn10checks',
     'runlengthrows',
     'graphcoloring',
     'bubblesortpasses',
