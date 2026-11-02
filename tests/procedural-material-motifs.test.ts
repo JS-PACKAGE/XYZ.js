@@ -31397,3 +31397,320 @@ describe('marchingsquares: the contour of a metaball field by marching squares',
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('tsquarefractal: the T-square fractal in a grid of cells', () => {
+  const p = proceduralMaterialPresets.tsquarefractal;
+  type Square = { level: number; cx: number; cy: number; half: number };
+  type Candidate = { count: number; depth: number; lighter: boolean };
+
+  // Every square of one cell, in cell widths: level 0 is centred with a side of bigSide, and each square has four children of half its
+  // side centred on its corners.
+  const squaresOf = (depth: number): Square[] => {
+    const squares: Square[] = [
+      { level: 0, cx: 0.5, cy: 0.5, half: p.bigSide / 2 },
+    ];
+    for (let i = 0; i < squares.length; i++) {
+      const { level, cx, cy, half } = squares[i];
+      if (level + 1 < depth)
+        for (const sx of [-1, 1])
+          for (const sy of [-1, 1])
+            squares.push({
+              level: level + 1,
+              cx: cx + sx * half,
+              cy: cy + sy * half,
+              half: half / 2,
+            });
+    }
+    return squares;
+  };
+  const toneOf = (level: number, { depth, lighter }: Candidate): number => {
+    const along = level / (depth - 1);
+    return p.lowTone + (p.highTone - p.lowTone) * (lighter ? along : 1 - along);
+  };
+  const heightOf = (level: number, { depth, lighter }: Candidate): number => {
+    const along = level / (depth - 1);
+    return (
+      p.lowHeight + (p.highHeight - p.lowHeight) * (lighter ? along : 1 - along)
+    );
+  };
+  const candidates: Candidate[] = p.counts.flatMap((count) =>
+    p.depths.flatMap((depth) =>
+      [true, false].map((lighter) => ({ count, depth, lighter })),
+    ),
+  );
+  const squaresByDepth = new Map<number, Square[]>();
+  const squaresFor = (depth: number): Square[] => {
+    let squares = squaresByDepth.get(depth);
+    if (!squares) squaresByDepth.set(depth, (squares = squaresOf(depth)));
+    return squares;
+  };
+  // The deepest level of square containing a point of the tile (-1 for none), and whether the point is clear (further than 0.002 of
+  // the picture from every square edge, where an outline or soft edge would change the tone), by testing every square.
+  const levelAt = (
+    { count, depth }: Candidate,
+    x: number,
+    y: number,
+  ): { level: number; clear: boolean } => {
+    const px = x * count - Math.floor(x * count),
+      py = y * count - Math.floor(y * count),
+      edges: { level: number; offset: number }[] = [];
+    let level = -1;
+    for (const square of squaresFor(depth)) {
+      const distance = Math.max(
+        Math.abs(px - square.cx),
+        Math.abs(py - square.cy),
+      );
+      if (distance <= square.half) level = Math.max(level, square.level);
+      edges.push({
+        level: square.level,
+        offset: Math.abs(distance - square.half) / count,
+      });
+    }
+    // An edge only shows where no deeper square covers the point.
+    return {
+      level,
+      clear: edges.every((edge) => edge.level < level || edge.offset >= 0.002),
+    };
+  };
+  // Fixed pseudo-random points of the tile.
+  const pointsOf = (n: number): [number, number][] => {
+    let state = 12345;
+    const next = (): number => {
+      state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+      return state / 4294967296;
+    };
+    return Array.from(
+      { length: n },
+      () => [next(), next()] as [number, number],
+    );
+  };
+  const randomPoints = pointsOf(2500);
+  // The random points and the middles of every 5th square of the candidate (in its first and last cells), where the tone is the
+  // square's own and no edge is near: random points alone hardly ever land clear of the dense edges of the small squares.
+  const probesFor = (candidate: Candidate): [number, number][] => [
+    ...randomPoints,
+    ...squaresFor(candidate.depth)
+      .filter((_, index) => index % 5 === 0)
+      .flatMap(({ cx, cy }): [number, number][] => [
+        [cx / candidate.count, cy / candidate.count],
+        [1 - (1 - cx) / candidate.count, 1 - (1 - cy) / candidate.count],
+      ]),
+  ];
+  // How many clear probes have a tone different from what a candidate predicts (a candidate that differs is rejected at once), how
+  // many were compared, and the levels among them (-1 is paper).
+  const mismatches = (
+    seed: number,
+    candidate: Candidate,
+  ): { wrong: number; total: number; compared: Set<number> } => {
+    const points = probesFor(candidate),
+      sample = createSurfaceSampler('tsquarefractal', seed),
+      out = empty(),
+      compared = new Set<number>();
+    let total = 0;
+    for (const [x, y] of points) {
+      const { level, clear } = levelAt(candidate, x, y);
+      if (!clear) continue;
+      sample(x, y, out);
+      if (
+        Math.abs(
+          out.color - (level < 0 ? p.paperTone : toneOf(level, candidate)),
+        ) > 0.025
+      )
+        return { wrong: 1, total, compared };
+      // Height and roughness follow the same level.
+      if (
+        Math.abs(
+          out.height / p.relief -
+            (level < 0 ? p.paperHeight : heightOf(level, candidate)),
+        ) > 0.03 ||
+        Math.abs(
+          out.roughness - (level < 0 ? p.paperRoughness : p.squareRoughness),
+        ) > 0.03
+      )
+        return { wrong: 1, total, compared };
+      compared.add(level);
+      total++;
+    }
+    return { wrong: 0, total, compared };
+  };
+  const identified = new Map<number, Candidate>();
+  const identify = (seed: number): Candidate => {
+    let candidate = identified.get(seed);
+    if (!candidate) {
+      const found = candidates.filter(
+        (option) => mismatches(seed, option).wrong === 0,
+      );
+      expect(found).toHaveLength(1);
+      identified.set(seed, (candidate = found[0]));
+    }
+    return candidate;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'paints every square of the fractal at its level, deeper ones on top (seed %i)',
+    (seed) => {
+      const candidate = identify(seed),
+        { wrong, total, compared } = mismatches(seed, candidate);
+      expect(wrong).toBe(0);
+      // A fair part of 2500 points was clear and compared, and they include the paper and every level.
+      expect(total).toBeGreaterThan(300);
+      expect(compared.has(-1)).toBe(true);
+      expect([...compared].filter((level) => level >= 0)).toHaveLength(
+        candidate.depth,
+      );
+    },
+  );
+
+  it('leaves the cell corners and the middles of the cell edges as paper', () => {
+    for (const seed of seeds) {
+      const { count } = identify(seed),
+        sample = createSurfaceSampler('tsquarefractal', seed),
+        out = empty();
+      for (let cell = 0; cell < count * count; cell++)
+        for (const [x, y] of [
+          [0, 0],
+          [0.5, 0],
+          [0, 0.5],
+        ]) {
+          sample(
+            ((cell % count) + x) / count,
+            (Math.floor(cell / count) + y) / count,
+            out,
+          );
+          expect(Math.abs(out.color - p.paperTone)).toBeLessThan(0.025);
+        }
+    }
+  });
+
+  it(
+    'uses every number of cells, depth and tone direction across seeds',
+    { timeout: 120000 },
+    () => {
+      const counts = new Set<number>(),
+        depths = new Set<number>(),
+        directions = new Set<boolean>();
+      for (let seed = 0; seed < 40; seed++) {
+        const { count, depth, lighter } = identify(seed);
+        counts.add(count);
+        depths.add(depth);
+        directions.add(lighter);
+      }
+      expect([...counts].sort()).toEqual([...p.counts]);
+      expect([...depths].sort()).toEqual([...p.depths]);
+      expect(directions.size).toBe(2);
+    },
+  );
+
+  it('outlines the biggest square 0.0012 either side of its edge and nothing wider', () => {
+    for (const seed of seeds) {
+      const { count, depth, lighter } = identify(seed),
+        sample = createSurfaceSampler('tsquarefractal', seed),
+        out = empty(),
+        edge = (0.5 - p.bigSide / 2) / count,
+        mid = 0.5 / count;
+      // The middle of the left edge of the biggest square of the first cell (no corner square sits there).
+      sample(edge, mid, out);
+      expect(out.color).toBeLessThan(0.25);
+      // The outline is lower than both the paper and the square.
+      expect(Math.abs(out.height / p.relief - p.outlineHeight)).toBeLessThan(
+        0.03,
+      );
+      sample(edge - 0.0008, mid, out);
+      expect(out.color).toBeLessThan(0.25);
+      sample(edge + 0.0008, mid, out);
+      expect(out.color).toBeLessThan(0.25);
+      // Beyond the outline: paper outside, and the square tone of the biggest square (level 0) inside.
+      sample(edge - 0.0019, mid, out);
+      expect(out.color).toBeGreaterThan(0.88);
+      sample(edge + 0.0019, mid, out);
+      expect(
+        Math.abs(out.color - toneOf(0, { count, depth, lighter })),
+      ).toBeLessThan(0.06);
+    }
+  });
+
+  it('keeps the outline of the smallest squares thin so that they keep their fill', () => {
+    for (const seed of seeds) {
+      const candidate = identify(seed),
+        sample = createSurfaceSampler('tsquarefractal', seed),
+        out = empty(),
+        squares = squaresFor(candidate.depth),
+        deepest = squares.filter(
+          (square) => square.level === candidate.depth - 1,
+        );
+      let checked = 0;
+      for (const own of deepest) {
+        // Just beyond the outline inside the left edge of a smallest square (in the first cell): 0.0008 further than the outline half
+        // width, which is the side of the square in uv times 0.06 but at most 0.0012. No other smallest square may have an edge
+        // within 0.002 and no deeper square exists to cover it, so the tone is the square's own unless the outline is too wide.
+        const outlineHalf = Math.min(
+            p.outlineHalf,
+            ((own.half * 2) / candidate.count) * p.outlineShare,
+          ),
+          x = own.cx - own.half + (outlineHalf + 0.0008) * candidate.count,
+          y = own.cy,
+          clear = squares.every((square) => {
+            if (square === own || square.level < candidate.depth - 1)
+              return true;
+            const distance = Math.max(
+              Math.abs(x - square.cx),
+              Math.abs(y - square.cy),
+            );
+            return Math.abs(distance - square.half) / candidate.count >= 0.002;
+          }),
+          level = Math.max(
+            ...squares
+              .filter(
+                (square) =>
+                  Math.max(Math.abs(x - square.cx), Math.abs(y - square.cy)) <=
+                  square.half,
+              )
+              .map((square) => square.level),
+          );
+        if (!clear || level !== candidate.depth - 1) continue;
+        sample(x / candidate.count, y / candidate.count, out);
+        expect(
+          Math.abs(out.color - toneOf(candidate.depth - 1, candidate)),
+        ).toBeLessThan(0.025);
+        checked++;
+      }
+      expect(checked).toBeGreaterThan(5);
+    }
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('tsquarefractal', 0),
+      b = createSurfaceSampler('tsquarefractal', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

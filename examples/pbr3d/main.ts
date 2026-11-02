@@ -711,6 +711,7 @@ try {
     'dcbarreljackfaces',
     'stfiberadapterfaces',
     'to92packagefaces',
+    'tsquarefractal',
     'marchingsquares',
     'wangtiles',
     'htreefractal',

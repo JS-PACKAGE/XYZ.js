@@ -2009,6 +2009,10 @@
 
 這是作者設計的示意：球的位置與半徑是我用固定偏移的亂數產生器寫入preset的常數，不是外部資料；前八組在這三種格數下都沒有鞍點格，後兩組是我另外用隨機搜尋挑出「兩種鞍點（中心高於／低於門檻）都出現」的組合，目的是讓鞍點分支有真實資料可測。已知限制：線只畫在自己線段所在的格子內，貼著格邊平行走的線段在鄰格那一側的線寬會被格邊切掉（線端點與相鄰格的線段在格邊上相接，一般看不出來，我沒有量化這個現象）。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`tsquarefractal`（T方塊碎形）使目前目錄1112→1113種，含plain的gallery為1114項。tile被切成2或3乘2或3個格子（seed決定），每個格子中央有一個邊長為格寬一半的方塊，方塊的四個角各有一個邊長減半的方塊，再在那些方塊的角上放邊長再減半的方塊，直到seed決定的層數（4、5、6層）；深的方塊畫在淺的上面，色調由最低到最高依層次遞進（深層較亮或較暗由seed決定），每個方塊有細深色輪廓、紙面為淺色。Metallic與mortar為0。
+
+這是作者設計的示意：輪廓寬度上限是方塊邊長的6%，因為第一版（輪廓固定寬、層數5–7）因T方塊碎形會幾乎鋪滿格子，小方塊的輪廓把整張圖畫成一片深色，所以改成上限縮小與層數4–6。不宣稱這是特定文獻中的T-square圖樣，沒有量測碎形維度。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

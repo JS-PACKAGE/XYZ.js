@@ -13251,6 +13251,35 @@ export const proceduralMaterialPresets = Object.freeze({
     paperRoughness: 0.74,
     lineRoughness: 0.42,
   }),
+  tsquarefractal: Object.freeze({
+    dark: [28, 30, 44] as const,
+    light: [244, 238, 222] as const,
+    roughness: 0.6,
+    relief: 0.004,
+    // The T-square fractal: in each cell a square of half the cell width, and on each of its four corners a square of half that width,
+    // then on each corner of those a square of half again, down to the depth the seed picks. Deeper squares are drawn over shallower
+    // ones; the tone steps from the lowest to the highest along the levels (or the other way round, by the seed), each square with a
+    // thin dark outline. The seed also picks 2 or 3 cells along each side.
+    counts: Object.freeze([2, 3]),
+    depths: Object.freeze([4, 5, 6]),
+    bigSide: 0.5,
+    outlineHalf: 0.0012,
+    // The outline half width is at most this share of the square side, so small squares keep their fill.
+    outlineShare: 0.06,
+    edgeSoft: 0.001,
+    grainCells: 192,
+    paperTone: 0.94,
+    lowTone: 0.2,
+    highTone: 0.8,
+    outlineTone: 0.08,
+    grainTone: 0.03,
+    paperHeight: 0.15,
+    lowHeight: 0.35,
+    highHeight: 0.95,
+    outlineHeight: 0.05,
+    paperRoughness: 0.74,
+    squareRoughness: 0.5,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -19743,6 +19772,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  tsquarefractal: 1,
   marchingsquares: 1,
   wangtiles: 1,
   htreefractal: 1,

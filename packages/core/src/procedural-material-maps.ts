@@ -38303,6 +38303,59 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'tsquarefractal': {
+        const p = proceduralMaterialPresets.tsquarefractal,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x32401),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          count =
+            p.counts[Math.floor(hash(3, 1, seed ^ 0x32402) * p.counts.length)],
+          depth =
+            p.depths[Math.floor(hash(5, 2, seed ^ 0x32403) * p.depths.length)],
+          lighterDeeper = hash(7, 3, seed ^ 0x32404) < 0.5,
+          cell = 1 / count;
+        return () => {
+          // The point in cell widths from the cell middle.
+          const x = u * count - Math.floor(u * count) - 0.5,
+            y = v * count - Math.floor(v * count) - 0.5;
+          let colour: number = p.paperTone,
+            elevation: number = p.paperHeight,
+            rough: number = p.paperRoughness,
+            cx = 0,
+            cy = 0,
+            side = p.bigSide;
+          for (let level = 0; level < depth; level++) {
+            const along = level / (depth - 1),
+              rank = lighterDeeper ? along : 1 - along,
+              // How far inside the square the point is (negative outside), in uv.
+              inside =
+                (side / 2 - Math.max(Math.abs(x - cx), Math.abs(y - cy))) *
+                cell,
+              fill = cover(inside),
+              outline = cover(
+                Math.min(p.outlineHalf, side * cell * p.outlineShare) -
+                  Math.abs(inside),
+              );
+            colour +=
+              (p.lowTone + (p.highTone - p.lowTone) * rank - colour) * fill;
+            elevation +=
+              (p.lowHeight + (p.highHeight - p.lowHeight) * rank - elevation) *
+              fill;
+            rough += (p.squareRoughness - rough) * fill;
+            colour += (p.outlineTone - colour) * outline;
+            elevation += (p.outlineHeight - elevation) * outline;
+            // Step to the corner of this square nearest the point; the next square is centred there.
+            cx += (x >= cx ? 1 : -1) * (side / 2);
+            cy += (y >= cy ? 1 : -1) * (side / 2);
+            side /= 2;
+          }
+          color = clamp(colour + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(elevation);
+          roughness = rough;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -65832,6 +65885,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'tsquarefractal' ||
     kind === 'marchingsquares' ||
     kind === 'wangtiles' ||
     kind === 'htreefractal' ||
