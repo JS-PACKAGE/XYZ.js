@@ -37134,6 +37134,98 @@ export function createSurfaceSampler(
           occlusion = clamp(0.8 + 0.2 * face);
         };
       }
+      case 'peanocurve': {
+        const p = proceduralMaterialPresets.peanocurve,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x31801),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          order =
+            p.orders[Math.floor(hash(3, 1, seed ^ 0x31802) * p.orders.length)],
+          swap = hash(5, 2, seed ^ 0x31803) < 0.5,
+          flipX = hash(7, 3, seed ^ 0x31804) < 0.5,
+          flipY = hash(11, 4, seed ^ 0x31805) < 0.5,
+          side = 3 ** order,
+          total = side * side,
+          span = 1 - 2 * p.margin,
+          cellSize = span / side,
+          pathX = new Uint16Array(total),
+          pathY = new Uint16Array(total),
+          indexAt = new Int32Array(total);
+        // The curve by recursion: nine copies of the previous order in a serpentine of three columns of three, each mirrored so that
+        // it starts where the previous one ended.
+        pathX[0] = 0;
+        pathY[0] = 0;
+        for (let level = 1, count = 1; level <= order; level++) {
+          const s = 3 ** (level - 1),
+            blocks = [
+              [0, 0],
+              [0, 1],
+              [0, 2],
+              [1, 2],
+              [1, 1],
+              [1, 0],
+              [2, 0],
+              [2, 1],
+              [2, 2],
+            ];
+          // Fill from the back so that the copies read the previous order's points before they are overwritten.
+          for (let block = 8; block >= 0; block--) {
+            const [bx, by] = blocks[block],
+              mirrorX = by % 2 === 1,
+              mirrorY = bx % 2 === 1;
+            for (let k = count - 1; k >= 0; k--) {
+              const x = pathX[k],
+                y = pathY[k];
+              pathX[block * count + k] = bx * s + (mirrorX ? s - 1 - x : x);
+              pathY[block * count + k] = by * s + (mirrorY ? s - 1 - y : y);
+            }
+          }
+          count *= 9;
+        }
+        for (let k = 0; k < total; k++) {
+          const x = swap ? pathY[k] : pathX[k],
+            y = swap ? pathX[k] : pathY[k];
+          pathX[k] = flipX ? side - 1 - x : x;
+          pathY[k] = flipY ? side - 1 - y : y;
+          indexAt[pathY[k] * side + pathX[k]] = k;
+        }
+        return () => {
+          const x = (u - Math.floor(u) - p.margin) / cellSize,
+            y = (v - Math.floor(v) - p.margin) / cellSize;
+          let ink = 0,
+            tone = p.startTone;
+          if (x >= 0 && x < side && y >= 0 && y < side) {
+            const column = Math.floor(x),
+              row = Math.floor(y),
+              k = indexAt[row * side + column],
+              px = x - column - 0.5,
+              py = y - row - 0.5;
+            let nearest = Infinity;
+            // The curve inside this cell: the segments from its centre to the previous and the next cell.
+            for (const other of [k - 1, k + 1]) {
+              if (other < 0 || other >= total) continue;
+              const dx = pathX[other] - column,
+                dy = pathY[other] - row,
+                along = Math.min(1, Math.max(0, px * dx + py * dy)),
+                distance = Math.hypot(px - dx * along, py - dy * along);
+              nearest = Math.min(nearest, distance);
+            }
+            if (nearest === Infinity) nearest = Math.hypot(px, py);
+            ink = cover((p.lineHalf - nearest) * cellSize);
+            tone = p.startTone + ((p.endTone - p.startTone) * k) / (total - 1);
+          }
+          color = clamp(
+            p.paperTone +
+              (tone - p.paperTone) * ink +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * ink);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -64663,6 +64755,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'peanocurve' ||
     kind === 'bitwisetable' ||
     kind === 'golombrulers' ||
     kind === 'henonattractor' ||

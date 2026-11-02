@@ -28693,3 +28693,219 @@ describe('bitwisetable: AND, OR and XOR tables in binary', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('peanocurve: the Peano space-filling curve', () => {
+  const p = proceduralMaterialPresets.peanocurve;
+  // The d-th cell of the Peano curve from the ternary digits of d (x and y digits alternate; a digit is complemented, 2 - t, when
+  // the sum of the other coordinate's digits before it is odd), independent of the sampler's recursion.
+  const digitCell = (order: number, d: number): [number, number] => {
+    const t: number[] = [];
+    for (let i = 0, rest = d; i < 2 * order; i++, rest = Math.floor(rest / 3))
+      t.unshift(rest % 3);
+    let x = 0,
+      y = 0;
+    for (let i = 0; i < order; i++) {
+      const ySum = t
+          .slice(0, 2 * i + 1)
+          .filter((_, j) => j % 2 === 1)
+          .reduce((a, b) => a + b, 0),
+        xSum = t
+          .slice(0, 2 * i + 1)
+          .filter((_, j) => j % 2 === 0)
+          .reduce((a, b) => a + b, 0);
+      x = x * 3 + (ySum % 2 === 0 ? t[2 * i] : 2 - t[2 * i]);
+      y = y * 3 + (xSum % 2 === 0 ? t[2 * i + 1] : 2 - t[2 * i + 1]);
+    }
+    return [x, y];
+  };
+  const cells = (order: number, symmetry: number): [number, number][] => {
+    const side = 3 ** order;
+    return Array.from({ length: side * side }, (_, d) => {
+      let [x, y] = digitCell(order, d);
+      if (symmetry & 1) [x, y] = [y, x];
+      if (symmetry & 2) x = side - 1 - x;
+      if (symmetry & 4) y = side - 1 - y;
+      return [x, y];
+    });
+  };
+  const pair = (a: number, b: number): string =>
+    `${Math.min(a, b)}-${Math.max(a, b)}`;
+
+  // The connections between neighbouring cells as drawn: the middle of the border between two cells is inked when the curve crosses it.
+  const drawnEdges = (seed: number, order: number): Set<string> => {
+    const sample = createSurfaceSampler('peanocurve', seed),
+      out = empty(),
+      side = 3 ** order,
+      cell = (1 - 2 * p.margin) / side,
+      edges = new Set<string>();
+    for (let row = 0; row < side; row++)
+      for (let column = 0; column < side; column++) {
+        const id = row * side + column;
+        if (column + 1 < side) {
+          sample(
+            p.margin + (column + 1) * cell,
+            p.margin + (row + 0.5) * cell,
+            out,
+          );
+          if (out.color < p.paperTone - 0.2) edges.add(pair(id, id + 1));
+        }
+        if (row + 1 < side) {
+          sample(
+            p.margin + (column + 0.5) * cell,
+            p.margin + (row + 1) * cell,
+            out,
+          );
+          if (out.color < p.paperTone - 0.2) edges.add(pair(id, id + side));
+        }
+      }
+    return edges;
+  };
+
+  // Symmetries for which the connections AND the tone ramp (darkest at the start, lighter towards the end) agree with the picture.
+  const matching = (
+    seed: number,
+  ): { order: number; symmetry: number; byEdges: number }[] => {
+    const sample = createSurfaceSampler('peanocurve', seed),
+      out = empty(),
+      found: { order: number; symmetry: number; byEdges: number }[] = [];
+    for (const order of p.orders) {
+      const side = 3 ** order,
+        cell = (1 - 2 * p.margin) / side,
+        edges = drawnEdges(seed, order);
+      let byEdges = 0;
+      for (let symmetry = 0; symmetry < 8; symmetry++) {
+        const path = cells(order, symmetry),
+          expected = new Set(
+            path
+              .slice(1)
+              .map(([x, y], d) =>
+                pair(y * side + x, path[d][1] * side + path[d][0]),
+              ),
+          );
+        if (
+          expected.size !== edges.size ||
+          ![...expected].every((edge) => edges.has(edge))
+        )
+          continue;
+        byEdges++;
+        const rampOk = path.every(([x, y], d) => {
+          sample(p.margin + (x + 0.5) * cell, p.margin + (y + 0.5) * cell, out);
+          return (
+            Math.abs(
+              out.color -
+                (p.startTone +
+                  ((p.endTone - p.startTone) * d) / (path.length - 1)),
+            ) < 0.03
+          );
+        });
+        if (rampOk) found.push({ order, symmetry, byEdges: 0 });
+      }
+      for (const entry of found)
+        if (entry.order === order) entry.byEdges = byEdges;
+    }
+    return found;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws the Peano curve of exactly one order and orientation, darker at its start (seed %i)',
+    (seed) => {
+      const found = matching(seed);
+      expect(found).toHaveLength(1);
+      expect(p.orders).toContain(found[0].order);
+      // The curve is symmetric under a half turn (which reverses it), so two orientations have the same connections.
+      expect(found[0].byEdges).toBe(2);
+    },
+  );
+
+  it('draws the line about half a cell wide: 0.2 cell from the middle of a straight stretch is ink, 0.33 cell is paper', () => {
+    for (const seed of seeds) {
+      const [{ order, symmetry }] = matching(seed),
+        path = cells(order, symmetry),
+        side = 3 ** order,
+        cell = (1 - 2 * p.margin) / side,
+        sample = createSurfaceSampler('peanocurve', seed),
+        out = empty();
+      let checked = 0;
+      for (let d = 1; d + 1 < path.length && checked < 60; d++) {
+        const [x0, y0] = path[d - 1],
+          [x1, y1] = path[d],
+          [x2, y2] = path[d + 1];
+        // A straight stretch: the previous and the next cell are on opposite sides of this one.
+        if (x2 - x1 !== x1 - x0 || y2 - y1 !== y1 - y0) continue;
+        // The side direction is perpendicular to the direction of travel.
+        const sideX = y1 - y0 === 0 ? 0 : 1,
+          sideY = x1 - x0 === 0 ? 0 : 1,
+          centreU = p.margin + (x1 + 0.5) * cell,
+          centreV = p.margin + (y1 + 0.5) * cell;
+        for (const sign of [-1, 1]) {
+          sample(
+            centreU + sign * sideX * 0.2 * cell,
+            centreV + sign * sideY * 0.2 * cell,
+            out,
+          );
+          expect(out.color).toBeLessThan(p.paperTone - 0.2);
+          sample(
+            centreU + sign * sideX * 0.33 * cell,
+            centreV + sign * sideY * 0.33 * cell,
+            out,
+          );
+          expect(out.color).toBeGreaterThan(p.paperTone - 0.1);
+        }
+        checked++;
+      }
+      expect(checked).toBe(60);
+    }
+  });
+
+  it(
+    'uses every order and all eight orientations across seeds',
+    { timeout: 30000 },
+    () => {
+      const orders = new Set<number>(),
+        symmetries = new Set<number>();
+      for (let seed = 0; seed < 40; seed++) {
+        const [found] = matching(seed);
+        orders.add(found.order);
+        symmetries.add(found.symmetry);
+      }
+      expect([...orders].sort()).toEqual([...p.orders]);
+      expect(symmetries.size).toBe(8);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('peanocurve', 0),
+      b = createSurfaceSampler('peanocurve', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

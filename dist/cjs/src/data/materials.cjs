@@ -20647,6 +20647,37 @@ var proceduralMaterialPresets = Object.freeze({
 		faceRoughness: .62,
 		inkRoughness: .4
 	}),
+	peanocurve: Object.freeze({
+		dark: [
+			20,
+			34,
+			52
+		],
+		light: [
+			244,
+			240,
+			224
+		],
+		roughness: .55,
+		relief: .004,
+		orders: Object.freeze([
+			2,
+			3,
+			4
+		]),
+		margin: .04,
+		lineHalf: .26,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .93,
+		startTone: .06,
+		endTone: .55,
+		grainTone: .03,
+		paperHeight: .2,
+		inkHeight: .7,
+		paperRoughness: .74,
+		inkRoughness: .42
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -29328,6 +29359,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	peanocurve: 1,
 	bitwisetable: 1,
 	golombrulers: 1,
 	henonattractor: 1,

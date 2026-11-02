@@ -711,6 +711,7 @@ try {
     'dcbarreljackfaces',
     'stfiberadapterfaces',
     'to92packagefaces',
+    'peanocurve',
     'bitwisetable',
     'golombrulers',
     'henonattractor',
