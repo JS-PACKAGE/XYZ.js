@@ -12264,3 +12264,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 完整suite（工具實跑，worktree `/private/tmp/xyz-ct-suite`於`2dccb07a3`「Add elementary cellular automata material」）：**179檔／9,996項全數通過**，Duration 1095.84s。涵蓋`ed3dab90f`之後的quasicrystal、hilbertcurve、gameoflife與elementaryautomata；**modulartable只有定向測試與gates，沒有完整suite**。
 - 瀏覽器gallery（工具實跑）：補做`hilbertcurve`、`gameoflife`、`elementaryautomata`三個材質的`/examples/pbr3d/`檢查（quasicrystal已在`5e8f0978f`狀態的gallery檢查涵蓋）——spawned Google Chrome headless（`--enable-unsafe-webgpu --use-angle=metal`）開啟vite dev server（服務`2dccb07a3`狀態的乾淨worktree）上的範例頁，逐一以`#material`的`input`事件選取並等待讀數更新；WebGPU與`?renderer=webgl2`各跑一次，結束時`tab.errors()`的`entries`皆為0筆（dropped 0）；狀態列顯示`965 procedural material presets + plain`。
 - 限制：gallery檢查只涵蓋「能選取、讀數更新、console沒有錯誤」，**沒有**逐材質視覺比對，也沒有跨瀏覽器、跨GPU或Windows／Linux驗證；不push。
+
+## 2026-11-02 新增材質：帕斯卡三角形模3（pascalmod3）
+
+- 範圍：新增`pascalmod3`（目前目錄966→967種，含plain的gallery 968項）：48×48格青綠圓角方塊磚（沿用modulartable的緊湊支撐kernel逐格查詢做法，C1），下三角部分是帕斯卡三角形以加法規則逐列算出的模3餘數（0／1／2為暗／中／亮三階，Int8表、對角線以外為空格），seed沿環面平移整張表；磚縫AO 0.6；roughness恆為0.45；預設0.3 m nominal tile、0.0012 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 實作過程的小疏失（誠實紀錄）：我在中文README新增行末誤打了一個日文片假名「ギャラリー」（`含plain的ギャラリー968項`），在gates之前搜尋時發現並改正為`gallery`；沒有進入commit。
+- 實測（工具實跑，seed 0／1／0xffffffff／7，512²取樣）：亮處（color>0.5）占14.4%–14.6%、color 0.0252–0.0254至0.9144–0.9146、平均0.2094–0.2107、roughness恆為0.45、AO最低0.6、height至多0.8763–0.8779 relief；表中餘數0／1／2各有708／318／150個格子、空格1,128個；2,304個磚中心的顏色與獨立重寫的帕斯卡三角形一致，四個seed各自唯一對應的平移為(14, 28)、(8, 11)、(21, 12)、(44, 17)，最大誤差0.0149–0.0150（細grain的幅度）；seed 0與1的亮區遮罩23.8%像素不同；seed 7的512²maps平均r／g／b約(29.9, 67.6, 68.5)、法線tilt²最大約0.0679、z分量最小251。我實看了預覽：青綠色方塊磚的嵌套三角形。法線tilt²沒有特別調整relief（0.0012），第一版即採用。
+- 測試：新增5項專屬測試（三seed的磚中心顏色與獨立重寫的帕斯卡三角形比對（恰有一個平移相符）、各餘數的格數、統計，seed差異與決定性，C1＋有符號UV週期，actual512 maps）通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Pascal mod 3 as|pascalmod3|kinds|catalog|distinct|periodic"`定向測試**2236項通過／3841項未選**。
+- 未驗證：modulartable、pascalmod3未跑完整suite與瀏覽器gallery；不push。

@@ -40125,6 +40125,65 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'pascalmod3': {
+        const p = proceduralMaterialPresets.pascalmod3,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft,
+          shiftX = Math.floor(hash(0, 0, seed ^ p.seedSalt) * p.cells),
+          shiftY = Math.floor(hash(1, 0, seed ^ p.seedSalt) * p.cells),
+          // Pascal's triangle reduced mod the modulus, built row by row from the
+          // addition rule C(n, k) = C(n - 1, k - 1) + C(n - 1, k); empty above the
+          // diagonal. The seed only moves the whole table around the torus.
+          residues = new Int8Array(p.cells * p.cells).fill(-1);
+        residues[0] = 1;
+        for (let n = 1; n < p.cells; n++)
+          for (let k = 0; k <= n; k++)
+            residues[n * p.cells + k] =
+              ((k > 0 ? residues[(n - 1) * p.cells + k - 1] : 0) +
+                (k < n ? residues[(n - 1) * p.cells + k] : 0)) %
+              p.modulus;
+        return () => {
+          // One compact-support rounded-square kernel per cell (a quartic superellipse
+          // through smoothstep, exactly zero before the cell boundary), as in the other
+          // per-cell tables, so the cell lookup never jumps and the field is C1.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            ax = (x - col - 0.5) * inverseHalf,
+            ay = (y - row - 0.5) * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            residue =
+              residues[
+                ((row + shiftY) % p.cells) * p.cells +
+                  ((col + shiftX) % p.cells)
+              ],
+            filled = residue >= 0,
+            tone = filled ? residue / (p.modulus - 1) : 0,
+            level = filled ? p.toneFloor + p.toneSpan * tone : p.emptyTone,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (level - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              dome *
+              (filled ? 1 - p.toneHeight + p.toneHeight * tone : 0.5) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -47899,6 +47958,7 @@ export function createSurfaceSampler(
     kind === 'gameoflife' ||
     kind === 'elementaryautomata' ||
     kind === 'modulartable' ||
+    kind === 'pascalmod3' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

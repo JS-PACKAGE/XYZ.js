@@ -1095,6 +1095,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`pascalmod3`（帕斯卡三角形模3）使目前目錄966→967種，含plain的gallery為968項。青綠色圓角方塊磚排成的48×48格：左下三角形部分是帕斯卡三角形（楊輝三角）每個數字除以3的餘數（0、1、2分別是暗、中、亮三階），形成分形般的嵌套三角形；對角線以外的格子是更暗的空格，磚縫帶遮蔽（AO）。seed只把整張表沿環面平移。不是任何真實材質，只是數學圖案。
+
+此材質是作者示意，沒有引用特定來源或照片，也沒有對照照片；48×48格、模數3、三階色調與0.3 m nominal tile皆作者設定。表格只畫了三角形的一半，其餘是空格，所以約有一半面積是暗色空白。
+
+新增專用sampler：建構時以加法規則`C(n, k) = C(n − 1, k − 1) + C(n − 1, k)`逐列算出模3的餘數（Int8表，對角線以外為−1）；每格擁有一個緊湊支撐的圓角方塊kernel（四次超橢圓經smoothstep，半寬0.46格，在格界前恰好歸零，與modulartable相同，C1）；色調＝`0.28 + 0.62·(residue/2)`（空格為0.1）；顏色＝`0.04 + (level − 0.04)·mask + 0.03·(128²細grain − 0.5)`；height ＝ `0.8·dome·(0.88 + 0.12·tone)`（空格取0.5倍）加`0.08·grain`；磚縫AO為0.6；roughness恆為0.45；金屬factor為0；cache合計2,304個Int8（餘數表）＋128²細grain = 16,384個Float64／131,072 B lattice算術預算（非總RAM）。預設0.3 m nominal tile與0.0012 UV-relative relief（非公尺位移）。實測（工具實跑，seed 0／1／0xffffffff／7，512²取樣）：亮處（color>0.5）占14.4%–14.6%、color 0.0252–0.0254至0.9144–0.9146、平均0.2094–0.2107、roughness恆為0.45、AO最低0.6、height至多0.8763–0.8779 relief；表中餘數0／1／2各有708／318／150個格子、空格1,128個；2,304個磚中心的顏色與獨立重寫的帕斯卡三角形一致，四個seed各自唯一對應的平移為(14, 28)、(8, 11)、(21, 12)、(44, 17)，最大誤差0.0149–0.0150（即細grain的幅度）；seed 0與1的亮區遮罩23.8%像素不同；seed 7的512²maps平均r／g／b約(29.9, 67.6, 68.5)、法線tilt²最大約0.0679。我實看了預覽：暗色底上青綠色的方塊磚，一個個嵌套的三角形（Sierpinski風格的三階版本），像數學海報。未新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `modulartable`（模運算乘法表）使目前目錄965→966種，含plain的gallery為967項。31×31個圓角方塊磚排成的鑲嵌：第(col, row)格的色調由模11乘法表的餘數`((a + col)·(b + row)) mod 11`決定（從暗紫到金黃共11階，seed決定偏移a與b），磚面凸起、磚縫較暗並帶遮蔽（AO）。因為0的餘數出現在`a + col`或`b + row`是11的倍數時，整行或整列會變成暗磚的帶狀，其餘部分呈現乘法表的對稱圖案。不是任何真實鑲嵌或磁磚，只是數學圖案。
 
 此材質是作者示意，沒有引用特定來源或照片，也沒有對照照片；31×31格、模數11、11階色調、磚大小與0.3 m nominal tile皆作者設定。第一版relief 0.003時512²maps的法線tilt²最大為0.2140，降到0.0012後為0.0412（同一批探針的前後值）。
