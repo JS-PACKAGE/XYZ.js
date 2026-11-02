@@ -36875,6 +36875,81 @@ export function createSurfaceSampler(
           occlusion = clamp(0.8 + 0.2 * face);
         };
       }
+      case 'digitalroottable': {
+        const p = proceduralMaterialPresets.digitalroottable,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x31401),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          size =
+            p.sizes[Math.floor(hash(3, 1, seed ^ 0x31402) * p.sizes.length)],
+          operation = Math.floor(hash(5, 2, seed ^ 0x31403) * p.operations),
+          cellSize = 1 / size,
+          pixel = cellSize * p.pixelFraction,
+          shapes = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          roots = new Uint8Array(size * size);
+        for (let row = 0; row < size; row++)
+          for (let column = 0; column < size; column++) {
+            const i = row + 1,
+              j = column + 1,
+              value =
+                operation === 0
+                  ? i * j
+                  : operation === 1
+                    ? i + j
+                    : i * i + j * j;
+            roots[row * size + column] = 1 + ((value - 1) % 9);
+          }
+        return () => {
+          const x = (u - Math.floor(u)) * size,
+            y = (v - Math.floor(v)) * size,
+            column = Math.min(size - 1, Math.floor(x)),
+            row = Math.min(size - 1, Math.floor(y)),
+            edge = Math.min(x - column, column + 1 - x, y - row, row + 1 - y),
+            face = cover((edge - p.groove) * cellSize),
+            root = roots[row * size + column],
+            tone =
+              p.lowestTone + ((p.highestTone - p.lowestTone) * (root - 1)) / 8,
+            gx = Math.floor(((x - column - 0.5) * cellSize) / pixel + 1.5),
+            gy = Math.floor(((y - row - 0.5) * cellSize) / pixel + 2.5),
+            ink =
+              gx >= 0 &&
+              gx < 3 &&
+              gy >= 0 &&
+              gy < 5 &&
+              shapes[root][gy * 3 + gx] === '1'
+                ? face
+                : 0,
+            inkTone = tone < 0.5 ? p.inkLightTone : p.inkDarkTone,
+            base = p.groutTone + (tone - p.groutTone) * face;
+          color = clamp(
+            base +
+              (inkTone - base) * ink +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.groutHeight +
+              (p.faceHeight - p.groutHeight) * face +
+              (p.inkHeight - p.faceHeight) * ink,
+          );
+          roughness =
+            p.groutRoughness +
+            (p.faceRoughness - p.groutRoughness) * face +
+            (p.inkRoughness - p.faceRoughness) * ink;
+          occlusion = clamp(0.8 + 0.2 * face);
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -64404,6 +64479,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'digitalroottable' ||
     kind === 'thuemorsegrid' ||
     kind === 'recamanarcs' ||
     kind === 'happynumberchains' ||

@@ -28109,3 +28109,155 @@ describe('thuemorsegrid: cells coloured by the Thue-Morse sequence', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('digitalroottable: tables of digital roots', () => {
+  const p = proceduralMaterialPresets.digitalroottable;
+  const digitShapes = [
+    '111101101101111',
+    '010110010010111',
+    '111001111100111',
+    '111001111001111',
+    '101101111001001',
+    '111100111001111',
+    '111100111101111',
+    '111001010010010',
+    '111101111101111',
+    '111101111001111',
+  ];
+  // The digital root by its definition: add the digits again and again until only one digit is left.
+  const digitalRoot = (n: number): number => {
+    let value = n;
+    while (value > 9)
+      value = String(value)
+        .split('')
+        .reduce((sum, digit) => sum + Number(digit), 0);
+    return value;
+  };
+  const operations: ((i: number, j: number) => number)[] = [
+    (i, j) => i * j,
+    (i, j) => i + j,
+    (i, j) => i * i + j * j,
+  ];
+
+  const read = (
+    seed: number,
+    size: number,
+  ): { digit: number; tone: number }[][] => {
+    const sample = createSurfaceSampler('digitalroottable', seed),
+      out = empty(),
+      cell = 1 / size,
+      pixel = cell * p.pixelFraction;
+    return Array.from({ length: size }, (_, row) =>
+      Array.from({ length: size }, (_, column) => {
+        const cx = (column + 0.5) * cell,
+          cy = (row + 0.5) * cell;
+        // The face next to the digit (0.4 of a cell to the side, outside the digit and inside the groove).
+        sample(cx + 0.4 * cell, cy, out);
+        const tone = out.color;
+        let bits = '';
+        for (let gy = 0; gy < 5; gy++)
+          for (let gx = 0; gx < 3; gx++) {
+            sample(cx + (gx - 1) * pixel, cy + (gy - 2) * pixel, out);
+            bits += Math.abs(out.color - tone) > 0.3 ? '1' : '0';
+          }
+        return { digit: digitShapes.indexOf(bits), tone };
+      }),
+    );
+  };
+  const matching = (seed: number): { size: number; operation: number }[] => {
+    const found: { size: number; operation: number }[] = [];
+    for (const size of p.sizes) {
+      const grid = read(seed, size);
+      operations.forEach((operation, index) => {
+        if (
+          grid.every((line, row) =>
+            line.every(
+              (cell, column) =>
+                cell.digit === digitalRoot(operation(row + 1, column + 1)),
+            ),
+          )
+        )
+          found.push({ size, operation: index });
+      });
+    }
+    return found;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows the digital root of i*j, i+j or i*i+j*j in every cell for exactly one table (seed %i)',
+    (seed) => {
+      const found = matching(seed);
+      expect(found).toHaveLength(1);
+      const grid = read(seed, found[0].size),
+        tones: number[][] = Array.from({ length: 10 }, () => []);
+      for (const line of grid)
+        for (const cell of line) tones[cell.digit].push(cell.tone);
+      // Cells are toned by their root: every cell of a larger root is lighter than every cell of a smaller one. (The table of
+      // i*i + j*j has no cell with some roots, so only the roots that occur are compared.)
+      const present = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(
+        (root) => tones[root].length > 0,
+      );
+      expect(present.length).toBeGreaterThanOrEqual(4);
+      for (let k = 1; k < present.length; k++)
+        expect(Math.min(...tones[present[k]])).toBeGreaterThan(
+          Math.max(...tones[present[k - 1]]),
+        );
+      // All three tables contain the roots 1 and 9, which are the ends of the tone ramp (darkest and lightest preset tones).
+      expect(present[0]).toBe(1);
+      expect(present[present.length - 1]).toBe(9);
+      expect(Math.abs(Math.min(...tones[1]) - p.lowestTone)).toBeLessThan(0.05);
+      expect(Math.abs(Math.max(...tones[9]) - p.highestTone)).toBeLessThan(
+        0.05,
+      );
+      expect(tones[0]).toHaveLength(0);
+    },
+  );
+
+  it('uses every size and every table across seeds', () => {
+    const sizes = new Set<number>(),
+      tables = new Set<number>();
+    for (let seed = 0; seed < 40; seed++) {
+      const [found] = matching(seed);
+      sizes.add(found.size);
+      tables.add(found.operation);
+    }
+    expect([...sizes].sort((a, b) => a - b)).toEqual([...p.sizes]);
+    expect([...tables].sort()).toEqual([0, 1, 2]);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('digitalroottable', 0),
+      b = createSurfaceSampler('digitalroottable', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

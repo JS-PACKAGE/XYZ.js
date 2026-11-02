@@ -1945,6 +1945,10 @@
 
 這是作者設計的示意：格子本身沒有數字；數列沒有被標出，也沒有圖例。圖案在整張tile內是一個網格，邊緣與對邊無縫相接（因為格數整除tile），但網格內的數列不會在邊界連續。預設1 m nominal tile、0.005 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`digitalroottable`（數根表）使目前目錄1096→1097種，含plain的gallery為1098項。整張tile是方格表，列i與欄j從1開始數，格內是數根（把各位數字反覆相加直到只剩一位數，結果為1到9）：seed從三種表中挑一種——i×j、i＋j、i²＋j²——並決定每邊格數（9、12、18）。每格依數根上色（1最深、9最淺，線性色階），格內以3×5點陣字寫出該數根，字色與底色反相；格間有一條較矮的中灰溝縫。Metallic與mortar為0。
+
+這是作者設計的示意：沒有表頭（看不出i與j的值），也沒有圖例說明三種表的差別；字形是3×5點陣，在512以下的小格（18格）接近極限，建議1024以上。i²＋j²的表只出現部分數根（平方對9取餘只有0、1、4、7），因此色階有缺口。預設1 m nominal tile、0.005 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
