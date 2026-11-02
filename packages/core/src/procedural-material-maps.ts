@@ -41301,17 +41301,21 @@ export function createSurfaceSampler(
         };
       }
       case 'penrosetiling':
-      case 'penrosestar': {
+      case 'penrosestar':
+      case 'ammannbeenker': {
         const p =
-            kind === 'penrosestar'
-              ? proceduralMaterialPresets.penrosestar
-              : proceduralMaterialPresets.penrosetiling,
+            kind === 'ammannbeenker'
+              ? proceduralMaterialPresets.ammannbeenker
+              : kind === 'penrosestar'
+                ? proceduralMaterialPresets.penrosestar
+                : proceduralMaterialPresets.penrosetiling,
+          grids = p.offsets.length,
           grainField = cachedNoise(
             p.grainCells,
             p.grainCells,
             seed ^ p.seedSalt,
           ),
-          // The seed turns the whole patch by a multiple of 36 degrees.
+          // The seed turns the whole patch by a whole number of 360 / rotationSteps degrees.
           rotation =
             (TAU *
               Math.floor(hash(0, 0, seed ^ p.seedSalt) * p.rotationSteps)) /
@@ -41319,19 +41323,20 @@ export function createSurfaceSampler(
           inverseRadius2 = 1 / (p.threadRadius * p.threadRadius),
           reach = 0.5 + p.threadRadius,
           unit = (index: number): [number, number] => [
-            Math.cos((TAU * index) / 5),
-            Math.sin((TAU * index) / 5),
+            Math.cos((TAU * index) / p.roots),
+            Math.sin((TAU * index) / p.roots),
           ],
           edges = new Map<string, [number, number, number, number]>();
-        // De Bruijn's pentagrid construction of the Penrose rhombus tiling. Grid j is the
-        // set of lines x . e_j = integer + offsets[j] (the five offsets sum to 0), the unit
-        // vectors e_j are the fifth roots of unity, and every crossing of a line of grid j
-        // with one of grid k is one rhombus. Its four corners are sum_l K_l e_l, where
+        // De Bruijn's multigrid construction of a rhombus tiling: the pentagrid (five
+        // grids, fifth roots of unity, offsets summing to 0) gives the Penrose tiling and
+        // four grids with the first four eighth roots of unity give the Ammann-Beenker
+        // tiling of squares and rhombi. Grid j is the set of lines x . e_j = integer +
+        // offsets[j], and every crossing of a line of grid j with one of grid k is one tile. Its four corners are sum_l K_l e_l, where
         // K_j and K_k take the two integers beside the crossed lines and every other K_l
         // is ceil(x . e_l - offsets[l]) at the crossing x. Edges shared by two rhombi are
         // stored once, and only rhombi whose centre lies within patchRadius are kept.
-        for (let j = 0; j < 5; j++)
-          for (let k = j + 1; k < 5; k++)
+        for (let j = 0; j < grids; j++)
+          for (let k = j + 1; k < grids; k++)
             for (let r = -p.gridRange; r <= p.gridRange; r++)
               for (let s = -p.gridRange; s <= p.gridRange; s++) {
                 const [jx, jy] = unit(j),
@@ -41341,7 +41346,7 @@ export function createSurfaceSampler(
                   determinant = jx * ky - jy * kx,
                   x = (a * ky - b * jy) / determinant,
                   y = (jx * b - kx * a) / determinant,
-                  indices = [0, 1, 2, 3, 4].map((l) => {
+                  indices = Array.from({ length: grids }, (_, l) => {
                     if (l === j) return r;
                     if (l === k) return s;
                     const [lx, ly] = unit(l);
@@ -41350,7 +41355,7 @@ export function createSurfaceSampler(
                   corner = (stepJ: number, stepK: number): [number, number] => {
                     let px = 0,
                       py = 0;
-                    for (let l = 0; l < 5; l++) {
+                    for (let l = 0; l < grids; l++) {
                       const [lx, ly] = unit(l),
                         index =
                           indices[l] +
@@ -49241,6 +49246,7 @@ export function createSurfaceSampler(
     kind === 'kagome' ||
     kind === 'penrosetiling' ||
     kind === 'penrosestar' ||
+    kind === 'ammannbeenker' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

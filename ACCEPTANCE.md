@@ -12531,3 +12531,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增6項專屬測試（160個菱形／345條邊／186個頂點／歐拉示性數1／邊長1／頂點邊數／95胖65瘦／258條邊在72°旋轉後重合、四seed的旋轉唯一比對與統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過；`Penrose tiling as`原有測試仍通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Penrose star as|penrosestar|Penrose tiling as|kinds|catalog|distinct|periodic"`定向測試**2291項通過／3915項未選**。
 - 未驗證：kikko、kagome、penrosetiling、penrosestar未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：阿曼—本克爾拼貼（ammannbeenker）
+
+- 範圍：新增`ammannbeenker`（目前目錄992→993種，含plain的gallery 994項）：深綠黑底上薄荷色細線畫出一塊阿曼—本克爾八重非週期拼貼補丁（德布魯因多重網格構造：四組網格、單位向量取八次單位根的前四個、偏移`(0.13, −0.31, 0.22, −0.04)`；148塊：62個正方形、86個45°／135°菱形；322條單位長度邊、175個頂點、頂點邊數2到8、歐拉示性數1；補丁半徑6.2個邊長、磚週期16個邊長；seed把補丁旋轉45°的整數倍，共8種）；與`penrosetiling`、`penrosestar`共用sampler分支（新增`roots`欄位，網格數由偏移個數決定；兩者preset多了`roots: 5`、行為不變）；預設0.5 m nominal tile、0.0007 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**；只是一小塊補丁。
+- 調整與錯誤紀錄（誠實紀錄）：(1)偏移是手選的一組，**沒有掃描其他偏移**；預覽只看了一版，補丁邊界左下角有一塊孤立的細菱形（「中心在半徑內就保留」造成的鋸齒邊界，歐拉示性數1仍成立）。(2)我在測試中訂的亮區占比下限0.113第一次寫錯（seed 1實測0.11298，測試失敗），改為0.1125；這是測試期望的錯誤，不是sampler問題。(3)結構檢查是構造自洽性的檢查，不是形式證明；**沒有驗證**補丁的菱形／正方形比例必然收斂到√2（本補丁為86/62 = 1.39）。(4)共用分支修改同時跑了`Penrose tiling as`、`Penrose star as`區塊，其測試仍通過。(5)每個取樣點走訪322條邊，**未量測耗時**；旋轉比對門檻為最大誤差小於0.03，未逐seed記錄實際最大誤差。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：256²取樣亮處（color>0.5）占11.30%–11.40%、color 0.0453–0.0457至0.8492–0.8534、平均0.1450–0.1452、roughness 0.3–0.4、AO恆為1、height至多0.9792–0.9961 relief；512²取樣亮處占11.47%–11.49%、color 0.0452至0.8517–0.8542、平均0.1450–0.1452、height至多0.9884–0.9975 relief；四個seed各自在恰好一個旋轉步（第5、4、1、5步）下與測試中獨立重寫的模型一致；seed 0與1的亮區遮罩（512²）16.6%像素不同；seed 7的512²maps平均r／g／b約(36.1, 57.6, 46.1)、法線tilt²最大約0.0378、z分量最小253。我實看了預覽（seed 7）。
+- 測試：新增6項專屬測試（148塊／322條邊／175個頂點／歐拉示性數1／邊長1／頂點邊數2到8／62個正方形86個菱形、四seed的旋轉唯一比對與統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Ammann-Beenker as|ammannbeenker|Penrose star as|Penrose tiling as|kinds|catalog|distinct|periodic"`定向測試**2297項通過／3915項未選**。
+- 未驗證：ammannbeenker未跑完整suite與瀏覽器gallery；不push。
