@@ -1103,6 +1103,7 @@ try {
     'baumsweet',
     'bayerdither',
     'wangtiles',
+    'poissondisk',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

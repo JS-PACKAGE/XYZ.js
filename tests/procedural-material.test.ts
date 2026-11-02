@@ -1066,6 +1066,7 @@ const kinds: ProceduralMaterialKind[] = [
   'baumsweet',
   'bayerdither',
   'wangtiles',
+  'poissondisk',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',
@@ -168388,6 +168389,257 @@ describe('Wang tiles as a random 16 by 16 Wang tiling whose tiles agree in colou
     expect(blue / (512 * 512)).toBeLessThan(58.5);
     expect(maxTilt).toBeGreaterThan(0.005);
     expect(maxTilt).toBeLessThan(0.009);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Poisson disk as evenly spread random discs from dart throwing with a minimum distance', () => {
+  const p = proceduralMaterialPresets.poissondisk;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const wrapped = (a: number[], b: number[]): number => {
+    const dx = Math.abs(a[0] - b[0]),
+      dy = Math.abs(a[1] - b[1]);
+    return Math.hypot(Math.min(dx, 1 - dx), Math.min(dy, 1 - dy));
+  };
+  /**
+   * The centre of every disc read back from the sampler: the lit pixels (colour above 0.5) of
+   * a 256 by 256 grid are grouped into 4-connected components on the torus (a flood fill
+   * written here, nothing from the sampler), and the centre of a component is its circular
+   * mean in u and v, which is right for discs that wrap around the edge of the tile.
+   */
+  const readDiscs = (
+    seed: number,
+  ): { centres: number[][]; areas: number[] } => {
+    const sample = createSurfaceSampler('poissondisk', seed),
+      out = empty(),
+      size = 256,
+      lit: boolean[] = [],
+      label = new Int32Array(size * size).fill(-1),
+      centres: number[][] = [],
+      areas: number[] = [];
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        lit.push(out.color > 0.5);
+      }
+    for (let start = 0; start < size * size; start++) {
+      if (!lit[start] || label[start] >= 0) continue;
+      const stack = [start];
+      label[start] = centres.length;
+      let area = 0,
+        cu = 0,
+        su = 0,
+        cv = 0,
+        sv = 0;
+      while (stack.length > 0) {
+        const at = stack.pop() as number,
+          x = at % size,
+          y = Math.floor(at / size);
+        area++;
+        cu += Math.cos((2 * Math.PI * (x + 0.5)) / size);
+        su += Math.sin((2 * Math.PI * (x + 0.5)) / size);
+        cv += Math.cos((2 * Math.PI * (y + 0.5)) / size);
+        sv += Math.sin((2 * Math.PI * (y + 0.5)) / size);
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const next =
+            ((y + dy + size) % size) * size + ((x + dx + size) % size);
+          if (lit[next] && label[next] < 0) {
+            label[next] = centres.length;
+            stack.push(next);
+          }
+        }
+      }
+      centres.push([
+        (((Math.atan2(su, cu) / (2 * Math.PI)) % 1) + 1) % 1,
+        (((Math.atan2(sv, cv) / (2 * Math.PI)) % 1) + 1) % 1,
+      ]);
+      areas.push(area);
+    }
+    return { centres, areas };
+  };
+  it('draws separate discs at least the minimum distance apart and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('poissondisk', seed),
+        a = empty();
+      // The grid shows 80 to 100 separate discs of 170 to 190 pixels each; every pair of
+      // disc centres is at least 0.083 apart (the minimum distance is 0.085, and the read-back
+      // centres are good to about a pixel, 1/256), the centres wrap around the torus, and no
+      // point of a 64 by 64 grid is further than 0.095 from the nearest centre: dart throwing
+      // with 6000 candidates leaves no gap where another point would have fitted.
+      const { centres, areas } = readDiscs(seed);
+      expect(centres.length).toBeGreaterThan(80);
+      expect(centres.length).toBeLessThan(100);
+      expect(Math.min(...areas)).toBeGreaterThan(170);
+      expect(Math.max(...areas)).toBeLessThan(190);
+      let closest = Infinity;
+      for (let i = 0; i < centres.length; i++)
+        for (let j = i + 1; j < centres.length; j++)
+          closest = Math.min(closest, wrapped(centres[i], centres[j]));
+      expect(closest).toBeGreaterThan(0.083);
+      let farthest = 0;
+      for (let y = 0; y < 64; y++)
+        for (let x = 0; x < 64; x++) {
+          const point = [(x + 0.5) / 64, (y + 0.5) / 64];
+          farthest = Math.max(
+            farthest,
+            Math.min(...centres.map((centre) => wrapped(centre, point))),
+          );
+        }
+      expect(farthest).toBeLessThan(0.095);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.025);
+      expect(low).toBeLessThan(0.026);
+      expect(high).toBeGreaterThan(0.849);
+      expect(high).toBeLessThan(0.854);
+      expect(dark / 65536).toBeGreaterThan(0.24);
+      expect(dark / 65536).toBeLessThan(0.255);
+      expect(mean / 65536).toBeGreaterThan(0.217);
+      expect(mean / 65536).toBeLessThan(0.227);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 3);
+      expect(heightHigh).toBeGreaterThan(0.835);
+      expect(heightHigh).toBeLessThan(0.847);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('scatters the discs differently per seed and is deterministic for one seed', () => {
+    const first = readDiscs(0).centres,
+      second = readDiscs(1).centres;
+    let shared = 0;
+    for (const centre of first)
+      shared += Number(second.some((other) => wrapped(centre, other) < 0.01));
+    expect(shared / first.length).toBeLessThan(0.15);
+    expect(readDiscs(0).centres).toEqual(first);
+  });
+  it('keeps the discs, ground and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('poissondisk', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.buckets, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 mint disc maps with raised discs and shaded ground', () => {
+    const maps = generateProceduralMaps('poissondisk', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(43.5);
+    expect(red / (512 * 512)).toBeLessThan(45);
+    expect(green / (512 * 512)).toBeGreaterThan(74);
+    expect(green / (512 * 512)).toBeLessThan(76);
+    expect(blue / (512 * 512)).toBeGreaterThan(68.5);
+    expect(blue / (512 * 512)).toBeLessThan(70.5);
+    expect(maxTilt).toBeGreaterThan(0.001);
+    expect(maxTilt).toBeLessThan(0.0025);
     expect(invalid).toBe(0);
   });
 });

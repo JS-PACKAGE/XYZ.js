@@ -15106,6 +15106,27 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.08;
         gapOcclusion: 0.4;
     }>;
+    poissondisk: Readonly<{
+        dark: readonly [10, 26, 30];
+        light: readonly [170, 255, 215];
+        roughness: 0.4;
+        relief: 0.0008;
+        seedSalt: 32021;
+        minDistance: 0.085;
+        discRadius: 0.034;
+        attempts: 6000;
+        buckets: 12;
+        edgeSoft: 0.35;
+        grainCells: 128;
+        gapTone: 0.04;
+        toneFloor: 0.14;
+        toneSpan: 0.7;
+        grainTone: 0.03;
+        cellHeight: 0.8;
+        toneHeight: 0.12;
+        grainHeight: 0.08;
+        gapOcclusion: 0.4;
+    }>;
     vermiculation: Readonly<{
         dark: readonly [60, 48, 36];
         light: readonly [220, 204, 172];
@@ -16808,6 +16829,7 @@ export declare const proceduralTileMeters: Readonly<{
     baumsweet: 0.5;
     bayerdither: 0.5;
     wangtiles: 0.5;
+    poissondisk: 0.5;
     vermiculation: 0.4;
     kikko: 0.3;
     kagome: 0.3;

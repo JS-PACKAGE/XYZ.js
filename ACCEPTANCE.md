@@ -13010,3 +13010,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 完整suite（工具實跑）：在commit `c16bb2d19`（`[P08] Add Wang tiles material`）的乾淨worktree執行`vitest run`，**179個檔案、10,384項測試全部通過**，耗時1185.24 s；對照前一次紀錄（`bda7f8329`，10,369項），新增的baumsweet、bayerdither、wangtiles各加5項共15項，與數量吻合。
 - 瀏覽器gallery（headless Chrome，`--enable-unsafe-webgpu --use-angle=metal`）：頁面載入約255 s後，預設（WebGPU）與`?renderer=webgl2`兩個分頁讀數皆為「1038 procedural material presets」、select共1039個選項；依序選取baumsweet、bayerdither、wangtiles、plain（WebGPU分頁另加kolakoski）都在期限內更新讀數，兩個分頁的console錯誤皆為0。這**只**涵蓋「可選取、讀數更新、無console錯誤」，沒有逐材質截圖，也不證明視覺品質；只選了上述少數kind，沒有逐一選過全部1038種。
 - 未驗證：沒有量測建構與取樣耗時；不push。
+
+## 2026-11-03 新增材質：泊松圓盤（poissondisk）
+
+- 範圍：新增`poissondisk`（目前目錄1038→1039種，含plain的gallery 1040項）：投點法在環面上選出彼此至少相距0.085（環面最短距離）的隨機點，每個點畫半徑0.034、互不相碰的圓盤；薄荷綠圓盤在深青黑色底上；seed決定所有點的位置與數量（實測92／90／88／86個圓盤）；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 131,072 B（另有約90個點與桶的小陣列未計入）。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽只看了一版；(2)測試完全靠讀回：以測試內另外寫的洪水填色在環面上分出圓盤並取圓周平均為中心，檢查圓盤數、大小、最小中心距離（>0.083，最小距離0.085，讀回中心誤差約1/256）、64×64格上最近中心距離（<0.095）；這**不**證明點集在統計上是均勻的泊松圓盤分布，也沒有獨立驗證投點法本身；(3)seed差異只檢查seed 0與1的圓盤中心中在seed 1 0.01以內有對應者的比例低於15%（實測92個中只有1個），不證明seed選擇品質；(4)256²與512²取樣的亮處占比略有不同（24.31%–25.38%對23.77%–25.39%），測試採用256²的數值；(5)建構與取樣耗時**未量測**；(6)測試第一次執行即通過（探針數值先量好才寫界線）。
+- 實測（工具實跑）：圓盤數92／90／88／86（256²與512²一致）；圓盤中心最小距離256²為0.08470／0.08445／0.08440（seed 7為0.08483），512²為0.08490–0.08520；圓盤大小256²為177–185像素、512²為718–731像素；64×64格上到最近圓盤中心的最大距離0.0871–0.0898；256²（seed 0／1／0xffffffff）亮處（color>0.5）24.31%–25.38%、color 0.02535–0.02559至0.85011–0.85301、平均0.21783–0.22576、roughness恆為0.4、AO最低0.6、height至多0.8363–0.8454 relief；512²（四個seed）亮處23.77%–25.39%、color 0.02509–0.02527至0.85148–0.85324、平均0.21369–0.22578、AO最低0.6、height至多0.8396–0.8461 relief；seed 0與1相比，512²中color>0.5的取樣38.4%不同；seed 7的512²maps平均r／g／b約(44.2, 74.9, 69.5)、法線tilt²最大約0.0016、z分量最小255。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Poisson disk as|poissondisk|kinds|catalog|distinct|periodic"`定向測試**2384項通過／4076項未選**。
+- 未驗證：poissondisk未跑完整suite與瀏覽器gallery；不push。

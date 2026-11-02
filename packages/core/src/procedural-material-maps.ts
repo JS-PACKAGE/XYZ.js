@@ -42838,6 +42838,85 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'poissondisk': {
+        const p = proceduralMaterialPresets.poissondisk,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          px: number[] = [],
+          py: number[] = [],
+          bucketOf: number[][] = Array.from(
+            { length: p.buckets * p.buckets },
+            () => [],
+          ),
+          minSquared = p.minDistance * p.minDistance,
+          radiusSquared = p.discRadius * p.discRadius,
+          inverseSoft = 1 / p.edgeSoft;
+        // Dart throwing on the unit torus: candidate points come from the hash in order and a
+        // candidate is kept when it is at least minDistance (the shortest way around the
+        // torus) from every point kept so far, so the points are random but evenly spread, a
+        // Poisson-disk sample. Each kept point gets a disc of discRadius, less than half of
+        // minDistance, so the discs never touch; the points are filed into buckets x buckets
+        // buckets, wider than a disc, so a lookup only needs the 3 x 3 buckets around it.
+        for (let k = 0; k < p.attempts; k++) {
+          const cx = hash(k, 0, seed ^ p.seedSalt),
+            cy = hash(k, 1, seed ^ p.seedSalt);
+          let free = true;
+          for (let i = 0; i < px.length && free; i++) {
+            let dx = Math.abs(cx - px[i]),
+              dy = Math.abs(cy - py[i]);
+            dx = Math.min(dx, 1 - dx);
+            dy = Math.min(dy, 1 - dy);
+            free = dx * dx + dy * dy >= minSquared;
+          }
+          if (!free) continue;
+          px.push(cx);
+          py.push(cy);
+          bucketOf[
+            Math.floor(cy * p.buckets) * p.buckets + Math.floor(cx * p.buckets)
+          ].push(px.length - 1);
+        }
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            bx = Math.floor(fu * p.buckets),
+            by = Math.floor(fv * p.buckets);
+          let nearest = Infinity;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const list =
+                bucketOf[
+                  ((by + oy + p.buckets) % p.buckets) * p.buckets +
+                    ((bx + ox + p.buckets) % p.buckets)
+                ];
+              for (const i of list) {
+                let dx = Math.abs(fu - px[i]),
+                  dy = Math.abs(fv - py[i]);
+                dx = Math.min(dx, 1 - dx);
+                dy = Math.min(dy, 1 - dy);
+                nearest = Math.min(nearest, dx * dx + dy * dy);
+              }
+            }
+          // A disc is a function of the squared distance to its point, exactly zero at its
+          // rim, so the field is C1 and at most one disc is ever non-zero.
+          const t = clamp(1 - nearest / radiusSquared),
+            mask = smooth(clamp(t * inverseSoft)),
+            dome = t * t,
+            tone = p.toneSpan * (0.7 + 0.3 * dome),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -51679,6 +51758,7 @@ export function createSurfaceSampler(
     kind === 'baumsweet' ||
     kind === 'bayerdither' ||
     kind === 'wangtiles' ||
+    kind === 'poissondisk' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||
