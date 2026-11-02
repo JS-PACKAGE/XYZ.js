@@ -977,7 +977,8 @@ export type ProceduralMaterialKind =
   | 'couscous'
   | 'datamatrix'
   | 'sudoku'
-  | 'quasicrystal';
+  | 'quasicrystal'
+  | 'hilbertcurve';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2189,6 +2190,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'datamatrix',
   'sudoku',
   'quasicrystal',
+  'hilbertcurve',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

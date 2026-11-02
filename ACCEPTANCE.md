@@ -12219,3 +12219,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 完整suite（工具實跑，worktree `/private/tmp/xyz-ct-suite`於`ed3dab90f`「Add Sudoku material」）：**179檔／9,973項全數通過**，Duration 1097.09s。涵蓋`d65d9bd2d`之後的morse、couscous、datamatrix與sudoku；**quasicrystal只有定向測試與gates，沒有完整suite**。
 - 瀏覽器gallery（工具實跑）：補做`couscous`、`datamatrix`、`sudoku`、`quasicrystal`四個材質的`/examples/pbr3d/`檢查（morse已在上一次`6971149bb`的gallery檢查涵蓋）——spawned Google Chrome headless（`--enable-unsafe-webgpu --use-angle=metal`）開啟vite dev server（服務`5e8f0978f`狀態的乾淨worktree）上的範例頁，逐一以`#material`的`input`事件選取並等待讀數更新；WebGPU與`?renderer=webgl2`各跑一次，結束時`tab.errors()`的`entries`皆為0筆（dropped 0）；狀態列顯示`962 procedural material presets + plain`。
 - 限制：gallery檢查只涵蓋「能選取、讀數更新、console沒有錯誤」，**沒有**逐材質視覺比對，也沒有跨瀏覽器、跨GPU或Windows／Linux驗證；不push。
+
+## 2026-11-02 新增材質：希爾伯特曲線（hilbertcurve）
+
+- 範圍：新增`hilbertcurve`（目前目錄962→963種，含plain的gallery 964項）：第4階希爾伯特空間填充曲線（標準`d2xy`轉換），16×16格每格經過一次，在32×32 lattice上格子中心位於偶數座標、相鄰格之間的連接點位於中間的奇數座標（含終點到起點跨越接縫的連接，使曲線在環面上封閉）；seed選八種方形對稱之一並沿環面平移；`latticeField`混合後以tanh重新銳化，另有未銳化的光暈與128²細grain；預設0.2 m nominal tile、0.0015 UV-relative relief。作者示意，沒有引用特定來源或電路板照片、**沒有對照照片**，不是真實電路板。
+- 調整紀錄（誠實紀錄）：第一版relief 0.002時，512²maps的法線tilt²最大為0.0901，降到0.0015後為0.0512（同一批探針的前後值）；預覽第一次就採用。我的第一個「沿線走」探針有bug（只是我自己的探針、不是sampler）：方向與前一步追蹤寫錯，走出的步數是8、98、1000等無意義的值；我發現「步數不等於256」後改寫為「以(位置, 來向)狀態沿連接點走兩步到下一個格子中心」，才得到正確的結果，沒有把第一個探針的數字當成證據使用。
+- 實測（工具實跑，八個seed含0／1／0xffffffff／7，512²取樣）：亮處（color>0.5）占49.71%–49.73%、color 0.0456–0.0460至0.8143–0.8146、平均0.4384–0.4387、roughness 0.2001–0.3999、height至多0.9969–0.9987 relief；512個node中256個為格子中心（每個恰有兩個亮鄰居）、256個為連接點，沒有node顏色落在0.3到0.6之間；12個seed（0至9、0xffffffff、12345）上從任一格子中心沿線走都恰好走256步回到起點並訪問256個不同格子（單一封閉迴圈）；seed 7的512²maps平均r／g／b約(56.0, 108.7, 125.3)、法線tilt²最大約0.0512、z分量最小252。我實看了預覽：青藍色的希爾伯特曲線布滿深色底。
+- 測試：新增5項專屬測試（四個seed的node度數、連接點、單一256格封閉迴圈、統計，seed差異與決定性，C1＋有符號UV週期，actual512 maps）通過；迴圈測試直接驗證「單一封閉迴圈且每格恰好經過一次」，不依賴與參考圖形的視覺比對。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Hilbert curve as|hilbertcurve|kinds|catalog|distinct|periodic"`定向測試**2228項通過／3829項未選**。
+- 未驗證：quasicrystal、hilbertcurve未跑完整suite與瀏覽器gallery；不push。

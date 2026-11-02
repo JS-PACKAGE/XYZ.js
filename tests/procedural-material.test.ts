@@ -1004,6 +1004,7 @@ const kinds: ProceduralMaterialKind[] = [
   'datamatrix',
   'sudoku',
   'quasicrystal',
+  'hilbertcurve',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -149556,6 +149557,231 @@ describe('Quasicrystal as five-wave interference with five-fold symmetry', () =>
     expect(blue / (512 * 512)).toBeLessThan(156);
     expect(maxTilt).toBeGreaterThan(0.04);
     expect(maxTilt).toBeLessThan(0.1);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Hilbert curve as a closed space-filling circuit trace', () => {
+  const p = proceduralMaterialPresets.hilbertcurve;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const cells = 16,
+    size = 32;
+  /** Lit state of every lattice node (cell centres at even coordinates), read at the nodes. */
+  const pixelNodes = (seed: number): boolean[] => {
+    const sample = createSurfaceSampler('hilbertcurve', seed),
+      out = empty(),
+      nodes: boolean[] = [];
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample(x / size, y / size, out);
+        nodes.push(out.color > 0.5);
+      }
+    return nodes;
+  };
+  it('draws one closed path through all 256 cells and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('hilbertcurve', seed),
+        a = empty();
+      const nodes = pixelNodes(seed),
+        at = (x: number, y: number): boolean =>
+          nodes[((y + size) % size) * size + ((x + size) % size)],
+        directions = [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ];
+      let centers = 0,
+        connectors = 0,
+        wrong = 0;
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          if (!at(x, y)) continue;
+          const degree = directions.filter(([dx, dy]) =>
+            at(x + dx, y + dy),
+          ).length;
+          if (x % 2 === 0 && y % 2 === 0) {
+            centers++;
+            wrong += Number(degree !== 2);
+          } else if (x % 2 !== y % 2) connectors++;
+          else wrong++;
+        }
+      expect(wrong).toBe(0);
+      expect(centers).toBe(cells * cells);
+      expect(connectors).toBe(cells * cells);
+      // Walk the path from one cell centre: it must return after visiting every cell.
+      let cx = 0,
+        cy = 0;
+      while (!at(cx, cy)) cx += 2;
+      const startX = cx,
+        startY = cy,
+        seen = new Set<number>();
+      let from = -1,
+        steps = 0;
+      do {
+        seen.add(cy * size + cx);
+        const next = directions.findIndex(
+          ([dx, dy], k) => k !== from && at(cx + dx, cy + dy),
+        );
+        cx = (cx + 2 * directions[next][0] + size) % size;
+        cy = (cy + 2 * directions[next][1] + size) % size;
+        from = next ^ 1;
+        steps++;
+      } while ((cx !== startX || cy !== startY) && steps <= cells * cells);
+      expect(steps).toBe(cells * cells);
+      expect(seen.size).toBe(cells * cells);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.04);
+      expect(low).toBeLessThan(0.05);
+      expect(high).toBeGreaterThan(0.81);
+      expect(high).toBeLessThan(0.82);
+      expect(dark / 65536).toBeGreaterThan(0.48);
+      expect(dark / 65536).toBeLessThan(0.52);
+      expect(mean / 65536).toBeGreaterThan(0.43);
+      expect(mean / 65536).toBeLessThan(0.45);
+      expect(roughLow).toBeGreaterThan(0.2);
+      expect(roughLow).toBeLessThan(0.21);
+      expect(roughHigh).toBeCloseTo(p.roughness, 2);
+      expect(heightHigh).toBeGreaterThan(0.97);
+      expect(heightHigh).toBeLessThanOrEqual(1);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('turns and shifts the curve per seed and is deterministic for one seed', () => {
+    const first = pixelNodes(0),
+      second = pixelNodes(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.1);
+    expect(pixelNodes(0)).toEqual(first);
+  });
+  it('keeps the trace edges, glow and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('hilbertcurve', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [size, p.glowCells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 cyan-on-navy maps with gentle trace normals', () => {
+    const maps = generateProceduralMaps('hilbertcurve', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(50);
+    expect(red / (512 * 512)).toBeLessThan(62);
+    expect(green / (512 * 512)).toBeGreaterThan(102);
+    expect(green / (512 * 512)).toBeLessThan(115);
+    expect(blue / (512 * 512)).toBeGreaterThan(119);
+    expect(blue / (512 * 512)).toBeLessThan(132);
+    expect(maxTilt).toBeGreaterThan(0.02);
+    expect(maxTilt).toBeLessThan(0.08);
     expect(invalid).toBe(0);
   });
 });

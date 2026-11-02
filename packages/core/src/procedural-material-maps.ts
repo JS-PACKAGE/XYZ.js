@@ -39885,6 +39885,82 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'hilbertcurve': {
+        const p = proceduralMaterialPresets.hilbertcurve,
+          cells = 1 << p.order,
+          size = cells * 2,
+          marks = new Float64Array(size * size),
+          glowField = cachedNoise(p.glowCells, p.glowCells, seed ^ p.seedSalt),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 1),
+          ),
+          flip = hash(0, 0, seed ^ (p.seedSalt + 2)),
+          pick = Math.floor(flip * 8),
+          shiftX = Math.floor(hash(1, 0, seed ^ (p.seedSalt + 2)) * cells),
+          shiftY = Math.floor(hash(2, 0, seed ^ (p.seedSalt + 2)) * cells),
+          cellAt = (index: number): [number, number] => {
+            // Standard Hilbert curve distance -> (x, y) conversion.
+            let x = 0,
+              y = 0,
+              t = index;
+            for (let s = 1; s < cells; s *= 2) {
+              const rx = 1 & (t >> 1),
+                ry = 1 & (t ^ rx);
+              if (ry === 0) {
+                if (rx === 1) {
+                  x = s - 1 - x;
+                  y = s - 1 - y;
+                }
+                const swap = x;
+                x = y;
+                y = swap;
+              }
+              x += s * rx;
+              y += s * ry;
+              t >>= 2;
+            }
+            // One of the eight square symmetries, then a wrapped shift: the curve
+            // starts and ends on neighbouring cells of the torus, so it closes up.
+            if (pick & 1) x = cells - 1 - x;
+            if (pick & 2) y = cells - 1 - y;
+            if (pick & 4) [x, y] = [y, x];
+            return [(x + shiftX) % cells, (y + shiftY) % cells];
+          };
+        // Path nodes live at even lattice coordinates, the connector between two
+        // consecutive cells at the odd coordinate between them (wrapping at the seam).
+        let [previousX, previousY] = cellAt(cells * cells - 1);
+        for (let index = 0; index < cells * cells; index++) {
+          const [x, y] = cellAt(index);
+          marks[2 * y * size + 2 * x] = 1;
+          const dx = ((x - previousX + cells + 1) % cells) - 1,
+            dy = ((y - previousY + cells + 1) % cells) - 1;
+          marks[
+            ((2 * previousY + dy + size) % size) * size +
+              ((2 * previousX + dx + size) % size)
+          ] = 1;
+          previousX = x;
+          previousY = y;
+        }
+        const pattern = latticeField(marks, size, size);
+        return () => {
+          // The node map is blended with the C1 smoothstep and re-sharpened with tanh;
+          // a soft glow follows the unsharpened blend.
+          const line =
+              0.5 + 0.5 * Math.tanh(p.sharpness * (pattern(u, v) - 0.5)),
+            glow = pattern(u, v) * (1 - p.glowVariation * glowField(u, v)),
+            grain = grainField(u, v);
+          color =
+            p.baseTone +
+            p.lineTone * line +
+            p.glowTone * glow * (1 - line) +
+            p.grainTone * (grain - 0.5);
+          height = p.lineHeight * line + p.grainHeight * grain;
+          roughness += p.lineRoughness * line;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -47655,6 +47731,7 @@ export function createSurfaceSampler(
     kind === 'datamatrix' ||
     kind === 'sudoku' ||
     kind === 'quasicrystal' ||
+    kind === 'hilbertcurve' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
