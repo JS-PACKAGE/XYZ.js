@@ -12489,3 +12489,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增專屬測試（三seed的溝槽／石面比例、溝槽元件數與石面單一連通、邊緣數、色調與roughness區間、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過；`Turing maze as`原有測試仍通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Vermiculation as|vermiculation|Turing maze as|kinds|catalog|distinct|periodic"`定向測試**2280項通過／3904項未選**。
 - 未驗證：pisanotable、minkowskisausage、vermiculation未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：龜甲紋（kikko）
+
+- 範圍：新增`kikko`（目前目錄988→989種，含plain的gallery 990項）：深棕底上琥珀色細線的龜甲形六角蜂巢（尖頂六邊形外框，每個六邊形內有半徑一半的同心小六邊形；7欄×8列、56個六邊形、504條線段；水平垂直週期比`7√3 : 12`；seed以1/64磚為單位平移）；與`tulle`共用蜂巢線段sampler分支並新增`inner`欄位（tulle為0、仍是168條線段，行為不變）；預設0.3 m nominal tile、0.0009 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**；只有同心六邊形線，不含傳統龜甲紋常見的花紋。
+- 調整紀錄（誠實紀錄）：(1)預覽只看了一版（內框0.5、線半徑0.1、gain 1.8）。(2)relief 0.0012時512²maps法線tilt²最大0.0710（z分量最小250），降到0.0009後為0.0414（252）。(3)共用分支修改同時跑了`Tulle as`區塊，原有逐模型比對測試仍通過。(4)每個取樣點走訪504條線段，**未量測耗時**。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：256²取樣亮處（color>0.5）占27.66%–27.72%、color 0.0654–0.0659至0.8663–0.8697、平均0.2772–0.2774、roughness 0.2505–0.35、AO恆為1、height至多0.9751–0.9895 relief（seed 0／1／0xffffffff）；512²取樣亮處占27.27%–27.29%、color 0.0651–0.0653至0.8684–0.8700、平均0.2773–0.2775、height至多0.9849–0.9917 relief；四個seed各自在恰好8個環面平移下與測試中獨立重寫的模型（含內框六邊形）一致（最大誤差0.0127–0.0144；這8個平移是蜂巢本身的平移對稱）；seed 0與1的亮區遮罩（512²）41.3%像素不同；seed 7的512²maps平均r／g／b約(92.4, 62.8, 23.8)、法線tilt²最大約0.0414、z分量最小252。我實看了預覽（seed 7）。
+- 測試：新增5項專屬測試（504條線段、四seed的平移對稱結構與統計、seed差異與決定性、C1（含504條線兩側邊界在中間與兩端的點）＋有符號UV週期、actual512 maps）通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Kikko as|kikko|Tulle as|kinds|catalog|distinct|periodic"`定向測試**2283項通過／3906項未選**。
+- 未驗證：kikko未跑完整suite與瀏覽器gallery；不push。

@@ -40836,8 +40836,12 @@ export function createSurfaceSampler(
           return;
         };
       }
-      case 'tulle': {
-        const p = proceduralMaterialPresets.tulle,
+      case 'tulle':
+      case 'kikko': {
+        const p =
+            kind === 'kikko'
+              ? proceduralMaterialPresets.kikko
+              : proceduralMaterialPresets.tulle,
           grainField = cachedNoise(
             p.grainCells,
             p.grainCells,
@@ -40855,7 +40859,7 @@ export function createSurfaceSampler(
             p.shiftSteps,
           inverseRadius2 = 1 / (p.threadRadius * p.threadRadius),
           reach = 0.5 + p.threadRadius,
-          segmentCount = p.columns * rows * 3,
+          segmentCount = p.columns * rows * (p.inner > 0 ? 9 : 3),
           middleX = new Float64Array(segmentCount),
           middleY = new Float64Array(segmentCount),
           halfX = new Float64Array(segmentCount),
@@ -40863,14 +40867,15 @@ export function createSurfaceSampler(
         // A pointy-top honeycomb of circumradius 1 (width sqrt(3), rows 1.5 apart); the
         // columns x row pairs rectangle tiles the square with about 1% stretch. Every
         // hexagon owns the three edges towards its east, north-east and north-west
-        // neighbours, so each edge is stored once.
+        // neighbours, so each edge is stored once. A positive inner adds the six edges of a
+        // smaller concentric hexagon (kikko, the tortoiseshell pattern).
         for (let j = 0, i = 0; j < rows; j++)
           for (let k = 0; k < p.columns; k++) {
             const centerX = root3 * (k + 0.5 * (j % 2)),
               centerY = 1.5 * j,
-              corner = (degrees: number): [number, number] => [
-                centerX + Math.cos((degrees * Math.PI) / 180),
-                centerY + Math.sin((degrees * Math.PI) / 180),
+              corner = (degrees: number, scale = 1): [number, number] => [
+                centerX + scale * Math.cos((degrees * Math.PI) / 180),
+                centerY + scale * Math.sin((degrees * Math.PI) / 180),
               ];
             for (const [from, to] of [
               [30, -30],
@@ -40885,6 +40890,16 @@ export function createSurfaceSampler(
               halfY[i] = (by - ay) / 2;
               i++;
             }
+            if (p.inner > 0)
+              for (let side = 0; side < 6; side++) {
+                const [ax, ay] = corner(90 - 60 * side, p.inner),
+                  [bx, by] = corner(30 - 60 * side, p.inner);
+                middleX[i] = (ax + bx) / 2;
+                middleY[i] = (ay + by) / 2;
+                halfX[i] = (bx - ax) / 2;
+                halfY[i] = (by - ay) / 2;
+                i++;
+              }
           }
         return () => {
           // Every edge is a thread: a compact-support quartic profile (1 - d^2 / r^2)^2 of
@@ -49072,6 +49087,7 @@ export function createSurfaceSampler(
     kind === 'pisanotable' ||
     kind === 'minkowskisausage' ||
     kind === 'vermiculation' ||
+    kind === 'kikko' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

@@ -1003,7 +1003,8 @@ export type ProceduralMaterialKind =
   | 'mobiustable'
   | 'pisanotable'
   | 'minkowskisausage'
-  | 'vermiculation';
+  | 'vermiculation'
+  | 'kikko';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2241,6 +2242,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'pisanotable',
   'minkowskisausage',
   'vermiculation',
+  'kikko',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
