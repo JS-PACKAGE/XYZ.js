@@ -13089,3 +13089,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Happy numbers as|happynumbers|kinds|catalog|distinct|periodic"`定向測試**2398項通過／4097項未選**。
 - 未驗證：recamanarcs、phasevortices、euclidsteps與happynumbers未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-03 完整測試與瀏覽器gallery複驗（至快樂數）
+
+- 完整suite（工具實跑）：在commit `35d1facd2`（`[P08] Add Happy numbers material`）的乾淨worktree執行`vitest run`，**179個檔案、10,424項測試全部通過**，耗時1094.89 s；對照前一次紀錄（`657f0943a`，10,404項），新增的recamanarcs、phasevortices、euclidsteps、happynumbers各加5項共20項，與數量吻合。
+- 瀏覽器gallery（headless Chrome，`--enable-unsafe-webgpu --use-angle=metal`）：頁面載入約258 s後，預設（WebGPU）與`?renderer=webgl2`兩個分頁讀數皆為「1046 procedural material presets」、select共1047個選項；依序選取recamanarcs、phasevortices、euclidsteps、happynumbers、plain（WebGPU分頁另加kaleidoscope）都在期限內更新讀數，兩個分頁的console錯誤皆為0。這**只**涵蓋「可選取、讀數更新、無console錯誤」，沒有逐材質截圖，也不證明視覺品質；只選了上述少數kind，沒有逐一選過全部1046種。這次開分頁前先終止了殘留的Chrome程序，兩次`browser.open`都一次成功。
+- 未驗證：沒有量測建構與取樣耗時；不push。
