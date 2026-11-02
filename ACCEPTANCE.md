@@ -12438,3 +12438,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試（兩個平移的結構、逐磚比對、統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "XOR table as|xortable|kinds|catalog|distinct|periodic"`定向測試**2268項通過／3889項未選**。
 - 未驗證：levycurve、hadamardmatrix、paleytable、xortable未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：盈數表（abundantnumbers）
+
+- 範圍：新增`abundantnumbers`（目前目錄983→984種，含plain的gallery 985項）：48×48個圓角方塊磚，第n格（`n = row × 48 + col + 1`，1到2304）依`σ(n)`與`2n`的比較分三類：虧數（1,732個，色調0.1）、盈數（569個，0.55）、完全數（6、28、496共3個，0.7）；seed沿環面平移整張表；磚縫AO 0.6；roughness恆為0.4；預設0.3 m nominal tile、0.0008 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**；完全數只有3格，預覽上不易與一般盈數區分。
+- 調整與錯誤紀錄（誠實紀錄）：(1)我預先寫的「兩個seed的表差異格數>20%」斷言失敗（實測8.9%）：seed 0與1的平移差(12, 6)，盈數的結構以12與6為週期，大多數格子換位置後仍是同一類；改為依實測訂定的區間（6%–12%）並在測試註明原因。(2)relief沿用0.0008，512²maps法線tilt²最大0.0296。(3)256²取樣下亮處占17.04%–18.24%（seed 0／1／0xffffffff），seed 0與1相同、0xffffffff不同，原因我沒有進一步查明（可能是格界與取樣點的對齊差異）。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：256²取樣color 0.0255–0.0261至0.8503–0.8506、平均0.2612–0.2672、AO最低0.6、height至多0.8325–0.8388 relief；512²取樣亮處占17.48%–18.01%、color 0.0252–0.0254至0.8520–0.8536、平均0.2644–0.2665、AO最低0.6、height至多0.8346–0.8473 relief；2,304個磚中心的顏色與測試中以試除法獨立算出的分類表在唯一一個環面平移下一致（(46, 30)、(34, 24)、(27, 38)、(10, 15)；最大誤差約0.0149–0.0150）；seed 0與1的亮區遮罩（512²）6.1%像素不同；seed 7的512²maps平均r／g／b約(84.1, 62.1, 36.4)、法線tilt²最大約0.0296、z分量最小253。我實看了預覽（seed 7）。
+- 測試：新增5項專屬測試（569個盈數、1,732個虧數與完全數6／28／496、逐磚比對與唯一平移、統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Abundant numbers as|abundantnumbers|kinds|catalog|distinct|periodic"`定向測試**2270項通過／3892項未選**。
+- 未驗證：levycurve、hadamardmatrix、paleytable、xortable、abundantnumbers未跑瀏覽器gallery；abundantnumbers未跑完整suite；不push。
