@@ -26144,3 +26144,105 @@ describe('cobwebplots: the logistic map and its cobweb', () => {
     expect(different).toBeGreaterThan(0);
   });
 });
+
+describe('divisorcountbars: stacks of boxes for the number of divisors', () => {
+  const p = proceduralMaterialPresets.divisorcountbars;
+  // d(n) by trial division, n = 1 to the largest number any seed can show.
+  const last = p.firstMax + p.count - 1;
+  const divisorCount = Array.from({ length: last + 1 }, (_, n) => {
+    let count = 0;
+    for (let d = 1; d <= n; d++) if (n % d === 0) count++;
+    return count;
+  });
+  const isSquare = (n: number): boolean => Math.round(Math.sqrt(n)) ** 2 === n;
+
+  const readBars = (seed: number): { counts: number[]; tones: number[] } => {
+    const sample = createSurfaceSampler('divisorcountbars', seed),
+      out = empty(),
+      step = 0.0007,
+      counts: number[] = [],
+      tones: number[] = [];
+    for (let slot = 0; slot < p.count; slot++) {
+      const x = p.left + slot * p.slot + p.barWidth / 2;
+      let boxes = 0,
+        inside = false;
+      for (let v = p.ground - step; v > 0; v -= step) {
+        sample(x, v, out);
+        const dark = out.color < 0.6;
+        if (dark && !inside) boxes++;
+        inside = dark;
+      }
+      counts.push(boxes);
+      // The tone of the lowest box (half a box above the ground).
+      sample(x, p.ground - p.box / 2, out);
+      tones.push(out.color);
+    }
+    return { counts, tones };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'stacks one box per divisor, darkest for primes and lightest for squares (seed %i)',
+    (seed) => {
+      const { counts, tones } = readBars(seed),
+        starts: number[] = [];
+      for (let first = 1; first <= p.firstMax; first++)
+        if (counts.every((count, i) => count === divisorCount[first + i]))
+          starts.push(first);
+      expect(starts).toHaveLength(1);
+      const first = starts[0];
+      counts.forEach((count, i) => {
+        const n = first + i;
+        // Primes (2 divisors) are the darkest, squares (an odd number of divisors) the lightest, the rest in between.
+        if (count === 2) expect(tones[i]).toBeLessThan(0.16);
+        else if (isSquare(n)) expect(tones[i]).toBeGreaterThan(0.32);
+        else {
+          expect(tones[i]).toBeGreaterThan(0.16);
+          expect(tones[i]).toBeLessThan(0.32);
+        }
+      });
+    },
+  );
+
+  it('starts at different numbers for different seeds', () => {
+    const starts = new Set<string>();
+    for (let seed = 0; seed < 25; seed++)
+      starts.add(readBars(seed).counts.join(','));
+    expect(starts.size).toBeGreaterThan(20);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('divisorcountbars', 0),
+      b = createSurfaceSampler('divisorcountbars', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

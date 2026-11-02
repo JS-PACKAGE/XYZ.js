@@ -35652,6 +35652,67 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'divisorcountbars': {
+        const p = proceduralMaterialPresets.divisorcountbars,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x30601),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          first = 1 + Math.floor(hash(8, 4, seed ^ 0x30602) * p.firstMax),
+          divisors = Array.from({ length: p.count }, () => 0);
+        // Count the divisors of first .. first + count - 1 by adding 1 to every multiple of each possible divisor.
+        for (let d = 1; d < first + p.count; d++)
+          for (
+            let multiple = Math.ceil(first / d) * d;
+            multiple < first + p.count;
+            multiple += d
+          )
+            divisors[multiple - first]++;
+        return () => {
+          const slot = Math.floor((u - p.left) / p.slot),
+            across = u - p.left - slot * p.slot,
+            up = p.ground - v,
+            level = Math.floor(up / p.box),
+            base =
+              cover(p.baseHalf - Math.abs(up)) *
+              (u > p.left - p.slot && u < p.left + (p.count + 1) * p.slot
+                ? 1
+                : 0),
+            ground = p.paperTone + (p.baseTone - p.paperTone) * base;
+          let box = 0,
+            tone: number = p.paperTone;
+          if (
+            slot >= 0 &&
+            slot < p.count &&
+            across < p.barWidth &&
+            up > 0 &&
+            level < divisors[slot] &&
+            up - level * p.box < p.box - p.boxGap
+          ) {
+            box = 1;
+            tone =
+              divisors[slot] === 2
+                ? p.primeTone
+                : Number.isInteger(Math.sqrt(first + slot))
+                  ? p.squareTone
+                  : p.otherTone;
+          }
+          color = clamp(
+            ground +
+              (tone - ground) * box +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.paperHeight +
+              (p.baseHeight - p.paperHeight) * base * (1 - box) +
+              (p.boxHeight - p.paperHeight) * box,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.inkRoughness - p.paperRoughness) * Math.max(box, base);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -63181,6 +63242,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'divisorcountbars' ||
     kind === 'cobwebplots' ||
     kind === 'sierpinskipascal' ||
     kind === 'sacksspiral' ||
