@@ -12177,3 +12177,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`八百三十四項（本材質十項）全過。九個seed（0、7、4294967295、1至6）：測試端由中點亮度讀出所有橫向與縱向的迴路邊，由點陣字形讀出每格數字（0至3），逐格要求數字等於該格四邊中迴路邊的數目；每個格點連著0或2條迴路邊、且至少12個迴路格點，並以廣度優先搜尋確認所有迴路格點連成一個連通的環；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "slitherlinkloop|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 完整套件：在`git archive`匯出的`5b0b408dc`（hashibridges狀態）上以json報告完整執行`procedural-material`與`procedural-material-motifs`兩檔：**6439項通過、0失敗**（1076 s）；這次執行期間我只做不會產生大量負載的工作（寫程式與單項測試），沒有同時跑其他verify，所以先前`4bf8dba72`上那次「1項失敗」沒有再出現，但我仍無法確認它的原因。那次完整執行涵蓋到hashibridges為止；本材質（slitherlinkloop）在其之後新增，只有定向測試加typecheck／eslint／build／API相容／distribution。
 - 真實dev server的pbr3d頁（WebGPU）選取`slitherlinkloop`：option 993個、status為992 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的盤面。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：珍珠謎題（masyupearls）
+
+- 目錄992→993，含plain的gallery為994項。每tile一個8×8格點上已解開的Masyu：沿格線的封閉迴路（隨機生長的連通區域的外輪廓）上放白珍珠（直行且至少一側鄰點轉彎）與黑珍珠（轉彎且兩臂的下一點皆直行），珍珠只放在符合規則的格點（至少5顆）。Metallic／mortar為0，預設tile0.5 m、0.004 UV-relative relief、metallic factor 0。顯示答案、規則憑記憶、不保證解答唯一；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 真實缺陷（測試抓到）：第一版每個合格格點各以40%機率獨立放珍珠，測試第一次執行時seed 3只有1顆珍珠（測試要求至少2顆），這樣的謎題幾乎沒有線索；改為「把所有合格格點依seed排序，取`max(最少珍珠數5, 40%×合格數)`顆」（新增`minPearls`參數）。我的測試第一版也夾帶一個沒有實際作用的`reach`變數，已刪除。
+- 實測：`tests/procedural-material-motifs.test.ts`八百四十四項（本材質十項）全過。九個seed（0、7、4294967295、1至6）：測試端由中點亮度讀出迴路邊，每個格點連0或2條邊、至少12個迴路格點，並以廣度優先搜尋確認為一個連通的環；以對角線上半徑0.026處是否有環判斷珍珠、以半徑0.45倍處是否暗判斷黑珍珠；每顆黑珍珠所在格點不是直行、且兩個相鄰格點都直行；每顆白珍珠所在格點直行、且相鄰格點中至少有一個轉彎；珍珠數至少5顆；通道範圍、metallic／mortar 0、wrap與seed差異。突變檢查：把黑珍珠條件的`every`改成`some`後，九個seed中的九項失敗，還原後全過。`tests/procedural-material.test.ts`以`-t "masyupearls|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`masyupearls`：option 994個、status為993 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的謎題。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

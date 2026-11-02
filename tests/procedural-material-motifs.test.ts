@@ -13323,3 +13323,136 @@ describe('slitherlinkloop: one closed loop whose edges match the numbers', () =>
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('masyupearls: one closed loop and pearls that obey the Masyu rules', () => {
+  const p = proceduralMaterialPresets.masyupearls;
+  const n = p.size;
+  const dots = n + 1;
+  const side = 1 - 2 * p.margin;
+  const cell = side / n;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'forms one cycle, white pearls go straight beside a turn and black pearls turn between straights (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('masyupearls', seed),
+        out = empty(),
+        tone = (u: number, v: number): number => {
+          sample(u, v, out);
+          return out.color;
+        },
+        dotU = (x: number): number => p.margin + x * cell,
+        horizontal: boolean[][] = [],
+        vertical: boolean[][] = [];
+      for (let y = 0; y < dots; y++) {
+        horizontal.push(
+          Array.from(
+            { length: n },
+            (_, x) => tone(dotU(x) + cell / 2, dotU(y)) < 0.5,
+          ),
+        );
+        vertical.push(
+          Array.from(
+            { length: dots },
+            (_, x) => y < n && tone(dotU(x), dotU(y) + cell / 2) < 0.5,
+          ),
+        );
+      }
+      const links = (x: number, y: number): [number, number][] => {
+        const list: [number, number][] = [];
+        if (x < n && horizontal[y][x]) list.push([x + 1, y]);
+        if (x > 0 && horizontal[y][x - 1]) list.push([x - 1, y]);
+        if (y < n && vertical[y][x]) list.push([x, y + 1]);
+        if (y > 0 && vertical[y - 1][x]) list.push([x, y - 1]);
+        return list;
+      };
+      const onLoop: [number, number][] = [];
+      for (let y = 0; y < dots; y++)
+        for (let x = 0; x < dots; x++) {
+          const degree = links(x, y).length;
+          expect([0, 2]).toContain(degree);
+          if (degree === 2) onLoop.push([x, y]);
+        }
+      expect(onLoop.length).toBeGreaterThanOrEqual(12);
+      // One cycle: everything on the loop is reachable from the first dot.
+      const seen = new Set<string>([onLoop[0].join(',')]),
+        queue = [onLoop[0]];
+      for (let i = 0; i < queue.length; i++)
+        for (const next of links(queue[i][0], queue[i][1]))
+          if (!seen.has(next.join(','))) {
+            seen.add(next.join(','));
+            queue.push(next);
+          }
+      expect(seen.size).toBe(onLoop.length);
+      const goesStraight = (x: number, y: number): boolean => {
+        const [a, b] = links(x, y);
+        return a[0] + b[0] === 2 * x && a[1] + b[1] === 2 * y;
+      };
+      // Pearls are read at the dot: a ring at the pearl radius shows on the diagonal, a dark centre means black.
+      let white = 0,
+        black = 0;
+      for (const [x, y] of onLoop) {
+        const diagonal = (r: number): boolean =>
+          [-1, 1].every((sx) =>
+            [-1, 1].every(
+              (sy) =>
+                tone(
+                  dotU(x) + (sx * r) / Math.SQRT2,
+                  dotU(y) + (sy * r) / Math.SQRT2,
+                ) < 0.5,
+            ),
+          );
+        if (!diagonal(p.pearlRadius * 0.999)) continue;
+        const around = links(x, y);
+        if (diagonal(p.pearlRadius * 0.45)) {
+          black++;
+          // Black: the loop turns here and goes straight through both neighbouring dots.
+          expect(goesStraight(x, y)).toBe(false);
+          for (const [nx, ny] of around)
+            expect(goesStraight(nx, ny)).toBe(true);
+        } else {
+          white++;
+          // White: the loop goes straight here and turns at one or both neighbouring dots.
+          expect(goesStraight(x, y)).toBe(true);
+          expect(around.some(([nx, ny]) => !goesStraight(nx, ny))).toBe(true);
+        }
+      }
+      expect(white + black).toBeGreaterThanOrEqual(p.minPearls);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('masyupearls', 0),
+      b = createSurfaceSampler('masyupearls', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

@@ -26582,6 +26582,176 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'masyupearls': {
+        const p = proceduralMaterialPresets.masyupearls,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2ab01),
+          n = p.size,
+          dots = n + 1,
+          side = 1 - 2 * p.margin,
+          cell = side / n,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          region = new Uint8Array(n * n),
+          pearls = new Uint8Array(dots * dots),
+          inRegion = (x: number, y: number): number =>
+            x >= 0 && x < n && y >= 0 && y < n ? region[y * n + x] : 0,
+          horizontal = (x: number, y: number): boolean =>
+            inRegion(x, y - 1) !== inRegion(x, y),
+          vertical = (x: number, y: number): boolean =>
+            inRegion(x - 1, y) !== inRegion(x, y),
+          // The dots joined to dot (x, y) by a loop edge.
+          linked = (x: number, y: number): number[] => {
+            const list: number[] = [];
+            if (x < n && horizontal(x, y)) list.push(y * dots + x + 1);
+            if (x > 0 && horizontal(x - 1, y)) list.push(y * dots + x - 1);
+            if (y < n && vertical(x, y)) list.push((y + 1) * dots + x);
+            if (y > 0 && vertical(x, y - 1)) list.push((y - 1) * dots + x);
+            return list;
+          },
+          degreeOf = (dot: number): number[] =>
+            linked(dot % dots, Math.floor(dot / dots)),
+          // A dot where the loop goes straight (its two neighbours are opposite) or turns.
+          straight = (dot: number): boolean => {
+            const [a, b] = degreeOf(dot);
+            return a + b === 2 * dot;
+          },
+          singleLoop = (): boolean => {
+            let total = 0,
+              start = -1;
+            for (let dot = 0; dot < dots * dots; dot++) {
+              const degree = degreeOf(dot).length;
+              if (degree !== 0 && degree !== 2) return false;
+              if (degree === 2) {
+                total++;
+                if (start < 0) start = dot;
+              }
+            }
+            if (start < 0) return false;
+            let previous = -1,
+              current = start,
+              visited = 0;
+            do {
+              const next = degreeOf(current),
+                forward =
+                  next.find((candidate) => candidate !== previous) ?? next[0];
+              previous = current;
+              current = forward;
+              visited++;
+            } while (current !== start && visited <= total);
+            return visited === total;
+          };
+        // The loop is the outline of a randomly grown region, as in the Slitherlink material.
+        for (let attempt = 0; attempt < p.attempts; attempt++) {
+          region.fill(0);
+          region[
+            Math.min(
+              n * n - 1,
+              Math.floor(hash(attempt, 1, seed ^ 0x2ab03) * n * n),
+            )
+          ] = 1;
+          let count = 1;
+          const target = Math.round(p.fill * n * n);
+          for (let move = 0; move < 400 && count < target; move++) {
+            const index = Math.min(
+                n * n - 1,
+                Math.floor(
+                  hash(attempt * 1000 + move, 2, seed ^ 0x2ab05) * n * n,
+                ),
+              ),
+              x = index % n,
+              y = Math.floor(index / n);
+            if (
+              region[index] === 1 ||
+              inRegion(x + 1, y) +
+                inRegion(x - 1, y) +
+                inRegion(x, y + 1) +
+                inRegion(x, y - 1) ===
+                0
+            )
+              continue;
+            region[index] = 1;
+            count++;
+          }
+          if (singleLoop()) break;
+        }
+        // Pearls on loop dots by the Masyu rules: a white pearl where the loop goes straight and turns at
+        // least once on the next dot on either side; a black pearl where it turns and goes straight for at
+        // least one dot beyond on both arms. A seeded share of the eligible dots gets one (at least a few).
+        const eligible: { dot: number; kind: number; key: number }[] = [];
+        for (let dot = 0; dot < dots * dots; dot++) {
+          const around = degreeOf(dot);
+          if (around.length !== 2) continue;
+          const key = hash(dot, 9, seed ^ 0x2ab07);
+          if (straight(dot)) {
+            if (around.some((next) => !straight(next)))
+              eligible.push({ dot, kind: 1, key });
+          } else if (around.every((next) => straight(next)))
+            eligible.push({ dot, kind: 2, key });
+        }
+        eligible.sort((x, y) => x.key - y.key);
+        for (const { dot, kind } of eligible.slice(
+          0,
+          Math.max(p.minPearls, Math.round(p.pearlChance * eligible.length)),
+        ))
+          pearls[dot] = kind;
+        return () => {
+          const lx = u - p.margin,
+            ly = v - p.margin,
+            dotX = Math.round(lx / cell),
+            dotY = Math.round(ly / cell),
+            ox = lx - dotX * cell,
+            oy = ly - dotY * cell;
+          let loop = 0,
+            dot = 0,
+            pearl = 0,
+            ring = 0,
+            kind = 0;
+          if (dotX >= 0 && dotX <= n && dotY >= 0 && dotY <= n) {
+            const half = p.loopHalf,
+              reach = cell / 2,
+              bar = (along: number, across: number): number =>
+                Math.min(
+                  cover(half - Math.abs(across)),
+                  cover(along + half),
+                  cover(reach + half - along),
+                );
+            if (dotX < n && horizontal(dotX, dotY))
+              loop = Math.max(loop, bar(ox, oy));
+            if (dotX > 0 && horizontal(dotX - 1, dotY))
+              loop = Math.max(loop, bar(-ox, oy));
+            if (dotY < n && vertical(dotX, dotY))
+              loop = Math.max(loop, bar(oy, ox));
+            if (dotY > 0 && vertical(dotX, dotY - 1))
+              loop = Math.max(loop, bar(-oy, ox));
+            const radius = Math.hypot(ox, oy);
+            dot = cover(p.dotRadius - radius);
+            kind = pearls[dotY * dots + dotX];
+            if (kind !== 0) {
+              pearl = cover(p.pearlRadius - radius);
+              ring = cover(p.ringHalf - Math.abs(radius - p.pearlRadius));
+            }
+          }
+          let tone: number = p.paperTone + (p.dotTone - p.paperTone) * dot,
+            level: number = p.paperHeight + (p.dotHeight - p.paperHeight) * dot;
+          tone += (p.loopTone - tone) * loop;
+          level += (p.loopHeight - level) * loop;
+          if (kind === 1) {
+            tone += (p.whiteTone - tone) * pearl;
+            level += (p.whiteHeight - level) * pearl;
+          } else if (kind === 2) {
+            tone += (p.blackTone - tone) * pearl;
+            level += (p.blackHeight - level) * pearl;
+          }
+          tone += (p.loopTone - tone) * ring;
+          color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(level);
+          roughness =
+            p.paperRoughness +
+            (p.pearlRoughness - p.paperRoughness) * Math.max(pearl, 0);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -54111,6 +54281,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'masyupearls' ||
     kind === 'slitherlinkloop' ||
     kind === 'hashibridges' ||
     kind === 'kakuropuzzle' ||
