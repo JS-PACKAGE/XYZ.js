@@ -12123,3 +12123,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 完整suite（工具實跑，worktree `/private/tmp/xyz-ct-suite`於`0d663c285`「Add Turing maze material」）：**179檔／9,912項全數通過**，Duration 1422.66s。涵蓋`704c7ca63`之後的spectrogram、jade、cheetahfur（含`latticeField`／`grayScott`與`cachedNoise`改為呼叫`latticeField`）與turingmaze；**petricolonies與hestain只有定向測試與gates，沒有完整suite**。
 - 瀏覽器gallery（工具實跑）：補做`jade`、`cheetahfur`、`turingmaze`、`petricolonies`、`hestain`五個材質的`/examples/pbr3d/`檢查——spawned Google Chrome headless（`--enable-unsafe-webgpu --use-angle=metal`）開啟vite dev server（服務`efd0d3337`狀態的乾淨worktree）上的範例頁，逐一以`#material`的`input`事件選取並等待讀數更新；WebGPU與`?renderer=webgl2`各跑一次，結束時`tab.errors()`的`entries`皆為0筆（dropped 0）；狀態列顯示`953 procedural material presets + plain`。四個反應擴散材質在選取時各多花約0.2秒的sampler建構，本次沒有量測主執行緒阻塞時間，只確認讀數更新、沒有console錯誤。
 - 限制：gallery檢查只涵蓋「能選取、讀數更新、console沒有錯誤」，**沒有**逐材質視覺比對，也沒有跨瀏覽器、跨GPU或Windows／Linux驗證；不push。
+
+## 2026-11-02 新增材質：鯖魚（mackerel）
+
+- 範圍：新增`mackerel`（目前目錄953→954種，含plain的gallery 955項）：藍綠色魚背上的深藍色波浪帶——相位`12·v + 0.3·sin(2π·3·u) + 0.9·(7×7雜訊 − 0.5)`（整數條帶、整數週期正弦、週期雜訊，維持週期），帶為`0.5 + 0.5·tanh(4·(cos(2π·phase) − 0.25)/0.75)`（C∞）乘以11×11雜訊的斷帶閘門，另有7×7身體色調與110²鱗grain，帶處roughness＋0.12；預設0.3 m nominal tile、0.0008 UV-relative relief。作者示意，沒有引用特定來源、**沒有對照照片**。
+- 外觀限制與調整（誠實紀錄）：預覽第一版（14條帶、6週期、扭曲0.55）太規則、像水波；扭曲加到1.3會產生模糊的深色塊（相位在局部出現反轉，我看預覽判斷為過度扭曲），退到0.9並把斷帶銳度設為12、門檻0.4後採用。成品仍然像水波或虎斑、不像魚皮，沒有銀白腹部、背腹漸層與魚鱗；這是已知的外觀不足，沒有再調。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：帶（color<0.35）占23.8%–27.1%（512²取樣）、color 0.0776–0.0825至0.7334–0.7354、平均0.510–0.524、roughness 0.30–0.42、height至多0.9964–0.9986 relief；沿v與沿u的明暗轉換比256²為2.46–2.70；seed 0與1的帶遮罩34.9%像素不同；seed 7的512²maps平均r／g／b約(96.0, 120.1, 134.6)、法線tilt²最大約0.0155、z分量最小254。
+- 測試：新增7項專屬測試（三seed統計、seed差異與決定性、沿v堆疊的各向異性、C1＋有符號UV週期、actual512 maps）通過；各向異性比例區間是以目前參數的探針值設定，參數改動需重新量測。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Mackerel as|mackerel|kinds|catalog|distinct|periodic"`定向測試**2213項通過／3792項未選**。
+- 未驗證：mackerel未跑完整suite與瀏覽器gallery（petricolonies、hestain完整suite亦未做）；不push。

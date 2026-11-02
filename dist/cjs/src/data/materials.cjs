@@ -21900,6 +21900,40 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: .4,
 		nucleusRoughness: .1
 	}),
+	mackerel: Object.freeze({
+		dark: [
+			8,
+			30,
+			56
+		],
+		light: [
+			176,
+			202,
+			206
+		],
+		roughness: .3,
+		relief: 8e-4,
+		seedSalt: 15052,
+		bands: 12,
+		waveCycles: 3,
+		waveAmplitude: .3,
+		wobbleCells: 7,
+		wobbleAmplitude: .9,
+		cutoff: .25,
+		sharpness: 4,
+		breakCells: 11,
+		breakLevel: .4,
+		breakSharpness: 12,
+		scaleCells: 110,
+		baseTone: .66,
+		bodyCells: 7,
+		bodyTone: .1,
+		scaleTone: .06,
+		bandTone: .52,
+		bandHeight: .4,
+		scaleHeight: .6,
+		bandRoughness: .12
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -23350,7 +23384,8 @@ var proceduralTileMeters = Object.freeze({
 	cheetahfur: .25,
 	turingmaze: .3,
 	petricolonies: .12,
-	hestain: .05
+	hestain: .05,
+	mackerel: .3
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

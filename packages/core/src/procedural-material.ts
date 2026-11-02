@@ -968,7 +968,8 @@ export type ProceduralMaterialKind =
   | 'cheetahfur'
   | 'turingmaze'
   | 'petricolonies'
-  | 'hestain';
+  | 'hestain'
+  | 'mackerel';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2171,6 +2172,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'turingmaze',
   'petricolonies',
   'hestain',
+  'mackerel',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

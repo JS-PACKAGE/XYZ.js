@@ -39470,6 +39470,60 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'mackerel': {
+        const p = proceduralMaterialPresets.mackerel,
+          wobbleField = cachedNoise(
+            p.wobbleCells,
+            p.wobbleCells,
+            seed ^ p.seedSalt,
+          ),
+          breakField = cachedNoise(
+            p.breakCells,
+            p.breakCells,
+            seed ^ (p.seedSalt + 1),
+          ),
+          bodyField = cachedNoise(
+            p.bodyCells,
+            p.bodyCells,
+            seed ^ (p.seedSalt + 2),
+          ),
+          scaleField = cachedNoise(
+            p.scaleCells,
+            p.scaleCells,
+            seed ^ (p.seedSalt + 3),
+          );
+        return () => {
+          // Wavy dark bands across the back: the phase is an integer number of bands
+          // along v plus an integer-cycle sine along u and a periodic noise wobble, so
+          // it stays periodic; the band is a smooth tanh cut of cos(2 pi phase), and a
+          // second noise field breaks bands up through a smooth tanh gate.
+          const phase =
+              p.bands * v +
+              p.waveAmplitude * Math.sin(TAU * p.waveCycles * u) +
+              p.wobbleAmplitude * (wobbleField(u, v) - 0.5),
+            cut =
+              0.5 +
+              0.5 *
+                Math.tanh(
+                  (p.sharpness * (Math.cos(TAU * phase) - p.cutoff)) /
+                    (1 - p.cutoff),
+                ),
+            gate =
+              0.5 +
+              0.5 *
+                Math.tanh(p.breakSharpness * (breakField(u, v) - p.breakLevel)),
+            band = cut * gate,
+            scale = scaleField(u, v);
+          color =
+            p.baseTone +
+            p.bodyTone * (bodyField(u, v) - 0.5) +
+            p.scaleTone * (scale - 0.5) -
+            p.bandTone * band;
+          height = p.bandHeight * band + p.scaleHeight * scale;
+          roughness += p.bandRoughness * band;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -47231,6 +47285,7 @@ export function createSurfaceSampler(
     kind === 'turingmaze' ||
     kind === 'petricolonies' ||
     kind === 'hestain' ||
+    kind === 'mackerel' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

@@ -13572,6 +13572,32 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.4;
         nucleusRoughness: 0.1;
     }>;
+    mackerel: Readonly<{
+        dark: readonly [8, 30, 56];
+        light: readonly [176, 202, 206];
+        roughness: 0.3;
+        relief: 0.0008;
+        seedSalt: 15052;
+        bands: 12;
+        waveCycles: 3;
+        waveAmplitude: 0.3;
+        wobbleCells: 7;
+        wobbleAmplitude: 0.9;
+        cutoff: 0.25;
+        sharpness: 4;
+        breakCells: 11;
+        breakLevel: 0.4;
+        breakSharpness: 12;
+        scaleCells: 110;
+        baseTone: 0.66;
+        bodyCells: 7;
+        bodyTone: 0.1;
+        scaleTone: 0.06;
+        bandTone: 0.52;
+        bandHeight: 0.4;
+        scaleHeight: 0.6;
+        bandRoughness: 0.12;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -14904,4 +14930,5 @@ export declare const proceduralTileMeters: Readonly<{
     turingmaze: 0.3;
     petricolonies: 0.12;
     hestain: 0.05;
+    mackerel: 0.3;
 }>;
