@@ -1000,7 +1000,8 @@ export type ProceduralMaterialKind =
   | 'paleytable'
   | 'xortable'
   | 'abundantnumbers'
-  | 'mobiustable';
+  | 'mobiustable'
+  | 'pisanotable';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2235,6 +2236,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'xortable',
   'abundantnumbers',
   'mobiustable',
+  'pisanotable',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

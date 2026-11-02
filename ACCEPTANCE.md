@@ -12456,3 +12456,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試（904／699／701的分類個數、逐磚比對與唯一平移、統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Mobius table as|mobiustable|kinds|catalog|distinct|periodic"`定向測試**2272項通過／3895項未選**。
 - 未驗證：levycurve、hadamardmatrix、paleytable、xortable、abundantnumbers、mobiustable未跑瀏覽器gallery；abundantnumbers、mobiustable未跑完整suite；不push。
+
+## 2026-11-02 新增材質：皮薩諾週期表（pisanotable）
+
+- 範圍：新增`pisanotable`（目前目錄985→986種，含plain的gallery 987項）：48×48個圓角方塊磚，第n格（`n = row × 48 + col + 1`，1到2304）色調為`0.14 + 0.7·(π(n)/6n)^0.5`（`π(n)`為費波那契數列模`n`的皮薩諾週期；只有`n = 10、50、250、1250`達到上界`6n`）；seed沿環面平移整張表；磚縫AO 0.6；roughness恆為0.4；預設0.3 m nominal tile、0.0008 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**；預覽上整體偏中間色調、近似雜訊。
+- 調整紀錄（誠實紀錄）：指數0.5是預先挑的，沒有比較其他指數；relief沿用0.0008，512²maps法線tilt²最大0.0280；seed差異測試只斷言「超過20%的格子色調差超過0.05」，**沒有量測實際比例**；建構時每個`n`逐步產生數對（最多6n步），**未量測建構時間**。我第一次寫的測試註解有一段語意不通的文字（「exactly 2, 10, 50, 250 and 1250 times...」），在測試執行前就改正了。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：256²取樣亮處（color>0.5）占11.48%–11.56%、color 0.0257–0.0258至0.8505–0.8537、平均0.2850–0.2854、AO最低0.6、height至多0.8312–0.8380 relief（seed 0／1／0xffffffff）；512²取樣亮處占11.38%–11.55%、color 0.0252–0.0255至0.8526–0.8540、平均0.2853–0.2859、AO最低0.6、height至多0.8349–0.8448 relief；2,304個磚中心的顏色與測試中獨立以數對產生法寫出的週期表在唯一一個環面平移下一致（(41, 2)、(9, 30)、(12, 32)、(22, 22)；最大誤差約0.0149–0.0150）；seed 0與1的亮區遮罩（512²）19.3%像素不同；seed 7的512²maps平均r／g／b約(91.3, 48.5, 41.4)、法線tilt²最大約0.0280、z分量最小253。我實看了預覽（seed 7）。
+- 測試：新增5項專屬測試（開頭12個週期與達到上界6n的n、逐磚比對與唯一平移、統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps）通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Pisano table as|pisanotable|kinds|catalog|distinct|periodic"`定向測試**2274項通過／3898項未選**。
+- 未驗證：pisanotable未跑完整suite與瀏覽器gallery；不push。
