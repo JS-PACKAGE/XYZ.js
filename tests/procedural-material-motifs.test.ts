@@ -21417,3 +21417,145 @@ describe('primefactors: integers written as products of primes', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('baseconversion: one number in four bases', () => {
+  const p = proceduralMaterialPresets.baseconversion;
+  const shapes: Record<string, string[]> = {
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    '2': ['###', '..#', '###', '#..', '###'],
+    '3': ['###', '..#', '###', '..#', '###'],
+    '4': ['#.#', '#.#', '###', '..#', '..#'],
+    '5': ['###', '#..', '###', '..#', '###'],
+    '6': ['###', '#..', '###', '#.#', '###'],
+    '7': ['###', '..#', '.#.', '.#.', '.#.'],
+    '8': ['###', '#.#', '###', '#.#', '###'],
+    '9': ['###', '#.#', '###', '..#', '###'],
+    A: ['.#.', '#.#', '###', '#.#', '#.#'],
+    B: ['##.', '#.#', '##.', '#.#', '##.'],
+    C: ['.##', '#..', '#..', '#..', '.##'],
+    D: ['##.', '#.#', '#.#', '#.#', '##.'],
+    E: ['###', '#..', '##.', '#..', '###'],
+    F: ['###', '#..', '##.', '#..', '#..'],
+  };
+  const edges = [
+    p.left,
+    ...p.widths.map(
+      (_, i) =>
+        p.left +
+        p.widths.slice(0, i + 1).reduce((sum, width) => sum + width, 0),
+    ),
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'writes each number in decimal, binary, octal and hexadecimal (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('baseconversion', seed),
+        out = empty(),
+        rowTop = (row: number): number => p.top + row * p.rowPitch,
+        colorAt = (u: number, row: number, k: number): number => {
+          sample(
+            u,
+            rowTop(row) +
+              p.rowPitch * (0.5 + ((k - 2) * p.digitPixel) / p.rowPitch),
+            out,
+          );
+          return out.color;
+        },
+        readCell = (row: number, column: number): string => {
+          const start = edges[column] + p.indent,
+            background = (() => {
+              sample(edges[column] + 0.003, rowTop(row) + 0.004, out);
+              return out.color;
+            })(),
+            dark = (x: number, k: number): boolean =>
+              Math.abs(
+                colorAt(start + (x + 0.5) * p.digitPixel, row, k) - background,
+              ) > 0.25;
+          let text = '';
+          for (let slot = 0; slot < 12; slot++) {
+            const lines = [0, 1, 2, 3, 4].map((k) =>
+              [0, 1, 2]
+                .map((x) => (dark(4 * slot + x, k) ? '#' : '.'))
+                .join(''),
+            );
+            if (lines.every((line) => line === '...')) break;
+            const found = Object.entries(shapes).find(([, shape]) =>
+              shape.every((line, i) => line === lines[i]),
+            );
+            expect(found).toBeDefined();
+            text += (found as [string, string[]])[0];
+          }
+          return text;
+        };
+      const numbers: number[] = [];
+      for (let row = 0; row < p.rows; row++) {
+        const [decimal, binary, octal, hexadecimal] = [0, 1, 2, 3].map(
+            (column) => readCell(row, column),
+          ),
+          n = Number(decimal);
+        expect(binary).toHaveLength(8);
+        expect(octal).toHaveLength(3);
+        expect(hexadecimal).toHaveLength(2);
+        // Each text is read back with the digit value of its own base, independent of toString(base).
+        const value = (text: string, base: number): number =>
+          [...text].reduce(
+            (total, digit) => total * base + '0123456789ABCDEF'.indexOf(digit),
+            0,
+          );
+        expect(value(binary, 2)).toBe(n);
+        expect(value(octal, 8)).toBe(n);
+        expect(value(hexadecimal, 16)).toBe(n);
+        expect(/^[01]+$/.test(binary)).toBe(true);
+        expect(/^[0-7]+$/.test(octal)).toBe(true);
+        // Hexadecimal cells that contain a letter are shaded darker than the row's own tone.
+        sample(edges[3] + 0.003, rowTop(row) + 0.004, out);
+        const rowTone = row % 2 === 1 ? p.stripeTone : p.paperTone;
+        expect(out.color).toBeCloseTo(
+          /[A-F]/.test(hexadecimal) ? p.letterTone : rowTone,
+          1,
+        );
+        numbers.push(n);
+      }
+      expect(numbers).toEqual([...numbers].sort((a, b) => a - b));
+      expect(new Set(numbers).size).toBe(p.rows);
+      expect(Math.max(...numbers)).toBeLessThanOrEqual(p.highest);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('baseconversion', 0),
+      b = createSurfaceSampler('baseconversion', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

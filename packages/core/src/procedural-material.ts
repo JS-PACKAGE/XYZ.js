@@ -648,6 +648,7 @@ export type ProceduralMaterialKind =
   | 'dcbarreljackfaces'
   | 'stfiberadapterfaces'
   | 'to92packagefaces'
+  | 'baseconversion'
   | 'primefactors'
   | 'modularpowers'
   | 'burningship'
@@ -1949,6 +1950,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'dcbarreljackfaces',
   'stfiberadapterfaces',
   'to92packagefaces',
+  'baseconversion',
   'primefactors',
   'modularpowers',
   'burningship',
