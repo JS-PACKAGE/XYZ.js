@@ -1865,6 +1865,10 @@
 
 這是作者設計的示意：固定8×8、最多三位數；沒有標示欄列的座標與公式；Cantor的最大值是3位數，其他兩種最多2位數，所以字會有不同寬度（置中）；點陣字是3×5字形。預設0.8 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`hexdumprows`（十六進位傾印列）使目前目錄1076→1077種，含plain的gallery為1078項。每tile有14列隨機位元組的傾印：每列是兩位十六進位的位移、六個位元組（各兩位十六進位）與同樣六個位元組對應的文字，例如「3C 51 45 12 58 0F 55 QE.X.U」；位移每列增加6（對256取餘），起始位移由seed決定且是6的倍數。可顯示的位元組取自 A–Z、0–9 與空白（ASCII 0x41–0x5A、0x30–0x39、0x20）；約14%的位元組是控制碼（0x00–0x1F），文字欄顯示為「.」。奇數列有淡淡的底色條。Metallic與mortar為0。
+
+這是作者設計的示意：位元組是隨機產生的，不是真實檔案；可顯示的只限大寫字母、數字與空白，沒有小寫字母或標點；位移固定為兩位十六進位（超過255會回繞）；點陣字是3×5字形，在小尺寸下0與O、8與B可能不易分辨。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

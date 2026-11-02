@@ -25147,3 +25147,182 @@ describe('pairingtables: Cantor, Szudzik and Morton pairing tables', () => {
     expect(different).toBeGreaterThan(0);
   });
 });
+
+describe('hexdumprows: offsets, bytes in hex and the same bytes as text', () => {
+  const p = proceduralMaterialPresets.hexdumprows;
+  // Glyphs as '#' and '.' rows (digits, A to Z, and a dot at the bottom centre).
+  const shapes: Record<string, string[]> = {
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    '2': ['###', '..#', '###', '#..', '###'],
+    '3': ['###', '..#', '###', '..#', '###'],
+    '4': ['#.#', '#.#', '###', '..#', '..#'],
+    '5': ['###', '#..', '###', '..#', '###'],
+    '6': ['###', '#..', '###', '#.#', '###'],
+    '7': ['###', '..#', '.#.', '.#.', '.#.'],
+    '8': ['###', '#.#', '###', '#.#', '###'],
+    '9': ['###', '#.#', '###', '..#', '###'],
+    A: ['.#.', '#.#', '###', '#.#', '#.#'],
+    B: ['##.', '#.#', '##.', '#.#', '##.'],
+    C: ['.##', '#..', '#..', '#..', '.##'],
+    D: ['##.', '#.#', '#.#', '#.#', '##.'],
+    E: ['###', '#..', '##.', '#..', '###'],
+    F: ['###', '#..', '##.', '#..', '#..'],
+    G: ['.##', '#..', '#.#', '#.#', '.##'],
+    H: ['#.#', '#.#', '###', '#.#', '#.#'],
+    I: ['###', '.#.', '.#.', '.#.', '###'],
+    J: ['..#', '..#', '..#', '#.#', '.#.'],
+    K: ['#.#', '#.#', '##.', '#.#', '#.#'],
+    L: ['#..', '#..', '#..', '#..', '###'],
+    M: ['#.#', '###', '###', '#.#', '#.#'],
+    N: ['##.', '#.#', '#.#', '#.#', '#.#'],
+    O: ['.#.', '#.#', '#.#', '#.#', '.#.'],
+    P: ['##.', '#.#', '##.', '#..', '#..'],
+    Q: ['.#.', '#.#', '#.#', '###', '.##'],
+    R: ['##.', '#.#', '##.', '#.#', '#.#'],
+    S: ['.##', '#..', '.#.', '..#', '##.'],
+    T: ['###', '.#.', '.#.', '.#.', '.#.'],
+    U: ['#.#', '#.#', '#.#', '#.#', '###'],
+    V: ['#.#', '#.#', '#.#', '#.#', '.#.'],
+    W: ['#.#', '#.#', '###', '###', '#.#'],
+    X: ['#.#', '#.#', '.#.', '#.#', '#.#'],
+    Y: ['#.#', '#.#', '.#.', '.#.', '.#.'],
+    Z: ['###', '..#', '.#.', '#..', '###'],
+    '.': ['...', '...', '...', '...', '.#.'],
+  };
+  const printable = new Set(
+    [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 '].map((character) =>
+      character.charCodeAt(0),
+    ),
+  );
+
+  const decode = (seed: number): string[] => {
+    const sample = createSurfaceSampler('hexdumprows', seed),
+      out = empty(),
+      colorAt = (u: number, v: number): number => {
+        sample(u, v, out);
+        return out.color;
+      };
+    return Array.from({ length: p.rows }, (_, row) => {
+      const centre = p.top + (row + 0.5) * p.rowPitch;
+      let text = '';
+      for (let slot = 0; slot < 27; slot++) {
+        const lines = [0, 1, 2, 3, 4].map((k) =>
+          [0, 1, 2]
+            .map((x) =>
+              colorAt(
+                p.left + (4 * slot + x + 0.5) * p.pixel,
+                centre + (k - 2) * p.pixel,
+              ) < 0.3
+                ? '#'
+                : '.',
+            )
+            .join(''),
+        );
+        if (lines.every((line) => line === '...')) text += ' ';
+        else {
+          const found = Object.entries(shapes).find(([, shape]) =>
+            shape.every((line, i) => line === lines[i]),
+          );
+          expect(found).toBeDefined();
+          text += (found as [string, string[]])[0];
+        }
+      }
+      // Nothing is written after the 27th character.
+      for (let k = 0; k < 5; k++)
+        expect(
+          colorAt(
+            p.left + (4 * 27 + 1.5) * p.pixel,
+            centre + (k - 2) * p.pixel,
+          ),
+        ).toBeGreaterThan(0.8);
+      return text;
+    });
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'writes each row as offset, six hex bytes and the matching text (seed %i)',
+    (seed) => {
+      const rows = decode(seed);
+      rows.forEach((text, row) => {
+        // Offset (2 hex digits), then six bytes (2 hex digits each) separated by single spaces, a space, and six characters.
+        expect(text).toMatch(/^[0-9A-F]{2} ([0-9A-F]{2} ){5}[0-9A-F]{2} .{6}$/);
+        const offset = parseInt(text.slice(0, 2), 16),
+          bytes = text
+            .slice(3, 20)
+            .split(' ')
+            .map((hex) => parseInt(hex, 16));
+        expect(offset).toBe(
+          (parseInt(rows[0].slice(0, 2), 16) + 6 * row) % 256,
+        );
+        expect(bytes).toHaveLength(6);
+        bytes.forEach((byte, i) => {
+          const shown = text[21 + i];
+          if (byte < 32) {
+            // A control code is shown as a dot.
+            expect(shown).toBe('.');
+          } else {
+            expect(printable.has(byte)).toBe(true);
+            expect(shown).toBe(String.fromCharCode(byte));
+          }
+        });
+      });
+      // Offsets start at a multiple of 6.
+      expect(parseInt(rows[0].slice(0, 2), 16) % 6).toBe(0);
+    },
+  );
+
+  it('shows about 14 percent control codes and varied starting offsets across seeds', () => {
+    let controls = 0,
+      total = 0;
+    const starts = new Set<number>();
+    for (let seed = 0; seed < 30; seed++) {
+      const rows = decode(seed);
+      starts.add(parseInt(rows[0].slice(0, 2), 16));
+      for (const text of rows)
+        for (const hex of text.slice(3, 20).split(' ')) {
+          total++;
+          controls += Number(parseInt(hex, 16) < 32);
+        }
+    }
+    expect(controls / total).toBeGreaterThan(p.controlShare - 0.05);
+    expect(controls / total).toBeLessThan(p.controlShare + 0.05);
+    expect(starts.size).toBeGreaterThan(15);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('hexdumprows', 0),
+      b = createSurfaceSampler('hexdumprows', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

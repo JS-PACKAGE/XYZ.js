@@ -35102,6 +35102,117 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'hexdumprows': {
+        const p = proceduralMaterialPresets.hexdumprows,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2ff01),
+          // A 3 x 5 font, rows from the top: the digits, A to Z and a dot.
+          font: Record<string, string> = {
+            '0': '111101101101111',
+            '1': '010110010010111',
+            '2': '111001111100111',
+            '3': '111001111001111',
+            '4': '101101111001001',
+            '5': '111100111001111',
+            '6': '111100111101111',
+            '7': '111001010010010',
+            '8': '111101111101111',
+            '9': '111101111001111',
+            A: '010101111101101',
+            B: '110101110101110',
+            C: '011100100100011',
+            D: '110101101101110',
+            E: '111100110100111',
+            F: '111100110100100',
+            G: '011100101101011',
+            H: '101101111101101',
+            I: '111010010010111',
+            J: '001001001101010',
+            K: '101101110101101',
+            L: '100100100100111',
+            M: '101111111101101',
+            N: '110101101101101',
+            O: '010101101101010',
+            P: '110101110100100',
+            Q: '010101101111011',
+            R: '110101110101101',
+            S: '011100010001110',
+            T: '111010010010010',
+            U: '101101101101111',
+            V: '101101101101010',
+            W: '101101111111101',
+            X: '101101010101101',
+            Y: '101101010010010',
+            Z: '111001010100111',
+            '.': '000000000000010',
+          },
+          printable = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ',
+          hex = (value: number): string =>
+            value.toString(16).toUpperCase().padStart(2, '0'),
+          base = Math.floor(hash(9, 1, seed ^ 0x2ff02) * 40) * 6,
+          // Each row: its offset, six bytes in hex and the same bytes as text (a dot for the control codes).
+          texts = Array.from({ length: p.rows }, (_, row) => {
+            const bytes = Array.from({ length: p.perRow }, (_, i) =>
+              hash(row, i, seed ^ 0x2ff03) < p.controlShare
+                ? Math.floor(hash(i, row, seed ^ 0x2ff04) * 32)
+                : printable.charCodeAt(
+                    Math.floor(
+                      hash(row, i + 16, seed ^ 0x2ff05) * printable.length,
+                    ),
+                  ),
+            );
+            return (
+              hex((base + p.perRow * row) % 256) +
+              ' ' +
+              bytes.map(hex).join(' ') +
+              ' ' +
+              bytes
+                .map((byte) => (byte < 32 ? '.' : String.fromCharCode(byte)))
+                .join('')
+            );
+          });
+        return () => {
+          const row = Math.floor((v - p.top) / p.rowPitch),
+            fy = (v - p.top) / p.rowPitch - row;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            glyph = 0;
+          if (row >= 0 && row < p.rows) {
+            const text = texts[row],
+              px = Math.floor((u - p.left) / p.pixel),
+              d = px >= 0 ? Math.floor(px / 4) : -1,
+              gx = px - 4 * d,
+              py = Math.floor(((fy - 0.5) * p.rowPitch) / p.pixel + 2.5);
+            if (
+              row % 2 === 1 &&
+              Math.abs(u - p.left - p.stripeWidth / 2) <
+                p.stripeWidth / 2 + p.stripeInset
+            ) {
+              tone = p.stripeTone;
+              level = p.stripeHeight;
+            }
+            if (
+              d >= 0 &&
+              d < text.length &&
+              gx >= 0 &&
+              gx < 3 &&
+              py >= 0 &&
+              py < 5 &&
+              text[d] !== ' ' &&
+              font[text[d]][py * 3 + gx] === '1'
+            )
+              glyph = 1;
+          }
+          color = clamp(
+            tone +
+              (p.inkTone - tone) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(level - p.inkDepth * glyph);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -62631,6 +62742,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'hexdumprows' ||
     kind === 'pairingtables' ||
     kind === 'ferrersdiagrams' ||
     kind === 'zeckendorfrows' ||
