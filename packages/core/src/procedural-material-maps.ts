@@ -33821,6 +33821,117 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'stemandleaf': {
+        const p = proceduralMaterialPresets.stemandleaf,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2f101),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          stems = p.lastStem - p.firstStem + 1,
+          // Values 10..99 as the rounded mean of two uniform draws scaled to the range (a triangular distribution).
+          values = Array.from({ length: p.count }, (_, i) =>
+            Math.min(
+              99,
+              10 +
+                Math.floor(
+                  (90 *
+                    (hash(i, 1, seed ^ 0x2f102) + hash(i, 2, seed ^ 0x2f102))) /
+                    2,
+                ),
+            ),
+          ).sort((a, b) => a - b),
+          median = values[(p.count - 1) / 2],
+          // The leaves of every stem, ascending; the median leaf is the one whose place in the sorted list is the middle one.
+          rows = Array.from({ length: stems }, (_, i) =>
+            values
+              .filter((value) => Math.floor(value / 10) === p.firstStem + i)
+              .map((value) => value % 10),
+          ),
+          medianStem = Math.floor(median / 10),
+          // Index of the median among the leaves of its own stem: the number of equal-or-smaller values before it in order.
+          medianLeaf =
+            (p.count - 1) / 2 -
+            values.findIndex((value) => Math.floor(value / 10) === medianStem);
+        return () => {
+          const row = Math.floor((v - p.top) / p.rowPitch),
+            fy = (v - p.top) / p.rowPitch - row;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            glyph = 0,
+            bar = 0;
+          if (row >= 0 && row < stems) {
+            const x = u - p.left,
+              stem = p.firstStem + row,
+              leaves = rows[row],
+              leafStart = p.stemWidth + p.leafGap,
+              leaf = Math.floor((x - leafStart) / p.leafPitch);
+            bar =
+              cover(p.barHalf - Math.abs(x - p.stemWidth)) *
+              cover(p.rowPitch / 2 - Math.abs(fy - 0.5) * p.rowPitch);
+            if (
+              stem === medianStem &&
+              leaf === medianLeaf &&
+              x >= leafStart &&
+              x < leafStart + leaves.length * p.leafPitch
+            ) {
+              tone = p.medianTone;
+              level = p.medianHeight;
+            }
+            const py = Math.floor(((fy - 0.5) * p.rowPitch) / p.pixel + 2.5);
+            if (py >= 0 && py < 5) {
+              // The stem digit, right-aligned against the bar, and the leaves after it.
+              const stemX = Math.floor(
+                  (x - (p.stemWidth - p.stemGap - 3 * p.pixel)) / p.pixel,
+                ),
+                leafX = Math.floor(
+                  (x - leafStart - 0.5 * (p.leafPitch - 3 * p.pixel)) / p.pixel,
+                ),
+                leafIndex =
+                  leafX >= 0 ? Math.floor(leafX / (p.leafPitch / p.pixel)) : -1,
+                inLeaf = leafX - leafIndex * Math.round(p.leafPitch / p.pixel);
+              if (
+                stemX >= 0 &&
+                stemX < 3 &&
+                glyphs[stem][py * 3 + stemX] === '1'
+              )
+                glyph = 1;
+              if (
+                leafIndex >= 0 &&
+                leafIndex < leaves.length &&
+                inLeaf >= 0 &&
+                inLeaf < 3 &&
+                glyphs[leaves[leafIndex]][py * 3 + inLeaf] === '1'
+              )
+                glyph = 1;
+            }
+          }
+          const base = tone + (p.barTone - tone) * bar;
+          color = clamp(
+            base +
+              (p.inkTone - base) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            level + (p.barHeight - level) * bar - p.inkDepth * glyph,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.inkRoughness - p.paperRoughness) * Math.max(glyph, bar);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -61350,6 +61461,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'stemandleaf' ||
     kind === 'boxplots' ||
     kind === 'sorobanabacus' ||
     kind === 'numberwords' ||

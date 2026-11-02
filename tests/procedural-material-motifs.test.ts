@@ -22983,3 +22983,147 @@ describe('boxplots: five-number summaries drawn above their data', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('stemandleaf: a stem-and-leaf plot with its median marked', () => {
+  const p = proceduralMaterialPresets.stemandleaf;
+  const digitShapes: string[][] = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+  const stems = p.lastStem - p.firstStem + 1;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'lists the leaves of every stem in order and marks the median value (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('stemandleaf', seed),
+        out = empty(),
+        colorAt = (u: number, v: number): number => {
+          sample(u, v, out);
+          return out.color;
+        },
+        // The digit whose 3 x 5 glyph starts at pixel column x0 of row `row`, or null when the slot is empty.
+        readDigit = (row: number, x0: number): number | null => {
+          const centre = p.top + (row + 0.5) * p.rowPitch,
+            lines = [0, 1, 2, 3, 4].map((k) =>
+              [0, 1, 2]
+                .map((j) =>
+                  colorAt(
+                    x0 + (j + 0.5) * p.pixel,
+                    centre + (k - 2) * p.pixel,
+                  ) < 0.3
+                    ? '#'
+                    : '.',
+                )
+                .join(''),
+            );
+          if (lines.every((line) => line === '...')) return null;
+          const found = digitShapes.findIndex((shape) =>
+            shape.every((line, i) => line === lines[i]),
+          );
+          expect(found).toBeGreaterThanOrEqual(0);
+          return found;
+        },
+        leafStart = p.left + p.stemWidth + p.leafGap,
+        values: number[] = [];
+      const marked: number[] = [];
+      for (let row = 0; row < stems; row++) {
+        const stem = readDigit(
+          row,
+          p.left + p.stemWidth - p.stemGap - 3 * p.pixel,
+        );
+        expect(stem).toBe(p.firstStem + row);
+        const leaves: number[] = [];
+        for (let k = 0; k < 20; k++) {
+          const leaf = readDigit(
+            row,
+            leafStart + 0.5 * (p.leafPitch - 3 * p.pixel) + k * p.leafPitch,
+          );
+          if (leaf === null) break;
+          leaves.push(leaf);
+          // The cell of the median leaf has a darker background, sampled at the top-left corner of the leaf's cell.
+          const tone = colorAt(
+            leafStart + k * p.leafPitch + 0.002,
+            p.top + row * p.rowPitch + 0.004,
+          );
+          if (tone < 0.85) marked.push(10 * (p.firstStem + row) + leaf);
+        }
+        expect(leaves).toEqual([...leaves].sort((a, b) => a - b));
+        for (const leaf of leaves) values.push(10 * (p.firstStem + row) + leaf);
+      }
+      expect(values).toHaveLength(p.count);
+      // The median of an odd number of sorted values is the middle one, and exactly that leaf is marked.
+      const sorted = [...values].sort((a, b) => a - b);
+      expect(marked).toEqual([sorted[(p.count - 1) / 2]]);
+      expect(Math.min(...values)).toBeGreaterThanOrEqual(10);
+      expect(Math.max(...values)).toBeLessThanOrEqual(99);
+    },
+  );
+
+  it('puts more leaves on the middle stems than on the outer ones across seeds', () => {
+    let outer = 0,
+      middle = 0;
+    for (let seed = 0; seed < 20; seed++) {
+      const sample = createSurfaceSampler('stemandleaf', seed),
+        out = empty();
+      for (let row = 0; row < stems; row++) {
+        const centre = p.top + (row + 0.5) * p.rowPitch,
+          // The row's ink to the right of the bar: more leaves, more dark samples.
+          ink = Array.from({ length: 200 }, (_, i) => {
+            sample(
+              p.left + p.stemWidth + p.leafGap + (i / 200) * 0.5,
+              centre + (((i * 7) % 5) - 2) * p.pixel,
+              out,
+            );
+            return out.color < 0.3 ? 1 : 0;
+          }).reduce((sum: number, value) => sum + value, 0);
+        if (row === 0 || row === stems - 1) outer += ink;
+        else if (row >= 3 && row <= 5) middle += ink;
+      }
+    }
+    expect(middle / 3).toBeGreaterThan(outer / 2);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('stemandleaf', 0),
+      b = createSurfaceSampler('stemandleaf', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

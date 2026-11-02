@@ -19062,6 +19062,45 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .74,
 		inkRoughness: .4
 	}),
+	stemandleaf: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		count: 29,
+		firstStem: 1,
+		lastStem: 9,
+		left: .06,
+		top: .045,
+		rowPitch: .1,
+		stemWidth: .09,
+		stemGap: .03,
+		leafGap: .02,
+		barHalf: .0016,
+		leafPitch: .034,
+		pixel: .0085,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		medianTone: .7,
+		barTone: .3,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .2,
+		medianHeight: .5,
+		barHeight: .7,
+		inkDepth: .06,
+		paperRoughness: .74,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -27743,6 +27782,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	stemandleaf: .5,
 	boxplots: .6,
 	sorobanabacus: .5,
 	numberwords: .5,
