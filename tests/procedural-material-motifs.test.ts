@@ -11873,3 +11873,106 @@ describe('knockoutbracket: every winner advances from one of the two boxes that 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('skyscraperpuzzles: the clues count the visible buildings of the solved grid', () => {
+  const p = proceduralMaterialPresets.skyscraperpuzzles;
+  const side = 0.5 - 2 * p.margin;
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+  // Buildings seen from the start of a line: how many are taller than everything before them.
+  const seen = (heights: number[]): number =>
+    heights.filter((height, i) =>
+      heights.slice(0, i).every((other) => other < height),
+    ).length;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'is a Latin square whose four-sided clues match the visible buildings (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('skyscraperpuzzles', seed),
+        out = empty();
+      for (let quadrant = 0; quadrant < 4; quadrant++) {
+        const n = p.orders[quadrant],
+          cells = n + 2,
+          cell = side / cells,
+          pixel = cell * p.digitFraction,
+          value = (row: number, col: number): number => {
+            const cx = (quadrant & 1) * 0.5 + p.margin + (col + 0.5) * cell,
+              cy = (quadrant >> 1) * 0.5 + p.margin + (row + 0.5) * cell,
+              bits: string[] = [];
+            for (let y = 0; y < 5; y++) {
+              let text = '';
+              for (let x = 0; x < 3; x++) {
+                sample(cx + (x - 1) * pixel, cy + (y - 2) * pixel, out);
+                text += out.color < 0.5 ? '#' : '.';
+              }
+              bits.push(text);
+            }
+            return art.findIndex((rows) =>
+              rows.every((text, i) => text === bits[i]),
+            );
+          },
+          grid: number[][] = [];
+        for (let r = 1; r <= n; r++)
+          grid.push(Array.from({ length: n }, (_, c) => value(r, c + 1)));
+        const heights = Array.from({ length: n }, (_, i) => i + 1);
+        for (let i = 0; i < n; i++) {
+          expect([...grid[i]].sort((a, b) => a - b)).toEqual(heights);
+          expect(grid.map((line) => line[i]).sort((a, b) => a - b)).toEqual(
+            heights,
+          );
+          const column = grid.map((line) => line[i]);
+          expect(value(0, i + 1)).toBe(seen(column));
+          expect(value(n + 1, i + 1)).toBe(seen([...column].reverse()));
+          expect(value(i + 1, 0)).toBe(seen(grid[i]));
+          expect(value(i + 1, n + 1)).toBe(seen([...grid[i]].reverse()));
+        }
+      }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('skyscraperpuzzles', 0),
+      b = createSurfaceSampler('skyscraperpuzzles', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

@@ -12096,3 +12096,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`七百二十三項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）：測試端依版面常數逐欄逐箱讀取點陣數字（單一字形讀取成功即單位數，沿用前面幾個材質修正後的判斷），第一輪16個號碼排序後必須恰為1至16，之後每一欄的每個勝者號碼必須是餵入它的兩個方框號碼之一，最後一欄恰一個方框；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "knockoutbracket|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 效能：512×512單次建立約117 ms（Bun、單次量測；每像素要迴圈檢查四欄連線），未最佳化。
 - 真實dev server的pbr3d頁（WebGPU）選取`knockoutbracket`：option 982個、status為981 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的賽程樹。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：摩天樓謎題（skyscraperpuzzles）
+
+- 目錄981→982，含plain的gallery為983項。每tile 2×2題已解開的摩天樓謎題（4、5、6、7階）：中央n×n格是樓高（點陣數字，每列每欄1至n各一次），四周是從各側看進去可見樓數的線索；解由循環拉丁方經列、欄、符號置換而得。Metallic／mortar為0，預設tile0.4 m、0.004 UV-relative relief、metallic factor 0。顯示答案加全部線索；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 設計記錄：第一版內部格線與外框的程式是四條各自拼湊的`gridEdge`運算，冗長難讀；看圖確認排版正確後，在送交verify前改成「到內部方形邊界的距離」一個式子。
+- 實測：`tests/procedural-material-motifs.test.ts`七百三十三項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）× 四題：測試端由點陣逐格讀取全部`(n+2)²`格的數字（角落不讀），中央每列每欄排序後必須恰為1至n；上、下、左、右四側的線索必須分別等於測試端另寫的「嚴格遞增的前綴最大值個數」（過濾出比前面所有樓都高的樓）對該列／欄由該側起算的值；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "skyscraperpuzzles|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 完整套件：另一個在`git archive`匯出的primesieve提交上的完整套件於背景執行，結果見後續進度紀錄；本材質尚不在其範圍內。
+- 真實dev server的pbr3d頁（WebGPU）選取`skyscraperpuzzles`：option 983個、status為982 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的謎題。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

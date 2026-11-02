@@ -24880,6 +24880,155 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'skyscraperpuzzles': {
+        const p = proceduralMaterialPresets.skyscraperpuzzles,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2a001),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          side = 0.5 - 2 * p.margin,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // The number of buildings seen along a line from its start: the strict running maxima.
+          visible = (heights: number[]): number => {
+            let tallest = 0,
+              seen = 0;
+            for (const height of heights)
+              if (height > tallest) {
+                tallest = height;
+                seen++;
+              }
+            return seen;
+          },
+          // A solved puzzle per quadrant: a shuffled cyclic Latin square of building heights 1..n, with
+          // the visible-building count from all four sides as clues around the grid.
+          puzzles = p.orders.map((n, quadrant) => {
+            const shuffled = (salt: number): number[] =>
+                Array.from({ length: n }, (_, i) => i).sort(
+                  (a, b) =>
+                    hash(a, quadrant * 8 + salt, seed ^ 0x2a003) -
+                    hash(b, quadrant * 8 + salt, seed ^ 0x2a003),
+                ),
+              rows = shuffled(1),
+              columns = shuffled(2),
+              symbols = shuffled(3),
+              grid = Array.from(
+                { length: n * n },
+                (_, index) =>
+                  symbols[
+                    (rows[Math.floor(index / n)] + columns[index % n]) % n
+                  ] + 1,
+              ),
+              line = (
+                index: number,
+                vertical: boolean,
+                reversed: boolean,
+              ): number[] => {
+                const cells = Array.from({ length: n }, (_, i) =>
+                  vertical ? grid[i * n + index] : grid[index * n + i],
+                );
+                return reversed ? cells.reverse() : cells;
+              },
+              clues = new Array<number>((n + 2) * (n + 2)).fill(0);
+            for (let i = 0; i < n; i++) {
+              clues[1 + i] = visible(line(i, true, false));
+              clues[(n + 1) * (n + 2) + 1 + i] = visible(line(i, true, true));
+              clues[(1 + i) * (n + 2)] = visible(line(i, false, false));
+              clues[(1 + i) * (n + 2) + n + 1] = visible(line(i, false, true));
+            }
+            for (let r = 0; r < n; r++)
+              for (let c = 0; c < n; c++)
+                clues[(r + 1) * (n + 2) + c + 1] = grid[r * n + c];
+            return clues;
+          });
+        return () => {
+          const quadrant = (u >= 0.5 ? 1 : 0) + (v >= 0.5 ? 2 : 0),
+            n = p.orders[quadrant],
+            cells = n + 2,
+            cell = side / cells,
+            lx = u - (quadrant & 1) * 0.5 - p.margin,
+            ly = v - (quadrant >> 1) * 0.5 - p.margin;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            ink = 0,
+            line = 0;
+          if (
+            lx >= -p.outerHalf &&
+            lx <= side + p.outerHalf &&
+            ly >= -p.outerHalf &&
+            ly <= side + p.outerHalf
+          ) {
+            const col = Math.min(cells - 1, Math.max(0, Math.floor(lx / cell))),
+              row = Math.min(cells - 1, Math.max(0, Math.floor(ly / cell))),
+              value = puzzles[quadrant][row * cells + col],
+              corner =
+                (col === 0 || col === cells - 1) &&
+                (row === 0 || row === cells - 1),
+              inGrid = col > 0 && col < cells - 1 && row > 0 && row < cells - 1,
+              fx = lx - col * cell,
+              fy = ly - row * cell;
+            if (!corner) {
+              tone = inGrid
+                ? p.cellTone - p.towerStep * (n - value)
+                : p.clueTone;
+              level = inGrid
+                ? p.cellHeight + p.towerRise * value
+                : p.clueHeight;
+              const pixel = cell * p.digitFraction,
+                px = Math.floor((fx - (cell / 2 - 1.5 * pixel)) / pixel),
+                py = Math.floor((fy - (cell / 2 - 2.5 * pixel)) / pixel);
+              if (
+                px >= 0 &&
+                px < 3 &&
+                py >= 0 &&
+                py < 5 &&
+                glyphs[value][py * 3 + px] === '1'
+              )
+                ink = 1;
+              line = cover(
+                p.lineHalf -
+                  Math.min(Math.min(fx, cell - fx), Math.min(fy, cell - fy)),
+              );
+            }
+            const outer = Math.min(
+              Math.min(lx, side - lx),
+              Math.min(ly, side - ly),
+            );
+            // Frames around the clue ring and around the inner grid of towers.
+            const frame = cover(p.outerHalf - Math.abs(outer)),
+              inner = cover(
+                p.outerHalf -
+                  Math.abs(
+                    Math.max(Math.abs(lx - side / 2), Math.abs(ly - side / 2)) -
+                      (side / 2 - cell),
+                  ),
+              );
+            line = Math.max(line, frame, inner);
+          }
+          const base = tone + (p.lineTone - tone) * line;
+          color = clamp(
+            base +
+              (p.inkTone - base) * ink +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            level + (p.lineHeight - level) * line - p.inkDepth * ink,
+          );
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -52409,6 +52558,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'skyscraperpuzzles' ||
     kind === 'knockoutbracket' ||
     kind === 'primesieve' ||
     kind === 'sortingnetworks' ||

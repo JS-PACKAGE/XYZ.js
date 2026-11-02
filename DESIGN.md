@@ -1493,6 +1493,10 @@
 
 這是作者設計的示意：勝負完全隨機，不代表任何實力或比分；沒有比分、隊名與日期；16隊固定、沒有輪空或季軍賽；數字是3×5點陣，兩位數寬約0.05 tile。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`skyscraperpuzzles`（摩天樓謎題）使目前目錄981→982種，含plain的gallery為983項。每tile分成2×2題已解開的摩天樓謎題，階數依閱讀順序為4、5、6、7：中央是n×n的格子，每格是一棟樓的高度（1至n的點陣數字，高樓所在格的底色略深、高度略高），每列與每欄的高度恰為1至n各一次；四周一圈是線索，標出從該側往內看時能看到幾棟樓（較高的樓擋住後面較矮的樓，所以只計算比前面所有樓都高的樓）。數字是3×5點陣，紙面為米白色，有細格線與外框。Metallic與mortar為0。
+
+這是作者設計的示意：畫面上是已解開的答案加上全部四邊的線索（真正的謎題只給線索，並隱藏中央的數字）；解是循環拉丁方經列、欄與符號置換而得，所以不是所有可能的解；1至n的數字以點陣印出，7階的格子較小（約0.05 tile）。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

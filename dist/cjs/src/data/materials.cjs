@@ -15685,6 +15685,47 @@ var proceduralMaterialPresets = Object.freeze({
 		boxRoughness: .4,
 		paperRoughness: .8
 	}),
+	skyscraperpuzzles: Object.freeze({
+		dark: [
+			24,
+			22,
+			36
+		],
+		light: [
+			244,
+			236,
+			214
+		],
+		roughness: .55,
+		relief: .004,
+		orders: [
+			4,
+			5,
+			6,
+			7
+		],
+		margin: .012,
+		digitFraction: .18,
+		lineHalf: 7e-4,
+		outerHalf: .0022,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		clueTone: .78,
+		cellTone: .9,
+		towerStep: .018,
+		lineTone: .45,
+		inkTone: .1,
+		grainTone: .03,
+		cellHeight: .5,
+		clueHeight: .35,
+		lineHeight: .3,
+		paperHeight: .25,
+		towerRise: .03,
+		inkDepth: .06,
+		inkRoughness: .4,
+		paperRoughness: .74
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -24366,6 +24407,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	skyscraperpuzzles: .4,
 	knockoutbracket: .5,
 	primesieve: .5,
 	sortingnetworks: .4,
