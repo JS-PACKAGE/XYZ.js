@@ -1845,6 +1845,10 @@
 
 這是作者設計的示意：理想的真空拋體，水平與垂直使用同一個長度單位（形狀沒有被拉伸）；沒有標註角度、數字或座標軸，也不是物理模擬；兩個噴泉完全一樣，只是沿垂直方向週期重複。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`sternbrocottree`（分數二元樹）使目前目錄1071→1072種，含plain的gallery為1073項。每tile由上而下畫四層分數：第0層1/1，第1層2個、第2層4個、第3層8個，每個分數用點陣字寫在它的位置（第n層共2ⁿ個，均勻排列在tile寬度上），並用直線把每個分數的下方連到它的兩個子節點上方。seed決定樹的種類：Stern–Brocot樹（每個節點是它所屬區間兩端分數的中項，例如第2層為1/3、2/3、3/2、3/1）或Calkin–Wilf樹（a/b的子節點是a/(a+b)與(a+b)/b，第2層為1/3、3/2、2/3、3/1）。Metallic與mortar為0。
+
+這是作者設計的示意：只畫四層（葉子層沒有再向下的連線，因為再往下一層的分數是兩位數、會擠在一起）；分數都已約分，這兩棵樹都恰好列出每個正有理數一次，但這個材質只畫前四層，沒有標出完整性或與連分數的關係；點陣字的斜線「/」為簡化字形。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

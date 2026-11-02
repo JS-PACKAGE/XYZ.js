@@ -24309,3 +24309,189 @@ describe('projectilearcs: shots at several angles and their safety parabola', ()
     expect(different).toBeGreaterThan(0);
   });
 });
+
+describe('sternbrocottree: fractions in a Stern-Brocot or Calkin-Wilf tree', () => {
+  const p = proceduralMaterialPresets.sternbrocottree;
+  const shapes: Record<string, string[]> = {
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    '2': ['###', '..#', '###', '#..', '###'],
+    '3': ['###', '..#', '###', '..#', '###'],
+    '4': ['#.#', '#.#', '###', '..#', '..#'],
+    '5': ['###', '#..', '###', '..#', '###'],
+    '6': ['###', '#..', '###', '#.#', '###'],
+    '7': ['###', '..#', '.#.', '.#.', '.#.'],
+    '8': ['###', '#.#', '###', '#.#', '###'],
+    '9': ['###', '#.#', '###', '..#', '###'],
+    '/': ['..#', '..#', '.#.', '#..', '#..'],
+  };
+  const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+
+  // Stern-Brocot: all fractions of a level are found by the mediant rule on the sorted list of the fractions so far
+  // (with 0/1 and 1/0 as the ends). Calkin-Wilf: the children of a/b are a/(a+b) and (a+b)/b.
+  const sternBrocot = (levels: number): string[][] => {
+    const result: string[][] = [];
+    let sequence: [number, number][] = [
+      [0, 1],
+      [1, 0],
+    ];
+    for (let level = 0; level < levels; level++) {
+      const next: [number, number][] = [sequence[0]],
+        added: string[] = [];
+      for (let i = 0; i + 1 < sequence.length; i++) {
+        const mediant: [number, number] = [
+          sequence[i][0] + sequence[i + 1][0],
+          sequence[i][1] + sequence[i + 1][1],
+        ];
+        added.push(mediant[0] + '/' + mediant[1]);
+        next.push(mediant, sequence[i + 1]);
+      }
+      result.push(added);
+      sequence = next;
+    }
+    return result;
+  };
+  const calkinWilf = (levels: number): string[][] => {
+    const result: string[][] = [['1/1']];
+    for (let level = 1; level < levels; level++)
+      result.push(
+        result[level - 1].flatMap((text) => {
+          const [a, b] = text.split('/').map(Number);
+          return [a + '/' + (a + b), a + b + '/' + b];
+        }),
+      );
+    return result;
+  };
+  const decode = (seed: number): string[][] => {
+    const sample = createSurfaceSampler('sternbrocottree', seed),
+      out = empty(),
+      colorAt = (u: number, v: number): number => {
+        sample(u, v, out);
+        return out.color;
+      };
+    return Array.from({ length: p.levels }, (_, level) => {
+      const centre = (level + 0.5) * p.pitch;
+      return Array.from({ length: 2 ** level }, (_, node) => {
+        const middle = (node + 0.5) / 2 ** level;
+        let text = '';
+        // Every fraction in the first four levels has one-digit parts, so it is three characters (11 pixels) centred on its node.
+        for (let slot = 0; slot < 3; slot++) {
+          const left = middle - 5.5 * p.pixel + slot * 4 * p.pixel;
+          const lines = [0, 1, 2, 3, 4].map((k) =>
+            [0, 1, 2]
+              .map((x) =>
+                colorAt(
+                  left + (x + 0.5) * p.pixel,
+                  centre + (k - 2) * p.pixel,
+                ) < 0.3
+                  ? '#'
+                  : '.',
+              )
+              .join(''),
+          );
+          const found = Object.entries(shapes).find(([, shape]) =>
+            shape.every((line, i) => line === lines[i]),
+          );
+          if (found) text += found[0];
+        }
+        return text;
+      });
+    });
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'writes the fractions of a Stern-Brocot or Calkin-Wilf tree level by level (seed %i)',
+    (seed) => {
+      const picture = decode(seed),
+        expectedSB = sternBrocot(p.levels),
+        expectedCW = calkinWilf(p.levels);
+      expect(sternBrocot(p.levels)[0]).toEqual(['1/1']);
+      expect([
+        JSON.stringify(expectedSB),
+        JSON.stringify(expectedCW),
+      ]).toContain(JSON.stringify(picture));
+      for (const row of picture)
+        for (const text of row) {
+          const [a, b] = text.split('/').map(Number);
+          expect(gcd(a, b)).toBe(1);
+        }
+      expect(picture.map((row) => row.length)).toEqual([1, 2, 4, 8]);
+    },
+  );
+
+  it('shows both trees across seeds and the links between a fraction and its two children', () => {
+    const kinds = new Set<string>();
+    for (let seed = 0; seed < 30; seed++)
+      kinds.add(JSON.stringify(decode(seed)[2]));
+    expect(kinds.size).toBe(2);
+    const sample = createSurfaceSampler('sternbrocottree', 0),
+      out = empty(),
+      colorAt = (u: number, v: number): number => {
+        sample(u, v, out);
+        return out.color;
+      };
+    // Each link runs from below the parent text to above a child; its midpoint is a mid-grey line, and the middle of the
+    // gap between sibling links is paper.
+    for (let level = 0; level + 1 < p.levels; level++)
+      for (let node = 0; node < 2 ** level; node++) {
+        const parentX = (node + 0.5) / 2 ** level,
+          startY = (level + 0.5) * p.pitch + p.gap,
+          endY = (level + 1.5) * p.pitch - p.gap;
+        for (const side of [-1, 1]) {
+          const childX = parentX + side / 2 ** (level + 2);
+          for (const t of [0.15, 0.5, 0.85]) {
+            const colour = colorAt(
+              parentX + (childX - parentX) * t,
+              startY + (endY - startY) * t,
+            );
+            expect(colour).toBeGreaterThan(0.3);
+            expect(colour).toBeLessThan(0.65);
+          }
+        }
+        expect(colorAt(parentX, (level + 1) * p.pitch)).toBeGreaterThan(0.85);
+      }
+    // The last level has no links below it.
+    expect(
+      colorAt(
+        (0 + 0.5) / 8 - 0.02,
+        (p.levels - 1) * p.pitch + 0.5 * p.pitch + 0.05,
+      ),
+    ).toBeGreaterThan(0.85);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('sternbrocottree', 0),
+      b = createSurfaceSampler('sternbrocottree', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(0);
+  });
+});

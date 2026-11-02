@@ -34638,6 +34638,117 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'sternbrocottree': {
+        const p = proceduralMaterialPresets.sternbrocottree,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2fa01),
+          glyphs: Record<string, string> = {
+            '0': '111101101101111',
+            '1': '010110010010111',
+            '2': '111001111100111',
+            '3': '111001111001111',
+            '4': '101101111001001',
+            '5': '111100111001111',
+            '6': '111100111101111',
+            '7': '111001010010010',
+            '8': '111101111101111',
+            '9': '111101111001111',
+            '/': '001001010100100',
+          },
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // The seed picks one of two binary trees of positive fractions: Stern-Brocot (each node is the mediant of the two
+          // fractions that bound its interval) or Calkin-Wilf (a/b has the children a/(a+b) and (a+b)/b).
+          calkinWilf = hash(3, 7, seed ^ 0x2fa02) < 0.5,
+          centre = p.pitch / 2,
+          length = p.pitch - 2 * p.gap,
+          // Fractions as [numerator, denominator] pairs, level by level and from left to right, and the interval bounds
+          // [numerator, denominator, numerator, denominator] each node splits.
+          tree: number[][][] = [[[1, 1]]],
+          bounds: number[][][] = [[[0, 1, 1, 0]]];
+        for (let level = 1; level < p.levels; level++) {
+          const nodes: number[][] = [],
+            next: number[][] = [];
+          tree[level - 1].forEach(([a, b], i) => {
+            const [ln, ld, rn, rd] = bounds[level - 1][i];
+            if (calkinWilf) nodes.push([a, a + b], [a + b, b]);
+            else nodes.push([ln + a, ld + b], [a + rn, b + rd]);
+            next.push([ln, ld, a, b], [a, b, rn, rd]);
+          });
+          tree.push(nodes);
+          bounds.push(next);
+        }
+        return () => {
+          const level = Math.floor(v / p.pitch),
+            row = level % p.levels,
+            fy = v - level * p.pitch,
+            nodes = 2 ** row,
+            node = Math.min(nodes - 1, Math.floor(u * nodes)),
+            fraction = tree[row][node],
+            text = fraction[0] + '/' + fraction[1],
+            px = Math.floor(
+              (u - ((node + 0.5) / nodes - (2 * text.length - 0.5) * p.pixel)) /
+                p.pixel,
+            ),
+            d = px >= 0 ? Math.floor(px / 4) : -1,
+            gx = px - 4 * d,
+            py = Math.floor((fy - centre) / p.pixel + 2.5);
+          let glyph = 0,
+            link = 0;
+          if (
+            d >= 0 &&
+            d < text.length &&
+            gx >= 0 &&
+            gx < 3 &&
+            py >= 0 &&
+            py < 5 &&
+            glyphs[text[d]][py * 3 + gx] === '1'
+          )
+            glyph = 1;
+          // Straight links from the bottom of each fraction to the top of its two children; each is drawn in the lower half of
+          // the parent row and in the upper half of the child row. dy is the vertical offset from the parent end of the links.
+          const reach = (
+            parentLevel: number,
+            parentNode: number,
+            dy: number,
+          ): void => {
+            const columns = 2 ** parentLevel,
+              parentX = (parentNode + 0.5) / columns;
+            for (const side of [-1, 1]) {
+              const dx = (side * 0.5) / (2 * columns),
+                t = clamp(
+                  ((u - parentX) * dx + dy * length) /
+                    (dx * dx + length * length),
+                ),
+                gapX = u - parentX - t * dx,
+                gapY = dy - t * length;
+              link = Math.max(link, cover(p.lineHalf - Math.hypot(gapX, gapY)));
+            }
+          };
+          if (row < p.levels - 1) reach(row, node, fy - centre - p.gap);
+          if (row > 0)
+            reach(
+              row - 1,
+              Math.floor(u * 2 ** (row - 1)),
+              fy + p.pitch - centre - p.gap,
+            );
+          const base = p.paperTone + (p.lineTone - p.paperTone) * link;
+          color = clamp(
+            base +
+              (p.inkTone - base) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.paperHeight +
+              (p.lineHeight - p.paperHeight) * link -
+              p.inkDepth * glyph,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.inkRoughness - p.paperRoughness) * Math.max(glyph, link);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -62167,6 +62278,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'sternbrocottree' ||
     kind === 'projectilearcs' ||
     kind === 'isbn10checks' ||
     kind === 'runlengthrows' ||
