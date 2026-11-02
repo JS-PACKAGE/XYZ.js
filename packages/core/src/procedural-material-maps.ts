@@ -34749,6 +34749,136 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'cycloidcusps': {
+        const p = proceduralMaterialPresets.cycloidcusps,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2fb01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          cellSize = 1 / p.cells,
+          lastIsEpi = hash(4, 4, seed ^ 0x2fb02) < 0.5,
+          lastRow = lastIsEpi ? p.lastEpi : p.lastHypo,
+          turn =
+            p.turns[Math.floor(hash(5, 5, seed ^ 0x2fb03) * p.turns.length)],
+          reach = p.lineHalf + p.edgeSoft,
+          // Per cell: whether the curve is an epicycloid, the radius of the rolling circle and the radius of the fixed circle.
+          // A circle of radius r rolls on the outside (epicycloid, extent (k + 2) r) or the inside (hypocycloid, extent k r)
+          // of a fixed circle of radius k r, where k is the number of cusps.
+          shapes = Array.from({ length: p.cells * p.cells }, (_, index) => {
+            const row = Math.floor(index / p.cells),
+              column = index % p.cells,
+              epicycloid = row === 0 || (row === 2 && lastIsEpi),
+              cusps =
+                row === 0
+                  ? column + 1
+                  : row === 1
+                    ? column + 3
+                    : lastRow[column],
+              rolling = p.extent / (epicycloid ? cusps + 2 : cusps);
+            return { epicycloid, rolling, fixed: cusps * rolling };
+          }),
+          // The curves as short straight segments, sorted into a coarse grid of buckets so that a pixel only looks at the
+          // few segments near it.
+          segments: number[][] = [],
+          buckets: number[][] = Array.from(
+            { length: p.buckets * p.buckets },
+            () => [],
+          );
+        shapes.forEach(({ epicycloid, rolling, fixed }, index) => {
+          const cx = ((index % p.cells) + 0.5) * cellSize,
+            cy = (Math.floor(index / p.cells) + 0.5) * cellSize,
+            // The rolling circle's centre is at distance fixed + rolling (outside) or fixed - rolling (inside).
+            gap = epicycloid ? fixed + rolling : fixed - rolling,
+            ratio = gap / rolling,
+            point = (step: number): number[] => {
+              const t = (2 * Math.PI * step) / p.segments,
+                x =
+                  gap * Math.cos(t) +
+                  (epicycloid ? -rolling : rolling) * Math.cos(ratio * t),
+                y = gap * Math.sin(t) - rolling * Math.sin(ratio * t);
+              return [
+                cx + x * Math.cos(turn) - y * Math.sin(turn),
+                cy + x * Math.sin(turn) + y * Math.cos(turn),
+              ];
+            };
+          let [x0, y0] = point(0);
+          for (let step = 1; step <= p.segments; step++) {
+            const [x1, y1] = point(step),
+              id = segments.length,
+              lowX = Math.max(
+                0,
+                Math.floor((Math.min(x0, x1) - reach) * p.buckets),
+              ),
+              highX = Math.min(
+                p.buckets - 1,
+                Math.floor((Math.max(x0, x1) + reach) * p.buckets),
+              ),
+              lowY = Math.max(
+                0,
+                Math.floor((Math.min(y0, y1) - reach) * p.buckets),
+              ),
+              highY = Math.min(
+                p.buckets - 1,
+                Math.floor((Math.max(y0, y1) + reach) * p.buckets),
+              );
+            segments.push([x0, y0, x1, y1]);
+            for (let by = lowY; by <= highY; by++)
+              for (let bx = lowX; bx <= highX; bx++)
+                buckets[by * p.buckets + bx].push(id);
+            x0 = x1;
+            y0 = y1;
+          }
+        });
+        return () => {
+          const column = Math.min(p.cells - 1, Math.floor(u * p.cells)),
+            row = Math.min(p.cells - 1, Math.floor(v * p.cells)),
+            radius = Math.hypot(
+              u - (column + 0.5) * cellSize,
+              v - (row + 0.5) * cellSize,
+            ),
+            ring = cover(
+              p.ringHalf -
+                Math.abs(radius - shapes[row * p.cells + column].fixed),
+            ),
+            near =
+              buckets[
+                Math.min(p.buckets - 1, Math.floor(v * p.buckets)) * p.buckets +
+                  Math.min(p.buckets - 1, Math.floor(u * p.buckets))
+              ];
+          let curve = 0;
+          for (const id of near) {
+            const segment = segments[id],
+              dx = segment[2] - segment[0],
+              dy = segment[3] - segment[1],
+              t = clamp(
+                ((u - segment[0]) * dx + (v - segment[1]) * dy) /
+                  (dx * dx + dy * dy),
+              );
+            curve = Math.max(
+              curve,
+              cover(
+                p.lineHalf -
+                  Math.hypot(u - segment[0] - t * dx, v - segment[1] - t * dy),
+              ),
+            );
+          }
+          const base = p.paperTone + (p.ringTone - p.paperTone) * ring;
+          color = clamp(
+            base +
+              (p.curveTone - base) * curve +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.paperHeight +
+              (p.ringHeight - p.paperHeight) * ring +
+              (p.curveHeight - p.ringHeight) * curve,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.inkRoughness - p.paperRoughness) * Math.max(curve, ring);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -62278,6 +62408,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'cycloidcusps' ||
     kind === 'sternbrocottree' ||
     kind === 'projectilearcs' ||
     kind === 'isbn10checks' ||

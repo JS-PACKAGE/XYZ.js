@@ -24495,3 +24495,182 @@ describe('sternbrocottree: fractions in a Stern-Brocot or Calkin-Wilf tree', () 
     expect(different).toBeGreaterThan(0);
   });
 });
+
+describe('cycloidcusps: epicycloids and hypocycloids with k cusps', () => {
+  const p = proceduralMaterialPresets.cycloidcusps;
+  type Shape = { cx: number; cy: number; k: number; epi: boolean };
+  const shapesFor = (lastEpi: boolean): Shape[] =>
+    Array.from({ length: 9 }, (_, index) => {
+      const row = Math.floor(index / 3),
+        column = index % 3;
+      return {
+        cx: (column + 0.5) / 3,
+        cy: (row + 0.5) / 3,
+        k:
+          row === 0
+            ? column + 1
+            : row === 1
+              ? column + 3
+              : (lastEpi ? p.lastEpi : p.lastHypo)[column],
+        epi: row === 0 || (row === 2 && lastEpi),
+      };
+    });
+  // Pen on a circle of radius r rolling on (epicycloid) or in (hypocycloid) a fixed circle of radius R = k r, in complex form:
+  // epi: (R + r) e^{it} - r e^{i (R + r) t / r}; hypo: (R - r) e^{it} + r e^{-i (R - r) t / r}.
+  const curvePoint = (
+    { cx, cy, k, epi }: Shape,
+    turn: number,
+    t: number,
+  ): [number, number] => {
+    const r = p.extent / (epi ? k + 2 : k),
+      R = k * r,
+      re = epi
+        ? (R + r) * Math.cos(t) - r * Math.cos(((R + r) / r) * t)
+        : (R - r) * Math.cos(t) + r * Math.cos(((R - r) / r) * t),
+      im = epi
+        ? (R + r) * Math.sin(t) - r * Math.sin(((R + r) / r) * t)
+        : (R - r) * Math.sin(t) - r * Math.sin(((R - r) / r) * t);
+    return [
+      cx + re * Math.cos(turn) - im * Math.sin(turn),
+      cy + re * Math.sin(turn) + im * Math.cos(turn),
+    ];
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws each curve and its fixed circle, and nothing else (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('cycloidcusps', seed),
+        out = empty(),
+        colorAt = (u: number, v: number): number => {
+          sample(u, v, out);
+          return out.color;
+        },
+        onCurves = (shapes: Shape[], turn: number): boolean =>
+          shapes.every((shape) =>
+            Array.from({ length: 48 }, (_, i) =>
+              curvePoint(shape, turn, (2 * Math.PI * (i + 0.5)) / 48),
+            ).every(([u, v]) => colorAt(u, v) < 0.4),
+          ),
+        matches: [boolean, number][] = [];
+      for (const lastEpi of [true, false])
+        for (const turn of p.turns)
+          if (onCurves(shapesFor(lastEpi), turn)) matches.push([lastEpi, turn]);
+      expect(matches).toHaveLength(1);
+      const [lastEpi, turn] = matches[0],
+        shapes = shapesFor(lastEpi),
+        lines: [number, number][] = [];
+      for (const shape of shapes) {
+        const own: [number, number][] = Array.from({ length: 720 }, (_, i) =>
+          curvePoint(shape, turn, (2 * Math.PI * i) / 720),
+        );
+        lines.push(...own);
+        // The fixed circle (radius k r) is a mid-grey ring: sampled at angles where no curve is within 0.02.
+        const radius =
+          shape.k * (p.extent / (shape.epi ? shape.k + 2 : shape.k));
+        let sampled = 0;
+        for (let i = 0; i < 72; i++) {
+          const angle = (2 * Math.PI * (i + 0.25)) / 72,
+            u = shape.cx + radius * Math.cos(angle),
+            v = shape.cy + radius * Math.sin(angle);
+          if (own.every(([lx, ly]) => Math.hypot(u - lx, v - ly) > 0.02)) {
+            expect(colorAt(u, v)).toBeGreaterThan(0.5);
+            expect(colorAt(u, v)).toBeLessThan(0.75);
+            sampled++;
+          }
+        }
+        expect(sampled).toBeGreaterThan(0);
+      }
+      // Every curve has k cusps on its fixed circle: the points at t = 2 pi j / k are at distance k r from the cell centre.
+      for (const shape of shapes)
+        for (let j = 0; j < shape.k; j++) {
+          const [u, v] = curvePoint(shape, turn, (2 * Math.PI * j) / shape.k);
+          expect(Math.hypot(u - shape.cx, v - shape.cy)).toBeCloseTo(
+            shape.k * (p.extent / (shape.epi ? shape.k + 2 : shape.k)),
+            10,
+          );
+          expect(colorAt(u, v)).toBeLessThan(0.4);
+        }
+      // Away from every curve and ring the picture is paper.
+      const rings = shapes.map((shape) => ({
+        ...shape,
+        radius: shape.k * (p.extent / (shape.epi ? shape.k + 2 : shape.k)),
+      }));
+      let checked = 0;
+      for (let j = 0; j < 60; j++)
+        for (let i = 0; i < 60; i++) {
+          const u = (i + 0.5) / 60,
+            v = (j + 0.5) / 60;
+          let nearest = Infinity;
+          for (const [lx, ly] of lines)
+            nearest = Math.min(nearest, Math.hypot(u - lx, v - ly));
+          for (const ring of rings)
+            nearest = Math.min(
+              nearest,
+              Math.abs(Math.hypot(u - ring.cx, v - ring.cy) - ring.radius),
+            );
+          if (nearest > 0.012) {
+            expect(colorAt(u, v)).toBeGreaterThan(0.85);
+            checked++;
+          }
+        }
+      expect(checked).toBeGreaterThan(2400);
+    },
+  );
+
+  it('shows both kinds of last row and all rotations across seeds', () => {
+    const variants = new Set<string>();
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('cycloidcusps', seed),
+        out = empty();
+      // Cusp of the last row's first curve: epicycloid with k = 4 or hypocycloid with k = 6, both at t = 0.
+      const keys: string[] = [];
+      for (const lastEpi of [true, false])
+        p.turns.forEach((turn, index) => {
+          const shape = shapesFor(lastEpi)[6],
+            [u, v] = curvePoint(shape, turn, 0);
+          sample(u, v, out);
+          if (out.color < 0.4) keys.push(`${lastEpi}:${index}`);
+        });
+      // The cusp points of several combinations can coincide; the combination is one of the listed ones.
+      expect(keys.length).toBeGreaterThan(0);
+      variants.add(keys.join('|'));
+    }
+    expect(variants.size).toBeGreaterThanOrEqual(6);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('cycloidcusps', 0),
+      b = createSurfaceSampler('cycloidcusps', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(0);
+  });
+});
