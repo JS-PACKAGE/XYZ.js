@@ -1018,6 +1018,7 @@ export type ProceduralMaterialKind =
   | 'isingdomains'
   | 'cyclicwaves'
   | 'aggregationfrost'
+  | 'hammingtable'
   | 'sandpileidentity'
   | 'multiplicativeorder'
   | 'vermiculation'
@@ -2283,6 +2284,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'isingdomains',
   'cyclicwaves',
   'aggregationfrost',
+  'hammingtable',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',

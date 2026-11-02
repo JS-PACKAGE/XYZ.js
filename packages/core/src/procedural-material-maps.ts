@@ -41457,6 +41457,63 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'hammingtable': {
+        const p = proceduralMaterialPresets.hammingtable,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft,
+          shiftX = Math.floor(hash(0, 0, seed ^ p.seedSalt) * p.cells),
+          shiftY = Math.floor(hash(1, 0, seed ^ p.seedSalt) * p.cells),
+          // Cell (col, row) is toned by the Hamming distance between the bit patterns of its
+          // two indices, popcount(row xor col), as a share of the bits, raised to toneExponent:
+          // the diagonal (distance 0) sinks, and the table repeats itself at every power of two
+          // (the same layout of blocks at 2, 4, 8 ...), the way a hypercube unfolds. The seed
+          // moves the whole table around the torus.
+          tones = new Float64Array(p.cells * p.cells);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            let bits = row ^ col,
+              distance = 0;
+            for (; bits !== 0; bits >>= 1) distance += bits & 1;
+            tones[row * p.cells + col] =
+              p.toneSpan * (distance / p.bits) ** p.toneExponent;
+          }
+        return () => {
+          // One compact-support rounded-square kernel per cell (a quartic superellipse
+          // through smoothstep, exactly zero before the cell boundary), so the cell
+          // lookup never jumps and the field is C1.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            ax = (x - col - 0.5) * inverseHalf,
+            ay = (y - row - 0.5) * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            tone =
+              tones[
+                ((row + shiftY) % p.cells) * p.cells +
+                  ((col + shiftX) % p.cells)
+              ],
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -50276,6 +50333,7 @@ export function createSurfaceSampler(
     kind === 'isingdomains' ||
     kind === 'cyclicwaves' ||
     kind === 'aggregationfrost' ||
+    kind === 'hammingtable' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||

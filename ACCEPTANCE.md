@@ -12775,3 +12775,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試（連通團簇與年齡色調、統計為一項；seed差異與決定性；C1＋有符號UV週期；actual512 maps），`-t`選中的5項（含kinds清單新條目）皆通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Aggregation frost as|aggregationfrost|kinds|catalog|distinct|periodic"`定向測試**2338項通過／4007項未選**。
 - 未驗證：cyclicwaves與aggregationfrost皆未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：漢明距離表（hammingtable）
+
+- 範圍：新增`hammingtable`（目前目錄1016→1017種，含plain的gallery 1018項）：32×32圓角方磚，色調為兩個索引（5位元）的漢明距離`popcount(row xor col)`，`0.7·(距離/5)^1.6`；seed令整張表在環面上平移；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 139,264 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)首版為64×64格、6位元、色調指數1，實看預覽後覺得方磚太小、色調集中、對比低，改成32×32格、5位元、指數1.6（兩版預覽皆實看）；(2)因互斥或對稱，表同時在兩個方向平移16格會得到相同的表，所以每個seed有**兩個**符合的環面平移（不是唯一解）；我沿用了從基數表複製的測試骨架，原本預期唯一解（`toHaveLength(1)`），先看到探針輸出兩個符合才改成明確檢查兩個且互差16；(3)測試以獨立寫的位元計數（二進位字串數1）重建色調表比對格中心顏色（最大誤差0.0150，門檻0.03）；(4)建構與取樣耗時**未量測**。
+- 實測（工具實跑）：32×32格中距離0到5的格數為32、160、320、320、160、32；四個seed（0／1／0xffffffff／7）的兩個符合平移分別為(30, 2)與(14, 18)、(10, 13)與(26, 29)、(21, 12)與(5, 28)、(26, 9)與(10, 25)，最大擬合誤差0.01498–0.01499；256²（seed 0／1／0xffffffff）亮處（color>0.5）恆為10.94%、color 0.02568–0.02574至0.8530–0.8535、平均0.2910–0.2911、roughness恆為0.4、AO最低0.6、height至多0.8401–0.8467 relief；512²（四個seed）亮處恆為13.48%、color 0.02509–0.02529至0.8540–0.8545、平均約0.2955、height至多0.8440–0.8475 relief；seed 0與1相比，512²中color>0.5的取樣24.7%不同、格中心顏色相差超過0.05的格子77.9%；seed 7的512²maps平均r／g／b約(89.4, 66.1, 56.6)、法線tilt²最大約0.0177、z分量最小254。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Hamming table as|hammingtable|kinds|catalog|distinct|periodic"`定向測試**2340項通過／4010項未選**。
+- 未驗證：hammingtable未跑完整suite與瀏覽器gallery；不push。

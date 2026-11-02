@@ -1081,6 +1081,7 @@ try {
     'isingdomains',
     'cyclicwaves',
     'aggregationfrost',
+    'hammingtable',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',
