@@ -1625,6 +1625,10 @@
 
 這是作者設計的示意：百分比是隨機的，沒有任何資料意義；扇形最小4%（約14.4°），標籤是固定大小的點陣，小扇形的標籤可能緊貼邊線；明度只有排名、沒有色相；沒有圖例、標題或軸。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`regressionscatter`（迴歸散佈圖）使目前目錄1016→1017種，含plain的gallery為1018項。每tile是一張散佈圖：淺色紙上一個方形的繪圖區（細框、4×4的淡色格線），區內有最多28個深色圓點，圍繞著一條由seed決定斜率與截距的直線散佈（各點的雜訊是三個均勻亂數相加得到的近似常態分佈），任兩點的距離不小於0.075（繪圖區單位），再從這些點用**最小平方法**求出迴歸直線（斜率＝Σ(x−x̄)(y−ȳ)／Σ(x−x̄)²，截距＝ȳ−斜率·x̄），以較細的中灰色線畫過整個繪圖區。因為擬合是由實際畫出的點算出來的，直線一定通過各點的重心。Metallic與mortar為0。
+
+這是作者設計的示意：因為「最小間距」的拒絕取樣有次數上限，點數可能少於28（我沒有統計各seed的實際點數，測試只要求至少15個）；沒有座標軸刻度數字、標題或圖例；不計算相關係數或殘差；雜訊近似常態但不是嚴格的常態分佈；顏色只有明度（深色點、中灰色線、淡色格線）。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

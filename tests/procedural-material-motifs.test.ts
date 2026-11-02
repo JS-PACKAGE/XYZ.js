@@ -16351,3 +16351,144 @@ describe('piechartwedges: a pie chart whose wedge angles follow the printed perc
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('regressionscatter: a scatter plot with its least-squares line', () => {
+  const p = proceduralMaterialPresets.regressionscatter;
+  const grid = 512;
+  const pixel = 1 / grid;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws the line of best fit through the points as a least-squares fit would (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('regressionscatter', seed),
+        out = empty(),
+        colors = new Float64Array(grid * grid);
+      for (let y = 0; y < grid; y++)
+        for (let x = 0; x < grid; x++) {
+          sample((x + 0.5) * pixel, (y + 0.5) * pixel, out);
+          colors[y * grid + x] = out.color;
+        }
+      // Points: 4-connected groups of dark pixels (the line and the grid are lighter than 0.2); their centroids.
+      const seen = new Uint8Array(grid * grid),
+        centroids: [number, number][] = [],
+        nearPoint = new Uint8Array(grid * grid);
+      for (let start = 0; start < grid * grid; start++) {
+        if (colors[start] >= 0.2 || seen[start]) continue;
+        const stack = [start],
+          members: number[] = [];
+        seen[start] = 1;
+        while (stack.length > 0) {
+          const index = stack.pop() as number;
+          members.push(index);
+          for (const next of [index + 1, index - 1, index + grid, index - grid])
+            if (
+              next >= 0 &&
+              next < grid * grid &&
+              colors[next] < 0.2 &&
+              !seen[next]
+            ) {
+              seen[next] = 1;
+              stack.push(next);
+            }
+        }
+        // A disc of the preset radius covers roughly this many pixels.
+        const expected = Math.PI * (p.pointRadius * grid) ** 2;
+        expect(members.length).toBeGreaterThan(0.5 * expected);
+        expect(members.length).toBeLessThan(1.5 * expected);
+        centroids.push([
+          (members.reduce((sum, index) => sum + (index % grid) + 0.5, 0) /
+            members.length) *
+            pixel,
+          (members.reduce(
+            (sum, index) => sum + Math.floor(index / grid) + 0.5,
+            0,
+          ) /
+            members.length) *
+            pixel,
+        ]);
+        for (const index of members) {
+          const x = index % grid,
+            y = Math.floor(index / grid);
+          for (let dy = -4; dy <= 4; dy++)
+            for (let dx = -4; dx <= 4; dx++)
+              nearPoint[(y + dy) * grid + x + dx] = 1;
+        }
+      }
+      expect(centroids.length).toBeGreaterThanOrEqual(15);
+      const fit = (data: [number, number][]): [number, number] => {
+        const meanX = data.reduce((sum, d) => sum + d[0], 0) / data.length,
+          meanY = data.reduce((sum, d) => sum + d[1], 0) / data.length,
+          slope =
+            data.reduce((sum, d) => sum + (d[0] - meanX) * (d[1] - meanY), 0) /
+            data.reduce((sum, d) => sum + (d[0] - meanX) ** 2, 0);
+        return [slope, meanY - slope * meanX];
+      };
+      // In plot units, with y up.
+      const plot = (u: number, v: number): [number, number] => [
+        (u - p.plotLeft) / p.plotSize,
+        1 - (v - p.plotLeft) / p.plotSize,
+      ];
+      const [pointSlope, pointIntercept] = fit(
+        centroids.map(([u, v]) => plot(u, v)),
+      );
+      // Line pixels: mid-tone pixels inside the plot, away from the discs' soft edges.
+      const linePixels: [number, number][] = [];
+      for (let y = 8; y < grid - 8; y++)
+        for (let x = 8; x < grid - 8; x++) {
+          const u = (x + 0.5) * pixel,
+            v = (y + 0.5) * pixel,
+            [px, py] = plot(u, v);
+          if (
+            px < 0.03 ||
+            px > 0.97 ||
+            py < 0.03 ||
+            py > 0.97 ||
+            nearPoint[y * grid + x]
+          )
+            continue;
+          if (Math.abs(colors[y * grid + x] - p.lineTone) < 0.08)
+            linePixels.push([px, py]);
+        }
+      expect(linePixels.length).toBeGreaterThan(300);
+      const [lineSlope, lineIntercept] = fit(linePixels);
+      expect(Math.abs(lineSlope - pointSlope)).toBeLessThan(0.03);
+      expect(Math.abs(lineIntercept - pointIntercept)).toBeLessThan(0.015);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('regressionscatter', 0),
+      b = createSurfaceSampler('regressionscatter', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.5],
+        [0.5, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(20);
+  });
+});

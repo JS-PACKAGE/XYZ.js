@@ -29581,6 +29581,107 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'regressionscatter': {
+        const p = proceduralMaterialPresets.regressionscatter,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2c301),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          slope = p.slopeRange * (2 * hash(1, 3, seed ^ 0x2c303) - 1),
+          intercept =
+            0.5 - slope / 2 + 0.1 * (2 * hash(2, 5, seed ^ 0x2c305) - 1),
+          xs: number[] = [],
+          ys: number[] = [];
+        // Points scatter round a straight line, no two closer than minSpacing; then the least-squares line is fitted.
+        for (
+          let attempt = 0;
+          attempt < p.points * 40 && xs.length < p.points;
+          attempt++
+        ) {
+          const x = 0.04 + 0.92 * hash(attempt, 7, seed ^ 0x2c307),
+            gaussian =
+              hash(attempt, 9, seed ^ 0x2c309) +
+              hash(attempt, 11, seed ^ 0x2c30b) +
+              hash(attempt, 13, seed ^ 0x2c30d) -
+              1.5,
+            y = Math.min(
+              0.96,
+              Math.max(0.04, intercept + slope * x + p.noise * 2 * gaussian),
+            );
+          if (
+            xs.every(
+              (other, i) => Math.hypot(other - x, ys[i] - y) >= p.minSpacing,
+            )
+          ) {
+            xs.push(x);
+            ys.push(y);
+          }
+        }
+        const count = xs.length,
+          meanX = xs.reduce((a, b) => a + b, 0) / count,
+          meanY = ys.reduce((a, b) => a + b, 0) / count,
+          fitSlope =
+            xs.reduce((sum, x, i) => sum + (x - meanX) * (ys[i] - meanY), 0) /
+            xs.reduce((sum, x) => sum + (x - meanX) ** 2, 0),
+          fitIntercept = meanY - fitSlope * meanX,
+          norm = Math.sqrt(1 + fitSlope * fitSlope);
+        return () => {
+          const px = (u - p.plotLeft) / p.plotSize,
+            py = 1 - (v - p.plotLeft) / p.plotSize,
+            inPlot = px >= 0 && px < 1 && py >= 0 && py < 1,
+            // Distance to the plot's rectangle outline, in plot units.
+            outline = Math.abs(
+              Math.max(Math.abs(px - 0.5), Math.abs(py - 0.5)) - 0.5,
+            ),
+            frame = cover(p.frameHalf - outline * p.plotSize);
+          let grid = 0,
+            line = 0,
+            point = 0;
+          if (inPlot) {
+            // Grid lines at equal steps, the line of best fit across the plot, and a disc for every point.
+            for (let step = 1; step < p.gridSteps; step++)
+              grid = Math.max(
+                grid,
+                cover(
+                  p.frameHalf - Math.abs(px - step / p.gridSteps) * p.plotSize,
+                ),
+                cover(
+                  p.frameHalf - Math.abs(py - step / p.gridSteps) * p.plotSize,
+                ),
+              );
+            line = cover(
+              p.lineHalf -
+                (Math.abs(py - fitIntercept - fitSlope * px) / norm) *
+                  p.plotSize,
+            );
+            for (let i = 0; i < count; i++)
+              point = Math.max(
+                point,
+                cover(
+                  p.pointRadius -
+                    Math.hypot(px - xs[i], py - ys[i]) * p.plotSize,
+                ),
+              );
+          }
+          const tone = inPlot ? p.plotTone : p.paperTone,
+            withGrid = tone + (p.gridTone - tone) * grid,
+            withFrame = withGrid + (p.frameTone - withGrid) * frame,
+            withLine = withFrame + (p.lineTone - withFrame) * line,
+            withPoint = withLine + (p.pointTone - withLine) * point,
+            level = inPlot ? p.plotHeight : p.paperHeight;
+          color = clamp(withPoint + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(
+            level +
+              (p.lineHeight - level) * line +
+              (p.pointHeight - p.lineHeight) * point,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.lineRoughness - p.paperRoughness) * line +
+            (p.pointRoughness - p.lineRoughness) * point;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -57110,6 +57211,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'regressionscatter' ||
     kind === 'piechartwedges' ||
     kind === 'analogclocks' ||
     kind === 'treemaprects' ||
