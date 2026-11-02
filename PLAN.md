@@ -1777,6 +1777,10 @@
 
 這是作者設計的示意：只有凱薩移位（單一固定的移位量），沒有解密提示、頻率分析或其他密碼；預設短句只有五句，字母用3×5點陣字，某些字母（例如M與N、U與V）在小尺寸下相近。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`wordsquares`（對稱字方陣）使目前目錄1054→1055種，含plain的gallery為1056項。每tile畫一個字方陣：每一列的字與同號的那一欄讀起來相同（第i列等於第i欄）。方陣由seed從六個預設中挑一個：5×5的拉丁文SATOR方陣（SATOR、AREPO、TENET、OPERA、ROTAS）與五個4×4的英文方陣（例如BALL／AREA／LEAD／LADY）。左上到右下的對角線格子（對稱軸）用較深的底色。Metallic與mortar為0。
+
+這是作者設計的示意：只有六個預設方陣，沒有任何由程式搜尋出來的內容；4×4的英文方陣是我用一份手寫的約六百個常見四字母單字清單搜尋、再挑出看起來合理的，不是對照某本辭典驗證，個別字（例如ROTAS、AREPO屬於拉丁文）不保證在標準英文辭典中；字母是3×5點陣字，M與N、U與V等在小尺寸下相近。預設0.5 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

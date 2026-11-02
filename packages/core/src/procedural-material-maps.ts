@@ -33107,6 +33107,94 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'wordsquares': {
+        const p = proceduralMaterialPresets.wordsquares,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2e901),
+          // A 3 x 5 letter font, rows from the top (only the letters the squares use are needed, but all are kept so a
+          // square can be added without touching the font).
+          font: Record<string, string> = {
+            A: '010101111101101',
+            B: '110101110101110',
+            C: '011100100100011',
+            D: '110101101101110',
+            E: '111100110100111',
+            F: '111100110100100',
+            G: '011100101101011',
+            H: '101101111101101',
+            I: '111010010010111',
+            J: '001001001101010',
+            K: '101101110101101',
+            L: '100100100100111',
+            M: '101111111101101',
+            N: '110101101101101',
+            O: '010101101101010',
+            P: '110101110100100',
+            Q: '010101101111011',
+            R: '110101110101101',
+            S: '011100010001110',
+            T: '111010010010010',
+            U: '101101101101111',
+            V: '101101101101010',
+            W: '101101111111101',
+            X: '101101010101101',
+            Y: '101101010010010',
+            Z: '111001010100111',
+          },
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          square =
+            p.squares[
+              Math.floor(hash(8, 3, seed ^ 0x2e902) * p.squares.length)
+            ],
+          n = square.length,
+          cell = p.span / n,
+          origin = (1 - p.span) / 2;
+        return () => {
+          const x = (u - origin) / cell,
+            y = (v - origin) / cell,
+            column = Math.floor(x),
+            row = Math.floor(y);
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            line = 0,
+            glyph = 0;
+          if (column >= 0 && column < n && row >= 0 && row < n) {
+            const fx = x - column,
+              fy = y - row;
+            if (row === column) {
+              tone = p.diagonalTone;
+              level = p.diagonalHeight;
+            }
+            line = cover(
+              p.lineHalf -
+                Math.min(Math.min(fx, 1 - fx), Math.min(fy, 1 - fy)) * cell,
+            );
+            const px = Math.floor(((fx - 0.5) * cell) / p.pixel + 1.5),
+              py = Math.floor(((fy - 0.5) * cell) / p.pixel + 2.5);
+            if (
+              px >= 0 &&
+              px < 3 &&
+              py >= 0 &&
+              py < 5 &&
+              font[square[row][column]][py * 3 + px] === '1'
+            )
+              glyph = 1;
+          }
+          const base = tone + (p.lineTone - tone) * line;
+          color = clamp(
+            base +
+              (p.inkTone - base) * glyph +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            level + (p.lineHeight - level) * line - p.inkDepth * glyph,
+          );
+          roughness =
+            p.cellRoughness + (p.inkRoughness - p.cellRoughness) * glyph;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -60636,6 +60724,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'wordsquares' ||
     kind === 'caesarcipher' ||
     kind === 'baseconversion' ||
     kind === 'primefactors' ||

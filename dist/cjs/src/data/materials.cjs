@@ -18665,6 +18665,76 @@ var proceduralMaterialPresets = Object.freeze({
 		cellRoughness: .55,
 		inkRoughness: .4
 	}),
+	wordsquares: Object.freeze({
+		dark: [
+			26,
+			32,
+			58
+		],
+		light: [
+			246,
+			242,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		squares: Object.freeze([
+			Object.freeze([
+				`SATOR`,
+				`AREPO`,
+				`TENET`,
+				`OPERA`,
+				`ROTAS`
+			]),
+			Object.freeze([
+				`BALL`,
+				`AREA`,
+				`LEAD`,
+				`LADY`
+			]),
+			Object.freeze([
+				`BAND`,
+				`AREA`,
+				`NEST`,
+				`DATA`
+			]),
+			Object.freeze([
+				`BIRD`,
+				`IDEA`,
+				`REST`,
+				`DATE`
+			]),
+			Object.freeze([
+				`BLOW`,
+				`LOVE`,
+				`OVAL`,
+				`WELL`
+			]),
+			Object.freeze([
+				`BEAT`,
+				`EACH`,
+				`ACHE`,
+				`THEY`
+			])
+		]),
+		span: .82,
+		pixel: .03,
+		lineHalf: 8e-4,
+		edgeSoft: .0011,
+		grainCells: 192,
+		paperTone: .94,
+		diagonalTone: .78,
+		lineTone: .45,
+		inkTone: .08,
+		grainTone: .03,
+		paperHeight: .22,
+		diagonalHeight: .5,
+		lineHeight: .7,
+		inkDepth: .06,
+		paperRoughness: .74,
+		cellRoughness: .55,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -27346,6 +27416,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	wordsquares: .5,
 	caesarcipher: .5,
 	baseconversion: .5,
 	primefactors: .5,

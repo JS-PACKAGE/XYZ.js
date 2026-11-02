@@ -21728,3 +21728,162 @@ describe('caesarcipher: an alphabet and a message shifted by a fixed number', ()
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('wordsquares: letter squares that read the same across and down', () => {
+  const p = proceduralMaterialPresets.wordsquares;
+  const shapes: Record<string, string[]> = {
+    A: ['.#.', '#.#', '###', '#.#', '#.#'],
+    B: ['##.', '#.#', '##.', '#.#', '##.'],
+    C: ['.##', '#..', '#..', '#..', '.##'],
+    D: ['##.', '#.#', '#.#', '#.#', '##.'],
+    E: ['###', '#..', '##.', '#..', '###'],
+    F: ['###', '#..', '##.', '#..', '#..'],
+    G: ['.##', '#..', '#.#', '#.#', '.##'],
+    H: ['#.#', '#.#', '###', '#.#', '#.#'],
+    I: ['###', '.#.', '.#.', '.#.', '###'],
+    J: ['..#', '..#', '..#', '#.#', '.#.'],
+    K: ['#.#', '#.#', '##.', '#.#', '#.#'],
+    L: ['#..', '#..', '#..', '#..', '###'],
+    M: ['#.#', '###', '###', '#.#', '#.#'],
+    N: ['##.', '#.#', '#.#', '#.#', '#.#'],
+    O: ['.#.', '#.#', '#.#', '#.#', '.#.'],
+    P: ['##.', '#.#', '##.', '#..', '#..'],
+    Q: ['.#.', '#.#', '#.#', '###', '.##'],
+    R: ['##.', '#.#', '##.', '#.#', '#.#'],
+    S: ['.##', '#..', '.#.', '..#', '##.'],
+    T: ['###', '.#.', '.#.', '.#.', '.#.'],
+    U: ['#.#', '#.#', '#.#', '#.#', '###'],
+    V: ['#.#', '#.#', '#.#', '#.#', '.#.'],
+    W: ['#.#', '#.#', '###', '###', '#.#'],
+    X: ['#.#', '#.#', '.#.', '#.#', '#.#'],
+    Y: ['#.#', '#.#', '.#.', '.#.', '.#.'],
+    Z: ['###', '..#', '.#.', '#..', '###'],
+  };
+
+  const origin = (1 - p.span) / 2;
+
+  const decode = (seed: number, n: number): string[] | null => {
+    const sample = createSurfaceSampler('wordsquares', seed),
+      out = empty(),
+      cell = p.span / n,
+      result: string[] = [];
+    for (let row = 0; row < n; row++) {
+      let text = '';
+      for (let column = 0; column < n; column++) {
+        sample(
+          origin + column * cell + 0.004,
+          origin + row * cell + 0.004,
+          out,
+        );
+        const background = out.color,
+          lines = [0, 1, 2, 3, 4].map((y) =>
+            [0, 1, 2]
+              .map((x) => {
+                sample(
+                  origin + (column + 0.5) * cell + (x - 1) * p.pixel,
+                  origin + (row + 0.5) * cell + (y - 2) * p.pixel,
+                  out,
+                );
+                return Math.abs(out.color - background) > 0.25 ? '#' : '.';
+              })
+              .join(''),
+          ),
+          found = Object.entries(shapes).find(([, shape]) =>
+            shape.every((line, k) => line === lines[k]),
+          );
+        if (!found) return null;
+        text += found[0];
+      }
+      result.push(text);
+    }
+    return result;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'reads the same across and down and is one of the preset squares (seed %i)',
+    (seed) => {
+      // The side is whichever of the preset sizes decodes into letters everywhere.
+      const decoded = [...new Set(p.squares.map((square) => square.length))]
+        .map((n) => decode(seed, n))
+        .filter((square) => square !== null) as string[][];
+      expect(decoded).toHaveLength(1);
+      const square = decoded[0];
+      for (let i = 0; i < square.length; i++) {
+        expect(square[i]).toHaveLength(square.length);
+        for (let j = 0; j < square.length; j++)
+          expect(square[i][j]).toBe(square[j][i]);
+      }
+      expect(new Set(square).size).toBe(square.length);
+      expect(p.squares.map((candidate) => candidate.join(' '))).toContain(
+        square.join(' '),
+      );
+      // The cells on the diagonal, the axis of the symmetry, are the shaded ones.
+      const sample = createSurfaceSampler('wordsquares', seed),
+        out = empty(),
+        cell = p.span / square.length;
+      for (let row = 0; row < square.length; row++)
+        for (let column = 0; column < square.length; column++) {
+          sample(
+            origin + column * cell + 0.004,
+            origin + row * cell + 0.004,
+            out,
+          );
+          expect(out.color < 0.85).toBe(row === column);
+        }
+    },
+  );
+
+  it('keeps every preset square symmetric and uses every square across seeds', () => {
+    for (const square of p.squares)
+      for (let i = 0; i < square.length; i++)
+        for (let j = 0; j < square.length; j++)
+          expect(square[i][j]).toBe(square[j][i]);
+    const used = new Set<string>();
+    for (let seed = 0; seed < 60; seed++) {
+      const sizes = [...new Set(p.squares.map((square) => square.length))];
+      for (const n of sizes) {
+        const square = decode(seed, n);
+        if (square) used.add(square.join(' '));
+      }
+    }
+    expect([...used].sort()).toEqual(
+      p.squares.map((square) => square.join(' ')).sort(),
+    );
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('wordsquares', 0),
+      b = createSurfaceSampler('wordsquares', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
