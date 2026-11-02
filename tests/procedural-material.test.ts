@@ -996,6 +996,7 @@ const kinds: ProceduralMaterialKind[] = [
   'petricolonies',
   'hestain',
   'mackerel',
+  'fairisle',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -147871,6 +147872,199 @@ describe('Mackerel as broken wavy dark bands on a blue-green back', () => {
     expect(blue / (512 * 512)).toBeLessThan(141);
     expect(maxTilt).toBeGreaterThan(0.01);
     expect(maxTilt).toBeLessThan(0.025);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Fair Isle as knitted stitch bands with diamond motifs', () => {
+  const p = proceduralMaterialPresets.fairisle;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** Independent restatement of the band rules: is stitch (x, y) light yarn? */
+  const lightStitch = (x: number, y: number): boolean => {
+    const band = y % 15,
+      column = x % 8;
+    if ([0, 3, 11, 14].includes(band)) return true;
+    if (band === 1 || band === 12) return x % 2 === 0;
+    if (band === 2 || band === 13) return x % 2 === 1;
+    const reach = Math.abs(column - 3.5) + Math.abs(band - 7);
+    return reach <= 3.5 && reach > 1.5;
+  };
+  it('puts every stitch node in its band-rule colour and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('fairisle', seed),
+        a = empty();
+      let wrong = 0,
+        light = 0;
+      for (let y = 0; y < p.rows; y++)
+        for (let x = 0; x < p.columns; x++) {
+          sample(x / p.columns, y / p.rows, a);
+          const expected = lightStitch(x, y);
+          light += Number(expected);
+          wrong += Number(a.color > 0.5 !== expected);
+        }
+      expect(wrong).toBe(0);
+      expect(light).toBe(720);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color < 0.4);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.14);
+      expect(low).toBeLessThan(0.155);
+      expect(high).toBeGreaterThan(0.83);
+      expect(high).toBeLessThan(0.855);
+      expect(dark / 65536).toBeGreaterThan(0.36);
+      expect(dark / 65536).toBeLessThan(0.39);
+      expect(mean / 65536).toBeGreaterThan(0.48);
+      expect(mean / 65536).toBeLessThan(0.495);
+      expect(heightHigh).toBeGreaterThan(0.98);
+      expect(heightHigh).toBeLessThanOrEqual(1);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('changes only the yarn fuzz per seed and is deterministic for one seed', () => {
+    const grab = (seed: number): number[] => {
+      const sample = createSurfaceSampler('fairisle', seed),
+        a = empty(),
+        out: number[] = [];
+      for (let y = 0; y < 64; y++)
+        for (let x = 0; x < 64; x++) {
+          sample((x + 0.37) / 64, (y + 0.61) / 64, a);
+          out.push(a.color, a.height);
+        }
+      return out;
+    };
+    const first = grab(0),
+      second = grab(1);
+    let maxColor = 0,
+      different = 0;
+    for (let i = 0; i < first.length; i += 2) {
+      maxColor = Math.max(maxColor, Math.abs(first[i] - second[i]));
+      different += Number(first[i + 1] !== second[i + 1]);
+    }
+    expect(maxColor).toBeLessThan(p.fuzzTone + 1e-9);
+    expect(different / (first.length / 2)).toBeGreaterThan(0.99);
+    expect(grab(0)).toEqual(first);
+  });
+  it('keeps the motif edges, stitch ridges and fuzz C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('fairisle', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.columns, p.rows, p.fuzzCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 blue-grey knit maps with gentle stitch normals', () => {
+    const maps = generateProceduralMaps('fairisle', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(123);
+    expect(red / (512 * 512)).toBeLessThan(136);
+    expect(green / (512 * 512)).toBeGreaterThan(126);
+    expect(green / (512 * 512)).toBeLessThan(139);
+    expect(blue / (512 * 512)).toBeGreaterThan(138);
+    expect(blue / (512 * 512)).toBeLessThan(150);
+    expect(maxTilt).toBeGreaterThan(0.02);
+    expect(maxTilt).toBeLessThan(0.08);
     expect(invalid).toBe(0);
   });
 });

@@ -13598,6 +13598,28 @@ export declare const proceduralMaterialPresets: Readonly<{
         scaleHeight: 0.6;
         bandRoughness: 0.12;
     }>;
+    fairisle: Readonly<{
+        dark: readonly [28, 38, 74];
+        light: readonly [236, 232, 218];
+        roughness: 0.92;
+        relief: 0.0015;
+        seedSalt: 64021;
+        columns: 40;
+        rows: 30;
+        motifColumns: 8;
+        bandRows: 15;
+        sharpness: 7;
+        ridgePower: 1.6;
+        legSlant: 0.22;
+        legRows: 1;
+        fuzzCells: 160;
+        darkTone: 0.22;
+        lightTone: 0.6;
+        shadeFloor: 0.78;
+        fuzzTone: 0.05;
+        ridgeHeight: 0.8;
+        fuzzHeight: 0.2;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -14931,4 +14953,5 @@ export declare const proceduralTileMeters: Readonly<{
     petricolonies: 0.12;
     hestain: 0.05;
     mackerel: 0.3;
+    fairisle: 0.3;
 }>;

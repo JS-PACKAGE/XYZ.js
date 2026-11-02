@@ -39524,6 +39524,59 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'fairisle': {
+        const p = proceduralMaterialPresets.fairisle,
+          columns = p.columns,
+          rows = p.rows,
+          motif = new Float64Array(columns * rows),
+          fuzzField = cachedNoise(p.fuzzCells, p.fuzzCells, seed ^ p.seedSalt);
+        // One knitted stitch per lattice node. Stitch (x, y) is light yarn when the
+        // band row y % bandRows asks for it: solid rows, alternating peerie dots, and
+        // a diamond motif with an open centre repeated every motifColumns stitches.
+        for (let y = 0; y < rows; y++)
+          for (let x = 0; x < columns; x++) {
+            const band = y % p.bandRows,
+              column = x % p.motifColumns;
+            let light = 0;
+            if (band === 0 || band === 3 || band === 11 || band === 14)
+              light = 1;
+            else if (band === 1 || band === 12) light = Number(x % 2 === 0);
+            else if (band === 2 || band === 13) light = Number(x % 2 === 1);
+            else if (band >= 4 && band <= 10) {
+              const reach =
+                Math.abs(column - (p.motifColumns - 1) / 2) +
+                Math.abs(band - 7);
+              light = Number(reach <= 3.5 && reach > 1.5);
+            }
+            motif[y * columns + x] = light;
+          }
+        const pattern = latticeField(motif, columns, rows);
+        return () => {
+          // The motif lattice is blended with the same C1 smoothstep as value noise and
+          // re-sharpened by a tanh step, so stitch colour edges stay C-infinity inside
+          // each stitch. Each stitch is a column bulge times a leg ridge whose phase
+          // leans with the column position, giving the V of a knit stitch.
+          const yarn =
+              0.5 + 0.5 * Math.tanh(p.sharpness * (pattern(u, v) - 0.5)),
+            column = 0.5 + 0.5 * Math.cos(TAU * columns * u),
+            ridge =
+              Math.pow(column, p.ridgePower) *
+              (0.5 +
+                0.5 *
+                  Math.cos(
+                    TAU *
+                      (rows * p.legRows * v +
+                        p.legSlant * Math.sin(TAU * columns * u)),
+                  )),
+            fuzz = fuzzField(u, v);
+          color =
+            (p.darkTone + p.lightTone * yarn) *
+              (p.shadeFloor + (1 - p.shadeFloor) * ridge) +
+            p.fuzzTone * (fuzz - 0.5);
+          height = p.ridgeHeight * ridge + p.fuzzHeight * fuzz;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -47286,6 +47339,7 @@ export function createSurfaceSampler(
     kind === 'petricolonies' ||
     kind === 'hestain' ||
     kind === 'mackerel' ||
+    kind === 'fairisle' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

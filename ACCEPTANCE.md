@@ -12132,3 +12132,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增7項專屬測試（三seed統計、seed差異與決定性、沿v堆疊的各向異性、C1＋有符號UV週期、actual512 maps）通過；各向異性比例區間是以目前參數的探針值設定，參數改動需重新量測。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Mackerel as|mackerel|kinds|catalog|distinct|periodic"`定向測試**2213項通過／3792項未選**。
 - 未驗證：mackerel未跑完整suite與瀏覽器gallery（petricolonies、hestain完整suite亦未做）；不push。
+
+## 2026-11-02 新增材質：費爾島針織（fairisle）
+
+- 範圍：新增`fairisle`（目前目錄954→955種，含plain的gallery 956項）：40×30針的針目圖（建構時以規則算出：`y % 15`為0、3、11、14是實心列，1與12是偶數針、2與13是奇數針，4至10是`|x%8 − 3.5| + |y%15 − 7|`在(1.5, 3.5]內的菱形環），用`latticeField`的C1 smoothstep混合後以tanh重新銳化；針腳＝cos²柱凸起乘以相位隨欄位傾斜的腿脊（V形）；顏色＝`(0.22 + 0.6·yarn)·(0.78 + 0.22·ridge)`加160²絨毛；roughness恆為0.92；預設0.3 m nominal tile、0.0015 UV-relative relief。作者示意，沒有引用特定來源或費爾島圖譜、**沒有對照照片**；seed只改變絨毛，圖樣固定（這是設計選擇，不是隨機化）。
+- 調整紀錄（誠實紀錄）：第一版relief 0.004時，512²maps的法線tilt²最大為0.335，降到0.0015後為0.0668（同一批探針的前後值）；這是此材質唯一的調整，預覽第一次就採用。
+- 實測（工具實跑，seed 0／1／0xffffffff／7，512²取樣）：color 0.1472–0.1477至0.8426–0.8430、深色（color<0.4）占37.5%、平均0.4862–0.4863、height至多0.9938–0.9975 relief、roughness恆為0.92；1,200個針目節點的顏色與規則一致（720針淺色、480針深色、沒有節點顏色落在0.4到0.6之間）；seed 7的512²maps平均r／g／b約(129.1, 132.3, 144.0)、法線tilt²最大約0.0668、z分量最小251。我實看了預覽：深藍菱形與小點橫帶疊在淺灰底，針腳清楚，一眼就像北歐針織圖樣。
+- 測試：新增5項專屬測試（三seed的針目節點與規則逐一比對加統計、seed只影響絨毛與決定性、C1＋有符號UV週期、actual512 maps）通過；節點測試中的規則是在測試裡獨立重寫一份，與sampler的規則改動需同步。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Fair Isle as|fairisle|kinds|catalog|distinct|periodic"`定向測試**2212項通過／3798項未選**。
+- 未驗證：mackerel、fairisle未跑完整suite與瀏覽器gallery（petricolonies、hestain完整suite亦未做）；不push。
