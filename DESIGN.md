@@ -1693,6 +1693,10 @@
 
 這是作者設計的示意：只有z^n − 1這一類多項式、n為3到5；亮度只表示收斂到哪個根與速度，不是色相（程序材質只有深到淺的亮度漸層）；吸引盆邊界是碎形，邊界附近的像素對浮點誤差敏感，每個像素最多迭代40次，無法收斂的點（接近邊界或極點）依最後位置歸類；三角波折疊使圖樣左右、上下鏡射。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`mandelbrotbands`（曼德博等高帶）使目前目錄1031→1032種，含plain的gallery為1033項。每tile是曼德博集合的平滑逃逸時間等高圖：seed從四個固定視窗挑一個——整個集合（中心−0.6，半寬1.6，80次迭代）、海馬谷（−0.745 + 0.113i，半寬0.06）、一個近虛軸的分支（−0.16 + 1.0405i，半寬0.04），以及接近費根鮑姆點的區域（−1.401155，半寬0.02，這三個放大視窗各160次迭代）。集合內部（在迭代次數內沒有逃逸的點）為深色；外部每點以平滑逃逸時間ν = n + 1 − log₂(log|z| / log 256)決定亮度（ν越大越亮，並疊加週期為3的餘弦等高帶），所以集合周圍有一圈圈的帶。座標經三角波折疊，使圖樣在tile邊緣連續。Metallic與mortar為0。
+
+這是作者設計的示意：只有這四個視窗，沒有互動縮放；內部是用迭代次數上限判斷的，集合邊緣的像素會因上限而略有差異（暫時性測試的120個額外seed中，最佳視窗的吻合率全為1.0000（第二名最高0.265），但那是0.02的容差與80×80格點的結果，不代表所有像素都一致）；亮度只表示逃逸速度、不是色相；三角波折疊使圖樣鏡射。每像素最多160次迭代，512×512單次渲染約0.15秒（Bun，預覽腳本，只量一次）。預設0.6 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

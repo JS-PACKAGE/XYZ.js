@@ -31106,6 +31106,57 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'mandelbrotbands': {
+        const p = proceduralMaterialPresets.mandelbrotbands,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2d201),
+          view =
+            p.views[
+              Math.min(
+                p.views.length - 1,
+                Math.floor(hash(1, 1, seed ^ 0x2d202) * p.views.length),
+              )
+            ],
+          // A tent fold makes the picture continuous across the tile edge.
+          fold = (t: number): number => 1 - Math.abs(2 * t - 1),
+          logBailout = Math.log(p.bailout);
+        return () => {
+          const cr = view.x + view.extent * (2 * fold(u) - 1),
+            ci = view.y + view.extent * (2 * fold(v) - 1);
+          let zr = 0,
+            zi = 0,
+            step = 0;
+          while (
+            step < view.iterations &&
+            zr * zr + zi * zi <= p.bailout * p.bailout
+          ) {
+            [zr, zi] = [zr * zr - zi * zi + cr, 2 * zr * zi + ci];
+            step++;
+          }
+          if (step >= view.iterations) {
+            // Inside the set (or not escaped within the iteration limit).
+            color = clamp(
+              p.insideTone + p.grainTone * (grainField(u, v) - 0.5),
+            );
+            height = clamp(p.insideHeight);
+            roughness = p.insideRoughness;
+          } else {
+            // Smooth escape time: the step count corrected by how far past the bailout the orbit jumped.
+            const smooth =
+                step +
+                1 -
+                Math.log(Math.log(Math.hypot(zr, zi)) / logBailout) / Math.LN2,
+              level = 1 - 1 / (1 + smooth / p.scale),
+              tone =
+                p.lowTone +
+                (p.highTone - p.lowTone) * level +
+                p.bandDepth * Math.cos((2 * Math.PI * smooth) / p.bandPeriod);
+            color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
+            height = clamp(p.insideHeight + p.heightSpan * level);
+            roughness = clamp(p.roughnessBase + p.roughnessSpan * (1 - level));
+          }
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -58635,6 +58686,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'mandelbrotbands' ||
     kind === 'newtonbasins' ||
     kind === 'kochsnowflake' ||
     kind === 'matrixproducts' ||
