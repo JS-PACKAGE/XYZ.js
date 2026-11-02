@@ -1074,6 +1074,7 @@ const kinds: ProceduralMaterialKind[] = [
   'phasevortices',
   'euclidsteps',
   'happynumbers',
+  'stringart',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',
@@ -170309,6 +170310,264 @@ describe('Happy numbers as the happy numbers 1 to 4096 glowing on a 64 by 64 tab
     expect(blue / (512 * 512)).toBeLessThan(34);
     expect(maxTilt).toBeGreaterThan(0.035);
     expect(maxTilt).toBeLessThan(0.045);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('String art as threads joining each of 96 points on a circle to its multiple modulo 96', () => {
+  const p = proceduralMaterialPresets.stringart;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The threads (x1, y1, x2, y2) of a multiplier and an offset, the points written independently here. */
+  const threads = (multiplier: number, offset: number): number[][] => {
+    const point = (i: number): number[] => [
+      0.5 + p.radius * Math.cos((2 * Math.PI * i) / p.points),
+      0.5 + p.radius * Math.sin((2 * Math.PI * i) / p.points),
+    ];
+    const list: number[][] = [];
+    for (let i = 0; i < p.points; i++) {
+      const j = (multiplier * i + offset) % p.points;
+      if (j !== i) list.push([...point(i), ...point(j)]);
+    }
+    return list;
+  };
+  /** Distance from (u, v) to the nearest thread. */
+  const distanceToThreads = (
+    list: number[][],
+    u: number,
+    v: number,
+  ): number => {
+    let best = Infinity;
+    for (const [x1, y1, x2, y2] of list) {
+      const vx = x2 - x1,
+        vy = y2 - y1,
+        along = Math.min(
+          1,
+          Math.max(0, ((u - x1) * vx + (v - y1) * vy) / (vx * vx + vy * vy)),
+        );
+      best = Math.min(
+        best,
+        Math.hypot(u - (x1 + along * vx), v - (y1 + along * vy)),
+      );
+    }
+    return best;
+  };
+  /**
+   * The multiplier and offset read back from the sampler. Every pair (multiplier 2 to 5, offset 0
+   * to 95) whose threads are all lit at their midpoints is a candidate, but some candidates
+   * only differ from the real one by a small turn and their midpoints lie on threads of the real
+   * picture too, so the candidates are compared on 3000 points: lit within 0.001 of a thread,
+   * dark from 0.0045 on (0.003 is the stroke radius). The candidate with the fewest
+   * disagreements is the reading; the next best is returned too.
+   */
+  const readThreads = (
+    seed: number,
+  ): {
+    multiplier: number;
+    offset: number;
+    disagreements: number;
+    runnerUp: number;
+    clear: number;
+  } => {
+    const sample = createSurfaceSampler('stringart', seed),
+      out = empty(),
+      lit = (u: number, v: number): boolean => {
+        sample(u, v, out);
+        return out.color > 0.5;
+      },
+      results: {
+        multiplier: number;
+        offset: number;
+        disagreements: number;
+        clear: number;
+      }[] = [];
+    for (let multiplier = 2; multiplier <= 5; multiplier++)
+      for (let offset = 0; offset < p.points; offset++) {
+        const list = threads(multiplier, offset);
+        if (
+          !list.every(([x1, y1, x2, y2]) => lit((x1 + x2) / 2, (y1 + y2) / 2))
+        )
+          continue;
+        let disagreements = 0,
+          clear = 0;
+        for (let i = 0; i < 3000; i++) {
+          const u = (i * 0.61803398875) % 1,
+            v = (i * 0.41421356237) % 1,
+            distance = distanceToThreads(list, u, v);
+          if (distance > 0.001 && distance < 0.0045) continue;
+          clear++;
+          disagreements += Number(lit(u, v) !== distance <= 0.001);
+        }
+        results.push({ multiplier, offset, disagreements, clear });
+      }
+    results.sort((x, y) => x.disagreements - y.disagreements);
+    return {
+      ...results[0],
+      runnerUp: results.length > 1 ? results[1].disagreements : Infinity,
+    };
+  };
+  it('draws the threads of the times-table circle and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('stringart', seed),
+        a = empty();
+      // The reading agrees with the independent distance to the threads at every clear point
+      // (2000 or more of the 3000; none may disagree), while the best other candidate that also has
+      // all its midpoints lit disagrees at more than 100 points: the pair is determined.
+      const reading = readThreads(seed);
+      expect(reading.multiplier).toBeGreaterThanOrEqual(2);
+      expect(reading.multiplier).toBeLessThanOrEqual(5);
+      expect(reading.clear).toBeGreaterThan(2000);
+      expect(reading.disagreements).toBe(0);
+      expect(reading.runnerUp).toBeGreaterThan(100);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0251);
+      expect(low).toBeLessThan(0.0258);
+      expect(high).toBeGreaterThan(0.853);
+      expect(high).toBeLessThan(0.855);
+      expect(dark / 65536).toBeGreaterThan(0.165);
+      expect(dark / 65536).toBeLessThan(0.169);
+      expect(mean / 65536).toBeGreaterThan(0.178);
+      expect(mean / 65536).toBeLessThan(0.182);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 3);
+      expect(heightHigh).toBeGreaterThan(0.876);
+      expect(heightHigh).toBeLessThan(0.879);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('picks a different multiplier and offset per seed and is deterministic for one seed', () => {
+    const readings = [0, 1, 0xffffffff, 7].map(readThreads);
+    expect(
+      new Set(
+        readings.map(({ multiplier, offset }) => multiplier + ',' + offset),
+      ).size,
+    ).toBe(4);
+    expect(new Set(readings.map(({ multiplier }) => multiplier)).size).toBe(3);
+    expect(readThreads(0)).toEqual(readings[0]);
+  });
+  it('keeps the threads, ground and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('stringart', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 rose thread maps with raised lines and shaded ground', () => {
+    const maps = generateProceduralMaps('stringart', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(52.5);
+    expect(red / (512 * 512)).toBeLessThan(54);
+    expect(green / (512 * 512)).toBeGreaterThan(30.5);
+    expect(green / (512 * 512)).toBeLessThan(32);
+    expect(blue / (512 * 512)).toBeGreaterThan(49);
+    expect(blue / (512 * 512)).toBeLessThan(50.5);
+    expect(maxTilt).toBeGreaterThan(0.04);
+    expect(maxTilt).toBeLessThan(0.07);
     expect(invalid).toBe(0);
   });
 });

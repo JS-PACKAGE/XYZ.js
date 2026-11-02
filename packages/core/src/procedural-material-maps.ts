@@ -43307,6 +43307,62 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'stringart': {
+        const p = proceduralMaterialPresets.stringart,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          multiplier = 2 + Math.floor(hash(0, 24, seed ^ p.seedSalt) * 4),
+          offset = Math.floor(hash(1, 24, seed ^ p.seedSalt) * p.points),
+          corners = Array.from({ length: p.points }, (_, i) => [
+            0.5 + p.radius * Math.cos((2 * Math.PI * i) / p.points),
+            0.5 + p.radius * Math.sin((2 * Math.PI * i) / p.points),
+          ]),
+          chords: number[][] = [];
+        // String art: points evenly spread round a circle are numbered 0 to points - 1 and the
+        // point i is joined to the point (multiplier x i + offset) mod points by a straight thread, so
+        // the threads envelop a curve: a cardioid for the multiplier 2, a nephroid for 3, a
+        // three-cusped curve for 4 and a four-cusped one for 5 (named here as the usual shapes
+        // of the times-table circle, not checked). The seed picks the multiplier 2 to 5 and the offset.
+        for (let i = 0; i < p.points; i++) {
+          const j = (multiplier * i + offset) % p.points;
+          if (j === i) continue;
+          chords.push([...corners[i], ...corners[j]]);
+        }
+        return () => {
+          const fu = fract(u),
+            fv = fract(v);
+          let open = 1;
+          if (Math.hypot(fu - 0.5, fv - 0.5) < p.radius + p.strokeRadius)
+            for (const [x1, y1, x2, y2] of chords) {
+              const vx = x2 - x1,
+                vy = y2 - y1,
+                along = clamp(
+                  ((fu - x1) * vx + (fv - y1) * vy) / (vx * vx + vy * vy),
+                ),
+                distance = Math.hypot(
+                  fu - (x1 + along * vx),
+                  fv - (y1 + along * vy),
+                );
+              open *=
+                1 - smooth(clamp((p.strokeRadius - distance) / p.edgeSoft));
+            }
+          const mask = 1 - open,
+            tone = p.toneSpan * mask,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.litHeight * mask * (p.baseHeight + (1 - p.baseHeight) * mask) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -52156,6 +52212,7 @@ export function createSurfaceSampler(
     kind === 'phasevortices' ||
     kind === 'euclidsteps' ||
     kind === 'happynumbers' ||
+    kind === 'stringart' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||

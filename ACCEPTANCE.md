@@ -13095,3 +13095,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 完整suite（工具實跑）：在commit `35d1facd2`（`[P08] Add Happy numbers material`）的乾淨worktree執行`vitest run`，**179個檔案、10,424項測試全部通過**，耗時1094.89 s；對照前一次紀錄（`657f0943a`，10,404項），新增的recamanarcs、phasevortices、euclidsteps、happynumbers各加5項共20項，與數量吻合。
 - 瀏覽器gallery（headless Chrome，`--enable-unsafe-webgpu --use-angle=metal`）：頁面載入約258 s後，預設（WebGPU）與`?renderer=webgl2`兩個分頁讀數皆為「1046 procedural material presets」、select共1047個選項；依序選取recamanarcs、phasevortices、euclidsteps、happynumbers、plain（WebGPU分頁另加kaleidoscope）都在期限內更新讀數，兩個分頁的console錯誤皆為0。這**只**涵蓋「可選取、讀數更新、無console錯誤」，沒有逐材質截圖，也不證明視覺品質；只選了上述少數kind，沒有逐一選過全部1046種。這次開分頁前先終止了殘留的Chrome程序，兩次`browser.open`都一次成功。
 - 未驗證：沒有量測建構與取樣耗時；不push。
+
+## 2026-11-03 新增材質：弦線藝術（stringart）
+
+- 範圍：新增`stringart`（目前目錄1046→1047種，含plain的gallery 1048項）：乘法表圓：圓周上96個點，點`i`以直線連到`(m·i + c) mod 96`，seed選乘數`m`（2到5）與偏移`c`（0到95）；粉紅細線在深紫黑色底上，每個0.5 m tile一個圓盤；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 131,072 B（另有最多96條線段的小陣列未計入）。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽看了三版；(2)**設計修正**：第一版沒有偏移`c`，探針顯示seed 0與seed 1選到同一個乘數4、兩張圖幾乎相同（遮罩差0.07%），所以加上偏移，再重看預覽；(3)**測試修正**：只用「線中點全亮」找參數時，探針顯示有只差一小個轉角的假候選也通過（seed 0有兩個、seed 1兩個、0xffffffff三個候選全亮，我先前的探針因此在seed 0與0xffffffff得到2,516與2,740個不一致），改成逐點比對3000個點後，正確候選不一致為0、其餘378–406個，測試要求次佳候選>100個不一致；(4)包絡的曲線名稱（心臟線、腎臟線）是常見叫法，本次未驗證；(5)探針的第一版輸出中「lit」「mean」欄位有因我誤改變數名稱而不正確的數字（亮處占比>1），我發現後修正探針再重跑，文件與測試只用修正後的數字；(6)256²與512²取樣的亮處占比略有不同（線細），測試採用256²的數值；(7)建構與取樣耗時**未量測**；(8)測試第一次執行即通過（探針數值先量好才寫界線）。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：讀出的（乘數, 偏移）(4, 61)、(4, 65)、(5, 26)、(3, 63)；中點全亮的候選2／2／3／1個，其中正確者與獨立距離的不一致為0（清楚的點約2,206–2,281個），其餘候選不一致378–406個；256²（seed 0／1／0xffffffff）亮處（color>0.5）16.55%–16.83%、color 0.02521–0.02569至0.85370–0.85426、平均0.17865–0.18097、roughness恆為0.4、AO最低0.6、height至多0.8765–0.8781 relief；512²（四個seed）亮處16.33%–16.85%、color 0.02509–0.02523至0.85449–0.85479、平均0.17684–0.18109、AO最低0.6、height至多0.8786–0.8794 relief；seed 0與1相比，512²中color>0.5的取樣21.9%不同；seed 7的512²maps平均r／g／b約(53.3, 31.3, 49.6)、法線tilt²最大約0.0543、z分量最小251。我實看了預覽（seed 7與seed 0，加上偏移後再看seed 7）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "String art as|stringart|kinds|catalog|distinct|periodic"`定向測試**2400項通過／4100項未選**。
+- 未驗證：stringart未跑完整suite與瀏覽器gallery；不push。

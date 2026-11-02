@@ -1048,6 +1048,7 @@ export type ProceduralMaterialKind =
   | 'phasevortices'
   | 'euclidsteps'
   | 'happynumbers'
+  | 'stringart'
   | 'sandpileidentity'
   | 'multiplicativeorder'
   | 'vermiculation'
@@ -2343,6 +2344,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'phasevortices',
   'euclidsteps',
   'happynumbers',
+  'stringart',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',

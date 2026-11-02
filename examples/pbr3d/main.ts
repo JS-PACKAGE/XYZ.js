@@ -1111,6 +1111,7 @@ try {
     'phasevortices',
     'euclidsteps',
     'happynumbers',
+    'stringart',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',
