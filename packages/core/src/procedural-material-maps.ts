@@ -42971,6 +42971,49 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'zoneplate': {
+        const p = proceduralMaterialPresets.zoneplate,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          centreU = 0.5 + (hash(0, 19, seed ^ p.seedSalt) - 0.5) * 2 * p.drift,
+          centreV = 0.5 + (hash(1, 19, seed ^ p.seedSalt) - 0.5) * 2 * p.drift,
+          flip = hash(2, 19, seed ^ p.seedSalt) < 0.5,
+          radiusSquared = p.radius * p.radius;
+        // A Fresnel zone plate: the zone number grows with the square of the distance from the
+        // centre, s = zones (r / radius)^2, and the tone follows the wave 1/2 + cos(pi s) / 2
+        // pushed through a smoothstep, so the transitions between a bright and a dark zone lie
+        // at s = n + 1/2, that is at the radii radius sqrt((n + 1/2) / zones), and the zones get
+        // narrower towards the rim. The seed moves the centre by up to drift and may swap bright
+        // and dark. The plate (radius + drift is at most 0.5) lies inside the tile.
+        return () => {
+          const dx = fract(u) - centreU,
+            dy = fract(v) - centreV,
+            distanceSquared = dx * dx + dy * dy,
+            wave =
+              0.5 +
+              0.5 *
+                Math.cos((Math.PI * p.zones * distanceSquared) / radiusSquared),
+            lit = smooth(clamp((wave - 0.5) / p.blend + 0.5)),
+            value = flip ? 1 - lit : lit,
+            mask = smooth(
+              clamp((p.radius - Math.sqrt(distanceSquared)) / p.edgeSoft),
+            ),
+            tone = p.toneSpan * value,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.litHeight * mask * (p.baseHeight + (1 - p.baseHeight) * value) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -51814,6 +51857,7 @@ export function createSurfaceSampler(
     kind === 'wangtiles' ||
     kind === 'poissondisk' ||
     kind === 'graycode' ||
+    kind === 'zoneplate' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||

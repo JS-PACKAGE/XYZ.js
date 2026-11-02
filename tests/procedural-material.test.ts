@@ -1068,6 +1068,7 @@ const kinds: ProceduralMaterialKind[] = [
   'wangtiles',
   'poissondisk',
   'graycode',
+  'zoneplate',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',
@@ -168871,6 +168872,233 @@ describe('Gray code as a rotary-encoder disc whose 128 sectors carry the reflect
     expect(blue / (512 * 512)).toBeLessThan(83.5);
     expect(maxTilt).toBeGreaterThan(0.02);
     expect(maxTilt).toBeLessThan(0.03);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Zone plate as Fresnel zones whose radii grow with the square root of the zone number', () => {
+  const p = proceduralMaterialPresets.zoneplate;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const middle = p.toneFloor + p.toneSpan / 2;
+  /**
+   * The plate read back from the sampler: the centre is the mean position of the lit pixels
+   * (colour above 0.5) of a 256 by 256 grid, which is symmetric about the centre; from there 8
+   * rays are followed outwards in steps of 0.0005 and the radii where the colour crosses the
+   * middle of the tone range are interpolated linearly.
+   */
+  const readPlate = (
+    seed: number,
+  ): { centre: number[]; centreLit: boolean; crossings: number[][] } => {
+    const sample = createSurfaceSampler('zoneplate', seed),
+      out = empty();
+    let sumU = 0,
+      sumV = 0,
+      count = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        if (out.color > 0.5) {
+          sumU += (x + 0.5) / 256;
+          sumV += (y + 0.5) / 256;
+          count++;
+        }
+      }
+    const centre = [sumU / count, sumV / count];
+    sample(centre[0], centre[1], out);
+    const centreLit = out.color > middle,
+      crossings: number[][] = [];
+    for (let ray = 0; ray < 8; ray++) {
+      const angle = (ray * Math.PI) / 4 + 0.3,
+        radii: number[] = [];
+      let before = 0,
+        beforeRadius = 0;
+      for (let i = 0; i <= 940; i++) {
+        const radius = i * 0.0005;
+        sample(
+          centre[0] + radius * Math.cos(angle),
+          centre[1] + radius * Math.sin(angle),
+          out,
+        );
+        const side = out.color - middle;
+        if (i > 0 && before * side < 0)
+          radii.push(
+            beforeRadius +
+              ((radius - beforeRadius) * Math.abs(before)) /
+                (Math.abs(before) + Math.abs(side)),
+          );
+        before = side;
+        beforeRadius = radius;
+      }
+      crossings.push(radii);
+    }
+    return { centre, centreLit, crossings };
+  };
+  it('draws zones at the square-root radii and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('zoneplate', seed),
+        a = empty();
+      // The centre lies within the drift of the middle of the tile; on every ray the first 13
+      // transitions between a bright and a dark zone are at radius * sqrt((n + 1/2) / zones) to
+      // within 0.002 (the formula of a zone plate, with sqrt only in the test); the ray has
+      // 14 transitions inside the plate plus the edge of the plate when its outermost zone is
+      // bright, which happens exactly when the centre zone is bright (the number of zones is
+      // even).
+      const { centre, centreLit, crossings } = readPlate(seed);
+      expect(Math.abs(centre[0] - 0.5)).toBeLessThan(p.drift);
+      expect(Math.abs(centre[1] - 0.5)).toBeLessThan(p.drift);
+      for (const radii of crossings) {
+        expect(radii).toHaveLength(p.zones + (centreLit ? 1 : 0));
+        for (let n = 0; n < 13; n++)
+          expect(
+            Math.abs(radii[n] - p.radius * Math.sqrt((n + 0.5) / p.zones)),
+          ).toBeLessThan(0.002);
+      }
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0254);
+      expect(low).toBeLessThan(0.0258);
+      expect(high).toBeGreaterThan(0.853);
+      expect(high).toBeLessThan(0.855);
+      expect(dark / 65536).toBeGreaterThan(0.328);
+      expect(dark / 65536).toBeLessThan(0.331);
+      expect(mean / 65536).toBeGreaterThan(0.34);
+      expect(mean / 65536).toBeLessThan(0.342);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 3);
+      expect(heightHigh).toBeGreaterThan(0.876);
+      expect(heightHigh).toBeLessThan(0.879);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('moves the plate and may swap bright and dark per seed and is deterministic for one seed', () => {
+    const plates = [0, 1, 0xffffffff, 7].map(readPlate);
+    expect(new Set(plates.map(({ centre }) => centre.join())).size).toBe(4);
+    expect(new Set(plates.map(({ centreLit }) => centreLit)).size).toBe(2);
+    expect(readPlate(0)).toEqual(plates[0]);
+  });
+  it('keeps the zones, rim and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('zoneplate', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 pale zone-plate maps with raised bright zones and shaded ground', () => {
+    const maps = generateProceduralMaps('zoneplate', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(84);
+    expect(red / (512 * 512)).toBeLessThan(85.5);
+    expect(green / (512 * 512)).toBeGreaterThan(90);
+    expect(green / (512 * 512)).toBeLessThan(91.5);
+    expect(blue / (512 * 512)).toBeGreaterThan(82.5);
+    expect(blue / (512 * 512)).toBeLessThan(84);
+    expect(maxTilt).toBeGreaterThan(0.02);
+    expect(maxTilt).toBeLessThan(0.025);
     expect(invalid).toBe(0);
   });
 });

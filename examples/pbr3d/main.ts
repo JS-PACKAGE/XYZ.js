@@ -1105,6 +1105,7 @@ try {
     'wangtiles',
     'poissondisk',
     'graycode',
+    'zoneplate',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

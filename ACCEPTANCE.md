@@ -13028,3 +13028,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
 - gates（工具實跑，改正文件前）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Gray code as|graycode|kinds|catalog|distinct|periodic"`定向測試**2386項通過／4079項未選**；文件改正後只重跑了`prettier --check .`（通過），沒有重跑其他gates。
 - 未驗證：poissondisk與graycode未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-03 新增材質：菲涅耳波帶片（zoneplate）
+
+- 範圍：新增`zoneplate`（目前目錄1040→1041種，含plain的gallery 1042項）：明暗同心環，第`n`個明暗交界在半徑`0.47·√((n + ½) / 14)`處，淺黃綠環在深藍黑色底上，每個0.5 m tile一個圓盤；seed讓圓心移動最多0.03並可能對調明暗；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 131,072 B（沒有表）。與既有`fresnel`（等距鋸齒環的菲涅耳透鏡）不同，已在文件中註明。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽只看了一版；(2)這次在開始寫之前已先在README搜尋概念，只看到既有`fresnel`是等距環而非√n律，才決定新增；(3)測試的√公式只出現在測試中，sampler用`cos(π·zones·r²/radius²)`；測試只靠讀回：以亮像素平均位置估計圓心，沿8個方向找明暗交界半徑，前13次與公式的誤差<0.002（實測最大0.00064，探針射線步長0.00047；測試射線步長0.0005），沒有檢查第14次交界（在盤面邊緣的平滑遮罩區內，位置不準），只檢查交界的個數；(4)seed 1的圓心偏移量為0.0294，貼近測試的上限0.03（實測值通過，不是留有大幅餘裕）；(5)交界處平滑階梯的形狀沒有獨立驗證；(6)256²與512²取樣的亮處占比略有不同，seed 7的明暗對調也改變亮處占比，測試只採用256²（seed 0／1／0xffffffff）的數值；(7)建構與取樣耗時**未量測**；(8)測試第一次執行即通過。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：亮像素平均位置估計的圓心(0.5216, 0.4885)、(0.4858, 0.4706)、(0.5263, 0.4879)、(0.4844, 0.5264)；前13次交界與√公式的最大誤差0.00063／0.00064／0.00019／0.00020；每個方向的交界數seed 0／1／0xffffffff為15、seed 7為14（中心環帶為暗即對調）；256²（seed 0／1／0xffffffff）亮處（color>0.5）32.89%–32.99%、color 0.02542–0.02567至0.85387–0.85419、平均0.34066–0.34070、roughness恆為0.4、AO最低0.6、height至多0.8770–0.8778 relief；512²（四個seed）亮處32.91%–32.93%（seed 0／1／0xffffffff）與34.55%（seed 7）、color 0.02515–0.02525至0.85456–0.85478、平均0.34066–0.35077、AO最低0.6、height至多0.8788–0.8794 relief；seed 0與1相比，512²中color>0.5的取樣35.3%不同；seed 7的512²maps平均r／g／b約(84.6, 90.7, 83.1)、法線tilt²最大約0.0225、z分量最小254。我實看了預覽（seed 7，2×2 tile）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Zone plate as|zoneplate|kinds|catalog|distinct|periodic"`定向測試**2388項通過／4082項未選**。
+- 未驗證：poissondisk、graycode與zoneplate未跑完整suite與瀏覽器gallery；不push。
