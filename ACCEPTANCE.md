@@ -12395,3 +12395,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試（168條線段、四seed的平移對稱結構與統計、seed差異與決定性、C1（含168條線兩側邊界在中間與兩端的點）＋有符號UV週期、actual512 maps）通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Tulle as|tulle|kinds|catalog|distinct|periodic"`定向測試**2260項通過／3877項未選**。
 - 未驗證：mandelbrottiles、juliatiles、dragoncurve、divisorcount、peanocurve、sacksspiral、tulle未跑瀏覽器gallery；sacksspiral之後的tulle未跑完整suite；不push。
+
+## 2026-11-02 完整suite與瀏覽器gallery驗證：mandelbrottiles至tulle
+
+- 完整suite（工具實跑，worktree `/private/tmp/xyz-ct-suite`）：`884aa151a`「Add dragon curve material」**179檔／10,046項全數通過**（Duration 1286.06s，涵蓋mandelbrottiles、juliatiles、dragoncurve）；`f6d2f194d`「Add Sacks spiral material」**179檔／10,061項全數通過**（Duration 1202.07s，再涵蓋divisorcount、peanocurve、sacksspiral）。**tulle（`bc58b5229`）尚未跑完整suite**，只有定向測試與gates。
+- 瀏覽器gallery（工具實跑，`bc58b5229`狀態的乾淨worktree上的vite dev server）：spawned Google Chrome headless（`--enable-unsafe-webgpu --use-angle=metal`）開啟`/examples/pbr3d/`，`#material`選單有980個選項；逐一以`input`事件選取`mandelbrottiles`、`juliatiles`、`dragoncurve`、`divisorcount`、`peanocurve`、`sacksspiral`、`tulle`並等待讀數出現`Material <kind> `，七個全部成功；WebGPU與`?renderer=webgl2`各跑一次，結束時`tab.errors()`的`entries`皆為0筆；狀態列顯示`979 procedural material presets`。
+- 過程紀錄（誠實紀錄）：前兩次嘗試用`tab.evaluate`在30秒內逾時（第一次mandelbrottiles的讀數等待失敗、之後的cell被中止；第二次於同時跑完整suite時進行，之後在機器閒置時重試也逾時一次），原因我沒有查明；改用`tab.run`內的`page.evaluate`逐步輪詢（每次最多15秒）後全部成功，所以上述結果來自第三種做法，不是第一次嘗試。
+- 限制：gallery檢查只涵蓋「能選取、讀數更新、console沒有錯誤」，**沒有**逐材質視覺比對，也沒有跨瀏覽器、跨GPU或Windows／Linux驗證；不push。
