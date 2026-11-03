@@ -1136,6 +1136,7 @@ try {
     'perfectarray',
     'delaunay',
     'harmonograph',
+    'lorenzattractor',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

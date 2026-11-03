@@ -1073,6 +1073,7 @@ export type ProceduralMaterialKind =
   | 'perfectarray'
   | 'delaunay'
   | 'harmonograph'
+  | 'lorenzattractor'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2394,6 +2395,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'perfectarray',
   'delaunay',
   'harmonograph',
+  'lorenzattractor',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

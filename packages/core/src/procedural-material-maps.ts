@@ -45774,6 +45774,156 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'lorenzattractor': {
+        const p = proceduralMaterialPresets.lorenzattractor,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant =
+            p.variants[
+              Math.floor(hash(0, 47, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          buckets: number[][] = Array.from(
+            { length: p.buckets * p.buckets },
+            () => [],
+          ),
+          segments: number[][] = [],
+          steps = Math.round(p.duration / p.timeStep),
+          raw: number[][] = [],
+          inverseSoft = 1 / p.edgeSoft,
+          step = 0.5 / p.buckets;
+        // The Lorenz system x' = sigma (y - x), y' = x (rho - z) - y, z' = x y - beta z is integrated
+        // from the start point of the variant with the classical fourth-order Runge-Kutta method for
+        // steps steps of timeStep, and the path is projected on the plane x-z, y-z or x-y (the last
+        // number of the variant), moved by the centre of its plane and scaled by fit over span (the same for every variant,
+        // so that the position of a point does not depend on the rest of the path, which is chaotic), with the second coordinate upside down so that the first plane stands
+        // up. Every step is a segment, filed into the buckets x buckets buckets that a point within
+        // its half width plus half a step of its path could be in, so a lookup needs only the bucket
+        // of the sample. The ink gets thinner as time goes on: the half width of a segment is
+        // halfWidth (1 - fade (i - 1/2) / steps).
+        {
+          let x = variant[0],
+            y = variant[1],
+            z = variant[2];
+          const derivative = (px: number, py: number, pz: number): number[] => [
+              p.sigma * (py - px),
+              px * (p.rho - pz) - py,
+              px * py - p.beta * pz,
+            ],
+            project = (px: number, py: number, pz: number): number[] =>
+              variant[3] === 0
+                ? [px, pz]
+                : variant[3] === 1
+                  ? [py, pz]
+                  : [px, py];
+          raw.push(project(x, y, z));
+          for (let i = 0; i < steps; i++) {
+            const h = p.timeStep,
+              k1 = derivative(x, y, z),
+              k2 = derivative(
+                x + (h / 2) * k1[0],
+                y + (h / 2) * k1[1],
+                z + (h / 2) * k1[2],
+              ),
+              k3 = derivative(
+                x + (h / 2) * k2[0],
+                y + (h / 2) * k2[1],
+                z + (h / 2) * k2[2],
+              ),
+              k4 = derivative(x + h * k3[0], y + h * k3[1], z + h * k3[2]);
+            x += (h / 6) * (k1[0] + 2 * k2[0] + 2 * k3[0] + k4[0]);
+            y += (h / 6) * (k1[1] + 2 * k2[1] + 2 * k3[1] + k4[1]);
+            z += (h / 6) * (k1[2] + 2 * k2[2] + 2 * k3[2] + k4[2]);
+            raw.push(project(x, y, z));
+          }
+        }
+        const scale = p.fit / p.span,
+          centre = p.centres[variant[3]],
+          at = (i: number): number[] => [
+            0.5 + (raw[i][0] - centre[0]) * scale,
+            0.5 - (raw[i][1] - centre[1]) * scale,
+          ];
+        let previous = at(0);
+        for (let i = 1; i <= steps; i++) {
+          const next = at(i),
+            half = p.halfWidth * (1 - (p.fade * (i - 0.5)) / steps),
+            index = segments.length,
+            dx = next[0] - previous[0],
+            dy = next[1] - previous[1],
+            length = Math.hypot(dx, dy),
+            reach = half + step / 2,
+            filed = new Set<number>();
+          segments.push([
+            previous[0],
+            previous[1],
+            dx,
+            dy,
+            dx * dx + dy * dy,
+            half * half,
+          ]);
+          for (
+            let s = 0, n = Math.max(1, Math.ceil(length / step));
+            s <= n;
+            s++
+          )
+            for (const ox of [-reach, reach])
+              for (const oy of [-reach, reach]) {
+                const bx = Math.floor(
+                    (previous[0] + (dx * s) / n + ox) * p.buckets,
+                  ),
+                  by = Math.floor(
+                    (previous[1] + (dy * s) / n + oy) * p.buckets,
+                  );
+                if (bx < 0 || by < 0 || bx >= p.buckets || by >= p.buckets)
+                  continue;
+                const bucket = by * p.buckets + bx;
+                if (!filed.has(bucket)) {
+                  filed.add(bucket);
+                  buckets[bucket].push(index);
+                }
+              }
+          previous = next;
+        }
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            bx = Math.floor(fu * p.buckets),
+            by = Math.floor(fv * p.buckets);
+          // The segments are a union by 1 - product of (1 - t^2) with t = max(0, 1 - squared distance /
+          // squared half width), a function of the squared distance to a segment: every t^2 is C1 and
+          // exactly zero at the rim, so the union is C1 even where the segments overlap.
+          let open = 1;
+          for (const index of buckets[by * p.buckets + bx]) {
+            const [x0, y0, dx, dy, lengthSquared, widthSquared] =
+                segments[index],
+              wx = fu - x0,
+              wy = fv - y0,
+              along =
+                lengthSquared > 0
+                  ? clamp((wx * dx + wy * dy) / lengthSquared)
+                  : 0,
+              ex = wx - along * dx,
+              ey = wy - along * dy,
+              t = clamp(1 - (ex * ex + ey * ey) / widthSquared);
+            open *= 1 - t * t;
+          }
+          const total = 1 - open,
+            mask = smooth(clamp(total * inverseSoft)),
+            tone = p.toneSpan,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * total * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -54648,6 +54798,7 @@ export function createSurfaceSampler(
     kind === 'perfectarray' ||
     kind === 'delaunay' ||
     kind === 'harmonograph' ||
+    kind === 'lorenzattractor' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
