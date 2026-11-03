@@ -33567,3 +33567,325 @@ describe('intelhexrecords: Intel HEX records in 3 x 5 pixel text', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('flagpatterns: a grid of plain geometric flag designs', () => {
+  const p = proceduralMaterialPresets.flagpatterns;
+  type Layout = { grid: number; designs: number[][]; tones: number[][][] };
+  const flagWidth = 1 - 2 * p.margin,
+    flagHeight = flagWidth / p.aspect,
+    flagTop = (1 - flagHeight) / 2,
+    slope = 1 / Math.hypot(1, 1 / p.aspect);
+
+  // The region a point of a design lies in (x across in units of the flag height, 0 to 1.5, y down 0 to 1), and a lower bound of how
+  // far the point is from where the regions change (also from some edges that are not region changes, so points near those are left out).
+  const regionOf = (
+    design: number,
+    x: number,
+    y: number,
+  ): { region: number; edge: number } => {
+    const t = x / p.aspect;
+    switch (design) {
+      case 0:
+        return {
+          region: y < 1 / 3 ? 0 : y < 2 / 3 ? 1 : 2,
+          edge: Math.min(Math.abs(y - 1 / 3), Math.abs(y - 2 / 3)),
+        };
+      case 1:
+        return {
+          region: t < 1 / 3 ? 0 : t < 2 / 3 ? 1 : 2,
+          edge: Math.min(Math.abs(t - 1 / 3), Math.abs(t - 2 / 3)) * p.aspect,
+        };
+      case 2:
+        return { region: Number(y < 0.5), edge: Math.abs(y - 0.5) };
+      case 3:
+        return {
+          region: Number(t < 0.5 !== y < 0.5),
+          edge: Math.min(Math.abs(t - 0.5) * p.aspect, Math.abs(y - 0.5)),
+        };
+      case 4: {
+        const across = Math.abs(y - 0.5),
+          along = Math.abs(x - p.crossCentreX),
+          inner = across < p.crossInnerHalf || along < p.crossInnerHalf,
+          outer = across < p.crossHalf || along < p.crossHalf;
+        return {
+          region: inner ? 2 : outer ? 1 : 0,
+          edge: Math.min(
+            Math.abs(across - p.crossInnerHalf),
+            Math.abs(across - p.crossHalf),
+            Math.abs(along - p.crossInnerHalf),
+            Math.abs(along - p.crossHalf),
+          ),
+        };
+      }
+      case 5: {
+        const distance =
+          Math.min(Math.abs(y - t), Math.abs(y - (1 - t))) * slope;
+        return {
+          region: Number(distance < p.saltireHalf),
+          edge: Math.abs(distance - p.saltireHalf),
+        };
+      }
+      case 6: {
+        const distance = Math.hypot(x - p.aspect / 2, y - 0.5);
+        return {
+          region: Number(distance < p.discRadius),
+          edge: Math.abs(distance - p.discRadius),
+        };
+      }
+      default: {
+        const canton = t < p.cantonWidth && y < p.cantonHeight,
+          stripe = y * p.stripes;
+        return {
+          region: canton ? 2 : Math.floor(stripe) % 2,
+          edge: Math.min(
+            Math.abs(stripe - Math.round(stripe)) / p.stripes,
+            y < p.cantonHeight + 0.03
+              ? Math.abs(t - p.cantonWidth) * p.aspect
+              : 1,
+            t < p.cantonWidth + 0.03 ? Math.abs(y - p.cantonHeight) : 1,
+          ),
+        };
+      }
+    }
+  };
+  const flagPoint = (
+    grid: number,
+    column: number,
+    row: number,
+    x: number,
+    y: number,
+  ): [number, number] => [
+    (column + p.margin + (x / p.aspect) * flagWidth) / grid,
+    (row + flagTop + y * flagHeight) / grid,
+  ];
+  const probes: [number, number][] = Array.from({ length: 12 * 18 }, (_, i) => [
+    0.03 + ((i % 18) / 17) * (p.aspect - 0.06),
+    0.03 + (Math.floor(i / 18) / 11) * 0.94,
+  ]);
+
+  // The designs whose regions have one tone each, and different tones for different regions, in a cell; and the tones.
+  const designsFitting = (
+    sample: Sampler,
+    grid: number,
+    column: number,
+    row: number,
+  ): { design: number; tones: number[] }[] => {
+    const out = empty(),
+      readings = probes.map(([x, y]) => {
+        const [u, v] = flagPoint(grid, column, row, x, y);
+        sample(u, v, out);
+        return out.color;
+      }),
+      found: { design: number; tones: number[] }[] = [];
+    for (let design = 0; design < p.designs; design++) {
+      const byRegion = new Map<number, number[]>();
+      probes.forEach(([x, y], i) => {
+        const { region, edge } = regionOf(design, x, y);
+        if (edge < 0.012) return;
+        byRegion.set(region, [...(byRegion.get(region) ?? []), readings[i]]);
+      });
+      const means = [...byRegion.values()].map(
+          (tones) => tones.reduce((a, b) => a + b, 0) / tones.length,
+        ),
+        oneTone = [...byRegion.values()].every(
+          (tones) => Math.max(...tones) - Math.min(...tones) < 0.06,
+        ),
+        distinct = means.every((a, i) =>
+          means.every((b, j) => i === j || Math.abs(a - b) > 0.08),
+        ),
+        inPool = means.every((mean) =>
+          p.tones.some((tone) => Math.abs(tone - mean) < 0.03),
+        );
+      if (oneTone && distinct && inPool) found.push({ design, tones: means });
+    }
+    return found;
+  };
+  const layoutOf = (seed: number): Layout => {
+    const sample = createSurfaceSampler('flagpatterns', seed),
+      layouts = p.grids
+        .map((grid) => {
+          const designs: number[][] = [],
+            tones: number[][][] = [];
+          for (let row = 0; row < grid; row++) {
+            designs.push([]);
+            tones.push([]);
+            for (let column = 0; column < grid; column++) {
+              const fits = designsFitting(sample, grid, column, row);
+              if (fits.length !== 1) return null;
+              designs[row].push(fits[0].design);
+              tones[row].push(fits[0].tones);
+            }
+          }
+          return { grid, designs, tones };
+        })
+        .filter((layout) => layout !== null);
+    expect(layouts).toHaveLength(1);
+    return layouts[0];
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'puts one flag design in each cell, each region in its own tone of the pool (seed %i)',
+    (seed) => {
+      const { grid, designs } = layoutOf(seed);
+      expect(designs.flat()).toHaveLength(grid * grid);
+    },
+  );
+
+  it('uses every grid, every design and every tone of the pool across seeds', () => {
+    const grids = new Set<number>(),
+      designs = new Set<number>(),
+      usedTones = new Set<number>();
+    for (let seed = 0; seed < 40; seed++) {
+      const layout = layoutOf(seed);
+      grids.add(layout.grid);
+      for (const design of layout.designs.flat()) designs.add(design);
+      for (const mean of layout.tones.flat(2))
+        p.tones.forEach((tone, i) => {
+          if (Math.abs(tone - mean) < 0.03) usedTones.add(i);
+        });
+    }
+    expect([...grids].sort((a, b) => a - b)).toEqual([...p.grids]);
+    expect(designs.size).toBe(p.designs);
+    expect(usedTones.size).toBe(p.tones.length);
+  });
+
+  it('keeps every channel finite and in range for 60 seeds', () => {
+    const out = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('flagpatterns', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, out);
+          for (const value of [
+            out.color,
+            out.height / p.relief,
+            out.roughness,
+            out.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+  });
+
+  it('draws the saltire bars as wide as saltireHalf either side of each diagonal, measured square to it', () => {
+    const out = empty();
+    let checked = 0;
+    for (let seed = 0; seed < 40 && checked < 6; seed++) {
+      const sample = createSurfaceSampler('flagpatterns', seed),
+        { grid, designs } = layoutOf(seed),
+        length = Math.hypot(p.aspect, 1);
+      for (let row = 0; row < grid; row++)
+        for (let column = 0; column < grid; column++) {
+          if (designs[row][column] !== 5) continue;
+          const tone = (x: number, y: number): number => {
+            sample(...flagPoint(grid, column, row, x, y), out);
+            return out.color;
+          };
+          const bar = tone(p.aspect / 2, 0.5),
+            field = tone(0.02, 0.5);
+          // From a point of each diagonal, along its normal (square to the diagonal), distance in units of the flag height.
+          for (const [x0, y0, normalX, normalY] of [
+            [0.375, 0.25, -1 / length, p.aspect / length],
+            [1.05, 0.3, 1 / length, p.aspect / length],
+          ]) {
+            for (const side of [1, -1]) {
+              const at = (distance: number): number =>
+                tone(
+                  x0 + side * normalX * distance,
+                  y0 + side * normalY * distance,
+                );
+              expect(Math.abs(at(p.saltireHalf - 0.008) - bar)).toBeLessThan(
+                0.04,
+              );
+              expect(Math.abs(at(p.saltireHalf + 0.008) - field)).toBeLessThan(
+                0.04,
+              );
+            }
+          }
+          expect(Math.abs(bar - field)).toBeGreaterThan(0.08);
+          checked++;
+        }
+    }
+    expect(checked).toBeGreaterThanOrEqual(6);
+  });
+
+  it('outlines each flag 0.0016 either side of its rectangle, on a cloth of its own tone and height', () => {
+    for (const seed of seeds) {
+      const { grid, designs } = layoutOf(seed),
+        sample = createSurfaceSampler('flagpatterns', seed),
+        out = empty();
+      for (let row = 0; row < grid; row++)
+        for (let column = 0; column < grid; column++) {
+          const left = (column + p.margin) / grid,
+            right = (column + p.margin + flagWidth) / grid,
+            top = (row + flagTop) / grid,
+            middleY = (row + 0.5) / grid,
+            middleX = (column + 0.5) / grid;
+          // On the left and right edges and the top and bottom edges: the dark outline within 0.0011 either side.
+          for (const offset of [0, 0.0011, -0.0011]) {
+            sample(left + offset, middleY, out);
+            expect(out.color).toBeLessThan(0.15);
+            sample(right + offset, middleY, out);
+            expect(out.color).toBeLessThan(0.15);
+            sample(middleX, top + offset, out);
+            expect(out.color).toBeLessThan(0.15);
+          }
+          expect(
+            Math.abs(out.height / p.relief - p.outlineHeight),
+          ).toBeLessThan(0.05);
+          // Outside the outline: the cloth (0.0024 outside the left edge), and its height and roughness.
+          sample(left - 0.0024, middleY, out);
+          expect(Math.abs(out.color - p.clothTone)).toBeLessThan(0.03);
+          expect(Math.abs(out.height / p.relief - p.clothHeight)).toBeLessThan(
+            0.03,
+          );
+          expect(Math.abs(out.roughness - p.clothRoughness)).toBeLessThan(0.03);
+          // Inside: the flag's height and roughness (0.0024 inside the right edge).
+          sample(right - 0.0024, middleY, out);
+          expect(Math.abs(out.height / p.relief - p.flagHeight)).toBeLessThan(
+            0.03,
+          );
+          expect(Math.abs(out.roughness - p.flagRoughness)).toBeLessThan(0.03);
+          expect(designs[row][column]).toBeLessThan(p.designs);
+        }
+    }
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('flagpatterns', 0),
+      b = createSurfaceSampler('flagpatterns', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

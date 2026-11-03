@@ -38996,6 +38996,114 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'flagpatterns': {
+        const p = proceduralMaterialPresets.flagpatterns,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x33301),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          grid =
+            p.grids[Math.floor(hash(3, 1, seed ^ 0x33302) * p.grids.length)],
+          cells = grid * grid,
+          cell = 1 / grid,
+          flagWidth = 1 - 2 * p.margin,
+          flagHeightShare = flagWidth / p.aspect,
+          flagTop = (1 - flagHeightShare) / 2,
+          designs = new Uint8Array(cells),
+          // Three different tones per cell: the first three of a shuffle of the tone list.
+          cellTones = new Float64Array(cells * 3),
+          slope = 1 / Math.hypot(1, 1 / p.aspect);
+        for (let i = 0; i < cells; i++) {
+          const column = i % grid,
+            row = Math.floor(i / grid),
+            order = p.tones.map((_, k) => k);
+          designs[i] = Math.floor(
+            hash(column, row, seed ^ 0x33303) * p.designs,
+          );
+          for (let k = 0; k < 3; k++) {
+            const pick =
+              k +
+              Math.floor(
+                hash(column, row * 3 + k, seed ^ 0x33304) * (order.length - k),
+              );
+            [order[k], order[pick]] = [order[pick], order[k]];
+            cellTones[i * 3 + k] = p.tones[order[k]];
+          }
+        }
+        // Which of the three tones is at (x, y) of a flag, x across in units of the height (0 to aspect) and y down (0 to 1).
+        const colourAt = (design: number, x: number, y: number): number => {
+          const t = x / p.aspect;
+          switch (design) {
+            case 0:
+              return y < 1 / 3 ? 0 : y < 2 / 3 ? 1 : 2;
+            case 1:
+              return t < 1 / 3 ? 0 : t < 2 / 3 ? 1 : 2;
+            case 2:
+              return y < 0.5 ? 0 : 1;
+            case 3:
+              return t < 0.5 !== y < 0.5 ? 0 : 1;
+            case 4: {
+              const acrossBar = Math.abs(y - 0.5),
+                alongBar = Math.abs(x - p.crossCentreX);
+              return acrossBar < p.crossInnerHalf || alongBar < p.crossInnerHalf
+                ? 2
+                : acrossBar < p.crossHalf || alongBar < p.crossHalf
+                  ? 1
+                  : 0;
+            }
+            case 5:
+              return Math.min(
+                Math.abs(y - t) * slope,
+                Math.abs(y - (1 - t)) * slope,
+              ) < p.saltireHalf
+                ? 1
+                : 0;
+            case 6:
+              return Math.hypot(x - p.aspect / 2, y - 0.5) < p.discRadius
+                ? 1
+                : 0;
+            default:
+              return t < p.cantonWidth && y < p.cantonHeight
+                ? 2
+                : Math.floor(y * p.stripes) % 2;
+          }
+        };
+        return () => {
+          const fx = (u - Math.floor(u)) * grid,
+            fy = (v - Math.floor(v)) * grid,
+            column = Math.floor(fx),
+            row = Math.floor(fy),
+            index = row * grid + column,
+            lx = fx - column,
+            ly = fy - row,
+            // Distance inside the flag rectangle (negative outside), in uv.
+            inside =
+              Math.min(
+                lx - p.margin,
+                p.margin + flagWidth - lx,
+                ly - flagTop,
+                flagTop + flagHeightShare - ly,
+              ) * cell,
+            flag = cover(inside),
+            outline = cover(p.outlineHalf - Math.abs(inside)),
+            // Outside the flag the design is read at the nearest point of it, so that every colour index is 0 to 2.
+            colour = colourAt(
+              designs[index],
+              clamp((lx - p.margin) / flagWidth) * p.aspect,
+              clamp((ly - flagTop) / flagHeightShare),
+            ),
+            tone = cellTones[index * 3 + colour];
+          let shade = p.clothTone + (tone - p.clothTone) * flag,
+            elevation = p.clothHeight + (p.flagHeight - p.clothHeight) * flag;
+          shade += (p.outlineTone - shade) * outline;
+          elevation += (p.outlineHeight - elevation) * outline;
+          color = clamp(shade + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(elevation);
+          roughness =
+            p.clothRoughness + (p.flagRoughness - p.clothRoughness) * flag;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -66525,6 +66633,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'flagpatterns' ||
     kind === 'intelhexrecords' ||
     kind === 'equalizerbars' ||
     kind === 'worleycells' ||
