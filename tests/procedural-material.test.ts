@@ -1133,6 +1133,7 @@ const kinds: ProceduralMaterialKind[] = [
   'errordiffusion',
   'diffractionpatterns',
   'mapprojections',
+  'brillouinzones',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -189499,6 +189500,343 @@ describe('Map projections as graticules and Tissot circles of six projections', 
     expect(blue / (512 * 512)).toBeLessThan(46.9);
     expect(maxTilt).toBeGreaterThan(0.0464);
     expect(maxTilt).toBeLessThan(0.0474);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Brillouin zones as the Bragg planes and zones of six reciprocal lattices', () => {
+  const p = proceduralMaterialPresets.brillouinzones;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const tilePerWorld = (0.5 - p.margin) / p.extent;
+  /** The nonzero lattice points i b1 + j b2 of a variant within a reach of 7. */
+  const latticeOf = (index: number): [number, number][] => {
+    const variant = p.variants[index],
+      points: [number, number][] = [];
+    for (let i = -7; i <= 7; i++)
+      for (let j = -7; j <= 7; j++)
+        if (i !== 0 || j !== 0)
+          points.push([
+            i * variant[0] + j * variant[2],
+            i * variant[1] + j * variant[3],
+          ]);
+    return points;
+  };
+  /** The number of the Brillouin zone of k: 1 plus the number of lattice points closer to k than the origin (written with distances, not with the Bragg-plane inequality). */
+  const zoneOf = (
+    lattice: [number, number][],
+    x: number,
+    y: number,
+  ): number => {
+    const origin = Math.hypot(x, y);
+    return (
+      1 +
+      lattice.filter(([gx, gy]) => Math.hypot(x - gx, y - gy) < origin).length
+    );
+  };
+  /** The distance of k to the nearest Bragg plane (the perpendicular bisector of a lattice vector). */
+  const planeDistance = (
+    lattice: [number, number][],
+    x: number,
+    y: number,
+  ): number =>
+    Math.min(
+      ...lattice.map(([gx, gy]) =>
+        Math.abs(
+          (x * gx + y * gy) / Math.hypot(gx, gy) - Math.hypot(gx, gy) / 2,
+        ),
+      ),
+    );
+  /** Whether the vector (x, y) is a lattice vector, by solving for its integer coordinates. */
+  const isLatticeVector = (index: number, x: number, y: number): boolean => {
+    const v = p.variants[index],
+      determinant = v[0] * v[3] - v[1] * v[2],
+      i = (x * v[3] - y * v[2]) / determinant,
+      j = (v[0] * y - v[1] * x) / determinant;
+    return (
+      Math.abs(i - Math.round(i)) < 1e-9 && Math.abs(j - Math.round(j)) < 1e-9
+    );
+  };
+  const colourAt = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    x: number,
+    y: number,
+  ): number => {
+    sample(0.5 + x * tilePerWorld, 0.5 - y * tilePerWorld, out);
+    return out.color;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('brillouinzones', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('brillouinzones', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0254);
+      expect(low).toBeLessThan(0.0258);
+      expect(high).toBeGreaterThan(0.825);
+      expect(high).toBeLessThan(0.838);
+      expect(dark / 65536).toBeGreaterThan(0.229);
+      expect(dark / 65536).toBeLessThan(0.277);
+      expect(mean / 65536).toBeGreaterThan(0.273);
+      expect(mean / 65536).toBeLessThan(0.308);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.815);
+      expect(heightHigh).toBeLessThan(0.828);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (the square, hexagonal, rectangular, oblique, rhombic and stretched hexagonal reciprocal lattices) is 2, 4, 1, 3, 0 and 5; the table was
+  // found with a probe by the correlation of the colour away from the planes with the independent zone tones (the smallest margin to the second best being 0.100) and is written here, so it is
+  // not an independent check of the seed's choice.
+  const seeds = [2, 4, 1, 3, 0, 5];
+  it('shades each Brillouin zone by its number', () => {
+    // On a 384 by 384 grid, for the pixels in the plot that are more than 0.03 from every Bragg plane, grouped by the number of the zone found in the test by counting the
+    // lattice points closer than the origin, the mean colour falls from zone to zone (by at least 0.04 for the zones 1 to 6 and the zones from 7 on, which share the last tone;
+    // the means were 0.752, 0.652, 0.550, 0.450, 0.341, 0.187 and 0.132 in the probe) and every pixel is within 0.025 of the mean of its zone (0.015 at the worst in the probe,
+    // the grain), for 4 to 6 thousand or more pixels in the first zone (6016 at the lowest in the probe).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('brillouinzones', seed),
+        out = empty(),
+        lattice = latticeOf(index),
+        groups = new Map<number, number[]>();
+      for (let i = 0; i < 384; i++)
+        for (let j = 0; j < 384; j++) {
+          const u = (i + 0.5) / 384,
+            v = (j + 0.5) / 384;
+          if (u < 0.06 || u > 0.94 || v < 0.06 || v > 0.94) continue;
+          const x = ((u - 0.5) / (0.5 - p.margin)) * p.extent,
+            y = -((v - 0.5) / (0.5 - p.margin)) * p.extent;
+          if (planeDistance(lattice, x, y) < 0.03) continue;
+          sample(u, v, out);
+          const zone = Math.min(zoneOf(lattice, x, y), 7);
+          groups.set(zone, [...(groups.get(zone) ?? []), out.color]);
+        }
+      const means: number[] = [];
+      for (let zone = 1; zone <= 7; zone++) {
+        const colours = groups.get(zone)!,
+          mean =
+            colours.reduce((sum, colour) => sum + colour, 0) / colours.length;
+        means.push(mean);
+        for (const colour of colours)
+          expect(Math.abs(colour - mean)).toBeLessThan(0.025);
+      }
+      for (let zone = 1; zone < 7; zone++)
+        expect(means[zone - 1] - means[zone]).toBeGreaterThan(0.04);
+      expect(groups.get(1)!.length).toBeGreaterThan(5000);
+    });
+  });
+  it('draws a line on every Bragg plane', () => {
+    // The Bragg plane of a lattice vector G is the perpendicular bisector of the segment from the origin to G: the points G / 2 + t G⊥ / |G|. For the 24 shortest
+    // vectors and t from -2.5 to 2.5 in steps of 0.005 (inside the plot) the colour is above 0.6 (0.715 at the lowest in the probe, for 16520 to 18532 points per variant).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('brillouinzones', seed),
+        out = empty(),
+        shortest = latticeOf(index)
+          .filter(([gx, gy]) => Math.abs(gx) < 4 && Math.abs(gy) < 4)
+          .sort((a, b) => Math.hypot(a[0], a[1]) - Math.hypot(b[0], b[1]))
+          .slice(0, 24);
+      let checked = 0;
+      for (const [gx, gy] of shortest) {
+        const length = Math.hypot(gx, gy);
+        for (let t = -2.5; t <= 2.5; t += 0.005) {
+          const x = gx / 2 - (t * gy) / length,
+            y = gy / 2 + (t * gx) / length;
+          if (
+            Math.abs(x * tilePerWorld) > 0.44 ||
+            Math.abs(y * tilePerWorld) > 0.44
+          )
+            continue;
+          expect(colourAt(sample, out, x, y)).toBeGreaterThan(0.6);
+          checked++;
+        }
+      }
+      expect(checked).toBeGreaterThan(10000);
+    });
+  });
+  it('has the point group of its lattice as symmetries', () => {
+    // The lattice is unchanged by a half turn, so on a 256 by 256 grid the lit state (colour above 0.3) differs for under 0.005 of the cells after a half turn for every variant (0.0025 at the
+    // most in the probe), and the same holds for each mirror (x -> -x, y -> -y) that maps the lattice to itself (found in the test by solving for the integer coordinates of the mirrored
+    // basis vectors; 0.00244 at the most), while for a mirror that does not (the oblique and the stretched hexagonal lattice) over 0.05 of the cells change (0.159 at the lowest).
+    seeds.forEach((seed, index) => {
+      const v = p.variants[index],
+        sample = createSurfaceSampler('brillouinzones', seed),
+        out = empty(),
+        lit = new Uint8Array(256 * 256);
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+          lit[y * 256 + x] = Number(out.color > 0.3);
+        }
+      let turn = 0,
+        mirrorX = 0,
+        mirrorY = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          turn += Number(lit[y * 256 + x] !== lit[(255 - y) * 256 + 255 - x]);
+          mirrorX += Number(lit[y * 256 + x] !== lit[y * 256 + 255 - x]);
+          mirrorY += Number(lit[y * 256 + x] !== lit[(255 - y) * 256 + x]);
+        }
+      expect(turn / 65536).toBeLessThan(0.005);
+      const xHolds =
+          isLatticeVector(index, -v[0], v[1]) &&
+          isLatticeVector(index, -v[2], v[3]),
+        yHolds =
+          isLatticeVector(index, v[0], -v[1]) &&
+          isLatticeVector(index, v[2], -v[3]);
+      if (xHolds) expect(mirrorX / 65536).toBeLessThan(0.005);
+      else expect(mirrorX / 65536).toBeGreaterThan(0.05);
+      if (yHolds) expect(mirrorY / 65536).toBeLessThan(0.005);
+      else expect(mirrorY / 65536).toBeGreaterThan(0.05);
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 2 and 4 pick different lattices (the square and the hexagonal one).
+    const first = litGrid(2),
+      second = litGrid(4);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.16);
+    expect(different / first.length).toBeLessThan(0.161);
+    expect(litGrid(2)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('brillouinzones', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 rose zone maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('brillouinzones', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(83.2);
+    expect(red / (512 * 512)).toBeLessThan(84.3);
+    expect(green / (512 * 512)).toBeGreaterThan(49.8);
+    expect(green / (512 * 512)).toBeLessThan(51);
+    expect(blue / (512 * 512)).toBeGreaterThan(65.3);
+    expect(blue / (512 * 512)).toBeLessThan(66.4);
+    expect(maxTilt).toBeGreaterThan(0.029);
+    expect(maxTilt).toBeLessThan(0.0301);
     expect(invalid).toBe(0);
   });
 });

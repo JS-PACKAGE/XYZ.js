@@ -49826,6 +49826,80 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'brillouinzones': {
+        const p = proceduralMaterialPresets.brillouinzones,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant =
+            p.variants[
+              Math.floor(hash(0, 84, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          plot = 0.5 - p.margin,
+          tilePerWorld = plot / p.extent,
+          inverseSoft = 1 / p.edgeSoft,
+          planeSquared = p.planeHalfWidth * p.planeHalfWidth,
+          // The nonzero reciprocal lattice vectors i b1 + j b2 within the reach, each with its length.
+          vectors: { x: number; y: number; length: number }[] = [];
+        for (let i = -p.reach; i <= p.reach; i++)
+          for (let j = -p.reach; j <= p.reach; j++) {
+            if (i === 0 && j === 0) continue;
+            const x = i * variant[0] + j * variant[2],
+              y = i * variant[1] + j * variant[3];
+            vectors.push({ x, y, length: Math.hypot(x, y) });
+          }
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            kx = ((fu - 0.5) / plot) * p.extent,
+            ky = -((fv - 0.5) / plot) * p.extent;
+          // The zone number is 1 plus the number of lattice points closer to k than the origin, i.e. the number of Bragg planes between the origin and k;
+          // the distance to the nearest Bragg plane (the perpendicular bisector of a lattice vector) is exact.
+          let zone = 1,
+            plane = Infinity;
+          for (const vector of vectors) {
+            const along = kx * vector.x + ky * vector.y,
+              half = 0.5 * vector.length * vector.length;
+            if (along > half) zone++;
+            plane = Math.min(plane, Math.abs(along - half) / vector.length);
+          }
+          const zoneTone = Math.max(
+              p.zoneLast,
+              p.zoneFirst - (zone - 1) * p.zoneStep,
+            ),
+            planeKernel = clamp(
+              1 - (plane * plane * tilePerWorld * tilePerWorld) / planeSquared,
+            ),
+            outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
+            outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
+            boxDistance =
+              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              Math.min(Math.max(outsideX, outsideY), 0),
+            inside = smooth(clamp(-boxDistance / p.fade)),
+            ink = clamp(
+              inside *
+                (1 -
+                  (1 - zoneTone) *
+                    (1 - p.planeTone * planeKernel * planeKernel)),
+            ),
+            mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(ink) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -58734,6 +58808,7 @@ export function createSurfaceSampler(
     kind === 'errordiffusion' ||
     kind === 'diffractionpatterns' ||
     kind === 'mapprojections' ||
+    kind === 'brillouinzones' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

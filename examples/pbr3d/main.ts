@@ -1170,6 +1170,7 @@ try {
     'errordiffusion',
     'diffractionpatterns',
     'mapprojections',
+    'brillouinzones',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
