@@ -43603,6 +43603,101 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'bfswavefront': {
+        const p = proceduralMaterialPresets.bfswavefront,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x4ff01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          n = p.sizes[Math.floor(hash(57, 1, seed ^ 0x4ff02) * p.sizes.length)],
+          cells = n * n,
+          wall = new Uint8Array(cells),
+          distance = new Int32Array(cells).fill(-1),
+          margin = (1 - n * p.pitch) / 2,
+          start = Math.floor(hash(57, 2, seed ^ 0x4ff03) * cells);
+        for (let cell = 0; cell < cells; cell++)
+          wall[cell] =
+            cell !== start && hash(cell, 12, seed ^ 0x4ff04) < p.wallShare
+              ? 1
+              : 0;
+        // Breadth first search from the start cell: up, down, left and right, never through a wall.
+        const queue = [start];
+        distance[start] = 0;
+        for (let head = 0; head < queue.length; head++) {
+          const cell = queue[head],
+            x = cell % n,
+            y = (cell - x) / n;
+          for (const [dx, dy] of [
+            [0, -1],
+            [0, 1],
+            [-1, 0],
+            [1, 0],
+          ]) {
+            const nx = x + dx,
+              ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= n || ny >= n) continue;
+            const next = ny * n + nx;
+            if (wall[next] || distance[next] >= 0) continue;
+            distance[next] = distance[cell] + 1;
+            queue.push(next);
+          }
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          const gu = (fu - margin) / p.pitch,
+            gv = (fv - margin) / p.pitch;
+          if (gu > -0.5 && gu < n + 0.5 && gv > -0.5 && gv < n + 0.5) {
+            const column = Math.min(n - 1, Math.max(0, Math.floor(gu))),
+              line = Math.min(n - 1, Math.max(0, Math.floor(gv))),
+              cell = line * n + column,
+              reach = distance[cell],
+              last = p.rampTones.length - 1,
+              cx = margin + (column + 0.5) * p.pitch,
+              cy = margin + (line + 0.5) * p.pitch;
+            // The cell, a little in from its edges: a wall, a cell the walls shut off, or shaded by its distance (7 for 7 or more).
+            paint(
+              cover(
+                p.cellHalf - Math.max(Math.abs(fu - cx), Math.abs(fv - cy)),
+              ),
+              wall[cell]
+                ? p.wallTone
+                : reach < 0
+                  ? p.shutTone
+                  : p.rampTones[Math.min(last, reach)],
+              wall[cell]
+                ? p.wallHeight
+                : reach < 0
+                  ? p.shutHeight
+                  : p.rampHeights[Math.min(last, reach)],
+            );
+            // The dot on the start cell.
+            if (cell === start)
+              paint(
+                cover(p.dotRadius - Math.hypot(fu - cx, fv - cy)),
+                p.dotTone,
+                p.dotHeight,
+              );
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -71132,6 +71227,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'bfswavefront' ||
     kind === 'bresenhamlines' ||
     kind === 'mergesortruns' ||
     kind === 'radixsortpasses' ||

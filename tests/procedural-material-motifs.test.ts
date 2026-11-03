@@ -49201,3 +49201,353 @@ describe('bresenhamlines: four grids with a line rasterised into cells and the t
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('bfswavefront: a breadth first search spreading from a start cell through a grid with walls', () => {
+  const p = proceduralMaterialPresets.bfswavefront,
+    out = empty(),
+    last = p.rampTones.length - 1,
+    arms = [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ] as const;
+  // What a cell is drawn as: 'wall', 'shut' (open but cut off by walls) or its distance (7 for 7 or more).
+  type Kind = 'wall' | 'shut' | number;
+  type Grid = {
+    sample: Sampler;
+    n: number;
+    margin: number;
+    kinds: Kind[];
+    start: number;
+  };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const near = (tone: number, wanted: number): boolean =>
+    Math.abs(tone - wanted) < 0.01;
+  const centre = (margin: number, index: number): number =>
+    margin + (index + 0.5) * p.pitch;
+
+  // Read the picture: the size from where the first cell starts, every cell's kind from its tone (away from the start dot), and the start cell from the dot.
+  const gridOf = (seed: number): Grid => {
+    const sample = createSurfaceSampler('bfswavefront', seed);
+    let first = 0;
+    while (Math.abs(toneAt(sample, first, 0.53) - p.paperTone) < 0.02)
+      first += 0.001;
+    const n = Math.round(
+        (1 - 2 * (first - (p.pitch / 2 - p.cellHalf))) / p.pitch,
+      ),
+      margin = (1 - n * p.pitch) / 2,
+      kinds: Kind[] = [];
+    let start = -1;
+    expect(p.sizes).toContain(n);
+    for (let y = 0; y < n; y++)
+      for (let x = 0; x < n; x++) {
+        const tone = toneAt(
+          sample,
+          centre(margin, x) + 0.02,
+          centre(margin, y) + 0.02,
+        );
+        if (near(tone, p.wallTone)) kinds.push('wall');
+        else if (near(tone, p.shutTone)) kinds.push('shut');
+        else {
+          const level = p.rampTones.findIndex((candidate) =>
+            near(tone, candidate),
+          );
+          expect(level).toBeGreaterThanOrEqual(0);
+          kinds.push(level);
+        }
+        if (
+          near(toneAt(sample, centre(margin, x), centre(margin, y)), p.dotTone)
+        ) {
+          expect(start).toBe(-1);
+          start = y * n + x;
+        }
+      }
+    expect(start).toBeGreaterThanOrEqual(0);
+    return { sample, n, margin, kinds, start };
+  };
+
+  // The distance of every open cell by relaxing every step until nothing improves (the sampler runs a queue instead).
+  const expectedKinds = (
+    n: number,
+    walls: boolean[],
+    start: number,
+  ): Kind[] => {
+    const distance = new Array<number>(n * n).fill(Infinity);
+    distance[start] = 0;
+    for (let changed = true; changed;) {
+      changed = false;
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++)
+          for (const [dx, dy] of arms) {
+            const nx = x + dx,
+              ny = y + dy;
+            if (
+              nx < 0 ||
+              ny < 0 ||
+              nx >= n ||
+              ny >= n ||
+              walls[ny * n + nx] ||
+              walls[y * n + x]
+            )
+              continue;
+            if (distance[y * n + x] + 1 < distance[ny * n + nx]) {
+              distance[ny * n + nx] = distance[y * n + x] + 1;
+              changed = true;
+            }
+          }
+    }
+    return distance.map((value, cell): Kind =>
+      walls[cell]
+        ? 'wall'
+        : value === Infinity
+          ? 'shut'
+          : Math.min(last, value),
+    );
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shades every open cell by its steps from the start, with the walls and the shut off cells told apart (seed %i)',
+    (seed) => {
+      const { n, kinds, start } = gridOf(seed),
+        walls = kinds.map((kind) => kind === 'wall');
+      expect(walls[start]).toBe(false);
+      // The start cell is shaded 0; its distance is worked out from the walls and the start alone.
+      expect(kinds[start]).toBe(0);
+      expect(kinds).toEqual(expectedKinds(n, walls, start));
+    },
+  );
+
+  it('uses every size, every distance tone, shut off cells and about the wall share of walls, over 60 seeds', () => {
+    const sizes = new Set<number>(),
+      seen = new Set<Kind>();
+    let walls = 0,
+      cells = 0,
+      shut = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const { n, kinds } = gridOf(seed * 31 + 4);
+      sizes.add(n);
+      for (const kind of kinds) {
+        seen.add(kind);
+        cells++;
+        walls += Number(kind === 'wall');
+        shut += Number(kind === 'shut');
+      }
+    }
+    expect([...sizes].sort((a, b) => a - b)).toEqual([...p.sizes]);
+    for (let level = 0; level <= last; level++)
+      expect(seen.has(level)).toBe(true);
+    expect(seen.has('wall')).toBe(true);
+    expect(seen.has('shut')).toBe(true);
+    expect(Math.abs(walls / cells - p.wallShare)).toBeLessThan(0.03);
+    expect(shut / cells).toBeGreaterThan(0.005);
+  });
+
+  it('can start in any cell, the first and the last of the grid included', () => {
+    // Look for the dot on the first and the last cell of each possible size, over many seeds (cheap: a few samples each). A size is taken to be the
+    // grid's only if its first and last cells are drawn and the cells just outside them are bare paper.
+    const found = new Set<string>();
+    for (let seed = 0; seed < 2500 && found.size < 2; seed++) {
+      const sample = createSurfaceSampler('bfswavefront', seed * 13 + 1);
+      for (const n of p.sizes) {
+        const margin = (1 - n * p.pitch) / 2,
+          drawn = (index: number): boolean =>
+            Math.abs(
+              toneAt(
+                sample,
+                centre(margin, index) + 0.02,
+                centre(margin, index) + 0.02,
+              ) - p.paperTone,
+            ) > 0.02;
+        if (!drawn(0) || !drawn(n - 1) || drawn(-1) || drawn(n)) continue;
+        for (const [name, index] of [
+          ['first', 0],
+          ['last', n - 1],
+        ] as const)
+          if (
+            near(
+              toneAt(sample, centre(margin, index), centre(margin, index)),
+              p.dotTone,
+            )
+          )
+            found.add(name);
+      }
+    }
+    expect([...found].sort()).toEqual(['first', 'last']);
+  });
+
+  it('draws the cells and the start dot with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, n, margin, kinds, start } = gridOf(seed),
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      kinds.forEach((kind, cell) => {
+        const cx = centre(margin, cell % n),
+          cy = centre(margin, Math.floor(cell / n)),
+          tone =
+            kind === 'wall'
+              ? p.wallTone
+              : kind === 'shut'
+                ? p.shutTone
+                : p.rampTones[kind],
+          level =
+            kind === 'wall'
+              ? p.wallHeight
+              : kind === 'shut'
+                ? p.shutHeight
+                : p.rampHeights[kind];
+        // The cell: tone, height, roughness, and its size from the middle, with paper in the gap all round it.
+        expect(toneAt(sample, cx + 0.02, cy + 0.02)).toBeCloseTo(tone, 6);
+        expect(out.height / p.relief).toBeCloseTo(level, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        for (const [sx, sy] of [
+          [-1, -1],
+          [1, -1],
+          [-1, 1],
+          [1, 1],
+        ]) {
+          expect(
+            toneAt(
+              sample,
+              cx + sx * (p.cellHalf - 0.0015),
+              cy + sy * (p.cellHalf - 0.0015),
+            ),
+          ).toBeCloseTo(tone, 6);
+          expect(
+            paperOk(
+              cx + sx * (p.cellHalf + 0.0015),
+              cy + sy * (p.cellHalf - 0.004),
+            ),
+          ).toBe(true);
+          expect(
+            paperOk(
+              cx + sx * (p.cellHalf - 0.004),
+              cy + sy * (p.cellHalf + 0.0015),
+            ),
+          ).toBe(true);
+        }
+        if (cell === start) {
+          // The dot: tone, height, roughness and radius.
+          expect(toneAt(sample, cx, cy)).toBeCloseTo(p.dotTone, 6);
+          expect(out.height / p.relief).toBeCloseTo(p.dotHeight, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          expect(toneAt(sample, cx + p.dotRadius - 0.001, cy)).toBeCloseTo(
+            p.dotTone,
+            6,
+          );
+          expect(toneAt(sample, cx + p.dotRadius + 0.0015, cy)).toBeCloseTo(
+            tone,
+            6,
+          );
+          expect(toneAt(sample, cx, cy - p.dotRadius - 0.0015)).toBeCloseTo(
+            tone,
+            6,
+          );
+        } else expect(toneAt(sample, cx, cy)).toBeCloseTo(tone, 6);
+      });
+      // Nothing beyond the grid.
+      expect(paperOk(margin - 0.02, 0.5)).toBe(true);
+      expect(paperOk(0.5, 1 - margin + 0.02)).toBe(true);
+    }
+  });
+
+  it('softens the edge of a cell and the start dot over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      const { sample, n, margin, kinds, start } = gridOf(seed),
+        // The top left cell's left and top sides, over the paper.
+        cx = centre(margin, 0),
+        cy = centre(margin, 0),
+        kind = kinds[0],
+        tone =
+          kind === 'wall'
+            ? p.wallTone
+            : kind === 'shut'
+              ? p.shutTone
+              : p.rampTones[kind];
+      close(
+        toneAt(sample, cx - p.cellHalf + quarter, cy + 0.02),
+        mix(p.paperTone, tone, 0.75),
+      );
+      close(
+        toneAt(sample, cx - p.cellHalf - quarter, cy + 0.02),
+        mix(p.paperTone, tone, 0.25),
+      );
+      close(
+        toneAt(sample, cx + 0.02, cy - p.cellHalf + quarter),
+        mix(p.paperTone, tone, 0.75),
+      );
+      close(
+        toneAt(sample, cx + 0.02, cy - p.cellHalf - quarter),
+        mix(p.paperTone, tone, 0.25),
+      );
+      // The start dot's edge, over its cell.
+      const sx = centre(margin, start % n),
+        sy = centre(margin, Math.floor(start / n)),
+        cell = kinds[start] as number;
+      close(
+        toneAt(sample, sx + p.dotRadius - quarter, sy),
+        mix(p.rampTones[cell], p.dotTone, 0.75),
+      );
+      close(
+        toneAt(sample, sx + p.dotRadius + quarter, sy),
+        mix(p.rampTones[cell], p.dotTone, 0.25),
+      );
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('bfswavefront', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('bfswavefront', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.02),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('bfswavefront', 0),
+      b = createSurfaceSampler('bfswavefront', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3301],
+        [0.4301, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
