@@ -42164,3 +42164,443 @@ describe('nearesttour: a nearest-neighbour tour, each leg toned by when it is tr
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('editdistance: the table of the edit distance between two strings, with the cheapest way back framed', () => {
+  const p = proceduralMaterialPresets.editdistance,
+    out = empty();
+  type Table = {
+    sample: Sampler;
+    first: number[];
+    second: number[];
+    values: number[][];
+    framed: boolean[][];
+  };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const centre = (index: number): number => p.origin + (index + 0.5) * p.cell;
+  const valueTone = (value: number): number =>
+    p.valueLightest - p.valueStep * value;
+  // The edit distance by memoised recursion on the two ends (the sampler fills the table in order instead).
+  const distance = (a: number[], b: number[]): number => {
+    const memo = new Map<number, number>(),
+      go = (i: number, j: number): number => {
+        if (i === 0) return j;
+        if (j === 0) return i;
+        const key = i * 100 + j;
+        let known = memo.get(key);
+        if (known === undefined) {
+          known = Math.min(
+            go(i - 1, j) + 1,
+            go(i, j - 1) + 1,
+            go(i - 1, j - 1) + (a[i - 1] === b[j - 1] ? 0 : 1),
+          );
+          memo.set(key, known);
+        }
+        return known;
+      };
+    return go(a.length, b.length);
+  };
+  // The number of dots of a symbol (they fill the places from the left), 0 when there is no symbol.
+  const dotsAt = (sample: Sampler, cx: number, cy: number): number => {
+    const dark = [0, 1, 2].map(
+      (k) => toneAt(sample, cx + (k - 1) * p.dotPitch, cy) < 0.2,
+    );
+    let count = 0;
+    while (count < 3 && dark[count]) count++;
+    expect(dark.slice(count).every((on) => !on)).toBe(true);
+    return count;
+  };
+
+  const tableOf = (seed: number): Table => {
+    const sample = createSurfaceSampler('editdistance', seed),
+      isTable = (r: number, c: number): boolean =>
+        Math.abs(toneAt(sample, centre(c), centre(r)) - p.paperTone) > 0.05;
+    let columns = 0,
+      rows = 0;
+    while (isTable(1, 1 + columns)) columns++;
+    while (isTable(1 + rows, 1)) rows++;
+    const m = rows - 1,
+      n = columns - 1,
+      first: number[] = [],
+      second: number[] = [],
+      values: number[][] = [],
+      framed: boolean[][] = [];
+    expect(p.lengths).toContain(m);
+    expect(p.lengths).toContain(n);
+    for (let j = 1; j <= n; j++)
+      second.push(dotsAt(sample, centre(j + 1), centre(0)));
+    for (let i = 1; i <= m; i++)
+      first.push(dotsAt(sample, centre(0), centre(i + 1)));
+    for (let i = 0; i <= m; i++) {
+      values.push([]);
+      framed.push([]);
+      for (let j = 0; j <= n; j++) {
+        const tone = toneAt(sample, centre(j + 1), centre(i + 1)),
+          value = Math.round((p.valueLightest - tone) / p.valueStep);
+        expect(Math.abs(tone - valueTone(value))).toBeLessThan(0.01);
+        values[i].push(value);
+        const marks = [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ].map(
+          ([dx, dy]) =>
+            Math.abs(
+              toneAt(
+                sample,
+                centre(j + 1) + dx * p.frameRadius,
+                centre(i + 1) + dy * p.frameRadius,
+              ) - p.frameTone,
+            ) < 0.01,
+        );
+        expect(marks.every((on) => on) || marks.every((on) => !on)).toBe(true);
+        framed[i].push(marks[0]);
+      }
+    }
+    return { sample, first, second, values, framed };
+  };
+
+  // The way back, rebuilt from the table: diagonal when that is how the cell was reached, otherwise up, otherwise left; and how many cells of it
+  // had the up and the left neighbour both optimal (and not the diagonal).
+  const expectedWay = ({
+    first,
+    second,
+    values,
+  }: Table): { cells: number[]; ties: number } => {
+    const cells: number[] = [];
+    let ties = 0,
+      i = first.length,
+      j = second.length;
+    for (;;) {
+      cells.push(i * 100 + j);
+      if (i === 0 && j === 0) break;
+      if (
+        i > 0 &&
+        j > 0 &&
+        values[i][j] ===
+          values[i - 1][j - 1] + (first[i - 1] === second[j - 1] ? 0 : 1)
+      ) {
+        i--;
+        j--;
+      } else {
+        if (
+          i > 0 &&
+          j > 0 &&
+          values[i][j] === values[i - 1][j] + 1 &&
+          values[i][j] === values[i][j - 1] + 1
+        )
+          ties++;
+        if (i > 0 && values[i][j] === values[i - 1][j] + 1) i--;
+        else j--;
+      }
+    }
+    return { cells: cells.sort((a, b) => a - b), ties };
+  };
+  const framedKeys = (framed: boolean[][]): number[] =>
+    framed
+      .flatMap((row, r) => row.flatMap((on, c) => (on ? [r * 100 + c] : [])))
+      .sort((a, b) => a - b);
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows the edit distance of every pair of prefixes of the two strings, and frames the cheapest way back (seed %i)',
+    (seed) => {
+      const { first, second, values, framed } = tableOf(seed);
+      expect(first.every((s) => s >= 1 && s <= p.alphabet)).toBe(true);
+      expect(second.every((s) => s >= 1 && s <= p.alphabet)).toBe(true);
+      for (let i = 0; i <= first.length; i++)
+        for (let j = 0; j <= second.length; j++)
+          expect(values[i][j]).toBe(
+            distance(first.slice(0, i), second.slice(0, j)),
+          );
+      const way = expectedWay(tableOf(seed));
+      expect(framedKeys(framed)).toEqual(way.cells);
+    },
+  );
+
+  it('uses every string length, all symbols about equally, and a path from the last cell to the first, over 60 seeds', () => {
+    const firstLengths = new Set<number>(),
+      secondLengths = new Set<number>(),
+      symbols = new Array<number>(p.alphabet + 1).fill(0);
+    let total = 0,
+      ties = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const table = tableOf(seed * 13 + 1),
+        { first, second, values, framed } = table,
+        way = expectedWay(table);
+      ties += way.ties;
+      expect(framedKeys(framed)).toEqual(way.cells);
+      firstLengths.add(first.length);
+      secondLengths.add(second.length);
+      for (const s of [...first, ...second]) {
+        symbols[s]++;
+        total++;
+      }
+      expect(framed[0][0]).toBe(true);
+      expect(framed[first.length][second.length]).toBe(true);
+      // The path has at least as many cells as the longer string plus one, and at most the two lengths plus one.
+      const cells = framed.flat().filter((on) => on).length;
+      expect(cells).toBeGreaterThanOrEqual(
+        Math.max(first.length, second.length) + 1,
+      );
+      expect(cells).toBeLessThanOrEqual(first.length + second.length + 1);
+      expect(values[first.length][second.length]).toBeLessThanOrEqual(
+        Math.max(first.length, second.length),
+      );
+    }
+    expect([...firstLengths].sort((a, b) => a - b)).toEqual([...p.lengths]);
+    expect([...secondLengths].sort((a, b) => a - b)).toEqual([...p.lengths]);
+    // Some cell on the way back has the up and the left neighbour both optimal and not the diagonal, so that the preference between them shows.
+    expect(ties).toBeGreaterThan(0);
+    for (let s = 1; s <= p.alphabet; s++) {
+      expect(symbols[s] / total).toBeGreaterThan(0.25);
+      expect(symbols[s] / total).toBeLessThan(0.42);
+    }
+    expect(symbols[0]).toBe(0);
+  });
+
+  it('draws cells, frames and dots with their tones, heights, roughness and sizes, and nothing outside the grid', () => {
+    for (const seed of seeds) {
+      const { sample, first, second, values, framed } = tableOf(seed),
+        m = first.length,
+        n = second.length;
+      for (let i = 0; i <= m; i++)
+        for (let j = 0; j <= n; j++) {
+          const cx = centre(j + 1),
+            cy = centre(i + 1);
+          expect(toneAt(sample, cx, cy)).toBeCloseTo(
+            valueTone(values[i][j]),
+            6,
+          );
+          expect(out.height / p.relief).toBeCloseTo(p.fillHeight, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          // The fill reaches to fillHalf and stops there, in both directions.
+          for (const [dx, dy] of [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ]) {
+            expect(
+              toneAt(
+                sample,
+                cx + dx * (p.fillHalf - 0.002),
+                cy + dy * (p.fillHalf - 0.002),
+              ),
+            ).toBeCloseTo(valueTone(values[i][j]), 6);
+            expect(
+              Math.abs(
+                toneAt(
+                  sample,
+                  cx + dx * (p.fillHalf + 0.003),
+                  cy + dy * (p.fillHalf + 0.003),
+                ) - p.paperTone,
+              ),
+            ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+          }
+          if (framed[i][j]) {
+            expect(toneAt(sample, cx + p.frameRadius, cy)).toBeCloseTo(
+              p.frameTone,
+              6,
+            );
+            expect(out.height / p.relief).toBeCloseTo(p.frameHeight, 6);
+            expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+            // The frame is as wide as frameHalf on both sides, and square (the same along the diagonal).
+            expect(
+              toneAt(
+                sample,
+                cx + p.frameRadius + p.frameHalf - 0.0005,
+                cy + 0.01,
+              ),
+            ).toBeCloseTo(p.frameTone, 6);
+            expect(
+              toneAt(
+                sample,
+                cx + p.frameRadius - p.frameHalf + 0.0005,
+                cy - 0.01,
+              ),
+            ).toBeCloseTo(p.frameTone, 6);
+            expect(
+              toneAt(sample, cx + p.frameRadius + p.frameHalf + 0.002, cy),
+            ).toBeCloseTo(valueTone(values[i][j]), 6);
+            expect(
+              toneAt(sample, cx + p.frameRadius - p.frameHalf - 0.002, cy),
+            ).toBeCloseTo(valueTone(values[i][j]), 6);
+          }
+        }
+      // Dots: tone, height, roughness and radius.
+      const dotCells: [number, number, number][] = [
+        ...second.map((s, j): [number, number, number] => [
+          centre(j + 2),
+          centre(0),
+          s,
+        ]),
+        ...first.map((s, i): [number, number, number] => [
+          centre(0),
+          centre(i + 2),
+          s,
+        ]),
+      ];
+      for (const [cx, cy, s] of dotCells) {
+        for (let k = 0; k < 3; k++) {
+          const at = cx + (k - 1) * p.dotPitch;
+          if (k < s) {
+            expect(toneAt(sample, at, cy)).toBeCloseTo(p.dotTone, 6);
+            expect(out.height / p.relief).toBeCloseTo(p.dotHeight, 6);
+            expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+            expect(toneAt(sample, at, cy + p.dotRadius - 0.001)).toBeCloseTo(
+              p.dotTone,
+              6,
+            );
+            expect(
+              Math.abs(
+                toneAt(sample, at, cy + p.dotRadius + 0.002) - p.paperTone,
+              ),
+            ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+          } else
+            expect(
+              Math.abs(toneAt(sample, at, cy) - p.paperTone),
+            ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+        }
+      }
+      // Paper in the corner cell, the cell beside the first column's symbols, and past the last row and column.
+      for (const [r, c] of [
+        [0, 0],
+        [0, 1],
+        [1, 0],
+        [m + 2, 3],
+        [3, n + 2],
+      ])
+        expect(
+          Math.abs(toneAt(sample, centre(c), centre(r)) - p.paperTone),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+    }
+  });
+
+  it('softens the edge of a cell, of a frame and of a dot over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft;
+    for (const seed of seeds) {
+      const { sample, first, second, values, framed } = tableOf(seed),
+        mix = (from: number, target: number, amount: number): number =>
+          from + (target - from) * smoothstep(amount);
+      let cellsChecked = 0,
+        framesChecked = 0;
+      for (let i = 0; i <= first.length; i++)
+        for (let j = 0; j <= second.length; j++) {
+          const cx = centre(j + 1),
+            cy = centre(i + 1),
+            value = valueTone(values[i][j]);
+          expect(
+            Math.abs(
+              toneAt(sample, cx, cy + p.fillHalf - quarter) -
+                mix(p.paperTone, value, 0.75),
+            ),
+          ).toBeLessThan(0.03);
+          expect(
+            Math.abs(
+              toneAt(sample, cx, cy + p.fillHalf + quarter) -
+                mix(p.paperTone, value, 0.25),
+            ),
+          ).toBeLessThan(0.03);
+          cellsChecked++;
+          if (framed[i][j]) {
+            const edge = p.frameRadius + p.frameHalf;
+            expect(
+              Math.abs(
+                toneAt(sample, cx + edge - quarter, cy) -
+                  mix(value, p.frameTone, 0.75),
+              ),
+            ).toBeLessThan(0.03);
+            expect(
+              Math.abs(
+                toneAt(sample, cx + edge + quarter, cy) -
+                  mix(value, p.frameTone, 0.25),
+              ),
+            ).toBeLessThan(0.03);
+            const inner = p.frameRadius - p.frameHalf;
+            expect(
+              Math.abs(
+                toneAt(sample, cx + inner + quarter, cy) -
+                  mix(value, p.frameTone, 0.75),
+              ),
+            ).toBeLessThan(0.03);
+            expect(
+              Math.abs(
+                toneAt(sample, cx + inner - quarter, cy) -
+                  mix(value, p.frameTone, 0.25),
+              ),
+            ).toBeLessThan(0.03);
+            framesChecked++;
+          }
+        }
+      expect(cellsChecked).toBeGreaterThan(30);
+      expect(framesChecked).toBeGreaterThanOrEqual(
+        Math.max(first.length, second.length) + 1,
+      );
+      // The edge of the first dot of each symbol, on its left.
+      const [cx, cy] = [centre(2), centre(0)],
+        left = cx - p.dotPitch - p.dotRadius;
+      expect(
+        Math.abs(
+          toneAt(sample, left + quarter, cy) -
+            mix(p.paperTone, p.dotTone, 0.75),
+        ),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(
+          toneAt(sample, left - quarter, cy) -
+            mix(p.paperTone, p.dotTone, 0.25),
+        ),
+      ).toBeLessThan(0.03);
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('editdistance', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('editdistance', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.0113),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('editdistance', 0),
+      b = createSurfaceSampler('editdistance', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

@@ -41466,6 +41466,120 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'editdistance': {
+        const p = proceduralMaterialPresets.editdistance,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x4ed01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          m =
+            p.lengths[
+              Math.floor(hash(35, 1, seed ^ 0x4ed02) * p.lengths.length)
+            ],
+          n =
+            p.lengths[
+              Math.floor(hash(35, 2, seed ^ 0x4ed03) * p.lengths.length)
+            ],
+          // Symbols 1..alphabet of the two strings (index 1..m and 1..n), and the table of distances d[i * (n + 1) + j].
+          first = new Uint8Array(m + 1),
+          second = new Uint8Array(n + 1),
+          table = new Uint8Array((m + 1) * (n + 1)),
+          onPath = new Uint8Array((m + 1) * (n + 1)),
+          width = n + 1;
+        for (let i = 1; i <= m; i++)
+          first[i] = 1 + Math.floor(hash(i, 3, seed ^ 0x4ed04) * p.alphabet);
+        for (let j = 1; j <= n; j++)
+          second[j] = 1 + Math.floor(hash(j, 4, seed ^ 0x4ed05) * p.alphabet);
+        for (let i = 0; i <= m; i++)
+          for (let j = 0; j <= n; j++)
+            table[i * width + j] =
+              i === 0
+                ? j
+                : j === 0
+                  ? i
+                  : Math.min(
+                      table[(i - 1) * width + j] + 1,
+                      table[i * width + j - 1] + 1,
+                      table[(i - 1) * width + j - 1] +
+                        (first[i] === second[j] ? 0 : 1),
+                    );
+        // The way back from the last cell: diagonal if that is optimal, otherwise up, otherwise left.
+        for (let i = m, j = n; ;) {
+          onPath[i * width + j] = 1;
+          if (i === 0 && j === 0) break;
+          const here = table[i * width + j];
+          if (
+            i > 0 &&
+            j > 0 &&
+            here ===
+              table[(i - 1) * width + j - 1] + (first[i] === second[j] ? 0 : 1)
+          ) {
+            i--;
+            j--;
+          } else if (i > 0 && here === table[(i - 1) * width + j] + 1) i--;
+          else j--;
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            gx = (fu - p.origin) / p.cell,
+            gy = (fv - p.origin) / p.cell,
+            c = Math.floor(gx),
+            r = Math.floor(gy);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          if (c >= 0 && c <= n + 1 && r >= 0 && r <= m + 1) {
+            const lx = (gx - c - 0.5) * p.cell,
+              ly = (gy - r - 0.5) * p.cell;
+            if (r >= 1 && c >= 1) {
+              // A table cell: its value as a tone, and a frame when it is on the way back.
+              const i = r - 1,
+                j = c - 1,
+                fill = cover(p.fillHalf - Math.max(Math.abs(lx), Math.abs(ly))),
+                frame =
+                  onPath[i * width + j] === 1
+                    ? cover(
+                        p.frameHalf -
+                          Math.abs(
+                            Math.max(Math.abs(lx), Math.abs(ly)) -
+                              p.frameRadius,
+                          ),
+                      )
+                    : 0;
+              shade +=
+                (p.valueLightest - p.valueStep * table[i * width + j] - shade) *
+                fill;
+              elevation += (p.fillHeight - elevation) * fill;
+              rough += (p.inkRoughness - rough) * fill;
+              shade += (p.frameTone - shade) * frame;
+              elevation += (p.frameHeight - elevation) * frame;
+              rough += (p.inkRoughness - rough) * frame;
+              // The frame lies inside the fill, so the fill alone masks the grain.
+              mask = fill;
+            } else if ((r === 0 && c >= 2) || (c === 0 && r >= 2)) {
+              // A symbol of one of the strings: one to three dots in a row.
+              const symbol = r === 0 ? second[c - 1] : first[r - 1];
+              for (let k = 0; k < symbol; k++) {
+                const dot = cover(
+                  p.dotRadius - Math.hypot(lx - (k - 1) * p.dotPitch, ly),
+                );
+                shade += (p.dotTone - shade) * dot;
+                elevation += (p.dotHeight - elevation) * dot;
+                rough += (p.inkRoughness - rough) * dot;
+                mask = Math.max(mask, dot);
+              }
+            }
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -68995,6 +69109,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'editdistance' ||
     kind === 'nearesttour' ||
     kind === 'karnaughmap' ||
     kind === 'bsttreeorder' ||
