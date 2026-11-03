@@ -35333,3 +35333,331 @@ describe('smithchart: constant resistance circles, reactance arcs and a standing
     expect(different).toBeGreaterThan(30);
   });
 });
+
+describe('compassrose: a 16-point star inside a dial of ticks', () => {
+  const p = proceduralMaterialPresets.compassrose,
+    out = empty(),
+    degrees = Math.PI / 180,
+    side = p.edgeSoft / 2 + 0.0003;
+  // The uv of the point at `radius` from the middle in the direction `angle` (clockwise from north, in radians).
+  const toneAtPolar = (
+    sample: Sampler,
+    angle: number,
+    radius: number,
+  ): number => {
+    sample(0.5 + radius * Math.sin(angle), 0.5 - radius * Math.cos(angle), out);
+    return out.color;
+  };
+  // Class of point i of the star: 0 long, 1 medium, 2 short.
+  const sizeOf = (i: number): number => (i % 4 === 0 ? 0 : i % 2 === 0 ? 1 : 2);
+
+  // The star's turn: the centres of the runs of non-paper tone on the circle of radius 0.22 (long points are wide, medium ones narrow, short
+  // ones do not reach), from the four wide ones.
+  const turnOf = (sample: Sampler): number => {
+    const count = 2880,
+      tones = Array.from({ length: count }, (_, k) =>
+        toneAtPolar(sample, (2 * Math.PI * (k + 0.5)) / count, 0.22),
+      ),
+      start = tones.findIndex((tone) => tone > 0.8),
+      runs: { centre: number; width: number }[] = [];
+    let first = -1;
+    for (let k = 0; k <= count; k++) {
+      const index = (start + k) % count,
+        inkAt = tones[index] < 0.8;
+      if (inkAt && first < 0) first = k;
+      if (!inkAt && first >= 0) {
+        runs.push({
+          centre: (start + (first + k - 1) / 2) % count,
+          width: k - first,
+        });
+        first = -1;
+      }
+    }
+    expect(runs).toHaveLength(8);
+    const wide = runs.sort((a, b) => b.width - a.width).slice(0, 4),
+      // The centre angles in degrees, modulo 90.
+      angles = wide.map((run) => (((run.centre + 0.5) / count) * 360) % 90);
+    // The four agree (allowing for the wrap round 0 and 90).
+    const reference = angles[0];
+    for (const angle of angles) {
+      const gap = Math.abs(angle - reference);
+      expect(Math.min(gap, 90 - gap)).toBeLessThan(0.5);
+    }
+    return ((angles[0] % 90) + 90) % 90;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'turns the star by a multiple of 5 degrees below 90 (seed %i)',
+    (seed) => {
+      const turn = turnOf(createSurfaceSampler('compassrose', seed));
+      expect(
+        Math.abs(turn - Math.round(turn / 5) * 5) < 0.5 ||
+          Math.abs(turn - 90) < 0.5,
+      ).toBe(true);
+    },
+  );
+
+  it.each(seeds)(
+    'draws the 16 points as triangles with a dark clockwise half and a mid-tone other half, as long as their size says (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('compassrose', seed),
+        turn = (Math.round(turnOf(sample) / 5) % 18) * 5 * degrees;
+      for (let i = 0; i < p.points; i++) {
+        const axis = turn + (i * 2 * Math.PI) / p.points,
+          length = p.lengths[sizeOf(i)],
+          half = p.baseHalves[sizeOf(i)],
+          // The point at `along` the axis and `across` it (positive clockwise).
+          at = (along: number, across: number): number => {
+            sample(
+              0.5 + along * Math.sin(axis) + across * Math.cos(axis),
+              0.5 - along * Math.cos(axis) + across * Math.sin(axis),
+              out,
+            );
+            return out.color;
+          };
+        for (const along of [0.15, (length + 0.15) / 2, length - 0.03]) {
+          const width = half * (1 - along / length);
+          expect(Math.abs(at(along, width / 2) - p.inkTone)).toBeLessThan(0.03);
+          expect(Math.abs(at(along, -width / 2) - p.halfTone)).toBeLessThan(
+            0.03,
+          );
+          expect(Math.abs(at(along, width + 0.004) - p.paperTone)).toBeLessThan(
+            0.03,
+          );
+          expect(
+            Math.abs(at(along, -width - 0.004) - p.paperTone),
+          ).toBeLessThan(0.03);
+        }
+        // The two halves meet over edgeSoft along the axis: a quarter of the transition either side of it.
+        const quarter = 0.25 * p.edgeSoft,
+          smoothstep = (x: number): number => x * x * (3 - 2 * x),
+          mixed = (share: number): number =>
+            p.halfTone + (p.inkTone - p.halfTone) * smoothstep(share);
+        expect(
+          Math.abs(at(0.3 * length + 0.1, quarter) - mixed(0.75)),
+        ).toBeLessThan(0.02);
+        expect(
+          Math.abs(at(0.3 * length + 0.1, -quarter) - mixed(0.25)),
+        ).toBeLessThan(0.02);
+        // Past the tip is paper again.
+        expect(Math.abs(at(length + 0.01, 0) - p.paperTone)).toBeLessThan(0.03);
+      }
+    },
+  );
+
+  it('draws the long points over the shorter ones where they overlap near the middle', () => {
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('compassrose', seed),
+        turn = (Math.round(turnOf(sample) / 5) % 18) * 5 * degrees;
+      // On the axis of a short point (22.5 degrees either side of a long point) 0.08 from the middle: the long point's triangle, 0.034 wide
+      // there, covers it, so the tone is the long point's own tone on that side: dark clockwise of its axis, mid-tone the other way.
+      for (let long = 0; long < 4; long++)
+        for (const [step, tone] of [
+          [1, p.inkTone],
+          [-1, p.halfTone],
+        ]) {
+          const angle = turn + (long * Math.PI) / 2 + step * 22.5 * degrees;
+          expect(
+            Math.abs(toneAtPolar(sample, angle, 0.08) - tone),
+          ).toBeLessThan(0.03);
+        }
+    }
+  });
+
+  it('puts the ring and a tick every 5 degrees, longer every 45 and longest every 90, with their widths and radial extents', () => {
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('compassrose', seed);
+      for (let k = 0; k < p.tickCount; k++) {
+        const angle = k * 5 * degrees,
+          start =
+            k % 18 === 0
+              ? p.longStart
+              : k % 9 === 0
+                ? p.mediumStart
+                : p.minorStart,
+          half =
+            k % 18 === 0
+              ? p.longHalf
+              : k % 9 === 0
+                ? p.mediumHalf
+                : p.minorHalf,
+          middle = (start + p.ringRadius) / 2;
+        expect(
+          Math.abs(toneAtPolar(sample, angle, middle) - p.inkTone),
+        ).toBeLessThan(0.03);
+        expect(toneAtPolar(sample, angle, start - side)).toBeGreaterThan(0.85);
+        expect(
+          Math.abs(toneAtPolar(sample, angle, start + side) - p.inkTone),
+        ).toBeLessThan(0.03);
+        expect(
+          toneAtPolar(sample, angle, p.ringRadius + p.ringHalf + side),
+        ).toBeGreaterThan(0.85);
+        // Width, as arc length across at radius 0.44.
+        for (const sign of [1, -1]) {
+          expect(
+            Math.abs(
+              toneAtPolar(sample, angle + (sign * (half - side)) / 0.44, 0.44) -
+                p.inkTone,
+            ),
+          ).toBeLessThan(0.03);
+          expect(
+            toneAtPolar(sample, angle + (sign * (half + side)) / 0.44, 0.44),
+          ).toBeGreaterThan(0.85);
+        }
+        // Between this tick and the next, at the radii of the long and medium ticks, nothing.
+        for (const radius of [0.37, 0.4, 0.44])
+          expect(
+            toneAtPolar(sample, angle + 2.5 * degrees, radius),
+          ).toBeGreaterThan(0.85);
+      }
+      // The ring itself (between ticks), its width and nothing round it.
+      const between = 2.5 * degrees;
+      expect(
+        Math.abs(toneAtPolar(sample, between, p.ringRadius) - p.inkTone),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(
+          toneAtPolar(sample, between, p.ringRadius + p.ringHalf - side) -
+            p.inkTone,
+        ),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(
+          toneAtPolar(sample, between, p.ringRadius - p.ringHalf + side) -
+            p.inkTone,
+        ),
+      ).toBeLessThan(0.03);
+      expect(
+        toneAtPolar(sample, between, p.ringRadius + p.ringHalf + side),
+      ).toBeGreaterThan(0.85);
+      expect(
+        toneAtPolar(sample, between, p.ringRadius - p.ringHalf - side),
+      ).toBeGreaterThan(0.85);
+    }
+  });
+
+  it('rings the middle at centreRadius, softened over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x);
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('compassrose', seed),
+        // The ring at the middle is drawn over the points, so any direction shows its tone.
+        quarter = 0.25 * p.edgeSoft,
+        // Directions at which the points show their mid-tone half both just outside and just inside the ring (near the middle the long
+        // points overlap, so these are found by looking).
+        outer = p.centreRadius + p.centreHalf + side,
+        inner = p.centreRadius - p.centreHalf - side,
+        mids = Array.from(
+          { length: 1440 },
+          (_, k) => (2 * Math.PI * (k + 0.5)) / 1440,
+        ).filter(
+          (angle) =>
+            Math.abs(toneAtPolar(sample, angle, outer) - p.halfTone) < 0.03 &&
+            Math.abs(toneAtPolar(sample, angle, inner) - p.halfTone) < 0.03,
+        );
+      expect(mids.length).toBeGreaterThan(20);
+      expect(
+        Math.abs(toneAtPolar(sample, 1, p.centreRadius) - p.inkTone),
+      ).toBeLessThan(0.03);
+      // There, the ring is ink from centreRadius - centreHalf to centreRadius + centreHalf and nowhere else.
+      for (const angle of mids.filter((_, k) => k % 7 === 0))
+        for (const radius of [
+          p.centreRadius,
+          p.centreRadius + p.centreHalf - side,
+          p.centreRadius - p.centreHalf + side,
+        ])
+          expect(
+            Math.abs(toneAtPolar(sample, angle, radius) - p.inkTone),
+          ).toBeLessThan(0.03);
+      // Soft across the outer ring (between ticks), paper outside: a quarter of the transition each way.
+      const ring = (offset: number): number =>
+        toneAtPolar(sample, 2.5 * degrees, p.ringRadius + offset);
+      expect(ring(p.ringHalf + quarter)).toBeCloseTo(
+        p.paperTone + (p.inkTone - p.paperTone) * smoothstep(0.25),
+        1,
+      );
+      expect(ring(p.ringHalf - quarter)).toBeCloseTo(
+        p.paperTone + (p.inkTone - p.paperTone) * smoothstep(0.75),
+        1,
+      );
+      expect(ring(-(p.ringHalf + quarter))).toBeCloseTo(
+        p.paperTone + (p.inkTone - p.paperTone) * smoothstep(0.25),
+        1,
+      );
+    }
+  });
+
+  it('gives ink and paper their heights and roughness and the mid-tone half its own height', () => {
+    const sample = createSurfaceSampler('compassrose', 7),
+      turn = (Math.round(turnOf(sample) / 5) % 18) * 5 * degrees,
+      read = (x: number, y: number): { h: number; r: number } => {
+        sample(x, y, out);
+        return { h: out.height / p.relief, r: out.roughness };
+      };
+    expect(read(0.02, 0.02).h).toBeCloseTo(p.paperHeight, 6);
+    expect(read(0.02, 0.02).r).toBeCloseTo(p.paperRoughness, 6);
+    // On a long point: the dark side (clockwise) and the mid-tone side.
+    const dark = read(
+        0.5 + 0.2 * Math.sin(turn) + 0.005 * Math.cos(turn),
+        0.5 - 0.2 * Math.cos(turn) + 0.005 * Math.sin(turn),
+      ),
+      mid = read(
+        0.5 + 0.2 * Math.sin(turn) - 0.005 * Math.cos(turn),
+        0.5 - 0.2 * Math.cos(turn) - 0.005 * Math.sin(turn),
+      );
+    expect(dark.h).toBeCloseTo(p.inkHeight, 6);
+    expect(mid.h).toBeCloseTo(p.halfHeight, 6);
+    expect(dark.r).toBeCloseTo(p.inkRoughness, 6);
+    expect(mid.r).toBeCloseTo(p.inkRoughness, 6);
+  });
+
+  it('turns the star through every multiple of 5 degrees below 90 across seeds', () => {
+    const turns = new Set<number>();
+    for (let seed = 0; seed < 90; seed++)
+      turns.add(
+        Math.round(turnOf(createSurfaceSampler('compassrose', seed)) / 5) % 18,
+      );
+    expect(turns.size).toBeGreaterThan(14);
+    expect(Math.max(...turns)).toBe(17);
+    expect(Math.min(...turns)).toBe(0);
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('compassrose', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('compassrose', 0),
+      b = createSurfaceSampler('compassrose', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(30);
+  });
+});

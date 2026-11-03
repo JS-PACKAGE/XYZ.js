@@ -39460,6 +39460,108 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'compassrose': {
+        const p = proceduralMaterialPresets.compassrose,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x38801),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          turn =
+            Math.floor(hash(4, 5, seed ^ 0x38802) * p.turnSteps) * p.turnStep,
+          sine = new Float64Array(p.points),
+          cosine = new Float64Array(p.points),
+          lengthOf = new Float64Array(p.points),
+          halfOf = new Float64Array(p.points),
+          // Short points first, the long ones last so that they lie over the others.
+          order = Array.from({ length: p.points }, (_, i) => i).sort(
+            (a, b) =>
+              (b % 4 === 0 ? 0 : b % 2 === 0 ? 1 : 2) -
+                (a % 4 === 0 ? 0 : a % 2 === 0 ? 1 : 2) || a - b,
+          ),
+          reach = Math.max(...p.lengths),
+          // Half width and inner radius of the minor, medium and long ticks.
+          tickHalves = [p.minorHalf, p.mediumHalf, p.longHalf],
+          tickStarts = [p.minorStart, p.mediumStart, p.longStart];
+        for (let i = 0; i < p.points; i++) {
+          const angle = turn + (i * 2 * Math.PI) / p.points,
+            size = i % 4 === 0 ? 0 : i % 2 === 0 ? 1 : 2;
+          sine[i] = Math.sin(angle);
+          cosine[i] = Math.cos(angle);
+          lengthOf[i] = p.lengths[size];
+          halfOf[i] = p.baseHalves[size];
+        }
+        return () => {
+          const dx = u - Math.floor(u) - 0.5,
+            dy = v - Math.floor(v) - 0.5,
+            r = Math.hypot(dx, dy);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness;
+          const paint = (
+            amount: number,
+            tone: number,
+            level: number,
+            roughValue: number,
+          ): void => {
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (roughValue - rough) * amount;
+          };
+          // The star: each point is a triangle along its axis (north is up, angles run clockwise), one side dark and the other mid tone.
+          if (r < reach + p.edgeSoft)
+            for (const i of order) {
+              const along = dx * sine[i] - dy * cosine[i],
+                across = dx * cosine[i] + dy * sine[i],
+                length = lengthOf[i];
+              // The base is hidden under the other points and the ring in the middle, and the width is zero at the tip.
+              if (along <= 0 || along >= length) continue;
+              const inside =
+                  halfOf[i] * (1 - along / length) - Math.abs(across),
+                side = cover(across);
+              paint(
+                cover(inside),
+                p.halfTone + (p.inkTone - p.halfTone) * side,
+                p.halfHeight + (p.inkHeight - p.halfHeight) * side,
+                p.inkRoughness,
+              );
+            }
+          paint(
+            cover(p.centreHalf - Math.abs(r - p.centreRadius)),
+            p.inkTone,
+            p.inkHeight,
+            p.inkRoughness,
+          );
+          // The dial: the outer ring, and the ticks (clockwise from north), which run out to the ring.
+          if (r > p.longStart - p.edgeSoft) {
+            paint(
+              cover(p.ringHalf - Math.abs(r - p.ringRadius)),
+              p.inkTone,
+              p.inkHeight,
+              p.inkRoughness,
+            );
+            const position =
+                (((Math.atan2(dx, -dy) / p.tickStep) % p.tickCount) +
+                  p.tickCount) %
+                p.tickCount,
+              nearest = Math.round(position),
+              index = nearest % p.tickCount,
+              kind = index % 18 === 0 ? 2 : index % 9 === 0 ? 1 : 0,
+              half = tickHalves[kind],
+              start = tickStarts[kind],
+              across = Math.abs(position - nearest) * p.tickStep * r;
+            paint(
+              cover(Math.min(half - across, r - start, p.ringRadius - r)),
+              p.inkTone,
+              p.inkHeight,
+              p.inkRoughness,
+            );
+          }
+          color = clamp(shade + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -66989,6 +67091,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'compassrose' ||
     kind === 'smithchart' ||
     kind === 'mahjongdots' ||
     kind === 'qrcodemodules' ||

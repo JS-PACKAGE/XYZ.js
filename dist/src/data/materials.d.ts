@@ -13012,6 +13012,40 @@ export declare const proceduralMaterialPresets: Readonly<{
         paperRoughness: 0.55;
         inkRoughness: 0.4;
     }>;
+    compassrose: Readonly<{
+        dark: readonly [20, 24, 36];
+        light: readonly [246, 241, 224];
+        roughness: 0.55;
+        relief: 0.004;
+        points: 16;
+        lengths: readonly number[];
+        baseHalves: readonly number[];
+        turnStep: number;
+        turnSteps: 18;
+        centreRadius: 0.03;
+        centreHalf: 0.004;
+        ringRadius: 0.46;
+        ringHalf: 0.002;
+        tickStep: number;
+        tickCount: 72;
+        minorStart: 0.42;
+        mediumStart: 0.39;
+        longStart: 0.36;
+        minorHalf: 0.0025;
+        mediumHalf: 0.0035;
+        longHalf: 0.0045;
+        edgeSoft: 0.0006;
+        grainCells: 192;
+        paperTone: 0.94;
+        inkTone: 0.12;
+        halfTone: 0.55;
+        grainTone: 0.03;
+        paperHeight: 0.3;
+        inkHeight: 0.8;
+        halfHeight: 0.6;
+        paperRoughness: 0.7;
+        inkRoughness: 0.4;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -19497,6 +19531,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    compassrose: 1;
     smithchart: 1;
     mahjongdots: 1;
     qrcodemodules: 1;
