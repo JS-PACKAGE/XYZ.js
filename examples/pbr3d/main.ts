@@ -1174,6 +1174,7 @@ try {
     'powderdiffraction',
     'arnoldtongues',
     'kelvinwake',
+    'jacobielliptic',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

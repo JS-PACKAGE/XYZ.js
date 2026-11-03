@@ -1111,6 +1111,7 @@ export type ProceduralMaterialKind =
   | 'powderdiffraction'
   | 'arnoldtongues'
   | 'kelvinwake'
+  | 'jacobielliptic'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2470,6 +2471,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'powderdiffraction',
   'arnoldtongues',
   'kelvinwake',
+  'jacobielliptic',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

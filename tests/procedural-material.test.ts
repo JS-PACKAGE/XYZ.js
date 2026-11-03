@@ -1137,6 +1137,7 @@ const kinds: ProceduralMaterialKind[] = [
   'powderdiffraction',
   'arnoldtongues',
   'kelvinwake',
+  'jacobielliptic',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -190789,6 +190790,372 @@ describe('Kelvin wake as the crest lines of the waves behind a ship', () => {
     expect(blue / (512 * 512)).toBeLessThan(39);
     expect(maxTilt).toBeGreaterThan(0.031);
     expect(maxTilt).toBeLessThan(0.032);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Jacobi elliptic functions as the phase and modulus lines of sn, cn and dn', () => {
+  const p = proceduralMaterialPresets.jacobielliptic;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const plot = 0.5 - p.margin;
+  /** The complete elliptic integral K(m) by the arithmetic-geometric mean. */
+  const completeIntegral = (parameter: number): number => {
+    let first = 1,
+      second = Math.sqrt(1 - parameter);
+    for (let i = 0; i < 40; i++)
+      [first, second] = [(first + second) / 2, Math.sqrt(first * second)];
+    return Math.PI / (2 * first);
+  };
+  /** The function, K, K', the centre of the plot and its half width (in the plane of u) of a variant. */
+  const geometry = (index: number) => {
+    const [which, parameter] = p.variants[index],
+      real = completeIntegral(parameter),
+      imaginary = completeIntegral(1 - parameter);
+    return {
+      which,
+      real,
+      imaginary,
+      centre: which === 0 ? 0 : real,
+      width: p.windowScale * Math.max(real, imaginary),
+    };
+  };
+  /** The position (fu, fv) in the tile of the point u = x + i y of a variant. */
+  const tileOf = (index: number, x: number, y: number): [number, number] => {
+    const g = geometry(index);
+    return [
+      0.5 + ((x - g.centre) / g.width) * plot,
+      0.5 - (y / g.width) * plot,
+    ];
+  };
+  const insidePlot = (
+    index: number,
+    x: number,
+    y: number,
+    limit: number,
+  ): boolean => {
+    const [fu, fv] = tileOf(index, x, y);
+    return fu >= limit && fu <= 1 - limit && fv >= limit && fv <= 1 - limit;
+  };
+  const colourAtPoint = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    index: number,
+    x: number,
+    y: number,
+  ): number => {
+    const [fu, fv] = tileOf(index, x, y);
+    sample(fu, fv, out);
+    return out.color;
+  };
+  /** The zeros and the poles of the function in the plot (further than 0.1 of the tile from its edge): sn has zeros at 2aK + 2b iK', cn at (2a + 1)K + 2b iK', dn at (2a + 1)K + (2b + 1) iK', and all three have poles at 2aK + (2b + 1) iK'. */
+  const singularities = (index: number): { x: number; y: number }[] => {
+    const g = geometry(index),
+      found: { x: number; y: number }[] = [];
+    for (let a = -6; a <= 6; a++)
+      for (let b = -6; b <= 6; b++) {
+        const zero: [number, number] =
+          g.which === 0
+            ? [2 * a * g.real, 2 * b * g.imaginary]
+            : g.which === 1
+              ? [(2 * a + 1) * g.real, 2 * b * g.imaginary]
+              : [(2 * a + 1) * g.real, (2 * b + 1) * g.imaginary];
+        for (const [x, y] of [
+          zero,
+          [2 * a * g.real, (2 * b + 1) * g.imaginary],
+        ])
+          if (insidePlot(index, x, y, 0.1)) found.push({ x, y });
+      }
+    return found;
+  };
+  /** The number of arcs, on the circle of radius r round (x, y) (2400 steps), where the colour is above 0.65, which only the bright phase lines reach (the modulus lines are fainter). */
+  const brightArcs = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    index: number,
+    x: number,
+    y: number,
+    radius: number,
+  ): number => {
+    let count = 0,
+      previous = colourAtPoint(sample, out, index, x + radius, y) > 0.65;
+    for (let i = 1; i <= 2400; i++) {
+      const angle = (2 * Math.PI * i) / 2400,
+        current =
+          colourAtPoint(
+            sample,
+            out,
+            index,
+            x + radius * Math.cos(angle),
+            y + radius * Math.sin(angle),
+          ) > 0.65;
+      if (current && !previous) count++;
+      previous = current;
+    }
+    return count;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('jacobielliptic', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('jacobielliptic', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0254);
+      expect(low).toBeLessThan(0.0257);
+      expect(high).toBeGreaterThan(0.799);
+      expect(high).toBeLessThan(0.802);
+      expect(dark / 65536).toBeGreaterThan(0.081);
+      expect(dark / 65536).toBeLessThan(0.1205);
+      expect(mean / 65536).toBeGreaterThan(0.114);
+      expect(mean / 65536).toBeLessThan(0.152);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.784);
+      expect(heightHigh).toBeLessThan(0.787);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (sn with m = 0.5, cn with 0.5, dn with 0.5, sn with 0.8, cn with 0.2 and dn with 0.8) is 3, 2, 7, 1, 4 and 0; the table was found with a probe by the correlation of the
+  // colour with the phase lines of the function computed in the probe by the theta series without the reduction by the periods (the smallest margin to the second best being 0.122) and is written here, so it is not an
+  // independent check of the seed's choice.
+  const seeds = [3, 2, 7, 1, 4, 0];
+  it("repeats with the periods 2K along x and 2K' along y", () => {
+    // The functions are doubly periodic up to a sign, which only moves the phase lines onto each other (they are at the multiples of pi / 12), so the colour at u, u + 2K and u + 2i K' agrees (K and K' found in the test by the
+    // arithmetic-geometric mean) except for the grain: on a 60 by 60 grid of points over the plot, for every pair that lies inside it (0.06 to 0.94 of the tile) the colours differ by under 0.05 (0.0276 at the most in the probe; 2320 and 2900 pairs per variant).
+    seeds.forEach((seed, index) => {
+      const g = geometry(index),
+        sample = createSurfaceSampler('jacobielliptic', seed),
+        out = empty();
+      let pairs = 0;
+      for (let i = 0; i < 60; i++)
+        for (let j = 0; j < 60; j++) {
+          const x = g.centre - g.width + (2 * g.width * (i + 0.37)) / 60,
+            y = -g.width + (2 * g.width * (j + 0.61)) / 60;
+          if (!insidePlot(index, x, y, 0.06)) continue;
+          for (const [dx, dy] of [
+            [2 * g.real, 0],
+            [0, 2 * g.imaginary],
+          ]) {
+            if (!insidePlot(index, x + dx, y + dy, 0.06)) continue;
+            expect(
+              Math.abs(
+                colourAtPoint(sample, out, index, x, y) -
+                  colourAtPoint(sample, out, index, x + dx, y + dy),
+              ),
+            ).toBeLessThan(0.05);
+            pairs++;
+          }
+        }
+      expect(pairs).toBeGreaterThan(2000);
+    });
+  });
+  it('has 24 phase lines leaving every zero and pole and no such star at the other lattice points', () => {
+    // Round a simple zero or pole the argument of the function turns once, so every phase line (the multiples of pi / 12, 24 rays) leaves it: on a circle of radius 0.2 round each zero and pole of the function in the plot (their places from
+    // the closed forms of the periods, 3 to 6 per variant), there are exactly 24 bright arcs, and at the centre (moved by 0.01 and 0.004) the colour is above 0.65 (0.773 at the lowest in the probe). At the zeros of the other two functions that are
+    // not singular here (3 to 6 points per variant, at least 0.5 from a singular one) there are fewer than 24 arcs (4 in the probe).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('jacobielliptic', seed),
+        out = empty(),
+        g = geometry(index),
+        singular = singularities(index),
+        others: { x: number; y: number }[] = [];
+      expect(singular.length).toBeGreaterThanOrEqual(3);
+      for (const q of singular) {
+        expect(brightArcs(sample, out, index, q.x, q.y, 0.2)).toBe(24);
+        expect(
+          colourAtPoint(sample, out, index, q.x + 0.01, q.y + 0.004),
+        ).toBeGreaterThan(0.65);
+      }
+      for (let a = -6; a <= 6; a++)
+        for (let b = -6; b <= 6; b++)
+          for (const [x, y] of [
+            [2 * a * g.real, 2 * b * g.imaginary],
+            [(2 * a + 1) * g.real, 2 * b * g.imaginary],
+            [(2 * a + 1) * g.real, (2 * b + 1) * g.imaginary],
+          ])
+            if (
+              insidePlot(index, x, y, 0.1) &&
+              singular.every((q) => Math.hypot(q.x - x, q.y - y) > 0.5)
+            )
+              others.push({ x, y });
+      expect(others.length).toBeGreaterThanOrEqual(3);
+      for (const q of others)
+        expect(brightArcs(sample, out, index, q.x, q.y, 0.2)).toBeLessThan(24);
+    });
+  });
+  it('is mirror symmetric about the real axis', () => {
+    // The functions take conjugate values at conjugate points (sn(conj u) = conj sn(u), and the same for cn and dn), so the pattern, which depends only on the modulus and on the argument modulo the line step, is the same
+    // above and below the real axis: the colour at x + i y and x - i y differs by under 0.05 (0.0278 at the most in the probe, the grain; 1624 pairs per variant).
+    seeds.forEach((seed, index) => {
+      const g = geometry(index),
+        sample = createSurfaceSampler('jacobielliptic', seed),
+        out = empty();
+      let pairs = 0;
+      for (let i = 0; i < 60; i++)
+        for (let j = 0; j < 30; j++) {
+          const x = g.centre - g.width + (2 * g.width * (i + 0.37)) / 60,
+            y = 0.05 + (g.width * (j + 0.61)) / 30;
+          if (!insidePlot(index, x, y, 0.06) || !insidePlot(index, x, -y, 0.06))
+            continue;
+          expect(
+            Math.abs(
+              colourAtPoint(sample, out, index, x, y) -
+                colourAtPoint(sample, out, index, x, -y),
+            ),
+          ).toBeLessThan(0.05);
+          pairs++;
+        }
+      expect(pairs).toBeGreaterThan(1500);
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 2 pick different functions (dn with m = 0.8 and cn with m = 0.5).
+    const first = litGrid(0),
+      second = litGrid(2);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.1624);
+    expect(different / first.length).toBeLessThan(0.1625);
+    expect(litGrid(0)).toEqual(first);
+  });
+  // The step of the C1 sweep is 1e-8 and not the 1e-10 of the other materials: at 1e-10 the rounding error of the theta series (about 2e-12 in the colour where its slope is 57 per UV unit) made the second difference divided by the step 0.034 and 0.047 at two
+  // random points (above 0.03) and it fell in proportion to the step (0.0229, 0.0023, 0.0004 for 1e-10, 1e-9 and 1e-8) as rounding does; a kink would give the jump of the slope at every step.
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-8;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('jacobielliptic', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 gold elliptic maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('jacobielliptic', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(47.9);
+    expect(red / (512 * 512)).toBeLessThan(48.9);
+    expect(green / (512 * 512)).toBeGreaterThan(36.9);
+    expect(green / (512 * 512)).toBeLessThan(37.9);
+    expect(blue / (512 * 512)).toBeGreaterThan(45.2);
+    expect(blue / (512 * 512)).toBeLessThan(46.2);
+    expect(maxTilt).toBeGreaterThan(0.0334);
+    expect(maxTilt).toBeLessThan(0.0346);
     expect(invalid).toBe(0);
   });
 });

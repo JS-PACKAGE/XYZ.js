@@ -50149,6 +50149,188 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'jacobielliptic': {
+        const p = proceduralMaterialPresets.jacobielliptic,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          [which, parameter] =
+            p.variants[
+              Math.floor(hash(0, 88, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          plot = 0.5 - p.margin,
+          inverseSoft = 1 / p.edgeSoft,
+          lineSquared = p.lineHalf * p.lineHalf,
+          phaseStep = Math.PI / p.phaseLines,
+          // The complete elliptic integrals K(m) and K(1 - m) by the arithmetic-geometric mean, and the nome q = exp(-pi K' / K) of the theta series.
+          agm = (first: number, second: number): number => {
+            for (let i = 0; i < 24; i++)
+              [first, second] = [
+                (first + second) / 2,
+                Math.sqrt(first * second),
+              ];
+            return first;
+          },
+          real = Math.PI / (2 * agm(1, Math.sqrt(1 - parameter))),
+          imaginary = Math.PI / (2 * agm(1, Math.sqrt(parameter))),
+          nome = Math.exp((-Math.PI * imaginary) / real),
+          half = new Float64Array(p.terms),
+          whole = new Float64Array(p.terms);
+        for (let n = 0; n < p.terms; n++) {
+          half[n] = nome ** ((n + 0.5) * (n + 0.5));
+          whole[n] = nome ** (n * n);
+        }
+        // theta_2, theta_3 and theta_4 at zero give the factors of sn, cn and dn: sn = (t3 / t2) theta1 / theta4, cn = (t4 / t2) theta2 / theta4, dn = (t4 / t3) theta3 / theta4.
+        let zeroTwo = 0,
+          zeroThree = 1,
+          zeroFour = 1;
+        for (let n = 0; n < p.terms; n++) {
+          zeroTwo += 2 * half[n];
+          if (n > 0) {
+            zeroThree += 2 * whole[n];
+            zeroFour += 2 * whole[n] * (n % 2 ? -1 : 1);
+          }
+        }
+        const scaleSine = zeroThree / zeroTwo,
+          scaleCosine = zeroFour / zeroTwo,
+          scaleDelta = zeroFour / zeroThree,
+          centre = which === 0 ? 0 : real,
+          width = p.windowScale * Math.max(real, imaginary),
+          turn = Math.PI / (2 * real);
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            px = centre + (width * (fu - 0.5)) / plot,
+            py = (width * (0.5 - fv)) / plot,
+            // The pattern repeats (up to the sign of the function) every 2K along x and every 2K' along y.
+            rx = px - 2 * real * Math.round(px / (2 * real)),
+            ry = py - 2 * imaginary * Math.round(py / (2 * imaginary)),
+            za = turn * rx,
+            zb = turn * ry;
+          let oneRe = 0,
+            oneIm = 0,
+            twoRe = 0,
+            twoIm = 0,
+            threeRe = 1,
+            threeIm = 0,
+            fourRe = 1,
+            fourIm = 0;
+          for (let n = 0; n < p.terms; n++) {
+            const odd = 2 * n + 1,
+              oa = odd * za,
+              ob = odd * zb,
+              // sin and cos of the complex angle (oa, ob).
+              sineRe = Math.sin(oa) * Math.cosh(ob),
+              sineIm = Math.cos(oa) * Math.sinh(ob),
+              cosineRe = Math.cos(oa) * Math.cosh(ob),
+              cosineIm = -Math.sin(oa) * Math.sinh(ob),
+              sign = n % 2 ? -1 : 1;
+            oneRe += 2 * half[n] * sign * sineRe;
+            oneIm += 2 * half[n] * sign * sineIm;
+            twoRe += 2 * half[n] * cosineRe;
+            twoIm += 2 * half[n] * cosineIm;
+            if (n > 0) {
+              const ea = 2 * n * za,
+                eb = 2 * n * zb,
+                evenRe = Math.cos(ea) * Math.cosh(eb),
+                evenIm = -Math.sin(ea) * Math.sinh(eb);
+              threeRe += 2 * whole[n] * evenRe;
+              threeIm += 2 * whole[n] * evenIm;
+              fourRe += 2 * whole[n] * sign * evenRe;
+              fourIm += 2 * whole[n] * sign * evenIm;
+            }
+          }
+          const denominator = Math.max(
+              fourRe * fourRe + fourIm * fourIm,
+              1e-300,
+            ),
+            // sn, cn and dn from the quotients by theta_4 (complex division by multiplying with the conjugate).
+            snRe =
+              (scaleSine * (oneRe * fourRe + oneIm * fourIm)) / denominator,
+            snIm =
+              (scaleSine * (oneIm * fourRe - oneRe * fourIm)) / denominator,
+            cnRe =
+              (scaleCosine * (twoRe * fourRe + twoIm * fourIm)) / denominator,
+            cnIm =
+              (scaleCosine * (twoIm * fourRe - twoRe * fourIm)) / denominator,
+            dnRe =
+              (scaleDelta * (threeRe * fourRe + threeIm * fourIm)) /
+              denominator,
+            dnIm =
+              (scaleDelta * (threeIm * fourRe - threeRe * fourIm)) /
+              denominator;
+          // The function and its derivative: sn' = cn dn, cn' = -sn dn, dn' = -m sn cn.
+          let fRe = snRe,
+            fIm = snIm,
+            dRe = cnRe * dnRe - cnIm * dnIm,
+            dIm = cnRe * dnIm + cnIm * dnRe;
+          if (which === 1) {
+            fRe = cnRe;
+            fIm = cnIm;
+            dRe = -(snRe * dnRe - snIm * dnIm);
+            dIm = -(snRe * dnIm + snIm * dnRe);
+          } else if (which === 2) {
+            fRe = dnRe;
+            fIm = dnIm;
+            dRe = -parameter * (snRe * cnRe - snIm * cnIm);
+            dIm = -parameter * (snRe * cnIm + snIm * cnRe);
+          }
+          const modulusSquared = fRe * fRe + fIm * fIm,
+            logModulus = 0.5 * Math.log(Math.max(modulusSquared, 1e-300)),
+            argument = Math.atan2(fIm, fRe),
+            // |f' / f|, the rate at which both ln |f| and arg f change per unit of u, so that the distance to a line is the change divided by it.
+            rate = Math.sqrt(
+              (dRe * dRe + dIm * dIm) / Math.max(modulusSquared, 1e-300),
+            ),
+            unit = plot / width,
+            phaseOffset = argument / phaseStep,
+            phaseDistance =
+              (Math.abs(phaseOffset - Math.round(phaseOffset)) *
+                phaseStep *
+                unit) /
+              Math.max(rate, 1e-12),
+            ringOffset = logModulus / p.ringStep,
+            ringDistance =
+              (Math.abs(ringOffset - Math.round(ringOffset)) *
+                p.ringStep *
+                unit) /
+              Math.max(rate, 1e-12),
+            phaseKernel = clamp(
+              1 - (phaseDistance * phaseDistance) / lineSquared,
+            ),
+            ringKernel = clamp(1 - (ringDistance * ringDistance) / lineSquared),
+            ringReach = smooth(
+              clamp((p.ringLimit - Math.abs(logModulus)) / p.ringFade),
+            );
+          let ink = Math.max(
+            p.phaseTone * phaseKernel * phaseKernel,
+            p.ringTone * ringKernel * ringKernel * ringReach,
+          );
+          const outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
+            outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
+            boxDistance =
+              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              Math.min(Math.max(outsideX, outsideY), 0),
+            inside = smooth(clamp(-boxDistance / p.fade));
+          ink = clamp(inside * ink);
+          const mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(ink) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -59061,6 +59243,7 @@ export function createSurfaceSampler(
     kind === 'powderdiffraction' ||
     kind === 'arnoldtongues' ||
     kind === 'kelvinwake' ||
+    kind === 'jacobielliptic' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
