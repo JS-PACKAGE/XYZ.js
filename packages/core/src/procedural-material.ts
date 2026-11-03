@@ -1106,6 +1106,7 @@ export type ProceduralMaterialKind =
   | 'keplerorbits'
   | 'errordiffusion'
   | 'diffractionpatterns'
+  | 'mapprojections'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2460,6 +2461,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'keplerorbits',
   'errordiffusion',
   'diffractionpatterns',
+  'mapprojections',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

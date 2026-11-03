@@ -16663,6 +16663,37 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.08;
         gapOcclusion: 0.4;
     }>;
+    mapprojections: Readonly<{
+        dark: readonly [2, 12, 22];
+        light: readonly [150, 235, 215];
+        roughness: 0.38;
+        relief: 0.0008;
+        seedSalt: 27431;
+        margin: 0.04;
+        fade: 0.012;
+        variants: readonly [readonly [0, 3.141592653589793, 0, 0], readonly [1, 3.141592653589793, 0, 0], readonly [2, 3.141592653589793, 0, 0], readonly [3, 3.141592653589793, 0, 0], readonly [4, 2.4, 30, 0], readonly [5, 1.15, 20, 0]];
+        graticuleStep: 15;
+        tissotStep: 30;
+        tissotRadius: 6;
+        graticuleHalfWidth: 0.0022;
+        axisHalfWidth: 0.0035;
+        ringHalfWidth: 0.002;
+        graticuleTone: 0.4;
+        axisTone: 0.62;
+        ringTone: 1;
+        mapTone: 0.07;
+        gradientStep: 0.01;
+        edgeSoft: 0.35;
+        grainCells: 128;
+        gapTone: 0.04;
+        toneFloor: 0.14;
+        toneSpan: 0.72;
+        grainTone: 0.03;
+        cellHeight: 0.8;
+        toneHeight: 0.12;
+        grainHeight: 0.08;
+        gapOcclusion: 0.4;
+    }>;
     vermiculation: Readonly<{
         dark: readonly [60, 48, 36];
         light: readonly [220, 204, 172];
@@ -18431,6 +18462,7 @@ export declare const proceduralTileMeters: Readonly<{
     keplerorbits: 0.5;
     errordiffusion: 0.5;
     diffractionpatterns: 0.5;
+    mapprojections: 0.5;
     dominotiling: 0.5;
     vermiculation: 0.4;
     kikko: 0.3;

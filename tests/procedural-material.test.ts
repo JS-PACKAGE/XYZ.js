@@ -1132,6 +1132,7 @@ const kinds: ProceduralMaterialKind[] = [
   'keplerorbits',
   'errordiffusion',
   'diffractionpatterns',
+  'mapprojections',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -189112,6 +189113,392 @@ describe('Diffraction patterns as the Fraunhofer patterns of apertures in a row'
     expect(blue / (512 * 512)).toBeLessThan(38.3);
     expect(maxTilt).toBeGreaterThan(0.0019);
     expect(maxTilt).toBeLessThan(0.0021);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Map projections as graticules and Tissot circles of six projections', () => {
+  const p = proceduralMaterialPresets.mapprojections;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const degree = Math.PI / 180;
+  /**
+   * The forward projection of a point of the unit sphere (latitude, longitude in radians) to the plane (y up): 0 Mercator, 1 equirectangular, 2 sinusoidal, 3 Mollweide
+   * (the auxiliary angle by Newton's method), 4 stereographic and 5 orthographic about the centre (the latitude in degrees from the variant, longitude 0).
+   * It is null for the far side of the orthographic globe. The sampler only has the inverses of these.
+   */
+  const forward = (
+    variant: readonly number[],
+    latitude: number,
+    longitude: number,
+  ): [number, number] | null => {
+    const centre = variant[2] * degree;
+    if (variant[0] === 0)
+      return [longitude, Math.log(Math.tan(Math.PI / 4 + latitude / 2))];
+    if (variant[0] === 1) return [longitude, latitude];
+    if (variant[0] === 2) return [longitude * Math.cos(latitude), latitude];
+    if (variant[0] === 3) {
+      let theta = latitude;
+      for (let i = 0; i < 60; i++) {
+        const slope = 2 + 2 * Math.cos(2 * theta);
+        if (Math.abs(slope) < 1e-12) break;
+        theta -=
+          (2 * theta + Math.sin(2 * theta) - Math.PI * Math.sin(latitude)) /
+          slope;
+      }
+      return [
+        ((2 * Math.SQRT2) / Math.PI) * longitude * Math.cos(theta),
+        Math.SQRT2 * Math.sin(theta),
+      ];
+    }
+    const cosine =
+        Math.sin(centre) * Math.sin(latitude) +
+        Math.cos(centre) * Math.cos(latitude) * Math.cos(longitude),
+      y =
+        Math.cos(centre) * Math.sin(latitude) -
+        Math.sin(centre) * Math.cos(latitude) * Math.cos(longitude);
+    if (variant[0] === 4) {
+      const scale = 2 / (1 + cosine);
+      return [scale * Math.cos(latitude) * Math.sin(longitude), scale * y];
+    }
+    return cosine < 0 ? null : [Math.cos(latitude) * Math.sin(longitude), y];
+  };
+  const tilePerWorld = (index: number): number =>
+    (0.5 - p.margin) / p.variants[index][1];
+  /** The colour at a position of the plane (y up) read back from the sampler of a variant's seed, and whether the position is inside the plot. */
+  const colourAt = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    index: number,
+    x: number,
+    y: number,
+  ): number => {
+    sample(0.5 + x * tilePerWorld(index), 0.5 - y * tilePerWorld(index), out);
+    return out.color;
+  };
+  const inPlot = (index: number, x: number, y: number): boolean =>
+    Math.abs(x * tilePerWorld(index)) < 0.44 &&
+    Math.abs(y * tilePerWorld(index)) < 0.44;
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('mapprojections', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('mapprojections', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0255);
+      expect(low).toBeLessThan(0.0262);
+      expect(high).toBeGreaterThan(0.868);
+      expect(high).toBeLessThan(0.872);
+      expect(dark / 65536).toBeGreaterThan(0.0148);
+      expect(dark / 65536).toBeLessThan(0.0218);
+      expect(mean / 65536).toBeGreaterThan(0.095);
+      expect(mean / 65536).toBeLessThan(0.127);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.868);
+      expect(heightHigh).toBeLessThan(0.873);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (Mercator, equirectangular, sinusoidal, Mollweide, stereographic about 30 degrees north and orthographic about 20 degrees north) is
+  // 8, 4, 5, 17, 0 and 1; the table was found with a probe by whether a point is inside the map and by the brightness along the equator at the independent forward
+  // positions (the smallest margin to the second best being 0.028), and is written here, so it is not an independent check of the seed's choice.
+  const seeds = [8, 4, 5, 17, 0, 1];
+  it('draws the parallels and meridians where the forward projection puts them', () => {
+    // The parallels every 15 degrees (latitude -75 to 75, longitude -170 to 170 in steps of 1 degree) and the meridians every 15 degrees (longitude -165 to 165,
+    // latitude -80 to 80 in steps of 0.5) are projected with the forward formulas of the test, which the sampler does not have (it inverts the projection). At
+    // every such point inside the plot (and, for the orthographic globe, inside 0.97 of its radius) the colour is above 0.38 (0.443 at the lowest in the probe, for
+    // 4197 to 11134 points per variant).
+    seeds.forEach((seed, index) => {
+      const variant = p.variants[index],
+        sample = createSurfaceSampler('mapprojections', seed),
+        out = empty();
+      let checked = 0;
+      const check = (latitude: number, longitude: number): void => {
+        const point = forward(variant, latitude * degree, longitude * degree);
+        if (
+          !point ||
+          !inPlot(index, point[0], point[1]) ||
+          (variant[0] === 5 && Math.hypot(point[0], point[1]) >= 0.97)
+        )
+          return;
+        expect(
+          colourAt(sample, out, index, point[0], point[1]),
+        ).toBeGreaterThan(0.38);
+        checked++;
+      };
+      for (let latitude = -75; latitude <= 75; latitude += 15)
+        for (let longitude = -170; longitude <= 170; longitude += 1)
+          check(latitude, longitude);
+      for (let longitude = -165; longitude <= 165; longitude += 15)
+        for (let latitude = -80; latitude <= 80; latitude += 0.5)
+          check(latitude, longitude);
+      expect(checked).toBeGreaterThan(4000);
+    });
+  });
+  it('draws each Tissot circle through the four points that spherical geometry gives', () => {
+    // A circle of angular radius rho (6 degrees) about a point on the central meridian passes through the points rho north and south of it on that meridian
+    // and through the two points on the same parallel at the longitude difference arccos((cos rho - sin^2 lat) / cos^2 lat). For the centres at latitude 0, 30, -30,
+    // 60 and -60 the colour at the four forward-projected points is above 0.8 (0.85 at the lowest in the probe: the ring is brighter than the graticule), while the points
+    // at 0.7 and at 1.3 of the way from the centre to each of them are below 0.8 (0.72 at the highest), so the ring is where the geometry puts it and not 30% in or out.
+    let rings = 0;
+    seeds.forEach((seed, index) => {
+      const variant = p.variants[index],
+        sample = createSurfaceSampler('mapprojections', seed),
+        out = empty(),
+        rho = p.tissotRadius * degree;
+      for (const latitudeDegrees of [0, 30, -30, 60, -60]) {
+        const latitude = latitudeDegrees * degree,
+          centre = forward(variant, latitude, 0);
+        if (!centre || !inPlot(index, centre[0], centre[1])) continue;
+        const difference = Math.acos(
+            (Math.cos(rho) - Math.sin(latitude) ** 2) / Math.cos(latitude) ** 2,
+          ),
+          extremes = [
+            forward(variant, latitude + rho, 0),
+            forward(variant, latitude - rho, 0),
+            forward(variant, latitude, difference),
+            forward(variant, latitude, -difference),
+          ];
+        for (const point of extremes) {
+          if (
+            !point ||
+            !inPlot(index, point[0], point[1]) ||
+            (variant[0] === 5 && Math.hypot(point[0], point[1]) >= 0.97)
+          )
+            continue;
+          expect(
+            colourAt(sample, out, index, point[0], point[1]),
+          ).toBeGreaterThan(0.8);
+          for (const share of [0.7, 1.3])
+            expect(
+              colourAt(
+                sample,
+                out,
+                index,
+                centre[0] + (point[0] - centre[0]) * share,
+                centre[1] + (point[1] - centre[1]) * share,
+              ),
+            ).toBeLessThan(0.8);
+        }
+        rings++;
+      }
+    });
+    expect(rings).toBe(30);
+  });
+  it('fills the map and leaves its outside empty at the outline of the projection', () => {
+    // At the outline of the equirectangular, sinusoidal, Mollweide and orthographic maps (the meridians +-180 degrees, the edges of the rectangle or the circle of
+    // radius 1) the colour 4% inside the outline is above 0.07 (0.087 at the lowest in the probe) and 4% outside it is below 0.07 (0.053 at the highest).
+    seeds.forEach((seed, index) => {
+      const variant = p.variants[index];
+      if (variant[0] === 0 || variant[0] === 4) return;
+      const sample = createSurfaceSampler('mapprojections', seed),
+        out = empty(),
+        outline: [number, number][] = [];
+      if (variant[0] === 1)
+        for (let s = -1; s <= 1; s += 0.1)
+          outline.push(
+            [Math.PI, (s * Math.PI) / 2],
+            [-Math.PI, (s * Math.PI) / 2],
+            [s * Math.PI, Math.PI / 2],
+            [s * Math.PI, -Math.PI / 2],
+          );
+      else if (variant[0] === 5)
+        for (let a = 0; a < 360; a += 10)
+          outline.push([Math.cos(a * degree), Math.sin(a * degree)]);
+      else
+        for (let latitude = -80; latitude <= 80; latitude += 5) {
+          const east = forward(variant, latitude * degree, Math.PI),
+            west = forward(variant, latitude * degree, -Math.PI);
+          if (east) outline.push(east);
+          if (west) outline.push(west);
+        }
+      let used = 0;
+      for (const [x, y] of outline) {
+        if (!inPlot(index, x * 1.04, y * 1.04)) continue;
+        expect(
+          colourAt(sample, out, index, x * 0.96, y * 0.96),
+        ).toBeGreaterThan(0.07);
+        expect(colourAt(sample, out, index, x * 1.04, y * 1.04)).toBeLessThan(
+          0.07,
+        );
+        used++;
+      }
+      expect(used).toBeGreaterThanOrEqual(36);
+    });
+  });
+  it('is mirror symmetric about the central meridian, and about the equator when the centre is on it', () => {
+    // The projections are about longitude 0, so on a 256 by 256 grid the lit state (colour above 0.3) differs under the mirror x -> -x for under 0.01 of the cells (0.0047 at most
+    // in the probe, which I suppose comes from the grain without having tested it), and under y -> -y for the four projections centred on the equator (0.0049 at most), while the stereographic and orthographic views
+    // centred 30 and 20 degrees north change over 0.05 of the cells (0.0927 at the lowest in the probe).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('mapprojections', seed),
+        out = empty(),
+        lit = new Uint8Array(256 * 256);
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+          lit[y * 256 + x] = Number(out.color > 0.3);
+        }
+      let mirrorX = 0,
+        mirrorY = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          mirrorX += Number(lit[y * 256 + x] !== lit[y * 256 + 255 - x]);
+          mirrorY += Number(lit[y * 256 + x] !== lit[(255 - y) * 256 + x]);
+        }
+      expect(mirrorX / 65536).toBeLessThan(0.01);
+      if (p.variants[index][2] === 0)
+        expect(mirrorY / 65536).toBeLessThan(0.01);
+      else expect(mirrorY / 65536).toBeGreaterThan(0.05);
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 8 and 4 pick different projections (Mercator and equirectangular).
+    const first = litGrid(8),
+      second = litGrid(4);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.0277);
+    expect(different / first.length).toBeLessThan(0.0281);
+    expect(litGrid(8)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('mapprojections', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 teal map projection maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('mapprojections', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(20.1);
+    expect(red / (512 * 512)).toBeLessThan(21.2);
+    expect(green / (512 * 512)).toBeGreaterThan(39.6);
+    expect(green / (512 * 512)).toBeLessThan(40.7);
+    expect(blue / (512 * 512)).toBeGreaterThan(45.8);
+    expect(blue / (512 * 512)).toBeLessThan(46.9);
+    expect(maxTilt).toBeGreaterThan(0.0464);
+    expect(maxTilt).toBeLessThan(0.0474);
     expect(invalid).toBe(0);
   });
 });

@@ -49628,6 +49628,204 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'mapprojections': {
+        const p = proceduralMaterialPresets.mapprojections,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant =
+            p.variants[
+              Math.floor(hash(0, 83, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          [projection, extent, centreDegrees] = variant,
+          centreLatitude = (centreDegrees * Math.PI) / 180,
+          sinCentre = Math.sin(centreLatitude),
+          cosCentre = Math.cos(centreLatitude),
+          plot = 0.5 - p.margin,
+          tilePerWorld = plot / extent,
+          inverseSoft = 1 / p.edgeSoft,
+          degree = Math.PI / 180,
+          graticule = p.graticuleStep * degree,
+          tissotStep = p.tissotStep * degree,
+          tissotRadius = p.tissotRadius * degree,
+          step = p.gradientStep,
+          // The inverse of each projection: the plane position (y up) to [latitude, longitude] of the sphere, or null outside the map.
+          inverse = (x: number, y: number): [number, number] | null => {
+            if (projection === 0) {
+              if (Math.abs(x) > Math.PI) return null;
+              return [2 * Math.atan(Math.exp(y)) - Math.PI / 2, x];
+            }
+            if (projection === 1) {
+              if (Math.abs(x) > Math.PI || Math.abs(y) > Math.PI / 2)
+                return null;
+              return [y, x];
+            }
+            if (projection === 2) {
+              if (Math.abs(y) > Math.PI / 2) return null;
+              const longitude = x / Math.max(Math.cos(y), 1e-9);
+              return Math.abs(longitude) > Math.PI ? null : [y, longitude];
+            }
+            if (projection === 3) {
+              if (Math.abs(y) > Math.SQRT2) return null;
+              const theta = Math.asin(y / Math.SQRT2),
+                latitude = Math.asin(
+                  (2 * theta + Math.sin(2 * theta)) / Math.PI,
+                ),
+                longitude =
+                  (Math.PI * x) /
+                  (2 * Math.SQRT2 * Math.max(Math.cos(theta), 1e-9));
+              return Math.abs(longitude) > Math.PI
+                ? null
+                : [latitude, longitude];
+            }
+            const rho = Math.hypot(x, y);
+            if (projection === 5 && rho > 1) return null;
+            if (rho < 1e-12) return [centreLatitude, 0];
+            const angle =
+                projection === 4 ? 2 * Math.atan(rho / 2) : Math.asin(rho),
+              sinAngle = Math.sin(angle),
+              cosAngle = Math.cos(angle);
+            return [
+              Math.asin(
+                Math.max(
+                  -1,
+                  Math.min(
+                    1,
+                    cosAngle * sinCentre + (y * sinAngle * cosCentre) / rho,
+                  ),
+                ),
+              ),
+              Math.atan2(
+                x * sinAngle,
+                rho * cosCentre * cosAngle - y * sinCentre * sinAngle,
+              ),
+            ];
+          },
+          wrap = (angle: number): number =>
+            angle - 2 * Math.PI * Math.round(angle / (2 * Math.PI));
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            x = ((fu - 0.5) / plot) * extent,
+            y = -((fv - 0.5) / plot) * extent,
+            here = inverse(x, y),
+            east = inverse(x + step, y),
+            west = inverse(x - step, y),
+            north = inverse(x, y + step),
+            south = inverse(x, y - step),
+            outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
+            outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
+            boxDistance =
+              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              Math.min(Math.max(outsideX, outsideY), 0),
+            inside = smooth(clamp(-boxDistance / p.fade));
+          let ink = 0;
+          if (here && east && west && north && south) {
+            const [latitude, longitude] = here,
+              // The gradients of latitude and longitude with respect to the plane (the longitude one wrapped), in tile units per radian.
+              latitudeSlope = Math.hypot(
+                (east[0] - west[0]) / (2 * step),
+                (north[0] - south[0]) / (2 * step),
+              ),
+              longitudeSlope = Math.hypot(
+                wrap(east[1] - west[1]) / (2 * step),
+                wrap(north[1] - south[1]) / (2 * step),
+              ),
+              nearestParallel = Math.round(latitude / graticule) * graticule,
+              nearestMeridian = Math.round(longitude / graticule) * graticule,
+              parallelDistance =
+                (Math.abs(latitude - nearestParallel) /
+                  Math.max(latitudeSlope, 1e-9)) *
+                tilePerWorld,
+              meridianDistance =
+                (Math.abs(wrap(longitude - nearestMeridian)) /
+                  Math.max(longitudeSlope, 1e-9)) *
+                tilePerWorld,
+              axisParallel =
+                (Math.abs(latitude) / Math.max(latitudeSlope, 1e-9)) *
+                tilePerWorld,
+              axisMeridian =
+                (Math.abs(wrap(longitude)) / Math.max(longitudeSlope, 1e-9)) *
+                tilePerWorld,
+              kernel = (distance: number, half: number): number => {
+                const t = clamp(1 - (distance * distance) / (half * half));
+                return t * t;
+              },
+              // The angular distance to the nearest centre of a Tissot circle on the lattice of tissotStep degrees.
+              baseLatitude = Math.round(latitude / tissotStep),
+              baseLongitude = Math.round(longitude / tissotStep);
+            let ring = 0;
+            for (let dLatitude = -1; dLatitude <= 1; dLatitude++)
+              for (let dLongitude = -1; dLongitude <= 1; dLongitude++) {
+                const centreLat = (baseLatitude + dLatitude) * tissotStep,
+                  centreLon = (baseLongitude + dLongitude) * tissotStep;
+                if (Math.abs(centreLat) > (Math.PI / 2) * 0.99) continue;
+                const angularDistance = (a: number, b: number): number =>
+                    Math.acos(
+                      Math.max(
+                        -1,
+                        Math.min(
+                          1,
+                          Math.sin(a) * Math.sin(centreLat) +
+                            Math.cos(a) *
+                              Math.cos(centreLat) *
+                              Math.cos(wrap(b - centreLon)),
+                        ),
+                      ),
+                    ),
+                  distance = angularDistance(latitude, longitude),
+                  slope = Math.hypot(
+                    (angularDistance(east[0], east[1]) -
+                      angularDistance(west[0], west[1])) /
+                      (2 * step),
+                    (angularDistance(north[0], north[1]) -
+                      angularDistance(south[0], south[1])) /
+                      (2 * step),
+                  );
+                ring = Math.max(
+                  ring,
+                  kernel(
+                    (Math.abs(distance - tissotRadius) /
+                      Math.max(slope, 1e-9)) *
+                      tilePerWorld,
+                    p.ringHalfWidth,
+                  ),
+                );
+              }
+            const graticuleT = Math.max(
+                kernel(parallelDistance, p.graticuleHalfWidth),
+                kernel(meridianDistance, p.graticuleHalfWidth),
+              ),
+              axisT = Math.max(
+                kernel(axisParallel, p.axisHalfWidth),
+                kernel(axisMeridian, p.axisHalfWidth),
+              );
+            ink =
+              1 -
+              (1 - p.mapTone) *
+                (1 - p.graticuleTone * graticuleT) *
+                (1 - p.axisTone * axisT) *
+                (1 - p.ringTone * ring);
+          }
+          ink = clamp(inside * ink);
+          const mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(ink) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -58535,6 +58733,7 @@ export function createSurfaceSampler(
     kind === 'keplerorbits' ||
     kind === 'errordiffusion' ||
     kind === 'diffractionpatterns' ||
+    kind === 'mapprojections' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
