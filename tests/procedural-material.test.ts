@@ -1115,6 +1115,7 @@ const kinds: ProceduralMaterialKind[] = [
   'reuleauxfield',
   'powerdiagram',
   'polygonoffsets',
+  'zordercurve',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -182729,6 +182730,322 @@ describe('Polygon offsets as the offset curves of a polygon in alternating bands
     expect(blue / (512 * 512)).toBeLessThan(41.8);
     expect(maxTilt).toBeGreaterThan(0.052);
     expect(maxTilt).toBeLessThan(0.057);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Z-order curve as the Morton curve through the cells of a grid', () => {
+  const p = proceduralMaterialPresets.zordercurve;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /**
+   * The cells of a variant (bits, transposed) in the order of the Z-order (Morton) curve, built from binary strings
+   * and not by the shifts of the sampler: the index of the cell (column, row) is read from the string that puts,
+   * from the most significant bit down, the bit of the row and then that of the column of each level (and the
+   * bit of the column and then that of the row for the transposed N-order). Each node is the middle of its cell, in
+   * tile coordinates.
+   */
+  const orderOf = (
+    bits: number,
+    transposed: boolean,
+  ): { column: number; row: number }[] => {
+    const side = 1 << bits,
+      cells: { index: number; column: number; row: number }[] = [];
+    for (let column = 0; column < side; column++)
+      for (let row = 0; row < side; row++) {
+        const columnBits = column.toString(2).padStart(bits, '0'),
+          rowBits = row.toString(2).padStart(bits, '0');
+        let digits = '';
+        for (let level = 0; level < bits; level++)
+          digits += transposed
+            ? columnBits[level] + rowBits[level]
+            : rowBits[level] + columnBits[level];
+        cells.push({ index: parseInt(digits, 2), column, row });
+      }
+    return cells.sort((x, y) => x.index - y.index);
+  };
+  /**
+   * For each variant: the nodes in the order of the curve, the check points on the segments between consecutive
+   * nodes (at 0.3, 0.5 and 0.7 of each, out of the node discs and on the lines) and the segments in cell units.
+   */
+  const sets = p.variants.map(([bits, transposed]) => {
+    const side = 1 << bits,
+      nodes = orderOf(bits, transposed === 1).map((cell) => [
+        (cell.column + 0.5) / side,
+        (cell.row + 0.5) / side,
+      ]),
+      points: number[][] = [];
+    for (let i = 0; i + 1 < nodes.length; i++)
+      for (const fraction of [0.3, 0.5, 0.7])
+        points.push([
+          nodes[i][0] + (nodes[i + 1][0] - nodes[i][0]) * fraction,
+          nodes[i][1] + (nodes[i + 1][1] - nodes[i][1]) * fraction,
+        ]);
+    return { side, nodes, points };
+  });
+  /** The distance, in cells, of a tile point to the polyline through the nodes and to the nearest node, by brute force. */
+  const distancesOf = (
+    set: { side: number; nodes: number[][] },
+    u: number,
+    v: number,
+  ): { line: number; node: number } => {
+    const x = u * set.side,
+      y = v * set.side;
+    let line = Infinity,
+      node = Infinity;
+    set.nodes.forEach((a, i) => {
+      node = Math.min(
+        node,
+        Math.hypot(x - a[0] * set.side, y - a[1] * set.side),
+      );
+      if (i + 1 >= set.nodes.length) return;
+      const b = set.nodes[i + 1],
+        ex = (b[0] - a[0]) * set.side,
+        ey = (b[1] - a[1]) * set.side,
+        wx = x - a[0] * set.side,
+        wy = y - a[1] * set.side,
+        along = Math.max(
+          0,
+          Math.min(1, (wx * ex + wy * ey) / (ex * ex + ey * ey)),
+        );
+      line = Math.min(line, Math.hypot(wx - along * ex, wy - along * ey));
+    });
+    return { line, node };
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('zordercurve', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('zordercurve', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0253);
+      expect(low).toBeLessThan(0.0261);
+      expect(high).toBeGreaterThan(0.81);
+      expect(high).toBeLessThan(0.835);
+      expect(dark / 65536).toBeGreaterThan(0.099);
+      expect(dark / 65536).toBeLessThan(0.1);
+      expect(mean / 65536).toBeGreaterThan(0.1303);
+      expect(mean / 65536).toBeLessThan(0.1306);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.79);
+      expect(heightHigh).toBeLessThan(0.825);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The variant for each of the seeds 5, 0, 9, 7, 2 and 4 (variants 0 to 5) was found with a probe and is written
+  // here, so that table is not an independent check of the seed's choice.
+  const seeds = [5, 0, 9, 7, 2, 4];
+  it('draws the segments between consecutive cells of the Morton order of the variant', () => {
+    // All the check points on the segments of the curve of the variant of each seed (45, 189 and 765 for 4 by 4,
+    // 8 by 8 and 16 by 16 cells) read bright (> 0.5; at most 2 may read lower), and each other variant has at least 10
+    // check points reading lower (at least 18 in the probe): the order of the transposed curve and the
+    // grids of other sizes differ.
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('zordercurve', seed),
+        out = empty(),
+        lowOf = (variant: number): number => {
+          let low = 0;
+          for (const [x, y] of sets[variant].points) {
+            sample(x, y, out);
+            low += Number(out.color < 0.5);
+          }
+          return low;
+        };
+      expect(lowOf(index)).toBeLessThanOrEqual(2);
+      p.variants.forEach((_, other) => {
+        if (other !== index) expect(lowOf(other)).toBeGreaterThan(9);
+      });
+    });
+  });
+  it('leaves the ground dark away from the curve and its nodes', () => {
+    // At the 4 to 6 thousand points of a low-discrepancy sequence that are more than 0.3 cell from every segment and
+    // more than 0.35 cell from every node (by brute-force distances), the colour is below 0.1 (0.055 at most in the
+    // probe).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('zordercurve', seed),
+        out = empty();
+      let tested = 0;
+      for (let k = 0; k < 8000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          { line, node } = distancesOf(sets[index], u, v);
+        if (line <= 0.3 || node <= 0.35) continue;
+        sample(u, v, out);
+        tested++;
+        expect(out.color).toBeLessThan(0.1);
+      }
+      expect(tested).toBeGreaterThan(1500);
+    });
+  });
+  it('tones the nodes along the curve from dark to light', () => {
+    // At the middle of the node number i of n the colour is gapTone-and-floor 0.14 plus 0.72 times the tone
+    // nodeLow + (nodeHigh - nodeLow) i / (n - 1) of the preset, to within 0.03 (0.017 at most in the probe, the
+    // grain being 0.015 either way); so it rises along the curve.
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('zordercurve', seed),
+        out = empty(),
+        nodes = sets[index].nodes;
+      nodes.forEach(([x, y], i) => {
+        sample(x, y, out);
+        expect(
+          Math.abs(
+            out.color -
+              (0.14 +
+                0.72 *
+                  (p.nodeLow +
+                    ((p.nodeHigh - p.nodeLow) * i) / (nodes.length - 1))),
+          ),
+        ).toBeLessThan(0.03);
+      });
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 2 pick different variants (8 by 8 cells in the Z order and 16 by 16 cells in the transposed order).
+    const first = litGrid(0),
+      second = litGrid(2);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.12);
+    expect(different / first.length).toBeLessThan(0.135);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('zordercurve', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [12, p.grainCells, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 magenta Z-order curve maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('zordercurve', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(56.4);
+    expect(red / (512 * 512)).toBeLessThan(57.6);
+    expect(green / (512 * 512)).toBeGreaterThan(25.6);
+    expect(green / (512 * 512)).toBeLessThan(26.8);
+    expect(blue / (512 * 512)).toBeGreaterThan(51.6);
+    expect(blue / (512 * 512)).toBeLessThan(52.8);
+    expect(maxTilt).toBeGreaterThan(0.0015);
+    expect(maxTilt).toBeLessThan(0.0025);
     expect(invalid).toBe(0);
   });
 });

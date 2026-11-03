@@ -1089,6 +1089,7 @@ export type ProceduralMaterialKind =
   | 'reuleauxfield'
   | 'powerdiagram'
   | 'polygonoffsets'
+  | 'zordercurve'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2426,6 +2427,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'reuleauxfield',
   'powerdiagram',
   'polygonoffsets',
+  'zordercurve',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

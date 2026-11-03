@@ -47822,6 +47822,91 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'zordercurve': {
+        const p = proceduralMaterialPresets.zordercurve,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant =
+            p.variants[
+              Math.floor(hash(0, 65, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          bits = variant[0],
+          transposed = variant[1] === 1,
+          side = 1 << bits,
+          count = side * side,
+          // The Z-order (Morton) curve: the cells of a side x side grid visited in the order of the number
+          // whose bits interleave those of the column and the row (the bits of the column in the even places,
+          // those of the row in the odd places; for the transposed N-order the other way round), each cell
+          // joined to the next by a straight segment between the cell centres. The nodes are the cell centres.
+          indexOf = (column: number, row: number): number => {
+            let index = 0;
+            for (let bit = 0; bit < bits; bit++) {
+              const first = transposed ? (row >> bit) & 1 : (column >> bit) & 1,
+                second = transposed ? (column >> bit) & 1 : (row >> bit) & 1;
+              index |= (first << (2 * bit)) | (second << (2 * bit + 1));
+            }
+            return index;
+          },
+          nodes = new Float64Array(count * 2);
+        for (let column = 0; column < side; column++)
+          for (let row = 0; row < side; row++) {
+            const index = indexOf(column, row);
+            nodes[index * 2] = column + 0.5;
+            nodes[index * 2 + 1] = row + 0.5;
+          }
+        const widthSquared = p.lineHalfWidth * p.lineHalfWidth,
+          radiusSquared = p.nodeRadius * p.nodeRadius,
+          inverseSoft = 1 / p.edgeSoft;
+        return () => {
+          const px = fract(u) * side,
+            py = fract(v) * side;
+          let lineDistance = Infinity;
+          for (let index = 0; index + 1 < count; index++) {
+            const ax = nodes[index * 2],
+              ay = nodes[index * 2 + 1],
+              ex = nodes[index * 2 + 2] - ax,
+              ey = nodes[index * 2 + 3] - ay,
+              wx = px - ax,
+              wy = py - ay,
+              along = clamp((wx * ex + wy * ey) / (ex * ex + ey * ey)),
+              dx = wx - along * ex,
+              dy = wy - along * ey;
+            lineDistance = Math.min(lineDistance, dx * dx + dy * dy);
+          }
+          // The node of the cell the point is in, its tone rising along the curve.
+          const column = Math.min(side - 1, Math.floor(px)),
+            row = Math.min(side - 1, Math.floor(py)),
+            dx = px - column - 0.5,
+            dy = py - row - 0.5,
+            nodeT = clamp(1 - (dx * dx + dy * dy) / radiusSquared),
+            lineT = clamp(1 - lineDistance / widthSquared),
+            nodeTone =
+              p.nodeLow +
+              ((p.nodeHigh - p.nodeLow) * indexOf(column, row)) / (count - 1),
+            ink = clamp(
+              p.lineTone * lineT * lineT * (1 - nodeT * nodeT) +
+                nodeTone * nodeT * nodeT,
+            ),
+            mask = smooth(clamp(ink * inverseSoft)),
+            tone = p.toneSpan * ink,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            tone +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(ink) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -56712,6 +56797,7 @@ export function createSurfaceSampler(
     kind === 'reuleauxfield' ||
     kind === 'powerdiagram' ||
     kind === 'polygonoffsets' ||
+    kind === 'zordercurve' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

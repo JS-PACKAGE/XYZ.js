@@ -1152,6 +1152,7 @@ try {
     'reuleauxfield',
     'powerdiagram',
     'polygonoffsets',
+    'zordercurve',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
