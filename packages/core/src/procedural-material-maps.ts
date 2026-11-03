@@ -44457,6 +44457,102 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'gamblersruin': {
+        const p = proceduralMaterialPresets.gamblersruin,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x50601),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          columns = p.rounds + 1,
+          // coins[lane * columns + t]: coins held after round t, -1 once the game has ended; the game ends on 0 coins or on all the levels.
+          coins = new Int32Array(p.laneCount * columns).fill(-1),
+          // ticks[lane]: how many small squares mark the lane's chance of winning a round (1 for the first chance, 2 for the second).
+          ticks = new Int32Array(p.laneCount);
+        for (let lane = 0; lane < p.laneCount; lane++) {
+          const pick = Math.floor(
+              hash(lane, 27, seed ^ 0x50602) * p.winChances.length,
+            ),
+            chance = p.winChances[pick];
+          ticks[lane] = pick + 1;
+          let held =
+            1 + Math.floor(hash(lane, 28, seed ^ 0x50603) * (p.levels - 1));
+          coins[lane * columns] = held;
+          for (let t = 1; t < columns && held > 0 && held < p.levels; t++) {
+            held += hash(lane * 64 + t, 29, seed ^ 0x50604) < chance ? 1 : -1;
+            coins[lane * columns + t] = held;
+          }
+        }
+        const lineLeft = p.left,
+          lineRight = p.left + columns * p.pitch;
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          const lane = Math.floor((fv - p.top) / p.lanePitch);
+          if (lane >= 0 && lane < p.laneCount) {
+            const laneTop = p.top + lane * p.lanePitch + p.laneMargin,
+              // y of the level of n coins (more coins higher up).
+              levelY = (n: number): number => laneTop + (p.levels - n) * p.unit;
+            // The lines at 0 coins and at the most.
+            for (const n of [0, p.levels])
+              paint(
+                cover(
+                  Math.min(
+                    p.lineHalf - Math.abs(fv - levelY(n)),
+                    fu - lineLeft,
+                    lineRight - fu,
+                  ),
+                ),
+                p.lineTone,
+                p.lineHeight,
+              );
+            for (let i = 0; i < ticks[lane]; i++)
+              paint(
+                cover(
+                  Math.min(
+                    p.tickHalf - Math.abs(fu - (p.tickLeft + i * p.tickPitch)),
+                    p.tickHalf -
+                      Math.abs(fv - (laneTop + (p.levels * p.unit) / 2)),
+                  ),
+                ),
+                p.dotTone,
+                p.dotHeight,
+              );
+            const column = Math.floor((fu - p.left) / p.pitch);
+            if (column >= 0 && column < columns) {
+              const held = coins[lane * columns + column];
+              if (held >= 0)
+                paint(
+                  cover(
+                    p.dotRadius -
+                      Math.hypot(
+                        fu - (p.left + (column + 0.5) * p.pitch),
+                        fv - levelY(held),
+                      ),
+                  ),
+                  p.dotTone,
+                  p.dotHeight,
+                );
+            }
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -71986,6 +72082,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'gamblersruin' ||
     kind === 'nimgame' ||
     kind === 'wordlefeedback' ||
     kind === 'funnelchart' ||

@@ -2253,6 +2253,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`gamblersruin`（賭徒破產）使目前目錄1171→1172種，含plain的gallery為1173項。賭徒破產問題：5位賭徒各佔一條橫帶，起始有1到7枚硬幣，每回合贏或輸一枚（贏的機率由該橫帶決定：0.4、0.5或0.6），直到沒有硬幣（破產）、到達8枚（贏光莊家）或打滿24回合。每回合畫一個圓點表示手上的硬幣數，一回合一欄，上下各有一條線標示0枚與8枚；橫帶左側的一、二或三個小方塊表示該橫帶的贏率是0.4、0.5或0.6。seed決定起始硬幣、贏率與每一回合的輸贏。這是作者設計的示意；每一步必須剛好差一枚、遊戲只在碰到0或8枚或打滿24回合時結束、結束後不再有圓點，且以大量橫帶統計時各贏率的實際上升比例接近小方塊所示的贏率。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

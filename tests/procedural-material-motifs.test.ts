@@ -52047,3 +52047,317 @@ describe('nimgame: heaps as bars over a run of moves, the stones taken as a pale
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('gamblersruin: five gamblers playing rounds of win or lose one coin, a dot for the coins held each round between the lines at none and the most', () => {
+  const p = proceduralMaterialPresets.gamblersruin,
+    out = empty(),
+    columns = p.rounds + 1;
+  type Lane = { coins: number[]; ticks: number };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const near = (tone: number, wanted: number): boolean =>
+    Math.abs(tone - wanted) < 0.01;
+  const laneTop = (lane: number): number =>
+    p.top + lane * p.lanePitch + p.laneMargin;
+  const levelY = (lane: number, coins: number): number =>
+    laneTop(lane) + (p.levels - coins) * p.unit;
+  const centreX = (column: number): number => p.left + (column + 0.5) * p.pitch;
+  const tickY = (lane: number): number =>
+    laneTop(lane) + (p.levels * p.unit) / 2;
+
+  // Read the picture: for every lane the coins held after each round (the level with a dot in that column) and the number of small squares.
+  const lanesOf = (seed: number): { sample: Sampler; lanes: Lane[] } => {
+    const sample = createSurfaceSampler('gamblersruin', seed),
+      lanes: Lane[] = [];
+    for (let lane = 0; lane < p.laneCount; lane++) {
+      const coins: number[] = [];
+      for (let column = 0; column < columns; column++) {
+        const held = Array.from({ length: p.levels + 1 }, (_, n) => n).filter(
+          (n) =>
+            near(toneAt(sample, centreX(column), levelY(lane, n)), p.dotTone),
+        );
+        expect(held.length).toBeLessThanOrEqual(1);
+        if (held.length === 0) break;
+        coins.push(held[0]);
+      }
+      let ticks = 0;
+      while (
+        ticks < p.winChances.length &&
+        near(
+          toneAt(sample, p.tickLeft + ticks * p.tickPitch, tickY(lane)),
+          p.dotTone,
+        )
+      )
+        ticks++;
+      lanes.push({ coins, ticks });
+    }
+    return { sample, lanes };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'plays every lane one coin a round from 1 to 7 coins until none, all the levels or the last round (seed %i)',
+    (seed) => {
+      const { sample, lanes } = lanesOf(seed);
+      for (const { coins, ticks } of lanes) {
+        expect(ticks).toBeGreaterThanOrEqual(1);
+        expect(coins[0]).toBeGreaterThanOrEqual(1);
+        expect(coins[0]).toBeLessThanOrEqual(p.levels - 1);
+        for (let t = 1; t < coins.length; t++) {
+          expect(Math.abs(coins[t] - coins[t - 1])).toBe(1);
+          // Nobody keeps playing after the game ended.
+          expect(coins[t - 1]).toBeGreaterThan(0);
+          expect(coins[t - 1]).toBeLessThan(p.levels);
+        }
+        const last = coins[coins.length - 1],
+          ended = last === 0 || last === p.levels;
+        // The game ends exactly with none or all the levels, or after the last round.
+        expect(ended || coins.length === columns).toBe(true);
+        if (coins.length === columns)
+          expect(ended || (last > 0 && last < p.levels)).toBe(true);
+      }
+      // Nothing after the last column of a lane that ended early: no dot at any level in any later column.
+      lanes.forEach(({ coins }, lane) => {
+        for (let column = coins.length; column < columns; column++)
+          for (let n = 0; n <= p.levels; n++)
+            expect(
+              near(toneAt(sample, centreX(column), levelY(lane, n)), p.dotTone),
+            ).toBe(false);
+      });
+    },
+  );
+
+  it('uses starts, ruin and the bank broken and games to the end, and wins each round with the chance the squares say, over 60 seeds', () => {
+    const starts = new Set<number>();
+    let ruined = 0,
+      broke = 0,
+      unfinished = 0;
+    const ups = [0, 0, 0],
+      steps = [0, 0, 0],
+      lanesSeen = [0, 0, 0];
+    for (let seed = 0; seed < 60; seed++) {
+      const { lanes } = lanesOf(seed * 31 + 9);
+      for (const { coins, ticks } of lanes) {
+        starts.add(coins[0]);
+        const last = coins[coins.length - 1];
+        ruined += Number(last === 0);
+        broke += Number(last === p.levels);
+        unfinished += Number(
+          coins.length === columns && last > 0 && last < p.levels,
+        );
+        lanesSeen[ticks - 1]++;
+        for (let t = 1; t < coins.length; t++) {
+          steps[ticks - 1]++;
+          ups[ticks - 1] += Number(coins[t] > coins[t - 1]);
+        }
+      }
+    }
+    expect([...starts].sort((a, b) => a - b)).toEqual(
+      Array.from({ length: p.levels - 1 }, (_, i) => i + 1),
+    );
+    expect(ruined).toBeGreaterThan(50);
+    expect(broke).toBeGreaterThan(50);
+    expect(unfinished).toBeGreaterThan(30);
+    expect(Math.min(...lanesSeen)).toBeGreaterThan(50);
+    // The fraction of rounds won follows the chance each lane's squares stand for.
+    p.winChances.forEach((chance, i) =>
+      expect(Math.abs(ups[i] / steps[i] - chance)).toBeLessThan(0.03),
+    );
+  });
+
+  it('draws the lines, the dots and the small squares with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, lanes } = lanesOf(seed),
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9,
+        lineLeft = p.left,
+        lineRight = p.left + columns * p.pitch;
+      lanes.forEach(({ coins, ticks }, lane) => {
+        // The line at none and the line at the most: tone, height, roughness, thickness, ends. (Away from the dots: the middle of the last column.)
+        for (const n of [0, p.levels]) {
+          const y = levelY(lane, n),
+            x = centreX(columns - 1);
+          expect(toneAt(sample, x, y)).toBeCloseTo(p.lineTone, 6);
+          expect(out.height / p.relief).toBeCloseTo(p.lineHeight, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          expect(toneAt(sample, x, y + p.lineHalf - 0.0003)).toBeCloseTo(
+            p.lineTone,
+            6,
+          );
+          expect(toneAt(sample, x, y - p.lineHalf + 0.0003)).toBeCloseTo(
+            p.lineTone,
+            6,
+          );
+          expect(paperOk(x, y + p.lineHalf + 0.0008)).toBe(true);
+          expect(paperOk(x, y - p.lineHalf - 0.0008)).toBe(true);
+          expect(toneAt(sample, lineLeft + 0.0015, y)).toBeCloseTo(
+            p.lineTone,
+            6,
+          );
+          expect(toneAt(sample, lineRight - 0.0015, y)).toBeCloseTo(
+            p.lineTone,
+            6,
+          );
+          expect(paperOk(lineLeft - 0.0015, y)).toBe(true);
+          expect(paperOk(lineRight + 0.0015, y)).toBe(true);
+        }
+        // The dots: tone, height, roughness, radius, over the line when on it.
+        coins.forEach((held, t) => {
+          const x = centreX(t),
+            y = levelY(lane, held);
+          expect(toneAt(sample, x, y)).toBeCloseTo(p.dotTone, 6);
+          expect(out.height / p.relief).toBeCloseTo(p.dotHeight, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          expect(
+            near(toneAt(sample, x + p.dotRadius - 0.0004, y), p.dotTone),
+          ).toBe(true);
+          expect(
+            near(toneAt(sample, x, y - p.dotRadius + 0.0004), p.dotTone),
+          ).toBe(true);
+          if (held !== 0 && held !== p.levels) {
+            expect(paperOk(x + p.dotRadius + 0.001, y)).toBe(true);
+            expect(paperOk(x, y + p.dotRadius + 0.001)).toBe(true);
+          }
+        });
+        // The small squares: tone, height, roughness, size, and no more than the chance's number.
+        for (let i = 0; i < p.winChances.length; i++) {
+          const x = p.tickLeft + i * p.tickPitch,
+            y = tickY(lane);
+          if (i < ticks) {
+            expect(toneAt(sample, x, y)).toBeCloseTo(p.dotTone, 6);
+            expect(out.height / p.relief).toBeCloseTo(p.dotHeight, 6);
+            expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+            expect(
+              toneAt(sample, x + p.tickHalf - 0.0004, y + p.tickHalf - 0.0004),
+            ).toBeCloseTo(p.dotTone, 6);
+            expect(paperOk(x + p.tickHalf + 0.001, y)).toBe(true);
+            expect(paperOk(x, y - p.tickHalf - 0.001)).toBe(true);
+          } else expect(paperOk(x, y)).toBe(true);
+        }
+      });
+      // Nothing between the lanes, above the first or below the last.
+      expect(paperOk(centreX(3), p.top - 0.01)).toBe(true);
+      expect(
+        paperOk(centreX(3), p.top + p.laneCount * p.lanePitch + 0.005),
+      ).toBe(true);
+    }
+  });
+
+  it('softens the edge of a line, a dot and a small square over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      const { sample, lanes } = lanesOf(seed),
+        x = centreX(columns - 1),
+        y = levelY(1, 0);
+      // A dot away from both lines, in whatever lane has one.
+      let dotX = 0,
+        dotY = 0;
+      lanes.forEach(({ coins }, lane) => {
+        const at = coins.findIndex((n) => n > 1 && n < p.levels - 1);
+        if (at >= 0 && dotX === 0) {
+          dotX = centreX(at);
+          dotY = levelY(lane, coins[at]);
+        }
+      });
+      expect(dotX).toBeGreaterThan(0);
+      // A line's two sides over the paper, and its left end.
+      close(
+        toneAt(sample, x, y + p.lineHalf - quarter),
+        mix(p.paperTone, p.lineTone, 0.75),
+      );
+      close(
+        toneAt(sample, x, y + p.lineHalf + quarter),
+        mix(p.paperTone, p.lineTone, 0.25),
+      );
+      close(
+        toneAt(sample, p.left + quarter, y),
+        mix(p.paperTone, p.lineTone, 0.75),
+      );
+      close(
+        toneAt(sample, p.left - quarter, y),
+        mix(p.paperTone, p.lineTone, 0.25),
+      );
+      // A dot's edge, not touching a line.
+      close(
+        toneAt(sample, dotX + p.dotRadius - quarter, dotY),
+        mix(p.paperTone, p.dotTone, 0.75),
+      );
+      close(
+        toneAt(sample, dotX + p.dotRadius + quarter, dotY),
+        mix(p.paperTone, p.dotTone, 0.25),
+      );
+      // A small square's sides over the paper.
+      const tx = p.tickLeft,
+        ty = tickY(1);
+      close(
+        toneAt(sample, tx + p.tickHalf - quarter, ty),
+        mix(p.paperTone, p.dotTone, 0.75),
+      );
+      close(
+        toneAt(sample, tx + p.tickHalf + quarter, ty),
+        mix(p.paperTone, p.dotTone, 0.25),
+      );
+      close(
+        toneAt(sample, tx, ty + p.tickHalf - quarter),
+        mix(p.paperTone, p.dotTone, 0.75),
+      );
+      close(
+        toneAt(sample, tx, ty - p.tickHalf - quarter),
+        mix(p.paperTone, p.dotTone, 0.25),
+      );
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('gamblersruin', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('gamblersruin', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.97),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('gamblersruin', 0),
+      b = createSurfaceSampler('gamblersruin', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.2501],
+        [0.2001, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

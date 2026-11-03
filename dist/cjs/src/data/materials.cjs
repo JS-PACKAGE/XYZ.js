@@ -24675,6 +24675,50 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .8,
 		inkRoughness: .4
 	}),
+	gamblersruin: Object.freeze({
+		dark: [
+			30,
+			34,
+			58
+		],
+		light: [
+			244,
+			241,
+			230
+		],
+		roughness: .55,
+		relief: .004,
+		laneCount: 5,
+		levels: 8,
+		rounds: 24,
+		winChances: Object.freeze([
+			.4,
+			.5,
+			.6
+		]),
+		left: .05,
+		pitch: .036,
+		top: .08,
+		lanePitch: .16,
+		laneMargin: .02,
+		unit: .015,
+		dotRadius: .0065,
+		lineHalf: .0012,
+		tickLeft: .012,
+		tickPitch: .012,
+		tickHalf: .0035,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .96,
+		lineTone: .78,
+		dotTone: .14,
+		grainTone: .03,
+		paperHeight: .2,
+		lineHeight: .4,
+		dotHeight: .85,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -33356,6 +33400,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	gamblersruin: 1,
 	nimgame: 1,
 	wordlefeedback: 1,
 	funnelchart: 1,

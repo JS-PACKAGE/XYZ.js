@@ -14424,6 +14424,38 @@ export declare const proceduralMaterialPresets: Readonly<{
         paperRoughness: 0.8;
         inkRoughness: 0.4;
     }>;
+    gamblersruin: Readonly<{
+        dark: readonly [30, 34, 58];
+        light: readonly [244, 241, 230];
+        roughness: 0.55;
+        relief: 0.004;
+        laneCount: 5;
+        levels: 8;
+        rounds: 24;
+        winChances: readonly number[];
+        left: 0.05;
+        pitch: 0.036;
+        top: 0.08;
+        lanePitch: 0.16;
+        laneMargin: 0.02;
+        unit: 0.015;
+        dotRadius: 0.0065;
+        lineHalf: 0.0012;
+        tickLeft: 0.012;
+        tickPitch: 0.012;
+        tickHalf: 0.0035;
+        edgeSoft: 0.0006;
+        grainCells: 192;
+        paperTone: 0.96;
+        lineTone: 0.78;
+        dotTone: 0.14;
+        grainTone: 0.03;
+        paperHeight: 0.2;
+        lineHeight: 0.4;
+        dotHeight: 0.85;
+        paperRoughness: 0.8;
+        inkRoughness: 0.4;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -20909,6 +20941,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    gamblersruin: 1;
     nimgame: 1;
     wordlefeedback: 1;
     funnelchart: 1;
