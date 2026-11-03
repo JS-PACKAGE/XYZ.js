@@ -45343,6 +45343,61 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'perfectarray': {
+        const p = proceduralMaterialPresets.perfectarray,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft,
+          length = p.columns * p.rows,
+          taps =
+            p.taps[Math.floor(hash(0, 43, seed ^ p.seedSalt) * p.taps.length)],
+          bits = new Uint8Array(length);
+        // A maximal length sequence of 1023 bits from a 10 bit linear feedback shift register (shifting
+        // left, the new bit being the parity of the register ANDed with the tap mask) started from a
+        // state picked by the seed, folded into the 31 x 33 array by the Chinese remainder theorem:
+        // bit i goes to column i mod 31 and row i mod 33, which is possible because 31 and 33 are
+        // coprime. The picked masks are ones whose register goes through all 1023 non-zero states.
+        {
+          let state = 1 + Math.floor(hash(1, 43, seed ^ p.seedSalt) * 1023);
+          for (let i = 0; i < length; i++) {
+            bits[(i % p.rows) * p.columns + (i % p.columns)] = state & 1;
+            let parity = state & taps;
+            parity ^= parity >> 8;
+            parity ^= parity >> 4;
+            parity ^= parity >> 2;
+            parity ^= parity >> 1;
+            state = ((state << 1) | (parity & 1)) & 1023;
+          }
+        }
+        return () => {
+          const x = fract(u) * p.columns,
+            y = fract(v) * p.rows,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            ax = (x - col - 0.5) * inverseHalf,
+            ay = (y - row - 0.5) * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            tone = p.toneSpan * bits[row * p.columns + col],
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -54214,6 +54269,7 @@ export function createSurfaceSampler(
     kind === 'fareygraph' ||
     kind === 'hypercube' ||
     kind === 'kaprekar' ||
+    kind === 'perfectarray' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

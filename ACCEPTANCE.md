@@ -13347,3 +13347,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 完整suite（工具實跑）：在commit `aa2a01a74`（`[P08] Add Kaprekar material`）的乾淨worktree執行`vitest run`，**179個檔案、10,546項測試全部通過**，耗時1165.17 s；對照前一次紀錄（`3ce9908ce`，10,529項），新增的fareygraph（6項）、hypercube（6項）、kaprekar（5項）共17項，與數量吻合。
 - 瀏覽器gallery（headless Chrome，`--enable-unsafe-webgpu --use-angle=metal`）：頁面載入約275 s後，預設（WebGPU）與`?renderer=webgl2`兩個分頁讀數皆為「1069 procedural material presets」、select共1070個選項；依序選取fareygraph、hypercube、kaprekar、plain（WebGPU分頁另加knightstour）都在期限內更新讀數，兩個分頁的console錯誤皆為0。這**只**涵蓋「可選取、讀數更新、無console錯誤」，沒有逐材質截圖，也不證明視覺品質；只選了上述少數kind，沒有逐一選過全部1069種。
 - 未驗證：沒有量測建構與取樣耗時；不push。
+
+## 2026-11-03 新增材質：m序列完美陣列（perfectarray）
+
+- 範圍：新增`perfectarray`（目前目錄1069→1070種，含plain的gallery 1071項）：10位元LFSR的最大長度序列（1023位元）按中國餘式定理摺成31×33二值陣列（512個亮格），環面自相關在全部1,022個非零平移上恰為−1；seed選回授遮罩（8選1）與起始狀態；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 132,095 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)動手前以`/tmp/absent.sh`確認lfsr、msequence、pseudorandom、perfectarray、autocorrelation、shiftregister在kinds清單與README中都不存在；(2)先用獨立腳本驗證構想：用腳本找出31個「暫存器週期為1023」的奇數遮罩，並確認前3個遮罩摺成31×33後環面自相關在全部非零平移上皆為−1、亮格512個，之後才寫sampler；(3)名稱（m序列、完美陣列）及摺疊方式我憑記憶寫的，沒有查文獻，測試只用定義驗證性質、完全不重現LFSR；(4)**第一次執行專屬測試失敗**：我寫的負向對照（交換第0與1格、第100與205格）因交換的格子數值可能相同，複本沒有改變，`expect(複本有差異).toBe(true)`失敗——這是測試本身的錯，不是sampler的錯；改成交換第一個亮格與第一個暗格（必然改變）後通過；同時刪掉我在註解中寫的「隨機陣列的自相關散布在0附近」這句沒有量測的話；(5)預覽只看了seed 7一張，是乾淨的二值雜訊方格，視覺上單調但清晰；(6)格子因31與33不同而略呈長方形（縱橫比33/31），沒有補償；(7)探針另查seed 100至299共200個seed，全部讀回乾淨、自相關全為−1，其中198個互異；(8)測試沒有檢查其他尺寸、也不證明一般定理；(9)建構與取樣耗時**未量測**。
+- 實測（工具實跑）：六個seed（0／1／2／3／7／0xffffffff）亮格皆512個、自相關值集合皆為{−1}、讀回無落在0.5±0.12內者；seed 0與1相比格子不同比例50.05%；256²（seed 0／1／0xffffffff）亮處（color>0.5）35.84%–35.94%、color 0.02526–0.02572至0.85419–0.85453、平均0.36525–0.36553、roughness恆為0.4、AO最低0.6、height至多0.8476–0.8483 relief；512²（seed 0／1／0xffffffff／7）亮處35.84%–35.88%、color 0.02516–0.02528至0.85468–0.85488、平均0.36540–0.36562、AO最低0.6、height至多0.8498–0.8502 relief；seed 0與1相比，512²中color>0.5的取樣35.9%不同；seed 7的512²maps平均r／g／b約(96.5, 98.5, 88.5)、法線tilt²最大約0.0196、z分量最小254。我實看了預覽（seed 7）。
+- 測試：新增5項專屬測試（數值範圍、自相關性質、seed差異與決定性、C1掃描、maps）加kinds清單新條目，`-t`選中的6項皆通過；型別檢查與eslint乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Perfect array as|perfectarray|kinds|catalog|distinct|periodic"`定向測試**2450項通過／4173項未選**，輸出`GATES-OK`。
+- 未驗證：perfectarray未跑完整suite與瀏覽器gallery（最近一次完整複驗至卡普雷卡爾常數表）；不push。

@@ -1070,6 +1070,7 @@ export type ProceduralMaterialKind =
   | 'fareygraph'
   | 'hypercube'
   | 'kaprekar'
+  | 'perfectarray'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2388,6 +2389,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'fareygraph',
   'hypercube',
   'kaprekar',
+  'perfectarray',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

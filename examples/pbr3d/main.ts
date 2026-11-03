@@ -1133,6 +1133,7 @@ try {
     'fareygraph',
     'hypercube',
     'kaprekar',
+    'perfectarray',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

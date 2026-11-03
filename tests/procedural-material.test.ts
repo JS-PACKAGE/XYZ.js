@@ -1096,6 +1096,7 @@ const kinds: ProceduralMaterialKind[] = [
   'fareygraph',
   'hypercube',
   'kaprekar',
+  'perfectarray',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -176255,6 +176256,229 @@ describe("Kaprekar as the number of steps of Kaprekar's routine for the 4 digit 
     expect(blue / (512 * 512)).toBeLessThan(99.2);
     expect(maxTilt).toBeGreaterThan(0.044);
     expect(maxTilt).toBeLessThan(0.05);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Perfect array as a 31 by 33 binary array folded from a maximal length sequence', () => {
+  const p = proceduralMaterialPresets.perfectarray;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const columns = 31,
+    rows = 33;
+  /**
+   * The 31 by 33 array read back from the sampler as +1 (colour at the centre of the cell above
+   * 0.5, bright) and -1 (dark), with the number of read-backs within 0.12 of that threshold.
+   */
+  const readArray = (seed: number): { cells: number[]; ambiguous: number } => {
+    const sample = createSurfaceSampler('perfectarray', seed),
+      out = empty(),
+      cells: number[] = [];
+    let ambiguous = 0;
+    for (let row = 0; row < rows; row++)
+      for (let col = 0; col < columns; col++) {
+        sample((col + 0.5) / columns, (row + 0.5) / rows, out);
+        ambiguous += Number(Math.abs(out.color - 0.5) < 0.12);
+        cells.push(out.color > 0.5 ? 1 : -1);
+      }
+    return { cells, ambiguous };
+  };
+  /**
+   * The periodic (torus) autocorrelation values of the array: the sum over all
+   * cells of the product of a cell and the cell shifted by (dx, dy), for the 1022 non-zero shifts.
+   */
+  const autocorrelations = (cells: number[]): Set<number> => {
+    const values = new Set<number>();
+    for (let dy = 0; dy < rows; dy++)
+      for (let dx = 0; dx < columns; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        let sum = 0;
+        for (let y = 0; y < rows; y++)
+          for (let x = 0; x < columns; x++)
+            sum +=
+              cells[y * columns + x] *
+              cells[((y + dy) % rows) * columns + ((x + dx) % columns)];
+        values.add(sum);
+      }
+    return values;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('perfectarray', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0251);
+      expect(low).toBeLessThan(0.0258);
+      expect(high).toBeGreaterThan(0.854);
+      expect(high).toBeLessThan(0.8546);
+      expect(dark / 65536).toBeGreaterThan(0.358);
+      expect(dark / 65536).toBeLessThan(0.36);
+      expect(mean / 65536).toBeGreaterThan(0.365);
+      expect(mean / 65536).toBeLessThan(0.366);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.847);
+      expect(heightHigh).toBeLessThan(0.849);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('draws an array whose autocorrelation is the same at every shift', () => {
+    // Read back from the colours alone (no read-back within 0.12 of the threshold): 512 of the 1023
+    // cells are +1 and 511 are -1, and the periodic autocorrelation on the 31 by 33 torus is exactly
+    // -1 at every one of the 1022 non-zero shifts (the check on a copy with one bright and one dark
+    // cell swapped shows that this is not vacuous: its autocorrelations are no longer all -1). That is
+    // the property of an m-sequence folded by the Chinese remainder theorem; I wrote the property here
+    // from its definition and did not look up the theorem.
+    for (const seed of [0, 1, 2, 3, 7, 0xffffffff]) {
+      const { cells, ambiguous } = readArray(seed);
+      expect(ambiguous).toBe(0);
+      expect(cells.filter((cell) => cell === 1)).toHaveLength(512);
+      expect([...autocorrelations(cells)]).toEqual([-1]);
+    }
+    const { cells } = readArray(0),
+      swapped = [...cells];
+    // Swap a bright cell with a dark one, so the copy certainly differs.
+    const bright = cells.indexOf(1),
+      dark = cells.indexOf(-1);
+    swapped[bright] = -1;
+    swapped[dark] = 1;
+    expect(swapped.some((cell, i) => cell !== cells[i])).toBe(true);
+    expect([...autocorrelations(swapped)]).not.toEqual([-1]);
+  });
+  it('draws a different array per seed and is deterministic for one seed', () => {
+    const first = readArray(0).cells,
+      second = readArray(1).cells;
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.4);
+    expect(different / first.length).toBeLessThan(0.6);
+    expect(readArray(0).cells).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('perfectarray', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [columns, rows, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 cream and navy perfect array maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('perfectarray', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(95.9);
+    expect(red / (512 * 512)).toBeLessThan(97);
+    expect(green / (512 * 512)).toBeGreaterThan(97.9);
+    expect(green / (512 * 512)).toBeLessThan(99);
+    expect(blue / (512 * 512)).toBeGreaterThan(87.9);
+    expect(blue / (512 * 512)).toBeLessThan(89);
+    expect(maxTilt).toBeGreaterThan(0.018);
+    expect(maxTilt).toBeLessThan(0.022);
     expect(invalid).toBe(0);
   });
 });
