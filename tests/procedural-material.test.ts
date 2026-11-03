@@ -1100,6 +1100,7 @@ const kinds: ProceduralMaterialKind[] = [
   'delaunay',
   'harmonograph',
   'lorenzattractor',
+  'ellipsebilliard',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -177428,6 +177429,304 @@ describe('Lorenz attractor as the projected path of the Lorenz system drawn as a
     expect(blue / (512 * 512)).toBeLessThan(28.8);
     expect(maxTilt).toBeGreaterThan(0.046);
     expect(maxTilt).toBeLessThan(0.052);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Ellipse billiard as the path of a ball bouncing in an elliptical table, drawn as thin chords in the wall', () => {
+  const p = proceduralMaterialPresets.ellipsebilliard;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /**
+   * The chords of a variant in tile coordinates, written here from the definition: the ball starts at
+   * the wall point at the parameter variant[1] (x = a cos s, y = b sin s about the centre) and goes
+   * towards the wall point at the parameter variant[2]; the next hit is found as the larger root of
+   * the quadratic that puts the line on the ellipse, and at the hit the direction is reflected about
+   * the tangent of the wall (the tangent at the parameter s is (-a sin s, b cos s)), which is not
+   * how the sampler writes it (about the normal).
+   */
+  const chordsOf = (variant: readonly number[]): number[][] => {
+    const a = p.semiMajor,
+      b = variant[0];
+    let x = a * Math.cos(variant[1]),
+      y = b * Math.sin(variant[1]),
+      dx = a * Math.cos(variant[2]) - x,
+      dy = b * Math.sin(variant[2]) - y;
+    const chords: number[][] = [];
+    for (let i = 0; i < variant[3]; i++) {
+      const qa = (dx * dx) / (a * a) + (dy * dy) / (b * b),
+        qb = 2 * ((x * dx) / (a * a) + (y * dy) / (b * b)),
+        qc = (x * x) / (a * a) + (y * y) / (b * b) - 1,
+        root = Math.sqrt(Math.max(0, qb * qb - 4 * qa * qc)),
+        time = Math.max((-qb + root) / (2 * qa), (-qb - root) / (2 * qa)),
+        nextX = x + time * dx,
+        nextY = y + time * dy,
+        s = Math.atan2(nextY / b, nextX / a),
+        tangentX = -a * Math.sin(s),
+        tangentY = b * Math.cos(s),
+        tangentLength = Math.hypot(tangentX, tangentY),
+        unitX = tangentX / tangentLength,
+        unitY = tangentY / tangentLength,
+        length = Math.hypot(dx, dy),
+        dot = (dx / length) * unitX + (dy / length) * unitY;
+      chords.push([0.5 + x, 0.5 + y, 0.5 + nextX, 0.5 + nextY]);
+      dx = 2 * dot * unitX - dx / length;
+      dy = 2 * dot * unitY - dy / length;
+      x = nextX;
+      y = nextY;
+    }
+    return chords;
+  };
+  /** The colours read from the sampler at 13 points along every chord of a variant (4% to 96%). */
+  const colorsOnChords = (seed: number, index: number): number[] => {
+    const sample = createSurfaceSampler('ellipsebilliard', seed),
+      out = empty(),
+      colors: number[] = [];
+    for (const [x0, y0, x1, y1] of chordsOf(p.variants[index]))
+      for (let k = 0; k < 13; k++) {
+        const at = 0.04 + (0.92 * k) / 12;
+        sample(x0 + (x1 - x0) * at, y0 + (y1 - y0) * at, out);
+        colors.push(out.color);
+      }
+    return colors;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('ellipsebilliard', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('ellipsebilliard', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0253);
+      expect(low).toBeLessThan(0.0258);
+      expect(high).toBeGreaterThan(0.8735);
+      expect(high).toBeLessThan(0.8742);
+      expect(dark / 65536).toBeGreaterThan(0.132);
+      expect(dark / 65536).toBeLessThan(0.188);
+      expect(mean / 65536).toBeGreaterThan(0.1497);
+      expect(mean / 65536).toBeLessThan(0.1954);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.847);
+      expect(heightHigh).toBeLessThan(0.8498);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('draws the chords of exactly one of the variants, the wall and nothing else', () => {
+    // For each seed exactly one of the 6 variants of the preset has all the points along its chords
+    // (13 per chord, 1,430 to 2,080 points; at most 4 of them may read dark) lit above 0.3, with the
+    // least colour above 0.8 (the other 5 variants have hundreds of points reading dark); the variant
+    // for each seed (0 to 5 for the seeds 5, 0, 9, 8, 2 and 3) was found with a probe and is written
+    // here, so that table is not an independent check of the seed's choice (all 6 variants are
+    // covered). 720 points of the wall of that variant read lit above 0.3, and points of a lattice that
+    // are more than 0.02 from every chord and from every one of the wall points read dark (below 0.2).
+    const expected = new Map([
+      [5, 0],
+      [0, 1],
+      [9, 2],
+      [8, 3],
+      [2, 4],
+      [3, 5],
+    ]);
+    for (const [seed, index] of expected) {
+      const matching = p.variants
+        .map((_, i) => ({ i, colors: colorsOnChords(seed, i) }))
+        .filter(({ colors }) => colors.filter((c) => c < 0.3).length <= 4);
+      expect(matching.map(({ i }) => i)).toEqual([index]);
+      expect(Math.min(...matching[0].colors)).toBeGreaterThan(0.8);
+      const sample = createSurfaceSampler('ellipsebilliard', seed),
+        out = empty(),
+        variant = p.variants[index],
+        chords = chordsOf(variant),
+        wall: number[][] = [];
+      for (let i = 0; i < 720; i++) {
+        const s = (2 * Math.PI * i) / 720,
+          x = 0.5 + p.semiMajor * Math.cos(s),
+          y = 0.5 + variant[0] * Math.sin(s);
+        wall.push([x, y]);
+        sample(x, y, out);
+        expect(out.color).toBeGreaterThan(0.3);
+      }
+      const near = (x: number, y: number): number => {
+        let nearest = Infinity;
+        for (const [cx, cy] of wall)
+          nearest = Math.min(nearest, Math.hypot(x - cx, y - cy));
+        for (const [x0, y0, x1, y1] of chords) {
+          const along = Math.min(
+            1,
+            Math.max(
+              0,
+              ((x - x0) * (x1 - x0) + (y - y0) * (y1 - y0)) /
+                ((x1 - x0) ** 2 + (y1 - y0) ** 2),
+            ),
+          );
+          nearest = Math.min(
+            nearest,
+            Math.hypot(x - x0 - along * (x1 - x0), y - y0 - along * (y1 - y0)),
+          );
+        }
+        return nearest;
+      };
+      let tested = 0,
+        wrong = 0;
+      for (let i = 0; i < 4000; i++) {
+        const x = (i * 0.61803398875) % 1,
+          y = (i * 0.41421356237) % 1;
+        if (near(x, y) <= 0.02) continue;
+        tested++;
+        sample(x, y, out);
+        wrong += Number(out.color >= 0.2);
+      }
+      expect(tested).toBeGreaterThan(1000);
+      expect(wrong).toBe(0);
+    }
+  });
+  it('draws a different table per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 3 pick different variants (1 and 5), so about a fifth of the grid changes; seeds 0
+    // and 1 pick the same variant and differ only by grain, which does not move any lit pixel by much.
+    const first = litGrid(0),
+      second = litGrid(3);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.2);
+    expect(different / first.length).toBeLessThan(0.24);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('ellipsebilliard', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.buckets, p.grainCells, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 mint billiard maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('ellipsebilliard', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(31.6);
+    expect(red / (512 * 512)).toBeLessThan(32.8);
+    expect(green / (512 * 512)).toBeGreaterThan(60.5);
+    expect(green / (512 * 512)).toBeLessThan(61.7);
+    expect(blue / (512 * 512)).toBeGreaterThan(61.7);
+    expect(blue / (512 * 512)).toBeLessThan(62.9);
+    expect(maxTilt).toBeGreaterThan(0.049);
+    expect(maxTilt).toBeLessThan(0.054);
     expect(invalid).toBe(0);
   });
 });

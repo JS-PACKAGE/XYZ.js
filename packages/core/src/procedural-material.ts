@@ -1074,6 +1074,7 @@ export type ProceduralMaterialKind =
   | 'delaunay'
   | 'harmonograph'
   | 'lorenzattractor'
+  | 'ellipsebilliard'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2396,6 +2397,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'delaunay',
   'harmonograph',
   'lorenzattractor',
+  'ellipsebilliard',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

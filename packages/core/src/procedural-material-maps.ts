@@ -45924,6 +45924,150 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'ellipsebilliard': {
+        const p = proceduralMaterialPresets.ellipsebilliard,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant =
+            p.variants[
+              Math.floor(hash(0, 48, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          buckets: number[][] = Array.from(
+            { length: p.buckets * p.buckets },
+            () => [],
+          ),
+          segments: number[][] = [],
+          inverseSoft = 1 / p.edgeSoft,
+          step = 0.5 / p.buckets;
+        // The wall is the ellipse x = semiMajor cos s, y = b sin s about the centre of the tile
+        // (b is the first number of the variant), cut into wallSegments segments. The ball starts on
+        // the wall at the parameter s0 (second number) and goes straight to the wall at the parameter s1
+        // (third number); at every hit it is reflected about the normal of the wall (the direction
+        // d becomes d - 2 (d.n) n / |n|^2 for the normal n = (x / a^2, y / b^2)) and goes on to the next
+        // hit, for the number of chords in the last number of the variant. Every segment is filed
+        // into the buckets x buckets buckets that a point within its half width plus half a step
+        // of its path could be in, so a lookup needs only the bucket of the sample.
+        const a = p.semiMajor,
+          b = variant[0],
+          addSegment = (
+            x0: number,
+            y0: number,
+            x1: number,
+            y1: number,
+            half: number,
+          ): void => {
+            const index = segments.length,
+              dx = x1 - x0,
+              dy = y1 - y0,
+              length = Math.hypot(dx, dy),
+              reach = half + step / 2,
+              filed = new Set<number>();
+            segments.push([x0, y0, dx, dy, dx * dx + dy * dy, half * half]);
+            for (
+              let s = 0, n = Math.max(1, Math.ceil(length / step));
+              s <= n;
+              s++
+            )
+              for (const ox of [-reach, reach])
+                for (const oy of [-reach, reach]) {
+                  const bx = Math.floor((x0 + (dx * s) / n + ox) * p.buckets),
+                    by = Math.floor((y0 + (dy * s) / n + oy) * p.buckets);
+                  if (bx < 0 || by < 0 || bx >= p.buckets || by >= p.buckets)
+                    continue;
+                  const bucket = by * p.buckets + bx;
+                  if (!filed.has(bucket)) {
+                    filed.add(bucket);
+                    buckets[bucket].push(index);
+                  }
+                }
+          };
+        for (let i = 0; i < p.wallSegments; i++) {
+          const from = (2 * Math.PI * i) / p.wallSegments,
+            to = (2 * Math.PI * (i + 1)) / p.wallSegments;
+          addSegment(
+            0.5 + a * Math.cos(from),
+            0.5 + b * Math.sin(from),
+            0.5 + a * Math.cos(to),
+            0.5 + b * Math.sin(to),
+            p.wallHalfWidth,
+          );
+        }
+        {
+          let x = a * Math.cos(variant[1]),
+            y = b * Math.sin(variant[1]),
+            dx = a * Math.cos(variant[2]) - x,
+            dy = b * Math.sin(variant[2]) - y;
+          for (let i = 0; i < variant[3]; i++) {
+            // The ball is on the wall: the next hit is at t = -2 (x dx / a^2 + y dy / b^2) / (dx^2 / a^2 + dy^2 / b^2).
+            const t =
+                (-2 * ((x * dx) / (a * a) + (y * dy) / (b * b))) /
+                ((dx * dx) / (a * a) + (dy * dy) / (b * b)),
+              nextX = x + t * dx,
+              nextY = y + t * dy,
+              normalX = nextX / (a * a),
+              normalY = nextY / (b * b),
+              along =
+                (2 * (dx * normalX + dy * normalY)) /
+                (normalX * normalX + normalY * normalY);
+            addSegment(
+              0.5 + x,
+              0.5 + y,
+              0.5 + nextX,
+              0.5 + nextY,
+              p.chordHalfWidth,
+            );
+            // Unit length keeps the next t of the same scale whatever the chord length was.
+            const length = Math.hypot(
+              dx - along * normalX,
+              dy - along * normalY,
+            );
+            dx = (dx - along * normalX) / length;
+            dy = (dy - along * normalY) / length;
+            x = nextX;
+            y = nextY;
+          }
+        }
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            bx = Math.floor(fu * p.buckets),
+            by = Math.floor(fv * p.buckets);
+          // The segments are a union by 1 - product of (1 - t^2) with t = max(0, 1 - squared distance /
+          // squared half width), a function of the squared distance to a segment: every t^2 is C1 and
+          // exactly zero at the rim, so the union is C1 even where the segments overlap.
+          let open = 1;
+          for (const index of buckets[by * p.buckets + bx]) {
+            const [x0, y0, dx, dy, lengthSquared, widthSquared] =
+                segments[index],
+              wx = fu - x0,
+              wy = fv - y0,
+              along =
+                lengthSquared > 0
+                  ? clamp((wx * dx + wy * dy) / lengthSquared)
+                  : 0,
+              ex = wx - along * dx,
+              ey = wy - along * dy,
+              t = clamp(1 - (ex * ex + ey * ey) / widthSquared);
+            open *= 1 - t * t;
+          }
+          const total = 1 - open,
+            mask = smooth(clamp(total * inverseSoft)),
+            tone = p.toneSpan,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * total * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -54799,6 +54943,7 @@ export function createSurfaceSampler(
     kind === 'delaunay' ||
     kind === 'harmonograph' ||
     kind === 'lorenzattractor' ||
+    kind === 'ellipsebilliard' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

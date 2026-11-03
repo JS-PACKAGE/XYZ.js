@@ -1137,6 +1137,7 @@ try {
     'delaunay',
     'harmonograph',
     'lorenzattractor',
+    'ellipsebilliard',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
