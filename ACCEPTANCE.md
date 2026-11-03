@@ -13809,3 +13809,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增3項專屬測試（週期、每個零點與極點24條相位線且其他格點沒有、對實軸鏡射對稱）加色調範圍、seed差異與決定性、C1與週期（步長1e-8）、maps共4項，再加kinds清單新條目，`-t`選中的8項皆通過。變異檢查（做過四次）：K的計算改成 sqrt(1 − 1.1·m)，該describe 7項中5項失敗；cn與dn視窗中心的 K 改成 K/2，4項失敗（週期測試沒被抓到）；相位線間距 π/12 改成 π/13，4項失敗；θ₄(0)的 (−1)ⁿ 符號拿掉，只有色調範圍測試失敗（它只改環線的位置）；四者皆已還原（`cmp`確認）。限制：seed對應的函數是探針量出再寫入，不是獨立oracle；模長環線（位置、間距、比例因子）與cn、dn導數（線寬校正）沒有專屬測試；K的計算在測試與sampler都用算術幾何平均，不是獨立演算法；半徑0.2與門檻0.65是探針量過才定的；沒有查文獻；未對照任何參考圖。型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Jacobi elliptic functions as|jacobielliptic|kinds|catalog|distinct|periodic"`定向測試**2535項通過／4407項未選**，輸出`GATES-OK`。
 - 未驗證：jacobielliptic未跑完整suite與瀏覽器gallery（最近一次已記錄的完整suite在`1b9b660ad`：179檔10,854項通過；瀏覽器gallery在`3e05d65f4`通過〔1110種〕但尚未記錄；`3e05d65f4`的完整suite正在另一個worktree執行，結果出來前不算數）；不push。
+
+## 2026-11-04 完整測試與瀏覽器gallery複驗（至凱爾文尾波）
+
+- 範圍：在`3e05d65f4`（新增凱爾文尾波之後；之後的`jacobielliptic`不在此次複驗內）重跑完整測試與瀏覽器gallery。這段不新增材質，只記錄實跑結果。
+- 完整測試（工具實跑，乾淨的detached worktree）：**179個測試檔、10,863項全部通過**（1552 s，同時還跑著其他工作，所以耗時不是乾淨的量測）。前一次完整複驗在`b42fc3079`（10,837項）；在`1b9b660ad`（新增阿諾德舌之後）另跑一次為10,854項通過（1367 s）；`3e05d65f4`比`1b9b660ad`多9項，與kelvinwake的9項定向測試選取數相符；從`b42fc3079`起的10,837 → 10,863共26項，與powderdiffraction 8項、arnoldtongues 9項、kelvinwake 9項相符（8 + 9 + 9 = 26）。
+- 瀏覽器gallery（工具實跑，無頭Chrome，vite從乾淨worktree提供`/examples/pbr3d/`）：在`3e05d65f4`，WebGPU分頁與`?renderer=webgl2`分頁各自讀到「1110 procedural material presets」、選單1111個選項；各自選取powderdiffraction、arnoldtongues、kelvinwake、brillouinzones、mapprojections，頁面讀數都更新（每個selection回傳true）；console錯誤項目兩個分頁都是0；讀回三個新材質的選項文字與`index.html`標籤一致。限制：只涵蓋「可選取、讀數更新、無console錯誤」，沒有目視畫面或像素比對；跨瀏覽器、跨GPU行為沒有驗證。
+- 未驗證：`jacobielliptic`（`9c4f621ff`）尚未跑完整suite與瀏覽器gallery；跨瀏覽器與跨GPU；不push。
