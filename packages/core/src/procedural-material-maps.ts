@@ -46800,6 +46800,243 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'sphericaltriangles': {
+        const p = proceduralMaterialPresets.sphericaltriangles,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant =
+            p.variants[
+              Math.floor(hash(0, 56, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          golden = (1 + Math.sqrt(5)) / 2,
+          inverseGolden = 1 / golden,
+          corners: number[][] = [],
+          unit = (v: number[]): number[] => {
+            const length = Math.hypot(v[0], v[1], v[2]);
+            return [v[0] / length, v[1] / length, v[2] / length];
+          },
+          cross = (a: number[], b: number[]): number[] => [
+            a[1] * b[2] - a[2] * b[1],
+            a[2] * b[0] - a[0] * b[2],
+            a[0] * b[1] - a[1] * b[0],
+          ],
+          dot = (a: number[], b: number[]): number =>
+            a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
+          inverseSoft = 1 / p.edgeSoft;
+        // The corners of the regular polyhedron of the variant, in the usual coordinates: the tetrahedron
+        // at alternate corners of the cube, the octahedron on the axes, the cube at (+-1, +-1, +-1), the
+        // icosahedron at the cyclic permutations of (0, +-1, +-golden) and the dodecahedron at the cube
+        // corners and the cyclic permutations of (0, +-1/golden, +-golden).
+        const name: string = variant[0],
+          signs = [-1, 1];
+        if (name === 'tetrahedron')
+          corners.push([1, 1, 1], [1, -1, -1], [-1, 1, -1], [-1, -1, 1]);
+        else if (name === 'octahedron')
+          corners.push(
+            [1, 0, 0],
+            [-1, 0, 0],
+            [0, 1, 0],
+            [0, -1, 0],
+            [0, 0, 1],
+            [0, 0, -1],
+          );
+        else {
+          if (name === 'cube' || name === 'dodecahedron')
+            for (const a of signs)
+              for (const b of signs)
+                for (const c of signs) corners.push([a, b, c]);
+          const [low, high] =
+            name === 'icosahedron' ? [1, golden] : [inverseGolden, golden];
+          if (name === 'icosahedron' || name === 'dodecahedron')
+            for (const a of signs)
+              for (const b of signs) {
+                corners.push(
+                  [0, a * low, b * high],
+                  [a * low, b * high, 0],
+                  [b * high, 0, a * low],
+                );
+              }
+        }
+        // The basic triangle of the symmetry group: a corner V, the middle M of one of the edges at V
+        // and the centre F of one of the faces at that edge. The edges of the polyhedron lie in the mirror
+        // plane through the origin, V and M; the other two sides of the triangle lie in the mirrors through
+        // F and M and through F and V. The face is found from V and two of its neighbours: the two edges
+        // at V that make the smallest angle are in one face.
+        const corner = corners[0],
+          distances = corners.map((other) =>
+            Math.hypot(
+              other[0] - corner[0],
+              other[1] - corner[1],
+              other[2] - corner[2],
+            ),
+          ),
+          edgeLength = Math.min(
+            ...distances.filter((distance) => distance > 1e-9),
+          ),
+          neighbours = corners.filter(
+            (_, i) => Math.abs(distances[i] - edgeLength) < 1e-9,
+          ),
+          first = neighbours[0],
+          firstEdge = unit([
+            first[0] - corner[0],
+            first[1] - corner[1],
+            first[2] - corner[2],
+          ]);
+        let second = neighbours[1],
+          best = -Infinity;
+        for (const other of neighbours.slice(1)) {
+          const agree = dot(
+            firstEdge,
+            unit([
+              other[0] - corner[0],
+              other[1] - corner[1],
+              other[2] - corner[2],
+            ]),
+          );
+          if (agree > best) {
+            best = agree;
+            second = other;
+          }
+        }
+        const vertex = unit(corner),
+          middle = unit([
+            corner[0] + first[0],
+            corner[1] + first[1],
+            corner[2] + first[2],
+          ]);
+        let face = unit(
+          cross(
+            [first[0] - corner[0], first[1] - corner[1], first[2] - corner[2]],
+            [
+              second[0] - corner[0],
+              second[1] - corner[1],
+              second[2] - corner[2],
+            ],
+          ),
+        );
+        if (dot(face, vertex) < 0) face = [-face[0], -face[1], -face[2]];
+        const inside = [
+            vertex[0] + face[0] + middle[0],
+            vertex[1] + face[1] + middle[1],
+            vertex[2] + face[2] + middle[2],
+          ],
+          oriented = (a: number[], b: number[]): number[] => {
+            const normal = unit(cross(a, b));
+            return dot(normal, inside) < 0
+              ? [-normal[0], -normal[1], -normal[2]]
+              : normal;
+          },
+          edgePlane = oriented(vertex, middle),
+          middlePlane = oriented(face, middle),
+          cornerPlane = oriented(face, vertex),
+          faceAngle = Math.acos(dot(face, vertex)),
+          // The viewing axis (the pole of the stereographic map) is the second word of the variant: a 'vertex',
+          // 'face' or 'edge' axis of the polyhedron group, i.e. the 5-fold, 3-fold or 2-fold axis of the
+          // icosahedral group, the 3-fold, 4-fold axis of the cube group and the 3-fold axis of the tetrahedron.
+          axis =
+            name === 'icosahedron'
+              ? variant[1] === 'vertex'
+                ? unit([0, 1, golden])
+                : variant[1] === 'face'
+                  ? unit([1, 1, 1])
+                  : [0, 0, 1]
+              : name === 'cube'
+                ? variant[1] === 'face'
+                  ? [0, 0, 1]
+                  : unit([1, 1, 1])
+                : unit([1, 1, 1]),
+          reference = Math.abs(axis[2]) > 0.9 ? [1, 0, 0] : [0, 0, 1],
+          axisX = unit(cross(axis, reference)),
+          axisY = cross(axis, axisX);
+        return () => {
+          // The point of the disc (z = view radius times the position in the disc) is put on the unit
+          // sphere by the inverse stereographic map P = (2 z, 1 - |z|^2) / (1 + |z|^2), turned so that the
+          // axis of the variant is the pole, and then folded into the basic triangle by mirroring in its
+          // three planes until it is on the inner side of each. The mirrors form the symmetry group of the
+          // polyhedron, so the folded point has the same angle to the edges as the point has.
+          const scale = p.viewRadius / p.diskRadius,
+            zx = (fract(u) - 0.5) * scale,
+            zy = (fract(v) - 0.5) * scale,
+            radiusSquared = zx * zx + zy * zy,
+            discRadius = Math.sqrt(radiusSquared) / p.viewRadius,
+            denominator = 1 + radiusSquared,
+            sx = (2 * zx) / denominator,
+            sy = (2 * zy) / denominator,
+            sw = (1 - radiusSquared) / denominator;
+          let reflections = 0,
+            x = sx * axisX[0] + sy * axisY[0] + sw * axis[0],
+            y = sx * axisX[1] + sy * axisY[1] + sw * axis[1],
+            z = sx * axisX[2] + sy * axisY[2] + sw * axis[2];
+          for (let fold = 0; fold < 40; fold++) {
+            let moved = false;
+            for (const plane of [edgePlane, middlePlane, cornerPlane]) {
+              const side = x * plane[0] + y * plane[1] + z * plane[2];
+              if (side < 0) {
+                x -= 2 * side * plane[0];
+                y -= 2 * side * plane[1];
+                z -= 2 * side * plane[2];
+                moved = true;
+                reflections++;
+              }
+            }
+            if (!moved) break;
+          }
+          const lineOf = (
+              a: number,
+              b: number,
+              c: number,
+              plane: number[],
+            ): number => {
+              const angle = Math.asin(
+                  Math.max(
+                    -1,
+                    Math.min(1, a * plane[0] + b * plane[1] + c * plane[2]),
+                  ),
+                ),
+                t = clamp(
+                  1 - (angle * angle) / (p.lineHalfWidth * p.lineHalfWidth),
+                );
+              return t * t;
+            },
+            line =
+              1 -
+              (1 - lineOf(x, y, z, edgePlane)) *
+                (1 - lineOf(x, y, z, middlePlane)) *
+                (1 - lineOf(x, y, z, cornerPlane)),
+            toFace =
+              Math.acos(
+                Math.max(
+                  -1,
+                  Math.min(1, x * face[0] + y * face[1] + z * face[2]),
+                ),
+              ) / faceAngle,
+            fill =
+              (reflections % 2 === 0 ? p.fillEven : p.fillOdd) +
+              p.fillGradient * clamp(toFace * toFace),
+            ringT = clamp(1 - ((discRadius - 1) / p.ringHalfWidth) ** 2),
+            ring = ringT * ringT,
+            within = smooth(clamp((1 - discRadius) / 0.02)),
+            ink = clamp(within * (fill * (1 - line) + line) + ring),
+            mask = smooth(clamp(ink * inverseSoft)),
+            tone = p.toneSpan * ink,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            tone +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(within * line + ring) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -55681,6 +55918,7 @@ export function createSurfaceSampler(
     kind === 'poincaretiling' ||
     kind === 'sphericaltiling' ||
     kind === 'poincaretriangles' ||
+    kind === 'sphericaltriangles' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

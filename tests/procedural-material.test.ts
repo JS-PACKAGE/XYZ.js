@@ -1106,6 +1106,7 @@ const kinds: ProceduralMaterialKind[] = [
   'poincaretiling',
   'sphericaltiling',
   'poincaretriangles',
+  'sphericaltriangles',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -179578,6 +179579,458 @@ describe('Poincare triangles as the triangle group (2, p, q) of the hyperbolic p
     expect(green / (512 * 512)).toBeLessThan(41.7);
     expect(blue / (512 * 512)).toBeGreaterThan(66.6);
     expect(blue / (512 * 512)).toBeLessThan(67.9);
+    expect(maxTilt).toBeGreaterThan(0.052);
+    expect(maxTilt).toBeLessThan(0.057);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Spherical triangles as the mirror lines of a polyhedral group seen by stereographic projection, two-coloured by parity', () => {
+  const p = proceduralMaterialPresets.sphericaltriangles;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  type Vector = number[];
+  const golden = (1 + Math.sqrt(5)) / 2;
+  const normalise = (v: Vector): Vector => {
+    const length = Math.hypot(v[0], v[1], v[2]);
+    return [v[0] / length, v[1] / length, v[2] / length];
+  };
+  const crossOf = (u: Vector, v: Vector): Vector => [
+    u[1] * v[2] - u[2] * v[1],
+    u[2] * v[0] - u[0] * v[2],
+    u[0] * v[1] - u[1] * v[0],
+  ];
+  const dotOf = (u: Vector, v: Vector): number =>
+    u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+  /**
+   * The normals of the mirror planes of a polyhedral group, written here as closed forms and not found
+   * by folding: the 6 planes x = +-y, x = +-z, y = +-z of the tetrahedral group with the normals (1, +-1, 0),
+   * (1, 0, +-1) and (0, 1, +-1); the 9 planes of the cube group (those 6 and the 3 coordinate planes);
+   * and the 15 planes of the icosahedral group, perpendicular to the middles of the 30 edges of the
+   * icosahedron with the corners at the cyclic permutations of (0, +-1, +-golden) (the edges are the pairs
+   * of corners at the smallest distance).
+   */
+  const normalsOf = (group: string): Vector[] => {
+    if (group === 'tetrahedron')
+      return [
+        [1, 1, 0],
+        [1, -1, 0],
+        [1, 0, 1],
+        [1, 0, -1],
+        [0, 1, 1],
+        [0, 1, -1],
+      ].map(normalise);
+    if (group === 'cube')
+      return [
+        [1, 0, 0],
+        [0, 1, 0],
+        [0, 0, 1],
+        [1, 1, 0],
+        [1, -1, 0],
+        [1, 0, 1],
+        [1, 0, -1],
+        [0, 1, 1],
+        [0, 1, -1],
+      ].map(normalise);
+    const corners: Vector[] = [],
+      signs = [-1, 1],
+      normals: Vector[] = [],
+      known = new Set<string>();
+    for (const s of signs)
+      for (const r of signs)
+        corners.push(
+          [0, s, r * golden],
+          [s, r * golden, 0],
+          [r * golden, 0, s],
+        );
+    let shortest = Infinity;
+    for (let i = 0; i < corners.length; i++)
+      for (let j = i + 1; j < corners.length; j++)
+        shortest = Math.min(
+          shortest,
+          Math.hypot(
+            corners[i][0] - corners[j][0],
+            corners[i][1] - corners[j][1],
+            corners[i][2] - corners[j][2],
+          ),
+        );
+    for (let i = 0; i < corners.length; i++)
+      for (let j = i + 1; j < corners.length; j++) {
+        const distance = Math.hypot(
+          corners[i][0] - corners[j][0],
+          corners[i][1] - corners[j][1],
+          corners[i][2] - corners[j][2],
+        );
+        if (Math.abs(distance - shortest) > 1e-9) continue;
+        let normal = normalise([
+          corners[i][0] + corners[j][0],
+          corners[i][1] + corners[j][1],
+          corners[i][2] + corners[j][2],
+        ]);
+        if (
+          normal[2] < -1e-9 ||
+          (Math.abs(normal[2]) < 1e-9 &&
+            (normal[1] < -1e-9 ||
+              (Math.abs(normal[1]) < 1e-9 && normal[0] < 0)))
+        )
+          normal = normal.map((value) => -value);
+        const key = normal.map((value) => value.toFixed(5)).join(',');
+        if (!known.has(key)) {
+          known.add(key);
+          normals.push(normal);
+        }
+      }
+    return normals;
+  };
+  /** The viewing axis of a variant (the pole of the projection) and the two axes of the picture, by the convention of the preset: for the icosahedral group the 5-fold axis (0, 1, golden), the 3-fold axis (1, 1, 1) and the 2-fold axis (0, 0, 1); for the cube group (0, 0, 1) and (1, 1, 1); for the tetrahedral group (1, 1, 1). */
+  const viewOf = (
+    group: string,
+    word: string,
+  ): { axis: Vector; across: Vector; up: Vector } => {
+    const axis =
+        group === 'icosahedron'
+          ? word === 'vertex'
+            ? normalise([0, 1, golden])
+            : word === 'face'
+              ? normalise([1, 1, 1])
+              : [0, 0, 1]
+          : group === 'cube'
+            ? word === 'face'
+              ? [0, 0, 1]
+              : normalise([1, 1, 1])
+            : normalise([1, 1, 1]),
+      reference = Math.abs(axis[2]) > 0.9 ? [1, 0, 0] : [0, 0, 1],
+      across = normalise(crossOf(axis, reference));
+    return { axis, across, up: crossOf(axis, across) };
+  };
+  /** The tile position of a point of the sphere (stereographic projection from the opposite pole: z = (x, y) / (1 + w)) and its distance from the middle in units of the view radius. */
+  const tilePosition = (
+    variant: readonly string[],
+    point: Vector,
+  ): { u: number; v: number; far: number } => {
+    const { axis, across, up } = viewOf(variant[0], variant[1]),
+      x = dotOf(point, across),
+      y = dotOf(point, up),
+      w = dotOf(point, axis);
+    return {
+      u: 0.5 + (p.diskRadius * x) / (1 + w) / p.viewRadius,
+      v: 0.5 + (p.diskRadius * y) / (1 + w) / p.viewRadius,
+      far: Math.hypot(x, y) / (1 + w) / p.viewRadius,
+    };
+  };
+  /** The point of the sphere shown at a tile position (the inverse stereographic map P = (2 z, 1 - |z|^2) / (1 + |z|^2)). */
+  const spherePoint = (
+    variant: readonly string[],
+    u: number,
+    v: number,
+  ): Vector => {
+    const { axis, across, up } = viewOf(variant[0], variant[1]),
+      zx = ((u - 0.5) / p.diskRadius) * p.viewRadius,
+      zy = ((v - 0.5) / p.diskRadius) * p.viewRadius,
+      norm = 1 + zx * zx + zy * zy,
+      x = (2 * zx) / norm,
+      y = (2 * zy) / norm,
+      w = (1 - zx * zx - zy * zy) / norm;
+    return [0, 1, 2].map((k) => x * across[k] + y * up[k] + w * axis[k]);
+  };
+  /** The great circle of a mirror plane as tile positions (those within 0.9 of the view radius). */
+  const circleOf = (
+    variant: readonly string[],
+    normal: Vector,
+    count: number,
+  ): number[][] => {
+    const reference = Math.abs(normal[2]) > 0.9 ? [1, 0, 0] : [0, 0, 1],
+      first = normalise(crossOf(normal, reference)),
+      second = crossOf(normal, first),
+      points: number[][] = [];
+    for (let k = 0; k < count; k++) {
+      const angle = (2 * Math.PI * (k + 0.5)) / count,
+        position = tilePosition(
+          variant,
+          [0, 1, 2].map(
+            (m) => first[m] * Math.cos(angle) + second[m] * Math.sin(angle),
+          ),
+        );
+      if (position.far <= 0.9) points.push([position.u, position.v]);
+    }
+    return points;
+  };
+  const checks = p.variants.map((variant) =>
+      normalsOf(variant[0]).map((normal) => circleOf(variant, normal, 96)),
+    ),
+    dense = p.variants.map((variant) =>
+      normalsOf(variant[0]).map((normal) => circleOf(variant, normal, 240)),
+    );
+  /** The colours read from the sampler at the check points of all the mirror circles of a variant. */
+  const colorsOnLines = (seed: number, index: number): number[] => {
+    const sample = createSurfaceSampler('sphericaltriangles', seed),
+      out = empty(),
+      colors: number[] = [];
+    for (const circle of checks[index])
+      for (const [u, v] of circle) {
+        sample(u, v, out);
+        colors.push(out.color);
+      }
+    return colors;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('sphericaltriangles', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('sphericaltriangles', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0257);
+      expect(low).toBeLessThan(0.026);
+      expect(high).toBeGreaterThan(0.8721);
+      expect(high).toBeLessThan(0.8734);
+      expect(dark / 65536).toBeGreaterThan(0.079);
+      expect(dark / 65536).toBeLessThan(0.1808);
+      expect(mean / 65536).toBeGreaterThan(0.232);
+      expect(mean / 65536).toBeLessThan(0.2802);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.874);
+      expect(heightHigh).toBeLessThan(0.8758);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('draws all the mirror circles of the variant and no line elsewhere', () => {
+    // The circles are built above from closed forms of the mirror planes and not by folding points. For
+    // each seed all the check points of the mirror circles of its variant (96 per circle, those within 0.9
+    // of the view radius; at most 3 may read lower than 0.7) read bright (> 0.7, the least value > 0.8) and
+    // each other variant has at least 4 check points reading lower (they differ by the group or the viewing axis; the only exception is that the mirrors of the tetrahedral group are among those of the cube group seen along the same axis); and
+    // lattice points within 0.8 of the disc radius that are more than 0.03 from every one of the dense
+    // points of the circles (240 per circle) read lower than 0.5 (the fill is at most 0.39, the lines up to
+    // 0.86). The variant for each seed (0 to 5 for the seeds 0, 11, 2, 6, 3 and 1) was found with a probe and
+    // is written here, so that table is not an independent check of the seed's choice.
+    const expected = new Map([
+      [0, 0],
+      [11, 1],
+      [2, 2],
+      [6, 3],
+      [3, 4],
+      [1, 5],
+    ]);
+    for (const [seed, index] of expected) {
+      const own = colorsOnLines(seed, index);
+      expect(own.filter((c) => c < 0.7).length).toBeLessThanOrEqual(3);
+      expect(Math.min(...own)).toBeGreaterThan(0.8);
+      p.variants.forEach((_, other) => {
+        // The 6 mirrors of the tetrahedral group are among the 9 of the cube group seen along the same
+        // axis, so for the cube variant (1, 1, 1) the tetrahedral variant is lit as well.
+        if (other === index || (index === 4 && other === 5)) return;
+        expect(
+          colorsOnLines(seed, other).filter((c) => c < 0.7).length,
+        ).toBeGreaterThan(3);
+      });
+      const sample = createSurfaceSampler('sphericaltriangles', seed),
+        out = empty(),
+        points = dense[index].flat();
+      let tested = 0,
+        wrong = 0;
+      for (let i = 0; i < 3000; i++) {
+        const x = ((i * 0.61803398875) % 1) - 0.5,
+          y = ((i * 0.41421356237) % 1) - 0.5;
+        if (Math.hypot(x, y) > 0.8 * p.diskRadius) continue;
+        let nearest = Infinity;
+        for (const [px, py] of points)
+          nearest = Math.min(nearest, Math.hypot(x + 0.5 - px, y + 0.5 - py));
+        if (nearest <= 0.03) continue;
+        tested++;
+        sample(x + 0.5, y + 0.5, out);
+        wrong += Number(out.color >= 0.5);
+      }
+      expect(tested).toBeGreaterThan(30);
+      expect(wrong).toBe(0);
+    }
+  });
+  it('colours the triangles in two tones by the parity of the mirror planes that separate them', () => {
+    // For every lattice point within 0.8 of the disc radius and more than 0.08 (in the sine of the angle) from
+    // every mirror plane, the tone class (the colour below or above 0.32: about 0.13 to 0.17 and
+    // 0.35 to 0.38 in the probe) is the product of the signs of n . P over all the mirror planes of the
+    // group, for the point P of the sphere found by the inverse projection, up to one fixed choice of
+    // which sign is light; this holds for every point of every variant, which is the two-colouring of
+    // the triangles of a reflection group, found here from the planes and not by counting reflections.
+    const expected = new Map([
+      [0, 0],
+      [11, 1],
+      [2, 2],
+      [6, 3],
+      [3, 4],
+      [1, 5],
+    ]);
+    for (const [seed, index] of expected) {
+      const variant = p.variants[index],
+        normals = normalsOf(variant[0]),
+        sample = createSurfaceSampler('sphericaltriangles', seed),
+        out = empty();
+      let reference: number | null = null,
+        checked = 0,
+        wrong = 0;
+      for (let i = 0; i < 4000; i++) {
+        const x = ((i * 0.61803398875) % 1) - 0.5,
+          y = ((i * 0.41421356237) % 1) - 0.5;
+        if (Math.hypot(x, y) > 0.8 * p.diskRadius) continue;
+        const point = spherePoint(variant, x + 0.5, y + 0.5);
+        if (normals.some((normal) => Math.abs(dotOf(normal, point)) < 0.08))
+          continue;
+        let product = 1;
+        for (const normal of normals)
+          product *= dotOf(normal, point) > 0 ? 1 : -1;
+        sample(x + 0.5, y + 0.5, out);
+        const difference = Number(out.color >= 0.32) ^ Number(product > 0);
+        reference ??= difference;
+        checked++;
+        wrong += Number(difference !== reference);
+      }
+      expect(checked).toBeGreaterThan(200);
+      expect(wrong).toBe(0);
+    }
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 1 pick different variants (the icosahedral group seen along a 5-fold axis and the tetrahedral group).
+    const first = litGrid(0),
+      second = litGrid(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.18);
+    expect(different / first.length).toBeLessThan(0.22);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 11, 2, 6, 3, 1]) {
+      const sample = createSurfaceSampler('sphericaltriangles', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [12, p.grainCells, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 amber mirror triangle maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('sphericaltriangles', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(77.9);
+    expect(red / (512 * 512)).toBeLessThan(79.1);
+    expect(green / (512 * 512)).toBeGreaterThan(56.7);
+    expect(green / (512 * 512)).toBeLessThan(57.9);
+    expect(blue / (512 * 512)).toBeGreaterThan(33.8);
+    expect(blue / (512 * 512)).toBeLessThan(35);
     expect(maxTilt).toBeGreaterThan(0.052);
     expect(maxTilt).toBeLessThan(0.057);
     expect(invalid).toBe(0);

@@ -1143,6 +1143,7 @@ try {
     'poincaretiling',
     'sphericaltiling',
     'poincaretriangles',
+    'sphericaltriangles',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

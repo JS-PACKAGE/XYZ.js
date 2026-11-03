@@ -1080,6 +1080,7 @@ export type ProceduralMaterialKind =
   | 'poincaretiling'
   | 'sphericaltiling'
   | 'poincaretriangles'
+  | 'sphericaltriangles'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2408,6 +2409,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'poincaretiling',
   'sphericaltiling',
   'poincaretriangles',
+  'sphericaltriangles',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
