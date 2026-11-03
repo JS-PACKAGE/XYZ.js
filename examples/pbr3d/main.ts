@@ -1127,6 +1127,7 @@ try {
     'sortingnetwork',
     'cayleytable',
     'paleyhadamard',
+    'hamiltoncycle',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

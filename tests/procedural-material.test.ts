@@ -1090,6 +1090,7 @@ const kinds: ProceduralMaterialKind[] = [
   'sortingnetwork',
   'cayleytable',
   'paleyhadamard',
+  'hamiltoncycle',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -174723,6 +174724,252 @@ describe("Paley Hadamard as a Hadamard matrix from Paley's first construction, o
     expect(blue / (512 * 512)).toBeLessThan(66.1);
     expect(maxTilt).toBeGreaterThan(0.04);
     expect(maxTilt).toBeLessThan(0.044);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Hamiltonian cycle as a random Hamiltonian cycle of a 32 by 32 grid from a spanning tree of a 16 by 16 grid', () => {
+  const p = proceduralMaterialPresets.hamiltoncycle;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const cells = 32;
+  /**
+   * The grid of 32 by 32 cells read back from the sampler as a graph: the colour at the middle of
+   * the segment between two neighbouring cell centres (above 0.3) says whether the two cells are
+   * joined. 'ambiguous' counts the read-backs between 0.2 and 0.45, 'unlit' the cell centres that
+   * are not lit and 'crossing' the lit points in the middle of the cell width along the tile edges,
+   * which must be none because the loop never crosses the edge of the tile.
+   */
+  const readCycle = (
+    seed: number,
+  ): {
+    joined: number[][];
+    ambiguous: number;
+    unlit: number;
+    crossing: number;
+  } => {
+    const sample = createSurfaceSampler('hamiltoncycle', seed),
+      out = empty(),
+      read = (x: number, y: number): number => {
+        sample(x / cells, y / cells, out);
+        return out.color;
+      },
+      joined: number[][] = Array.from({ length: cells * cells }, () => []);
+    let ambiguous = 0,
+      unlit = 0,
+      crossing = 0;
+    const lit = (x: number, y: number): boolean => {
+      const color = read(x, y);
+      ambiguous += Number(color > 0.2 && color < 0.45);
+      return color > 0.3;
+    };
+    for (let y = 0; y < cells; y++)
+      for (let x = 0; x < cells; x++) {
+        const cell = y * cells + x;
+        unlit += Number(!lit(x + 0.5, y + 0.5));
+        if (x + 1 < cells && lit(x + 1, y + 0.5)) {
+          joined[cell].push(cell + 1);
+          joined[cell + 1].push(cell);
+        }
+        if (y + 1 < cells && lit(x + 0.5, y + 1)) {
+          joined[cell].push(cell + cells);
+          joined[cell + cells].push(cell);
+        }
+      }
+    for (let i = 0; i < cells; i++)
+      crossing += Number(lit(0, i + 0.5)) + Number(lit(i + 0.5, 0));
+    return { joined, ambiguous, unlit, crossing };
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('hamiltoncycle', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0253);
+      expect(low).toBeLessThan(0.0256);
+      expect(high).toBeGreaterThan(0.748);
+      expect(high).toBeLessThan(0.75);
+      expect(dark / 65536).toBeGreaterThan(0.492);
+      expect(dark / 65536).toBeLessThan(0.495);
+      expect(mean / 65536).toBeGreaterThan(0.383);
+      expect(mean / 65536).toBeLessThan(0.384);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.829);
+      expect(heightHigh).toBeLessThan(0.832);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('draws one single loop through every cell of the grid', () => {
+    // Read back from the colours alone: every one of the 1024 cell centres is lit, every cell is
+    // joined to exactly two neighbours, no read-back is ambiguous, nothing crosses the edge of the
+    // tile, and walking along the joins from cell 0 visits all 1024 cells and comes back to cell 0:
+    // a Hamiltonian cycle. The seeds were 0, 1, 2, 3, 7 and 0xffffffff; a probe checked 60 more
+    // (100 to 159) and found a single Hamiltonian cycle in each, but that is not a proof for
+    // every seed.
+    for (const seed of [0, 1, 2, 3, 7, 0xffffffff]) {
+      const { joined, ambiguous, unlit, crossing } = readCycle(seed);
+      expect([ambiguous, unlit, crossing]).toEqual([0, 0, 0]);
+      expect(joined.every((list) => list.length === 2)).toBe(true);
+      let visited = 0,
+        previous = -1,
+        at = 0;
+      do {
+        visited++;
+        const next = joined[at].find((cell) => cell !== previous) as number;
+        previous = at;
+        at = next;
+      } while (at !== 0 && visited <= cells * cells);
+      expect(visited).toBe(cells * cells);
+      expect(at).toBe(0);
+    }
+  });
+  it('draws a different loop per seed and is deterministic for one seed', () => {
+    const edges = (seed: number): Set<string> => {
+      const set = new Set<string>(),
+        { joined } = readCycle(seed);
+      joined.forEach((list, cell) =>
+        list.forEach((other) => {
+          if (other > cell) set.add(`${cell}-${other}`);
+        }),
+      );
+      return set;
+    };
+    const first = edges(0),
+      second = edges(1);
+    let shared = 0;
+    for (const edge of first) shared += Number(second.has(edge));
+    // 1024 edges each; the block structure makes a little over half of them common to two seeds.
+    expect(first.size).toBe(1024);
+    expect(second.size).toBe(1024);
+    expect(shared / first.size).toBeGreaterThan(0.45);
+    expect(shared / first.size).toBeLessThan(0.58);
+    expect(edges(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('hamiltoncycle', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.coarse, cells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 lime labyrinth maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('hamiltoncycle', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(77.9);
+    expect(red / (512 * 512)).toBeLessThan(79.1);
+    expect(green / (512 * 512)).toBeGreaterThan(96.6);
+    expect(green / (512 * 512)).toBeLessThan(97.9);
+    expect(blue / (512 * 512)).toBeGreaterThan(59.8);
+    expect(blue / (512 * 512)).toBeLessThan(61);
+    expect(maxTilt).toBeGreaterThan(0.016);
+    expect(maxTilt).toBeLessThan(0.02);
     expect(invalid).toBe(0);
   });
 });

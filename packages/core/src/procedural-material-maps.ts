@@ -44692,6 +44692,120 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'hamiltoncycle': {
+        const p = proceduralMaterialPresets.hamiltoncycle,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          coarse = p.coarse,
+          fine = coarse * 2,
+          radiusSquared = p.pathRadius * p.pathRadius,
+          // right[c] is set when the fine cell c is joined to the cell to its right and down[c] when
+          // it is joined to the cell below it.
+          right = new Uint8Array(fine * fine),
+          down = new Uint8Array(fine * fine),
+          // The tree edges of the coarse grid: acrossTree[c] joins coarse cell c to the one on its right
+          // and belowTree[c] to the one below it.
+          acrossTree = new Uint8Array(coarse * coarse),
+          belowTree = new Uint8Array(coarse * coarse),
+          candidates: number[][] = [],
+          parent = Array.from({ length: coarse * coarse }, (_, i) => i),
+          root = (i: number): number => {
+            while (parent[i] !== i) i = parent[i] = parent[parent[i]];
+            return i;
+          };
+        // A random Hamiltonian cycle of the fine grid, which is a loop through all fine x fine cells.
+        // A random spanning tree of the coarse x coarse grid (randomised Kruskal: the edges in the
+        // order of a hash) is thickened: every coarse cell is a 2 x 2 block of fine cells. A tree edge
+        // joins the two pairs of fine cells that face each other across it; inside a block, the edge
+        // between the two fine cells along one side of the block is used unless the tree has an edge
+        // through that side. Every fine cell then has exactly two cycle edges, and because the tree
+        // is connected and has no cycle the loop is one single cycle.
+        for (let y = 0; y < coarse; y++)
+          for (let x = 0; x < coarse; x++) {
+            if (x + 1 < coarse) candidates.push([0, x, y]);
+            if (y + 1 < coarse) candidates.push([1, x, y]);
+          }
+        const keys = candidates.map((_, k) => hash(k, 0, seed ^ p.seedSalt));
+        for (const k of candidates
+          .map((_, index) => index)
+          .sort((m, n) => keys[m] - keys[n])) {
+          const [kind, x, y] = candidates[k],
+            from = y * coarse + x,
+            to = kind === 0 ? from + 1 : from + coarse;
+          if (root(from) === root(to)) continue;
+          parent[root(from)] = root(to);
+          (kind === 0 ? acrossTree : belowTree)[from] = 1;
+        }
+        for (let y = 0; y < coarse; y++)
+          for (let x = 0; x < coarse; x++) {
+            const cell = y * coarse + x,
+              north = y > 0 && belowTree[cell - coarse] === 1,
+              south = belowTree[cell] === 1,
+              west = x > 0 && acrossTree[cell - 1] === 1,
+              east = acrossTree[cell] === 1,
+              top = 2 * y * fine + 2 * x,
+              bottom = top + fine;
+            right[top] = north ? 0 : 1;
+            right[bottom] = south ? 0 : 1;
+            down[top] = west ? 0 : 1;
+            down[top + 1] = east ? 0 : 1;
+            if (east) {
+              right[top + 1] = 1;
+              right[bottom + 1] = 1;
+            }
+            if (south) {
+              down[bottom] = 1;
+              down[bottom + 1] = 1;
+            }
+          }
+        return () => {
+          const x = fract(u) * fine,
+            y = fract(v) * fine,
+            column = Math.floor(x),
+            row = Math.floor(y);
+          // The path is the union of one capsule per cycle edge (1 - product of (1 - t^2) with
+          // t = max(0, 1 - squared distance to the segment / squared radius)): every t^2 is C1 and
+          // exactly zero at the rim, so the union and the field are C1. The edges that can come within
+          // the radius of the sample belong to the cell of the sample and its eight neighbours.
+          let open = 1;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = column + ox,
+                cy = row + oy;
+              if (cx < 0 || cy < 0 || cx >= fine || cy >= fine) continue;
+              const cell = cy * fine + cx;
+              for (let side = 0; side < 2; side++) {
+                if ((side === 0 ? right : down)[cell] === 0) continue;
+                const px = x - (cx + 0.5),
+                  py = y - (cy + 0.5),
+                  along =
+                    side === 0
+                      ? Math.min(1, Math.max(0, px))
+                      : Math.min(1, Math.max(0, py)),
+                  dx = side === 0 ? px - along : px,
+                  dy = side === 0 ? py : py - along,
+                  t = clamp(1 - (dx * dx + dy * dy) / radiusSquared);
+                open *= 1 - t * t;
+              }
+            }
+          const total = 1 - open,
+            mask = smooth(clamp(total / p.edgeSoft)),
+            tone = p.toneSpan * p.pathTone,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * total * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -53557,6 +53671,7 @@ export function createSurfaceSampler(
     kind === 'sortingnetwork' ||
     kind === 'cayleytable' ||
     kind === 'paleyhadamard' ||
+    kind === 'hamiltoncycle' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
