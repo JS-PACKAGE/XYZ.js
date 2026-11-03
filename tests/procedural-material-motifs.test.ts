@@ -34934,3 +34934,402 @@ describe('mahjongdots: a grid of dot tiles on cloth', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('smithchart: constant resistance circles, reactance arcs and a standing wave ratio circle', () => {
+  const p = proceduralMaterialPresets.smithchart,
+    R = p.chartRadius;
+  type Chart = {
+    turns: number;
+    swr: number;
+    dotAngle: number;
+    sample: Sampler;
+  };
+  const out = empty();
+  // Where the point (x, y) of the reflection plane (x right, y up, in units of the chart radius) is in the picture for a chart turned by
+  // `turns` quarter turns, as uv.
+  const toUv = (turns: number, x: number, y: number): [number, number] => {
+    const [px, py] = [
+      [x, y],
+      [y, -x],
+      [-x, -y],
+      [-y, x],
+    ][turns];
+    return [0.5 + px * R, 0.5 - py * R];
+  };
+  const toneAt = (chart: Chart, x: number, y: number): number => {
+    chart.sample(...toUv(chart.turns, x, y), out);
+    return out.color;
+  };
+  // Distance from (x, y) to the nearest thin line (the axis, the circles of constant resistance and the arcs of constant reactance, the
+  // latter only inside the unit disc), in units of the chart radius.
+  const thinDistance = (x: number, y: number): number => {
+    let distance = Math.abs(y);
+    for (const r of p.resistances)
+      distance = Math.min(
+        distance,
+        Math.abs(Math.hypot(x - r / (1 + r), y) - 1 / (1 + r)),
+      );
+    for (const reactance of p.reactances)
+      for (const sign of [1, -1])
+        distance = Math.min(
+          distance,
+          Math.abs(Math.hypot(x - 1, y - sign / reactance) - 1 / reactance),
+        );
+    return distance;
+  };
+
+  // A pseudo-random point set inside the unit disc.
+  const points = (count: number): [number, number][] => {
+    let state = 12345;
+    const next = (): number => {
+      state = (state * 1103515245 + 12345) % 2147483648;
+      return state / 2147483648;
+    };
+    return Array.from({ length: count }, () => {
+      const radius = 0.98 * Math.sqrt(next()),
+        angle = 2 * Math.PI * next();
+      return [radius * Math.cos(angle), radius * Math.sin(angle)];
+    });
+  };
+
+  // Distance from (x, y) to the segment from the middle to the dot, in units of the chart radius.
+  const segmentDistance = (chart: Chart, x: number, y: number): number => {
+    const dotX = chart.swr * Math.cos(chart.dotAngle),
+      dotY = chart.swr * Math.sin(chart.dotAngle),
+      along = Math.max(
+        0,
+        Math.min(1, (x * dotX + y * dotY) / (chart.swr * chart.swr)),
+      );
+    return Math.hypot(x - along * dotX, y - along * dotY);
+  };
+
+  const chartOf = (seed: number): Chart => {
+    const sample = createSurfaceSampler('smithchart', seed),
+      probe = (turns: number, x: number, y: number): number => {
+        sample(...toUv(turns, x, y), out);
+        return out.color;
+      };
+
+    // The turn count: the one for which the thin lines are where the chart puts them (the ring and dot only make it darker).
+    const set = points(1500)
+        .filter(([x, y]) => Math.hypot(x, y) > 0.8)
+        .slice(0, 300),
+      fits = [0, 1, 2, 3].filter((turns) =>
+        set.every(([x, y]) => {
+          const distance = thinDistance(x, y) * R,
+            tone = probe(turns, x, y);
+          if (distance < p.lineHalf + 0.001 && distance > p.lineHalf - 0.001)
+            return true;
+          if (tone < 0.2) return true;
+          return distance < p.lineHalf
+            ? Math.abs(tone - p.lineTone) < 0.03
+            : Math.abs(tone - p.paperTone) < 0.03;
+        }),
+      );
+    expect(fits).toHaveLength(1);
+    const turns = fits[0],
+      // The darker circle: the radius at which it is dark all the way round.
+      swrFits = p.swrRadii.filter((radius) =>
+        Array.from(
+          { length: 360 },
+          (_, k) => (2 * Math.PI * (k + 0.5)) / 360,
+        ).every(
+          (angle) =>
+            probe(turns, radius * Math.cos(angle), radius * Math.sin(angle)) <
+            0.15,
+        ),
+      );
+    expect(swrFits).toHaveLength(1);
+    // The line from the middle to the dot: where the circle of half that radius is dark, the mean direction.
+    let sumX = 0,
+      sumY = 0,
+      count = 0;
+    for (let k = 0; k < 1440; k++) {
+      const angle = (2 * Math.PI * (k + 0.5)) / 1440;
+      if (
+        probe(
+          turns,
+          0.5 * swrFits[0] * Math.cos(angle),
+          0.5 * swrFits[0] * Math.sin(angle),
+        ) < 0.15
+      ) {
+        sumX += Math.cos(angle);
+        sumY += Math.sin(angle);
+        count++;
+      }
+    }
+    expect(count).toBeGreaterThan(4);
+    return { turns, swr: swrFits[0], dotAngle: Math.atan2(sumY, sumX), sample };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'puts every thin line where the chart has it, in some quarter turn (seed %i)',
+    (seed) => {
+      const chart = chartOf(seed);
+      let ink = 0,
+        paper = 0,
+        skipped = 0;
+      for (const [x, y] of points(4000)) {
+        const distance = thinDistance(x, y) * R,
+          // Not near the darker circle, the dot or the line to it.
+          dotX = chart.swr * Math.cos(chart.dotAngle),
+          dotY = chart.swr * Math.sin(chart.dotAngle),
+          along = Math.max(
+            0,
+            Math.min(1, (x * dotX + y * dotY) / (chart.swr * chart.swr)),
+          ),
+          strong = Math.min(
+            Math.abs(Math.hypot(x, y) - chart.swr) * R - p.swrHalf,
+            Math.hypot(x - dotX, y - dotY) * R - p.dotRadius * R,
+            Math.hypot(x - along * dotX, y - along * dotY) * R - p.radialHalf,
+          );
+        if (strong < 0.003 || Math.abs(distance - p.lineHalf) < 0.0012) {
+          skipped++;
+          continue;
+        }
+        const tone = toneAt(chart, x, y);
+        if (distance < p.lineHalf) {
+          ink++;
+          expect(Math.abs(tone - p.lineTone)).toBeLessThan(0.03);
+        } else {
+          paper++;
+          expect(Math.abs(tone - p.paperTone)).toBeLessThan(0.03);
+        }
+      }
+      expect(ink).toBeGreaterThan(40);
+      expect(paper).toBeGreaterThan(2000);
+      expect(skipped).toBeLessThan(1500);
+    },
+  );
+
+  it.each(seeds)(
+    'draws the darker circle, the dot and the line to it where the seed puts them (seed %i)',
+    (seed) => {
+      const chart = chartOf(seed),
+        dotX = chart.swr * Math.cos(chart.dotAngle),
+        dotY = chart.swr * Math.sin(chart.dotAngle),
+        cosine = Math.cos(chart.dotAngle),
+        sine = Math.sin(chart.dotAngle),
+        // A point of the chart at a distance `along` from the middle towards the dot and `across` to its left, in units of the chart radius.
+        at = (along: number, across: number): number =>
+          toneAt(
+            chart,
+            along * cosine - across * sine,
+            along * sine + across * cosine,
+          );
+      // The dot: dark at its middle and to just inside its radius, not dark just outside it.
+      expect(toneAt(chart, dotX, dotY)).toBeLessThan(0.12);
+      for (const turn of [0, 1.5, 3, 4.5])
+        expect(
+          toneAt(
+            chart,
+            dotX + (p.dotRadius - 0.003) * Math.cos(turn),
+            dotY + (p.dotRadius - 0.003) * Math.sin(turn),
+          ),
+        ).toBeLessThan(0.12);
+      // Just outside the dot, on the side away from the middle (the other sides lie on the darker circle).
+      expect(at(chart.swr + p.dotRadius + 0.003, 0)).toBeGreaterThan(0.2);
+      // The line: dark along the middle half of it, not dark beside it (0.012 of the chart radius is 0.0055 of uv), and it stops at the dot.
+      for (const along of [0.3 * chart.swr, 0.5 * chart.swr, 0.7 * chart.swr]) {
+        expect(at(along, 0)).toBeLessThan(0.12);
+        expect(at(along, (p.radialHalf - 0.0007) / R)).toBeLessThan(0.12);
+        expect(at(along, -(p.radialHalf - 0.0007) / R)).toBeLessThan(0.12);
+        expect(at(along, (p.radialHalf + 0.0007) / R)).toBeGreaterThan(0.2);
+        expect(at(along, -(p.radialHalf + 0.0007) / R)).toBeGreaterThan(0.2);
+      }
+      expect(at(chart.swr + p.dotRadius + 0.05, 0)).toBeGreaterThan(0.2);
+      expect(at(-0.05, 0)).toBeGreaterThan(0.2);
+      // The darker circle's width: dark within half its width (in uv) of its radius, lighter outside it.
+      const ringAt = (offset: number): number =>
+        toneAt(
+          chart,
+          (chart.swr + offset / R) * Math.cos(chart.dotAngle + 2),
+          (chart.swr + offset / R) * Math.sin(chart.dotAngle + 2),
+        );
+      expect(ringAt(p.swrHalf - 0.0008)).toBeLessThan(0.12);
+      expect(ringAt(-(p.swrHalf - 0.0008))).toBeLessThan(0.12);
+      expect(ringAt(p.swrHalf + 0.0008)).toBeGreaterThan(0.2);
+      expect(ringAt(-(p.swrHalf + 0.0008))).toBeGreaterThan(0.2);
+    },
+  );
+
+  it('softens a thin line over edgeSoft, and the chart edge, with the paper and cloth tones', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x);
+    for (const seed of seeds) {
+      const chart = chartOf(seed),
+        dotX = chart.swr * Math.cos(chart.dotAngle),
+        dotY = chart.swr * Math.sin(chart.dotAngle),
+        // A point of the axis away from the darker circle and the line to the dot.
+        x0 = [-0.45, 0.45, -0.85, 0.85].find(
+          (x) =>
+            Math.abs(Math.abs(x) - chart.swr) > 0.06 &&
+            segmentDistance(chart, x, 0) > 0.08,
+        ) as number,
+        quarter = 0.25 * p.edgeSoft,
+        across = (offset: number): number => toneAt(chart, x0, offset / R);
+      expect(Math.abs(across(0) - p.lineTone)).toBeLessThan(0.01);
+      expect(across(p.lineHalf - quarter)).toBeCloseTo(
+        p.paperTone + (p.lineTone - p.paperTone) * smoothstep(0.75),
+        2,
+      );
+      expect(across(p.lineHalf + quarter)).toBeCloseTo(
+        p.paperTone + (p.lineTone - p.paperTone) * smoothstep(0.25),
+        2,
+      );
+      expect(across(p.lineHalf + 3 * quarter)).toBeCloseTo(p.paperTone, 2);
+      expect(across(-(p.lineHalf + 3 * quarter))).toBeCloseTo(p.paperTone, 2);
+      // The chart edge (the unit circle, also a thin line) at a point where no other line comes near: a quarter of edgeSoft inside it, and
+      // just outside it (0.0001 of uv), mixed as the sampler's own formula says (paper over cloth, then the line over that, in proportion).
+      const clear = Array.from({ length: 126 }, (_, k) => k * 0.05).find(
+          (angle) => {
+            const x = Math.cos(angle),
+              y = Math.sin(angle);
+            let other = Math.abs(y);
+            for (const r of p.resistances.filter((r) => r > 0))
+              other = Math.min(
+                other,
+                Math.abs(Math.hypot(x - r / (1 + r), y) - 1 / (1 + r)),
+              );
+            for (const reactance of p.reactances)
+              for (const sign of [1, -1])
+                other = Math.min(
+                  other,
+                  Math.abs(
+                    Math.hypot(x - 1, y - sign / reactance) - 1 / reactance,
+                  ),
+                );
+            return (
+              other > 0.1 &&
+              Math.hypot(x - dotX, y - dotY) > 0.2 &&
+              Math.abs(1 - chart.swr) > 0.2
+            );
+          },
+        ) as number,
+        cover = (inside: number): number =>
+          smoothstep(Math.min(1, Math.max(0, inside / p.edgeSoft + 0.5))),
+        expected = (outward: number): number => {
+          const disc = cover(-outward),
+            shade = p.clothTone + (p.paperTone - p.clothTone) * disc;
+          return (
+            shade +
+            (p.lineTone - shade) * cover(p.lineHalf - Math.abs(outward)) * disc
+          );
+        },
+        edge = (outward: number): number =>
+          toneAt(
+            chart,
+            Math.cos(clear) * (1 + outward / R),
+            Math.sin(clear) * (1 + outward / R),
+          );
+      expect(clear).toBeDefined();
+      expect(Math.abs(edge(-quarter) - expected(-quarter))).toBeLessThan(0.005);
+      expect(Math.abs(edge(0.0001) - expected(0.0001))).toBeLessThan(0.03);
+      expect(Math.abs(edge(-0.0008) - p.lineTone)).toBeLessThan(0.005);
+    }
+  });
+
+  it('has cloth outside the chart, a different tone with grain, and the heights and roughness of cloth, paper, thin line and darker line', () => {
+    for (const seed of seeds) {
+      const chart = chartOf(seed),
+        read = (
+          x: number,
+          y: number,
+        ): { tone: number; h: number; r: number } => {
+          const tone = toneAt(chart, x, y);
+          return { tone, h: out.height / p.relief, r: out.roughness };
+        },
+        cloth = Array.from({ length: 60 }, (_, k) =>
+          toneAt(chart, 1.3 + (k % 6) * 0.2, 1.1 - Math.floor(k / 6) * 0.05),
+        );
+      expect(Math.max(...cloth) - Math.min(...cloth)).toBeGreaterThan(0.01);
+      expect(read(1.2, 1.2).h).toBeCloseTo(p.clothHeight, 6);
+      expect(read(1.2, 1.2).r).toBeCloseTo(p.clothRoughness, 6);
+      // Paper: a point between lines; thin line: on the axis well away from the dot; darker line: on the dot.
+      let paper = null as { x: number; y: number } | null;
+      for (const [x, y] of points(500)) {
+        const dotX = chart.swr * Math.cos(chart.dotAngle),
+          dotY = chart.swr * Math.sin(chart.dotAngle);
+        if (
+          thinDistance(x, y) * R > 0.01 &&
+          Math.abs(Math.hypot(x, y) - chart.swr) * R > 0.01 &&
+          Math.hypot(x - dotX, y - dotY) > 0.2
+        ) {
+          paper = { x, y };
+          break;
+        }
+      }
+      expect(paper).not.toBeNull();
+      const flat = read(paper!.x, paper!.y);
+      // Paper has no grain.
+      expect(flat.tone).toBeCloseTo(p.paperTone, 9);
+      expect(flat.h).toBeCloseTo(p.paperHeight, 6);
+      expect(flat.r).toBeCloseTo(p.paperRoughness, 6);
+      const dotAt = read(
+        chart.swr * Math.cos(chart.dotAngle),
+        chart.swr * Math.sin(chart.dotAngle),
+      );
+      expect(dotAt.h).toBeCloseTo(p.swrHeight, 6);
+      expect(dotAt.r).toBeCloseTo(p.inkRoughness, 6);
+    }
+  });
+
+  it('turns the chart every quarter turn, uses all three circle radii and puts the dot in many places across seeds', () => {
+    const turns = new Set<number>(),
+      radii = new Set<number>(),
+      angles = new Set<number>(),
+      spread: number[] = [];
+    for (let seed = 0; seed < 60; seed++) {
+      const chart = chartOf(seed);
+      turns.add(chart.turns);
+      radii.add(chart.swr);
+      angles.add(Math.round((chart.dotAngle * 100) / 2));
+      spread.push(chart.dotAngle);
+    }
+    expect(turns.size).toBe(4);
+    expect(radii.size).toBe(p.swrRadii.length);
+    expect(angles.size).toBeGreaterThan(35);
+    // The dot goes all the way round (angles come out between -pi and pi).
+    expect(Math.min(...spread)).toBeLessThan(-2.5);
+    expect(Math.max(...spread)).toBeGreaterThan(2.5);
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('smithchart', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('smithchart', 0),
+      b = createSurfaceSampler('smithchart', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(30);
+  });
+});

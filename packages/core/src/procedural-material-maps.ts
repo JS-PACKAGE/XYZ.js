@@ -39377,6 +39377,89 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'smithchart': {
+        const p = proceduralMaterialPresets.smithchart,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x37701),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          turns = Math.floor(hash(1, 11, seed ^ 0x37702) * 4),
+          swrRadius =
+            p.swrRadii[
+              Math.floor(hash(2, 11, seed ^ 0x37703) * p.swrRadii.length)
+            ],
+          dotAngle = hash(3, 11, seed ^ 0x37704) * 2 * Math.PI,
+          dotX = swrRadius * Math.cos(dotAngle),
+          dotY = swrRadius * Math.sin(dotAngle),
+          // Every circle of the chart as (centre x, centre y, radius): constant resistance (centre r / (1 + r) on the axis, radius 1 / (1 + r))
+          // and constant reactance of both signs (centre (1, 1 / x), radius 1 / |x|).
+          circles = [
+            ...p.resistances.map((r) => [r / (1 + r), 0, 1 / (1 + r)]),
+            ...p.reactances.flatMap((x) => [
+              [1, 1 / x, 1 / x],
+              [1, -1 / x, 1 / x],
+            ]),
+          ],
+          circleX = Float64Array.from(circles, (c) => c[0]),
+          circleY = Float64Array.from(circles, (c) => c[1]),
+          circleRadius = Float64Array.from(circles, (c) => c[2]);
+        return () => {
+          // Position in the reflection plane in units of the chart radius, turned by the seed.
+          const px = (u - Math.floor(u) - 0.5) / p.chartRadius,
+            py = -(v - Math.floor(v) - 0.5) / p.chartRadius,
+            gx = turns === 0 ? px : turns === 1 ? -py : turns === 2 ? -px : py,
+            gy = turns === 0 ? py : turns === 1 ? px : turns === 2 ? -py : -px,
+            radius = Math.hypot(gx, gy);
+          const disc = cover((1 - radius) * p.chartRadius);
+          let thin = 0,
+            strong = 0;
+          // Off the chart there is only cloth.
+          if (disc > 0) {
+            // Distance to the nearest thin line (the axis and the circles), in reflection units.
+            let line = Math.abs(gy);
+            for (let k = 0; k < circleRadius.length; k++)
+              line = Math.min(
+                line,
+                Math.abs(
+                  Math.hypot(gx - circleX[k], gy - circleY[k]) -
+                    circleRadius[k],
+                ),
+              );
+            thin = cover(p.lineHalf - line * p.chartRadius) * disc;
+            // The darker circle, the dot and the line from the middle to it (distance from the segment).
+            const ring = cover(
+                p.swrHalf - Math.abs(radius - swrRadius) * p.chartRadius,
+              ),
+              along = Math.max(
+                0,
+                Math.min(1, (gx * dotX + gy * dotY) / (swrRadius * swrRadius)),
+              ),
+              toLine = Math.hypot(gx - along * dotX, gy - along * dotY),
+              dot = cover(
+                (p.dotRadius - Math.hypot(gx - dotX, gy - dotY)) *
+                  p.chartRadius,
+              ),
+              radial = cover(p.radialHalf - toLine * p.chartRadius);
+            strong = Math.max(ring, dot, radial);
+          }
+          let shade = p.clothTone + (p.paperTone - p.clothTone) * disc,
+            elevation = p.clothHeight + (p.paperHeight - p.clothHeight) * disc,
+            rough =
+              p.clothRoughness + (p.paperRoughness - p.clothRoughness) * disc;
+          shade += (p.lineTone - shade) * thin;
+          elevation += (p.lineHeight - elevation) * thin;
+          rough += (p.inkRoughness - rough) * thin;
+          shade += (p.swrTone - shade) * strong;
+          elevation += (p.swrHeight - elevation) * strong;
+          rough += (p.inkRoughness - rough) * strong;
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - disc),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -66906,6 +66989,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'smithchart' ||
     kind === 'mahjongdots' ||
     kind === 'qrcodemodules' ||
     kind === 'gaugedials' ||

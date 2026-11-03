@@ -22550,6 +22550,59 @@ var proceduralMaterialPresets = Object.freeze({
 		clothRoughness: .9,
 		tileRoughness: .3
 	}),
+	smithchart: Object.freeze({
+		dark: [
+			14,
+			18,
+			30
+		],
+		light: [
+			244,
+			240,
+			226
+		],
+		roughness: .55,
+		relief: .004,
+		chartRadius: .46,
+		resistances: Object.freeze([
+			0,
+			.2,
+			.5,
+			1,
+			2,
+			5
+		]),
+		reactances: Object.freeze([
+			.2,
+			.5,
+			1,
+			2,
+			5
+		]),
+		swrRadii: Object.freeze([
+			.3,
+			.5,
+			.7
+		]),
+		dotRadius: .045,
+		lineHalf: .0016,
+		swrHalf: .004,
+		radialHalf: .0025,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .94,
+		clothTone: .6,
+		lineTone: .32,
+		swrTone: .08,
+		grainTone: .03,
+		clothHeight: .15,
+		paperHeight: .4,
+		lineHeight: .6,
+		swrHeight: .85,
+		clothRoughness: .85,
+		paperRoughness: .55,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -31231,6 +31284,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	smithchart: 1,
 	mahjongdots: 1,
 	qrcodemodules: 1,
 	gaugedials: 1,

@@ -711,6 +711,7 @@ try {
     'dcbarreljackfaces',
     'stfiberadapterfaces',
     'to92packagefaces',
+    'smithchart',
     'mahjongdots',
     'qrcodemodules',
     'gaugedials',
