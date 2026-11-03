@@ -23613,6 +23613,66 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .8,
 		inkRoughness: .4
 	}),
+	bodeplots: Object.freeze({
+		dark: [
+			20,
+			28,
+			44
+		],
+		light: [
+			242,
+			238,
+			226
+		],
+		roughness: .55,
+		relief: .004,
+		types: Object.freeze([
+			0,
+			1,
+			2,
+			3
+		]),
+		cornerExponents: Object.freeze([
+			1,
+			1.25,
+			1.5,
+			1.75,
+			2
+		]),
+		qualities: Object.freeze([
+			.5,
+			.707,
+			1,
+			2,
+			4
+		]),
+		decades: 3,
+		left: .1,
+		right: .94,
+		gainTop: .08,
+		gainBottom: .48,
+		gainMax: 20,
+		gainMin: -60,
+		gainStep: 20,
+		phaseTop: .56,
+		phaseBottom: .92,
+		phaseRange: 180,
+		phaseStep: 90,
+		gridHalf: .0011,
+		curveHalf: .0034,
+		table: 1024,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .93,
+		gridTone: .65,
+		curveTone: .08,
+		grainTone: .03,
+		paperHeight: .2,
+		gridHeight: .4,
+		curveHeight: .8,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -32294,6 +32354,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	bodeplots: 1,
 	huffmancodes: 1,
 	hashchains: 1,
 	editdistance: 1,

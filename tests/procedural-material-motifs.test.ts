@@ -43321,3 +43321,451 @@ describe('huffmancodes: a Huffman code for symbols of different frequencies, as 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('bodeplots: the gain and the phase of a filter against frequency, on a log scale', () => {
+  const p = proceduralMaterialPresets.bodeplots,
+    out = empty(),
+    width = p.right - p.left,
+    gainHeight = p.gainBottom - p.gainTop,
+    phaseHeight = p.phaseBottom - p.phaseTop;
+  type Filter = { type: number; exponent: number; quality: number };
+  type Panel = 0 | 1;
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  // The filter's response at frequency 10^(decades * t) by complex arithmetic (the sampler uses the closed form of the size and the angle).
+  const response = (filter: Filter, t: number): [number, number] => {
+    const w = 10 ** (p.decades * t - filter.exponent),
+      divide = (a: [number, number], b: [number, number]): [number, number] => {
+        const size = b[0] * b[0] + b[1] * b[1];
+        return [
+          (a[0] * b[0] + a[1] * b[1]) / size,
+          (a[1] * b[0] - a[0] * b[1]) / size,
+        ];
+      },
+      jw: [number, number] = [0, w],
+      square: [number, number] = [
+        jw[0] * jw[0] - jw[1] * jw[1],
+        2 * jw[0] * jw[1],
+      ],
+      denominator: [number, number] =
+        filter.type === 0
+          ? [1, w]
+          : [1 + square[0], filter.type === 0 ? w : w / filter.quality],
+      numerator: [number, number] =
+        filter.type === 0 || filter.type === 1
+          ? [1, 0]
+          : filter.type === 2
+            ? square
+            : [0, w / filter.quality],
+      h = divide(numerator, denominator);
+    return [
+      10 * Math.log10(h[0] * h[0] + h[1] * h[1]),
+      (Math.atan2(h[1], h[0]) * 180) / Math.PI,
+    ];
+  };
+  // The vertical position of the curve of a panel at a horizontal position in 0 to 1 across the plot.
+  const curveY = (filter: Filter, panel: Panel, t: number): number => {
+    const [gain, phase] = response(filter, t);
+    return panel === 0
+      ? p.gainTop + ((p.gainMax - gain) / (p.gainMax - p.gainMin)) * gainHeight
+      : p.phaseTop +
+          ((p.phaseRange - phase) / (2 * p.phaseRange)) * phaseHeight;
+  };
+  const panelTop = (panel: Panel): number =>
+    panel === 0 ? p.gainTop : p.phaseTop;
+  const panelBottom = (panel: Panel): number =>
+    panel === 0 ? p.gainBottom : p.phaseBottom;
+  const levels = (panel: Panel): number =>
+    panel === 0
+      ? (p.gainMax - p.gainMin) / p.gainStep
+      : (2 * p.phaseRange) / p.phaseStep;
+  const columns = Array.from({ length: 24 }, (_, i) => (i + 0.5) / 24);
+  // A place on a panel's curve where its edge can be probed: well inside the panel, not steep and not bending sharply. It gives the height there and
+  // the factor by which the vertical distance to the curve exceeds the distance across it (the square root of one plus the slope squared).
+  const usable = (
+    filter: Filter,
+    panel: Panel,
+    t: number,
+  ): { y: number; factor: number } | null => {
+    const slopeAt = (at: number): number =>
+        (curveY(filter, panel, at + 0.0005) -
+          curveY(filter, panel, at - 0.0005)) /
+        (width * 0.001),
+      y = curveY(filter, panel, t),
+      slope = slopeAt(t);
+    if (
+      Math.abs(slope) > 0.6 ||
+      Math.abs(slopeAt(t + 0.002) - slopeAt(t - 0.002)) > 0.05
+    )
+      return null;
+    if (y < panelTop(panel) + 0.012 || y > panelBottom(panel) - 0.012)
+      return null;
+    return { y, factor: Math.sqrt(1 + slope * slope) };
+  };
+
+  // Read the curve of a panel along a column: its dark pixels' mean height, or null if there are none.
+  const observed = (
+    sample: Sampler,
+    panel: Panel,
+    t: number,
+  ): number | null => {
+    let sum = 0,
+      count = 0;
+    for (
+      let y = panelTop(panel) - 0.01;
+      y <= panelBottom(panel) + 0.01;
+      y += 0.0015
+    )
+      if (toneAt(sample, p.left + t * width, y) < 0.2) {
+        sum += y;
+        count++;
+      }
+    return count === 0 ? null : sum / count;
+  };
+  const candidates: Filter[] = p.types.flatMap((type) =>
+    p.cornerExponents.flatMap((exponent) =>
+      type === 0
+        ? [{ type, exponent, quality: 1 }]
+        : p.qualities.map((quality) => ({ type, exponent, quality })),
+    ),
+  );
+  // The filters whose curves, in both panels, agree with what is drawn at every column: where the curve is well inside its panel it is seen
+  // within 0.004 of where it should be, where it is well outside it is not seen, and in between nothing is claimed.
+  const filtersMatching = (sample: Sampler): Filter[] => {
+    const seen = ([0, 1] as Panel[]).map((panel) =>
+      columns.map((t) => observed(sample, panel, t)),
+    );
+    return candidates.filter((filter) =>
+      ([0, 1] as Panel[]).every((panel) =>
+        columns.every((t, i) => {
+          const y = curveY(filter, panel, t),
+            inside = Math.min(y - panelTop(panel), panelBottom(panel) - y);
+          if (inside > 0.006)
+            return (
+              seen[panel][i] !== null && Math.abs(seen[panel][i]! - y) < 0.004
+            );
+          if (inside < -0.006) return seen[panel][i] === null;
+          return true;
+        }),
+      ),
+    );
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws the gain and the phase of exactly one of the filters of the preset (seed %i)',
+    (seed) => {
+      const found = filtersMatching(createSurfaceSampler('bodeplots', seed));
+      expect(found.length).toBeGreaterThanOrEqual(1);
+      // All that match are the same filter (a first-order filter has no quality, so its candidates are one).
+      expect(
+        new Set(found.map((filter) => `${filter.type}:${filter.exponent}`))
+          .size,
+      ).toBe(1);
+      if (found[0].type !== 0) expect(found).toHaveLength(1);
+    },
+  );
+
+  it('uses every filter type, corner and quality, over 60 seeds', () => {
+    const types = new Set<number>(),
+      exponents = new Set<number>(),
+      qualities = new Set<number>();
+    for (let seed = 0; seed < 60; seed++) {
+      const found = filtersMatching(
+        createSurfaceSampler('bodeplots', seed * 41 + 2),
+      );
+      expect(found.length).toBeGreaterThanOrEqual(1);
+      types.add(found[0].type);
+      exponents.add(found[0].exponent);
+      if (found[0].type !== 0) qualities.add(found[0].quality);
+    }
+    expect([...types].sort()).toEqual([...p.types]);
+    expect([...exponents].sort()).toEqual([...p.cornerExponents]);
+    expect([...qualities].sort((a, b) => a - b)).toEqual([...p.qualities]);
+  });
+
+  it('draws the grid, the curve and the empty space with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('bodeplots', seed),
+        filter = filtersMatching(sample)[0],
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9,
+        // True when a point is within a distance of the curve of a panel, of a vertical grid line, or of a horizontal one.
+        nearCurve = (
+          panel: Panel,
+          x: number,
+          y: number,
+          distance: number,
+        ): boolean => {
+          const t = (x - p.left) / width;
+          for (let k = -5; k <= 5; k++) {
+            const at = Math.min(1, Math.max(0, t + k * 0.003));
+            if (
+              Math.hypot(
+                p.left + at * width - x,
+                curveY(filter, panel, at) - y,
+              ) < distance
+            )
+              return true;
+          }
+          return false;
+        },
+        nearVertical = (x: number, distance: number): boolean => {
+          const t = ((x - p.left) / width) * p.decades;
+          return Math.abs(t - Math.round(t)) * (width / p.decades) < distance;
+        },
+        nearHorizontal = (
+          panel: Panel,
+          y: number,
+          distance: number,
+        ): boolean => {
+          const t =
+            ((y - panelTop(panel)) / (panelBottom(panel) - panelTop(panel))) *
+            levels(panel);
+          return (
+            Math.abs(t - Math.round(t)) *
+              ((panelBottom(panel) - panelTop(panel)) / levels(panel)) <
+            distance
+          );
+        };
+      for (const panel of [0, 1] as Panel[]) {
+        const top = panelTop(panel),
+          bottom = panelBottom(panel),
+          count = levels(panel);
+        // The horizontal lines of the panel, including its top and bottom, at a place away from the curve and the vertical lines.
+        for (let k = 0; k <= count; k++) {
+          const y = top + (k * (bottom - top)) / count,
+            x = [0.05, 0.12, 0.2, 0.28, 0.37, 0.5, 0.63, 0.71, 0.8, 0.9, 0.95]
+              .map((t) => p.left + t * width)
+              .find(
+                (at) =>
+                  !nearVertical(at, 0.02) && !nearCurve(panel, at, y, 0.02),
+              );
+          expect(x).toBeDefined();
+          expect(toneAt(sample, x!, y)).toBeCloseTo(p.gridTone, 6);
+          expect(out.height / p.relief).toBeCloseTo(p.gridHeight, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          expect(toneAt(sample, x!, y + p.gridHalf - 0.0004)).toBeCloseTo(
+            p.gridTone,
+            6,
+          );
+          expect(toneAt(sample, x!, y - p.gridHalf + 0.0004)).toBeCloseTo(
+            p.gridTone,
+            6,
+          );
+          expect(paperOk(x!, y + p.gridHalf + 0.002)).toBe(true);
+          expect(paperOk(x!, y - p.gridHalf - 0.002)).toBe(true);
+        }
+        // The vertical lines, at each decade, from the top to the bottom of the panel.
+        for (let k = 0; k <= p.decades; k++) {
+          const x = p.left + (k * width) / p.decades,
+            y = [0.13, 0.31, 0.43, 0.69, 0.87]
+              .map((s) => top + s * (bottom - top))
+              .find(
+                (at) =>
+                  !nearHorizontal(panel, at, 0.02) &&
+                  !nearCurve(panel, x, at, 0.02),
+              );
+          expect(y).toBeDefined();
+          expect(toneAt(sample, x, y!)).toBeCloseTo(p.gridTone, 6);
+          expect(toneAt(sample, x + p.gridHalf - 0.0004, y!)).toBeCloseTo(
+            p.gridTone,
+            6,
+          );
+          expect(paperOk(x + p.gridHalf + 0.002, y!)).toBe(true);
+          expect(paperOk(x - p.gridHalf - 0.002, y!)).toBe(true);
+        }
+        // And no other lines: half way between neighbouring horizontal lines, and half way between neighbouring decades, is paper.
+        for (let k = 0; k < count; k++) {
+          const y = top + ((k + 0.5) * (bottom - top)) / count,
+            x = [0.05, 0.12, 0.2, 0.28, 0.37, 0.5, 0.63, 0.71, 0.8, 0.9, 0.95]
+              .map((t) => p.left + t * width)
+              .find(
+                (at) =>
+                  !nearVertical(at, 0.02) && !nearCurve(panel, at, y, 0.02),
+              );
+          expect(x).toBeDefined();
+          expect(paperOk(x!, y)).toBe(true);
+        }
+        for (let k = 0; k < p.decades; k++) {
+          const x = p.left + ((k + 0.5) * width) / p.decades,
+            y = [0.13, 0.31, 0.43, 0.69, 0.87]
+              .map((s) => top + s * (bottom - top))
+              .find(
+                (at) =>
+                  !nearHorizontal(panel, at, 0.02) &&
+                  !nearCurve(panel, x, at, 0.02),
+              );
+          expect(y).toBeDefined();
+          expect(paperOk(x, y!)).toBe(true);
+        }
+        // The curve, well inside the panel and not bending sharply: its tone, height, roughness and half-width across it (the vertical distance
+        // is longer than that across by the factor the slope gives).
+        let flat = 0;
+        for (const t of columns) {
+          const spot = usable(filter, panel, t);
+          if (spot === null) continue;
+          const x = p.left + t * width;
+          expect(toneAt(sample, x, spot.y)).toBeCloseTo(p.curveTone, 6);
+          expect(out.height / p.relief).toBeCloseTo(p.curveHeight, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          for (const side of [-1, 1]) {
+            expect(
+              toneAt(
+                sample,
+                x,
+                spot.y + side * (p.curveHalf - 0.0006) * spot.factor,
+              ),
+            ).toBeCloseTo(p.curveTone, 6);
+            // Beyond it there is paper or a grid line, both lighter.
+            expect(
+              toneAt(
+                sample,
+                x,
+                spot.y + side * (p.curveHalf + 0.002) * spot.factor,
+              ),
+            ).toBeGreaterThan(p.curveTone + 0.3);
+          }
+          flat++;
+        }
+        expect(flat).toBeGreaterThan(5);
+      }
+      // Nothing outside the panels, between them or at the sides, and no curve beyond a panel's top and bottom.
+      for (const t of columns) {
+        const x = p.left + t * width;
+        for (const y of [
+          p.gainTop - 0.02,
+          (p.gainBottom + p.phaseTop) / 2,
+          p.phaseBottom + 0.02,
+          p.gainBottom + 0.03,
+          p.phaseTop - 0.03,
+        ])
+          expect(paperOk(x, y)).toBe(true);
+      }
+      for (const y of [0.2, 0.4, 0.65, 0.8]) {
+        expect(paperOk(p.left - 0.02, y)).toBe(true);
+        expect(paperOk(p.right + 0.02, y)).toBe(true);
+      }
+    }
+  });
+
+  it('softens the edge of a curve and of a grid line over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (target: number, amount: number): number =>
+        p.paperTone + (target - p.paperTone) * smoothstep(amount);
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('bodeplots', seed),
+        filter = filtersMatching(sample)[0];
+      let checked = 0;
+      for (const panel of [0, 1] as Panel[])
+        for (const t of columns) {
+          const spot = usable(filter, panel, t);
+          if (spot === null) continue;
+          const x = p.left + t * width,
+            levelsY = Array.from(
+              { length: levels(panel) + 1 },
+              (_, k) =>
+                panelTop(panel) +
+                (k * (panelBottom(panel) - panelTop(panel))) / levels(panel),
+            ),
+            xt = ((x - p.left) / width) * p.decades,
+            inner = spot.y + (p.curveHalf - quarter) * spot.factor,
+            outer = spot.y + (p.curveHalf + quarter) * spot.factor;
+          // Away from the grid, so that the edge's other side is paper.
+          if (
+            Math.abs(xt - Math.round(xt)) * (width / p.decades) < 0.008 ||
+            levelsY.some((line) => Math.abs(outer - line) < 0.008)
+          )
+            continue;
+          expect(
+            Math.abs(toneAt(sample, x, inner) - mix(p.curveTone, 0.75)),
+          ).toBeLessThan(0.03);
+          expect(
+            Math.abs(toneAt(sample, x, outer) - mix(p.curveTone, 0.25)),
+          ).toBeLessThan(0.03);
+          checked++;
+        }
+      expect(checked).toBeGreaterThan(2);
+      // A grid line's edge: in the gain panel, between the curve and anything else.
+      for (const panel of [0, 1] as Panel[]) {
+        const top = panelTop(panel),
+          line = top + ((panelBottom(panel) - top) * 1) / levels(panel),
+          x = [0.05, 0.12, 0.2, 0.28, 0.37, 0.5, 0.63, 0.71, 0.8, 0.9, 0.95]
+            .map((t) => p.left + t * width)
+            .find(
+              (at) =>
+                Math.abs(curveY(filter, panel, (at - p.left) / width) - line) >
+                  0.03 &&
+                Math.abs(
+                  ((at - p.left) / width) * p.decades -
+                    Math.round(((at - p.left) / width) * p.decades),
+                ) *
+                  (width / p.decades) >
+                  0.01,
+            );
+        expect(x).toBeDefined();
+        expect(
+          Math.abs(
+            toneAt(sample, x!, line + p.gridHalf - quarter) -
+              mix(p.gridTone, 0.75),
+          ),
+        ).toBeLessThan(0.03);
+        expect(
+          Math.abs(
+            toneAt(sample, x!, line + p.gridHalf + quarter) -
+              mix(p.gridTone, 0.25),
+          ),
+        ).toBeLessThan(0.03);
+      }
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('bodeplots', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('bodeplots', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.0113),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('bodeplots', 0),
+      b = createSurfaceSampler('bodeplots', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

@@ -41810,6 +41810,130 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'bodeplots': {
+        const p = proceduralMaterialPresets.bodeplots,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x4f001),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          type =
+            p.types[Math.floor(hash(38, 1, seed ^ 0x4f002) * p.types.length)],
+          corner =
+            10 **
+            p.cornerExponents[
+              Math.floor(hash(38, 2, seed ^ 0x4f003) * p.cornerExponents.length)
+            ],
+          quality =
+            p.qualities[
+              Math.floor(hash(38, 3, seed ^ 0x4f004) * p.qualities.length)
+            ],
+          width = p.right - p.left,
+          gainHeight = p.gainBottom - p.gainTop,
+          phaseHeight = p.phaseBottom - p.phaseTop,
+          gainSpan = p.gainMax - p.gainMin,
+          // The vertical positions of the gain and of the phase of the filter at the table's points across the plot.
+          gainAt = new Float64Array(p.table + 1),
+          phaseAt = new Float64Array(p.table + 1),
+          step = width / p.table;
+        for (let i = 0; i <= p.table; i++) {
+          const w = 10 ** ((p.decades * i) / p.table) / corner,
+            // The denominator 1 - w^2 + j w / Q of the second-order filters, and the first-order one 1 + j w.
+            real = type === 0 ? 1 : 1 - w * w,
+            imaginary = type === 0 ? w : w / quality,
+            size = Math.hypot(real, imaginary),
+            turn = (Math.atan2(imaginary, real) * 180) / Math.PI,
+            gain =
+              type === 0 || type === 1
+                ? 1 / size
+                : type === 2
+                  ? (w * w) / size
+                  : w / quality / size,
+            phase =
+              type === 0 || type === 1
+                ? -turn
+                : type === 2
+                  ? 180 - turn
+                  : 90 - turn;
+          gainAt[i] =
+            p.gainTop +
+            ((p.gainMax - 20 * Math.log10(gain)) / gainSpan) * gainHeight;
+          phaseAt[i] =
+            p.phaseTop +
+            ((p.phaseRange - phase) / (2 * p.phaseRange)) * phaseHeight;
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          if (fu > p.left - 0.01 && fu < p.right + 0.01) {
+            const across = Math.min(fu - p.left, p.right - fu);
+            for (let panel = 0; panel < 2; panel++) {
+              const top = panel === 0 ? p.gainTop : p.phaseTop,
+                bottom = panel === 0 ? p.gainBottom : p.phaseBottom,
+                inside = Math.min(across, fv - top, bottom - fv),
+                // The grid lines run half their width past the panel, so that its border is as wide as the other lines.
+                gridInside = inside + p.gridHalf;
+              if (inside < -0.01) continue;
+              // The grid: the lines of the panel's levels (the first and last are its border) and a line at each decade.
+              const levels =
+                  panel === 0
+                    ? gainSpan / p.gainStep
+                    : (2 * p.phaseRange) / p.phaseStep,
+                row = ((fv - top) / (bottom - top)) * levels,
+                column = ((fu - p.left) / width) * p.decades,
+                gridAmount = Math.max(
+                  cover(
+                    Math.min(
+                      p.gridHalf -
+                        Math.abs(row - Math.round(row)) *
+                          ((bottom - top) / levels),
+                      gridInside,
+                    ),
+                  ),
+                  cover(
+                    Math.min(
+                      p.gridHalf -
+                        Math.abs(column - Math.round(column)) *
+                          (width / p.decades),
+                      gridInside,
+                    ),
+                  ),
+                );
+              shade += (p.gridTone - shade) * gridAmount;
+              elevation += (p.gridHeight - elevation) * gridAmount;
+              rough += (p.inkRoughness - rough) * gridAmount;
+              // The curve: the vertical distance to it, shortened by its slope to the distance across it.
+              const table = panel === 0 ? gainAt : phaseAt,
+                place = Math.min(
+                  p.table - 1,
+                  Math.max(0, Math.floor((fu - p.left) / step)),
+                ),
+                slope = (table[place + 1] - table[place]) / step,
+                at = table[place] + slope * (fu - p.left - place * step),
+                curveAmount = cover(
+                  Math.min(
+                    p.curveHalf -
+                      Math.abs(fv - at) / Math.sqrt(1 + slope * slope),
+                    inside,
+                  ),
+                );
+              shade += (p.curveTone - shade) * curveAmount;
+              elevation += (p.curveHeight - elevation) * curveAmount;
+              rough += (p.inkRoughness - rough) * curveAmount;
+              mask = Math.max(mask, gridAmount, curveAmount);
+            }
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -69339,6 +69463,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'bodeplots' ||
     kind === 'huffmancodes' ||
     kind === 'hashchains' ||
     kind === 'editdistance' ||
