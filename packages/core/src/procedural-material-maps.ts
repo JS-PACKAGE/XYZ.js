@@ -49043,6 +49043,99 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'escapefractals': {
+        const p = proceduralMaterialPresets.escapefractals,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant =
+            p.variants[
+              Math.floor(hash(0, 78, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          kind = variant[0],
+          power = variant[1],
+          plot = 0.5 - p.margin,
+          inverseSoft = 1 / p.edgeSoft,
+          logBailout = 0.5 * Math.log(p.bailoutSquared),
+          logPower = Math.log(power);
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            // The parameter c, with the imaginary part growing downward in the tile.
+            cr = variant[2] + ((fu - 0.5) / plot) * variant[4],
+            ci = variant[3] + ((fv - 0.5) / plot) * variant[4],
+            outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
+            outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
+            boxDistance =
+              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              Math.min(Math.max(outsideX, outsideY), 0),
+            inside = smooth(clamp(-boxDistance / p.fade));
+          let zr = 0,
+            zi = 0,
+            escaped = -1;
+          for (let n = 0; n < p.maxIterations; n++) {
+            let nextR: number, nextI: number;
+            if (kind === 0) {
+              const ar = Math.abs(zr),
+                ai = Math.abs(zi);
+              nextR = ar * ar - ai * ai + cr;
+              nextI = 2 * ar * ai + ci;
+            } else if (kind === 1) {
+              nextR = zr * zr - zi * zi + cr;
+              nextI = -2 * zr * zi + ci;
+            } else {
+              let powerR = zr,
+                powerI = zi;
+              for (let k = 1; k < power; k++) {
+                const t = powerR * zr - powerI * zi;
+                powerI = powerR * zi + powerI * zr;
+                powerR = t;
+              }
+              nextR = powerR + cr;
+              nextI = powerI + ci;
+            }
+            zr = nextR;
+            zi = nextI;
+            if (zr * zr + zi * zi > p.bailoutSquared) {
+              escaped = n;
+              break;
+            }
+          }
+          // The smooth iteration count of an escaped parameter; a parameter that never escapes keeps the inside tone.
+          const smoothCount =
+              escaped < 0
+                ? 0
+                : escaped +
+                  1 -
+                  Math.log(Math.log(Math.hypot(zr, zi)) / logBailout) /
+                    logPower,
+            tone =
+              escaped < 0
+                ? p.insideTone
+                : p.outsideLow +
+                  p.outsideSpan *
+                    (0.5 +
+                      0.5 *
+                        Math.cos((2 * Math.PI * smoothCount) / p.bandPeriod)),
+            ink = clamp(inside * tone),
+            mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(ink) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -57945,6 +58038,7 @@ export function createSurfaceSampler(
     kind === 'fieldlines' ||
     kind === 'twosourcewaves' ||
     kind === 'fourierseries' ||
+    kind === 'escapefractals' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

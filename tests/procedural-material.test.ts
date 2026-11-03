@@ -1127,6 +1127,7 @@ const kinds: ProceduralMaterialKind[] = [
   'fieldlines',
   'twosourcewaves',
   'fourierseries',
+  'escapefractals',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -187204,6 +187205,376 @@ describe('Fourier series as the partial sums of square, sawtooth and triangle wa
     expect(blue / (512 * 512)).toBeLessThan(8.2);
     expect(maxTilt).toBeGreaterThan(0.0292);
     expect(maxTilt).toBeLessThan(0.0302);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Escape fractals as the Burning Ship, tricorn and multibrot sets', () => {
+  const p = proceduralMaterialPresets.escapefractals;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  type Complex = { re: number; im: number };
+  const times = (x: Complex, y: Complex): Complex => ({
+    re: x.re * y.re - x.im * y.im,
+    im: x.re * y.im + x.im * y.re,
+  });
+  /**
+   * The escape time of the parameter c written with complex numbers as objects (0 Burning Ship with the absolute values of both parts, 1 tricorn with the
+   * conjugate, 2 multibrot with the power by repeated multiplication): the iteration at which |z|^2 first exceeds the bailout, or -1 if it never does.
+   */
+  const escapeTime = (
+    variant: readonly number[],
+    c: Complex,
+  ): { n: number; z: Complex } => {
+    let z: Complex = { re: 0, im: 0 };
+    for (let n = 0; n < p.maxIterations; n++) {
+      let step: Complex;
+      if (variant[0] === 0) {
+        step = { re: Math.abs(z.re), im: Math.abs(z.im) };
+        step = times(step, step);
+      } else if (variant[0] === 1) {
+        const conjugate = { re: z.re, im: -z.im };
+        step = times(conjugate, conjugate);
+      } else {
+        step = { re: 1, im: 0 };
+        for (let k = 0; k < variant[1]; k++) step = times(step, z);
+      }
+      z = { re: step.re + c.re, im: step.im + c.im };
+      if (z.re * z.re + z.im * z.im > p.bailoutSquared) return { n, z };
+    }
+    return { n: -1, z };
+  };
+  /** The parameter of a tile position and the tile position of a parameter, the imaginary part growing downward. */
+  const parameterAt = (
+    variant: readonly number[],
+    u: number,
+    v: number,
+  ): Complex => ({
+    re: variant[2] + ((u - 0.5) / (0.5 - p.margin)) * variant[4],
+    im: variant[3] + ((v - 0.5) / (0.5 - p.margin)) * variant[4],
+  });
+  const tileAt = (variant: readonly number[], c: Complex): [number, number] => [
+    0.5 + ((c.re - variant[2]) * (0.5 - p.margin)) / variant[4],
+    0.5 + ((c.im - variant[3]) * (0.5 - p.margin)) / variant[4],
+  ];
+  /** A point of the sampler is inside the set when its colour is dark (the inside tone, below 0.12). */
+  const insideAt = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    u: number,
+    v: number,
+  ): boolean => {
+    sample(u, v, out);
+    return out.color < 0.12;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('escapefractals', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('escapefractals', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0255);
+      expect(low).toBeLessThan(0.0267);
+      expect(high).toBeGreaterThan(0.8);
+      expect(high).toBeLessThan(0.804);
+      expect(dark / 65536).toBeGreaterThan(0.059);
+      expect(dark / 65536).toBeLessThan(0.312);
+      expect(mean / 65536).toBeGreaterThan(0.221);
+      expect(mean / 65536).toBeLessThan(0.381);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.786);
+      expect(heightHigh).toBeLessThan(0.791);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (the Burning Ship, a zoom into its antenna, the tricorn and the multibrots of power 3, 4 and 5) is 7, 0, 6, 18, 2
+  // and 1; the table was found with a probe by the agreement with the independent iteration and is written here, so it is not an independent
+  // check of the seed's choice.
+  const seeds = [7, 0, 6, 18, 2, 1];
+  it('agrees with an independent escape-time iteration', () => {
+    // On a 128 by 128 grid inside the plot the pixels inside the set (dark) are the parameters that never escape in the 150 iterations of the
+    // test's own complex iteration: no pixel disagrees in the probe (the fraction of disagreeing pixels is under 0.002 in the test), the
+    // inside takes 0.0773 to 0.3579 of the grid in the probe (above 0.05 here), and for the pixels that escape the correlation of the colour with the tone
+    // calculated from the smooth iteration count of the test is above 0.99 (0.9972 to 0.9983 in the probe; the tone formula is repeated in the test,
+    // so this checks the iteration and the smooth count, not the choice of the tone).
+    seeds.forEach((seed, index) => {
+      const variant = p.variants[index],
+        sample = createSurfaceSampler('escapefractals', seed),
+        out = empty();
+      let disagree = 0,
+        inside = 0,
+        n = 0,
+        outside = 0,
+        sx = 0,
+        sy = 0,
+        sxx = 0,
+        syy = 0,
+        sxy = 0;
+      for (let i = 0; i < 128; i++)
+        for (let j = 0; j < 128; j++) {
+          const u = 0.1 + (0.8 * (i + 0.5)) / 128,
+            v = 0.1 + (0.8 * (j + 0.5)) / 128,
+            result = escapeTime(variant, parameterAt(variant, u, v)),
+            dark = insideAt(sample, out, u, v);
+          n++;
+          inside += Number(result.n < 0);
+          disagree += Number(dark !== result.n < 0);
+          if (result.n >= 0) {
+            const smoothCount =
+                result.n +
+                1 -
+                Math.log(
+                  Math.log(Math.hypot(result.z.re, result.z.im)) /
+                    (0.5 * Math.log(p.bailoutSquared)),
+                ) /
+                  Math.log(variant[1]),
+              tone =
+                p.outsideLow +
+                p.outsideSpan *
+                  (0.5 +
+                    0.5 * Math.cos((2 * Math.PI * smoothCount) / p.bandPeriod));
+            outside++;
+            sx += tone;
+            sy += out.color;
+            sxx += tone * tone;
+            syy += out.color * out.color;
+            sxy += tone * out.color;
+          }
+        }
+      expect(disagree / n).toBeLessThan(0.002);
+      expect(inside / n).toBeGreaterThan(0.05);
+      expect(
+        (outside * sxy - sx * sy) /
+          Math.sqrt((outside * sxx - sx * sx) * (outside * syy - sy * sy)),
+      ).toBeGreaterThan(0.99);
+    });
+  });
+  it('ends the segment of the real axis inside the set where the closed forms say', () => {
+    // For a real parameter the orbit stays real, so on the real axis the Burning Ship and the tricorn are inside from -2 to 1/4 (as for z^2 + c; the
+    // left end of the Burning Ship is not tested because rounding of the imaginary part of c, about 1e-16, is amplified by the orbit near -2 and the
+    // probe found its end at -1.9855), and the multibrot z^d + c from -2^(1/(d - 1)) (for an even power d, the end of z^d + c) or -(d - 1) d^(-d/(d - 1)) (for an odd power) to
+    // (d - 1) d^(-d/(d - 1)). Scanning in steps of 0.0005 the first and last inside points are within 0.001 of these values (the probe found
+    // 0.25, -1.99999 and 0.25, -0.385 and 0.385, -1.2595 and 0.4725, and -0.535 and 0.535).
+    const expected: ([number, number] | null)[] = [
+      null,
+      null,
+      [-2, 0.25],
+      [-0.3849001794597505, 0.3849001794597505],
+      [-(2 ** (1 / 3)), 3 * 4 ** (-4 / 3)],
+      [-4 * 5 ** (-5 / 4), 4 * 5 ** (-5 / 4)],
+    ];
+    seeds.forEach((seed, index) => {
+      const variant = p.variants[index],
+        sample = createSurfaceSampler('escapefractals', seed),
+        out = empty();
+      let first: number | null = null,
+        last: number | null = null;
+      for (let c = -2.3; c <= 2.3; c += 0.0005) {
+        const [u, v] = tileAt(variant, { re: c, im: 0 });
+        if (u < 0.06 || u > 0.94 || v < 0.06 || v > 0.94) continue;
+        if (insideAt(sample, out, u, v)) {
+          first ??= c;
+          last = c;
+        }
+      }
+      if (index === 0) {
+        expect(Math.abs(last! - 0.25)).toBeLessThan(0.001);
+      } else if (expected[index]) {
+        expect(Math.abs(first! - expected[index]![0])).toBeLessThan(0.001);
+        expect(Math.abs(last! - expected[index]![1])).toBeLessThan(0.001);
+      }
+    });
+  });
+  it('has the symmetries of its family: conjugation and rotation by a whole number of the rotation steps', () => {
+    // The tricorn and the multibrots are symmetric about the real axis, and the tricorn has 3-fold, the multibrot of power d (d - 1)-fold rotational symmetry
+    // (z -> z^d + c is turned into itself by c -> c e^(2 pi i / (d - 1))). Over 4000 points the inside / outside state of the rotated or mirrored parameter differs
+    // for under 0.002 of them (none in the probe); the Burning Ship has no such symmetry (the probe measured 0.3362 of the points differing
+    // under conjugation) and is not tested.
+    seeds.forEach((seed, index) => {
+      const variant = p.variants[index];
+      if (variant[0] === 0) return;
+      const sample = createSurfaceSampler('escapefractals', seed),
+        out = empty(),
+        folds = variant[0] === 1 ? 3 : variant[1] - 1;
+      let used = 0,
+        mirrored = 0,
+        rotated = 0;
+      for (let k = 0; k < 4000; k++) {
+        const radius =
+            Math.sqrt((k * 0.61803398875) % 1) * Math.min(variant[4] * 0.9, 1),
+          angle = 2 * Math.PI * ((k * 0.41421356237) % 1),
+          c = {
+            re: radius * Math.cos(angle) + variant[2],
+            im: radius * Math.sin(angle) + variant[3],
+          },
+          [u, v] = tileAt(variant, c);
+        if (u < 0.1 || u > 0.9 || v < 0.1 || v > 0.9) continue;
+        const state = insideAt(sample, out, u, v),
+          turn = (2 * Math.PI) / folds,
+          [mu, mv] = tileAt(variant, { re: c.re, im: -c.im }),
+          [ru, rv] = tileAt(variant, {
+            re: c.re * Math.cos(turn) - c.im * Math.sin(turn),
+            im: c.re * Math.sin(turn) + c.im * Math.cos(turn),
+          });
+        used++;
+        mirrored += Number(insideAt(sample, out, mu, mv) !== state);
+        rotated += Number(insideAt(sample, out, ru, rv) !== state);
+      }
+      expect(used).toBeGreaterThan(3000);
+      expect(mirrored / used).toBeLessThan(0.002);
+      expect(rotated / used).toBeLessThan(0.002);
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 7 and 0 pick different variants (the Burning Ship and the zoom into its antenna).
+    const first = litGrid(7),
+      second = litGrid(0);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.272);
+    expect(different / first.length).toBeLessThan(0.278);
+    expect(litGrid(7)).toEqual(first);
+  });
+  it('keeps the colour smooth away from the set and periodic across signed UV periods', () => {
+    // The set boundary is a fractal, so the C1 sweep of the other materials does not apply: the tone jumps across the boundary and the escape
+    // count has kinks on dense level lines near it. Away from the boundary, at the parameters that escape in at most 6 iterations (8 for the zoom
+    // of variant 1, whose window has no parameter that escapes so early), the second difference over a step of 1e-10 divided by the step
+    // stays under 0.03 for the colour, height, roughness and occlusion (7.05e-4 at the worst in the probe at 20000 points per variant), and
+    // the same points give the same output when the UV is shifted by whole periods (1.6e-14 at the worst in the probe).
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      shifted = empty(),
+      h = 1e-10;
+    seeds.forEach((seed, index) => {
+      const variant = p.variants[index],
+        sample = createSurfaceSampler('escapefractals', seed),
+        limit = index === 1 ? 8 : 6;
+      let worst = 0,
+        drift = 0,
+        used = 0;
+      for (let i = 0; i < 20000; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1,
+          result = escapeTime(variant, parameterAt(variant, u, v));
+        if (result.n < 0 || result.n > limit) continue;
+        used++;
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, shifted);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - shifted[key]));
+        }
+      }
+      expect(used).toBeGreaterThan(1000);
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    });
+  });
+  it('writes actual512 blue escape fractal maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('escapefractals', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(44.9);
+    expect(red / (512 * 512)).toBeLessThan(46.1);
+    expect(green / (512 * 512)).toBeGreaterThan(89.9);
+    expect(green / (512 * 512)).toBeLessThan(91.1);
+    expect(blue / (512 * 512)).toBeGreaterThan(106);
+    expect(blue / (512 * 512)).toBeLessThan(107.3);
+    expect(maxTilt).toBeGreaterThan(0.0372);
+    expect(maxTilt).toBeLessThan(0.0382);
     expect(invalid).toBe(0);
   });
 });

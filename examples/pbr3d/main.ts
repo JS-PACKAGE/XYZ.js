@@ -1164,6 +1164,7 @@ try {
     'fieldlines',
     'twosourcewaves',
     'fourierseries',
+    'escapefractals',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
