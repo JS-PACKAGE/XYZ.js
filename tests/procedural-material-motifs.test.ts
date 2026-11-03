@@ -37623,3 +37623,323 @@ describe('fenwicktree: bars of a binary indexed tree with a prefix query path an
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('semaphorefigures: stick figures holding a flag on each arm at multiples of 45 degrees', () => {
+  const p = proceduralMaterialPresets.semaphorefigures,
+    out = empty();
+  type Pose = { left: number; right: number };
+  type Figures = { grid: number; sample: Sampler; poses: Pose[] };
+
+  // Independent geometry in a figure's own frame (x right, y down, from the middle of its cell): the signed distance to the ink (negative
+  // inside) of the head, torso and two arms, and the flags as rotated squares with the side of the diagonal they are on.
+  const shapes = (
+    pose: Pose,
+    x: number,
+    y: number,
+  ): { ink: number; flag: number; light: boolean; split: number } => {
+    let ink = Math.hypot(x, y - p.headY) - p.headRadius,
+      flag = -Infinity,
+      light = false,
+      split = 0;
+    const toSegment = (
+      px: number,
+      py: number,
+      ax: number,
+      ay: number,
+      bx: number,
+      by: number,
+    ): number => {
+      const dx = bx - ax,
+        dy = by - ay,
+        t = Math.max(
+          0,
+          Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)),
+        );
+      return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+    };
+    ink = Math.min(
+      ink,
+      toSegment(x, y, 0, p.torsoTop, 0, p.torsoBottom) - p.torsoHalf,
+    );
+    for (const [shoulder, direction] of [
+      [-p.shoulderX, pose.left],
+      [p.shoulderX, pose.right],
+    ] as const) {
+      const angle = (direction * 360) / p.directions,
+        // The unit vector of the arm (clockwise from straight up on a screen with y down) and one across it.
+        dx = Math.sin((angle * Math.PI) / 180),
+        dy = -Math.cos((angle * Math.PI) / 180),
+        endX = shoulder + dx * p.armLength,
+        endY = p.shoulderY + dy * p.armLength;
+      ink = Math.min(
+        ink,
+        toSegment(x, y, shoulder, p.shoulderY, endX, endY) - p.armHalf,
+      );
+      const reach = p.armLength + p.flagGap + p.flagHalf,
+        along =
+          (x - shoulder - dx * reach) * dx +
+          (y - p.shoulderY - dy * reach) * dy,
+        across = (x - shoulder) * -dy + (y - p.shoulderY) * dx;
+      const inside = p.flagHalf - Math.max(Math.abs(along), Math.abs(across));
+      if (inside > flag) {
+        flag = inside;
+        light = along - across > 0;
+        split = along - across;
+      }
+    }
+    return { ink, flag, light, split };
+  };
+
+  const figuresOf = (seed: number): Figures => {
+    const sample = createSurfaceSampler('semaphorefigures', seed),
+      found = p.grids
+        .map((grid): Figures | null => {
+          const poses: Pose[] = [];
+          for (let row = 0; row < grid; row++)
+            for (let column = 0; column < grid; column++) {
+              const matches: Pose[] = [];
+              for (let left = 0; left < p.directions; left++)
+                for (let right = 0; right < p.directions; right++) {
+                  if (left === right) continue;
+                  let ok = true;
+                  for (let j = 0; ok && j < 28; j++)
+                    for (let i = 0; ok && i < 28; i++) {
+                      const x = (i + 0.5) / 28 - 0.5,
+                        y = (j + 0.5) / 28 - 0.5,
+                        shape = shapes({ left, right }, x, y);
+                      // Only the probes well clear of every boundary decide.
+                      if (
+                        Math.abs(shape.ink) < 0.006 ||
+                        Math.abs(shape.flag) < 0.006
+                      )
+                        continue;
+                      sample(
+                        (column + x + 0.5) / grid,
+                        (row + y + 0.5) / grid,
+                        out,
+                      );
+                      ok =
+                        (shape.ink < 0 || shape.flag > 0) === out.color < 0.8;
+                    }
+                  if (ok) matches.push({ left, right });
+                }
+              if (matches.length !== 1) return null;
+              poses.push(matches[0]);
+            }
+          return { grid, sample, poses };
+        })
+        .filter((figures) => figures !== null);
+    expect(found).toHaveLength(1);
+    return found[0];
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws one pose of two different arm directions in every cell (seed %i)',
+    (seed) => {
+      const { grid, poses } = figuresOf(seed);
+      expect(poses).toHaveLength(grid * grid);
+      for (const pose of poses) {
+        expect(pose.left).not.toBe(pose.right);
+        expect(pose.left).toBeLessThan(p.directions);
+        expect(pose.right).toBeLessThan(p.directions);
+      }
+    },
+  );
+
+  it('uses both grids and every direction on both arms across 60 seeds', () => {
+    const grids = new Set<number>(),
+      lefts = new Array<number>(p.directions).fill(0),
+      rights = new Array<number>(p.directions).fill(0);
+    for (let seed = 0; seed < 60; seed++) {
+      const { grid, poses } = figuresOf(seed);
+      grids.add(grid);
+      for (const pose of poses) {
+        lefts[pose.left]++;
+        rights[pose.right]++;
+      }
+    }
+    expect([...grids].sort((a, b) => a - b)).toEqual([...p.grids]);
+    for (const counts of [lefts, rights])
+      for (const count of counts) expect(count).toBeGreaterThan(40);
+  });
+
+  it('tones the ink, the two halves of every flag and the paper, with heights and roughness', () => {
+    for (const seed of seeds) {
+      const { grid, sample, poses } = figuresOf(seed);
+      let ink = 0,
+        light = 0,
+        dark = 0,
+        paper = 0;
+      poses.forEach((pose, cell) => {
+        const column = cell % grid,
+          row = Math.floor(cell / grid);
+        for (let j = 0; j < 60; j++)
+          for (let i = 0; i < 60; i++) {
+            const x = (i + 0.5) / 60 - 0.5,
+              y = (j + 0.5) / 60 - 0.5,
+              shape = shapes(pose, x, y);
+            sample((column + x + 0.5) / grid, (row + y + 0.5) / grid, out);
+            if (shape.ink < -0.004) {
+              ink++;
+              expect(out.color).toBeCloseTo(p.inkTone, 6);
+              expect(out.height / p.relief).toBeCloseTo(p.inkHeight, 6);
+              expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+            } else if (
+              shape.ink > 0.004 &&
+              shape.flag > 0.004 &&
+              Math.abs(shape.split) > 1e-6
+            ) {
+              if (shape.light) light++;
+              else dark++;
+              expect(out.color).toBeCloseTo(
+                shape.light ? p.flagLight : p.flagDark,
+                6,
+              );
+              expect(out.height / p.relief).toBeCloseTo(p.flagHeight, 6);
+              expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+            } else if (shape.ink > 0.004 && shape.flag < -0.004) {
+              paper++;
+              expect(Math.abs(out.color - p.paperTone)).toBeLessThanOrEqual(
+                p.grainTone / 2 + 1e-9,
+              );
+              expect(out.height / p.relief).toBeCloseTo(p.paperHeight, 6);
+              expect(out.roughness).toBeCloseTo(p.paperRoughness, 6);
+            }
+          }
+      });
+      expect(ink).toBeGreaterThan(grid * grid * 60);
+      expect(light).toBeGreaterThan(grid * grid * 10);
+      expect(dark).toBeGreaterThan(grid * grid * 10);
+      expect(paper).toBeGreaterThan(grid * grid * 1500);
+    }
+  });
+
+  it('has grain only on the paper, and softens the head edge over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x);
+    for (const seed of seeds) {
+      const { grid, sample, poses } = figuresOf(seed),
+        quarter = 0.25 * (p.edgeSoft * grid),
+        tones: number[] = [];
+      for (let i = 0; i < 40; i++) {
+        sample((0.011 + i * 0.0157) / grid, 0.0123 / grid, out);
+        tones.push(out.color);
+      }
+      expect(Math.max(...tones) - Math.min(...tones)).toBeGreaterThan(0.004);
+      // The top of the head of the figure in cell 0: straight above its middle (the left shoulder arms and flags are far to the side or below).
+      const pose = poses[0],
+        cell = 1 / grid;
+      expect(pose).toBeDefined();
+      const top = (offset: number): number => {
+        sample(0.5 * cell, (0.5 + p.headY - p.headRadius + offset) * cell, out);
+        return out.color;
+      };
+      const share = (x: number): number =>
+        p.paperTone + (p.inkTone - p.paperTone) * smoothstep(x);
+      expect(Math.abs(top(quarter) - share(0.75))).toBeLessThan(0.03);
+      expect(Math.abs(top(-quarter) - share(0.25))).toBeLessThan(0.03);
+      // The side of every arm's middle and the outer edge of every flag, where the shapes are clear of each other.
+      let checked = 0;
+      poses.forEach((each, index) => {
+        const column = index % grid,
+          row = Math.floor(index / grid);
+        for (const [shoulder, direction] of [
+          [-p.shoulderX, each.left],
+          [p.shoulderX, each.right],
+        ] as const) {
+          const angle = (direction * 2 * Math.PI) / p.directions,
+            dx = Math.sin(angle),
+            dy = -Math.cos(angle),
+            at = (distance: number, side: number): [number, number] => [
+              shoulder + dx * distance - dy * side,
+              p.shoulderY + dy * distance + dx * side,
+            ],
+            read = (point: [number, number]): number => {
+              sample(
+                (column + point[0] + 0.5) / grid,
+                (row + point[1] + 0.5) / grid,
+                out,
+              );
+              return out.color;
+            };
+          const arm = (offset: number): [number, number] =>
+              at(p.armLength / 2, p.armHalf + offset),
+            flag = (offset: number): [number, number] =>
+              at(p.armLength + p.flagGap + 2 * p.flagHalf + offset, 0);
+          const clear = (point: [number, number], inkAt: number): boolean => {
+            const shape = shapes(each, point[0], point[1]);
+            return Math.abs(shape.ink - inkAt) < 1e-9 && shape.flag < -0.02;
+          };
+          // Inside the arm by a quarter of the soft edge is ink over paper at share 0.75.
+          if (clear(arm(quarter), -quarter) && clear(arm(-quarter), quarter)) {
+            expect(Math.abs(read(arm(-quarter)) - share(0.75))).toBeLessThan(
+              0.03,
+            );
+            expect(Math.abs(read(arm(quarter)) - share(0.25))).toBeLessThan(
+              0.03,
+            );
+            checked++;
+          }
+          // The flag's outer edge, which is the light half (along minus across is positive there): paper to the flag tone.
+          const flagShare = (x: number): number =>
+            p.paperTone + (p.flagLight - p.paperTone) * smoothstep(x);
+          const inside = (point: [number, number]): number =>
+            shapes(each, point[0], point[1]).flag;
+          if (
+            Math.abs(inside(flag(-quarter)) - quarter) < 1e-9 &&
+            shapes(each, ...flag(-quarter)).ink > 0.02 &&
+            shapes(each, ...flag(quarter)).ink > 0.02
+          ) {
+            expect(
+              Math.abs(read(flag(-quarter)) - flagShare(0.75)),
+            ).toBeLessThan(0.03);
+            expect(
+              Math.abs(read(flag(quarter)) - flagShare(0.25)),
+            ).toBeLessThan(0.03);
+            checked++;
+          }
+        }
+      });
+      expect(checked).toBeGreaterThan(grid * grid);
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('semaphorefigures', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('semaphorefigures', 0),
+      b = createSurfaceSampler('semaphorefigures', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

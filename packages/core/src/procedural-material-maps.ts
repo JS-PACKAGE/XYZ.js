@@ -40053,6 +40053,114 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'semaphorefigures': {
+        const p = proceduralMaterialPresets.semaphorefigures,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x40a01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          grid =
+            p.grids[Math.floor(hash(20, 8, seed ^ 0x40a02) * p.grids.length)],
+          cells = grid * grid,
+          cell = 1 / grid,
+          // The two arm directions of every figure, as the sine and cosine of the angle clockwise from straight up.
+          sine = new Float64Array(cells * 2),
+          cosine = new Float64Array(cells * 2);
+        for (let i = 0; i < cells; i++) {
+          const column = i % grid,
+            row = Math.floor(i / grid),
+            left = Math.floor(hash(column, row, seed ^ 0x40a03) * p.directions),
+            // The right arm differs from the left one: one of the other 7 directions.
+            right =
+              (left +
+                1 +
+                Math.floor(
+                  hash(column, row, seed ^ 0x40a04) * (p.directions - 1),
+                )) %
+              p.directions;
+          for (const [k, direction] of [left, right].entries()) {
+            const angle = (direction * 2 * Math.PI) / p.directions;
+            sine[i * 2 + k] = Math.sin(angle);
+            cosine[i * 2 + k] = Math.cos(angle);
+          }
+        }
+        // Distance from (x, y) to the segment (ax, ay)-(bx, by).
+        const segment = (
+          x: number,
+          y: number,
+          ax: number,
+          ay: number,
+          bx: number,
+          by: number,
+        ): number => {
+          const sx = bx - ax,
+            sy = by - ay,
+            t = Math.max(
+              0,
+              Math.min(
+                1,
+                ((x - ax) * sx + (y - ay) * sy) / (sx * sx + sy * sy),
+              ),
+            );
+          return Math.hypot(x - ax - t * sx, y - ay - t * sy);
+        };
+        return () => {
+          const fx = (u - Math.floor(u)) * grid,
+            fy = (v - Math.floor(v)) * grid,
+            index = Math.floor(fy) * grid + Math.floor(fx),
+            x = fx - Math.floor(fx) - 0.5,
+            y = fy - Math.floor(fy) - 0.5;
+          let distance = Math.hypot(x, y - p.headY) - p.headRadius,
+            flagInside = -Infinity,
+            flagShare = 0;
+          distance = Math.min(
+            distance,
+            segment(x, y, 0, p.torsoTop, 0, p.torsoBottom) - p.torsoHalf,
+          );
+          for (let k = 0; k < 2; k++) {
+            const side = k === 0 ? -1 : 1,
+              sx = side * p.shoulderX,
+              s = sine[index * 2 + k],
+              c = cosine[index * 2 + k],
+              // Along the arm from the shoulder (the direction is clockwise from up, y down) and across it.
+              along = (x - sx) * s - (y - p.shoulderY) * c,
+              across = (x - sx) * c + (y - p.shoulderY) * s;
+            distance = Math.min(
+              distance,
+              segment(along, across, 0, 0, p.armLength, 0) - p.armHalf,
+            );
+            // The flag: a square whose middle is flagGap + flagHalf past the arm's end, its diagonal splitting two tones.
+            const local = along - (p.armLength + p.flagGap + p.flagHalf),
+              inside = p.flagHalf - Math.max(Math.abs(local), Math.abs(across));
+            if (inside > flagInside) {
+              flagInside = inside;
+              flagShare = local - across > 0 ? 1 : 0;
+            }
+          }
+          const ink = cover(-distance * cell),
+            flag = cover(flagInside * cell);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness;
+          shade +=
+            (p.flagDark + (p.flagLight - p.flagDark) * flagShare - shade) *
+            flag;
+          elevation += (p.flagHeight - elevation) * flag;
+          rough += (p.inkRoughness - rough) * flag;
+          shade += (p.inkTone - shade) * ink;
+          elevation += (p.inkHeight - elevation) * ink;
+          rough += (p.inkRoughness - rough) * ink;
+          color = clamp(
+            shade +
+              p.grainTone *
+                (grainField(u, v) - 0.5) *
+                (1 - Math.max(ink, flag)),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -67582,6 +67690,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'semaphorefigures' ||
     kind === 'fenwicktree' ||
     kind === 'jacobisymbols' ||
     kind === 'vicsekfractal' ||
