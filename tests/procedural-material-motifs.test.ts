@@ -52997,3 +52997,287 @@ describe('linearprobing: a hash table row after each key, with a dot at its home
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('unionfindmerges: elements in a row, one row after each merge request, shaded by set with a dot above the two elements named', () => {
+  const p = proceduralMaterialPresets.unionfindmerges,
+    out = empty(),
+    rows = p.requestCount + 1;
+  type Run = {
+    sample: Sampler;
+    sets: number[][];
+    requests: [number, number][];
+  };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const near = (tone: number, wanted: number): boolean =>
+    Math.abs(tone - wanted) < 0.01;
+  const centreX = (column: number): number => p.left + (column + 0.5) * p.pitch;
+  const centreY = (row: number): number => p.top + (row + 0.5) * p.rowPitch;
+
+  // Read the picture: per row the set (named by its smallest element) of every element, from its shade, and the two elements with a dot above.
+  const runOf = (seed: number): Run => {
+    const sample = createSurfaceSampler('unionfindmerges', seed),
+      sets: number[][] = [],
+      requests: [number, number][] = [];
+    for (let row = 0; row < rows; row++) {
+      sets.push(
+        Array.from({ length: p.elementCount }, (_, column) => {
+          const tone = toneAt(sample, centreX(column), centreY(row)),
+            name = Math.round((tone - p.firstSetTone) / p.setToneStep) + 0;
+          expect(
+            Math.abs(tone - (p.firstSetTone + name * p.setToneStep)),
+          ).toBeLessThan(0.01);
+          return name;
+        }),
+      );
+      const dots = Array.from(
+        { length: p.elementCount },
+        (_, column) => column,
+      ).filter((column) =>
+        near(
+          toneAt(sample, centreX(column), centreY(row) - p.dotRise),
+          p.dotTone,
+        ),
+      );
+      if (row > 0) {
+        expect(dots.length).toBe(2);
+        requests.push([dots[0], dots[1]]);
+      } else expect(dots.length).toBe(0);
+    }
+    return { sample, sets, requests };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'starts with every element its own set and merges the two sets a request names, naming a set by its smallest element (seed %i)',
+    (seed) => {
+      const { sets, requests } = runOf(seed);
+      expect(sets[0]).toEqual(
+        Array.from({ length: p.elementCount }, (_, i) => i),
+      );
+      // The sets worked out again with a forest of parents, joining the root of one set under the root of the other.
+      const parent = Array.from({ length: p.elementCount }, (_, i) => i),
+        root = (i: number): number => (parent[i] === i ? i : root(parent[i]));
+      requests.forEach(([a, b], r) => {
+        expect(a).not.toBe(b);
+        parent[root(a)] = root(b);
+        const expected = Array.from({ length: p.elementCount }, (_, i) =>
+          Math.min(
+            ...Array.from({ length: p.elementCount }, (_, j) => j).filter(
+              (j) => root(j) === root(i),
+            ),
+          ),
+        );
+        expect(sets[r + 1]).toEqual(expected);
+      });
+    },
+  );
+
+  it('uses merges, requests inside one set, every element in requests and sets that grow large, over 60 seeds', () => {
+    let merges = 0,
+      redundant = 0,
+      biggest = 0,
+      final = 0;
+    const timesNamed = new Array<number>(p.elementCount).fill(0);
+    let adjacent = 0,
+      total = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const { sets, requests } = runOf(seed * 47 + 10);
+      requests.forEach(([a, b], r) => {
+        timesNamed[a]++;
+        timesNamed[b]++;
+        total++;
+        // Two elements next to each other round the row (the last and the first too).
+        adjacent += Number(
+          (b - a + p.elementCount) % p.elementCount === 1 ||
+            (a - b + p.elementCount) % p.elementCount === 1,
+        );
+        const changed = sets[r + 1].some((name, i) => name !== sets[r][i]);
+        merges += Number(changed);
+        redundant += Number(!changed);
+      });
+      const last = sets[rows - 1];
+      biggest = Math.max(
+        biggest,
+        ...last.map((name) => last.filter((other) => other === name).length),
+      );
+      final += new Set(last).size;
+    }
+    // Every element is named about 2 / 14 of the time, and a pair is next to each other about 2 / 13 of the time.
+    timesNamed.forEach((count) => {
+      expect(count).toBeGreaterThan(60);
+      expect(count).toBeLessThan(115);
+    });
+    expect(adjacent / total).toBeGreaterThan(0.12);
+    expect(adjacent / total).toBeLessThan(0.19);
+    expect(merges).toBeGreaterThan(400);
+    // A request that names two elements already in one set changes nothing.
+    expect(redundant).toBeGreaterThan(20);
+    expect(biggest).toBeGreaterThan(8);
+    // Ten requests among 14 elements leave about six sets on average.
+    expect(final / 60).toBeGreaterThan(4);
+    expect(final / 60).toBeLessThan(8);
+  });
+
+  it('draws the squares and the dots with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, sets, requests } = runOf(seed),
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      sets.forEach((row, r) =>
+        row.forEach((name, column) => {
+          const x = centreX(column),
+            y = centreY(r),
+            tone = p.firstSetTone + name * p.setToneStep;
+          // A square: tone, height, roughness, size, and the gap to its neighbours.
+          expect(toneAt(sample, x, y)).toBeCloseTo(tone, 6);
+          expect(out.height / p.relief).toBeCloseTo(p.squareHeight, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          expect(
+            toneAt(
+              sample,
+              x + p.squareHalf - 0.0004,
+              y + p.squareHalf - 0.0004,
+            ),
+          ).toBeCloseTo(tone, 6);
+          expect(
+            toneAt(
+              sample,
+              x - p.squareHalf + 0.0004,
+              y - p.squareHalf + 0.0004,
+            ),
+          ).toBeCloseTo(tone, 6);
+          expect(paperOk(x + p.squareHalf + 0.001, y)).toBe(true);
+          expect(paperOk(x, y + p.squareHalf + 0.001)).toBe(true);
+          // A dot above the squares the request of this row names, and only those.
+          const dotY = y - p.dotRise,
+            named = r > 0 && requests[r - 1].includes(column);
+          if (named) {
+            expect(toneAt(sample, x, dotY)).toBeCloseTo(p.dotTone, 6);
+            expect(out.height / p.relief).toBeCloseTo(p.dotHeight, 6);
+            expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+            expect(
+              near(toneAt(sample, x + p.dotRadius - 0.0004, dotY), p.dotTone),
+            ).toBe(true);
+            expect(paperOk(x + p.dotRadius + 0.001, dotY)).toBe(true);
+            expect(paperOk(x, dotY - p.dotRadius - 0.001)).toBe(true);
+          } else expect(paperOk(x, dotY)).toBe(true);
+        }),
+      );
+      // Nothing beside the squares, above the first row or below the last.
+      expect(paperOk(p.left - 0.01, centreY(0))).toBe(true);
+      expect(
+        paperOk(p.left + p.elementCount * p.pitch + 0.01, centreY(0)),
+      ).toBe(true);
+      expect(paperOk(centreX(3), p.top - 0.005)).toBe(true);
+      expect(paperOk(centreX(3), centreY(rows))).toBe(true);
+    }
+  });
+
+  it('softens the edge of a square and a dot over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      const { sample, requests } = runOf(seed),
+        x = centreX(0),
+        y = centreY(0),
+        tone = p.firstSetTone,
+        dotX = centreX(requests[0][0]),
+        dotY = centreY(1) - p.dotRise;
+      // A square's four sides over the paper (the first, darkest square of the first row).
+      close(
+        toneAt(sample, x + p.squareHalf - quarter, y),
+        mix(p.paperTone, tone, 0.75),
+      );
+      close(
+        toneAt(sample, x + p.squareHalf + quarter, y),
+        mix(p.paperTone, tone, 0.25),
+      );
+      close(
+        toneAt(sample, x - p.squareHalf + quarter, y),
+        mix(p.paperTone, tone, 0.75),
+      );
+      close(
+        toneAt(sample, x - p.squareHalf - quarter, y),
+        mix(p.paperTone, tone, 0.25),
+      );
+      close(
+        toneAt(sample, x, y - p.squareHalf + quarter),
+        mix(p.paperTone, tone, 0.75),
+      );
+      close(
+        toneAt(sample, x, y - p.squareHalf - quarter),
+        mix(p.paperTone, tone, 0.25),
+      );
+      // A dot's edge over the paper.
+      close(
+        toneAt(sample, dotX + p.dotRadius - quarter, dotY),
+        mix(p.paperTone, p.dotTone, 0.75),
+      );
+      close(
+        toneAt(sample, dotX + p.dotRadius + quarter, dotY),
+        mix(p.paperTone, p.dotTone, 0.25),
+      );
+      close(
+        toneAt(sample, dotX, dotY - p.dotRadius + quarter),
+        mix(p.paperTone, p.dotTone, 0.75),
+      );
+      close(
+        toneAt(sample, dotX, dotY - p.dotRadius - quarter),
+        mix(p.paperTone, p.dotTone, 0.25),
+      );
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('unionfindmerges', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('unionfindmerges', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.98),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('unionfindmerges', 0),
+      b = createSurfaceSampler('unionfindmerges', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3601],
+        [0.5001, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

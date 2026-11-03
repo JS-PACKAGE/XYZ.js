@@ -44735,6 +44735,92 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'unionfindmerges': {
+        const p = proceduralMaterialPresets.unionfindmerges,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x50901),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          rows = p.requestCount + 1,
+          // set[row * elementCount + i]: the smallest element of the set element i is in, after the first `row` requests; first[r], second[r]: the elements the r-th request (1-based) names.
+          set = new Int32Array(rows * p.elementCount),
+          first = new Int32Array(rows),
+          second = new Int32Array(rows);
+        for (let i = 0; i < p.elementCount; i++) set[i] = i;
+        for (let row = 1; row < rows; row++) {
+          first[row] = Math.floor(
+            hash(row, 33, seed ^ 0x50902) * p.elementCount,
+          );
+          // A different element for the second: one of the others, chosen evenly.
+          second[row] =
+            (first[row] +
+              1 +
+              Math.floor(
+                hash(row, 34, seed ^ 0x50903) * (p.elementCount - 1),
+              )) %
+            p.elementCount;
+          const before = (row - 1) * p.elementCount,
+            now = row * p.elementCount,
+            a = set[before + first[row]],
+            b = set[before + second[row]],
+            merged = Math.min(a, b);
+          // Every element of either set takes the smaller name.
+          for (let i = 0; i < p.elementCount; i++) {
+            const name = set[before + i];
+            set[now + i] = name === a || name === b ? merged : name;
+          }
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          const row = Math.floor((fv - p.top) / p.rowPitch),
+            column = Math.floor((fu - p.left) / p.pitch);
+          if (
+            row >= 0 &&
+            row < rows &&
+            column >= 0 &&
+            column < p.elementCount
+          ) {
+            const cx = p.left + (column + 0.5) * p.pitch,
+              cy = p.top + (row + 0.5) * p.rowPitch;
+            paint(
+              cover(
+                Math.min(
+                  p.squareHalf - Math.abs(fu - cx),
+                  p.squareHalf - Math.abs(fv - cy),
+                ),
+              ),
+              p.firstSetTone +
+                set[row * p.elementCount + column] * p.setToneStep,
+              p.squareHeight,
+            );
+            // The two elements the request names, a dot above each.
+            if (row > 0 && (first[row] === column || second[row] === column))
+              paint(
+                cover(p.dotRadius - Math.hypot(fu - cx, fv - (cy - p.dotRise))),
+                p.dotTone,
+                p.dotHeight,
+              );
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -72264,6 +72350,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'unionfindmerges' ||
     kind === 'linearprobing' ||
     kind === 'bloomfilter' ||
     kind === 'gamblersruin' ||
