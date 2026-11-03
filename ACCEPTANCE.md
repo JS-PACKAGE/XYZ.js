@@ -13237,5 +13237,5 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 
 - 完整suite（工具實跑）：在commit `c060d00c2`（`[P08] Add Euclidean MST material`）的乾淨worktree執行`vitest run`，**179個檔案、10,489項測試全部通過**，耗時1093.41 s；對照前一次紀錄（`9b2c8622f`，10,469項），新增的josephus、schelling、gabrielgraph、euclideanmst各加5項共20項，與數量吻合。
 - 瀏覽器gallery（headless Chrome，`--enable-unsafe-webgpu --use-angle=metal`）：頁面載入約268 s後，預設（WebGPU）與`?renderer=webgl2`兩個分頁讀數皆為「1059 procedural material presets」、select共1060個選項；依序選取josephus、schelling、gabrielgraph、euclideanmst、plain（WebGPU分頁另加dominotiling）都在期限內更新讀數，兩個分頁的console錯誤皆為0。這**只**涵蓋「可選取、讀數更新、無console錯誤」，沒有逐材質截圖，也不證明視覺品質；只選了上述少數kind，沒有逐一選過全部1059種。
-- 更正：上一節（歐氏最小生成樹）寫「`mst`字樣在kind清單有2處、README有3處，我另外查過內容與最小生成樹無關」，那句話寫入當下我其實還沒有逐項檢查；事後以grep確認：kind清單的兩處是`filmstrip`與`chrysanthemumstone`，README的比對是其他不相關的英文單字（如Worklet一類的字串），確實與最小生成樹無關，所以結論沒有錯，但當時是先寫後查。
+- 更正：上一節（歐氏最小生成樹）寫「`mst`字樣在kind清單有2處、README有3處，我另外查過內容與最小生成樹無關」，那句話寫入當下我其實還沒有逐項檢查；事後以grep確認：kind清單的兩處是`filmstrip`與`chrysanthemumstone`，README的比對是`game.audio.opmState`裡的`opmState`（大小寫不拘時含「mst」），確實與最小生成樹無關（我在這一節第一次寫的括號說明「Worklet一類的字串」是沒查就猜的，錯了，已用`grep -o`看過實際內容後改正），所以結論沒有錯，但當時是先寫後查。
 - 未驗證：沒有量測建構與取樣耗時；不push。
