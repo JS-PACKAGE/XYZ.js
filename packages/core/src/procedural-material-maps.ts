@@ -39708,6 +39708,90 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'rankchevrons': {
+        const p = proceduralMaterialPresets.rankchevrons,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x3aa01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          grid =
+            p.grids[Math.floor(hash(8, 2, seed ^ 0x3aa02) * p.grids.length)],
+          cells = grid * grid,
+          cell = 1 / grid,
+          chevrons = new Uint8Array(cells),
+          rockers = new Uint8Array(cells),
+          pips = new Uint8Array(cells);
+        for (let i = 0; i < cells; i++) {
+          const column = i % grid,
+            row = Math.floor(i / grid);
+          chevrons[i] =
+            1 + Math.floor(hash(column, row, seed ^ 0x3aa03) * p.maxChevrons);
+          rockers[i] = Math.floor(
+            hash(column, row, seed ^ 0x3aa04) * (p.maxRockers + 1),
+          );
+          pips[i] = hash(column, row, seed ^ 0x3aa05) < 0.5 ? 1 : 0;
+        }
+        return () => {
+          const fx = (u - Math.floor(u)) * grid,
+            fy = (v - Math.floor(v)) * grid,
+            index = Math.floor(fy) * grid + Math.floor(fx),
+            // Position from the middle of the patch in cell widths (y down).
+            x = fx - Math.floor(fx) - 0.5,
+            y = fy - Math.floor(fy) - 0.5,
+            r = Math.hypot(x, y),
+            patch = cover((p.patchRadius - r) * cell);
+          let distance = Math.abs(r - p.rimRadius) - p.rimHalf;
+          // Distances to the shapes are measured up and down from a centre line (so a slanted edge is a little softer than a straight one).
+          for (let k = 0; k < chevrons[index]; k++) {
+            const onLine = Math.abs(
+              y -
+                (p.chevronApex +
+                  k * p.chevronPitch +
+                  p.chevronSlope * Math.abs(x)),
+            );
+            distance = Math.min(
+              distance,
+              Math.max(
+                onLine - p.chevronThick / 2,
+                Math.abs(x) - p.chevronReach,
+              ),
+            );
+          }
+          for (let k = 0; k < rockers[index]; k++) {
+            const unit = x / p.rockerReach,
+              onCurve = Math.abs(
+                y -
+                  (p.rockerBase +
+                    k * p.rockerPitch +
+                    p.rockerDepth * (1 - unit * unit)),
+              );
+            distance = Math.min(
+              distance,
+              Math.max(
+                onCurve - p.rockerThick / 2,
+                Math.abs(x) - p.rockerReach,
+              ),
+            );
+          }
+          if (pips[index])
+            distance = Math.min(
+              distance,
+              Math.hypot(x, y - p.pipY) - p.pipRadius,
+            );
+          const ink = cover(-distance * cell);
+          let shade = p.clothTone + (p.patchTone - p.clothTone) * patch,
+            elevation = p.clothHeight + (p.patchHeight - p.clothHeight) * patch,
+            rough =
+              p.clothRoughness + (p.patchRoughness - p.clothRoughness) * patch;
+          shade += (p.inkTone - shade) * ink;
+          elevation += (p.inkHeight - elevation) * ink;
+          rough += (p.inkRoughness - rough) * ink;
+          color = clamp(shade + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -67237,6 +67321,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'rankchevrons' ||
     kind === 'windbarbs' ||
     kind === 'compassrose' ||
     kind === 'smithchart' ||

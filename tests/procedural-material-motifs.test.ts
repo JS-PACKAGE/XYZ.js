@@ -36076,3 +36076,414 @@ describe('windbarbs: a grid of wind symbols that encode a speed and a direction'
     expect(different).toBeGreaterThan(20);
   });
 });
+
+describe('rankchevrons: round patches with stacked chevrons, curved bars and a pip', () => {
+  const p = proceduralMaterialPresets.rankchevrons,
+    out = empty();
+  type Patch = {
+    column: number;
+    row: number;
+    chevrons: number;
+    rockers: number;
+    pip: boolean;
+  };
+  type Layout = { grid: number; patches: Patch[]; sample: Sampler };
+  const cosine = 1 / Math.hypot(1, p.chevronSlope);
+
+  // How far inside (positive) or outside (negative) the ink a point (x, y) of a patch is, in cell widths, for a patch with the given
+  // chevrons, rockers and pip: the largest of how far inside each shape it is. Written again here from the description.
+  const margin = (
+    chevrons: number,
+    rockers: number,
+    pip: boolean,
+    x: number,
+    y: number,
+  ): number => {
+    let best = Math.min(
+      p.rimHalf - Math.abs(Math.hypot(x, y) - p.rimRadius),
+      1,
+    );
+    for (let k = 0; k < chevrons; k++) {
+      const offset = Math.abs(
+        y - (p.chevronApex + k * p.chevronPitch + p.chevronSlope * Math.abs(x)),
+      );
+      best = Math.max(
+        best,
+        Math.min(
+          (p.chevronThick / 2 - offset) * cosine,
+          p.chevronReach - Math.abs(x),
+        ),
+      );
+    }
+    for (let k = 0; k < rockers; k++) {
+      const unit = x / p.rockerReach,
+        offset = Math.abs(
+          y -
+            (p.rockerBase +
+              k * p.rockerPitch +
+              p.rockerDepth * (1 - unit * unit)),
+        ),
+        slope = (2 * p.rockerDepth * Math.abs(unit)) / p.rockerReach;
+      best = Math.max(
+        best,
+        Math.min(
+          (p.rockerThick / 2 - offset) / Math.hypot(1, slope),
+          p.rockerReach - Math.abs(x),
+        ),
+      );
+    }
+    if (pip) best = Math.max(best, p.pipRadius - Math.hypot(x, y - p.pipY));
+    return best;
+  };
+  const toneAt = (
+    layout: Layout,
+    patch: { column: number; row: number },
+    x: number,
+    y: number,
+  ): number => {
+    layout.sample(
+      (patch.column + 0.5 + x) / layout.grid,
+      (patch.row + 0.5 + y) / layout.grid,
+      out,
+    );
+    return out.color;
+  };
+  // Probe points: a grid over the patch and a point on every shape of the biggest patch.
+  const probes: [number, number][] = Array.from(
+    { length: 50 * 60 },
+    (_, k): [number, number] => [
+      -0.34 + ((k % 50) / 49) * 0.68,
+      -0.38 + (Math.floor(k / 50) / 59) * 0.76,
+    ],
+  );
+  for (let k = 0; k < p.maxChevrons; k++)
+    for (const x of [-0.2, -0.1, 0, 0.1, 0.2])
+      probes.push([
+        x,
+        p.chevronApex + k * p.chevronPitch + p.chevronSlope * Math.abs(x),
+      ]);
+  for (let k = 0; k < p.maxRockers; k++)
+    for (const x of [-0.15, 0, 0.15])
+      probes.push([
+        x,
+        p.rockerBase +
+          k * p.rockerPitch +
+          p.rockerDepth * (1 - (x / p.rockerReach) ** 2),
+      ]);
+  probes.push([0, p.pipY]);
+  probes.splice(
+    0,
+    probes.length,
+    ...probes.filter(([x, y]) => Math.hypot(x, y) < 0.43),
+  );
+
+  const layoutOf = (seed: number): Layout => {
+    const sample = createSurfaceSampler('rankchevrons', seed),
+      found = p.grids
+        .map((grid): Layout | null => {
+          const layout: Layout = { grid, patches: [], sample };
+          for (let row = 0; row < grid; row++)
+            for (let column = 0; column < grid; column++) {
+              const fits: Patch[] = [];
+              for (let chevrons = 1; chevrons <= p.maxChevrons; chevrons++)
+                for (let rockers = 0; rockers <= p.maxRockers; rockers++)
+                  for (const pip of [false, true]) {
+                    const here = { column, row };
+                    let fit = true;
+                    for (const [x, y] of probes) {
+                      const inside = margin(chevrons, rockers, pip, x, y);
+                      if (Math.abs(inside) < 0.004) continue;
+                      const tone = toneAt(layout, here, x, y);
+                      if (
+                        inside > 0
+                          ? tone < 0.7
+                          : Math.abs(tone - p.patchTone) > 0.06
+                      ) {
+                        fit = false;
+                        break;
+                      }
+                    }
+                    if (fit) fits.push({ column, row, chevrons, rockers, pip });
+                  }
+              if (fits.length !== 1) return null;
+              layout.patches.push(fits[0]);
+            }
+          return layout;
+        })
+        .filter((layout) => layout !== null);
+    expect(found).toHaveLength(1);
+    return found[0];
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'sews each patch with the chevrons, rockers and pip a decoder can count (seed %i)',
+    (seed) => {
+      const { grid, patches } = layoutOf(seed);
+      expect(patches).toHaveLength(grid * grid);
+    },
+  );
+
+  it('uses both grids and every number of chevrons and rockers, with and without the pip', () => {
+    const grids = new Set<number>(),
+      chevrons = new Set<number>(),
+      rockers = new Set<number>(),
+      pips = new Set<boolean>();
+    for (let seed = 0; seed < 30; seed++) {
+      const { grid, patches } = layoutOf(seed);
+      grids.add(grid);
+      for (const patch of patches) {
+        chevrons.add(patch.chevrons);
+        rockers.add(patch.rockers);
+        pips.add(patch.pip);
+      }
+    }
+    expect([...grids].sort((a, b) => a - b)).toEqual([...p.grids]);
+    expect([...chevrons].sort()).toEqual([1, 2, 3, 4]);
+    expect([...rockers].sort()).toEqual([0, 1, 2]);
+    expect(pips.size).toBe(2);
+  });
+
+  it('gives chevrons, rockers, pip, rim and patch their sizes: thickness, reach and radius', () => {
+    for (const seed of seeds) {
+      const layout = layoutOf(seed),
+        side = (p.edgeSoft * layout.grid) / 2 + 0.0006,
+        // A patch with at least 2 chevrons and 2 rockers and a pip if there is one.
+        patch =
+          layout.patches.find(
+            (q) => q.chevrons >= 2 && q.rockers === 2 && q.pip,
+          ) ??
+          layout.patches.find(
+            (q) => q.chevrons >= 2 && q.rockers >= 1 && q.pip,
+          );
+      if (patch === undefined)
+        throw new Error(
+          'no patch with two chevrons, a rocker and a pip in seed ' + seed,
+        );
+      const at = (x: number, y: number): number => toneAt(layout, patch, x, y);
+      // Chevrons: dark-to-light across the thickness at x = 0.1 (the centre line is chevronSlope * 0.1 below the apex line).
+      for (let k = 0; k < patch.chevrons; k++) {
+        const centre =
+          p.chevronApex + k * p.chevronPitch + p.chevronSlope * 0.1;
+        expect(at(0.1, centre)).toBeGreaterThan(0.7);
+        // Vertical half thickness is chevronThick / 2 (the thickness is measured up and down).
+        expect(at(0.1, centre + p.chevronThick / 2 - side)).toBeGreaterThan(
+          0.7,
+        );
+        expect(at(0.1, centre - p.chevronThick / 2 + side)).toBeGreaterThan(
+          0.7,
+        );
+        expect(
+          Math.abs(
+            at(0.1, centre + p.chevronThick / 2 + side + 0.0004) - p.patchTone,
+          ),
+        ).toBeLessThan(0.06);
+        expect(
+          Math.abs(
+            at(0.1, centre - p.chevronThick / 2 - side - 0.0004) - p.patchTone,
+          ),
+        ).toBeLessThan(0.06);
+      }
+      // Reach: the arms end at |x| = chevronReach.
+      const armY = p.chevronApex + p.chevronSlope * (p.chevronReach - 0.01);
+      expect(at(p.chevronReach - 0.01, armY)).toBeGreaterThan(0.7);
+      expect(at(-(p.chevronReach - 0.01), armY)).toBeGreaterThan(0.7);
+      expect(
+        Math.abs(
+          at(
+            p.chevronReach + 0.015,
+            p.chevronApex + p.chevronSlope * (p.chevronReach + 0.015),
+          ) - p.patchTone,
+        ),
+      ).toBeLessThan(0.06);
+      // Rockers at x = 0: lowest point of the smile.
+      for (let k = 0; k < patch.rockers; k++) {
+        const centre = p.rockerBase + k * p.rockerPitch + p.rockerDepth;
+        expect(at(0, centre)).toBeGreaterThan(0.7);
+        expect(at(0, centre + p.rockerThick / 2 - side)).toBeGreaterThan(0.7);
+        expect(at(0, centre - p.rockerThick / 2 + side)).toBeGreaterThan(0.7);
+        expect(
+          Math.abs(
+            at(0, centre + p.rockerThick / 2 + side + 0.0004) - p.patchTone,
+          ),
+        ).toBeLessThan(0.06);
+        expect(
+          Math.abs(
+            at(0, centre - p.rockerThick / 2 - side - 0.0004) - p.patchTone,
+          ),
+        ).toBeLessThan(0.06);
+        // The ends of the smile are higher by rockerDepth and stop at rockerReach.
+        expect(
+          at(
+            p.rockerReach - 0.01,
+            p.rockerBase +
+              k * p.rockerPitch +
+              p.rockerDepth *
+                (1 - ((p.rockerReach - 0.01) / p.rockerReach) ** 2),
+          ),
+        ).toBeGreaterThan(0.7);
+        expect(
+          Math.abs(
+            at(p.rockerReach + 0.015, p.rockerBase + k * p.rockerPitch) -
+              p.patchTone,
+          ),
+        ).toBeLessThan(0.06);
+      }
+      // The pip.
+      expect(at(0, p.pipY)).toBeGreaterThan(0.7);
+      expect(at(p.pipRadius - side, p.pipY)).toBeGreaterThan(0.7);
+      expect(
+        Math.abs(at(p.pipRadius + side, p.pipY) - p.patchTone),
+      ).toBeLessThan(0.06);
+      expect(
+        Math.abs(at(0, p.pipY + p.pipRadius + side) - p.patchTone),
+      ).toBeLessThan(0.06);
+      // The rim ring: ink from rimRadius - rimHalf to rimRadius + rimHalf, patch tone either side.
+      for (const angle of [0.3, 2.1, 4]) {
+        const ring = (radius: number): number =>
+          at(radius * Math.sin(angle), -radius * Math.cos(angle));
+        expect(ring(p.rimRadius)).toBeGreaterThan(0.7);
+        expect(ring(p.rimRadius + p.rimHalf - side)).toBeGreaterThan(0.7);
+        expect(ring(p.rimRadius - p.rimHalf + side)).toBeGreaterThan(0.7);
+        expect(
+          Math.abs(ring(p.rimRadius + p.rimHalf + side) - p.patchTone),
+        ).toBeLessThan(0.06);
+        expect(
+          Math.abs(ring(p.rimRadius - p.rimHalf - side) - p.patchTone),
+        ).toBeLessThan(0.06);
+      }
+    }
+  });
+
+  it('softens the edges of chevron, rocker, pip and rim over edgeSoft: a quarter of the transition inside and outside each', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x);
+    for (const seed of seeds) {
+      const layout = layoutOf(seed),
+        patch =
+          layout.patches.find((q) => q.rockers >= 1 && q.pip) ??
+          layout.patches[0],
+        quarter = 0.25 * p.edgeSoft * layout.grid,
+        at = (x: number, y: number): number => toneAt(layout, patch, x, y),
+        inner = (share: number): number =>
+          p.patchTone + (p.inkTone - p.patchTone) * smoothstep(share),
+        centre = p.chevronApex + p.chevronSlope * 0.1,
+        rocker = p.rockerBase + p.rockerDepth;
+      expect(patch.rockers).toBeGreaterThanOrEqual(1);
+      expect(patch.pip).toBe(true);
+      // Up and down from the first chevron's centre line at x = 0.1 (the top edge, then the bottom edge), and the first rocker's at x = 0.
+      for (const [y, share] of [
+        [centre - p.chevronThick / 2 + quarter, 0.75],
+        [centre - p.chevronThick / 2 - quarter, 0.25],
+        [centre + p.chevronThick / 2 - quarter, 0.75],
+        [centre + p.chevronThick / 2 + quarter, 0.25],
+      ])
+        expect(Math.abs(at(0.1, y) - inner(share))).toBeLessThan(0.03);
+      for (const [y, share] of [
+        [rocker - p.rockerThick / 2 + quarter, 0.75],
+        [rocker - p.rockerThick / 2 - quarter, 0.25],
+        [rocker + p.rockerThick / 2 - quarter, 0.75],
+        [rocker + p.rockerThick / 2 + quarter, 0.25],
+      ])
+        expect(Math.abs(at(0, y) - inner(share))).toBeLessThan(0.03);
+      // The pip and the rim (radially).
+      expect(
+        Math.abs(at(p.pipRadius - quarter, p.pipY) - inner(0.75)),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(at(p.pipRadius + quarter, p.pipY) - inner(0.25)),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(at(p.rimRadius + p.rimHalf - quarter, 0) - inner(0.75)),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(at(p.rimRadius + p.rimHalf + quarter, 0) - inner(0.25)),
+      ).toBeLessThan(0.03);
+    }
+  });
+
+  it('softens the patch edge over edgeSoft, with cloth outside and the heights and roughness of cloth, patch and ink', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x);
+    for (const seed of seeds) {
+      const layout = layoutOf(seed),
+        patch = layout.patches[0],
+        quarter = 0.25 * p.edgeSoft * layout.grid,
+        edge = (offset: number): number =>
+          toneAt(layout, patch, p.patchRadius + offset, 0);
+      // The patch edge on the right (x = patchRadius): a quarter of the transition inside and outside; grain is under 0.02 of tone.
+      expect(
+        Math.abs(
+          edge(-quarter) -
+            (p.clothTone + (p.patchTone - p.clothTone) * smoothstep(0.75)),
+        ),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(
+          edge(quarter) -
+            (p.clothTone + (p.patchTone - p.clothTone) * smoothstep(0.25)),
+        ),
+      ).toBeLessThan(0.03);
+      expect(Math.abs(edge(0.02) - p.clothTone)).toBeLessThan(0.03);
+      expect(Math.abs(edge(-0.01) - p.patchTone)).toBeLessThan(0.03);
+      const read = (x: number, y: number): { h: number; r: number } => {
+        toneAt(layout, patch, x, y);
+        return { h: out.height / p.relief, r: out.roughness };
+      };
+      expect(read(p.patchRadius + 0.02, 0).h).toBeCloseTo(p.clothHeight, 6);
+      expect(read(p.patchRadius + 0.02, 0).r).toBeCloseTo(p.clothRoughness, 6);
+      expect(read(0.33, 0.12).h).toBeCloseTo(p.patchHeight, 6);
+      expect(read(0.33, 0.12).r).toBeCloseTo(p.patchRoughness, 6);
+      expect(read(0, p.chevronApex).h).toBeCloseTo(p.inkHeight, 6);
+      expect(read(0, p.chevronApex).r).toBeCloseTo(p.inkRoughness, 6);
+      // Cloth has grain, the patch does not.
+      const cloth = Array.from({ length: 40 }, (_, k) =>
+          toneAt(layout, patch, 0.47 + 0.02 * (k % 2), -0.46 + 0.01 * k),
+        ),
+        patchTones = Array.from({ length: 40 }, (_, k) =>
+          toneAt(layout, patch, 0.33, -0.1 + 0.005 * k),
+        );
+      expect(Math.max(...cloth) - Math.min(...cloth)).toBeGreaterThan(0.005);
+      expect(Math.max(...patchTones) - Math.min(...patchTones)).toBeLessThan(
+        0.05,
+      );
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('rankchevrons', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('rankchevrons', 0),
+      b = createSurfaceSampler('rankchevrons', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(20);
+  });
+});

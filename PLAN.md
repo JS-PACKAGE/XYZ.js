@@ -2073,6 +2073,10 @@
 
 這是作者設計的示意：只畫風標，沒有氣壓、溫度等其他測站資料，也不是氣象作業用的圖。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`rankchevrons`（階級人字紋）使目前目錄1128→1129種，含plain的gallery為1130項。3×3或4×4格的圓形布章放在布面上，每個布章縫著1到4條人字紋（V形，尖端朝上）、人字紋下0到2條弧形橫條（rocker），以及可有可無的上方圓點，外有一圈細環。seed決定格數，以及每個布章的人字紋與弧條數和有無圓點。布章是深橄欖色，圖案是淺色，布面是中間色調並有細微顆粒。Metallic與mortar為0。
+
+這些是單純的幾何圖形，不代表任何真實的軍階或標誌，只有色調（亮度）而沒有色相。預設1 m nominal tile、0.005 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

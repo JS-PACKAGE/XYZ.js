@@ -22695,6 +22695,50 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .7,
 		inkRoughness: .4
 	}),
+	rankchevrons: Object.freeze({
+		dark: [
+			24,
+			30,
+			20
+		],
+		light: [
+			236,
+			232,
+			210
+		],
+		roughness: .75,
+		relief: .005,
+		grids: Object.freeze([3, 4]),
+		maxChevrons: 4,
+		maxRockers: 2,
+		patchRadius: .45,
+		rimRadius: .4,
+		rimHalf: .008,
+		chevronApex: -.24,
+		chevronPitch: .075,
+		chevronSlope: .45,
+		chevronReach: .26,
+		chevronThick: .06,
+		rockerBase: .2,
+		rockerPitch: .07,
+		rockerDepth: .04,
+		rockerReach: .2,
+		rockerThick: .03,
+		pipY: -.325,
+		pipRadius: .03,
+		edgeSoft: 8e-4,
+		grainCells: 192,
+		clothTone: .6,
+		patchTone: .3,
+		inkTone: .86,
+		grainTone: .04,
+		clothHeight: .1,
+		patchHeight: .4,
+		inkHeight: .8,
+		clothRoughness: .9,
+		patchRoughness: .8,
+		inkRoughness: .65
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -31376,6 +31420,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	rankchevrons: 1,
 	windbarbs: 1,
 	compassrose: 1,
 	smithchart: 1,
