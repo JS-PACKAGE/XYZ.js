@@ -1123,6 +1123,7 @@ try {
     'schelling',
     'gabrielgraph',
     'euclideanmst',
+    'relativeneighborhood',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

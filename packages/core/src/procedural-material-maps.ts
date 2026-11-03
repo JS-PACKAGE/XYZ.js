@@ -44296,6 +44296,140 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'relativeneighborhood': {
+        const p = proceduralMaterialPresets.relativeneighborhood,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          px: number[] = [],
+          py: number[] = [],
+          nodeBuckets: number[][] = Array.from(
+            { length: p.buckets * p.buckets },
+            () => [],
+          ),
+          edgeBuckets: number[][] = Array.from(
+            { length: p.buckets * p.buckets },
+            () => [],
+          ),
+          edges: number[][] = [],
+          minSquared = p.minDistance * p.minDistance,
+          nodeSquared = p.nodeRadius * p.nodeRadius,
+          edgeSquared = p.edgeHalfWidth * p.edgeHalfWidth,
+          inverseSoft = 1 / p.edgeSoft,
+          // The shortest way from a to b round the unit torus, as one coordinate.
+          around = (delta: number): number => delta - Math.round(delta);
+        // Dart throwing on the unit torus as for the Poisson disk (candidates from the hash, kept when
+        // at least minDistance from every point kept so far), then the relative neighbourhood graph of the
+        // points: two points are joined when no third point is closer to both of them than they are to each
+        // other, i.e. the lune between them is empty (shortest distances round the torus). Pairs further apart
+        // than maxEdge are left out. Every edge is filed into the buckets x buckets buckets that a point within
+        // the half width plus half a step of the path could be in, so a lookup needs only the bucket
+        // of the sample.
+        for (let k = 0; k < p.attempts; k++) {
+          const cx = hash(k, 0, seed ^ p.seedSalt),
+            cy = hash(k, 1, seed ^ p.seedSalt);
+          let free = true;
+          for (let i = 0; i < px.length && free; i++) {
+            const dx = around(cx - px[i]),
+              dy = around(cy - py[i]);
+            free = dx * dx + dy * dy >= minSquared;
+          }
+          if (!free) continue;
+          px.push(cx);
+          py.push(cy);
+          nodeBuckets[
+            Math.floor(cy * p.buckets) * p.buckets + Math.floor(cx * p.buckets)
+          ].push(px.length - 1);
+        }
+        const step = 0.25 / p.buckets,
+          reach = p.edgeHalfWidth + step / 2,
+          bucketAt = (x: number, y: number): number =>
+            (Math.floor((y - Math.floor(y)) * p.buckets) % p.buckets) *
+              p.buckets +
+            (Math.floor((x - Math.floor(x)) * p.buckets) % p.buckets);
+        for (let i = 0; i < px.length; i++)
+          for (let j = i + 1; j < px.length; j++) {
+            const dx = around(px[j] - px[i]),
+              dy = around(py[j] - py[i]),
+              length = Math.hypot(dx, dy);
+            if (length > p.maxEdge) continue;
+            let empty = true;
+            for (let k = 0; k < px.length && empty; k++) {
+              if (k === i || k === j) continue;
+              const toI = Math.hypot(
+                  around(px[k] - px[i]),
+                  around(py[k] - py[i]),
+                ),
+                toJ = Math.hypot(around(px[k] - px[j]), around(py[k] - py[j]));
+              empty = Math.max(toI, toJ) >= length;
+            }
+            if (!empty) continue;
+            const index = edges.length,
+              filed = new Set<number>();
+            edges.push([px[i], py[i], dx, dy, length * length]);
+            for (let s = 0, n = Math.ceil(length / step); s <= n; s++)
+              for (const ox of [-reach, reach])
+                for (const oy of [-reach, reach]) {
+                  const bucket = bucketAt(
+                    px[i] + (dx * s) / n + ox,
+                    py[i] + (dy * s) / n + oy,
+                  );
+                  if (!filed.has(bucket)) {
+                    filed.add(bucket);
+                    edgeBuckets[bucket].push(index);
+                  }
+                }
+          }
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            bx = Math.floor(fu * p.buckets),
+            by = Math.floor(fv * p.buckets);
+          // The nodes and the edges are each a union by 1 - product of (1 - t^2) with
+          // t = max(0, 1 - squared distance / squared radius), a function of the squared distance to
+          // a point or to a segment: every t^2 is C1 and exactly zero at the rim, so the union is C1
+          // and the field is C1 even where the pieces overlap.
+          let openNodes = 1,
+            openEdges = 1;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++)
+              for (const i of nodeBuckets[
+                ((by + oy + p.buckets) % p.buckets) * p.buckets +
+                  ((bx + ox + p.buckets) % p.buckets)
+              ]) {
+                const dx = around(fu - px[i]),
+                  dy = around(fv - py[i]),
+                  t = clamp(1 - (dx * dx + dy * dy) / nodeSquared);
+                openNodes *= 1 - t * t;
+              }
+          for (const index of edgeBuckets[by * p.buckets + bx]) {
+            const [x0, y0, dx, dy, lengthSquared] = edges[index],
+              wx = around(fu - x0),
+              wy = around(fv - y0),
+              along = clamp((wx * dx + wy * dy) / lengthSquared),
+              ex = wx - along * dx,
+              ey = wy - along * dy,
+              t = clamp(1 - (ex * ex + ey * ey) / edgeSquared);
+            openEdges *= 1 - t * t;
+          }
+          const total = 1 - openNodes * openEdges,
+            mask = smooth(clamp(total * inverseSoft)),
+            tone =
+              p.toneSpan * (p.edgeTone + (1 - p.edgeTone) * (1 - openNodes)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * total * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -53157,6 +53291,7 @@ export function createSurfaceSampler(
     kind === 'schelling' ||
     kind === 'gabrielgraph' ||
     kind === 'euclideanmst' ||
+    kind === 'relativeneighborhood' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

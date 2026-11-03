@@ -1060,6 +1060,7 @@ export type ProceduralMaterialKind =
   | 'schelling'
   | 'gabrielgraph'
   | 'euclideanmst'
+  | 'relativeneighborhood'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2368,6 +2369,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'schelling',
   'gabrielgraph',
   'euclideanmst',
+  'relativeneighborhood',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
