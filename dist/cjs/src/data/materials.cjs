@@ -23145,6 +23145,55 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .8,
 		inkRoughness: .4
 	}),
+	waterfallchart: Object.freeze({
+		dark: [
+			22,
+			26,
+			38
+		],
+		light: [
+			240,
+			236,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		steps: Object.freeze([
+			6,
+			10,
+			14
+		]),
+		startMin: 30,
+		startSpan: 40,
+		stepMin: 3,
+		stepSpan: 16,
+		floor: 10,
+		ceiling: 90,
+		top: .08,
+		bottom: .92,
+		barHalf: .35,
+		connectorHalf: .0012,
+		gridHalf: 8e-4,
+		gridEvery: 10,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .93,
+		gridTone: .8,
+		baseTone: .5,
+		connectorTone: .5,
+		endTone: .4,
+		upTone: .66,
+		downTone: .2,
+		grainTone: .03,
+		paperHeight: .2,
+		gridHeight: .3,
+		baseHeight: .4,
+		connectorHeight: .45,
+		endHeight: .7,
+		stepHeight: .8,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -31826,6 +31875,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	waterfallchart: 1,
 	chorddiagrams: 1,
 	qamconstellation: 1,
 	countertimings: 1,

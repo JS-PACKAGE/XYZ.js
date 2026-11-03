@@ -39218,3 +39218,418 @@ describe('chorddiagrams: a grid of guitar chord boxes, checked by the notes of t
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('waterfallchart: a start bar, floating steps with connectors and a total bar', () => {
+  const p = proceduralMaterialPresets.waterfallchart,
+    out = empty(),
+    unit = (p.bottom - p.top) / 100;
+  type Step = { low: number; high: number; tone: number };
+  type Chart = {
+    columns: number;
+    sample: Sampler;
+    bars: Step[];
+    levels: number[];
+  };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const yOf = (value: number): number => p.bottom - value * unit;
+  const valueOf = (v: number): number => (p.bottom - v) / unit;
+
+  const chartOf = (seed: number): Chart => {
+    const sample = createSurfaceSampler('waterfallchart', seed),
+      found = p.steps
+        .map((steps): Chart | null => {
+          const columns = steps + 2,
+            bars: Step[] = [];
+          for (let column = 0; column < columns; column++) {
+            // Walk down the middle of the column: the bar is the run of its tone (the soft edges pass through other tones for a sample).
+            const u = (column + 0.5) / columns,
+              kinds = [p.endTone, p.upTone, p.downTone],
+              samples = Array.from({ length: 2001 }, (_, i) => {
+                const t = toneAt(sample, u, i / 2000);
+                return kinds.findIndex((tone) => Math.abs(t - tone) < 0.03);
+              }),
+              counts = kinds.map(
+                (_, k) => samples.filter((s) => s === k).length,
+              ),
+              kind = counts.indexOf(Math.max(...counts)),
+              first = samples.indexOf(kind),
+              last = samples.lastIndexOf(kind);
+            // A column with no bar of at least a few samples is not one of this chart's.
+            if (counts[kind] < 5) return null;
+            // The bar is one piece.
+            if (samples.slice(first, last + 1).some((s) => s !== kind))
+              return null;
+            bars.push({
+              low: valueOf(last / 2000),
+              high: valueOf(first / 2000),
+              tone: kinds[kind],
+            });
+          }
+          // Only the first and the last bar are from zero (end tone); an up bar starts at the running total, a down bar ends there.
+          const levels = [bars[0].high];
+          if (
+            bars[0].tone !== p.endTone ||
+            bars[columns - 1].tone !== p.endTone ||
+            Math.abs(bars[0].low) > 0.35 ||
+            Math.abs(bars[columns - 1].low) > 0.35
+          )
+            return null;
+          for (let i = 1; i <= steps; i++) {
+            const bar = bars[i];
+            if (
+              bar.tone === p.upTone &&
+              Math.abs(bar.low - levels[i - 1]) < 0.35
+            )
+              levels.push(bar.high);
+            else if (
+              bar.tone === p.downTone &&
+              Math.abs(bar.high - levels[i - 1]) < 0.35
+            )
+              levels.push(bar.low);
+            else return null;
+          }
+          if (Math.abs(bars[columns - 1].high - levels[steps]) > 0.35)
+            return null;
+          return { columns, sample, bars, levels };
+        })
+        .filter((chart) => chart !== null);
+    expect(found).toHaveLength(1);
+    return found[0];
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws a start bar from zero, steps that chain from the running total and a total bar from zero (seed %i)',
+    (seed) => {
+      const { columns, bars, levels } = chartOf(seed),
+        steps = columns - 2;
+      const integral = (x: number): number => Math.round(x);
+      for (const x of bars.flatMap((bar) => [bar.low, bar.high]))
+        expect(Math.abs(x - integral(x))).toBeLessThan(0.3);
+      // The start and the total are bars from zero.
+      expect(bars[0].tone).toBe(p.endTone);
+      expect(integral(bars[0].low)).toBe(0);
+      expect(bars[columns - 1].tone).toBe(p.endTone);
+      expect(integral(bars[columns - 1].low)).toBe(0);
+      expect(integral(bars[0].high)).toBeGreaterThanOrEqual(p.startMin);
+      expect(integral(bars[0].high)).toBeLessThan(p.startMin + p.startSpan);
+      let running = integral(bars[0].high);
+      for (let i = 1; i <= steps; i++) {
+        const bar = bars[i],
+          size = integral(bar.high) - integral(bar.low);
+        // An up bar starts at the running total, a down bar ends there; steps are 3 to 18 and the total stays between 10 and 90.
+        if (bar.tone === p.upTone) expect(integral(bar.low)).toBe(running);
+        else {
+          expect(bar.tone).toBe(p.downTone);
+          expect(integral(bar.high)).toBe(running);
+        }
+        expect(size).toBeGreaterThanOrEqual(p.stepMin);
+        expect(size).toBeLessThanOrEqual(p.stepMin + p.stepSpan - 1);
+        running = integral(levels[i]);
+        expect(running).toBeGreaterThanOrEqual(p.floor);
+        expect(running).toBeLessThanOrEqual(p.ceiling);
+      }
+      // The total is where the steps end.
+      expect(integral(bars[columns - 1].high)).toBe(running);
+    },
+  );
+
+  it('uses all three lengths, both directions and every range of the values across 60 seeds', () => {
+    const lengths = new Set<number>();
+    let ups = 0,
+      downs = 0,
+      smallest = 100,
+      biggest = 0,
+      startLow = 100,
+      startHigh = 0,
+      stepSmall = 100,
+      stepBig = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const { columns, bars } = chartOf(seed);
+      lengths.add(columns - 2);
+      startLow = Math.min(startLow, Math.round(bars[0].high));
+      startHigh = Math.max(startHigh, Math.round(bars[0].high));
+      for (let i = 1; i < columns - 1; i++) {
+        ups += Number(bars[i].tone === p.upTone);
+        downs += Number(bars[i].tone === p.downTone);
+        smallest = Math.min(smallest, Math.round(bars[i].low));
+        biggest = Math.max(biggest, Math.round(bars[i].high));
+        stepSmall = Math.min(stepSmall, Math.round(bars[i].high - bars[i].low));
+        stepBig = Math.max(stepBig, Math.round(bars[i].high - bars[i].low));
+      }
+    }
+    expect([...lengths].sort((a, b) => a - b)).toEqual([...p.steps]);
+    // About as many steps up as down (the sampler flips a step only when it would leave the band).
+    expect(Math.abs(ups - downs) / (ups + downs)).toBeLessThan(0.12);
+    expect(stepSmall).toBe(p.stepMin);
+    expect(stepBig).toBe(p.stepMin + p.stepSpan - 1);
+    expect(startLow).toBeLessThan(p.startMin + 3);
+    expect(startHigh).toBeGreaterThan(p.startMin + p.startSpan - 4);
+    expect(smallest).toBeGreaterThanOrEqual(p.floor - p.stepSpan);
+    expect(biggest).toBeLessThanOrEqual(p.ceiling + p.stepSpan);
+  });
+
+  it('draws the bars with their tones, heights and roughness, and the width of the bar inside its column', () => {
+    for (const seed of seeds) {
+      const { columns, sample, bars } = chartOf(seed),
+        width = 1 / columns;
+      bars.forEach((bar, column) => {
+        const u = (column + 0.5) * width,
+          v = yOf((bar.low + bar.high) / 2),
+          isEnd = bar.tone === p.endTone;
+        expect(toneAt(sample, u, v)).toBeCloseTo(bar.tone, 6);
+        expect(out.height / p.relief).toBeCloseTo(
+          isEnd ? p.endHeight : p.stepHeight,
+          6,
+        );
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        // The bar is barHalf of the column wide on each side of the middle, and there is paper (or a connector) just beyond.
+        expect(toneAt(sample, u + (p.barHalf - 0.05) * width, v)).toBeCloseTo(
+          bar.tone,
+          6,
+        );
+        expect(
+          toneAt(sample, u + (p.barHalf + 0.05) * width, v),
+        ).toBeGreaterThan(0.45);
+        expect(
+          Math.abs(
+            toneAt(sample, u - (p.barHalf + 0.05) * width, v) - bar.tone,
+          ),
+        ).toBeGreaterThan(0.02);
+      });
+    }
+  });
+
+  it('draws a connector at the running level in every gap between bars, and none over the seam of the tile', () => {
+    for (const seed of seeds) {
+      const { columns, sample, levels, bars } = chartOf(seed),
+        width = 1 / columns;
+      for (let gap = 0; gap < columns - 1; gap++) {
+        const u = (gap + 1) * width,
+          level = levels[gap];
+        expect(toneAt(sample, u, yOf(level))).toBeCloseTo(p.connectorTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.connectorHeight, 6);
+        // It is thin: a little above and below the line it is paper (or a grid line).
+        expect(toneAt(sample, u, yOf(level) - 0.005)).toBeGreaterThan(0.7);
+        expect(toneAt(sample, u, yOf(level) + 0.005)).toBeGreaterThan(0.7);
+      }
+      // A connector stays out of the bars: at the level where it meets a bar's edge, just outside that edge and over the bar's width, it
+      // is paper (the connector is only in the gaps), on the right of each bar for the level after it and on the left for the level before.
+      bars.forEach((bar, column) => {
+        const u = (column + 0.5) * width,
+          outside = (lowSide: boolean): number => (lowSide ? 1 : -1) * 0.0008;
+        if (column < columns - 1) {
+          // After the bar: its top for the start and for a step up, its bottom for a step down.
+          const level = levels[column];
+          expect(
+            toneAt(
+              sample,
+              u + 0.1 * width,
+              yOf(level) + outside(bar.tone === p.downTone),
+            ),
+          ).toBeGreaterThan(0.7);
+        }
+        if (column > 0) {
+          // Before the bar: the bottom of a step up, the top of a step down and of the total.
+          const level = levels[column - 1];
+          expect(
+            toneAt(
+              sample,
+              u - 0.1 * width,
+              yOf(level) + outside(bar.tone === p.upTone),
+            ),
+          ).toBeGreaterThan(0.7);
+        }
+      });
+      // Its soft edges, at a quarter of the soft width either side of the line's half width.
+      const quarter = 0.25 * p.edgeSoft,
+        smooth = (x: number): number => x * x * (3 - 2 * x);
+      for (let gap = 0; gap < columns - 1; gap++) {
+        const level = Math.round(levels[gap]),
+          u = (gap + 1) * width,
+          nearGrid =
+            Math.abs(level - Math.round(level / p.gridEvery) * p.gridEvery) <
+            1.2,
+          mix = (x: number): number =>
+            p.paperTone + (p.connectorTone - p.paperTone) * smooth(x);
+        if (nearGrid) continue;
+        for (const side of [-1, 1]) {
+          expect(
+            Math.abs(
+              toneAt(
+                sample,
+                u,
+                yOf(level) + side * (p.connectorHalf - quarter),
+              ) - mix(0.75),
+            ),
+          ).toBeLessThan(0.03);
+          expect(
+            Math.abs(
+              toneAt(
+                sample,
+                u,
+                yOf(level) + side * (p.connectorHalf + quarter),
+              ) - mix(0.25),
+            ),
+          ).toBeLessThan(0.03);
+        }
+      }
+      // The same for a grid line, above the start bar in the middle of its column (no bar or connector there).
+      for (let value = 10; value <= 100; value += p.gridEvery) {
+        if (value < bars[0].high + 3) continue;
+        const u = 0.5 * width;
+        for (const side of [-1, 1]) {
+          const mix = (x: number): number =>
+            p.paperTone + (p.gridTone - p.paperTone) * smooth(x);
+          expect(
+            Math.abs(
+              toneAt(sample, u, yOf(value) + side * (p.gridHalf - quarter)) -
+                mix(0.75),
+            ),
+          ).toBeLessThan(0.03);
+          expect(
+            Math.abs(
+              toneAt(sample, u, yOf(value) + side * (p.gridHalf + quarter)) -
+                mix(0.25),
+            ),
+          ).toBeLessThan(0.03);
+        }
+      }
+      // Across the seam, at the level of the start bar's top and of the total, there is no connector.
+      for (const level of [levels[0], levels[levels.length - 1]]) {
+        expect(toneAt(sample, 0.01 * width, yOf(level))).toBeGreaterThan(0.7);
+        expect(toneAt(sample, 1 - 0.01 * width, yOf(level))).toBeGreaterThan(
+          0.7,
+        );
+      }
+    }
+  });
+
+  it('draws the base line at 0 and a grid line every 10 up to 100 and none beyond', () => {
+    for (const seed of seeds) {
+      const { columns, sample, bars } = chartOf(seed),
+        // The gap between the first two columns holds no bar at all, only the connector at the start level.
+        u = 1 / columns,
+        startTop = bars[0].high;
+      expect(toneAt(sample, u, yOf(0))).toBeCloseTo(p.baseTone, 6);
+      expect(out.height / p.relief).toBeCloseTo(p.baseHeight, 6);
+      for (let value = 10; value <= 100; value += p.gridEvery) {
+        if (Math.abs(value - startTop) < 2 || value === 100) {
+          if (value === 100) {
+            expect(toneAt(sample, u, yOf(100))).toBeCloseTo(p.gridTone, 6);
+            expect(out.height / p.relief).toBeCloseTo(p.gridHeight, 6);
+          }
+          continue;
+        }
+        expect(toneAt(sample, u, yOf(value))).toBeCloseTo(p.gridTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.gridHeight, 6);
+      }
+      // Beyond the plot, above 100 and under 0, there are no grid lines; just off a line it is paper.
+      for (const value of [110, -10, 105.5, -5.5])
+        expect(
+          Math.abs(toneAt(sample, u, yOf(value)) - p.paperTone),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+    }
+  });
+
+  it('softens the top edge of a bar and the side of a bar over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x);
+    for (const seed of seeds) {
+      const { columns, sample, bars } = chartOf(seed),
+        quarter = 0.25 * p.edgeSoft,
+        // Distance of a value from the nearest grid line, in values.
+        fromGrid = (value: number): number =>
+          Math.abs(value - Math.round(value / p.gridEvery) * p.gridEvery);
+      let checked = 0;
+      bars.forEach((bar, column) => {
+        const u = (column + 0.5) / columns,
+          high = Math.round(bar.high),
+          low = Math.round(bar.low),
+          mix = (amount: number): number =>
+            p.paperTone + (bar.tone - p.paperTone) * smoothstep(amount),
+          // A height inside the bar (and so just beside it) well clear of any grid line.
+          inside = Array.from(
+            { length: high - low - 1 },
+            (_, k) => low + 0.5 + k,
+          ).find((value) => fromGrid(value) > 1.2),
+          side = p.barHalf / columns;
+        if (fromGrid(high) > 1.2) {
+          expect(
+            Math.abs(toneAt(sample, u, yOf(high) + quarter) - mix(0.75)),
+          ).toBeLessThan(0.03);
+          expect(
+            Math.abs(toneAt(sample, u, yOf(high) - quarter) - mix(0.25)),
+          ).toBeLessThan(0.03);
+          checked++;
+        }
+        if (inside !== undefined) {
+          expect(
+            Math.abs(
+              toneAt(sample, u + side - quarter, yOf(inside)) - mix(0.75),
+            ),
+          ).toBeLessThan(0.03);
+          expect(
+            Math.abs(
+              toneAt(sample, u + side + quarter, yOf(inside)) - mix(0.25),
+            ),
+          ).toBeLessThan(0.03);
+          expect(
+            Math.abs(
+              toneAt(sample, u - side + quarter, yOf(inside)) - mix(0.75),
+            ),
+          ).toBeLessThan(0.03);
+          checked++;
+        }
+      });
+      expect(checked).toBeGreaterThan(columns);
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('waterfallchart', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const { sample } = chartOf(0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.011 + i * 0.0191, 0.02),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('waterfallchart', 0),
+      b = createSurfaceSampler('waterfallchart', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

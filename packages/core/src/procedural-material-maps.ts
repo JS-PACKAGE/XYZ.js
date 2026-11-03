@@ -40481,6 +40481,97 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'waterfallchart': {
+        const p = proceduralMaterialPresets.waterfallchart,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x45f01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          steps =
+            p.steps[Math.floor(hash(25, 16, seed ^ 0x45f02) * p.steps.length)],
+          columns = steps + 2,
+          columnWidth = 1 / columns,
+          unit = (p.bottom - p.top) / 100,
+          // The running total after each column: the first bar is the start, the last one the total.
+          level = new Float64Array(columns),
+          before = new Float64Array(columns);
+        level[0] =
+          p.startMin + Math.floor(hash(0, 25, seed ^ 0x45f03) * p.startSpan);
+        for (let i = 1; i <= steps; i++) {
+          let delta =
+            p.stepMin + Math.floor(hash(i, 25, seed ^ 0x45f04) * p.stepSpan);
+          if (hash(i, 26, seed ^ 0x45f05) < 0.5) delta = -delta;
+          const next = level[i - 1] + delta;
+          // A step that would leave the band goes the other way.
+          if (next > p.ceiling || next < p.floor) delta = -delta;
+          before[i] = level[i - 1];
+          level[i] = level[i - 1] + delta;
+        }
+        level[columns - 1] = level[steps];
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            column = Math.min(columns - 1, Math.floor(fu * columns)),
+            across = (fu - (column + 0.5) * columnWidth) / columnWidth,
+            // The value at this height, 0 at the bottom of the plot and 100 at the top.
+            value = ((p.bottom - fv) / (p.bottom - p.top)) * 100;
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (
+            amount: number,
+            tone: number,
+            level2: number,
+          ): void => {
+            shade += (tone - shade) * amount;
+            elevation += (level2 - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          // Grid lines every gridEvery, the one at 0 being the base line (the plot's margins are narrower than a grid step, so no line beyond 0 and 100 is ever near enough to show).
+          const gridValue = Math.round(value / p.gridEvery) * p.gridEvery;
+          paint(
+            cover(p.gridHalf - Math.abs(value - gridValue) * unit),
+            gridValue === 0 ? p.baseTone : p.gridTone,
+            gridValue === 0 ? p.baseHeight : p.gridHeight,
+          );
+          // The connector at the running level, in the gap to the right of the bar of this column or to the left of the bar of the one before.
+          const gap = across > 0 ? column : column - 1;
+          if (gap >= 0 && gap < columns - 1 && Math.abs(across) > p.barHalf)
+            paint(
+              cover(p.connectorHalf - Math.abs(value - level[gap]) * unit),
+              p.connectorTone,
+              p.connectorHeight,
+            );
+          // The bar of this column: the start and the total from zero, a step between the running totals before and after it.
+          const isEnd = column === 0 || column === columns - 1,
+            low = isEnd ? 0 : Math.min(before[column], level[column]),
+            high = isEnd
+              ? level[column]
+              : Math.max(before[column], level[column]),
+            inside = Math.min(
+              (p.barHalf - Math.abs(across)) * columnWidth,
+              (value - low) * unit,
+              (high - value) * unit,
+            );
+          paint(
+            cover(inside),
+            isEnd
+              ? p.endTone
+              : level[column] > before[column]
+                ? p.upTone
+                : p.downTone,
+            isEnd ? p.endHeight : p.stepHeight,
+          );
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -68010,6 +68101,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'waterfallchart' ||
     kind === 'chorddiagrams' ||
     kind === 'qamconstellation' ||
     kind === 'countertimings' ||
