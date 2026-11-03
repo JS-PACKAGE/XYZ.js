@@ -33339,3 +33339,231 @@ describe('equalizerbars: LED columns lit up to a level with a peak segment', () 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('intelhexrecords: Intel HEX records in 3 x 5 pixel text', () => {
+  const p = proceduralMaterialPresets.intelhexrecords;
+  // The glyphs of ':', '0' .. '9' and 'A' .. 'F', typed again here (3 x 5 pixels, row by row).
+  const glyphs = new Map<string, string>([
+    ['000010000010000', ':'],
+    ['111101101101111', '0'],
+    ['010110010010111', '1'],
+    ['111001111100111', '2'],
+    ['111001111001111', '3'],
+    ['101101111001001', '4'],
+    ['111100111001111', '5'],
+    ['111100111101111', '6'],
+    ['111001010010010', '7'],
+    ['111101111101111', '8'],
+    ['111101111001111', '9'],
+    ['010101111101101', 'A'],
+    ['110101110101110', 'B'],
+    ['011100100100011', 'C'],
+    ['110101101101110', 'D'],
+    ['111100110100111', 'E'],
+    ['111100110100100', 'F'],
+  ]);
+  const width = 43,
+    lines = 28;
+  // The expected field of a character of a record: 0 colon, 1 length, 2 address, 3 type, 4 data, 5 checksum (the end-of-file record has
+  // no data, so its checksum follows the type).
+  const fieldOf = (column: number, dataBytes: number): number =>
+    column === 0
+      ? 0
+      : column < 3
+        ? 1
+        : column < 7
+          ? 2
+          : column < 9
+            ? 3
+            : column < 9 + 2 * dataBytes
+              ? 4
+              : 5;
+
+  // Reads the text of the tile: for each line the characters, and whether every inked pixel has the tone of its field.
+  const readText = (seed: number): { text: string[]; fieldsRight: boolean } => {
+    const sample = createSurfaceSampler('intelhexrecords', seed),
+      out = empty(),
+      text: string[] = [];
+    let fieldsRight = true;
+    for (let line = 0; line < lines; line++) {
+      let record = '';
+      const dataBytes = line === lines - 1 ? 0 : 16;
+      for (let column = 0; column < width; column++) {
+        let bits = '';
+        for (let gy = 0; gy < 5; gy++)
+          for (let gx = 0; gx < 3; gx++) {
+            sample(
+              (column * 4 + gx + 0.5) / (width * 4),
+              (line * 6 + gy + 0.5) / (lines * 6),
+              out,
+            );
+            const inked = out.color < 0.8;
+            bits += inked ? '1' : '0';
+            if (
+              inked &&
+              Math.abs(out.color - p.fieldTones[fieldOf(column, dataBytes)]) >
+                0.04
+            )
+              fieldsRight = false;
+          }
+        const glyph = glyphs.get(bits);
+        if (glyph !== undefined) record += glyph;
+        else if (bits === '000000000000000') break;
+        else record += '?';
+      }
+      text.push(record);
+    }
+    return { text, fieldsRight };
+  };
+  const byteAt = (record: string, index: number): number =>
+    parseInt(record.slice(1 + 2 * index, 3 + 2 * index), 16);
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'writes 27 records of 16 bytes with rising addresses and valid checksums, then the end record (seed %i)',
+    (seed) => {
+      const { text, fieldsRight } = readText(seed);
+      expect(fieldsRight).toBe(true);
+      expect(text).toHaveLength(28);
+      expect(text[27]).toBe(':00000001FF');
+      const base = (byteAt(text[0], 1) << 8) | byteAt(text[0], 2);
+      expect(base % 16).toBe(0);
+      expect(base).toBeLessThanOrEqual(0xfe00);
+      for (let line = 0; line < 27; line++) {
+        const record = text[line];
+        expect(record).toMatch(/^:[0-9A-F]{42}$/);
+        expect(byteAt(record, 0)).toBe(16);
+        expect((byteAt(record, 1) << 8) | byteAt(record, 2)).toBe(
+          base + 16 * line,
+        );
+        expect(byteAt(record, 3)).toBe(0);
+        // Every byte of the record, the checksum included, adds up to 0 modulo 256.
+        let sum = 0;
+        for (let index = 0; index < 4 + 16 + 1; index++)
+          sum += byteAt(record, index);
+        expect(sum % 256).toBe(0);
+      }
+      // The data is not the same on every line.
+      expect(
+        new Set(text.slice(0, 27).map((record) => record.slice(9, 41))).size,
+      ).toBeGreaterThan(20);
+    },
+  );
+
+  it('starts at different addresses for different seeds', () => {
+    const bases = new Set<number>();
+    // Over 60 seeds: the first address never leaves room for fewer than 27 more records inside 16 bits, so the last data record ends
+    // below 0x10000 and every address reads back as base + 16 x line.
+    for (let seed = 0; seed < 60; seed++) {
+      const { text } = readText(seed),
+        base = (byteAt(text[0], 1) << 8) | byteAt(text[0], 2);
+      expect(base).toBeLessThanOrEqual(0xfe00);
+      expect((byteAt(text[26], 1) << 8) | byteAt(text[26], 2)).toBe(
+        base + 16 * 26,
+      );
+      bases.add(base);
+    }
+    expect(bases.size).toBeGreaterThanOrEqual(50);
+    // The highest first address the preset allows still leaves room for all the data records below 0x10000 (the picture alone cannot show
+    // an overflow, since each byte is printed modulo 256).
+    expect((p.maxAddress - 1) * 16 + (p.dataLines - 1) * 16).toBeLessThan(
+      0x10000,
+    );
+  });
+
+  it('softens the edge of an inked pixel next to paper, and sets height and roughness', () => {
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('intelhexrecords', seed),
+        out = empty(),
+        t = (offset: number): number =>
+          Math.min(1, Math.max(0, offset / p.edgeSoft + 0.5)),
+        blend = (offset: number): number =>
+          t(offset) * t(offset) * (3 - 2 * t(offset)),
+        pixelWidth = 1 / (width * 4),
+        pixelHeight = 1 / (lines * 6);
+      let checked = 0;
+      for (let line = 0; line < 27; line += 3)
+        for (let column = 1; column < 9; column++)
+          for (let gy = 0; gy < 5; gy++)
+            for (let gx = 0; gx < 3; gx++) {
+              const left = (column * 4 + gx) * pixelWidth,
+                top = (line * 6 + gy) * pixelHeight;
+              sample(left + pixelWidth / 2, top + pixelHeight / 2, out);
+              if (out.color > 0.8) continue;
+              const ink = p.fieldTones[fieldOf(column, 16)];
+              expect(
+                Math.abs(out.height / p.relief - p.inkHeight),
+              ).toBeLessThan(0.03);
+              expect(Math.abs(out.roughness - p.inkRoughness)).toBeLessThan(
+                0.03,
+              );
+              // The four edges of the pixel that face the empty margin of the character cell (the gap column or row, or the glyph's
+              // own empty pixels are not tested): just inside each such edge the tone mixes with paper by the smoothstep.
+              const edges: [boolean, number, number, number, number][] = [
+                [gx === 2, left + pixelWidth, top + pixelHeight / 2, -1, 0],
+                [gx === 0, left, top + pixelHeight / 2, 1, 0],
+                [gy === 0, left + pixelWidth / 2, top, 0, 1],
+                [gy === 4, left + pixelWidth / 2, top + pixelHeight, 0, -1],
+              ];
+              for (const [facesGap, x, y, dx, dy] of edges) {
+                if (!facesGap) continue;
+                for (const inside of [0.00002, 0.0001, 0.0003]) {
+                  sample(x + dx * inside, y + dy * inside, out);
+                  expect(
+                    Math.abs(
+                      out.color -
+                        (p.paperTone + (ink - p.paperTone) * blend(inside)),
+                    ),
+                  ).toBeLessThan(0.03);
+                }
+                // Beyond the edge: paper, with its height and roughness.
+                sample(x - dx * 0.0008, y - dy * 0.0008, out);
+                expect(Math.abs(out.color - p.paperTone)).toBeLessThan(0.03);
+                expect(
+                  Math.abs(out.height / p.relief - p.paperHeight),
+                ).toBeLessThan(0.03);
+                expect(Math.abs(out.roughness - p.paperRoughness)).toBeLessThan(
+                  0.03,
+                );
+                checked++;
+              }
+            }
+      expect(checked).toBeGreaterThan(100);
+    }
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('intelhexrecords', 0),
+      b = createSurfaceSampler('intelhexrecords', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

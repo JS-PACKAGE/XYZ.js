@@ -38906,6 +38906,96 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'intelhexrecords': {
+        const p = proceduralMaterialPresets.intelhexrecords,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x33201),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          lines = p.dataLines + 1,
+          width = 1 + 2 + 4 + 2 + p.bytesPerLine * 2 + 2,
+          // The text of every record, and the field each character belongs to.
+          text: number[][] = [],
+          fields: number[][] = [],
+          hex = (value: number, digits: number): number[] =>
+            Array.from(
+              { length: digits },
+              (_, i) => Math.floor(value / 16 ** (digits - 1 - i)) % 16,
+            ),
+          base = Math.floor(hash(3, 1, seed ^ 0x33202) * p.maxAddress) * 16;
+        for (let line = 0; line < lines; line++) {
+          const eof = line === p.dataLines,
+            address = eof ? 0 : base + line * 16,
+            type = eof ? 1 : 0,
+            data = eof
+              ? []
+              : Array.from({ length: p.bytesPerLine }, (_, k) =>
+                  Math.floor(hash(line, k + 1, seed ^ 0x33203) * 256),
+                ),
+            bytes = [data.length, address >> 8, address & 255, type, ...data],
+            checksum =
+              (256 - (bytes.reduce((sum, byte) => sum + byte, 0) % 256)) % 256,
+            characters: number[] = [0],
+            owner: number[] = [0];
+          // Every byte as two hex digits; the glyph index of a digit is the digit + 1 (the colon is glyph 0).
+          [...bytes, checksum].forEach((byte, index) => {
+            const field =
+              index === bytes.length
+                ? 5
+                : index === 0
+                  ? 1
+                  : index < 3
+                    ? 2
+                    : index === 3
+                      ? 3
+                      : 4;
+            for (const digit of hex(byte, 2)) {
+              characters.push(digit + 1);
+              owner.push(field);
+            }
+          });
+          text.push(characters);
+          fields.push(owner);
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            pixelX = fu * width * 4,
+            pixelY = fv * lines * 6,
+            px = Math.floor(pixelX),
+            py = Math.floor(pixelY),
+            column = Math.floor(px / 4),
+            line = Math.floor(py / 6),
+            gx = px - column * 4,
+            gy = py - line * 6,
+            glyph = text[line][column];
+          let tone: number = p.paperTone,
+            elevation: number = p.paperHeight,
+            rough: number = p.paperRoughness;
+          if (
+            glyph !== undefined &&
+            gx < 3 &&
+            gy < 5 &&
+            p.bitmaps[glyph][gy * 3 + gx] === '1'
+          ) {
+            // Inside an inked pixel: soften towards its edges.
+            const toEdge = Math.min(
+                (pixelX - px) / (width * 4),
+                (px + 1 - pixelX) / (width * 4),
+                (pixelY - py) / (lines * 6),
+                (py + 1 - pixelY) / (lines * 6),
+              ),
+              ink = cover(toEdge);
+            tone += (p.fieldTones[fields[line][column]] - tone) * ink;
+            elevation += (p.inkHeight - elevation) * ink;
+            rough += (p.inkRoughness - rough) * ink;
+          }
+          color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(elevation);
+          roughness = rough;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -66435,6 +66525,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'intelhexrecords' ||
     kind === 'equalizerbars' ||
     kind === 'worleycells' ||
     kind === 'errordiffusion' ||

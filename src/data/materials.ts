@@ -13622,6 +13622,49 @@ export const proceduralMaterialPresets = Object.freeze({
     litRoughness: 0.35,
     gapRoughness: 0.9,
   }),
+  intelhexrecords: Object.freeze({
+    dark: [16, 20, 30] as const,
+    light: [246, 242, 228] as const,
+    roughness: 0.6,
+    relief: 0.004,
+    // Intel HEX records: 27 data records ":10AAAA00" + 16 data bytes + checksum, each on a line of 3 x 5 pixel characters, followed by
+    // the end-of-file record ":00000001FF". The address AAAA of the first record is picked by the seed (a multiple of 16) and rises by 16
+    // per line; the data bytes are random; the checksum is the two's complement of the sum of every byte of the record, so that the
+    // bytes of a record add up to 0 modulo 256. The six fields (start code, length, address, type, data, checksum) have separate tones.
+    // The glyphs of the colon and 0 to 9 and A to F (in that order), 3 x 5 pixels each, row by row, 1 for ink.
+    bitmaps: Object.freeze([
+      '000010000010000',
+      '111101101101111',
+      '010110010010111',
+      '111001111100111',
+      '111001111001111',
+      '101101111001001',
+      '111100111001111',
+      '111100111101111',
+      '111001010010010',
+      '111101111101111',
+      '111101111001111',
+      '010101111101101',
+      '110101110101110',
+      '011100100100011',
+      '110101101101110',
+      '111100110100111',
+      '111100110100100',
+    ]),
+    dataLines: 27,
+    bytesPerLine: 16,
+    maxAddress: 4064,
+    edgeSoft: 0.0004,
+    grainCells: 192,
+    paperTone: 0.94,
+    // Ink tone of each field: start code, length, address, type, data, checksum.
+    fieldTones: Object.freeze([0.1, 0.24, 0.38, 0.52, 0.16, 0.66]),
+    grainTone: 0.02,
+    paperHeight: 0.1,
+    inkHeight: 0.8,
+    paperRoughness: 0.75,
+    inkRoughness: 0.45,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -20114,6 +20157,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  intelhexrecords: 1,
   equalizerbars: 1,
   worleycells: 1,
   errordiffusion: 1,

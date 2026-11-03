@@ -648,6 +648,7 @@ export type ProceduralMaterialKind =
   | 'dcbarreljackfaces'
   | 'stfiberadapterfaces'
   | 'to92packagefaces'
+  | 'intelhexrecords'
   | 'equalizerbars'
   | 'worleycells'
   | 'errordiffusion'
@@ -2017,6 +2018,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'dcbarreljackfaces',
   'stfiberadapterfaces',
   'to92packagefaces',
+  'intelhexrecords',
   'equalizerbars',
   'worleycells',
   'errordiffusion',

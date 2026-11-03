@@ -2041,6 +2041,10 @@
 
 這是作者設計的示意：色調只用亮度區分，所謂「綠／黃／紅」分區是三個灰階；高度曲線是示意，不是任何音訊資料。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`intelhexrecords`（Intel HEX記錄）使目前目錄1120→1121種，含plain的gallery為1122項。27行資料記錄「:10AAAA00」＋16個資料位元組＋檢查碼，每行用3×5像素的字元寫成，最後一行是結束記錄「:00000001FF」。第一筆的位址AAAA由seed決定（16的倍數），之後每行加16；資料位元組是隨機的；檢查碼是記錄中所有位元組總和的二補數，所以整筆記錄（含檢查碼）的位元組相加模256為0。六個欄位（起始冒號、長度、位址、類型、資料、檢查碼）各用一種墨色。字元的像素格間有一小段柔化。Metallic與mortar為0。
+
+這是作者設計的示意：只實作資料記錄（類型00）與結束記錄（類型01），沒有擴充位址等其他類型；3×5字元是我自己畫的位圖。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
