@@ -711,6 +711,7 @@ try {
     'dcbarreljackfaces',
     'stfiberadapterfaces',
     'to92packagefaces',
+    'vicsekfractal',
     'segmenttree',
     'rankchevrons',
     'windbarbs',

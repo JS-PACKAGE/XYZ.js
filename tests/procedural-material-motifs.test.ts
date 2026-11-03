@@ -36838,3 +36838,254 @@ describe('segmenttree: a pyramid of mean boxes with the boxes covering a range o
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('vicsekfractal: a grid of cells in a plus or cross Vicsek fractal', () => {
+  const p = proceduralMaterialPresets.vicsekfractal,
+    out = empty();
+  type Fractal = {
+    depth: number;
+    cross: boolean;
+    size: number;
+    sample: Sampler;
+  };
+  const near = (a: number, b: number, tolerance: number): boolean =>
+    Math.abs(a - b) < tolerance;
+
+  // For the cell (column, row) of a square of 3^depth cells: how many of its depth base 3 digit pairs are the middle one if every pair is in
+  // the pattern (plus: either digit is 1; cross: both digits are 1 or neither is), else -1. Written again here with the digits read from
+  // the finest level up and compared as a number.
+  const middles = (
+    depth: number,
+    cross: boolean,
+    column: number,
+    row: number,
+  ): number => {
+    let count = 0;
+    for (let level = 0; level < depth; level++) {
+      const dx = Math.floor(column / 3 ** level) % 3,
+        dy = Math.floor(row / 3 ** level) % 3,
+        both = dx === 1 && dy === 1,
+        allowed = cross ? both || (dx !== 1 && dy !== 1) : dx === 1 || dy === 1;
+      if (!allowed) return -1;
+      if (both) count++;
+    }
+    return count;
+  };
+  const toneOf = (depth: number, count: number): number =>
+    p.cellLight + (p.cellDark - p.cellLight) * (count / depth);
+  const cellTone = (
+    sample: Sampler,
+    size: number,
+    column: number,
+    row: number,
+  ): number => {
+    sample((column + 0.5) / size, (row + 0.5) / size, out);
+    return out.color;
+  };
+
+  const fractalOf = (seed: number): Fractal => {
+    const sample = createSurfaceSampler('vicsekfractal', seed),
+      fits: Fractal[] = [];
+    for (const depth of p.depths)
+      for (const cross of [false, true]) {
+        const size = 3 ** depth;
+        let fit = true;
+        for (let row = 0; row < size && fit; row++)
+          for (let column = 0; column < size && fit; column++) {
+            const count = middles(depth, cross, column, row),
+              tone = cellTone(sample, size, column, row);
+            fit =
+              count < 0
+                ? near(tone, p.paperTone, 0.03)
+                : near(tone, toneOf(depth, count), 0.01);
+          }
+        if (fit) fits.push({ depth, cross, size, sample });
+      }
+    expect(fits).toHaveLength(1);
+    return fits[0];
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'puts every cell in or out of the fractal and tones those in by their middle digits (seed %i)',
+    (seed) => {
+      const { depth, cross, size } = fractalOf(seed);
+      // The count of cells in the fractal: 5^depth for the plus, 5^depth for the cross (both have 5 of the 9 pairs).
+      let members = 0;
+      for (let row = 0; row < size; row++)
+        for (let column = 0; column < size; column++)
+          members += Number(middles(depth, cross, column, row) >= 0);
+      expect(members).toBe(5 ** depth);
+    },
+  );
+
+  it('uses both depths and both patterns about equally often, and every count of middle digits is on the picture', () => {
+    const kinds = new Set<string>(),
+      counts = new Set<string>();
+    let crosses = 0,
+      deep = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const { depth, cross, size, sample } = fractalOf(seed);
+      kinds.add(`${depth}${cross}`);
+      crosses += Number(cross);
+      deep += Number(depth === 4);
+      // The tones actually on the picture, read back, give every count of middle digits from 0 to depth.
+      for (let row = 0; row < size; row += 1)
+        for (let column = 0; column < size; column++) {
+          const count = middles(depth, cross, column, row);
+          if (
+            count >= 0 &&
+            Math.abs(
+              cellTone(sample, size, column, row) - toneOf(depth, count),
+            ) < 0.01
+          )
+            counts.add(`${depth}:${count}`);
+        }
+    }
+    expect([...kinds].sort()).toEqual(['3false', '3true', '4false', '4true']);
+    expect(counts.size).toBe(4 + 5);
+    expect(crosses).toBeGreaterThan(20);
+    expect(crosses).toBeLessThan(40);
+    expect(deep).toBeGreaterThan(20);
+    expect(deep).toBeLessThan(40);
+  });
+
+  it('insets each cell by inset and softens its edge over edgeSoft; interiors have no grain, gaps do', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x);
+    for (const seed of seeds) {
+      const { depth, size, cross, sample } = fractalOf(seed);
+      let member = [0, 0],
+        found = false;
+      // The first cell of the fractal with a middle count of 0, away from the border of the picture.
+      for (let row = 1; row < size - 1 && !found; row++)
+        for (let column = 1; column < size - 1 && !found; column++)
+          if (middles(depth, cross, column, row) === 0) {
+            member = [column, row];
+            found = true;
+          }
+      expect(found).toBe(true);
+      const [column, row] = member,
+        tone = toneOf(depth, 0),
+        quarter = 0.25 * p.edgeSoft,
+        probe = (u: number, v: number): number => {
+          sample(u, v, out);
+          return out.color;
+        },
+        // The four edges: [u, v, direction in u, direction in v (pointing inwards), the neighbour on that side] of the cell's inset edge.
+        edges: [number, number, number, number, number, number][] = [
+          [
+            (column + p.inset / 2) / size,
+            (row + 0.5) / size,
+            1,
+            0,
+            column - 1,
+            row,
+          ],
+          [
+            (column + 1 - p.inset / 2) / size,
+            (row + 0.5) / size,
+            -1,
+            0,
+            column + 1,
+            row,
+          ],
+          [
+            (column + 0.5) / size,
+            (row + p.inset / 2) / size,
+            0,
+            1,
+            column,
+            row - 1,
+          ],
+          [
+            (column + 0.5) / size,
+            (row + 1 - p.inset / 2) / size,
+            0,
+            -1,
+            column,
+            row + 1,
+          ],
+        ];
+      let paperSides = 0;
+      for (const [u, v, dx, dy, neighbourColumn, neighbourRow] of edges) {
+        const at = (offset: number): number =>
+          probe(u + dx * offset, v + dy * offset);
+        expect(
+          Math.abs(
+            at(quarter) -
+              (p.paperTone + (tone - p.paperTone) * smoothstep(0.75)),
+          ),
+        ).toBeLessThan(0.03);
+        expect(
+          Math.abs(
+            at(-quarter) -
+              (p.paperTone + (tone - p.paperTone) * smoothstep(0.25)),
+          ),
+        ).toBeLessThan(0.03);
+        expect(at(3 * quarter)).toBeCloseTo(tone, 6);
+        // Beyond the cell's own gap there is paper only where the neighbour is not in the fractal.
+        if (middles(depth, cross, neighbourColumn, neighbourRow) < 0) {
+          paperSides++;
+          expect(Math.abs(at(-3 * quarter) - p.paperTone)).toBeLessThan(0.03);
+        }
+      }
+      expect(paperSides).toBeGreaterThan(0);
+      // Heights and roughness: a cell's and a gap's.
+      sample((column + 0.5) / size, (row + 0.5) / size, out);
+      expect(out.height / p.relief).toBeCloseTo(p.cellHeight, 6);
+      expect(out.roughness).toBeCloseTo(p.cellRoughness, 6);
+      // Paper: the centres of cells outside the fractal (their height and roughness, and their tone varies with the grain).
+      const outside: [number, number][] = [];
+      for (let r = 0; r < size && outside.length < 60; r += 2)
+        for (let c = 0; c < size && outside.length < 60; c += 5)
+          if (middles(depth, cross, c, r) < 0)
+            outside.push([(c + 0.5) / size, (r + 0.5) / size]);
+      expect(outside.length).toBeGreaterThanOrEqual(40);
+      sample(outside[0][0], outside[0][1], out);
+      expect(out.height / p.relief).toBeCloseTo(p.paperHeight, 6);
+      expect(out.roughness).toBeCloseTo(p.paperRoughness, 6);
+      const paper = outside.map(([u, v]) => probe(u, v));
+      expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.005);
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('vicsekfractal', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('vicsekfractal', 0),
+      b = createSurfaceSampler('vicsekfractal', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 1024; i++) {
+      const t = (i + 0.37) / 1024;
+      for (const [u, v] of [
+        [t, 0.5],
+        [0.5, t],
+        [t, 0.3333],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(20);
+  });
+});

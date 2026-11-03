@@ -2081,6 +2081,10 @@
 
 這是作者設計的示意：沒有數字或文字，只有色調（亮度）；用「平均」而不是常見的「總和」，是為了讓色調落在0到1之間。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`vicsekfractal`（維切克碎形）使目前目錄1130→1131種，含plain的gallery為1132項。把正方形切成每邊3^depth格（27或81）。一格屬於碎形，當它的depth組三進位數字對（欄位的數字與列的數字，從最粗的一層起）每一組都在圖樣內：「加號」是欄或列的數字為中間（1），「叉號」是兩個數字都在中間或都不在中間。seed決定層數與圖樣。碎形內的格以「數字對中有幾組是（中間、中間）」上色，愈多愈深；格與格之間留一小段縫，紙面有細微顆粒。Metallic與mortar為0。
+
+這是作者設計的示意，只有色調（亮度）而沒有色相。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

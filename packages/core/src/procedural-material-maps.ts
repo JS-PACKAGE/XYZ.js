@@ -39866,6 +39866,69 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'vicsekfractal': {
+        const p = proceduralMaterialPresets.vicsekfractal,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x3cc01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          depth =
+            p.depths[Math.floor(hash(11, 4, seed ^ 0x3cc02) * p.depths.length)],
+          cross = hash(12, 4, seed ^ 0x3cc03) < 0.5,
+          size = 3 ** depth,
+          // For every cell: -1 when it is not in the fractal, else how many of its digit pairs are the middle one.
+          centres = new Int8Array(size * size);
+        for (let row = 0; row < size; row++)
+          for (let column = 0; column < size; column++) {
+            let x = column,
+              y = row,
+              middles = 0,
+              inside = true;
+            for (let level = 0; level < depth; level++) {
+              const dx = x % 3,
+                dy = y % 3,
+                middle = dx === 1 && dy === 1;
+              if (
+                !(cross
+                  ? middle || (dx !== 1 && dy !== 1)
+                  : dx === 1 || dy === 1)
+              ) {
+                inside = false;
+                break;
+              }
+              if (middle) middles++;
+              x = (x - dx) / 3;
+              y = (y - dy) / 3;
+            }
+            centres[row * size + column] = inside ? middles : -1;
+          }
+        return () => {
+          const fx = (u - Math.floor(u)) * size,
+            fy = (v - Math.floor(v)) * size,
+            column = Math.min(size - 1, Math.floor(fx)),
+            row = Math.min(size - 1, Math.floor(fy)),
+            middles = centres[row * size + column];
+          let ink = 0,
+            tone = p.cellLight;
+          if (middles >= 0) {
+            const edge =
+              Math.min(fx - column, column + 1 - fx, fy - row, row + 1 - fy) -
+              p.inset / 2;
+            ink = cover(edge / size);
+            tone = p.cellLight + (p.cellDark - p.cellLight) * (middles / depth);
+          }
+          color = clamp(
+            p.paperTone +
+              (tone - p.paperTone) * ink +
+              p.grainTone * (grainField(u, v) - 0.5) * (1 - ink),
+          );
+          height = clamp(p.paperHeight + (p.cellHeight - p.paperHeight) * ink);
+          roughness = clamp(
+            p.paperRoughness + (p.cellRoughness - p.paperRoughness) * ink,
+          );
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -67395,6 +67458,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'vicsekfractal' ||
     kind === 'segmenttree' ||
     kind === 'rankchevrons' ||
     kind === 'windbarbs' ||
