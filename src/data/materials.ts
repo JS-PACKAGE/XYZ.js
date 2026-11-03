@@ -13558,6 +13558,32 @@ export const proceduralMaterialPresets = Object.freeze({
     offRoughness: 0.7,
     onRoughness: 0.5,
   }),
+  worleycells: Object.freeze({
+    dark: [18, 24, 40] as const,
+    light: [244, 240, 226] as const,
+    roughness: 0.6,
+    relief: 0.004,
+    // Worley (cellular) noise: one feature point in each cell of an n x n grid that wraps round the tile, at a random place within
+    // jitter x the cell around the cell middle. F1 and F2 are the distances to the nearest and the second nearest point (found among
+    // the 5 x 5 cells around, since the second nearest can be two cells away; distances wrapping) in one of three metrics. The colour is one of four functions of them, and the height
+    // is a dome around each point, 1 at the point (so that the points can be read back from the height). The seed picks all of these.
+    sizes: Object.freeze([6, 8, 10]),
+    jitters: Object.freeze([0.5, 0.7, 0.9]),
+    // 0 Euclidean, 1 Manhattan, 2 Chebyshev.
+    metrics: 3,
+    // The colour: 0 F1, 1 F2, 2 F2 - F1, 3 F1 / F2; the first three divided by reach cells.
+    modes: 4,
+    reach: 1.1,
+    domeReach: 0.8,
+    lowTone: 0.1,
+    highTone: 0.94,
+    grainCells: 192,
+    grainTone: 0.025,
+    lowHeight: 0.1,
+    highHeight: 1,
+    domeRoughness: 0.45,
+    flatRoughness: 0.8,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -20050,6 +20076,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  worleycells: 1,
   errordiffusion: 1,
   tetrominoes: 1,
   candlestickcharts: 1,

@@ -2033,6 +2033,10 @@
 
 這是作者設計的示意：六種核的權重是我憑記憶寫的，沒有查閱任何文獻確認，所以不宣稱與標準演算法逐字相同，只保證「同一份權重在取樣器與測試端的獨立實作一致」；誤差不傳回前面的格子，所以並非嚴格的環面誤差擴散。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`worleycells`（Worley細胞噪聲）使目前目錄1118→1119種，含plain的gallery為1120項。n×n個格子（n為6、8或10）每格一個特徵點，落在格子中央附近jitter×格寬（0.5、0.7或0.9）的範圍內，格子環繞tile邊界；F1與F2是到最近與第二近特徵點的距離（在周圍5×5個格子中找，距離環繞），可用三種距離（歐氏、曼哈頓、切比雪夫）之一。顏色是F1、F2、F2−F1、F1／F2四種函數之一的灰階（前三者以1.1個格寬為單位），高度是每個特徵點周圍的圓丘（0.8個格寬內由1降到0，點上為1，所以可從高度讀回特徵點）。格數、jitter、距離與函數都由seed決定。Metallic與mortar為0。
+
+這是作者設計的示意：不是Perlin／simplex噪聲，也不宣稱與任何標準Worley實作逐位相同；搜尋範圍從3×3擴大到5×5是因為第一版測試發現第二近的點可能在兩格以外；jitter上限0.9是為了避免兩個特徵點靠得太近、測試端無法從高度分辨。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

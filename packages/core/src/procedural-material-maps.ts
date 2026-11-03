@@ -38751,6 +38751,83 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'worleycells': {
+        const p = proceduralMaterialPresets.worleycells,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x33001),
+          size =
+            p.sizes[Math.floor(hash(3, 1, seed ^ 0x33002) * p.sizes.length)],
+          jitter =
+            p.jitters[
+              Math.floor(hash(5, 2, seed ^ 0x33003) * p.jitters.length)
+            ],
+          metric = Math.floor(hash(7, 3, seed ^ 0x33004) * p.metrics),
+          mode = Math.floor(hash(9, 4, seed ^ 0x33005) * p.modes),
+          cell = 1 / size,
+          // The feature point of every cell, in uv.
+          pointX = new Float64Array(size * size),
+          pointY = new Float64Array(size * size);
+        for (let row = 0; row < size; row++)
+          for (let column = 0; column < size; column++) {
+            pointX[row * size + column] =
+              (column +
+                0.5 +
+                (hash(column, row, seed ^ 0x33006) - 0.5) * jitter) *
+              cell;
+            pointY[row * size + column] =
+              (row + 0.5 + (hash(column, row, seed ^ 0x33007) - 0.5) * jitter) *
+              cell;
+          }
+        const distance = (dx: number, dy: number): number =>
+          metric === 0
+            ? Math.hypot(dx, dy)
+            : metric === 1
+              ? Math.abs(dx) + Math.abs(dy)
+              : Math.max(Math.abs(dx), Math.abs(dy));
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            column = Math.floor(fu * size),
+            row = Math.floor(fv * size);
+          let first = Infinity,
+            second = Infinity;
+          for (let dy = -2; dy <= 2; dy++)
+            for (let dx = -2; dx <= 2; dx++) {
+              const wrappedColumn = (column + dx + size) % size,
+                wrappedRow = (row + dy + size) % size,
+                // The point as seen from this tile or its neighbour, whichever the cell lies in.
+                px =
+                  pointX[wrappedRow * size + wrappedColumn] +
+                  (column + dx - wrappedColumn) * cell,
+                py =
+                  pointY[wrappedRow * size + wrappedColumn] +
+                  (row + dy - wrappedRow) * cell,
+                d = distance(fu - px, fv - py);
+              if (d < first) {
+                second = first;
+                first = d;
+              } else if (d < second) second = d;
+            }
+          const unit = p.reach * cell,
+            value =
+              mode === 0
+                ? first / unit
+                : mode === 1
+                  ? second / unit
+                  : mode === 2
+                    ? (second - first) / unit
+                    : first / second,
+            dome = clamp(1 - first / (p.domeReach * cell));
+          color = clamp(
+            p.lowTone +
+              (p.highTone - p.lowTone) * clamp(value) +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = p.lowHeight + (p.highHeight - p.lowHeight) * dome;
+          roughness =
+            p.flatRoughness + (p.domeRoughness - p.flatRoughness) * dome;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -66280,6 +66357,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'worleycells' ||
     kind === 'errordiffusion' ||
     kind === 'tetrominoes' ||
     kind === 'candlestickcharts' ||

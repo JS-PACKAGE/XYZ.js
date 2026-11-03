@@ -32824,3 +32824,316 @@ describe('errordiffusion: error-diffusion dithering of a periodic picture', () =
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('worleycells: Worley noise on a jittered grid', () => {
+  const p = proceduralMaterialPresets.worleycells;
+  type Point = [number, number];
+  const toneAt = (value: number): number =>
+    p.lowTone + (p.highTone - p.lowTone) * Math.min(1, Math.max(0, value));
+
+  // The feature points, read back from the height: the local maxima of a 512 x 512 raster, each refined on a fine grid around it.
+  const pointsOf = (seed: number): Point[] => {
+    const sample = createSurfaceSampler('worleycells', seed),
+      out = empty(),
+      n = 512,
+      heights = new Float64Array(n * n),
+      peakAt = (x: number, y: number): number => {
+        sample(x, y, out);
+        return out.height / p.relief;
+      };
+    for (let y = 0; y < n; y++)
+      for (let x = 0; x < n; x++)
+        heights[y * n + x] = peakAt((x + 0.5) / n, (y + 0.5) / n);
+    const points: Point[] = [];
+    for (let y = 0; y < n; y++)
+      for (let x = 0; x < n; x++) {
+        const here = heights[y * n + x];
+        if (here < p.lowHeight + (p.highHeight - p.lowHeight) * 0.5) continue;
+        let isMaximum = true;
+        for (let dy = -1; dy <= 1 && isMaximum; dy++)
+          for (let dx = -1; dx <= 1; dx++) {
+            if (dx === 0 && dy === 0) continue;
+            const other = heights[((y + dy + n) % n) * n + ((x + dx + n) % n)];
+            // Ties (the same height next to it) keep only the first in scan order.
+            if (
+              other > here ||
+              (other === here && (dy < 0 || (dy === 0 && dx < 0)))
+            )
+              isMaximum = false;
+          }
+        if (!isMaximum) continue;
+        let best: Point = [(x + 0.5) / n, (y + 0.5) / n],
+          bestHeight = here;
+        for (let dy = -20; dy <= 20; dy++)
+          for (let dx = -20; dx <= 20; dx++) {
+            const px = (x + 0.5) / n + dx * 0.0004,
+              py = (y + 0.5) / n + dy * 0.0004,
+              value = peakAt(px, py);
+            if (value > bestHeight) {
+              bestHeight = value;
+              best = [px, py];
+            }
+          }
+        points.push([((best[0] % 1) + 1) % 1, ((best[1] % 1) + 1) % 1]);
+      }
+    return points;
+  };
+  // The distance in a metric (0 Euclidean, 1 Manhattan, 2 Chebyshev) with the tile wrapping round, and F1 and F2 at a place.
+  const distance = (metric: number, dx: number, dy: number): number =>
+    metric === 0
+      ? Math.hypot(dx, dy)
+      : metric === 1
+        ? Math.abs(dx) + Math.abs(dy)
+        : Math.max(Math.abs(dx), Math.abs(dy));
+  const nearest = (
+    points: Point[],
+    metric: number,
+    x: number,
+    y: number,
+  ): [number, number] => {
+    let first = Infinity,
+      second = Infinity;
+    for (const [px, py] of points)
+      for (const sx of [-1, 0, 1])
+        for (const sy of [-1, 0, 1]) {
+          const d = distance(metric, x - px - sx, y - py - sy);
+          if (d < first) {
+            second = first;
+            first = d;
+          } else if (d < second) second = d;
+        }
+    return [first, second];
+  };
+  const probes = Array.from({ length: 300 }, (_, i): Point => [
+    ((i * 0.6180339887) % 1) * 0.98 + 0.01,
+    ((i * 0.7548776662) % 1) * 0.98 + 0.01,
+  ]);
+  const valueOf = (
+    mode: number,
+    f1: number,
+    f2: number,
+    size: number,
+  ): number => {
+    const unit = p.reach / size;
+    return mode === 0
+      ? f1 / unit
+      : mode === 1
+        ? f2 / unit
+        : mode === 2
+          ? (f2 - f1) / unit
+          : f1 / f2;
+  };
+
+  type Reading = {
+    size: number;
+    jitter: number;
+    metric: number;
+    mode: number;
+    points: Point[];
+  };
+  const readings = new Map<number, Reading>();
+  const readingOf = (seed: number): Reading => {
+    let reading = readings.get(seed);
+    if (reading) return reading;
+    const points = pointsOf(seed),
+      size = Math.round(Math.sqrt(points.length)),
+      sample = createSurfaceSampler('worleycells', seed),
+      out = empty();
+    expect(p.sizes).toContain(size);
+    expect(points).toHaveLength(size * size);
+    // One point in every cell, and the jitter is the smallest one that holds every point within its cell middle.
+    const cells = new Set(
+      points.map(([x, y]) => `${Math.floor(x * size)},${Math.floor(y * size)}`),
+    );
+    expect(cells.size).toBe(size * size);
+    const spread =
+        Math.max(
+          ...points.flatMap(([x, y]) => [
+            Math.abs(((x * size) % 1) - 0.5),
+            Math.abs(((y * size) % 1) - 0.5),
+          ]),
+        ) * 2,
+      jitter = p.jitters.find((value) => spread <= value + 0.004) as number;
+    // The metric and the shading whose F1 and F2, from the points read back, give the colour everywhere.
+    const fits: { metric: number; mode: number }[] = [];
+    for (let metric = 0; metric < p.metrics; metric++) {
+      const found = probes.map(([x, y]) => nearest(points, metric, x, y));
+      for (let mode = 0; mode < p.modes; mode++)
+        if (
+          probes.every(([x, y], i) => {
+            sample(x, y, out);
+            return (
+              Math.abs(
+                out.color -
+                  toneAt(valueOf(mode, found[i][0], found[i][1], size)),
+              ) < 0.04
+            );
+          })
+        )
+          fits.push({ metric, mode });
+    }
+    expect(fits).toHaveLength(1);
+    reading = {
+      size,
+      jitter,
+      metric: fits[0].metric,
+      mode: fits[0].mode,
+      points,
+    };
+    readings.set(seed, reading);
+    return reading;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'puts one feature point in each cell and shades by F1 and F2 of one metric (seed %i)',
+    { timeout: 60000 },
+    (seed) => {
+      const { size, jitter, points } = readingOf(seed);
+      expect(points).toHaveLength(size * size);
+      expect(p.jitters).toContain(jitter);
+    },
+  );
+
+  it(
+    'uses every grid, jitter, metric and shading across seeds',
+    { timeout: 120000 },
+    () => {
+      const sizes = new Set<number>(),
+        jitters = new Set<number>(),
+        metrics = new Set<number>(),
+        modes = new Set<number>();
+      for (let seed = 0; seed < 30; seed++) {
+        const reading = readingOf(seed);
+        sizes.add(reading.size);
+        jitters.add(reading.jitter);
+        metrics.add(reading.metric);
+        modes.add(reading.mode);
+      }
+      expect([...sizes].sort((a, b) => a - b)).toEqual([...p.sizes]);
+      expect([...jitters].sort((a, b) => a - b)).toEqual([...p.jitters]);
+      expect(metrics.size).toBe(p.metrics);
+      expect(modes.size).toBe(p.modes);
+    },
+  );
+
+  it(
+    'finds the second nearest point even when it is two cells away',
+    { timeout: 120000 },
+    () => {
+      // Places where the second nearest point is not in the 3 x 3 cells around: found by brute force on a 96 x 96 grid of places, in the
+      // metric and shading of each seed, and checked against the sampler there.
+      let found = 0;
+      for (let seed = 0; seed < 30; seed++) {
+        const { size, metric, mode, points } = readingOf(seed),
+          sample = createSurfaceSampler('worleycells', seed),
+          out = empty(),
+          cellOf = ([px, py]: Point): [number, number] => [
+            Math.floor(px * size),
+            Math.floor(py * size),
+          ],
+          inBlock = (point: Point, column: number, row: number): boolean => {
+            const [pc, pr] = cellOf(point),
+              dx = Math.abs(pc - column),
+              dy = Math.abs(pr - row);
+            return Math.min(dx, size - dx) <= 1 && Math.min(dy, size - dy) <= 1;
+          },
+          blocks = new Map<string, { near: Point[]; outside: Point[] }>();
+        for (let j = 0; j < 96; j++)
+          for (let i = 0; i < 96; i++) {
+            const x = (i + 0.5) / 96,
+              y = (j + 0.5) / 96,
+              column = Math.floor(x * size),
+              row = Math.floor(y * size),
+              key = `${column},${row}`;
+            let block = blocks.get(key);
+            if (!block)
+              blocks.set(
+                key,
+                (block = {
+                  near: points.filter((point) => inBlock(point, column, row)),
+                  outside: points.filter(
+                    (point) => !inBlock(point, column, row),
+                  ),
+                }),
+              );
+            const [, nearSecond] = nearest(block.near, metric, x, y),
+              [outsideFirst] = nearest(block.outside, metric, x, y);
+            // A point outside the block is the second nearest (or nearer) here.
+            if (outsideFirst > nearSecond - 0.01) continue;
+            const [f1, second] = nearest(points, metric, x, y);
+            sample(x, y, out);
+            expect(
+              Math.abs(out.color - toneAt(valueOf(mode, f1, second, size))),
+            ).toBeLessThan(0.04);
+            found++;
+          }
+      }
+      expect(found).toBeGreaterThan(0);
+    },
+  );
+
+  it(
+    'gives a dome of height and roughness around each point',
+    { timeout: 60000 },
+    () => {
+      for (const seed of seeds) {
+        const { size, metric, points } = readingOf(seed),
+          sample = createSurfaceSampler('worleycells', seed),
+          out = empty();
+        for (const [x, y] of points) {
+          sample(x, y, out);
+          expect(out.height / p.relief).toBeGreaterThan(p.highHeight - 0.03);
+        }
+        for (const [x, y] of probes) {
+          const [f1] = nearest(points, metric, x, y),
+            dome = Math.min(1, Math.max(0, 1 - f1 / (p.domeReach / size))),
+            expected = p.lowHeight + (p.highHeight - p.lowHeight) * dome;
+          sample(x, y, out);
+          expect(Math.abs(out.height / p.relief - expected)).toBeLessThan(0.03);
+          expect(
+            Math.abs(
+              out.roughness -
+                (p.flatRoughness + (p.domeRoughness - p.flatRoughness) * dome),
+            ),
+          ).toBeLessThan(0.03);
+        }
+      }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('worleycells', 0),
+      b = createSurfaceSampler('worleycells', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
