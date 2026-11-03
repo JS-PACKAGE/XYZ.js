@@ -43543,6 +43543,70 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'wythoffnim': {
+        const p = proceduralMaterialPresets.wythoffnim,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft,
+          shiftX = Math.floor(hash(0, 28, seed ^ p.seedSalt) * p.cells),
+          shiftY = Math.floor(hash(1, 28, seed ^ p.seedSalt) * p.cells),
+          // Wythoff's game: two piles of x and y counters, a move takes any number from one pile or
+          // the same number from both, and whoever takes the last counter wins. The Grundy value
+          // (nim-value) G(x, y) of a position is the smallest whole number that none of the
+          // positions one move away has: G(0, 0) = 0 and G(x, y) = mex of G(x - k, y), G(x, y - k)
+          // and G(x - k, y - k). The cell in row y and column x holds G(x, y); its tone is G, but
+          // at most 7, over 7. The cells with G = 0 are the positions
+          // the player to move loses. The seed moves the table around the torus.
+          grundy = new Int32Array(p.cells * p.cells),
+          tones = new Float64Array(p.cells * p.cells);
+        for (let y = 0; y < p.cells; y++)
+          for (let x = 0; x < p.cells; x++) {
+            const reachable = new Set<number>();
+            for (let k = 0; k < x; k++) reachable.add(grundy[y * p.cells + k]);
+            for (let k = 0; k < y; k++) reachable.add(grundy[k * p.cells + x]);
+            for (let k = 1; k <= Math.min(x, y); k++)
+              reachable.add(grundy[(y - k) * p.cells + (x - k)]);
+            let value = 0;
+            while (reachable.has(value)) value++;
+            grundy[y * p.cells + x] = value;
+            tones[y * p.cells + x] = (p.toneSpan * Math.min(value, 7)) / 7;
+          }
+        return () => {
+          // One compact-support rounded-square kernel per cell (a quartic superellipse
+          // through smoothstep, exactly zero before the cell boundary), so the cell
+          // lookup never jumps and the field is C1.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            ax = (x - col - 0.5) * inverseHalf,
+            ay = (y - row - 0.5) * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            tone =
+              tones[
+                ((row + shiftY) % p.cells) * p.cells +
+                  ((col + shiftX) % p.cells)
+              ],
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -52396,6 +52460,7 @@ export function createSurfaceSampler(
     kind === 'moirefringes' ||
     kind === 'diamondsquare' ||
     kind === 'golombruns' ||
+    kind === 'wythoffnim' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||

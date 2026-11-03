@@ -13138,3 +13138,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Golomb runs as|golombruns|kinds|catalog|distinct|periodic"`定向測試**2406項通過／4109項未選**。
 - 未驗證：golombruns未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-03 新增材質：威佐夫取子遊戲（wythoffnim）
+
+- 範圍：新增`wythoffnim`（目前目錄1050→1051種，含plain的gallery 1052項）：64×64圓角方磚表放威佐夫（Wythoff）取子遊戲的Grundy值（mex規則），色調為`min(G, 7) / 7`；`G = 0`（必輸局面）最暗，暗色的小值排成兩條向外張開的線；冰藍色到深紫色；seed讓表在環面上平移；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 180,224 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽看了兩版：第一版色調取`G`對5的餘數，看起來是沒有結構的雜點，改成`min(G, 7)`後兩條線的結構才出現；(2)這次動手前先用`/tmp/absent.sh`同時檢查kind清單與README，並把檢查當成前置條件（`&& node …`），沒有重複既有概念（`nim`在清單中只出現在`denim`）；(3)測試是**另一份獨立寫的程式**用同一個定義（mex規則）計算Grundy值，並用不同的建構（`⌊kφ⌋`公式）交叉檢查`G = 0`的49個格子，這是威佐夫定理在這張64×64表上的驗證，**不**證明對所有大小的表成立；(4)256²與512²取樣的亮處占比與最小色值、AO不同，原因是格寬（4與8像素）與取樣點在格內位置不同，測試採用256²的數值；(5)建構與取樣耗時**未量測**；(6)測試第一次執行即通過（探針數值先量好才寫界線）。
+- 實測（工具實跑）：`G`最大值95；`G = 0`的格子49個，與`⌊kφ⌋`公式在4,096格上全部吻合；0到6的值的格子數49／51／49／49／49／49／47、7以上3,753；四個seed（0／1／0xffffffff／7）各有唯一符合的平移(14, 42)、(30, 26)、(29, 14)、(40, 45)，最大擬合誤差0.014990–0.014999；256²（seed 0／1／0xffffffff）亮處（color>0.5）恆為71.37%、color 0.06113–0.06133至0.85423–0.85451、平均0.67902–0.67912、roughness恆為0.4、AO最低0.7344、height至多0.8485–0.8496 relief；512²（四個seed）亮處恆為65.05%、color 0.02512–0.02523至0.85459–0.85488、平均0.58354–0.58367、AO最低0.6、height至多0.8501–0.8509 relief；seed 0與1相比，格中心顏色相差超過0.05的格子15.5%（512²中color>0.5的取樣6.6%不同）；seed 7的512²maps平均r／g／b約(97.5, 144.2, 163.8)、法線tilt²最大約0.0399、z分量最小253。我實看了預覽（seed 7，`min(G, 7)`版本）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Wythoff nim as|wythoffnim|kinds|catalog|distinct|periodic"`定向測試**2408項通過／4112項未選**。
+- 未驗證：golombruns與wythoffnim未跑完整suite與瀏覽器gallery；不push。

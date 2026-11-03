@@ -1115,6 +1115,7 @@ try {
     'moirefringes',
     'diamondsquare',
     'golombruns',
+    'wythoffnim',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',
