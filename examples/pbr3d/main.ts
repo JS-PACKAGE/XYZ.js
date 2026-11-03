@@ -1122,6 +1122,7 @@ try {
     'josephus',
     'schelling',
     'gabrielgraph',
+    'euclideanmst',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

@@ -13223,3 +13223,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Gabriel graph as|gabrielgraph|kinds|catalog|distinct|periodic"`定向測試**2425項通過／4130項未選**。
 - 未驗證：josephus、schelling與gabrielgraph未跑完整suite與瀏覽器gallery（最近一次完整複驗至骨牌鋪磚）；不push。
+
+## 2026-11-03 新增材質：歐氏最小生成樹（euclideanmst）
+
+- 範圍：新增`euclideanmst`（目前目錄1058→1059種，含plain的gallery 1060項）：環面上Poisson-disk點集（最小間距0.085，約90點）的歐氏最小生成樹（Kruskal演算法，沿環面最短向量、距離不超過0.25的點對）；節點較亮、邊較細，琥珀色樹狀網路；seed決定點集；節點與邊以`1 − Π(1 − t²)`取聯集，所以場為C1；預設0.5 m nominal tile、0.0008 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽只看了一版；(2)動手前以`/tmp/absent.sh`確認`euclideanmst`在kind清單與README都不存在（`mst`字樣在kind清單有2處、README有3處，我另外查過內容與最小生成樹無關，未逐項列出）；(3)**測試判準走了三版**：第一版在讀回的中心上用Prim演算法直接比對，三個seed各有一對誤判（一條應在樹中的邊與一條不該在的邊互換），因為Poisson-disk的鄰近距離集中在0.085–0.115，許多邊長度相差小於讀回的中心誤差；第二版改用圈性質，但我寫錯了「其他路徑」的計算——最短路徑可以經過這條邊自己，導致約一半的配對被誤歸為曖昧，實際上只有12–22條明確樹邊；第三版對每一對重新計算「不經過這條直接連線」的最大步最小路徑（bottleneck Dijkstra），才得到明確樹邊73–78條、誤判0的結果；(4)測試**不**證明所有配對（包含差距在0.003內的）一致，也不證明連通（但在讀回的中心上以Prim算出的樹邊數恰為點數−1）；(5)「最小生成樹是Gabriel圖的子圖」是標準的幾何圖論結論，我沒有在此另外驗證；(6)256²與512²取樣的亮處占比不同，原因是取樣點的位置與解析度不同，測試採用256²的數值範圍；(7)建構與取樣耗時**未量測**；(8)測試在第三版判準確定後第一次執行即通過（先以探針量好界線）。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：讀回的節點93／87／86／92個、每點156–174像素（512²網格）；以圈性質、門檻0.003判定：明確在樹中的配對75／78／73／76對、五點皆亮（誤判0）；明確不在樹中的配對（已排除鏈狀配對）539／493／452／526對、沒有五點全亮者（誤判0）；被排除的鏈狀配對162／122／140／152對；不判定的配對33／16／26／31對；Prim演算法在讀回的中心上算出的樹邊數92／86／85／91、最長邊0.1138／0.1148／0.1095／0.1102；256²（seed 0／1／0xffffffff）亮處（color>0.5）13.17%–14.08%、color 0.02553–0.02572至0.84778–0.85061、平均0.12817–0.13472、roughness恆為0.4、AO最低0.6、height至多0.8412–0.8444 relief；512²（四個seed）亮處13.10%–14.04%、color 0.02511–0.02522至0.85174–0.85329、平均0.12812–0.13471、AO最低0.6、height至多0.8451–0.8497 relief；seed 0與1相比，512²中color>0.5的取樣23.7%不同；seed 7的512²maps平均r／g／b約(54.9, 37.2, 23.0)、法線tilt²最大約0.0157、z分量最小254。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Euclidean MST as|euclideanmst|kinds|catalog|distinct|periodic"`定向測試**2427項通過／4133項未選**。
+- 未驗證：josephus、schelling、gabrielgraph與euclideanmst未跑完整suite與瀏覽器gallery（最近一次完整複驗至骨牌鋪磚）；不push。
