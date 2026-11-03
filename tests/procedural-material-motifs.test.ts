@@ -32119,3 +32119,241 @@ describe('paleygraphmatrix: the adjacency matrix of a Paley graph', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('candlestickcharts: closed candlestick series in stacked panels', () => {
+  const p = proceduralMaterialPresets.candlestickcharts;
+  type Candle = { open: number; close: number; low: number; high: number };
+  const panelHeight = 1 / p.panels,
+    step = 0.0005,
+    // The classes of tone along a column: 0 paper, 1 rising body, 2 falling body, 3 wick; -1 for none of them (an edge).
+    classes = [p.paperTone, p.upTone, p.downTone, p.wickTone],
+    classOf = (tone: number): number =>
+      classes.findIndex((value) => Math.abs(tone - value) < 0.07);
+
+  // Reads the candle in the middle of slot i of a panel from a column of samples, as positions up the panel; null when the column is
+  // not a wick through a body of one colour.
+  const readCandle = (
+    sample: Sampler,
+    count: number,
+    panel: number,
+    slot: number,
+  ): Candle | null => {
+    const out = empty(),
+      x = (slot + 0.5) / count,
+      n = Math.floor(panelHeight / step),
+      column = Array.from({ length: n }, (_, j) => {
+        sample(x, panel * panelHeight + (j + 0.5) * step, out);
+        return classOf(out.color);
+      }),
+      inked = column.flatMap((value, j) => (value >= 1 ? [j] : []));
+    // The body colour is the commoner of the two (the soft edges of the wick give a stray sample of either); the body is the longest
+    // run of that colour, allowing gaps of up to 3 unclassified samples.
+    const rising =
+        column.filter((value) => value === 1).length >
+        column.filter((value) => value === 2).length,
+      colour = rising ? 1 : 2,
+      runs: number[][] = [];
+    column.forEach((value, j) => {
+      if (value !== colour) return;
+      const last = runs[runs.length - 1];
+      if (last && j - last[last.length - 1] <= 4) last.push(j);
+      else runs.push([j]);
+    });
+    const body = runs.reduce<number[]>(
+      (best, run) => (run.length > best.length ? run : best),
+      [],
+    );
+    if (inked.length === 0 || body.length < 8) return null;
+    const bodyFirst = body[0],
+      bodyLast = body[body.length - 1];
+    // The wick shows above and below the body.
+    if (inked[0] > bodyFirst - 3 || inked[inked.length - 1] < bodyLast + 3)
+      return null;
+    // Positions up the panel of the top edge of sample j (the picture's y runs down).
+    const up = (j: number): number => 1 - (j * step) / panelHeight,
+      top = up(bodyFirst),
+      bottom = up(bodyLast + 1);
+    return {
+      open: rising ? bottom : top,
+      close: rising ? top : bottom,
+      high: up(inked[0]),
+      low: up(inked[inked.length - 1] + 1),
+    };
+  };
+  const chartsOf = (seed: number): { count: number; panels: Candle[][] }[] => {
+    const found: { count: number; panels: Candle[][] }[] = [];
+    const sample = createSurfaceSampler('candlestickcharts', seed);
+    for (const count of p.slots) {
+      const panels: Candle[][] = [];
+      for (let panel = 0; panel < p.panels; panel++) {
+        const candles: Candle[] = [];
+        for (let slot = 0; slot < count; slot++) {
+          const candle = readCandle(sample, count, panel, slot);
+          if (!candle) break;
+          candles.push(candle);
+        }
+        if (candles.length < count) break;
+        panels.push(candles);
+      }
+      if (panels.length === p.panels) found.push({ count, panels });
+    }
+    return found;
+  };
+  const chartOf = (seed: number): { count: number; panels: Candle[][] } => {
+    // Only the true number of candles reads as closed series of candles at every slot.
+    const found = chartsOf(seed);
+    expect(found).toHaveLength(1);
+    return found[0];
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws closed walks of candles with matching rises and falls (seed %i)',
+    (seed) => {
+      const { count, panels } = chartOf(seed),
+        tolerance = 0.006;
+      for (const candles of panels) {
+        expect(candles).toHaveLength(count);
+        // The open of every candle is the close of the one before, round the whole series.
+        candles.forEach((candle, i) => {
+          expect(
+            Math.abs(candle.open - candles[(i + count - 1) % count].close),
+          ).toBeLessThan(tolerance);
+          expect(candle.high).toBeGreaterThan(
+            Math.max(candle.open, candle.close),
+          );
+          expect(candle.low).toBeLessThan(Math.min(candle.open, candle.close));
+          // The wicks are between minWick and maxWick long.
+          expect(
+            candle.high - Math.max(candle.open, candle.close),
+          ).toBeGreaterThan(p.minWick - tolerance);
+          expect(
+            candle.high - Math.max(candle.open, candle.close),
+          ).toBeLessThan(p.maxWick + tolerance);
+          expect(
+            Math.min(candle.open, candle.close) - candle.low,
+          ).toBeGreaterThan(p.minWick - tolerance);
+          expect(Math.min(candle.open, candle.close) - candle.low).toBeLessThan(
+            p.maxWick + tolerance,
+          );
+        });
+        // The closes span exactly from low to high.
+        const closes = candles.map((candle) => candle.close);
+        expect(Math.abs(Math.min(...closes) - p.low)).toBeLessThan(tolerance);
+        expect(Math.abs(Math.max(...closes) - p.high)).toBeLessThan(tolerance);
+        // Half the candles rise and half fall, by the same amounts.
+        const rises = candles
+            .filter((candle) => candle.close > candle.open)
+            .map((candle) => candle.close - candle.open),
+          falls = candles
+            .filter((candle) => candle.close < candle.open)
+            .map((candle) => candle.open - candle.close);
+        expect(rises).toHaveLength(count / 2);
+        expect(falls).toHaveLength(count / 2);
+        rises.sort((a, b) => a - b);
+        falls.sort((a, b) => a - b);
+        rises.forEach((rise, i) =>
+          expect(Math.abs(rise - falls[i])).toBeLessThan(2 * tolerance),
+        );
+      }
+    },
+  );
+
+  it('uses every number of candles across seeds', () => {
+    const counts = new Set<number>();
+    for (let seed = 0; seed < 40; seed++) counts.add(chartOf(seed).count);
+    expect([...counts].sort((a, b) => a - b)).toEqual([...p.slots]);
+  });
+
+  it('draws bodies of 0.6 of the slot and wicks of half width 0.0014, with their tones, heights and roughnesses', () => {
+    for (const seed of seeds) {
+      const { count, panels } = chartOf(seed),
+        sample = createSurfaceSampler('candlestickcharts', seed),
+        out = empty(),
+        bodyHalf = p.bodyShare / (2 * count);
+      let checked = 0;
+      for (let panel = 0; panel < p.panels; panel++)
+        for (let slot = 0; slot < count; slot += 3) {
+          const { open, close, high } = panels[panel][slot],
+            x = (slot + 0.5) / count,
+            at = (position: number): number =>
+              (panel + 1 - position) * panelHeight,
+            rose = close > open,
+            middle = at((open + close) / 2);
+          // The middle of the body: the tone, height and roughness of a rising or falling body.
+          sample(x + bodyHalf - 0.003, middle, out);
+          expect(
+            Math.abs(out.color - (rose ? p.upTone : p.downTone)),
+          ).toBeLessThan(0.03);
+          expect(
+            Math.abs(
+              out.height / p.relief - (rose ? p.upHeight : p.downHeight),
+            ),
+          ).toBeLessThan(0.03);
+          expect(Math.abs(out.roughness - p.bodyRoughness)).toBeLessThan(0.03);
+          sample(x - bodyHalf + 0.003, middle, out);
+          expect(
+            Math.abs(out.color - (rose ? p.upTone : p.downTone)),
+          ).toBeLessThan(0.03);
+          // Just outside the body sideways: paper.
+          sample(x + bodyHalf + 0.003, middle, out);
+          expect(Math.abs(out.color - p.paperTone)).toBeLessThan(0.03);
+          sample(x - bodyHalf - 0.003, middle, out);
+          expect(Math.abs(out.color - p.paperTone)).toBeLessThan(0.03);
+          // The wick, a little above the top of the body (0.003 above the body, 0.003 below the top of the wick).
+          const aboveBody = at(
+            Math.max(open, close) + (high - Math.max(open, close)) / 2,
+          );
+          for (const offset of [0, 0.0008, -0.0008]) {
+            sample(x + offset, aboveBody, out);
+            expect(Math.abs(out.color - p.wickTone)).toBeLessThan(0.05);
+          }
+          expect(Math.abs(out.height / p.relief - p.wickHeight)).toBeLessThan(
+            0.05,
+          );
+          expect(Math.abs(out.roughness - p.wickRoughness)).toBeLessThan(0.03);
+          sample(x + 0.0024, aboveBody, out);
+          expect(Math.abs(out.color - p.paperTone)).toBeLessThan(0.03);
+          sample(x - 0.0024, aboveBody, out);
+          expect(Math.abs(out.color - p.paperTone)).toBeLessThan(0.03);
+          checked++;
+        }
+      expect(checked).toBeGreaterThan(p.panels * 5);
+    }
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('candlestickcharts', 0),
+      b = createSurfaceSampler('candlestickcharts', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

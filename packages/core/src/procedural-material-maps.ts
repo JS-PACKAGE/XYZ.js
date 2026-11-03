@@ -38465,6 +38465,97 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'candlestickcharts': {
+        const p = proceduralMaterialPresets.candlestickcharts,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x32701),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          slots =
+            p.slots[Math.floor(hash(3, 1, seed ^ 0x32702) * p.slots.length)],
+          panelHeight = 1 / p.panels,
+          // Per panel and candle (panel * slots + candle): open, close, low and high as positions 0..1 up the panel.
+          opens = new Float64Array(p.panels * slots),
+          closes = new Float64Array(p.panels * slots),
+          lows = new Float64Array(p.panels * slots),
+          highs = new Float64Array(p.panels * slots);
+        for (let panel = 0; panel < p.panels; panel++) {
+          const half = slots / 2,
+            steps = Array.from({ length: slots }, (_, j) => {
+              const magnitude =
+                p.minStep +
+                (p.maxStep - p.minStep) * hash(j % half, panel, seed ^ 0x32703);
+              return j < half ? magnitude : -magnitude;
+            }),
+            order = Array.from({ length: slots }, (_, j) => j).sort(
+              (a, b) =>
+                hash(a, panel, seed ^ 0x32704) - hash(b, panel, seed ^ 0x32704),
+            ),
+            walk = new Float64Array(slots);
+          let level = 0,
+            lowest = 0,
+            highest = 0;
+          for (let i = 0; i < slots; i++) {
+            level += steps[order[i]];
+            walk[i] = level;
+            lowest = Math.min(lowest, level);
+            highest = Math.max(highest, level);
+          }
+          // Stretch or shrink the walk so that it spans exactly [low, high].
+          const fit = (p.high - p.low) / (highest - lowest),
+            place = (price: number): number => p.low + (price - lowest) * fit;
+          for (let i = 0; i < slots; i++) {
+            const k = panel * slots + i,
+              open = place(i === 0 ? walk[slots - 1] : walk[i - 1]),
+              close = place(walk[i]);
+            opens[k] = open;
+            closes[k] = close;
+            highs[k] =
+              Math.max(open, close) +
+              p.minWick +
+              (p.maxWick - p.minWick) * hash(i, panel, seed ^ 0x32705);
+            lows[k] =
+              Math.min(open, close) -
+              p.minWick -
+              (p.maxWick - p.minWick) * hash(i, panel, seed ^ 0x32706);
+          }
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            panel = Math.floor(fv * p.panels),
+            candle = Math.floor(fu * slots),
+            k = panel * slots + candle,
+            // Across the candle from its middle, and up the panel, both in uv.
+            across = Math.abs((fu * slots - candle - 0.5) / slots),
+            up = (1 - (fv * p.panels - panel)) * panelHeight,
+            bottom = Math.min(opens[k], closes[k]) * panelHeight,
+            top = Math.max(opens[k], closes[k]) * panelHeight,
+            body = cover(
+              Math.min(p.bodyShare / 2 / slots - across, up - bottom, top - up),
+            ),
+            wick = cover(
+              Math.min(
+                p.wickHalf - across,
+                up - lows[k] * panelHeight,
+                highs[k] * panelHeight - up,
+              ),
+            ),
+            rose = closes[k] > opens[k],
+            bodyTone = rose ? p.upTone : p.downTone;
+          let tone = p.paperTone + (p.wickTone - p.paperTone) * wick,
+            elevation = p.paperHeight + (p.wickHeight - p.paperHeight) * wick,
+            rough =
+              p.paperRoughness + (p.wickRoughness - p.paperRoughness) * wick;
+          tone += (bodyTone - tone) * body;
+          elevation += ((rose ? p.upHeight : p.downHeight) - elevation) * body;
+          rough += (p.bodyRoughness - rough) * body;
+          color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(elevation);
+          roughness = rough;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -65994,6 +66085,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'candlestickcharts' ||
     kind === 'paleygraphmatrix' ||
     kind === 'superformulacells' ||
     kind === 'tsquarefractal' ||
