@@ -40673,6 +40673,115 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'ecdfplot': {
+        const p = proceduralMaterialPresets.ecdfplot,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x47b01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          n =
+            p.counts[
+              Math.floor(hash(29, 17, seed ^ 0x47b02) * p.counts.length)
+            ],
+          // The points are spread evenly over span units and each moved by up to jitter units, which keeps at least minStep between neighbours.
+          spacing = p.span / (n - 1),
+          jitter = Math.floor((spacing - p.minStep - 1) / 2),
+          // x of the data points (sorted), as parts of the width.
+          xs = new Float64Array(n + 2),
+          plotHeight = p.bottom - p.top,
+          level = (k: number): number => p.bottom - (k / n) * plotHeight;
+        for (let i = 1; i <= n; i++) {
+          const moved =
+            Math.floor(hash(i, 29, seed ^ 0x47b03) * (2 * jitter + 1)) - jitter;
+          xs[i] =
+            (p.firstAt + Math.round((i - 1) * spacing) + moved + 0.5) /
+            p.positions;
+        }
+        // Sentinels for the segments before the first point and after the last one.
+        xs[0] = 0;
+        xs[n + 1] = 1;
+        // The paint state of the point being sampled, shared so that nothing is allocated for each point.
+        let shade = 0,
+          elevation = 0,
+          rough = 0,
+          mask = 0;
+        const paint = (amount: number, tone: number, height2: number): void => {
+          shade += (tone - shade) * amount;
+          elevation += (height2 - elevation) * amount;
+          rough += (p.inkRoughness - rough) * amount;
+          mask = Math.max(mask, amount);
+        };
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          // How many data points are at or left of this x: the curve is at that level here.
+          let m = 0;
+          while (m < n && xs[m + 1] <= fu) m++;
+          shade = p.paperTone;
+          elevation = p.paperHeight;
+          rough = p.paperRoughness;
+          mask = 0;
+          for (let g = 0; g < p.guides.length; g++)
+            paint(
+              cover(
+                p.guideHalf -
+                  Math.abs(fv - (p.bottom - p.guides[g] * plotHeight)),
+              ),
+              p.guideTone,
+              p.guideHeight,
+            );
+          // The rug: a tick at every data point.
+          if (fv >= p.rugTop - p.edgeSoft && fv <= p.rugBottom + p.edgeSoft)
+            for (let i = Math.max(1, m); i <= Math.min(n, m + 1); i++)
+              paint(
+                Math.min(
+                  cover(p.tickHalf - Math.abs(fu - xs[i])),
+                  cover(Math.min(fv - p.rugTop, p.rugBottom - fv)),
+                ),
+                p.tickTone,
+                p.tickHeight,
+              );
+          // The curve: the horizontal piece at this level, and the vertical jumps on either side of it.
+          let distance = Math.abs(fv - level(m));
+          for (let k = Math.max(1, m); k <= Math.min(n, m + 1); k++)
+            distance = Math.min(
+              distance,
+              Math.hypot(
+                fu - xs[k],
+                Math.max(level(k) - fv, 0, fv - level(k - 1)),
+              ),
+            );
+          paint(cover(p.lineHalf - distance), p.inkTone, p.inkHeight);
+          // The dots at the jumps: closed at the new level and open at the old one.
+          for (let k = Math.max(1, m); k <= Math.min(n, m + 1); k++) {
+            const dx = fu - xs[k];
+            paint(
+              cover(p.dotRadius - Math.hypot(dx, fv - level(k - 1))),
+              p.paperTone,
+              p.paperHeight,
+            );
+            paint(
+              cover(
+                p.ringHalf -
+                  Math.abs(Math.hypot(dx, fv - level(k - 1)) - p.dotRadius),
+              ),
+              p.inkTone,
+              p.inkHeight,
+            );
+            paint(
+              cover(p.dotRadius - Math.hypot(dx, fv - level(k))),
+              p.inkTone,
+              p.inkHeight,
+            );
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -68202,6 +68311,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'ecdfplot' ||
     kind === 'intervalpartition' ||
     kind === 'waterfallchart' ||
     kind === 'chorddiagrams' ||

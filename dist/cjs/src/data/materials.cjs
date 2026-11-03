@@ -23240,6 +23240,57 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .8,
 		inkRoughness: .4
 	}),
+	ecdfplot: Object.freeze({
+		dark: [
+			20,
+			26,
+			40
+		],
+		light: [
+			240,
+			236,
+			224
+		],
+		roughness: .55,
+		relief: .004,
+		counts: Object.freeze([
+			8,
+			12,
+			16,
+			20
+		]),
+		positions: 256,
+		firstAt: 14,
+		span: 226,
+		minStep: 4,
+		top: .08,
+		bottom: .84,
+		rugTop: .88,
+		rugBottom: .96,
+		tickHalf: .0012,
+		lineHalf: .0016,
+		dotRadius: .006,
+		ringHalf: .0012,
+		guideHalf: 8e-4,
+		guides: Object.freeze([
+			.25,
+			.5,
+			.75
+		]),
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .93,
+		guideTone: .82,
+		tickTone: .3,
+		inkTone: .14,
+		grainTone: .03,
+		paperHeight: .2,
+		guideHeight: .28,
+		tickHeight: .6,
+		inkHeight: .85,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -31921,6 +31972,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	ecdfplot: 1,
 	intervalpartition: 1,
 	waterfallchart: 1,
 	chorddiagrams: 1,

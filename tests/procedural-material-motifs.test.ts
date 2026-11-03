@@ -40005,3 +40005,323 @@ describe('intervalpartition: intervals packed into lanes by the greedy rule, wit
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('ecdfplot: an empirical cumulative distribution step plot with a rug and quartile guides', () => {
+  const p = proceduralMaterialPresets.ecdfplot,
+    out = empty(),
+    plotHeight = p.bottom - p.top;
+  type Plot = { n: number; sample: Sampler; points: number[]; xs: number[] };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const xOf = (position: number): number => (position + 0.5) / p.positions;
+  const levelOf = (n: number, k: number): number =>
+    p.bottom - (k / n) * plotHeight;
+  const rugMiddle = (p.rugTop + p.rugBottom) / 2;
+
+  const plotOf = (seed: number): Plot => {
+    const sample = createSurfaceSampler('ecdfplot', seed),
+      steps = p.positions * 4,
+      points: number[] = [];
+    // The ticks of the rug: runs of the tick tone along its middle.
+    let first = -1;
+    for (let i = 0; i <= steps; i++) {
+      const on =
+        i < steps && toneAt(sample, (i + 0.5) / steps, rugMiddle) < 0.6;
+      if (on && first < 0) first = i;
+      if (!on && first >= 0) {
+        const centre = ((first + i) / 2 / steps) * p.positions - 0.5;
+        points.push(Math.round(centre));
+        expect(Math.abs(centre - Math.round(centre))).toBeLessThan(0.3);
+        first = -1;
+      }
+    }
+    expect(p.counts).toContain(points.length);
+    return { n: points.length, sample, points, xs: points.map(xOf) };
+  };
+
+  // The data points are spread evenly over span units from firstAt, each moved by up to jitter units.
+  const jitterOf = (n: number): number =>
+    Math.floor((p.span / (n - 1) - p.minStep - 1) / 2);
+  const deviations = (n: number, points: number[]): number[] =>
+    points.map(
+      (point, i) => point - (p.firstAt + Math.round((i * p.span) / (n - 1))),
+    );
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'has a rug of data points, one for every step of the curve, each near its even place and at least minStep from the next (seed %i)',
+    (seed) => {
+      const { n, points } = plotOf(seed),
+        jitter = jitterOf(n);
+      for (const d of deviations(n, points))
+        expect(Math.abs(d)).toBeLessThanOrEqual(jitter);
+      expect(points[n - 1]).toBeLessThan(p.positions);
+      for (let i = 1; i < n; i++)
+        expect(points[i] - points[i - 1]).toBeGreaterThanOrEqual(p.minStep);
+    },
+  );
+
+  it('uses all four counts across 60 seeds, and every move of a point from -jitter to +jitter across 200', () => {
+    const counts = new Set<number>();
+    for (let seed = 0; seed < 60; seed++) counts.add(plotOf(seed).n);
+    expect([...counts].sort((a, b) => a - b)).toEqual([...p.counts]);
+    const seen = new Map<number, Set<number>>(
+      p.counts.map((n) => [n, new Set<number>()]),
+    );
+    for (let seed = 0; seed < 200; seed++) {
+      const { n, points } = plotOf(seed);
+      for (const d of deviations(n, points)) seen.get(n)?.add(d);
+    }
+    for (const [n, moves] of seen) {
+      const jitter = jitterOf(n);
+      expect([...moves].sort((a, b) => a - b)).toEqual(
+        Array.from({ length: 2 * jitter + 1 }, (_, k) => k - jitter),
+      );
+    }
+  });
+
+  it('draws the step curve: a horizontal piece at each level between its jumps and a vertical jump of 1 / n at every data point', () => {
+    for (const seed of seeds) {
+      const { n, sample, xs } = plotOf(seed);
+      for (let k = 0; k <= n; k++) {
+        // The piece at level k runs from data point k to data point k + 1 (from the left edge to the first, and from the last to the right edge).
+        const left = k === 0 ? 0 : xs[k - 1],
+          right = k === n ? 1 : xs[k],
+          u =
+            k === 0 ? right / 2 : k === n ? (left + 1) / 2 : (left + right) / 2,
+          y = levelOf(n, k);
+        expect(toneAt(sample, u, y)).toBeCloseTo(p.inkTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.inkHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        for (const side of [-1, 1])
+          expect(toneAt(sample, u, y + side * 0.008)).toBeGreaterThan(0.7);
+      }
+      for (let k = 1; k <= n; k++) {
+        const x = xs[k - 1],
+          middle = (levelOf(n, k - 1) + levelOf(n, k)) / 2;
+        expect(toneAt(sample, x, middle)).toBeCloseTo(p.inkTone, 6);
+        for (const side of [-1, 1])
+          expect(toneAt(sample, x + side * 0.004, middle)).toBeGreaterThan(0.7);
+      }
+    }
+  });
+
+  it('puts a closed dot where the curve reaches its new level and an open ring where it left the old one', () => {
+    for (const seed of seeds) {
+      const { n, sample, xs } = plotOf(seed);
+      for (let k = 1; k <= n; k++) {
+        const x = xs[k - 1];
+        // The closed dot: filled, with its radius.
+        expect(toneAt(sample, x, levelOf(n, k))).toBeCloseTo(p.inkTone, 6);
+        expect(
+          toneAt(sample, x, levelOf(n, k) - p.dotRadius + 0.0015),
+        ).toBeCloseTo(p.inkTone, 6);
+        expect(
+          toneAt(sample, x, levelOf(n, k) - p.dotRadius - 0.004),
+        ).toBeGreaterThan(0.7);
+        // The open ring: paper inside (even though the jump's line ends there), ink on its circle.
+        const old = levelOf(n, k - 1);
+        expect(toneAt(sample, x, old)).toBeCloseTo(p.paperTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.paperHeight, 6);
+        expect(toneAt(sample, x + p.dotRadius / 2, old)).toBeCloseTo(
+          p.paperTone,
+          6,
+        );
+        expect(toneAt(sample, x + p.dotRadius, old)).toBeCloseTo(p.inkTone, 6);
+        expect(toneAt(sample, x, old + p.dotRadius)).toBeCloseTo(p.inkTone, 6);
+      }
+    }
+  });
+
+  it('draws the rug ticks and the quartile guides with their tones, heights and roughness', () => {
+    for (const seed of seeds) {
+      const { n, sample, xs } = plotOf(seed);
+      for (const x of xs) {
+        expect(toneAt(sample, x, rugMiddle)).toBeCloseTo(p.tickTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.tickHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        // It starts at rugTop and stops at rugBottom, and is thin.
+        expect(toneAt(sample, x, p.rugTop + 0.004)).toBeCloseTo(p.tickTone, 6);
+        expect(toneAt(sample, x, p.rugTop - 0.005)).toBeGreaterThan(0.7);
+        expect(toneAt(sample, x, p.rugBottom - 0.004)).toBeCloseTo(
+          p.tickTone,
+          6,
+        );
+        expect(toneAt(sample, x, p.rugBottom + 0.005)).toBeGreaterThan(0.7);
+        expect(
+          toneAt(sample, x + p.tickHalf + 0.002, rugMiddle),
+        ).toBeGreaterThan(0.7);
+      }
+      // The guides at the quartiles, in the empty parts left of the first point and right of the last one.
+      for (const guide of p.guides) {
+        const y = p.bottom - guide * plotHeight;
+        expect(toneAt(sample, 0.004, y)).toBeCloseTo(p.guideTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.guideHeight, 6);
+        expect(toneAt(sample, 0.996, y)).toBeCloseTo(p.guideTone, 6);
+        expect(
+          Math.abs(
+            toneAt(sample, 0.004, y + p.guideHalf + p.edgeSoft) - p.paperTone,
+          ),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      // Nothing above the top level or below the rug.
+      expect(
+        Math.abs(toneAt(sample, 0.5, p.top - 0.03) - p.paperTone),
+      ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      expect(n).toBeGreaterThan(0);
+    }
+  });
+
+  it('softens the edge of the curve, of a jump, of a dot and of a tick over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft;
+    for (const seed of seeds) {
+      const { n, sample, xs } = plotOf(seed),
+        mix = (tone: number, amount: number): number =>
+          p.paperTone + (tone - p.paperTone) * smoothstep(amount),
+        // Two neighbouring levels k and k + 1 neither of which is on a guide (the guides are at levels n / 4, n / 2 and 3 n / 4).
+        k = Array.from({ length: n - 1 }, (_, i) => i + 1).find((level) =>
+          [level, level + 1].every((l) =>
+            p.guides.every(
+              (guide) =>
+                Math.abs(p.bottom - guide * plotHeight - levelOf(n, l)) > 0.01,
+            ),
+          ),
+        ) as number,
+        // The piece at level k between data points k and k + 1.
+        u = (xs[k - 1] + xs[k]) / 2,
+        y = levelOf(n, k);
+      expect(k).toBeDefined();
+      expect(
+        Math.abs(
+          toneAt(sample, u, y + p.lineHalf - quarter) - mix(p.inkTone, 0.75),
+        ),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(
+          toneAt(sample, u, y + p.lineHalf + quarter) - mix(p.inkTone, 0.25),
+        ),
+      ).toBeLessThan(0.03);
+      // A jump, in the middle of its height.
+      const x = xs[k],
+        middle = (levelOf(n, k) + levelOf(n, k + 1)) / 2;
+      expect(
+        Math.abs(
+          toneAt(sample, x + p.lineHalf - quarter, middle) -
+            mix(p.inkTone, 0.75),
+        ),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(
+          toneAt(sample, x + p.lineHalf + quarter, middle) -
+            mix(p.inkTone, 0.25),
+        ),
+      ).toBeLessThan(0.03);
+      // The top edge of a closed dot, straight above its centre.
+      const top = levelOf(n, k + 1) - p.dotRadius;
+      expect(
+        Math.abs(toneAt(sample, x, top + quarter) - mix(p.inkTone, 0.75)),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(toneAt(sample, x, top - quarter) - mix(p.inkTone, 0.25)),
+      ).toBeLessThan(0.03);
+      // A tick's side.
+      expect(
+        Math.abs(
+          toneAt(sample, xs[k] + p.tickHalf - quarter, rugMiddle) -
+            mix(p.tickTone, 0.75),
+        ),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(
+          toneAt(sample, xs[k] + p.tickHalf + quarter, rugMiddle) -
+            mix(p.tickTone, 0.25),
+        ),
+      ).toBeLessThan(0.03);
+      // A tick's ends (the top and the bottom edge, in the middle of its width).
+      for (const [edge, side] of [
+        [p.rugTop, 1],
+        [p.rugBottom, -1],
+      ] as const) {
+        expect(
+          Math.abs(
+            toneAt(sample, xs[k], edge + side * quarter) -
+              mix(p.tickTone, 0.75),
+          ),
+        ).toBeLessThan(0.03);
+        expect(
+          Math.abs(
+            toneAt(sample, xs[k], edge - side * quarter) -
+              mix(p.tickTone, 0.25),
+          ),
+        ).toBeLessThan(0.03);
+      }
+      // The ring of an open circle, to the right of its centre (no line is there): its half width round the radius.
+      const old = levelOf(n, k);
+      for (const [offset, amount] of [
+        [p.ringHalf - quarter, 0.75],
+        [p.ringHalf + quarter, 0.25],
+      ] as const) {
+        expect(
+          Math.abs(
+            toneAt(sample, x + p.dotRadius + offset, old) -
+              mix(p.inkTone, amount),
+          ),
+        ).toBeLessThan(0.03);
+        expect(
+          Math.abs(
+            toneAt(sample, x + p.dotRadius - offset, old) -
+              mix(p.inkTone, amount),
+          ),
+        ).toBeLessThan(0.03);
+      }
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('ecdfplot', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const { sample } = plotOf(0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0191, 0.02),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('ecdfplot', 0),
+      b = createSurfaceSampler('ecdfplot', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
