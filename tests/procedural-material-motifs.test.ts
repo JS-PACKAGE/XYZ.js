@@ -49551,3 +49551,472 @@ describe('bfswavefront: a breadth first search spreading from a start cell throu
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('knapsacktable: two 0/1 knapsack problems as the table of dynamic programming', () => {
+  const p = proceduralMaterialPresets.knapsacktable,
+    out = empty(),
+    columns = p.capacity + 1;
+  type Problem = {
+    weights: number[];
+    values: number[];
+    table: number[][];
+    taken: boolean[][];
+  };
+  type Problems = { sample: Sampler; problems: Problem[] };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const near = (tone: number, wanted: number): boolean =>
+    Math.abs(tone - wanted) < 0.01;
+  const originY = (instance: number): number =>
+    p.top + instance * p.instancePitch;
+  const centreY = (instance: number, row: number): number =>
+    originY(instance) + (row + 0.5) * p.rowPitch;
+  const floorY = (instance: number, row: number): number =>
+    centreY(instance, row) + p.cellHalfHeight - p.cellBarFloor;
+  const centreX = (column: number): number => p.tableLeft + column * p.colPitch;
+
+  // The height of a run of a bar's tone standing from a floor, in units (0 when there is no bar).
+  const barLength = (
+    sample: Sampler,
+    x: number,
+    floor: number,
+    tone: number,
+    unit: number,
+  ): number => {
+    if (!near(toneAt(sample, x, floor - 0.0003), tone)) return 0;
+    let y = floor - 0.0003;
+    while (near(toneAt(sample, x, y), tone)) y -= 0.0002;
+    return Math.round((floor - y - 0.0001) / unit);
+  };
+
+  // Read the picture: for each problem the items (weight squares, value bar) and the table (bar in every cell, and whether its cell is the darker one).
+  const problemsOf = (seed: number): Problems => {
+    const sample = createSurfaceSampler('knapsacktable', seed),
+      problems: Problem[] = [];
+    for (let instance = 0; instance < p.instances; instance++) {
+      const weights: number[] = [],
+        values: number[] = [],
+        table: number[][] = [],
+        taken: boolean[][] = [];
+      for (
+        let row = 0;
+        Math.abs(
+          toneAt(sample, centreX(0) - 0.02, centreY(instance, row) - 0.02) -
+            p.paperTone,
+        ) > 0.02;
+        row++
+      ) {
+        let weight = 0;
+        while (
+          near(
+            toneAt(
+              sample,
+              p.squareLeft + weight * p.squarePitch,
+              centreY(instance, row),
+            ),
+            p.squareTone,
+          )
+        )
+          weight++;
+        weights.push(weight);
+        values.push(
+          barLength(
+            sample,
+            p.itemBarX,
+            floorY(instance, row),
+            p.itemBarTone,
+            p.itemUnit,
+          ),
+        );
+        const cells: number[] = [],
+          flags: boolean[] = [];
+        for (let column = 0; column < columns; column++) {
+          const tone = toneAt(
+            sample,
+            centreX(column) - 0.02,
+            centreY(instance, row) - 0.02,
+          );
+          expect(near(tone, p.cellTone) || near(tone, p.takenTone)).toBe(true);
+          flags.push(near(tone, p.takenTone));
+          cells.push(
+            barLength(
+              sample,
+              centreX(column),
+              floorY(instance, row),
+              p.barTone,
+              p.cellUnit,
+            ),
+          );
+        }
+        table.push(cells);
+        taken.push(flags);
+      }
+      expect(p.itemCounts).toContain(weights.length);
+      problems.push({ weights, values, table, taken });
+    }
+    return { sample, problems };
+  };
+
+  // The most value of the items down to row i within capacity c, by recursion on leaving or taking the item (the sampler fills a table instead).
+  const best = (
+    weights: number[],
+    values: number[],
+    i: number,
+    c: number,
+  ): number =>
+    i < 0
+      ? 0
+      : Math.max(
+          best(weights, values, i - 1, c),
+          weights[i] <= c
+            ? values[i] + best(weights, values, i - 1, c - weights[i])
+            : 0,
+        );
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'puts in every cell the most value the items down to its row can carry in its capacity, darker where its item is taken (seed %i)',
+    (seed) => {
+      for (const { weights, values, table, taken } of problemsOf(seed)
+        .problems) {
+        weights.forEach((weight, i) => {
+          expect(weight).toBeGreaterThanOrEqual(1);
+          expect(weight).toBeLessThanOrEqual(p.maxWeight);
+          expect(values[i]).toBeGreaterThanOrEqual(1);
+          expect(values[i]).toBeLessThanOrEqual(p.maxValue);
+          for (let c = 0; c < columns; c++) {
+            expect(table[i][c]).toBe(best(weights, values, i, c));
+            // A cell is darker when its row's item is part of the best choice: the value is more than the row above has.
+            expect(taken[i][c]).toBe(
+              table[i][c] > (i > 0 ? table[i - 1][c] : 0),
+            );
+          }
+        });
+        // The answer (the last cell) is also the best of all the subsets of the items that fit.
+        let answer = 0;
+        for (let subset = 0; subset < 2 ** weights.length; subset++) {
+          let weight = 0,
+            value = 0;
+          weights.forEach((w, i) => {
+            if (subset & (1 << i)) {
+              weight += w;
+              value += values[i];
+            }
+          });
+          if (weight <= p.capacity) answer = Math.max(answer, value);
+        }
+        expect(table[weights.length - 1][p.capacity]).toBe(answer);
+      }
+    },
+  );
+
+  it('uses every number of items and weight and value, with cells that are taken and cells that are not, over 60 seeds', () => {
+    const counts = new Set<number>(),
+      weightsSeen = new Set<number>(),
+      valuesSeen = new Set<number>();
+    let taken = 0,
+      cells = 0,
+      zeros = 0;
+    for (let seed = 0; seed < 60; seed++)
+      for (const problem of problemsOf(seed * 23 + 6).problems) {
+        counts.add(problem.weights.length);
+        problem.weights.forEach((weight) => weightsSeen.add(weight));
+        problem.values.forEach((value) => valuesSeen.add(value));
+        for (const row of problem.taken)
+          for (const flag of row) {
+            taken += Number(flag);
+            cells++;
+          }
+        for (const row of problem.table)
+          for (const value of row) zeros += Number(value === 0);
+      }
+    expect([...counts].sort((a, b) => a - b)).toEqual([...p.itemCounts]);
+    expect([...weightsSeen].sort((a, b) => a - b)).toEqual(
+      Array.from({ length: p.maxWeight }, (_, i) => i + 1),
+    );
+    expect([...valuesSeen].sort((a, b) => a - b)).toEqual(
+      Array.from({ length: p.maxValue }, (_, i) => i + 1),
+    );
+    expect(taken / cells).toBeGreaterThan(0.3);
+    expect(taken / cells).toBeLessThan(0.8);
+    expect(zeros / cells).toBeGreaterThan(0.02);
+  });
+
+  it('draws the squares, the bars, the cells and the frame with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, problems } = problemsOf(seed),
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      problems.forEach(({ weights, values, table, taken }, instance) => {
+        weights.forEach((weight, row) => {
+          const cy = centreY(instance, row),
+            floor = floorY(instance, row);
+          // The weight squares: tone, height, roughness, size, and paper after the last one and in the gaps.
+          for (let k = 0; k < weight; k++) {
+            const x = p.squareLeft + k * p.squarePitch;
+            expect(toneAt(sample, x, cy)).toBeCloseTo(p.squareTone, 6);
+            expect(out.height / p.relief).toBeCloseTo(p.squareHeight, 6);
+            expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+            expect(
+              toneAt(
+                sample,
+                x + p.squareHalf - 0.0015,
+                cy - p.squareHalf + 0.0015,
+              ),
+            ).toBeCloseTo(p.squareTone, 6);
+            expect(
+              toneAt(
+                sample,
+                x - p.squareHalf + 0.0015,
+                cy + p.squareHalf - 0.0015,
+              ),
+            ).toBeCloseTo(p.squareTone, 6);
+            expect(paperOk(x - p.squareHalf - 0.0015, cy)).toBe(true);
+            expect(paperOk(x + p.squareHalf + 0.0015, cy)).toBe(true);
+            expect(paperOk(x, cy + p.squareHalf + 0.0015)).toBe(true);
+            expect(paperOk(x, cy - p.squareHalf - 0.0015)).toBe(true);
+          }
+          expect(paperOk(p.squareLeft + weight * p.squarePitch, cy)).toBe(true);
+          // The item's value bar: tone, height, roughness, width and top.
+          const top = floor - values[row] * p.itemUnit;
+          expect(toneAt(sample, p.itemBarX, floor - 0.003)).toBeCloseTo(
+            p.itemBarTone,
+            6,
+          );
+          expect(out.height / p.relief).toBeCloseTo(p.itemBarHeight, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          expect(
+            toneAt(sample, p.itemBarX + p.itemBarHalf - 0.0015, floor - 0.003),
+          ).toBeCloseTo(p.itemBarTone, 6);
+          expect(
+            paperOk(p.itemBarX + p.itemBarHalf + 0.0015, floor - 0.003),
+          ).toBe(true);
+          expect(toneAt(sample, p.itemBarX, top + 0.0015)).toBeCloseTo(
+            p.itemBarTone,
+            6,
+          );
+          expect(paperOk(p.itemBarX, top - 0.0015)).toBe(true);
+          expect(paperOk(p.itemBarX, floor + 0.0015)).toBe(true);
+          // The cells.
+          for (let column = 0; column < columns; column++) {
+            const cx = centreX(column),
+              isTaken = taken[row][column],
+              tone = isTaken ? p.takenTone : p.cellTone,
+              last = row === weights.length - 1 && column === columns - 1;
+            expect(toneAt(sample, cx - 0.02, cy - 0.02)).toBeCloseTo(tone, 6);
+            expect(out.height / p.relief).toBeCloseTo(
+              isTaken ? p.takenHeight : p.cellHeight,
+              6,
+            );
+            expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+            expect(
+              toneAt(
+                sample,
+                cx + p.cellHalfWidth - 0.0015,
+                cy + p.cellHalfHeight - 0.0015 - 0.0,
+              ),
+            ).toBeCloseTo(tone, 6);
+            expect(
+              toneAt(
+                sample,
+                cx - p.cellHalfWidth + 0.0015,
+                cy - p.cellHalfHeight + 0.0015,
+              ),
+            ).toBeCloseTo(tone, 6);
+            if (!last) {
+              expect(paperOk(cx + p.cellHalfWidth + 0.0015, cy - 0.02)).toBe(
+                true,
+              );
+              expect(paperOk(cx - 0.02, cy + p.cellHalfHeight + 0.0015)).toBe(
+                true,
+              );
+              expect(paperOk(cx - 0.02, cy - p.cellHalfHeight - 0.0015)).toBe(
+                true,
+              );
+            }
+            // The bar of the best value: tone, height, roughness, width, top and (for none) nothing.
+            const value = table[row][column];
+            if (value > 0) {
+              const barTop = floor - value * p.cellUnit;
+              expect(toneAt(sample, cx, floor - 0.0006)).toBeCloseTo(
+                p.barTone,
+                6,
+              );
+              expect(out.height / p.relief).toBeCloseTo(p.barHeight, 6);
+              expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+              expect(
+                toneAt(sample, cx + p.cellBarHalf - 0.0015, floor - 0.0006),
+              ).toBeCloseTo(p.barTone, 6);
+              expect(
+                toneAt(sample, cx + p.cellBarHalf + 0.0015, floor - 0.0006),
+              ).toBeCloseTo(tone, 6);
+              expect(toneAt(sample, cx, barTop + 0.0004)).toBeCloseTo(
+                p.barTone,
+                6,
+              );
+              expect(toneAt(sample, cx, barTop - 0.0008)).toBeCloseTo(tone, 6);
+            } else
+              expect(toneAt(sample, cx, floor - 0.0006)).toBeCloseTo(tone, 6);
+            expect(toneAt(sample, cx, floor + 0.001)).toBeCloseTo(tone, 6);
+          }
+        });
+        // The frame round the answer only: its tone, height, roughness, thickness and the gap inside it.
+        const lastRow = weights.length - 1,
+          fx = centreX(columns - 1),
+          fy = centreY(instance, lastRow),
+          outerX = p.cellHalfWidth + p.frameGap,
+          outerY = p.cellHalfHeight + p.frameGap;
+        expect(toneAt(sample, fx + outerX, fy)).toBeCloseTo(p.frameTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.frameHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(toneAt(sample, fx, fy + outerY)).toBeCloseTo(p.frameTone, 6);
+        expect(
+          toneAt(sample, fx + outerX + p.frameHalf - 0.0004, fy),
+        ).toBeCloseTo(p.frameTone, 6);
+        expect(paperOk(fx + outerX + p.frameHalf + 0.0008, fy)).toBe(true);
+        expect(paperOk(fx + outerX - p.frameHalf - 0.0008, fy)).toBe(true);
+        expect(paperOk(fx, fy + outerY + p.frameHalf + 0.0008)).toBe(true);
+        // None of the other cells has one.
+        expect(
+          paperOk(centreX(columns - 2) + outerX, centreY(instance, lastRow)),
+        ).toBe(true);
+        expect(paperOk(fx + outerX, centreY(instance, 0))).toBe(true);
+      });
+      // Nothing between the two problems or below the second.
+      expect(paperOk(0.5, originY(1) - 0.04)).toBe(true);
+    }
+  });
+
+  it('softens the edge of a cell, a bar, a weight square and the frame over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      const { problems } = problemsOf(seed),
+        sample = createSurfaceSampler('knapsacktable', seed),
+        { weights, values, table, taken } = problems[0],
+        cy = centreY(0, 0),
+        cx = centreX(0),
+        tone = taken[0][0] ? p.takenTone : p.cellTone;
+      // The first cell's left side and top, over the paper.
+      close(
+        toneAt(sample, cx - p.cellHalfWidth + quarter, cy - 0.02),
+        mix(p.paperTone, tone, 0.75),
+      );
+      close(
+        toneAt(sample, cx - p.cellHalfWidth - quarter, cy - 0.02),
+        mix(p.paperTone, tone, 0.25),
+      );
+      close(
+        toneAt(sample, cx - 0.02, cy - p.cellHalfHeight + quarter),
+        mix(p.paperTone, tone, 0.75),
+      );
+      close(
+        toneAt(sample, cx - 0.02, cy - p.cellHalfHeight - quarter),
+        mix(p.paperTone, tone, 0.25),
+      );
+      // The first weight square's right side, over the paper, and the item bar's top.
+      const squareX = p.squareLeft;
+      close(
+        toneAt(sample, squareX + p.squareHalf - quarter, cy),
+        mix(p.paperTone, p.squareTone, 0.75),
+      );
+      close(
+        toneAt(sample, squareX + p.squareHalf + quarter, cy),
+        mix(p.paperTone, p.squareTone, 0.25),
+      );
+      const itemTop = floorY(0, 0) - values[0] * p.itemUnit;
+      close(
+        toneAt(sample, p.itemBarX, itemTop + quarter),
+        mix(p.paperTone, p.itemBarTone, 0.75),
+      );
+      close(
+        toneAt(sample, p.itemBarX, itemTop - quarter),
+        mix(p.paperTone, p.itemBarTone, 0.25),
+      );
+      // The tallest bar of the table's first row, over its cell, and the answer's frame, over the paper (outer and inner sides).
+      const column = table[0].indexOf(Math.max(...table[0])),
+        barTone = taken[0][column] ? p.takenTone : p.cellTone,
+        barTop = floorY(0, 0) - table[0][column] * p.cellUnit;
+      close(
+        toneAt(sample, centreX(column), barTop + quarter),
+        mix(barTone, p.barTone, 0.75),
+      );
+      close(
+        toneAt(sample, centreX(column), barTop - quarter),
+        mix(barTone, p.barTone, 0.25),
+      );
+      const lastRow = weights.length - 1,
+        fx = centreX(columns - 1),
+        fy = centreY(0, lastRow),
+        outerX = p.cellHalfWidth + p.frameGap;
+      close(
+        toneAt(sample, fx + outerX + p.frameHalf - quarter, fy),
+        mix(p.paperTone, p.frameTone, 0.75),
+      );
+      close(
+        toneAt(sample, fx + outerX + p.frameHalf + quarter, fy),
+        mix(p.paperTone, p.frameTone, 0.25),
+      );
+      close(
+        toneAt(sample, fx + outerX - p.frameHalf + quarter, fy),
+        mix(p.paperTone, p.frameTone, 0.75),
+      );
+      close(
+        toneAt(sample, fx + outerX - p.frameHalf - quarter, fy),
+        mix(p.paperTone, p.frameTone, 0.25),
+      );
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('knapsacktable', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('knapsacktable', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.97),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('knapsacktable', 0),
+      b = createSurfaceSampler('knapsacktable', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.0901],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

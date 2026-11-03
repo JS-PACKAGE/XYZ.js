@@ -43698,6 +43698,165 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'knapsacktable': {
+        const p = proceduralMaterialPresets.knapsacktable,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x50001),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          columns = p.capacity + 1,
+          rowsMax = p.itemCounts[p.itemCounts.length - 1],
+          counts = new Int32Array(p.instances),
+          weights = new Int32Array(p.instances * rowsMax),
+          values = new Int32Array(p.instances * rowsMax),
+          // best[instance][row][capacity]: the most value from the items down to this row within this capacity.
+          best = new Int32Array(p.instances * rowsMax * columns);
+        for (let k = 0; k < p.instances; k++) {
+          const count =
+            p.itemCounts[
+              Math.floor(hash(k, 58, seed ^ 0x50002) * p.itemCounts.length)
+            ];
+          counts[k] = count;
+          for (let i = 0; i < count; i++) {
+            weights[k * rowsMax + i] =
+              1 + Math.floor(hash(k * 8 + i, 13, seed ^ 0x50003) * p.maxWeight);
+            values[k * rowsMax + i] =
+              1 + Math.floor(hash(k * 8 + i, 14, seed ^ 0x50004) * p.maxValue);
+          }
+          // The table: take the item or leave it.
+          for (let i = 0; i < count; i++)
+            for (let c = 0; c < columns; c++) {
+              const above =
+                  i > 0 ? best[(k * rowsMax + i - 1) * columns + c] : 0,
+                weight = weights[k * rowsMax + i];
+              best[(k * rowsMax + i) * columns + c] =
+                c >= weight
+                  ? Math.max(
+                      above,
+                      values[k * rowsMax + i] +
+                        (i > 0
+                          ? best[(k * rowsMax + i - 1) * columns + c - weight]
+                          : 0),
+                    )
+                  : above;
+            }
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          const instance = Math.floor((fv - p.top) / p.instancePitch);
+          if (instance >= 0 && instance < p.instances) {
+            const originY = p.top + instance * p.instancePitch,
+              count = counts[instance],
+              row = Math.floor((fv - originY) / p.rowPitch);
+            if (row >= 0 && row < count) {
+              const centerY = originY + (row + 0.5) * p.rowPitch,
+                floorY = centerY + p.cellHalfHeight - p.cellBarFloor,
+                weight = weights[instance * rowsMax + row],
+                // The weight squares and the value bar of this item.
+                slot = Math.round((fu - p.squareLeft) / p.squarePitch);
+              if (slot >= 0 && slot < weight)
+                paint(
+                  cover(
+                    Math.min(
+                      p.squareHalf -
+                        Math.abs(fu - (p.squareLeft + slot * p.squarePitch)),
+                      p.squareHalf - Math.abs(fv - centerY),
+                    ),
+                  ),
+                  p.squareTone,
+                  p.squareHeight,
+                );
+              paint(
+                cover(
+                  Math.min(
+                    p.itemBarHalf - Math.abs(fu - p.itemBarX),
+                    floorY - fv,
+                    fv -
+                      (floorY - values[instance * rowsMax + row] * p.itemUnit),
+                  ),
+                ),
+                p.itemBarTone,
+                p.itemBarHeight,
+              );
+              // The cells of this item's row, one for each capacity.
+              const column = Math.round((fu - p.tableLeft) / p.colPitch);
+              if (column >= 0 && column < columns) {
+                const centerX = p.tableLeft + column * p.colPitch,
+                  level = best[(instance * rowsMax + row) * columns + column],
+                  above =
+                    row > 0
+                      ? best[(instance * rowsMax + row - 1) * columns + column]
+                      : 0,
+                  taken = level > above;
+                paint(
+                  cover(
+                    Math.min(
+                      p.cellHalfWidth - Math.abs(fu - centerX),
+                      p.cellHalfHeight - Math.abs(fv - centerY),
+                    ),
+                  ),
+                  taken ? p.takenTone : p.cellTone,
+                  taken ? p.takenHeight : p.cellHeight,
+                );
+                paint(
+                  cover(
+                    Math.min(
+                      p.cellBarHalf - Math.abs(fu - centerX),
+                      floorY - fv,
+                      fv - (floorY - level * p.cellUnit),
+                    ),
+                  ),
+                  p.barTone,
+                  p.barHeight,
+                );
+              }
+              // The frame round the answer, the last cell of the last row (drawn here, not with the cells, so that its outer half is not cut at the
+              // column's border).
+              if (row === count - 1) {
+                const frameX = p.tableLeft + (columns - 1) * p.colPitch,
+                  outer = p.cellHalfWidth + p.frameGap + p.frameHalf,
+                  outerY = p.cellHalfHeight + p.frameGap + p.frameHalf;
+                paint(
+                  Math.min(
+                    cover(
+                      Math.min(
+                        outer - Math.abs(fu - frameX),
+                        outerY - Math.abs(fv - centerY),
+                      ),
+                    ),
+                    cover(
+                      Math.max(
+                        Math.abs(fu - frameX) - (outer - 2 * p.frameHalf),
+                        Math.abs(fv - centerY) - (outerY - 2 * p.frameHalf),
+                      ),
+                    ),
+                  ),
+                  p.frameTone,
+                  p.frameHeight,
+                );
+              }
+            }
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -71227,6 +71386,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'knapsacktable' ||
     kind === 'bfswavefront' ||
     kind === 'bresenhamlines' ||
     kind === 'mergesortruns' ||
