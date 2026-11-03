@@ -47807,3 +47807,363 @@ describe('vernierscale: five readings of a vernier, with the one tick that lines
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('paretochart: bars sorted by height with the line of running totals and a line across at 80 percent', () => {
+  const p = proceduralMaterialPresets.paretochart,
+    out = empty(),
+    unit = p.chartHeight / p.maxValue,
+    gap = (p.pitch - p.barWidth) / 2,
+    shareY = p.base - p.share * p.chartHeight;
+  type Chart = {
+    sample: Sampler;
+    values: number[];
+    dots: { x: number; y: number }[];
+  };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const near = (tone: number, wanted: number): boolean =>
+    Math.abs(tone - wanted) < 0.01;
+  const slotX = (slot: number): number => p.left + (slot + 0.5) * p.pitch;
+  const isPaper = (tone: number): boolean =>
+    Math.abs(tone - p.paperTone) < 0.05;
+
+  // Read the picture: the bars' heights, and the dots of the line (the middle of each run of the dots' tone down the middle of its bar).
+  const chartOf = (seed: number): Chart => {
+    const sample = createSurfaceSampler('paretochart', seed),
+      values: number[] = [],
+      dots: { x: number; y: number }[] = [];
+    for (
+      let slot = 0;
+      near(
+        toneAt(sample, p.left + slot * p.pitch + gap + 0.003, p.base - 0.003),
+        p.barTone,
+      );
+      slot++
+    ) {
+      // The bar's top from either side (the line may cross one of them, which only makes it look taller).
+      const tops = [
+        p.left + slot * p.pitch + gap + 0.002,
+        p.left + slot * p.pitch + gap + p.barWidth - 0.002,
+      ].map((x) => {
+        let y = p.base - 0.003;
+        while (!isPaper(toneAt(sample, x, y))) y -= 0.0002;
+        return y;
+      });
+      values.push(Math.round((p.base - Math.max(...tops)) / unit));
+      const ys: number[] = [];
+      for (let y = p.base - p.chartHeight - 0.02; y < p.base; y += 0.0002)
+        if (near(toneAt(sample, slotX(slot), y), p.dotTone)) ys.push(y);
+      expect(ys.length).toBeGreaterThan(0);
+      dots.push({ x: slotX(slot), y: (ys[0] + ys[ys.length - 1]) / 2 });
+    }
+    expect(p.sizes).toContain(values.length);
+    return { sample, values, dots };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'sorts the bars from tallest, and puts each dot at the running total over the whole, the last at the top (seed %i)',
+    (seed) => {
+      const { values, dots } = chartOf(seed),
+        total = values.reduce((sum, value) => sum + value, 0);
+      values.forEach((value, i) => {
+        expect(value).toBeGreaterThanOrEqual(1);
+        expect(value).toBeLessThanOrEqual(p.maxValue);
+        if (i > 0) expect(value).toBeLessThanOrEqual(values[i - 1]);
+      });
+      // Each dot: at the running total as a share of the whole, up the chart's height.
+      let running = 0;
+      values.forEach((value, i) => {
+        running += value;
+        expect(
+          Math.abs((p.base - dots[i].y) / p.chartHeight - running / total),
+        ).toBeLessThan(0.002);
+      });
+      expect(
+        Math.abs(dots[dots.length - 1].y - (p.base - p.chartHeight)),
+      ).toBeLessThan(0.0015);
+    },
+  );
+
+  it('uses every number of bars, small values more than big ones, and a line that crosses 80 percent at different bars, over 60 seeds', () => {
+    const sizes = new Set<number>(),
+      crossings = new Set<number>();
+    let small = 0,
+      all = 0,
+      tallest = 0,
+      ones = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const { values } = chartOf(seed * 47 + 2),
+        total = values.reduce((sum, value) => sum + value, 0);
+      sizes.add(values.length);
+      for (const value of values) {
+        small += Number(value <= 10);
+        all++;
+      }
+      tallest = Math.max(tallest, values[0]);
+      ones += values.filter((value) => value === 1).length;
+      // The first bar where the running total reaches 80%.
+      let running = 0;
+      crossings.add(
+        values.findIndex((value) => (running += value) / total >= p.share),
+      );
+    }
+    expect([...sizes].sort((a, b) => a - b)).toEqual([...p.sizes]);
+    // With the heights skewed to small, well over half are 10 or less (and about 0.5^(1/2.5) of 30 is 23 for the middle).
+    expect(small / all).toBeGreaterThan(0.6);
+    // Both ends of 1 to maxValue are reached.
+    expect(tallest).toBe(p.maxValue);
+    expect(ones).toBeGreaterThan(0);
+    expect(crossings.size).toBeGreaterThanOrEqual(4);
+  });
+
+  it('draws the bars, the base line, the share line, the line of totals and the dots with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, values, dots } = chartOf(seed),
+        n = values.length,
+        end = p.left + n * p.pitch,
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9,
+        // Clear of the line, the dots and the share line, so a bar can be read there.
+        clear = (x: number, y: number): boolean =>
+          Math.abs(y - shareY) > 0.006 &&
+          dots.slice(1).every((dot, k) => {
+            const a = dots[k],
+              dx = dot.x - a.x,
+              dy = dot.y - a.y,
+              t = Math.max(
+                0,
+                Math.min(
+                  1,
+                  ((x - a.x) * dx + (y - a.y) * dy) / (dx * dx + dy * dy),
+                ),
+              );
+            return Math.hypot(x - (a.x + t * dx), y - (a.y + t * dy)) > 0.008;
+          });
+      values.forEach((value, slot) => {
+        const left = p.left + slot * p.pitch + gap,
+          right = left + p.barWidth,
+          top = p.base - value * unit;
+        // The bar: tone, height, roughness, and its sides, top and bottom (where nothing else is).
+        expect(toneAt(sample, left + 0.003, p.base - 0.003)).toBeCloseTo(
+          p.barTone,
+          6,
+        );
+        expect(out.height / p.relief).toBeCloseTo(p.barHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(toneAt(sample, right - 0.003, p.base - 0.003)).toBeCloseTo(
+          p.barTone,
+          6,
+        );
+        expect(paperOk(left - 0.0015, p.base - 0.003)).toBe(true);
+        expect(paperOk(right + 0.0015, p.base - 0.003)).toBe(true);
+        // Nothing of the bar under the base line.
+        expect(paperOk(slotX(slot), p.base + p.baseHalf + 0.003)).toBe(true);
+        for (const x of [left + 0.004, right - 0.004]) {
+          if (clear(x, top + 0.0015))
+            expect(toneAt(sample, x, top + 0.0015)).toBeCloseTo(p.barTone, 6);
+          if (clear(x, top - 0.0015))
+            expect(paperOk(x, top - 0.0015)).toBe(true);
+        }
+      });
+      // The base line: tone, height, roughness, thickness and ends (past the first and last bars, under nothing else).
+      const farLeft = p.left - p.baseOverhang / 2;
+      expect(toneAt(sample, farLeft, p.base)).toBeCloseTo(p.baseTone, 6);
+      expect(out.height / p.relief).toBeCloseTo(p.baseHeight, 6);
+      expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+      expect(toneAt(sample, farLeft, p.base + p.baseHalf - 0.0004)).toBeCloseTo(
+        p.baseTone,
+        6,
+      );
+      expect(paperOk(farLeft, p.base + p.baseHalf + 0.0006)).toBe(true);
+      expect(paperOk(farLeft, p.base - p.baseHalf - 0.0006)).toBe(true);
+      expect(
+        toneAt(sample, p.left - p.baseOverhang + 0.002, p.base),
+      ).toBeCloseTo(p.baseTone, 6);
+      expect(toneAt(sample, end + p.baseOverhang - 0.002, p.base)).toBeCloseTo(
+        p.baseTone,
+        6,
+      );
+      expect(paperOk(p.left - p.baseOverhang - 0.002, p.base)).toBe(true);
+      expect(paperOk(end + p.baseOverhang + 0.002, p.base)).toBe(true);
+      // The share line: the same, at 80 percent of the chart's height.
+      expect(toneAt(sample, farLeft, shareY)).toBeCloseTo(p.shareTone, 6);
+      expect(out.height / p.relief).toBeCloseTo(p.shareHeight, 6);
+      expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+      expect(
+        toneAt(sample, farLeft, shareY + p.shareHalf - 0.0004),
+      ).toBeCloseTo(p.shareTone, 6);
+      expect(paperOk(farLeft, shareY + p.shareHalf + 0.0006)).toBe(true);
+      expect(paperOk(farLeft, shareY - p.shareHalf - 0.0006)).toBe(true);
+      expect(toneAt(sample, end + p.baseOverhang - 0.002, shareY)).toBeCloseTo(
+        p.shareTone,
+        6,
+      );
+      expect(paperOk(end + p.baseOverhang + 0.002, shareY)).toBe(true);
+      expect(
+        toneAt(sample, p.left - p.baseOverhang + 0.002, shareY),
+      ).toBeCloseTo(p.shareTone, 6);
+      expect(paperOk(p.left - p.baseOverhang - 0.002, shareY)).toBe(true);
+      // The line of totals: tone, height, roughness, thickness, at the middle of each segment (clear of the share line).
+      dots.slice(1).forEach((dot, k) => {
+        const a = dots[k],
+          mx = (a.x + dot.x) / 2,
+          my = (a.y + dot.y) / 2,
+          length = Math.hypot(dot.x - a.x, dot.y - a.y),
+          // The unit normal to the segment.
+          nx = -(dot.y - a.y) / length,
+          ny = (dot.x - a.x) / length;
+        if (Math.abs(my - shareY) < 0.01) return;
+        expect(toneAt(sample, mx, my)).toBeCloseTo(p.lineTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.lineHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        for (const side of [-1, 1]) {
+          expect(
+            near(
+              toneAt(
+                sample,
+                mx + side * nx * (p.lineHalf - 0.0004),
+                my + side * ny * (p.lineHalf - 0.0004),
+              ),
+              p.lineTone,
+            ),
+          ).toBe(true);
+          expect(
+            near(
+              toneAt(
+                sample,
+                mx + side * nx * (p.lineHalf + 0.0006),
+                my + side * ny * (p.lineHalf + 0.0006),
+              ),
+              p.lineTone,
+            ),
+          ).toBe(false);
+        }
+      });
+      // The dots: tone, height, roughness and radius.
+      for (const dot of dots) {
+        expect(toneAt(sample, dot.x, dot.y)).toBeCloseTo(p.dotTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.dotHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        // Along the segment on neither side of it, the dot reaches dotRadius (straight above is clear of both segments except steep ones).
+        expect(
+          near(toneAt(sample, dot.x, dot.y - p.dotRadius + 0.001), p.dotTone),
+        ).toBe(true);
+        expect(
+          near(toneAt(sample, dot.x, dot.y + p.dotRadius - 0.001), p.dotTone),
+        ).toBe(true);
+      }
+      // Nothing above the chart or below the base line.
+      expect(paperOk(0.5, p.base - p.chartHeight - 0.04)).toBe(true);
+      expect(paperOk(0.5, p.base + 0.03)).toBe(true);
+    }
+  });
+
+  it('softens the edge of a bar, the base line, the share line and a dot over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      const { sample, values, dots } = chartOf(seed),
+        last = values.length - 1,
+        left = p.left + last * p.pitch + gap,
+        top = p.base - values[last] * unit,
+        farLeft = p.left - p.baseOverhang / 2;
+      // The last (shortest) bar: its side, over the paper, and its top, where it is clear of the line.
+      close(
+        toneAt(sample, left + quarter, p.base - 0.004),
+        mix(p.paperTone, p.barTone, 0.75),
+      );
+      close(
+        toneAt(sample, left - quarter, p.base - 0.004),
+        mix(p.paperTone, p.barTone, 0.25),
+      );
+      close(
+        toneAt(sample, left + 0.01, top + quarter),
+        mix(p.paperTone, p.barTone, 0.75),
+      );
+      close(
+        toneAt(sample, left + 0.01, top - quarter),
+        mix(p.paperTone, p.barTone, 0.25),
+      );
+      // The base line's and the share line's lower sides, over the paper.
+      close(
+        toneAt(sample, farLeft, p.base + p.baseHalf - quarter),
+        mix(p.paperTone, p.baseTone, 0.75),
+      );
+      close(
+        toneAt(sample, farLeft, p.base + p.baseHalf + quarter),
+        mix(p.paperTone, p.baseTone, 0.25),
+      );
+      close(
+        toneAt(sample, farLeft, shareY + p.shareHalf - quarter),
+        mix(p.paperTone, p.shareTone, 0.75),
+      );
+      close(
+        toneAt(sample, farLeft, shareY + p.shareHalf + quarter),
+        mix(p.paperTone, p.shareTone, 0.25),
+      );
+      // The last dot's right edge, over the paper beyond the last bar's line.
+      const dot = dots[last];
+      close(
+        toneAt(sample, dot.x + p.dotRadius - quarter, dot.y),
+        mix(p.paperTone, p.dotTone, 0.75),
+      );
+      close(
+        toneAt(sample, dot.x + p.dotRadius + quarter, dot.y),
+        mix(p.paperTone, p.dotTone, 0.25),
+      );
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('paretochart', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('paretochart', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.97),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('paretochart', 0),
+      b = createSurfaceSampler('paretochart', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.6701],
+        [0.1801, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

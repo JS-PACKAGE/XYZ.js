@@ -43147,6 +43147,121 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'paretochart': {
+        const p = proceduralMaterialPresets.paretochart,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x4fb01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          n = p.sizes[Math.floor(hash(54, 1, seed ^ 0x4fb02) * p.sizes.length)],
+          values: number[] = [],
+          unit = p.chartHeight / p.maxValue;
+        for (let i = 0; i < n; i++)
+          values.push(
+            1 + Math.floor(hash(i, 8, seed ^ 0x4fb03) ** p.skew * p.maxValue),
+          );
+        values.sort((a, b) => b - a);
+        // The dots: the middle of each bar, at the running total as a share of the whole.
+        const total = values.reduce((sum, value) => sum + value, 0),
+          dotX: number[] = [],
+          dotY: number[] = [];
+        for (let i = 0, running = 0; i < n; i++) {
+          running += values[i];
+          dotX.push(p.left + (i + 0.5) * p.pitch);
+          dotY.push(p.base - (running / total) * p.chartHeight);
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          const across = (fu - p.left) / p.pitch,
+            end = p.left + n * p.pitch;
+          if (
+            across > -0.5 - p.baseOverhang / p.pitch &&
+            across < n + 0.5 + p.baseOverhang / p.pitch
+          ) {
+            const slot = Math.min(n - 1, Math.max(0, Math.floor(across))),
+              inSlot = (across - slot) * p.pitch,
+              gap = (p.pitch - p.barWidth) / 2;
+            // The bar of this slot, standing on the base line.
+            paint(
+              cover(
+                Math.min(
+                  inSlot - gap,
+                  p.pitch - gap - inSlot,
+                  p.base - fv,
+                  fv - (p.base - values[slot] * unit),
+                ),
+              ),
+              p.barTone,
+              p.barHeight,
+            );
+            // The base line, and the thin line across at the share.
+            paint(
+              cover(
+                Math.min(
+                  p.baseHalf - Math.abs(fv - p.base),
+                  fu - (p.left - p.baseOverhang),
+                  end + p.baseOverhang - fu,
+                ),
+              ),
+              p.baseTone,
+              p.baseHeight,
+            );
+            paint(
+              cover(
+                Math.min(
+                  p.shareHalf -
+                    Math.abs(fv - (p.base - p.share * p.chartHeight)),
+                  fu - (p.left - p.baseOverhang),
+                  end + p.baseOverhang - fu,
+                ),
+              ),
+              p.shareTone,
+              p.shareHeight,
+            );
+            // The line of running totals: the segments on either side of the nearest dot, then the dot.
+            const near = Math.min(n - 1, Math.max(0, Math.round(across - 0.5)));
+            let ink = 0;
+            for (let k = near - 1; k <= near; k++) {
+              if (k < 0 || k >= n - 1) continue;
+              const dx = dotX[k + 1] - dotX[k],
+                dy = dotY[k + 1] - dotY[k],
+                along = clamp(
+                  ((fu - dotX[k]) * dx + (fv - dotY[k]) * dy) /
+                    (dx * dx + dy * dy),
+                ),
+                away = Math.hypot(
+                  fu - (dotX[k] + along * dx),
+                  fv - (dotY[k] + along * dy),
+                );
+              ink = Math.max(ink, cover(p.lineHalf - away));
+            }
+            paint(ink, p.lineTone, p.lineHeight);
+            paint(
+              cover(p.dotRadius - Math.hypot(fu - dotX[near], fv - dotY[near])),
+              p.dotTone,
+              p.dotHeight,
+            );
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -70676,6 +70791,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'paretochart' ||
     kind === 'vernierscale' ||
     kind === 'kmpfailure' ||
     kind === 'dijkstragrid' ||
