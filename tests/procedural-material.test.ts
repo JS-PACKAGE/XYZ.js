@@ -1104,6 +1104,7 @@ const kinds: ProceduralMaterialKind[] = [
   'lsystemplants',
   'pursuitpolygons',
   'poincaretiling',
+  'sphericaltiling',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -178696,6 +178697,414 @@ describe('Poincare tiling as a regular tiling of the hyperbolic plane in the Poi
     expect(green / (512 * 512)).toBeLessThan(55.9);
     expect(blue / (512 * 512)).toBeGreaterThan(55.6);
     expect(blue / (512 * 512)).toBeLessThan(56.9);
+    expect(maxTilt).toBeGreaterThan(0.052);
+    expect(maxTilt).toBeLessThan(0.057);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Spherical tiling as the edges of a regular polyhedron seen by stereographic projection, drawn as cyan lines', () => {
+  const p = proceduralMaterialPresets.sphericaltiling;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  type Vector = number[];
+  const golden = (1 + Math.sqrt(5)) / 2;
+  const normalise = (v: Vector): Vector => {
+    const length = Math.hypot(v[0], v[1], v[2]);
+    return [v[0] / length, v[1] / length, v[2] / length];
+  };
+  const crossOf = (u: Vector, v: Vector): Vector => [
+    u[1] * v[2] - u[2] * v[1],
+    u[2] * v[0] - u[0] * v[2],
+    u[0] * v[1] - u[1] * v[0],
+  ];
+  /** The corners of a regular polyhedron in the usual coordinates (the tetrahedron at alternate corners of the cube, the octahedron on the axes, the icosahedron at the cyclic permutations of (0, +-1, +-golden) and the dodecahedron at the cube corners and the cyclic permutations of (0, +-1/golden, +-golden)). */
+  const cornersOf = (name: string): Vector[] => {
+    const corners: Vector[] = [],
+      signs = [-1, 1];
+    if (name === 'tetrahedron')
+      return [
+        [1, 1, 1],
+        [1, -1, -1],
+        [-1, 1, -1],
+        [-1, -1, 1],
+      ];
+    if (name === 'octahedron')
+      return [
+        [1, 0, 0],
+        [-1, 0, 0],
+        [0, 1, 0],
+        [0, -1, 0],
+        [0, 0, 1],
+        [0, 0, -1],
+      ];
+    if (name === 'cube' || name === 'dodecahedron')
+      for (const x of signs)
+        for (const y of signs) for (const z of signs) corners.push([x, y, z]);
+    if (name === 'icosahedron' || name === 'dodecahedron') {
+      const [low, high] =
+        name === 'icosahedron' ? [1, golden] : [1 / golden, golden];
+      for (const s of signs)
+        for (const r of signs)
+          corners.push(
+            [0, s * low, r * high],
+            [s * low, r * high, 0],
+            [r * high, 0, s * low],
+          );
+    }
+    return corners;
+  };
+  /** The viewing axis of a polyhedron (the pole of the projection) and the two axes of the picture, by the convention of the preset: a corner for the icosahedron, the dodecahedron and the tetrahedron and (0, 0, 1) for the cube and the octahedron. */
+  const viewOf = (
+    name: string,
+  ): { axis: Vector; across: Vector; up: Vector } => {
+    const axis =
+        name === 'icosahedron'
+          ? normalise([0, 1, golden])
+          : name === 'dodecahedron' || name === 'tetrahedron'
+            ? normalise([1, 1, 1])
+            : [0, 0, 1],
+      reference = Math.abs(axis[2]) > 0.9 ? [1, 0, 0] : [0, 0, 1],
+      across = normalise(crossOf(axis, reference));
+    return { axis, across, up: crossOf(axis, across) };
+  };
+  /** The tile position of a point of the sphere (stereographic projection from the opposite pole: z = (x, y) / (1 + w)) and its distance from the middle in units of the view radius. */
+  const tilePosition = (
+    name: string,
+    point: Vector,
+  ): { u: number; v: number; far: number } => {
+    const { axis, across, up } = viewOf(name),
+      x = point[0] * across[0] + point[1] * across[1] + point[2] * across[2],
+      y = point[0] * up[0] + point[1] * up[1] + point[2] * up[2],
+      w = point[0] * axis[0] + point[1] * axis[1] + point[2] * axis[2];
+    return {
+      u: 0.5 + (p.diskRadius * x) / (1 + w) / p.viewRadius,
+      v: 0.5 + (p.diskRadius * y) / (1 + w) / p.viewRadius,
+      far: Math.hypot(x, y) / (1 + w) / p.viewRadius,
+    };
+  };
+  const slerp = (u: Vector, v: Vector, s: number): Vector => {
+    const angle = Math.acos(
+      Math.max(-1, Math.min(1, u[0] * v[0] + u[1] * v[1] + u[2] * v[2])),
+    );
+    return [0, 1, 2].map(
+      (k) =>
+        (Math.sin((1 - s) * angle) * u[k] + Math.sin(s * angle) * v[k]) /
+        Math.sin(angle),
+    );
+  };
+  /**
+   * The lines of a variant as lists of tile positions with the distance from the middle at most 0.9:
+   * the arcs of great circles between the corners at the smallest distance (the edges, 3 points
+   * each at 30%, 50% and 70%, and 25 for the check of the rest of the picture), or for the mirrors
+   * of the icosahedron the 15 great circles perpendicular to the middles of its edges (48 points each
+   * and 120 for the check of the rest).
+   */
+  const linesOf = (index: number, perLine: number): number[][][] => {
+    const [name, kind] = p.variants[index],
+      corners = cornersOf(name).map(normalise),
+      lines: number[][][] = [];
+    let shortest = Infinity;
+    for (let i = 0; i < corners.length; i++)
+      for (let j = i + 1; j < corners.length; j++)
+        shortest = Math.min(
+          shortest,
+          Math.hypot(
+            corners[i][0] - corners[j][0],
+            corners[i][1] - corners[j][1],
+            corners[i][2] - corners[j][2],
+          ),
+        );
+    const known = new Set<string>();
+    for (let i = 0; i < corners.length; i++)
+      for (let j = i + 1; j < corners.length; j++) {
+        const distance = Math.hypot(
+          corners[i][0] - corners[j][0],
+          corners[i][1] - corners[j][1],
+          corners[i][2] - corners[j][2],
+        );
+        if (Math.abs(distance - shortest) > 1e-9) continue;
+        if (kind === 'edges') {
+          const line: number[][] = [];
+          for (let k = 0; k < perLine; k++) {
+            const position = tilePosition(
+              name,
+              slerp(corners[i], corners[j], (k + 0.5) / perLine),
+            );
+            if (position.far <= 0.9) line.push([position.u, position.v]);
+          }
+          lines.push(line);
+        } else {
+          let normal = normalise([
+            corners[i][0] + corners[j][0],
+            corners[i][1] + corners[j][1],
+            corners[i][2] + corners[j][2],
+          ]);
+          if (
+            normal[2] < -1e-9 ||
+            (Math.abs(normal[2]) < 1e-9 &&
+              (normal[1] < -1e-9 ||
+                (Math.abs(normal[1]) < 1e-9 && normal[0] < 0)))
+          )
+            normal = normal.map((value) => -value);
+          const key = normal.map((value) => value.toFixed(5)).join(',');
+          if (known.has(key)) continue;
+          known.add(key);
+          const reference = Math.abs(normal[2]) > 0.9 ? [1, 0, 0] : [0, 0, 1],
+            first = normalise(crossOf(normal, reference)),
+            second = crossOf(normal, first),
+            line: number[][] = [];
+          for (let k = 0; k < perLine; k++) {
+            const angle = (2 * Math.PI * (k + 0.5)) / perLine,
+              position = tilePosition(
+                name,
+                [0, 1, 2].map(
+                  (m) =>
+                    first[m] * Math.cos(angle) + second[m] * Math.sin(angle),
+                ),
+              );
+            if (position.far <= 0.9) line.push([position.u, position.v]);
+          }
+          lines.push(line);
+        }
+      }
+    return lines;
+  };
+  const checks = p.variants.map((_, index) =>
+      linesOf(index, p.variants[index][1] === 'edges' ? 3 : 48),
+    ),
+    dense = p.variants.map((_, index) =>
+      linesOf(index, p.variants[index][1] === 'edges' ? 25 : 120),
+    );
+  /** The colours read from the sampler at the check points of the lines of a variant. */
+  const colorsOnLines = (seed: number, index: number): number[] => {
+    const sample = createSurfaceSampler('sphericaltiling', seed),
+      out = empty(),
+      colors: number[] = [];
+    for (const line of checks[index])
+      for (const [u, v] of line) {
+        sample(u, v, out);
+        colors.push(out.color);
+      }
+    return colors;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('sphericaltiling', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('sphericaltiling', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0256);
+      expect(low).toBeLessThan(0.0262);
+      expect(high).toBeGreaterThan(0.8722);
+      expect(high).toBeLessThan(0.8728);
+      expect(dark / 65536).toBeGreaterThan(0.059);
+      expect(dark / 65536).toBeLessThan(0.0747);
+      expect(mean / 65536).toBeGreaterThan(0.196);
+      expect(mean / 65536).toBeLessThan(0.2219);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.8726);
+      expect(heightHigh).toBeLessThan(0.8743);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('draws the lines of the polyhedron of the variant and no line elsewhere', () => {
+    // The lines are built above in another way than the sampler folds points (the corners of the
+    // polyhedron in the usual coordinates, the edges as the pairs of corners at the smallest distance,
+    // great circle arcs between them by spherical interpolation, and for the mirrors of the icosahedron
+    // the great circles perpendicular to the middles of its edges; the projection and the viewing axis
+    // are the convention of the preset). For each seed all the check points of the lines of its variant
+    // (at most 3 may read lower than 0.7) are lit above 0.7 with the least colour above 0.8; of the other
+    // variants only the edges of the icosahedron, which are among its mirrors, are lit as well when the
+    // variant is the mirrors, and every other variant has at least 4 check points reading lower (the tetrahedron has only 9 in all); and
+    // lattice points within 0.8 of the middle that are more than 0.03 from every one of the
+    // dense points of the lines read lower than 0.5 (the fill is at most 0.44, the lines up to 0.86). The
+    // variant for each seed (0 to 5 for the seeds 0, 1, 8, 5, 4 and 12) was found with a probe and is
+    // written here, so that table is not an independent check of the seed's choice.
+    const expected = new Map([
+      [0, 0],
+      [1, 1],
+      [8, 2],
+      [5, 3],
+      [4, 4],
+      [12, 5],
+    ]);
+    for (const [seed, index] of expected) {
+      const own = colorsOnLines(seed, index);
+      expect(own.filter((c) => c < 0.7).length).toBeLessThanOrEqual(3);
+      expect(Math.min(...own)).toBeGreaterThan(0.8);
+      p.variants.forEach((_, other) => {
+        if (other === index || (index === 5 && other === 0)) return;
+        expect(
+          colorsOnLines(seed, other).filter((c) => c < 0.7).length,
+        ).toBeGreaterThan(3);
+      });
+      const sample = createSurfaceSampler('sphericaltiling', seed),
+        out = empty(),
+        points = dense[index].flat();
+      let tested = 0,
+        wrong = 0;
+      for (let i = 0; i < 3000; i++) {
+        const x = ((i * 0.61803398875) % 1) - 0.5,
+          y = ((i * 0.41421356237) % 1) - 0.5;
+        if (Math.hypot(x, y) > 0.8 * p.diskRadius) continue;
+        let nearest = Infinity;
+        for (const [px, py] of points)
+          nearest = Math.min(nearest, Math.hypot(x + 0.5 - px, y + 0.5 - py));
+        if (nearest <= 0.03) continue;
+        tested++;
+        sample(x + 0.5, y + 0.5, out);
+        wrong += Number(out.color >= 0.5);
+      }
+      expect(tested).toBeGreaterThan(50);
+      expect(wrong).toBe(0);
+    }
+  });
+  it('draws a different polyhedron per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 1 pick different variants (the icosahedron and the dodecahedron).
+    const first = litGrid(0),
+      second = litGrid(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.1);
+    expect(different / first.length).toBeLessThan(0.13);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 8, 5, 4, 12]) {
+      const sample = createSurfaceSampler('sphericaltiling', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [12, p.grainCells, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 cyan polyhedron maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('sphericaltiling', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(34.2);
+    expect(red / (512 * 512)).toBeLessThan(35.4);
+    expect(green / (512 * 512)).toBeGreaterThan(58.6);
+    expect(green / (512 * 512)).toBeLessThan(59.8);
+    expect(blue / (512 * 512)).toBeGreaterThan(72.8);
+    expect(blue / (512 * 512)).toBeLessThan(74);
     expect(maxTilt).toBeGreaterThan(0.052);
     expect(maxTilt).toBeLessThan(0.057);
     expect(invalid).toBe(0);

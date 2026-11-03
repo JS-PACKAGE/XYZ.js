@@ -15945,6 +15945,30 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.08;
         gapOcclusion: 0.4;
     }>;
+    sphericaltiling: Readonly<{
+        dark: readonly [6, 14, 28];
+        light: readonly [150, 240, 255];
+        roughness: 0.4;
+        relief: 0.0008;
+        seedSalt: 10845;
+        diskRadius: 0.46;
+        viewRadius: 1.5;
+        lineHalfWidth: 0.035;
+        ringHalfWidth: 0.006;
+        variants: readonly [readonly ["icosahedron", "edges"], readonly ["dodecahedron", "edges"], readonly ["cube", "edges"], readonly ["octahedron", "edges"], readonly ["tetrahedron", "edges"], readonly ["icosahedron", "mirrors"]];
+        edgeSoft: 0.35;
+        grainCells: 128;
+        gapTone: 0.04;
+        toneFloor: 0.14;
+        toneSpan: 0.72;
+        fillLow: 0.1;
+        fillHigh: 0.42;
+        grainTone: 0.03;
+        cellHeight: 0.8;
+        toneHeight: 0.12;
+        grainHeight: 0.08;
+        gapOcclusion: 0.4;
+    }>;
     vermiculation: Readonly<{
         dark: readonly [60, 48, 36];
         light: readonly [220, 204, 172];
@@ -17685,6 +17709,7 @@ export declare const proceduralTileMeters: Readonly<{
     lsystemplants: 0.5;
     pursuitpolygons: 0.5;
     poincaretiling: 0.5;
+    sphericaltiling: 0.5;
     dominotiling: 0.5;
     vermiculation: 0.4;
     kikko: 0.3;

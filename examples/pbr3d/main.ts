@@ -1141,6 +1141,7 @@ try {
     'lsystemplants',
     'pursuitpolygons',
     'poincaretiling',
+    'sphericaltiling',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

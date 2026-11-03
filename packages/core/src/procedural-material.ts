@@ -1078,6 +1078,7 @@ export type ProceduralMaterialKind =
   | 'lsystemplants'
   | 'pursuitpolygons'
   | 'poincaretiling'
+  | 'sphericaltiling'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2404,6 +2405,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'lsystemplants',
   'pursuitpolygons',
   'poincaretiling',
+  'sphericaltiling',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
