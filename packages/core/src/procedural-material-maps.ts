@@ -44332,6 +44332,131 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'nimgame': {
+        const p = proceduralMaterialPresets.nimgame,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x50501),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          heaps =
+            p.heapCounts[
+              Math.floor(hash(64, 1, seed ^ 0x50502) * p.heapCounts.length)
+            ],
+          // sizes[t * heaps + h]: stones in heap h at state t; taken[t]: heap taken from to reach state t (-1 for the first), took[t]: how many.
+          sizes = new Int32Array(p.maxStates * heaps),
+          taken = new Int32Array(p.maxStates).fill(-1),
+          took = new Int32Array(p.maxStates);
+        for (let h = 0; h < heaps; h++)
+          sizes[h] = 1 + Math.floor(hash(h, 24, seed ^ 0x50503) * p.maxStones);
+        let states = 1;
+        for (;;) {
+          const t = states - 1;
+          let nimSum = 0,
+            left = 0;
+          for (let h = 0; h < heaps; h++) {
+            nimSum ^= sizes[t * heaps + h];
+            left += sizes[t * heaps + h];
+          }
+          if (left === 0) break;
+          let heap = -1,
+            leave = 0;
+          if (t % 2 === 0 && nimSum !== 0) {
+            // The first player leaves a nim-sum of 0: some heap is larger than itself exclusive or the nim-sum.
+            for (let h = 0; h < heaps && heap < 0; h++)
+              if ((sizes[t * heaps + h] ^ nimSum) < sizes[t * heaps + h]) {
+                heap = h;
+                leave = sizes[t * heaps + h] ^ nimSum;
+              }
+          } else {
+            // A random heap that is not empty, and a random number of stones from it (all of them once the game is long).
+            let pick = Math.floor(hash(t, 25, seed ^ 0x50504) * heaps);
+            while (sizes[t * heaps + pick] === 0) pick = (pick + 1) % heaps;
+            heap = pick;
+            leave =
+              t >= p.forceFrom
+                ? 0
+                : sizes[t * heaps + pick] -
+                  1 -
+                  Math.floor(
+                    hash(t, 26, seed ^ 0x50505) * sizes[t * heaps + pick],
+                  );
+          }
+          for (let h = 0; h < heaps; h++)
+            sizes[states * heaps + h] = sizes[t * heaps + h];
+          took[states] = sizes[t * heaps + heap] - leave;
+          sizes[states * heaps + heap] = leave;
+          taken[states] = heap;
+          states++;
+        }
+        const nimSums = new Int32Array(states);
+        for (let t = 0; t < states; t++)
+          for (let h = 0; h < heaps; h++) nimSums[t] ^= sizes[t * heaps + h];
+        const bitsTop = p.top + heaps * p.rowPitch + p.bitsGap;
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          const column = Math.floor((fu - p.left) / p.pitch);
+          if (column >= 0 && column < states) {
+            const cx = p.left + (column + 0.5) * p.pitch,
+              dx = Math.abs(fu - cx),
+              row = Math.floor((fv - p.top) / p.rowPitch);
+            if (row >= 0 && row < heaps) {
+              const base = p.top + row * p.rowPitch + p.baseDrop,
+                size = sizes[column * heaps + row],
+                before = taken[column] === row ? size + took[column] : size,
+                barTop = base - size * p.stoneHeight;
+              // The heap's bar and the stones just taken from it are one shape, painted once: the ghost above the bar in the ghost tone.
+              const bodyTop = base - before * p.stoneHeight,
+                // How much of the shape is the bar (a heap not taken from is all bar; one taken to nothing is all ghost).
+                share =
+                  before === size ? 1 : size === 0 ? 0 : cover(fv - barTop),
+                barTone = taken[column] === row ? p.moveTone : p.barTone,
+                barLevel = taken[column] === row ? p.moveHeight : p.barHeight;
+              if (before > 0)
+                paint(
+                  cover(Math.min(p.barHalf - dx, fv - bodyTop, base - fv)),
+                  p.ghostTone + (barTone - p.ghostTone) * share,
+                  p.ghostHeight + (barLevel - p.ghostHeight) * share,
+                );
+            } else {
+              const bit = Math.floor((fv - bitsTop) / p.bitPitch);
+              if (bit >= 0 && bit < p.bitCount) {
+                const away = Math.hypot(
+                  fu - cx,
+                  fv - (bitsTop + (bit + 0.5) * p.bitPitch),
+                );
+                // The most significant bit first: a dot when set, a ring when not.
+                paint(
+                  cover(
+                    (nimSums[column] >> (p.bitCount - 1 - bit)) & 1
+                      ? p.dotRadius - away
+                      : p.ringHalf - Math.abs(away - p.ringRadius),
+                  ),
+                  p.dotTone,
+                  p.dotHeight,
+                );
+              }
+            }
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -71861,6 +71986,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'nimgame' ||
     kind === 'wordlefeedback' ||
     kind === 'funnelchart' ||
     kind === 'lrucachetrace' ||

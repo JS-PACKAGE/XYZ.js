@@ -51573,3 +51573,477 @@ describe('wordlefeedback: guesses with tiles for right place, elsewhere and no, 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('nimgame: heaps as bars over a run of moves, the stones taken as a pale ghost and the nim-sum in dots and rings', () => {
+  const p = proceduralMaterialPresets.nimgame,
+    out = empty();
+  type Game = {
+    sample: Sampler;
+    heaps: number;
+    sizes: number[][];
+    before: number[][];
+    moved: boolean[][];
+    bits: number[][];
+  };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const near = (tone: number, wanted: number): boolean =>
+    Math.abs(tone - wanted) < 0.01;
+  const centreX = (state: number): number => p.left + (state + 0.5) * p.pitch;
+  const baseY = (heap: number): number =>
+    p.top + heap * p.rowPitch + p.baseDrop;
+  const bitY = (heaps: number, bit: number): number =>
+    p.top + heaps * p.rowPitch + p.bitsGap + (bit + 0.5) * p.bitPitch;
+  const xor = (sizes: number[]): number =>
+    sizes.reduce((sum, size) => sum ^ size, 0);
+
+  // Read the picture: per state and heap, the bar (stones left), the bar with the ghost (stones before the move) and whether the bar is in the
+  // move tone, and the nim-sum bits under them (a filled dot is 1, a ring is 0).
+  const gameOf = (seed: number): Game => {
+    const sample = createSurfaceSampler('nimgame', seed);
+    let heaps = 0;
+    while (near(toneAt(sample, centreX(0), baseY(heaps) - 0.002), p.barTone))
+      heaps++;
+    expect(p.heapCounts).toContain(heaps);
+    const sizes: number[][] = [],
+      before: number[][] = [],
+      moved: boolean[][] = [],
+      bits: number[][] = [];
+    const bitAt = (state: number, bit: number): number => {
+      const dot = near(
+          toneAt(sample, centreX(state), bitY(heaps, bit)),
+          p.dotTone,
+        ),
+        ring = near(
+          toneAt(sample, centreX(state) + p.ringRadius, bitY(heaps, bit)),
+          p.dotTone,
+        );
+      return dot ? 1 : ring ? 0 : -1;
+    };
+    for (let state = 0; bitAt(state, 0) >= 0; state++) {
+      sizes.push([]);
+      before.push([]);
+      moved.push([]);
+      bits.push(
+        Array.from({ length: p.bitCount }, (_, bit) => bitAt(state, bit)),
+      );
+      for (let heap = 0; heap < heaps; heap++) {
+        let y = baseY(heap) - 0.0015;
+        const isMove = near(toneAt(sample, centreX(state), y), p.moveTone);
+        while (
+          near(
+            toneAt(sample, centreX(state), y),
+            isMove ? p.moveTone : p.barTone,
+          )
+        )
+          y -= 0.0002;
+        const barEnd = y;
+        // Past the softened join, the ghost (if any) goes on to the top of the stones that were there.
+        y -= 0.0008;
+        while (near(toneAt(sample, centreX(state), y), p.ghostTone))
+          y -= 0.0002;
+        const ghostEnd = y < barEnd - 0.001 ? y : barEnd;
+        sizes[state].push(Math.round((baseY(heap) - barEnd) / p.stoneHeight));
+        before[state].push(
+          Math.round((baseY(heap) - ghostEnd) / p.stoneHeight),
+        );
+        moved[state].push(isMove);
+      }
+    }
+    return { sample, heaps, sizes, before, moved, bits };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'plays a game of Nim to the end, the first player leaving a nim-sum of 0 when it can, with the nim-sum bits right (seed %i)',
+    (seed) => {
+      const { sizes, before, moved, bits } = gameOf(seed),
+        states = sizes.length;
+      expect(states).toBeGreaterThan(1);
+      expect(states).toBeLessThanOrEqual(p.maxStates);
+      sizes[0].forEach((size) => {
+        expect(size).toBeGreaterThanOrEqual(1);
+        expect(size).toBeLessThanOrEqual(p.maxStones);
+      });
+      expect(before[0]).toEqual(sizes[0]);
+      for (let t = 0; t < states; t++) {
+        // The bits are the nim-sum of the heaps (most significant first).
+        expect(bits[t]).toEqual(
+          Array.from(
+            { length: p.bitCount },
+            (_, bit) => (xor(sizes[t]) >> (p.bitCount - 1 - bit)) & 1,
+          ),
+        );
+        // Nobody has won before the last state.
+        expect(sizes[t].some((size) => size > 0)).toBe(t < states - 1);
+        if (t === 0) continue;
+        // One heap changed, by taking at least one stone; the ghost shows how many were there before.
+        const changed = sizes[t]
+          .map((size, h) => h)
+          .filter((h) => sizes[t][h] !== sizes[t - 1][h]);
+        expect(changed.length).toBe(1);
+        const heap = changed[0];
+        expect(before[t][heap]).toBe(sizes[t - 1][heap]);
+        expect(sizes[t][heap]).toBeLessThan(sizes[t - 1][heap]);
+        sizes[t].forEach((size, h) => {
+          if (h !== heap) expect(before[t][h]).toBe(size);
+          expect(moved[t][h]).toBe(h === heap && size > 0);
+        });
+        const sum = xor(sizes[t - 1]);
+        if ((t - 1) % 2 === 0 && sum !== 0) {
+          // The first player, with the nim-sum not 0, takes from the first heap that can be brought down to its size exclusive or the nim-sum, so that the nim-sum is left 0.
+          const first = sizes[t - 1].findIndex((size) => (size ^ sum) < size);
+          expect(heap).toBe(first);
+          expect(sizes[t][heap]).toBe(sizes[t - 1][heap] ^ sum);
+          expect(xor(sizes[t])).toBe(0);
+        } else if (t - 1 >= p.forceFrom) {
+          // A random move takes the whole heap once the game is long.
+          expect(sizes[t][heap]).toBe(0);
+        }
+      }
+    },
+  );
+
+  it('uses both numbers of heaps, long and short games, optimal and random moves, over 60 seeds', () => {
+    const counts = new Set<number>();
+    let optimal = 0,
+      randomFirst = 0,
+      second = 0,
+      whole = 0,
+      single = 0,
+      forced = 0,
+      longest = 0,
+      shortest = 99,
+      winsFirst = 0,
+      atForce = 0,
+      atForceWhole = 0,
+      beforeForceKept = 0,
+      randomWhole = 0,
+      randomMoves = 0,
+      bigRandom = 0,
+      bigWhole = 0;
+    const randomHeap = [0, 0, 0, 0];
+    for (let seed = 0; seed < 60; seed++) {
+      const { heaps, sizes } = gameOf(seed * 37 + 5),
+        states = sizes.length;
+      counts.add(heaps);
+      longest = Math.max(longest, states);
+      shortest = Math.min(shortest, states);
+      winsFirst += Number((states - 1) % 2 === 1);
+      for (let t = 1; t < states; t++) {
+        const h = sizes[t].findIndex((size, i) => size !== sizes[t - 1][i]),
+          took = sizes[t - 1][h] - sizes[t][h];
+        if ((t - 1) % 2 === 0) {
+          if (xor(sizes[t - 1]) !== 0) optimal++;
+          else randomFirst++;
+        } else second++;
+        // A move that is not the first player's optimal one: the heap it takes from, and whether it takes the whole heap before and at the point where the game turns long.
+        if (!((t - 1) % 2 === 0 && xor(sizes[t - 1]) !== 0)) {
+          if (heaps === 4) randomHeap[h]++;
+          randomMoves++;
+          if (t - 1 === p.forceFrom) {
+            atForce++;
+            atForceWhole += Number(sizes[t][h] === 0);
+          }
+          if (t - 1 === p.forceFrom - 2)
+            beforeForceKept += Number(sizes[t][h] > 0);
+          if (t - 1 < p.forceFrom) randomWhole += Number(sizes[t][h] === 0);
+          // From a heap of at least three, a random move takes the whole heap now and then, and one stone now and then.
+          if (t - 1 < p.forceFrom && sizes[t - 1][h] >= 3) {
+            bigRandom++;
+            bigWhole += Number(sizes[t][h] === 0);
+          }
+        }
+        whole += Number(sizes[t][h] === 0);
+        single += Number(took === 1);
+        forced += Number(t - 1 >= p.forceFrom);
+      }
+    }
+    expect([...counts].sort((a, b) => a - b)).toEqual([...p.heapCounts]);
+    // Random moves take from every heap (the last one of four too), a whole heap now and then before the game turns long, and from the point it does always take a whole heap.
+    expect(Math.min(...randomHeap)).toBeGreaterThan(8);
+    expect(bigWhole / bigRandom).toBeGreaterThan(0.06);
+    expect(bigWhole / bigRandom).toBeLessThan(0.35);
+    expect(randomWhole / randomMoves).toBeGreaterThan(0.2);
+    expect(randomWhole / randomMoves).toBeLessThan(0.5);
+    expect(atForce).toBeGreaterThan(20);
+    expect(atForceWhole).toBe(atForce);
+    expect(beforeForceKept).toBeGreaterThan(10);
+    expect(optimal).toBeGreaterThan(150);
+    expect(randomFirst).toBeGreaterThan(1);
+    expect(second).toBeGreaterThan(120);
+    expect(whole).toBeGreaterThan(130);
+    expect(single).toBeGreaterThan(150);
+    expect(forced).toBeGreaterThan(50);
+    expect(longest).toBeGreaterThan(10);
+    expect(shortest).toBeLessThan(7);
+    // Whoever takes the last stone wins; the first player moves from the even states, so it wins when the number of moves is odd. Against a random second player it nearly always does.
+    expect(winsFirst).toBeGreaterThan(54);
+  });
+
+  it('draws the bars, the ghosts, the move tone, the dots and the rings with their tones, heights, roughness and sizes', () => {
+    let ghosts = 0,
+      emptied = 0,
+      still = 0,
+      gone = 0;
+    for (const seed of seeds) {
+      const { sample, heaps, sizes, before, moved, bits } = gameOf(seed),
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      sizes.forEach((column, t) => {
+        const x = centreX(t);
+        column.forEach((size, heap) => {
+          const base = baseY(heap),
+            top = base - size * p.stoneHeight,
+            ghostTop = base - before[t][heap] * p.stoneHeight,
+            tone = moved[t][heap] ? p.moveTone : p.barTone,
+            level = moved[t][heap] ? p.moveHeight : p.barHeight;
+          if (size > 0) {
+            // The bar: tone, height, roughness, sides, the top and the foot.
+            expect(toneAt(sample, x, base - 0.002)).toBeCloseTo(tone, 6);
+            expect(out.height / p.relief).toBeCloseTo(level, 6);
+            expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+            expect(
+              toneAt(sample, x + p.barHalf - 0.0004, top + 0.0015),
+            ).toBeCloseTo(tone, 6);
+            expect(
+              toneAt(sample, x - p.barHalf + 0.0004, base - 0.0015),
+            ).toBeCloseTo(tone, 6);
+            expect(paperOk(x + p.barHalf + 0.001, base - 0.002)).toBe(true);
+            expect(paperOk(x - p.barHalf - 0.001, base - 0.002)).toBe(true);
+            expect(paperOk(x, base + 0.002)).toBe(true);
+            if (before[t][heap] === size)
+              expect(paperOk(x, top - 0.0015)).toBe(true);
+          } else if (before[t][heap] === 0) {
+            // A heap with nothing in it has nothing drawn.
+            still++;
+            expect(paperOk(x, base - 0.002)).toBe(true);
+          }
+          if (before[t][heap] > size) {
+            // The ghost of the stones taken: tone, height, sides, top.
+            ghosts++;
+            emptied += Number(size === 0);
+            const middle = (ghostTop + top) / 2;
+            expect(toneAt(sample, x, middle)).toBeCloseTo(p.ghostTone, 6);
+            expect(out.height / p.relief).toBeCloseTo(p.ghostHeight, 6);
+            expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+            expect(
+              toneAt(sample, x + p.barHalf - 0.0004, ghostTop + 0.0015),
+            ).toBeCloseTo(p.ghostTone, 6);
+            expect(
+              toneAt(sample, x - p.barHalf + 0.0004, top - 0.0015),
+            ).toBeCloseTo(size === 0 ? p.ghostTone : p.ghostTone, 6);
+            expect(paperOk(x, ghostTop - 0.0015)).toBe(true);
+            expect(paperOk(x + p.barHalf + 0.001, middle)).toBe(true);
+          }
+        });
+        // The nim-sum bits: a dot (radius dotRadius) for 1, a ring (radius ringRadius, thickness 2 ringHalf) for 0.
+        bits[t].forEach((bit, index) => {
+          const y = bitY(heaps, index);
+          if (bit === 1) {
+            expect(toneAt(sample, x, y)).toBeCloseTo(p.dotTone, 6);
+            expect(out.height / p.relief).toBeCloseTo(p.dotHeight, 6);
+            expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+            expect(
+              near(toneAt(sample, x + p.dotRadius - 0.0005, y), p.dotTone),
+            ).toBe(true);
+            expect(paperOk(x + p.dotRadius + 0.0012, y)).toBe(true);
+          } else {
+            expect(paperOk(x, y)).toBe(true);
+            expect(toneAt(sample, x + p.ringRadius, y)).toBeCloseTo(
+              p.dotTone,
+              6,
+            );
+            expect(out.height / p.relief).toBeCloseTo(p.dotHeight, 6);
+            expect(
+              near(
+                toneAt(sample, x + p.ringRadius + p.ringHalf - 0.0004, y),
+                p.dotTone,
+              ),
+            ).toBe(true);
+            expect(paperOk(x + p.ringRadius + p.ringHalf + 0.0008, y)).toBe(
+              true,
+            );
+            expect(paperOk(x + p.ringRadius - p.ringHalf - 0.0008, y)).toBe(
+              true,
+            );
+          }
+        });
+      });
+      // The column after the last state is bare, and the left of the first is too.
+      const after = centreX(sizes.length);
+      expect(paperOk(after, baseY(0) - 0.002)).toBe(true);
+      expect(paperOk(after, bitY(heaps, 0))).toBe(true);
+      expect(paperOk(p.left - 0.01, baseY(0) - 0.002)).toBe(true);
+      gone += sizes.length;
+    }
+    expect(ghosts).toBeGreaterThan(10);
+    expect(emptied).toBeGreaterThan(5);
+    expect(still).toBeGreaterThan(10);
+    expect(gone).toBeGreaterThan(15);
+  });
+
+  it('softens the edge of a bar, a ghost, the join of a bar and its ghost and a dot and a ring over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    let seenJoin = 0,
+      seenEmptied = 0;
+    for (const seed of seeds) {
+      const { sample, heaps, sizes, before, moved, bits } = gameOf(seed);
+      // A bar never taken from (the first state's first heap): sides, top over the paper, foot.
+      const x0 = centreX(0),
+        base0 = baseY(0),
+        top0 = base0 - sizes[0][0] * p.stoneHeight;
+      close(
+        toneAt(sample, x0 + p.barHalf - quarter, base0 - 0.004),
+        mix(p.paperTone, p.barTone, 0.75),
+      );
+      close(
+        toneAt(sample, x0 + p.barHalf + quarter, base0 - 0.004),
+        mix(p.paperTone, p.barTone, 0.25),
+      );
+      close(
+        toneAt(sample, x0, top0 + quarter),
+        mix(p.paperTone, p.barTone, 0.75),
+      );
+      close(
+        toneAt(sample, x0, top0 - quarter),
+        mix(p.paperTone, p.barTone, 0.25),
+      );
+      close(
+        toneAt(sample, x0, base0 - quarter),
+        mix(p.paperTone, p.barTone, 0.75),
+      );
+      close(
+        toneAt(sample, x0, base0 + quarter),
+        mix(p.paperTone, p.barTone, 0.25),
+      );
+      // A bar with its ghost: the ghost's top over the paper, and the bar's top running into the ghost (painted once, no paper showing between).
+      sizes.forEach((column, t) =>
+        column.forEach((size, heap) => {
+          if (before[t][heap] <= size) return;
+          const x = centreX(t),
+            base = baseY(heap),
+            ghostTop = base - before[t][heap] * p.stoneHeight,
+            top = base - size * p.stoneHeight;
+          close(
+            toneAt(sample, x, ghostTop + quarter),
+            mix(p.paperTone, p.ghostTone, 0.75),
+          );
+          close(
+            toneAt(sample, x, ghostTop - quarter),
+            mix(p.paperTone, p.ghostTone, 0.25),
+          );
+          if (size > 0) {
+            seenJoin++;
+            const tone = moved[t][heap] ? p.moveTone : p.barTone;
+            close(
+              toneAt(sample, x, top + quarter),
+              mix(p.ghostTone, tone, 0.75),
+            );
+            close(
+              toneAt(sample, x, top - quarter),
+              mix(p.ghostTone, tone, 0.25),
+            );
+          } else {
+            // Taken to nothing: all ghost, down to the foot.
+            seenEmptied++;
+            close(
+              toneAt(sample, x, base - quarter),
+              mix(p.paperTone, p.ghostTone, 0.75),
+            );
+            close(
+              toneAt(sample, x, base + quarter),
+              mix(p.paperTone, p.ghostTone, 0.25),
+            );
+          }
+        }),
+      );
+      // A dot and a ring over the paper.
+      const lit = bits[0].indexOf(1),
+        bare = bits[0].indexOf(0);
+      if (lit >= 0) {
+        close(
+          toneAt(sample, x0 + p.dotRadius - quarter, bitY(heaps, lit)),
+          mix(p.paperTone, p.dotTone, 0.75),
+        );
+        close(
+          toneAt(sample, x0 + p.dotRadius + quarter, bitY(heaps, lit)),
+          mix(p.paperTone, p.dotTone, 0.25),
+        );
+      }
+      if (bare >= 0) {
+        close(
+          toneAt(
+            sample,
+            x0 + p.ringRadius + p.ringHalf - quarter,
+            bitY(heaps, bare),
+          ),
+          mix(p.paperTone, p.dotTone, 0.75),
+        );
+        close(
+          toneAt(
+            sample,
+            x0 + p.ringRadius + p.ringHalf + quarter,
+            bitY(heaps, bare),
+          ),
+          mix(p.paperTone, p.dotTone, 0.25),
+        );
+      }
+    }
+    expect(seenJoin).toBeGreaterThan(5);
+    expect(seenEmptied).toBeGreaterThan(2);
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('nimgame', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('nimgame', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.95),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('nimgame', 0),
+      b = createSurfaceSampler('nimgame', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.1501],
+        [0.0801, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
