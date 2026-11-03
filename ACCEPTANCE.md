@@ -13162,3 +13162,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 完整suite（工具實跑）：在commit `46593d123`（`[P08] Add Nim product material`）的乾淨worktree執行`vitest run`，**179個檔案、10,454項測試全部通過**，耗時1064.00 s；對照前一次紀錄（`c9f88e922`，10,439項），新增的golombruns、wythoffnim、nimproduct各加5項共15項，與數量吻合。
 - 瀏覽器gallery（headless Chrome，`--enable-unsafe-webgpu --use-angle=metal`）：頁面載入約262 s後，預設（WebGPU）與`?renderer=webgl2`兩個分頁讀數皆為「1052 procedural material presets」、select共1053個選項；依序選取golombruns、wythoffnim、nimproduct、plain（WebGPU分頁另加diamondsquare）都在期限內更新讀數，兩個分頁的console錯誤皆為0。這**只**涵蓋「可選取、讀數更新、無console錯誤」，沒有逐材質截圖，也不證明視覺品質；只選了上述少數kind，沒有逐一選過全部1052種。這次開分頁前先終止殘留的Chrome程序並等10秒，兩次`browser.open`都一次成功。
 - 未驗證：沒有量測建構與取樣耗時；不push。
+
+## 2026-11-03 新增材質：分割數模5（partitionmod5）
+
+- 範圍：新增`partitionmod5`（目前目錄1052→1053種，含plain的gallery 1054項）：64×64圓角方磚表放分割數`p(n)`（`n = 64i + j`）除以5的餘數（餘數0最亮，其餘依餘數漸暗），拉馬努金同餘式使`n ≡ 4 (mod 5)`的格子都亮、排成斜向條紋；深綠底上祖母綠圓點；seed讓表在環面上平移；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 167,936 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽只看了一版；(2)動手前同樣以`/tmp/absent.sh`確認沒有相關kind（`partitionmod`、`ramanujan`皆0）；(3)sampler以歐拉的五邊形數遞迴式、測試以「換零錢」遞迴重算，探針先確認兩者在4,096項上相同；拉馬努金同餘式在4,096以內的819個`n ≡ 4 (mod 5)`上實測全部成立，**不**證明對所有`n`成立；(4)256²與512²取樣的亮處占比與最小色值、AO不同，原因是格寬（4與8像素）與取樣點在格內位置不同，測試採用256²的數值；(5)建構與取樣耗時**未量測**；(6)測試第一次執行即通過（探針數值先量好才寫界線）。
+- 實測（工具實跑）：兩種算法在4,096項上完全相同；前12項餘數1, 1, 2, 3, 0, 2, 1, 0, 2, 0, 2, 1；餘數0到4的個數1448／648／688／636／676；819個`n ≡ 4 (mod 5)`全為0；四個seed（0／1／0xffffffff／7）各有唯一符合的平移(23, 48)、(47, 53)、(58, 37)、(36, 25)，最大擬合誤差0.014998–0.014999；256²（seed 0／1／0xffffffff）亮處（color>0.5）恆為26.51%、color 0.08268–0.08318至0.85403–0.85437、平均0.42431–0.42438、roughness恆為0.4、AO最低0.7344、height至多0.8479–0.8485 relief；512²（四個seed）亮處恆為24.30%、color 0.02515–0.02533至0.85453–0.85471、平均0.36689–0.36704、AO最低0.6、height至多0.8500–0.8504 relief；seed 0與1相比，格中心顏色相差超過0.05的格子73.7%（512²中color>0.5的取樣28.8%不同）；seed 7的512²maps平均r／g／b約(47.8, 105.0, 83.5)、法線tilt²最大約0.0399、z分量最小253。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Partitions mod 5 as|partitionmod5|kinds|catalog|distinct|periodic"`定向測試**2412項通過／4118項未選**。
+- 未驗證：partitionmod5未跑完整suite與瀏覽器gallery；不push。

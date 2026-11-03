@@ -1117,6 +1117,7 @@ try {
     'golombruns',
     'wythoffnim',
     'nimproduct',
+    'partitionmod5',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

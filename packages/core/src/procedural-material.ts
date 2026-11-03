@@ -1054,6 +1054,7 @@ export type ProceduralMaterialKind =
   | 'golombruns'
   | 'wythoffnim'
   | 'nimproduct'
+  | 'partitionmod5'
   | 'sandpileidentity'
   | 'multiplicativeorder'
   | 'vermiculation'
@@ -2355,6 +2356,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'golombruns',
   'wythoffnim',
   'nimproduct',
+  'partitionmod5',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',
