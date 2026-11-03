@@ -13341,3 +13341,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試加kinds清單新條目，`-t`選中的5項皆通過；型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Kaprekar as|kaprekar|kinds|catalog|distinct|periodic"`定向測試**2447項通過／4170項未選**，輸出`GATES-OK`。
 - 未驗證：fareygraph、hypercube與kaprekar未跑完整suite與瀏覽器gallery（最近一次完整複驗至騎士巡遊）；不push。
+
+## 2026-11-03 完整測試與瀏覽器gallery複驗（至卡普雷卡爾常數表）
+
+- 完整suite（工具實跑）：在commit `aa2a01a74`（`[P08] Add Kaprekar material`）的乾淨worktree執行`vitest run`，**179個檔案、10,546項測試全部通過**，耗時1165.17 s；對照前一次紀錄（`3ce9908ce`，10,529項），新增的fareygraph（6項）、hypercube（6項）、kaprekar（5項）共17項，與數量吻合。
+- 瀏覽器gallery（headless Chrome，`--enable-unsafe-webgpu --use-angle=metal`）：頁面載入約275 s後，預設（WebGPU）與`?renderer=webgl2`兩個分頁讀數皆為「1069 procedural material presets」、select共1070個選項；依序選取fareygraph、hypercube、kaprekar、plain（WebGPU分頁另加knightstour）都在期限內更新讀數，兩個分頁的console錯誤皆為0。這**只**涵蓋「可選取、讀數更新、無console錯誤」，沒有逐材質截圖，也不證明視覺品質；只選了上述少數kind，沒有逐一選過全部1069種。
+- 未驗證：沒有量測建構與取樣耗時；不push。
