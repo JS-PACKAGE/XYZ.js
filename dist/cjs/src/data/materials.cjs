@@ -24578,6 +24578,57 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .8,
 		inkRoughness: .4
 	}),
+	wordlefeedback: Object.freeze({
+		dark: [
+			28,
+			36,
+			52
+		],
+		light: [
+			244,
+			241,
+			232
+		],
+		roughness: .55,
+		relief: .004,
+		wordLength: 5,
+		letterCount: 6,
+		guessCounts: Object.freeze([
+			4,
+			5,
+			6
+		]),
+		keepShare: .4,
+		solvedShare: .5,
+		left: .25,
+		pitch: .1,
+		top: .1,
+		secretLine: 6,
+		tileHalf: .042,
+		letterHalf: .02,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .96,
+		letterTones: Object.freeze([
+			.05,
+			.1,
+			.15,
+			.2,
+			.25,
+			.3
+		]),
+		rightTone: .55,
+		elsewhereTone: .75,
+		noTone: .9,
+		grainTone: .03,
+		paperHeight: .2,
+		letterHeight: .85,
+		rightHeight: .7,
+		elsewhereHeight: .5,
+		noHeight: .3,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -33259,6 +33310,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	wordlefeedback: 1,
 	funnelchart: 1,
 	lrucachetrace: 1,
 	prefixtrie: 1,

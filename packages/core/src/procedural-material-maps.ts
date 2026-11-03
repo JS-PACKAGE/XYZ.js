@@ -44237,6 +44237,101 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'wordlefeedback': {
+        const p = proceduralMaterialPresets.wordlefeedback,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x50401),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          secret: number[] = [],
+          guessCount =
+            p.guessCounts[
+              Math.floor(hash(62, 1, seed ^ 0x50402) * p.guessCounts.length)
+            ],
+          guesses: number[][] = [],
+          // feedback[row * wordLength + i]: 2 right place, 1 elsewhere, 0 no.
+          feedback = new Uint8Array(guessCount * p.wordLength);
+        for (let i = 0; i < p.wordLength; i++)
+          secret.push(Math.floor(hash(i, 21, seed ^ 0x50403) * p.letterCount));
+        const solved = hash(63, 2, seed ^ 0x50404) < p.solvedShare;
+        for (let row = 0; row < guessCount; row++) {
+          const guess: number[] = [];
+          for (let i = 0; i < p.wordLength; i++) {
+            const keep = hash(row * 8 + i, 22, seed ^ 0x50405) < p.keepShare;
+            guess.push(
+              keep || (solved && row === guessCount - 1)
+                ? secret[i]
+                : Math.floor(
+                    hash(row * 8 + i, 23, seed ^ 0x50406) * p.letterCount,
+                  ),
+            );
+          }
+          guesses.push(guess);
+          // Right-place letters first, then each other guess letter counts as elsewhere while the secret still has one of it not matched.
+          const spare = new Int32Array(p.letterCount);
+          for (let i = 0; i < p.wordLength; i++)
+            if (guess[i] === secret[i]) feedback[row * p.wordLength + i] = 2;
+            else spare[secret[i]]++;
+          for (let i = 0; i < p.wordLength; i++)
+            if (guess[i] !== secret[i] && spare[guess[i]] > 0) {
+              spare[guess[i]]--;
+              feedback[row * p.wordLength + i] = 1;
+            }
+        }
+        const fillTones = [p.noTone, p.elsewhereTone, p.rightTone],
+          fillHeights = [p.noHeight, p.elsewhereHeight, p.rightHeight];
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          const column = Math.floor((fu - p.left) / p.pitch),
+            line = Math.floor((fv - p.top) / p.pitch);
+          if (column >= 0 && column < p.wordLength) {
+            const cx = p.left + (column + 0.5) * p.pitch,
+              dx = Math.abs(fu - cx);
+            if (line >= 0 && line < guessCount) {
+              const cy = p.top + (line + 0.5) * p.pitch,
+                dy = Math.abs(fv - cy),
+                at = line * p.wordLength + column;
+              paint(
+                cover(Math.min(p.tileHalf - dx, p.tileHalf - dy)),
+                fillTones[feedback[at]],
+                fillHeights[feedback[at]],
+              );
+              paint(
+                cover(Math.min(p.letterHalf - dx, p.letterHalf - dy)),
+                p.letterTones[guesses[line][column]],
+                p.letterHeight,
+              );
+            } else if (line === p.secretLine) {
+              const cy = p.top + (p.secretLine + 0.5) * p.pitch;
+              paint(
+                cover(
+                  Math.min(p.letterHalf - dx, p.letterHalf - Math.abs(fv - cy)),
+                ),
+                p.letterTones[secret[column]],
+                p.letterHeight,
+              );
+            }
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -71766,6 +71861,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'wordlefeedback' ||
     kind === 'funnelchart' ||
     kind === 'lrucachetrace' ||
     kind === 'knapsacktable' ||

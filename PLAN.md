@@ -2237,6 +2237,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`wordlefeedback`（猜字回饋）使目前目錄1169→1170種，含plain的gallery為1171項。一個猜字遊戲：祕密單字有5個字母（每個字母是6種之一，以小方塊的深淺表示，因此字母可以重複），下面是4到6次猜測，每次猜測每個位置有0.4機率沿用祕密單字的字母、否則隨機取字母，最後一次猜測有一半機率就是祕密單字。每個猜測方塊的底色是回饋：最深表示字母在正確位置，中間表示祕密單字別處有這個字母而且還沒被用掉，最淡表示沒有；祕密單字畫在猜測的下方。這是作者設計的示意；回饋必須符合標準規則（字母出現次數只算祕密單字裡有的份數），測試以另一種逐字母計數的方式重新算出每一列回饋並與畫面逐格比對。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

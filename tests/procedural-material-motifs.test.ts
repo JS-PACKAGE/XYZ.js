@@ -51227,3 +51227,349 @@ describe('funnelchart: stages as bars that narrow by the share kept, with slante
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('wordlefeedback: guesses with tiles for right place, elsewhere and no, and the secret under them', () => {
+  const p = proceduralMaterialPresets.wordlefeedback,
+    out = empty();
+  type Game = {
+    sample: Sampler;
+    secret: number[];
+    guesses: number[][];
+    feedback: number[][];
+  };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const near = (tone: number, wanted: number): boolean =>
+    Math.abs(tone - wanted) < 0.01;
+  const centreX = (column: number): number => p.left + (column + 0.5) * p.pitch;
+  const centreY = (line: number): number => p.top + (line + 0.5) * p.pitch;
+  const fills = [p.noTone, p.elsewhereTone, p.rightTone];
+  const letterAt = (tone: number): number =>
+    p.letterTones.findIndex((candidate) => near(tone, candidate));
+
+  // Read the picture: the secret (its row of small squares), the guesses (the small square in each tile) and the feedback (the tile's tone).
+  const gameOf = (seed: number): Game => {
+    const sample = createSurfaceSampler('wordlefeedback', seed),
+      secret = Array.from({ length: p.wordLength }, (_, column) =>
+        letterAt(toneAt(sample, centreX(column), centreY(p.secretLine))),
+      ),
+      guesses: number[][] = [],
+      feedback: number[][] = [];
+    for (
+      let line = 0;
+      fills.some((fill) =>
+        near(toneAt(sample, centreX(0) + 0.03, centreY(line)), fill),
+      );
+      line++
+    ) {
+      guesses.push(
+        Array.from({ length: p.wordLength }, (_, column) =>
+          letterAt(toneAt(sample, centreX(column), centreY(line))),
+        ),
+      );
+      feedback.push(
+        Array.from({ length: p.wordLength }, (_, column) =>
+          fills.findIndex((fill) =>
+            near(toneAt(sample, centreX(column) + 0.03, centreY(line)), fill),
+          ),
+        ),
+      );
+    }
+    expect(p.guessCounts).toContain(guesses.length);
+    return { sample, secret, guesses, feedback };
+  };
+
+  // The feedback worked out letter by letter: of the copies of a letter in the secret, those in the right place use themselves up, and the
+  // rest are matched to the first guess tiles with that letter that are not in the right place.
+  const expectedFeedback = (secret: number[], guess: number[]): number[] => {
+    const result: number[] = guess.map((letter, i) =>
+      letter === secret[i] ? 2 : 0,
+    );
+    for (let letter = 0; letter < p.letterCount; letter++) {
+      let spare = secret.filter(
+        (entry, i) => entry === letter && guess[i] !== letter,
+      ).length;
+      for (let i = 0; i < guess.length && spare > 0; i++)
+        if (guess[i] === letter && result[i] === 0) {
+          result[i] = 1;
+          spare--;
+        }
+    }
+    return result;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'gives every guess the feedback the secret word gives, a letter counted only as often as it is in the secret (seed %i)',
+    (seed) => {
+      const { secret, guesses, feedback } = gameOf(seed);
+      secret.concat(...guesses).forEach((letter) => {
+        expect(letter).toBeGreaterThanOrEqual(0);
+        expect(letter).toBeLessThan(p.letterCount);
+      });
+      guesses.forEach((guess, row) =>
+        expect(feedback[row]).toEqual(expectedFeedback(secret, guess)),
+      );
+      // A guess that is the secret is right in every place, and only the last guess may be it.
+      guesses.forEach((guess, row) => {
+        if (guess.every((letter, i) => letter === secret[i])) {
+          expect(row).toBe(guesses.length - 1);
+          expect(feedback[row]).toEqual(
+            new Array<number>(p.wordLength).fill(2),
+          );
+        }
+      });
+    },
+  );
+
+  it('uses every number of guesses, solved and unsolved games, every feedback and used up letters, over 60 seeds', () => {
+    const counts = new Set<number>(),
+      secretLetters = new Set<number>(),
+      guessLetters = new Set<number>();
+    let solved = 0,
+      kept = 0,
+      total = 0,
+      usedUp = 0;
+    const seen = [0, 0, 0];
+    for (let seed = 0; seed < 60; seed++) {
+      const { secret, guesses, feedback } = gameOf(seed * 23 + 4);
+      counts.add(guesses.length);
+      secret.forEach((letter) => secretLetters.add(letter));
+      guesses
+        .slice(0, -1)
+        .forEach((guess) =>
+          guess.forEach(
+            (letter, i) => letter !== secret[i] && guessLetters.add(letter),
+          ),
+        );
+      solved += Number(
+        guesses[guesses.length - 1].every((letter, i) => letter === secret[i]),
+      );
+      guesses.slice(0, -1).forEach((guess, row) =>
+        guess.forEach((letter, i) => {
+          kept += Number(letter === secret[i]);
+          total++;
+          seen[feedback[row][i]]++;
+          // A letter that is in the secret, but marked no because the copies there are used up.
+          usedUp += Number(feedback[row][i] === 0 && secret.includes(letter));
+        }),
+      );
+    }
+    expect([...counts].sort((a, b) => a - b)).toEqual([...p.guessCounts]);
+    expect([...secretLetters].sort((a, b) => a - b)).toEqual(
+      p.letterTones.map((_, i) => i),
+    );
+    expect([...guessLetters].sort((a, b) => a - b)).toEqual(
+      p.letterTones.map((_, i) => i),
+    );
+    expect(solved).toBeGreaterThan(15);
+    expect(solved).toBeLessThan(45);
+    // A kept letter, or a drawn one that happens to match: keepShare + (1 - keepShare) / letterCount.
+    expect(
+      Math.abs(
+        kept / total - (p.keepShare + (1 - p.keepShare) / p.letterCount),
+      ),
+    ).toBeLessThan(0.05);
+    expect(Math.min(...seen)).toBeGreaterThan(100);
+    expect(usedUp).toBeGreaterThan(50);
+  });
+
+  it('draws the tiles, the letters and the secret with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, secret, guesses, feedback } = gameOf(seed),
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9,
+        heights = [p.noHeight, p.elsewhereHeight, p.rightHeight];
+      guesses.forEach((guess, line) =>
+        guess.forEach((letter, column) => {
+          const x = centreX(column),
+            y = centreY(line),
+            kind = feedback[line][column];
+          // The tile: tone, height, roughness, and its edges (the paper beyond and the gap to the next tile).
+          expect(toneAt(sample, x + 0.03, y)).toBeCloseTo(fills[kind], 6);
+          expect(out.height / p.relief).toBeCloseTo(heights[kind], 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          expect(
+            toneAt(sample, x + p.tileHalf - 0.0004, y + p.tileHalf - 0.0004),
+          ).toBeCloseTo(fills[kind], 6);
+          expect(
+            toneAt(sample, x - p.tileHalf + 0.0004, y - p.tileHalf + 0.0004),
+          ).toBeCloseTo(fills[kind], 6);
+          expect(paperOk(x + p.tileHalf + 0.001, y)).toBe(true);
+          expect(paperOk(x - p.tileHalf - 0.001, y)).toBe(true);
+          expect(paperOk(x, y + p.tileHalf + 0.001)).toBe(true);
+          expect(paperOk(x, y - p.tileHalf - 0.001)).toBe(true);
+          // The letter: tone, height, roughness, and its edges against the tile.
+          expect(toneAt(sample, x, y)).toBeCloseTo(p.letterTones[letter], 6);
+          expect(out.height / p.relief).toBeCloseTo(p.letterHeight, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          expect(
+            toneAt(
+              sample,
+              x + p.letterHalf - 0.0004,
+              y + p.letterHalf - 0.0004,
+            ),
+          ).toBeCloseTo(p.letterTones[letter], 6);
+          expect(
+            toneAt(
+              sample,
+              x - p.letterHalf + 0.0004,
+              y - p.letterHalf + 0.0004,
+            ),
+          ).toBeCloseTo(p.letterTones[letter], 6);
+          expect(toneAt(sample, x + p.letterHalf + 0.001, y)).toBeCloseTo(
+            fills[kind],
+            6,
+          );
+          expect(toneAt(sample, x, y - p.letterHalf - 0.001)).toBeCloseTo(
+            fills[kind],
+            6,
+          );
+        }),
+      );
+      // The secret: a row of small squares with no tile, set under the guesses.
+      secret.forEach((letter, column) => {
+        const x = centreX(column),
+          y = centreY(p.secretLine);
+        expect(toneAt(sample, x, y)).toBeCloseTo(p.letterTones[letter], 6);
+        expect(out.height / p.relief).toBeCloseTo(p.letterHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(
+          toneAt(sample, x + p.letterHalf - 0.0004, y + p.letterHalf - 0.0004),
+        ).toBeCloseTo(p.letterTones[letter], 6);
+        expect(paperOk(x + p.letterHalf + 0.001, y)).toBe(true);
+        expect(paperOk(x, y - p.letterHalf - 0.001)).toBe(true);
+      });
+      // Nothing beside the tiles, and nothing under the secret.
+      expect(paperOk(p.left - 0.01, centreY(0))).toBe(true);
+      expect(paperOk(p.left + p.wordLength * p.pitch + 0.01, centreY(0))).toBe(
+        true,
+      );
+      expect(paperOk(centreX(2), centreY(p.secretLine + 1))).toBe(true);
+      // The rows left unused between the last guess and the secret are bare.
+      if (guesses.length < p.secretLine)
+        expect(paperOk(centreX(2), centreY(guesses.length))).toBe(true);
+    }
+  });
+
+  it('softens the edge of a tile, a letter over a tile and a secret letter over the paper over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      const { sample, feedback } = gameOf(seed),
+        x = centreX(1),
+        y = centreY(0),
+        tile = fills[feedback[0][1]],
+        letter = p.letterTones[letterAt(toneAt(sample, x, y))],
+        secretY = centreY(p.secretLine),
+        secretLetter = p.letterTones[letterAt(toneAt(sample, x, secretY))];
+      // A tile's four sides over the paper.
+      close(
+        toneAt(sample, x + p.tileHalf - quarter, y),
+        mix(p.paperTone, tile, 0.75),
+      );
+      close(
+        toneAt(sample, x + p.tileHalf + quarter, y),
+        mix(p.paperTone, tile, 0.25),
+      );
+      close(
+        toneAt(sample, x - p.tileHalf + quarter, y),
+        mix(p.paperTone, tile, 0.75),
+      );
+      close(
+        toneAt(sample, x, y + p.tileHalf - quarter),
+        mix(p.paperTone, tile, 0.75),
+      );
+      close(
+        toneAt(sample, x, y - p.tileHalf - quarter),
+        mix(p.paperTone, tile, 0.25),
+      );
+      // A letter's sides over its tile.
+      close(
+        toneAt(sample, x + p.letterHalf - quarter, y),
+        mix(tile, letter, 0.75),
+      );
+      close(
+        toneAt(sample, x + p.letterHalf + quarter, y),
+        mix(tile, letter, 0.25),
+      );
+      close(
+        toneAt(sample, x, y - p.letterHalf + quarter),
+        mix(tile, letter, 0.75),
+      );
+      close(
+        toneAt(sample, x, y - p.letterHalf - quarter),
+        mix(tile, letter, 0.25),
+      );
+      // A secret letter's sides over the paper.
+      close(
+        toneAt(sample, x + p.letterHalf - quarter, secretY),
+        mix(p.paperTone, secretLetter, 0.75),
+      );
+      close(
+        toneAt(sample, x + p.letterHalf + quarter, secretY),
+        mix(p.paperTone, secretLetter, 0.25),
+      );
+      close(
+        toneAt(sample, x, secretY + p.letterHalf - quarter),
+        mix(p.paperTone, secretLetter, 0.75),
+      );
+      close(
+        toneAt(sample, x, secretY + p.letterHalf + quarter),
+        mix(p.paperTone, secretLetter, 0.25),
+      );
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('wordlefeedback', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('wordlefeedback', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.95),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('wordlefeedback', 0),
+      b = createSurfaceSampler('wordlefeedback', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.2501],
+        [0.3501, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
