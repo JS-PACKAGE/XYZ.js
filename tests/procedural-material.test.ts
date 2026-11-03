@@ -1077,6 +1077,7 @@ const kinds: ProceduralMaterialKind[] = [
   'stringart',
   'moirefringes',
   'diamondsquare',
+  'golombruns',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',
@@ -171102,6 +171103,238 @@ describe('Diamond-square as a plasma heightfield from the diamond-square midpoin
     expect(blue / (512 * 512)).toBeLessThan(84);
     expect(maxTilt).toBeGreaterThan(0.001);
     expect(maxTilt).toBeLessThan(0.0016);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe("Golomb runs as Golomb's sequence modulo 7 on a 64 by 64 table, in plateaus that grow longer", () => {
+  const p = proceduralMaterialPresets.golombruns;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const cells = 64;
+  /**
+   * Golomb's sequence written independently here from its definition, that n occurs exactly
+   * a(n) times, with the sequence built from itself by repeating the value k a(k) times
+   * (starting from 1, 2, 2), instead of the sampler's recurrence a(n) = 1 + a(n - a(a(n - 1))).
+   */
+  const golomb = ((): number[] => {
+    const list = [0, 1, 2, 2];
+    for (let k = 3; list.length <= cells * cells; k++)
+      for (
+        let times = list[k];
+        times > 0 && list.length <= cells * cells;
+        times--
+      )
+        list.push(k);
+    return list;
+  })();
+  const tones = Array.from(
+    { length: cells * cells },
+    (_, i) => (p.toneSpan * (golomb[i + 1] % 7)) / 6,
+  );
+  const expectedColor = (tone: number): number => p.toneFloor + tone;
+  /** Colour read at the centre of every cell, grain included. */
+  const cellColors = (seed: number): number[] => {
+    const sample = createSurfaceSampler('golombruns', seed),
+      out = empty(),
+      colors: number[] = [];
+    for (let row = 0; row < cells; row++)
+      for (let col = 0; col < cells; col++) {
+        sample((col + 0.5) / cells, (row + 0.5) / cells, out);
+        colors.push(out.color);
+      }
+    return colors;
+  };
+  /** Table shifts (x, y) around the torus that reproduce every cell colour. */
+  const fittingShifts = (colors: number[]): [number, number][] => {
+    const fits: [number, number][] = [];
+    for (let sy = 0; sy < cells; sy++)
+      for (let sx = 0; sx < cells; sx++) {
+        let worst = 0;
+        for (let row = 0; row < cells && worst < 0.03; row++)
+          for (let col = 0; col < cells; col++)
+            worst = Math.max(
+              worst,
+              Math.abs(
+                colors[row * cells + col] -
+                  expectedColor(
+                    tones[((row + sy) % cells) * cells + ((col + sx) % cells)],
+                  ),
+              ),
+            );
+        if (worst < 0.03) fits.push([sx, sy]);
+      }
+    return fits;
+  };
+  it('writes the Golomb sequence into the table and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('golombruns', seed),
+        a = empty();
+      // The sequence starts 1, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 6, its largest term up to
+      // 4096 is 205, the remainders 0 to 6 occur 590, 595, 597, 574, 577, 579 and 584 times, and
+      // exactly one torus shift reproduces every cell colour.
+      expect(golomb.slice(1, 16)).toEqual([
+        1, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 6,
+      ]);
+      expect(Math.max(...golomb.slice(1, 4097))).toBe(205);
+      expect(
+        Array.from(
+          { length: 7 },
+          (_, r) =>
+            golomb.slice(1, 4097).filter((value) => value % 7 === r).length,
+        ),
+      ).toEqual([590, 595, 597, 574, 577, 579, 584]);
+      expect(fittingShifts(cellColors(seed))).toHaveLength(1);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0591);
+      expect(low).toBeLessThan(0.0606);
+      expect(high).toBeGreaterThan(0.854);
+      expect(high).toBeLessThan(0.8546);
+      expect(dark / 65536).toBeGreaterThan(0.3235);
+      expect(dark / 65536).toBeLessThan(0.3245);
+      expect(mean / 65536).toBeGreaterThan(0.4135);
+      expect(mean / 65536).toBeLessThan(0.4138);
+      expect(occlusionLow).toBeGreaterThan(0.73);
+      expect(occlusionLow).toBeLessThan(0.74);
+      expect(heightHigh).toBeGreaterThan(0.845);
+      expect(heightHigh).toBeLessThan(0.85);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('moves the table around the torus per seed and is deterministic for one seed', () => {
+    const first = cellColors(0),
+      second = cellColors(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(Math.abs(first[i] - second[i]) > 0.05);
+    expect(different / first.length).toBeGreaterThan(0.77);
+    expect(different / first.length).toBeLessThan(0.85);
+    expect(cellColors(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('golombruns', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [cells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 sand and teal weave maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('golombruns', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(90.5);
+    expect(red / (512 * 512)).toBeLessThan(91.5);
+    expect(green / (512 * 512)).toBeGreaterThan(90);
+    expect(green / (512 * 512)).toBeLessThan(91);
+    expect(blue / (512 * 512)).toBeGreaterThan(67.5);
+    expect(blue / (512 * 512)).toBeLessThan(68.5);
+    expect(maxTilt).toBeGreaterThan(0.035);
+    expect(maxTilt).toBeLessThan(0.045);
     expect(invalid).toBe(0);
   });
 });

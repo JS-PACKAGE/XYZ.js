@@ -1114,6 +1114,7 @@ try {
     'stringart',
     'moirefringes',
     'diamondsquare',
+    'golombruns',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

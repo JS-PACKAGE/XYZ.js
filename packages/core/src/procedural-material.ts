@@ -1051,6 +1051,7 @@ export type ProceduralMaterialKind =
   | 'stringart'
   | 'moirefringes'
   | 'diamondsquare'
+  | 'golombruns'
   | 'sandpileidentity'
   | 'multiplicativeorder'
   | 'vermiculation'
@@ -2349,6 +2350,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'stringart',
   'moirefringes',
   'diamondsquare',
+  'golombruns',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',

@@ -13129,3 +13129,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 瀏覽器gallery（headless Chrome，`--enable-unsafe-webgpu --use-angle=metal`）：頁面載入約262 s後，預設（WebGPU）與`?renderer=webgl2`兩個分頁讀數皆為「1049 procedural material presets」、select共1050個選項；依序選取stringart、moirefringes、diamondsquare、plain（WebGPU分頁另加happynumbers）都在期限內更新讀數，兩個分頁的console錯誤皆為0。這**只**涵蓋「可選取、讀數更新、無console錯誤」，沒有逐材質截圖，也不證明視覺品質；只選了上述少數kind，沒有逐一選過全部1049種。
 - 紀錄：開webgl2分頁時`browser.open`連續兩次逾時30秒（含終止殘留Chrome程序後立即重試），第三次終止殘留程序並等10秒後成功；逾時的嘗試沒有取得任何讀數，不計入上述結果。
 - 未驗證：沒有量測建構與取樣耗時；不push。
+
+## 2026-11-03 新增材質：高倫布數列（golombruns）
+
+- 範圍：新增`golombruns`（目前目錄1049→1050種，含plain的gallery 1051項）：64×64圓角方磚表放高倫布（Golomb）數列（`a(n) = 1 + a(n − a(a(n − 1)))`）的第1到4096項，色調為`a(n)`對7的餘數（平台狀，越來越長）；深青到沙金色；seed讓表在環面上平移；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 180,228 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)**放棄的嘗試**：我先寫了`sacksspiral`（薩克斯螺旋上的質數）的sampler與預覽程式，產生器的檢查指令只印出數量而沒有真的擋下流程，所以程式已經套用，之後TypeScript編譯錯誤（重複的kind與不存在的欄位）才讓我發現既有的`sacksspiral`早已存在（500以內的整數），整個未提交的嘗試被丟棄（`git checkout`），沒有進入任何commit；之後我寫了`/tmp/absent.sh`同時檢查kind清單與README，並把檢查改成「已存在就不繼續」的前置條件（這是第三次因為沒先確認既有概念而白做，前兩次是`kruskalmaze`與`perfectmaze`、此次）；(2)預覽只看了一版；(3)我第一次寫的Golomb獨立建構探針從`[0, 1]`起算，造成無限迴圈（`c[2]`未定義），被背景化後終止，改成從`[0, 1, 2, 2]`起算才得到兩種建構在4,096項上一致的結果；(4)定義性質（每個`n`恰好出現`a(n)`次）只靠兩種建構一致來間接支持，成長率`a(n) ≈ 1.2·n^0.618`是標準理論，**本次未驗證**；(5)256²與512²取樣的亮處占比、最小色值與AO不同，原因是格寬（4與8像素）與取樣點在格內位置不同，測試採用256²的數值；(6)建構與取樣耗時**未量測**；(7)測試第一次執行即通過（探針數值先量好才寫界線）。
+- 實測（工具實跑）：兩種建構在4,096項上完全相同；最大項205；餘數0到6的個數590／595／597／574／577／579／584；四個seed（0／1／0xffffffff／7）各有唯一符合的平移(24, 38)、(7, 41)、(39, 62)、(50, 30)，最大擬合誤差0.014984–0.014999；256²（seed 0／1／0xffffffff）亮處（color>0.5）32.36%–32.43%、color 0.05918–0.06055至0.85413–0.85448、平均0.41360–0.41367、roughness恆為0.4、AO最低0.7344、height至多0.8462–0.8490 relief；512²（四個seed）亮處26.08%–26.13%、color 0.02508–0.02539至0.85437–0.85475、平均0.35778–0.35786、AO最低0.6、height至多0.8495–0.8505 relief；seed 0與1相比，格中心顏色相差超過0.05的格子81.3%（512²中color>0.5的取樣24.6%不同）；seed 7的512²maps平均r／g／b約(91.0, 90.6, 68.1)、法線tilt²最大約0.0377、z分量最小253。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Golomb runs as|golombruns|kinds|catalog|distinct|periodic"`定向測試**2406項通過／4109項未選**。
+- 未驗證：golombruns未跑完整suite與瀏覽器gallery；不push。

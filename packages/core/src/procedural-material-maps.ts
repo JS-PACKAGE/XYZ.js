@@ -43487,6 +43487,62 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'golombruns': {
+        const p = proceduralMaterialPresets.golombruns,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft,
+          shiftX = Math.floor(hash(0, 27, seed ^ p.seedSalt) * p.cells),
+          shiftY = Math.floor(hash(1, 27, seed ^ p.seedSalt) * p.cells),
+          // Golomb's sequence: a(1) = 1 and a(n) = 1 + a(n - a(a(n - 1))), which is the only
+          // non-decreasing sequence in which every n occurs exactly a(n) times (1, 2, 2, 3, 3, 4,
+          // 4, 4, 5, 5, 5, 6, ...). The cell in row i and column j holds a(64 i + j + 1); its tone
+          // is the remainder of a(n) on division by 7, from 0 to 6, so every run of equal terms is
+          // a plateau of one tone, and the runs grow longer: a(n) is about 1.2 n^0.618. The seed
+          // moves the table around the torus.
+          golomb = new Int32Array(p.cells * p.cells + 1),
+          tones = new Float64Array(p.cells * p.cells);
+        golomb[1] = 1;
+        for (let n = 2; n < golomb.length; n++)
+          golomb[n] = 1 + golomb[n - golomb[golomb[n - 1]]];
+        for (let i = 0; i < tones.length; i++)
+          tones[i] = (p.toneSpan * (golomb[i + 1] % 7)) / 6;
+        return () => {
+          // One compact-support rounded-square kernel per cell (a quartic superellipse
+          // through smoothstep, exactly zero before the cell boundary), so the cell
+          // lookup never jumps and the field is C1.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            ax = (x - col - 0.5) * inverseHalf,
+            ay = (y - row - 0.5) * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            tone =
+              tones[
+                ((row + shiftY) % p.cells) * p.cells +
+                  ((col + shiftX) % p.cells)
+              ],
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -52339,6 +52395,7 @@ export function createSurfaceSampler(
     kind === 'stringart' ||
     kind === 'moirefringes' ||
     kind === 'diamondsquare' ||
+    kind === 'golombruns' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||
