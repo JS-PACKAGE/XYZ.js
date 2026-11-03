@@ -40242,6 +40242,77 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'countertimings': {
+        const p = proceduralMaterialPresets.countertimings,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x42c01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          half = 1 / (2 * p.periods),
+          cells = 2 * p.periods,
+          // 0 binary up, 1 binary down, 2 Gray code, 3 Johnson twisted ring (Q0 gets the inverse of Q3), 4 one-hot ring.
+          mode = Math.floor(hash(22, 10, seed ^ 0x42c02) * 5),
+          first = Math.floor(hash(22, 11, seed ^ 0x42c03) * p.periods),
+          johnson = [0, 1, 3, 7, 15, 14, 12, 8],
+          levels = new Uint8Array(p.rows * cells);
+        for (let period = 0; period < p.periods; period++) {
+          const n = first + period;
+          let word: number;
+          if (mode === 0) word = n % 16;
+          else if (mode === 1) word = (((first - period) % 16) + 16) % 16;
+          else if (mode === 2) word = (n % 16) ^ ((n % 16) >> 1);
+          else if (mode === 3) word = johnson[n % 8];
+          else word = 1 << (n % 4);
+          for (let half2 = 0; half2 < 2; half2++) {
+            const cell = 2 * period + half2;
+            levels[cell] = half2 === 0 ? 1 : 0;
+            for (let row = 1; row < p.rows; row++)
+              levels[row * cells + cell] = (word >> (row - 1)) & 1;
+          }
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            row = Math.min(p.rows - 1, Math.floor(fv * p.rows)),
+            cell = Math.floor(fu * cells),
+            yHigh = (row + p.highAt) / p.rows,
+            yLow = (row + p.lowAt) / p.rows,
+            levelAt = (index: number): number =>
+              levels[row * cells + (((index % cells) + cells) % cells)];
+          // The level's own line across this half period, and the vertical edges where it differs from its neighbours (which also cover the corners).
+          let distance = Math.abs(fv - (levelAt(cell) === 1 ? yHigh : yLow));
+          for (let j = cell; j <= cell + 1; j++)
+            if (levelAt(j) !== levelAt(j - 1))
+              distance = Math.min(
+                distance,
+                Math.hypot(fu - j * half, Math.max(yHigh - fv, 0, fv - yLow)),
+              );
+          const ink = cover(p.lineHalf - distance),
+            guide = cover(
+              p.guideHalf -
+                Math.abs(fu * p.periods - Math.round(fu * p.periods)) /
+                  p.periods,
+            );
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness;
+          shade += (p.guideTone - shade) * guide;
+          elevation += (p.guideHeight - elevation) * guide;
+          rough += (p.inkRoughness - rough) * guide;
+          shade += (p.inkLow + p.inkStep * row - shade) * ink;
+          elevation += (p.inkHeight - elevation) * ink;
+          rough += (p.inkRoughness - rough) * ink;
+          color = clamp(
+            shade +
+              p.grainTone *
+                (grainField(u, v) - 0.5) *
+                (1 - Math.max(ink, guide)),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -67771,6 +67842,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'countertimings' ||
     kind === 'hofstadterq' ||
     kind === 'semaphorefigures' ||
     kind === 'fenwicktree' ||

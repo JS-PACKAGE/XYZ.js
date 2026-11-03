@@ -38280,3 +38280,260 @@ describe('hofstadterq: a scatter plot of 128 consecutive terms of the Hofstadter
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('countertimings: the timing diagram of a 4-bit counter, a clock and its four outputs', () => {
+  const p = proceduralMaterialPresets.countertimings,
+    out = empty(),
+    cells = 2 * p.periods,
+    half = 1 / cells;
+  type Diagram = {
+    mode: number;
+    first: number;
+    sample: Sampler;
+    words: number[];
+  };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const highY = (row: number): number => (row + p.highAt) / p.rows;
+  const lowY = (row: number): number => (row + p.lowAt) / p.rows;
+  // How each kind of counter steps from one state to the next (bit b of the word is Q_b), written as a shift register or arithmetic.
+  const gray = (w: number): number => w ^ (w >> 1);
+  const ungray = (g: number): number => {
+    let w = 0;
+    for (let x = g; x > 0; x >>= 1) w ^= x;
+    return w;
+  };
+  const steps: ((w: number) => number)[] = [
+    (w) => (w + 1) & 15,
+    (w) => (w + 15) & 15,
+    (w) => gray((ungray(w) + 1) & 15),
+    (w) => ((w << 1) & 15) | (1 - ((w >> 3) & 1)),
+    (w) => ((w << 1) & 15) | ((w >> 3) & 1),
+  ];
+
+  const diagramOf = (seed: number): Diagram => {
+    const sample = createSurfaceSampler('countertimings', seed),
+      words: number[] = [];
+    // The level of a row in a half period: the line is at the high or at the low level, not both.
+    const level = (row: number, cell: number): number => {
+      const u = (cell + 0.5) * half,
+        high = toneAt(sample, u, highY(row)) < 0.6,
+        low = toneAt(sample, u, lowY(row)) < 0.6;
+      expect(high).not.toBe(low);
+      return high ? 1 : 0;
+    };
+    for (let cell = 0; cell < cells; cell++)
+      expect(level(0, cell)).toBe(cell % 2 === 0 ? 1 : 0);
+    for (let period = 0; period < p.periods; period++) {
+      let word = 0;
+      for (let row = 1; row < p.rows; row++) {
+        const first = level(row, 2 * period);
+        expect(level(row, 2 * period + 1)).toBe(first);
+        word |= first << (row - 1);
+      }
+      words.push(word);
+    }
+    const modes = steps
+      .map((_, mode) => mode)
+      .filter((mode) =>
+        words.every((w, k) => k === 0 || w === steps[mode](words[k - 1])),
+      );
+    expect(modes).toHaveLength(1);
+    // The first state is the word of the first period.
+    return { mode: modes[0], first: words[0], sample, words };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws a clock and four outputs that count one of the five ways from the state at the first period (seed %i)',
+    (seed) => {
+      const { words } = diagramOf(seed);
+      expect(words).toHaveLength(p.periods);
+    },
+  );
+
+  it('uses all five counters and every starting state across 1500 seeds', () => {
+    const seen = new Set<string>();
+    for (let seed = 0; seed < 1500; seed++) {
+      const { mode, first } = diagramOf(seed);
+      seen.add(`${mode}:${first}`);
+    }
+    // Binary up, binary down and Gray code have 16 states, the Johnson ring 8 and the one-hot ring 4: 60 in all.
+    expect(seen.size).toBe(16 * 3 + 8 + 4);
+    for (const expected of [
+      '0:0',
+      '0:15',
+      '1:0',
+      '1:15',
+      '2:0',
+      '2:8',
+      '3:0',
+      '3:8',
+      '4:1',
+      '4:8',
+    ])
+      expect(seen.has(expected)).toBe(true);
+  });
+
+  it('draws the vertical edges between the two levels at the clock periods and half periods, nowhere else', () => {
+    for (const seed of seeds) {
+      const { sample } = diagramOf(seed);
+      for (let row = 0; row < p.rows; row++) {
+        const mid = (highY(row) + lowY(row)) / 2,
+          level = (cell: number): number =>
+            toneAt(
+              sample,
+              ((((cell % cells) + cells) % cells) + 0.5) * half,
+              highY(row),
+            ) < 0.6
+              ? 1
+              : 0;
+        for (let cell = 0; cell < cells; cell++) {
+          const edge = cell * half,
+            changes = level(cell) !== level(cell - 1);
+          // Left and right of the edge by well over the line's half width, in the middle of its height, there is no line either way.
+          expect(toneAt(sample, edge, mid) < 0.6).toBe(changes);
+          expect(
+            toneAt(sample, edge + p.lineHalf + 0.004, mid),
+          ).toBeGreaterThan(0.6);
+          if (!changes) continue;
+          expect(
+            toneAt(sample, edge, highY(row) - p.lineHalf * 0.5),
+          ).toBeLessThan(0.6);
+          // The edge stops at the two levels: beyond them, above and below, it is paper or a guide.
+          expect(
+            toneAt(sample, edge, highY(row) - p.lineHalf - 0.01),
+          ).toBeGreaterThan(0.6);
+          expect(
+            toneAt(sample, edge, lowY(row) + p.lineHalf + 0.01),
+          ).toBeGreaterThan(0.6);
+        }
+      }
+    }
+  });
+
+  it('tones each row, with heights and roughness, and has faint vertical guides at the clock periods over the paper', () => {
+    for (const seed of seeds) {
+      const { sample } = diagramOf(seed);
+      for (let row = 0; row < p.rows; row++) {
+        const u = 0.25 / p.periods,
+          y =
+            row === 0
+              ? highY(0)
+              : toneAt(sample, u, highY(row)) < 0.6
+                ? highY(row)
+                : lowY(row);
+        expect(toneAt(sample, u, y)).toBeCloseTo(p.inkLow + p.inkStep * row, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.inkHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+      }
+      for (let k = 0; k < p.periods; k++) {
+        const x = k / p.periods;
+        // The boundary between two rows: nothing is drawn there but the guide.
+        for (const y of [1 / p.rows, 3 / p.rows]) {
+          expect(toneAt(sample, x, y)).toBeCloseTo(p.guideTone, 6);
+          expect(out.height / p.relief).toBeCloseTo(p.guideHeight, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          const beside = toneAt(sample, x + p.guideHalf + 0.002, y);
+          expect(Math.abs(beside - p.paperTone)).toBeLessThanOrEqual(
+            p.grainTone / 2 + 1e-9,
+          );
+        }
+      }
+      // Away from every line and every guide it is paper (with the grain).
+      expect(
+        Math.abs(
+          toneAt(sample, 0.5 / p.periods + 0.0001, 0.0037) - p.paperTone,
+        ),
+      ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+    }
+  });
+
+  it('softens the horizontal and the vertical lines over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft;
+    for (const seed of seeds) {
+      const { sample } = diagramOf(seed);
+      for (const row of [0, 2, 4]) {
+        const ink = p.inkLow + p.inkStep * row,
+          mix = (x: number): number =>
+            p.paperTone + (ink - p.paperTone) * smoothstep(x),
+          u = 0.25 / p.periods,
+          y = toneAt(sample, u, highY(row)) < 0.6 ? highY(row) : lowY(row);
+        for (const side of [-1, 1]) {
+          expect(
+            Math.abs(
+              toneAt(sample, u, y + side * (p.lineHalf - quarter)) - mix(0.75),
+            ),
+          ).toBeLessThan(0.03);
+          expect(
+            Math.abs(
+              toneAt(sample, u, y + side * (p.lineHalf + quarter)) - mix(0.25),
+            ),
+          ).toBeLessThan(0.03);
+        }
+        // A vertical edge of the clock row (it changes at every half period).
+        if (row === 0) {
+          const mid = (highY(0) + lowY(0)) / 2,
+            edge = half;
+          for (const side of [-1, 1]) {
+            expect(
+              Math.abs(
+                toneAt(sample, edge + side * (p.lineHalf - quarter), mid) -
+                  mix(0.75),
+              ),
+            ).toBeLessThan(0.05);
+            expect(
+              Math.abs(
+                toneAt(sample, edge + side * (p.lineHalf + quarter), mid) -
+                  mix(0.25),
+              ),
+            ).toBeLessThan(0.05);
+          }
+        }
+      }
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('countertimings', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('countertimings', 0),
+      b = createSurfaceSampler('countertimings', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
