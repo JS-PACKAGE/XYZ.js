@@ -38842,3 +38842,379 @@ describe('qamconstellation: a QAM constellation with the bits of each symbol as 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('chorddiagrams: a grid of guitar chord boxes, checked by the notes of the strings', () => {
+  const p = proceduralMaterialPresets.chorddiagrams,
+    out = empty();
+  type Boxes = { grid: number; sample: Sampler; shapes: number[][] };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const at = (
+    grid: number,
+    column: number,
+    row: number,
+    x: number,
+    y: number,
+  ): [number, number] => [(column + x) / grid, (row + y) / grid];
+  const stringX = (s: number): number => p.stringLeft + s * p.stringSpacing;
+  const fretY = (fret: number): number =>
+    p.boxTop + (fret - 0.5) * p.fretSpacing;
+  const bottom = p.boxTop + p.frets * p.fretSpacing;
+
+  // Standard tuning, low E to high E, as MIDI numbers: the pitch classes of a chord shape follow from them.
+  const tuning = [40, 45, 50, 55, 59, 64];
+  const triad = (shape: number[]): string | null => {
+    const sounding = shape
+        .map((fret, s) => (fret < 0 ? -1 : tuning[s] + fret))
+        .filter((note) => note >= 0),
+      classes = new Set(sounding.map((note) => note % 12)),
+      bass = sounding[0] % 12;
+    for (let root = 0; root < 12; root++)
+      for (const [quality, third] of [
+        ['major', 4],
+        ['minor', 3],
+      ] as const) {
+        const wanted = new Set([root, (root + third) % 12, (root + 7) % 12]);
+        // The chord is in root position: its lowest note is the root, and it has exactly the three notes of the triad.
+        if (
+          bass === root &&
+          classes.size === 3 &&
+          [...classes].every((c) => wanted.has(c))
+        )
+          return `${root}:${quality}`;
+      }
+    return null;
+  };
+
+  const boxesOf = (seed: number): Boxes => {
+    const sample = createSurfaceSampler('chorddiagrams', seed),
+      found = p.grids
+        .map((grid): Boxes | null => {
+          const shapes: number[][] = [];
+          for (let row = 0; row < grid; row++)
+            for (let column = 0; column < grid; column++) {
+              const shape: number[] = [];
+              for (let s = 0; s < p.strings; s++) {
+                const cross = at(grid, column, row, stringX(s), p.markerY),
+                  ring = at(
+                    grid,
+                    column,
+                    row,
+                    stringX(s) + p.markerRadius,
+                    p.markerY,
+                  );
+                if (toneAt(sample, ...cross) < 0.5) shape.push(-1);
+                else if (toneAt(sample, ...ring) < 0.5) shape.push(0);
+                else {
+                  const frets = Array.from(
+                    { length: p.frets },
+                    (_, k) => k + 1,
+                  ).filter(
+                    (f) =>
+                      toneAt(
+                        sample,
+                        ...at(grid, column, row, stringX(s), fretY(f)),
+                      ) < 0.2,
+                  );
+                  if (frets.length !== 1) return null;
+                  shape.push(frets[0]);
+                }
+              }
+              shapes.push(shape);
+            }
+          return { grid, sample, shapes };
+        })
+        .filter((boxes) => boxes !== null);
+    expect(found).toHaveLength(1);
+    return found[0];
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows different chords whose strings are the notes of a major or minor triad in root position (seed %i)',
+    (seed) => {
+      const { grid, shapes } = boxesOf(seed),
+        names = shapes.map((shape) => triad(shape));
+      expect(shapes).toHaveLength(grid * grid);
+      expect(names.every((name) => name !== null)).toBe(true);
+      expect(new Set(names).size).toBe(grid * grid);
+    },
+  );
+
+  it('uses both grids and all ten chords across 60 seeds, each chord having the same shape wherever it is', () => {
+    const grids = new Set<number>(),
+      seen = new Map<string, string>();
+    for (let seed = 0; seed < 60; seed++) {
+      const { grid, shapes } = boxesOf(seed);
+      grids.add(grid);
+      for (const shape of shapes) {
+        const name = triad(shape) as string;
+        expect(seen.get(name) ?? shape.join(',')).toBe(shape.join(','));
+        seen.set(name, shape.join(','));
+      }
+    }
+    expect([...grids].sort((a, b) => a - b)).toEqual([...p.grids]);
+    // C, G, D, A, E and F major, A, E, D and B minor.
+    expect([...seen.keys()].sort()).toEqual(
+      [
+        '0:major',
+        '11:minor',
+        '2:major',
+        '2:minor',
+        '4:major',
+        '4:minor',
+        '5:major',
+        '7:major',
+        '9:major',
+        '9:minor',
+      ].sort(),
+    );
+  });
+
+  it('draws the nut, the five frets and the six strings, which stop where the box does', () => {
+    for (const seed of seeds) {
+      const { grid, sample } = boxesOf(seed),
+        betweenX = stringX(1) + p.stringSpacing / 2;
+      for (let cell = 0; cell < grid * grid; cell++) {
+        const column = cell % grid,
+          row = Math.floor(cell / grid),
+          read = (x: number, y: number): number =>
+            toneAt(sample, ...at(grid, column, row, x, y));
+        expect(read(betweenX, p.boxTop)).toBeCloseTo(p.nutTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.nutHeight, 6);
+        for (let f = 1; f <= p.frets; f++) {
+          expect(read(betweenX, p.boxTop + f * p.fretSpacing)).toBeCloseTo(
+            p.lineTone,
+            6,
+          );
+          expect(out.height / p.relief).toBeCloseTo(p.lineHeight, 6);
+          // The fret and the nut do not reach beyond the outer strings.
+          expect(
+            read(p.stringLeft - 0.04, p.boxTop + f * p.fretSpacing),
+          ).toBeGreaterThan(0.8);
+        }
+        expect(read(p.stringLeft - 0.04, p.boxTop)).toBeGreaterThan(0.8);
+        // Nor beyond the last string on the right.
+        expect(read(stringX(p.strings - 1) + 0.04, p.boxTop)).toBeGreaterThan(
+          0.8,
+        );
+        for (let f = 1; f <= p.frets; f++)
+          expect(
+            read(stringX(p.strings - 1) + 0.04, p.boxTop + f * p.fretSpacing),
+          ).toBeGreaterThan(0.8);
+        for (let s = 0; s < p.strings; s++) {
+          // A string is drawn along the whole box, also where it is muted or open, but not above the nut or below the last fret.
+          expect(read(stringX(s), bottom - 0.02)).toBeCloseTo(p.lineTone, 6);
+          expect(out.height / p.relief).toBeCloseTo(p.lineHeight, 6);
+          expect(read(stringX(s), p.boxTop - p.nutHalf - 0.02)).toBeGreaterThan(
+            0.8,
+          );
+          expect(read(stringX(s), bottom + 0.03)).toBeGreaterThan(0.8);
+        }
+      }
+    }
+  });
+
+  it('draws a dot on a fingered string, a ring on an open one and a cross on a muted one', () => {
+    for (const seed of seeds) {
+      const { grid, sample, shapes } = boxesOf(seed);
+      shapes.forEach((shape, cell) => {
+        const column = cell % grid,
+          row = Math.floor(cell / grid),
+          read = (x: number, y: number): number =>
+            toneAt(sample, ...at(grid, column, row, x, y));
+        shape.forEach((fret, s) => {
+          const x = stringX(s),
+            d = 0.02;
+          if (fret > 0) {
+            expect(read(x, fretY(fret))).toBeCloseTo(p.dotTone, 6);
+            expect(out.height / p.relief).toBeCloseTo(p.dotHeight, 6);
+            expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+            // Round, with its radius, and no marker over the string.
+            expect(read(x + p.dotRadius - 0.01, fretY(fret))).toBeCloseTo(
+              p.dotTone,
+              6,
+            );
+            expect(read(x + p.dotRadius + 0.012, fretY(fret))).toBeGreaterThan(
+              0.3,
+            );
+            expect(
+              read(x + p.dotRadius * 0.8, fretY(fret) + p.dotRadius * 0.8),
+            ).toBeGreaterThan(0.3);
+            expect(read(x, p.markerY)).toBeGreaterThan(0.8);
+          } else if (fret === 0) {
+            expect(read(x, p.markerY)).toBeGreaterThan(0.8);
+            expect(read(x + p.markerRadius, p.markerY)).toBeCloseTo(
+              p.markerTone,
+              6,
+            );
+            expect(out.height / p.relief).toBeCloseTo(p.markerHeight, 6);
+            expect(read(x, p.markerY + p.markerRadius)).toBeCloseTo(
+              p.markerTone,
+              6,
+            );
+            expect(read(x + p.markerRadius + 0.02, p.markerY)).toBeGreaterThan(
+              0.8,
+            );
+          } else {
+            // The diagonals of the cross, and paper between them.
+            for (const [sx, sy] of [
+              [1, 1],
+              [-1, 1],
+              [1, -1],
+              [-1, -1],
+            ])
+              expect(read(x + sx * d, p.markerY + sy * d)).toBeCloseTo(
+                p.markerTone,
+                6,
+              );
+            expect(read(x, p.markerY)).toBeCloseTo(p.markerTone, 6);
+            expect(read(x + 0.03, p.markerY)).toBeGreaterThan(0.8);
+            expect(read(x, p.markerY + 0.03)).toBeGreaterThan(0.8);
+            // The ends of the arms stop at the marker's radius (measured as the larger of the two distances along and across).
+            expect(
+              read(x + p.markerRadius * 0.9, p.markerY + p.markerRadius * 0.9),
+            ).toBeCloseTo(p.markerTone, 6);
+            expect(
+              read(
+                x + p.markerRadius * 1.15,
+                p.markerY + p.markerRadius * 1.15,
+              ),
+            ).toBeGreaterThan(0.8);
+            // Its tip, where the arm is still within the half width across but is just past the radius along it, and the height of the cross.
+            expect(
+              read(
+                x + p.markerRadius * 1.05,
+                p.markerY + p.markerRadius * 0.95,
+              ),
+            ).toBeGreaterThan(0.8);
+            expect(
+              read(
+                x + p.markerRadius * 0.95,
+                p.markerY + p.markerRadius * 0.95,
+              ),
+            ).toBeCloseTo(p.markerTone, 6);
+            expect(out.height / p.relief).toBeCloseTo(p.markerHeight, 6);
+            // The arm's width is across the diagonal: 0.0075 off it along a side is 0.0053 across (inside), 0.0115 off it is 0.0081 (outside).
+            expect(read(x + d + 0.0075, p.markerY + d)).toBeCloseTo(
+              p.markerTone,
+              6,
+            );
+            expect(read(x + d + 0.0115, p.markerY + d)).toBeGreaterThan(0.8);
+          }
+        });
+      });
+    }
+  });
+
+  it('softens the edge of a dot, a string and the nut over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x);
+    for (const seed of seeds) {
+      const { grid, sample, shapes } = boxesOf(seed),
+        quarter = 0.25 * p.edgeSoft * grid,
+        mix = (tone: number, amount: number): number =>
+          p.paperTone + (tone - p.paperTone) * smoothstep(amount),
+        cell = shapes.findIndex((shape) => shape.some((fret) => fret > 0)),
+        column = cell % grid,
+        row = Math.floor(cell / grid),
+        read = (x: number, y: number): number =>
+          toneAt(sample, ...at(grid, column, row, x, y)),
+        s = shapes[cell].findIndex((fret) => fret > 0),
+        fret = shapes[cell][s];
+      // The right edge of the dot, on the line through its centre along the fret (the string and a fret line do not reach there).
+      const rightEdge = stringX(s) + p.dotRadius;
+      expect(
+        Math.abs(read(rightEdge - quarter, fretY(fret)) - mix(p.dotTone, 0.75)),
+      ).toBeLessThan(0.05);
+      expect(
+        Math.abs(read(rightEdge + quarter, fretY(fret)) - mix(p.dotTone, 0.25)),
+      ).toBeLessThan(0.05);
+      // The last fret has no finger on it in any chord: the right edge of a string there, and the edge of the nut between two strings.
+      const free = p.boxTop + (p.frets - 0.5) * p.fretSpacing,
+        left = stringX(0);
+      expect(
+        Math.abs(
+          read(left + p.stringHalf - quarter, free) - mix(p.lineTone, 0.75),
+        ),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(
+          read(left + p.stringHalf + quarter, free) - mix(p.lineTone, 0.25),
+        ),
+      ).toBeLessThan(0.03);
+      const between = stringX(1) + p.stringSpacing / 2;
+      expect(
+        Math.abs(
+          read(between, p.boxTop + p.nutHalf - quarter) - mix(p.nutTone, 0.75),
+        ),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(
+          read(between, p.boxTop + p.nutHalf + quarter) - mix(p.nutTone, 0.25),
+        ),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(
+          read(between, p.boxTop + p.fretSpacing - p.fretHalf + quarter) -
+            mix(p.lineTone, 0.75),
+        ),
+      ).toBeLessThan(0.03);
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('chorddiagrams', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const { grid, sample } = boxesOf(0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(
+          sample,
+          ...at(
+            grid,
+            0,
+            0,
+            0.02 + (i % 8) * 0.01,
+            0.95 + Math.floor(i / 8) * 0.008,
+          ),
+        ),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('chorddiagrams', 0),
+      b = createSurfaceSampler('chorddiagrams', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

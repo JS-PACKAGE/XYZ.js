@@ -40388,6 +40388,99 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'chorddiagrams': {
+        const p = proceduralMaterialPresets.chorddiagrams,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x44e01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          grid =
+            p.grids[Math.floor(hash(24, 14, seed ^ 0x44e02) * p.grids.length)],
+          cell = 1 / grid,
+          // The chords shown, all different: a seeded shuffle of the list, then the first of them.
+          order = Array.from({ length: p.chords.length }, (_, i) => i),
+          boxBottom = p.boxTop + p.frets * p.fretSpacing,
+          right = p.stringLeft + (p.strings - 1) * p.stringSpacing;
+        for (let i = order.length - 1; i > 0; i--) {
+          const j = Math.floor(hash(i, 15, seed ^ 0x44e03) * (i + 1)),
+            held = order[i];
+          order[i] = order[j];
+          order[j] = held;
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            column = Math.min(grid - 1, Math.floor(fu * grid)),
+            row = Math.min(grid - 1, Math.floor(fv * grid)),
+            shape = p.chords[order[row * grid + column]],
+            x = fu * grid - column,
+            y = fv * grid - row;
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (inside: number, tone: number, level: number): void => {
+            const amount = cover(inside * cell);
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          // The frets and the nut across the strings, then the strings along the frets.
+          if (x > p.stringLeft - p.stringHalf && x < right + p.stringHalf) {
+            for (let f = 1; f <= p.frets; f++)
+              paint(
+                p.fretHalf - Math.abs(y - (p.boxTop + f * p.fretSpacing)),
+                p.lineTone,
+                p.lineHeight,
+              );
+            paint(p.nutHalf - Math.abs(y - p.boxTop), p.nutTone, p.nutHeight);
+          }
+          for (let s = 0; s < p.strings; s++) {
+            const sx = p.stringLeft + s * p.stringSpacing,
+              dx = x - sx,
+              fret = shape[s];
+            if (y > p.boxTop - p.nutHalf && y < boxBottom + p.fretHalf)
+              paint(p.stringHalf - Math.abs(dx), p.lineTone, p.lineHeight);
+            if (fret < 0) {
+              // A cross: two diagonals through the marker's middle.
+              const dy = y - p.markerY,
+                reach = p.markerRadius - Math.max(Math.abs(dx), Math.abs(dy));
+              paint(
+                Math.min(
+                  reach,
+                  p.markerHalf -
+                    Math.min(Math.abs(dx - dy), Math.abs(dx + dy)) *
+                      Math.SQRT1_2,
+                ),
+                p.markerTone,
+                p.markerHeight,
+              );
+            } else if (fret === 0) {
+              // A ring round the marker's middle.
+              paint(
+                p.markerHalf -
+                  Math.abs(Math.hypot(dx, y - p.markerY) - p.markerRadius),
+                p.markerTone,
+                p.markerHeight,
+              );
+            } else {
+              paint(
+                p.dotRadius -
+                  Math.hypot(dx, y - (p.boxTop + (fret - 0.5) * p.fretSpacing)),
+                p.dotTone,
+                p.dotHeight,
+              );
+            }
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -67917,6 +68010,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'chorddiagrams' ||
     kind === 'qamconstellation' ||
     kind === 'countertimings' ||
     kind === 'hofstadterq' ||

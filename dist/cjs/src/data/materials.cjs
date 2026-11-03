@@ -23020,6 +23020,131 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .8,
 		inkRoughness: .4
 	}),
+	chorddiagrams: Object.freeze({
+		dark: [
+			24,
+			22,
+			30
+		],
+		light: [
+			242,
+			236,
+			222
+		],
+		roughness: .55,
+		relief: .004,
+		grids: Object.freeze([2, 3]),
+		chords: Object.freeze([
+			Object.freeze([
+				-1,
+				3,
+				2,
+				0,
+				1,
+				0
+			]),
+			Object.freeze([
+				3,
+				2,
+				0,
+				0,
+				0,
+				3
+			]),
+			Object.freeze([
+				-1,
+				-1,
+				0,
+				2,
+				3,
+				2
+			]),
+			Object.freeze([
+				-1,
+				0,
+				2,
+				2,
+				2,
+				0
+			]),
+			Object.freeze([
+				0,
+				2,
+				2,
+				1,
+				0,
+				0
+			]),
+			Object.freeze([
+				-1,
+				0,
+				2,
+				2,
+				1,
+				0
+			]),
+			Object.freeze([
+				0,
+				2,
+				2,
+				0,
+				0,
+				0
+			]),
+			Object.freeze([
+				-1,
+				-1,
+				0,
+				2,
+				3,
+				1
+			]),
+			Object.freeze([
+				1,
+				3,
+				3,
+				2,
+				1,
+				1
+			]),
+			Object.freeze([
+				-1,
+				2,
+				4,
+				4,
+				3,
+				2
+			])
+		]),
+		strings: 6,
+		frets: 5,
+		stringLeft: .2,
+		stringSpacing: .12,
+		boxTop: .3,
+		fretSpacing: .12,
+		markerY: .18,
+		markerRadius: .04,
+		markerHalf: .007,
+		dotRadius: .047,
+		stringHalf: .006,
+		fretHalf: .004,
+		nutHalf: .015,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .93,
+		lineTone: .4,
+		nutTone: .12,
+		markerTone: .3,
+		dotTone: .1,
+		grainTone: .03,
+		paperHeight: .2,
+		lineHeight: .4,
+		nutHeight: .7,
+		markerHeight: .6,
+		dotHeight: .85,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -31701,6 +31826,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	chorddiagrams: 1,
 	qamconstellation: 1,
 	countertimings: 1,
 	hofstadterq: 1,
