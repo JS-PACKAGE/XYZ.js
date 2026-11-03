@@ -14465,6 +14465,34 @@ export const proceduralMaterialPresets = Object.freeze({
     paperRoughness: 0.8,
     inkRoughness: 0.4,
   }),
+  bsttreeorder: Object.freeze({
+    dark: [20, 26, 40] as const,
+    light: [240, 236, 224] as const,
+    roughness: 0.55,
+    relief: 0.004,
+    // A binary search tree drawn with each node at its place in order along the width and at its depth down the height, so that the left
+    // child of a node is always to its left and the right child to its right. The keys are 11, 15 or 19 whole numbers, inserted one by one in
+    // a seeded order that is shown by the tone of the nodes, from dark for the first inserted to light for the last. A shuffle that would make
+    // the tree deeper than 7 levels is shuffled again. The edges join each node to its parent.
+    counts: Object.freeze([11, 15, 19]),
+    maxDepth: 6,
+    top: 0.07,
+    levelStep: 0.12,
+    nodeRadius: 0.016,
+    edgeHalf: 0.0022,
+    edgeSoft: 0.0006,
+    grainCells: 192,
+    paperTone: 0.93,
+    edgeTone: 0.55,
+    nodeFirst: 0.1,
+    nodeLast: 0.7,
+    grainTone: 0.03,
+    paperHeight: 0.2,
+    edgeHeight: 0.5,
+    nodeHeight: 0.85,
+    paperRoughness: 0.8,
+    inkRoughness: 0.4,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -20957,6 +20985,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  bsttreeorder: 1,
   kdtreesplits: 1,
   spanningtree: 1,
   ecdfplot: 1,

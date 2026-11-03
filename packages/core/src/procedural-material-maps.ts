@@ -41034,6 +41034,121 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'bsttreeorder': {
+        const p = proceduralMaterialPresets.bsttreeorder,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x4ae01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          n =
+            p.counts[
+              Math.floor(hash(32, 21, seed ^ 0x4ae02) * p.counts.length)
+            ],
+          order = new Int32Array(n),
+          left = new Int32Array(n),
+          right = new Int32Array(n),
+          parent = new Int32Array(n),
+          depth = new Int32Array(n),
+          // Keys are 0 to n - 1; insertion number of a key.
+          inserted = new Int32Array(n);
+        // A shuffle of the keys (the order to insert them in); another one if the tree would be too deep.
+        for (let attempt = 0; ; attempt++) {
+          for (let i = 0; i < n; i++) order[i] = i;
+          for (let i = n - 1; i > 0; i--) {
+            const j = Math.floor(hash(i, attempt, seed ^ 0x4ae03) * (i + 1)),
+              held = order[i];
+            order[i] = order[j];
+            order[j] = held;
+          }
+          left.fill(-1);
+          right.fill(-1);
+          parent.fill(-1);
+          let deepest = 0;
+          for (let step = 0; step < n; step++) {
+            const key = order[step];
+            inserted[key] = step;
+            if (step === 0) {
+              depth[key] = 0;
+              continue;
+            }
+            let at = order[0],
+              level = 0;
+            for (;;) {
+              level++;
+              const next = key < at ? left[at] : right[at];
+              if (next < 0) {
+                if (key < at) left[at] = key;
+                else right[at] = key;
+                parent[key] = at;
+                depth[key] = level;
+                deepest = Math.max(deepest, level);
+                break;
+              }
+              at = next;
+            }
+          }
+          if (deepest <= p.maxDepth) break;
+        }
+        const cell = 1 / n,
+          px = new Float64Array(n),
+          py = new Float64Array(n);
+        for (let k = 0; k < n; k++) {
+          px[k] = (k + 0.5) * cell;
+          py[k] = p.top + depth[k] * p.levelStep;
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let edge = Infinity,
+            node = Infinity,
+            nodeKey = 0;
+          for (let k = 0; k < n; k++) {
+            const d = Math.hypot(fu - px[k], fv - py[k]);
+            if (d < node) {
+              node = d;
+              nodeKey = k;
+            }
+            const q = parent[k];
+            if (q < 0) continue;
+            const sx = px[q] - px[k],
+              sy = py[q] - py[k],
+              t = Math.max(
+                0,
+                Math.min(
+                  1,
+                  ((fu - px[k]) * sx + (fv - py[k]) * sy) / (sx * sx + sy * sy),
+                ),
+              );
+            edge = Math.min(
+              edge,
+              Math.hypot(fu - px[k] - t * sx, fv - py[k] - t * sy),
+            );
+          }
+          const edgeAmount = cover(p.edgeHalf - edge),
+            nodeAmount = cover(p.nodeRadius - node),
+            tone =
+              p.nodeFirst +
+              ((p.nodeLast - p.nodeFirst) * inserted[nodeKey]) / (n - 1);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness;
+          shade += (p.edgeTone - shade) * edgeAmount;
+          elevation += (p.edgeHeight - elevation) * edgeAmount;
+          rough += (p.inkRoughness - rough) * edgeAmount;
+          shade += (tone - shade) * nodeAmount;
+          elevation += (p.nodeHeight - elevation) * nodeAmount;
+          rough += (p.inkRoughness - rough) * nodeAmount;
+          color = clamp(
+            shade +
+              p.grainTone *
+                (grainField(u, v) - 0.5) *
+                (1 - Math.max(edgeAmount, nodeAmount)),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -68563,6 +68678,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'bsttreeorder' ||
     kind === 'kdtreesplits' ||
     kind === 'spanningtree' ||
     kind === 'ecdfplot' ||

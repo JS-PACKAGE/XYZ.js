@@ -41075,3 +41075,327 @@ describe('kdtreesplits: a k-d tree, points split at the median by alternating li
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('bsttreeorder: a binary search tree drawn in order along the width, toned by insertion order', () => {
+  const p = proceduralMaterialPresets.bsttreeorder,
+    out = empty();
+  type Node = { key: number; depth: number; tone: number };
+  type Tree = { n: number; sample: Sampler; nodes: Node[] };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const xOf = (n: number, key: number): number => (key + 0.5) / n;
+  const yOf = (depth: number): number => p.top + depth * p.levelStep;
+  const toneOfStep = (n: number, step: number): number =>
+    p.nodeFirst + ((p.nodeLast - p.nodeFirst) * step) / (n - 1);
+
+  // Insert the keys in the given order into a plain binary search tree: depth and parent of every key.
+  const build = (order: number[]): { depth: number[]; parent: number[] } => {
+    const depth = new Array<number>(order.length).fill(0),
+      parent = new Array<number>(order.length).fill(-1),
+      root = order[0],
+      children = new Map<number, [number, number]>();
+    for (const key of order.slice(1)) {
+      let at = root,
+        level = 1;
+      for (;;) {
+        const pair = children.get(at) ?? [-1, -1],
+          side = key < at ? 0 : 1;
+        if (pair[side] < 0) {
+          pair[side] = key;
+          children.set(at, pair);
+          depth[key] = level;
+          parent[key] = at;
+          break;
+        }
+        at = pair[side];
+        level++;
+      }
+    }
+    return { depth, parent };
+  };
+
+  const treeOf = (seed: number): Tree => {
+    const sample = createSurfaceSampler('bsttreeorder', seed),
+      found = p.counts
+        .map((n): Tree | null => {
+          const nodes: Node[] = [];
+          for (let key = 0; key < n; key++)
+            for (let depth = 0; depth <= p.maxDepth; depth++) {
+              const cx = xOf(n, key),
+                cy = yOf(depth),
+                centre = toneAt(sample, cx, cy);
+              // A node: its whole disc is one tone of the node ramp (the four points at 0.011 round it, where no edge covers all four).
+              const ringTones = [
+                [1, 0],
+                [-1, 0],
+                [0, 1],
+                [0, -1],
+              ].map(([dx, dy]) =>
+                toneAt(sample, cx + dx * 0.011, cy + dy * 0.011),
+              );
+              if (
+                centre >= p.nodeFirst - 0.01 &&
+                centre <= p.nodeLast + 0.01 &&
+                ringTones.every((t) => Math.abs(t - centre) < 0.005)
+              )
+                nodes.push({ key, depth, tone: centre });
+            }
+          // One node in every column.
+          return nodes.length === n &&
+            new Set(nodes.map((node) => node.key)).size === n
+            ? { n, sample, nodes }
+            : null;
+        })
+        .filter((tree) => tree !== null);
+    expect(found).toHaveLength(1);
+    return found[0];
+  };
+  const insertionOrder = (tree: Tree): number[] =>
+    tree.nodes
+      .slice()
+      .sort((a, b) => a.tone - b.tone)
+      .map((node) => node.key);
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws each node at its depth in a binary search tree built by inserting the keys in the order the tones give (seed %i)',
+    (seed) => {
+      const tree = treeOf(seed),
+        order = insertionOrder(tree),
+        expected = build(order);
+      for (const node of tree.nodes)
+        expect(node.depth).toBe(expected.depth[node.key]);
+      // The tones are the ramp over the insertion steps, evenly.
+      order.forEach((key, step) =>
+        expect(tree.nodes.find((node) => node.key === key)?.tone).toBeCloseTo(
+          toneOfStep(tree.n, step),
+          2,
+        ),
+      );
+      expect(
+        Math.max(...tree.nodes.map((node) => node.depth)),
+      ).toBeLessThanOrEqual(p.maxDepth);
+      // The root is the first key inserted, at depth 0, and is the only node there.
+      expect(tree.nodes.filter((node) => node.depth === 0)).toHaveLength(1);
+      expect(tree.nodes.find((node) => node.depth === 0)?.key).toBe(order[0]);
+    },
+  );
+
+  it('uses all three sizes and a range of shapes across 60 seeds', () => {
+    const sizes = new Set<number>();
+    const heights = new Set<number>();
+    for (let seed = 0; seed < 60; seed++) {
+      const tree = treeOf(seed);
+      sizes.add(tree.n);
+      heights.add(Math.max(...tree.nodes.map((node) => node.depth)));
+    }
+    expect([...sizes].sort((a, b) => a - b)).toEqual([...p.counts]);
+    expect(Math.min(...heights)).toBeLessThanOrEqual(4);
+    expect(Math.max(...heights)).toBe(p.maxDepth);
+  });
+
+  it('lets any key be the first inserted, the smallest and the biggest included, across 400 seeds', () => {
+    const roots = new Map<number, Set<number>>(
+      p.counts.map((n) => [n, new Set<number>()]),
+    );
+    for (let seed = 0; seed < 400; seed++) {
+      const tree = treeOf(seed),
+        root = insertionOrder(tree)[0];
+      roots.get(tree.n)?.add(root);
+    }
+    for (const [n, keys] of roots) {
+      expect(keys.has(0)).toBe(true);
+      expect(keys.has(n - 1)).toBe(true);
+    }
+  });
+
+  it('draws an edge from every node to its parent, and nothing else between the levels', () => {
+    for (const seed of seeds) {
+      const tree = treeOf(seed),
+        { n, sample, nodes } = tree,
+        order = insertionOrder(tree),
+        { depth, parent } = build(order),
+        at = (key: number): [number, number] => [xOf(n, key), yOf(depth[key])],
+        gap = (qx: number, qy: number, key: number): number => {
+          const [cx, cy] = at(key),
+            [px, py] = at(parent[key]),
+            sx = px - cx,
+            sy = py - cy,
+            t = Math.max(
+              0,
+              Math.min(
+                1,
+                ((qx - cx) * sx + (qy - cy) * sy) / (sx * sx + sy * sy),
+              ),
+            );
+          return Math.hypot(qx - cx - t * sx, qy - cy - t * sy);
+        };
+      for (const node of nodes) {
+        if (parent[node.key] < 0) continue;
+        const [cx, cy] = at(node.key),
+          [px, py] = at(parent[node.key]),
+          length = Math.hypot(px - cx, py - cy);
+        // Along the free part of the segment (clear of the two discs) it is the edge tone.
+        for (const t of [0.35, 0.5, 0.65]) {
+          const qx = cx + t * (px - cx),
+            qy = cy + t * (py - cy);
+          if (Math.min(t, 1 - t) * length < p.nodeRadius + 0.004) continue;
+          expect(toneAt(sample, qx, qy)).toBeCloseTo(p.edgeTone, 6);
+          expect(out.height / p.relief).toBeCloseTo(p.edgeHeight, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        }
+      }
+      // A pair one level apart that is not parent and child has no edge: its middle is paper where no true edge is near.
+      let checked = 0;
+      for (const a of nodes)
+        for (const b of nodes) {
+          if (b.depth !== a.depth + 1 || parent[b.key] === a.key) continue;
+          const [ax, ay] = at(a.key),
+            [bx, by] = at(b.key),
+            qx = (ax + bx) / 2,
+            qy = (ay + by) / 2;
+          if (
+            nodes.some(
+              (m) => parent[m.key] >= 0 && gap(qx, qy, m.key) < 0.02,
+            ) ||
+            nodes.some(
+              (m) => Math.hypot(xOf(n, m.key) - qx, yOf(m.depth) - qy) < 0.03,
+            )
+          )
+            continue;
+          expect(
+            Math.abs(toneAt(sample, qx, qy) - p.paperTone),
+          ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+          checked++;
+        }
+      expect(checked).toBeGreaterThan(5);
+    }
+  });
+
+  it('draws the nodes with their tone, height, roughness and radius', () => {
+    for (const seed of seeds) {
+      const { n, sample, nodes } = treeOf(seed);
+      for (const node of nodes) {
+        const cx = xOf(n, node.key),
+          cy = yOf(node.depth);
+        expect(toneAt(sample, cx, cy)).toBeCloseTo(node.tone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.nodeHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(
+          toneAt(sample, cx + p.nodeRadius - 0.002, cy + 0.0001),
+        ).toBeCloseTo(node.tone, 6);
+        expect(
+          toneAt(
+            sample,
+            cx + (p.nodeRadius - 0.002) * 0.7,
+            cy + (p.nodeRadius - 0.002) * 0.7,
+          ),
+        ).toBeCloseTo(node.tone, 6);
+      }
+    }
+  });
+
+  it('softens the edge of a node and of an edge over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft;
+    for (const seed of seeds) {
+      const tree = treeOf(seed),
+        { n, sample, nodes } = tree,
+        { depth, parent } = build(insertionOrder(tree)),
+        mix = (target: number, amount: number): number =>
+          p.paperTone + (target - p.paperTone) * smoothstep(amount),
+        // The root node, straight above it there is nothing.
+        root = nodes.find((node) => node.depth === 0) as Node,
+        cx = xOf(n, root.key),
+        cy = yOf(0);
+      expect(
+        Math.abs(
+          toneAt(sample, cx, cy - p.nodeRadius + quarter) -
+            mix(root.tone, 0.75),
+        ),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(
+          toneAt(sample, cx, cy - p.nodeRadius - quarter) -
+            mix(root.tone, 0.25),
+        ),
+      ).toBeLessThan(0.03);
+      // An edge: across it at its middle, where no other edge or node is.
+      const child = nodes.find(
+          (node) => parent[node.key] >= 0 && depth[node.key] === 1,
+        ) as Node,
+        [ex, ey] = [xOf(n, child.key), yOf(1)],
+        [fx, fy] = [xOf(n, parent[child.key]), yOf(0)],
+        length = Math.hypot(fx - ex, fy - ey),
+        normal: [number, number] = [-(fy - ey) / length, (fx - ex) / length],
+        middle: [number, number] = [(ex + fx) / 2, (ey + fy) / 2];
+      for (const side of [-1, 1]) {
+        expect(
+          Math.abs(
+            toneAt(
+              sample,
+              middle[0] + side * normal[0] * (p.edgeHalf - quarter),
+              middle[1] + side * normal[1] * (p.edgeHalf - quarter),
+            ) - mix(p.edgeTone, 0.75),
+          ),
+        ).toBeLessThan(0.03);
+        expect(
+          Math.abs(
+            toneAt(
+              sample,
+              middle[0] + side * normal[0] * (p.edgeHalf + quarter),
+              middle[1] + side * normal[1] * (p.edgeHalf + quarter),
+            ) - mix(p.edgeTone, 0.25),
+          ),
+        ).toBeLessThan(0.03);
+      }
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('bsttreeorder', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const { sample } = treeOf(0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0191, 0.95),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('bsttreeorder', 0),
+      b = createSurfaceSampler('bsttreeorder', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
