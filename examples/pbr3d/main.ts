@@ -1165,6 +1165,7 @@ try {
     'twosourcewaves',
     'fourierseries',
     'escapefractals',
+    'zerovelocitycurves',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

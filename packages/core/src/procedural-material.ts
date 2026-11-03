@@ -1102,6 +1102,7 @@ export type ProceduralMaterialKind =
   | 'twosourcewaves'
   | 'fourierseries'
   | 'escapefractals'
+  | 'zerovelocitycurves'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2452,6 +2453,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'twosourcewaves',
   'fourierseries',
   'escapefractals',
+  'zerovelocitycurves',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

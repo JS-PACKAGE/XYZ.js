@@ -49136,6 +49136,121 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'zerovelocitycurves': {
+        const p = proceduralMaterialPresets.zerovelocitycurves,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          mu =
+            p.variants[
+              Math.floor(hash(0, 79, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          massOne = 1 - mu,
+          plot = 0.5 - p.margin,
+          inverseSoft = 1 / p.edgeSoft,
+          worldToTile = plot / p.extent,
+          // The force along the axis of the primaries, whose zeros are the collinear points L1, L2 and L3.
+          axisForce = (x: number): number =>
+            x -
+            (massOne * (x + mu)) / Math.abs((x + mu) ** 3) -
+            (mu * (x - 1 + mu)) / Math.abs((x - 1 + mu) ** 3),
+          bisect = (low: number, high: number): number => {
+            const lowSign = axisForce(low) < 0;
+            for (let i = 0; i < 80; i++) {
+              const middle = 0.5 * (low + high);
+              if (axisForce(middle) < 0 === lowSign) low = middle;
+              else high = middle;
+            }
+            return 0.5 * (low + high);
+          },
+          potentialOf = (x: number, y: number): number =>
+            0.5 * (x * x + y * y) +
+            massOne / Math.hypot(x + mu, y) +
+            mu / Math.hypot(x - 1 + mu, y),
+          // The potential at the minima L4 and L5, and at the saddles L1, L2 and L3 found by bisection on the axis.
+          minimum = 1.5 - (mu * massOne) / 2,
+          criticalLevels = [
+            potentialOf(bisect(-mu + 1e-6, 1 - mu - 1e-6), 0),
+            potentialOf(bisect(1 - mu + 1e-6, 3), 0),
+            potentialOf(bisect(-3, -mu - 1e-6), 0),
+            minimum,
+          ],
+          levels: number[] = [];
+        for (
+          let level = p.levelFirst;
+          minimum + level < p.levelMax;
+          level *= p.levelRatio
+        )
+          levels.push(minimum + level);
+        const regularSquared = p.regularHalfWidth * p.regularHalfWidth,
+          criticalSquared = p.criticalHalfWidth * p.criticalHalfWidth,
+          firstRadius = p.primaryRadius + p.primaryMassRadius * massOne,
+          secondRadius = p.primaryRadius + p.primaryMassRadius * mu;
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            x = ((fu - 0.5) / plot) * p.extent,
+            y = -((fv - 0.5) / plot) * p.extent,
+            firstSquared = Math.max((x + mu) ** 2 + y * y, 1e-12),
+            secondSquared = Math.max((x - 1 + mu) ** 2 + y * y, 1e-12),
+            firstRoot = Math.sqrt(firstSquared),
+            secondRoot = Math.sqrt(secondSquared),
+            potential =
+              0.5 * (x * x + y * y) + massOne / firstRoot + mu / secondRoot,
+            pullOne = massOne / (firstSquared * firstRoot),
+            pullTwo = mu / (secondSquared * secondRoot),
+            gradientX = x - pullOne * (x + mu) - pullTwo * (x - 1 + mu),
+            gradientY = y - pullOne * y - pullTwo * y,
+            speed =
+              Math.sqrt(
+                gradientX * gradientX + gradientY * gradientY + p.regularize,
+              ) / worldToTile;
+          let regular = Infinity,
+            critical = Infinity;
+          for (const level of levels)
+            regular = Math.min(regular, Math.abs(potential - level));
+          for (const level of criticalLevels)
+            critical = Math.min(critical, Math.abs(potential - level));
+          const regularT = clamp(
+              1 - (regular * regular) / (speed * speed * regularSquared),
+            ),
+            criticalT = clamp(
+              1 - (critical * critical) / (speed * speed * criticalSquared),
+            ),
+            firstT = clamp(1 - firstSquared / (firstRadius * firstRadius)),
+            secondT = clamp(1 - secondSquared / (secondRadius * secondRadius)),
+            outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
+            outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
+            boxDistance =
+              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              Math.min(Math.max(outsideX, outsideY), 0),
+            inside = smooth(clamp(-boxDistance / p.fade)),
+            ink = clamp(
+              inside *
+                (1 -
+                  (1 - p.regularTone * regularT * regularT) *
+                    (1 - p.criticalTone * criticalT * criticalT) *
+                    (1 - p.primaryTone * firstT * firstT) *
+                    (1 - p.primaryTone * secondT * secondT)),
+            ),
+            mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(ink) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -58039,6 +58154,7 @@ export function createSurfaceSampler(
     kind === 'twosourcewaves' ||
     kind === 'fourierseries' ||
     kind === 'escapefractals' ||
+    kind === 'zerovelocitycurves' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

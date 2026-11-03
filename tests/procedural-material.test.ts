@@ -1128,6 +1128,7 @@ const kinds: ProceduralMaterialKind[] = [
   'twosourcewaves',
   'fourierseries',
   'escapefractals',
+  'zerovelocitycurves',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -187575,6 +187576,382 @@ describe('Escape fractals as the Burning Ship, tricorn and multibrot sets', () =
     expect(blue / (512 * 512)).toBeLessThan(107.3);
     expect(maxTilt).toBeGreaterThan(0.0372);
     expect(maxTilt).toBeLessThan(0.0382);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Zero-velocity curves as the potential contours of the restricted three-body problem', () => {
+  const p = proceduralMaterialPresets.zerovelocitycurves;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const size = 384;
+  /** The effective potential of the rotating frame with the primaries of masses 1 - mu at (-mu, 0) and mu at (1 - mu, 0), written as the plain sum. */
+  const potential = (mu: number, x: number, y: number): number =>
+    0.5 * (x * x + y * y) +
+    (1 - mu) / Math.hypot(x + mu, y) +
+    mu / Math.hypot(x - 1 + mu, y);
+  const gradient = (mu: number, x: number, y: number): [number, number] => {
+    const first = Math.hypot(x + mu, y) ** 3,
+      second = Math.hypot(x - 1 + mu, y) ** 3;
+    return [
+      x - ((1 - mu) * (x + mu)) / first - (mu * (x - 1 + mu)) / second,
+      y - ((1 - mu) * y) / first - (mu * y) / second,
+    ];
+  };
+  /** A zero of the force along the axis of the primaries found by bisection between two points. */
+  const axisZero = (mu: number, low: number, high: number): number => {
+    const force = (x: number): number => gradient(mu, x, 0)[0];
+    const lowSign = force(low) < 0;
+    for (let i = 0; i < 80; i++) {
+      const middle = (low + high) / 2;
+      if (force(middle) < 0 === lowSign) low = middle;
+      else high = middle;
+    }
+    return (low + high) / 2;
+  };
+  /** The collinear points L1, L2 and L3 (bisection) and the triangular points L4 and L5 (the corners of the equilateral triangles on the primaries). */
+  const lagrangePoints = (mu: number): [number, number][] => [
+    [axisZero(mu, -mu + 1e-6, 1 - mu - 1e-6), 0],
+    [axisZero(mu, 1 - mu + 1e-6, 3), 0],
+    [axisZero(mu, -3, -mu - 1e-6), 0],
+    [0.5 - mu, Math.sqrt(3) / 2],
+    [0.5 - mu, -Math.sqrt(3) / 2],
+  ];
+  /** All levels drawn: the regular levels above the minimum at L4, and the critical levels at L1, L2, L3 and L4. */
+  const levelsOf = (mu: number): { regular: number[]; critical: number[] } => {
+    const minimum = 1.5 - (mu * (1 - mu)) / 2,
+      regular: number[] = [];
+    for (
+      let level = p.levelFirst;
+      minimum + level < p.levelMax;
+      level *= p.levelRatio
+    )
+      regular.push(minimum + level);
+    const [one, two, three] = lagrangePoints(mu);
+    return {
+      regular,
+      critical: [
+        potential(mu, one[0], 0),
+        potential(mu, two[0], 0),
+        potential(mu, three[0], 0),
+        minimum,
+      ],
+    };
+  };
+  const tilePosition = (x: number, y: number): [number, number] => [
+    0.5 + (x * (0.5 - p.margin)) / p.extent,
+    0.5 - (y * (0.5 - p.margin)) / p.extent,
+  ];
+  const readTile = (seed: number): Float32Array => {
+    const sample = createSurfaceSampler('zerovelocitycurves', seed),
+      out = empty(),
+      image = new Float32Array(size * size);
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        image[y * size + x] = out.color;
+      }
+    return image;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('zerovelocitycurves', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('zerovelocitycurves', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0253);
+      expect(low).toBeLessThan(0.0259);
+      expect(high).toBeGreaterThan(0.856);
+      expect(high).toBeLessThan(0.866);
+      expect(dark / 65536).toBeGreaterThan(0.116);
+      expect(dark / 65536).toBeLessThan(0.124);
+      expect(mean / 65536).toBeGreaterThan(0.14);
+      expect(mean / 65536).toBeLessThan(0.152);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.84);
+      expect(heightHigh).toBeLessThan(0.856);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (the mass ratios 0.5, 0.3, 0.12, 0.01215, 0.0009537 and 0.04) is 4, 1, 2, 11, 7 and 0; the table was found
+  // with a probe by the fit to the independent contours and is written here, so it is not an independent check of the seed's choice.
+  const seeds = [4, 1, 2, 11, 7, 0];
+  it('draws the contours of its own mass ratio and not those of the others', () => {
+    // Of the pixels with a colour above 0.45 (16298 to 19392 per variant in the probe) more than 0.3 from both primaries, the fraction whose
+    // potential written in the test lies within 0.8 of the critical half width of a drawn level (first order: the potential difference divided by
+    // the strength of the force, in tile units) is above 0.97 for the mass ratio of the seed (0.985 to 1.000 in the probe) and below 0.9 for each
+    // other mass ratio (0.836 at most in the probe, for the neighbouring ratios 0.01215 and 0.0009537).
+    seeds.forEach((seed, index) => {
+      const image = readTile(seed);
+      p.variants.forEach((mu, other) => {
+        const levels = [...levelsOf(mu).regular, ...levelsOf(mu).critical];
+        let bright = 0,
+          fits = 0;
+        for (let y = 0; y < size; y++)
+          for (let x = 0; x < size; x++) {
+            const u = (x + 0.5) / size,
+              v = (y + 0.5) / size;
+            if (
+              image[y * size + x] <= 0.45 ||
+              u < 0.06 ||
+              u > 0.94 ||
+              v < 0.06 ||
+              v > 0.94
+            )
+              continue;
+            const wx = ((u - 0.5) / (0.5 - p.margin)) * p.extent,
+              wy = -((v - 0.5) / (0.5 - p.margin)) * p.extent;
+            if (
+              Math.min(Math.hypot(wx + mu, wy), Math.hypot(wx - 1 + mu, wy)) <
+              0.3
+            )
+              continue;
+            const [gx, gy] = gradient(mu, wx, wy),
+              value = potential(mu, wx, wy),
+              distance =
+                Math.min(...levels.map((level) => Math.abs(value - level))) /
+                Math.hypot(gx, gy);
+            bright++;
+            fits += Number(
+              distance * ((0.5 - p.margin) / p.extent) <
+                0.8 * p.criticalHalfWidth,
+            );
+          }
+        if (other === index) expect(fits / bright).toBeGreaterThan(0.97);
+        else expect(fits / bright).toBeLessThan(0.9);
+      });
+    });
+  });
+  it('draws a bright critical contour through each of the five Lagrange points', () => {
+    // The collinear points L1, L2 and L3 are where the force along the axis is zero (bisection in the test) and the triangular points L4
+    // and L5 are the corners of the equilateral triangles on the primaries, (1/2 - mu, +-sqrt(3)/2), where the potential has its
+    // minimum 3/2 - mu (1 - mu) / 2 (the test checks that value to 1e-12). The colour at each of the five points is above 0.75 (0.814 at the lowest in the probe).
+    seeds.forEach((seed, index) => {
+      const mu = p.variants[index],
+        sample = createSurfaceSampler('zerovelocitycurves', seed),
+        out = empty(),
+        points = lagrangePoints(mu);
+      expect(
+        Math.abs(
+          potential(mu, points[3][0], points[3][1]) -
+            (1.5 - (mu * (1 - mu)) / 2),
+        ),
+      ).toBeLessThan(1e-12);
+      for (const [x, y] of points) {
+        const [u, v] = tilePosition(x, y);
+        sample(u, v, out);
+        expect(out.color).toBeGreaterThan(0.75);
+      }
+    });
+  });
+  it('crosses the axis between the primaries once for each root of the potential at a drawn level', () => {
+    // On the axis between the two primaries (from 0.15 + 0.08 of the mass beyond the first primary to the same before the second) the number of bright runs
+    // (colour above 0.45, steps of 0.0002) is the number of roots of the potential at a drawn level (found in the test by sign changes in steps
+    // of 0.0005 and bisection) plus one for the critical level of L1, which touches the axis at its minimum there without a sign change: 7, 7, 7, 10 and 8 for the
+    // mass ratios 0.5, 0.3, 0.12, 0.01215 and 0.04. The ratio 0.0009537 is left out: its two closest lines are 0.0364 apart
+    // (0.0093 in tile units, less than the sum of their half widths) and merge into one run, 11 runs against 12 roots in the probe.
+    seeds.forEach((seed, index) => {
+      if (index === 4) return;
+      const mu = p.variants[index],
+        sample = createSurfaceSampler('zerovelocitycurves', seed),
+        out = empty(),
+        start = -mu + 0.15 + p.primaryMassRadius * (1 - mu),
+        end = 1 - mu - 0.15 - p.primaryMassRadius * mu,
+        levels = [...levelsOf(mu).regular, ...levelsOf(mu).critical];
+      let roots = 1;
+      for (const level of levels) {
+        let last = potential(mu, start, 0) - level;
+        for (let x = start + 0.0005; x <= end; x += 0.0005) {
+          const value = potential(mu, x, 0) - level;
+          roots += Number(last * value < 0);
+          last = value;
+        }
+      }
+      let runs = 0,
+        previous = false;
+      for (let x = start; x <= end; x += 0.0002) {
+        const [u, v] = tilePosition(x, 0);
+        sample(u, v, out);
+        const on = out.color > 0.45;
+        runs += Number(on && !previous);
+        previous = on;
+      }
+      expect(runs).toBe(roots);
+    });
+  });
+  it('is mirror symmetric about the axis, and about the middle too when the masses are equal', () => {
+    // The potential does not change with the sign of y, so on a 256 by 256 grid the lit state (colour above 0.45) differs for under 0.006 of the
+    // cells (0.0038 at most in the probe, from the grain); with the equal masses (mu = 0.5) the same holds for the mirror about x = 0, while for
+    // the other mass ratios that mirror changes over 0.02 of the cells (0.0286 at the lowest in the probe).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('zerovelocitycurves', seed),
+        out = empty(),
+        lit = new Uint8Array(256 * 256);
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+          lit[y * 256 + x] = Number(out.color > 0.45);
+        }
+      let mirrorY = 0,
+        mirrorX = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          mirrorY += Number(lit[y * 256 + x] !== lit[(255 - y) * 256 + x]);
+          mirrorX += Number(lit[y * 256 + x] !== lit[y * 256 + 255 - x]);
+        }
+      expect(mirrorY / 65536).toBeLessThan(0.006);
+      if (p.variants[index] === 0.5)
+        expect(mirrorX / 65536).toBeLessThan(0.006);
+      else expect(mirrorX / 65536).toBeGreaterThan(0.02);
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 4 and 1 pick different mass ratios (0.5 and 0.3).
+    const first = litGrid(4),
+      second = litGrid(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.192);
+    expect(different / first.length).toBeLessThan(0.196);
+    expect(litGrid(4)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('zerovelocitycurves', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 gold potential contour maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('zerovelocitycurves', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(39.2);
+    expect(red / (512 * 512)).toBeLessThan(40.4);
+    expect(green / (512 * 512)).toBeGreaterThan(44.9);
+    expect(green / (512 * 512)).toBeLessThan(46.1);
+    expect(blue / (512 * 512)).toBeGreaterThan(35.4);
+    expect(blue / (512 * 512)).toBeLessThan(36.6);
+    expect(maxTilt).toBeGreaterThan(0.0295);
+    expect(maxTilt).toBeLessThan(0.0306);
     expect(invalid).toBe(0);
   });
 });
