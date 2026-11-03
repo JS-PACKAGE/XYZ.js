@@ -13579,3 +13579,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增8項專屬測試（數值範圍與色調、所屬範圍的穩定循環點、亮段數、值域界線、不動點與2週期的封閉形式、seed差異與決定性、C1掃描、maps）加kinds清單新條目；用獨立迭代（寫法不同、要求轉折後的點集與20000次後相同、李雅普諾夫指數小於−0.05）檢查。變異檢查（只做了一次）：把映射乘上0.99，該describe的8項中6項失敗（值域與色調、穩定循環點、亮段數、界線、封閉形式、各範圍畫面不同），C1與maps兩項仍通過；已還原。限制：混沌帶只用界線檢查，沒有檢查帶內的密度分布與分岔點位置；seed對應的範圍是探針量出再寫入，不是獨立oracle；欄階數與轉折迭代數兩邊共用；取樣耗時未量測；未對照任何參考圖。型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Logistic bifurcation as|logisticbifurcation|kinds|catalog|distinct|periodic"`定向測試**2494項通過／4267項未選**（gates腳本的第一次執行只用了前兩個關鍵字，9項通過，之後另外補跑完整的定向範圍）。
 - 未驗證：polygonoffsets、zordercurve與logisticbifurcation未跑完整suite與瀏覽器gallery（最近一次完整複驗至冪圖）；不push。
+
+## 2026-11-03 完整測試與瀏覽器gallery複驗（至羅吉斯諦分岔圖）
+
+- 完整suite（工具實跑）：在commit `f5eac9277`（`[P08] Add Logistic Bifurcation material`）的乾淨worktree執行`vitest run`，**179個檔案、10,690項測試全部通過**，耗時1163.25 s；對照前一次紀錄（`c0ed3ae0b`，10,665項），新增的polygonoffsets（8項）、zordercurve（8項）、logisticbifurcation（9項，8項專屬加kinds清單條目）共25項，與數量吻合；其間的文字更正提交沒有新增測試。
+- 瀏覽器gallery（headless Chrome，`--enable-unsafe-webgpu --use-angle=metal`）：預設（WebGPU）與`?renderer=webgl2`兩個分頁讀數皆為「1090 procedural material presets」、select共1091個選項；依序選取logisticbifurcation、zordercurve、polygonoffsets、plain都在期限內更新讀數，兩個分頁的console錯誤皆為0；並在WebGPU分頁讀出前三個選項的文字，確認是各自的描述（不是範本字樣）。這**只**涵蓋「可選取、讀數更新、無console錯誤」與上述選項文字，沒有逐材質截圖，也不證明視覺品質，沒有逐一選過全部1090種；這次沒有量測頁面載入時間。
+- 未驗證：沒有量測建構與取樣耗時；不push。
