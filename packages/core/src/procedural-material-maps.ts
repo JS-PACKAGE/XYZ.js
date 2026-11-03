@@ -39792,6 +39792,80 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'segmenttree': {
+        const p = proceduralMaterialPresets.segmenttree,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x3bb01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          depth =
+            p.depths[Math.floor(hash(9, 3, seed ^ 0x3bb02) * p.depths.length)],
+          levels = depth + 1,
+          leaves = 1 << depth,
+          // Node (level, index) is stored at (1 << level) + index; the leaves are the last row.
+          values = new Float64Array(2 * leaves),
+          chosen = new Uint8Array(2 * leaves),
+          first = Math.floor(
+            hash(1, 3, seed ^ 0x3bb03) * (leaves - p.minRange + 1),
+          ),
+          last =
+            first +
+            p.minRange -
+            1 +
+            Math.floor(
+              hash(2, 3, seed ^ 0x3bb04) * (leaves - first - p.minRange + 1),
+            );
+        for (let i = 0; i < leaves; i++)
+          values[leaves + i] =
+            p.valueMin + hash(i, 5, seed ^ 0x3bb05) * (p.valueMax - p.valueMin);
+        for (let node = leaves - 1; node >= 1; node--)
+          values[node] = (values[2 * node] + values[2 * node + 1]) / 2;
+        // The boxes that cover exactly the leaves first..last: a box wholly inside the range is taken, one that only overlaps it is split.
+        const select = (node: number, low: number, high: number): void => {
+          if (high < first || low > last) return;
+          if (low >= first && high <= last) {
+            chosen[node] = 1;
+            return;
+          }
+          const middle = (low + high) >> 1;
+          select(2 * node, low, middle);
+          select(2 * node + 1, middle + 1, high);
+        };
+        select(1, 0, leaves - 1);
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            row = Math.min(levels - 1, Math.floor(fv * levels)),
+            count = 1 << row,
+            column = Math.min(count - 1, Math.floor(fu * count)),
+            node = count + column,
+            // Distances from the box's four edges, in uv.
+            left = fu - column / count,
+            right = (column + 1) / count - fu,
+            top = fv - row / levels,
+            bottom = (row + 1) / levels - fv,
+            inside = Math.min(
+              left - p.gapX / 2,
+              right - p.gapX / 2,
+              top - p.gapY / 2,
+              bottom - p.gapY / 2,
+            ),
+            box = cover(inside),
+            ring = chosen[node] ? cover(p.outline - inside) * box : 0;
+          let shade = p.gapTone + p.grainTone * (grainField(u, v) - 0.5),
+            elevation = p.gapHeight,
+            rough = p.gapRoughness;
+          shade += (values[node] - shade) * box;
+          elevation += (p.boxHeight - elevation) * box;
+          rough += (p.boxRoughness - rough) * box;
+          shade += (p.outlineTone - shade) * ring;
+          elevation += (p.outlineHeight - elevation) * ring;
+          color = clamp(shade);
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -67321,6 +67395,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'segmenttree' ||
     kind === 'rankchevrons' ||
     kind === 'windbarbs' ||
     kind === 'compassrose' ||

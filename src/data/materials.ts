@@ -14017,6 +14017,33 @@ export const proceduralMaterialPresets = Object.freeze({
     patchRoughness: 0.8,
     inkRoughness: 0.65,
   }),
+  segmenttree: Object.freeze({
+    dark: [20, 22, 30] as const,
+    light: [236, 232, 220] as const,
+    roughness: 0.6,
+    relief: 0.004,
+    // Segment tree: a pyramid of boxes, the root on top and the leaves at the bottom, one row for each level (2^level boxes in a row, of
+    // 3, 4 or 5 levels below the root). The leaves hold values picked by the seed (their tone is the value), and each box above holds the
+    // mean of its two children, so its tone is the mean of theirs. A range of leaves is picked by the seed, and the boxes a segment tree
+    // uses to cover exactly that range (the fewest boxes, none inside another) are drawn with a dark outline.
+    depths: Object.freeze([3, 4, 5]),
+    valueMin: 0.1,
+    valueMax: 0.9,
+    minRange: 3,
+    gapX: 0.004,
+    gapY: 0.01,
+    outline: 0.005,
+    edgeSoft: 0.0006,
+    grainCells: 192,
+    gapTone: 0.62,
+    outlineTone: 0.02,
+    grainTone: 0.04,
+    boxHeight: 0.7,
+    gapHeight: 0.1,
+    outlineHeight: 0.95,
+    boxRoughness: 0.4,
+    gapRoughness: 0.9,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -20509,6 +20536,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  segmenttree: 1,
   rankchevrons: 1,
   windbarbs: 1,
   compassrose: 1,

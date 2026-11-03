@@ -36487,3 +36487,354 @@ describe('rankchevrons: round patches with stacked chevrons, curved bars and a p
     expect(different).toBeGreaterThan(20);
   });
 });
+
+describe('segmenttree: a pyramid of mean boxes with the boxes covering a range outlined', () => {
+  const p = proceduralMaterialPresets.segmenttree,
+    out = empty();
+  type Tree = {
+    depth: number;
+    levels: number;
+    leaves: number;
+    sample: Sampler;
+    values: number[];
+    chosen: boolean[];
+  };
+  const near = (a: number, b: number, tolerance: number): boolean =>
+    Math.abs(a - b) < tolerance;
+
+  // Node `node` (heap numbering: the root is 1, the children of n are 2n and 2n + 1) in a tree of `depth` levels below the root: its
+  // level, column and the centre of its box and the middle of its left border, in uv.
+  const placeOf = (
+    depth: number,
+    node: number,
+  ): {
+    level: number;
+    column: number;
+    cx: number;
+    cy: number;
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } => {
+    const level = Math.floor(Math.log2(node)),
+      column = node - (1 << level),
+      levels = depth + 1;
+    return {
+      level,
+      column,
+      cx: (column + 0.5) / (1 << level),
+      cy: (level + 0.5) / levels,
+      left: column / (1 << level),
+      top: level / levels,
+      width: 1 / (1 << level),
+      height: 1 / levels,
+    };
+  };
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+
+  const treeOf = (seed: number): Tree => {
+    const sample = createSurfaceSampler('segmenttree', seed),
+      found = p.depths
+        .map((depth): Tree | null => {
+          const nodes = 2 << depth,
+            leaves = 1 << depth,
+            values: number[] = [0],
+            chosen: boolean[] = [false];
+          for (let node = 1; node < nodes; node++) {
+            const place = placeOf(depth, node);
+            values.push(toneAt(sample, place.cx, place.cy));
+            // Selected if the tone half the outline inside the left border is the outline tone.
+            chosen.push(
+              near(
+                toneAt(
+                  sample,
+                  place.left + p.gapX / 2 + p.outline / 2,
+                  place.cy,
+                ),
+                p.outlineTone,
+                0.04,
+              ),
+            );
+          }
+          // The mean property at every box above the leaves, and the gap tone between the rows and the columns.
+          for (let node = 1; node < leaves; node++)
+            if (
+              !near(
+                values[node],
+                (values[2 * node] + values[2 * node + 1]) / 2,
+                0.003,
+              )
+            )
+              return null;
+          for (let level = 1; level <= depth; level++)
+            if (
+              !near(
+                toneAt(sample, 0.3711, level / (depth + 1)),
+                p.gapTone,
+                0.03,
+              )
+            )
+              return null;
+          return { depth, levels: depth + 1, leaves, sample, values, chosen };
+        })
+        .filter((tree) => tree !== null);
+    expect(found).toHaveLength(1);
+    return found[0];
+  };
+
+  // The boxes that cover the leaves first..last in the fewest boxes, by the iterative bottom-up method.
+  const cover = (leaves: number, first: number, last: number): number[] => {
+    const nodes: number[] = [];
+    let low = first + leaves,
+      high = last + leaves + 1;
+    while (low < high) {
+      if (low & 1) nodes.push(low++);
+      if (high & 1) nodes.push(--high);
+      low >>= 1;
+      high >>= 1;
+    }
+    return nodes.sort((a, b) => a - b);
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows leaves of random values and boxes above them that hold the mean of their children (seed %i)',
+    (seed) => {
+      const { depth, leaves, values } = treeOf(seed);
+      const leafValues = values.slice(leaves);
+      expect(leafValues).toHaveLength(1 << depth);
+      for (const value of leafValues) {
+        expect(value).toBeGreaterThanOrEqual(p.valueMin - 0.002);
+        expect(value).toBeLessThanOrEqual(p.valueMax + 0.002);
+      }
+      // Random leaves: a spread of values, nearly all different.
+      expect(Math.max(...leafValues) - Math.min(...leafValues)).toBeGreaterThan(
+        0.3,
+      );
+      expect(
+        new Set(leafValues.map((value) => Math.round(value * 100))).size,
+      ).toBeGreaterThan(leaves * 0.6);
+      // The root is the mean of all the leaves.
+      expect(values[1]).toBeCloseTo(
+        leafValues.reduce((a, b) => a + b, 0) / leaves,
+        2,
+      );
+    },
+  );
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'outlines exactly the fewest boxes that cover one range of leaves (seed %i)',
+    (seed) => {
+      const { leaves, chosen } = treeOf(seed),
+        selected = chosen.flatMap((flag, node) => (flag ? [node] : [])),
+        // The leaves under a node.
+        range = (node: number): [number, number] => {
+          const level = Math.floor(Math.log2(node)),
+            width = leaves >> level;
+          return [
+            (node - (1 << level)) * width,
+            (node - (1 << level)) * width + width - 1,
+          ];
+        },
+        spans = selected.map(range).sort((a, b) => a[0] - b[0]);
+      expect(selected.length).toBeGreaterThan(0);
+      // They lie end to end: the first leaf of each is the one after the last of the one before.
+      for (let i = 1; i < spans.length; i++)
+        expect(spans[i][0]).toBe(spans[i - 1][1] + 1);
+      const first = spans[0][0],
+        last = spans[spans.length - 1][1];
+      expect(last - first + 1).toBeGreaterThanOrEqual(p.minRange);
+      // And they are what the standard bottom-up query gives for that range.
+      expect(selected).toEqual(cover(leaves, first, last));
+    },
+  );
+
+  it('uses every depth, many ranges (including the first and the last leaves) and the whole range of values across seeds', () => {
+    const depths = new Set<number>(),
+      ranges = new Set<string>();
+    let startsAtZero = false,
+      endsAtLast = false,
+      startsAtLatest = false,
+      shortest = false,
+      lowest = 1,
+      highest = 0;
+    for (let seed = 0; seed < 120; seed++) {
+      const { depth, leaves, chosen, values } = treeOf(seed),
+        selected = chosen.flatMap((flag, node) => (flag ? [node] : [])),
+        width = (node: number): number => leaves >> Math.floor(Math.log2(node)),
+        low = (node: number): number =>
+          (node - (1 << Math.floor(Math.log2(node)))) * width(node),
+        first = Math.min(...selected.map(low)),
+        last = Math.max(...selected.map((node) => low(node) + width(node) - 1));
+      depths.add(depth);
+      ranges.add(`${depth}:${first}:${last}`);
+      startsAtZero ||= first === 0;
+      // A range that ends on the last leaf but could have started earlier, and one that starts as late as a range of minRange leaves can.
+      endsAtLast ||= last === leaves - 1 && first < leaves - p.minRange;
+      startsAtLatest ||= first === leaves - p.minRange;
+      shortest ||=
+        last - first + 1 === p.minRange && first < leaves - p.minRange;
+      for (const value of values.slice(leaves)) {
+        lowest = Math.min(lowest, value);
+        highest = Math.max(highest, value);
+      }
+    }
+    expect([...depths].sort()).toEqual([...p.depths]);
+    expect(ranges.size).toBeGreaterThan(60);
+    expect(startsAtZero && endsAtLast && startsAtLatest && shortest).toBe(true);
+    expect(lowest).toBeLessThan(p.valueMin + 0.02);
+    expect(highest).toBeGreaterThan(p.valueMax - 0.02);
+  });
+
+  it('keeps boxes inside gaps of gapX and gapY, outlines of width outline, softened over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x);
+    for (const seed of seeds) {
+      const { depth, sample, values, chosen } = treeOf(seed),
+        side = p.edgeSoft / 2 + 0.0003,
+        // A leaf that is not outlined with a value far from the gap tone, and an outlined box.
+        plain = values.findIndex(
+          (value, node) =>
+            node >= 1 << depth &&
+            !chosen[node] &&
+            Math.abs(value - p.gapTone) > 0.3,
+        ),
+        outlined = chosen.indexOf(true);
+      expect(plain).toBeGreaterThan(0);
+      const box = placeOf(depth, plain),
+        tone = (u: number, v: number): number => toneAt(sample, u, v),
+        quarter = 0.25 * p.edgeSoft,
+        value = values[plain];
+      // Left, right, top and bottom edges: the box starts gapX / 2 in from its cell, the gap tone between, and the soft transition.
+      const edges: [number, number, number, number][] = [
+        [box.left + p.gapX / 2, box.cy, 1, 0],
+        [box.left + box.width - p.gapX / 2, box.cy, -1, 0],
+        [box.cx, box.top + p.gapY / 2, 0, 1],
+        [box.cx, box.top + box.height - p.gapY / 2, 0, -1],
+      ];
+      for (const [u, v, dx, dy] of edges) {
+        const probe = (offset: number): number =>
+          tone(u + dx * offset, v + dy * offset);
+        expect(Math.abs(probe(side) - value)).toBeLessThan(0.01);
+        expect(Math.abs(probe(-side) - p.gapTone)).toBeLessThan(0.03);
+        expect(
+          Math.abs(
+            probe(quarter) -
+              (p.gapTone + (value - p.gapTone) * smoothstep(0.75)),
+          ),
+        ).toBeLessThan(0.03);
+        expect(
+          Math.abs(
+            probe(-quarter) -
+              (p.gapTone + (value - p.gapTone) * smoothstep(0.25)),
+          ),
+        ).toBeLessThan(0.03);
+      }
+      // The outline of a selected box: dark from its edge in to `outline`, the box tone beyond that.
+      const ring = placeOf(depth, outlined),
+        ringTone = (u: number, v: number): number => tone(u, v),
+        inner = values[outlined];
+      for (const [u, v, dx, dy] of [
+        [ring.left + p.gapX / 2, ring.cy, 1, 0],
+        [ring.left + ring.width - p.gapX / 2, ring.cy, -1, 0],
+        [ring.cx, ring.top + p.gapY / 2, 0, 1],
+        [ring.cx, ring.top + ring.height - p.gapY / 2, 0, -1],
+      ] as const) {
+        expect(
+          Math.abs(
+            ringTone(u + dx * (p.outline - side), v + dy * (p.outline - side)) -
+              p.outlineTone,
+          ),
+        ).toBeLessThan(0.03);
+        expect(
+          Math.abs(
+            ringTone(u + dx * (p.outline + side), v + dy * (p.outline + side)) -
+              inner,
+          ),
+        ).toBeLessThan(0.03);
+      }
+    }
+  });
+
+  it('gives box, gap and outline their heights and roughness, with grain only on the gaps', () => {
+    for (const seed of seeds) {
+      const { depth, sample, chosen, leaves } = treeOf(seed),
+        read = (
+          u: number,
+          v: number,
+        ): { tone: number; h: number; r: number } => {
+          const tone = toneAt(sample, u, v);
+          return { tone, h: out.height / p.relief, r: out.roughness };
+        },
+        plain = Array.from({ length: 2 * leaves }, (_, node) => node).find(
+          (node) => node >= 1 && !chosen[node],
+        ) as number,
+        box = placeOf(depth, plain),
+        gap = read(0.3711, 1 / (depth + 1)),
+        inside = read(box.cx, box.cy),
+        outlinedNode = chosen.indexOf(true),
+        edge = placeOf(depth, outlinedNode),
+        line = read(edge.left + p.gapX / 2 + p.outline / 2, edge.cy);
+      expect(gap.h).toBeCloseTo(p.gapHeight, 6);
+      expect(gap.r).toBeCloseTo(p.gapRoughness, 6);
+      expect(inside.h).toBeCloseTo(p.boxHeight, 6);
+      expect(inside.r).toBeCloseTo(p.boxRoughness, 6);
+      expect(line.h).toBeCloseTo(p.outlineHeight, 6);
+      // A box's tone has no grain: the same inside it everywhere.
+      const tones = Array.from({ length: 9 }, (_, k) =>
+        toneAt(
+          sample,
+          box.cx + (k - 4) * box.width * 0.05,
+          box.cy + ((k % 3) - 1) * box.height * 0.1,
+        ),
+      );
+      expect(Math.max(...tones) - Math.min(...tones)).toBeLessThan(1e-9);
+      const gaps = Array.from({ length: 40 }, (_, k) =>
+        toneAt(sample, 0.01 + k * 0.0231, 1 / (depth + 1)),
+      );
+      expect(Math.max(...gaps) - Math.min(...gaps)).toBeGreaterThan(0.005);
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('segmenttree', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('segmenttree', 0),
+      b = createSurfaceSampler('segmenttree', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
