@@ -45041,6 +45041,92 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'fareygraph': {
+        const p = proceduralMaterialPresets.fareygraph,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          order =
+            p.orders[
+              Math.floor(hash(0, 38, seed ^ p.seedSalt) * p.orders.length)
+            ],
+          widthSquared = p.halfWidth * p.halfWidth,
+          around = (delta: number): number => delta - Math.round(delta),
+          gcd = (m: number, n: number): number => (n === 0 ? m : gcd(n, m % n)),
+          fractions: number[][] = [],
+          arcs: number[][] = [];
+        // The Farey graph of order 'order' (picked by the seed from 7 to 12): its vertices are the
+        // reduced fractions a / b between 0 and 1 (0 / 1 and 1 / 1 included) whose denominator is at
+        // most 'order', and two of them a / b < c / d are joined when c b - a d = 1. Each joined pair
+        // is drawn as the semicircle on the segment between them (centre in the middle of the
+        // segment, radius half its length) and its mirror image on the other side of the baseline, and
+        // the picture repeats with period 1 in both directions. The tone of an arc is firstTone of the
+        // span for the biggest arcs and the whole span for the smallest.
+        for (let b = 1; b <= order; b++)
+          for (let a = 0; a <= b; a++)
+            if (gcd(a, b) === 1) fractions.push([a, b]);
+        for (const [a, b] of fractions)
+          for (const [c, d] of fractions)
+            if (c * b - a * d === 1) {
+              const left = a / b,
+                right = c / d,
+                radius = (right - left) / 2;
+              arcs.push([
+                (left + right) / 2,
+                radius,
+                p.firstTone + (1 - p.firstTone) * (1 - 2 * radius),
+              ]);
+            }
+        return () => {
+          const x = fract(u),
+            offsetY = fract(v) - p.baseline;
+          // Every arc is t = max(0, 1 - squared distance to the arc / squared half width) and the arcs
+          // are united by 1 - product of (1 - t^2): every t^2 is C1 and exactly zero at the rim, so the
+          // union and the field are C1 (the squared distance to a semicircle is (rho - R)^2 above the
+          // baseline, mirrored below it). The biggest arcs touch the edge of the tile and their copies in
+          // the neighbouring tiles (one period away in x or y) come within the half width of this
+          // point, so those copies are united too; otherwise the field would have a crease there.
+          // Where arcs meet, their tones are averaged with the weights t^2.
+          let open = 1,
+            weight = 0,
+            weighted = 0;
+          for (const [centre, radius, arcTone] of arcs) {
+            const reach = radius + p.halfWidth,
+              acrossHere = around(x - centre);
+            for (const shiftX of [0, -1, 1]) {
+              const across = Math.abs(acrossHere + shiftX);
+              if (across > reach) continue;
+              for (const shiftY of [0, -1, 1]) {
+                const ridge = Math.abs(offsetY + shiftY);
+                if (ridge > reach) continue;
+                const rho = Math.hypot(across, ridge),
+                  t = clamp(
+                    1 - ((rho - radius) * (rho - radius)) / widthSquared,
+                  ),
+                  share = t * t;
+                open *= 1 - share;
+                weight += share;
+                weighted += share * arcTone;
+              }
+            }
+          }
+          const total = 1 - open,
+            mask = smooth(clamp(total / p.edgeSoft)),
+            tone = p.toneSpan * (weight > 0 ? weighted / weight : p.firstTone),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * total * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -53909,6 +53995,7 @@ export function createSurfaceSampler(
     kind === 'hamiltoncycle' ||
     kind === 'daynight' ||
     kind === 'knightstour' ||
+    kind === 'fareygraph' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

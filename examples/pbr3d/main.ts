@@ -1130,6 +1130,7 @@ try {
     'hamiltoncycle',
     'daynight',
     'knightstour',
+    'fareygraph',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

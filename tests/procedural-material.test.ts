@@ -1093,6 +1093,7 @@ const kinds: ProceduralMaterialKind[] = [
   'hamiltoncycle',
   'daynight',
   'knightstour',
+  'fareygraph',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -175479,6 +175480,254 @@ describe("Knight's tour as a knight's tour of a 16 by 16 board by Warnsdorff's r
     expect(blue / (512 * 512)).toBeLessThan(42.7);
     expect(maxTilt).toBeGreaterThan(0.026);
     expect(maxTilt).toBeLessThan(0.03);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Farey graph as the Farey graph of order 7 to 12 drawn as semicircles', () => {
+  const p = proceduralMaterialPresets.fareygraph;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  // The seeds that pick the orders 7, 8, 9, 10, 11 and 12 (I measured this mapping with a probe).
+  const orders: Record<number, number> = {
+    0: 7,
+    6: 8,
+    15: 9,
+    1: 10,
+    5: 11,
+    3: 12,
+  };
+  const gcd = (m: number, n: number): number => (n === 0 ? m : gcd(n, m % n));
+  /**
+   * The reduced fractions a / b from 0 to 1 whose denominator is at most `order`, and for every
+   * pair of them a / b < c / d the colour read back along the upper semicircle on the segment
+   * between them: eleven points at 15 to 165 degrees in steps of 15 degrees. 'drawn' is whether all
+   * eleven are lit (above 0.3) and 'neighbours' whether c b - a d = 1, the Farey neighbour
+   * criterion, written here from the determinant.
+   */
+  const readPairs = (
+    seed: number,
+    order: number,
+  ): {
+    fractions: number;
+    pairs: { drawn: boolean; neighbours: boolean }[];
+  } => {
+    const sample = createSurfaceSampler('fareygraph', seed),
+      out = empty(),
+      read = (x: number, y: number): number => {
+        sample(x - Math.floor(x), y - Math.floor(y), out);
+        return out.color;
+      },
+      fractions: number[][] = [],
+      pairs: { drawn: boolean; neighbours: boolean }[] = [];
+    for (let b = 1; b <= order; b++)
+      for (let a = 0; a <= b; a++) if (gcd(a, b) === 1) fractions.push([a, b]);
+    for (const [a, b] of fractions)
+      for (const [c, d] of fractions) {
+        if (c * b - a * d < 1) continue;
+        const left = a / b,
+          right = c / d,
+          radius = (right - left) / 2;
+        let drawn = true;
+        for (let k = 1; k <= 11 && drawn; k++) {
+          const angle = (Math.PI * k) / 12;
+          drawn =
+            read(
+              (left + right) / 2 - radius * Math.cos(angle),
+              p.baseline - radius * Math.sin(angle),
+            ) > 0.3;
+        }
+        pairs.push({ drawn, neighbours: c * b - a * d === 1 });
+      }
+    return { fractions: fractions.length, pairs };
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('fareygraph', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0252);
+      expect(low).toBeLessThan(0.0258);
+      expect(high).toBeGreaterThan(0.843);
+      expect(high).toBeLessThan(0.848);
+      expect(dark / 65536).toBeGreaterThan(0.072);
+      expect(dark / 65536).toBeLessThan(0.088);
+      expect(mean / 65536).toBeGreaterThan(0.099);
+      expect(mean / 65536).toBeLessThan(0.112);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.84);
+      expect(heightHigh).toBeLessThan(0.845);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('draws exactly the arcs of the Farey neighbours of the order for the seed', () => {
+    // For the six seeds (the orders 7 to 12): of all pairs of reduced fractions with a denominator
+    // up to the order, an arc is drawn (all eleven points along the semicircle lit) exactly when
+    // c b - a d = 1, so the arcs are the edges of the Farey graph; there are 35, 43, 55, 63, 83 and
+    // 91 of them (counted here from the read-back), and no arc of the next order is drawn: among the
+    // pairs of fractions with a denominator up to the order plus one, some Farey neighbours are not
+    // drawn. The Farey neighbour criterion is the textbook one, written from the determinant here
+    // and not looked up.
+    const arcCounts: Record<number, number> = {
+      7: 35,
+      8: 43,
+      9: 55,
+      10: 63,
+      11: 83,
+      12: 91,
+    };
+    for (const [name, order] of Object.entries(orders)) {
+      const seed = Number(name),
+        { pairs } = readPairs(seed, order),
+        beyond = readPairs(seed, order + 1).pairs;
+      expect(
+        pairs.filter(({ drawn, neighbours }) => drawn !== neighbours),
+      ).toHaveLength(0);
+      expect(pairs.filter(({ drawn }) => drawn)).toHaveLength(arcCounts[order]);
+      expect(
+        beyond.filter(({ drawn, neighbours }) => neighbours && !drawn).length,
+      ).toBeGreaterThan(0);
+    }
+  });
+  it('draws a different graph per seed and is deterministic for one seed', () => {
+    // Seed 0 is of order 7 and seed 1 of order 10: the order-10 read-back of seed 0 misses arcs,
+    // and the same seed reads back the same pairs.
+    const short = readPairs(0, 10).pairs;
+    expect(
+      short.filter(({ drawn, neighbours }) => neighbours && !drawn).length,
+    ).toBeGreaterThan(0);
+    expect(
+      readPairs(1, 10).pairs.filter(
+        ({ drawn, neighbours }) => drawn !== neighbours,
+      ),
+    ).toHaveLength(0);
+    expect(readPairs(0, 7)).toEqual(readPairs(0, 7));
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('fareygraph', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [12, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 cyan Farey graph maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('fareygraph', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(20.4);
+    expect(red / (512 * 512)).toBeLessThan(21.6);
+    expect(green / (512 * 512)).toBeGreaterThan(36.8);
+    expect(green / (512 * 512)).toBeLessThan(38);
+    expect(blue / (512 * 512)).toBeGreaterThan(55.9);
+    expect(blue / (512 * 512)).toBeLessThan(57);
+    expect(maxTilt).toBeGreaterThan(0.04);
+    expect(maxTilt).toBeLessThan(0.044);
     expect(invalid).toBe(0);
   });
 });
