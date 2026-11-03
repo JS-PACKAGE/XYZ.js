@@ -1134,6 +1134,7 @@ try {
     'hypercube',
     'kaprekar',
     'perfectarray',
+    'delaunay',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

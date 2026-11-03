@@ -1071,6 +1071,7 @@ export type ProceduralMaterialKind =
   | 'hypercube'
   | 'kaprekar'
   | 'perfectarray'
+  | 'delaunay'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2390,6 +2391,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'hypercube',
   'kaprekar',
   'perfectarray',
+  'delaunay',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

@@ -1097,6 +1097,7 @@ const kinds: ProceduralMaterialKind[] = [
   'hypercube',
   'kaprekar',
   'perfectarray',
+  'delaunay',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -176479,6 +176480,428 @@ describe('Perfect array as a 31 by 33 binary array folded from a maximal length 
     expect(blue / (512 * 512)).toBeLessThan(89);
     expect(maxTilt).toBeGreaterThan(0.018);
     expect(maxTilt).toBeLessThan(0.022);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Delaunay as the Delaunay triangulation of a Poisson-disk point set on the torus, flat triangles with seams', () => {
+  const p = proceduralMaterialPresets.delaunay;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const wrapped = (a: number[], b: number[]): number => {
+    const dx = Math.abs(a[0] - b[0]),
+      dy = Math.abs(a[1] - b[1]);
+    return Math.hypot(Math.min(dx, 1 - dx), Math.min(dy, 1 - dy));
+  };
+  /**
+   * The centre of every node read back from the sampler: the pixels with a colour above 0.66 (the
+   * nodes are brighter than the fills and seams) of a 512 by 512 grid are grouped into 4-connected components on the torus (a flood fill
+   * written here, nothing from the sampler), and the centre of a component is its circular
+   * mean in u and v, which is right for discs that wrap around the edge of the tile.
+   */
+  const readDiscs = (
+    seed: number,
+  ): { centres: number[][]; areas: number[] } => {
+    const sample = createSurfaceSampler('delaunay', seed),
+      out = empty(),
+      size = 512,
+      lit: boolean[] = [],
+      label = new Int32Array(size * size).fill(-1),
+      centres: number[][] = [],
+      areas: number[] = [];
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        lit.push(out.color > 0.66);
+      }
+    for (let start = 0; start < size * size; start++) {
+      if (!lit[start] || label[start] >= 0) continue;
+      const stack = [start];
+      label[start] = centres.length;
+      let area = 0,
+        cu = 0,
+        su = 0,
+        cv = 0,
+        sv = 0;
+      while (stack.length > 0) {
+        const at = stack.pop() as number,
+          x = at % size,
+          y = Math.floor(at / size);
+        area++;
+        cu += Math.cos((2 * Math.PI * (x + 0.5)) / size);
+        su += Math.sin((2 * Math.PI * (x + 0.5)) / size);
+        cv += Math.cos((2 * Math.PI * (y + 0.5)) / size);
+        sv += Math.sin((2 * Math.PI * (y + 0.5)) / size);
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const next =
+            ((y + dy + size) % size) * size + ((x + dx + size) % size);
+          if (lit[next] && label[next] < 0) {
+            label[next] = centres.length;
+            stack.push(next);
+          }
+        }
+      }
+      if (area < 12) continue;
+      centres.push([
+        (((Math.atan2(su, cu) / (2 * Math.PI)) % 1) + 1) % 1,
+        (((Math.atan2(sv, cv) / (2 * Math.PI)) % 1) + 1) % 1,
+      ]);
+      areas.push(area);
+    }
+    return { centres, areas };
+  };
+  it('draws nodes, seams along the Delaunay edges and flat triangles and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('delaunay', seed),
+        a = empty();
+      // The grid shows 85 to 90 separate nodes (groups of 12 or more pixels with a colour above 0.66,
+      // each 105 to 180 pixels; the lone pixels of grain at the rim of a node are left out), every
+      // pair of node centres is at least 0.083 apart (the minimum distance is 0.085), and the seams
+      // are the Delaunay edges of the node centres read back. For every pair at most 0.25 apart,
+      // written here from the definition: the pair is an edge when some circle through both nodes has
+      // no other node (or image of a node on the torus) inside it. The centres of such circles lie on
+      // the bisector, each other node limits them to a half line, and the width of what is left is the
+      // margin of the pair (negative when nothing is left). The seam is read as 13 points at 35% to
+      // 65% of the segment, each the least colour of 5 points across the segment (up to 0.004 to
+      // either side, because the centres read back are a pixel or so off): below 0.2 at all 13. Pairs
+      // with a margin of 0.006 or more must read as a seam, pairs with a margin of -0.006 or less
+      // must not, and the seams read are exactly 3 times as many as the nodes (a triangulation of the
+      // torus has as many edges as 3 times the vertices). The tests do not use anything from the
+      // sampler but its output.
+      const { centres, areas } = readDiscs(seed),
+        read = (x: number, y: number): number => {
+          sample(x - Math.floor(x), y - Math.floor(y), a);
+          return a.color;
+        },
+        around = (delta: number): number => delta - Math.round(delta),
+        margin = (i: number, j: number): number => {
+          const dx = around(centres[j][0] - centres[i][0]),
+            dy = around(centres[j][1] - centres[i][1]),
+            length = Math.hypot(dx, dy),
+            nx = -dy / length,
+            ny = dx / length;
+          let low = -Infinity,
+            high = Infinity;
+          for (let k = 0; k < centres.length; k++) {
+            if (k === i || k === j) continue;
+            for (let ty = -1; ty <= 1; ty++)
+              for (let tx = -1; tx <= 1; tx++) {
+                const wx = centres[k][0] + tx - centres[i][0] - dx / 2,
+                  wy = centres[k][1] + ty - centres[i][1] - dy / 2,
+                  outside = wx * wx + wy * wy - (length / 2) ** 2,
+                  across = nx * wx + ny * wy;
+                if (Math.abs(across) < 1e-15) {
+                  if (outside <= 0) return -1;
+                  continue;
+                }
+                if (across > 0) high = Math.min(high, outside / (2 * across));
+                else low = Math.max(low, outside / (2 * across));
+              }
+          }
+          return high - low;
+        },
+        seamBetween = (i: number, j: number): boolean => {
+          const dx = around(centres[j][0] - centres[i][0]),
+            dy = around(centres[j][1] - centres[i][1]),
+            length = Math.hypot(dx, dy);
+          for (let step = 0; step < 13; step++) {
+            const at = 0.35 + (0.3 * step) / 12;
+            let least = Infinity;
+            for (const across of [-0.004, -0.002, 0, 0.002, 0.004])
+              least = Math.min(
+                least,
+                read(
+                  centres[i][0] + dx * at - (dy / length) * across,
+                  centres[i][1] + dy * at + (dx / length) * across,
+                ),
+              );
+            if (least >= 0.2) return false;
+          }
+          return true;
+        };
+      expect(centres.length).toBeGreaterThan(85);
+      expect(centres.length).toBeLessThan(90);
+      expect(Math.min(...areas)).toBeGreaterThan(105);
+      expect(Math.max(...areas)).toBeLessThan(180);
+      let closest = Infinity,
+        joined = 0,
+        absent = 0,
+        wrongJoined = 0,
+        wrongAbsent = 0,
+        seams = 0;
+      const seamPairs: number[][] = [];
+      for (let i = 0; i < centres.length; i++)
+        for (let j = i + 1; j < centres.length; j++) {
+          const length = Math.hypot(
+            around(centres[j][0] - centres[i][0]),
+            around(centres[j][1] - centres[i][1]),
+          );
+          closest = Math.min(closest, length);
+          if (length > 0.25) continue;
+          const gap = margin(i, j),
+            seam = seamBetween(i, j);
+          if (seam) {
+            seams++;
+            seamPairs.push([i, j]);
+          }
+          if (gap >= 0.006) {
+            joined++;
+            wrongJoined += Number(!seam);
+          } else if (gap <= -0.006) {
+            absent++;
+            wrongAbsent += Number(seam);
+          }
+        }
+      expect(closest).toBeGreaterThan(0.083);
+      expect(joined).toBeGreaterThan(250);
+      expect(joined).toBeLessThan(262);
+      expect(absent).toBeGreaterThan(430);
+      expect(absent).toBeLessThan(470);
+      expect(wrongJoined).toBe(0);
+      expect(wrongAbsent).toBe(0);
+      expect(seams).toBe(3 * centres.length);
+      // The triangles: every triple of nodes joined pairwise by the seams read whose circumscribed
+      // circle holds no other node or image of a node (more than 0.004 inside it, because the centres
+      // read back are a pixel or so off and a nearly cocircular quadrilateral would otherwise lose both
+      // its triangles) is a face, there are 2 times as many faces as
+      // nodes (3 faces per 2 edges), and each is a flat fill. The interior points tested are described below.
+      const joinedTo = (i: number, j: number): boolean =>
+        seamPairs.some(
+          ([m, n]) => (m === i && n === j) || (m === j && n === i),
+        );
+      let faces = 0,
+        checked = 0,
+        badFill = 0;
+      for (let i = 0; i < centres.length; i++)
+        for (let j = i + 1; j < centres.length; j++) {
+          if (!joinedTo(i, j)) continue;
+          for (let k = j + 1; k < centres.length; k++) {
+            if (!joinedTo(i, k) || !joinedTo(j, k)) continue;
+            const bx = around(centres[j][0] - centres[i][0]),
+              by = around(centres[j][1] - centres[i][1]),
+              cx = around(centres[k][0] - centres[i][0]),
+              cy = around(centres[k][1] - centres[i][1]),
+              twice = 2 * (bx * cy - by * cx),
+              ux =
+                (cy * (bx * bx + by * by) - by * (cx * cx + cy * cy)) / twice,
+              uy =
+                (bx * (cx * cx + cy * cy) - cx * (bx * bx + by * by)) / twice,
+              radiusSquared = ux * ux + uy * uy;
+            let holds = false;
+            for (let m = 0; m < centres.length && !holds; m++) {
+              if (m === i || m === j || m === k) continue;
+              for (let ty = -1; ty <= 1; ty++)
+                for (let tx = -1; tx <= 1; tx++) {
+                  const ex = centres[m][0] + tx - centres[i][0] - ux,
+                    ey = centres[m][1] + ty - centres[i][1] - uy;
+                  holds ||=
+                    Math.hypot(ex, ey) < Math.sqrt(radiusSquared) - 0.004;
+                }
+            }
+            if (holds) continue;
+            faces++;
+            // Interior points on a grid of barycentric coordinates (steps of 0.1 along both sides from the
+            // first corner), kept when at least 0.012 from every side and 0.035 from every corner (outside
+            // the seams and the discs of the nodes): all kept points read within 0.05 of the first one
+            // and the first is between 0.3 and 0.6.
+            const corners = [
+                [0, 0],
+                [bx, by],
+                [cx, cy],
+              ],
+              kept: number[] = [];
+            for (let s = 1; s <= 8; s++)
+              for (let r = 1; r + s <= 9; r++) {
+                const qx = (bx * r + cx * s) / 10,
+                  qy = (by * r + cy * s) / 10;
+                let clear = true;
+                for (let side = 0; side < 3; side++) {
+                  const [x0, y0] = corners[side],
+                    [x1, y1] = corners[(side + 1) % 3],
+                    along = Math.min(
+                      1,
+                      Math.max(
+                        0,
+                        ((qx - x0) * (x1 - x0) + (qy - y0) * (y1 - y0)) /
+                          ((x1 - x0) ** 2 + (y1 - y0) ** 2),
+                      ),
+                    );
+                  clear &&=
+                    Math.hypot(
+                      qx - x0 - along * (x1 - x0),
+                      qy - y0 - along * (y1 - y0),
+                    ) >= 0.012 && Math.hypot(qx - x0, qy - y0) >= 0.035;
+                }
+                if (clear)
+                  kept.push(read(centres[i][0] + qx, centres[i][1] + qy));
+              }
+            checked += Number(kept.length > 0);
+            badFill += Number(
+              kept.some(
+                (value) =>
+                  value <= 0.3 ||
+                  value >= 0.6 ||
+                  Math.abs(value - kept[0]) >= 0.05,
+              ),
+            );
+          }
+        }
+      expect(faces).toBe(2 * centres.length);
+      expect(checked).toBe(faces);
+      expect(badFill).toBe(0);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0262);
+      expect(low).toBeLessThan(0.0273);
+      expect(high).toBeGreaterThan(0.8498);
+      expect(high).toBeLessThan(0.8502);
+      expect(dark / 65536).toBeGreaterThan(0.26);
+      expect(dark / 65536).toBeLessThan(0.29);
+      expect(mean / 65536).toBeGreaterThan(0.42);
+      expect(mean / 65536).toBeLessThan(0.428);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 3);
+      expect(heightHigh).toBeGreaterThan(0.868);
+      expect(heightHigh).toBeLessThan(0.872);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('scatters the nodes differently per seed and is deterministic for one seed', () => {
+    const first = readDiscs(0).centres,
+      second = readDiscs(1).centres;
+    let shared = 0;
+    for (const centre of first)
+      shared += Number(second.some((other) => wrapped(centre, other) < 0.01));
+    expect(shared / first.length).toBeLessThan(0.15);
+    expect(readDiscs(0).centres).toEqual(first);
+  });
+  it('keeps the nodes, edges, ground and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('delaunay', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.buckets, p.grainCells, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 copper low-poly maps with raised nodes, flat triangles and dark seams', () => {
+    const maps = generateProceduralMaps('delaunay', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(114.3);
+    expect(red / (512 * 512)).toBeLessThan(115.6);
+    expect(green / (512 * 512)).toBeGreaterThan(79);
+    expect(green / (512 * 512)).toBeLessThan(80.4);
+    expect(blue / (512 * 512)).toBeGreaterThan(70.2);
+    expect(blue / (512 * 512)).toBeLessThan(71.5);
+    expect(maxTilt).toBeGreaterThan(0.046);
+    expect(maxTilt).toBeLessThan(0.052);
     expect(invalid).toBe(0);
   });
 });

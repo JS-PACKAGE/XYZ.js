@@ -45398,6 +45398,260 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'delaunay': {
+        const p = proceduralMaterialPresets.delaunay,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          px: number[] = [],
+          py: number[] = [],
+          nodeBuckets: number[][] = Array.from(
+            { length: p.buckets * p.buckets },
+            () => [],
+          ),
+          edgeBuckets: number[][] = Array.from(
+            { length: p.buckets * p.buckets },
+            () => [],
+          ),
+          triangleBuckets: number[][] = Array.from(
+            { length: p.buckets * p.buckets },
+            () => [],
+          ),
+          edges: number[][] = [],
+          triangles: number[][] = [],
+          knownEdges = new Set<string>(),
+          minSquared = p.minDistance * p.minDistance,
+          nodeSquared = p.nodeRadius * p.nodeRadius,
+          edgeSquared = p.edgeHalfWidth * p.edgeHalfWidth,
+          inverseSeam = 1 / p.seamSoft,
+          // The shortest way from a to b round the unit torus, as one coordinate.
+          around = (delta: number): number => delta - Math.round(delta);
+        // Dart throwing on the unit torus as for the Poisson disk (candidates from the hash, kept when
+        // at least minDistance from every point kept so far), then the Delaunay triangulation of the
+        // points on the torus: a triangle of three points (each other point taken as its nearest image
+        // to the first) belongs to it when no point or image of a point lies inside its circumscribed
+        // circle. Every triangle is found once, from its point of the least index, and filed with
+        // its three sides into the buckets x buckets buckets it can cover, in every one of the 3 x 3
+        // translations that reach into the tile, so a lookup needs only the bucket of the sample.
+        for (let k = 0; k < p.attempts; k++) {
+          const cx = hash(k, 0, seed ^ p.seedSalt),
+            cy = hash(k, 1, seed ^ p.seedSalt);
+          let free = true;
+          for (let i = 0; i < px.length && free; i++) {
+            const dx = around(cx - px[i]),
+              dy = around(cy - py[i]);
+            free = dx * dx + dy * dy >= minSquared;
+          }
+          if (!free) continue;
+          px.push(cx);
+          py.push(cy);
+          nodeBuckets[
+            Math.floor(cy * p.buckets) * p.buckets + Math.floor(cx * p.buckets)
+          ].push(px.length - 1);
+        }
+        const step = 0.25 / p.buckets,
+          reach = p.edgeHalfWidth + step / 2,
+          bucketAt = (x: number, y: number): number =>
+            (Math.floor((y - Math.floor(y)) * p.buckets) % p.buckets) *
+              p.buckets +
+            (Math.floor((x - Math.floor(x)) * p.buckets) % p.buckets),
+          addEdge = (
+            a: number,
+            b: number,
+            x0: number,
+            y0: number,
+            dx: number,
+            dy: number,
+          ): void => {
+            const key =
+              a < b
+                ? `${a}_${b}_${Math.round(dx * 1e6)}_${Math.round(dy * 1e6)}`
+                : `${b}_${a}_${Math.round(-dx * 1e6)}_${Math.round(-dy * 1e6)}`;
+            if (knownEdges.has(key)) return;
+            knownEdges.add(key);
+            const length = Math.hypot(dx, dy),
+              index = edges.length,
+              filed = new Set<number>();
+            edges.push([x0, y0, dx, dy, length * length]);
+            for (let s = 0, n = Math.ceil(length / step); s <= n; s++)
+              for (const ox of [-reach, reach])
+                for (const oy of [-reach, reach]) {
+                  const bucket = bucketAt(
+                    x0 + (dx * s) / n + ox,
+                    y0 + (dy * s) / n + oy,
+                  );
+                  if (!filed.has(bucket)) {
+                    filed.add(bucket);
+                    edgeBuckets[bucket].push(index);
+                  }
+                }
+          };
+        for (let i = 0; i < px.length; i++) {
+          // The images of the points within the reach of point i, as offsets from point i.
+          const near: number[][] = [],
+            wide: number[][] = [];
+          for (let k = 0; k < px.length; k++)
+            for (let ty = -1; ty <= 1; ty++)
+              for (let tx = -1; tx <= 1; tx++) {
+                const dx = px[k] + tx - px[i],
+                  dy = py[k] + ty - py[i],
+                  distance = Math.hypot(dx, dy);
+                if (distance === 0 || distance > 2 * p.maxEdge) continue;
+                wide.push([dx, dy, k, tx, ty]);
+                if (k > i && distance <= p.maxEdge)
+                  near.push([dx, dy, k, tx, ty]);
+              }
+          for (let a = 0; a < near.length; a++)
+            for (let b = a + 1; b < near.length; b++) {
+              const [bx, by] = near[a],
+                [cx, cy] = near[b],
+                twice = 2 * (bx * cy - by * cx);
+              if (Math.abs(twice) < 1e-12) continue;
+              const bb = bx * bx + by * by,
+                cc = cx * cx + cy * cy,
+                ux = (cy * bb - by * cc) / twice,
+                uy = (bx * cc - cx * bb) / twice,
+                radiusSquared = ux * ux + uy * uy;
+              if (radiusSquared > p.maxEdge * p.maxEdge) continue;
+              let empty = true;
+              for (let w = 0; w < wide.length && empty; w++) {
+                const q = wide[w];
+                if (
+                  (q[0] === bx && q[1] === by) ||
+                  (q[0] === cx && q[1] === cy)
+                )
+                  continue;
+                const ex = q[0] - ux,
+                  ey = q[1] - uy;
+                empty = ex * ex + ey * ey > radiusSquared * (1 + 1e-9);
+              }
+              if (!empty) continue;
+              const sorted = [i, near[a][2], near[b][2]].sort((m, n) => m - n),
+                tone =
+                  p.fillLow +
+                  (p.fillHigh - p.fillLow) *
+                    hash(
+                      sorted[0] * 1024 + sorted[1],
+                      sorted[2] + 7,
+                      seed ^ p.seedSalt,
+                    ),
+                x0 = px[i],
+                y0 = py[i];
+              addEdge(i, near[a][2], x0, y0, bx, by);
+              addEdge(i, near[b][2], x0, y0, cx, cy);
+              addEdge(
+                near[a][2],
+                near[b][2],
+                x0 + bx,
+                y0 + by,
+                cx - bx,
+                cy - by,
+              );
+              for (let ty = -1; ty <= 1; ty++)
+                for (let tx = -1; tx <= 1; tx++) {
+                  const ax = x0 + tx,
+                    ay = y0 + ty,
+                    left = Math.min(ax, ax + bx, ax + cx),
+                    right = Math.max(ax, ax + bx, ax + cx),
+                    top = Math.min(ay, ay + by, ay + cy),
+                    bottom = Math.max(ay, ay + by, ay + cy);
+                  if (right < 0 || left >= 1 || bottom < 0 || top >= 1)
+                    continue;
+                  const index = triangles.length;
+                  triangles.push([
+                    ax,
+                    ay,
+                    ax + bx,
+                    ay + by,
+                    ax + cx,
+                    ay + cy,
+                    tone,
+                  ]);
+                  for (
+                    let row = Math.max(0, Math.floor(top * p.buckets));
+                    row <=
+                    Math.min(p.buckets - 1, Math.floor(bottom * p.buckets));
+                    row++
+                  )
+                    for (
+                      let col = Math.max(0, Math.floor(left * p.buckets));
+                      col <=
+                      Math.min(p.buckets - 1, Math.floor(right * p.buckets));
+                      col++
+                    )
+                      triangleBuckets[row * p.buckets + col].push(index);
+                }
+            }
+        }
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            bx = Math.floor(fu * p.buckets),
+            by = Math.floor(fv * p.buckets);
+          // The nodes and the seams are each a union by 1 - product of (1 - t^2) with
+          // t = max(0, 1 - squared distance / squared radius), a function of the squared distance to
+          // a point or to a segment: every t^2 is C1 and exactly zero at the rim, so the union is C1.
+          // The fill tone of the triangle is multiplied by the seam mask, which is exactly zero
+          // on the segment, so the jump of the tone from one triangle to the next is hidden by the
+          // seam and the field stays C1 (the mask rises with the square of the squared distance).
+          let openNodes = 1,
+            openEdges = 1,
+            fill = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++)
+              for (const i of nodeBuckets[
+                ((by + oy + p.buckets) % p.buckets) * p.buckets +
+                  ((bx + ox + p.buckets) % p.buckets)
+              ]) {
+                const dx = around(fu - px[i]),
+                  dy = around(fv - py[i]),
+                  t = clamp(1 - (dx * dx + dy * dy) / nodeSquared);
+                openNodes *= 1 - t * t;
+              }
+          for (const index of edgeBuckets[by * p.buckets + bx]) {
+            const [x0, y0, dx, dy, lengthSquared] = edges[index],
+              wx = around(fu - x0),
+              wy = around(fv - y0),
+              along = clamp((wx * dx + wy * dy) / lengthSquared),
+              ex = wx - along * dx,
+              ey = wy - along * dy,
+              t = clamp(1 - (ex * ex + ey * ey) / edgeSquared);
+            openEdges *= 1 - t * t;
+          }
+          for (const index of triangleBuckets[by * p.buckets + bx]) {
+            const [ax, ay, bx2, by2, cx2, cy2, tone] = triangles[index],
+              side0 = (bx2 - ax) * (fv - ay) - (by2 - ay) * (fu - ax),
+              side1 = (cx2 - bx2) * (fv - by2) - (cy2 - by2) * (fu - bx2),
+              side2 = (ax - cx2) * (fv - cy2) - (ay - cy2) * (fu - cx2);
+            if (
+              (side0 >= 0 && side1 >= 0 && side2 >= 0) ||
+              (side0 <= 0 && side1 <= 0 && side2 <= 0)
+            ) {
+              fill = tone;
+              break;
+            }
+          }
+          const seam = smooth(clamp(openEdges * inverseSeam)),
+            node = 1 - openNodes,
+            cover = 1 - (1 - seam) * (1 - node),
+            tone = p.toneSpan * (fill * seam * (1 - node) + node),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * cover +
+            tone * 1 +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              cover *
+              (1 - p.toneHeight + p.toneHeight * (tone / p.toneSpan)) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - cover);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -54270,6 +54524,7 @@ export function createSurfaceSampler(
     kind === 'hypercube' ||
     kind === 'kaprekar' ||
     kind === 'perfectarray' ||
+    kind === 'delaunay' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
