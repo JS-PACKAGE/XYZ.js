@@ -37089,3 +37089,211 @@ describe('vicsekfractal: a grid of cells in a plus or cross Vicsek fractal', () 
     expect(different).toBeGreaterThan(20);
   });
 });
+
+describe('jacobisymbols: a window of the table of Jacobi symbols', () => {
+  const p = proceduralMaterialPresets.jacobisymbols,
+    out = empty();
+  type Window = {
+    size: number;
+    rowStart: number;
+    columnStart: number;
+    sample: Sampler;
+  };
+  const near = (a: number, b: number, tolerance: number): boolean =>
+    Math.abs(a - b) < tolerance;
+
+  // The Jacobi symbol (a / b) for odd b > 0 from the prime factorisation of b: the product of the Legendre symbols (a / p) for each prime
+  // factor p of b, as many times as it divides b; each Legendre symbol by Euler's criterion. (The sampler uses the reciprocity law instead.)
+  const jacobi = (a: number, b: number): number => {
+    let rest = b,
+      symbol = 1;
+    for (let prime = 3; prime <= rest; prime += 2) {
+      if (rest % prime !== 0) continue;
+      let legendre = 0;
+      if (a % prime !== 0) {
+        let power = 1;
+        for (let k = 0; k < (prime - 1) / 2; k++)
+          power = (power * (a % prime)) % prime;
+        legendre = power === 1 ? 1 : -1;
+      }
+      while (rest % prime === 0) {
+        rest /= prime;
+        symbol *= legendre;
+      }
+    }
+    return symbol;
+  };
+  const expectedTone = (a: number, b: number): number => {
+    const symbol = jacobi(a, b);
+    return symbol > 0 ? p.plusTone : symbol < 0 ? p.minusTone : p.zeroTone;
+  };
+  const cellTone = (
+    sample: Sampler,
+    size: number,
+    column: number,
+    row: number,
+  ): number => {
+    sample((column + 0.5) / size, (row + 0.5) / size, out);
+    return out.color;
+  };
+
+  const windowOf = (seed: number): Window => {
+    const sample = createSurfaceSampler('jacobisymbols', seed),
+      fits: Window[] = [];
+    for (const size of p.sizes)
+      for (let rowStep = 0; rowStep < p.startSteps; rowStep++)
+        for (let columnStep = 0; columnStep < p.startSteps; columnStep++) {
+          const rowStart = rowStep * size,
+            columnStart = columnStep * size;
+          let fit = true;
+          for (let row = 0; row < size && fit; row++)
+            for (let column = 0; column < size && fit; column++)
+              fit = near(
+                cellTone(sample, size, column, row),
+                expectedTone(
+                  rowStart + row + 1,
+                  2 * (columnStart + column) + 1,
+                ),
+                0.01,
+              );
+          if (fit) fits.push({ size, rowStart, columnStart, sample });
+        }
+    expect(fits).toHaveLength(1);
+    return fits[0];
+  };
+
+  it('computes the Jacobi symbol the way the textbook does (known values)', () => {
+    // Checked values: (1/n) = 1; (2/3) = -1; (2/7) = 1; (5/9) = 1; (3/9) = 0; (7/15) = (7/3)(7/5) = (1)(-1) = -1; (10/21) = (10/3)(10/7) = (1)(-1) = -1.
+    expect([
+      jacobi(1, 15),
+      jacobi(2, 3),
+      jacobi(2, 7),
+      jacobi(5, 9),
+      jacobi(3, 9),
+      jacobi(7, 15),
+      jacobi(10, 21),
+    ]).toEqual([1, -1, 1, 1, 0, -1, -1]);
+  });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows the Jacobi symbol of every cell in one window of the table (seed %i)',
+    (seed) => {
+      const { size, rowStart, columnStart } = windowOf(seed);
+      expect(rowStart % size).toBe(0);
+      expect(columnStart % size).toBe(0);
+    },
+  );
+
+  it('uses both sizes and many windows, and all three symbols are on the picture', () => {
+    const sizes = new Set<number>(),
+      windows = new Set<string>(),
+      rowSteps = new Set<number>(),
+      columnSteps = new Set<number>();
+    for (let seed = 0; seed < 40; seed++) {
+      const { size, rowStart, columnStart } = windowOf(seed);
+      sizes.add(size);
+      windows.add(`${size}:${rowStart}:${columnStart}`);
+      rowSteps.add(rowStart / size);
+      columnSteps.add(columnStart / size);
+    }
+    expect([...sizes].sort((a, b) => a - b)).toEqual([...p.sizes]);
+    expect(windows.size).toBeGreaterThan(15);
+    expect([...rowSteps].sort()).toEqual([0, 1, 2, 3]);
+    expect([...columnSteps].sort()).toEqual([0, 1, 2, 3]);
+    // Plus, minus and zero cells all occur in a window (and are of the three tones).
+    const { size, sample } = windowOf(7),
+      tones = new Set<number>();
+    for (let row = 0; row < size; row++)
+      for (let column = 0; column < size; column++)
+        tones.add(Math.round(cellTone(sample, size, column, row) * 10));
+    expect([...tones].sort((a, b) => a - b)).toEqual([1, 5, 9]);
+  });
+
+  it('insets each cell by inset, softens its edge over edgeSoft and leaves grain only in the gaps', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x);
+    for (const seed of seeds) {
+      const { size, sample, rowStart, columnStart } = windowOf(seed),
+        // A cell away from the edge of the picture (whatever its symbol is, its tone is read from the table).
+        column = 5,
+        row = 6,
+        quarter = 0.25 * p.edgeSoft,
+        probe = (u: number, v: number): number => {
+          sample(u, v, out);
+          return out.color;
+        },
+        tone = expectedTone(rowStart + row + 1, 2 * (columnStart + column) + 1),
+        edges: [number, number, number, number][] = [
+          [(column + p.inset / 2) / size, (row + 0.5) / size, 1, 0],
+          [(column + 1 - p.inset / 2) / size, (row + 0.5) / size, -1, 0],
+          [(column + 0.5) / size, (row + p.inset / 2) / size, 0, 1],
+          [(column + 0.5) / size, (row + 1 - p.inset / 2) / size, 0, -1],
+        ];
+      for (const [u, v, dx, dy] of edges) {
+        const at = (offset: number): number =>
+          probe(u + dx * offset, v + dy * offset);
+        expect(
+          Math.abs(
+            at(quarter) - (p.gapTone + (tone - p.gapTone) * smoothstep(0.75)),
+          ),
+        ).toBeLessThan(0.03);
+        expect(
+          Math.abs(
+            at(-quarter) - (p.gapTone + (tone - p.gapTone) * smoothstep(0.25)),
+          ),
+        ).toBeLessThan(0.03);
+        expect(at(3 * quarter)).toBeCloseTo(tone, 6);
+      }
+      // The gap between two cells is the gap tone with grain (here on the vertical line between columns 8 and 9): not constant.
+      const gap = Array.from({ length: 24 }, (_, k) =>
+        probe(9 / size, (k + 0.5) / size),
+      );
+      expect(Math.max(...gap) - Math.min(...gap)).toBeGreaterThan(0.005);
+      sample(9 / size, 3 / size, out);
+      expect(out.height / p.relief).toBeCloseTo(p.gapHeight, 6);
+      expect(out.roughness).toBeCloseTo(p.gapRoughness, 6);
+      sample((column + 0.5) / size, (row + 0.5) / size, out);
+      expect(out.height / p.relief).toBeCloseTo(p.cellHeight, 6);
+      expect(out.roughness).toBeCloseTo(p.cellRoughness, 6);
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('jacobisymbols', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('jacobisymbols', 0),
+      b = createSurfaceSampler('jacobisymbols', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

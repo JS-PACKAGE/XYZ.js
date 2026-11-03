@@ -14066,6 +14066,29 @@ export const proceduralMaterialPresets = Object.freeze({
     paperRoughness: 0.8,
     cellRoughness: 0.4,
   }),
+  jacobisymbols: Object.freeze({
+    dark: [18, 22, 34] as const,
+    light: [240, 236, 220] as const,
+    roughness: 0.55,
+    relief: 0.004,
+    // Jacobi symbols: a table of cells, N a side (24 or 32). The cell in row r and column c shows the Jacobi symbol (a / b) of
+    // a = rowStart + r + 1 over the odd number b = 2 (columnStart + c) + 1: +1 (light), -1 (dark) or 0 when a and b have a common factor
+    // (mid tone). The seed picks N and the starts, a multiple of N below 4 N, so the window can lie anywhere in a 4 N by 4 N block of the table.
+    sizes: Object.freeze([24, 32]),
+    startSteps: 4,
+    inset: 0.08,
+    edgeSoft: 0.0006,
+    grainCells: 192,
+    plusTone: 0.9,
+    minusTone: 0.1,
+    zeroTone: 0.5,
+    gapTone: 0.62,
+    grainTone: 0.03,
+    gapHeight: 0.15,
+    cellHeight: 0.7,
+    gapRoughness: 0.85,
+    cellRoughness: 0.4,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -20558,6 +20581,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  jacobisymbols: 1,
   vicsekfractal: 1,
   segmenttree: 1,
   rankchevrons: 1,

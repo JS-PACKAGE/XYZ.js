@@ -39929,6 +39929,65 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'jacobisymbols': {
+        const p = proceduralMaterialPresets.jacobisymbols,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x3dd01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          size =
+            p.sizes[Math.floor(hash(13, 5, seed ^ 0x3dd02) * p.sizes.length)],
+          rowStart =
+            Math.floor(hash(14, 5, seed ^ 0x3dd03) * p.startSteps) * size,
+          columnStart =
+            Math.floor(hash(15, 5, seed ^ 0x3dd04) * p.startSteps) * size,
+          // The Jacobi symbol (a / n) for odd n > 0, by the reciprocity law; 0 when a and n share a factor.
+          jacobi = (top: number, bottom: number): number => {
+            let a = top % bottom,
+              n = bottom,
+              sign = 1;
+            while (a !== 0) {
+              while (a % 2 === 0) {
+                a /= 2;
+                if (n % 8 === 3 || n % 8 === 5) sign = -sign;
+              }
+              [a, n] = [n, a];
+              if (a % 4 === 3 && n % 4 === 3) sign = -sign;
+              a %= n;
+            }
+            return n === 1 ? sign : 0;
+          },
+          tones = new Float64Array(size * size);
+        for (let row = 0; row < size; row++)
+          for (let column = 0; column < size; column++) {
+            const symbol = jacobi(
+              rowStart + row + 1,
+              2 * (columnStart + column) + 1,
+            );
+            tones[row * size + column] =
+              symbol > 0 ? p.plusTone : symbol < 0 ? p.minusTone : p.zeroTone;
+          }
+        return () => {
+          const fx = (u - Math.floor(u)) * size,
+            fy = (v - Math.floor(v)) * size,
+            column = Math.min(size - 1, Math.floor(fx)),
+            row = Math.min(size - 1, Math.floor(fy)),
+            edge =
+              Math.min(fx - column, column + 1 - fx, fy - row, row + 1 - fy) -
+              p.inset / 2,
+            ink = cover(edge / size);
+          color = clamp(
+            p.gapTone +
+              (tones[row * size + column] - p.gapTone) * ink +
+              p.grainTone * (grainField(u, v) - 0.5) * (1 - ink),
+          );
+          height = clamp(p.gapHeight + (p.cellHeight - p.gapHeight) * ink);
+          roughness = clamp(
+            p.gapRoughness + (p.cellRoughness - p.gapRoughness) * ink,
+          );
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -67458,6 +67517,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'jacobisymbols' ||
     kind === 'vicsekfractal' ||
     kind === 'segmenttree' ||
     kind === 'rankchevrons' ||
