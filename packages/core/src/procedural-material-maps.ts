@@ -45127,6 +45127,155 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'hypercube': {
+        const p = proceduralMaterialPresets.hypercube,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          dimension =
+            p.dimensions[
+              Math.floor(hash(0, 41, seed ^ p.seedSalt) * p.dimensions.length)
+            ],
+          count = 1 << dimension,
+          px = new Float64Array(count),
+          py = new Float64Array(count),
+          weightOf = (vertex: number): number => {
+            let ones = 0;
+            for (let k = 0; k < dimension; k++) ones += (vertex >> k) & 1;
+            return ones;
+          },
+          nodeBuckets: number[][] = Array.from(
+            { length: p.buckets * p.buckets },
+            () => [],
+          ),
+          edgeBuckets: number[][] = Array.from(
+            { length: p.buckets * p.buckets },
+            () => [],
+          ),
+          edges: number[][] = [],
+          nodeSquared = p.nodeRadius * p.nodeRadius,
+          edgeSquared = p.edgeHalfWidth * p.edgeHalfWidth,
+          step = 0.25 / p.buckets,
+          reach = p.edgeHalfWidth + step / 2,
+          bucketAt = (x: number, y: number): number =>
+            Math.min(p.buckets - 1, Math.max(0, Math.floor(y * p.buckets))) *
+              p.buckets +
+            Math.min(p.buckets - 1, Math.max(0, Math.floor(x * p.buckets)));
+        // The hypercube of the seed's dimension (4, 5, 6 or 7: 16 to 128 vertices) projected to the plane: the
+        // vertices are the 2^n bit strings, two are joined when they differ in exactly one bit, and the
+        // bit k of a vertex moves it by plus or minus half of the unit vector at the angle k pi / n, so the
+        // picture is the symmetric projection of the Petrie polygon, scaled to fit the tile. A vertex is
+        // drawn brighter the more bits it has set, an edge by the number of bits of its lower end.
+        for (let vertex = 0; vertex < count; vertex++) {
+          let x = 0,
+            y = 0;
+          for (let k = 0; k < dimension; k++) {
+            const sign = ((vertex >> k) & 1) - 0.5;
+            x += sign * Math.cos((Math.PI * k) / dimension);
+            y += sign * Math.sin((Math.PI * k) / dimension);
+          }
+          px[vertex] = x;
+          py[vertex] = y;
+        }
+        const extent = Math.max(
+          ...Array.from(px, (x, i) => Math.max(Math.abs(x), Math.abs(py[i]))),
+        );
+        for (let vertex = 0; vertex < count; vertex++) {
+          px[vertex] = 0.5 + (px[vertex] / extent) * p.fit;
+          py[vertex] = 0.5 + (py[vertex] / extent) * p.fit;
+          nodeBuckets[bucketAt(px[vertex], py[vertex])].push(vertex);
+        }
+        for (let vertex = 0; vertex < count; vertex++)
+          for (let k = 0; k < dimension; k++) {
+            if ((vertex >> k) & 1) continue;
+            const other = vertex | (1 << k),
+              dx = px[other] - px[vertex],
+              dy = py[other] - py[vertex],
+              length = Math.hypot(dx, dy),
+              index = edges.length,
+              filed = new Set<number>();
+            edges.push([
+              px[vertex],
+              py[vertex],
+              dx,
+              dy,
+              length * length,
+              p.firstTone +
+                ((1 - p.firstTone) * (weightOf(vertex) + 0.5)) / dimension,
+            ]);
+            for (
+              let s = 0, n = Math.max(1, Math.ceil(length / step));
+              s <= n;
+              s++
+            )
+              for (const ox of [-reach, reach])
+                for (const oy of [-reach, reach]) {
+                  const bucket = bucketAt(
+                    px[vertex] + (dx * s) / n + ox,
+                    py[vertex] + (dy * s) / n + oy,
+                  );
+                  if (!filed.has(bucket)) {
+                    filed.add(bucket);
+                    edgeBuckets[bucket].push(index);
+                  }
+                }
+          }
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            bx = Math.min(p.buckets - 1, Math.floor(fu * p.buckets)),
+            by = Math.min(p.buckets - 1, Math.floor(fv * p.buckets));
+          // Vertices and edges are each a union by 1 - product of (1 - t^2) with
+          // t = max(0, 1 - squared distance / squared radius): every t^2 is C1 and exactly zero at the
+          // rim, so the field is C1. Where they overlap, the tones are averaged with the weights t^2.
+          let open = 1,
+            weight = 0,
+            weighted = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++)
+              for (const vertex of nodeBuckets[
+                ((by + oy + p.buckets) % p.buckets) * p.buckets +
+                  ((bx + ox + p.buckets) % p.buckets)
+              ]) {
+                const dx = fu - px[vertex],
+                  dy = fv - py[vertex],
+                  t = clamp(1 - (dx * dx + dy * dy) / nodeSquared),
+                  share = t * t;
+                open *= 1 - share;
+                weight += share;
+                weighted +=
+                  share *
+                  (p.firstTone +
+                    ((1 - p.firstTone) * weightOf(vertex)) / dimension);
+              }
+          for (const index of edgeBuckets[by * p.buckets + bx]) {
+            const [x0, y0, dx, dy, lengthSquared, tone] = edges[index],
+              along = clamp(((fu - x0) * dx + (fv - y0) * dy) / lengthSquared),
+              ex = fu - x0 - along * dx,
+              ey = fv - y0 - along * dy,
+              t = clamp(1 - (ex * ex + ey * ey) / edgeSquared),
+              share = t * t;
+            open *= 1 - share;
+            weight += share;
+            weighted += share * tone;
+          }
+          const total = 1 - open,
+            mask = smooth(clamp(total / p.edgeSoft)),
+            tone = p.toneSpan * (weight > 0 ? weighted / weight : p.firstTone),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * total * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -53996,6 +54145,7 @@ export function createSurfaceSampler(
     kind === 'daynight' ||
     kind === 'knightstour' ||
     kind === 'fareygraph' ||
+    kind === 'hypercube' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

@@ -1131,6 +1131,7 @@ try {
     'daynight',
     'knightstour',
     'fareygraph',
+    'hypercube',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

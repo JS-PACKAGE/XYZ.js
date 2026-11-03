@@ -1094,6 +1094,7 @@ const kinds: ProceduralMaterialKind[] = [
   'daynight',
   'knightstour',
   'fareygraph',
+  'hypercube',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -175728,6 +175729,296 @@ describe('Farey graph as the Farey graph of order 7 to 12 drawn as semicircles',
     expect(blue / (512 * 512)).toBeLessThan(57);
     expect(maxTilt).toBeGreaterThan(0.04);
     expect(maxTilt).toBeLessThan(0.044);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Hypercube as the projection of a hypercube of 4 to 7 dimensions, with its vertices and edges', () => {
+  const p = proceduralMaterialPresets.hypercube;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  // The seeds that pick the dimensions 4, 5, 6 and 7 (I measured this mapping with a probe).
+  const dimensions: Record<number, number> = { 1: 4, 4: 5, 0: 6, 3: 7 };
+  /**
+   * The hypercube of dimension n projected to the plane, written here from the description: vertex
+   * v (an n bit number) is at the sum over its bits k of (bit - 1/2) times the unit vector at
+   * the angle k pi / n, scaled so that the biggest coordinate is 'fit' from the middle of the tile,
+   * and two vertices are joined when they differ in exactly one bit.
+   */
+  const projection = (n: number) => {
+    const count = 1 << n,
+      xs: number[] = [],
+      ys: number[] = [];
+    for (let vertex = 0; vertex < count; vertex++) {
+      let x = 0,
+        y = 0;
+      for (let k = 0; k < n; k++) {
+        x += (((vertex >> k) & 1) - 0.5) * Math.cos((Math.PI * k) / n);
+        y += (((vertex >> k) & 1) - 0.5) * Math.sin((Math.PI * k) / n);
+      }
+      xs.push(x);
+      ys.push(y);
+    }
+    const extent = Math.max(
+        ...xs.map((x, i) => Math.max(Math.abs(x), Math.abs(ys[i]))),
+      ),
+      px = xs.map((x) => 0.5 + (x / extent) * p.fit),
+      py = ys.map((y) => 0.5 + (y / extent) * p.fit),
+      edges: number[][] = [];
+    for (let vertex = 0; vertex < count; vertex++)
+      for (let k = 0; k < n; k++)
+        if (((vertex >> k) & 1) === 0) edges.push([vertex, vertex | (1 << k)]);
+    return { count, px, py, edges };
+  };
+  const segmentDistance = (
+    x: number,
+    y: number,
+    [ax, ay, bx, by]: number[],
+  ): number => {
+    const dx = bx - ax,
+      dy = by - ay,
+      along = Math.min(
+        1,
+        Math.max(0, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy)),
+      );
+    return Math.hypot(x - ax - along * dx, y - ay - along * dy);
+  };
+  /**
+   * For every pair of vertices with different projections, whether the sampler is lit (above 0.3)
+   * at all thirteen points from 20% to 80% of the way along the chord between them, 5% apart, and
+   * how far the chord is, at its worst point, from the nearest edge or vertex drawn: under 0.002
+   * means it lies on the drawing (clearly lit), over 0.004 that it does not (clearly dark).
+   */
+  const readChords = (seed: number, n: number) => {
+    const { count, px, py, edges } = projection(n),
+      sample = createSurfaceSampler('hypercube', seed),
+      out = empty(),
+      segments = edges.map(([from, to]) => [
+        px[from],
+        py[from],
+        px[to],
+        py[to],
+      ]),
+      result = {
+        edges: edges.length,
+        coincident: 0,
+        clearLit: 0,
+        clearDark: 0,
+        undecided: 0,
+        wrongEdges: 0,
+        wrongLit: 0,
+        wrongDark: 0,
+      };
+    for (let i = 0; i < count; i++)
+      for (let j = i + 1; j < count; j++) {
+        const dx = px[j] - px[i],
+          dy = py[j] - py[i];
+        if (Math.hypot(dx, dy) < 1e-9) {
+          result.coincident++;
+          continue;
+        }
+        let lit = true,
+          worst = 0;
+        for (let k = 0; k < 13; k++) {
+          const x = px[i] + dx * (0.2 + 0.05 * k),
+            y = py[i] + dy * (0.2 + 0.05 * k);
+          sample(x, y, out);
+          lit &&= out.color > 0.3;
+          let nearest = Infinity;
+          for (const segment of segments)
+            nearest = Math.min(nearest, segmentDistance(x, y, segment));
+          for (let w = 0; w < count; w++)
+            if (Math.hypot(x - px[w], y - py[w]) < 0.007) nearest = 0;
+          worst = Math.max(worst, nearest);
+        }
+        const single = ((i ^ j) & ((i ^ j) - 1)) === 0;
+        if (single) result.wrongEdges += Number(!lit);
+        else if (worst < 0.002) {
+          result.clearLit++;
+          result.wrongLit += Number(!lit);
+        } else if (worst > 0.004) {
+          result.clearDark++;
+          result.wrongDark += Number(lit);
+        } else result.undecided++;
+      }
+    return result;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('hypercube', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0254);
+      expect(low).toBeLessThan(0.0258);
+      expect(high).toBeGreaterThan(0.845);
+      expect(high).toBeLessThan(0.851);
+      expect(dark / 65536).toBeGreaterThan(0.045);
+      expect(dark / 65536).toBeLessThan(0.172);
+      expect(mean / 65536).toBeGreaterThan(0.072);
+      expect(mean / 65536).toBeLessThan(0.156);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.834);
+      expect(heightHigh).toBeLessThan(0.84);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('draws the vertices and edges of the hypercube of the dimension for the seed', () => {
+    // Every edge (two vertices that differ in one bit: n 2^(n-1) of them, 32, 80, 192 and 448) is lit
+    // along its whole length; every other chord is lit at all thirteen points exactly when it lies
+    // on the drawing (on other edges, as many long chords of the projection do), judged with margins
+    // of 0.002 and 0.004 so chords in between are left out. Vertices with the same projection (none
+    // for the dimension 4, 1 for 5, 18 for 6 and 1 for 7) are left out of the pairs.
+    const expected: Record<number, number[]> = {
+      4: [32, 0, 0, 88, 0],
+      5: [80, 1, 155, 260, 0],
+      6: [192, 18, 420, 1386, 0],
+      7: [448, 1, 1673, 4578, 1428],
+    };
+    for (const [name, n] of Object.entries(dimensions)) {
+      const result = readChords(Number(name), n);
+      expect([result.wrongEdges, result.wrongLit, result.wrongDark]).toEqual([
+        0, 0, 0,
+      ]);
+      expect([
+        result.edges,
+        result.coincident,
+        result.clearLit,
+        result.clearDark,
+        result.undecided,
+      ]).toEqual(expected[n]);
+    }
+  });
+  it('draws a different hypercube per seed and is deterministic for one seed', () => {
+    // The 4 dimensional picture of seed 1 does not read back as the 5 dimensional hypercube, and the
+    // same seed reads back the same chords.
+    expect(readChords(1, 5).wrongEdges).toBeGreaterThan(0);
+    expect(readChords(0, 6)).toEqual(readChords(0, 6));
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('hypercube', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.buckets, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 pink hypercube maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('hypercube', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(28.9);
+    expect(red / (512 * 512)).toBeLessThan(30);
+    expect(green / (512 * 512)).toBeGreaterThan(17.9);
+    expect(green / (512 * 512)).toBeLessThan(19);
+    expect(blue / (512 * 512)).toBeGreaterThan(42.9);
+    expect(blue / (512 * 512)).toBeLessThan(44);
+    expect(maxTilt).toBeGreaterThan(0.04);
+    expect(maxTilt).toBeLessThan(0.05);
     expect(invalid).toBe(0);
   });
 });
