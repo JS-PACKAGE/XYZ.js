@@ -1176,6 +1176,7 @@ try {
     'kelvinwake',
     'jacobielliptic',
     'hofstadterbutterfly',
+    'raindropoptics',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

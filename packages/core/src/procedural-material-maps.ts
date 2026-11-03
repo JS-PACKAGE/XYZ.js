@@ -50428,6 +50428,133 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'raindropoptics': {
+        const p = proceduralMaterialPresets.raindropoptics,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          [index, reflections] =
+            p.variants[
+              Math.floor(hash(0, 90, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          plot = 0.5 - p.margin,
+          inverseSoft = 1 / p.edgeSoft,
+          unit = plot / p.extent,
+          lineSquared = p.lineHalf * p.lineHalf,
+          // Every segment of every ray as [x1, y1, x2, y2, tone].
+          segments: number[] = [],
+          // The path of the ray of impact parameter b (the incidence angle has sin i = b), by vector refraction (Snell's law) at the surface and mirror reflection inside, k reflections.
+          addRay = (b: number, outside: number, inside: number): void => {
+            let px = -Math.sqrt(1 - b * b),
+              py = b,
+              dx = 1,
+              dy = 0;
+            segments.push(-p.extent * 1.2, b, px, py, outside);
+            let ratio = 1 / index,
+              cosine = -(dx * px + dy * py),
+              root = Math.sqrt(1 - ratio * ratio * (1 - cosine * cosine));
+            [dx, dy] = [
+              ratio * dx + (ratio * cosine - root) * px,
+              ratio * dy + (ratio * cosine - root) * py,
+            ];
+            for (let m = 0; m <= reflections; m++) {
+              const length = -2 * (px * dx + py * dy),
+                nx = px + length * dx,
+                ny = py + length * dy;
+              segments.push(px, py, nx, ny, inside);
+              px = nx;
+              py = ny;
+              if (m < reflections) {
+                const along = dx * px + dy * py;
+                [dx, dy] = [dx - 2 * along * px, dy - 2 * along * py];
+              }
+            }
+            ratio = index;
+            cosine = dx * px + dy * py;
+            root = Math.sqrt(
+              Math.max(0, 1 - ratio * ratio * (1 - cosine * cosine)),
+            );
+            [dx, dy] = [
+              ratio * dx - (ratio * cosine - root) * px,
+              ratio * dy - (ratio * cosine - root) * py,
+            ];
+            segments.push(
+              px,
+              py,
+              px + p.farLength * dx,
+              py + p.farLength * dy,
+              outside,
+            );
+          };
+        for (let j = 0; j < p.rays; j++)
+          addRay(-1 + (2 * j + 1) / p.rays, p.outsideTone, p.insideTone);
+        // The incidence angle of minimum deviation D = k pi + 2 i - 2 (k + 1) r, sin r = sin i / n, found by a scan.
+        let least = Infinity,
+          rainbow = 0;
+        for (let step = 1; step < p.scanSteps; step++) {
+          const angle = ((step / p.scanSteps) * Math.PI) / 2,
+            deviation =
+              reflections * Math.PI +
+              2 * angle -
+              2 * (reflections + 1) * Math.asin(Math.sin(angle) / index);
+          if (deviation < least) {
+            least = deviation;
+            rainbow = angle;
+          }
+        }
+        addRay(Math.sin(rainbow), p.rainbowTone, p.rainbowTone);
+        addRay(-Math.sin(rainbow), p.rainbowTone, p.rainbowTone);
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            x = (p.extent * (fu - 0.5)) / plot,
+            y = (p.extent * (0.5 - fv)) / plot;
+          const ringDistance = Math.abs(Math.hypot(x, y) - 1) * unit;
+          let ink =
+            p.outlineTone *
+            clamp(1 - (ringDistance * ringDistance) / lineSquared) ** 2;
+          for (let s = 0; s < segments.length; s += 5) {
+            const ax = segments[s],
+              ay = segments[s + 1],
+              sx = segments[s + 2] - ax,
+              sy = segments[s + 3] - ay,
+              along = clamp(
+                ((x - ax) * sx + (y - ay) * sy) / (sx * sx + sy * sy),
+              ),
+              dx = x - ax - along * sx,
+              dy = y - ay - along * sy,
+              distance = Math.hypot(dx, dy) * unit;
+            if (distance < p.lineHalf)
+              ink = Math.max(
+                ink,
+                segments[s + 4] *
+                  clamp(1 - (distance * distance) / lineSquared) ** 2,
+              );
+          }
+          const outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
+            outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
+            boxDistance =
+              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              Math.min(Math.max(outsideX, outsideY), 0);
+          ink = clamp(smooth(clamp(-boxDistance / p.fade)) * ink);
+          const mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(ink) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -59342,6 +59469,7 @@ export function createSurfaceSampler(
     kind === 'kelvinwake' ||
     kind === 'jacobielliptic' ||
     kind === 'hofstadterbutterfly' ||
+    kind === 'raindropoptics' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

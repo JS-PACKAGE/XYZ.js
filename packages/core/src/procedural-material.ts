@@ -1113,6 +1113,7 @@ export type ProceduralMaterialKind =
   | 'kelvinwake'
   | 'jacobielliptic'
   | 'hofstadterbutterfly'
+  | 'raindropoptics'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2474,6 +2475,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'kelvinwake',
   'jacobielliptic',
   'hofstadterbutterfly',
+  'raindropoptics',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

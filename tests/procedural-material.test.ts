@@ -1139,6 +1139,7 @@ const kinds: ProceduralMaterialKind[] = [
   'kelvinwake',
   'jacobielliptic',
   'hofstadterbutterfly',
+  'raindropoptics',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -191597,6 +191598,356 @@ describe('Hofstadter butterfly as the spectrum of electrons on a lattice in a ma
     expect(blue / (512 * 512)).toBeLessThan(45.2);
     expect(maxTilt).toBeGreaterThan(0.0253);
     expect(maxTilt).toBeLessThan(0.0265);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Raindrop optics as the rays through a droplet and the rainbow angle', () => {
+  const p = proceduralMaterialPresets.raindropoptics;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const plot = 0.5 - p.margin;
+  const colourAtPoint = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    x: number,
+    y: number,
+  ): number => {
+    sample(0.5 + (x / p.extent) * plot, 0.5 - (y / p.extent) * plot, out);
+    return out.color;
+  };
+  const insideWindow = (x: number, y: number): boolean =>
+    Math.abs(x) < 2.1 && Math.abs(y) < 2.1;
+  /** The polar angles on the droplet of the entry point and of the points after each reflection and the exit, for the ray of the incidence angle i (sin i = b): the entry is at pi - i, and every chord turns the point by pi - 2 r (sin r = sin i / n) clockwise. */
+  const circlePoints = (b: number, index: number): number[] => {
+    const [n, k] = p.variants[index],
+      incidence = Math.asin(b),
+      refraction = Math.asin(b / n),
+      angles: number[] = [];
+    for (let m = 0; m <= k + 1; m++)
+      angles.push(Math.PI - incidence - m * (Math.PI - 2 * refraction));
+    return angles;
+  };
+  /** The deviation of the ray after k reflections, D = 2 (i - r) + k (pi - 2 r): the exit ray points at the angle -D from the direction of the sun. */
+  const deviation = (b: number, index: number): number => {
+    const [n, k] = p.variants[index],
+      incidence = Math.asin(b),
+      refraction = Math.asin(b / n);
+    return 2 * (incidence - refraction) + k * (Math.PI - 2 * refraction);
+  };
+  /** The incidence angle of minimum deviation (the rainbow ray) in closed form: cos^2 i = (n^2 - 1) / ((k + 1)^2 - 1). */
+  const rainbowIncidence = (index: number): number => {
+    const [n, k] = p.variants[index];
+    return Math.acos(Math.sqrt((n * n - 1) / ((k + 1) ** 2 - 1)));
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('raindropoptics', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('raindropoptics', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0254);
+      expect(low).toBeLessThan(0.0257);
+      expect(high).toBeGreaterThan(0.8695);
+      expect(high).toBeLessThan(0.8745);
+      expect(dark / 65536).toBeGreaterThan(0.0135);
+      expect(dark / 65536).toBeLessThan(0.0208);
+      expect(mean / 65536).toBeGreaterThan(0.1);
+      expect(mean / 65536).toBeLessThan(0.1135);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.867);
+      expect(heightHigh).toBeLessThan(0.876);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (n = 1.333 with 1, 2 and 3 reflections inside, n = 1.5 with 1 and 2, n = 1.2 with 1) is, in the order of the preset, 1, 3, 8, 5, 0 and 2 for the variants
+  // (1.333, 1), (1.333, 2), (1.5, 1), (1.2, 1), (1.333, 3) and (1.5, 2); the table was found with a probe by the correlation of the lit pixels with the segments of the rays traced in the probe by vectors (the
+  // smallest margin to the second best being 0.148) and is written here, so it is not an independent check of the seed's choice.
+  const seeds = [1, 3, 8, 5, 0, 2];
+  it('draws every ray along the path that the law of refraction and the law of reflection give', () => {
+    // The sampler traces each ray with vectors; the test uses the angle formulas: the ray of impact parameter b = sin i (b = -1 + (2 j + 1) / 36 for j from 0 to 35) enters at the polar angle pi - i, turns by pi - 2 r
+    // round the circle at every chord (sin r = sin i / n) and leaves after k reflections along the direction -D, D = 2 (i - r) + k (pi - 2 r). The colour is above 0.35 on the incoming ray (x from -2.05 to
+    // 0.05 before the entry point), on the points 0.4 to 1.6 along the exit ray from its exit point (inside the window), and above 0.25 on the chords between consecutive points of the droplet (from 0.1 to 0.9 of
+    // each; 0.485, 0.485 and 0.377 at the lowest in the probe, for 1764, 1812 to 1908 and 1152 to 2304 points per variant).
+    seeds.forEach((seed, index) => {
+      const k = p.variants[index][1],
+        sample = createSurfaceSampler('raindropoptics', seed),
+        out = empty();
+      let incoming = 0,
+        exits = 0,
+        chords = 0;
+      for (let j = 0; j < p.rays; j++) {
+        const b = -1 + (2 * j + 1) / p.rays,
+          angles = circlePoints(b, index),
+          exitAngle = -deviation(b, index);
+        for (let x = -2.05; x <= -1.08; x += 0.02) {
+          if (x >= -Math.sqrt(1 - b * b) - 0.05) continue;
+          expect(colourAtPoint(sample, out, x, b)).toBeGreaterThan(0.35);
+          incoming++;
+        }
+        for (let t = 0.4; t <= 1.6; t += 0.02) {
+          const x = Math.cos(angles[k + 1]) + t * Math.cos(exitAngle),
+            y = Math.sin(angles[k + 1]) + t * Math.sin(exitAngle);
+          if (!insideWindow(x, y)) continue;
+          expect(colourAtPoint(sample, out, x, y)).toBeGreaterThan(0.35);
+          exits++;
+        }
+        for (let m = 0; m <= k; m++)
+          for (let f = 0.1; f <= 0.9; f += 0.05) {
+            const x =
+                Math.cos(angles[m]) +
+                f * (Math.cos(angles[m + 1]) - Math.cos(angles[m])),
+              y =
+                Math.sin(angles[m]) +
+                f * (Math.sin(angles[m + 1]) - Math.sin(angles[m]));
+            expect(colourAtPoint(sample, out, x, y)).toBeGreaterThan(0.25);
+            chords++;
+          }
+      }
+      expect(incoming).toBeGreaterThan(1500);
+      expect(exits).toBeGreaterThan(1500);
+      expect(chords).toBeGreaterThan(1000);
+    });
+  });
+  it('draws the rainbow ray, the ray of minimum deviation, brightest and in the direction of the rainbow angle', () => {
+    // The deviation D(i) = k pi + 2 i - 2 (k + 1) r is least where cos^2 i = (n^2 - 1) / ((k + 1)^2 - 1) (Descartes; the primary rainbow for n = 1.333 and k = 1 has i = 59.41 degrees and D = 137.92 degrees, about 42
+    // degrees from the direction away from the sun, which the test finds again for all six variants: 137.92, 230.89, 157.16, 113.62, 318.26 and 266.87 degrees). The sampler finds that ray by scanning, so the closed form is
+    // independent of it. On the rays of the incidence angle i and -i, on the incoming part and on the points 0.4 to 1.6 along the exit direction -D (or +D for -i) from the exit point, the colour is above 0.8
+    // (0.845 at the lowest in the probe, tone 1 against 0.5 for the other rays, 210 to 218 points), while at the directions 0.05 rad to either side (t from 1.0 to 1.4) the colour is under 0.7 (0.5 at the highest, an
+    // ordinary ray).
+    seeds.forEach((seed, index) => {
+      const [n, k] = p.variants[index],
+        sample = createSurfaceSampler('raindropoptics', seed),
+        out = empty(),
+        incidence = rainbowIncidence(index),
+        refraction = Math.asin(Math.sin(incidence) / n),
+        minimum = k * Math.PI + 2 * incidence - 2 * (k + 1) * refraction;
+      let bright = 0;
+      for (const sign of [1, -1]) {
+        const phi =
+            sign * (Math.PI - incidence - (k + 1) * (Math.PI - 2 * refraction)),
+          direction = -sign * minimum;
+        for (let x = -2.05; x <= -1.08; x += 0.02) {
+          if (x >= -Math.cos(incidence) - 0.05) continue;
+          expect(
+            colourAtPoint(sample, out, x, sign * Math.sin(incidence)),
+          ).toBeGreaterThan(0.8);
+          bright++;
+        }
+        for (let t = 0.4; t <= 1.6; t += 0.02) {
+          const x = Math.cos(phi) + t * Math.cos(direction),
+            y = Math.sin(phi) + t * Math.sin(direction);
+          if (!insideWindow(x, y)) continue;
+          expect(colourAtPoint(sample, out, x, y)).toBeGreaterThan(0.8);
+          bright++;
+        }
+        for (const offset of [0.05, -0.05])
+          for (let t = 1; t <= 1.4; t += 0.1) {
+            const x = Math.cos(phi) + t * Math.cos(direction + offset),
+              y = Math.sin(phi) + t * Math.sin(direction + offset);
+            if (insideWindow(x, y))
+              expect(colourAtPoint(sample, out, x, y)).toBeLessThan(0.7);
+          }
+      }
+      expect(bright).toBeGreaterThan(180);
+    });
+  });
+  it('is mirror symmetric about the axis of the sun', () => {
+    // The rays are placed symmetrically in b and the rainbow ray is drawn on both sides, so the colour at (x, y) and at (x, -y) differs by under 0.05 (0.0287 at the most in the probe, the grain; 3200 pairs per variant).
+    seeds.forEach((seed) => {
+      const sample = createSurfaceSampler('raindropoptics', seed),
+        out = empty();
+      let pairs = 0;
+      for (let i = 0; i < 80; i++)
+        for (let j = 0; j < 40; j++) {
+          const x = -2.1 + (4.2 * (i + 0.37)) / 80,
+            y = 0.02 + (2.08 * (j + 0.61)) / 40;
+          expect(
+            Math.abs(
+              colourAtPoint(sample, out, x, y) -
+                colourAtPoint(sample, out, x, -y),
+            ),
+          ).toBeLessThan(0.05);
+          pairs++;
+        }
+      expect(pairs).toBe(3200);
+    });
+  });
+  it('sends nothing to the side away from the sun when there is one reflection', () => {
+    // With one reflection (the variants with n = 1.333, 1.5 and 1.2) every ray is thrown back, with a deviation of at least the rainbow angle (137.92, 157.16 and 113.62 degrees), so the half plane towards the
+    // sun's direction is empty: at the radii 1.3, 1.6 and 2.0 and the polar angles up to 80 degrees (and up to the rainbow angle less 50 degrees, 63.6 degrees, for n = 1.2, whose rays reach further) on both sides, in
+    // steps of 2 degrees, inside the window, the colour is under 0.1 (0.054 at the highest in the probe; 243, 243 and 192 points).
+    for (const index of [0, 2, 3]) {
+      const sample = createSurfaceSampler('raindropoptics', seeds[index]),
+        out = empty(),
+        [n, k] = p.variants[index],
+        incidence = rainbowIncidence(index),
+        refraction = Math.asin(Math.sin(incidence) / n),
+        limit = Math.min(
+          80,
+          ((k * Math.PI + 2 * incidence - 2 * (k + 1) * refraction) * 180) /
+            Math.PI -
+            50,
+        );
+      let counted = 0;
+      for (let angle = -limit; angle <= limit; angle += 2)
+        for (const radius of [1.3, 1.6, 2]) {
+          const x = radius * Math.cos((angle * Math.PI) / 180),
+            y = radius * Math.sin((angle * Math.PI) / 180);
+          if (!insideWindow(x, y)) continue;
+          expect(colourAtPoint(sample, out, x, y)).toBeLessThan(0.1);
+          counted++;
+        }
+      expect(counted).toBeGreaterThan(150);
+    }
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 2 pick different droplets (n = 1.333 with 3 reflections and n = 1.5 with 2).
+    const first = litGrid(0),
+      second = litGrid(2);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.0309);
+    expect(different / first.length).toBeLessThan(0.031);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('raindropoptics', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 amber ray maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('raindropoptics', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(29.6);
+    expect(red / (512 * 512)).toBeLessThan(30.7);
+    expect(green / (512 * 512)).toBeGreaterThan(34.8);
+    expect(green / (512 * 512)).toBeLessThan(35.8);
+    expect(blue / (512 * 512)).toBeGreaterThan(41);
+    expect(blue / (512 * 512)).toBeLessThan(42);
+    expect(maxTilt).toBeGreaterThan(0.0513);
+    expect(maxTilt).toBeLessThan(0.0524);
     expect(invalid).toBe(0);
   });
 });
