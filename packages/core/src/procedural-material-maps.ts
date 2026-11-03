@@ -43037,6 +43037,116 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'vernierscale': {
+        const p = proceduralMaterialPresets.vernierscale,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x4fa01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          wholes = new Int32Array(p.sets),
+          tenths = new Int32Array(p.sets),
+          spacing = p.ratio * p.pitch,
+          last = p.divisions;
+        for (let s = 0; s < p.sets; s++) {
+          wholes[s] =
+            p.minWhole +
+            Math.floor(
+              hash(s, 52, seed ^ 0x4fa02) * (p.maxWhole - p.minWhole + 1),
+            );
+          // 1 to 9 tenths: with none, the last tick would line up as well as the first.
+          tenths[s] = 1 + Math.floor(hash(s, 53, seed ^ 0x4fa03) * (last - 1));
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          const set = Math.floor((fv - p.top + p.setSlack) / p.setPitch);
+          if (set >= 0 && set < p.sets) {
+            const mainTop = p.top + set * p.setPitch,
+              mainBottom = mainTop + p.mainHeight,
+              plateTop = mainBottom + p.plateGap,
+              plateBottom = plateTop + p.plateHeight,
+              zero = p.left + (wholes[set] + tenths[set] / last) * p.pitch,
+              end = p.left + p.units * p.pitch;
+            // The main scale's band and the plate under it.
+            paint(
+              cover(
+                Math.min(
+                  fu - (p.left - p.bandOverhang),
+                  end + p.bandOverhang - fu,
+                  fv - mainTop,
+                  mainBottom - fv,
+                ),
+              ),
+              p.mainTone,
+              p.mainHeightLevel,
+            );
+            paint(
+              cover(
+                Math.min(
+                  fu - (zero - p.plateOverhang),
+                  zero + last * spacing + p.plateOverhang - fu,
+                  fv - plateTop,
+                  plateBottom - fv,
+                ),
+              ),
+              p.plateTone,
+              p.plateHeightLevel,
+            );
+            // The main scale's tick nearest this position, standing on the band's lower edge.
+            const unit = Math.min(
+                p.units,
+                Math.max(0, Math.round((fu - p.left) / p.pitch)),
+              ),
+              fifth = unit % 5 === 0,
+              length = fifth ? p.longTick : p.shortTick;
+            paint(
+              cover(
+                Math.min(
+                  p.tickHalf - Math.abs(fu - (p.left + unit * p.pitch)),
+                  mainBottom - fv,
+                  fv - (mainBottom - length),
+                ),
+              ),
+              fifth ? p.longTone : p.tickTone,
+              fifth ? p.longHeight : p.tickHeight,
+            );
+            // The plate's tick nearest this position, hanging from the plate's upper edge; the one lined up with the scale is longer and darker.
+            const division = Math.min(
+                last,
+                Math.max(0, Math.round((fu - zero) / spacing)),
+              ),
+              aligned = division === tenths[set];
+            paint(
+              cover(
+                Math.min(
+                  p.tickHalf - Math.abs(fu - (zero + division * spacing)),
+                  fv - plateTop,
+                  plateTop + (aligned ? p.alignedTick : p.shortTick) - fv,
+                ),
+              ),
+              aligned ? p.alignedTone : p.tickTone,
+              aligned ? p.alignedHeight : p.tickHeight,
+            );
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -70566,6 +70676,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'vernierscale' ||
     kind === 'kmpfailure' ||
     kind === 'dijkstragrid' ||
     kind === 'binarysearchsteps' ||

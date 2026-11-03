@@ -47393,3 +47393,417 @@ describe('kmpfailure: three patterns of two letters, each with the length of the
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('vernierscale: five readings of a vernier, with the one tick that lines up drawn longer', () => {
+  const p = proceduralMaterialPresets.vernierscale,
+    out = empty(),
+    spacing = p.ratio * p.pitch;
+  type Reading = {
+    zero: number;
+    ticks: number[];
+    marked: number;
+    long: number[];
+  };
+  type Readings = { sample: Sampler; readings: Reading[] };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const near = (tone: number, wanted: number): boolean =>
+    Math.abs(tone - wanted) < 0.01;
+  const mainTop = (set: number): number => p.top + set * p.setPitch;
+  const mainBottom = (set: number): number => mainTop(set) + p.mainHeight;
+  const plateTop = (set: number): number => mainBottom(set) + p.plateGap;
+  const mainX = (unit: number): number => p.left + unit * p.pitch;
+
+  // The middle of each run of x (along a row y) where the tone is one of the wanted tones, with the tone found there.
+  const runs = (
+    sample: Sampler,
+    y: number,
+    wanted: number[],
+  ): { middle: number; tone: number }[] => {
+    const found: { middle: number; tone: number }[] = [];
+    let from: number | null = null,
+      tone = 0;
+    for (let x = 0; x <= 1; x += 0.0002) {
+      const hit = wanted.find((candidate) =>
+        near(toneAt(sample, x, y), candidate),
+      );
+      if (hit !== undefined && from === null) {
+        from = x;
+        tone = hit;
+      }
+      if (hit === undefined && from !== null) {
+        found.push({ middle: (from + x - 0.0002) / 2, tone });
+        from = null;
+      }
+    }
+    return found;
+  };
+
+  // Read the picture: for each set the main ticks, the plate's ticks, which one is drawn aligned and which main ticks are long.
+  const readingsOf = (seed: number): Readings => {
+    const sample = createSurfaceSampler('vernierscale', seed),
+      readings: Reading[] = [];
+    for (
+      let set = 0;
+      near(toneAt(sample, mainX(3.5), mainTop(set) + 0.01), p.mainTone);
+      set++
+    ) {
+      const main = runs(sample, mainBottom(set) - 0.005, [
+          p.tickTone,
+          p.longTone,
+        ]),
+        plate = runs(sample, plateTop(set) + 0.005, [
+          p.tickTone,
+          p.alignedTone,
+        ]);
+      expect(main.length).toBe(p.units + 1);
+      expect(plate.length).toBe(p.divisions + 1);
+      readings.push({
+        zero: plate[0].middle,
+        ticks: plate.map((tick) => tick.middle),
+        marked: plate.findIndex((tick) => near(tick.tone, p.alignedTone)),
+        long: main.flatMap((tick, i) =>
+          near(tick.tone, p.longTone) ? [i] : [],
+        ),
+      });
+      // The main ticks stand at every unit.
+      main.forEach((tick, i) =>
+        expect(Math.abs(tick.middle - mainX(i))).toBeLessThan(0.0004),
+      );
+    }
+    return { sample, readings };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'lines up exactly one plate tick with the main scale, the one drawn longer, and its number is the tenths past the whole units (seed %i)',
+    (seed) => {
+      const { readings } = readingsOf(seed);
+      expect(readings.length).toBe(p.sets);
+      for (const { zero, ticks, marked, long } of readings) {
+        // The plate's ticks are 0.9 of a unit apart.
+        ticks.forEach((tick, j) =>
+          expect(Math.abs(tick - (zero + j * spacing))).toBeLessThan(0.0004),
+        );
+        // How far each is from the nearest main tick: the marked one is the best lined up, and the others are clearly off.
+        const off = ticks.map((tick) =>
+          Math.abs(tick - mainX(Math.round((tick - p.left) / p.pitch))),
+        );
+        expect(marked).toBeGreaterThan(0);
+        expect(marked).toBeLessThan(p.divisions);
+        expect(off[marked]).toBeLessThan(0.0004);
+        off.forEach((distance, j) => {
+          if (j !== marked) expect(distance).toBeGreaterThan(0.002);
+        });
+        // The reading: whole units and tenths of the plate's first tick, whose tenths are the marked tick's number.
+        const reading = (zero - p.left) / p.pitch,
+          whole = Math.floor(reading + 0.05);
+        expect(Math.round((reading - whole) * p.divisions)).toBe(marked);
+        expect(whole).toBeGreaterThanOrEqual(p.minWhole);
+        expect(whole).toBeLessThanOrEqual(p.maxWhole);
+        // The long main ticks are every fifth.
+        expect(long).toEqual(
+          Array.from({ length: Math.floor(p.units / 5) + 1 }, (_, i) => i * 5),
+        );
+      }
+    },
+  );
+
+  it('uses every whole number and every tenth, over 60 seeds', () => {
+    const wholes = new Set<number>(),
+      tenths = new Set<number>();
+    for (let seed = 0; seed < 60; seed++)
+      for (const { zero, marked } of readingsOf(seed * 41 + 3).readings) {
+        wholes.add(Math.floor((zero - p.left) / p.pitch + 0.05));
+        tenths.add(marked);
+      }
+    expect([...wholes].sort((a, b) => a - b)).toEqual(
+      Array.from(
+        { length: p.maxWhole - p.minWhole + 1 },
+        (_, i) => p.minWhole + i,
+      ),
+    );
+    expect([...tenths].sort((a, b) => a - b)).toEqual(
+      Array.from({ length: p.divisions - 1 }, (_, i) => i + 1),
+    );
+  });
+
+  it('draws the bands, the plates and the ticks with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, readings } = readingsOf(seed),
+        end = mainX(p.units),
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      readings.forEach(({ zero, marked }, set) => {
+        const top = mainTop(set),
+          bottom = mainBottom(set),
+          plate = plateTop(set),
+          plateEnd = zero + p.divisions * spacing;
+        // The main band: tone, height, roughness, and its edges (with the overhang past the first and last ticks).
+        expect(toneAt(sample, mainX(2.5), top + 0.01)).toBeCloseTo(
+          p.mainTone,
+          6,
+        );
+        expect(out.height / p.relief).toBeCloseTo(p.mainHeightLevel, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(
+          toneAt(sample, p.left - p.bandOverhang + 0.002, top + 0.01),
+        ).toBeCloseTo(p.mainTone, 6);
+        expect(
+          toneAt(sample, end + p.bandOverhang - 0.002, top + 0.01),
+        ).toBeCloseTo(p.mainTone, 6);
+        expect(paperOk(p.left - p.bandOverhang - 0.002, top + 0.01)).toBe(true);
+        expect(paperOk(end + p.bandOverhang + 0.002, top + 0.01)).toBe(true);
+        expect(toneAt(sample, mainX(2.5), top + 0.002)).toBeCloseTo(
+          p.mainTone,
+          6,
+        );
+        expect(paperOk(mainX(2.5), top - 0.002)).toBe(true);
+        expect(toneAt(sample, mainX(2.5), bottom - 0.002)).toBeCloseTo(
+          p.mainTone,
+          6,
+        );
+        expect(paperOk(mainX(2.5), bottom + 0.002)).toBe(true);
+        // The plate: tone, height, roughness, and its edges (past the first and last ticks).
+        const middle = zero + 3.5 * spacing;
+        expect(toneAt(sample, middle, plate + 0.03)).toBeCloseTo(
+          p.plateTone,
+          6,
+        );
+        expect(out.height / p.relief).toBeCloseTo(p.plateHeightLevel, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(
+          toneAt(sample, zero - p.plateOverhang + 0.002, plate + 0.03),
+        ).toBeCloseTo(p.plateTone, 6);
+        expect(
+          toneAt(sample, plateEnd + p.plateOverhang - 0.002, plate + 0.03),
+        ).toBeCloseTo(p.plateTone, 6);
+        expect(paperOk(zero - p.plateOverhang - 0.002, plate + 0.03)).toBe(
+          true,
+        );
+        expect(paperOk(plateEnd + p.plateOverhang + 0.002, plate + 0.03)).toBe(
+          true,
+        );
+        expect(
+          toneAt(sample, middle, plate + p.plateHeight - 0.002),
+        ).toBeCloseTo(p.plateTone, 6);
+        expect(paperOk(middle, plate + p.plateHeight + 0.002)).toBe(true);
+        expect(paperOk(middle, plate - 0.002)).toBe(true);
+        // The main ticks: standing on the band's lower edge, short or (every fifth) long, with their width.
+        for (let unit = 0; unit <= p.units; unit++) {
+          const fifth = unit % 5 === 0,
+            length = fifth ? p.longTick : p.shortTick,
+            x = mainX(unit);
+          expect(toneAt(sample, x, bottom - length / 2)).toBeCloseTo(
+            fifth ? p.longTone : p.tickTone,
+            6,
+          );
+          expect(out.height / p.relief).toBeCloseTo(
+            fifth ? p.longHeight : p.tickHeight,
+            6,
+          );
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          expect(toneAt(sample, x, bottom - length + 0.0015)).toBeCloseTo(
+            fifth ? p.longTone : p.tickTone,
+            6,
+          );
+          expect(toneAt(sample, x, bottom - length - 0.0015)).toBeCloseTo(
+            p.mainTone,
+            6,
+          );
+          for (const side of [-1, 1]) {
+            expect(
+              toneAt(
+                sample,
+                x + side * (p.tickHalf - 0.0004),
+                bottom - length / 2,
+              ),
+            ).toBeCloseTo(fifth ? p.longTone : p.tickTone, 6);
+            expect(
+              toneAt(
+                sample,
+                x + side * (p.tickHalf + 0.0006),
+                bottom - length / 2,
+              ),
+            ).toBeCloseTo(p.mainTone, 6);
+          }
+        }
+        // The plate's ticks: hanging from its upper edge, the lined up one longer and darker.
+        for (let j = 0; j <= p.divisions; j++) {
+          const aligned = j === marked,
+            length = aligned ? p.alignedTick : p.shortTick,
+            x = zero + j * spacing;
+          expect(toneAt(sample, x, plate + length / 2)).toBeCloseTo(
+            aligned ? p.alignedTone : p.tickTone,
+            6,
+          );
+          expect(out.height / p.relief).toBeCloseTo(
+            aligned ? p.alignedHeight : p.tickHeight,
+            6,
+          );
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          expect(toneAt(sample, x, plate + length - 0.0015)).toBeCloseTo(
+            aligned ? p.alignedTone : p.tickTone,
+            6,
+          );
+          expect(toneAt(sample, x, plate + length + 0.0015)).toBeCloseTo(
+            p.plateTone,
+            6,
+          );
+          for (const side of [-1, 1]) {
+            expect(
+              toneAt(
+                sample,
+                x + side * (p.tickHalf - 0.0004),
+                plate + length / 2,
+              ),
+            ).toBeCloseTo(aligned ? p.alignedTone : p.tickTone, 6);
+            expect(
+              toneAt(
+                sample,
+                x + side * (p.tickHalf + 0.0006),
+                plate + length / 2,
+              ),
+            ).toBeCloseTo(p.plateTone, 6);
+          }
+        }
+      });
+      // Nothing between the sets or below the last.
+      expect(paperOk(0.5, mainTop(1) - 0.03)).toBe(true);
+      expect(paperOk(0.5, mainTop(p.sets) - 0.03)).toBe(true);
+    }
+  });
+
+  it('softens the edge of a band, a plate and a tick over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      const { sample, readings } = readingsOf(seed),
+        { zero, marked } = readings[0],
+        top = mainTop(0),
+        bottom = mainBottom(0),
+        plate = plateTop(0),
+        x = mainX(2.5);
+      // The band's top and left edges, over the paper.
+      close(
+        toneAt(sample, x, top + quarter),
+        mix(p.paperTone, p.mainTone, 0.75),
+      );
+      close(
+        toneAt(sample, x, top - quarter),
+        mix(p.paperTone, p.mainTone, 0.25),
+      );
+      // (The outer half of the edge is still drawn above the first set's band: darker than the paper a little further up.)
+      expect(
+        toneAt(sample, x, top - 3 * p.edgeSoft) -
+          toneAt(sample, x, top - quarter),
+      ).toBeGreaterThan(0.008);
+      close(
+        toneAt(sample, p.left - p.bandOverhang + quarter, top + 0.01),
+        mix(p.paperTone, p.mainTone, 0.75),
+      );
+      close(
+        toneAt(sample, p.left - p.bandOverhang - quarter, top + 0.01),
+        mix(p.paperTone, p.mainTone, 0.25),
+      );
+      // The plate's lower and right edges, over the paper.
+      const plateEnd = zero + p.divisions * spacing + p.plateOverhang;
+      close(
+        toneAt(sample, zero + 3.5 * spacing, plate + p.plateHeight - quarter),
+        mix(p.paperTone, p.plateTone, 0.75),
+      );
+      close(
+        toneAt(sample, zero + 3.5 * spacing, plate + p.plateHeight + quarter),
+        mix(p.paperTone, p.plateTone, 0.25),
+      );
+      close(
+        toneAt(sample, plateEnd - quarter, plate + 0.03),
+        mix(p.paperTone, p.plateTone, 0.75),
+      );
+      close(
+        toneAt(sample, plateEnd + quarter, plate + 0.03),
+        mix(p.paperTone, p.plateTone, 0.25),
+      );
+      // A short main tick's side and top end, over the band.
+      const tick = mainX(1);
+      close(
+        toneAt(sample, tick + p.tickHalf - quarter, bottom - 0.009),
+        mix(p.mainTone, p.tickTone, 0.75),
+      );
+      close(
+        toneAt(sample, tick + p.tickHalf + quarter, bottom - 0.009),
+        mix(p.mainTone, p.tickTone, 0.25),
+      );
+      close(
+        toneAt(sample, tick, bottom - p.shortTick + quarter),
+        mix(p.mainTone, p.tickTone, 0.75),
+      );
+      close(
+        toneAt(sample, tick, bottom - p.shortTick - quarter),
+        mix(p.mainTone, p.tickTone, 0.25),
+      );
+      // The lined up plate tick's lower end, over the plate.
+      const aligned = zero + marked * spacing;
+      close(
+        toneAt(sample, aligned, plate + p.alignedTick - quarter),
+        mix(p.plateTone, p.alignedTone, 0.75),
+      );
+      close(
+        toneAt(sample, aligned, plate + p.alignedTick + quarter),
+        mix(p.plateTone, p.alignedTone, 0.25),
+      );
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('vernierscale', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('vernierscale', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.985),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('vernierscale', 0),
+      b = createSurfaceSampler('vernierscale', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.0701],
+        [0.2101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
