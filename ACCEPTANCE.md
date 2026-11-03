@@ -13546,3 +13546,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增6項專屬測試（數值範圍、圓盤、根軸、seed差異與決定性、C1掃描、maps）加kinds清單新條目，`-t`選中的7項皆通過；型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Power diagram as|powerdiagram|kinds|catalog|distinct|periodic"`定向測試**2486項通過／4250項未選**，輸出`GATES-OK`。
 - 未驗證：powerdiagram（以及confocalconics、eisensteinprimes、reuleauxfield）未跑完整suite與瀏覽器gallery（最近一次完整複驗至Steiner鏈）；不push。
+
+## 2026-11-03 完整測試與瀏覽器gallery複驗（至冪圖）
+
+- 完整suite（工具實跑）：在commit `c0ed3ae0b`（`[P08] Add Power Diagram material`）的乾淨worktree執行`vitest run`，**179個檔案、10,665項測試全部通過**，耗時1157.74 s；對照前一次紀錄（`26f02f272`，10,636項），新增的confocalconics（8項）、eisensteinprimes、reuleauxfield、powerdiagram（各7項）共29項，與數量吻合；其間的兩個文字更正提交沒有新增測試。
+- 瀏覽器gallery（headless Chrome，`--enable-unsafe-webgpu --use-angle=metal`）：頁面載入約350 s（與完整suite同時執行）後，預設（WebGPU）與`?renderer=webgl2`兩個分頁讀數皆為「1087 procedural material presets」、select共1088個選項；依序選取confocalconics、eisensteinprimes、reuleauxfield、powerdiagram、plain都在期限內更新讀數，兩個分頁的console錯誤皆為0；並在WebGPU分頁讀出這四個選項的文字，確認是各自的描述（不是範本字樣）。這**只**涵蓋「可選取、讀數更新、無console錯誤」與上述四個選項文字，沒有逐材質截圖，也不證明視覺品質；沒有逐一選過全部1087種。
+- 未驗證：沒有量測建構與取樣耗時；不push。
