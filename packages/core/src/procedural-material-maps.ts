@@ -49251,6 +49251,132 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'keplerorbits': {
+        const p = proceduralMaterialPresets.keplerorbits,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant =
+            p.variants[
+              Math.floor(hash(0, 80, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          plot = 0.5 - p.margin,
+          inverseSoft = 1 / p.edgeSoft,
+          tilePerWorld = plot / p.extent,
+          // The semi-major axis follows from the third law, a^(3/2) proportional to the period, i.e. to the number of equal time steps in a period.
+          scale =
+            p.aphelion /
+            Math.max(
+              ...variant.map((orbit) => orbit[0] ** (2 / 3) * (1 + orbit[1])),
+            ),
+          orbits = variant.map((orbit) => {
+            const axis = scale * orbit[0] ** (2 / 3),
+              angle = (orbit[2] * Math.PI) / 180;
+            return {
+              axis,
+              eccentricity: orbit[1],
+              cos: Math.cos(angle),
+              sin: Math.sin(angle),
+              minor: axis * Math.sqrt(1 - orbit[1] * orbit[1]),
+            };
+          }),
+          // The positions of the equal time steps of every orbit from Kepler's equation M = E - e sin E solved by Newton's method.
+          dots: { x: number; y: number }[] = [];
+        variant.forEach((orbit, index) => {
+          const { axis, eccentricity, cos, sin, minor } = orbits[index];
+          for (let j = 0; j < orbit[0]; j++) {
+            const meanAnomaly = (2 * Math.PI * (j + orbit[3])) / orbit[0];
+            let anomaly = meanAnomaly + eccentricity * Math.sin(meanAnomaly);
+            for (let k = 0; k < 12; k++)
+              anomaly -=
+                (anomaly - eccentricity * Math.sin(anomaly) - meanAnomaly) /
+                (1 - eccentricity * Math.cos(anomaly));
+            const px = axis * (Math.cos(anomaly) - eccentricity),
+              py = minor * Math.sin(anomaly);
+            dots.push({ x: px * cos - py * sin, y: px * sin + py * cos });
+          }
+        });
+        const orbitSquared = p.orbitHalfWidth * p.orbitHalfWidth,
+          spokeSquared = p.spokeHalfWidth * p.spokeHalfWidth,
+          dotSquared = p.dotRadius * p.dotRadius,
+          starSquared = p.starRadius * p.starRadius;
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            x = ((fu - 0.5) / plot) * p.extent,
+            y = -((fv - 0.5) / plot) * p.extent;
+          // The conic of an orbit as the implicit function ((x' + a e) / a)^2 + (y' / b)^2 - 1 in its own axes, with the first-order distance f / |grad f|.
+          let orbitT = 0,
+            spokeT = 0,
+            dotT = 0;
+          for (const orbit of orbits) {
+            const px = x * orbit.cos + y * orbit.sin,
+              py = -x * orbit.sin + y * orbit.cos,
+              fx = (px + orbit.axis * orbit.eccentricity) / orbit.axis,
+              fy = py / orbit.minor,
+              implicit = fx * fx + fy * fy - 1,
+              gradient = 2 * Math.hypot(fx / orbit.axis, fy / orbit.minor),
+              distance =
+                (Math.abs(implicit) / Math.max(gradient, 1e-9)) * tilePerWorld;
+            orbitT = Math.max(
+              orbitT,
+              clamp(1 - (distance * distance) / orbitSquared),
+            );
+          }
+          for (const dot of dots) {
+            const along = Math.max(
+                0,
+                Math.min(
+                  1,
+                  (x * dot.x + y * dot.y) / (dot.x * dot.x + dot.y * dot.y),
+                ),
+              ),
+              spokeDistance =
+                Math.hypot(x - along * dot.x, y - along * dot.y) * tilePerWorld,
+              dotDistance = Math.hypot(x - dot.x, y - dot.y) * tilePerWorld;
+            spokeT = Math.max(
+              spokeT,
+              clamp(1 - (spokeDistance * spokeDistance) / spokeSquared),
+            );
+            dotT = Math.max(
+              dotT,
+              clamp(1 - (dotDistance * dotDistance) / dotSquared),
+            );
+          }
+          const starDistance = Math.hypot(x, y) * tilePerWorld,
+            starT = clamp(1 - (starDistance * starDistance) / starSquared),
+            outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
+            outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
+            boxDistance =
+              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              Math.min(Math.max(outsideX, outsideY), 0),
+            inside = smooth(clamp(-boxDistance / p.fade)),
+            ink = clamp(
+              inside *
+                (1 -
+                  (1 - p.orbitTone * orbitT * orbitT) *
+                    (1 - p.spokeTone * spokeT * spokeT) *
+                    (1 - p.dotTone * dotT * dotT) *
+                    (1 - p.dotTone * starT * starT)),
+            ),
+            mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(ink) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -58155,6 +58281,7 @@ export function createSurfaceSampler(
     kind === 'fourierseries' ||
     kind === 'escapefractals' ||
     kind === 'zerovelocitycurves' ||
+    kind === 'keplerorbits' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

@@ -27432,6 +27432,200 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: .08,
 		gapOcclusion: .4
 	}),
+	keplerorbits: Object.freeze({
+		dark: [
+			12,
+			6,
+			26
+		],
+		light: [
+			220,
+			190,
+			255
+		],
+		roughness: .38,
+		relief: 8e-4,
+		seedSalt: 13783,
+		margin: .04,
+		fade: .012,
+		extent: 1,
+		aphelion: .85,
+		variants: [
+			[
+				[
+					8,
+					.55,
+					20,
+					0
+				],
+				[
+					14,
+					.3,
+					140,
+					.4
+				],
+				[
+					22,
+					.5,
+					250,
+					.7
+				],
+				[
+					32,
+					.2,
+					80,
+					.2
+				]
+			],
+			[
+				[
+					10,
+					.6,
+					200,
+					.3
+				],
+				[
+					16,
+					.25,
+					320,
+					0
+				],
+				[
+					24,
+					.45,
+					100,
+					.6
+				],
+				[
+					34,
+					.3,
+					30,
+					.1
+				]
+			],
+			[
+				[
+					9,
+					.35,
+					90,
+					.5
+				],
+				[
+					15,
+					.6,
+					210,
+					.2
+				],
+				[
+					23,
+					.3,
+					330,
+					.8
+				],
+				[
+					31,
+					.55,
+					150,
+					.4
+				]
+			],
+			[
+				[
+					12,
+					.5,
+					300,
+					.1
+				],
+				[
+					18,
+					.4,
+					60,
+					.5
+				],
+				[
+					26,
+					.6,
+					180,
+					.9
+				],
+				[
+					36,
+					.25,
+					240,
+					.3
+				]
+			],
+			[
+				[
+					8,
+					.4,
+					150,
+					.6
+				],
+				[
+					13,
+					.5,
+					270,
+					.2
+				],
+				[
+					21,
+					.35,
+					30,
+					0
+				],
+				[
+					30,
+					.6,
+					210,
+					.5
+				]
+			],
+			[
+				[
+					11,
+					.45,
+					10,
+					.2
+				],
+				[
+					17,
+					.55,
+					130,
+					.7
+				],
+				[
+					25,
+					.25,
+					250,
+					.4
+				],
+				[
+					35,
+					.4,
+					330,
+					0
+				]
+			]
+		],
+		orbitHalfWidth: .0035,
+		spokeHalfWidth: .0016,
+		dotRadius: .016,
+		starRadius: .024,
+		orbitTone: .6,
+		spokeTone: .2,
+		dotTone: 1,
+		edgeSoft: .35,
+		grainCells: 128,
+		gapTone: .04,
+		toneFloor: .14,
+		toneSpan: .72,
+		grainTone: .03,
+		cellHeight: .8,
+		toneHeight: .12,
+		grainHeight: .08,
+		gapOcclusion: .4
+	}),
 	vermiculation: Object.freeze({
 		dark: [
 			60,
@@ -29519,6 +29713,7 @@ var proceduralTileMeters = Object.freeze({
 	fourierseries: .5,
 	escapefractals: .5,
 	zerovelocitycurves: .5,
+	keplerorbits: .5,
 	dominotiling: .5,
 	vermiculation: .4,
 	kikko: .3,

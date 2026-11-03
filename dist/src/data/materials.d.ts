@@ -16585,6 +16585,35 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.08;
         gapOcclusion: 0.4;
     }>;
+    keplerorbits: Readonly<{
+        dark: readonly [12, 6, 26];
+        light: readonly [220, 190, 255];
+        roughness: 0.38;
+        relief: 0.0008;
+        seedSalt: 13783;
+        margin: 0.04;
+        fade: 0.012;
+        extent: 1;
+        aphelion: 0.85;
+        variants: readonly [readonly [readonly [8, 0.55, 20, 0], readonly [14, 0.3, 140, 0.4], readonly [22, 0.5, 250, 0.7], readonly [32, 0.2, 80, 0.2]], readonly [readonly [10, 0.6, 200, 0.3], readonly [16, 0.25, 320, 0], readonly [24, 0.45, 100, 0.6], readonly [34, 0.3, 30, 0.1]], readonly [readonly [9, 0.35, 90, 0.5], readonly [15, 0.6, 210, 0.2], readonly [23, 0.3, 330, 0.8], readonly [31, 0.55, 150, 0.4]], readonly [readonly [12, 0.5, 300, 0.1], readonly [18, 0.4, 60, 0.5], readonly [26, 0.6, 180, 0.9], readonly [36, 0.25, 240, 0.3]], readonly [readonly [8, 0.4, 150, 0.6], readonly [13, 0.5, 270, 0.2], readonly [21, 0.35, 30, 0], readonly [30, 0.6, 210, 0.5]], readonly [readonly [11, 0.45, 10, 0.2], readonly [17, 0.55, 130, 0.7], readonly [25, 0.25, 250, 0.4], readonly [35, 0.4, 330, 0]]];
+        orbitHalfWidth: 0.0035;
+        spokeHalfWidth: 0.0016;
+        dotRadius: 0.016;
+        starRadius: 0.024;
+        orbitTone: 0.6;
+        spokeTone: 0.2;
+        dotTone: 1;
+        edgeSoft: 0.35;
+        grainCells: 128;
+        gapTone: 0.04;
+        toneFloor: 0.14;
+        toneSpan: 0.72;
+        grainTone: 0.03;
+        cellHeight: 0.8;
+        toneHeight: 0.12;
+        grainHeight: 0.08;
+        gapOcclusion: 0.4;
+    }>;
     vermiculation: Readonly<{
         dark: readonly [60, 48, 36];
         light: readonly [220, 204, 172];
@@ -18350,6 +18379,7 @@ export declare const proceduralTileMeters: Readonly<{
     fourierseries: 0.5;
     escapefractals: 0.5;
     zerovelocitycurves: 0.5;
+    keplerorbits: 0.5;
     dominotiling: 0.5;
     vermiculation: 0.4;
     kikko: 0.3;

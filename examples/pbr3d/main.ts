@@ -1166,6 +1166,7 @@ try {
     'fourierseries',
     'escapefractals',
     'zerovelocitycurves',
+    'keplerorbits',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

@@ -1129,6 +1129,7 @@ const kinds: ProceduralMaterialKind[] = [
   'fourierseries',
   'escapefractals',
   'zerovelocitycurves',
+  'keplerorbits',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -187952,6 +187953,390 @@ describe('Zero-velocity curves as the potential contours of the restricted three
     expect(blue / (512 * 512)).toBeLessThan(36.6);
     expect(maxTilt).toBeGreaterThan(0.0295);
     expect(maxTilt).toBeLessThan(0.0306);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Kepler orbits as equal time steps on ellipses with a shared focus', () => {
+  const p = proceduralMaterialPresets.keplerorbits;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const size = 512,
+    tilePerWorld = (0.5 - p.margin) / p.extent;
+  type Orbit = {
+    count: number;
+    axis: number;
+    eccentricity: number;
+    angle: number;
+    phase: number;
+  };
+  /**
+   * The orbits of a variant with the semi-major axes from Kepler's third law: the period, i.e. the number of equal time steps, is proportional to
+   * a^(3/2), so a is proportional to the count^(2/3), scaled so that the largest aphelion is the preset's.
+   */
+  const orbitsOf = (index: number): Orbit[] => {
+    const variant = p.variants[index],
+      scale =
+        p.aphelion /
+        Math.max(
+          ...variant.map((orbit) => orbit[0] ** (2 / 3) * (1 + orbit[1])),
+        );
+    return variant.map((orbit) => ({
+      count: orbit[0],
+      axis: scale * orbit[0] ** (2 / 3),
+      eccentricity: orbit[1],
+      angle: (orbit[2] * Math.PI) / 180,
+      phase: orbit[3],
+    }));
+  };
+  /** The position of the j-th equal time step of an orbit, from Kepler's equation M = E - e sin E solved by 60 Newton steps from E = M. */
+  const dotOf = (orbit: Orbit, j: number): [number, number] => {
+    const mean = (2 * Math.PI * (j + orbit.phase)) / orbit.count;
+    let anomaly = mean;
+    for (let k = 0; k < 60; k++)
+      anomaly -=
+        (anomaly - orbit.eccentricity * Math.sin(anomaly) - mean) /
+        (1 - orbit.eccentricity * Math.cos(anomaly));
+    const px = orbit.axis * (Math.cos(anomaly) - orbit.eccentricity),
+      py =
+        orbit.axis * Math.sqrt(1 - orbit.eccentricity ** 2) * Math.sin(anomaly);
+    return [
+      px * Math.cos(orbit.angle) - py * Math.sin(orbit.angle),
+      px * Math.sin(orbit.angle) + py * Math.cos(orbit.angle),
+    ];
+  };
+  const tilePosition = (x: number, y: number): [number, number] => [
+    0.5 + x * tilePerWorld,
+    0.5 - y * tilePerWorld,
+  ];
+  const readTile = (seed: number): Float32Array => {
+    const sample = createSurfaceSampler('keplerorbits', seed),
+      out = empty(),
+      image = new Float32Array(size * size);
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        image[y * size + x] = out.color;
+      }
+    return image;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('keplerorbits', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('keplerorbits', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0254);
+      expect(low).toBeLessThan(0.0258);
+      expect(high).toBeGreaterThan(0.868);
+      expect(high).toBeLessThan(0.872);
+      expect(dark / 65536).toBeGreaterThan(0.026);
+      expect(dark / 65536).toBeLessThan(0.031);
+      expect(mean / 65536).toBeGreaterThan(0.068);
+      expect(mean / 65536).toBeLessThan(0.074);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.865);
+      expect(heightHigh).toBeLessThan(0.871);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 is 7, 13, 1, 2, 9 and 0; the table was found with a probe by the brightness at the independent dot positions
+  // (the smallest margin to the second best being 0.848) and is written here, so it is not an independent check of the seed's choice.
+  const seeds = [7, 13, 1, 2, 9, 0];
+  it('draws the orbits, time steps and star of its own variant and not those of the others', () => {
+    // Of the pixels with a colour above 0.45 (7605 to 9872 per variant in the probe) inside the plot, the fraction lying within 0.8 of the half width of an
+    // ellipse of the variant (first order: the implicit function of the conic in its own axes divided by its gradient; the semi-major axes
+    // come from the third law, a^(3/2) proportional to the number of time steps in a period), or within 1.1 dot radii of a time step found by solving
+    // Kepler's equation in the test, or within 1.1 star radii of the star, is above 0.99 for the variant of the seed (1.0000 in the probe) and below 0.4
+    // for each other variant (0.2659 at most in the probe).
+    seeds.forEach((seed, index) => {
+      const image = readTile(seed);
+      p.variants.forEach((_, other) => {
+        const orbits = orbitsOf(other),
+          dots = orbits.flatMap((orbit) =>
+            Array.from({ length: orbit.count }, (__, j) => dotOf(orbit, j)),
+          );
+        let bright = 0,
+          explained = 0;
+        for (let y = 0; y < size; y++)
+          for (let x = 0; x < size; x++) {
+            const u = (x + 0.5) / size,
+              v = (y + 0.5) / size;
+            if (
+              image[y * size + x] <= 0.45 ||
+              u < 0.06 ||
+              u > 0.94 ||
+              v < 0.06 ||
+              v > 0.94
+            )
+              continue;
+            const wx = ((u - 0.5) / (0.5 - p.margin)) * p.extent,
+              wy = -((v - 0.5) / (0.5 - p.margin)) * p.extent;
+            bright++;
+            let good =
+              Math.hypot(wx, wy) * tilePerWorld < 1.1 * p.starRadius ||
+              dots.some(
+                ([dx, dy]) =>
+                  Math.hypot(wx - dx, wy - dy) * tilePerWorld <
+                  1.1 * p.dotRadius,
+              );
+            if (!good)
+              good = orbits.some((orbit) => {
+                const px =
+                    wx * Math.cos(orbit.angle) + wy * Math.sin(orbit.angle),
+                  py = -wx * Math.sin(orbit.angle) + wy * Math.cos(orbit.angle),
+                  minor = orbit.axis * Math.sqrt(1 - orbit.eccentricity ** 2),
+                  fx = (px + orbit.axis * orbit.eccentricity) / orbit.axis,
+                  fy = py / minor,
+                  gradient = 2 * Math.hypot(fx / orbit.axis, fy / minor);
+                return (
+                  (Math.abs(fx * fx + fy * fy - 1) / gradient) * tilePerWorld <
+                  0.8 * p.orbitHalfWidth
+                );
+              });
+            explained += Number(good);
+          }
+        if (other === index) expect(explained / bright).toBeGreaterThan(0.99);
+        else expect(explained / bright).toBeLessThan(0.4);
+      });
+    });
+  });
+  it("puts a bright dot at every time step of Kepler's equation and a bright star at the focus", () => {
+    // At each of the 72 to 92 time steps of the variant found by the test's Newton solution of M = E - e sin E (the colour of the dot discs is
+    // above 0.8; 0.846 at the lowest in the probe) and at the star in the middle (the focus shared by all the orbits).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('keplerorbits', seed),
+        out = empty();
+      let checked = 0;
+      for (const orbit of orbitsOf(index))
+        for (let j = 0; j < orbit.count; j++) {
+          const [u, v] = tilePosition(...dotOf(orbit, j));
+          sample(u, v, out);
+          expect(out.color).toBeGreaterThan(0.8);
+          checked++;
+        }
+      expect(checked).toBeGreaterThan(70);
+      sample(0.5, 0.5, out);
+      expect(out.color).toBeGreaterThan(0.8);
+    });
+  });
+  it('sweeps equal areas in equal times between the dots that can be read back', () => {
+    // For the dots that are at least 0.05 from the star and 0.045 from every other time step (tile units) the centre of the bright disc is read
+    // back (the weighted centroid of the colour above 0.8 within 0.025, steps of 0.001 in the units of the orbits), and for the consecutive pairs of such
+    // dots on one orbit the area swept between their directions, the integral of r^2 / 2 over the angle along the conic r = a (1 - e^2) / (1 + e cos(theta - w)),
+    // is the area of the ellipse divided by the number of steps within 4% (0.0156 at the worst of 5 to 41 pairs per variant in the probe).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('keplerorbits', seed),
+        out = empty(),
+        orbits = orbitsOf(index),
+        all = orbits.flatMap((orbit) =>
+          Array.from({ length: orbit.count }, (_, j) => dotOf(orbit, j)),
+        );
+      let tested = 0;
+      orbits.forEach((orbit) => {
+        const centres = Array.from(
+          { length: orbit.count },
+          (_, j): [number, number] | null => {
+            const [px, py] = dotOf(orbit, j);
+            const alone =
+              Math.hypot(px, py) * tilePerWorld > 0.05 &&
+              all.every(
+                ([qx, qy]) =>
+                  (qx === px && qy === py) ||
+                  Math.hypot(qx - px, qy - py) * tilePerWorld >= 0.045,
+              );
+            if (!alone) return null;
+            let weight = 0,
+              sx = 0,
+              sy = 0;
+            const radius = 0.025 / tilePerWorld;
+            for (let dx = -radius; dx <= radius; dx += 0.001)
+              for (let dy = -radius; dy <= radius; dy += 0.001) {
+                const [u, v] = tilePosition(px + dx, py + dy);
+                sample(u, v, out);
+                const w = Math.max(0, out.color - 0.8);
+                weight += w;
+                sx += w * (px + dx);
+                sy += w * (py + dy);
+              }
+            return [sx / weight, sy / weight];
+          },
+        );
+        const area =
+          (Math.PI *
+            orbit.axis *
+            orbit.axis *
+            Math.sqrt(1 - orbit.eccentricity ** 2)) /
+          orbit.count;
+        for (let j = 0; j < orbit.count; j++) {
+          const first = centres[j],
+            second = centres[(j + 1) % orbit.count];
+          if (!first || !second) continue;
+          const start = Math.atan2(first[1], first[0]);
+          let span = Math.atan2(second[1], second[0]) - start;
+          while (span < 0) span += 2 * Math.PI;
+          let swept = 0;
+          for (let i = 0; i < 400; i++) {
+            const theta = start + (span * (i + 0.5)) / 400,
+              r =
+                (orbit.axis * (1 - orbit.eccentricity ** 2)) /
+                (1 + orbit.eccentricity * Math.cos(theta - orbit.angle));
+            swept += (0.5 * r * r * span) / 400;
+          }
+          expect(Math.abs(swept / area - 1)).toBeLessThan(0.04);
+          tested++;
+        }
+      });
+      expect(tested).toBeGreaterThanOrEqual(4);
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 7 and 13 pick different variants (the first two).
+    const first = litGrid(7),
+      second = litGrid(13);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.052);
+    expect(different / first.length).toBeLessThan(0.055);
+    expect(litGrid(7)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('keplerorbits', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 violet orbit maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('keplerorbits', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(26.5);
+    expect(red / (512 * 512)).toBeLessThan(27.7);
+    expect(green / (512 * 512)).toBeGreaterThan(18.8);
+    expect(green / (512 * 512)).toBeLessThan(19.9);
+    expect(blue / (512 * 512)).toBeGreaterThan(42);
+    expect(blue / (512 * 512)).toBeLessThan(43.2);
+    expect(maxTilt).toBeGreaterThan(0.0172);
+    expect(maxTilt).toBeLessThan(0.0183);
     expect(invalid).toBe(0);
   });
 });

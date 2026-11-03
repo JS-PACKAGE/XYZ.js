@@ -1103,6 +1103,7 @@ export type ProceduralMaterialKind =
   | 'fourierseries'
   | 'escapefractals'
   | 'zerovelocitycurves'
+  | 'keplerorbits'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2454,6 +2455,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'fourierseries',
   'escapefractals',
   'zerovelocitycurves',
+  'keplerorbits',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
