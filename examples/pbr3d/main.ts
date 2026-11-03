@@ -711,6 +711,7 @@ try {
     'dcbarreljackfaces',
     'stfiberadapterfaces',
     'to92packagefaces',
+    'paleygraphmatrix',
     'superformulacells',
     'tsquarefractal',
     'marchingsquares',

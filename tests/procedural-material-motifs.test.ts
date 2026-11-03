@@ -31949,3 +31949,173 @@ describe('superformulacells: a grid of closed superformula curves', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('paleygraphmatrix: the adjacency matrix of a Paley graph', () => {
+  const p = proceduralMaterialPresets.paleygraphmatrix;
+  // 0 no edge, 1 edge, 2 diagonal: the tones, heights and roughnesses a cell of each class has.
+  const tones = [p.gapTone, p.edgeTone, p.diagonalTone],
+    heights = [p.gapHeight, p.edgeHeight, p.diagonalHeight],
+    roughnesses = [p.gapRoughness, p.edgeRoughness, p.diagonalRoughness];
+  // Euler's criterion: d is a square modulo the prime when d^((prime - 1) / 2) = 1 (mod prime).
+  const isSquare = (d: number, prime: number): boolean => {
+    let power = 1;
+    for (let i = 0; i < (prime - 1) / 2; i++) power = (power * d) % prime;
+    return power === 1;
+  };
+  const expectedClass = (
+    column: number,
+    row: number,
+    prime: number,
+  ): number => {
+    const difference = (((column - row) % prime) + prime) % prime;
+    return difference === 0 ? 2 : isSquare(difference, prime) ? 1 : 0;
+  };
+  // The class of the tone found in the middle of every cell of a prime x prime grid (-1 when it is none of the three).
+  const decode = (seed: number, prime: number): number[][] => {
+    const sample = createSurfaceSampler('paleygraphmatrix', seed),
+      out = empty();
+    return Array.from({ length: prime }, (_, row) =>
+      Array.from({ length: prime }, (_, column) => {
+        sample((column + 0.5) / prime, (row + 0.5) / prime, out);
+        return tones.findIndex((tone) => Math.abs(out.color - tone) < 0.05);
+      }),
+    );
+  };
+  const primeOf = (seed: number): number => {
+    const found = p.primes.filter((prime) =>
+      decode(seed, prime).every((line, row) =>
+        line.every(
+          (value, column) => value === expectedClass(column, row, prime),
+        ),
+      ),
+    );
+    expect(found).toHaveLength(1);
+    return found[0];
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows which differences modulo a prime are squares, with the diagonal marked (seed %i)',
+    (seed) => {
+      const prime = primeOf(seed),
+        matrix = decode(seed, prime);
+      // Properties of a Paley graph with prime = 1 (mod 4), read from the picture alone: the matrix is symmetric, the diagonal is the
+      // only diagonal-class cell, and every row has (prime - 1) / 2 edges and (prime - 1) / 2 gaps.
+      expect(prime % 4).toBe(1);
+      for (let row = 0; row < prime; row++) {
+        expect(matrix[row][row]).toBe(2);
+        expect(matrix[row].filter((value) => value === 1)).toHaveLength(
+          (prime - 1) / 2,
+        );
+        expect(matrix[row].filter((value) => value === 0)).toHaveLength(
+          (prime - 1) / 2,
+        );
+        for (let column = 0; column < prime; column++)
+          expect(matrix[row][column]).toBe(matrix[column][row]);
+      }
+    },
+  );
+
+  it('uses every prime across seeds', () => {
+    const primes = new Set<number>();
+    for (let seed = 0; seed < 40; seed++) primes.add(primeOf(seed));
+    expect([...primes].sort((a, b) => a - b)).toEqual([...p.primes]);
+  });
+
+  it('separates the cells by lines of half width 0.0012, and gives each class its height and roughness', () => {
+    for (const seed of seeds) {
+      const prime = primeOf(seed),
+        sample = createSurfaceSampler('paleygraphmatrix', seed),
+        out = empty();
+      for (let k = 0; k < 40; k++) {
+        const column = (k * 7) % prime,
+          row = (k * 11 + 3) % prime,
+          cell = expectedClass(column, row, prime),
+          x = (column + 0.5) / prime,
+          y = (row + 0.5) / prime;
+        // The middle of the cell: its class's tone, height and roughness.
+        sample(x, y, out);
+        expect(Math.abs(out.color - tones[cell])).toBeLessThan(0.03);
+        expect(Math.abs(out.height / p.relief - heights[cell])).toBeLessThan(
+          0.03,
+        );
+        expect(Math.abs(out.roughness - roughnesses[cell])).toBeLessThan(0.03);
+        // Across the left edge of the cell, in the middle of its height: dark line within 0.0008, the cell's tone from 0.0019 in.
+        for (const offset of [0, 0.0008, -0.0008]) {
+          sample(column / prime + offset, y, out);
+          expect(out.color).toBeLessThan(0.25);
+        }
+        expect(Math.abs(out.height / p.relief - p.lineHeight)).toBeLessThan(
+          0.08,
+        );
+        sample(column / prime + 0.0019, y, out);
+        expect(Math.abs(out.color - tones[cell])).toBeLessThan(0.03);
+        // The same across the top edge.
+        for (const offset of [0, 0.0008, -0.0008]) {
+          sample(x, row / prime + offset, out);
+          expect(out.color).toBeLessThan(0.25);
+        }
+        sample(x, row / prime + 0.0019, out);
+        expect(Math.abs(out.color - tones[cell])).toBeLessThan(0.03);
+      }
+    }
+  });
+
+  it('assigns the very last coordinate before 1 to the last cell', () => {
+    const last = 1 - 2 ** -53;
+    for (const seed of seeds) {
+      const prime = primeOf(seed),
+        sample = createSurfaceSampler('paleygraphmatrix', seed),
+        out = empty();
+      for (let k = 0; k < prime; k++) {
+        sample(last, (k + 0.5) / prime, out);
+        expect(
+          Math.abs(
+            out.roughness - roughnesses[expectedClass(prime - 1, k, prime)],
+          ),
+        ).toBeLessThan(0.03);
+        sample((k + 0.5) / prime, last, out);
+        expect(
+          Math.abs(
+            out.roughness - roughnesses[expectedClass(k, prime - 1, prime)],
+          ),
+        ).toBeLessThan(0.03);
+      }
+    }
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('paleygraphmatrix', 0),
+      b = createSurfaceSampler('paleygraphmatrix', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

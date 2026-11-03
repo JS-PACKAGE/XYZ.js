@@ -38422,6 +38422,49 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'paleygraphmatrix': {
+        const p = proceduralMaterialPresets.paleygraphmatrix,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x32601),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          prime =
+            p.primes[Math.floor(hash(3, 1, seed ^ 0x32602) * p.primes.length)],
+          // 1 where the index is a nonzero square modulo the prime.
+          square = new Uint8Array(prime),
+          // By kind: 0 no edge, 1 edge, 2 diagonal.
+          tones = [p.gapTone, p.edgeTone, p.diagonalTone],
+          heights = [p.gapHeight, p.edgeHeight, p.diagonalHeight],
+          roughnesses = [p.gapRoughness, p.edgeRoughness, p.diagonalRoughness];
+        for (let k = 1; k < prime; k++) square[(k * k) % prime] = 1;
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            column = Math.floor(fu * prime),
+            row = Math.floor(fv * prime),
+            difference = (column - row + prime) % prime,
+            // Distance to the nearest cell edge, in uv.
+            toEdge =
+              Math.min(
+                fu * prime - column,
+                column + 1 - fu * prime,
+                fv * prime - row,
+                row + 1 - fv * prime,
+              ) / prime,
+            line = cover(p.lineHalf - toEdge),
+            kind = difference === 0 ? 2 : square[difference],
+            tone = tones[kind],
+            cellHeight = heights[kind];
+          color = clamp(
+            tone +
+              (p.lineTone - tone) * line +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(cellHeight + (p.lineHeight - cellHeight) * line);
+          roughness = roughnesses[kind];
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -65951,6 +65994,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'paleygraphmatrix' ||
     kind === 'superformulacells' ||
     kind === 'tsquarefractal' ||
     kind === 'marchingsquares' ||
