@@ -44631,6 +44631,67 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'paleyhadamard': {
+        const p = proceduralMaterialPresets.paleyhadamard,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft,
+          // A Hadamard matrix from Paley's first construction: for a prime q with q mod 4 = 3 the
+          // matrix of order q + 1 with row 0 all +1, column 0 below it all -1, +1 on the rest of
+          // the diagonal and, for rows and columns i, j of 1 to q, the quadratic character of
+          // (i - j) mod q (+1 for a nonzero square, -1 otherwise). Its rows are pairwise orthogonal.
+          // The seed picks one of the primes 43, 47, 59, 67, 71 and 79, so the order is 44, 48, 60,
+          // 68, 72 or 80.
+          prime =
+            p.primes[
+              Math.floor(hash(0, 36, seed ^ p.seedSalt) * p.primes.length)
+            ],
+          size = prime + 1,
+          isSquare = new Uint8Array(prime),
+          grid = ((): Uint8Array => {
+            for (let t = 1; t < prime; t++) isSquare[(t * t) % prime] = 1;
+            return Uint8Array.from({ length: size * size }, (_, cell) => {
+              const row = Math.floor(cell / size),
+                col = cell % size;
+              if (row === 0) return 1;
+              if (col === 0) return 0;
+              const delta = row - col;
+              return delta === 0 || isSquare[(delta + prime) % prime] ? 1 : 0;
+            });
+          })();
+        return () => {
+          // One compact-support rounded-square kernel per cell (a quartic superellipse
+          // through smoothstep, exactly zero before the cell boundary), so the cell
+          // lookup never jumps and the field is C1.
+          const x = fract(u) * size,
+            y = fract(v) * size,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            ax = (x - col - 0.5) * inverseHalf,
+            ay = (y - row - 0.5) * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            tone =
+              p.toneSpan * (grid[row * size + col] === 1 ? 1 : p.minusTone),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -53495,6 +53556,7 @@ export function createSurfaceSampler(
     kind === 'relativeneighborhood' ||
     kind === 'sortingnetwork' ||
     kind === 'cayleytable' ||
+    kind === 'paleyhadamard' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

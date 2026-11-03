@@ -1063,6 +1063,7 @@ export type ProceduralMaterialKind =
   | 'relativeneighborhood'
   | 'sortingnetwork'
   | 'cayleytable'
+  | 'paleyhadamard'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2374,6 +2375,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'relativeneighborhood',
   'sortingnetwork',
   'cayleytable',
+  'paleyhadamard',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

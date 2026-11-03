@@ -13266,3 +13266,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試加kinds清單新條目，`-t`選中的6項皆通過（運算元順序改動後在gates中的定向測試重跑）；型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Cayley table as|cayleytable|kinds|catalog|distinct|periodic"`定向測試**2434項通過／4142項未選**。
 - 未驗證：relativeneighborhood、sortingnetwork與cayleytable未跑完整suite與瀏覽器gallery（最近一次完整複驗至歐氏最小生成樹）；不push。
+
+## 2026-11-03 新增材質：佩利阿達馬矩陣（paleyhadamard）
+
+- 範圍：新增`paleyhadamard`（目前目錄1062→1063種，含plain的gallery 1064項）：Paley第一構造的阿達馬矩陣，質數q（43、47、59、67、71、79，由seed擇一）、階q + 1（44、48、60、68、72、80），第0列全+1、第0欄其餘全−1、主體是(i − j)的二次特徵；+1亮金黃、−1暗藍灰；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache最多約137.6 kB。作者示意，沒有引用特定來源或照片、**沒有對照照片**。與既有`hadamardmatrix`（Sylvester 64階）及`paleytable`（61階勒壤得符號表）不同，已在文件中註明。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽只看了seed 7（階68）一張；(2)動手前先用`/tmp/absent.sh`，發現`hadamard`在kind清單與README各有出現，我另外讀了`hadamardmatrix`、`paleytable`的README描述，確認它們分別是Sylvester構造與勒壤得符號表，所以Paley第一構造的阿達馬矩陣是不同的；我先在獨立的腳本裡驗證了這個構造對六個質數都給出正交矩陣，才寫入sampler；(3)一個先前（凱萊表一節）記錄的小疏漏：那一節寫「專屬測試是6項而不是慣例的5項」，更精確地說是5項專屬測試加kinds清單新條目＝`-t`選中6項，這一節與之相同；(4)測試**不**證明Paley構造的定理本身（只驗證這六個畫出的矩陣符合定義），也**不**證明所有seed都落在這六個階：探針13個seed（0–11與0xffffffff）都是六個階之一，另外掃到seed 16是階80，沒有檢查其他seed；seed對應階數的表是我先用探針量到再寫進測試的，所以不是獨立預言；(5)測試第一次執行即通過；(6)256²與512²取樣的亮處占比略有不同，原因是取樣點在格內的位置不同，測試採用256²的數值範圍；(7)建構與取樣耗時**未量測**。
+- 實測（工具實跑）：13個seed（0–11與0xffffffff）都在六個階之一讀回正交的阿達馬矩陣、沒有模稜兩可的讀回；+1的最低讀回色調0.825–0.826、−1的最高讀回色調0.364–0.365；seed 3／1／0／7／6／16依序是階44／48／60／68／72／80（seed 4、5也是44，2是48，8、9、0xffffffff是60，10是72，11是68）；256²（seed 0／1／0xffffffff）亮處（color>0.5）36.35%–36.67%、color 0.02521–0.02586至0.85421–0.85459、平均0.44404–0.44443、roughness恆為0.4、AO最低0.6、height至多0.8467–0.8479 relief；512²（seed 0／1／0xffffffff／7）亮處36.28%–36.68%、color 0.02509–0.02529至0.85460–0.85487、平均0.44381–0.44431、AO最低0.6、height至多0.8494–0.8500 relief；seed 0與1相比，512²中color>0.5的取樣41.6%不同；seed 7的512²maps平均r／g／b約(117.6, 103.2, 65.5)、法線tilt²最大約0.0421、z分量最小252。我實看了預覽（seed 7）。
+- 測試：新增5項專屬測試加kinds清單新條目，`-t`選中的6項皆通過；型別檢查與eslint乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Paley Hadamard as|paleyhadamard|kinds|catalog|distinct|periodic"`定向測試**2436項通過／4146項未選**。
+- 未驗證：relativeneighborhood、sortingnetwork、cayleytable與paleyhadamard未跑完整suite與瀏覽器gallery（最近一次完整複驗至歐氏最小生成樹）；不push。預期完整suite測試總數＝10,489＋5＋5＋6＋6＝10,511項。

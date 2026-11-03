@@ -1126,6 +1126,7 @@ try {
     'relativeneighborhood',
     'sortingnetwork',
     'cayleytable',
+    'paleyhadamard',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

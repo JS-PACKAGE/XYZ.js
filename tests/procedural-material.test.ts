@@ -1089,6 +1089,7 @@ const kinds: ProceduralMaterialKind[] = [
   'relativeneighborhood',
   'sortingnetwork',
   'cayleytable',
+  'paleyhadamard',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -174501,6 +174502,227 @@ describe('Cayley table as the multiplication table of one of six groups of order
     expect(blue / (512 * 512)).toBeLessThan(70.7);
     expect(maxTilt).toBeGreaterThan(0.006);
     expect(maxTilt).toBeLessThan(0.008);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe("Paley Hadamard as a Hadamard matrix from Paley's first construction, of order 44 to 80 picked by the seed", () => {
+  const p = proceduralMaterialPresets.paleyhadamard;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  // The seeds that pick the orders 44, 48, 60, 68, 72 and 80 (the primes 43, 47, 59, 67, 71, 79).
+  const orders: Record<number, number> = {
+    3: 44,
+    1: 48,
+    0: 60,
+    7: 68,
+    6: 72,
+    16: 80,
+  };
+  /**
+   * The matrix of order `n` read back from the sampler as +1 (colour above 0.6, bright) and -1
+   * (dark), with the number of read-backs within 0.1 of that threshold.
+   */
+  const readMatrix = (
+    seed: number,
+    n: number,
+  ): { matrix: number[][]; ambiguous: number } => {
+    const sample = createSurfaceSampler('paleyhadamard', seed),
+      out = empty(),
+      matrix: number[][] = [];
+    let ambiguous = 0;
+    for (let row = 0; row < n; row++) {
+      matrix.push([]);
+      for (let col = 0; col < n; col++) {
+        sample((col + 0.5) / n, (row + 0.5) / n, out);
+        ambiguous += Number(Math.abs(out.color - 0.6) < 0.1);
+        matrix[row].push(out.color > 0.6 ? 1 : -1);
+      }
+    }
+    return { matrix, ambiguous };
+  };
+  /** Whether the rows are pairwise orthogonal with n entries of +-1 each: M times its transpose is n times the identity. */
+  const isHadamard = (matrix: number[][]): boolean => {
+    const n = matrix.length;
+    for (let i = 0; i < n; i++)
+      for (let k = i; k < n; k++) {
+        let product = 0;
+        for (let j = 0; j < n; j++) product += matrix[i][j] * matrix[k][j];
+        if (product !== (i === k ? n : 0)) return false;
+      }
+    return true;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('paleyhadamard', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0252);
+      expect(low).toBeLessThan(0.0259);
+      expect(high).toBeGreaterThan(0.854);
+      expect(high).toBeLessThan(0.855);
+      expect(dark / 65536).toBeGreaterThan(0.363);
+      expect(dark / 65536).toBeLessThan(0.367);
+      expect(mean / 65536).toBeGreaterThan(0.444);
+      expect(mean / 65536).toBeLessThan(0.445);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.846);
+      expect(heightHigh).toBeLessThan(0.849);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('draws a real Hadamard matrix of the order that belongs to the seed', () => {
+    // Read back from the colours alone (no read-back within 0.1 of the threshold): the matrix of
+    // the order for the seed has rows that are pairwise orthogonal, which is what makes it a
+    // Hadamard matrix; row 0 is all +1, column 0 below it all -1, the diagonal is +1, and flipping a
+    // single entry or reading at a wrong order breaks the orthogonality, so the check is not
+    // vacuous.
+    for (const [name, order] of Object.entries(orders)) {
+      const seed = Number(name),
+        { matrix, ambiguous } = readMatrix(seed, order);
+      expect(ambiguous).toBe(0);
+      expect(isHadamard(matrix)).toBe(true);
+      expect(matrix[0].every((entry) => entry === 1)).toBe(true);
+      expect(matrix.slice(1).every((row) => row[0] === -1)).toBe(true);
+      expect(matrix.every((row, i) => row[i] === 1)).toBe(true);
+      const flipped = matrix.map((row) => [...row]);
+      flipped[order >> 1][order - 1] *= -1;
+      expect(isHadamard(flipped)).toBe(false);
+      expect(isHadamard(readMatrix(seed, order + 4).matrix)).toBe(false);
+    }
+  });
+  it('draws a different matrix per seed and is deterministic for one seed', () => {
+    // Seed 0 is of order 60 and seed 1 of order 48: neither reads back as a Hadamard matrix of the
+    // other order, and the same seed reads back the same matrix.
+    expect(isHadamard(readMatrix(1, 60).matrix)).toBe(false);
+    expect(isHadamard(readMatrix(0, 48).matrix)).toBe(false);
+    expect(readMatrix(0, 60)).toEqual(readMatrix(0, 60));
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('paleyhadamard', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [44, 48, 60, 68, 72, 80, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 gold and navy Paley Hadamard maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('paleyhadamard', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(117);
+    expect(red / (512 * 512)).toBeLessThan(118.2);
+    expect(green / (512 * 512)).toBeGreaterThan(102.6);
+    expect(green / (512 * 512)).toBeLessThan(103.8);
+    expect(blue / (512 * 512)).toBeGreaterThan(64.9);
+    expect(blue / (512 * 512)).toBeLessThan(66.1);
+    expect(maxTilt).toBeGreaterThan(0.04);
+    expect(maxTilt).toBeLessThan(0.044);
     expect(invalid).toBe(0);
   });
 });
