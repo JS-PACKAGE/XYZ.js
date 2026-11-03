@@ -1053,6 +1053,7 @@ export type ProceduralMaterialKind =
   | 'diamondsquare'
   | 'golombruns'
   | 'wythoffnim'
+  | 'nimproduct'
   | 'sandpileidentity'
   | 'multiplicativeorder'
   | 'vermiculation'
@@ -2353,6 +2354,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'diamondsquare',
   'golombruns',
   'wythoffnim',
+  'nimproduct',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',

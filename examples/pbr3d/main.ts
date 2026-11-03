@@ -1116,6 +1116,7 @@ try {
     'diamondsquare',
     'golombruns',
     'wythoffnim',
+    'nimproduct',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

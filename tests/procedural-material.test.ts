@@ -1079,6 +1079,7 @@ const kinds: ProceduralMaterialKind[] = [
   'diamondsquare',
   'golombruns',
   'wythoffnim',
+  'nimproduct',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',
@@ -171586,6 +171587,254 @@ describe("Wythoff nim as the Grundy values of Wythoff's game on a 64 by 64 table
     expect(green / (512 * 512)).toBeLessThan(145);
     expect(blue / (512 * 512)).toBeGreaterThan(163);
     expect(blue / (512 * 512)).toBeLessThan(164.5);
+    expect(maxTilt).toBeGreaterThan(0.035);
+    expect(maxTilt).toBeLessThan(0.045);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Nim product as one bit of the nim multiplication table of the nimbers 0 to 63 on a 64 by 64 table', () => {
+  const p = proceduralMaterialPresets.nimproduct;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const cells = 64;
+  /**
+   * The nim product written independently here by the recursion over the Fermat 2-powers F
+   * (2, 4, 16, 256): with a = a1 F + a0 and b = b1 F + b0 (all parts below F) and
+   * F (x) F = F xor F/2, a (x) b = ((a1 b1) xor (a1 b0) xor (a0 b1)) F xor (a0 b0) xor
+   * ((a1 b1) (x) F/2), instead of the sampler's smallest-missing-number rule.
+   */
+  const nimProduct = (x: number, y: number): number => {
+    if (x < 2 || y < 2) return x * y;
+    let fermat = 2;
+    while (fermat * fermat <= Math.max(x, y)) fermat *= fermat;
+    const x1 = Math.floor(x / fermat),
+      x0 = x % fermat,
+      y1 = Math.floor(y / fermat),
+      y0 = y % fermat,
+      high = nimProduct(x1, y1);
+    return (
+      ((high ^ nimProduct(x1, y0) ^ nimProduct(x0, y1)) * fermat) ^
+      nimProduct(x0, y0) ^
+      nimProduct(high, fermat >> 1)
+    );
+  };
+  const products = Array.from({ length: cells * cells }, (_, i) =>
+    nimProduct(Math.floor(i / cells), i % cells),
+  );
+  /** Colour read at the centre of every cell, grain included. */
+  const cellColors = (seed: number): number[] => {
+    const sample = createSurfaceSampler('nimproduct', seed),
+      out = empty(),
+      colors: number[] = [];
+    for (let row = 0; row < cells; row++)
+      for (let col = 0; col < cells; col++) {
+        sample((col + 0.5) / cells, (row + 0.5) / cells, out);
+        colors.push(out.color);
+      }
+    return colors;
+  };
+  /** (bit 2 to 7, x shift, y shift) around the torus that reproduce every cell colour. */
+  const fittings = (colors: number[]): [number, number, number][] => {
+    const fits: [number, number, number][] = [];
+    for (let bit = 2; bit <= 7; bit++)
+      for (let sy = 0; sy < cells; sy++)
+        for (let sx = 0; sx < cells; sx++) {
+          let worst = 0;
+          for (let row = 0; row < cells && worst < 0.03; row++)
+            for (let col = 0; col < cells && worst < 0.03; col++)
+              worst = Math.max(
+                worst,
+                Math.abs(
+                  colors[row * cells + col] -
+                    (p.toneFloor +
+                      p.toneSpan *
+                        ((products[
+                          ((row + sy) % cells) * cells + ((col + sx) % cells)
+                        ] >>
+                          bit) &
+                          1)),
+                ),
+              );
+          if (worst < 0.03) fits.push([bit, sx, sy]);
+        }
+    return fits;
+  };
+  it('writes one bit of the nim products into the table and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('nimproduct', seed),
+        a = empty();
+      // The products of 0 to 63 reach 255; 2 and 2 give 3, 2 and 3 give 1, 3 and 3 give 2, 4 and 4
+      // give 6 and 8 and 8 give 13 (the usual small cases of the nimber field); the nim product
+      // is commutative and distributes over xor on this table; the number of products with bit
+      // 2 to 7 set is 2016, 2016, 1920, 1920, 1920 and 1920; and exactly one combination of
+      // bit and torus shift reproduces every cell colour.
+      expect(nimProduct(2, 2)).toBe(3);
+      expect(nimProduct(2, 3)).toBe(1);
+      expect(nimProduct(3, 3)).toBe(2);
+      expect(nimProduct(4, 4)).toBe(6);
+      expect(nimProduct(8, 8)).toBe(13);
+      expect(Math.max(...products)).toBe(255);
+      for (let x = 0; x < cells; x += 5)
+        for (let y = 0; y < cells; y += 3) {
+          expect(nimProduct(x, y)).toBe(nimProduct(y, x));
+          expect(nimProduct(x, y ^ 21)).toBe(
+            nimProduct(x, y) ^ nimProduct(x, 21),
+          );
+        }
+      expect(
+        [2, 3, 4, 5, 6, 7].map(
+          (bit) =>
+            products.filter((value) => ((value >> bit) & 1) === 1).length,
+        ),
+      ).toEqual([2016, 2016, 1920, 1920, 1920, 1920]);
+      expect(fittings(cellColors(seed))).toHaveLength(1);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0594);
+      expect(low).toBeLessThan(0.0603);
+      expect(high).toBeGreaterThan(0.8542);
+      expect(high).toBeLessThan(0.8545);
+      expect(dark / 65536).toBeGreaterThan(0.351);
+      expect(dark / 65536).toBeLessThan(0.3695);
+      expect(mean / 65536).toBeGreaterThan(0.3969);
+      expect(mean / 65536).toBeLessThan(0.4109);
+      expect(occlusionLow).toBeGreaterThan(0.73);
+      expect(occlusionLow).toBeLessThan(0.74);
+      expect(heightHigh).toBeGreaterThan(0.847);
+      expect(heightHigh).toBeLessThan(0.8495);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('picks a bit and moves the table around the torus per seed and is deterministic for one seed', () => {
+    const readings = [0, 1, 0xffffffff, 7].map(
+      (seed) => fittings(cellColors(seed))[0],
+    );
+    expect(new Set(readings.map((reading) => reading.join())).size).toBe(4);
+    expect(new Set(readings.map(([bit]) => bit)).size).toBe(3);
+    expect(cellColors(0)).toEqual(cellColors(0));
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('nimproduct', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [cells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 pink and plum nim maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('nimproduct', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(103);
+    expect(red / (512 * 512)).toBeLessThan(104);
+    expect(green / (512 * 512)).toBeGreaterThan(65);
+    expect(green / (512 * 512)).toBeLessThan(66);
+    expect(blue / (512 * 512)).toBeGreaterThan(93.5);
+    expect(blue / (512 * 512)).toBeLessThan(94.5);
     expect(maxTilt).toBeGreaterThan(0.035);
     expect(maxTilt).toBeLessThan(0.045);
     expect(invalid).toBe(0);

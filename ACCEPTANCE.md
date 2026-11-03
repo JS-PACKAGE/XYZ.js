@@ -13147,3 +13147,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Wythoff nim as|wythoffnim|kinds|catalog|distinct|periodic"`定向測試**2408項通過／4112項未選**。
 - 未驗證：golombruns與wythoffnim未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-03 新增材質：尼姆乘積（nimproduct）
+
+- 範圍：新增`nimproduct`（目前目錄1051→1052種，含plain的gallery 1053項）：64×64圓角方磚表放尼姆數乘積`a ⊗ b`（康威尼姆乘法，由最小未出現自然數規則定義，乘積0到255）的一個二進位位元（seed從位元2到7選一個）；粉紅圓點在深紫色底上，自相似的分形織紋；seed也讓表在環面上平移；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 167,936 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽看了seed 7與seed 0；(2)這次同樣先用`/tmp/absent.sh`確認kind清單與README都沒有`nimproduct`／`nimber`／`nimmul`，並把檢查當前置條件；(3)測試以費馬2次冪遞迴這個完全不同的演算法重算整張表（探針先確認4,096格全部吻合）；交換與分配只在抽樣的約286對格子上檢查，**不**證明尼姆數構成體等一般定理；(4)測試生成器第一次寫入前我才發現describe標題含撇號時prettier會把引號改成雙引號、錨點對不上，已在這次直接用雙引號版本的標題當錨點；(5)256²與512²取樣的亮處占比與最小色值、AO不同，原因是格寬與取樣點在格內位置不同；各seed選到的位元不同使亮處占比有兩種值，測試採用256²的範圍；(6)建構（約400萬次xor與標記）與取樣耗時**未量測**；(7)測試第一次執行即通過（探針數值先量好才寫界線）。
+- 實測（工具實跑）：兩種演算法在4,096格上完全相同；乘積最大255；位元2到7為1的格子數2016／2016／1920／1920／1920／1920；四個seed（0／1／0xffffffff／7）各有唯一符合的（位元, x平移, y平移）(4, 15, 60)、(6, 10, 31)、(3, 1, 29)、(3, 62, 18)，最大擬合誤差0.01499–0.015；256²（seed 0／1／0xffffffff）亮處（color>0.5）35.16%、35.16%、36.91%、color 0.05944–0.06022至0.85428–0.85447、平均0.39698–0.41078、roughness恆為0.4、AO最低0.7344、height至多0.8477–0.8490 relief；512²（四個seed）亮處32.23%、32.23%、33.84%、33.84%、color 0.02522–0.02539至0.85453–0.85475、平均0.34365–0.35540、AO最低0.6、height至多0.8499–0.8505 relief；seed 0與1相比，格中心顏色相差超過0.05的格子49.2%；seed 7的512²maps平均r／g／b約(103.5, 65.6, 93.9)、法線tilt²最大約0.0378、z分量最小253。我實看了預覽（seed 7與seed 0）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Nim product as|nimproduct|kinds|catalog|distinct|periodic"`定向測試**2410項通過／4115項未選**。
+- 未驗證：golombruns、wythoffnim與nimproduct未跑完整suite與瀏覽器gallery；不push。

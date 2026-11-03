@@ -43607,6 +43607,75 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'nimproduct': {
+        const p = proceduralMaterialPresets.nimproduct,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft,
+          shiftX = Math.floor(hash(0, 28, seed ^ p.seedSalt) * p.cells),
+          shiftY = Math.floor(hash(1, 28, seed ^ p.seedSalt) * p.cells),
+          // Nim multiplication, the field product of Conway's nimbers: with a (x) b the smallest
+          // whole number that is not (x' (x) b) xor (a (x) y') xor (x' (x) y') for any x' < a and
+          // y' < b, and 0 (x) b = a (x) 0 = 0. The cell in row a and column b holds a (x) b (0 to
+          // 255 for a, b below 64) and glows when bit 'bit' of it is 1; the seed picks one of the
+          // bits firstBit to firstBit + bitCount - 1 and moves the table around the torus.
+          bit =
+            p.firstBit +
+            Math.floor(hash(2, 29, seed ^ p.seedSalt) * p.bitCount),
+          product = new Uint8Array(p.cells * p.cells),
+          tones = new Float64Array(p.cells * p.cells);
+        for (let a = 1; a < p.cells; a++)
+          for (let b = 1; b < p.cells; b++) {
+            const seen = new Uint8Array(256);
+            for (let x = 0; x < a; x++)
+              for (let y = 0; y < b; y++)
+                seen[
+                  product[x * p.cells + b] ^
+                    product[a * p.cells + y] ^
+                    product[x * p.cells + y]
+                ] = 1;
+            let value = 0;
+            while (seen[value]) value++;
+            product[a * p.cells + b] = value;
+          }
+        for (let i = 0; i < tones.length; i++)
+          tones[i] = ((product[i] >> bit) & 1) * p.toneSpan;
+        return () => {
+          // One compact-support rounded-square kernel per cell (a quartic superellipse
+          // through smoothstep, exactly zero before the cell boundary), so the cell
+          // lookup never jumps and the field is C1.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            ax = (x - col - 0.5) * inverseHalf,
+            ay = (y - row - 0.5) * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            tone =
+              tones[
+                ((row + shiftY) % p.cells) * p.cells +
+                  ((col + shiftX) % p.cells)
+              ],
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -52461,6 +52530,7 @@ export function createSurfaceSampler(
     kind === 'diamondsquare' ||
     kind === 'golombruns' ||
     kind === 'wythoffnim' ||
+    kind === 'nimproduct' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||
