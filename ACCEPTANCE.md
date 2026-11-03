@@ -13122,3 +13122,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Diamond-square as|diamondsquare|kinds|catalog|distinct|periodic"`定向測試**2404項通過／4106項未選**。
 - 未驗證：stringart、moirefringes與diamondsquare未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-03 完整測試與瀏覽器gallery複驗（至鑽石方塊）
+
+- 完整suite（工具實跑）：在commit `c9f88e922`（`[P08] Add Diamond-square material`）的乾淨worktree執行`vitest run`，**179個檔案、10,439項測試全部通過**，耗時1103.85 s；對照前一次紀錄（`35d1facd2`，10,424項），新增的stringart、moirefringes、diamondsquare各加5項共15項，與數量吻合。
+- 瀏覽器gallery（headless Chrome，`--enable-unsafe-webgpu --use-angle=metal`）：頁面載入約262 s後，預設（WebGPU）與`?renderer=webgl2`兩個分頁讀數皆為「1049 procedural material presets」、select共1050個選項；依序選取stringart、moirefringes、diamondsquare、plain（WebGPU分頁另加happynumbers）都在期限內更新讀數，兩個分頁的console錯誤皆為0。這**只**涵蓋「可選取、讀數更新、無console錯誤」，沒有逐材質截圖，也不證明視覺品質；只選了上述少數kind，沒有逐一選過全部1049種。
+- 紀錄：開webgl2分頁時`browser.open`連續兩次逾時30秒（含終止殘留Chrome程序後立即重試），第三次終止殘留程序並等10秒後成功；逾時的嘗試沒有取得任何讀數，不計入上述結果。
+- 未驗證：沒有量測建構與取樣耗時；不push。
