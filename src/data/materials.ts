@@ -14439,6 +14439,32 @@ export const proceduralMaterialPresets = Object.freeze({
     paperRoughness: 0.8,
     inkRoughness: 0.4,
   }),
+  kdtreesplits: Object.freeze({
+    dark: [20, 26, 40] as const,
+    light: [240, 236, 224] as const,
+    roughness: 0.55,
+    relief: 0.004,
+    // A k-d tree: 15 or 31 points, one in every row and every column of a lattice of that size, split recursively at the median by lines that
+    // alternate between vertical and horizontal; the median point of each region gives the split through it, a line that runs to the edges
+    // of its region. A line is toned and drawn thinner the deeper its split is. The seed picks the number of points, where they are (a
+    // shuffle of the columns) and whether the first split is vertical or horizontal.
+    counts: Object.freeze([15, 31]),
+    nodeRadius: 0.011,
+    rootHalf: 0.0032,
+    depthShrink: 0.0004,
+    edgeSoft: 0.0006,
+    grainCells: 192,
+    paperTone: 0.93,
+    nodeTone: 0.06,
+    lineFirst: 0.14,
+    lineLast: 0.62,
+    grainTone: 0.03,
+    paperHeight: 0.2,
+    lineHeight: 0.6,
+    nodeHeight: 0.85,
+    paperRoughness: 0.8,
+    inkRoughness: 0.4,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -20931,6 +20957,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  kdtreesplits: 1,
   spanningtree: 1,
   ecdfplot: 1,
   intervalpartition: 1,

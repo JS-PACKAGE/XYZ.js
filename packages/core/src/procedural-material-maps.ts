@@ -40899,6 +40899,141 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'kdtreesplits': {
+        const p = proceduralMaterialPresets.kdtreesplits,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x49d01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          n =
+            p.counts[
+              Math.floor(hash(31, 19, seed ^ 0x49d02) * p.counts.length)
+            ],
+          levels = Math.log2(n + 1),
+          cell = 1 / n,
+          // Point i is in column i and row row[i]: a shuffle of the rows, so no two points share a row or a column.
+          row = new Int32Array(n),
+          // The splits, one for every point: the segment's ends and its depth.
+          ax = new Float64Array(n),
+          ay = new Float64Array(n),
+          bx = new Float64Array(n),
+          by = new Float64Array(n),
+          depthOf = new Int32Array(n),
+          // The points as positions.
+          px = new Float64Array(n),
+          py = new Float64Array(n);
+        for (let i = 0; i < n; i++) row[i] = i;
+        for (let i = n - 1; i > 0; i--) {
+          const j = Math.floor(hash(i, 31, seed ^ 0x49d03) * (i + 1)),
+            held = row[i];
+          row[i] = row[j];
+          row[j] = held;
+        }
+        for (let i = 0; i < n; i++) {
+          px[i] = (i + 0.5) * cell;
+          py[i] = (row[i] + 0.5) * cell;
+        }
+        const firstAxis = hash(31, 20, seed ^ 0x49d04) < 0.5 ? 0 : 1;
+        let count = 0;
+        // Split the points of a region (as indices) at their median along the axis, recursively; the region's bounds are x0 to x1, y0 to y1.
+        const split = (
+          indices: number[],
+          axis: number,
+          depth: number,
+          x0: number,
+          x1: number,
+          y0: number,
+          y1: number,
+        ): void => {
+          if (indices.length === 0) return;
+          const ordered = [...indices].sort((a, b) =>
+              axis === 0 ? px[a] - px[b] : py[a] - py[b],
+            ),
+            mid = Math.floor(ordered.length / 2),
+            at = ordered[mid],
+            low = ordered.slice(0, mid),
+            high = ordered.slice(mid + 1);
+          if (axis === 0) {
+            ax[count] = px[at];
+            ay[count] = y0;
+            bx[count] = px[at];
+            by[count] = y1;
+          } else {
+            ax[count] = x0;
+            ay[count] = py[at];
+            bx[count] = x1;
+            by[count] = py[at];
+          }
+          depthOf[count] = depth;
+          count++;
+          if (axis === 0) {
+            split(low, 1, depth + 1, x0, px[at], y0, y1);
+            split(high, 1, depth + 1, px[at], x1, y0, y1);
+          } else {
+            split(low, 0, depth + 1, x0, x1, y0, py[at]);
+            split(high, 0, depth + 1, x0, x1, py[at], y1);
+          }
+        };
+        split(
+          Array.from({ length: n }, (_, i) => i),
+          firstAxis,
+          0,
+          0,
+          1,
+          0,
+          1,
+        );
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let line = Infinity,
+            lineDepth = 0,
+            node = Infinity;
+          for (let s = 0; s < n; s++) {
+            const sx = bx[s] - ax[s],
+              sy = by[s] - ay[s],
+              t = Math.max(
+                0,
+                Math.min(
+                  1,
+                  ((fu - ax[s]) * sx + (fv - ay[s]) * sy) / (sx * sx + sy * sy),
+                ),
+              ),
+              d =
+                Math.hypot(fu - ax[s] - t * sx, fv - ay[s] - t * sy) +
+                depthOf[s] * p.depthShrink;
+            if (d < line) {
+              line = d;
+              lineDepth = depthOf[s];
+            }
+          }
+          for (let i = 0; i < n; i++)
+            node = Math.min(node, Math.hypot(fu - px[i], fv - py[i]));
+          const lineAmount = cover(p.rootHalf - line),
+            nodeAmount = cover(p.nodeRadius - node),
+            tone =
+              p.lineFirst +
+              ((p.lineLast - p.lineFirst) * lineDepth) / (levels - 1);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness;
+          shade += (tone - shade) * lineAmount;
+          elevation += (p.lineHeight - elevation) * lineAmount;
+          rough += (p.inkRoughness - rough) * lineAmount;
+          shade += (p.nodeTone - shade) * nodeAmount;
+          elevation += (p.nodeHeight - elevation) * nodeAmount;
+          rough += (p.inkRoughness - rough) * nodeAmount;
+          color = clamp(
+            shade +
+              p.grainTone *
+                (grainField(u, v) - 0.5) *
+                (1 - Math.max(lineAmount, nodeAmount)),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -68428,6 +68563,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'kdtreesplits' ||
     kind === 'spanningtree' ||
     kind === 'ecdfplot' ||
     kind === 'intervalpartition' ||

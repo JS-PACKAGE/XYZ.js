@@ -648,6 +648,7 @@ export type ProceduralMaterialKind =
   | 'dcbarreljackfaces'
   | 'stfiberadapterfaces'
   | 'to92packagefaces'
+  | 'kdtreesplits'
   | 'spanningtree'
   | 'ecdfplot'
   | 'intervalpartition'
@@ -2039,6 +2040,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'dcbarreljackfaces',
   'stfiberadapterfaces',
   'to92packagefaces',
+  'kdtreesplits',
   'spanningtree',
   'ecdfplot',
   'intervalpartition',

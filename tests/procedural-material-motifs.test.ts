@@ -40710,3 +40710,368 @@ describe('spanningtree: a minimum spanning tree toned by the order Kruskal accep
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('kdtreesplits: a k-d tree, points split at the median by alternating lines', () => {
+  const p = proceduralMaterialPresets.kdtreesplits,
+    out = empty();
+  type Segment = {
+    ax: number;
+    ay: number;
+    bx: number;
+    by: number;
+    depth: number;
+  };
+  type Tree = {
+    n: number;
+    levels: number;
+    sample: Sampler;
+    points: [number, number][];
+    segments: Segment[];
+    axis: number;
+  };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const lineTone = (depth: number, levels: number): number =>
+    p.lineFirst + ((p.lineLast - p.lineFirst) * depth) / (levels - 1);
+  const halfOf = (depth: number): number => p.rootHalf - depth * p.depthShrink;
+  const gapToSegment = (s: Segment, qx: number, qy: number): number => {
+    const dx = s.bx - s.ax,
+      dy = s.by - s.ay,
+      t = Math.max(
+        0,
+        Math.min(
+          1,
+          ((qx - s.ax) * dx + (qy - s.ay) * dy) / (dx * dx + dy * dy),
+        ),
+      );
+    return Math.hypot(qx - s.ax - t * dx, qy - s.ay - t * dy);
+  };
+
+  // The splits of a k-d tree on the points (as [x, y] in uv), built without recursion: a queue of regions, the first split along `first`.
+  const buildSegments = (
+    points: [number, number][],
+    first: number,
+  ): Segment[] => {
+    const segments: Segment[] = [],
+      queue = [
+        {
+          ids: points.map((_, i) => i),
+          axis: first,
+          depth: 0,
+          box: [0, 1, 0, 1],
+        },
+      ];
+    while (queue.length > 0) {
+      const { ids, axis, depth, box } = queue.shift() as (typeof queue)[number];
+      if (ids.length === 0) continue;
+      const sorted = ids
+          .slice()
+          .sort((a, b) => points[a][axis] - points[b][axis]),
+        middle = Math.floor(sorted.length / 2),
+        at = points[sorted[middle]][axis];
+      segments.push(
+        axis === 0
+          ? { ax: at, ay: box[2], bx: at, by: box[3], depth }
+          : { ax: box[0], ay: at, bx: box[1], by: at, depth },
+      );
+      const lowBox =
+          axis === 0
+            ? [box[0], at, box[2], box[3]]
+            : [box[0], box[1], box[2], at],
+        highBox =
+          axis === 0
+            ? [at, box[1], box[2], box[3]]
+            : [box[0], box[1], at, box[3]];
+      queue.push(
+        {
+          ids: sorted.slice(0, middle),
+          axis: 1 - axis,
+          depth: depth + 1,
+          box: lowBox,
+        },
+        {
+          ids: sorted.slice(middle + 1),
+          axis: 1 - axis,
+          depth: depth + 1,
+          box: highBox,
+        },
+      );
+    }
+    return segments;
+  };
+
+  const treeOf = (seed: number): Tree => {
+    const sample = createSurfaceSampler('kdtreesplits', seed),
+      found = p.counts
+        .map((n): Tree | null => {
+          const points: [number, number][] = [],
+            cell = 1 / n;
+          for (let y = 0; y < n; y++)
+            for (let x = 0; x < n; x++) {
+              const cx = (x + 0.5) * cell,
+                cy = (y + 0.5) * cell;
+              if (
+                [
+                  [1, 0],
+                  [-1, 0],
+                  [0, 1],
+                  [0, -1],
+                ].every(
+                  ([dx, dy]) =>
+                    Math.abs(
+                      toneAt(sample, cx + dx * 0.008, cy + dy * 0.008) -
+                        p.nodeTone,
+                    ) < 0.005,
+                )
+              )
+                points.push([cx, cy]);
+            }
+          if (points.length !== n) return null;
+          // One point in every row and every column.
+          if (
+            new Set(points.map((q) => Math.floor(q[0] * n))).size !== n ||
+            new Set(points.map((q) => Math.floor(q[1] * n))).size !== n
+          )
+            return null;
+          const levels = Math.log2(n + 1),
+            fits = [0, 1].filter((axis) => {
+              const segments = buildSegments(points, axis);
+              return segments.every((s) =>
+                [0.25, 0.5, 0.75].every((t) => {
+                  const qx = s.ax + t * (s.bx - s.ax),
+                    qy = s.ay + t * (s.by - s.ay);
+                  // Where another line or a point is near, the tone is not the line's own: leave those points out.
+                  const crowded =
+                    segments.some(
+                      (o) => o !== s && gapToSegment(o, qx, qy) < 0.012,
+                    ) ||
+                    points.some((q) => Math.hypot(q[0] - qx, q[1] - qy) < 0.02);
+                  return (
+                    crowded ||
+                    Math.abs(
+                      toneAt(sample, qx, qy) - lineTone(s.depth, levels),
+                    ) < 0.005
+                  );
+                }),
+              );
+            });
+          return fits.length === 1
+            ? {
+                n,
+                levels,
+                sample,
+                points,
+                segments: buildSegments(points, fits[0]),
+                axis: fits[0],
+              }
+            : null;
+        })
+        .filter((tree) => tree !== null);
+    expect(found).toHaveLength(1);
+    return found[0];
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'splits the points at the median, alternating vertical and horizontal, with each line toned by its depth (seed %i)',
+    (seed) => {
+      const { n, levels, sample, points, segments } = treeOf(seed);
+      expect(segments).toHaveLength(n);
+      // A perfect tree: 2^d splits at depth d.
+      for (let d = 0; d < levels; d++)
+        expect(segments.filter((s) => s.depth === d)).toHaveLength(2 ** d);
+      // Every point is on exactly one split, and the points are the ones the picture shows.
+      for (const q of points)
+        expect(
+          segments.filter(
+            (s) =>
+              gapToSegment(s, q[0], q[1]) < 1e-9 &&
+              (s.ax === s.bx ? s.ax === q[0] : s.ay === q[1]),
+          ),
+        ).toHaveLength(1);
+      // Where nothing is drawn (no line or point within 0.012) the picture is paper.
+      let paper = 0;
+      for (let i = 0; i < 400; i++) {
+        const qx = ((i * 0.6180339887) % 1) * 0.98 + 0.01,
+          qy = ((i * 0.7548776662) % 1) * 0.98 + 0.01;
+        if (
+          segments.some((s) => gapToSegment(s, qx, qy) < 0.012) ||
+          points.some((q) => Math.hypot(q[0] - qx, q[1] - qy) < 0.02)
+        )
+          continue;
+        expect(
+          Math.abs(toneAt(sample, qx, qy) - p.paperTone),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+        paper++;
+      }
+      expect(paper).toBeGreaterThan(100);
+    },
+  );
+
+  it('uses both counts and both first splits, about equally often, across 60 seeds', () => {
+    const seen = new Set<string>();
+    let vertical = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const { n, axis } = treeOf(seed);
+      seen.add(`${n}:${axis}`);
+      vertical += Number(axis === 0);
+    }
+    expect([...seen].sort()).toEqual(['15:0', '15:1', '31:0', '31:1']);
+    expect(vertical).toBeGreaterThan(18);
+    expect(vertical).toBeLessThan(42);
+  });
+
+  it('draws the lines and the points with their tones, heights, roughness and widths', () => {
+    for (const seed of seeds) {
+      const { levels, sample, points, segments } = treeOf(seed);
+      for (const q of points) {
+        expect(toneAt(sample, q[0], q[1])).toBeCloseTo(p.nodeTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.nodeHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(
+          toneAt(sample, q[0] + p.nodeRadius - 0.002, q[1] + 0.0001),
+        ).toBeCloseTo(p.nodeTone, 6);
+      }
+      for (const s of segments) {
+        const vertical = s.ax === s.bx,
+          // A stretch of this line clear of every other line and point, to measure its width at.
+          clear = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+            .map(
+              (t) =>
+                [s.ax + t * (s.bx - s.ax), s.ay + t * (s.by - s.ay)] as const,
+            )
+            .find(
+              ([x, y]) =>
+                segments.every(
+                  (o) => o === s || gapToSegment(o, x, y) > 0.02,
+                ) && points.every((q) => Math.hypot(q[0] - x, q[1] - y) > 0.03),
+            );
+        if (clear === undefined) continue;
+        const at = (offset: number): number =>
+          toneAt(
+            sample,
+            ...(vertical
+              ? ([clear[0] + offset, clear[1]] as const)
+              : ([clear[0], clear[1] + offset] as const)),
+          );
+        expect(at(0)).toBeCloseTo(lineTone(s.depth, levels), 6);
+        expect(out.height / p.relief).toBeCloseTo(p.lineHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        for (const side of [-1, 1]) {
+          expect(at(side * (halfOf(s.depth) - 0.0005))).toBeCloseTo(
+            lineTone(s.depth, levels),
+            6,
+          );
+          expect(at(side * (halfOf(s.depth) + 0.002))).toBeGreaterThan(0.85);
+        }
+      }
+    }
+  });
+
+  it('softens the edge of a line and of a point over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft;
+    for (const seed of seeds) {
+      const { levels, sample, points, segments } = treeOf(seed),
+        mix = (target: number, amount: number): number =>
+          p.paperTone + (target - p.paperTone) * smoothstep(amount);
+      // The root line and a line of the last depth, each at a clear stretch.
+      for (const depth of [0, levels - 1]) {
+        const s = segments.find(
+            (candidate) =>
+              candidate.depth === depth &&
+              [0.25, 0.5, 0.75].some((t) => clearAt(candidate, t)),
+          ) as Segment,
+          t = [0.25, 0.5, 0.75].find((value) => clearAt(s, value)) as number,
+          x = s.ax + t * (s.bx - s.ax),
+          y = s.ay + t * (s.by - s.ay),
+          vertical = s.ax === s.bx,
+          tone = lineTone(depth, levels),
+          half = halfOf(depth);
+        for (const side of [-1, 1]) {
+          const probe = (offset: number): number =>
+            toneAt(
+              sample,
+              vertical ? x + side * offset : x,
+              vertical ? y : y + side * offset,
+            );
+          expect(
+            Math.abs(probe(half - quarter) - mix(tone, 0.75)),
+          ).toBeLessThan(0.03);
+          expect(
+            Math.abs(probe(half + quarter) - mix(tone, 0.25)),
+          ).toBeLessThan(0.03);
+        }
+      }
+      // The top edge of a point with no line going up from it.
+      const q = points.find((c) =>
+        segments.every(
+          (o) => gapToSegment(o, c[0], c[1] - p.nodeRadius) > 0.01,
+        ),
+      ) as [number, number];
+      expect(
+        Math.abs(
+          toneAt(sample, q[0], q[1] - p.nodeRadius + quarter) -
+            mix(p.nodeTone, 0.75),
+        ),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(
+          toneAt(sample, q[0], q[1] - p.nodeRadius - quarter) -
+            mix(p.nodeTone, 0.25),
+        ),
+      ).toBeLessThan(0.03);
+
+      function clearAt(s: Segment, t: number): boolean {
+        const x = s.ax + t * (s.bx - s.ax),
+          y = s.ay + t * (s.by - s.ay);
+        return (
+          segments.every((o) => o === s || gapToSegment(o, x, y) > 0.02) &&
+          points.every((c) => Math.hypot(c[0] - x, c[1] - y) > 0.03)
+        );
+      }
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('kdtreesplits', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('kdtreesplits', 0),
+      b = createSurfaceSampler('kdtreesplits', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
