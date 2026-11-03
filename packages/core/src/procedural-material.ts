@@ -1058,6 +1058,7 @@ export type ProceduralMaterialKind =
   | 'stirlingparity'
   | 'josephus'
   | 'schelling'
+  | 'gabrielgraph'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2364,6 +2365,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'stirlingparity',
   'josephus',
   'schelling',
+  'gabrielgraph',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

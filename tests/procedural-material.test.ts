@@ -1084,6 +1084,7 @@ const kinds: ProceduralMaterialKind[] = [
   'stirlingparity',
   'josephus',
   'schelling',
+  'gabrielgraph',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -173022,6 +173023,302 @@ describe('Schelling as the segregation model on a 48 by 48 torus with 10% empty 
     expect(blue / (512 * 512)).toBeLessThan(54);
     expect(maxTilt).toBeGreaterThan(0.027);
     expect(maxTilt).toBeLessThan(0.033);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Gabriel graph as the Gabriel graph of a Poisson-disk point set on the torus, nodes joined by edges', () => {
+  const p = proceduralMaterialPresets.gabrielgraph;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const wrapped = (a: number[], b: number[]): number => {
+    const dx = Math.abs(a[0] - b[0]),
+      dy = Math.abs(a[1] - b[1]);
+    return Math.hypot(Math.min(dx, 1 - dx), Math.min(dy, 1 - dy));
+  };
+  /**
+   * The centre of every node read back from the sampler: the pixels with a colour above 0.66 (the
+   * nodes are brighter than the edges) of a 512 by 512 grid are grouped into 4-connected components on the torus (a flood fill
+   * written here, nothing from the sampler), and the centre of a component is its circular
+   * mean in u and v, which is right for discs that wrap around the edge of the tile.
+   */
+  const readDiscs = (
+    seed: number,
+  ): { centres: number[][]; areas: number[] } => {
+    const sample = createSurfaceSampler('gabrielgraph', seed),
+      out = empty(),
+      size = 512,
+      lit: boolean[] = [],
+      label = new Int32Array(size * size).fill(-1),
+      centres: number[][] = [],
+      areas: number[] = [];
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        lit.push(out.color > 0.66);
+      }
+    for (let start = 0; start < size * size; start++) {
+      if (!lit[start] || label[start] >= 0) continue;
+      const stack = [start];
+      label[start] = centres.length;
+      let area = 0,
+        cu = 0,
+        su = 0,
+        cv = 0,
+        sv = 0;
+      while (stack.length > 0) {
+        const at = stack.pop() as number,
+          x = at % size,
+          y = Math.floor(at / size);
+        area++;
+        cu += Math.cos((2 * Math.PI * (x + 0.5)) / size);
+        su += Math.sin((2 * Math.PI * (x + 0.5)) / size);
+        cv += Math.cos((2 * Math.PI * (y + 0.5)) / size);
+        sv += Math.sin((2 * Math.PI * (y + 0.5)) / size);
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const next =
+            ((y + dy + size) % size) * size + ((x + dx + size) % size);
+          if (lit[next] && label[next] < 0) {
+            label[next] = centres.length;
+            stack.push(next);
+          }
+        }
+      }
+      centres.push([
+        (((Math.atan2(su, cu) / (2 * Math.PI)) % 1) + 1) % 1,
+        (((Math.atan2(sv, cv) / (2 * Math.PI)) % 1) + 1) % 1,
+      ]);
+      areas.push(area);
+    }
+    return { centres, areas };
+  };
+  it('draws nodes joined by the Gabriel edges and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('gabrielgraph', seed),
+        a = empty();
+      // The grid shows 85 to 96 separate nodes of 150 to 175 pixels each (the grid is 512 by 512),
+      // every pair of node centres is at least 0.083 apart (the minimum distance is 0.085), and the
+      // edges are the Gabriel graph of the node centres read back: for every pair at most maxEdge
+      // apart, written here from the definition (no other centre inside the disc that has the
+      // segment as its diameter, the shortest way round the torus), five points at 25% to 75% of
+      // the segment are all lit (colour above 0.3) when the pair is clearly a Gabriel edge (every
+      // other centre at least 0.006 outside the disc), and are not all lit when the pair is clearly
+      // not one (some centre at least 0.006 inside the disc) and no third centre lies within 0.02 of
+      // the segment (a chain of two edges along the segment would light it).
+      const { centres, areas } = readDiscs(seed),
+        read = (x: number, y: number): number => {
+          sample(x - Math.floor(x), y - Math.floor(y), a);
+          return a.color;
+        },
+        around = (delta: number): number => delta - Math.round(delta);
+      expect(centres.length).toBeGreaterThan(85);
+      expect(centres.length).toBeLessThan(96);
+      expect(Math.min(...areas)).toBeGreaterThan(150);
+      expect(Math.max(...areas)).toBeLessThan(175);
+      let closest = Infinity,
+        joined = 0,
+        absent = 0,
+        wrongJoined = 0,
+        wrongAbsent = 0;
+      for (let i = 0; i < centres.length; i++)
+        for (let j = i + 1; j < centres.length; j++) {
+          const dx = around(centres[j][0] - centres[i][0]),
+            dy = around(centres[j][1] - centres[i][1]),
+            length = Math.hypot(dx, dy);
+          closest = Math.min(closest, length);
+          if (length > p.maxEdge) continue;
+          let gap = Infinity,
+            nearSegment = false;
+          for (let k = 0; k < centres.length; k++) {
+            if (k === i || k === j) continue;
+            const wx = around(centres[k][0] - centres[i][0]),
+              wy = around(centres[k][1] - centres[i][1]),
+              along = Math.min(
+                1,
+                Math.max(0, (wx * dx + wy * dy) / length ** 2),
+              );
+            gap = Math.min(
+              gap,
+              Math.hypot(
+                around(centres[k][0] - centres[i][0] - dx / 2),
+                around(centres[k][1] - centres[i][1] - dy / 2),
+              ) -
+                length / 2,
+            );
+            nearSegment ||= Math.hypot(wx - along * dx, wy - along * dy) < 0.02;
+          }
+          const lit = [0.25, 0.4, 0.5, 0.6, 0.75].every(
+            (at) =>
+              read(centres[i][0] + dx * at, centres[i][1] + dy * at) > 0.3,
+          );
+          if (gap > 0.006) {
+            joined++;
+            wrongJoined += Number(!lit);
+          } else if (gap < -0.006 && !nearSegment) {
+            absent++;
+            wrongAbsent += Number(lit);
+          }
+        }
+      expect(closest).toBeGreaterThan(0.083);
+      expect(joined).toBeGreaterThan(210);
+      expect(joined).toBeLessThan(235);
+      expect(absent).toBeGreaterThan(300);
+      expect(absent).toBeLessThan(400);
+      expect(wrongJoined).toBe(0);
+      expect(wrongAbsent).toBe(0);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0253);
+      expect(low).toBeLessThan(0.0259);
+      expect(high).toBeGreaterThan(0.85);
+      expect(high).toBeLessThan(0.853);
+      expect(dark / 65536).toBeGreaterThan(0.272);
+      expect(dark / 65536).toBeLessThan(0.291);
+      expect(mean / 65536).toBeGreaterThan(0.204);
+      expect(mean / 65536).toBeLessThan(0.214);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 3);
+      expect(heightHigh).toBeGreaterThan(0.842);
+      expect(heightHigh).toBeLessThan(0.846);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('scatters the nodes differently per seed and is deterministic for one seed', () => {
+    const first = readDiscs(0).centres,
+      second = readDiscs(1).centres;
+    let shared = 0;
+    for (const centre of first)
+      shared += Number(second.some((other) => wrapped(centre, other) < 0.01));
+    expect(shared / first.length).toBeLessThan(0.15);
+    expect(readDiscs(0).centres).toEqual(first);
+  });
+  it('keeps the nodes, edges, ground and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('gabrielgraph', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.buckets, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 cyan network maps with raised nodes and edges and shaded ground', () => {
+    const maps = generateProceduralMaps('gabrielgraph', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(34);
+    expect(red / (512 * 512)).toBeLessThan(35.3);
+    expect(green / (512 * 512)).toBeGreaterThan(59.6);
+    expect(green / (512 * 512)).toBeLessThan(60.9);
+    expect(blue / (512 * 512)).toBeGreaterThan(74.8);
+    expect(blue / (512 * 512)).toBeLessThan(76);
+    expect(maxTilt).toBeGreaterThan(0.013);
+    expect(maxTilt).toBeLessThan(0.017);
     expect(invalid).toBe(0);
   });
 });

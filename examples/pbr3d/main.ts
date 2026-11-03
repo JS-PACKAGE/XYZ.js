@@ -1121,6 +1121,7 @@ try {
     'stirlingparity',
     'josephus',
     'schelling',
+    'gabrielgraph',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

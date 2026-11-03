@@ -13214,3 +13214,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Schelling as|schelling|kinds|catalog|distinct|periodic"`定向測試**2420項通過／4130項未選**。
 - 未驗證：josephus與schelling未跑完整suite與瀏覽器gallery（最近一次完整複驗至骨牌鋪磚）；不push。
+
+## 2026-11-03 新增材質：Gabriel圖（gabrielgraph）
+
+- 範圍：新增`gabrielgraph`（目前目錄1057→1058種，含plain的gallery 1059項）：環面上Poisson-disk點集（最小間距0.085，約90點）的Gabriel圖——兩點之間以連線為直徑的圓盤內沒有第三點就連成邊（沿環面最短向量、長度不超過0.25）；節點較亮、邊較細，青藍色網路；seed決定點集；節點與邊以`1 − Π(1 − t²)`取聯集，所以場為C1；預設0.5 m nominal tile、0.0008 UV-relative relief。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽只看了一版；(2)動手前以`/tmp/absent.sh`確認`gabrielgraph`在kind清單與README都不存在；既有`poissondisk`只畫點，文件已註明差別；(3)**測試設計的第一版是錯的**：我先用「連線中點是否亮」判斷邊，探針顯示有228個明確非邊的配對中點是亮的——非邊配對圓盤內必有第三個點，中點常落在該點的其他邊上；第二版改成五個取樣點全亮仍有41個誤判（第三個點恰好落在線段附近，兩條邊形成鏈狀覆蓋整條線段）；第三版才排除「有第三個中心距離線段小於0.02」的配對，誤判降為0。這些排除是測試設計的限制，文件已如實說明；(4)探針的「曖昧」計數把圓邊界±0.006內的配對，與「長度在0.25±0.01內」的配對合計，後者在長度不超過0.25時其實仍被判定，所以那個合計數（157／138／172／143）略高於實際不判定的配對數，我在文件第一版把它寫成「皆不判定」，發現後已在所有文件改正；(5)測試**不**證明曖昧配對一致，也不證明圖在環面上是平面圖或連通的；(6)256²與512²取樣的亮處占比不同，原因是取樣點的位置與解析度不同，測試採用256²的數值範圍；(7)建構與取樣耗時**未量測**；(8)測試在第三版設計確定後第一次執行即通過（先以探針量好界線）；(9)catmap在這輪被丟棄的事實已記在上一節（謝林隔離模型），沒有留下程式碼。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：點數91／89／92／88、最近兩點距離0.0849／0.0851／0.0850／0.0846；512²網格色調高於0.66的像素在seed 0／1／0xffffffff為每點155–171像素；明確的Gabriel邊配對227／229／223／215對、五點皆亮（誤判0）；明確的非邊配對（已排除鏈狀配對）364／321／386／328對、沒有五點全亮者（誤判0）；被排除的鏈狀配對152／153／157／139對；256²（seed 0／1／0xffffffff）亮處（color>0.5）27.26%–29.03%、color 0.02534–0.02580至0.85028–0.85206、平均0.20498–0.21366、roughness恆為0.4、AO最低0.6、height至多0.8428–0.8445 relief；512²（四個seed）亮處26.86%–28.98%、color 0.02510–0.02521至0.85166–0.85355、平均0.20193–0.21368、AO最低0.6、height至多0.8462–0.8486 relief；seed 0與1相比，512²中color>0.5的取樣40.3%不同；seed 7的512²maps平均r／g／b約(34.7, 60.2, 75.4)、法線tilt²最大約0.0152、z分量最小254。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Gabriel graph as|gabrielgraph|kinds|catalog|distinct|periodic"`定向測試**2425項通過／4130項未選**。
+- 未驗證：josephus、schelling與gabrielgraph未跑完整suite與瀏覽器gallery（最近一次完整複驗至骨牌鋪磚）；不push。
