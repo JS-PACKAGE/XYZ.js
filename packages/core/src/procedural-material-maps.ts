@@ -48580,6 +48580,119 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'sphericalharmonics': {
+        const p = proceduralMaterialPresets.sphericalharmonics,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          start =
+            p.starts[
+              Math.floor(hash(0, 72, seed ^ p.seedSalt) * p.starts.length)
+            ],
+          count = p.columns * p.rows,
+          inverseSoft = 1 / p.edgeSoft,
+          frameWidthSquared = p.frameHalfWidth * p.frameHalfWidth,
+          // The map in each cell is the real spherical harmonic (degree l, order m, the cos(m phi) kind for m >= 0 and the
+          // sin(|m| phi) kind for m < 0) as longitude across and colatitude down, found from its index in the list
+          // l = 0 (1 harmonic), 1 (3), 2 (5), ...
+          orders: number[] = [],
+          degrees: number[] = [],
+          peaks: number[] = [];
+        // The associated Legendre function of degree l and order m at x = cos(colatitude), without the normalisation.
+        const legendre = (degree: number, order: number, x: number): number => {
+          const sine = Math.sqrt(Math.max(0, 1 - x * x));
+          let previous = 0,
+            current = 1;
+          for (let k = 1; k <= order; k++) current *= -(2 * k - 1) * sine;
+          for (let l = order + 1; l <= degree; l++) {
+            const next =
+              ((2 * l - 1) * x * current - (l + order - 1) * previous) /
+              (l - order);
+            previous = current;
+            current = next;
+          }
+          return current;
+        };
+        for (let k = 0; k < count; k++) {
+          let index = start + k,
+            degree = 0;
+          while (index >= 2 * degree + 1) {
+            index -= 2 * degree + 1;
+            degree++;
+          }
+          degrees.push(degree);
+          orders.push(index - degree);
+          let peak = 0;
+          for (let s = 0; s < p.scan; s++)
+            peak = Math.max(
+              peak,
+              Math.abs(
+                legendre(
+                  degree,
+                  Math.abs(index - degree),
+                  Math.cos((Math.PI * s) / (p.scan - 1)),
+                ),
+              ),
+            );
+          peaks.push(peak);
+        }
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            column = Math.floor(fu * p.columns),
+            row = Math.floor(fv * p.rows),
+            // The position in the cell, 0 to 1 across and down.
+            cellX = fu * p.columns - column,
+            cellY = fv * p.rows - row,
+            // The signed distance to the map rectangle (negative inside), in cell widths.
+            outsideX = Math.max(p.margin - cellX, cellX - (1 - p.margin)),
+            outsideY = Math.max(p.margin - cellY, cellY - (1 - p.margin)),
+            boxDistance =
+              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              Math.min(Math.max(outsideX, outsideY), 0),
+            inside = smooth(clamp(-boxDistance / p.fade)),
+            frameT = clamp(1 - (boxDistance * boxDistance) / frameWidthSquared);
+          let tone = 0;
+          if (inside > 0) {
+            const k = row * p.columns + column,
+              order = orders[k],
+              longitude =
+                (2 * Math.PI * Math.min(1, Math.max(0, cellX - p.margin))) /
+                (1 - 2 * p.margin),
+              colatitude =
+                (Math.PI * Math.min(1, Math.max(0, cellY - p.margin))) /
+                (1 - 2 * p.margin),
+              wave =
+                order >= 0
+                  ? Math.cos(order * longitude)
+                  : Math.sin(-order * longitude);
+            tone =
+              (0.5 +
+                (0.5 *
+                  legendre(degrees[k], Math.abs(order), Math.cos(colatitude)) *
+                  wave) /
+                  peaks[k]) *
+              inside;
+          }
+          const ink = clamp(p.lineTone * tone + p.frameTone * frameT * frameT),
+            mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(ink) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -57477,6 +57590,7 @@ export function createSurfaceSampler(
     kind === 'htree' ||
     kind === 'mapattractors' ||
     kind === 'wallpapergroups' ||
+    kind === 'sphericalharmonics' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

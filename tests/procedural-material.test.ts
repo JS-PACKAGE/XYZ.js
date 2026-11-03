@@ -1122,6 +1122,7 @@ const kinds: ProceduralMaterialKind[] = [
   'htree',
   'mapattractors',
   'wallpapergroups',
+  'sphericalharmonics',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -185203,6 +185204,477 @@ describe('Wallpaper groups as a motif repeated under the plane groups of a squar
     expect(blue / (512 * 512)).toBeLessThan(43.1);
     expect(maxTilt).toBeGreaterThan(0.0121);
     expect(maxTilt).toBeLessThan(0.0126);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Spherical harmonics as longitude-latitude maps of real harmonics', () => {
+  const p = proceduralMaterialPresets.sphericalharmonics;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const size = 512,
+    span = 1 - 2 * p.margin;
+  const binomial = (n: number, k: number): number => {
+    let result = 1;
+    for (let i = 1; i <= k; i++) result = (result * (n - k + i)) / i;
+    return Math.round(result);
+  };
+  /** The coefficients (by power of x) of the Legendre polynomial of degree l, from its explicit sum 2^-l sum_k (-1)^k C(l, k) C(2l - 2k, l) x^(l - 2k). */
+  const legendreCoefficients = (degree: number): number[] => {
+    const coefficients = new Array<number>(degree + 1).fill(0);
+    for (let k = 0; k <= Math.floor(degree / 2); k++)
+      coefficients[degree - 2 * k] =
+        ((k % 2 ? -1 : 1) *
+          binomial(degree, k) *
+          binomial(2 * degree - 2 * k, degree)) /
+        2 ** degree;
+    return coefficients;
+  };
+  const evaluate = (coefficients: number[], x: number): number => {
+    let result = 0;
+    for (let i = coefficients.length - 1; i >= 0; i--)
+      result = result * x + coefficients[i];
+    return result;
+  };
+  /** The associated Legendre function by differentiating the polynomial m times (not the sampler's recurrence). */
+  const associated = (degree: number, order: number, x: number): number => {
+    let coefficients = legendreCoefficients(degree);
+    for (let i = 0; i < order; i++)
+      coefficients = coefficients.slice(1).map((c, k) => c * (k + 1));
+    return (
+      (order % 2 ? -1 : 1) *
+      Math.pow(1 - x * x, order / 2) *
+      evaluate(coefficients.length ? coefficients : [0], x)
+    );
+  };
+  /** The degree and order (negative for the sin kind) of the harmonic at an index of the list l = 0, 1, 2, ... with m = -l ... l. */
+  const harmonicAt = (index: number): [number, number] => {
+    let rest = index,
+      degree = 0;
+    while (rest >= 2 * degree + 1) {
+      rest -= 2 * degree + 1;
+      degree++;
+    }
+    return [degree, rest - degree];
+  };
+  const harmonic = (
+    degree: number,
+    order: number,
+    longitude: number,
+    colatitude: number,
+  ): number =>
+    associated(degree, Math.abs(order), Math.cos(colatitude)) *
+    (order >= 0 ? Math.cos(order * longitude) : Math.sin(-order * longitude));
+  const peakOf = (degree: number, order: number): number => {
+    let peak = 0;
+    for (let t = 0; t <= 180; t++)
+      peak = Math.max(
+        peak,
+        Math.abs(associated(degree, order, Math.cos((Math.PI * t) / 180))),
+      );
+    return peak;
+  };
+  /** The roots of the Legendre polynomial of degree l in (-1, 1), by a scan with an odd count of steps and bisection. */
+  const rootsOf = (degree: number): number[] => {
+    const coefficients = legendreCoefficients(degree),
+      roots: number[] = [],
+      steps = 4001;
+    let previous = evaluate(coefficients, -1 + 1e-9);
+    for (let i = 1; i <= steps; i++) {
+      const x = -1 + (2 * i) / steps,
+        value = evaluate(coefficients, x);
+      if (previous * value < 0) {
+        let low = x - 2 / steps,
+          high = x;
+        for (let k = 0; k < 60; k++) {
+          const middle = (low + high) / 2;
+          if (evaluate(coefficients, low) * evaluate(coefficients, middle) <= 0)
+            high = middle;
+          else low = middle;
+        }
+        roots.push((low + high) / 2);
+      }
+      previous = value;
+    }
+    return roots;
+  };
+  /** The tile position of the point (fx, fy), 0 to 1 across and down the map of cell k (longitude 2 pi fx, colatitude pi fy). */
+  const mapPoint = (k: number, fx: number, fy: number): [number, number] => [
+    ((k % p.columns) + p.margin + fx * span) / p.columns,
+    (Math.floor(k / p.columns) + p.margin + fy * span) / p.rows,
+  ];
+  const rank = (values: ArrayLike<number>): Float64Array => {
+    const order = Array.from({ length: values.length }, (_, i) => i).sort(
+        (i, j) => values[i] - values[j],
+      ),
+      ranks = new Float64Array(values.length);
+    let i = 0;
+    while (i < order.length) {
+      let j = i;
+      while (j + 1 < order.length && values[order[j + 1]] === values[order[i]])
+        j++;
+      for (let k = i; k <= j; k++) ranks[order[k]] = (i + j) / 2;
+      i = j + 1;
+    }
+    return ranks;
+  };
+  const spearman = (x: ArrayLike<number>, y: ArrayLike<number>): number => {
+    const rx = rank(x),
+      ry = rank(y);
+    let meanX = 0,
+      meanY = 0;
+    for (let i = 0; i < rx.length; i++) {
+      meanX += rx[i] / rx.length;
+      meanY += ry[i] / rx.length;
+    }
+    let both = 0,
+      onlyX = 0,
+      onlyY = 0;
+    for (let i = 0; i < rx.length; i++) {
+      both += (rx[i] - meanX) * (ry[i] - meanY);
+      onlyX += (rx[i] - meanX) ** 2;
+      onlyY += (ry[i] - meanY) ** 2;
+    }
+    return both / Math.sqrt(onlyX * onlyY);
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('sphericalharmonics', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('sphericalharmonics', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0254);
+      expect(low).toBeLessThan(0.0262);
+      expect(high).toBeGreaterThan(0.796);
+      expect(high).toBeLessThan(0.799);
+      expect(dark / 65536).toBeGreaterThan(0.258);
+      expect(dark / 65536).toBeLessThan(0.261);
+      expect(mean / 65536).toBeGreaterThan(0.358);
+      expect(mean / 65536).toBeLessThan(0.361);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.776);
+      expect(heightHigh).toBeLessThan(0.782);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The start for each of the seeds 8, 2, 0, 3, 4 and 9 (the starts 0, 4, 9, 16, 25 and 36 of the preset) was found with a probe by the
+  // correlation with the independent harmonics and is written here, so that table is not an independent check of the seed's choice.
+  const seeds = [8, 2, 0, 3, 4, 9];
+  it('draws the eight harmonics of its own start and not those of the others', () => {
+    // Over 400 points in each of the 8 maps the Spearman rank correlation between the colour and the harmonic (by the
+    // independent Legendre functions, divided by its largest value) is above 0.99 for the start of the seed (0.998 at the
+    // lowest in the probe) and below 0.1 for each other start (0.04 at most in the probe).
+    const points: [number, number][] = [];
+    for (let i = 0; i < 400; i++)
+      points.push([
+        0.02 + 0.96 * ((i * 0.61803398875) % 1),
+        0.02 + 0.96 * ((i * 0.41421356237) % 1),
+      ]);
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('sphericalharmonics', seed),
+        out = empty(),
+        colours: number[] = [];
+      for (let k = 0; k < 8; k++)
+        for (const [fx, fy] of points) {
+          const [u, v] = mapPoint(k, 0.03 + fx * 0.94, 0.03 + fy * 0.94);
+          sample(u, v, out);
+          colours.push(out.color);
+        }
+      p.starts.forEach((start, other) => {
+        const predicted: number[] = [];
+        for (let k = 0; k < 8; k++) {
+          const [degree, order] = harmonicAt(start + k),
+            peak = peakOf(degree, Math.abs(order));
+          for (const [fx, fy] of points)
+            predicted.push(
+              harmonic(
+                degree,
+                order,
+                2 * Math.PI * (0.03 + fx * 0.94),
+                Math.PI * (0.03 + fy * 0.94),
+              ) / peak,
+            );
+        }
+        const correlation = spearman(colours, predicted);
+        if (other === index) expect(correlation).toBeGreaterThan(0.99);
+        else expect(correlation).toBeLessThan(0.1);
+      });
+    });
+  });
+  it('has the nodal lines of its harmonics: |m| meridians and l - |m| parallels', () => {
+    // In each map of l >= 1, with the colour at a nodal line as the zero (the mean of 9 colours along a nodal meridian, or along the first
+    // root of the Legendre polynomial for m = 0), and ignoring colours within 0.04 of it (the grain), the sign changes
+    // along the parallel of the largest |P| over longitude 0.03 to 0.97 of the map number 2|m| (2|m| - 1 for the sin kind, whose
+    // zero at longitude 0 is an edge) and those down a meridian of the largest |wave| over colatitude 0.03 to 0.97
+    // number l - |m|, as in all 47 maps of the probe. The map of l = 0 is flat to within the grain (a range of 0.0265).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('sphericalharmonics', seed),
+        out = empty();
+      for (let k = 0; k < 8; k++) {
+        const [degree, order] = harmonicAt(p.starts[index] + k),
+          magnitude = Math.abs(order),
+          at = (fx: number, fy: number): number => {
+            const [u, v] = mapPoint(k, fx, fy);
+            sample(u, v, out);
+            return out.color;
+          };
+        if (degree === 0) {
+          let low = 1,
+            high = 0;
+          for (let i = 1; i < 20; i++)
+            for (let j = 1; j < 20; j++) {
+              const colour = at(i / 20, j / 20);
+              low = Math.min(low, colour);
+              high = Math.max(high, colour);
+            }
+          expect(high - low).toBeLessThan(0.04);
+          continue;
+        }
+        let zero = 0;
+        if (magnitude !== 0) {
+          const nodal = order >= 0 ? 1 / (4 * magnitude) : 1 / (2 * magnitude);
+          for (let t = 1; t <= 9; t++) zero += at(nodal, t / 10) / 9;
+        } else {
+          const latitude = Math.acos(rootsOf(degree)[0]) / Math.PI;
+          for (let t = 1; t <= 9; t++) zero += at(t / 10, latitude) / 9;
+        }
+        let best = 0,
+          colatitude = 0;
+        for (let t = 1; t < 720; t++) {
+          const value = Math.abs(
+            associated(degree, magnitude, Math.cos((Math.PI * t) / 720)),
+          );
+          if (value > best) {
+            best = value;
+            colatitude = t / 720;
+          }
+        }
+        const changes = (line: (t: number) => number): number => {
+          let count = 0,
+            last = 0;
+          for (let i = 1; i < 600; i++) {
+            const difference = line(i / 600) - zero;
+            if (Math.abs(difference) < 0.04) continue;
+            if (last && Math.sign(difference) !== last) count++;
+            last = Math.sign(difference);
+          }
+          return count;
+        };
+        const meridian =
+          magnitude === 0
+            ? 0.5
+            : order >= 0
+              ? 1 / (2 * magnitude)
+              : 1 / (4 * magnitude);
+        expect(changes((t) => at(0.03 + 0.94 * t, colatitude))).toBe(
+          magnitude === 0 ? 0 : order >= 0 ? 2 * magnitude : 2 * magnitude - 1,
+        );
+        expect(changes((t) => at(meridian, 0.03 + 0.94 * t))).toBe(
+          degree - magnitude,
+        );
+      }
+    });
+  });
+  it('puts the parallels of the zonal harmonics at the roots of the Legendre polynomial', () => {
+    // In the maps with m = 0 and l >= 2, the zero crossings of the colour (found by linear interpolation between pixel
+    // centres) down the middle of the 512 by 512 reading, over colatitude 0.03 to 0.97, are as many as the roots of the Legendre
+    // polynomial of the degree (found by a scan and bisection of its explicit sum) and each is within 1.5 pixels of the root
+    // (0.999 at worst in the probe; 6 such maps).
+    let checked = 0;
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('sphericalharmonics', seed),
+        out = empty();
+      for (let k = 0; k < 8; k++) {
+        const [degree, order] = harmonicAt(p.starts[index] + k);
+        if (order !== 0 || degree < 2) continue;
+        const row = Math.floor(k / p.columns),
+          nodalLatitude = Math.acos(rootsOf(degree)[0]) / Math.PI;
+        let zero = 0;
+        for (let t = 1; t <= 9; t++) {
+          const [u, v] = mapPoint(k, t / 10, nodalLatitude);
+          sample(u, v, out);
+          zero += out.color / 9;
+        }
+        const rows: number[] = [],
+          differences: number[] = [];
+        for (let y = 0; y < size; y++) {
+          const fy = ((y + 0.5) / size) * p.rows - row,
+            latitude = (fy - p.margin) / span;
+          if (latitude < 0.03 || latitude > 0.97) continue;
+          sample(mapPoint(k, 0.5, 0.5)[0], (y + 0.5) / size, out);
+          rows.push(y);
+          differences.push(out.color - zero);
+        }
+        const found: number[] = [];
+        for (let i = 1; i < rows.length; i++)
+          if (differences[i - 1] * differences[i] < 0)
+            found.push(
+              rows[i - 1] +
+                differences[i - 1] / (differences[i - 1] - differences[i]),
+            );
+        const expected = rootsOf(degree)
+          .map((x) => Math.acos(x) / Math.PI)
+          .sort((x, y) => x - y)
+          .map(
+            (latitude) =>
+              ((row + p.margin + latitude * span) / p.rows) * size - 0.5,
+          );
+        expect(found.length).toBe(expected.length);
+        expected.forEach((position, i) =>
+          expect(Math.abs(found[i] - position)).toBeLessThan(1.5),
+        );
+        checked++;
+      }
+    });
+    expect(checked).toBe(6);
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 3 pick different starts (the harmonics from index 9 and from index 16 of the list).
+    const first = litGrid(0),
+      second = litGrid(3);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.31);
+    expect(different / first.length).toBeLessThan(0.316);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('sphericalharmonics', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 green harmonic maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('sphericalharmonics', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(70.6);
+    expect(red / (512 * 512)).toBeLessThan(71.9);
+    expect(green / (512 * 512)).toBeGreaterThan(103.1);
+    expect(green / (512 * 512)).toBeLessThan(104.3);
+    expect(blue / (512 * 512)).toBeGreaterThan(67.2);
+    expect(blue / (512 * 512)).toBeLessThan(68.5);
+    expect(maxTilt).toBeGreaterThan(0.0122);
+    expect(maxTilt).toBeLessThan(0.0127);
     expect(invalid).toBe(0);
   });
 });

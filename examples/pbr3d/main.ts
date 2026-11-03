@@ -1159,6 +1159,7 @@ try {
     'htree',
     'mapattractors',
     'wallpapergroups',
+    'sphericalharmonics',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

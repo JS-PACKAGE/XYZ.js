@@ -1096,6 +1096,7 @@ export type ProceduralMaterialKind =
   | 'htree'
   | 'mapattractors'
   | 'wallpapergroups'
+  | 'sphericalharmonics'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2440,6 +2441,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'htree',
   'mapattractors',
   'wallpapergroups',
+  'sphericalharmonics',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
