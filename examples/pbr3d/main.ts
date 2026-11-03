@@ -1160,6 +1160,7 @@ try {
     'mapattractors',
     'wallpapergroups',
     'sphericalharmonics',
+    'cylinderflow',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

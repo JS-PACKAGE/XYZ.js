@@ -48693,6 +48693,108 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'cylinderflow': {
+        const p = proceduralMaterialPresets.cylinderflow,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          g =
+            p.circulations[
+              Math.floor(hash(0, 73, seed ^ p.seedSalt) * p.circulations.length)
+            ],
+          // Potential flow of speed U = 1 in +x past a cylinder of radius a = 1 with the circulation 4 pi g (clockwise
+          // for g > 0): the stream function is psi = y (1 - 1 / r^2) + 2 g ln r, with velocity (psi_y, -psi_x). The
+          // streamlines are drawn at psi = k spacing, and the dividing streamline through the stagnation points
+          // (psi = 0 for g <= 1; for g > 1 the stagnation point is on the y axis at y = -(g + sqrt(g^2 - 1))) thicker.
+          dividing =
+            g > 1
+              ? (() => {
+                  const radius = g + Math.sqrt(g * g - 1);
+                  return -(radius - 1 / radius) + 2 * g * Math.log(radius);
+                })()
+              : 0,
+          half = 0.5 - p.margin,
+          lineWidthSquared = p.lineHalfWidth * p.lineHalfWidth,
+          dividingWidthSquared = p.dividingHalfWidth * p.dividingHalfWidth,
+          inverseSoft = 1 / p.edgeSoft;
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            x = ((fu - 0.5) / half) * p.extent,
+            y = ((0.5 - fv) / half) * p.extent,
+            radiusSquared = x * x + y * y,
+            radius = Math.sqrt(radiusSquared),
+            // The signed distance to the plot rectangle (negative inside), in tile units.
+            outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
+            outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
+            boxDistance =
+              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              Math.min(Math.max(outsideX, outsideY), 0),
+            inside = smooth(clamp(-boxDistance / p.fade)),
+            // psi and its gradient; the cylinder itself is masked, and psi is not used inside radius 1.
+            outer = smooth(clamp((radius - 1) / p.bodyFade));
+          let keepLine = 1;
+          if (outer > 0 && radius > 1e-6) {
+            const inverseSquare = 1 / radiusSquared,
+              psi = y * (1 - inverseSquare) + 2 * g * Math.log(radius),
+              psiX =
+                2 * y * x * inverseSquare * inverseSquare +
+                2 * g * x * inverseSquare,
+              psiY =
+                1 -
+                inverseSquare +
+                2 * y * y * inverseSquare * inverseSquare +
+                2 * g * y * inverseSquare,
+              // The first-order distance is dpsi / speed, which is 0 / 0 at a stagnation point; 1e-4 added to the squared speed keeps it
+              // finite and smooth there (it widens the lines only within 0.01 of a stagnation point).
+              speedSquared = psiX * psiX + psiY * psiY + 1e-4,
+              level = Math.floor(psi / p.spacing);
+            for (let k = level; k <= level + 1; k++) {
+              const difference = psi - k * p.spacing,
+                t = clamp(
+                  1 -
+                    (difference * difference) /
+                      (speedSquared * lineWidthSquared),
+                );
+              keepLine *= 1 - t * t;
+            }
+            const gap = psi - dividing,
+              dividingT = clamp(
+                1 - (gap * gap) / (speedSquared * dividingWidthSquared),
+              );
+            keepLine *= 1 - dividingT * dividingT;
+            keepLine = 1 - outer * (1 - keepLine);
+          }
+          const rimT = clamp(
+              1 -
+                ((radius - 1) * (radius - 1)) /
+                  (p.rimHalfWidth * p.rimHalfWidth),
+            ),
+            bodyMix = 1 - outer,
+            ink = clamp(
+              inside *
+                (p.lineTone * (1 - keepLine) +
+                  p.dividingTone * rimT * rimT * 0.9 +
+                  p.bodyTone * bodyMix),
+            ),
+            mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(ink) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -57591,6 +57693,7 @@ export function createSurfaceSampler(
     kind === 'mapattractors' ||
     kind === 'wallpapergroups' ||
     kind === 'sphericalharmonics' ||
+    kind === 'cylinderflow' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

@@ -1123,6 +1123,7 @@ const kinds: ProceduralMaterialKind[] = [
   'mapattractors',
   'wallpapergroups',
   'sphericalharmonics',
+  'cylinderflow',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -185675,6 +185676,391 @@ describe('Spherical harmonics as longitude-latitude maps of real harmonics', () 
     expect(blue / (512 * 512)).toBeLessThan(68.5);
     expect(maxTilt).toBeGreaterThan(0.0122);
     expect(maxTilt).toBeLessThan(0.0127);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Cylinder flow as the streamlines of potential flow past a cylinder', () => {
+  const p = proceduralMaterialPresets.cylinderflow;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const size = 512,
+    half = 0.5 - p.margin;
+  /** The position in the flow (the cylinder has radius 1 at the origin, the flow is in +x, y is up) of a tile position. */
+  const world = (u: number, v: number): [number, number] => [
+    ((u - 0.5) / half) * p.extent,
+    ((0.5 - v) / half) * p.extent,
+  ];
+  /**
+   * The stream function, written in polar form from the potential flow of unit speed past a unit cylinder with
+   * circulation 4 pi g (clockwise for g > 0): psi = (r - 1 / r) sin(theta) + 2 g ln r.
+   */
+  const streamFunction = (g: number, x: number, y: number): number => {
+    const radius = Math.hypot(x, y);
+    return (
+      (radius - 1 / radius) * Math.sin(Math.atan2(y, x)) +
+      2 * g * Math.log(radius)
+    );
+  };
+  /** The velocity from its polar components v_r = (1 - 1 / r^2) cos(theta) and v_theta = -(1 + 1 / r^2) sin(theta) - 2 g / r. */
+  const velocity = (g: number, x: number, y: number): [number, number] => {
+    const radius = Math.hypot(x, y),
+      angle = Math.atan2(y, x),
+      radial = (1 - 1 / (radius * radius)) * Math.cos(angle),
+      around =
+        -(1 + 1 / (radius * radius)) * Math.sin(angle) - (2 * g) / radius;
+    return [
+      radial * Math.cos(angle) - around * Math.sin(angle),
+      radial * Math.sin(angle) + around * Math.cos(angle),
+    ];
+  };
+  /** The value of psi on the dividing streamline: 0 while the stagnation points are on the cylinder (g <= 1). */
+  const dividingLevel = (g: number): number => {
+    if (g <= 1) return 0;
+    const radius = g + Math.sqrt(g * g - 1);
+    return -(radius - 1 / radius) + 2 * g * Math.log(radius);
+  };
+  /** The reading of the tile with colours as an array, 512 by 512. */
+  const readTile = (seed: number): Float32Array => {
+    const sample = createSurfaceSampler('cylinderflow', seed),
+      out = empty(),
+      image = new Float32Array(size * size);
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        image[y * size + x] = out.color;
+      }
+    return image;
+  };
+  const insidePlot = (x: number, y: number, extra: number): boolean => {
+    const u = (x + 0.5) / size,
+      v = (y + 0.5) / size;
+    return (
+      u >= p.margin + extra &&
+      u <= 1 - p.margin - extra &&
+      v >= p.margin + extra &&
+      v <= 1 - p.margin - extra
+    );
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('cylinderflow', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('cylinderflow', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0253);
+      expect(low).toBeLessThan(0.0257);
+      expect(high).toBeGreaterThan(0.87);
+      expect(high).toBeLessThan(0.873);
+      expect(dark / 65536).toBeGreaterThan(0.082);
+      expect(dark / 65536).toBeLessThan(0.088);
+      expect(mean / 65536).toBeGreaterThan(0.116);
+      expect(mean / 65536).toBeLessThan(0.121);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.867);
+      expect(heightHigh).toBeLessThan(0.873);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The circulation for each of the seeds 3, 1, 4, 10, 5 and 0 (g = 0, 0.5, 1, 1.25, 1.5 and 0.75, the variants 0 to 5) was found
+  // with a probe by the fit to the independent stream function and is written here, so that table is not an independent
+  // check of the seed's choice.
+  const seeds = [3, 1, 4, 10, 5, 0];
+  it('draws the streamlines of its own circulation and not those of the others', () => {
+    // Of the pixels with a colour above 0.5 outside radius 1.3 (16987 to 25319 of them per variant in the probe), the fraction
+    // lying within 0.8 of the half width of the line (first order, in the flow, as the stream function distance to a level
+    // divided by the speed) of a level psi = 0.2 k or of the dividing streamline (with its wider line) is above 0.99 for the
+    // circulation of the seed (1.000 in the probe) and below 0.45 for each of the others (0.304 at most in the probe).
+    seeds.forEach((seed, index) => {
+      const image = readTile(seed),
+        bright: [number, number][] = [];
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          if (image[y * size + x] <= 0.5 || !insidePlot(x, y, 0.02)) continue;
+          const [wx, wy] = world((x + 0.5) / size, (y + 0.5) / size);
+          if (Math.hypot(wx, wy) >= 1.3) bright.push([wx, wy]);
+        }
+      expect(bright.length).toBeGreaterThan(10000);
+      p.circulations.forEach((g, other) => {
+        let fits = 0;
+        for (const [wx, wy] of bright) {
+          const psi = streamFunction(g, wx, wy),
+            [vx, vy] = velocity(g, wx, wy),
+            speed = Math.hypot(vx, vy),
+            toLevel =
+              Math.abs(psi - Math.round(psi / p.spacing) * p.spacing) / speed,
+            toDividing =
+              (Math.abs(psi - dividingLevel(g)) / speed) *
+              (p.lineHalfWidth / p.dividingHalfWidth);
+          fits += Number(Math.min(toLevel, toDividing) < 0.8 * p.lineHalfWidth);
+        }
+        if (other === index) expect(fits / bright.length).toBeGreaterThan(0.99);
+        else expect(fits / bright.length).toBeLessThan(0.45);
+      });
+    });
+  });
+  it('runs along the flow: the lines have the direction of the analytic velocity', () => {
+    // At the pixels of the 512 by 512 reading with a colour above 0.75 (the middle of a line) outside radius 1.5, taking
+    // every third pixel, whose neighbourhood (radius 4 pixels, colour above 0.5) has at least 8 pixels and is clearly elongated
+    // (the larger eigenvalue of the covariance at least 3 times the smaller), the angle of the line differs from that of the
+    // velocity (from the polar components, not from the stream function) by under 11.5 degrees (|sin| below 0.2) for at
+    // least 99% of the 478 to 801 pixels per variant (0.9975 at the lowest in the probe) and by under 14.5 degrees for all of them
+    // (0.218 at the worst).
+    seeds.forEach((seed, index) => {
+      const g = p.circulations[index],
+        image = readTile(seed);
+      let tested = 0,
+        good = 0,
+        worst = 0;
+      for (let y = 8; y < size - 8; y += 3)
+        for (let x = 8; x < size - 8; x += 3) {
+          if (image[y * size + x] < 0.75 || !insidePlot(x, y, 0.04)) continue;
+          const [wx, wy] = world((x + 0.5) / size, (y + 0.5) / size);
+          if (Math.hypot(wx, wy) < 1.5) continue;
+          const points: [number, number][] = [];
+          let meanX = 0,
+            meanY = 0;
+          for (let dy = -4; dy <= 4; dy++)
+            for (let dx = -4; dx <= 4; dx++)
+              if (
+                dx * dx + dy * dy <= 16 &&
+                image[(y + dy) * size + x + dx] > 0.5
+              ) {
+                points.push([dx, dy]);
+                meanX += dx;
+                meanY += dy;
+              }
+          if (points.length < 8) continue;
+          meanX /= points.length;
+          meanY /= points.length;
+          let sxx = 0,
+            syy = 0,
+            sxy = 0;
+          for (const [dx, dy] of points) {
+            sxx += (dx - meanX) ** 2;
+            syy += (dy - meanY) ** 2;
+            sxy += (dx - meanX) * (dy - meanY);
+          }
+          const trace = sxx + syy,
+            spread = Math.sqrt(
+              Math.max(0, (trace * trace) / 4 - (sxx * syy - sxy * sxy)),
+            ),
+            larger = trace / 2 + spread,
+            smaller = trace / 2 - spread;
+          if (larger < 3 * Math.max(smaller, 1e-9)) continue;
+          const [vx, vy] = velocity(g, wx, wy),
+            difference = Math.abs(
+              Math.sin(
+                0.5 * Math.atan2(2 * sxy, sxx - syy) - Math.atan2(-vy, vx),
+              ),
+            );
+          tested++;
+          good += Number(difference < 0.2);
+          worst = Math.max(worst, difference);
+        }
+      expect(tested).toBeGreaterThan(300);
+      expect(good / tested).toBeGreaterThan(0.99);
+      expect(worst).toBeLessThan(0.25);
+    });
+  });
+  it('is mirror symmetric left to right, and top to bottom only without circulation', () => {
+    // The stream function is even in x for every g, and odd in y only for g = 0. On the 256 by 256 reading the fraction of pixels
+    // where the lit state (colour above 0.5) differs from that at the mirror image in x is under 0.003 for every variant
+    // (0.0018 at most in the probe), and in y it is under 0.003 for g = 0 (0.0012) and above 0.1 for the others (0.1412 at the least).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('cylinderflow', seed),
+        out = empty(),
+        lit = new Uint8Array(256 * 256);
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+          lit[y * 256 + x] = Number(out.color > 0.5);
+        }
+      let acrossX = 0,
+        acrossY = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          acrossX += Number(lit[y * 256 + x] !== lit[y * 256 + (255 - x)]);
+          acrossY += Number(lit[y * 256 + x] !== lit[(255 - y) * 256 + x]);
+        }
+      expect(acrossX / 65536).toBeLessThan(0.003);
+      if (p.circulations[index] === 0)
+        expect(acrossY / 65536).toBeLessThan(0.003);
+      else expect(acrossY / 65536).toBeGreaterThan(0.1);
+    });
+  });
+  it('draws the dividing streamline through the stagnation points', () => {
+    // For g > 1 the stagnation point is on the vertical axis at y = -(g + sqrt(g^2 - 1)) (-2 for g = 1.25 and -2.618 for
+    // g = 1.5), and the colour there is above 0.7 (0.779 and 0.784 in the probe); for g = 0 the dividing streamline is the
+    // axis y = 0 on both sides of the cylinder, and the colour along it from 1.25 to 2.95 is above 0.7 (0.773 at the lowest).
+    seeds.forEach((seed, index) => {
+      const g = p.circulations[index],
+        sample = createSurfaceSampler('cylinderflow', seed),
+        out = empty();
+      if (g > 1) {
+        const y = -(g + Math.sqrt(g * g - 1));
+        sample(0.5, 0.5 - (y / p.extent) * half, out);
+        expect(out.color).toBeGreaterThan(0.7);
+      }
+      if (g === 0)
+        for (let k = 0; k <= 40; k++)
+          for (const side of [-1, 1]) {
+            sample(
+              0.5 + side * (((1.25 + (1.7 * k) / 40) / p.extent) * half),
+              0.5,
+              out,
+            );
+            expect(out.color).toBeGreaterThan(0.7);
+          }
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 1 pick different circulations (g = 0.75 and g = 0.5).
+    const first = litGrid(0),
+      second = litGrid(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.136);
+    expect(different / first.length).toBeLessThan(0.14);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('cylinderflow', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 blue streamline maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('cylinderflow', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(16.9);
+    expect(red / (512 * 512)).toBeLessThan(18.2);
+    expect(green / (512 * 512)).toBeGreaterThan(36.2);
+    expect(green / (512 * 512)).toBeLessThan(37.5);
+    expect(blue / (512 * 512)).toBeGreaterThan(48.6);
+    expect(blue / (512 * 512)).toBeLessThan(49.8);
+    expect(maxTilt).toBeGreaterThan(0.0442);
+    expect(maxTilt).toBeLessThan(0.0452);
     expect(invalid).toBe(0);
   });
 });
