@@ -13465,3 +13465,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增6項專屬測試（數值範圍、鏡面大圓與遠離處、奇偶雙色、seed差異與決定性、C1掃描、maps）加kinds清單新條目，`-t`選中的7項皆通過；型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Spherical triangles as|sphericaltriangles|kinds|catalog|distinct|periodic"`定向測試**2472項通過／4214項未選**，輸出`GATES-OK`。
 - 未驗證：poincaretriangles與sphericaltriangles未跑完整suite與瀏覽器gallery（最近一次完整複驗至球面多面體立體投影）；不push。
+
+## 2026-11-03 完整測試與瀏覽器gallery複驗（至球面三角形群立體投影）
+
+- 完整suite（工具實跑）：在commit `82380b123`（`[P08] Correct the dihedral note in the Spherical Triangles record`，程式碼與`2489d1490`相同，只差一行文件）的乾淨worktree執行`vitest run`，**179個檔案、10,615項測試全部通過**，耗時1174.01 s；對照前一次紀錄（`43c505843`，10,600項），新增的poincaretriangles（8項）與sphericaltriangles（7項）共15項，與數量吻合（各含kinds清單的一個新條目）。
+- 瀏覽器gallery（headless Chrome，`--enable-unsafe-webgpu --use-angle=metal`）：頁面載入約340 s（與完整suite同時執行）後，預設（WebGPU）與`?renderer=webgl2`兩個分頁讀數皆為「1080 procedural material presets」、select共1081個選項；依序選取poincaretriangles、sphericaltriangles、plain（WebGPU分頁另加sphericaltiling）都在期限內更新讀數，兩個分頁的console錯誤皆為0。這**只**涵蓋「可選取、讀數更新、無console錯誤」，沒有逐材質截圖，也不證明視覺品質；只選了上述少數kind，沒有逐一選過全部1080種。
+- 未驗證：沒有量測建構與取樣耗時；不push。
