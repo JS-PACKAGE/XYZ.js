@@ -13766,3 +13766,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增3項專屬測試（依區號上色、每條布拉格平面上有線、點群對稱）加色調範圍、seed差異與決定性、C1掃描、maps共4項，再加kinds清單新條目，`-t`選中的8項皆通過。變異檢查（做過兩次）：把布拉格平面位置 |G|²/2 改成0.45·|G|²，該describe 7項中5項失敗；把區號計數條件 k·G > |G|²/2 改成 k·G > 0.6·|G|²/2，4項失敗；兩者皆已還原（`cmp`確認）。限制：seed對應的配置是探針量出再寫入，不是獨立oracle；第7區以上不逐區檢查；沒有測面積相等的定理；距平面0.03內不檢查區號；沒有查文獻；取樣耗時未量測；未對照任何參考圖。型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Brillouin zones as|brillouinzones|kinds|catalog|distinct|periodic"`定向測試**2527項通過／4381項未選**，輸出`GATES-OK`。
 - 未驗證：diffractionpatterns、mapprojections與brillouinzones未跑完整suite與瀏覽器gallery（完整suite最近一次在`1c389dab7`：179檔10,810項通過；瀏覽器gallery最近一次在同一commit，1104種）；不push。
+
+## 2026-11-04 完整測試與瀏覽器gallery複驗（至布里淵區）
+
+- 範圍：在`b42fc3079`（新增布里淵區之後）重跑完整測試與瀏覽器gallery。這段不新增材質，只記錄實跑結果。
+- 完整測試（工具實跑，乾淨的detached worktree）：**179個測試檔、10,837項全部通過**（1362 s），比上一次完整複驗（`1c389dab7`的10,810項）多27項，與diffractionpatterns 10項、mapprojections 9項、brillouinzones 8項（各含kinds條目）的定向測試選取數相符（10 + 9 + 8 = 27）。
+- 瀏覽器gallery（工具實跑，無頭Chrome，vite從乾淨worktree提供`/examples/pbr3d/`）：WebGPU分頁與`?renderer=webgl2`分頁各自讀到「1107 procedural material presets」、選單1108個選項；各自選取diffractionpatterns、mapprojections、brillouinzones、keplerorbits、errordiffusion，頁面讀數都更新（每個selection回傳true）；console錯誤項目兩個分頁都是0；讀回三個新材質的選項文字與`index.html`標籤一致。限制：只涵蓋「可選取、讀數更新、無console錯誤」，沒有目視畫面或像素比對；跨瀏覽器、跨GPU行為沒有驗證。
+- 未驗證：沒有尚未提交的材質；跨瀏覽器與跨GPU；不push。
