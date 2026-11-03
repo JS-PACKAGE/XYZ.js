@@ -48957,6 +48957,92 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'fourierseries': {
+        const p = proceduralMaterialPresets.fourierseries,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant =
+            p.variants[
+              Math.floor(hash(0, 76, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          waveform = variant[0],
+          terms = variant[1],
+          inverseSoft = 1 / p.edgeSoft,
+          curveSquared = p.curveHalfWidth * p.curveHalfWidth,
+          levelSquared = p.levelHalfWidth * p.levelHalfWidth;
+        return () => {
+          const fu = fract(u),
+            rowPosition = fract(v) * p.rows,
+            row = Math.min(Math.floor(rowPosition), p.rows - 1),
+            // y is up in tile units, 0 on the centre line of the row.
+            y = (0.5 - (rowPosition - row)) / p.rows,
+            x = 2 * Math.PI * (fu - 0.5),
+            sinX = Math.sin(x),
+            cosX = Math.cos(x),
+            count = terms[row],
+            last = waveform === 1 ? count : 2 * count - 1;
+          // sin(k x) and cos(k x) by the rotation recurrence, summing the partial sum of the chosen waveform and its derivative in x.
+          let sinK = 0,
+            cosK = 1,
+            sum = 0,
+            slopeSum = 0;
+          for (let k = 1; k <= last; k++) {
+            const nextSin = sinK * cosX + cosK * sinX;
+            cosK = cosK * cosX - sinK * sinX;
+            sinK = nextSin;
+            if (waveform === 0 && k % 2 === 1) {
+              sum += sinK / k;
+              slopeSum += cosK;
+            } else if (waveform === 1) {
+              const sign = k % 2 === 1 ? 1 : -1;
+              sum += (sign * sinK) / k;
+              slopeSum += sign * cosK;
+            } else if (waveform === 2 && k % 2 === 1) {
+              sum += cosK / (k * k);
+              slopeSum -= sinK / k;
+            }
+          }
+          const scale =
+              waveform === 0
+                ? 4 / Math.PI
+                : waveform === 1
+                  ? 2 / Math.PI
+                  : 8 / (Math.PI * Math.PI),
+            value = p.amplitude * scale * sum,
+            slope = p.amplitude * scale * slopeSum * 2 * Math.PI,
+            curveDistance = Math.abs(y - value) / Math.hypot(1, slope),
+            curveT = clamp(1 - (curveDistance * curveDistance) / curveSquared),
+            levelDistance = Math.min(
+              Math.abs(Math.abs(y) - p.amplitude),
+              Math.abs(y),
+            ),
+            levelT = clamp(1 - (levelDistance * levelDistance) / levelSquared),
+            axisT = clamp(1 - (y * y) / levelSquared),
+            ink = clamp(
+              1 -
+                (1 - p.curveTone * curveT * curveT) *
+                  (1 - p.levelTone * levelT * levelT) *
+                  (1 - p.axisTone * axisT * axisT),
+            ),
+            mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(ink) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -57858,6 +57944,7 @@ export function createSurfaceSampler(
     kind === 'cylinderflow' ||
     kind === 'fieldlines' ||
     kind === 'twosourcewaves' ||
+    kind === 'fourierseries' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

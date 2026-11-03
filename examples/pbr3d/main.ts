@@ -1163,6 +1163,7 @@ try {
     'cylinderflow',
     'fieldlines',
     'twosourcewaves',
+    'fourierseries',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

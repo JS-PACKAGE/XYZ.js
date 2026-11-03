@@ -1100,6 +1100,7 @@ export type ProceduralMaterialKind =
   | 'cylinderflow'
   | 'fieldlines'
   | 'twosourcewaves'
+  | 'fourierseries'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2448,6 +2449,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'cylinderflow',
   'fieldlines',
   'twosourcewaves',
+  'fourierseries',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

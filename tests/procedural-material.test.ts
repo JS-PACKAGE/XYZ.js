@@ -1126,6 +1126,7 @@ const kinds: ProceduralMaterialKind[] = [
   'cylinderflow',
   'fieldlines',
   'twosourcewaves',
+  'fourierseries',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -186838,6 +186839,371 @@ describe('Two-source waves as the interference of two coherent point sources', (
     expect(blue / (512 * 512)).toBeLessThan(77.2);
     expect(maxTilt).toBeGreaterThan(0.0095);
     expect(maxTilt).toBeLessThan(0.0105);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Fourier series as the partial sums of square, sawtooth and triangle waves', () => {
+  const p = proceduralMaterialPresets.fourierseries;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const size = 512,
+    rowHeight = size / p.rows;
+  /**
+   * The partial sum and its slope in x of a waveform written as the plain sum of the terms (0 square wave with 4/pi sin((2j + 1) x) / (2j + 1),
+   * 1 sawtooth with 2/pi (-1)^(k + 1) sin(k x) / k, 2 triangle wave with 8/pi^2 cos((2j + 1) x) / (2j + 1)^2), not by the recurrence of the sampler.
+   */
+  const partial = (waveform: number, count: number, x: number): number => {
+    let sum = 0;
+    for (let j = 0; j < count; j++) {
+      if (waveform === 0)
+        sum += ((4 / Math.PI) * Math.sin((2 * j + 1) * x)) / (2 * j + 1);
+      else if (waveform === 1)
+        sum +=
+          ((2 / Math.PI) * (j % 2 === 0 ? 1 : -1) * Math.sin((j + 1) * x)) /
+          (j + 1);
+      else
+        sum +=
+          ((8 / (Math.PI * Math.PI)) * Math.cos((2 * j + 1) * x)) /
+          (2 * j + 1) ** 2;
+    }
+    return sum;
+  };
+  const slope = (waveform: number, count: number, x: number): number => {
+    let sum = 0;
+    for (let j = 0; j < count; j++) {
+      if (waveform === 0) sum += (4 / Math.PI) * Math.cos((2 * j + 1) * x);
+      else if (waveform === 1)
+        sum += (2 / Math.PI) * (j % 2 === 0 ? 1 : -1) * Math.cos((j + 1) * x);
+      else
+        sum -=
+          ((8 / (Math.PI * Math.PI)) * Math.sin((2 * j + 1) * x)) / (2 * j + 1);
+    }
+    return sum;
+  };
+  const readTile = (seed: number): Float32Array => {
+    const sample = createSurfaceSampler('fourierseries', seed),
+      out = empty(),
+      image = new Float32Array(size * size);
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        image[y * size + x] = out.color;
+      }
+    return image;
+  };
+  /** The centre in height (in the units of the waveform) of the bright stroke of the curve in one row, on the vertical line at the tile position u. */
+  const strokeCentre = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    u: number,
+    row: number,
+  ): number => {
+    let weight = 0,
+      moment = 0;
+    for (let k = 0; k < 2000; k++) {
+      const y = -0.12 + (0.24 * k) / 1999;
+      sample(u, (row + 0.5) / p.rows - y, out);
+      const w = Math.max(0, out.color - 0.3);
+      weight += w;
+      moment += w * y;
+    }
+    return moment / weight / p.amplitude;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('fourierseries', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('fourierseries', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0253);
+      expect(low).toBeLessThan(0.0259);
+      expect(high).toBeGreaterThan(0.813);
+      expect(high).toBeLessThan(0.821);
+      expect(dark / 65536).toBeGreaterThan(0.021);
+      expect(dark / 65536).toBeLessThan(0.028);
+      expect(mean / 65536).toBeGreaterThan(0.06);
+      expect(mean / 65536).toBeLessThan(0.066);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.8);
+      expect(heightHigh).toBeLessThan(0.809);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 is 0, 2, 5, 4, 1 and 3; the table was found with a probe by the fit to the independent curves
+  // and is written here, so it is not an independent check of the seed's choice.
+  const seeds = [0, 2, 5, 4, 1, 3];
+  it('draws the partial sums of its own waveform and not those of the others', () => {
+    // Of the pixels with a colour above 0.5 (5682 to 7404 per variant in the probe) the fraction lying within 0.8 of the half width of the
+    // curve of the partial sum written in the test (first order: the height difference divided by the square root of 1 plus the slope squared,
+    // with the slope in tile units) is above 0.99 for the variant of the seed (1.0000 in the probe) and below 0.6 for each other
+    // variant (0.454 at most in the probe).
+    seeds.forEach((seed, index) => {
+      const image = readTile(seed);
+      p.variants.forEach((variant, other) => {
+        let bright = 0,
+          fits = 0;
+        for (let y = 0; y < size; y++)
+          for (let x = 0; x < size; x++) {
+            if (image[y * size + x] <= 0.5) continue;
+            const position = ((y + 0.5) / size) * p.rows,
+              row = Math.min(Math.floor(position), p.rows - 1),
+              height = (0.5 - (position - row)) / p.rows,
+              angle = 2 * Math.PI * ((x + 0.5) / size - 0.5),
+              count = variant[1][row],
+              value = p.amplitude * partial(variant[0], count, angle),
+              tilt =
+                p.amplitude * slope(variant[0], count, angle) * 2 * Math.PI;
+            bright++;
+            fits += Number(
+              Math.abs(height - value) / Math.hypot(1, tilt) <
+                0.8 * p.curveHalfWidth,
+            );
+          }
+        if (other === index) expect(fits / bright).toBeGreaterThan(0.99);
+        else expect(fits / bright).toBeLessThan(0.6);
+      });
+    });
+  });
+  it('overshoots a jump by the Gibbs fraction however many terms are summed', () => {
+    // For the square waves with 8 or more terms (rows with 10, 16, 8 and 20 terms) the first maximum next to the jump is at x = pi / (2 m)
+    // (the slope of the partial sum is proportional to sin(2 m x) / sin(x)) and the centre of the stroke of the curve there is within 0.004 of the
+    // sum written in the test (0.0009 at the most in the probe), and its excess over the level 1 is a fraction of the jump of 2 that is
+    // within 0.003 of the Gibbs constant (2 / pi Si(pi) - 1) / 2 = 0.08949, with the integral computed in the test by the midpoint rule
+    // (the fractions were 0.0892 to 0.0901 in the probe).
+    let integral = 0;
+    for (let i = 0; i < 200000; i++) {
+      const t = ((i + 0.5) / 200000) * Math.PI;
+      integral += (Math.sin(t) / t) * (Math.PI / 200000);
+    }
+    const gibbs = ((2 / Math.PI) * integral - 1) / 2;
+    expect(gibbs).toBeCloseTo(0.08949, 4);
+    let checked = 0;
+    seeds.forEach((seed, index) => {
+      if (p.variants[index][0] !== 0) return;
+      const sample = createSurfaceSampler('fourierseries', seed),
+        out = empty();
+      p.variants[index][1].forEach((count, row) => {
+        if (count < 8) return;
+        const centre = strokeCentre(sample, out, 0.5 + 1 / (4 * count), row);
+        expect(
+          Math.abs(centre - partial(0, count, Math.PI / (2 * count))),
+        ).toBeLessThan(0.004);
+        expect(Math.abs((centre - 1) / 2 - gibbs)).toBeLessThan(0.003);
+        checked++;
+      });
+    });
+    expect(checked).toBe(4);
+  });
+  it('flattens the plateaus of a square wave as the number of terms grows', () => {
+    // On the plateau (x from pi / 4 to 3 pi / 4, at 65 columns) the largest distance of the stroke centre from the level 1 is within 0.004
+    // of that of the sum written in the test (0.0014 at the most in the probe) and gets smaller from each row to the next one with more
+    // terms (0.2728, 0.2005, 0.1088 and 0.0435 for the 1, 2, 4 and 10 terms of the first variant in the probe).
+    seeds.forEach((seed, index) => {
+      if (p.variants[index][0] !== 0) return;
+      const sample = createSurfaceSampler('fourierseries', seed),
+        out = empty();
+      let previous = Infinity;
+      p.variants[index][1].forEach((count, row) => {
+        let worst = 0,
+          expected = 0;
+        for (let c = 0; c <= 64; c++) {
+          const x = Math.PI / 4 + (Math.PI / 2) * (c / 64);
+          worst = Math.max(
+            worst,
+            Math.abs(
+              strokeCentre(sample, out, 0.5 + x / (2 * Math.PI), row) - 1,
+            ),
+          );
+          expected = Math.max(expected, Math.abs(partial(0, count, x) - 1));
+        }
+        expect(Math.abs(worst - expected)).toBeLessThan(0.004);
+        expect(worst).toBeLessThan(previous);
+        previous = worst;
+      });
+    });
+  });
+  it('has the symmetry of its waveform', () => {
+    // The square and sawtooth waves are odd (a half turn about the middle of each row, the left to right middle of the tile, leaves the picture
+    // unchanged), the triangle wave is even (a mirror image about the middle of the tile leaves it unchanged) and the square wave is
+    // also mirror symmetric about a quarter of the way along. The lit pixels (colour above 0.5) that differ are under 0.03 of those that are
+    // lit for the symmetries that hold (0.0178 at the most in the probe, from the pixel grid and the grain) and over 1 for the ones that do not (1.4247 at the lowest).
+    seeds.forEach((seed, index) => {
+      const image = readTile(seed),
+        waveform = p.variants[index][0];
+      let lit = 0,
+        halfTurn = 0,
+        mirror = 0,
+        quarter = 0;
+      for (let y = 0; y < size; y++) {
+        const row = Math.floor(y / rowHeight),
+          turned = row * rowHeight + rowHeight - 1 - (y % rowHeight);
+        for (let x = 0; x < size; x++) {
+          const on = image[y * size + x] > 0.5;
+          lit += Number(on);
+          halfTurn += Number(on !== image[turned * size + size - 1 - x] > 0.5);
+          mirror += Number(on !== image[y * size + size - 1 - x] > 0.5);
+          quarter += Number(on !== image[y * size + ((767 - x) % size)] > 0.5);
+        }
+      }
+      const checks: [number, boolean][] = [
+        [halfTurn / lit, waveform !== 2],
+        [mirror / lit, waveform === 2],
+        [quarter / lit, waveform === 0],
+      ];
+      for (const [fraction, holds] of checks) {
+        if (holds) expect(fraction).toBeLessThan(0.03);
+        else expect(fraction).toBeGreaterThan(1);
+      }
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 2 pick different variants (square waves with 1, 2, 4, 10 and 2, 3, 6, 16 terms).
+    const first = litGrid(0),
+      second = litGrid(2);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.04);
+    expect(different / first.length).toBeLessThan(0.042);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('fourierseries', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 orange partial sum maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('fourierseries', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(36.2);
+    expect(red / (512 * 512)).toBeLessThan(37.4);
+    expect(green / (512 * 512)).toBeGreaterThan(16.4);
+    expect(green / (512 * 512)).toBeLessThan(17.6);
+    expect(blue / (512 * 512)).toBeGreaterThan(7);
+    expect(blue / (512 * 512)).toBeLessThan(8.2);
+    expect(maxTilt).toBeGreaterThan(0.0292);
+    expect(maxTilt).toBeLessThan(0.0302);
     expect(invalid).toBe(0);
   });
 });
