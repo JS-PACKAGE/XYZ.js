@@ -40313,6 +40313,81 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'qamconstellation': {
+        const p = proceduralMaterialPresets.qamconstellation,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x43d01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          size =
+            p.sizes[Math.floor(hash(23, 12, seed ^ 0x43d02) * p.sizes.length)],
+          perAxis = Math.log2(size),
+          cell = 1 / size,
+          gray = hash(23, 13, seed ^ 0x43d03) < 0.5,
+          // The bits of each level of an axis, from the one on the left (or the bottom).
+          label = (level: number): number =>
+            gray ? level ^ (level >> 1) : level;
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            column = Math.min(size - 1, Math.floor(fu * size)),
+            row = Math.min(size - 1, Math.floor(fv * size)),
+            x = fu * size - column,
+            y = fv * size - row,
+            // Cell units to uv, and the quadrant of the cell for its paper tone.
+            quadrant = (column * 2 >= size ? 1 : 0) + (row * 2 >= size ? 2 : 0),
+            words = [label(column), label(size - 1 - row)];
+          let shade = p.paperTones[quadrant],
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          // Cell borders in uv across the tile, and the two axes through its middle.
+          const edge = Math.min(x, 1 - x, y, 1 - y) * cell;
+          paint(cover(p.gridHalf - edge), p.gridTone, p.gridHeight);
+          paint(
+            cover(
+              p.axisHalf - Math.min(Math.abs(fu - 0.5), Math.abs(fv - 0.5)),
+            ),
+            p.axisTone,
+            p.axisHeight,
+          );
+          paint(
+            cover((p.dotRadius - Math.hypot(x - 0.5, y - p.dotY)) * cell),
+            p.dotTone,
+            p.dotHeight,
+          );
+          for (let axis = 0; axis < 2; axis++) {
+            const cy = axis === 0 ? p.bitRowI : p.bitRowQ;
+            for (let k = 0; k < perAxis; k++) {
+              const cx = 0.5 + (k - (perAxis - 1) / 2) * p.bitSpacing,
+                inside =
+                  (p.bitHalf - Math.max(Math.abs(x - cx), Math.abs(y - cy))) *
+                  cell,
+                bit = (words[axis] >> (perAxis - 1 - k)) & 1,
+                solid = cover(inside);
+              paint(
+                bit === 1
+                  ? solid
+                  : solid * (1 - cover(inside - p.frameWidth * cell)),
+                p.bitTone,
+                p.bitHeight,
+              );
+            }
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -67842,6 +67917,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'qamconstellation' ||
     kind === 'countertimings' ||
     kind === 'hofstadterq' ||
     kind === 'semaphorefigures' ||

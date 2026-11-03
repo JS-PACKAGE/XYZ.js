@@ -38537,3 +38537,308 @@ describe('countertimings: the timing diagram of a 4-bit counter, a clock and its
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('qamconstellation: a QAM constellation with the bits of each symbol as filled squares', () => {
+  const p = proceduralMaterialPresets.qamconstellation,
+    out = empty();
+  type Constellation = {
+    size: number;
+    sample: Sampler;
+    iWords: number[];
+    qWords: number[];
+  };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  // A point of the cell in the cell's own units, as a point of the tile.
+  const at = (
+    size: number,
+    column: number,
+    row: number,
+    x: number,
+    y: number,
+  ): [number, number] => [(column + x) / size, (row + y) / size];
+  const bitCentre = (perAxis: number, k: number): number =>
+    0.5 + (k - (perAxis - 1) / 2) * p.bitSpacing;
+
+  const constellationOf = (seed: number): Constellation => {
+    const sample = createSurfaceSampler('qamconstellation', seed),
+      found = p.sizes
+        .map((size): Constellation | null => {
+          const perAxis = Math.log2(size),
+            iWords: number[] = [],
+            qWords: number[] = [];
+          for (let row = 0; row < size; row++)
+            for (let column = 0; column < size; column++) {
+              const [du, dv] = at(size, column, row, 0.5, p.dotY);
+              // The point of the symbol, and under it the frame of every bit square (filled or empty, the left edge is ink).
+              if (Math.abs(toneAt(sample, du, dv) - p.dotTone) > 0.02)
+                return null;
+              const words = [0, 0];
+              for (let axis = 0; axis < 2; axis++)
+                for (let k = 0; k < perAxis; k++) {
+                  const cy = axis === 0 ? p.bitRowI : p.bitRowQ,
+                    [fu, fv] = at(
+                      size,
+                      column,
+                      row,
+                      bitCentre(perAxis, k) - p.bitHalf + p.frameWidth / 2,
+                      cy,
+                    ),
+                    [cu, cv] = at(size, column, row, bitCentre(perAxis, k), cy);
+                  if (!(toneAt(sample, fu, fv) < 0.2)) return null;
+                  words[axis] =
+                    (words[axis] << 1) | (toneAt(sample, cu, cv) < 0.2 ? 1 : 0);
+                }
+              // The I word is the same down a column, the Q word along a row.
+              if (row === 0) iWords.push(words[0]);
+              else if (iWords[column] !== words[0]) return null;
+              if (column === 0) qWords.push(words[1]);
+              else if (qWords[row] !== words[1]) return null;
+            }
+          return { size, sample, iWords, qWords };
+        })
+        .filter((constellation) => constellation !== null);
+    expect(found).toHaveLength(1);
+    return found[0];
+  };
+  const gray = (level: number): number => level ^ (level >> 1);
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws the point and the bits of every symbol, the same for every cell of a column and of a row (seed %i)',
+    (seed) => {
+      const { size, iWords, qWords } = constellationOf(seed);
+      expect(iWords).toHaveLength(size);
+      expect(qWords).toHaveLength(size);
+      // Levels grow to the right on the in-phase axis and up the picture on the quadrature one; the words are Gray coded or plain binary.
+      const levelsI = iWords.map((_, column) => column),
+        levelsQ = qWords.map((_, row) => size - 1 - row),
+        isGray =
+          iWords.every((w, column) => w === gray(levelsI[column])) &&
+          qWords.every((w, row) => w === gray(levelsQ[row])),
+        isBinary =
+          iWords.every((w, column) => w === levelsI[column]) &&
+          qWords.every((w, row) => w === levelsQ[row]);
+      expect(isGray || isBinary).toBe(true);
+      // Neighbouring symbols differ in one bit when Gray coded.
+      const bits = (x: number): number =>
+        x.toString(2).replaceAll('0', '').length;
+      if (isGray) {
+        for (let i = 1; i < size; i++) {
+          expect(bits(iWords[i] ^ iWords[i - 1])).toBe(1);
+          expect(bits(qWords[i] ^ qWords[i - 1])).toBe(1);
+        }
+      }
+    },
+  );
+
+  it('uses all three sizes and both codings across 60 seeds', () => {
+    const seen = new Set<string>();
+    for (let seed = 0; seed < 60; seed++) {
+      const { size, iWords } = constellationOf(seed);
+      // For two symbols per axis the two codings give the same words, so only the larger sizes tell them apart.
+      seen.add(
+        `${size}:${size === 2 ? 'same' : iWords[2 % size] === gray(2 % size) ? 'gray' : 'binary'}`,
+      );
+    }
+    expect([...seen].sort()).toEqual([
+      '2:same',
+      '4:binary',
+      '4:gray',
+      '8:binary',
+      '8:gray',
+    ]);
+  });
+
+  it('tones the point, the bit squares (filled and empty), the grid, the axes and the quadrants, with heights and roughness', () => {
+    for (const seed of seeds) {
+      const { size, sample, iWords } = constellationOf(seed),
+        perAxis = Math.log2(size),
+        column = 1 % size,
+        row = size - 1;
+      const [du, dv] = at(size, column, row, 0.5, p.dotY);
+      expect(toneAt(sample, du, dv)).toBeCloseTo(p.dotTone, 6);
+      expect(out.height / p.relief).toBeCloseTo(p.dotHeight, 6);
+      expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+      for (let k = 0; k < perAxis; k++) {
+        const bit = (iWords[column] >> (perAxis - 1 - k)) & 1,
+          [cu, cv] = at(size, column, row, bitCentre(perAxis, k), p.bitRowI),
+          [ru, rv] = at(
+            size,
+            column,
+            row,
+            bitCentre(perAxis, k) - p.bitHalf + p.frameWidth / 2,
+            p.bitRowI,
+          );
+        // A filled square is ink right through; an empty one is paper inside its ink frame.
+        expect(toneAt(sample, ru, rv)).toBeCloseTo(p.bitTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.bitHeight, 6);
+        sample(cu, cv, out);
+        if (bit === 1) {
+          expect(out.color).toBeCloseTo(p.bitTone, 6);
+          expect(out.height / p.relief).toBeCloseTo(p.bitHeight, 6);
+        } else {
+          expect(out.height / p.relief).toBeCloseTo(p.paperHeight, 6);
+          expect(out.roughness).toBeCloseTo(p.paperRoughness, 6);
+        }
+      }
+      // The quadrant of each cell sets its paper tone (with the grain).
+      for (let c = 0; c < size; c += Math.max(1, size - 1))
+        for (let r = 0; r < size; r += Math.max(1, size - 1)) {
+          const quadrant = (c * 2 >= size ? 1 : 0) + (r * 2 >= size ? 2 : 0),
+            [pu, pv] = at(size, c, r, 0.06, 0.06);
+          expect(
+            Math.abs(toneAt(sample, pu, pv) - p.paperTones[quadrant]),
+          ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+          expect(out.height / p.relief).toBeCloseTo(p.paperHeight, 6);
+        }
+      // The borders between cells are grid lines, except the middle ones, which are the axes.
+      for (let line = 1; line < size; line++) {
+        const middle = line * 2 === size;
+        expect(toneAt(sample, line / size, 0.3 / size)).toBeCloseTo(
+          middle ? p.axisTone : p.gridTone,
+          6,
+        );
+        expect(out.height / p.relief).toBeCloseTo(
+          middle ? p.axisHeight : p.gridHeight,
+          6,
+        );
+        expect(toneAt(sample, 0.3 / size, line / size)).toBeCloseTo(
+          middle ? p.axisTone : p.gridTone,
+          6,
+        );
+      }
+      // The grid line on the seam of the tile is drawn on both sides of it: just inside the last cell too, at the right and at the bottom.
+      expect(toneAt(sample, 1 - 0.0006, 0.3 / size)).toBeCloseTo(p.gridTone, 6);
+      expect(toneAt(sample, 0.3 / size, 1 - 0.0006)).toBeCloseTo(p.gridTone, 6);
+    }
+  });
+
+  it('softens the edge of the point and of a bit square over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x);
+    for (const seed of seeds) {
+      const { size, sample } = constellationOf(seed),
+        quarter = 0.25 * p.edgeSoft * size,
+        // The paper tone of cell (0, 0) is the first quadrant's.
+        paper = (x: number, y: number): number =>
+          toneAt(sample, ...at(size, 0, 0, x, y)),
+        mixed = (tone: number, amount: number): number =>
+          p.paperTones[0] + (tone - p.paperTones[0]) * smoothstep(amount);
+      // The top of the point, straight above its centre.
+      const top = p.dotY - p.dotRadius;
+      expect(
+        Math.abs(paper(0.5, top + quarter) - mixed(p.dotTone, 0.75)),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(paper(0.5, top - quarter) - mixed(p.dotTone, 0.25)),
+      ).toBeLessThan(0.03);
+      // The top edge of the first bit square of the I row, which is a frame whether it is filled or not.
+      const edge = p.bitRowI - p.bitHalf,
+        x = bitCentre(Math.log2(size), 0);
+      expect(
+        Math.abs(paper(x, edge + quarter) - mixed(p.bitTone, 0.75)),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(paper(x, edge - quarter) - mixed(p.bitTone, 0.25)),
+      ).toBeLessThan(0.03);
+      // The inner edge of the frame of the square of the cell (0, 0), whose bits are all 0 (level 0 is word 0 in either coding), so it is a
+      // frame round paper: a quarter of the soft width inside the hole the ink is at share 0.25, outside it (in the frame) at 0.75.
+      const inner = edge + p.frameWidth;
+      expect(paper(x, p.bitRowI)).toBeGreaterThan(0.6);
+      expect(
+        Math.abs(paper(x, inner + quarter) - mixed(p.bitTone, 0.25)),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(paper(x, inner - quarter) - mixed(p.bitTone, 0.75)),
+      ).toBeLessThan(0.03);
+      // The first border between cells (a grid line, or the axis when there are only two) is as wide on the left of it as it is on its
+      // right: inside its half width by a quarter of the soft width it is at share 0.75, outside by as much at 0.25 (in uv, not in cells).
+      const quarterUv = 0.25 * p.edgeSoft,
+        halfWidth = size === 2 ? p.axisHalf : p.gridHalf,
+        lineTone = size === 2 ? p.axisTone : p.gridTone,
+        border = 1 / size,
+        lineMix = (amount: number): number =>
+          p.paperTones[0] + (lineTone - p.paperTones[0]) * smoothstep(amount);
+      expect(
+        Math.abs(
+          toneAt(sample, border - (halfWidth - quarterUv), 0.3 / size) -
+            lineMix(0.75),
+        ),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(
+          toneAt(sample, border - (halfWidth + quarterUv), 0.3 / size) -
+            lineMix(0.25),
+        ),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(
+          toneAt(sample, 0.3 / size, border - (halfWidth - quarterUv)) -
+            lineMix(0.75),
+        ),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(
+          toneAt(sample, 0.3 / size, border - (halfWidth + quarterUv)) -
+            lineMix(0.25),
+        ),
+      ).toBeLessThan(0.03);
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('qamconstellation', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const { size, sample } = constellationOf(0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(
+          sample,
+          ...at(
+            size,
+            0,
+            0,
+            0.05 + (i % 8) * 0.01,
+            0.05 + Math.floor(i / 8) * 0.01,
+          ),
+        ),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('qamconstellation', 0),
+      b = createSurfaceSampler('qamconstellation', 3),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
