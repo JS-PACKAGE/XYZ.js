@@ -41934,6 +41934,155 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'sankeyflows': {
+        const p = proceduralMaterialPresets.sankeyflows,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x4f101),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          middle =
+            p.middleCounts[
+              Math.floor(hash(39, 1, seed ^ 0x4f102) * p.middleCounts.length)
+            ],
+          sizes = [3, middle, 3],
+          // Flows left to middle, a[i * middle + j], and middle to right, b[j * 3 + k].
+          a = new Int32Array(3 * middle),
+          b = new Int32Array(middle * 3),
+          // The totals through each node, by column, and the top of each node.
+          totals = [
+            new Int32Array(3),
+            new Int32Array(middle),
+            new Int32Array(3),
+          ],
+          tops = [
+            new Float64Array(3),
+            new Float64Array(middle),
+            new Float64Array(3),
+          ];
+        for (let i = 0; i < 3; i++)
+          for (let j = 0; j < middle; j++) {
+            a[i * middle + j] =
+              1 + Math.floor(hash(i, j, seed ^ 0x4f103) * p.maxFlow);
+            totals[0][i] += a[i * middle + j];
+            totals[1][j] += a[i * middle + j];
+          }
+        // Each middle node passes on what it received, in three parts of at least one unit: two cuts in 1 to total - 1.
+        for (let j = 0; j < middle; j++) {
+          const total = totals[1][j],
+            first = 1 + Math.floor(hash(j, 7, seed ^ 0x4f104) * (total - 2)),
+            second =
+              first +
+              1 +
+              Math.floor(hash(j, 9, seed ^ 0x4f105) * (total - first - 1));
+          b[j * 3] = first;
+          b[j * 3 + 1] = second - first;
+          b[j * 3 + 2] = total - second;
+          for (let k = 0; k < 3; k++) totals[2][k] += b[j * 3 + k];
+        }
+        // Stack the nodes of each column, centred on the page.
+        for (let column = 0; column < 3; column++) {
+          let sum = 0;
+          for (let n = 0; n < sizes[column]; n++) sum += totals[column][n];
+          let y =
+            p.centre - (sum * p.unit + (sizes[column] - 1) * p.nodeGap) / 2;
+          for (let n = 0; n < sizes[column]; n++) {
+            tops[column][n] = y;
+            y += totals[column][n] * p.unit + p.nodeGap;
+          }
+        }
+        // The bands: for each gap between columns, from each source node to each target node, the height of its middle at each end, its size and tone.
+        const bands: {
+            gap: number;
+            from: number;
+            to: number;
+            size: number;
+            tone: number;
+          }[] = [],
+          cursorOut = [new Float64Array(3), new Float64Array(middle)],
+          cursorIn = [new Float64Array(middle), new Float64Array(3)];
+        for (let gap = 0; gap < 2; gap++) {
+          const sources = sizes[gap],
+            targets = sizes[gap + 1],
+            flows = gap === 0 ? a : b;
+          for (let s = 0; s < sources; s++) cursorOut[gap][s] = tops[gap][s];
+          for (let t = 0; t < targets; t++) cursorIn[gap][t] = tops[gap + 1][t];
+          // Leave in the order of the targets; arrive in the order of the sources (the loop order of s, then t, gives both).
+          for (let t = 0; t < targets; t++)
+            for (let s = 0; s < sources; s++) {
+              const size = flows[s * targets + t] * p.unit;
+              bands.push({
+                gap,
+                from: cursorOut[gap][s] + size / 2,
+                to: cursorIn[gap][t] + size / 2,
+                size,
+                tone: p.bandFirst + p.bandStep * (s * targets + t),
+              });
+              cursorOut[gap][s] += size;
+              cursorIn[gap][t] += size;
+            }
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          // The bands run between the columns.
+          for (let gap = 0; gap < 2; gap++) {
+            const start = p.nodeX[gap] + p.nodeWidth,
+              end = p.nodeX[gap + 1];
+            if (fu < start - 0.01 || fu > end + 0.01) continue;
+            const along = (fu - start) / (end - start),
+              ease = along * along * (3 - 2 * along);
+            for (const band of bands) {
+              if (band.gap !== gap) continue;
+              const centre =
+                  band.from +
+                  (band.to - band.from) * Math.min(1, Math.max(0, ease)),
+                amount = cover(
+                  Math.min(
+                    band.size / 2 - Math.abs(fv - centre),
+                    fu - start + 0.01,
+                    end + 0.01 - fu,
+                  ),
+                );
+              if (amount <= 0) continue;
+              shade += (band.tone - shade) * amount;
+              elevation += (p.bandHeight - elevation) * amount;
+              rough += (p.inkRoughness - rough) * amount;
+              mask = Math.max(mask, amount);
+            }
+          }
+          // The nodes, over the ends of the bands.
+          for (let column = 0; column < 3; column++) {
+            const across =
+              p.nodeWidth / 2 -
+              Math.abs(fu - p.nodeX[column] - p.nodeWidth / 2);
+            if (across < -0.01) continue;
+            for (let n = 0; n < sizes[column]; n++) {
+              const half = (totals[column][n] * p.unit) / 2,
+                amount = cover(
+                  Math.min(
+                    across,
+                    half - Math.abs(fv - tops[column][n] - half),
+                  ),
+                );
+              if (amount <= 0) continue;
+              shade += (p.nodeTone - shade) * amount;
+              elevation += (p.nodeHeight - elevation) * amount;
+              rough += (p.inkRoughness - rough) * amount;
+              mask = Math.max(mask, amount);
+            }
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -69463,6 +69612,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'sankeyflows' ||
     kind === 'bodeplots' ||
     kind === 'huffmancodes' ||
     kind === 'hashchains' ||

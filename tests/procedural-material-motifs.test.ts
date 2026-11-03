@@ -43769,3 +43769,520 @@ describe('bodeplots: the gain and the phase of a filter against frequency, on a 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('sankeyflows: bands between three columns of nodes, each node as tall as the flow through it', () => {
+  const p = proceduralMaterialPresets.sankeyflows,
+    out = empty(),
+    smoothstep = (x: number): number => x * x * (3 - 2 * x);
+  type Run = { index: number; value: number; centre: number };
+  type Band = {
+    gap: number;
+    source: number;
+    target: number;
+    value: number;
+    from: number;
+    to: number;
+    tone: number;
+  };
+  type Diagram = {
+    sample: Sampler;
+    sizes: number[];
+    nodes: { top: number; bottom: number }[][];
+    flows: number[][][];
+    bands: Band[];
+    tops: number[][];
+  };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const start = (gap: number): number => p.nodeX[gap] + p.nodeWidth;
+  const bandTone = (index: number): number => p.bandFirst + p.bandStep * index;
+
+  // The runs of one band tone along a column x between y0 and y1, as (pair index, value, centre height).
+  const runsAt = (
+    sample: Sampler,
+    x: number,
+    y0: number,
+    y1: number,
+  ): Run[] => {
+    const runs: Run[] = [];
+    let current: { tones: number[]; first: number; last: number } | null = null;
+    const close = (): void => {
+      // A run of fewer than four samples is the blend where two bands meet, not a band (a band is at least a unit tall).
+      if (current !== null && current.tones.length >= 4) {
+        const tone = current.tones[Math.floor(current.tones.length / 2)],
+          index = Math.round((tone - p.bandFirst) / p.bandStep) + 0;
+        expect(Math.abs(tone - bandTone(index))).toBeLessThan(0.008);
+        runs.push({
+          index,
+          value: Math.round((current.last - current.first + 0.001) / p.unit),
+          centre: (current.first + current.last) / 2,
+        });
+      }
+      current = null;
+    };
+    for (let y = y0; y <= y1; y += 0.001) {
+      const tone = toneAt(sample, x, y);
+      if (
+        tone > p.bandFirst - 0.02 &&
+        tone < p.bandFirst + p.bandStep * 12 + 0.02
+      ) {
+        if (
+          current !== null &&
+          Math.abs(tone - current.tones[current.tones.length - 1]) < 0.008
+        ) {
+          current.last = y;
+          current.tones.push(tone);
+        } else {
+          close();
+          current = { tones: [tone], first: y, last: y };
+        }
+      } else close();
+    }
+    close();
+    return runs;
+  };
+
+  const diagramOf = (seed: number): Diagram => {
+    const sample = createSurfaceSampler('sankeyflows', seed),
+      nodes: { top: number; bottom: number }[][] = [[], [], []];
+    // The nodes: runs of the node tone down the middle of each column.
+    for (let column = 0; column < 3; column++) {
+      let top: number | null = null;
+      for (let y = 0; y <= 1.0005; y += 0.001) {
+        const dark =
+          Math.abs(
+            toneAt(sample, p.nodeX[column] + p.nodeWidth / 2, y) - p.nodeTone,
+          ) < 0.01;
+        if (dark && top === null) top = y;
+        if (!dark && top !== null) {
+          nodes[column].push({ top: top - 0.0005, bottom: y - 0.0005 });
+          top = null;
+        }
+      }
+    }
+    const sizes = nodes.map((column) => column.length);
+    expect(sizes[0]).toBe(3);
+    expect(sizes[2]).toBe(3);
+    expect(p.middleCounts).toContain(sizes[1]);
+    // The flows, from the bands where they leave a node and where they arrive at one; both must give the same table.
+    const flows: number[][][] = [0, 1].map((gap) =>
+        Array.from({ length: sizes[gap] }, () =>
+          new Array<number>(sizes[gap + 1]).fill(0),
+        ),
+      ),
+      arrived: number[][][] = [0, 1].map((gap) =>
+        Array.from({ length: sizes[gap] }, () =>
+          new Array<number>(sizes[gap + 1]).fill(0),
+        ),
+      ),
+      bands: Band[] = [];
+    for (let gap = 0; gap < 2; gap++) {
+      const targets = sizes[gap + 1],
+        centres = new Map<number, [number, number]>();
+      nodes[gap].forEach((node, s) => {
+        const runs = runsAt(sample, start(gap) + 0.006, node.top, node.bottom);
+        // Leaving in the order of the targets, each run being the pair (source, target).
+        expect(runs.map((run) => run.index)).toEqual(
+          Array.from({ length: targets }, (_, t) => s * targets + t),
+        );
+        runs.forEach((run, t) => {
+          flows[gap][s][t] = run.value;
+          centres.set(run.index, [run.centre, 0]);
+        });
+      });
+      nodes[gap + 1].forEach((node, t) => {
+        const runs = runsAt(
+          sample,
+          p.nodeX[gap + 1] - 0.006,
+          node.top,
+          node.bottom,
+        );
+        // Arriving in the order of the sources.
+        expect(runs.map((run) => run.index)).toEqual(
+          Array.from({ length: sizes[gap] }, (_, s) => s * targets + t),
+        );
+        runs.forEach((run, s) => {
+          arrived[gap][s][t] = run.value;
+          centres.get(run.index)![1] = run.centre;
+        });
+      });
+      expect(arrived[gap]).toEqual(flows[gap]);
+      for (let s = 0; s < sizes[gap]; s++)
+        for (let t = 0; t < targets; t++) {
+          const [from, to] = centres.get(s * targets + t)!;
+          bands.push({
+            gap,
+            source: s,
+            target: t,
+            value: flows[gap][s][t],
+            from,
+            to,
+            tone: bandTone(s * targets + t),
+          });
+        }
+    }
+    // Where the nodes should be, from the flows: a column is as tall as its nodes and the gaps, and centred.
+    const through = [
+        flows[0].map((row) => row.reduce((a, b) => a + b, 0)),
+        Array.from({ length: sizes[1] }, (_, j) =>
+          flows[0].reduce((sum, row) => sum + row[j], 0),
+        ),
+        Array.from({ length: 3 }, (_, k) =>
+          flows[1].reduce((sum, row) => sum + row[k], 0),
+        ),
+      ],
+      tops = through.map((column) => {
+        let y =
+          p.centre -
+          (column.reduce((a, b) => a + b, 0) * p.unit +
+            (column.length - 1) * p.nodeGap) /
+            2;
+        return column.map((flow) => {
+          const top = y;
+          y += flow * p.unit + p.nodeGap;
+          return top;
+        });
+      });
+    // The bands' ends from the model (the measured ones are only to a millimetre): stacked down each node in order, each as tall as its flow.
+    for (let gap = 0; gap < 2; gap++) {
+      const leaving = bands.filter((band) => band.gap === gap);
+      for (let s = 0; s < sizes[gap]; s++) {
+        let y = tops[gap][s];
+        for (const band of leaving
+          .filter((one) => one.source === s)
+          .sort((a, b) => a.target - b.target)) {
+          expect(
+            Math.abs(band.from - (y + (band.value * p.unit) / 2)),
+          ).toBeLessThan(0.002);
+          band.from = y + (band.value * p.unit) / 2;
+          y += band.value * p.unit;
+        }
+      }
+      for (let t = 0; t < sizes[gap + 1]; t++) {
+        let y = tops[gap + 1][t];
+        for (const band of leaving
+          .filter((one) => one.target === t)
+          .sort((a, b) => a.source - b.source)) {
+          expect(
+            Math.abs(band.to - (y + (band.value * p.unit) / 2)),
+          ).toBeLessThan(0.002);
+          band.to = y + (band.value * p.unit) / 2;
+          y += band.value * p.unit;
+        }
+      }
+    }
+    return { sample, sizes, nodes, flows, bands, tops };
+  };
+
+  // The bands covering a point, by the S-curve of each (a different order from the sampler's: any number of them may cover it).
+  const covering = (
+    bands: Band[],
+    gap: number,
+    x: number,
+    y: number,
+    margin: number,
+  ): { covers: Band[]; edge: boolean } => {
+    const along = (x - start(gap)) / (p.nodeX[gap + 1] - start(gap)),
+      covers: Band[] = [];
+    let edge = false;
+    for (const band of bands) {
+      if (band.gap !== gap) continue;
+      const centre = band.from + (band.to - band.from) * smoothstep(along),
+        distance = Math.abs(y - centre) - (band.value * p.unit) / 2;
+      if (Math.abs(distance) < margin) edge = true;
+      if (distance < 0) covers.push(band);
+    }
+    return { covers, edge };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'has bands that are the flows it says, each node as tall as its flow, and every flow passed on (seed %i)',
+    (seed) => {
+      const { sizes, nodes, flows, tops } = diagramOf(seed);
+      for (const row of [...flows[0], ...flows[1]])
+        for (const value of row) {
+          expect(value).toBeGreaterThanOrEqual(1);
+          expect(value).toBeLessThanOrEqual(p.maxFlow + 100);
+        }
+      for (const row of flows[0])
+        for (const value of row) expect(value).toBeLessThanOrEqual(p.maxFlow);
+      // What a middle node receives from the left is what it sends on to the right.
+      for (let j = 0; j < sizes[1]; j++) {
+        const received = flows[0].reduce((sum, row) => sum + row[j], 0),
+          sent = flows[1][j].reduce((sum, value) => sum + value, 0);
+        expect(sent).toBe(received);
+      }
+      // Each node's height is the flow through it, a unit each, and the nodes of a column are a gap apart and centred.
+      const through = [
+        flows[0].map((row) => row.reduce((a, b) => a + b, 0)),
+        Array.from({ length: sizes[1] }, (_, j) =>
+          flows[0].reduce((sum, row) => sum + row[j], 0),
+        ),
+        Array.from({ length: 3 }, (_, k) =>
+          flows[1].reduce((sum, row) => sum + row[k], 0),
+        ),
+      ];
+      for (let column = 0; column < 3; column++) {
+        nodes[column].forEach((node, n) => {
+          expect(node.bottom - node.top).toBeCloseTo(
+            through[column][n] * p.unit,
+            2,
+          );
+          expect(
+            Math.abs(node.bottom - node.top - through[column][n] * p.unit),
+          ).toBeLessThan(0.0021);
+          expect(Math.abs(node.top - tops[column][n])).toBeLessThan(0.0021);
+          if (n > 0)
+            expect(
+              Math.abs(node.top - nodes[column][n - 1].bottom - p.nodeGap),
+            ).toBeLessThan(0.0021);
+        });
+        expect(
+          Math.abs(
+            (nodes[column][0].top +
+              nodes[column][nodes[column].length - 1].bottom) /
+              2 -
+              p.centre,
+          ),
+        ).toBeLessThan(0.0021);
+      }
+      // The totals through the right column and the left one are the same flow.
+      expect(through[0].reduce((a, b) => a + b, 0)).toBe(
+        through[2].reduce((a, b) => a + b, 0),
+      );
+    },
+  );
+
+  it('draws the bands along their S-curves: where the band tones and the paper are, at a grid of points between the columns', () => {
+    for (const seed of seeds) {
+      const { sample, bands } = diagramOf(seed);
+      let covered = 0,
+        empties = 0,
+        skipped = 0;
+      for (let gap = 0; gap < 2; gap++)
+        for (
+          let x = start(gap) + 0.02;
+          x < p.nodeX[gap + 1] - 0.02;
+          x += 0.0173
+        )
+          for (let y = 0.03; y < 0.98; y += 0.0087) {
+            const { covers, edge } = covering(bands, gap, x, y, 0.003);
+            if (edge || covers.length > 1) {
+              skipped++;
+              continue;
+            }
+            const tone = toneAt(sample, x, y);
+            if (covers.length === 1) {
+              expect(tone).toBeCloseTo(covers[0].tone, 6);
+              expect(out.height / p.relief).toBeCloseTo(p.bandHeight, 6);
+              expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+              covered++;
+            } else {
+              expect(Math.abs(tone - p.paperTone)).toBeLessThanOrEqual(
+                p.grainTone / 2 + 1e-9,
+              );
+              empties++;
+            }
+          }
+      expect(covered).toBeGreaterThan(200);
+      expect(empties).toBeGreaterThan(200);
+      expect(skipped).toBeGreaterThan(0);
+    }
+  });
+
+  it('draws the nodes with their tone, height, roughness and width, and nothing else outside the diagram', () => {
+    for (const seed of seeds) {
+      const { sample, nodes } = diagramOf(seed),
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      nodes.forEach((column, c) => {
+        const left = p.nodeX[c];
+        for (const node of column) {
+          const y = (node.top + node.bottom) / 2;
+          expect(toneAt(sample, left + p.nodeWidth / 2, y)).toBeCloseTo(
+            p.nodeTone,
+            6,
+          );
+          expect(out.height / p.relief).toBeCloseTo(p.nodeHeight, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          // The width: inside at both edges, and over the ends of the bands on both sides.
+          expect(toneAt(sample, left + 0.002, y)).toBeCloseTo(p.nodeTone, 6);
+          expect(toneAt(sample, left + p.nodeWidth - 0.002, y)).toBeCloseTo(
+            p.nodeTone,
+            6,
+          );
+          expect(
+            toneAt(sample, left + p.nodeWidth / 2, node.top + 0.002),
+          ).toBeCloseTo(p.nodeTone, 6);
+          expect(
+            toneAt(sample, left + p.nodeWidth / 2, node.bottom - 0.002),
+          ).toBeCloseTo(p.nodeTone, 6);
+        }
+        // Above the first node and below the last one of the column: paper.
+        expect(paperOk(left + p.nodeWidth / 2, column[0].top - 0.006)).toBe(
+          true,
+        );
+        expect(
+          paperOk(
+            left + p.nodeWidth / 2,
+            column[column.length - 1].bottom + 0.006,
+          ),
+        ).toBe(true);
+        // The gaps between nodes of a column, at the edge of the node: paper.
+        for (let n = 1; n < column.length; n++)
+          expect(
+            paperOk(
+              left + p.nodeWidth / 2,
+              (column[n - 1].bottom + column[n].top) / 2,
+            ),
+          ).toBe(true);
+      });
+      expect(paperOk(p.nodeX[0] - 0.004, nodes[0][1].top + 0.01)).toBe(true);
+      expect(
+        paperOk(p.nodeX[2] + p.nodeWidth + 0.004, nodes[2][1].top + 0.01),
+      ).toBe(true);
+      expect(paperOk(0.3, 0.02)).toBe(true);
+      expect(paperOk(0.3, 0.99)).toBe(true);
+    }
+  });
+
+  it('softens the edge of a node and of a band over edgeSoft', () => {
+    const quarter = 0.25 * p.edgeSoft,
+      mix = (target: number, amount: number): number =>
+        p.paperTone + (target - p.paperTone) * smoothstep(amount);
+    for (const seed of seeds) {
+      const { sample, nodes, bands, tops } = diagramOf(seed);
+      // The left edge of the first column's nodes, where nothing runs to its left.
+      for (const [n, node] of nodes[0].entries()) {
+        const y = (node.top + node.bottom) / 2;
+        expect(
+          Math.abs(
+            toneAt(sample, p.nodeX[0] + quarter, y) - mix(p.nodeTone, 0.75),
+          ),
+        ).toBeLessThan(0.03);
+        expect(
+          Math.abs(
+            toneAt(sample, p.nodeX[0] - quarter, y) - mix(p.nodeTone, 0.25),
+          ),
+        ).toBeLessThan(0.03);
+        expect(
+          Math.abs(
+            toneAt(sample, p.nodeX[0] + p.nodeWidth / 2, tops[0][n] + quarter) -
+              mix(p.nodeTone, 0.75),
+          ),
+        ).toBeLessThan(0.03);
+      }
+      // The right edge of the last column's nodes, where nothing runs to its right.
+      for (const node of nodes[2]) {
+        const y = (node.top + node.bottom) / 2,
+          edge = p.nodeX[2] + p.nodeWidth;
+        expect(
+          Math.abs(toneAt(sample, edge - quarter, y) - mix(p.nodeTone, 0.75)),
+        ).toBeLessThan(0.03);
+        expect(
+          Math.abs(toneAt(sample, edge + quarter, y) - mix(p.nodeTone, 0.25)),
+        ).toBeLessThan(0.03);
+      }
+      // The top and bottom edges of bands, in places where only that band is near.
+      let checked = 0;
+      for (const band of bands)
+        for (const t of [0.35, 0.5, 0.65]) {
+          const x =
+              start(band.gap) + t * (p.nodeX[band.gap + 1] - start(band.gap)),
+            centre = band.from + (band.to - band.from) * smoothstep(t),
+            half = (band.value * p.unit) / 2;
+          for (const side of [-1, 1]) {
+            const inner = centre + side * (half - quarter),
+              outer = centre + side * (half + quarter);
+            // Only this band is near: no other band within 0.012 of either probe.
+            const others = bands.filter((other) => other !== band);
+            if (
+              [inner, outer].some((y) => {
+                const near = covering(others, band.gap, x, y, 0.012);
+                return near.edge || near.covers.length > 0;
+              })
+            )
+              continue;
+            expect(
+              Math.abs(toneAt(sample, x, inner) - mix(band.tone, 0.75)),
+            ).toBeLessThan(0.03);
+            expect(
+              Math.abs(toneAt(sample, x, outer) - mix(band.tone, 0.25)),
+            ).toBeLessThan(0.03);
+            checked++;
+          }
+        }
+      expect(checked).toBeGreaterThan(4);
+    }
+  });
+
+  it('uses both numbers of middle nodes and all flow sizes, about equally, over 60 seeds', () => {
+    const middles = new Set<number>(),
+      counts = new Array<number>(p.maxFlow + 1).fill(0);
+    let total = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const { sizes, flows } = diagramOf(seed * 43 + 9);
+      middles.add(sizes[1]);
+      for (const row of flows[0])
+        for (const value of row) {
+          counts[value]++;
+          total++;
+        }
+    }
+    expect([...middles].sort()).toEqual([...p.middleCounts]);
+    expect(counts[0]).toBe(0);
+    for (let value = 1; value <= p.maxFlow; value++) {
+      expect(counts[value] / total).toBeGreaterThan(0.25);
+      expect(counts[value] / total).toBeLessThan(0.42);
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('sankeyflows', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('sankeyflows', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.0113),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('sankeyflows', 0),
+      b = createSurfaceSampler('sankeyflows', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

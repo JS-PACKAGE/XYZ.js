@@ -14711,6 +14711,36 @@ export const proceduralMaterialPresets = Object.freeze({
     paperRoughness: 0.8,
     inkRoughness: 0.4,
   }),
+  sankeyflows: Object.freeze({
+    dark: [20, 28, 44] as const,
+    light: [242, 238, 226] as const,
+    roughness: 0.55,
+    relief: 0.004,
+    // A Sankey diagram of three columns of nodes: 3 on the left, 3 or 4 in the middle and 3 on the right, joined by bands. Each of the left nodes has
+    // a band of 1 to 3 units to each middle node, and each middle node sends what it received on to the right nodes, in three parts of at least 1
+    // unit, so that every node is as tall as the flow through it (unit tall for each unit). The bands leave a node in the order of their targets and
+    // arrive in the order of their sources, each with its own tone, and run between the columns on a smooth S. The seed picks the number of middle
+    // nodes and all the flows.
+    middleCounts: Object.freeze([3, 4]),
+    maxFlow: 3,
+    unit: 0.02,
+    nodeGap: 0.035,
+    centre: 0.5,
+    nodeX: Object.freeze([0.1, 0.485, 0.87]),
+    nodeWidth: 0.03,
+    edgeSoft: 0.0006,
+    grainCells: 192,
+    paperTone: 0.93,
+    nodeTone: 0.12,
+    bandFirst: 0.3,
+    bandStep: 0.035,
+    grainTone: 0.03,
+    paperHeight: 0.2,
+    bandHeight: 0.45,
+    nodeHeight: 0.85,
+    paperRoughness: 0.8,
+    inkRoughness: 0.4,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -21203,6 +21233,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  sankeyflows: 1,
   bodeplots: 1,
   huffmancodes: 1,
   hashchains: 1,
