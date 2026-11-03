@@ -13480,3 +13480,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增6項專屬測試（數值範圍、邊、奇偶雙色、seed差異與決定性、C1掃描、maps）加kinds清單新條目，`-t`選中的7項皆通過；型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Farey disc as|fareydisc|kinds|catalog|distinct|periodic"`定向測試**2474項通過／4219項未選**，輸出`GATES-OK`。
 - 未驗證：fareydisc未跑完整suite與瀏覽器gallery（最近一次完整複驗至球面三角形群立體投影）；不push。
+
+## 2026-11-03 修正：十二個材質在gallery下拉選單的錯誤標籤
+
+- 問題（我的錯）：我的產生器腳本在`examples/pbr3d/index.html`新增`<option>`時，從perfectarray起一直沿用hypercube的標籤範本，使perfectarray、delaunay、harmonograph、lorenzattractor、ellipsebilliard、lsystemplants、pursuitpolygons、poincaretiling、sphericaltiling、poincaretriangles、sphericaltriangles、fareydisc這12個材質在下拉選單顯示成「Hypercube: the projection of a 4 to 7 dimensional <kind>」，**這12個提交（含各自的ACCEPTANCE、gallery複驗）都沒有發現**——gallery複驗只檢查「可選取、讀數更新、無console錯誤」，並不檢查顯示文字，這是複驗涵蓋範圍的缺口。選項的`value`與讀數沒有受影響，所以功能不受影響，只有顯示文字錯誤。
+- 修正：把這12個標籤改成對應該材質的簡短描述（取自各自README條目，英文，格式同其他選項）；kaprekar之前的選項我只檢查了kaprekar，其標籤正確，**更早的選項沒有逐一檢查**，只確認全檔案中「4 to 7 dimensional」字樣現在只剩hypercube自己的標籤；未在瀏覽器重新檢視下拉選單的實際顯示，只改了HTML文字並通過prettier。
+- 驗證：`prettier --check`；沒有對應的自動測試。
