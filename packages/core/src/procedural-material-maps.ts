@@ -49993,6 +49993,70 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'arnoldtongues': {
+        const p = proceduralMaterialPresets.arnoldtongues,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          [centre, halfWidth, lowK, highK] =
+            p.variants[
+              Math.floor(hash(0, 86, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          plot = 0.5 - p.margin,
+          inverseSoft = 1 / p.edgeSoft,
+          lockSquared = p.lockHalf * p.lockHalf;
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            omega = centre + (halfWidth * (fu - 0.5)) / plot,
+            strength = lowK + (highK - lowK) * (0.5 - (fv - 0.5) / (2 * plot)),
+            step = strength / TAU;
+          // The angle is kept in [0, 1) and the whole turns are counted apart, so that the argument of the sine stays small and
+          // the rounding error does not grow with the number of turns.
+          let theta = 0,
+            turns = 0;
+          for (let i = 0; i < p.steps; i++) {
+            theta += omega - step * Math.sin(TAU * theta);
+            const whole = Math.floor(theta);
+            theta -= whole;
+            turns += whole;
+          }
+          const rotation = (turns + theta) / p.steps;
+          let lock = 0;
+          for (let q = 1; q <= p.maxDenominator; q++) {
+            const offset = rotation - Math.round(rotation * q) / q,
+              t = clamp(1 - (offset * offset) / lockSquared);
+            lock = Math.max(
+              lock,
+              Math.max(p.toneMin, 1 - p.toneStep * (q - 1)) * t * t,
+            );
+          }
+          const outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
+            outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
+            boxDistance =
+              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              Math.min(Math.max(outsideX, outsideY), 0),
+            inside = smooth(clamp(-boxDistance / p.fade)),
+            background = p.backgroundTone * (1 - Math.abs(2 * rotation - 1)),
+            ink = clamp(inside * (1 - (1 - background) * (1 - lock))),
+            mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(ink) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -58903,6 +58967,7 @@ export function createSurfaceSampler(
     kind === 'mapprojections' ||
     kind === 'brillouinzones' ||
     kind === 'powderdiffraction' ||
+    kind === 'arnoldtongues' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

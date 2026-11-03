@@ -1172,6 +1172,7 @@ try {
     'mapprojections',
     'brillouinzones',
     'powderdiffraction',
+    'arnoldtongues',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

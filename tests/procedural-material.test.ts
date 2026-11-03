@@ -1135,6 +1135,7 @@ const kinds: ProceduralMaterialKind[] = [
   'mapprojections',
   'brillouinzones',
   'powderdiffraction',
+  'arnoldtongues',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -190123,6 +190124,362 @@ describe('Powder diffraction as the Debye-Scherrer rings of six cubic lattices',
     expect(blue / (512 * 512)).toBeLessThan(31.5);
     expect(maxTilt).toBeGreaterThan(0.0334);
     expect(maxTilt).toBeLessThan(0.0346);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Arnold tongues as the mode locking of the circle map', () => {
+  const p = proceduralMaterialPresets.arnoldtongues;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const plot = 0.5 - p.margin;
+  /** The frequency Omega and the coupling K of the pixel at (fu, fv) of the plot of a variant (K up, Omega to the right). */
+  const parametersAt = (
+    index: number,
+    fu: number,
+    fv: number,
+  ): [number, number] => {
+    const [centre, halfWidth, lowK, highK] = p.variants[index];
+    return [
+      centre + (halfWidth * (fu - 0.5)) / plot,
+      lowK + (highK - lowK) * (0.5 - (fv - 0.5) / (2 * plot)),
+    ];
+  };
+  /** The position (fu, fv) in the tile of the parameters (Omega, K) of a variant. */
+  const positionOf = (
+    index: number,
+    omega: number,
+    strength: number,
+  ): [number, number] => {
+    const [centre, halfWidth, lowK, highK] = p.variants[index];
+    return [
+      0.5 + ((omega - centre) / halfWidth) * plot,
+      0.5 - ((strength - lowK) / (highK - lowK) - 0.5) * 2 * plot,
+    ];
+  };
+  /** The rotation number of the circle map theta -> theta + Omega - K sin(2 pi theta) / (2 pi) from 0 by 2000 steps (the sampler uses 240), with the angle kept as one number. */
+  const rotationNumber = (omega: number, strength: number): number => {
+    let theta = 0;
+    for (let i = 0; i < 2000; i++)
+      theta +=
+        omega - (strength / (2 * Math.PI)) * Math.sin(2 * Math.PI * theta);
+    return theta / 2000;
+  };
+  /** The distance of x to the nearest fraction p / q with q up to 7, and the q of it. */
+  const nearestFraction = (
+    x: number,
+  ): { distance: number; denominator: number } => {
+    let best = { distance: 9, denominator: 1 };
+    for (let q = 1; q <= 7; q++) {
+      const distance = Math.abs(x - Math.round(x * q) / q);
+      if (distance < best.distance) best = { distance, denominator: q };
+    }
+    return best;
+  };
+  const colourAtParameters = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    index: number,
+    omega: number,
+    strength: number,
+  ): number => {
+    const [fu, fv] = positionOf(index, omega, strength);
+    sample(fu, fv, out);
+    return out.color;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('arnoldtongues', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('arnoldtongues', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0259);
+      expect(low).toBeLessThan(0.0262);
+      expect(high).toBeGreaterThan(0.8725);
+      expect(high).toBeLessThan(0.874);
+      expect(dark / 65536).toBeGreaterThan(0.187);
+      expect(dark / 65536).toBeLessThan(0.283);
+      expect(mean / 65536).toBeGreaterThan(0.2715);
+      expect(mean / 65536).toBeLessThan(0.335);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.874);
+      expect(heightHigh).toBeLessThan(0.878);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (the full plot, the left half, the middle half, the right half, K up to 0.6 and K from 0.5) is 1, 0, 4, 8, 7 and 14; the table was found with a probe by the
+  // correlation of the colour with the lock colours predicted from the independent rotation number (the smallest margin to the second best being 0.503) and is written here, so it is not an
+  // independent check of the seed's choice.
+  const seeds = [1, 0, 4, 8, 7, 14];
+  it('has the tongue 0/1 between the closed-form edges Omega = ±K / (2 pi)', () => {
+    // For the variants whose plot starts at Omega = 0 (0, 1, 4 and 5) and K from 0.2 (or the lowest K of the plot, plus 0.01) up to 0.95 in steps of 0.01, the pixels from Omega = 0.03 to 0.01 inside the edge K / (2 pi),
+    // every 0.004, have a colour above 0.8 (0.822 at the lowest in the probe, 994, 994, 252 and 854 pixels), and those from 0.03 to 0.06 outside it a colour under 0.45 (0.401 at the highest, 592, 592, 312 and 352 pixels).
+    for (const index of [0, 1, 4, 5]) {
+      const sample = createSurfaceSampler('arnoldtongues', seeds[index]),
+        out = empty(),
+        variant = p.variants[index];
+      let inside = 0,
+        outside = 0;
+      for (
+        let strength = Math.max(variant[2], 0.2) + 0.01;
+        strength <= Math.min(variant[3], 0.95);
+        strength += 0.01
+      ) {
+        const edge = strength / (2 * Math.PI);
+        for (let omega = 0.03; omega < edge - 0.01; omega += 0.004) {
+          expect(
+            colourAtParameters(sample, out, index, omega, strength),
+          ).toBeGreaterThan(0.8);
+          inside++;
+        }
+        for (
+          let omega = edge + 0.03;
+          omega < edge + 0.06 && omega < variant[0] + variant[1];
+          omega += 0.004
+        ) {
+          expect(
+            colourAtParameters(sample, out, index, omega, strength),
+          ).toBeLessThan(0.45);
+          outside++;
+        }
+      }
+      expect(inside).toBeGreaterThan(200);
+      expect(outside).toBeGreaterThan(200);
+    }
+  });
+  it('is locked to 1/2 along Omega = 1/2 for every K, whatever the plot', () => {
+    // The orbit 0, 1/2, 1 (mod 1) satisfies the map for Omega = 1/2 at every K (sin(pi) = 0), so the rotation number is 1/2 along that line and the colour is that of the tongue 1/2 (above 0.75 and under 0.83; 0.778 to
+    // 0.807 in the probe, with the pixels near the lowest and the highest K of the plot, 0.04 each, left out; 87, 87, 47 and 42 pixels for the variants 0, 2, 4 and 5).
+    for (const index of [0, 2, 4, 5]) {
+      const sample = createSurfaceSampler('arnoldtongues', seeds[index]),
+        out = empty(),
+        variant = p.variants[index];
+      let count = 0;
+      for (
+        let strength = Math.max(variant[2], 0.05) + 0.04;
+        strength < variant[3] - 0.04;
+        strength += 0.01
+      ) {
+        const colour = colourAtParameters(sample, out, index, 0.5, strength);
+        expect(colour).toBeGreaterThan(0.75);
+        expect(colour).toBeLessThan(0.83);
+        count++;
+      }
+      expect(count).toBeGreaterThan(40);
+    }
+  });
+  it('is symmetric under Omega -> 1 - Omega', () => {
+    // The map with Omega and theta replaced by their negatives is the same map, and the rotation number gains 1 when Omega gains 1, so the rotation number at 1 - Omega is 1 minus that at Omega. On the plots that
+    // span Omega from 0 to 1 (variants 0, 4 and 5) the colour at the two points differs by under 0.05 (0.0286 at the most in the probe, the grain; 988, 570 and 494 pairs of points).
+    for (const index of [0, 4, 5]) {
+      const sample = createSurfaceSampler('arnoldtongues', seeds[index]),
+        out = empty(),
+        variant = p.variants[index];
+      let pairs = 0;
+      for (
+        let strength = Math.max(variant[2], 0.05) + 0.01;
+        strength < variant[3] - 0.01;
+        strength += 0.037
+      )
+        for (let omega = 0.013; omega < 0.5; omega += 0.0131) {
+          expect(
+            Math.abs(
+              colourAtParameters(sample, out, index, omega, strength) -
+                colourAtParameters(sample, out, index, 1 - omega, strength),
+            ),
+          ).toBeLessThan(0.05);
+          pairs++;
+        }
+      expect(pairs).toBeGreaterThan(400);
+    }
+  });
+  it('agrees with an independent rotation number', () => {
+    // On a 96 by 96 grid of pixels inside the plot (0.06 to 0.94 of the tile), the rotation number is found in the test with 2000 steps. Where it is within 0.003 of a fraction p / q with q up to 3 the colour is above 0.45
+    // (0.516 at the lowest in the probe; 964 to 2542 pixels per variant), and where it is more than 0.012 from every fraction with q up to 7 the colour is under 0.36 (0.276 at the highest, the background; 3552 to 4968 pixels).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('arnoldtongues', seed),
+        out = empty();
+      let locked = 0,
+        free = 0;
+      for (let i = 0; i < 96; i++)
+        for (let j = 0; j < 96; j++) {
+          const fu = 0.06 + (0.88 * (i + 0.5)) / 96,
+            fv = 0.06 + (0.88 * (j + 0.5)) / 96,
+            [omega, strength] = parametersAt(index, fu, fv),
+            near = nearestFraction(rotationNumber(omega, strength));
+          sample(fu, fv, out);
+          if (near.distance < 0.003 && near.denominator <= 3) {
+            expect(out.color).toBeGreaterThan(0.45);
+            locked++;
+          }
+          if (near.distance > 0.012) {
+            expect(out.color).toBeLessThan(0.36);
+            free++;
+          }
+        }
+      expect(locked).toBeGreaterThan(500);
+      expect(free).toBeGreaterThan(3000);
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 2 pick different plots (the left half of the frequencies and the full plot).
+    const first = litGrid(0),
+      second = litGrid(2);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.2018);
+    expect(different / first.length).toBeLessThan(0.2019);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the colour smooth where it is not steep and periodic across signed UV periods', () => {
+    // Near the edges of the tongues the rotation number after a finite number of steps changes very fast (a slope of 1.7e5 per UV unit at one random point, with a second difference over 1e-10 that is not noise: it
+    // grows in proportion to the step), so the C1 sweep of the other materials does not hold there. Where the central slope over a step of 1e-10 is under 100 in absolute value (99.3 to 99.8 % of the 259392 values of the
+    // sweep per variant in the probe; 99.98 at the highest slope kept), the second difference divided by the step stays under 0.03 for the colour, height, roughness, occlusion, metallic and mortar (0.016 at the worst in
+    // the probe over the grid lines at 13, 129 and 509 divisions and 16384 random points per variant), so a kink of the margin, the fade or the grain would show; the same points give the same output when the UV is
+    // shifted by whole periods (7.5e-14 at the worst in the probe).
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('arnoldtongues', seed);
+      let worst = 0,
+        drift = 0,
+        used = 0,
+        total = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys) {
+            total++;
+            if (Math.abs((c[key] - a[key]) / (2 * h)) > 100) continue;
+            used++;
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+          }
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(used / total).toBeGreaterThan(0.99);
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 coral tongue maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('arnoldtongues', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(65.3);
+    expect(red / (512 * 512)).toBeLessThan(66.4);
+    expect(green / (512 * 512)).toBeGreaterThan(41.2);
+    expect(green / (512 * 512)).toBeLessThan(42.2);
+    expect(blue / (512 * 512)).toBeGreaterThan(49.4);
+    expect(blue / (512 * 512)).toBeLessThan(50.4);
+    expect(maxTilt).toBeGreaterThan(0.0463);
+    expect(maxTilt).toBeLessThan(0.0475);
     expect(invalid).toBe(0);
   });
 });
