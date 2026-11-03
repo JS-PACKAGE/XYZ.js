@@ -42788,6 +42788,146 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'dijkstragrid': {
+        const p = proceduralMaterialPresets.dijkstragrid,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x4f801),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          n = p.sizes[Math.floor(hash(47, 1, seed ^ 0x4f802) * p.sizes.length)],
+          cells = n * n,
+          levels = new Uint8Array(cells),
+          cost = new Uint8Array(cells),
+          distance = new Float64Array(cells).fill(Infinity),
+          before = new Int32Array(cells).fill(-1),
+          done = new Uint8Array(cells),
+          onPath = new Uint8Array(cells),
+          // Whether the path goes from this cell to the one on its right, and to the one below it.
+          toRight = new Uint8Array(cells),
+          toBelow = new Uint8Array(cells),
+          margin = (1 - n * p.pitch) / 2;
+        for (let cell = 0; cell < cells; cell++) {
+          const draw = hash(cell, 7, seed ^ 0x4f803),
+            walls = p.costs.length - 1;
+          // Every cell is a wall, the last and dearest cost, with chance wallShare; otherwise one of the others at random.
+          levels[cell] =
+            draw < p.wallShare
+              ? walls
+              : Math.floor(((draw - p.wallShare) / (1 - p.wallShare)) * walls);
+          cost[cell] = p.costs[levels[cell]];
+        }
+        // Dijkstra from the top left to the bottom right cell; stepping into a cell costs its cost.
+        distance[0] = 0;
+        for (;;) {
+          let best = -1;
+          for (let cell = 0; cell < cells; cell++)
+            if (
+              !done[cell] &&
+              distance[cell] < Infinity &&
+              (best < 0 || distance[cell] < distance[best])
+            )
+              best = cell;
+          if (best < 0 || best === cells - 1) break;
+          done[best] = 1;
+          const x = best % n,
+            y = (best - x) / n;
+          for (const [dx, dy] of [
+            [0, -1],
+            [-1, 0],
+            [1, 0],
+            [0, 1],
+          ]) {
+            const nx = x + dx,
+              ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= n || ny >= n) continue;
+            const next = ny * n + nx;
+            if (distance[best] + cost[next] < distance[next]) {
+              distance[next] = distance[best] + cost[next];
+              before[next] = best;
+            }
+          }
+        }
+        for (let cell = cells - 1; cell >= 0; cell = before[cell]) {
+          onPath[cell] = 1;
+          const from = before[cell];
+          if (from < 0) break;
+          if (from + 1 === cell) toRight[from] = 1;
+          else if (from - 1 === cell) toRight[cell] = 1;
+          else if (from + n === cell) toBelow[from] = 1;
+          else toBelow[cell] = 1;
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          const gu = (fu - margin) / p.pitch,
+            gv = (fv - margin) / p.pitch;
+          if (gu > -0.5 && gu < n + 0.5 && gv > -0.5 && gv < n + 0.5) {
+            const column = Math.floor(gu),
+              line = Math.floor(gv);
+            if (column >= 0 && column < n && line >= 0 && line < n) {
+              // The cell, a little in from its edges.
+              const tier = levels[line * n + column];
+              paint(
+                cover(
+                  p.cellHalf -
+                    Math.max(
+                      Math.abs((gu - column - 0.5) * p.pitch),
+                      Math.abs((gv - line - 0.5) * p.pitch),
+                    ),
+                ),
+                p.costTones[tier],
+                p.costHeights[tier],
+              );
+            }
+            // The path: joints at the cells it visits, and the runs between two of them (a run only reaches its ends inside the joints; all are painted once, by the largest coverage).
+            const nearU = Math.min(n - 1, Math.max(0, Math.round(gu - 0.5))),
+              nearV = Math.min(n - 1, Math.max(0, Math.round(gv - 0.5))),
+              centerU = margin + (nearU + 0.5) * p.pitch,
+              centerV = margin + (nearV + 0.5) * p.pitch;
+            let ink = 0;
+            if (onPath[nearV * n + nearU]) {
+              ink = cover(
+                p.pathHalf -
+                  Math.max(Math.abs(fu - centerU), Math.abs(fv - centerV)),
+              );
+              if (nearU === 0 && nearV === 0)
+                ink = Math.max(
+                  ink,
+                  cover(p.startRadius - Math.hypot(fu - centerU, fv - centerV)),
+                );
+              if (nearU === n - 1 && nearV === n - 1)
+                ink = Math.max(
+                  ink,
+                  cover(p.goalRadius - Math.hypot(fu - centerU, fv - centerV)),
+                );
+            }
+            const gapU = Math.floor(gu - 0.5),
+              gapV = Math.floor(gv - 0.5);
+            if (gapU >= 0 && gapU < n - 1 && toRight[nearV * n + gapU])
+              ink = Math.max(ink, cover(p.pathHalf - Math.abs(fv - centerV)));
+            if (gapV >= 0 && gapV < n - 1 && toBelow[gapV * n + nearU])
+              ink = Math.max(ink, cover(p.pathHalf - Math.abs(fu - centerU)));
+            paint(ink, p.pathTone, p.pathHeight);
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -70317,6 +70457,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'dijkstragrid' ||
     kind === 'binarysearchsteps' ||
     kind === 'quicksortsteps' ||
     kind === 'ganttschedule' ||

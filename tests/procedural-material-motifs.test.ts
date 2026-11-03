@@ -46622,3 +46622,445 @@ describe('binarysearchsteps: binary search in a row of rising bars, one row per 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('dijkstragrid: a grid of costs with the cheapest way from the top left to the bottom right', () => {
+  const p = proceduralMaterialPresets.dijkstragrid,
+    out = empty(),
+    arms = [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ] as const;
+  type Grid = {
+    sample: Sampler;
+    n: number;
+    cost: number[];
+    right: boolean[];
+    below: boolean[];
+    margin: number;
+  };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const near = (tone: number, wanted: number): boolean =>
+    Math.abs(tone - wanted) < 0.01;
+  const centre = (margin: number, index: number): number =>
+    margin + (index + 0.5) * p.pitch;
+
+  // Read the picture: the size from where the first cell starts, every cell's cost from its tone, and the path from the runs between cells.
+  const gridOf = (seed: number): Grid => {
+    const sample = createSurfaceSampler('dijkstragrid', seed);
+    let first = 0;
+    while (Math.abs(toneAt(sample, first, 0.53) - p.paperTone) < 0.05)
+      first += 0.001;
+    const n = Math.round(
+        (1 - 2 * (first - (p.pitch / 2 - p.cellHalf))) / p.pitch,
+      ),
+      margin = (1 - n * p.pitch) / 2,
+      cost: number[] = [],
+      right: boolean[] = [],
+      below: boolean[] = [];
+    expect(p.sizes).toContain(n);
+    for (let y = 0; y < n; y++)
+      for (let x = 0; x < n; x++) {
+        // A corner of the cell, away from the path.
+        const tone = toneAt(
+            sample,
+            centre(margin, x) - 0.03,
+            centre(margin, y) - 0.03,
+          ),
+          level = p.costTones.findIndex((candidate) => near(tone, candidate));
+        expect(level).toBeGreaterThanOrEqual(0);
+        cost.push(p.costs[level]);
+        // The run to the next cell on the right and to the one below, at the gap between them.
+        right.push(
+          x < n - 1 &&
+            near(
+              toneAt(
+                sample,
+                centre(margin, x) + p.pitch / 2,
+                centre(margin, y),
+              ),
+              p.pathTone,
+            ),
+        );
+        below.push(
+          y < n - 1 &&
+            near(
+              toneAt(
+                sample,
+                centre(margin, x),
+                centre(margin, y) + p.pitch / 2,
+              ),
+              p.pathTone,
+            ),
+        );
+      }
+    return { sample, n, cost, right, below, margin };
+  };
+
+  // The cheapest total cost by relaxing every step until nothing improves (the sampler picks the nearest cell each time instead).
+  const cheapest = (grid: Grid): number => {
+    const { n, cost } = grid,
+      best = new Array<number>(n * n).fill(Infinity);
+    best[0] = 0;
+    for (let changed = true; changed;) {
+      changed = false;
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++)
+          for (const [dx, dy] of arms) {
+            const nx = x + dx,
+              ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= n || ny >= n) continue;
+            if (best[y * n + x] + cost[ny * n + nx] < best[ny * n + nx]) {
+              best[ny * n + nx] = best[y * n + x] + cost[ny * n + nx];
+              changed = true;
+            }
+          }
+    }
+    return best[n * n - 1];
+  };
+
+  // Follow the runs from the top left: the cells visited, in order.
+  const walk = (grid: Grid): number[] => {
+    const { n, right, below } = grid,
+      linked = (cell: number, dx: number, dy: number): boolean => {
+        const x = cell % n,
+          y = (cell - x) / n;
+        if (dx === 1) return right[cell];
+        if (dx === -1) return x > 0 && right[cell - 1];
+        if (dy === 1) return below[cell];
+        return y > 0 && below[cell - n];
+      },
+      route = [0];
+    for (;;) {
+      const here = route[route.length - 1],
+        previous = route.length > 1 ? route[route.length - 2] : -1,
+        next = arms
+          .filter(([dx, dy]) => linked(here, dx, dy))
+          .map(([dx, dy]) => here + dx + dy * n)
+          .filter((cell) => cell !== previous);
+      if (next.length === 0) break;
+      expect(next.length).toBe(1);
+      expect(route).not.toContain(next[0]);
+      route.push(next[0]);
+    }
+    return route;
+  };
+
+  // The whole claim about a path: it runs from the top left to the bottom right, has no stray runs, and pays the least there is.
+  const expectCheapest = (grid: Grid): number[] => {
+    const { n, cost, right, below } = grid,
+      route = walk(grid);
+    expect(route[0]).toBe(0);
+    expect(route[route.length - 1]).toBe(n * n - 1);
+    expect(right.filter(Boolean).length + below.filter(Boolean).length).toBe(
+      route.length - 1,
+    );
+    // It pays the cost of each cell it enters.
+    expect(route.slice(1).reduce((sum, cell) => sum + cost[cell], 0)).toBe(
+      cheapest(grid),
+    );
+    expect(route.length - 1).toBeGreaterThanOrEqual(2 * (n - 1));
+    return route;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws a path of the least total cost from the top left to the bottom right, stepping to a side or up and down (seed %i)',
+    (seed) => {
+      expectCheapest(gridOf(seed));
+    },
+  );
+
+  it('uses every size and cost with the walls three in ten, and paths that bend and sometimes go left or up, over 60 seeds', () => {
+    const sizes = new Set<number>(),
+      counts = p.costs.map(() => 0);
+    let total = 0,
+      bends = 0,
+      lefts = 0,
+      ups = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const grid = gridOf(seed * 53 + 9);
+      sizes.add(grid.n);
+      for (const cost of grid.cost) {
+        counts[p.costs.indexOf(cost)]++;
+        total++;
+      }
+      const route = expectCheapest(grid);
+      for (let i = 1; i < route.length; i++) {
+        lefts += Number(route[i] === route[i - 1] - 1);
+        ups += Number(route[i] === route[i - 1] - grid.n);
+      }
+      for (let i = 2; i < route.length; i++)
+        bends += Number(
+          route[i] - route[i - 1] !== route[i - 1] - route[i - 2],
+        );
+    }
+    expect([...sizes].sort((a, b) => a - b)).toEqual([...p.sizes]);
+    // The walls are three cells in ten, the other four costs share the rest equally.
+    counts.forEach((count, level) => {
+      const wanted =
+        level === p.costs.length - 1
+          ? p.wallShare
+          : (1 - p.wallShare) / (p.costs.length - 1);
+      expect(Math.abs(count / total - wanted)).toBeLessThan(0.03);
+    });
+    expect(bends / 60).toBeGreaterThan(3);
+    expect(lefts).toBeGreaterThan(0);
+    expect(ups).toBeGreaterThan(0);
+  });
+
+  it('draws the cells, the path and the two dots with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const grid = gridOf(seed),
+        { sample, n, cost, margin } = grid,
+        route = walk(grid),
+        half = p.pathHalf,
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9,
+        inked = (u: number, v: number): boolean =>
+          near(toneAt(sample, u, v), p.pathTone);
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          const cx = centre(margin, x),
+            cy = centre(margin, y),
+            level = p.costs.indexOf(cost[y * n + x]),
+            side = p.cellHalf;
+          // The cell: its tone, height and roughness, filled out to cellHalf from the middle, and paper in the gap around it.
+          expect(toneAt(sample, cx - 0.03, cy - 0.03)).toBeCloseTo(
+            p.costTones[level],
+            6,
+          );
+          expect(out.height / p.relief).toBeCloseTo(p.costHeights[level], 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          for (const [sx, sy] of [
+            [-1, -1],
+            [1, -1],
+            [-1, 1],
+            [1, 1],
+          ]) {
+            expect(
+              toneAt(
+                sample,
+                cx + sx * (side - 0.0015),
+                cy + sy * (side - 0.0015),
+              ),
+            ).toBeCloseTo(p.costTones[level], 6);
+            expect(
+              paperOk(cx + sx * (side + 0.0015), cy + sy * (side - 0.004)),
+            ).toBe(true);
+            expect(
+              paperOk(cx + sx * (side - 0.004), cy + sy * (side + 0.0015)),
+            ).toBe(true);
+          }
+        }
+      // The runs: their tone, height and roughness, their thickness, and no ink beside them.
+      route.slice(1).forEach((cell, i) => {
+        const from = route[i],
+          fx = from % n,
+          fy = (from - fx) / n,
+          tx = cell % n,
+          ty = (cell - tx) / n,
+          mu = (centre(margin, fx) + centre(margin, tx)) / 2,
+          mv = (centre(margin, fy) + centre(margin, ty)) / 2,
+          horizontal = fy === ty;
+        expect(toneAt(sample, mu, mv)).toBeCloseTo(p.pathTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.pathHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        for (const sign of [-1, 1]) {
+          const du = horizontal ? 0 : sign,
+            dv = horizontal ? sign : 0;
+          expect(
+            inked(mu + du * (half - 0.0004), mv + dv * (half - 0.0004)),
+          ).toBe(true);
+          expect(
+            inked(mu + du * (half + 0.0006), mv + dv * (half + 0.0006)),
+          ).toBe(false);
+        }
+      });
+      // The cells it visits: a joint of half-width pathHalf with ink only toward the runs (the first and last carry the dots).
+      route.forEach((cell, i) => {
+        const x = cell % n,
+          y = (cell - x) / n,
+          cx = centre(margin, x),
+          cy = centre(margin, y),
+          linked = (dx: number, dy: number): boolean => {
+            const other = cell + dx + dy * n;
+            return route[i - 1] === other || route[i + 1] === other;
+          };
+        expect(inked(cx, cy)).toBe(true);
+        if (i === 0 || i === route.length - 1) return;
+        for (const [dx, dy] of arms) {
+          // Toward a run the ink goes on; where there is none it ends at pathHalf.
+          expect(
+            inked(cx + dx * (half - 0.0005), cy + dy * (half - 0.0005)),
+          ).toBe(true);
+          expect(
+            inked(cx + dx * (half + 0.0015), cy + dy * (half + 0.0015)),
+          ).toBe(linked(dx, dy));
+        }
+      });
+      // The dots: small at the start, large at the goal, in the corner away from the runs.
+      const sx = centre(margin, 0),
+        gx = centre(margin, n - 1);
+      expect(inked(sx - 0.01, sx - 0.01)).toBe(true);
+      expect(inked(sx - 0.0125, sx - 0.0125)).toBe(false);
+      expect(inked(gx + 0.0185, gx + 0.0185)).toBe(true);
+      expect(inked(gx + 0.0215, gx + 0.0215)).toBe(false);
+      expect(toneAt(sample, sx - 0.01, sx - 0.01)).toBeCloseTo(p.pathTone, 6);
+      expect(out.height / p.relief).toBeCloseTo(p.pathHeight, 6);
+      // Nothing outside the grid.
+      expect(paperOk(margin - 0.02, 0.5)).toBe(true);
+      expect(paperOk(0.5, 1 - margin + 0.02)).toBe(true);
+    }
+  });
+
+  it('softens the edge of a cell, the path and the dots over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      const grid = gridOf(seed),
+        { sample, n, cost, margin } = grid,
+        route = walk(grid),
+        first = p.costs.indexOf(cost[0]),
+        cx = centre(margin, 0),
+        cy = centre(margin, 0),
+        left = cx - p.cellHalf;
+      // The left edge and the top edge of the first cell, over the paper.
+      close(
+        toneAt(sample, left + quarter, cy + 0.03),
+        mix(p.paperTone, p.costTones[first], 0.75),
+      );
+      close(
+        toneAt(sample, left - quarter, cy + 0.03),
+        mix(p.paperTone, p.costTones[first], 0.25),
+      );
+      close(
+        toneAt(sample, cx + 0.03, cy - p.cellHalf + quarter),
+        mix(p.paperTone, p.costTones[first], 0.75),
+      );
+      close(
+        toneAt(sample, cx + 0.03, cy - p.cellHalf - quarter),
+        mix(p.paperTone, p.costTones[first], 0.25),
+      );
+      // The side of a run in the middle of the path, over the gap between two cells where the ground is paper.
+      const middle = Math.floor(route.length / 2),
+        from = route[middle],
+        to = route[middle + 1],
+        fx = from % n,
+        tx = to % n,
+        horizontal = Math.floor(from / n) === Math.floor(to / n),
+        mu = (centre(margin, fx) + centre(margin, tx)) / 2,
+        mv =
+          (centre(margin, Math.floor(from / n)) +
+            centre(margin, Math.floor(to / n))) /
+          2,
+        side = horizontal ? [0, 1] : [1, 0];
+      close(
+        toneAt(
+          sample,
+          mu + side[0] * (p.pathHalf - quarter),
+          mv + side[1] * (p.pathHalf - quarter),
+        ),
+        mix(p.paperTone, p.pathTone, 0.75),
+      );
+      close(
+        toneAt(
+          sample,
+          mu + side[0] * (p.pathHalf + quarter),
+          mv + side[1] * (p.pathHalf + quarter),
+        ),
+        mix(p.paperTone, p.pathTone, 0.25),
+      );
+      // The start dot's edge, towards the corner (over the first cell), and the goal dot's.
+      const start = Math.SQRT1_2;
+      close(
+        toneAt(
+          sample,
+          cx - start * (p.startRadius - quarter),
+          cy - start * (p.startRadius - quarter),
+        ),
+        mix(p.costTones[first], p.pathTone, 0.75),
+      );
+      close(
+        toneAt(
+          sample,
+          cx - start * (p.startRadius + quarter),
+          cy - start * (p.startRadius + quarter),
+        ),
+        mix(p.costTones[first], p.pathTone, 0.25),
+      );
+      const gx = centre(margin, n - 1),
+        last = p.costs.indexOf(cost[n * n - 1]);
+      close(
+        toneAt(
+          sample,
+          gx + start * (p.goalRadius - quarter),
+          gx + start * (p.goalRadius - quarter),
+        ),
+        mix(p.costTones[last], p.pathTone, 0.75),
+      );
+      close(
+        toneAt(
+          sample,
+          gx + start * (p.goalRadius + quarter),
+          gx + start * (p.goalRadius + quarter),
+        ),
+        mix(p.costTones[last], p.pathTone, 0.25),
+      );
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('dijkstragrid', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('dijkstragrid', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.02),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('dijkstragrid', 0),
+      b = createSurfaceSampler('dijkstragrid', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3301],
+        [0.4301, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
