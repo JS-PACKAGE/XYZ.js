@@ -47064,3 +47064,332 @@ describe('dijkstragrid: a grid of costs with the cheapest way from the top left 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('kmpfailure: three patterns of two letters, each with the length of the longest border up to every letter', () => {
+  const p = proceduralMaterialPresets.kmpfailure,
+    out = empty();
+  type Pattern = { letters: number[]; borders: number[] };
+  type Table = { sample: Sampler; patterns: Pattern[] };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const near = (tone: number, wanted: number): boolean =>
+    Math.abs(tone - wanted) < 0.01;
+  const cellTop = (group: number): number => p.top + group * p.groupPitch;
+  const ruleY = (group: number): number =>
+    cellTop(group) + p.cellHeight + p.ruleGap;
+  const slotX = (slot: number): number => p.left + (slot + 0.5) * p.pitch;
+
+  // Read the picture: each pattern's letters (from the cell tones) and its bars (the length hanging from the rule).
+  const tableOf = (seed: number): Table => {
+    const sample = createSurfaceSampler('kmpfailure', seed),
+      patterns: Pattern[] = [];
+    for (let group = 0; group < p.groups; group++) {
+      const letters: number[] = [],
+        borders: number[] = [];
+      for (
+        let slot = 0;
+        Math.abs(
+          toneAt(sample, slotX(slot), cellTop(group) + p.cellHeight / 2) -
+            p.paperTone,
+        ) > 0.05;
+        slot++
+      ) {
+        const tone = toneAt(
+            sample,
+            slotX(slot),
+            cellTop(group) + p.cellHeight / 2,
+          ),
+          letter = p.letterTones.findIndex((candidate) =>
+            near(tone, candidate),
+          );
+        expect(letter).toBeGreaterThanOrEqual(0);
+        letters.push(letter);
+        let y = ruleY(group) + 0.003;
+        while (near(toneAt(sample, slotX(slot), y), p.barTone)) y += 0.0002;
+        borders.push(Math.round((y - ruleY(group)) / p.unit));
+      }
+      patterns.push({ letters, borders });
+    }
+    return { sample, patterns };
+  };
+
+  // The longest border of each prefix by comparing the start and the end of it directly (the sampler uses the Knuth-Morris-Pratt loop).
+  const expectedBorders = (letters: number[]): number[] =>
+    letters.map((_, i) => {
+      for (let k = i; k > 0; k--)
+        if (
+          letters.slice(0, k).join('') ===
+          letters.slice(i + 1 - k, i + 1).join('')
+        )
+          return k;
+      return 0;
+    });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows each pattern with its longest border at every letter, and the pattern a repeated start with one letter changed (seed %i)',
+    (seed) => {
+      for (const { letters, borders } of tableOf(seed).patterns) {
+        expect(p.sizes).toContain(letters.length);
+        expect(borders).toEqual(expectedBorders(letters));
+        // A start of 2 to 4 letters repeated with one later letter changed.
+        const fits = [2, 3, 4].some(
+          (period) =>
+            letters.filter((letter, i) => letter !== letters[i % period])
+              .length === 1,
+        );
+        expect(fits).toBe(true);
+        // The first letter has no border, and no border is the whole of its prefix.
+        expect(borders[0]).toBe(0);
+        borders.forEach((border, i) => expect(border).toBeLessThanOrEqual(i));
+      }
+    },
+  );
+
+  it('uses every size and period, both letters equally and long borders, over 60 seeds', () => {
+    const sizes = new Set<number>(),
+      periods = [0, 0, 0, 0, 0];
+    let letterB = 0,
+      letters = 0,
+      longest = 0,
+      sum = 0,
+      changedFirst = 0,
+      changedLast = 0;
+    for (let seed = 0; seed < 60; seed++)
+      for (const pattern of tableOf(seed * 43 + 5).patterns) {
+        sizes.add(pattern.letters.length);
+        letters += pattern.letters.length;
+        letterB += pattern.letters.reduce((a, b) => a + b, 0);
+        longest = Math.max(longest, ...pattern.borders);
+        sum += pattern.borders.reduce((a, b) => a + b, 0);
+        // The smallest period with exactly one letter off.
+        const period = [2, 3, 4].find(
+          (candidate) =>
+            pattern.letters.filter(
+              (letter, i) => letter !== pattern.letters[i % candidate],
+            ).length === 1,
+        );
+        periods[period ?? 0]++;
+        if (period !== undefined) {
+          const changed = pattern.letters.findIndex(
+            (letter, i) => letter !== pattern.letters[i % period],
+          );
+          changedFirst += Number(changed === period);
+          changedLast += Number(changed === pattern.letters.length - 1);
+        }
+      }
+    expect([...sizes].sort((a, b) => a - b)).toEqual([...p.sizes]);
+    expect(Math.abs(letterB / letters - 0.5)).toBeLessThan(0.1);
+    expect(longest).toBeGreaterThanOrEqual(5);
+    expect(sum / letters).toBeGreaterThan(1);
+    expect(periods[0]).toBeLessThan(5);
+    expect(changedFirst).toBeGreaterThan(0);
+    expect(changedLast).toBeGreaterThan(0);
+    expect(periods[2]).toBeGreaterThan(10);
+    expect(periods[3]).toBeGreaterThan(10);
+    expect(periods[4]).toBeGreaterThan(10);
+  });
+
+  it('draws the cells, the rules and the bars with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, patterns } = tableOf(seed),
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      patterns.forEach(({ letters, borders }, group) => {
+        const top = cellTop(group),
+          rule = ruleY(group),
+          m = letters.length;
+        letters.forEach((letter, slot) => {
+          const cx = slotX(slot);
+          // The cell: tone, height, roughness, and its size in the middle of its slot, with paper in the gap and around.
+          expect(toneAt(sample, cx, top + p.cellHeight / 2)).toBeCloseTo(
+            p.letterTones[letter],
+            6,
+          );
+          expect(out.height / p.relief).toBeCloseTo(p.letterHeights[letter], 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          for (const [sx, sy] of [
+            [-1, -1],
+            [1, -1],
+            [-1, 1],
+            [1, 1],
+          ]) {
+            expect(
+              toneAt(
+                sample,
+                cx + sx * (p.cellWidth / 2 - 0.0015),
+                top + p.cellHeight / 2 + sy * (p.cellHeight / 2 - 0.0015),
+              ),
+            ).toBeCloseTo(p.letterTones[letter], 6);
+            expect(
+              paperOk(
+                cx + sx * (p.cellWidth / 2 + 0.0015),
+                top + p.cellHeight / 2 + sy * (p.cellHeight / 2 - 0.004),
+              ),
+            ).toBe(true);
+            expect(
+              paperOk(
+                cx + sx * (p.cellWidth / 2 - 0.004),
+                top + p.cellHeight / 2 + sy * (p.cellHeight / 2 + 0.0015),
+              ),
+            ).toBe(true);
+          }
+          // The bar: tone, height and roughness, its width, and its end at the border's length (none when there is no border).
+          const border = borders[slot];
+          if (border > 0) {
+            expect(
+              toneAt(sample, cx, rule + (border * p.unit) / 2 + 0.002),
+            ).toBeCloseTo(p.barTone, 6);
+            expect(out.height / p.relief).toBeCloseTo(p.barHeight, 6);
+            expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+            expect(
+              toneAt(
+                sample,
+                cx + p.barWidth / 2 - 0.0015,
+                rule + border * p.unit - 0.0015,
+              ),
+            ).toBeCloseTo(p.barTone, 6);
+            expect(
+              toneAt(sample, cx - p.barWidth / 2 + 0.0015, rule + 0.003),
+            ).toBeCloseTo(p.barTone, 6);
+            expect(
+              paperOk(
+                cx + p.barWidth / 2 + 0.0015,
+                rule + (border * p.unit) / 2,
+              ),
+            ).toBe(true);
+            expect(paperOk(cx, rule + border * p.unit + 0.0015)).toBe(true);
+            // Nothing above the rule.
+            expect(paperOk(cx, rule - p.ruleHalf - 0.003)).toBe(true);
+          } else expect(paperOk(cx, rule + 0.004)).toBe(true);
+        });
+        // The rule: tone, height, roughness, thickness and ends.
+        expect(toneAt(sample, slotX(0) - p.pitch / 2 + 0.01, rule)).toBeCloseTo(
+          p.ruleTone,
+          6,
+        );
+        expect(out.height / p.relief).toBeCloseTo(p.ruleHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        // (Between the bars, where nothing else is.)
+        const gapU = p.left + m * p.pitch - 0.004;
+        expect(toneAt(sample, gapU, rule)).toBeCloseTo(p.ruleTone, 6);
+        expect(paperOk(p.left + m * p.pitch + 0.003, rule)).toBe(true);
+        expect(paperOk(p.left - 0.003, rule)).toBe(true);
+        expect(toneAt(sample, gapU, rule + p.ruleHalf - 0.0004)).toBeCloseTo(
+          p.ruleTone,
+          6,
+        );
+        expect(paperOk(gapU, rule + p.ruleHalf + 0.0006)).toBe(true);
+        expect(paperOk(gapU, rule - p.ruleHalf - 0.0006)).toBe(true);
+      });
+      // Nothing under the last group.
+      expect(paperOk(slotX(2), cellTop(p.groups) + 0.02)).toBe(true);
+    }
+  });
+
+  it('softens the edge of a cell, a bar and a rule over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      const { sample, patterns } = tableOf(seed),
+        { letters, borders } = patterns[0],
+        top = cellTop(0),
+        rule = ruleY(0),
+        longest = borders.indexOf(Math.max(...borders)),
+        cx = slotX(0);
+      // A cell's left side and top, over the paper.
+      const tone = p.letterTones[letters[0]];
+      close(
+        toneAt(sample, cx - p.cellWidth / 2 + quarter, top + p.cellHeight / 2),
+        mix(p.paperTone, tone, 0.75),
+      );
+      close(
+        toneAt(sample, cx - p.cellWidth / 2 - quarter, top + p.cellHeight / 2),
+        mix(p.paperTone, tone, 0.25),
+      );
+      close(toneAt(sample, cx, top + quarter), mix(p.paperTone, tone, 0.75));
+      close(toneAt(sample, cx, top - quarter), mix(p.paperTone, tone, 0.25));
+      // The rule's lower side where no bar is (beyond the last bar's right side).
+      const free = p.left + letters.length * p.pitch - 0.004;
+      close(
+        toneAt(sample, free, rule + p.ruleHalf - quarter),
+        mix(p.paperTone, p.ruleTone, 0.75),
+      );
+      close(
+        toneAt(sample, free, rule + p.ruleHalf + quarter),
+        mix(p.paperTone, p.ruleTone, 0.25),
+      );
+      // The end of the longest bar and its right side, over the paper.
+      const bx = slotX(longest),
+        end = rule + borders[longest] * p.unit;
+      close(
+        toneAt(sample, bx, end - quarter),
+        mix(p.paperTone, p.barTone, 0.75),
+      );
+      close(
+        toneAt(sample, bx, end + quarter),
+        mix(p.paperTone, p.barTone, 0.25),
+      );
+      close(
+        toneAt(sample, bx + p.barWidth / 2 - quarter, end - 0.01),
+        mix(p.paperTone, p.barTone, 0.75),
+      );
+      close(
+        toneAt(sample, bx + p.barWidth / 2 + quarter, end - 0.01),
+        mix(p.paperTone, p.barTone, 0.25),
+      );
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('kmpfailure', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('kmpfailure', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.98),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('kmpfailure', 0),
+      b = createSurfaceSampler('kmpfailure', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.0951],
+        [0.1801, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

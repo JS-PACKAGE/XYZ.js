@@ -42928,6 +42928,115 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'kmpfailure': {
+        const p = proceduralMaterialPresets.kmpfailure,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x4f901),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          lengths = new Int32Array(p.groups),
+          letters = new Uint8Array(p.groups * p.sizes[p.sizes.length - 1]),
+          borders = new Uint8Array(letters.length),
+          stride = p.sizes[p.sizes.length - 1];
+        for (let g = 0; g < p.groups; g++) {
+          const m =
+              p.sizes[Math.floor(hash(g, 48, seed ^ 0x4f902) * p.sizes.length)],
+            period =
+              p.minPeriod +
+              Math.floor(
+                hash(g, 49, seed ^ 0x4f903) * (p.maxPeriod - p.minPeriod + 1),
+              );
+          lengths[g] = m;
+          // A start of `period` letters repeated, then one later letter flipped.
+          for (let i = 0; i < m; i++)
+            letters[g * stride + i] =
+              hash(g * 16 + (i % period), 50, seed ^ 0x4f904) < 0.5 ? 0 : 1;
+          const changed =
+            period + Math.floor(hash(g, 51, seed ^ 0x4f905) * (m - period));
+          letters[g * stride + changed] ^= 1;
+          // The failure function: the longest border of each prefix (Knuth-Morris-Pratt).
+          for (let i = 1, k = 0; i < m; i++) {
+            while (k > 0 && letters[g * stride + i] !== letters[g * stride + k])
+              k = borders[g * stride + k - 1];
+            if (letters[g * stride + i] === letters[g * stride + k]) k++;
+            borders[g * stride + i] = k;
+          }
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          const group = Math.floor((fv - p.top + p.groupSlack) / p.groupPitch),
+            across = (fu - p.left) / p.pitch;
+          if (
+            group >= 0 &&
+            group < p.groups &&
+            across > -0.5 &&
+            across < stride + 0.5
+          ) {
+            const cellTop = p.top + group * p.groupPitch,
+              ruleY = cellTop + p.cellHeight + p.ruleGap,
+              m = lengths[group],
+              slot = Math.min(m - 1, Math.max(0, Math.floor(across))),
+              inSlot = (across - slot) * p.pitch;
+            if (across < m + 0.5) {
+              // The cell of this letter.
+              const letter = letters[group * stride + slot];
+              paint(
+                cover(
+                  Math.min(
+                    p.cellWidth / 2 - Math.abs(inSlot - p.pitch / 2),
+                    p.cellHeight / 2 -
+                      Math.abs(fv - cellTop - p.cellHeight / 2),
+                  ),
+                ),
+                p.letterTones[letter],
+                p.letterHeights[letter],
+              );
+              // The bar hanging from the rule, as long as the border.
+              paint(
+                cover(
+                  Math.min(
+                    p.barWidth / 2 - Math.abs(inSlot - p.pitch / 2),
+                    fv - ruleY,
+                    ruleY + borders[group * stride + slot] * p.unit - fv,
+                  ),
+                ),
+                p.barTone,
+                p.barHeight,
+              );
+              // The rule over all of the pattern's letters.
+              paint(
+                cover(
+                  Math.min(
+                    p.ruleHalf - Math.abs(fv - ruleY),
+                    fu - p.left,
+                    p.left + m * p.pitch - fu,
+                  ),
+                ),
+                p.ruleTone,
+                p.ruleHeight,
+              );
+            }
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -70457,6 +70566,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'kmpfailure' ||
     kind === 'dijkstragrid' ||
     kind === 'binarysearchsteps' ||
     kind === 'quicksortsteps' ||
