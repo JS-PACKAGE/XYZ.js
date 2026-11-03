@@ -42688,6 +42688,106 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'binarysearchsteps': {
+        const p = proceduralMaterialPresets.binarysearchsteps,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x4f701),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          n = p.sizes[Math.floor(hash(45, 1, seed ^ 0x4f702) * p.sizes.length)],
+          heights: number[] = [];
+        // Bars that grow by one to maxStep units from the one before.
+        for (let i = 0, level = 0; i < n; i++) {
+          level += 1 + Math.floor(hash(i, 6, seed ^ 0x4f703) * p.maxStep);
+          heights.push(level);
+        }
+        const target =
+            1 + Math.floor(hash(46, 2, seed ^ 0x4f704) * heights[n - 1]),
+          // The steps: the range still open, its middle.
+          lows: number[] = [],
+          highs: number[] = [],
+          middles: number[] = [];
+        for (let low = 0, high = n - 1; low <= high;) {
+          const middle = (low + high) >> 1;
+          lows.push(low);
+          highs.push(high);
+          middles.push(middle);
+          if (heights[middle] === target) break;
+          if (heights[middle] < target) low = middle + 1;
+          else high = middle - 1;
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          const row = Math.floor((fv - p.top) / p.rowPitch),
+            across = (fu - p.left) / p.barPitch;
+          if (row >= 0 && row < lows.length) {
+            const rowTop = p.top + row * p.rowPitch,
+              base = rowTop + p.baseOffset;
+            if (across > -0.5 && across < n + 0.5) {
+              const slot = Math.min(n - 1, Math.max(0, Math.floor(across))),
+                inSlot = (across - slot) * p.barPitch,
+                gap = (p.barPitch - p.barWidth) / 2,
+                isMiddle = slot === middles[row],
+                open = slot >= lows[row] && slot <= highs[row];
+              // The bar of this slot, a gap in from each side, standing on the row's base.
+              paint(
+                cover(
+                  Math.min(
+                    inSlot - gap,
+                    p.barPitch - gap - inSlot,
+                    base - fv,
+                    fv - (base - heights[slot] * p.unit),
+                  ),
+                ),
+                isMiddle ? p.middleTone : open ? p.inTone : p.outTone,
+                isMiddle ? p.middleHeight : open ? p.inHeight : p.outHeight,
+              );
+              // The dot over the middle of the open range.
+              paint(
+                cover(
+                  p.dotRadius -
+                    Math.hypot(
+                      fu - (p.left + (middles[row] + 0.5) * p.barPitch),
+                      fv - (rowTop + p.dotOffset),
+                    ),
+                ),
+                p.dotTone,
+                p.dotHeight,
+              );
+            }
+            // The tick at the left, at the height looked for.
+            paint(
+              cover(
+                Math.min(
+                  p.tickHalf - Math.abs(fv - (base - target * p.unit)),
+                  fu - p.tickLeft,
+                  p.tickRight - fu,
+                ),
+              ),
+              p.tickTone,
+              p.tickHeight,
+            );
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -70217,6 +70317,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'binarysearchsteps' ||
     kind === 'quicksortsteps' ||
     kind === 'ganttschedule' ||
     kind === 'lorenzcurve' ||

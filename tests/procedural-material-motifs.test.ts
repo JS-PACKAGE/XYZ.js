@@ -46252,3 +46252,373 @@ describe('quicksortsteps: quicksort on a row of bars, a row for the start and on
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('binarysearchsteps: binary search in a row of rising bars, one row per step', () => {
+  const p = proceduralMaterialPresets.binarysearchsteps,
+    out = empty(),
+    gap = (p.barPitch - p.barWidth) / 2;
+  type Step = { low: number; high: number; middle: number };
+  type Search = {
+    sample: Sampler;
+    heights: number[];
+    target: number;
+    steps: Step[];
+  };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const rowTop = (row: number): number => p.top + row * p.rowPitch;
+  const baseOf = (row: number): number => rowTop(row) + p.baseOffset;
+  const slotX = (slot: number): number => p.left + (slot + 0.5) * p.barPitch;
+  const near = (tone: number, wanted: number): boolean =>
+    Math.abs(tone - wanted) < 0.01;
+  const tickX = (p.tickLeft + p.tickRight) / 2;
+
+  // Read the picture: the bar heights, the target tick, and for each row the open range (by tone) and the middle (the darkest bar and the dot).
+  const searchOf = (seed: number): Search => {
+    const sample = createSurfaceSampler('binarysearchsteps', seed),
+      steps: Step[] = [];
+    let heights: number[] = [],
+      target = -1;
+    for (let row = 0; ; row++) {
+      const base = baseOf(row);
+      let n = 0;
+      while (
+        Math.abs(toneAt(sample, slotX(n), base - 0.002) - p.paperTone) > 0.05
+      )
+        n++;
+      if (n === 0) break;
+      const rowHeights: number[] = [],
+        open: boolean[] = [];
+      let middle = -1;
+      for (let slot = 0; slot < n; slot++) {
+        let y = base - 0.001;
+        while (Math.abs(toneAt(sample, slotX(slot), y) - p.paperTone) > 0.05)
+          y -= 0.0002;
+        rowHeights.push(Math.round((base - y) / p.unit));
+        const tone = toneAt(sample, slotX(slot), base - 0.002);
+        open.push(near(tone, p.inTone) || near(tone, p.middleTone));
+        if (near(tone, p.middleTone)) {
+          expect(middle).toBe(-1);
+          middle = slot;
+        }
+      }
+      // The dot is over that middle bar.
+      let dotX: number | null = null;
+      for (let x = p.left; x <= p.left + n * p.barPitch; x += 0.001)
+        if (near(toneAt(sample, x, rowTop(row) + p.dotOffset), p.dotTone)) {
+          dotX = x;
+          break;
+        }
+      expect(dotX).not.toBeNull();
+      expect(Math.floor((dotX! - p.left) / p.barPitch)).toBe(middle);
+      // The tick: the middle of its run of tone, up the left side.
+      const ys: number[] = [];
+      for (let y = rowTop(row); y < rowTop(row) + p.rowPitch; y += 0.0002)
+        if (near(toneAt(sample, tickX, y), p.tickTone)) ys.push(y);
+      expect(ys.length).toBeGreaterThan(0);
+      const rowTarget = Math.round(
+        (base - (ys[0] + ys[ys.length - 1]) / 2) / p.unit,
+      );
+      if (row === 0) {
+        heights = rowHeights;
+        target = rowTarget;
+      } else {
+        expect(rowHeights).toEqual(heights);
+        expect(rowTarget).toBe(target);
+      }
+      steps.push({
+        low: open.indexOf(true),
+        high: open.lastIndexOf(true),
+        middle,
+      });
+      // The open bars are one run.
+      expect(open.filter(Boolean).length).toBe(
+        open.lastIndexOf(true) - open.indexOf(true) + 1,
+      );
+    }
+    expect(p.sizes).toContain(heights.length);
+    return { sample, heights, target, steps };
+  };
+
+  // The search by recursion (the sampler uses a loop).
+  const expectedSteps = (heights: number[], target: number): Step[] => {
+    const steps: Step[] = [],
+      search = (low: number, high: number): void => {
+        if (low > high) return;
+        const middle = Math.floor((low + high) / 2);
+        steps.push({ low, high, middle });
+        if (heights[middle] === target) return;
+        if (heights[middle] < target) search(middle + 1, high);
+        else search(low, middle - 1);
+      };
+    search(0, heights.length - 1);
+    return steps;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows a binary search of the target: every step is the middle of the range left by the one before (seed %i)',
+    (seed) => {
+      const { heights, target, steps } = searchOf(seed);
+      // Rising bars, one to maxStep units taller than the one before (the first from the base), and a target within them.
+      heights.forEach((value, i) => {
+        const step = value - (i === 0 ? 0 : heights[i - 1]);
+        expect(step).toBeGreaterThanOrEqual(1);
+        expect(step).toBeLessThanOrEqual(p.maxStep);
+      });
+      expect(target).toBeGreaterThanOrEqual(1);
+      expect(target).toBeLessThanOrEqual(heights[heights.length - 1]);
+      expect(steps).toEqual(expectedSteps(heights, target));
+      // It stops at the target or when no bar is left: the last middle holds it, or the range around it was a single bar not holding it, or
+      // the target fell between the last bars.
+      const last = steps[steps.length - 1];
+      if (heights[last.middle] !== target) {
+        const rest =
+          heights[last.middle] < target
+            ? last.high - last.middle
+            : last.middle - last.low;
+        expect(rest).toBe(0);
+      }
+      expect(steps.length).toBeLessThanOrEqual(
+        Math.floor(Math.log2(heights.length)) + 1,
+      );
+    },
+  );
+
+  it('uses every size and step, finds the target in most searches and misses it in some, and aims at the lowest and the highest height, over 150 seeds', () => {
+    const sizes = new Set<number>(),
+      stepSizes = new Set<number>();
+    let found = 0,
+      ratios = 0,
+      rows = 0,
+      lowest = 0,
+      highest = 0,
+      searches = 0;
+    for (let seed = 0; seed < 150; seed++) {
+      const { heights, target, steps } = searchOf(seed * 61 + 4);
+      sizes.add(heights.length);
+      heights.forEach((value, i) =>
+        stepSizes.add(value - (i === 0 ? 0 : heights[i - 1])),
+      );
+      found += Number(heights[steps[steps.length - 1].middle] === target);
+      ratios += target / heights[heights.length - 1];
+      rows += steps.length;
+      lowest += Number(target === 1);
+      highest += Number(target === heights[heights.length - 1]);
+      searches++;
+    }
+    expect([...sizes].sort((a, b) => a - b)).toEqual([...p.sizes]);
+    expect([...stepSizes].sort((a, b) => a - b)).toEqual([1, 2]);
+    expect(found / searches).toBeGreaterThan(0.45);
+    expect(found / searches).toBeLessThan(0.95);
+    // The target is uniform over the height of the tallest bar.
+    expect(ratios / searches).toBeGreaterThan(0.38);
+    expect(ratios / searches).toBeLessThan(0.62);
+    expect(rows / searches).toBeGreaterThan(2.5);
+    expect(lowest).toBeGreaterThan(0);
+    expect(highest).toBeGreaterThan(0);
+  });
+
+  it('draws the bars, dots and ticks with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, heights, target, steps } = searchOf(seed),
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      steps.forEach(({ low, high, middle }, row) => {
+        const base = baseOf(row);
+        heights.forEach((value, slot) => {
+          const tone =
+              slot === middle
+                ? p.middleTone
+                : slot >= low && slot <= high
+                  ? p.inTone
+                  : p.outTone,
+            level =
+              slot === middle
+                ? p.middleHeight
+                : slot >= low && slot <= high
+                  ? p.inHeight
+                  : p.outHeight,
+            left = p.left + slot * p.barPitch + gap,
+            right = left + p.barWidth,
+            top = base - value * p.unit;
+          expect(
+            toneAt(sample, slotX(slot), base - (value * p.unit) / 2),
+          ).toBeCloseTo(tone, 6);
+          expect(out.height / p.relief).toBeCloseTo(level, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          // The extent: a gap in from the slot on each side, standing on the base, up to its height.
+          expect(toneAt(sample, left + 0.0015, base - 0.0015)).toBeCloseTo(
+            tone,
+            6,
+          );
+          expect(toneAt(sample, right - 0.0015, base - 0.0015)).toBeCloseTo(
+            tone,
+            6,
+          );
+          expect(toneAt(sample, slotX(slot) - 0.01, top + 0.0015)).toBeCloseTo(
+            tone,
+            6,
+          );
+          expect(paperOk(left - 0.0015, base - 0.0015)).toBe(true);
+          expect(paperOk(right + 0.0015, base - 0.0015)).toBe(true);
+          expect(paperOk(slotX(slot) - 0.01, top - 0.0015)).toBe(true);
+          expect(paperOk(slotX(slot), base + 0.0015)).toBe(true);
+        });
+        // The dot over the middle one.
+        const dotX = slotX(middle),
+          dotY = rowTop(row) + p.dotOffset;
+        expect(toneAt(sample, dotX, dotY)).toBeCloseTo(p.dotTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.dotHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(toneAt(sample, dotX + p.dotRadius - 0.001, dotY)).toBeCloseTo(
+          p.dotTone,
+          6,
+        );
+        expect(paperOk(dotX + p.dotRadius + 0.0015, dotY)).toBe(true);
+        expect(paperOk(slotX(middle === 0 ? 1 : 0), dotY)).toBe(true);
+        // The tick at the height looked for, up the left side.
+        const y = base - target * p.unit;
+        expect(toneAt(sample, tickX, y)).toBeCloseTo(p.tickTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.tickHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(toneAt(sample, p.tickLeft + 0.002, y)).toBeCloseTo(
+          p.tickTone,
+          6,
+        );
+        expect(toneAt(sample, p.tickRight - 0.002, y)).toBeCloseTo(
+          p.tickTone,
+          6,
+        );
+        expect(paperOk(p.tickLeft - 0.002, y)).toBe(true);
+        expect(paperOk(p.tickRight + 0.002, y)).toBe(true);
+        for (const side of [-1, 1]) {
+          expect(
+            toneAt(sample, tickX, y + side * (p.tickHalf - 0.0004)),
+          ).toBeCloseTo(p.tickTone, 6);
+          expect(paperOk(tickX, y + side * (p.tickHalf + 0.0006))).toBe(true);
+        }
+      });
+      // Nothing below the last row.
+      expect(paperOk(slotX(0), baseOf(steps.length) - 0.002)).toBe(true);
+      expect(paperOk(tickX, rowTop(steps.length) + 0.04)).toBe(true);
+    }
+  });
+
+  it('softens the edge of a bar, a dot and a tick over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      const { sample, heights, target, steps } = searchOf(seed),
+        n = heights.length,
+        base = baseOf(0),
+        last = n - 1,
+        top = base - heights[last] * p.unit;
+      // The top and the sides of the last bar (all the bars are open in the first row, and its middle is not the last).
+      close(
+        toneAt(sample, slotX(last), top + quarter),
+        mix(p.paperTone, p.inTone, 0.75),
+      );
+      close(
+        toneAt(sample, slotX(last), top - quarter),
+        mix(p.paperTone, p.inTone, 0.25),
+      );
+      close(
+        toneAt(
+          sample,
+          p.left + last * p.barPitch + gap + quarter,
+          base - 0.004,
+        ),
+        mix(p.paperTone, p.inTone, 0.75),
+      );
+      close(
+        toneAt(
+          sample,
+          p.left + last * p.barPitch + gap - quarter,
+          base - 0.004,
+        ),
+        mix(p.paperTone, p.inTone, 0.25),
+      );
+      // The dot's edge and the tick's top and end.
+      const dotX = slotX(steps[0].middle),
+        dotY = rowTop(0) + p.dotOffset,
+        y = base - target * p.unit;
+      close(
+        toneAt(sample, dotX + p.dotRadius - quarter, dotY),
+        mix(p.paperTone, p.dotTone, 0.75),
+      );
+      close(
+        toneAt(sample, dotX + p.dotRadius + quarter, dotY),
+        mix(p.paperTone, p.dotTone, 0.25),
+      );
+      close(
+        toneAt(sample, tickX, y - p.tickHalf + quarter),
+        mix(p.paperTone, p.tickTone, 0.75),
+      );
+      close(
+        toneAt(sample, tickX, y - p.tickHalf - quarter),
+        mix(p.paperTone, p.tickTone, 0.25),
+      );
+      close(
+        toneAt(sample, p.tickLeft + quarter, y),
+        mix(p.paperTone, p.tickTone, 0.75),
+      );
+      close(
+        toneAt(sample, p.tickLeft - quarter, y),
+        mix(p.paperTone, p.tickTone, 0.25),
+      );
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('binarysearchsteps', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('binarysearchsteps', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.97),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('binarysearchsteps', 0),
+      b = createSurfaceSampler('binarysearchsteps', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.0701],
+        [0.1301, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
