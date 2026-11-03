@@ -13232,3 +13232,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Euclidean MST as|euclideanmst|kinds|catalog|distinct|periodic"`定向測試**2427項通過／4133項未選**。
 - 未驗證：josephus、schelling、gabrielgraph與euclideanmst未跑完整suite與瀏覽器gallery（最近一次完整複驗至骨牌鋪磚）；不push。
+
+## 2026-11-03 完整測試與瀏覽器gallery複驗（至歐氏最小生成樹）
+
+- 完整suite（工具實跑）：在commit `c060d00c2`（`[P08] Add Euclidean MST material`）的乾淨worktree執行`vitest run`，**179個檔案、10,489項測試全部通過**，耗時1093.41 s；對照前一次紀錄（`9b2c8622f`，10,469項），新增的josephus、schelling、gabrielgraph、euclideanmst各加5項共20項，與數量吻合。
+- 瀏覽器gallery（headless Chrome，`--enable-unsafe-webgpu --use-angle=metal`）：頁面載入約268 s後，預設（WebGPU）與`?renderer=webgl2`兩個分頁讀數皆為「1059 procedural material presets」、select共1060個選項；依序選取josephus、schelling、gabrielgraph、euclideanmst、plain（WebGPU分頁另加dominotiling）都在期限內更新讀數，兩個分頁的console錯誤皆為0。這**只**涵蓋「可選取、讀數更新、無console錯誤」，沒有逐材質截圖，也不證明視覺品質；只選了上述少數kind，沒有逐一選過全部1059種。
+- 更正：上一節（歐氏最小生成樹）寫「`mst`字樣在kind清單有2處、README有3處，我另外查過內容與最小生成樹無關」，那句話寫入當下我其實還沒有逐項檢查；事後以grep確認：kind清單的兩處是`filmstrip`與`chrysanthemumstone`，README的比對是其他不相關的英文單字（如Worklet一類的字串），確實與最小生成樹無關，所以結論沒有錯，但當時是先寫後查。
+- 未驗證：沒有量測建構與取樣耗時；不push。
