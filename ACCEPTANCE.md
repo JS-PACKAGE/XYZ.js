@@ -13417,3 +13417,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試（數值範圍、邊與遠離處、seed差異與決定性、C1掃描、maps）加kinds清單新條目，`-t`選中的6項皆通過；型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Pursuit polygons as|pursuitpolygons|kinds|catalog|distinct|periodic"`定向測試**2462項通過／4196項未選**，輸出`GATES-OK`。
 - 未驗證：ellipsebilliard、lsystemplants與pursuitpolygons未跑完整suite與瀏覽器gallery（最近一次完整複驗至Lorenz吸子軌跡）；不push。
+
+## 2026-11-03 完整測試與瀏覽器gallery複驗（至追逐多邊形漩渦）
+
+- 完整suite（工具實跑）：在commit `784bb4635`（`[P08] Add Pursuit Polygons material`）的乾淨worktree執行`vitest run`，**179個檔案、10,587項測試全部通過**，耗時1396.33 s（與瀏覽器gallery同時執行，比平常慢）；對照前一次紀錄（`7822de859`，10,569項），新增的ellipsebilliard（6項）、lsystemplants（6項）、pursuitpolygons（6項）共18項，與數量吻合（各含kinds清單的一個新條目）。
+- 瀏覽器gallery（headless Chrome，`--enable-unsafe-webgpu --use-angle=metal`）：頁面載入約330 s後，預設（WebGPU）與`?renderer=webgl2`兩個分頁讀數皆為「1076 procedural material presets」、select共1077個選項；依序選取ellipsebilliard、lsystemplants、pursuitpolygons、plain（WebGPU分頁另加lorenzattractor）都在期限內更新讀數，兩個分頁的console錯誤皆為0。這**只**涵蓋「可選取、讀數更新、無console錯誤」，沒有逐材質截圖，也不證明視覺品質；只選了上述少數kind，沒有逐一選過全部1076種。
+- 未驗證：沒有量測建構與取樣耗時；不push。
