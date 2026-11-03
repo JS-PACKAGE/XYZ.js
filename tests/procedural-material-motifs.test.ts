@@ -33889,3 +33889,403 @@ describe('flagpatterns: a grid of plain geometric flag designs', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('gaugedials: a grid of round analogue gauges', () => {
+  const p = proceduralMaterialPresets.gaugedials,
+    steps = p.majorTicks * p.minorPerMajor;
+  type Gauge = { column: number; row: number; needle: number };
+  type Layout = { grid: number; gauges: Gauge[]; sample: Sampler };
+  const out = empty();
+  // A point of a gauge: the angle is clockwise from straight up in radians, the radius in cell widths.
+  const at = (
+    grid: number,
+    column: number,
+    row: number,
+    angle: number,
+    radius: number,
+  ): [number, number] => [
+    (column + 0.5 + radius * Math.sin(angle)) / grid,
+    (row + 0.5 - radius * Math.cos(angle)) / grid,
+  ];
+  const angleOf = (position: number): number =>
+    p.startAngle + position * p.sweepAngle;
+  const toneAt = (
+    layout: Layout,
+    gauge: Gauge,
+    angle: number,
+    radius: number,
+  ): number => {
+    layout.sample(
+      ...at(layout.grid, gauge.column, gauge.row, angle, radius),
+      out,
+    );
+    return out.color;
+  };
+  // Half of the soft edge in cell widths, for probes just inside and just outside an edge.
+  const clearOf = (grid: number): number => (p.edgeSoft * grid) / 2 + 0.0005;
+
+  const layoutOf = (seed: number): Layout => {
+    const sample = createSurfaceSampler('gaugedials', seed),
+      found = p.grids
+        .map((grid): Layout | null => {
+          const gauges: Gauge[] = [];
+          for (let row = 0; row < grid; row++)
+            for (let column = 0; column < grid; column++) {
+              sample((column + 0.5) / grid, (row + 0.5) / grid, out);
+              if (Math.abs(out.color - p.needleTone) > 0.02) return null;
+              // The needle: where the circle of radius 0.2 around the centre is dark, the mean angle of those points.
+              let sum = 0,
+                count = 0;
+              for (let k = 0; k < 1440; k++) {
+                const angle = -Math.PI + ((k + 0.5) / 1440) * 2 * Math.PI;
+                sample(...at(grid, column, row, angle, 0.2), out);
+                if (out.color < 0.3) {
+                  sum += angle;
+                  count++;
+                }
+              }
+              if (count === 0) return null;
+              gauges.push({
+                column,
+                row,
+                needle: (sum / count - p.startAngle) / p.sweepAngle,
+              });
+            }
+          return { grid, gauges, sample };
+        })
+        .filter((layout) => layout !== null);
+    expect(found).toHaveLength(1);
+    return found[0];
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'finds a gauge in every cell with the needle on the scale (seed %i)',
+    (seed) => {
+      const { grid, gauges } = layoutOf(seed);
+      expect(gauges).toHaveLength(grid * grid);
+      for (const { needle } of gauges) {
+        expect(needle).toBeGreaterThanOrEqual(p.needleRange[0] - 0.002);
+        expect(needle).toBeLessThanOrEqual(p.needleRange[1] + 0.002);
+      }
+    },
+  );
+
+  it.each(seeds)(
+    'draws the needle from a short tail to its rounded tip (seed %i)',
+    (seed) => {
+      const layout = layoutOf(seed);
+      for (const gauge of layout.gauges) {
+        const angle = angleOf(gauge.needle),
+          { grid } = layout,
+          side = clearOf(grid);
+        // Along the needle: dark from just past the hub to the tip (rounded by its half width), then the zone ring.
+        for (const radius of [0.12, 0.25, p.needleLength - 0.002])
+          expect(toneAt(layout, gauge, angle, radius)).toBeLessThan(0.08);
+        expect(
+          toneAt(layout, gauge, angle, p.needleLength + p.needleHalf + side),
+        ).toBeGreaterThan(0.1);
+        // The tail behind the hub, and only the tail.
+        expect(
+          toneAt(layout, gauge, angle + Math.PI, p.needleTail - 0.003),
+        ).toBeLessThan(0.08);
+        expect(
+          toneAt(
+            layout,
+            gauge,
+            angle + Math.PI,
+            p.needleTail + p.needleHalf + side,
+          ),
+        ).toBeGreaterThan(0.5);
+        // Across the needle at radius 0.2: dark within the half width, face beyond it.
+        const across = (offset: number): number => {
+          const radius = Math.hypot(0.2, offset);
+          return toneAt(layout, gauge, angle + Math.atan2(offset, 0.2), radius);
+        };
+        for (const sign of [1, -1]) {
+          expect(across(sign * (p.needleHalf - side))).toBeLessThan(0.08);
+          expect(across(sign * (p.needleHalf + side))).toBeGreaterThan(0.85);
+        }
+        // The hub is a disc of hubRadius (beside the needle, where its half width does not reach), the tail end is rounded: a
+        // point diagonally off its end is out of the capsule although each offset alone is inside the half width.
+        const frame = (along: number, across: number): number => {
+          const x = along * Math.sin(angle) + across * Math.cos(angle),
+            y = -along * Math.cos(angle) + across * Math.sin(angle);
+          layout.sample(
+            (gauge.column + 0.5 + x) / grid,
+            (gauge.row + 0.5 + y) / grid,
+            out,
+          );
+          return out.color;
+        };
+        expect(frame(0, p.hubRadius - side)).toBeLessThan(0.08);
+        expect(frame(0, p.hubRadius + side)).toBeGreaterThan(0.85);
+        expect(frame(-(p.needleTail + 0.0075), 0.0075)).toBeGreaterThan(0.85);
+        expect(frame(-(p.needleTail + 0.0045), 0.0045)).toBeLessThan(0.08);
+      }
+    },
+  );
+
+  it.each(seeds)(
+    'colours the ring in three tones in order, the two borders inside their ranges (seed %i)',
+    (seed) => {
+      const layout = layoutOf(seed);
+      let measured = 0;
+      for (const gauge of layout.gauges) {
+        const radius = (p.zoneInner + p.zoneOuter) / 2,
+          steps400 = 400,
+          classes: (number | null)[] = Array.from(
+            { length: steps400 + 1 },
+            (_, k) => {
+              const position = k / steps400;
+              if (Math.abs(position - gauge.needle) < 0.04) return null;
+              const tone = toneAt(layout, gauge, angleOf(position), radius),
+                zone = p.zoneTones.findIndex(
+                  (candidate) => Math.abs(candidate - tone) < 0.03,
+                );
+              expect(zone).toBeGreaterThanOrEqual(0);
+              return zone;
+            },
+          );
+        const known = classes.filter((zone) => zone !== null);
+        expect(known).toEqual([...known].sort((a, b) => a - b));
+        expect(new Set(known)).toEqual(new Set([0, 1, 2]));
+        const borders: number[] = [];
+        for (let k = 1; k <= steps400; k++) {
+          const before = classes[k - 1],
+            after = classes[k];
+          if (before !== null && after !== null && before !== after) {
+            expect(after).toBe(before + 1);
+            borders.push((k - 0.5) / steps400);
+          }
+        }
+        // A border hidden under the needle is not measured; the others have to lie in their ranges.
+        const ranges = [p.firstBorder, p.secondBorder];
+        if (borders.length === 2)
+          borders.forEach((border, i) => {
+            expect(border).toBeGreaterThanOrEqual(ranges[i][0] - 0.0026);
+            expect(border).toBeLessThanOrEqual(ranges[i][1] + 0.0026);
+            measured++;
+          });
+      }
+      expect(measured).toBeGreaterThan(0);
+    },
+  );
+
+  it('puts the ring between 0.3 and 0.34 and the bezel and face at their radii', () => {
+    for (const seed of seeds) {
+      const layout = layoutOf(seed),
+        side = clearOf(layout.grid);
+      for (const gauge of layout.gauges) {
+        // A direction away from the needle, which would be in the way, and off the ticks (the ring and the face edge have none).
+        const angle = angleOf(gauge.needle < 0.5 ? 0.85 : 0.15) + 0.0007;
+        expect(toneAt(layout, gauge, angle, p.zoneInner - side)).toBeCloseTo(
+          p.faceTone,
+          1,
+        );
+        expect(
+          p.zoneTones.some(
+            (zone) =>
+              Math.abs(
+                toneAt(layout, gauge, angle, p.zoneInner + side) - zone,
+              ) < 0.03,
+          ),
+        ).toBe(true);
+        expect(
+          p.zoneTones.some(
+            (zone) =>
+              Math.abs(
+                toneAt(layout, gauge, angle, p.zoneOuter - side) - zone,
+              ) < 0.03,
+          ),
+        ).toBe(true);
+        expect(toneAt(layout, gauge, angle, p.zoneOuter + side)).toBeCloseTo(
+          p.faceTone,
+          1,
+        );
+        // Bezel and face (any direction: here in the gap at the bottom of the scale, where there are no ticks).
+        expect(toneAt(layout, gauge, Math.PI, p.faceRadius - side)).toBeCloseTo(
+          p.faceTone,
+          1,
+        );
+        expect(toneAt(layout, gauge, Math.PI, p.faceRadius + side)).toBeCloseTo(
+          p.bezelTone,
+          1,
+        );
+        expect(
+          toneAt(layout, gauge, Math.PI, p.bezelRadius - side),
+        ).toBeCloseTo(p.bezelTone, 1);
+        expect(
+          Math.abs(
+            toneAt(layout, gauge, Math.PI, p.bezelRadius + side) - p.clothTone,
+          ),
+        ).toBeLessThan(0.04);
+      }
+    }
+  });
+
+  it('leaves the quarter turn at the bottom without ring or ticks', () => {
+    for (const seed of seeds) {
+      const layout = layoutOf(seed),
+        gauge = layout.gauges[0];
+      for (const angle of [
+        Math.PI - 0.05,
+        -Math.PI + 0.05,
+        0.8 * Math.PI,
+        -0.8 * Math.PI,
+      ])
+        for (const radius of [0.32, 0.355, 0.385])
+          expect(toneAt(layout, gauge, angle, radius)).toBeCloseTo(
+            p.faceTone,
+            1,
+          );
+    }
+  });
+
+  it('softens an edge over edgeSoft (a quarter of it inside and outside the end of a tick) and leaves the face flat but not the cloth', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x);
+    for (const seed of seeds) {
+      const layout = layoutOf(seed),
+        gauge = layout.gauges[0],
+        quarter = 0.25 * p.edgeSoft * layout.grid,
+        middle = angleOf(0.5);
+      expect(
+        Math.abs(
+          toneAt(layout, gauge, middle, p.tickEnd - quarter) -
+            (p.faceTone + (p.tickTone - p.faceTone) * smoothstep(0.75)),
+        ),
+      ).toBeLessThan(0.04);
+      expect(
+        Math.abs(
+          toneAt(layout, gauge, middle, p.tickEnd + quarter) -
+            (p.faceTone + (p.tickTone - p.faceTone) * smoothstep(0.25)),
+        ),
+      ).toBeLessThan(0.04);
+      // Face: the same tone everywhere away from marks (the circle of radius 0.2 beside the needle); cloth: a grain between gauges.
+      const faceTones = Array.from({ length: 40 }, (_, k) =>
+        toneAt(
+          layout,
+          gauge,
+          angleOf(gauge.needle) + 0.4 + (k / 40) * 4,
+          0.2 + (k % 3) * 0.02,
+        ),
+      );
+      expect(Math.max(...faceTones) - Math.min(...faceTones)).toBeLessThan(
+        1e-9,
+      );
+      const cloth = Array.from({ length: 60 }, (_, k) => {
+        layout.sample(
+          (k * 0.0173) % 1,
+          (0.04 * ((k * 0.0291) % 1)) / layout.grid,
+          out,
+        );
+        return out.color;
+      });
+      expect(Math.max(...cloth) - Math.min(...cloth)).toBeGreaterThan(0.01);
+    }
+  });
+
+  it('puts 51 ticks on the scale, every fifth long, with their widths and radial extents', () => {
+    for (const seed of seeds) {
+      const layout = layoutOf(seed),
+        gauge = layout.gauges[0],
+        side = clearOf(layout.grid),
+        ink = (position: number, radius: number, arc = 0): number =>
+          toneAt(layout, gauge, angleOf(position) + arc / radius, radius);
+      for (let k = 0; k <= steps; k++) {
+        const major = k % p.minorPerMajor === 0,
+          position = k / steps,
+          half = major ? p.majorHalf : p.minorHalf,
+          start = major ? p.majorStart : p.minorStart;
+        expect(ink(position, (start + p.tickEnd) / 2)).toBeCloseTo(
+          p.tickTone,
+          1,
+        );
+        // Radial extent: just short of the start and just past the end are face.
+        expect(ink(position, start - side)).toBeGreaterThan(0.85);
+        expect(ink(position, p.tickEnd + side)).toBeGreaterThan(0.85);
+        expect(ink(position, start + side)).toBeLessThan(0.2);
+        expect(ink(position, p.tickEnd - side)).toBeLessThan(0.2);
+        // Width: dark within the half width on both sides (arc length across), face outside it. The first and last ticks only on the scale.
+        for (const sign of [1, -1]) {
+          if ((k === 0 && sign === -1) || (k === steps && sign === 1)) continue;
+          expect(ink(position, 0.385, sign * (half - side))).toBeLessThan(0.2);
+          expect(ink(position, 0.385, sign * (half + side))).toBeGreaterThan(
+            0.85,
+          );
+        }
+        // Between this tick and the next there is nothing at the radius of the short ticks.
+        if (k < steps)
+          expect(ink((k + 0.5) / steps, 0.385)).toBeGreaterThan(0.85);
+      }
+    }
+  });
+
+  it('gives the cloth, bezel, face, tick and needle their heights', () => {
+    const layout = layoutOf(7),
+      gauge = layout.gauges[0],
+      read = (angle: number, radius: number): number => {
+        layout.sample(
+          ...at(layout.grid, gauge.column, gauge.row, angle, radius),
+          out,
+        );
+        return out.height / p.relief;
+      };
+    expect(read(Math.PI, 0.5)).toBeCloseTo(p.clothHeight, 1);
+    expect(read(Math.PI, 0.445)).toBeCloseTo(p.bezelHeight, 1);
+    expect(read(Math.PI, 0.38)).toBeCloseTo(p.faceHeight, 1);
+    expect(read(angleOf(0), 0.385)).toBeCloseTo(p.tickHeight, 1);
+    expect(read(angleOf(gauge.needle), 0.2)).toBeCloseTo(p.needleHeight, 1);
+  });
+
+  it('uses both grids and puts the needles in many places across seeds', () => {
+    const grids = new Set<number>(),
+      needles = new Set<number>();
+    for (let seed = 0; seed < 30; seed++) {
+      const { grid, gauges } = layoutOf(seed);
+      grids.add(grid);
+      for (const { needle } of gauges) needles.add(Math.round(needle * 500));
+    }
+    expect([...grids].sort((a, b) => a - b)).toEqual([...p.grids]);
+    expect(needles.size).toBeGreaterThan(40);
+  });
+
+  it('keeps all channels finite and in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('gaugedials', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('gaugedials', 0),
+      b = createSurfaceSampler('gaugedials', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

@@ -39104,6 +39104,122 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'gaugedials': {
+        const p = proceduralMaterialPresets.gaugedials,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x34401),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          grid =
+            p.grids[Math.floor(hash(5, 1, seed ^ 0x34402) * p.grids.length)],
+          cells = grid * grid,
+          cell = 1 / grid,
+          needleAngle = new Float64Array(cells),
+          firstBorder = new Float64Array(cells),
+          secondBorder = new Float64Array(cells),
+          ticks = p.majorTicks * p.minorPerMajor;
+        for (let i = 0; i < cells; i++) {
+          const column = i % grid,
+            row = Math.floor(i / grid),
+            pick = (key: number, range: readonly number[]): number =>
+              range[0] + hash(column, row, seed ^ key) * (range[1] - range[0]);
+          needleAngle[i] =
+            p.startAngle + pick(0x34403, p.needleRange) * p.sweepAngle;
+          firstBorder[i] = pick(0x34404, p.firstBorder);
+          secondBorder[i] = pick(0x34405, p.secondBorder);
+        }
+        return () => {
+          const fx = (u - Math.floor(u)) * grid,
+            fy = (v - Math.floor(v)) * grid,
+            index = Math.floor(fy) * grid + Math.floor(fx),
+            // Offset from the gauge centre in cell widths (the cell is 1 wide), and the distance in uv per cell width.
+            dx = fx - Math.floor(fx) - 0.5,
+            dy = fy - Math.floor(fy) - 0.5,
+            r = Math.hypot(dx, dy),
+            // Position along the scale: angle clockwise from straight up, 0 at the start of the scale and 1 at its end.
+            along = (Math.atan2(dx, -dy) - p.startAngle) / p.sweepAngle;
+          let shade = p.clothTone,
+            elevation = p.clothHeight,
+            roughnessValue = p.clothRoughness;
+          const paint = (
+            amount: number,
+            tone: number,
+            level: number,
+            rough: number,
+          ): void => {
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            roughnessValue += (rough - roughnessValue) * amount;
+          };
+          paint(
+            cover((p.bezelRadius - r) * cell),
+            p.bezelTone,
+            p.bezelHeight,
+            p.bezelRoughness,
+          );
+          paint(
+            cover((p.faceRadius - r) * cell),
+            p.faceTone,
+            p.faceHeight,
+            p.faceRoughness,
+          );
+          // The zone ring, with hard borders along the scale.
+          if (along >= 0 && along <= 1) {
+            const zone =
+                along < firstBorder[index]
+                  ? 0
+                  : along < secondBorder[index]
+                    ? 1
+                    : 2,
+              ring = Math.min(r - p.zoneInner, p.zoneOuter - r) * cell;
+            paint(
+              cover(ring),
+              p.zoneTones[zone],
+              p.faceHeight,
+              p.faceRoughness,
+            );
+          }
+          // Ticks: the nearest of the evenly spaced ticks, its distance across (arc length) and along the radius.
+          const nearest = Math.round(along * ticks);
+          if (nearest >= 0 && nearest <= ticks) {
+            const across =
+                Math.abs(along * ticks - nearest) * (p.sweepAngle / ticks) * r,
+              major = nearest % p.minorPerMajor === 0,
+              half = major ? p.majorHalf : p.minorHalf,
+              start = major ? p.majorStart : p.minorStart,
+              inside = Math.min(half - across, r - start, p.tickEnd - r) * cell;
+            paint(cover(inside), p.tickTone, p.tickHeight, p.faceRoughness);
+          }
+          // The needle: a segment from the tail to the tip, with a hub over it.
+          const angle = needleAngle[index],
+            onNeedle = dx * Math.sin(angle) - dy * Math.cos(angle),
+            acrossNeedle = Math.abs(
+              dx * Math.cos(angle) + dy * Math.sin(angle),
+            ),
+            beyond = Math.max(
+              0,
+              onNeedle - p.needleLength,
+              -p.needleTail - onNeedle,
+            ),
+            needle = (p.needleHalf - Math.hypot(beyond, acrossNeedle)) * cell;
+          paint(cover(needle), p.needleTone, p.needleHeight, p.bezelRoughness);
+          paint(
+            cover((p.hubRadius - r) * cell),
+            p.needleTone,
+            p.needleHeight,
+            p.bezelRoughness,
+          );
+          color = clamp(
+            shade +
+              p.grainTone *
+                (grainField(u, v) - 0.5) *
+                (1 - cover((p.bezelRadius - r) * cell)),
+          );
+          height = clamp(elevation);
+          roughness = clamp(roughnessValue);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -66633,6 +66749,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'gaugedials' ||
     kind === 'flagpatterns' ||
     kind === 'intelhexrecords' ||
     kind === 'equalizerbars' ||

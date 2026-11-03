@@ -2049,6 +2049,10 @@
 
 這是作者設計的幾何圖案，不代表任何真實的旗幟；只有色調（亮度）而沒有色相。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`gaugedials`（儀表圓盤）使目前目錄1122→1123種，含plain的gallery為1124項。2×2或3×3的格子，每格一個圓形類比儀表：外圈是bezel，淺色錶面，沿刻度弧有三段色調區（兩個交界由seed決定），11條長刻度之間各有4條短刻度，一根帶短尾的指針與中心圓。刻度從正上方起順時針−135°（0）到+135°（1），底部那四分之一圈沒有刻度與色調區。seed決定格數，以及每個儀表的指針位置與兩個色調區交界；底布是中間色調並有細微顆粒。Metallic與mortar為0。
+
+這是作者設計的示意，不是任何真實儀表的複製；只有色調（亮度）而沒有色相或數字。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
