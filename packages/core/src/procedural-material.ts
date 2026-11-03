@@ -1072,6 +1072,7 @@ export type ProceduralMaterialKind =
   | 'kaprekar'
   | 'perfectarray'
   | 'delaunay'
+  | 'harmonograph'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2392,6 +2393,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'kaprekar',
   'perfectarray',
   'delaunay',
+  'harmonograph',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

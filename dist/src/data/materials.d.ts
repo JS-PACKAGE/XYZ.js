@@ -15801,6 +15801,30 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.08;
         gapOcclusion: 0.4;
     }>;
+    harmonograph: Readonly<{
+        dark: readonly [8, 12, 24];
+        light: readonly [190, 235, 255];
+        roughness: 0.4;
+        relief: 0.0008;
+        seedSalt: 27169;
+        amplitude: 0.2;
+        duration: 60;
+        segments: 3200;
+        halfWidth: 0.0045;
+        fade: 0.6;
+        variants: readonly [readonly [2, 3, 3, 2.004, 0, 1.3, 0.4, 2.2, 0.018, 0.026, 0.022, 0.03], readonly [1, 2, 2, 3.003, 0.5, 0, 1.9, 0.7, 0.02, 0.03, 0.024, 0.028], readonly [3, 2, 2, 3.005, 1.1, 0.2, 0, 1.6, 0.016, 0.024, 0.02, 0.032], readonly [2, 3, 1, 4.004, 0, 2.4, 0.9, 0.3, 0.022, 0.02, 0.026, 0.034], readonly [3, 4, 4, 3.006, 0.7, 1.5, 0, 2.7, 0.017, 0.028, 0.023, 0.03], readonly [1, 3, 2, 3.004, 2, 0.6, 1.1, 0, 0.019, 0.025, 0.021, 0.029]];
+        buckets: 24;
+        edgeSoft: 0.35;
+        grainCells: 128;
+        gapTone: 0.04;
+        toneFloor: 0.14;
+        toneSpan: 0.72;
+        grainTone: 0.03;
+        cellHeight: 0.8;
+        toneHeight: 0.12;
+        grainHeight: 0.08;
+        gapOcclusion: 0.4;
+    }>;
     vermiculation: Readonly<{
         dark: readonly [60, 48, 36];
         light: readonly [220, 204, 172];
@@ -17535,6 +17559,7 @@ export declare const proceduralTileMeters: Readonly<{
     kaprekar: 0.5;
     perfectarray: 0.5;
     delaunay: 0.5;
+    harmonograph: 0.5;
     dominotiling: 0.5;
     vermiculation: 0.4;
     kikko: 0.3;

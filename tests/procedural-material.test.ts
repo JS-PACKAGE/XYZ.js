@@ -1098,6 +1098,7 @@ const kinds: ProceduralMaterialKind[] = [
   'kaprekar',
   'perfectarray',
   'delaunay',
+  'harmonograph',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -176900,6 +176901,259 @@ describe('Delaunay as the Delaunay triangulation of a Poisson-disk point set on 
     expect(green / (512 * 512)).toBeLessThan(80.4);
     expect(blue / (512 * 512)).toBeGreaterThan(70.2);
     expect(blue / (512 * 512)).toBeLessThan(71.5);
+    expect(maxTilt).toBeGreaterThan(0.046);
+    expect(maxTilt).toBeLessThan(0.052);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Harmonograph as the figure of a two-pendulum harmonograph drawn as a thin fading line', () => {
+  const p = proceduralMaterialPresets.harmonograph;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /**
+   * The point of the figure of one variant at time t, written here from the definition: x is 0.5 plus
+   * the amplitude times the sum of two damped sine waves (the variant holds the frequencies at 0 and
+   * 1 and for y at 2 and 3, the phases at 4 to 7 and the decay rates at 8 to 11).
+   */
+  const figurePoint = (variant: readonly number[], time: number): number[] => [
+    0.5 +
+      p.amplitude *
+        (Math.sin(variant[0] * time + variant[4]) *
+          Math.exp(-variant[8] * time) +
+          Math.sin(variant[1] * time + variant[5]) *
+            Math.exp(-variant[9] * time)),
+    0.5 +
+      p.amplitude *
+        (Math.sin(variant[2] * time + variant[6]) *
+          Math.exp(-variant[10] * time) +
+          Math.sin(variant[3] * time + variant[7]) *
+            Math.exp(-variant[11] * time)),
+  ];
+  const steps = 4000;
+  /** The colours read from the sampler at 4001 points of the curve of a variant. */
+  const colorsOnCurve = (
+    seed: number,
+    variant: readonly number[],
+  ): number[] => {
+    const sample = createSurfaceSampler('harmonograph', seed),
+      out = empty();
+    return Array.from({ length: steps + 1 }, (_, i) => {
+      const [x, y] = figurePoint(variant, (p.duration * i) / steps);
+      sample(x, y, out);
+      return out.color;
+    });
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('harmonograph', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('harmonograph', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0252);
+      expect(low).toBeLessThan(0.0256);
+      expect(high).toBeGreaterThan(0.8736);
+      expect(high).toBeLessThan(0.8741);
+      expect(dark / 65536).toBeGreaterThan(0.084);
+      expect(dark / 65536).toBeLessThan(0.0895);
+      expect(mean / 65536).toBeGreaterThan(0.1099);
+      expect(mean / 65536).toBeLessThan(0.1142);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.846);
+      expect(heightHigh).toBeLessThan(0.85);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('draws the curve of exactly one of the variants and nothing far from it', () => {
+    // For each seed exactly one of the 6 variants of the preset has all 4001 points of its curve
+    // (1 to 4 of them at most may read dark; the others of the 6 have about half of them dark) lit
+    // above 0.3, with the least colour on the curve above 0.8; the variant for each seed (3, 5, 0, 2,
+    // 1 and 4 for the seeds 0, 1, 3, 4, 5 and 13) was found with a probe and is written here, so that
+    // table is not an independent check of the seed's choice (all 6 variants are covered). Points
+    // of a lattice that are more than 0.02 from every point of the curve read dark (below 0.2).
+    const expected = new Map([
+      [0, 3],
+      [1, 5],
+      [3, 0],
+      [4, 2],
+      [5, 1],
+      [13, 4],
+    ]);
+    for (const [seed, index] of expected) {
+      const matching = p.variants
+        .map((variant, i) => ({
+          i,
+          colors: colorsOnCurve(seed, variant),
+        }))
+        .filter(({ colors }) => colors.filter((c) => c < 0.3).length <= 4);
+      expect(matching.map(({ i }) => i)).toEqual([index]);
+      expect(Math.min(...matching[0].colors)).toBeGreaterThan(0.8);
+      const sample = createSurfaceSampler('harmonograph', seed),
+        out = empty(),
+        curve = Array.from({ length: steps + 1 }, (_, i) =>
+          figurePoint(p.variants[index], (p.duration * i) / steps),
+        );
+      let tested = 0,
+        wrong = 0;
+      for (let i = 0; i < 6000; i++) {
+        const x = (i * 0.61803398875) % 1,
+          y = (i * 0.41421356237) % 1;
+        let nearest = Infinity;
+        for (const [cx, cy] of curve)
+          nearest = Math.min(nearest, Math.hypot(x - cx, y - cy));
+        if (nearest <= 0.02) continue;
+        tested++;
+        sample(x, y, out);
+        wrong += Number(out.color >= 0.2);
+      }
+      expect(tested).toBeGreaterThan(4000);
+      expect(wrong).toBe(0);
+    }
+  });
+  it('draws a different figure per seed and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      second = litGrid(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.1);
+    expect(different / first.length).toBeLessThan(0.13);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('harmonograph', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.buckets, p.grainCells, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 pale blue harmonograph maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('harmonograph', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(24);
+    expect(red / (512 * 512)).toBeLessThan(25);
+    expect(green / (512 * 512)).toBeGreaterThan(31.7);
+    expect(green / (512 * 512)).toBeLessThan(32.8);
+    expect(blue / (512 * 512)).toBeGreaterThan(44.4);
+    expect(blue / (512 * 512)).toBeLessThan(45.6);
     expect(maxTilt).toBeGreaterThan(0.046);
     expect(maxTilt).toBeLessThan(0.052);
     expect(invalid).toBe(0);

@@ -1135,6 +1135,7 @@ try {
     'kaprekar',
     'perfectarray',
     'delaunay',
+    'harmonograph',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

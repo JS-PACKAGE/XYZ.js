@@ -45652,6 +45652,128 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'harmonograph': {
+        const p = proceduralMaterialPresets.harmonograph,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant =
+            p.variants[
+              Math.floor(hash(0, 46, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          buckets: number[][] = Array.from(
+            { length: p.buckets * p.buckets },
+            () => [],
+          ),
+          segments: number[][] = [],
+          // The point of the two-pendulum drawing at time t: the sum of two damped sine waves in x and
+          // two in y, x = 0.5 + A (sin(f0 t + p0) e^(-d0 t) + sin(f1 t + p1) e^(-d1 t)) and the same
+          // with the indices 2 and 3 for y.
+          at = (time: number): number[] => [
+            0.5 +
+              p.amplitude *
+                (Math.sin(variant[0] * time + variant[4]) *
+                  Math.exp(-variant[8] * time) +
+                  Math.sin(variant[1] * time + variant[5]) *
+                    Math.exp(-variant[9] * time)),
+            0.5 +
+              p.amplitude *
+                (Math.sin(variant[2] * time + variant[6]) *
+                  Math.exp(-variant[10] * time) +
+                  Math.sin(variant[3] * time + variant[7]) *
+                    Math.exp(-variant[11] * time)),
+          ],
+          inverseSoft = 1 / p.edgeSoft,
+          step = 0.5 / p.buckets;
+        // The curve is cut into segments equal steps of time apart and every segment is filed into
+        // the buckets x buckets buckets that a point within its half width plus half a step of its
+        // path could be in, so a lookup needs only the bucket of the sample. The ink gets thinner as
+        // the pendulums die down: the half width of a segment is halfWidth (1 - fade t / duration).
+        let previous = at(0);
+        for (let i = 1; i <= p.segments; i++) {
+          const time = (p.duration * i) / p.segments,
+            next = at(time),
+            half =
+              p.halfWidth *
+              (1 -
+                (p.fade * (time - p.duration / p.segments / 2)) / p.duration),
+            index = segments.length,
+            dx = next[0] - previous[0],
+            dy = next[1] - previous[1],
+            length = Math.hypot(dx, dy),
+            reach = half + step / 2,
+            filed = new Set<number>();
+          segments.push([
+            previous[0],
+            previous[1],
+            dx,
+            dy,
+            dx * dx + dy * dy,
+            half * half,
+          ]);
+          for (
+            let s = 0, n = Math.max(1, Math.ceil(length / step));
+            s <= n;
+            s++
+          )
+            for (const ox of [-reach, reach])
+              for (const oy of [-reach, reach]) {
+                const bx = Math.floor(
+                    (previous[0] + (dx * s) / n + ox) * p.buckets,
+                  ),
+                  by = Math.floor(
+                    (previous[1] + (dy * s) / n + oy) * p.buckets,
+                  );
+                if (bx < 0 || by < 0 || bx >= p.buckets || by >= p.buckets)
+                  continue;
+                const bucket = by * p.buckets + bx;
+                if (!filed.has(bucket)) {
+                  filed.add(bucket);
+                  buckets[bucket].push(index);
+                }
+              }
+          previous = next;
+        }
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            bx = Math.floor(fu * p.buckets),
+            by = Math.floor(fv * p.buckets);
+          // The segments are a union by 1 - product of (1 - t^2) with t = max(0, 1 - squared distance /
+          // squared half width), a function of the squared distance to a segment: every t^2 is C1 and
+          // exactly zero at the rim, so the union is C1 even where the segments overlap.
+          let open = 1;
+          for (const index of buckets[by * p.buckets + bx]) {
+            const [x0, y0, dx, dy, lengthSquared, widthSquared] =
+                segments[index],
+              wx = fu - x0,
+              wy = fv - y0,
+              along =
+                lengthSquared > 0
+                  ? clamp((wx * dx + wy * dy) / lengthSquared)
+                  : 0,
+              ex = wx - along * dx,
+              ey = wy - along * dy,
+              t = clamp(1 - (ex * ex + ey * ey) / widthSquared);
+            open *= 1 - t * t;
+          }
+          const total = 1 - open,
+            mask = smooth(clamp(total * inverseSoft)),
+            tone = p.toneSpan,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * total * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -54525,6 +54647,7 @@ export function createSurfaceSampler(
     kind === 'kaprekar' ||
     kind === 'perfectarray' ||
     kind === 'delaunay' ||
+    kind === 'harmonograph' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

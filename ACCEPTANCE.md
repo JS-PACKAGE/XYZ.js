@@ -13365,3 +13365,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試（節點／縫／面／數值範圍、seed差異與決定性、C1掃描、maps）加kinds清單新條目，`-t`選中的5項皆通過；型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Delaunay as|delaunay|kinds|catalog|distinct|periodic"`定向測試**2451項通過／4177項未選**，輸出`GATES-OK`。
 - 未驗證：perfectarray與delaunay未跑完整suite與瀏覽器gallery（最近一次完整複驗至卡普雷卡爾常數表）；不push。
+
+## 2026-11-03 新增材質：調和記錄儀圖形（harmonograph）
+
+- 範圍：新增`harmonograph`（目前目錄1071→1072種，含plain的gallery 1073項）：雙擺式調和記錄儀的圖形，每個tile一個大圖形（x、y各由兩個阻尼正弦波相加，t從0到60，3,200段，淡藍色細線在深藍黑底上，墨線半寬由0.0045降到0.0018），seed從6組參數中選一組；整個圖形最遠離中心0.4，所以落在tile內不跨接縫；預設0.5 m nominal tile、0.0008 UV-relative relief；grain cache 131,072 B（線段與buckets的JS陣列位元組數未量測）。作者示意，沒有引用特定來源或照片、**沒有對照照片**。動手前以`/tmp/absent.sh`確認harmonograph不存在，並讀了lissajoustable、spirographtable、rhodoneatable的README說明以寫出差異。
+- 調整與錯誤紀錄（誠實紀錄）：(1)**本輪先丟棄了一個構想**：Chirikov標準映射（standardmap）的軌道相圖，做成128×128格的軌道計數圖（K從6個值中選），實際預覽（seed 7、0）呈現混濁的卡其色底、只有淡淡的島嶼輪廓，對比低、不好看，所以用`git checkout -- .`丟棄，沒有提交、沒有寫測試；(2)先用預覽看過seed 0與1覺得好看才寫測試；(3)6組參數是我憑直覺設定的頻率比（略微失諧）、相位與阻尼，沒有最佳化；探針確認seed 0至59每個都恰好對應一組、6組分別被選中12、11、8、9、10、10次；(4)測試的seed到參數組的對照表（seed 0、1、3、4、5、13對應第3、5、0、2、1、4組）是探針量出再寫入的，**不是獨立的oracle**；(5)測試只涵蓋「恰有一組參數吻合、曲線上全亮、遠離曲線（>0.02）處全暗」，**墨線隨時間變細沒有單獨測試**；(6)名稱與阻尼擺的描述憑記憶，真實的調和記錄儀常用2到4個擺，這裡每軸兩個波是簡化，沒有查文獻；(7)專屬測試第一次執行即通過（先以探針量好數值）；(8)建構與取樣耗時**未量測**；(9)512²maps法線tilt²最大0.0492與delaunay的探針值（0.04924259900）在前九位相同，我推測是與同樣的高度剖面斜率上限有關，沒有進一步查證。
+- 實測（工具實跑）：探針seed 0至59每個seed恰好對應一組參數（6組被選中12、11、8、9、10、10次）；6個測試seed曲線上最小顏色約0.845、4,001個點中低於0.3者為0；256²（seed 0／1／0xffffffff）亮處（color>0.5）8.43%–8.93%、color 0.02533–0.02550至0.87374–0.87399、平均0.10999–0.11415、roughness恆為0.4、AO最低0.6、height至多0.8462–0.8496 relief；512²（seed 0／1／0xffffffff／7）亮處6.14%–8.93%、color 0.02513–0.02520至0.87433–0.87484、平均0.09085–0.11428、AO最低0.6、height至多0.8498–0.8525 relief；seed 0與1相比，512²中color>0.5的取樣11.4%不同；seed 7的512²maps平均r／g／b約(24.5, 32.3, 45.0)、法線tilt²最大約0.0492、z分量最小252。我實看了預覽（seed 0與1，2×2個tile）。
+- 測試：新增5項專屬測試（數值範圍、曲線與遠離曲線處、seed差異與決定性、C1掃描、maps）加kinds清單新條目，`-t`選中的6項皆通過；型別檢查與eslint乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Harmonograph as|harmonograph|kinds|catalog|distinct|periodic"`定向測試**2454項通過／4180項未選**，輸出`GATES-OK`。
+- 未驗證：perfectarray、delaunay與harmonograph未跑完整suite與瀏覽器gallery（最近一次完整複驗至卡普雷卡爾常數表）；不push。
