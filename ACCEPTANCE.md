@@ -13612,3 +13612,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增7項專屬測試（數值範圍與色調、線段點、亮像素距離、末端圓點、seed差異與決定性、C1掃描、maps）加kinds清單新條目；線段用逐代明確建構（不剪枝）。變異檢查（只做了一次）：第一個子代的「轉」不翻轉，該describe的7項中5項失敗（色調與範圍、線段、亮像素距離、seed差異、maps），圓點與C1兩項仍通過；已還原。限制：seed對應的變體是探針量出再寫入，不是獨立oracle（第1組在40個seed中只被2個選到）；測試的建構與設計是同一個定義，不證明它就是經典H樹；沒有檢查密度分布；取樣耗時未正式量測；未對照任何參考圖。型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "H-tree as|htree|kinds|catalog|distinct|periodic"`定向測試**2499項通過／4288項未選**，輸出`GATES-OK`。
 - 未驗證：catenaryfestoons、cornuspirals與htree未跑完整suite與瀏覽器gallery（最近一次完整複驗至羅吉斯諦分岔圖）；不push。
+
+## 2026-11-04 完整測試與瀏覽器gallery複驗（至H樹）
+
+- 完整suite（工具實跑）：在commit `f7e0a8be6`（`[P08] Add H-Tree material`）的乾淨worktree執行`vitest run`，**179個檔案、10,716項測試全部通過**，耗時1311.44 s（同時進行gallery檢查，所以時間不能與先前的紀錄直接比較）；對照前一次紀錄（`f5eac9277`，10,690項），新增的catenaryfestoons（9項）、cornuspirals（9項）、htree（8項）共26項，與數量吻合；其間的文字更正提交沒有新增測試。
+- 瀏覽器gallery（headless Chrome，`--enable-unsafe-webgpu --use-angle=metal`）：預設（WebGPU）與`?renderer=webgl2`兩個分頁讀數皆為「1093 procedural material presets」、select共1094個選項；依序選取htree、cornuspirals、catenaryfestoons、logisticbifurcation、plain都在期限內更新讀數，兩個分頁的console錯誤皆為0；並在WebGPU分頁讀出前三個選項的文字，確認是各自的描述（不是範本字樣）。這**只**涵蓋「可選取、讀數更新、無console錯誤」與上述選項文字，沒有逐材質截圖，也不證明視覺品質，沒有逐一選過全部1093種；這次沒有量測頁面載入時間。
+- 未驗證：沒有量測建構與取樣耗時；不push。
