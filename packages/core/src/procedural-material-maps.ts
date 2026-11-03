@@ -46680,6 +46680,126 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'poincaretriangles': {
+        const p = proceduralMaterialPresets.poincaretriangles,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant =
+            p.variants[
+              Math.floor(hash(0, 55, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          sides = variant[0],
+          meeting = variant[1],
+          // The triangle group (2, p, q) of the hyperbolic plane in the Poincare disc: the mirror lines
+          // of the regular tiling {p, q} (the sides of its polygons and their lines of symmetry) cut the
+          // plane into triangles with the angles pi/2, pi/p and pi/q. The triangle with the corners at the
+          // centre, the middle of a side and a corner of the central p-gon has its corner at distance
+          // r = tanh(R / 2) from the centre with cosh R = cot(pi / p) cot(pi / q), at the angle pi / p; its
+          // side opposite to the centre lies on the circle about (centreX, 0) of radius radius, which cuts the
+          // unit circle at a right angle (centreX^2 = 1 + radius^2) and passes through that corner.
+          angle = Math.PI / sides,
+          cosAngle = Math.cos(angle),
+          sinAngle = Math.sin(angle),
+          cornerRadius = Math.tanh(
+            Math.acosh(1 / (Math.tan(angle) * Math.tan(Math.PI / meeting))) / 2,
+          ),
+          centreX =
+            (1 + cornerRadius * cornerRadius) / (2 * cornerRadius * cosAngle),
+          circleRadius = Math.sqrt(centreX * centreX - 1),
+          circleSquared = circleRadius * circleRadius,
+          inverseSoft = 1 / p.edgeSoft;
+        return () => {
+          // The point in the disc is folded into that triangle by mirroring in its three sides until
+          // it is inside: the real axis, the line at the angle pi / p through the centre and the circle.
+          // The reflections form the symmetry group of the tiling, so the folded point has the same
+          // distance to the mirror lines as the point has, and the number of reflections is even or odd
+          // in the same way for all the ways of folding, which colours the triangles in two tones.
+          const scale = 1 / p.diskRadius,
+            gx = (fract(u) - 0.5) * scale,
+            gy = (fract(v) - 0.5) * scale,
+            radiusSquared = gx * gx + gy * gy,
+            radius = Math.sqrt(radiusSquared);
+          let x = gx,
+            y = gy,
+            reflections = 0;
+          for (let fold = 0; fold < p.maxFolds; fold++) {
+            let moved = false;
+            if (y < 0) {
+              y = -y;
+              moved = true;
+              reflections++;
+            }
+            const side = -x * sinAngle + y * cosAngle;
+            if (side > 0) {
+              x += 2 * side * sinAngle;
+              y -= 2 * side * cosAngle;
+              moved = true;
+              reflections++;
+            }
+            const dx = x - centreX,
+              distanceSquared = dx * dx + y * y;
+            if (distanceSquared < circleSquared) {
+              const factor = circleSquared / distanceSquared;
+              x = centreX + dx * factor;
+              y *= factor;
+              moved = true;
+              reflections++;
+            }
+            if (!moved) break;
+          }
+          // The mirror lines are all the lines of the group, so the lines near the folded point are the
+          // three sides of its triangle (a mirror line outside the triangle cannot be nearer than the side
+          // that has to be crossed to reach it) and their union is symmetric about every mirror, which
+          // keeps the field C1. Twice the distance in the picture over 1 - |z|^2 is the distance in the
+          // hyperbolic plane.
+          const foldedSquared = x * x + y * y,
+            dx = x - centreX,
+            conformal = 2 / Math.max(1e-6, 1 - foldedSquared),
+            widthSquared = p.lineHalfWidth * p.lineHalfWidth,
+            lineOf = (distance: number): number => {
+              const t = clamp(
+                1 -
+                  (conformal * distance * conformal * distance) / widthSquared,
+              );
+              return t * t;
+            },
+            line =
+              1 -
+              (1 - lineOf(y)) *
+                (1 - lineOf(-x * sinAngle + y * cosAngle)) *
+                (1 - lineOf(Math.sqrt(dx * dx + y * y) - circleRadius)),
+            inside = smooth(clamp((p.fadeStart - radius) / 0.02)),
+            fill =
+              (reflections % 2 === 0 ? p.fillEven : p.fillOdd) +
+              p.fillGradient *
+                clamp(foldedSquared / (cornerRadius * cornerRadius)),
+            ringT = clamp(
+              1 -
+                ((radius - 1) * (radius - 1)) /
+                  (p.ringHalfWidth * p.ringHalfWidth),
+            ),
+            ring = ringT * ringT,
+            ink = clamp(inside * (fill * (1 - line) + line) + ring),
+            mask = smooth(clamp(ink * inverseSoft)),
+            tone = p.toneSpan * ink,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            tone +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(inside * line + ring) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -55560,6 +55680,7 @@ export function createSurfaceSampler(
     kind === 'pursuitpolygons' ||
     kind === 'poincaretiling' ||
     kind === 'sphericaltiling' ||
+    kind === 'poincaretriangles' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

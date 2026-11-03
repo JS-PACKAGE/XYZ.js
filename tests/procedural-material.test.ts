@@ -1105,6 +1105,7 @@ const kinds: ProceduralMaterialKind[] = [
   'pursuitpolygons',
   'poincaretiling',
   'sphericaltiling',
+  'poincaretriangles',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -179105,6 +179106,478 @@ describe('Spherical tiling as the edges of a regular polyhedron seen by stereogr
     expect(green / (512 * 512)).toBeLessThan(59.8);
     expect(blue / (512 * 512)).toBeGreaterThan(72.8);
     expect(blue / (512 * 512)).toBeLessThan(74);
+    expect(maxTilt).toBeGreaterThan(0.052);
+    expect(maxTilt).toBeLessThan(0.057);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Poincare triangles as the triangle group (2, p, q) of the hyperbolic plane in the Poincare disc, two-coloured with all mirror lines', () => {
+  const p = proceduralMaterialPresets.poincaretriangles;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  type Complex = [number, number];
+  const subtract = (u: Complex, v: Complex): Complex => [
+    u[0] - v[0],
+    u[1] - v[1],
+  ];
+  const multiply = (u: Complex, v: Complex): Complex => [
+    u[0] * v[0] - u[1] * v[1],
+    u[0] * v[1] + u[1] * v[0],
+  ];
+  const divide = (u: Complex, v: Complex): Complex => {
+    const norm = v[0] * v[0] + v[1] * v[1];
+    return [
+      (u[0] * v[0] + u[1] * v[1]) / norm,
+      (u[1] * v[0] - u[0] * v[1]) / norm,
+    ];
+  };
+  type Triangulation = {
+    sides: [Complex, Complex][];
+    triangles: { corners: Complex[]; odd: boolean }[];
+    valence: number[];
+  };
+  /**
+   * The triangles of the group (2, p, q) in the unit disc, built here in another way than the sampler
+   * folds points: the first triangle has the centre of the disc O, the point A where the circle through
+   * the corner B at the radius tanh(R / 2) (cosh R = 1 / (tan(pi / p) tan(pi / q))) and the angle pi / p
+   * and its mirror image crosses the real axis, and B; the triangles are made by mirroring triangles in
+   * their sides (the circle through two corners that cuts the unit circle at a right angle, found by
+   * solving the two linear equations of the centre, or the line through the centre when the two corners
+   * and the centre are on a line), taking a triangle as new when the mean of its corners is not yet known to
+   * 1e-4, and not going on from triangles whose mean is further than 0.93 from the centre (there are at
+   * most 8,000 triangles). A triangle is odd when it is an odd number of mirrorings from the first.
+   */
+  const trianglesOf = (variant: readonly number[]): Triangulation => {
+    const [sides, meeting] = variant,
+      radius = Math.tanh(
+        Math.acosh(
+          1 / (Math.tan(Math.PI / sides) * Math.tan(Math.PI / meeting)),
+        ) / 2,
+      ),
+      corner: Complex = [
+        radius * Math.cos(Math.PI / sides),
+        radius * Math.sin(Math.PI / sides),
+      ],
+      half = (1 + radius * radius) / 2,
+      determinant = corner[0] * -corner[1] - corner[1] * corner[0],
+      centreX = (half * -corner[1] - half * corner[1]) / determinant,
+      middle: Complex = [centreX - Math.sqrt(centreX * centreX - 1), 0],
+      first: Complex[] = [[0, 0], middle, corner],
+      triangles: Complex[][] = [first],
+      depth: number[] = [0],
+      known = new Set<string>(),
+      mean = (polygon: Complex[]): Complex => [
+        polygon.reduce((sum, point) => sum + point[0], 0) / polygon.length,
+        polygon.reduce((sum, point) => sum + point[1], 0) / polygon.length,
+      ],
+      keyOf = (point: Complex): string =>
+        Math.round(point[0] * 1e4) + ',' + Math.round(point[1] * 1e4);
+    known.add(keyOf(mean(first)));
+    for (let i = 0; i < triangles.length && triangles.length < 8000; i++) {
+      const triangle = triangles[i],
+        centre = mean(triangle);
+      if (i > 0 && Math.hypot(centre[0], centre[1]) > 0.93) continue;
+      for (let k = 0; k < 3; k++) {
+        const from = triangle[k],
+          to = triangle[(k + 1) % 3],
+          line = from[0] * to[1] - from[1] * to[0];
+        let mirrored: Complex[];
+        if (Math.abs(line) < 1e-9) {
+          const direction: Complex =
+              Math.hypot(from[0], from[1]) > 1e-9 ? from : to,
+            length = Math.hypot(direction[0], direction[1]);
+          mirrored = triangle.map((point) => {
+            const along =
+              (point[0] * direction[0] + point[1] * direction[1]) / length;
+            return [
+              (2 * along * direction[0]) / length - point[0],
+              (2 * along * direction[1]) / length - point[1],
+            ];
+          });
+        } else {
+          const first1 = (1 + from[0] ** 2 + from[1] ** 2) / 2,
+            first2 = (1 + to[0] ** 2 + to[1] ** 2) / 2,
+            circle: Complex = [
+              (first1 * to[1] - first2 * from[1]) / line,
+              (from[0] * first2 - to[0] * first1) / line,
+            ],
+            squared = circle[0] ** 2 + circle[1] ** 2 - 1;
+          mirrored = triangle.map((point) => {
+            const delta = subtract(point, circle),
+              norm = delta[0] ** 2 + delta[1] ** 2;
+            return [
+              circle[0] + (squared * delta[0]) / norm,
+              circle[1] + (squared * delta[1]) / norm,
+            ];
+          });
+        }
+        const key = keyOf(mean(mirrored));
+        if (!known.has(key)) {
+          known.add(key);
+          triangles.push(mirrored);
+          depth.push(depth[i] + 1);
+        }
+      }
+    }
+    const edges: [Complex, Complex][] = [],
+      seen = new Set<string>();
+    for (const triangle of triangles)
+      for (let k = 0; k < 3; k++) {
+        const from = triangle[k],
+          to = triangle[(k + 1) % 3],
+          keyFrom = keyOf(from),
+          keyTo = keyOf(to),
+          key = keyFrom < keyTo ? keyFrom + '|' + keyTo : keyTo + '|' + keyFrom;
+        if (!seen.has(key)) {
+          seen.add(key);
+          edges.push([from, to]);
+        }
+      }
+    const meeting1 = (point: Complex): number =>
+      triangles.filter((triangle) =>
+        triangle.some(
+          (c) => Math.hypot(c[0] - point[0], c[1] - point[1]) < 1e-6,
+        ),
+      ).length;
+    return {
+      sides: edges,
+      triangles: triangles.map((corners, i) => ({
+        corners,
+        odd: depth[i] % 2 === 1,
+      })),
+      valence: [meeting1(first[0]), meeting1(corner), meeting1(middle)],
+    };
+  };
+  /**
+   * The point at the fraction s along the geodesic from a to b: the map z -> (z - a) / (1 - conj(a) z)
+   * puts a at 0, where the geodesic to the image of b is a straight line, and its inverse brings
+   * the point at s times the image of b back.
+   */
+  const geodesicPoint = (from: Complex, to: Complex, s: number): Complex => {
+    const image = divide(
+        subtract(to, from),
+        subtract([1, 0], multiply([from[0], -from[1]], to)),
+      ),
+      scaled: Complex = [image[0] * s, image[1] * s],
+      back = divide(
+        [scaled[0] + from[0], scaled[1] + from[1]],
+        [
+          1 + multiply([from[0], -from[1]], scaled)[0],
+          multiply([from[0], -from[1]], scaled)[1],
+        ],
+      );
+    return back;
+  };
+  const built = p.variants.map((variant) => trianglesOf(variant)),
+    tilings = built.map((tiling) => tiling.sides);
+  /** The colours read from the sampler at 3 points (30%, 50% and 70%) of every edge of a variant whose corners are within 0.9 of the centre. */
+  const colorsOnEdges = (seed: number, index: number): number[] => {
+    const sample = createSurfaceSampler('poincaretriangles', seed),
+      out = empty(),
+      colors: number[] = [];
+    for (const [from, to] of tilings[index]) {
+      if (Math.hypot(from[0], from[1]) > 0.9 || Math.hypot(to[0], to[1]) > 0.9)
+        continue;
+      for (const s of [0.3, 0.5, 0.7]) {
+        const point = geodesicPoint(from, to, s);
+        sample(
+          0.5 + p.diskRadius * point[0],
+          0.5 + p.diskRadius * point[1],
+          out,
+        );
+        colors.push(out.color);
+      }
+    }
+    return colors;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('poincaretriangles', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('poincaretriangles', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0256);
+      expect(low).toBeLessThan(0.0262);
+      expect(high).toBeGreaterThan(0.8731);
+      expect(high).toBeLessThan(0.8746);
+      expect(dark / 65536).toBeGreaterThan(0.107);
+      expect(dark / 65536).toBeLessThan(0.2067);
+      expect(mean / 65536).toBeGreaterThan(0.232);
+      expect(mean / 65536).toBeLessThan(0.2794);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.8752);
+      expect(heightHigh).toBeLessThan(0.8789);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('builds triangulations in which 2 p, 2 q and 4 triangles meet at the three kinds of corner', () => {
+    // A check of the corner radius tanh(R / 2) that the sampler and this test both use: with a wrong
+    // radius the mirrored triangles would not meet in the same corner points, and the numbers of the
+    // triangles found at the centre O, the corner B and the middle A would not be 2 p, 2 q and 4.
+    expect(built.map((tiling) => tiling.valence)).toEqual(
+      p.variants.map((variant) => [2 * variant[0], 2 * variant[1], 4]),
+    );
+  });
+  it('draws all the mirror lines of exactly one of the variants and no line elsewhere', () => {
+    // For each seed exactly one of the 6 variants (p, q) = (3,7), (3,8), (4,5), (4,6), (5,5) and (3,9) of
+    // the preset has all the points at 30%, 50% and 70% of all the sides of its triangles with corners
+    // within 0.9 of the centre (570 to 2,664 points, from the triangles built above) lit above 0.7 (at most
+    // 4 of them may read lower), with the least colour above 0.8; the variant for each seed (0 to 5 for the
+    // seeds 1, 0, 2, 16, 7 and 4) was found with a probe and is written here, so that table is not an
+    // independent check of the seed's choice (all 6 variants are covered). Points of a lattice inside 0.85
+    // of the centre that are more than 0.02 from every one of 24 points of every side read lower than 0.5
+    // (the fill is at most 0.39, the lines up to 0.86).
+    const expected = new Map([
+      [1, 0],
+      [0, 1],
+      [2, 2],
+      [16, 3],
+      [7, 4],
+      [4, 5],
+    ]);
+    for (const [seed, index] of expected) {
+      const matching = p.variants
+        .map((_, i) => ({ i, colors: colorsOnEdges(seed, i) }))
+        .filter(({ colors }) => colors.filter((c) => c < 0.7).length <= 4);
+      expect(matching.map(({ i }) => i)).toEqual([index]);
+      expect(Math.min(...matching[0].colors)).toBeGreaterThan(0.8);
+      const sample = createSurfaceSampler('poincaretriangles', seed),
+        out = empty(),
+        points: Complex[] = [];
+      for (const [from, to] of tilings[index])
+        if (
+          Math.hypot(from[0], from[1]) < 0.99 &&
+          Math.hypot(to[0], to[1]) < 0.99
+        )
+          for (let k = 0; k <= 24; k++)
+            points.push(geodesicPoint(from, to, k / 24));
+      let tested = 0,
+        wrong = 0;
+      for (let i = 0; i < 3000; i++) {
+        const x = (((i * 0.61803398875) % 1) - 0.5) * 2 * 0.85,
+          y = (((i * 0.41421356237) % 1) - 0.5) * 2 * 0.85;
+        if (x * x + y * y > 0.85 * 0.85) continue;
+        let nearest = Infinity;
+        for (const [px, py] of points)
+          nearest = Math.min(nearest, Math.hypot(x - px, y - py));
+        if (nearest <= 0.02) continue;
+        tested++;
+        sample(0.5 + p.diskRadius * x, 0.5 + p.diskRadius * y, out);
+        wrong += Number(out.color >= 0.5);
+      }
+      expect(tested).toBeGreaterThan(300);
+      expect(wrong).toBe(0);
+    }
+  });
+  it('colours the triangles in two tones, a triangle and its neighbours in different ones', () => {
+    // At the mean of the corners of every triangle of a variant with corners within 0.9 and the mean within
+    // 0.7 of the centre and more than 0.02 from every side, the colour is below 0.32 when the triangle
+    // is an even number of mirrorings from the first and 0.32 or above when it is odd (the colours are
+    // 0.13 to 0.17 and 0.35 to 0.39 in the probe), so two triangles that share a side always
+    // differ; this is the 2-colouring of the triangles of a reflection group.
+    const expected = new Map([
+      [1, 0],
+      [0, 1],
+      [2, 2],
+      [16, 3],
+      [7, 4],
+      [4, 5],
+    ]);
+    let checkedTotal = 0;
+    for (const [seed, index] of expected) {
+      const sample = createSurfaceSampler('poincaretriangles', seed),
+        out = empty(),
+        points: Complex[] = [];
+      for (const [from, to] of tilings[index])
+        if (
+          Math.hypot(from[0], from[1]) < 0.99 &&
+          Math.hypot(to[0], to[1]) < 0.99
+        )
+          for (let k = 0; k <= 24; k++)
+            points.push(geodesicPoint(from, to, k / 24));
+      let checked = 0,
+        wrong = 0;
+      for (const triangle of built[index].triangles) {
+        if (triangle.corners.some((c) => Math.hypot(c[0], c[1]) > 0.9))
+          continue;
+        const centre: Complex = [
+          (triangle.corners[0][0] +
+            triangle.corners[1][0] +
+            triangle.corners[2][0]) /
+            3,
+          (triangle.corners[0][1] +
+            triangle.corners[1][1] +
+            triangle.corners[2][1]) /
+            3,
+        ];
+        if (Math.hypot(centre[0], centre[1]) > 0.7) continue;
+        let nearest = Infinity;
+        for (const [px, py] of points)
+          nearest = Math.min(
+            nearest,
+            Math.hypot(centre[0] - px, centre[1] - py),
+          );
+        if (nearest <= 0.02) continue;
+        sample(
+          0.5 + p.diskRadius * centre[0],
+          0.5 + p.diskRadius * centre[1],
+          out,
+        );
+        checked++;
+        wrong += Number(out.color >= 0.32 !== triangle.odd);
+      }
+      expect(checked).toBeGreaterThan(30);
+      expect(wrong).toBe(0);
+      checkedTotal += checked;
+    }
+    expect(checkedTotal).toBeGreaterThan(400);
+  });
+  it('draws a different triangulation per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 1 pick different variants ((3,8) and (3,7)).
+    const first = litGrid(0),
+      second = litGrid(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.22);
+    expect(different / first.length).toBeLessThan(0.26);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [1, 0, 2, 16, 7, 4]) {
+      const sample = createSurfaceSampler('poincaretriangles', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [12, p.grainCells, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 rose triangle group maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('poincaretriangles', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(77.2);
+    expect(red / (512 * 512)).toBeLessThan(78.5);
+    expect(green / (512 * 512)).toBeGreaterThan(40.4);
+    expect(green / (512 * 512)).toBeLessThan(41.7);
+    expect(blue / (512 * 512)).toBeGreaterThan(66.6);
+    expect(blue / (512 * 512)).toBeLessThan(67.9);
     expect(maxTilt).toBeGreaterThan(0.052);
     expect(maxTilt).toBeLessThan(0.057);
     expect(invalid).toBe(0);

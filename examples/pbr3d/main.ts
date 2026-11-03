@@ -1142,6 +1142,7 @@ try {
     'pursuitpolygons',
     'poincaretiling',
     'sphericaltiling',
+    'poincaretriangles',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
