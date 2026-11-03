@@ -1125,6 +1125,7 @@ const kinds: ProceduralMaterialKind[] = [
   'sphericalharmonics',
   'cylinderflow',
   'fieldlines',
+  'twosourcewaves',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -186465,6 +186466,378 @@ describe('Field lines as the field lines and equipotentials of line charges', ()
     expect(blue / (512 * 512)).toBeLessThan(49.3);
     expect(maxTilt).toBeGreaterThan(0.0335);
     expect(maxTilt).toBeLessThan(0.0345);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Two-source waves as the interference of two coherent point sources', () => {
+  const p = proceduralMaterialPresets.twosourcewaves;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The two sources of a variant (the first at the positive end of the line through them) and its wavelength, from the spacing in wavelengths. */
+  const sourcesOf = (index: number) => {
+    const [ratio, wavelength, degrees] = p.variants[index],
+      half = (ratio * wavelength) / 2,
+      angle = (degrees * Math.PI) / 180;
+    return {
+      ratio,
+      wavelength,
+      half,
+      cos: Math.cos(angle),
+      sin: Math.sin(angle),
+    };
+  };
+  /** The intensity cos^2(pi (r1 - r2) / wavelength) of the waves of two sources, written from the physics and not from the sampler. */
+  const intensity = (index: number, u: number, v: number): number => {
+    const s = sourcesOf(index),
+      first = Math.hypot(u - 0.5 - s.half * s.cos, v - 0.5 - s.half * s.sin),
+      second = Math.hypot(u - 0.5 + s.half * s.cos, v - 0.5 + s.half * s.sin);
+    return Math.cos((Math.PI * (first - second)) / s.wavelength) ** 2;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('twosourcewaves', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('twosourcewaves', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0255);
+      expect(low).toBeLessThan(0.0262);
+      expect(high).toBeGreaterThan(0.86);
+      expect(high).toBeLessThan(0.871);
+      expect(dark / 65536).toBeGreaterThan(0.36);
+      expect(dark / 65536).toBeLessThan(0.43);
+      expect(mean / 65536).toBeGreaterThan(0.36);
+      expect(mean / 65536).toBeLessThan(0.38);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.84);
+      expect(heightHigh).toBeLessThan(0.87);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (the spacings 2.25, 3.75, 5.3, 7.1, 9.2 and 11.2 wavelengths) is 10, 6, 0, 2, 1 and 3; the table
+  // was found with a probe by the correlation with the independent intensity and is written here, so it is not an independent
+  // check of the seed's choice.
+  const seeds = [10, 6, 0, 2, 1, 3];
+  it('draws the waves of its own two sources and not those of the others', () => {
+    // On a 64 by 64 grid in the middle (0.1 to 0.9, more than 0.05 from a source) the Pearson correlation of the colour with the
+    // intensity written in the test is above 0.99 for the variant of the seed (0.9954 at the lowest in the probe) and below 0.3 in size
+    // for each other variant (0.214 at most in the probe).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('twosourcewaves', seed),
+        out = empty();
+      const correlation = (other: number): number => {
+        let n = 0,
+          sx = 0,
+          sy = 0,
+          sxx = 0,
+          syy = 0,
+          sxy = 0;
+        for (let y = 0; y < 64; y++)
+          for (let x = 0; x < 64; x++) {
+            const u = 0.1 + (0.8 * (x + 0.5)) / 64,
+              v = 0.1 + (0.8 * (y + 0.5)) / 64,
+              s = sourcesOf(index),
+              near = Math.min(
+                Math.hypot(u - 0.5 - s.half * s.cos, v - 0.5 - s.half * s.sin),
+                Math.hypot(u - 0.5 + s.half * s.cos, v - 0.5 + s.half * s.sin),
+              );
+            sample(u, v, out);
+            const own = near < 0.05 ? undefined : intensity(other, u, v);
+            if (own === undefined) continue;
+            n++;
+            sx += own;
+            sy += out.color;
+            sxx += own * own;
+            syy += out.color * out.color;
+            sxy += own * out.color;
+          }
+        return (
+          (n * sxy - sx * sy) /
+          Math.sqrt((n * sxx - sx * sx) * (n * syy - sy * sy))
+        );
+      };
+      for (let other = 0; other < p.variants.length; other++) {
+        if (other === index) expect(correlation(other)).toBeGreaterThan(0.99);
+        else expect(Math.abs(correlation(other))).toBeLessThan(0.3);
+      }
+    });
+  });
+  it('has 4 M nodal lines on a circle around the sources, M being the number of half-integer path differences below the spacing', () => {
+    // The nodal lines are the hyperbolas where the path difference is (m + 1/2) wavelengths for m = 0, 1, ... below the spacing in
+    // wavelengths, so there are M = ceil(spacing - 1/2) of them on each side of the bisector, and a circle around the middle that
+    // is larger than the spacing crosses each branch twice: 4 M dark runs (colour below 0.3) on circles of radius 0.3 and 0.4 (8, 16, 20, 28,
+    // 36 and 44 in the probe for M = 2, 4, 5, 7, 9 and 11). The spacings keep clear of a half integer so that the dark tail of the
+    // next nodal line does not reach the ends of the path difference.
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('twosourcewaves', seed),
+        out = empty(),
+        m = Math.ceil(sourcesOf(index).ratio - 0.5);
+      for (const radius of [0.3, 0.4]) {
+        const dark: boolean[] = [];
+        for (let i = 0; i < 2880; i++) {
+          const angle = (2 * Math.PI * i) / 2880;
+          sample(
+            0.5 + radius * Math.cos(angle),
+            0.5 + radius * Math.sin(angle),
+            out,
+          );
+          dark.push(out.color < 0.3);
+        }
+        let runs = 0;
+        for (let i = 0; i < 2880; i++)
+          if (dark[i] && !dark[(i + 2879) % 2880]) runs++;
+        expect(runs).toBe(4 * m);
+      }
+    });
+  });
+  it('puts the dark lines between the sources at the half-integer path differences', () => {
+    // On the line through the two sources the path difference is -2 s at the signed distance s from the middle, so the dark lines
+    // are at s = +-(m + 1/2) wavelength / 2. Scanning in steps of 0.0002 from 0.03 inside one source to 0.03 inside the other (outside the
+    // blend around the sources), every dark run (colour below 0.3) lying wholly inside the scan has its middle within 0.001 of
+    // such a position and every position whose dark band (0.15 wavelength wide to each side) lies wholly inside has a run (0.0002 at the worst in the probe for the variants whose count matched there; the test, which leaves out the runs cut by the ends of the scan, passes with 0.001).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('twosourcewaves', seed),
+        out = empty(),
+        s = sourcesOf(index),
+        limit = s.half - 0.03,
+        middles: number[] = [];
+      let inRun = false,
+        start = 0,
+        first = true;
+      for (let k = -limit; k <= limit; k += 0.0002) {
+        sample(0.5 + k * s.cos, 0.5 + k * s.sin, out);
+        const dark = out.color < 0.3;
+        if (dark && !inRun) {
+          inRun = true;
+          start = k;
+        } else if (!dark && inRun) {
+          inRun = false;
+          if (!first) middles.push((start + k) / 2);
+        }
+        if (!dark) first = false;
+      }
+      for (const middle of middles) {
+        const nearest =
+          Math.abs(
+            Math.abs(middle) / (s.wavelength / 2) -
+              0.5 -
+              Math.round(Math.abs(middle) / (s.wavelength / 2) - 0.5),
+          ) *
+          (s.wavelength / 2);
+        expect(nearest).toBeLessThan(0.001);
+      }
+      let required = 0;
+      for (
+        let m = 0;
+        (m + 0.5) * (s.wavelength / 2) + 0.15 * s.wavelength < limit;
+        m++
+      ) {
+        const position = (m + 0.5) * (s.wavelength / 2);
+        for (const sign of [1, -1]) {
+          required++;
+          expect(
+            middles.some(
+              (middle) => Math.abs(middle - sign * position) < 0.001,
+            ),
+          ).toBe(true);
+        }
+      }
+      expect(required).toBeGreaterThanOrEqual(2);
+    });
+  });
+  it('is fully bright along the perpendicular bisector, where the path difference is 0', () => {
+    // On the line through the middle at a right angle to the line of the sources, from -0.38 to 0.38 in steps of 0.002, the
+    // colour is above 0.7 for every variant (0.737 at the lowest in the probe).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('twosourcewaves', seed),
+        out = empty(),
+        s = sourcesOf(index);
+      for (let k = -0.38; k <= 0.38; k += 0.002) {
+        sample(0.5 - k * s.sin, 0.5 + k * s.cos, out);
+        expect(out.color).toBeGreaterThan(0.7);
+      }
+    });
+  });
+  it('is symmetric under swapping the sources, and mirror symmetric when the sources lie on an axis', () => {
+    // Swapping the two sources (a half turn about the middle) leaves cos^2 unchanged, so on a 256 by 256 grid the lit state (colour above
+    // 0.5) differs for under 0.015 of the cells for every variant (0.0089 at most in the probe, which I suppose comes from the grain without having tested it); the mirror images
+    // do the same for the variants whose line of sources is along an axis (0.0094 at most), and change over 0.2 of the cells for the others
+    // (0.3895 at the lowest).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('twosourcewaves', seed),
+        out = empty(),
+        lit = new Uint8Array(256 * 256);
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+          lit[y * 256 + x] = Number(out.color > 0.5);
+        }
+      let turn = 0,
+        mirrorX = 0,
+        mirrorY = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          turn += Number(lit[y * 256 + x] !== lit[(255 - y) * 256 + 255 - x]);
+          mirrorX += Number(lit[y * 256 + x] !== lit[y * 256 + 255 - x]);
+          mirrorY += Number(lit[y * 256 + x] !== lit[(255 - y) * 256 + x]);
+        }
+      expect(turn / 65536).toBeLessThan(0.015);
+      if (p.variants[index][2] % 90 === 0) {
+        expect(mirrorX / 65536).toBeLessThan(0.015);
+        expect(mirrorY / 65536).toBeLessThan(0.015);
+      } else {
+        expect(mirrorX / 65536).toBeGreaterThan(0.2);
+        expect(mirrorY / 65536).toBeGreaterThan(0.2);
+      }
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 10 and 6 pick different pairs of sources (2.25 and 3.75 wavelengths apart).
+    const first = litGrid(10),
+      second = litGrid(6);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.389);
+    expect(different / first.length).toBeLessThan(0.392);
+    expect(litGrid(10)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('twosourcewaves', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 green interference maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('twosourcewaves', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(55);
+    expect(red / (512 * 512)).toBeLessThan(56.4);
+    expect(green / (512 * 512)).toBeGreaterThan(103.3);
+    expect(green / (512 * 512)).toBeLessThan(104.6);
+    expect(blue / (512 * 512)).toBeGreaterThan(75.9);
+    expect(blue / (512 * 512)).toBeLessThan(77.2);
+    expect(maxTilt).toBeGreaterThan(0.0095);
+    expect(maxTilt).toBeLessThan(0.0105);
     expect(invalid).toBe(0);
   });
 });

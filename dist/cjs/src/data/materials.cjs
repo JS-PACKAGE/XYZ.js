@@ -27175,6 +27175,69 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: .08,
 		gapOcclusion: .4
 	}),
+	twosourcewaves: Object.freeze({
+		dark: [
+			2,
+			18,
+			12
+		],
+		light: [
+			150,
+			255,
+			190
+		],
+		roughness: .38,
+		relief: 8e-4,
+		seedSalt: 14775,
+		margin: .04,
+		fade: .012,
+		sourceRadius: .01,
+		sourceBlend: .012,
+		variants: [
+			[
+				2.25,
+				.08,
+				0
+			],
+			[
+				3.75,
+				.06,
+				30
+			],
+			[
+				5.3,
+				.05,
+				90
+			],
+			[
+				7.1,
+				.04,
+				0
+			],
+			[
+				9.2,
+				.035,
+				60
+			],
+			[
+				11.2,
+				.04,
+				15
+			]
+		],
+		edgeSoft: .35,
+		grainCells: 128,
+		gapTone: .04,
+		toneFloor: .14,
+		toneSpan: .72,
+		waveTone: .85,
+		sourceTone: 1,
+		grainTone: .03,
+		cellHeight: .8,
+		toneHeight: .12,
+		grainHeight: .08,
+		gapOcclusion: .4
+	}),
 	vermiculation: Object.freeze({
 		dark: [
 			60,
@@ -29258,6 +29321,7 @@ var proceduralTileMeters = Object.freeze({
 	sphericalharmonics: .5,
 	cylinderflow: .5,
 	fieldlines: .5,
+	twosourcewaves: .5,
 	dominotiling: .5,
 	vermiculation: .4,
 	kikko: .3,

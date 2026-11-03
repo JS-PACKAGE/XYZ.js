@@ -48886,6 +48886,77 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'twosourcewaves': {
+        const p = proceduralMaterialPresets.twosourcewaves,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant =
+            p.variants[
+              Math.floor(hash(0, 75, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          wavelength = variant[1],
+          halfSpacing = (variant[0] * wavelength) / 2,
+          angle = (variant[2] * Math.PI) / 180,
+          // Two coherent point sources at 0.5 +- (halfSpacing) along the direction `angle`: the intensity of the waves
+          // they send out is cos^2(pi (r1 - r2) / wavelength), with constructive bands where the path difference is a
+          // whole number of wavelengths and nodal lines (hyperbolas) where it is a half-integer number.
+          firstX = 0.5 + halfSpacing * Math.cos(angle),
+          firstY = 0.5 + halfSpacing * Math.sin(angle),
+          secondX = 0.5 - halfSpacing * Math.cos(angle),
+          secondY = 0.5 - halfSpacing * Math.sin(angle),
+          sourceSquared = p.sourceRadius * p.sourceRadius,
+          inverseSoft = 1 / p.edgeSoft;
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            firstDistance = Math.hypot(fu - firstX, fv - firstY),
+            secondDistance = Math.hypot(fu - secondX, fv - secondY),
+            outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
+            outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
+            boxDistance =
+              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              Math.min(Math.max(outsideX, outsideY), 0),
+            inside = smooth(clamp(-boxDistance / p.fade)),
+            // Close to a source the distance has a cone, so the intensity blends to 0.5 there.
+            blend =
+              smooth(clamp((firstDistance - p.sourceRadius) / p.sourceBlend)) *
+              smooth(clamp((secondDistance - p.sourceRadius) / p.sourceBlend)),
+            wave =
+              0.5 +
+              0.5 *
+                Math.cos(
+                  (2 * Math.PI * (firstDistance - secondDistance)) / wavelength,
+                ),
+            tone = 0.5 + blend * (wave - 0.5),
+            firstT = clamp(1 - (firstDistance * firstDistance) / sourceSquared),
+            secondT = clamp(
+              1 - (secondDistance * secondDistance) / sourceSquared,
+            ),
+            ink = clamp(
+              inside *
+                (p.waveTone * tone +
+                  p.sourceTone *
+                    (1 - (1 - firstT * firstT) * (1 - secondT * secondT))),
+            ),
+            mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(ink) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -57786,6 +57857,7 @@ export function createSurfaceSampler(
     kind === 'sphericalharmonics' ||
     kind === 'cylinderflow' ||
     kind === 'fieldlines' ||
+    kind === 'twosourcewaves' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

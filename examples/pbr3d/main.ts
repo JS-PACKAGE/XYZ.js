@@ -1162,6 +1162,7 @@ try {
     'sphericalharmonics',
     'cylinderflow',
     'fieldlines',
+    'twosourcewaves',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

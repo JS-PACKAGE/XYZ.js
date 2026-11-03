@@ -1099,6 +1099,7 @@ export type ProceduralMaterialKind =
   | 'sphericalharmonics'
   | 'cylinderflow'
   | 'fieldlines'
+  | 'twosourcewaves'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2446,6 +2447,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'sphericalharmonics',
   'cylinderflow',
   'fieldlines',
+  'twosourcewaves',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
