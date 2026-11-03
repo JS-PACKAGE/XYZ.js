@@ -1148,6 +1148,7 @@ try {
     'conformalspiral',
     'steinerchain',
     'confocalconics',
+    'eisensteinprimes',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

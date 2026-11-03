@@ -1111,6 +1111,7 @@ const kinds: ProceduralMaterialKind[] = [
   'conformalspiral',
   'steinerchain',
   'confocalconics',
+  'eisensteinprimes',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -181331,6 +181332,302 @@ describe('Confocal conics as the orthogonal ellipses and hyperbolas about two fo
     expect(blue / (512 * 512)).toBeLessThan(79.2);
     expect(maxTilt).toBeGreaterThan(0.052);
     expect(maxTilt).toBeLessThan(0.057);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Eisenstein primes as the prime Eisenstein integers on the triangular lattice', () => {
+  const p = proceduralMaterialPresets.eisensteinprimes;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /**
+   * Whether the Eisenstein integer a + b w (w a primitive cube root of unity, w^2 = -1 - w) is prime, by a brute
+   * force search for a proper divisor c + d w: with the norm n = c^2 - c d + d^2, the conjugate (c - d) - d w and
+   * the product (a + b w)((c - d) - d w) = (a (c - d) + b d) + (b c - a d) w, a + b w is divisible by c + d w exactly
+   * when both of the two numbers are divisible by n. A prime has no divisor of a norm above 1 and below its own,
+   * and a unit (the norm 1) is not a prime. This does not use the rule of the sampler (a prime norm, or a rational
+   * prime q = 2 mod 3 times a unit).
+   */
+  const isPrime = (a: number, b: number): boolean => {
+    const norm = a * a - a * b + b * b;
+    if (norm < 2) return false;
+    const limit = Math.ceil(Math.sqrt(norm)) + 2;
+    for (let c = -limit; c <= limit; c++)
+      for (let d = -limit; d <= limit; d++) {
+        const divisor = c * c - c * d + d * d;
+        if (divisor <= 1 || divisor >= norm || norm % divisor !== 0) continue;
+        if (
+          (a * (c - d) + b * d) % divisor === 0 &&
+          (b * c - a * d) % divisor === 0
+        )
+          return false;
+      }
+    return true;
+  };
+  /** The tile position of the lattice point a + b w for the radius of a variant (the spacing is 1 / (radius + margin) disc radii, and the point is at (a - b / 2, b sqrt(3) / 2) spacings). */
+  const place = (radius: number, a: number, b: number): number[] => {
+    const spacing = 1 / (radius + p.margin);
+    return [
+      0.5 + p.diskRadius * spacing * (a - b / 2),
+      0.5 + p.diskRadius * spacing * ((b * Math.sqrt(3)) / 2),
+    ];
+  };
+  /** The lattice points of norm 1 up to radius^2 of each variant with their norm, their primality and their position. */
+  const sets = p.radii.map((radius) => {
+    const points: {
+        a: number;
+        b: number;
+        norm: number;
+        prime: boolean;
+        position: number[];
+      }[] = [],
+      limit = Math.ceil(radius * 1.2) + 2;
+    for (let a = -limit; a <= limit; a++)
+      for (let b = -limit; b <= limit; b++) {
+        const norm = a * a - a * b + b * b;
+        if (norm === 0 || norm > radius * radius) continue;
+        points.push({
+          a,
+          b,
+          norm,
+          prime: isPrime(a, b),
+          position: place(radius, a, b),
+        });
+      }
+    return points;
+  });
+  /** The colours read from the sampler at the lattice points of a variant. */
+  const colorsAt = (seed: number, index: number): number[] => {
+    const sample = createSurfaceSampler('eisensteinprimes', seed),
+      out = empty();
+    return sets[index].map((point) => {
+      sample(point.position[0], point.position[1], out);
+      return out.color;
+    });
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('eisensteinprimes', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('eisensteinprimes', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0254);
+      expect(low).toBeLessThan(0.0258);
+      expect(high).toBeGreaterThan(0.82);
+      expect(high).toBeLessThan(0.87);
+      expect(dark / 65536).toBeGreaterThan(0.037);
+      expect(dark / 65536).toBeLessThan(0.0435);
+      expect(mean / 65536).toBeGreaterThan(0.0825);
+      expect(mean / 65536).toBeLessThan(0.0888);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.8);
+      expect(heightHigh).toBeLessThan(0.86);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The variant for each of the seeds 1, 2, 11, 0, 3 and 4 (variants 0 to 5) was found with a probe and is written
+  // here, so that table is not an independent check of the seed's choice.
+  const seeds = [1, 2, 11, 0, 3, 4];
+  it('lights exactly the prime Eisenstein integers of the variant', () => {
+    // The point counts by brute force are 240, 366, 516, 720, 930 and 1164 with 102, 150, 204, 264, 324 and 390
+    // primes for the radii 8, 10, 12, 14, 16 and 18. At every lattice point of the variant of each seed the colour is
+    // above 0.5 (0.63 to 0.87 in the probe) exactly for the primes and below 0.4 (0.32 to 0.35) for the others, the
+    // units and the composites; and each other variant disagrees at at least 30 of its points.
+    const primes = sets.map((set) => set.filter((point) => point.prime).length);
+    expect(sets.map((set) => set.length)).toEqual([
+      240, 366, 516, 720, 930, 1164,
+    ]);
+    expect(primes).toEqual([102, 150, 204, 264, 324, 390]);
+    seeds.forEach((seed, index) => {
+      const colors = colorsAt(seed, index);
+      sets[index].forEach((point, k) => {
+        if (point.prime) expect(colors[k]).toBeGreaterThan(0.5);
+        else expect(colors[k]).toBeLessThan(0.4);
+      });
+      p.radii.forEach((_, other) => {
+        if (other === index) return;
+        const wrong = colorsAt(seed, other).filter(
+          (color, k) => color > 0.5 !== sets[other][k].prime,
+        ).length;
+        expect(wrong).toBeGreaterThan(30);
+      });
+    });
+  });
+  it('is the same turned by 60 degrees and is empty between the lattice points', () => {
+    // Multiplying by -w^2 = 1 + w turns the plane by 60 degrees and takes (a, b) to (a - b, a), a lattice point of the
+    // same norm, so the colours at the two points differ only by the grain (by less than 0.04). The middle of
+    // the segment between two neighbouring points of the lattice (the point (a, b) and (a + 1, b)) is farther
+    // than the reach of the biggest dot from both of them, and reads as the ground (below 0.1; 0.025 to 0.055 in the
+    // probe; the largest difference under the turn is 0.027).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('eisensteinprimes', seed),
+        out = empty(),
+        radius = p.radii[index],
+        colorOf = (a: number, b: number): number => {
+          const position = place(radius, a, b);
+          sample(position[0], position[1], out);
+          return out.color;
+        };
+      for (const point of sets[index]) {
+        expect(
+          Math.abs(
+            colorOf(point.a - point.b, point.a) - colorOf(point.a, point.b),
+          ),
+        ).toBeLessThan(0.04);
+        const first = place(radius, point.a, point.b),
+          second = place(radius, point.a + 1, point.b);
+        sample((first[0] + second[0]) / 2, (first[1] + second[1]) / 2, out);
+        expect(out.color).toBeLessThan(0.1);
+      }
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 1 pick different variants (the radii 14 and 8).
+    const first = litGrid(0),
+      second = litGrid(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.07);
+    expect(different / first.length).toBeLessThan(0.08);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('eisensteinprimes', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [12, p.grainCells, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 lilac Eisenstein prime maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('eisensteinprimes', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(34.9);
+    expect(red / (512 * 512)).toBeLessThan(36.1);
+    expect(green / (512 * 512)).toBeGreaterThan(26.9);
+    expect(green / (512 * 512)).toBeLessThan(28.1);
+    expect(blue / (512 * 512)).toBeGreaterThan(56.9);
+    expect(blue / (512 * 512)).toBeLessThan(58.1);
+    expect(maxTilt).toBeGreaterThan(0.006);
+    expect(maxTilt).toBeLessThan(0.009);
     expect(invalid).toBe(0);
   });
 });

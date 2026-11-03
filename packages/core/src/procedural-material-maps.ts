@@ -47426,6 +47426,118 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'eisensteinprimes': {
+        const p = proceduralMaterialPresets.eisensteinprimes,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          radius =
+            p.radii[
+              Math.floor(hash(0, 61, seed ^ p.seedSalt) * p.radii.length)
+            ],
+          // The Eisenstein integers a + b w (w a primitive cube root of unity) form a triangular lattice, the
+          // point a + b w sitting at (a - b / 2, b sqrt(3) / 2) in lattice units, with the norm
+          // N = a^2 - a b + b^2. An Eisenstein integer is prime when its norm is a prime, or when it is a unit
+          // times a rational prime q with q = 2 (mod 3) (its norm q^2); the units are +-1, +-w, +-w^2, that is
+          // (+-1, 0), (0, +-1) and (1, 1), (-1, -1) in (a, b). The lattice points of norm up to radius^2 are drawn.
+          limit = Math.ceil(radius * 1.2) + 1,
+          width = 2 * limit + 1,
+          isPrimeNumber = (n: number): boolean => {
+            if (n < 2) return false;
+            for (let d = 2; d * d <= n; d++) if (n % d === 0) return false;
+            return true;
+          },
+          // 0 for no point, 1 for a composite or a unit, 2 for a prime.
+          kinds = new Uint8Array(width * width),
+          norms = new Float64Array(width * width);
+        for (let a = -limit; a <= limit; a++)
+          for (let b = -limit; b <= limit; b++) {
+            const norm = a * a - a * b + b * b;
+            if (norm === 0 || norm > radius * radius) continue;
+            const at = (a + limit) * width + b + limit,
+              root = Math.round(Math.sqrt(norm));
+            let prime = isPrimeNumber(norm);
+            if (
+              !prime &&
+              root * root === norm &&
+              isPrimeNumber(root) &&
+              root % 3 === 2
+            )
+              prime =
+                (b === 0 && Math.abs(a) === root) ||
+                (a === 0 && Math.abs(b) === root) ||
+                (a === b && Math.abs(a) === root);
+            kinds[at] = prime ? 2 : 1;
+            norms[at] = norm / (radius * radius);
+          }
+        const spacing = 1 / (radius + p.margin),
+          sqrt3 = Math.sqrt(3),
+          inverseSoft = 1 / p.edgeSoft;
+        return () => {
+          const scale = 1 / p.diskRadius,
+            gx = (fract(u) - 0.5) * scale,
+            gy = (fract(v) - 0.5) * scale,
+            b0 = (2 * gy) / (spacing * sqrt3),
+            a0 = gx / spacing + b0 / 2;
+          // The nearest lattice point: the rounded one and its six neighbours.
+          let best = 0,
+            bestDistance = Infinity,
+            bestNorm = 0;
+          const ra = Math.round(a0),
+            rb = Math.round(b0);
+          for (const [da, db] of [
+            [0, 0],
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+            [1, 1],
+            [-1, -1],
+          ]) {
+            const a = ra + da,
+              b = rb + db;
+            if (Math.abs(a) > limit || Math.abs(b) > limit) continue;
+            const at = (a + limit) * width + b + limit;
+            if (kinds[at] === 0) continue;
+            const dx = gx - spacing * (a - b / 2),
+              dy = gy - spacing * ((b * sqrt3) / 2),
+              distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance < bestDistance) {
+              bestDistance = distance;
+              best = kinds[at];
+              bestNorm = norms[at];
+            }
+          }
+          let ink = 0;
+          if (best !== 0) {
+            const reach =
+                (best === 2 ? p.primeRadius : p.compositeRadius) * spacing,
+              t = clamp(1 - (bestDistance * bestDistance) / (reach * reach)),
+              tone =
+                best === 2
+                  ? p.primeTone * (1 - p.fade * bestNorm)
+                  : p.compositeTone;
+            ink = clamp(tone * t * t);
+          }
+          const mask = smooth(clamp(ink * inverseSoft)),
+            tone = p.toneSpan * ink,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            tone +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(ink) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -56312,6 +56424,7 @@ export function createSurfaceSampler(
     kind === 'conformalspiral' ||
     kind === 'steinerchain' ||
     kind === 'confocalconics' ||
+    kind === 'eisensteinprimes' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
