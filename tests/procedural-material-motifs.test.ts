@@ -55489,3 +55489,629 @@ describe('astroidladder: a ladder of fixed length sliding in a corner drawn at m
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('eulerlinetriangle: the altitudes, circumcircle, centroid and the line through the circumcentre, centroid and orthocentre', () => {
+  const p = proceduralMaterialPresets.eulerlinetriangle,
+    out = empty();
+  type Point = [number, number];
+  type Triangle = { sample: Sampler; radius: number; corners: Point[] };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const near = (tone: number, wanted: number, within = 0.01): boolean =>
+    Math.abs(tone - wanted) < within;
+  const onCircle = (radius: number, angle: number): Point => [
+    p.centerX + radius * Math.cos(angle),
+    p.centerY + radius * Math.sin(angle),
+  ];
+
+  // Read the picture: the circle's radius (the authored one whose circle is there all round), then the corners, the three dark dots on the circle, each at the middle
+  // of the stretch of the circle that is the corner dot's tone, found to a small fraction of the softened edge by halving.
+  const triangleOf = (seed: number): Triangle => {
+    const sample = createSurfaceSampler('eulerlinetriangle', seed),
+      counts = p.radii.map(
+        (radius) =>
+          Array.from({ length: 24 }, (_, i) =>
+            onCircle(radius, (i + 0.5) * ((Math.PI * 2) / 24)),
+          ).filter(
+            ([x, y]) =>
+              near(toneAt(sample, x, y), p.circleTone, 0.03) ||
+              toneAt(sample, x, y) < 0.5,
+          ).length,
+      ),
+      radius = p.radii[counts.indexOf(Math.max(...counts))];
+    expect(Math.max(...counts)).toBeGreaterThan(20);
+    const stretches: [number, number][] = [],
+      step = 0.0015;
+    let start = Number.NaN,
+      last = Number.NaN;
+    for (let angle = 0; angle <= Math.PI * 2 + step; angle += step) {
+      const [x, y] = onCircle(radius, angle),
+        dark = toneAt(sample, x, y) < 0.2;
+      if (dark) {
+        if (Number.isNaN(start)) start = angle;
+        last = angle;
+      } else if (!Number.isNaN(start)) {
+        stretches.push([start, last]);
+        start = Number.NaN;
+      }
+    }
+    // A corner that straddles the angle 0 is two stretches at the two ends: join them.
+    if (
+      stretches.length === 4 &&
+      stretches[0][0] < 0.05 &&
+      stretches[3][1] > Math.PI * 2 - 0.05
+    ) {
+      const first = stretches.shift() as [number, number],
+        end = stretches.pop() as [number, number];
+      stretches.push([end[0], first[1] + Math.PI * 2]);
+    }
+    expect(stretches.length).toBe(3);
+    const mid = (p.cornerTone + p.circleTone) / 2,
+      edge = (inside: number, outside: number): number => {
+        let lo = inside,
+          hi = outside;
+        for (let i = 0; i < 40; i++) {
+          const m = (lo + hi) / 2,
+            [x, y] = onCircle(radius, m);
+          if (toneAt(sample, x, y) < mid) lo = m;
+          else hi = m;
+        }
+        return (lo + hi) / 2;
+      },
+      corners = stretches.map(([from, to]) => {
+        const centre = (from + to) / 2;
+        return onCircle(
+          radius,
+          (edge(centre, centre - 0.06) + edge(centre, centre + 0.06)) / 2,
+        );
+      });
+    return { sample, radius, corners };
+  };
+
+  // The distance from a place to a segment, and to the circle.
+  const toSegment = (
+    [x, y]: Point,
+    [ax, ay]: Point,
+    [bx, by]: Point,
+  ): number => {
+    const dx = bx - ax,
+      dy = by - ay,
+      at = Math.min(
+        1,
+        Math.max(0, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy)),
+      );
+    return Math.hypot(x - (ax + at * dx), y - (ay + at * dy));
+  };
+  // The orthocentre as the meeting of two altitudes (the line through a corner at right angles to the opposite side), solved as two equations.
+  const orthocentre = ([a, b, c]: Point[]): Point => {
+    // (H - A) . (C - B) = 0 and (H - B) . (A - C) = 0.
+    const a1 = c[0] - b[0],
+      b1 = c[1] - b[1],
+      c1 = a[0] * a1 + a[1] * b1,
+      a2 = a[0] - c[0],
+      b2 = a[1] - c[1],
+      c2 = b[0] * a2 + b[1] * b2,
+      det = a1 * b2 - a2 * b1;
+    return [(c1 * b2 - c2 * b1) / det, (a1 * c2 - a2 * c1) / det];
+  };
+  const centroid = (corners: Point[]): Point => [
+    (corners[0][0] + corners[1][0] + corners[2][0]) / 3,
+    (corners[0][1] + corners[1][1] + corners[2][1]) / 3,
+  ];
+  const lineTone = (tone: number): boolean => tone < p.paperTone - 0.1;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws the altitudes meeting at the orthocentre, the centroid a third of the way along the Euler line from the circumcentre, and the circle through the corners (seed %i)',
+    (seed) => {
+      const { sample, radius, corners } = triangleOf(seed),
+        o: Point = [p.centerX, p.centerY],
+        h = orthocentre(corners),
+        g = centroid(corners);
+      // The corners are on the circle round the middle, with the arcs between them short of half a turn (so that the triangle is acute).
+      corners.forEach((corner) =>
+        expect(
+          Math.abs(Math.hypot(corner[0] - o[0], corner[1] - o[1]) - radius),
+        ).toBeLessThan(1e-9),
+      );
+      const angles = corners
+          .map(([x, y]) => Math.atan2(y - o[1], x - o[0]))
+          .sort((a, b) => a - b),
+        arcs = [
+          angles[1] - angles[0],
+          angles[2] - angles[1],
+          angles[0] + Math.PI * 2 - angles[2],
+        ];
+      arcs.forEach((arc) => expect(arc).toBeLessThan(Math.PI));
+      // The Euler line: O, G and H are on one line and G is a third of the way from O to H.
+      expect(Math.abs(g[0] - (o[0] + (h[0] - o[0]) / 3))).toBeLessThan(2e-9);
+      expect(Math.abs(g[1] - (o[1] + (h[1] - o[1]) / 3))).toBeLessThan(2e-9);
+      expect(Math.hypot(h[0] - o[0], h[1] - o[1])).toBeGreaterThan(0.105);
+      // The arcs differ from a third of a turn by at most arcSpread and the largest difference is at least 0.6 of it; no two arcs are alike (not isosceles).
+      const third = (Math.PI * 2) / 3,
+        most = Math.max(...arcs.map((arc) => Math.abs(arc - third)));
+      expect(most).toBeGreaterThan(0.6 * p.arcSpread - 2e-3);
+      expect(most).toBeLessThan(p.arcSpread + 2e-3);
+      expect(Math.abs(arcs[0] - arcs[1])).toBeGreaterThan(0.2);
+      expect(Math.abs(arcs[1] - arcs[2])).toBeGreaterThan(0.2);
+      expect(Math.abs(arcs[2] - arcs[0])).toBeGreaterThan(0.2);
+      // O (a ring), G (a dot) and H (a square) are drawn at those places: the markers' tones at their middles, and at the Euler line's quarter points between them.
+      expect(near(toneAt(sample, h[0], h[1]), p.squareTone, 0.02)).toBe(true);
+      expect(near(toneAt(sample, g[0], g[1]), p.centroidTone, 0.02)).toBe(true);
+      expect(
+        near(toneAt(sample, o[0] + p.ringRadius, o[1]), p.ringTone, 0.02),
+      ).toBe(true);
+      // The three altitudes are lines from each corner to H, at the places a third and half of the way, and the sides between the corners at their middles.
+      corners.forEach((corner, i) => {
+        for (const t of [0.35, 0.5])
+          expect(
+            lineTone(
+              toneAt(
+                sample,
+                corner[0] + (h[0] - corner[0]) * t,
+                corner[1] + (h[1] - corner[1]) * t,
+              ),
+            ),
+          ).toBe(true);
+        const next = corners[(i + 1) % 3];
+        expect(
+          near(
+            toneAt(
+              sample,
+              (corner[0] + next[0]) / 2,
+              (corner[1] + next[1]) / 2,
+            ),
+            p.edgeTone,
+            0.03,
+          ),
+        ).toBe(true);
+        // The circle between this corner and the next, half way round the arc.
+        const half = Math.atan2(corner[1] - o[1], corner[0] - o[0]),
+          after = Math.atan2(next[1] - o[1], next[0] - o[0]),
+          arc =
+            (((after - half) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2),
+          [cx, cy] = onCircle(radius, half + arc / 2);
+        expect(
+          near(toneAt(sample, cx, cy), p.circleTone, 0.03) ||
+            lineTone(toneAt(sample, cx, cy)),
+        ).toBe(true);
+      });
+      // The Euler line is drawn between O and H, away from the markers (at the quarter points; where an altitude or side crosses it the tone is still a line's).
+      for (const t of [0.5, 0.75])
+        expect(
+          lineTone(
+            toneAt(sample, o[0] + (h[0] - o[0]) * t, o[1] + (h[1] - o[1]) * t),
+          ),
+        ).toBe(true);
+      // Nothing outside the circle.
+      expect(
+        Math.abs(
+          toneAt(sample, p.centerX + radius + 0.03, p.centerY) - p.paperTone,
+        ),
+      ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+    },
+  );
+
+  it('uses every radius, and triangles of every kind of lean, over 60 seeds', () => {
+    const radii = new Set<number>();
+    let farthest = 0,
+      nearest = 1;
+    const quadrants = [0, 0, 0, 0];
+    let biggest = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const { radius, corners } = triangleOf(seed * 79 + 22),
+        h = orthocentre(corners),
+        apart = Math.hypot(h[0] - p.centerX, h[1] - p.centerY);
+      radii.add(radius);
+      // The arcs between the corners: the biggest differs from a third of a turn by 0.6 to 1 of arcSpread, and no two arcs are alike.
+      const angles = corners
+          .map(([x, y]) => Math.atan2(y - p.centerY, x - p.centerX))
+          .sort((x, y) => x - y),
+        arcs = [
+          angles[1] - angles[0],
+          angles[2] - angles[1],
+          angles[0] + Math.PI * 2 - angles[2],
+        ],
+        most = Math.max(
+          ...arcs.map((arc) => Math.abs(arc - (Math.PI * 2) / 3)),
+        );
+      biggest = Math.max(biggest, most);
+      expect(most).toBeGreaterThan(0.6 * p.arcSpread - 2e-3);
+      expect(most).toBeLessThan(p.arcSpread + 2e-3);
+      expect(Math.abs(arcs[0] - arcs[1])).toBeGreaterThan(0.2);
+      expect(Math.abs(arcs[1] - arcs[2])).toBeGreaterThan(0.2);
+      expect(Math.abs(arcs[2] - arcs[0])).toBeGreaterThan(0.2);
+      quadrants[
+        Math.floor(
+          ((Math.atan2(h[1] - p.centerY, h[0] - p.centerX) + Math.PI * 2) %
+            (Math.PI * 2)) /
+            (Math.PI / 2),
+        )
+      ]++;
+      farthest = Math.max(farthest, apart);
+      nearest = Math.min(nearest, apart);
+    }
+    expect([...radii].sort((a, b) => a - b)).toEqual([...p.radii]);
+    expect(nearest).toBeGreaterThan(0.105);
+    // The Euler line points every way: H is in each quarter of the turn about O in a good share of the pictures.
+    quadrants.forEach((count) => expect(count).toBeGreaterThanOrEqual(6));
+    expect(biggest).toBeGreaterThan(0.9 * p.arcSpread);
+    expect(farthest).toBeGreaterThan(0.17);
+  });
+
+  it('draws the circle, the sides, the altitudes, the Euler line and the markers with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, radius, corners } = triangleOf(seed),
+        o: Point = [p.centerX, p.centerY],
+        h = orthocentre(corners),
+        g = centroid(corners),
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9,
+        // A place is clear if it is further than the given distance from every other thing drawn (sides, altitudes, the Euler line, the circle).
+        clearOf = (point: Point, except: string, margin: number): boolean => {
+          const distances: Record<string, number> = {
+            circle: Math.abs(
+              Math.hypot(point[0] - o[0], point[1] - o[1]) - radius,
+            ),
+            euler: toSegment(point, o, h),
+          };
+          corners.forEach((corner, i) => {
+            distances[`edge${i}`] = toSegment(
+              point,
+              corner,
+              corners[(i + 1) % 3],
+            );
+            const [b, c] = [corners[(i + 1) % 3], corners[(i + 2) % 3]],
+              dx = c[0] - b[0],
+              dy = c[1] - b[1],
+              along =
+                ((corner[0] - b[0]) * dx + (corner[1] - b[1]) * dy) /
+                (dx * dx + dy * dy);
+            distances[`altitude${i}`] = toSegment(point, corner, [
+              b[0] + along * dx,
+              b[1] + along * dy,
+            ]);
+          });
+          // Clear of the markers too: the ring, dot, square and corner dots reach this far from their middles (and a little more).
+          const markers = [
+            [h, 0.015],
+            [g, 0.012],
+            [o, 0.018],
+            ...corners.map((corner) => [corner, 0.02]),
+          ] as [Point, number][];
+          return (
+            Object.entries(distances).every(
+              ([name, distance]) => name === except || distance > margin,
+            ) &&
+            markers.every(
+              ([marker, reach]) =>
+                Math.hypot(point[0] - marker[0], point[1] - marker[1]) > reach,
+            )
+          );
+        };
+      // A line's tone, height, roughness and thickness, measured across it at a place clear of everything else.
+      const thick = (
+        a: Point,
+        b: Point,
+        except: string,
+        half: number,
+        tone: number,
+        level: number,
+        margin = 0.008,
+      ): void => {
+        const dx = b[0] - a[0],
+          dy = b[1] - a[1],
+          length = Math.hypot(dx, dy),
+          nx = -dy / length,
+          ny = dx / length,
+          at = Array.from({ length: 91 }, (_, i) => 0.05 + i * 0.01).find((t) =>
+            clearOf([a[0] + dx * t, a[1] + dy * t], except, margin),
+          ) as number;
+        expect(at).toBeDefined();
+        const x = a[0] + dx * at,
+          y = a[1] + dy * at;
+        expect(toneAt(sample, x, y)).toBeCloseTo(tone, 6);
+        expect(out.height / p.relief).toBeCloseTo(level, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(
+          toneAt(sample, x + nx * (half - 0.0004), y + ny * (half - 0.0004)),
+        ).toBeCloseTo(tone, 6);
+        expect(
+          toneAt(sample, x - nx * (half - 0.0004), y - ny * (half - 0.0004)),
+        ).toBeCloseTo(tone, 6);
+        expect(
+          paperOk(x + nx * (half + 0.0004), y + ny * (half + 0.0004)),
+        ).toBe(true);
+        expect(
+          paperOk(x - nx * (half + 0.0004), y - ny * (half + 0.0004)),
+        ).toBe(true);
+      };
+      corners.forEach((corner, i) => {
+        thick(
+          corner,
+          corners[(i + 1) % 3],
+          `edge${i}`,
+          p.edgeHalf,
+          p.edgeTone,
+          p.edgeHeight,
+        );
+        const [b, c] = [corners[(i + 1) % 3], corners[(i + 2) % 3]],
+          dx = c[0] - b[0],
+          dy = c[1] - b[1],
+          along =
+            ((corner[0] - b[0]) * dx + (corner[1] - b[1]) * dy) /
+            (dx * dx + dy * dy);
+        thick(
+          corner,
+          [b[0] + along * dx, b[1] + along * dy],
+          `altitude${i}`,
+          p.altitudeHalf,
+          p.altitudeTone,
+          p.altitudeHeight,
+        );
+        // A corner dot: tone, height, roughness and radius (outward from the circle, where nothing else is).
+        expect(toneAt(sample, corner[0], corner[1])).toBeCloseTo(
+          p.cornerTone,
+          6,
+        );
+        expect(out.height / p.relief).toBeCloseTo(p.cornerHeight, 6);
+        const outward: Point = [
+          (corner[0] - o[0]) / radius,
+          (corner[1] - o[1]) / radius,
+        ];
+        expect(
+          near(
+            toneAt(
+              sample,
+              corner[0] + outward[0] * (p.cornerRadius - 0.0006),
+              corner[1] + outward[1] * (p.cornerRadius - 0.0006),
+            ),
+            p.cornerTone,
+          ),
+        ).toBe(true);
+        expect(
+          near(
+            toneAt(
+              sample,
+              corner[0] + outward[0] * (p.cornerRadius + 0.0006),
+              corner[1] + outward[1] * (p.cornerRadius + 0.0006),
+            ),
+            p.paperTone,
+            0.2,
+          ),
+        ).toBe(true);
+      });
+      thick(o, h, 'euler', p.eulerHalf, p.eulerTone, p.eulerHeight, 0.0045);
+      // The circle: tone, height, roughness and thickness measured across it (radially), half way between two corners.
+      const mid = Math.atan2(corners[0][1] - o[1], corners[0][0] - o[0]) + 0.5,
+        [mx, my] = onCircle(radius, mid);
+      if (clearOf([mx, my], 'circle', 0.008)) {
+        expect(toneAt(sample, mx, my)).toBeCloseTo(p.circleTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.circleHeight, 6);
+        const [rx, ry] = [Math.cos(mid), Math.sin(mid)];
+        expect(
+          toneAt(
+            sample,
+            mx + rx * (p.circleHalf - 0.0004),
+            my + ry * (p.circleHalf - 0.0004),
+          ),
+        ).toBeCloseTo(p.circleTone, 6);
+        expect(
+          paperOk(
+            mx + rx * (p.circleHalf + 0.0004),
+            my + ry * (p.circleHalf + 0.0004),
+          ),
+        ).toBe(true);
+        expect(
+          paperOk(
+            mx - rx * (p.circleHalf + 0.0004),
+            my - ry * (p.circleHalf + 0.0004),
+          ),
+        ).toBe(true);
+      }
+      // O (the ring): tone, height, roughness, radius and thickness, in the direction away from the Euler line.
+      const away = Math.atan2(o[1] - h[1], o[0] - h[0]),
+        ringX = o[0] + p.ringRadius * Math.cos(away),
+        ringY = o[1] + p.ringRadius * Math.sin(away);
+      expect(toneAt(sample, ringX, ringY)).toBeCloseTo(p.ringTone, 6);
+      expect(out.height / p.relief).toBeCloseTo(p.ringHeight, 6);
+      expect(paperOk(o[0], o[1]) || lineTone(toneAt(sample, o[0], o[1]))).toBe(
+        true,
+      );
+      expect(
+        paperOk(
+          o[0] + (p.ringRadius + p.ringHalf + 0.0004) * Math.cos(away),
+          o[1] + (p.ringRadius + p.ringHalf + 0.0004) * Math.sin(away),
+        ),
+      ).toBe(true);
+      // G (the dot) and H (the square): tone, height, roughness and size.
+      expect(toneAt(sample, g[0], g[1])).toBeCloseTo(p.centroidTone, 6);
+      expect(out.height / p.relief).toBeCloseTo(p.centroidHeight, 6);
+      expect(toneAt(sample, h[0], h[1])).toBeCloseTo(p.squareTone, 6);
+      expect(out.height / p.relief).toBeCloseTo(p.squareHeight, 6);
+      expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+      expect(
+        toneAt(
+          sample,
+          h[0] + p.squareHalf - 0.0004,
+          h[1] + p.squareHalf - 0.0004,
+        ),
+      ).toBeCloseTo(p.squareTone, 6);
+      expect(
+        toneAt(
+          sample,
+          h[0] - p.squareHalf + 0.0004,
+          h[1] - p.squareHalf + 0.0004,
+        ),
+      ).toBeCloseTo(p.squareTone, 6);
+    }
+  });
+
+  it('softens the edge of a corner dot, the ring, the centroid dot, the square and the sides over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      const { sample, radius, corners } = triangleOf(seed),
+        o: Point = [p.centerX, p.centerY],
+        h = orthocentre(corners),
+        g = centroid(corners),
+        away = Math.atan2(o[1] - h[1], o[0] - h[0]),
+        corner = corners[0],
+        outward: Point = [
+          (corner[0] - o[0]) / radius,
+          (corner[1] - o[1]) / radius,
+        ];
+      // A corner dot's outer edge over the paper (outward from the circle, where only paper is).
+      close(
+        toneAt(
+          sample,
+          corner[0] + outward[0] * (p.cornerRadius - quarter),
+          corner[1] + outward[1] * (p.cornerRadius - quarter),
+        ),
+        mix(p.paperTone, p.cornerTone, 0.75),
+      );
+      close(
+        toneAt(
+          sample,
+          corner[0] + outward[0] * (p.cornerRadius + quarter),
+          corner[1] + outward[1] * (p.cornerRadius + quarter),
+        ),
+        mix(p.paperTone, p.cornerTone, 0.25),
+      );
+      // The ring's outer edge, away from the Euler line.
+      close(
+        toneAt(
+          sample,
+          o[0] + (p.ringRadius + p.ringHalf - quarter) * Math.cos(away),
+          o[1] + (p.ringRadius + p.ringHalf - quarter) * Math.sin(away),
+        ),
+        mix(p.paperTone, p.ringTone, 0.75),
+      );
+      close(
+        toneAt(
+          sample,
+          o[0] + (p.ringRadius + p.ringHalf + quarter) * Math.cos(away),
+          o[1] + (p.ringRadius + p.ringHalf + quarter) * Math.sin(away),
+        ),
+        mix(p.paperTone, p.ringTone, 0.25),
+      );
+      // The centroid dot's edge, across the Euler line (the line leaves the dot along its own direction, so go the other way round).
+      const across: Point = [-(h[1] - o[1]), h[0] - o[0]],
+        scale = Math.hypot(across[0], across[1]);
+      close(
+        toneAt(
+          sample,
+          g[0] + (across[0] / scale) * (p.centroidRadius - quarter),
+          g[1] + (across[1] / scale) * (p.centroidRadius - quarter),
+        ),
+        mix(p.paperTone, p.centroidTone, 0.75),
+      );
+      close(
+        toneAt(
+          sample,
+          g[0] + (across[0] / scale) * (p.centroidRadius + quarter),
+          g[1] + (across[1] / scale) * (p.centroidRadius + quarter),
+        ),
+        mix(p.paperTone, p.centroidTone, 0.25),
+      );
+      // The square's sides, left or right and top or bottom, each at the place along it that is furthest from the four lines through H (three altitudes and the Euler line).
+      const directions: Point[] = [
+          ...corners.map((corner): Point => [
+            corner[0] - h[0],
+            corner[1] - h[1],
+          ]),
+          [o[0] - h[0], o[1] - h[1]],
+        ],
+        lineDistance = (x: number, y: number): number =>
+          Math.min(
+            ...directions.map(
+              ([dx, dy]) =>
+                Math.abs((x - h[0]) * dy - (y - h[1]) * dx) /
+                Math.hypot(dx, dy),
+            ),
+          );
+      for (const vertical of [false, true]) {
+        // A place on the side's line, given how far out it is (from the middle of the square), the side and the shift along it.
+        const at = (side: number, shift: number, out: number): Point =>
+            vertical
+              ? [h[0] + shift, h[1] + side * out]
+              : [h[0] + side * out, h[1] + shift],
+          spots = [-1, 1].flatMap((side) =>
+            Array.from(
+              { length: 13 },
+              (_, i) => [side, (i - 6) * 0.001] as const,
+            ),
+          ),
+          [side, shift] = spots.reduce((best, spot) =>
+            lineDistance(...at(spot[0], spot[1], p.squareHalf)) >
+            lineDistance(...at(best[0], best[1], p.squareHalf))
+              ? spot
+              : best,
+          );
+        expect(lineDistance(...at(side, shift, p.squareHalf))).toBeGreaterThan(
+          0.0021,
+        );
+        close(
+          toneAt(sample, ...at(side, shift, p.squareHalf - quarter)),
+          mix(p.paperTone, p.squareTone, 0.75),
+        );
+        close(
+          toneAt(sample, ...at(side, shift, p.squareHalf + quarter)),
+          mix(p.paperTone, p.squareTone, 0.25),
+        );
+      }
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('eulerlinetriangle', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('eulerlinetriangle', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.97),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('eulerlinetriangle', 0),
+      b = createSurfaceSampler('eulerlinetriangle', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.4801],
+        [0.5201, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

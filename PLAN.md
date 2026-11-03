@@ -2285,6 +2285,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`eulerlinetriangle`（三角形的歐拉線）使目前目錄1181→1182種，含plain的gallery為1183項。銳角三角形的歐拉線：畫出三角形（三個角各有一個深色圓點）、外接圓、三條高（交於垂心H，一個小方塊）、外心O（一個小圓環，在外接圓的中心）、重心G（一個小圓點）以及穿過O、G、H的歐拉線，G在O到H的三分之一處。三個角在圓上，角度使每一段弧都小於半圈（所以是銳角三角形，H在三角形內），而且不會太接近正三角形（O與H相距約0.11以上）或等腰三角形（等腰時歐拉線會與一條高重合）。seed決定圓的半徑、弧長的差異與整體的轉向。這是作者設計的示意；測試端只從畫面讀圓的半徑與三個角（沿圓掃描、再用對分法精確定位），其餘由這三個角獨立算出：外心O、重心G（三角的平均）、垂心H（解兩條高的交點，不用取樣端的「角向量相加」公式），再驗證畫面上這些位置的標記、三條高、三邊、外接圓與歐拉線。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

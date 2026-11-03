@@ -45412,6 +45412,193 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'eulerlinetriangle': {
+        const p = proceduralMaterialPresets.eulerlinetriangle,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x51001),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          radius =
+            p.radii[Math.floor(hash(73, 1, seed ^ 0x51002) * p.radii.length)],
+          third = (Math.PI * 2) / 3,
+          start = hash(73, 2, seed ^ 0x51003) * Math.PI * 2;
+        // The three arcs between the corners are each a third of a turn plus a difference (cos of an angle, a third of a turn apart, so the differences add
+        // up to nothing); the largest is scaled to a fraction of arcSpread, so that no arc reaches half a turn (the triangle is acute) and no angle is near a
+        // right angle (which would put H on a corner). The angle keeps clear of the ones that make two arcs equal (an isosceles triangle, whose Euler line lies along
+        // an altitude).
+        const phase =
+            (Math.PI / 3) *
+            (Math.floor(hash(73, 3, seed ^ 0x51004) * 6) +
+              0.25 +
+              0.5 * hash(73, 4, seed ^ 0x51005)),
+          differenceA = Math.cos(phase),
+          differenceB = Math.cos(phase + third),
+          largest = Math.max(
+            Math.abs(differenceA),
+            Math.abs(differenceB),
+            Math.abs(differenceA + differenceB),
+          ),
+          unit = p.arcSpread / largest,
+          angles = (spread: number): number[] => [
+            start,
+            start + third + differenceA * unit * spread,
+            start + 2 * third + (differenceA + differenceB) * unit * spread,
+          ];
+        // The triangle is never near equilateral (the differences are at least 0.6 of arcSpread), so O and H are apart (about 0.1 or more). H is the sum of the corners as
+        // vectors from O.
+        const spread = 0.6 + 0.4 * hash(73, 5, seed ^ 0x51006);
+        let sumX = 0,
+          sumY = 0;
+        for (const angle of angles(spread)) {
+          sumX += radius * Math.cos(angle);
+          sumY += radius * Math.sin(angle);
+        }
+        const corners = angles(spread).map((angle) => [
+            p.centerX + radius * Math.cos(angle),
+            p.centerY + radius * Math.sin(angle),
+          ]),
+          // O is the middle of the circle, G the mean of the corners, H the sum of the corners as vectors from O (so H = O + 3 (G - O)).
+          ox = p.centerX,
+          oy = p.centerY,
+          hx = ox + sumX,
+          hy = oy + sumY,
+          gx = ox + sumX / 3,
+          gy = oy + sumY / 3,
+          // The foot of each corner's altitude, on the opposite side.
+          feet = corners.map(([x, y], i) => {
+            const [bx, by] = corners[(i + 1) % 3],
+              [cx, cy] = corners[(i + 2) % 3],
+              dx = cx - bx,
+              dy = cy - by,
+              along = ((x - bx) * dx + (y - by) * dy) / (dx * dx + dy * dy);
+            return [bx + along * dx, by + along * dy];
+          });
+        // The distance from a point to a segment.
+        const segment = (
+          x: number,
+          y: number,
+          ax: number,
+          ay: number,
+          bx: number,
+          by: number,
+        ): number => {
+          const dx = bx - ax,
+            dy = by - ay,
+            at = clamp(((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy));
+          return Math.hypot(x - (ax + at * dx), y - (ay + at * dy));
+        };
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          if (
+            Math.abs(fu - ox) < radius + 0.03 &&
+            Math.abs(fv - oy) < radius + 0.03
+          ) {
+            // The circumcircle.
+            paint(
+              cover(
+                p.circleHalf - Math.abs(Math.hypot(fu - ox, fv - oy) - radius),
+              ),
+              p.circleTone,
+              p.circleHeight,
+            );
+            // The three altitudes, from a corner to its foot (combined: they cross at H).
+            let altitude = 0,
+              edge = 0;
+            for (let i = 0; i < 3; i++) {
+              altitude = Math.max(
+                altitude,
+                cover(
+                  p.altitudeHalf -
+                    segment(
+                      fu,
+                      fv,
+                      corners[i][0],
+                      corners[i][1],
+                      feet[i][0],
+                      feet[i][1],
+                    ),
+                ),
+              );
+              // The sides, which meet at the corners.
+              const next = corners[(i + 1) % 3];
+              edge = Math.max(
+                edge,
+                cover(
+                  p.edgeHalf -
+                    segment(
+                      fu,
+                      fv,
+                      corners[i][0],
+                      corners[i][1],
+                      next[0],
+                      next[1],
+                    ),
+                ),
+              );
+            }
+            paint(altitude, p.altitudeTone, p.altitudeHeight);
+            paint(edge, p.edgeTone, p.edgeHeight);
+            // The Euler line, from O to H.
+            paint(
+              cover(p.eulerHalf - segment(fu, fv, ox, oy, hx, hy)),
+              p.eulerTone,
+              p.eulerHeight,
+            );
+            // The corners, then O (a ring), G (a dot) and H (a square).
+            let cornerCover = 0;
+            for (let i = 0; i < 3; i++)
+              cornerCover = Math.max(
+                cornerCover,
+                cover(
+                  p.cornerRadius -
+                    Math.hypot(fu - corners[i][0], fv - corners[i][1]),
+                ),
+              );
+            paint(cornerCover, p.cornerTone, p.cornerHeight);
+            paint(
+              cover(
+                p.ringHalf -
+                  Math.abs(Math.hypot(fu - ox, fv - oy) - p.ringRadius),
+              ),
+              p.ringTone,
+              p.ringHeight,
+            );
+            paint(
+              cover(p.centroidRadius - Math.hypot(fu - gx, fv - gy)),
+              p.centroidTone,
+              p.centroidHeight,
+            );
+            paint(
+              cover(
+                Math.min(
+                  p.squareHalf - Math.abs(fu - hx),
+                  p.squareHalf - Math.abs(fv - hy),
+                ),
+              ),
+              p.squareTone,
+              p.squareHeight,
+            );
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -72941,6 +73128,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'eulerlinetriangle' ||
     kind === 'astroidladder' ||
     kind === 'slopegraph' ||
     kind === 'kolakoskisequence' ||

@@ -25138,6 +25138,60 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .8,
 		inkRoughness: .4
 	}),
+	eulerlinetriangle: Object.freeze({
+		dark: [
+			26,
+			36,
+			60
+		],
+		light: [
+			245,
+			242,
+			231
+		],
+		roughness: .55,
+		relief: .004,
+		radii: Object.freeze([
+			.28,
+			.3,
+			.32
+		]),
+		centerX: .5,
+		centerY: .5,
+		arcSpread: .8,
+		edgeHalf: .0022,
+		altitudeHalf: .0014,
+		circleHalf: .0012,
+		eulerHalf: .0016,
+		cornerRadius: .011,
+		ringRadius: .012,
+		ringHalf: .002,
+		centroidRadius: .008,
+		squareHalf: .008,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .96,
+		circleTone: .76,
+		altitudeTone: .64,
+		edgeTone: .46,
+		eulerTone: .34,
+		cornerTone: .1,
+		squareTone: .2,
+		ringTone: .3,
+		centroidTone: .42,
+		grainTone: .03,
+		paperHeight: .2,
+		circleHeight: .3,
+		altitudeHeight: .4,
+		edgeHeight: .6,
+		eulerHeight: .7,
+		cornerHeight: .9,
+		squareHeight: .85,
+		ringHeight: .8,
+		centroidHeight: .75,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -33819,6 +33873,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	eulerlinetriangle: 1,
 	astroidladder: 1,
 	slopegraph: 1,
 	kolakoskisequence: 1,
