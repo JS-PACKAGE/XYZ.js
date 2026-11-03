@@ -38828,6 +38828,84 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'equalizerbars': {
+        const p = proceduralMaterialPresets.equalizerbars,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x33101),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          bands =
+            p.bands[Math.floor(hash(3, 1, seed ^ 0x33102) * p.bands.length)],
+          rows = p.rows[Math.floor(hash(5, 2, seed ^ 0x33103) * p.rows.length)],
+          firstFrequency =
+            p.firstFrequencies[
+              Math.floor(hash(7, 3, seed ^ 0x33104) * p.firstFrequencies.length)
+            ],
+          secondFrequency =
+            p.secondFrequencies[
+              Math.floor(
+                hash(9, 4, seed ^ 0x33105) * p.secondFrequencies.length,
+              )
+            ],
+          firstPhase = hash(11, 5, seed ^ 0x33106),
+          secondPhase = hash(13, 6, seed ^ 0x33107),
+          columnWidth = 1 / bands,
+          rowHeight = 1 / rows,
+          lowRows = Math.floor(p.lowShare * rows),
+          midRows = Math.floor((p.lowShare + p.midShare) * rows),
+          // Per band: the number of lit segments from the bottom, and the row of the peak segment.
+          levels = new Int16Array(bands),
+          peaks = new Int16Array(bands),
+          zoneTones = [p.lowTone, p.midTone, p.highTone];
+        for (let i = 0; i < bands; i++) {
+          const x = (i + 0.5) / bands,
+            curve =
+              0.5 +
+              p.firstAmplitude *
+                Math.sin(TAU * (firstFrequency * x + firstPhase)) +
+              p.secondAmplitude *
+                Math.sin(TAU * (secondFrequency * x + secondPhase)) +
+              (hash(i, 0, seed ^ 0x33108) - 0.5) * p.scatter,
+            // minLevel and maxLevel keep the level between 1 and rows - 2 (at least one unlit segment, room for a peak above).
+            level = Math.round(
+              rows * (p.minLevel + (p.maxLevel - p.minLevel) * clamp(curve)),
+            );
+          levels[i] = level;
+          peaks[i] = Math.min(
+            rows - 1,
+            levels[i] + 1 + Math.floor(hash(i, 1, seed ^ 0x33109) * 3),
+          );
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            band = Math.floor(fu * bands),
+            // Rows count up from the bottom of the tile.
+            segment = Math.floor((1 - fv) * rows),
+            fromLeft = fu - band * columnWidth,
+            fromBottom = 1 - fv - segment * rowHeight,
+            inside = Math.min(
+              Math.min(fromLeft, columnWidth - fromLeft) -
+                p.insetX * columnWidth * 0.5,
+              Math.min(fromBottom, rowHeight - fromBottom) -
+                p.insetY * rowHeight * 0.5,
+            ),
+            led = cover(inside),
+            lit = segment < levels[band] || segment === peaks[band],
+            zone = segment < lowRows ? 0 : segment < midRows ? 1 : 2,
+            tone = lit ? zoneTones[zone] : p.offTone,
+            elevation = lit ? p.litHeight : p.offHeight,
+            rough = lit ? p.litRoughness : p.offRoughness;
+          color = clamp(
+            p.gapTone +
+              (tone - p.gapTone) * led +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(p.gapHeight + (elevation - p.gapHeight) * led);
+          roughness = p.gapRoughness + (rough - p.gapRoughness) * led;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -66357,6 +66435,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'equalizerbars' ||
     kind === 'worleycells' ||
     kind === 'errordiffusion' ||
     kind === 'tetrominoes' ||

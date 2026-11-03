@@ -2037,6 +2037,10 @@
 
 這是作者設計的示意：不是Perlin／simplex噪聲，也不宣稱與任何標準Worley實作逐位相同；搜尋範圍從3×3擴大到5×5是因為第一版測試發現第二近的點可能在兩格以外；jitter上限0.9是為了避免兩個特徵點靠得太近、測試端無法從高度分辨。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`equalizerbars`（等化器LED柱）使目前目錄1119→1120種，含plain的gallery為1121項。tile是16、24或32個頻帶並排，每個頻帶是一柱16、20或24個LED段，從底部往上點亮到該頻帶的高度，再在上方隔1至3段處亮一段峰值段；段依高度分三個區間上色（下方60%、其後25%、其餘），未亮的段是暗色，段與段之間有暗縫。高度是兩個正弦（整數頻率，所以左右環繞相接）加隨機散布。頻帶數、段數與曲線由seed決定。Metallic與mortar為0。
+
+這是作者設計的示意：色調只用亮度區分，所謂「綠／黃／紅」分區是三個灰階；高度曲線是示意，不是任何音訊資料。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

@@ -33137,3 +33137,205 @@ describe('worleycells: Worley noise on a jittered grid', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('equalizerbars: LED columns lit up to a level with a peak segment', () => {
+  const p = proceduralMaterialPresets.equalizerbars;
+  type Layout = {
+    bands: number;
+    rows: number;
+    levels: number[];
+    peaks: number[];
+  };
+  const zoneTones = [p.lowTone, p.midTone, p.highTone];
+  // The tone class of a segment: 0 unlit, 1..3 lit in the low, mid and high zone; -1 for none of them.
+  const classOf = (tone: number): number => {
+    if (Math.abs(tone - p.offTone) < 0.06) return 0;
+    const zone = zoneTones.findIndex((value) => Math.abs(tone - value) < 0.06);
+    return zone < 0 ? -1 : zone + 1;
+  };
+  const zoneOf = (row: number, rows: number): number =>
+    row < Math.floor(p.lowShare * rows)
+      ? 1
+      : row < Math.floor((p.lowShare + p.midShare) * rows)
+        ? 2
+        : 3;
+
+  // Reads a bands x rows grid from the middle of every segment (rows counted from the bottom); null unless every column is a run of lit
+  // segments from the bottom, at most one lit peak segment above it with an unlit segment between, every lit segment in the tone of its
+  // zone and nothing else lit.
+  const readLayout = (
+    seed: number,
+    bands: number,
+    rows: number,
+  ): Layout | null => {
+    const sample = createSurfaceSampler('equalizerbars', seed),
+      out = empty(),
+      levels: number[] = [],
+      peaks: number[] = [];
+    // The lines between the segments (every row boundary in the middle of every column, every column boundary in the middle of every
+    // row) are the dark gap tone: this fixes the grid, since a coarser or finer grid would put these inside LEDs.
+    for (let boundary = 0; boundary <= bands; boundary++)
+      for (let row = 0; row < rows; row++) {
+        sample(boundary / bands, 1 - (row + 0.5) / rows, out);
+        if (Math.abs(out.color - p.gapTone) > 0.05) return null;
+      }
+    for (let boundary = 0; boundary <= rows; boundary++)
+      for (let band = 0; band < bands; band++) {
+        sample((band + 0.5) / bands, boundary / rows, out);
+        if (Math.abs(out.color - p.gapTone) > 0.05) return null;
+      }
+    for (let band = 0; band < bands; band++) {
+      const column = Array.from({ length: rows }, (_, row) => {
+        sample((band + 0.5) / bands, 1 - (row + 0.5) / rows, out);
+        return classOf(out.color);
+      });
+      if (column.includes(-1) || column[0] === 0) return null;
+      const level = column.findIndex((value) => value === 0);
+      if (level < 1) return null;
+      const above = column.flatMap((value, row) =>
+        row > level && value !== 0 ? [row] : [],
+      );
+      if (above.length !== 1) return null;
+      const peak = above[0];
+      if (peak > rows - 1 || peak - level < 1 || peak - level > 3) return null;
+      if (
+        column.some((value, row) => value !== 0 && value !== zoneOf(row, rows))
+      )
+        return null;
+      levels.push(level);
+      peaks.push(peak);
+    }
+    return { bands, rows, levels, peaks };
+  };
+  const layoutOf = (seed: number): Layout => {
+    const found = p.bands
+      .flatMap((bands) => p.rows.map((rows) => readLayout(seed, bands, rows)))
+      .filter((layout) => layout !== null);
+    expect(found).toHaveLength(1);
+    return found[0];
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'lights every column from the bottom with one peak segment, toned by zone (seed %i)',
+    (seed) => {
+      const { bands, rows, levels } = layoutOf(seed);
+      // The levels vary, and follow a smooth curve plus scatter: neighbouring bands (also across the seam) never differ by more than
+      // 0.55 of the column.
+      expect(Math.max(...levels) - Math.min(...levels)).toBeGreaterThanOrEqual(
+        rows / 4,
+      );
+      levels.forEach((level, i) =>
+        expect(Math.abs(level - levels[(i + 1) % bands])).toBeLessThanOrEqual(
+          0.55 * rows,
+        ),
+      );
+      expect(Math.min(...levels)).toBeGreaterThanOrEqual(1);
+      expect(Math.max(...levels)).toBeLessThanOrEqual(rows - 2);
+    },
+  );
+
+  it('uses every number of bands and rows across seeds', () => {
+    const bands = new Set<number>(),
+      rows = new Set<number>();
+    for (let seed = 0; seed < 40; seed++) {
+      const layout = layoutOf(seed);
+      bands.add(layout.bands);
+      rows.add(layout.rows);
+    }
+    expect([...bands].sort((a, b) => a - b)).toEqual([...p.bands]);
+    expect([...rows].sort((a, b) => a - b)).toEqual([...p.rows]);
+  });
+
+  it('draws LEDs inset from the segment edges, with their height and roughness', () => {
+    for (const seed of seeds) {
+      const { bands, rows, levels, peaks } = layoutOf(seed),
+        sample = createSurfaceSampler('equalizerbars', seed),
+        out = empty(),
+        marginX = (p.insetX * 0.5) / bands,
+        marginY = (p.insetY * 0.5) / rows;
+      for (let band = 0; band < bands; band += 3)
+        for (const row of [
+          0,
+          levels[band] - 1,
+          levels[band],
+          peaks[band],
+          rows - 1,
+        ]) {
+          const lit = row < levels[band] || row === peaks[band],
+            left = band / bands,
+            bottom = 1 - row / rows,
+            middleX = (band + 0.5) / bands,
+            middleY = bottom - 0.5 / rows;
+          // The middle of the segment: its tone, height and roughness.
+          sample(middleX, middleY, out);
+          expect(
+            Math.abs(
+              out.color - (lit ? zoneTones[zoneOf(row, rows) - 1] : p.offTone),
+            ),
+          ).toBeLessThan(0.03);
+          expect(
+            Math.abs(out.height / p.relief - (lit ? p.litHeight : p.offHeight)),
+          ).toBeLessThan(0.03);
+          expect(
+            Math.abs(out.roughness - (lit ? p.litRoughness : p.offRoughness)),
+          ).toBeLessThan(0.03);
+          // Across the inset margin: the gap outside it, the LED just inside it (0.0015 either side of the margin's inner edge).
+          sample(left + marginX - 0.0015, middleY, out);
+          expect(Math.abs(out.color - p.gapTone)).toBeLessThan(0.03);
+          expect(Math.abs(out.height / p.relief - p.gapHeight)).toBeLessThan(
+            0.03,
+          );
+          sample(left + marginX + 0.0015, middleY, out);
+          expect(
+            Math.abs(
+              out.color - (lit ? zoneTones[zoneOf(row, rows) - 1] : p.offTone),
+            ),
+          ).toBeLessThan(0.03);
+          sample(middleX, bottom - marginY + 0.0015, out);
+          expect(Math.abs(out.color - p.gapTone)).toBeLessThan(0.03);
+          sample(middleX, bottom - marginY - 0.0015, out);
+          expect(
+            Math.abs(
+              out.color - (lit ? zoneTones[zoneOf(row, rows) - 1] : p.offTone),
+            ),
+          ).toBeLessThan(0.03);
+        }
+    }
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('equalizerbars', 0),
+      b = createSurfaceSampler('equalizerbars', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
