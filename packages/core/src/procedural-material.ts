@@ -1077,6 +1077,7 @@ export type ProceduralMaterialKind =
   | 'ellipsebilliard'
   | 'lsystemplants'
   | 'pursuitpolygons'
+  | 'poincaretiling'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2402,6 +2403,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'ellipsebilliard',
   'lsystemplants',
   'pursuitpolygons',
+  'poincaretiling',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

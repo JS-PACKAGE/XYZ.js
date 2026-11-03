@@ -1140,6 +1140,7 @@ try {
     'ellipsebilliard',
     'lsystemplants',
     'pursuitpolygons',
+    'poincaretiling',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

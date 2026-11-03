@@ -1103,6 +1103,7 @@ const kinds: ProceduralMaterialKind[] = [
   'ellipsebilliard',
   'lsystemplants',
   'pursuitpolygons',
+  'poincaretiling',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -178305,6 +178306,398 @@ describe('Pursuit polygons as the polygons of bugs chasing each other round the 
     expect(blue / (512 * 512)).toBeLessThan(80.4);
     expect(maxTilt).toBeGreaterThan(0.049);
     expect(maxTilt).toBeLessThan(0.054);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Poincare tiling as a regular tiling of the hyperbolic plane in the Poincare disc, drawn as gold lines', () => {
+  const p = proceduralMaterialPresets.poincaretiling;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  type Complex = [number, number];
+  const subtract = (u: Complex, v: Complex): Complex => [
+    u[0] - v[0],
+    u[1] - v[1],
+  ];
+  const multiply = (u: Complex, v: Complex): Complex => [
+    u[0] * v[0] - u[1] * v[1],
+    u[0] * v[1] + u[1] * v[0],
+  ];
+  const divide = (u: Complex, v: Complex): Complex => {
+    const norm = v[0] * v[0] + v[1] * v[1];
+    return [
+      (u[0] * v[0] + u[1] * v[1]) / norm,
+      (u[1] * v[0] - u[0] * v[1]) / norm,
+    ];
+  };
+  /**
+   * The edges of the tiling {p, q} (as pairs of corners in the unit disc), built here in another way
+   * than the sampler folds points: the first polygon has its p corners at the radius
+   * tanh(R / 2) with cosh R = 1 / (tan(pi / p) tan(pi / q)) at the angles (2 k + 1) pi / p, and the
+   * polygons are made by mirroring polygons in their sides (the circle through two corners that cuts
+   * the unit circle at a right angle, found by solving the two linear equations of the centre, or the
+   * line through the centre when the two corners and the centre are on a line), taking a polygon as
+   * new when the mean of its corners is not yet known to 1e-4, and not going on from polygons whose
+   * mean is further than 0.93 from the centre (there are at most 6,000 polygons).
+   */
+  const edgesOf = (
+    variant: readonly number[],
+  ): { edges: [Complex, Complex][]; valence: number } => {
+    const [sides, meeting] = variant,
+      radius = Math.tanh(
+        Math.acosh(
+          1 / (Math.tan(Math.PI / sides) * Math.tan(Math.PI / meeting)),
+        ) / 2,
+      ),
+      first: Complex[] = [],
+      polygons: Complex[][] = [],
+      known = new Set<string>(),
+      mean = (polygon: Complex[]): Complex => [
+        polygon.reduce((sum, corner) => sum + corner[0], 0) / polygon.length,
+        polygon.reduce((sum, corner) => sum + corner[1], 0) / polygon.length,
+      ],
+      keyOf = (point: Complex): string =>
+        Math.round(point[0] * 1e4) + ',' + Math.round(point[1] * 1e4);
+    for (let k = 0; k < sides; k++)
+      first.push([
+        radius * Math.cos(((2 * k + 1) * Math.PI) / sides),
+        radius * Math.sin(((2 * k + 1) * Math.PI) / sides),
+      ]);
+    polygons.push(first);
+    known.add(keyOf(mean(first)));
+    for (let i = 0; i < polygons.length && polygons.length < 6000; i++) {
+      const polygon = polygons[i],
+        centre = mean(polygon);
+      if (i > 0 && Math.hypot(centre[0], centre[1]) > 0.93) continue;
+      for (let k = 0; k < polygon.length; k++) {
+        const from = polygon[k],
+          to = polygon[(k + 1) % polygon.length],
+          determinant = from[0] * to[1] - from[1] * to[0];
+        let mirrored: Complex[];
+        if (Math.abs(determinant) < 1e-9) {
+          const length = Math.hypot(from[0], from[1]);
+          mirrored = polygon.map((corner) => {
+            const along = (corner[0] * from[0] + corner[1] * from[1]) / length;
+            return [
+              (2 * along * from[0]) / length - corner[0],
+              (2 * along * from[1]) / length - corner[1],
+            ];
+          });
+        } else {
+          const first1 = (1 + from[0] ** 2 + from[1] ** 2) / 2,
+            first2 = (1 + to[0] ** 2 + to[1] ** 2) / 2,
+            circle: Complex = [
+              (first1 * to[1] - first2 * from[1]) / determinant,
+              (from[0] * first2 - to[0] * first1) / determinant,
+            ],
+            squared = circle[0] ** 2 + circle[1] ** 2 - 1;
+          mirrored = polygon.map((corner) => {
+            const delta = subtract(corner, circle),
+              norm = delta[0] ** 2 + delta[1] ** 2;
+            return [
+              circle[0] + (squared * delta[0]) / norm,
+              circle[1] + (squared * delta[1]) / norm,
+            ];
+          });
+        }
+        const key = keyOf(mean(mirrored));
+        if (!known.has(key)) {
+          known.add(key);
+          polygons.push(mirrored);
+        }
+      }
+    }
+    const edges: [Complex, Complex][] = [],
+      seen = new Set<string>();
+    for (const polygon of polygons)
+      for (let k = 0; k < polygon.length; k++) {
+        const from = polygon[k],
+          to = polygon[(k + 1) % polygon.length],
+          keyFrom = keyOf(from),
+          keyTo = keyOf(to),
+          key = keyFrom < keyTo ? keyFrom + '|' + keyTo : keyTo + '|' + keyFrom;
+        if (!seen.has(key)) {
+          seen.add(key);
+          edges.push([from, to]);
+        }
+      }
+    const valence = polygons.filter((polygon) =>
+      polygon.some(
+        (corner) =>
+          Math.hypot(corner[0] - first[0][0], corner[1] - first[0][1]) < 1e-6,
+      ),
+    ).length;
+    return { edges, valence };
+  };
+  /**
+   * The point at the fraction s along the geodesic from a to b: the map z -> (z - a) / (1 - conj(a) z)
+   * puts a at 0, where the geodesic to the image of b is a straight line, and its inverse brings
+   * the point at s times the image of b back.
+   */
+  const geodesicPoint = (from: Complex, to: Complex, s: number): Complex => {
+    const image = divide(
+        subtract(to, from),
+        subtract([1, 0], multiply([from[0], -from[1]], to)),
+      ),
+      scaled: Complex = [image[0] * s, image[1] * s],
+      back = divide(
+        [scaled[0] + from[0], scaled[1] + from[1]],
+        [
+          1 + multiply([from[0], -from[1]], scaled)[0],
+          multiply([from[0], -from[1]], scaled)[1],
+        ],
+      );
+    return back;
+  };
+  const built = p.variants.map((variant) => edgesOf(variant)),
+    tilings = built.map((tiling) => tiling.edges);
+  /** The colours read from the sampler at 3 points (30%, 50% and 70%) of every edge of a variant whose corners are within 0.9 of the centre. */
+  const colorsOnEdges = (seed: number, index: number): number[] => {
+    const sample = createSurfaceSampler('poincaretiling', seed),
+      out = empty(),
+      colors: number[] = [];
+    for (const [from, to] of tilings[index]) {
+      if (Math.hypot(from[0], from[1]) > 0.9 || Math.hypot(to[0], to[1]) > 0.9)
+        continue;
+      for (const s of [0.3, 0.5, 0.7]) {
+        const point = geodesicPoint(from, to, s);
+        sample(
+          0.5 + p.diskRadius * point[0],
+          0.5 + p.diskRadius * point[1],
+          out,
+        );
+        colors.push(out.color);
+      }
+    }
+    return colors;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('poincaretiling', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('poincaretiling', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0253);
+      expect(low).toBeLessThan(0.0258);
+      expect(high).toBeGreaterThan(0.8725);
+      expect(high).toBeLessThan(0.8732);
+      expect(dark / 65536).toBeGreaterThan(0.039);
+      expect(dark / 65536).toBeLessThan(0.0565);
+      expect(mean / 65536).toBeGreaterThan(0.203);
+      expect(mean / 65536).toBeLessThan(0.2166);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.8737);
+      expect(heightHigh).toBeLessThan(0.875);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('builds tilings in which exactly q polygons meet at a corner', () => {
+    // A check of the corner radius tanh(R / 2) that the sampler and this test both use: with a wrong
+    // radius the mirrored polygons would not meet in the same corner points, and the number of the
+    // polygons found at the first corner would not be q.
+    expect(built.map((tiling) => tiling.valence)).toEqual(
+      p.variants.map((variant) => variant[1]),
+    );
+  });
+  it('draws the edges of exactly one of the variants and no line elsewhere', () => {
+    // For each seed exactly one of the 6 variants {7,3}, {5,4}, {4,5}, {6,4}, {8,3} and {3,7} of the
+    // preset has all the points at 30%, 50% and 70% of all its edges with corners within 0.9 of the
+    // centre (36 to 140 edges, so 108 to 420 points, from the edges built above by mirroring polygons) lit above 0.7 (at most 4 of
+    // them may read lower), with the least colour above 0.8 (the other 5 variants have many of their
+    // points reading below 0.7); the variant for each seed (0 to 5 for the seeds 0, 1, 3, 6, 7 and 26)
+    // was found with a probe and is written here, so that table is not an independent check of the
+    // seed's choice (all 6 variants are covered). Points of a lattice inside 0.85 of the centre that are
+    // more than 0.02 from every one of 24 points of every edge read below 0.5 (the fill is at most
+    // 0.44, the lines up to 0.86).
+    const expected = new Map([
+      [0, 0],
+      [1, 1],
+      [3, 2],
+      [6, 3],
+      [7, 4],
+      [26, 5],
+    ]);
+    for (const [seed, index] of expected) {
+      const matching = p.variants
+        .map((_, i) => ({ i, colors: colorsOnEdges(seed, i) }))
+        .filter(({ colors }) => colors.filter((c) => c < 0.7).length <= 4);
+      expect(matching.map(({ i }) => i)).toEqual([index]);
+      expect(Math.min(...matching[0].colors)).toBeGreaterThan(0.8);
+      const sample = createSurfaceSampler('poincaretiling', seed),
+        out = empty(),
+        points: Complex[] = [];
+      for (const [from, to] of tilings[index])
+        if (
+          Math.hypot(from[0], from[1]) < 0.99 &&
+          Math.hypot(to[0], to[1]) < 0.99
+        )
+          for (let k = 0; k <= 24; k++)
+            points.push(geodesicPoint(from, to, k / 24));
+      let tested = 0,
+        wrong = 0;
+      for (let i = 0; i < 3000; i++) {
+        const x = (((i * 0.61803398875) % 1) - 0.5) * 2 * 0.85,
+          y = (((i * 0.41421356237) % 1) - 0.5) * 2 * 0.85;
+        if (x * x + y * y > 0.85 * 0.85) continue;
+        let nearest = Infinity;
+        for (const [px, py] of points)
+          nearest = Math.min(nearest, Math.hypot(x - px, y - py));
+        if (nearest <= 0.02) continue;
+        tested++;
+        sample(0.5 + p.diskRadius * x, 0.5 + p.diskRadius * y, out);
+        wrong += Number(out.color >= 0.5);
+      }
+      expect(tested).toBeGreaterThan(1000);
+      expect(wrong).toBe(0);
+    }
+  });
+  it('draws a different tiling per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 1 pick different variants ({7,3} and {5,4}).
+    const first = litGrid(0),
+      second = litGrid(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.07);
+    expect(different / first.length).toBeLessThan(0.11);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 3, 6, 7, 26]) {
+      const sample = createSurfaceSampler('poincaretiling', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [12, p.grainCells, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 gold hyperbolic tiling maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('poincaretiling', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(60.6);
+    expect(red / (512 * 512)).toBeLessThan(61.9);
+    expect(green / (512 * 512)).toBeGreaterThan(54.6);
+    expect(green / (512 * 512)).toBeLessThan(55.9);
+    expect(blue / (512 * 512)).toBeGreaterThan(55.6);
+    expect(blue / (512 * 512)).toBeLessThan(56.9);
+    expect(maxTilt).toBeGreaterThan(0.052);
+    expect(maxTilt).toBeLessThan(0.057);
     expect(invalid).toBe(0);
   });
 });
