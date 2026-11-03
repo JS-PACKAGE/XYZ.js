@@ -1083,6 +1083,7 @@ export type ProceduralMaterialKind =
   | 'sphericaltriangles'
   | 'fareydisc'
   | 'conformalspiral'
+  | 'steinerchain'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2414,6 +2415,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'sphericaltriangles',
   'fareydisc',
   'conformalspiral',
+  'steinerchain',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

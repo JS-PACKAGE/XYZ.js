@@ -1146,6 +1146,7 @@ try {
     'sphericaltriangles',
     'fareydisc',
     'conformalspiral',
+    'steinerchain',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

@@ -1109,6 +1109,7 @@ const kinds: ProceduralMaterialKind[] = [
   'sphericaltriangles',
   'fareydisc',
   'conformalspiral',
+  'steinerchain',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -180658,6 +180659,355 @@ describe('Conformal spiral as a conformal spiral checkerboard in the complex log
     expect(blue / (512 * 512)).toBeLessThan(59.5);
     expect(maxTilt).toBeGreaterThan(0.052);
     expect(maxTilt).toBeLessThan(0.057);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Steiner chain as a ring of circles that touch their neighbours and two eccentric circles', () => {
+  const p = proceduralMaterialPresets.steinerchain;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const size = 512,
+    outerRadius = p.diskRadius * size;
+  type Region = {
+    area: number;
+    x: number;
+    y: number;
+    radius: number;
+    round: number;
+    tone: number;
+  };
+  /**
+   * The 4-connected regions of at least 200 pixels of a 512 by 512 reading whose colour is in [low, high), with
+   * their area, centroid, radius sqrt(area / pi), roundness 2 pi I / area^2 (I the polar moment of the pixels
+   * about the centroid, which is 1 for a disc) and the mean colour. Nothing about how the sampler built the chain
+   * is used: the circles are found only as regions of the picture.
+   */
+  const regionsOf = (
+    colors: Float32Array,
+    low: number,
+    high: number,
+  ): Region[] => {
+    const seen = new Uint8Array(size * size),
+      regions: Region[] = [];
+    for (let start = 0; start < size * size; start++) {
+      if (seen[start] || !(colors[start] >= low && colors[start] < high))
+        continue;
+      const stack = [start];
+      seen[start] = 1;
+      let area = 0,
+        sx = 0,
+        sy = 0,
+        sxx = 0,
+        syy = 0,
+        sc = 0;
+      while (stack.length) {
+        const at = stack.pop()!,
+          x = at % size,
+          y = (at - x) / size;
+        area++;
+        sx += x + 0.5;
+        sy += y + 0.5;
+        sxx += (x + 0.5) ** 2;
+        syy += (y + 0.5) ** 2;
+        sc += colors[at];
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const nx = x + dx,
+            ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
+          const next = ny * size + nx;
+          if (!seen[next] && colors[next] >= low && colors[next] < high) {
+            seen[next] = 1;
+            stack.push(next);
+          }
+        }
+      }
+      if (area < 200) continue;
+      const x = sx / area,
+        y = sy / area,
+        moment = sxx + syy - area * (x * x + y * y);
+      regions.push({
+        area,
+        x,
+        y,
+        radius: Math.sqrt(area / Math.PI),
+        round: (2 * Math.PI * moment) / (area * area),
+        tone: sc / area,
+      });
+    }
+    return regions;
+  };
+  /** The beads (regions with a colour from 0.32 to 0.62), the round disc inside the ring (the only region of the dim tone 0.095 to 0.17 with a roundness within 0.01 of 1) and the beads in order round the disc. */
+  const analyse = (seed: number) => {
+    const sample = createSurfaceSampler('steinerchain', seed),
+      out = empty(),
+      colors = new Float32Array(size * size);
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        colors[y * size + x] = out.color;
+      }
+    const beads = regionsOf(colors, 0.32, 0.62),
+      discs = regionsOf(colors, 0.095, 0.17).filter(
+        (r) => Math.abs(r.round - 1) < 0.01,
+      ),
+      inner = discs[0],
+      ring = beads
+        .map((b) => ({ ...b, angle: Math.atan2(b.y - inner.y, b.x - inner.x) }))
+        .sort((x, y) => x.angle - y.angle);
+    return { beads, discs, inner, ring };
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('steinerchain', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('steinerchain', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0256);
+      expect(low).toBeLessThan(0.0259);
+      expect(high).toBeGreaterThan(0.8723);
+      expect(high).toBeLessThan(0.8736);
+      expect(dark / 65536).toBeGreaterThan(0.128);
+      expect(dark / 65536).toBeLessThan(0.181);
+      expect(mean / 65536).toBeGreaterThan(0.2489);
+      expect(mean / 65536).toBeLessThan(0.2649);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.874);
+      expect(heightHigh).toBeLessThan(0.8762);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The variant for each of the seeds 6, 19, 4, 0, 1 and 3 (variants 0 to 5) was found with a probe and is written
+  // here, so that table is not an independent check of the seed's choice.
+  const seeds = [6, 19, 4, 0, 1, 3];
+  it('draws a ring of touching circles between the outer circle and a round inner disc', () => {
+    // The picture is read at 512 by 512 and the circles are found only as regions of it. For each seed: the
+    // number of bead regions is the number of beads of the variant, each is a disc (roundness within 0.005 of 1),
+    // exactly one dim region is a disc (the inside of the inner circle), and the lines are an even band about each
+    // circle, so the inset e between a circle and its region is the same everywhere: from the beads' radii and
+    // centres, the outer circle (the centre of the tile and the radius 0.46 of it) and the inner disc, the inset
+    // found from the tangency with the outer circle, with the inner disc and between neighbours round the ring
+    // differs by less than 1.2 pixels over all the 3 n contacts (0.7 in the probe) and is between 1 and 3 pixels
+    // (1.5 to 2.25 in the probe). With that inset the radius of the inner circle and the distance of its
+    // centre from the middle, in units of the outer radius, are those of the image of the concentric chain
+    // under the Mobius map with the parameter q, found from the formulas for the image of a circle: the radius
+    // s (1 - q^2) / (1 - q^2 s^2) and the centre q (1 - s^2) / (1 - q^2 s^2) for the concentric radius s.
+    seeds.forEach((seed, index) => {
+      const [beads, shift] = p.variants[index],
+        { discs, inner, ring } = analyse(seed),
+        sine = Math.sin(Math.PI / beads),
+        concentric = (1 - sine) / (1 + sine);
+      expect(ring.length).toBe(beads);
+      expect(discs.length).toBe(1);
+      for (const bead of ring)
+        expect(Math.abs(bead.round - 1)).toBeLessThan(0.005);
+      const insets: number[] = [];
+      ring.forEach((bead, k) => {
+        const next = ring[(k + 1) % ring.length];
+        insets.push(
+          outerRadius -
+            Math.hypot(bead.x - size / 2, bead.y - size / 2) -
+            bead.radius,
+        );
+        insets.push(
+          (Math.hypot(bead.x - inner.x, bead.y - inner.y) -
+            bead.radius -
+            inner.radius) /
+            2,
+        );
+        insets.push(
+          (Math.hypot(bead.x - next.x, bead.y - next.y) -
+            bead.radius -
+            next.radius) /
+            2,
+        );
+      });
+      expect(insets.length).toBe(3 * beads);
+      expect(Math.max(...insets) - Math.min(...insets)).toBeLessThan(1.2);
+      const inset =
+        insets.reduce((sum, value) => sum + value, 0) / insets.length;
+      expect(inset).toBeGreaterThan(1);
+      expect(inset).toBeLessThan(3);
+      const denominator = 1 - shift * shift * concentric * concentric;
+      expect(
+        Math.abs(
+          (inner.radius + inset) / outerRadius -
+            (concentric * (1 - shift * shift)) / denominator,
+        ),
+      ).toBeLessThan(0.004);
+      expect(
+        Math.abs(
+          Math.hypot(inner.x - size / 2, inner.y - size / 2) / outerRadius -
+            (shift * (1 - concentric * concentric)) / denominator,
+        ),
+      ).toBeLessThan(0.004);
+    });
+  });
+  it('tones the beads alternately all the way round the ring', () => {
+    // The beads in order round the inner disc have mean colours that alternate between the two tones (about 0.36
+    // and 0.5 in the probe, told apart at 0.43); the ring has an even number of beads in every variant, so the
+    // alternation closes up.
+    seeds.forEach((seed) => {
+      const { ring } = analyse(seed),
+        classes = ring.map((bead) => Number(bead.tone > 0.43));
+      expect(ring.length % 2).toBe(0);
+      classes.forEach((value, k) =>
+        expect(value).not.toBe(classes[(k + 1) % classes.length]),
+      );
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 1 pick different variants (12 beads with the shift 0.45 and 6 beads with the shift 0.55).
+    const first = litGrid(0),
+      second = litGrid(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.2);
+    expect(different / first.length).toBeLessThan(0.225);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('steinerchain', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [12, p.grainCells, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 pale blue chain maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('steinerchain', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(57.3);
+    expect(red / (512 * 512)).toBeLessThan(58.5);
+    expect(green / (512 * 512)).toBeGreaterThan(76.6);
+    expect(green / (512 * 512)).toBeLessThan(77.8);
+    expect(blue / (512 * 512)).toBeGreaterThan(93.6);
+    expect(blue / (512 * 512)).toBeLessThan(94.9);
+    expect(maxTilt).toBeGreaterThan(0.036);
+    expect(maxTilt).toBeLessThan(0.04);
     expect(invalid).toBe(0);
   });
 });

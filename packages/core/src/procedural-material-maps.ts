@@ -47231,6 +47231,118 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'steinerchain': {
+        const p = proceduralMaterialPresets.steinerchain,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant =
+            p.variants[
+              Math.floor(hash(0, 59, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          beads = variant[0],
+          shift = variant[1],
+          turn = hash(1, 59, seed ^ p.seedSalt) * 2 * Math.PI,
+          start = hash(2, 59, seed ^ p.seedSalt) * 2 * Math.PI,
+          cosTurn = Math.cos(turn),
+          sinTurn = Math.sin(turn),
+          // The Steiner chain: a ring of `beads` circles, each touching its two neighbours and both of two
+          // circles one inside the other. It is built from the concentric case (the unit circle, an inner
+          // circle of the radius s = (1 - sin(pi / beads)) / (1 + sin(pi / beads)) about the same
+          // centre, and beads of the radius (1 - s) / 2 with their centres at (1 + s) / 2 from it, which
+          // touch their neighbours because their sine of half the angle between them is the ratio of their
+          // radius to the distance of their centre) by the Mobius map w -> (w + q) / (1 + q w), which keeps
+          // the unit circle and sends circles to circles and touching circles to touching circles, so
+          // the eccentric picture is again a chain of touching circles.
+          inner =
+            (1 - Math.sin(Math.PI / beads)) / (1 + Math.sin(Math.PI / beads)),
+          beadRadius = (1 - inner) / 2,
+          beadCentre = (1 + inner) / 2,
+          mobius = (x: number, y: number): number[] => {
+            const denominatorX = 1 + shift * x,
+              denominatorY = shift * y,
+              numeratorX = x + shift,
+              norm = denominatorX * denominatorX + denominatorY * denominatorY;
+            return [
+              (numeratorX * denominatorX + y * denominatorY) / norm,
+              (y * denominatorX - numeratorX * denominatorY) / norm,
+            ];
+          },
+          // The circle through three points.
+          circleOf = (a: number[], b: number[], c: number[]): number[] => {
+            const d =
+                2 *
+                (a[0] * (b[1] - c[1]) +
+                  b[0] * (c[1] - a[1]) +
+                  c[0] * (a[1] - b[1])),
+              aa = a[0] * a[0] + a[1] * a[1],
+              bb = b[0] * b[0] + b[1] * b[1],
+              cc = c[0] * c[0] + c[1] * c[1],
+              x =
+                (aa * (b[1] - c[1]) + bb * (c[1] - a[1]) + cc * (a[1] - b[1])) /
+                d,
+              y =
+                (aa * (c[0] - b[0]) + bb * (a[0] - c[0]) + cc * (b[0] - a[0])) /
+                d;
+            return [x, y, Math.hypot(a[0] - x, a[1] - y)];
+          },
+          imageOf = (cx: number, cy: number, radius: number): number[] =>
+            circleOf(
+              mobius(cx + radius, cy),
+              mobius(cx - radius, cy),
+              mobius(cx, cy + radius),
+            ),
+          innerCircle = imageOf(0, 0, inner),
+          chain = Array.from({ length: beads }, (_, k) => {
+            const angle = start + (2 * Math.PI * k) / beads;
+            return imageOf(
+              beadCentre * Math.cos(angle),
+              beadCentre * Math.sin(angle),
+              beadRadius,
+            );
+          }),
+          circles = [[0, 0, 1], innerCircle, ...chain],
+          widthSquared = p.lineHalfWidth * p.lineHalfWidth,
+          inverseSoft = 1 / p.edgeSoft;
+        return () => {
+          const scale = 1 / p.diskRadius,
+            gx = (fract(u) - 0.5) * scale,
+            gy = (fract(v) - 0.5) * scale,
+            x = gx * cosTurn + gy * sinTurn,
+            y = gy * cosTurn - gx * sinTurn;
+          // The lines are the union of the thin bands about all the circles; the fill is a tone for the
+          // inside of each bead (two alternating tones), one for the rest of the disc and none outside.
+          let keep = 1,
+            fill = x * x + y * y < 1 ? p.fillGap : 0;
+          for (let k = 0; k < circles.length; k++) {
+            const circle = circles[k],
+              distance = Math.hypot(x - circle[0], y - circle[1]) - circle[2],
+              t = clamp(1 - (distance * distance) / widthSquared);
+            keep *= 1 - t * t;
+            if (k >= 2 && distance < 0)
+              fill = k % 2 === 0 ? p.fillEven : p.fillOdd;
+          }
+          const line = 1 - keep,
+            ink = clamp(fill * (1 - line) + line),
+            mask = smooth(clamp(ink * inverseSoft)),
+            tone = p.toneSpan * ink,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            tone +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(line) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -56115,6 +56227,7 @@ export function createSurfaceSampler(
     kind === 'sphericaltriangles' ||
     kind === 'fareydisc' ||
     kind === 'conformalspiral' ||
+    kind === 'steinerchain' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
