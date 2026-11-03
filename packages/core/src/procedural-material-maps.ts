@@ -43351,6 +43351,104 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'mergesortruns': {
+        const p = proceduralMaterialPresets.mergesortruns,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x4fd01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          n = p.sizes[Math.floor(hash(56, 1, seed ^ 0x4fd02) * p.sizes.length)],
+          start = Array.from({ length: n }, (_, i) => i + 1),
+          rows: number[][] = [];
+        // Shuffle (Fisher-Yates).
+        for (let i = n - 1; i > 0; i--) {
+          const j = Math.floor(hash(i, 10, seed ^ 0x4fd03) * (i + 1));
+          [start[i], start[j]] = [start[j], start[i]];
+        }
+        rows.push(start);
+        // Bottom-up merging: each level merges neighbouring pairs of runs of `width` bars into runs of twice that, until one run is left.
+        for (let width = 1; width < n; width *= 2) {
+          const before = rows[rows.length - 1],
+            merged: number[] = [];
+          for (let low = 0; low < n; low += 2 * width) {
+            const middle = Math.min(low + width, n),
+              high = Math.min(low + 2 * width, n);
+            let left = low,
+              right = middle;
+            while (left < middle || right < high)
+              if (
+                right >= high ||
+                (left < middle && before[left] < before[right])
+              )
+                merged.push(before[left++]);
+              else merged.push(before[right++]);
+          }
+          rows.push(merged);
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          const row = Math.floor((fv - p.top) / p.rowPitch),
+            across = (fu - p.left) / p.barPitch;
+          if (
+            row >= 0 &&
+            row < rows.length &&
+            across > -0.5 &&
+            across < n + 0.5
+          ) {
+            const base = p.top + row * p.rowPitch + p.baseOffset,
+              slot = Math.min(n - 1, Math.max(0, Math.floor(across))),
+              inSlot = (across - slot) * p.barPitch,
+              gap = (p.barPitch - p.barWidth) / 2,
+              value = rows[row][slot],
+              // Runs are 2^row bars long; the last row is a single run, drawn darkest, and the others alternate.
+              done = row === rows.length - 1,
+              parity = Math.floor(slot / 2 ** row) % 2;
+            // The bar of this slot, a gap in from each side, standing on the row's base line.
+            paint(
+              cover(
+                Math.min(
+                  inSlot - gap,
+                  p.barPitch - gap - inSlot,
+                  base - fv,
+                  fv - (base - value * p.unit),
+                ),
+              ),
+              done ? p.doneTone : p.runTones[parity],
+              done ? p.doneHeight : p.runHeights[parity],
+            );
+            // The base line under the bars.
+            paint(
+              cover(
+                Math.min(
+                  p.baseHalf - Math.abs(fv - base),
+                  fu - (p.left - p.baseOverhang),
+                  p.left + n * p.barPitch + p.baseOverhang - fu,
+                ),
+              ),
+              p.baseTone,
+              p.baseHeight,
+            );
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -70880,6 +70978,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'mergesortruns' ||
     kind === 'radixsortpasses' ||
     kind === 'paretochart' ||
     kind === 'vernierscale' ||
