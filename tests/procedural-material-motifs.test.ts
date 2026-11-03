@@ -44659,3 +44659,359 @@ describe('histogrambins: bars of the number of values in each bin, with the valu
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('zordercurve: a Z-order curve through the cells of a grid, a segment from each cell to the next', () => {
+  const p = proceduralMaterialPresets.zordercurve,
+    out = empty();
+  type Curve = { size: number; variant: number; points: [number, number][] };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  // The cells of a size x size grid in Z order by recursion on quadrants (the sampler takes the bits of the number instead): top-left, top-right,
+  // bottom-left, bottom-right, each in the same order inside.
+  const zCells = (size: number): [number, number][] =>
+    size === 1
+      ? [[0, 0]]
+      : (() => {
+          const half = size / 2,
+            inner = zCells(half);
+          return [
+            [0, 0],
+            [half, 0],
+            [0, half],
+            [half, half],
+          ].flatMap(([dx, dy]) =>
+            inner.map(([x, y]): [number, number] => [x + dx, y + dy]),
+          );
+        })();
+  // The points of a curve of a size and variant: the cell centres in order, after swapping the roles of column and row (variant bit 1), flipping the
+  // column (2) and flipping the row (4).
+  const curveOf = (size: number, variant: number): Curve => {
+    const pitch = p.span / size;
+    return {
+      size,
+      variant,
+      points: zCells(size).map(([x, y]): [number, number] => {
+        let column = x,
+          row = y;
+        if (variant & 1) [column, row] = [row, column];
+        if (variant & 2) column = size - 1 - column;
+        if (variant & 4) row = size - 1 - row;
+        return [
+          p.origin + (column + 0.5) * pitch,
+          p.origin + (row + 0.5) * pitch,
+        ];
+      }),
+    };
+  };
+  const rampTone = (curve: Curve, segment: number): number =>
+    p.rampFirst +
+    ((p.rampLast - p.rampFirst) * segment) / (curve.points.length - 2);
+  const gapTo = (
+    a: [number, number],
+    b: [number, number],
+    q: [number, number],
+  ): number => {
+    const sx = b[0] - a[0],
+      sy = b[1] - a[1],
+      t = Math.max(
+        0,
+        Math.min(
+          1,
+          ((q[0] - a[0]) * sx + (q[1] - a[1]) * sy) / (sx * sx + sy * sy),
+        ),
+      );
+    return Math.hypot(q[0] - a[0] - t * sx, q[1] - a[1] - t * sy);
+  };
+  // What a curve says about a point: 'skip' near an edge of anything or where two segments are near, else the tone to expect.
+  const expectation = (
+    curve: Curve,
+    point: [number, number],
+  ): number | 'skip' | 'paper' => {
+    const margin = 0.0015,
+      node = Math.min(
+        ...curve.points.map((c) =>
+          Math.hypot(c[0] - point[0], c[1] - point[1]),
+        ),
+      );
+    if (Math.abs(node - p.nodeRadius) < margin) return 'skip';
+    if (node < p.nodeRadius) return p.nodeTone;
+    const gaps = curve.points
+        .slice(1)
+        .map((c, m) => gapTo(curve.points[m], c, point)),
+      best = gaps.indexOf(Math.min(...gaps)),
+      d1 = gaps[best];
+    if (Math.abs(d1 - p.segmentHalf) < margin) return 'skip';
+    if (d1 < p.segmentHalf)
+      return gaps.some((gap, m) => m !== best && gap < p.segmentHalf + margin)
+        ? 'skip'
+        : rampTone(curve, best);
+    return gaps.some((gap) => Math.abs(gap - p.segmentHalf) < margin)
+      ? 'skip'
+      : 'paper';
+  };
+  const probes: [number, number][] = [];
+  for (let i = 0; i < 53; i++)
+    for (let j = 0; j < 53; j++)
+      probes.push([0.03 + i * 0.01781, 0.03 + j * 0.01781]);
+  // Also along every segment of every candidate curve, so that curves differing in direction or place are told apart.
+  for (const size of p.sizes)
+    for (let variant = 0; variant < p.variants; variant++) {
+      const { points } = curveOf(size, variant);
+      points.slice(1).forEach((end, m) => {
+        for (const along of [0.25, 0.5, 0.75])
+          probes.push([
+            points[m][0] + (end[0] - points[m][0]) * along,
+            points[m][1] + (end[1] - points[m][1]) * along,
+          ]);
+      });
+    }
+
+  // The curves (of both sizes and the eight variants) that agree with the picture at every probe point.
+  const matching = (sample: Sampler): Curve[] => {
+    const found: Curve[] = [];
+    for (const size of p.sizes)
+      for (let variant = 0; variant < p.variants; variant++) {
+        const curve = curveOf(size, variant);
+        if (
+          probes.every((point) => {
+            const want = expectation(curve, point);
+            if (want === 'skip') return true;
+            const tone = toneAt(sample, point[0], point[1]);
+            return want === 'paper'
+              ? Math.abs(tone - p.paperTone) <= p.grainTone / 2 + 1e-9
+              : Math.abs(tone - want) < 1e-6;
+          })
+        )
+          found.push(curve);
+      }
+    return found;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws one of the sixteen Z-order curves, and only that one (seed %i)',
+    (seed) => {
+      const found = matching(createSurfaceSampler('zordercurve', seed));
+      expect(found).toHaveLength(1);
+      expect(p.sizes).toContain(found[0].size);
+    },
+  );
+
+  it('uses both sizes and all eight variants, within 150 seeds', () => {
+    const seen = new Set<string>();
+    for (
+      let seed = 0;
+      seed < 150 && seen.size < p.sizes.length * p.variants;
+      seed++
+    ) {
+      const found = matching(
+        createSurfaceSampler('zordercurve', seed * 53 + 4),
+      );
+      expect(found).toHaveLength(1);
+      seen.add(`${found[0].size}:${found[0].variant}`);
+    }
+    expect(seen.size).toBe(p.sizes.length * p.variants);
+  });
+
+  it('draws the dots and the segments with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('zordercurve', seed),
+        curve = matching(sample)[0],
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      for (const [x, y] of curve.points) {
+        expect(toneAt(sample, x, y)).toBeCloseTo(p.nodeTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.nodeHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(toneAt(sample, x + p.nodeRadius - 0.002, y)).toBeCloseTo(
+          p.nodeTone,
+          6,
+        );
+        expect(toneAt(sample, x, y - p.nodeRadius + 0.002)).toBeCloseTo(
+          p.nodeTone,
+          6,
+        );
+      }
+      let checked = 0;
+      curve.points.slice(1).forEach((end, m) => {
+        const start = curve.points[m],
+          length = Math.hypot(end[0] - start[0], end[1] - start[1]),
+          normal: [number, number] = [
+            -(end[1] - start[1]) / length,
+            (end[0] - start[0]) / length,
+          ],
+          mid: [number, number] = [
+            (start[0] + end[0]) / 2,
+            (start[1] + end[1]) / 2,
+          ],
+          at = (offset: number): [number, number] => [
+            mid[0] + normal[0] * offset,
+            mid[1] + normal[1] * offset,
+          ];
+        // Only where no other segment or dot is within 0.012 of the stretch across it.
+        const others = curve.points
+          .slice(1)
+          .map((c, k) =>
+            k === m
+              ? Infinity
+              : Math.min(
+                  gapTo(curve.points[k], c, mid),
+                  gapTo(curve.points[k], c, at(0.01)),
+                  gapTo(curve.points[k], c, at(-0.01)),
+                ),
+          );
+        if (Math.min(...others) < 0.015) return;
+        expect(toneAt(sample, ...mid)).toBeCloseTo(rampTone(curve, m), 6);
+        expect(out.height / p.relief).toBeCloseTo(p.segmentHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        for (const side of [-1, 1]) {
+          expect(
+            toneAt(sample, ...at(side * (p.segmentHalf - 0.0006))),
+          ).toBeCloseTo(rampTone(curve, m), 6);
+          expect(paperOk(...at(side * (p.segmentHalf + 0.002)))).toBe(true);
+        }
+        checked++;
+      });
+      expect(checked).toBeGreaterThan(4);
+      // Paper outside the grid, around it.
+      for (const [x, y] of [
+        [0.02, 0.02],
+        [0.5, 0.01],
+        [0.98, 0.5],
+        [0.5, 0.99],
+      ])
+        expect(paperOk(x, y)).toBe(true);
+    }
+  });
+
+  it('softens the edge of a segment and of a dot over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (target: number, amount: number): number =>
+        p.paperTone + (target - p.paperTone) * smoothstep(amount);
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('zordercurve', seed),
+        curve = matching(sample)[0];
+      let segments = 0,
+        dots = 0;
+      curve.points.slice(1).forEach((end, m) => {
+        const start = curve.points[m],
+          length = Math.hypot(end[0] - start[0], end[1] - start[1]),
+          normal: [number, number] = [
+            -(end[1] - start[1]) / length,
+            (end[0] - start[0]) / length,
+          ],
+          mid: [number, number] = [
+            (start[0] + end[0]) / 2,
+            (start[1] + end[1]) / 2,
+          ],
+          at = (offset: number): [number, number] => [
+            mid[0] + normal[0] * offset,
+            mid[1] + normal[1] * offset,
+          ];
+        if (
+          curve.points
+            .slice(1)
+            .some((c, k) => k !== m && gapTo(curve.points[k], c, mid) < 0.02)
+        )
+          return;
+        expect(
+          Math.abs(
+            toneAt(sample, ...at(p.segmentHalf - quarter)) -
+              mix(rampTone(curve, m), 0.75),
+          ),
+        ).toBeLessThan(0.03);
+        expect(
+          Math.abs(
+            toneAt(sample, ...at(p.segmentHalf + quarter)) -
+              mix(rampTone(curve, m), 0.25),
+          ),
+        ).toBeLessThan(0.03);
+        segments++;
+      });
+      expect(segments).toBeGreaterThan(4);
+      // A dot's edge, in a direction where no segment runs close by.
+      for (const [x, y] of curve.points) {
+        const angle = [0.3, 1.1, 2.0, 2.9, 3.8, 4.7, 5.6].find((a) => {
+          const q: [number, number] = [
+            x + Math.cos(a) * p.nodeRadius,
+            y + Math.sin(a) * p.nodeRadius,
+          ];
+          return (
+            curve.points
+              .slice(1)
+              .every((c, k) => gapTo(curve.points[k], c, q) > 0.008) &&
+            curve.points.every(
+              (c) =>
+                Math.hypot(c[0] - x, c[1] - y) < 1e-9 ||
+                Math.hypot(c[0] - q[0], c[1] - q[1]) > 0.03,
+            )
+          );
+        });
+        if (angle === undefined) continue;
+        const reach = (offset: number): number =>
+          toneAt(
+            sample,
+            x + Math.cos(angle) * (p.nodeRadius + offset),
+            y + Math.sin(angle) * (p.nodeRadius + offset),
+          );
+        expect(Math.abs(reach(-quarter) - mix(p.nodeTone, 0.75))).toBeLessThan(
+          0.03,
+        );
+        expect(Math.abs(reach(quarter) - mix(p.nodeTone, 0.25))).toBeLessThan(
+          0.03,
+        );
+        dots++;
+      }
+      expect(dots).toBeGreaterThan(8);
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('zordercurve', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('zordercurve', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.0113),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('zordercurve', 0),
+      b = createSurfaceSampler('zordercurve', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

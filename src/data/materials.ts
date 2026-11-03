@@ -14781,6 +14781,34 @@ export const proceduralMaterialPresets = Object.freeze({
     paperRoughness: 0.8,
     inkRoughness: 0.4,
   }),
+  zordercurve: Object.freeze({
+    dark: [20, 28, 44] as const,
+    light: [242, 238, 226] as const,
+    roughness: 0.55,
+    relief: 0.004,
+    // A Z-order (Morton) curve through the cells of a 4 x 4 or 8 x 8 grid: the cells are visited in the order of their number, whose even bits give
+    // the column and odd bits the row, and a segment joins each cell to the next, toned from dark for the first to light for the last, with a dot at
+    // each cell centre. The seed picks the size and one of the eight turns and flips of the curve (swapping the bits' roles, flipping a column or a
+    // row).
+    sizes: Object.freeze([4, 8]),
+    variants: 8,
+    origin: 0.07,
+    span: 0.86,
+    nodeRadius: 0.0125,
+    segmentHalf: 0.0035,
+    edgeSoft: 0.0006,
+    grainCells: 192,
+    paperTone: 0.93,
+    nodeTone: 0.08,
+    rampFirst: 0.18,
+    rampLast: 0.7,
+    grainTone: 0.03,
+    paperHeight: 0.2,
+    segmentHeight: 0.55,
+    nodeHeight: 0.85,
+    paperRoughness: 0.8,
+    inkRoughness: 0.4,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -21273,6 +21301,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  zordercurve: 1,
   histogrambins: 1,
   sankeyflows: 1,
   bodeplots: 1,

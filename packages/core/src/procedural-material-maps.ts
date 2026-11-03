@@ -42213,6 +42213,91 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'zordercurve': {
+        const p = proceduralMaterialPresets.zordercurve,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x4f301),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          size =
+            p.sizes[Math.floor(hash(41, 1, seed ^ 0x4f302) * p.sizes.length)],
+          variant = Math.floor(hash(41, 2, seed ^ 0x4f303) * p.variants),
+          cells = size * size,
+          pitch = p.span / size,
+          // The centre of each cell in order of its number.
+          cx = new Float64Array(cells),
+          cy = new Float64Array(cells);
+        for (let m = 0; m < cells; m++) {
+          // Take the even bits of m for the column and the odd bits for the row.
+          let column = 0,
+            row = 0;
+          for (let bit = 0; 1 << (2 * bit) < cells; bit++) {
+            column |= ((m >> (2 * bit)) & 1) << bit;
+            row |= ((m >> (2 * bit + 1)) & 1) << bit;
+          }
+          if ((variant & 1) === 1) [column, row] = [row, column];
+          if ((variant & 2) === 2) column = size - 1 - column;
+          if ((variant & 4) === 4) row = size - 1 - row;
+          cx[m] = p.origin + (column + 0.5) * pitch;
+          cy[m] = p.origin + (row + 0.5) * pitch;
+        }
+        // Each segment's vector and the inverse of its squared length.
+        const sx = new Float64Array(cells),
+          sy = new Float64Array(cells),
+          inverse = new Float64Array(cells);
+        for (let m = 0; m < cells - 1; m++) {
+          sx[m] = cx[m + 1] - cx[m];
+          sy[m] = cy[m + 1] - cy[m];
+          inverse[m] = 1 / (sx[m] * sx[m] + sy[m] * sy[m]);
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          // Squared distances, to avoid a root for every segment: the nearest segment, and the nearest cell centre.
+          let nearest = Infinity,
+            which = 0,
+            node = Infinity;
+          for (let m = 0; m < cells; m++) {
+            const dx = fu - cx[m],
+              dy = fv - cy[m];
+            node = Math.min(node, dx * dx + dy * dy);
+            if (m === cells - 1) break;
+            const t = Math.max(
+                0,
+                Math.min(1, (dx * sx[m] + dy * sy[m]) * inverse[m]),
+              ),
+              ex = dx - t * sx[m],
+              ey = dy - t * sy[m],
+              d = ex * ex + ey * ey;
+            if (d < nearest) {
+              nearest = d;
+              which = m;
+            }
+          }
+          const segment = cover(p.segmentHalf - Math.sqrt(nearest)),
+            dot = cover(p.nodeRadius - Math.sqrt(node)),
+            tone =
+              p.rampFirst + ((p.rampLast - p.rampFirst) * which) / (cells - 2);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness;
+          shade += (tone - shade) * segment;
+          elevation += (p.segmentHeight - elevation) * segment;
+          rough += (p.inkRoughness - rough) * segment;
+          shade += (p.nodeTone - shade) * dot;
+          elevation += (p.nodeHeight - elevation) * dot;
+          rough += (p.inkRoughness - rough) * dot;
+          color = clamp(
+            shade +
+              p.grainTone *
+                (grainField(u, v) - 0.5) *
+                (1 - Math.max(segment, dot)),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -69742,6 +69827,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'zordercurve' ||
     kind === 'histogrambins' ||
     kind === 'sankeyflows' ||
     kind === 'bodeplots' ||
