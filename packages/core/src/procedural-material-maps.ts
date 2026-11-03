@@ -43741,6 +43741,68 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'stirlingparity': {
+        const p = proceduralMaterialPresets.stirlingparity,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft,
+          shiftX = Math.floor(hash(0, 31, seed ^ p.seedSalt) * p.cells),
+          shiftY = Math.floor(hash(1, 31, seed ^ p.seedSalt) * p.cells),
+          // Stirling numbers of the second kind S(n, k), the ways of splitting n things into k
+          // non-empty groups, modulo 2. S(n, k) is odd exactly when the whole number
+          // z = n - ceil((k + 1) / 2) and w = floor((k - 1) / 2) satisfy z >= w and every 1 bit of
+          // w is also a 1 bit of z (z AND w = w, that is the binomial coefficient C(z, w) is odd,
+          // by Lucas' theorem), with S(0, 0) = 1, and S(n, 0) = 0 for n > 0 and S(n, k) = 0 for
+          // k > n. The cell in row n and column k glows when S(n, k) is odd, which draws a skewed,
+          // Sierpinski-like triangle. The seed moves the table around the torus.
+          tones = new Float64Array(p.cells * p.cells);
+        for (let n = 0; n < p.cells; n++)
+          for (let k = 0; k < p.cells; k++) {
+            let odd = false;
+            if (n === 0 && k === 0) odd = true;
+            else if (k >= 1 && k <= n) {
+              const z = n - Math.ceil((k + 1) / 2),
+                w = Math.floor((k - 1) / 2);
+              odd = z >= w && (z & w) === w;
+            }
+            tones[n * p.cells + k] = odd ? p.toneSpan : 0;
+          }
+        return () => {
+          // One compact-support rounded-square kernel per cell (a quartic superellipse
+          // through smoothstep, exactly zero before the cell boundary), so the cell
+          // lookup never jumps and the field is C1.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            ax = (x - col - 0.5) * inverseHalf,
+            ay = (y - row - 0.5) * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            tone =
+              tones[
+                ((row + shiftY) % p.cells) * p.cells +
+                  ((col + shiftX) % p.cells)
+              ],
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -52597,6 +52659,7 @@ export function createSurfaceSampler(
     kind === 'wythoffnim' ||
     kind === 'nimproduct' ||
     kind === 'partitionmod5' ||
+    kind === 'stirlingparity' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||

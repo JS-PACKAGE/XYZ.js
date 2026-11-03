@@ -13171,3 +13171,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Partitions mod 5 as|partitionmod5|kinds|catalog|distinct|periodic"`定向測試**2412項通過／4118項未選**。
 - 未驗證：partitionmod5未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-03 新增材質：第二類斯特林數奇偶（stirlingparity）
+
+- 範圍：新增`stirlingparity`（目前目錄1053→1054種，含plain的gallery 1055項）：64×64圓角方磚表，第`n`列第`k`欄在第二類斯特林數`S(n, k)`是奇數時發光（對角線上方為0），奇偶由盧卡斯定理的位元運算判斷，畫出傾斜的謝爾賓斯基三角形碎形；銅橘圓點在深褐底上；seed讓表在環面上平移；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 163,840 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽只看了一版；(2)動手前以`/tmp/absent.sh`確認沒有`stirling`相關kind（0／0）；(3)sampler用位元運算規則、測試用遞迴`S(n, k) = k·S(n − 1, k) + S(n − 1, k − 1)`（取模2）重算，探針先確認兩者在4,096格上完全相同，這在這張表上驗證了規則，但**不**證明對所有大小成立；(4)256²與512²取樣的亮處占比與最小色值、AO不同，原因是格寬（4與8像素）與取樣點在格內位置不同，測試採用256²的數值；(5)建構與取樣耗時**未量測**；(6)測試第一次執行即通過（探針數值先量好才寫界線）。
+- 實測（工具實跑）：位元運算與遞迴在4,096格上完全相同；奇數格723個；四個seed（0／1／0xffffffff／7）各有唯一符合的平移(47, 57)、(38, 45)、(41, 30)、(5, 30)，最大擬合誤差0.014994–0.015；256²（seed 0／1／0xffffffff）亮處（color>0.5）恆為13.24%、color 0.05901–0.05944至0.85359–0.85480、平均0.22639–0.22647、roughness恆為0.4、AO最低0.7344、height至多0.8472–0.8488 relief；512²（四個seed）亮處恆為12.14%、color 0.02524–0.02532至0.85432–0.85475、平均0.19846–0.19862、AO最低0.6、height至多0.8494–0.8505 relief；seed 0與1相比，格中心顏色相差超過0.05的格子28.3%（512²中color>0.5的取樣19.4%不同）；seed 7的512²maps平均r／g／b約(73.1, 37.8, 25.9)、法線tilt²最大約0.0399、z分量最小253。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Stirling parity as|stirlingparity|kinds|catalog|distinct|periodic"`定向測試**2414項通過／4121項未選**。
+- 未驗證：partitionmod5與stirlingparity未跑完整suite與瀏覽器gallery；不push。

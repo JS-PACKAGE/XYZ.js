@@ -1055,6 +1055,7 @@ export type ProceduralMaterialKind =
   | 'wythoffnim'
   | 'nimproduct'
   | 'partitionmod5'
+  | 'stirlingparity'
   | 'sandpileidentity'
   | 'multiplicativeorder'
   | 'vermiculation'
@@ -2357,6 +2358,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'wythoffnim',
   'nimproduct',
   'partitionmod5',
+  'stirlingparity',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',

@@ -1118,6 +1118,7 @@ try {
     'wythoffnim',
     'nimproduct',
     'partitionmod5',
+    'stirlingparity',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',
