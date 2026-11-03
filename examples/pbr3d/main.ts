@@ -1147,6 +1147,7 @@ try {
     'fareydisc',
     'conformalspiral',
     'steinerchain',
+    'confocalconics',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

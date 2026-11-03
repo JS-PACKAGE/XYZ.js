@@ -47343,6 +47343,89 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'confocalconics': {
+        const p = proceduralMaterialPresets.confocalconics,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant =
+            p.variants[
+              Math.floor(hash(0, 60, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          // Elliptic coordinates about the two foci (+-f, 0): with d1 and d2 the distances to the foci, the
+          // ellipses are d1 + d2 = 2 f cosh(mu) and the hyperbolas are d1 - d2 = 2 f cos(nu), the two families
+          // cutting at right angles. The grid has lines at equal steps 2 pi / m of mu and nu (m even), so the
+          // cells are curved squares, coloured in two tones by the parity of the sum of their two indices. The
+          // focal segment (mu = 0) and the axis outside the foci (nu = 0) are lines of the grid too.
+          focus = variant[0],
+          steps = variant[1],
+          step = (2 * Math.PI) / steps,
+          turn = variant[2],
+          cosTurn = Math.cos(turn),
+          sinTurn = Math.sin(turn),
+          widthSquared = p.lineHalfWidth * p.lineHalfWidth,
+          inverseSoft = 1 / p.edgeSoft;
+        return () => {
+          const scale = 1 / p.diskRadius,
+            gx = (fract(u) - 0.5) * scale,
+            gy = (fract(v) - 0.5) * scale,
+            radius = Math.sqrt(gx * gx + gy * gy),
+            x = gx * cosTurn + gy * sinTurn,
+            y = gy * cosTurn - gx * sinTurn,
+            first = Math.hypot(x + focus, y),
+            second = Math.hypot(x - focus, y),
+            coshMu = Math.max(1, (first + second) / (2 * focus)),
+            cosNu = Math.max(-1, Math.min(1, (first - second) / (2 * focus))),
+            mu = Math.log(coshMu + Math.sqrt(coshMu * coshMu - 1)),
+            nu = y >= 0 ? Math.acos(cosNu) : 2 * Math.PI - Math.acos(cosNu),
+            // The scale factor of the coordinates, the length of a step of mu or nu per unit of the
+            // coordinate: f sqrt(cosh^2 mu - cos^2 nu).
+            scaleFactor =
+              focus * Math.sqrt(Math.max(0, coshMu * coshMu - cosNu * cosNu)),
+            muCoordinate = mu / step,
+            nuCoordinate = nu / step,
+            muIndex = Math.floor(muCoordinate),
+            nuIndex = Math.floor(nuCoordinate),
+            muFraction = muCoordinate - muIndex,
+            nuFraction = nuCoordinate - nuIndex,
+            muDistance =
+              scaleFactor * step * Math.min(muFraction, 1 - muFraction),
+            nuDistance =
+              scaleFactor * step * Math.min(nuFraction, 1 - nuFraction),
+            muT = clamp(1 - (muDistance * muDistance) / widthSquared),
+            nuT = clamp(1 - (nuDistance * nuDistance) / widthSquared),
+            line = 1 - (1 - muT * muT) * (1 - nuT * nuT),
+            odd = (muIndex + nuIndex) & 1,
+            inside = smooth(clamp((p.fadeStart - radius) / 0.02)),
+            fill =
+              (odd === 1 ? p.fillOdd : p.fillEven) +
+              p.fillGradient * clamp(radius),
+            rimT = clamp(
+              1 -
+                ((radius - 1) * (radius - 1)) /
+                  (p.ringHalfWidth * p.ringHalfWidth),
+            ),
+            ring = rimT * rimT,
+            ink = clamp(inside * (fill * (1 - line) + line) + ring),
+            mask = smooth(clamp(ink * inverseSoft)),
+            tone = p.toneSpan * ink,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            tone +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(inside * line + ring) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -56228,6 +56311,7 @@ export function createSurfaceSampler(
     kind === 'fareydisc' ||
     kind === 'conformalspiral' ||
     kind === 'steinerchain' ||
+    kind === 'confocalconics' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

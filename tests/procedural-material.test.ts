@@ -1110,6 +1110,7 @@ const kinds: ProceduralMaterialKind[] = [
   'fareydisc',
   'conformalspiral',
   'steinerchain',
+  'confocalconics',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -181008,6 +181009,328 @@ describe('Steiner chain as a ring of circles that touch their neighbours and two
     expect(blue / (512 * 512)).toBeLessThan(94.9);
     expect(maxTilt).toBeGreaterThan(0.036);
     expect(maxTilt).toBeLessThan(0.04);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Confocal conics as the orthogonal ellipses and hyperbolas about two foci, two-coloured by parity', () => {
+  const p = proceduralMaterialPresets.confocalconics;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const size = 512;
+  /** The point of the tile (and its distance from the middle in disc radii) at the elliptic coordinates (mu, nu) of a variant (f, m, angle): x = f cosh(mu) cos(nu), y = f sinh(mu) sin(nu) turned by the angle of the variant. */
+  const place = (
+    variant: readonly number[],
+    mu: number,
+    nu: number,
+  ): number[] => {
+    const x = variant[0] * Math.cosh(mu) * Math.cos(nu),
+      y = variant[0] * Math.sinh(mu) * Math.sin(nu),
+      gx = x * Math.cos(variant[2]) - y * Math.sin(variant[2]),
+      gy = x * Math.sin(variant[2]) + y * Math.cos(variant[2]);
+    return [
+      0.5 + p.diskRadius * gx,
+      0.5 + p.diskRadius * gy,
+      Math.hypot(gx, gy),
+    ];
+  };
+  /**
+   * The check points of each variant built forwards from the standard parametrisation of the confocal conics and
+   * not by the inverse map of the sampler: points on the lines of the grid (mu = i step at nu = (j + 0.37) step
+   * and nu = j step at mu = (i + 0.37) step, with step = 2 pi / m) and the middles of the cells (the indices i, j),
+   * for the radii 0.12 to 0.85; the middles are kept only for the cells whose half width, the scale factor
+   * f sqrt(sinh^2 mu + sin^2 nu) times half a step, exceeds 0.04 (the line half width is 0.03), so that the
+   * line bands do not cover them.
+   */
+  const sets = p.variants.map((variant) => {
+    const steps = variant[1],
+      step = (2 * Math.PI) / steps,
+      lines: number[][] = [],
+      cells: { point: number[]; odd: number }[] = [];
+    for (let i = 0; i < 40; i++)
+      for (let j = 0; j < steps; j++) {
+        for (const [mu, nu] of [
+          [i * step, (j + 0.37) * step],
+          [(i + 0.37) * step, j * step],
+        ]) {
+          const point = place(variant, mu, nu);
+          if (point[2] >= 0.12 && point[2] <= 0.85)
+            lines.push([point[0], point[1]]);
+        }
+        const mu = (i + 0.5) * step,
+          nu = (j + 0.5) * step,
+          middle = place(variant, mu, nu),
+          halfWidth =
+            (variant[0] *
+              Math.sqrt(Math.sinh(mu) ** 2 + Math.sin(nu) ** 2) *
+              step) /
+            2;
+        if (middle[2] >= 0.12 && middle[2] <= 0.85 && halfWidth > 0.04)
+          cells.push({ point: [middle[0], middle[1]], odd: (i + j) & 1 });
+      }
+    return { lines, cells };
+  });
+  const readColors = (seed: number): Float32Array => {
+    const sample = createSurfaceSampler('confocalconics', seed),
+      out = empty(),
+      colors = new Float32Array(size * size);
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        colors[y * size + x] = out.color;
+      }
+    return colors;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('confocalconics', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('confocalconics', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0255);
+      expect(low).toBeLessThan(0.0259);
+      expect(high).toBeGreaterThan(0.8724);
+      expect(high).toBeLessThan(0.8734);
+      expect(dark / 65536).toBeGreaterThan(0.134);
+      expect(dark / 65536).toBeLessThan(0.201);
+      expect(mean / 65536).toBeGreaterThan(0.251);
+      expect(mean / 65536).toBeLessThan(0.2835);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.8735);
+      expect(heightHigh).toBeLessThan(0.8762);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The variant for each of the seeds 1, 0, 3, 4, 9 and 2 (variants 0 to 5) was found with a probe and is written
+  // here, so that table is not an independent check of the seed's choice.
+  const seeds = [1, 0, 3, 4, 9, 2];
+  it('draws the ellipses and hyperbolas of the variant and only those', () => {
+    // All the check points on the lines built forwards from the standard parametrisation of the variant of each
+    // seed read bright (> 0.7; at most 3 may read lower), and each other variant has at least 30 check points
+    // reading lower (the foci or the number of steps or the angle differ; at least 46 in the probe).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('confocalconics', seed),
+        out = empty(),
+        lowOf = (set: number): number => {
+          let low = 0;
+          for (const [x, y] of sets[set].lines) {
+            sample(x, y, out);
+            low += Number(out.color < 0.7);
+          }
+          return low;
+        };
+      expect(sets[index].lines.length).toBeGreaterThan(60);
+      expect(lowOf(index)).toBeLessThanOrEqual(3);
+      p.variants.forEach((_, other) => {
+        if (other !== index) expect(lowOf(other)).toBeGreaterThan(30);
+      });
+    });
+  });
+  it('puts every bright line pixel on an ellipse or a hyperbola of the grid by the focal property', () => {
+    // An ellipse has a constant sum d1 + d2 of the distances to the foci and a hyperbola a constant difference
+    // d1 - d2, so for the pixels of the 512 by 512 reading with a colour above 0.75 (the cores of the lines, at
+    // the radii 0.12 to 0.85) the half sum is within 0.03 of f cosh(i step) for some i or the half difference is
+    // within 0.03 of f cos(j step) for some j (the worst pixel is 0.012 off in the probe; the half sum and
+    // half difference change by at most 1 per unit of distance, so a point near a curve is near its value).
+    // The foci are at (+-f, 0) turned by the angle of the variant, from the preset data and not from the sampler.
+    seeds.forEach((seed, index) => {
+      const [focus, steps, angle] = p.variants[index],
+        step = (2 * Math.PI) / steps,
+        colors = readColors(seed);
+      let bright = 0,
+        bad = 0;
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          if (colors[y * size + x] < 0.75) continue;
+          const gx = ((x + 0.5) / size - 0.5) / p.diskRadius,
+            gy = ((y + 0.5) / size - 0.5) / p.diskRadius,
+            radius = Math.hypot(gx, gy);
+          if (radius < 0.12 || radius > 0.85) continue;
+          const rx = gx * Math.cos(angle) + gy * Math.sin(angle),
+            ry = gy * Math.cos(angle) - gx * Math.sin(angle),
+            first = Math.hypot(rx + focus, ry),
+            second = Math.hypot(rx - focus, ry);
+          let near = Infinity;
+          for (let i = 0; i < 60; i++)
+            near = Math.min(
+              near,
+              Math.abs((first + second) / 2 - focus * Math.cosh(i * step)),
+            );
+          for (let j = 0; j < steps; j++)
+            near = Math.min(
+              near,
+              Math.abs((first - second) / 2 - focus * Math.cos(j * step)),
+            );
+          bright++;
+          bad += Number(near > 0.03);
+        }
+      expect(bright).toBeGreaterThan(10000);
+      expect(bad).toBe(0);
+    });
+  });
+  it('colours the cells in two tones by the parity of the sum of their indices', () => {
+    // At the middle of every cell kept above (24 to 100 per variant) the colour is below 0.25 (0.14 to 0.22 in the
+    // probe) for one parity of i + j and above 0.3 (0.35 to 0.42) for the other, the same way for all the seeds.
+    // The cell across the focal segment or the axis outside the foci has the other parity (they are separated
+    // by a line of the grid), as the cells across any line do.
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('confocalconics', seed),
+        out = empty();
+      expect(sets[index].cells.length).toBeGreaterThanOrEqual(24);
+      for (const { point, odd } of sets[index].cells) {
+        sample(point[0], point[1], out);
+        if (odd === 0) expect(out.color).toBeLessThan(0.25);
+        else expect(out.color).toBeGreaterThan(0.3);
+      }
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 1 pick different variants (f = 0.5 with 12 steps and f = 0.35 with 16 steps).
+    const first = litGrid(0),
+      second = litGrid(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.225);
+    expect(different / first.length).toBeLessThan(0.255);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('confocalconics', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [12, p.grainCells, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 rose conic grid maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('confocalconics', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(103.4);
+    expect(red / (512 * 512)).toBeLessThan(104.6);
+    expect(green / (512 * 512)).toBeGreaterThan(51.5);
+    expect(green / (512 * 512)).toBeLessThan(52.7);
+    expect(blue / (512 * 512)).toBeGreaterThan(78);
+    expect(blue / (512 * 512)).toBeLessThan(79.2);
+    expect(maxTilt).toBeGreaterThan(0.052);
+    expect(maxTilt).toBeLessThan(0.057);
     expect(invalid).toBe(0);
   });
 });
