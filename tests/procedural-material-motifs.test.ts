@@ -34527,3 +34527,410 @@ describe('qrcodemodules: QR-style modules with the standard function patterns', 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('mahjongdots: a grid of dot tiles on cloth', () => {
+  const p = proceduralMaterialPresets.mahjongdots;
+  // The dot centres of each count 1 to 9 as (across, down) shares of the tile, typed again here from the usual arrangements.
+  const ARRANGEMENTS: [number, number][][] = [
+    [[0.5, 0.5]],
+    [
+      [0.5, 0.3],
+      [0.5, 0.7],
+    ],
+    [
+      [0.28, 0.2],
+      [0.5, 0.5],
+      [0.72, 0.8],
+    ],
+    [
+      [0.3, 0.3],
+      [0.7, 0.3],
+      [0.3, 0.7],
+      [0.7, 0.7],
+    ],
+    [
+      [0.3, 0.3],
+      [0.7, 0.3],
+      [0.5, 0.5],
+      [0.3, 0.7],
+      [0.7, 0.7],
+    ],
+    [
+      [0.3, 0.2],
+      [0.7, 0.2],
+      [0.3, 0.5],
+      [0.7, 0.5],
+      [0.3, 0.8],
+      [0.7, 0.8],
+    ],
+    [
+      [0.22, 0.14],
+      [0.5, 0.26],
+      [0.78, 0.38],
+      [0.3, 0.66],
+      [0.7, 0.66],
+      [0.3, 0.86],
+      [0.7, 0.86],
+    ],
+    [
+      [0.3, 0.15],
+      [0.7, 0.15],
+      [0.3, 0.38],
+      [0.7, 0.38],
+      [0.3, 0.62],
+      [0.7, 0.62],
+      [0.3, 0.85],
+      [0.7, 0.85],
+    ],
+    [
+      [0.22, 0.2],
+      [0.5, 0.2],
+      [0.78, 0.2],
+      [0.22, 0.5],
+      [0.5, 0.5],
+      [0.78, 0.5],
+      [0.22, 0.8],
+      [0.5, 0.8],
+      [0.78, 0.8],
+    ],
+  ];
+  type Tile = {
+    column: number;
+    row: number;
+    count: number;
+    ring: number;
+    centre: number;
+  };
+  type Layout = { grid: number; tiles: Tile[]; sample: Sampler };
+  const out = empty(),
+    left = (1 - p.tileWidth) / 2,
+    top = (1 - p.tileHeight) / 2;
+  const radiusOf = (count: number): number =>
+    (count === 1 ? p.bigDotRadius : p.dotRadius) * p.tileWidth;
+  // Where a point given as shares of the tile (across, down) is, and what is read there, for tile (column, row) of the grid.
+  const toneAt = (
+    layout: Layout,
+    tile: { column: number; row: number },
+    across: number,
+    down: number,
+  ): number => {
+    layout.sample(
+      (tile.column + left + across * p.tileWidth) / layout.grid,
+      (tile.row + top + down * p.tileHeight) / layout.grid,
+      out,
+    );
+    return out.color;
+  };
+  const near = (a: number, b: number, tolerance = 0.03): boolean =>
+    Math.abs(a - b) < tolerance;
+
+  const layoutOf = (seed: number): Layout => {
+    const sample = createSurfaceSampler('mahjongdots', seed),
+      found = p.grids
+        .map((grid): Layout | null => {
+          const layout: Layout = { grid, tiles: [], sample };
+          for (let row = 0; row < grid; row++)
+            for (let column = 0; column < grid; column++) {
+              const fits: Tile[] = [];
+              ARRANGEMENTS.forEach((dots, index) => {
+                const count = index + 1,
+                  radius = radiusOf(count),
+                  tile = { column, row, count, ring: -1, centre: -1 },
+                  here = { column, row };
+                // Every dot: a centre tone and a ring tone from the lists, the same for the tile, a pale gap between.
+                for (const [across, down] of dots) {
+                  const centre = toneAt(layout, here, across, down),
+                    ring = toneAt(
+                      layout,
+                      here,
+                      across + (0.8 * radius) / p.tileWidth,
+                      down,
+                    ),
+                    gap = toneAt(
+                      layout,
+                      here,
+                      across + (0.47 * radius) / p.tileWidth,
+                      down,
+                    );
+                  if (
+                    !p.centreTones.some((tone) => near(tone, centre)) ||
+                    !p.ringTones.some((tone) => near(tone, ring)) ||
+                    !near(gap, p.faceTone)
+                  )
+                    return;
+                  if (
+                    tile.ring >= 0 &&
+                    (!near(tile.ring, ring) || !near(tile.centre, centre))
+                  )
+                    return;
+                  tile.ring = ring;
+                  tile.centre = centre;
+                }
+                // Everywhere on the face away from these dots: plain face. Besides a grid of points, the centre of every dot of every
+                // arrangement (a tile of five dots must not pass for one of four) and a point on its ring.
+                const points: [number, number][] = Array.from(
+                  { length: 140 },
+                  (_, k) => [
+                    0.1 + ((k % 10) / 9) * 0.8,
+                    0.07 + (Math.floor(k / 10) / 13) * 0.86,
+                  ],
+                );
+                for (const others of ARRANGEMENTS)
+                  for (const [x, y] of others)
+                    points.push([x, y], [x + 0.8 * p.dotRadius, y]);
+                for (const [across, down] of points) {
+                  if (
+                    dots.some(
+                      ([x, y]) =>
+                        Math.hypot(
+                          (across - x) * p.tileWidth,
+                          (down - y) * p.tileHeight,
+                        ) <
+                        radius + 0.02,
+                    )
+                  )
+                    continue;
+                  if (!near(toneAt(layout, here, across, down), p.faceTone))
+                    return;
+                }
+                fits.push(tile);
+              });
+              if (fits.length !== 1) return null;
+              layout.tiles.push(fits[0]);
+            }
+          return layout;
+        })
+        .filter((layout) => layout !== null);
+    expect(found).toHaveLength(1);
+    return found[0];
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows one to nine dots in the usual arrangement on every tile, in tones from the lists (seed %i)',
+    (seed) => {
+      const { grid, tiles } = layoutOf(seed);
+      expect(tiles).toHaveLength(grid * grid);
+      for (const tile of tiles) {
+        expect(p.ringTones.some((tone) => near(tone, tile.ring))).toBe(true);
+        expect(p.centreTones.some((tone) => near(tone, tile.centre))).toBe(
+          true,
+        );
+      }
+    },
+  );
+
+  it('uses both grids, every count and every ring and centre tone across seeds', () => {
+    const grids = new Set<number>(),
+      counts = new Set<number>(),
+      rings = new Set<number>(),
+      centres = new Set<number>();
+    for (let seed = 0; seed < 30; seed++) {
+      const { grid, tiles } = layoutOf(seed);
+      grids.add(grid);
+      for (const tile of tiles) {
+        counts.add(tile.count);
+        p.ringTones.forEach((tone, i) => near(tone, tile.ring) && rings.add(i));
+        p.centreTones.forEach(
+          (tone, i) => near(tone, tile.centre) && centres.add(i),
+        );
+      }
+    }
+    expect([...grids].sort((a, b) => a - b)).toEqual([...p.grids]);
+    expect(counts.size).toBe(9);
+    expect(rings.size).toBe(p.ringTones.length);
+    expect(centres.size).toBe(p.centreTones.length);
+  });
+
+  it('edges each dot at its radius, its gap and its centre, softened over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x);
+    for (const seed of seeds) {
+      const layout = layoutOf(seed),
+        quarter = (0.25 * p.edgeSoft * layout.grid) / p.tileWidth;
+      for (const tile of layout.tiles) {
+        const [across, down] = ARRANGEMENTS[tile.count - 1][0],
+          radius = radiusOf(tile.count) / p.tileWidth,
+          at = (share: number): number =>
+            toneAt(layout, tile, across + share * radius, down),
+          // The three edges along a line out from the dot centre: [share of the radius, tone inside, tone outside].
+          edges: [number, number, number][] = [
+            [1, tile.ring, p.faceTone],
+            [p.gapShare, p.faceTone, tile.ring],
+            [p.centreShare, tile.centre, p.faceTone],
+          ];
+        for (const [share, inner, outer] of edges) {
+          // A quarter of the transition inside and outside: the tone of the nearer side mixed with 1/6 of the other (smoothstep(0.25) = 0.156).
+          expect(at(share - quarter / radius)).toBeCloseTo(
+            outer + (inner - outer) * smoothstep(0.75),
+            1,
+          );
+          expect(at(share + quarter / radius)).toBeCloseTo(
+            outer + (inner - outer) * smoothstep(0.25),
+            1,
+          );
+          expect(at(share - (3 * quarter) / radius)).toBeCloseTo(inner, 6);
+          expect(at(share + (3 * quarter) / radius)).toBeCloseTo(outer, 6);
+        }
+      }
+    }
+  });
+
+  it('rounds the tile corners, has a rim of its own tone and a cloth outside', () => {
+    for (const seed of seeds) {
+      const layout = layoutOf(seed),
+        tile = layout.tiles[0],
+        // Shares of the tile across and down for a distance in cell widths.
+        wide = (distance: number): number => distance / p.tileWidth,
+        high = (distance: number): number => distance / p.tileHeight;
+      // Outside the tile (0.01 cell widths): cloth; in the rim (0.015 in): rim; further in: face.
+      expect(
+        near(toneAt(layout, tile, -wide(0.01), 0.5), p.clothTone, 0.04),
+      ).toBe(true);
+      expect(near(toneAt(layout, tile, wide(0.015), 0.5), p.rimTone)).toBe(
+        true,
+      );
+      expect(
+        near(toneAt(layout, tile, wide(p.rimWidth + 0.01), 0.5), p.faceTone),
+      ).toBe(true);
+      expect(
+        near(toneAt(layout, tile, 0.5, -high(0.01)), p.clothTone, 0.04),
+      ).toBe(true);
+      expect(near(toneAt(layout, tile, 0.5, high(0.015)), p.rimTone)).toBe(
+        true,
+      );
+      expect(
+        near(toneAt(layout, tile, 1 + wide(0.01), 0.5), p.clothTone, 0.04),
+      ).toBe(true);
+      expect(
+        near(toneAt(layout, tile, 0.5, 1 + high(0.01)), p.clothTone, 0.04),
+      ).toBe(true);
+      // The corner: 0.005 along each side from the corner point is outside the rounded corner, 0.02 along each is inside it (in the rim).
+      for (const [sx, sy] of [
+        [1, 1],
+        [-1, 1],
+        [1, -1],
+        [-1, -1],
+      ]) {
+        const cornerAcross = sx > 0 ? 0 : 1,
+          cornerDown = sy > 0 ? 0 : 1;
+        expect(
+          near(
+            toneAt(
+              layout,
+              tile,
+              cornerAcross + sx * wide(0.005),
+              cornerDown + sy * high(0.005),
+            ),
+            p.clothTone,
+            0.04,
+          ),
+        ).toBe(true);
+        expect(
+          near(
+            toneAt(
+              layout,
+              tile,
+              cornerAcross + sx * wide(0.02),
+              cornerDown + sy * high(0.02),
+            ),
+            p.rimTone,
+          ),
+        ).toBe(true);
+      }
+    }
+  });
+
+  it('softens the tile edge over edgeSoft: a quarter of the transition inside and outside, clear of it beyond', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x);
+    for (const seed of seeds) {
+      const layout = layoutOf(seed),
+        tile = layout.tiles[0],
+        // A quarter of edgeSoft (in uv) as a share of the tile width.
+        quarter = (0.25 * p.edgeSoft * layout.grid) / p.tileWidth;
+      // At the left edge: inside is the rim tone, outside the cloth (whose grain weighs little within the transition).
+      expect(
+        Math.abs(
+          toneAt(layout, tile, quarter, 0.5) -
+            (p.clothTone + (p.rimTone - p.clothTone) * smoothstep(0.75)),
+        ),
+      ).toBeLessThan(0.012);
+      expect(
+        Math.abs(
+          toneAt(layout, tile, -quarter, 0.5) -
+            (p.clothTone + (p.rimTone - p.clothTone) * smoothstep(0.25)),
+        ),
+      ).toBeLessThan(0.02);
+      expect(toneAt(layout, tile, 3 * quarter, 0.5)).toBeCloseTo(p.rimTone, 6);
+    }
+  });
+
+  it('gives the cloth, tile face and dots their heights and roughness, and the grain only to the cloth', () => {
+    const layout = layoutOf(7),
+      tile = layout.tiles[0],
+      [across, down] = ARRANGEMENTS[tile.count - 1][0],
+      read = (a: number, d: number): { h: number; r: number } => {
+        toneAt(layout, tile, a, d);
+        return { h: out.height / p.relief, r: out.roughness };
+      };
+    expect(read(-0.1, 0.5).h).toBeCloseTo(p.clothHeight, 2);
+    expect(read(-0.1, 0.5).r).toBeCloseTo(p.clothRoughness, 2);
+    expect(read(0.5, 0.5).r).toBeCloseTo(p.tileRoughness, 2);
+    expect(
+      read(across + (0.8 * radiusOf(tile.count)) / p.tileWidth, down).h,
+    ).toBeCloseTo(p.dotHeight, 2);
+    expect(read(across, down).h).toBeCloseTo(p.dotHeight, 2);
+    // Face points no arrangement puts a dot near: exactly the face tone (no grain), at the height of the tile.
+    for (const d of [0.06, 0.94]) {
+      expect(toneAt(layout, tile, 0.5, d)).toBeCloseTo(p.faceTone, 9);
+      expect(out.height / p.relief).toBeCloseTo(p.tileHeightLevel, 6);
+    }
+    const cloth = Array.from({ length: 60 }, (_, k) => {
+      layout.sample(
+        (k * 0.0173) % 1,
+        (0.04 * ((k * 0.0291) % 1)) / layout.grid,
+        out,
+      );
+      return out.color;
+    });
+    expect(Math.max(...cloth) - Math.min(...cloth)).toBeGreaterThan(0.01);
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('mahjongdots', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('mahjongdots', 0),
+      b = createSurfaceSampler('mahjongdots', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

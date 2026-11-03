@@ -22450,6 +22450,106 @@ var proceduralMaterialPresets = Object.freeze({
 		inkRoughness: .45,
 		paperRoughness: .8
 	}),
+	mahjongdots: Object.freeze({
+		dark: [
+			18,
+			30,
+			24
+		],
+		light: [
+			244,
+			242,
+			230
+		],
+		roughness: .45,
+		relief: .004,
+		grids: Object.freeze([3, 4]),
+		tileWidth: .675,
+		tileHeight: .9,
+		cornerRadius: .05,
+		rimWidth: .03,
+		layouts: Object.freeze([
+			Object.freeze([[.5, .5]]),
+			Object.freeze([[.5, .3], [.5, .7]]),
+			Object.freeze([
+				[.28, .2],
+				[.5, .5],
+				[.72, .8]
+			]),
+			Object.freeze([
+				[.3, .3],
+				[.7, .3],
+				[.3, .7],
+				[.7, .7]
+			]),
+			Object.freeze([
+				[.3, .3],
+				[.7, .3],
+				[.5, .5],
+				[.3, .7],
+				[.7, .7]
+			]),
+			Object.freeze([
+				[.3, .2],
+				[.7, .2],
+				[.3, .5],
+				[.7, .5],
+				[.3, .8],
+				[.7, .8]
+			]),
+			Object.freeze([
+				[.22, .14],
+				[.5, .26],
+				[.78, .38],
+				[.3, .66],
+				[.7, .66],
+				[.3, .86],
+				[.7, .86]
+			]),
+			Object.freeze([
+				[.3, .15],
+				[.7, .15],
+				[.3, .38],
+				[.7, .38],
+				[.3, .62],
+				[.7, .62],
+				[.3, .85],
+				[.7, .85]
+			]),
+			Object.freeze([
+				[.22, .2],
+				[.5, .2],
+				[.78, .2],
+				[.22, .5],
+				[.5, .5],
+				[.78, .5],
+				[.22, .8],
+				[.5, .8],
+				[.78, .8]
+			])
+		]),
+		dotRadius: .13,
+		bigDotRadius: .3,
+		centreShare: .35,
+		gapShare: .6,
+		ringTones: Object.freeze([
+			.1,
+			.22,
+			.34
+		]),
+		centreTones: Object.freeze([.46, .58]),
+		faceTone: .93,
+		rimTone: .62,
+		clothTone: .36,
+		grainTone: .04,
+		grainCells: 192,
+		edgeSoft: 8e-4,
+		clothHeight: .1,
+		tileHeightLevel: .7,
+		dotHeight: .6,
+		clothRoughness: .9,
+		tileRoughness: .3
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -31131,6 +31231,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	mahjongdots: 1,
 	qrcodemodules: 1,
 	gaugedials: 1,
 	flagpatterns: 1,

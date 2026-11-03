@@ -39288,6 +39288,95 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'mahjongdots': {
+        const p = proceduralMaterialPresets.mahjongdots,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x36601),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          grid =
+            p.grids[Math.floor(hash(9, 1, seed ^ 0x36602) * p.grids.length)],
+          cells = grid * grid,
+          cell = 1 / grid,
+          left = (1 - p.tileWidth) / 2,
+          top = (1 - p.tileHeight) / 2,
+          counts = new Uint8Array(cells),
+          ringTone = new Float64Array(cells),
+          centreTone = new Float64Array(cells);
+        for (let i = 0; i < cells; i++) {
+          const column = i % grid,
+            row = Math.floor(i / grid);
+          counts[i] =
+            1 +
+            Math.floor(hash(column, row, seed ^ 0x36603) * p.layouts.length);
+          ringTone[i] =
+            p.ringTones[
+              Math.floor(hash(column, row, seed ^ 0x36604) * p.ringTones.length)
+            ];
+          centreTone[i] =
+            p.centreTones[
+              Math.floor(
+                hash(column, row, seed ^ 0x36605) * p.centreTones.length,
+              )
+            ];
+        }
+        return () => {
+          const fx = (u - Math.floor(u)) * grid,
+            fy = (v - Math.floor(v)) * grid,
+            column = Math.floor(fx),
+            row = Math.floor(fy),
+            index = row * grid + column,
+            // Position in the cell, 0 to 1, and from the middle of the tile in cell widths.
+            lx = fx - column,
+            ly = fy - row,
+            px = lx - 0.5,
+            py = ly - 0.5,
+            // Rounded rectangle: distance inside its edge (negative outside) in cell widths, at most cornerRadius, which is more than
+            // rimWidth and the soft edge need.
+            halfWidth = p.tileWidth / 2 - p.cornerRadius,
+            halfHeight = p.tileHeight / 2 - p.cornerRadius,
+            qx = Math.abs(px) - halfWidth,
+            qy = Math.abs(py) - halfHeight,
+            inside =
+              p.cornerRadius - Math.hypot(Math.max(qx, 0), Math.max(qy, 0)),
+            tile = cover(inside * cell),
+            rim = cover((p.rimWidth - inside) * cell);
+          let shade = p.faceTone,
+            elevation = p.tileHeightLevel;
+          shade += (p.rimTone - shade) * rim;
+          // Dots (only where the tile is): the one whose centre is nearest, in cell widths; the layout holds shares of the tile.
+          if (tile > 0) {
+            const layout = p.layouts[counts[index] - 1],
+              radius =
+                (counts[index] === 1 ? p.bigDotRadius : p.dotRadius) *
+                p.tileWidth;
+            let nearest = Infinity;
+            for (let k = 0; k < layout.length; k++) {
+              const d = Math.hypot(
+                lx - left - layout[k][0] * p.tileWidth,
+                ly - top - layout[k][1] * p.tileHeight,
+              );
+              if (d < nearest) nearest = d;
+            }
+            const ring =
+                cover((radius - nearest) * cell) *
+                (1 - cover((p.gapShare * radius - nearest) * cell)),
+              centre = cover((p.centreShare * radius - nearest) * cell);
+            shade += (ringTone[index] - shade) * ring;
+            shade += (centreTone[index] - shade) * centre;
+            elevation += (p.dotHeight - elevation) * Math.max(ring, centre);
+          }
+          shade = p.clothTone + (shade - p.clothTone) * tile;
+          elevation = p.clothHeight + (elevation - p.clothHeight) * tile;
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - tile),
+          );
+          height = clamp(elevation);
+          roughness =
+            p.clothRoughness + (p.tileRoughness - p.clothRoughness) * tile;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -66817,6 +66906,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'mahjongdots' ||
     kind === 'qrcodemodules' ||
     kind === 'gaugedials' ||
     kind === 'flagpatterns' ||

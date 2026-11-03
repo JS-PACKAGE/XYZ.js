@@ -12955,6 +12955,35 @@ export declare const proceduralMaterialPresets: Readonly<{
         inkRoughness: 0.45;
         paperRoughness: 0.8;
     }>;
+    mahjongdots: Readonly<{
+        dark: readonly [18, 30, 24];
+        light: readonly [244, 242, 230];
+        roughness: 0.45;
+        relief: 0.004;
+        grids: readonly number[];
+        tileWidth: 0.675;
+        tileHeight: 0.9;
+        cornerRadius: 0.05;
+        rimWidth: 0.03;
+        layouts: readonly (readonly number[][])[];
+        dotRadius: 0.13;
+        bigDotRadius: 0.3;
+        centreShare: 0.35;
+        gapShare: 0.6;
+        ringTones: readonly number[];
+        centreTones: readonly number[];
+        faceTone: 0.93;
+        rimTone: 0.62;
+        clothTone: 0.36;
+        grainTone: 0.04;
+        grainCells: 192;
+        edgeSoft: 0.0008;
+        clothHeight: 0.1;
+        tileHeightLevel: 0.7;
+        dotHeight: 0.6;
+        clothRoughness: 0.9;
+        tileRoughness: 0.3;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -19440,6 +19469,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    mahjongdots: 1;
     qrcodemodules: 1;
     gaugedials: 1;
     flagpatterns: 1;
