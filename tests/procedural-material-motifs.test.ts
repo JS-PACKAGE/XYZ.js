@@ -44286,3 +44286,376 @@ describe('sankeyflows: bands between three columns of nodes, each node as tall a
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('histogrambins: bars of the number of values in each bin, with the values as ticks under them', () => {
+  const p = proceduralMaterialPresets.histogrambins,
+    out = empty(),
+    width = p.right - p.left,
+    placeWidth = width / p.places;
+  type Histogram = {
+    sample: Sampler;
+    places: number[];
+    bins: number;
+    bars: number[];
+  };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const rugY = (p.rugTop + p.rugBottom) / 2;
+  const placeX = (place: number): number => p.left + (place + 0.5) * placeWidth;
+
+  // The centres of the runs along a row where the tone is within a window of a target tone.
+  const runsAlong = (
+    sample: Sampler,
+    y: number,
+    match: (tone: number) => boolean,
+  ): number[] => {
+    const centres: number[] = [];
+    let first: number | null = null,
+      last = 0;
+    for (let x = p.left - 0.02; x <= p.right + 0.02; x += 0.0003) {
+      if (match(toneAt(sample, x, y))) {
+        if (first === null) first = x;
+        last = x;
+      } else if (first !== null) {
+        centres.push((first + last) / 2);
+        first = null;
+      }
+    }
+    return centres;
+  };
+
+  const histogramOf = (seed: number): Histogram => {
+    const sample = createSurfaceSampler('histogrambins', seed),
+      edges = runsAlong(
+        sample,
+        p.baseline + p.edgeMarkLength / 2,
+        (tone) => Math.abs(tone - p.markTone) < 0.02,
+      ),
+      bins = edges.length - 1,
+      ticks = runsAlong(sample, rugY, (tone) => tone < 0.3),
+      places = ticks.map((x) =>
+        Math.round(((x - p.left) / width) * p.places - 0.5),
+      ),
+      bars: number[] = [];
+    expect(p.binCounts).toContain(bins);
+    expect(p.valueCounts).toContain(places.length);
+    edges.forEach((x, i) =>
+      expect(Math.abs(x - (p.left + (i * width) / bins))).toBeLessThan(0.0006),
+    );
+    ticks.forEach((x, i) =>
+      expect(Math.abs(x - placeX(places[i]))).toBeLessThan(0.0007),
+    );
+    for (let bin = 0; bin < bins; bin++) {
+      // The bar's height: up from the baseline along the middle of the bin while the tone is the bar's.
+      const x = p.left + ((bin + 0.5) * width) / bins;
+      let y = p.baseline - 0.003;
+      while (Math.abs(toneAt(sample, x, y) - p.barTone) < 0.01) y -= 0.001;
+      bars.push(Math.round((p.baseline - y) / p.unit));
+    }
+    return { sample, places, bins, bars };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'has a bar as tall as the number of values in its bin, counted from the ticks (seed %i)',
+    (seed) => {
+      const { places, bins, bars } = histogramOf(seed),
+        // Count the ticks into bins by integer arithmetic on the place (a different way from the sampler's fractions).
+        counted = new Array<number>(bins).fill(0);
+      for (const place of places)
+        counted[Math.floor(((2 * place + 1) * bins) / (2 * p.places))]++;
+      expect(bars).toEqual(counted);
+      // The values are distinct, at least minGap places apart, and a place and a half from the edges of their bins.
+      for (let i = 0; i < places.length; i++) {
+        const across = ((places[i] + 0.5) / p.places) * bins,
+          edge =
+            Math.min(across - Math.floor(across), Math.ceil(across) - across) /
+            bins;
+        expect(edge).toBeGreaterThanOrEqual(1.5 / p.places - 1e-12);
+        for (let j = i + 1; j < places.length; j++)
+          expect(Math.abs(places[i] - places[j])).toBeGreaterThanOrEqual(
+            p.minGap,
+          );
+      }
+      expect(bars.reduce((a, b) => a + b, 0)).toBe(places.length);
+    },
+  );
+
+  it('uses every number of values and bins, and leans to the middle, over 60 seeds', () => {
+    const valuesSeen = new Set<number>(),
+      binsSeen = new Set<number>();
+    let middle = 0,
+      total = 0,
+      emptyBins = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const { places, bins, bars } = histogramOf(seed * 47 + 11);
+      valuesSeen.add(places.length);
+      binsSeen.add(bins);
+      emptyBins += bars.filter((count) => count === 0).length;
+      for (const place of places) {
+        total++;
+        middle += Number(place >= p.places / 3 && place < (2 * p.places) / 3);
+      }
+    }
+    expect([...valuesSeen].sort((a, b) => a - b)).toEqual([...p.valueCounts]);
+    expect([...binsSeen].sort((a, b) => a - b)).toEqual([...p.binCounts]);
+    // Two draws averaged would put about 0.556 of the values in the middle third (0.333 if they were uniform).
+    expect(middle / total).toBeGreaterThan(0.45);
+    expect(middle / total).toBeLessThan(0.62);
+    expect(emptyBins).toBeGreaterThan(0);
+  });
+
+  it('draws bars, the baseline, edge marks and ticks with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, places, bins, bars } = histogramOf(seed),
+        binWidth = width / bins,
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      bars.forEach((count, bin) => {
+        const left = p.left + bin * binWidth,
+          middle = left + binWidth / 2;
+        if (count === 0) {
+          expect(paperOk(middle, p.baseline - 0.01)).toBe(true);
+          return;
+        }
+        const top = p.baseline - count * p.unit;
+        expect(toneAt(sample, middle, (top + p.baseline) / 2)).toBeCloseTo(
+          p.barTone,
+          6,
+        );
+        expect(out.height / p.relief).toBeCloseTo(p.barHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        // The extent: a gap in from the edges of the bin on both sides, and from the baseline up to count units.
+        expect(
+          toneAt(sample, left + p.barGap + 0.0015, top + 0.01),
+        ).toBeCloseTo(p.barTone, 6);
+        expect(
+          toneAt(sample, left + binWidth - p.barGap - 0.0015, top + 0.01),
+        ).toBeCloseTo(p.barTone, 6);
+        expect(paperOk(left + p.barGap - 0.0015, top + 0.01)).toBe(true);
+        expect(paperOk(left + binWidth - p.barGap + 0.0015, top + 0.01)).toBe(
+          true,
+        );
+        expect(toneAt(sample, middle, top + 0.0015)).toBeCloseTo(p.barTone, 6);
+        expect(paperOk(middle, top - 0.0015)).toBe(true);
+        expect(toneAt(sample, middle, p.baseline - 0.003)).toBeCloseTo(
+          p.barTone,
+          6,
+        );
+      });
+      // The baseline: its tone, height, roughness and thickness, and its ends.
+      for (const x of [p.left + 0.31 * width, p.left + 0.77 * width]) {
+        expect(toneAt(sample, x, p.baseline)).toBeCloseTo(p.baselineTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.baselineHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(
+          toneAt(sample, x, p.baseline + p.baselineHalf - 0.0004),
+        ).toBeCloseTo(p.baselineTone, 6);
+        expect(paperOk(x, p.baseline + p.baselineHalf + 0.002)).toBe(true);
+      }
+      expect(
+        toneAt(sample, p.left - p.baselineOverhang + 0.0004, p.baseline),
+      ).toBeCloseTo(p.baselineTone, 6);
+      expect(
+        toneAt(sample, p.right + p.baselineOverhang - 0.0004, p.baseline),
+      ).toBeCloseTo(p.baselineTone, 6);
+      expect(paperOk(p.left - p.baselineOverhang - 0.002, p.baseline)).toBe(
+        true,
+      );
+      expect(paperOk(p.right + p.baselineOverhang + 0.002, p.baseline)).toBe(
+        true,
+      );
+      // The marks at the bin edges, hanging below the baseline.
+      for (let edge = 0; edge <= bins; edge++) {
+        const x = p.left + edge * binWidth;
+        expect(
+          toneAt(sample, x, p.baseline + p.edgeMarkLength - 0.002),
+        ).toBeCloseTo(p.markTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.baselineHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(
+          toneAt(sample, x + p.edgeMarkHalf - 0.0004, p.baseline + 0.01),
+        ).toBeCloseTo(p.markTone, 6);
+        expect(
+          toneAt(sample, x - p.edgeMarkHalf + 0.0004, p.baseline + 0.01),
+        ).toBeCloseTo(p.markTone, 6);
+        expect(paperOk(x + p.edgeMarkHalf + 0.002, p.baseline + 0.01)).toBe(
+          true,
+        );
+        expect(paperOk(x, p.baseline + p.edgeMarkLength + 0.003)).toBe(true);
+      }
+      // The ticks: tone, height, roughness, width and extent; and no tick at the places without a value.
+      for (const place of places) {
+        const x = placeX(place);
+        expect(toneAt(sample, x, rugY)).toBeCloseTo(p.tickTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.tickHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(toneAt(sample, x + p.tickHalf - 0.0004, rugY)).toBeCloseTo(
+          p.tickTone,
+          6,
+        );
+        expect(toneAt(sample, x - p.tickHalf + 0.0004, rugY)).toBeCloseTo(
+          p.tickTone,
+          6,
+        );
+        expect(paperOk(x + p.tickHalf + 0.0008, rugY)).toBe(true);
+        expect(toneAt(sample, x, p.rugTop + 0.002)).toBeCloseTo(p.tickTone, 6);
+        expect(toneAt(sample, x, p.rugBottom - 0.002)).toBeCloseTo(
+          p.tickTone,
+          6,
+        );
+        expect(paperOk(x, p.rugTop - 0.003)).toBe(true);
+        expect(paperOk(x, p.rugBottom + 0.003)).toBe(true);
+      }
+      for (let place = 0; place < p.places; place += 7)
+        if (!places.some((value) => Math.abs(value - place) < 2))
+          expect(paperOk(placeX(place), rugY)).toBe(true);
+      // Nothing above the tallest bar, or at the sides.
+      expect(paperOk(p.left + 0.4, 0.05)).toBe(true);
+      expect(paperOk(p.left - 0.03, 0.6)).toBe(true);
+      expect(paperOk(p.right + 0.03, 0.6)).toBe(true);
+    }
+  });
+
+  it('softens the edge of a bar, the baseline, a mark and a tick over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      const { sample, places, bins, bars } = histogramOf(seed),
+        binWidth = width / bins,
+        bin = bars.indexOf(Math.max(...bars)),
+        left = p.left + bin * binWidth,
+        top = p.baseline - bars[bin] * p.unit;
+      close(
+        toneAt(sample, left + binWidth / 2, top + quarter),
+        mix(p.paperTone, p.barTone, 0.75),
+      );
+      close(
+        toneAt(sample, left + binWidth / 2, top - quarter),
+        mix(p.paperTone, p.barTone, 0.25),
+      );
+      close(
+        toneAt(sample, left + p.barGap + quarter, top + 0.01),
+        mix(p.paperTone, p.barTone, 0.75),
+      );
+      close(
+        toneAt(sample, left + p.barGap - quarter, top + 0.01),
+        mix(p.paperTone, p.barTone, 0.25),
+      );
+      close(
+        toneAt(sample, left + binWidth - p.barGap - quarter, top + 0.01),
+        mix(p.paperTone, p.barTone, 0.75),
+      );
+      close(
+        toneAt(sample, left + binWidth - p.barGap + quarter, top + 0.01),
+        mix(p.paperTone, p.barTone, 0.25),
+      );
+      // The baseline's lower edge away from marks, and its left end.
+      const x = p.left + 0.5 * binWidth;
+      close(
+        toneAt(sample, x, p.baseline + p.baselineHalf - quarter),
+        mix(p.paperTone, p.baselineTone, 0.75),
+      );
+      close(
+        toneAt(sample, x, p.baseline + p.baselineHalf + quarter),
+        mix(p.paperTone, p.baselineTone, 0.25),
+      );
+      // A mark's side and its lower end.
+      const mark = p.left + 2 * binWidth;
+      close(
+        toneAt(sample, mark + p.edgeMarkHalf - quarter, p.baseline + 0.01),
+        mix(p.paperTone, p.markTone, 0.75),
+      );
+      close(
+        toneAt(sample, mark + p.edgeMarkHalf + quarter, p.baseline + 0.01),
+        mix(p.paperTone, p.markTone, 0.25),
+      );
+      close(
+        toneAt(sample, mark, p.baseline + p.edgeMarkLength - quarter),
+        mix(p.paperTone, p.markTone, 0.75),
+      );
+      close(
+        toneAt(sample, mark, p.baseline + p.edgeMarkLength + quarter),
+        mix(p.paperTone, p.markTone, 0.25),
+      );
+      // A tick's side and its ends.
+      const tick = placeX(places[0]);
+      close(
+        toneAt(sample, tick + p.tickHalf - quarter, rugY),
+        mix(p.paperTone, p.tickTone, 0.75),
+      );
+      close(
+        toneAt(sample, tick + p.tickHalf + quarter, rugY),
+        mix(p.paperTone, p.tickTone, 0.25),
+      );
+      close(
+        toneAt(sample, tick, p.rugTop + quarter),
+        mix(p.paperTone, p.tickTone, 0.75),
+      );
+      close(
+        toneAt(sample, tick, p.rugTop - quarter),
+        mix(p.paperTone, p.tickTone, 0.25),
+      );
+      close(
+        toneAt(sample, tick, p.rugBottom - quarter),
+        mix(p.paperTone, p.tickTone, 0.75),
+      );
+      close(
+        toneAt(sample, tick, p.rugBottom + quarter),
+        mix(p.paperTone, p.tickTone, 0.25),
+      );
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('histogrambins', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('histogrambins', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.0113),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('histogrambins', 0),
+      b = createSurfaceSampler('histogrambins', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

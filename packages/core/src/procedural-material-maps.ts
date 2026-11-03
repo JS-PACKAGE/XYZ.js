@@ -42083,6 +42083,136 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'histogrambins': {
+        const p = proceduralMaterialPresets.histogrambins,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x4f201),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          count =
+            p.valueCounts[
+              Math.floor(hash(40, 1, seed ^ 0x4f202) * p.valueCounts.length)
+            ],
+          bins =
+            p.binCounts[
+              Math.floor(hash(40, 2, seed ^ 0x4f203) * p.binCounts.length)
+            ],
+          width = p.right - p.left,
+          binWidth = width / bins,
+          placeWidth = width / p.places,
+          places = new Int32Array(count),
+          tally = new Int32Array(bins);
+        // Each value takes a place leaning to the middle (the mean of two draws), at least minGap places from the others and not within a place and
+        // a half of the edge of a bin (so that which bin it is in is plain).
+        for (let i = 0; i < count; i++)
+          for (let attempt = 0; ; attempt++) {
+            const lean =
+                (hash(i, attempt * 2, seed ^ 0x4f204) +
+                  hash(i, attempt * 2 + 1, seed ^ 0x4f205)) /
+                2,
+              place = Math.floor(lean * p.places),
+              across = ((place + 0.5) / p.places) * bins,
+              edge =
+                Math.min(
+                  across - Math.floor(across),
+                  Math.ceil(across) - across,
+                ) / bins;
+            let ok = edge >= 1.5 / p.places;
+            for (let j = 0; j < i && ok; j++)
+              if (Math.abs(places[j] - place) < p.minGap) ok = false;
+            if (ok) {
+              places[i] = place;
+              tally[Math.floor(across)]++;
+              break;
+            }
+          }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            across = fu - p.left;
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          if (across > -0.01 && across < width + 0.01) {
+            // The bars: the bin the point is over, a gap in from its edges, as tall as the number of values in it.
+            const bin = Math.floor(across / binWidth);
+            if (bin >= 0 && bin < bins && tally[bin] > 0) {
+              const inBin = across - bin * binWidth,
+                top = p.baseline - tally[bin] * p.unit;
+              paint(
+                cover(
+                  Math.min(
+                    inBin - p.barGap,
+                    binWidth - p.barGap - inBin,
+                    fv - top,
+                    p.baseline - fv,
+                  ),
+                ),
+                p.barTone,
+                p.barHeight,
+              );
+            }
+            // The baseline and a mark below it at each edge between bins.
+            const edgeBin = Math.round(across / binWidth),
+              fromEdge = Math.abs(across - edgeBin * binWidth);
+            paint(
+              cover(
+                Math.min(
+                  p.baselineHalf - Math.abs(fv - p.baseline),
+                  across + p.baselineOverhang,
+                  width + p.baselineOverhang - across,
+                ),
+              ),
+              p.baselineTone,
+              p.baselineHeight,
+            );
+            if (edgeBin >= 0 && edgeBin <= bins)
+              paint(
+                cover(
+                  Math.min(
+                    p.edgeMarkHalf - fromEdge,
+                    fv - p.baseline,
+                    p.baseline + p.edgeMarkLength - fv,
+                  ),
+                ),
+                p.markTone,
+                p.baselineHeight,
+              );
+            // The ticks of the values.
+            const place = Math.floor((across / width) * p.places),
+              inPlace = across - (place + 0.5) * placeWidth;
+            if (place >= 0 && place < p.places) {
+              let on = false;
+              for (let i = 0; i < count && !on; i++) on = places[i] === place;
+              if (on)
+                paint(
+                  cover(
+                    Math.min(
+                      p.tickHalf - Math.abs(inPlace),
+                      fv - p.rugTop,
+                      p.rugBottom - fv,
+                    ),
+                  ),
+                  p.tickTone,
+                  p.tickHeight,
+                );
+            }
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -69612,6 +69742,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'histogrambins' ||
     kind === 'sankeyflows' ||
     kind === 'bodeplots' ||
     kind === 'huffmancodes' ||
