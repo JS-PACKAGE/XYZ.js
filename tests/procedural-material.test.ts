@@ -1130,6 +1130,7 @@ const kinds: ProceduralMaterialKind[] = [
   'escapefractals',
   'zerovelocitycurves',
   'keplerorbits',
+  'errordiffusion',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -188337,6 +188338,371 @@ describe('Kepler orbits as equal time steps on ellipses with a shared focus', ()
     expect(blue / (512 * 512)).toBeLessThan(43.2);
     expect(maxTilt).toBeGreaterThan(0.0172);
     expect(maxTilt).toBeLessThan(0.0183);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Error diffusion as dithered images with six diffusion kernels', () => {
+  const p = proceduralMaterialPresets.errordiffusion;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const cells = p.cells,
+    plot = 0.5 - p.margin;
+  /** The kernels as [dx, dy, weight] of the cells that receive a share of the error, with the divisor (Floyd-Steinberg, Atkinson, Jarvis-Judice-Ninke, Stucki, Burkes, Sierra Lite). */
+  const kernels: { divisor: number; taps: number[][] }[] = [
+    {
+      divisor: 16,
+      taps: [
+        [1, 0, 7],
+        [-1, 1, 3],
+        [0, 1, 5],
+        [1, 1, 1],
+      ],
+    },
+    {
+      divisor: 8,
+      taps: [
+        [1, 0, 1],
+        [2, 0, 1],
+        [-1, 1, 1],
+        [0, 1, 1],
+        [1, 1, 1],
+        [0, 2, 1],
+      ],
+    },
+    {
+      divisor: 48,
+      taps: [
+        [1, 0, 7],
+        [2, 0, 5],
+        [-2, 1, 3],
+        [-1, 1, 5],
+        [0, 1, 7],
+        [1, 1, 5],
+        [2, 1, 3],
+        [-2, 2, 1],
+        [-1, 2, 3],
+        [0, 2, 5],
+        [1, 2, 3],
+        [2, 2, 1],
+      ],
+    },
+    {
+      divisor: 42,
+      taps: [
+        [1, 0, 8],
+        [2, 0, 4],
+        [-2, 1, 2],
+        [-1, 1, 4],
+        [0, 1, 8],
+        [1, 1, 4],
+        [2, 1, 2],
+        [-2, 2, 1],
+        [-1, 2, 2],
+        [0, 2, 4],
+        [1, 2, 2],
+        [2, 2, 1],
+      ],
+    },
+    {
+      divisor: 32,
+      taps: [
+        [1, 0, 8],
+        [2, 0, 4],
+        [-2, 1, 2],
+        [-1, 1, 4],
+        [0, 1, 8],
+        [1, 1, 4],
+        [2, 1, 2],
+      ],
+    },
+    {
+      divisor: 4,
+      taps: [
+        [1, 0, 2],
+        [-1, 1, 1],
+        [0, 1, 1],
+      ],
+    },
+  ];
+  /** The grey level of the source image in a cell: 0 ramp across, 1 eight steps across, 2 radial, 3 diagonal ramp. */
+  const levelOf = (image: number, column: number, row: number): number => {
+    if (image === 0) return column / (cells - 1);
+    if (image === 1)
+      return (Math.floor((column * p.stepCount) / cells) + 0.5) / p.stepCount;
+    if (image === 2) {
+      const middle = (cells - 1) / 2;
+      return Math.max(
+        0,
+        1 -
+          Math.hypot((column - middle) / middle, (row - middle) / middle) /
+            Math.SQRT2,
+      );
+    }
+    return (column + row) / (2 * (cells - 1));
+  };
+  /** Error diffusion written as a pull: the error that arrives in a cell is the sum of the shares of the errors of the cells already visited. */
+  const dither = (kernel: number, image: number): Uint8Array => {
+    const taps = kernels[kernel],
+      on = new Uint8Array(cells * cells),
+      error = new Float64Array(cells * cells);
+    for (let row = 0; row < cells; row++)
+      for (let column = 0; column < cells; column++) {
+        let incoming = 0;
+        for (const [dx, dy, weight] of taps.taps) {
+          const fromColumn = column - dx,
+            fromRow = row - dy;
+          if (fromColumn >= 0 && fromColumn < cells && fromRow >= 0)
+            incoming +=
+              (error[fromRow * cells + fromColumn] * weight) / taps.divisor;
+        }
+        const wanted = levelOf(image, column, row) + incoming,
+          lit = wanted >= 0.5 ? 1 : 0;
+        on[row * cells + column] = lit;
+        error[row * cells + column] = wanted - lit;
+      }
+    return on;
+  };
+  /** The state read back at the centre of every cell: lit when the colour is above 0.3. */
+  const readCells = (seed: number): Uint8Array => {
+    const sample = createSurfaceSampler('errordiffusion', seed),
+      out = empty(),
+      lit = new Uint8Array(cells * cells);
+    for (let row = 0; row < cells; row++)
+      for (let column = 0; column < cells; column++) {
+        sample(
+          0.5 + ((column + 0.5) / cells - 0.5) * 2 * plot,
+          0.5 + ((row + 0.5) / cells - 0.5) * 2 * plot,
+          out,
+        );
+        lit[row * cells + column] = Number(out.color > 0.3);
+      }
+    return lit;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('errordiffusion', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('errordiffusion', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0255);
+      expect(low).toBeLessThan(0.0258);
+      expect(high).toBeGreaterThan(0.811);
+      expect(high).toBeLessThan(0.816);
+      expect(dark / 65536).toBeGreaterThan(0.079);
+      expect(dark / 65536).toBeLessThan(0.082);
+      expect(mean / 65536).toBeGreaterThan(0.123);
+      expect(mean / 65536).toBeLessThan(0.126);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.794);
+      expect(heightHigh).toBeLessThan(0.804);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (Floyd-Steinberg on a ramp, Atkinson on a ramp, Jarvis-Judice-Ninke on eight steps, Stucki on a radial image, Burkes on a diagonal
+  // ramp and Sierra Lite on eight steps) is 5, 8, 0, 9, 4 and 1; the table was found with a probe by the agreement with the dither and is written here, so it is not an
+  // independent check of the seed's choice.
+  const seeds = [5, 8, 0, 9, 4, 1];
+  it('matches an independent pull-form error diffusion cell by cell', () => {
+    // The state of all 96 by 96 cells read back at their centres equals the dither written in the test as a pull (a sum over the visited cells, where
+    // the sampler pushes the error to the cells to come): 0 cells differ in the probe (the test allows 0.001 of them, for ties of the floating-point sums), while the
+    // dither of each other variant differs for over 0.2 of the cells (0.2998 at the lowest in the probe).
+    seeds.forEach((seed, index) => {
+      const read = readCells(seed);
+      p.variants.forEach((variant, other) => {
+        const grid = dither(variant[0], variant[1]);
+        let different = 0;
+        for (let i = 0; i < grid.length; i++)
+          different += Number(grid[i] !== read[i]);
+        if (other === index)
+          expect(different / grid.length).toBeLessThan(0.001);
+        else expect(different / grid.length).toBeGreaterThan(0.2);
+      });
+    });
+  });
+  it('keeps the mean grey level, except that Atkinson loses part of the error in the highlights and shadows', () => {
+    // The kernels whose weights add up to 1 send the whole error on, so the number of lit cells is the sum of the grey levels of the source image up to
+    // what falls off the edges: within 0.01 of the cells (0.0053 at the most in the probe, for all six variants). On strips of 12 columns the lit fraction
+    // differs from the mean grey level by under 0.03 for the five kernels that keep the error (0.026 at most in the probe), while Atkinson, which sends on
+    // only 3/4 of it, goes over 0.05 (0.0853) with negative sign in the darkest strip and positive in the lightest (-0.058 and 0.058 in the probe).
+    seeds.forEach((seed, index) => {
+      const variant = p.variants[index],
+        read = readCells(seed);
+      let sumLevel = 0,
+        sumLit = 0,
+        worst = 0;
+      for (let row = 0; row < cells; row++)
+        for (let column = 0; column < cells; column++) {
+          sumLevel += levelOf(variant[1], column, row);
+          sumLit += read[row * cells + column];
+        }
+      expect(Math.abs(sumLit - sumLevel) / (cells * cells)).toBeLessThan(0.01);
+      const deviations: number[] = [];
+      for (let start = 0; start < cells; start += 12) {
+        let lit = 0,
+          level = 0;
+        for (let column = start; column < start + 12; column++)
+          for (let row = 0; row < cells; row++) {
+            lit += read[row * cells + column];
+            level += levelOf(variant[1], column, row);
+          }
+        deviations.push((lit - level) / (12 * cells));
+        worst = Math.max(worst, Math.abs(deviations[deviations.length - 1]));
+      }
+      if (variant[0] === 1) {
+        expect(worst).toBeGreaterThan(0.05);
+        expect(deviations[0]).toBeLessThan(-0.03);
+        expect(deviations[deviations.length - 1]).toBeGreaterThan(0.03);
+      } else expect(worst).toBeLessThan(0.03);
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 5 and 8 pick different kernels (Floyd-Steinberg and Atkinson) for the same ramp.
+    const first = litGrid(5),
+      second = litGrid(8);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.049);
+    expect(different / first.length).toBeLessThan(0.051);
+    expect(litGrid(5)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('errordiffusion', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 pale dither maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('errordiffusion', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(34);
+    expect(red / (512 * 512)).toBeLessThan(35.2);
+    expect(green / (512 * 512)).toBeGreaterThan(42.3);
+    expect(green / (512 * 512)).toBeLessThan(43.5);
+    expect(blue / (512 * 512)).toBeGreaterThan(50.5);
+    expect(blue / (512 * 512)).toBeLessThan(51.7);
+    expect(maxTilt).toBeGreaterThan(0.0236);
+    expect(maxTilt).toBeLessThan(0.0247);
     expect(invalid).toBe(0);
   });
 });

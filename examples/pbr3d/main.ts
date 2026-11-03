@@ -1167,6 +1167,7 @@ try {
     'escapefractals',
     'zerovelocitycurves',
     'keplerorbits',
+    'errordiffusion',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

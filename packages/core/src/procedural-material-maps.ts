@@ -49377,6 +49377,171 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'errordiffusion': {
+        const p = proceduralMaterialPresets.errordiffusion,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant =
+            p.variants[
+              Math.floor(hash(0, 81, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          size = p.cells,
+          plot = 0.5 - p.margin,
+          inverseSoft = 1 / p.edgeSoft,
+          // The weights of each diffusion kernel as [dx, dy, weight] for the cells not yet visited, with the divisor.
+          kernels: { divisor: number; taps: number[][] }[] = [
+            {
+              divisor: 16,
+              taps: [
+                [1, 0, 7],
+                [-1, 1, 3],
+                [0, 1, 5],
+                [1, 1, 1],
+              ],
+            },
+            {
+              divisor: 8,
+              taps: [
+                [1, 0, 1],
+                [2, 0, 1],
+                [-1, 1, 1],
+                [0, 1, 1],
+                [1, 1, 1],
+                [0, 2, 1],
+              ],
+            },
+            {
+              divisor: 48,
+              taps: [
+                [1, 0, 7],
+                [2, 0, 5],
+                [-2, 1, 3],
+                [-1, 1, 5],
+                [0, 1, 7],
+                [1, 1, 5],
+                [2, 1, 3],
+                [-2, 2, 1],
+                [-1, 2, 3],
+                [0, 2, 5],
+                [1, 2, 3],
+                [2, 2, 1],
+              ],
+            },
+            {
+              divisor: 42,
+              taps: [
+                [1, 0, 8],
+                [2, 0, 4],
+                [-2, 1, 2],
+                [-1, 1, 4],
+                [0, 1, 8],
+                [1, 1, 4],
+                [2, 1, 2],
+                [-2, 2, 1],
+                [-1, 2, 2],
+                [0, 2, 4],
+                [1, 2, 2],
+                [2, 2, 1],
+              ],
+            },
+            {
+              divisor: 32,
+              taps: [
+                [1, 0, 8],
+                [2, 0, 4],
+                [-2, 1, 2],
+                [-1, 1, 4],
+                [0, 1, 8],
+                [1, 1, 4],
+                [2, 1, 2],
+              ],
+            },
+            {
+              divisor: 4,
+              taps: [
+                [1, 0, 2],
+                [-1, 1, 1],
+                [0, 1, 1],
+              ],
+            },
+          ],
+          kernel = kernels[variant[0]],
+          // The grey level of the source image in a cell, from 0 (dark) to 1 (light).
+          level = (column: number, row: number): number => {
+            if (variant[1] === 0) return column / (size - 1);
+            if (variant[1] === 1)
+              return (
+                (Math.floor((column * p.stepCount) / size) + 0.5) / p.stepCount
+              );
+            if (variant[1] === 2)
+              return Math.max(
+                0,
+                1 -
+                  Math.hypot(
+                    (column - (size - 1) / 2) / ((size - 1) / 2),
+                    (row - (size - 1) / 2) / ((size - 1) / 2),
+                  ) /
+                    Math.SQRT2,
+              );
+            return (column + row) / (2 * (size - 1));
+          },
+          lit = new Uint8Array(size * size),
+          pending = new Float64Array(size * size);
+        for (let row = 0; row < size; row++)
+          for (let column = 0; column < size; column++) {
+            const wanted = level(column, row) + pending[row * size + column],
+              on = wanted >= 0.5 ? 1 : 0,
+              error = wanted - on;
+            lit[row * size + column] = on;
+            for (const [dx, dy, weight] of kernel.taps) {
+              const x = column + dx,
+                y = row + dy;
+              if (x >= 0 && x < size && y < size)
+                pending[y * size + x] += (error * weight) / kernel.divisor;
+            }
+          }
+        const litSquared = p.litRadius * p.litRadius,
+          unlitSquared = p.unlitRadius * p.unlitRadius;
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            gridU = ((fu - 0.5) / (2 * plot) + 0.5) * size,
+            gridV = ((fv - 0.5) / (2 * plot) + 0.5) * size,
+            column = Math.min(Math.max(Math.floor(gridU), 0), size - 1),
+            row = Math.min(Math.max(Math.floor(gridV), 0), size - 1),
+            offsetX = gridU - column - 0.5,
+            offsetY = gridV - row - 0.5,
+            squared = offsetX * offsetX + offsetY * offsetY,
+            on = lit[row * size + column] === 1,
+            kernelT = clamp(1 - squared / (on ? litSquared : unlitSquared)),
+            outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
+            outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
+            boxDistance =
+              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              Math.min(Math.max(outsideX, outsideY), 0),
+            inside = smooth(clamp(-boxDistance / p.fade)),
+            ink = clamp(
+              inside * (on ? p.litTone : p.unlitTone) * kernelT * kernelT,
+            ),
+            mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(ink) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -58282,6 +58447,7 @@ export function createSurfaceSampler(
     kind === 'escapefractals' ||
     kind === 'zerovelocitycurves' ||
     kind === 'keplerorbits' ||
+    kind === 'errordiffusion' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
