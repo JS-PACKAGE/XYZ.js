@@ -2261,6 +2261,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`fareysequence`（法里數列）使目前目錄1175→1176種，含plain的gallery為1177項。法里數列：第n列（n從1到7、8或9）在0到1之間，每個最簡分數a/b（b不超過n）的位置畫一條刻度（該列才新出現的，也就是b＝n的刻度，比上面列來的深）。每一列下方有一個圓點標出同一個被選中的分數（分母在11到23之間，所以絕不落在任何刻度上），列內有一條淡色的帶子，從被選中分數在該列的兩個鄰居（它之前最大的刻度與它之後最小的刻度）之間。seed決定列數與被選中的分數。這是作者設計的示意；每一列的刻度必須剛好是分母不超過n的最簡分數，帶子兩端必須是被選中分數的法里鄰居（兩端分數的交叉乘積為1），由畫面獨立解出並驗算。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

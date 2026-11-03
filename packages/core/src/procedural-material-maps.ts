@@ -44821,6 +44821,121 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'fareysequence': {
+        const p = proceduralMaterialPresets.fareysequence,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x50a01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          rows =
+            p.rowCounts[
+              Math.floor(hash(66, 1, seed ^ 0x50a02) * p.rowCounts.length)
+            ],
+          gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b)),
+          // The chosen fraction: a denominator past every row, and a numerator with no common factor with it.
+          denominator =
+            p.minDenominator +
+            Math.floor(
+              hash(67, 2, seed ^ 0x50a03) *
+                (p.maxDenominator - p.minDenominator + 1),
+            );
+        let numerator =
+          1 + Math.floor(hash(67, 3, seed ^ 0x50a04) * (denominator - 1));
+        while (gcd(numerator, denominator) !== 1)
+          numerator = (numerator % (denominator - 1)) + 1;
+        const chosen = numerator / denominator,
+          // ticks[row]: the places (0 to 1) of the fractions in lowest terms with a denominator up to row + 1; fresh[row][i]: whether the denominator is exactly row + 1.
+          ticks: number[][] = [],
+          fresh: boolean[][] = [],
+          below = new Float64Array(rows),
+          above = new Float64Array(rows);
+        for (let row = 0; row < rows; row++) {
+          const n = row + 1,
+            places: number[] = [],
+            isNew: boolean[] = [];
+          for (let b = 1; b <= n; b++)
+            for (let a = 0; a <= b; a++)
+              if (gcd(a, b) === 1) {
+                places.push(a / b);
+                isNew.push(b === n);
+              }
+          ticks.push(places);
+          fresh.push(isNew);
+          // The neighbours of the chosen fraction in this row.
+          let lo = 0,
+            hi = 1;
+          for (const place of places) {
+            if (place < chosen && place > lo) lo = place;
+            if (place > chosen && place < hi) hi = place;
+          }
+          below[row] = lo;
+          above[row] = hi;
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          const row = Math.floor((fv - p.top) / p.rowPitch);
+          if (row >= 0 && row < rows) {
+            const cy = p.top + (row + 0.5) * p.rowPitch,
+              dy = Math.abs(fv - cy),
+              x = (fu - p.left) / p.length;
+            // The band between the chosen fraction's neighbours.
+            paint(
+              cover(
+                Math.min(
+                  p.bandHalfHeight - dy,
+                  (x - below[row]) * p.length,
+                  (above[row] - x) * p.length,
+                ),
+              ),
+              p.bandTone,
+              p.bandHeight,
+            );
+            // The ticks of the row; those new in this row darker.
+            const places = ticks[row];
+            for (let i = 0; i < places.length; i++) {
+              const across = Math.abs(fu - (p.left + places[i] * p.length));
+              if (across > p.tickHalfWidth + p.edgeSoft) continue;
+              paint(
+                cover(
+                  Math.min(p.tickHalfWidth - across, p.tickHalfHeight - dy),
+                ),
+                fresh[row][i] ? p.newTickTone : p.oldTickTone,
+                fresh[row][i] ? p.newTickHeight : p.oldTickHeight,
+              );
+            }
+            // The dot under the row at the chosen fraction.
+            paint(
+              cover(
+                p.dotRadius -
+                  Math.hypot(
+                    fu - (p.left + chosen * p.length),
+                    fv - (cy + p.dotDrop),
+                  ),
+              ),
+              p.dotTone,
+              p.dotHeight,
+            );
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -72350,6 +72465,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'fareysequence' ||
     kind === 'unionfindmerges' ||
     kind === 'linearprobing' ||
     kind === 'bloomfilter' ||

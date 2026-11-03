@@ -648,6 +648,7 @@ export type ProceduralMaterialKind =
   | 'dcbarreljackfaces'
   | 'stfiberadapterfaces'
   | 'to92packagefaces'
+  | 'fareysequence'
   | 'unionfindmerges'
   | 'linearprobing'
   | 'bloomfilter'
@@ -2072,6 +2073,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'dcbarreljackfaces',
   'stfiberadapterfaces',
   'to92packagefaces',
+  'fareysequence',
   'unionfindmerges',
   'linearprobing',
   'bloomfilter',

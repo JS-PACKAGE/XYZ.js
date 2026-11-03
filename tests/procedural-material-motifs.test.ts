@@ -53281,3 +53281,402 @@ describe('unionfindmerges: elements in a row, one row after each merge request, 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('fareysequence: rows of ticks at the fractions in lowest terms up to each denominator, with a band between the neighbours of a chosen fraction', () => {
+  const p = proceduralMaterialPresets.fareysequence,
+    out = empty(),
+    widest = Math.max(...p.rowCounts);
+  type Farey = {
+    sample: Sampler;
+    rows: number;
+    chosen: number;
+    bands: [number, number][];
+  };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const near = (tone: number, wanted: number): boolean =>
+    Math.abs(tone - wanted) < 0.01;
+  const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+  const rowY = (row: number): number => p.top + (row + 0.5) * p.rowPitch;
+  const placeX = (place: number): number => p.left + place * p.length;
+  // Every fraction a/b between 0 and 1 with b up to the widest row, with its denominator in lowest terms.
+  const fractions: { place: number; reduced: number }[] = [];
+  for (let b = 1; b <= widest; b++)
+    for (let a = 0; a <= b; a++)
+      fractions.push({ place: a / b, reduced: b / gcd(a, b) });
+
+  // Read the picture: the number of rows, the chosen fraction (the dots under the rows, all at one place) and the span of each row's band.
+  const fareyOf = (seed: number): Farey => {
+    const sample = createSurfaceSampler('fareysequence', seed);
+    let rows = 0;
+    while (
+      near(toneAt(sample, p.left, rowY(rows) + 0.016), p.oldTickTone) ||
+      near(toneAt(sample, p.left, rowY(rows) + 0.016), p.newTickTone)
+    )
+      rows++;
+    expect(p.rowCounts).toContain(rows);
+    // The dot of a row: the stretch of the line under the row where the tone is the dot's, its middle.
+    const dotPlace = (row: number): number => {
+      let first = Number.NaN,
+        last = Number.NaN;
+      for (let x = p.left; x <= p.left + p.length; x += 0.0002)
+        if (near(toneAt(sample, x, rowY(row) + p.dotDrop), p.dotTone)) {
+          if (Number.isNaN(first)) first = x;
+          last = x;
+        }
+      return ((first + last) / 2 - p.left) / p.length;
+    };
+    // The dot's place, then the fraction with a denominator from 11 to 23 that it stands for (the places of those are further apart than the reading is exact to).
+    const measured = dotPlace(0),
+      stands = Array.from(
+        { length: p.maxDenominator - p.minDenominator + 1 },
+        (_, i) => p.minDenominator + i,
+      )
+        .flatMap((b) =>
+          Array.from({ length: b + 1 }, (_, a) => ({
+            a,
+            b,
+            error: Math.abs(a / b - measured),
+          })),
+        )
+        .sort((x, y) => x.error - y.error)[0];
+    expect(stands.error).toBeLessThan(0.0006);
+    const chosen = stands.a / stands.b;
+    for (let row = 1; row < rows; row++)
+      expect(Math.abs(dotPlace(row) - chosen)).toBeLessThan(0.0008);
+    const bands: [number, number][] = [];
+    for (let row = 0; row < rows; row++) {
+      // The longest stretch of the line (across the row) where the tone is the band's: the ticks at its ends and their softened edges are not part of it.
+      let start = Number.NaN,
+        end = Number.NaN,
+        runStart = Number.NaN,
+        best = 0;
+      for (
+        let x = p.left - 0.01;
+        x <= p.left + p.length + 0.01 + 0.0002;
+        x += 0.0002
+      ) {
+        const inBand =
+          x <= p.left + p.length + 0.01 &&
+          near(toneAt(sample, x, rowY(row) + 0.006), p.bandTone);
+        if (inBand && Number.isNaN(runStart)) runStart = x;
+        if (!inBand && !Number.isNaN(runStart)) {
+          if (x - runStart > best) {
+            best = x - runStart;
+            start = runStart;
+            end = x - 0.0002;
+          }
+          runStart = Number.NaN;
+        }
+      }
+      // The band reaches the two ticks at its ends (the ticks have half a width on the inside).
+      bands.push([
+        (start - p.tickHalfWidth - p.left) / p.length,
+        (end + p.tickHalfWidth - p.left) / p.length,
+      ]);
+    }
+    return { sample, rows, chosen, bands };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws the fractions in lowest terms with a denominator up to the row number, the new ones darker, and a band between the neighbours of the chosen fraction (seed %i)',
+    (seed) => {
+      const { sample, rows, chosen, bands } = fareyOf(seed);
+      // The chosen fraction has a denominator from 11 to 23 (found from where its dot is), and is never at a tick.
+      const match = Array.from(
+        { length: p.maxDenominator - p.minDenominator + 1 },
+        (_, i) => p.minDenominator + i,
+      )
+        .flatMap((b) =>
+          Array.from({ length: b + 1 }, (_, a) => ({
+            a,
+            b,
+            error: Math.abs(a / b - chosen),
+          })),
+        )
+        .sort((x, y) => x.error - y.error)[0];
+      expect(match.error).toBeLessThan(0.0006);
+      expect(gcd(match.a, match.b)).toBe(1);
+      fractions.forEach(({ place }) =>
+        expect(Math.abs(place - chosen)).toBeGreaterThan(0.004),
+      );
+      for (let row = 0; row < rows; row++) {
+        const n = row + 1;
+        // The ticks of the row are exactly the fractions in lowest terms with a denominator up to n, new ones (denominator n) darker.
+        fractions.forEach(({ place, reduced }) => {
+          const tone = toneAt(sample, placeX(place), rowY(row) + 0.016);
+          if (reduced > n)
+            expect(
+              near(tone, p.paperTone) ||
+                Math.abs(tone - p.paperTone) <= p.grainTone / 2 + 1e-9,
+            ).toBe(true);
+          else
+            expect(
+              near(tone, reduced === n ? p.newTickTone : p.oldTickTone),
+            ).toBe(true);
+        });
+        // Nowhere else along the row is there a tick (away from the places of the fractions).
+        for (
+          let x = p.left - 0.02;
+          x <= p.left + p.length + 0.02;
+          x += 0.0004
+        ) {
+          if (
+            fractions.some(({ place }) => Math.abs(placeX(place) - x) < 0.004)
+          )
+            continue;
+          expect(
+            Math.abs(toneAt(sample, x, rowY(row) + 0.016) - p.paperTone),
+          ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+        }
+        // The band runs from the largest tick before the chosen fraction to the smallest after it.
+        const places = fractions
+            .filter(({ reduced }) => reduced <= n)
+            .map(({ place }) => place),
+          before = Math.max(...places.filter((place) => place < chosen)),
+          after = Math.min(...places.filter((place) => place > chosen));
+        expect(Math.abs(bands[row][0] - before)).toBeLessThan(0.0012);
+        expect(Math.abs(bands[row][1] - after)).toBeLessThan(0.0012);
+        // The band stops at the neighbours' ticks: just outside the outer edge of each (at the height of the band) it is paper.
+        for (const [place, side] of [
+          [before, -1],
+          [after, 1],
+        ] as const) {
+          const x = placeX(place) + side * (p.tickHalfWidth + 0.0005);
+          expect(
+            Math.abs(toneAt(sample, x, rowY(row) + 0.006) - p.paperTone),
+          ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+        }
+        // The neighbours are Farey neighbours: their cross product is 1 (found from their places, as fractions with a denominator up to the row number).
+        const pairOf = (place: number): [number, number] => {
+          for (let b = 1; b <= n; b++)
+            for (let a = 0; a <= b; a++)
+              if (Math.abs(a / b - place) < 1e-9) return [a, b];
+          throw new Error('not a fraction of the row');
+        };
+        const [a, b] = pairOf(before),
+          [c, d] = pairOf(after);
+        expect(c * b - a * d).toBe(1);
+      }
+    },
+  );
+
+  it('uses every number of rows and every chosen fraction shape, the first and last numerators and the least and most denominator, over 150 seeds', () => {
+    const counts = new Set<number>(),
+      denominators = new Set<number>();
+    let low = 1,
+      high = 0,
+      firstNumerator = 0,
+      lastNumerator = 0,
+      lastNumeratorOdd = 0;
+    for (let seed = 0; seed < 150; seed++) {
+      const { rows, chosen } = fareyOf(seed * 53 + 12);
+      counts.add(rows);
+      low = Math.min(low, chosen);
+      high = Math.max(high, chosen);
+      for (let b = p.minDenominator; b <= p.maxDenominator; b++)
+        for (let a = 1; a < b; a++)
+          if (Math.abs(a / b - chosen) < 0.0006 && gcd(a, b) === 1) {
+            denominators.add(b);
+            firstNumerator += Number(a === 1);
+            lastNumerator += Number(a === b - 1);
+            // (b - 1) / b with b odd: not reached by moving on from a numerator with a common factor, as it is with b even.
+            lastNumeratorOdd += Number(a === b - 1 && b % 2 === 1);
+          }
+    }
+    expect([...counts].sort((a, b) => a - b)).toEqual([...p.rowCounts]);
+    expect(low).toBeLessThan(0.1);
+    expect(high).toBeGreaterThan(0.9);
+    // Every denominator from the least to the most, and the fractions 1 / b and (b - 1) / b at the ends.
+    expect([...denominators].sort((a, b) => a - b)).toEqual(
+      Array.from(
+        { length: p.maxDenominator - p.minDenominator + 1 },
+        (_, i) => p.minDenominator + i,
+      ),
+    );
+    expect(firstNumerator).toBeGreaterThan(0);
+    expect(lastNumerator).toBeGreaterThan(0);
+    expect(lastNumeratorOdd).toBeGreaterThan(0);
+  });
+
+  it('draws the ticks, the band and the dots with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, rows, chosen, bands } = fareyOf(seed),
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      for (let row = 0; row < rows; row++) {
+        const n = row + 1,
+          y = rowY(row);
+        fractions
+          .filter(({ reduced }) => reduced <= n)
+          .forEach(({ place, reduced }) => {
+            const x = placeX(place),
+              tone = reduced === n ? p.newTickTone : p.oldTickTone,
+              level = reduced === n ? p.newTickHeight : p.oldTickHeight;
+            // A tick: tone, height, roughness, width, and its top and bottom.
+            expect(toneAt(sample, x, y + 0.016)).toBeCloseTo(tone, 6);
+            expect(out.height / p.relief).toBeCloseTo(level, 6);
+            expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+            expect(
+              toneAt(sample, x + p.tickHalfWidth - 0.0004, y + 0.016),
+            ).toBeCloseTo(tone, 6);
+            expect(
+              toneAt(sample, x - p.tickHalfWidth + 0.0004, y + 0.016),
+            ).toBeCloseTo(tone, 6);
+            expect(paperOk(x + p.tickHalfWidth + 0.0008, y + 0.016)).toBe(true);
+            expect(
+              toneAt(sample, x, y - p.tickHalfHeight + 0.0004),
+            ).toBeCloseTo(tone, 6);
+            expect(
+              toneAt(sample, x, y + p.tickHalfHeight - 0.0004),
+            ).toBeCloseTo(tone, 6);
+            expect(paperOk(x, y - p.tickHalfHeight - 0.001)).toBe(true);
+            expect(paperOk(x, y + p.tickHalfHeight + 0.001)).toBe(true);
+          });
+        // The band: tone, height, roughness, its height, and its ends at the neighbours' ticks.
+        const middle = (bands[row][0] + bands[row][1]) / 2,
+          bx = placeX(middle);
+        expect(toneAt(sample, bx, y)).toBeCloseTo(p.bandTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.bandHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(toneAt(sample, bx, y - p.bandHalfHeight + 0.0004)).toBeCloseTo(
+          p.bandTone,
+          6,
+        );
+        expect(toneAt(sample, bx, y + p.bandHalfHeight - 0.0004)).toBeCloseTo(
+          p.bandTone,
+          6,
+        );
+        expect(paperOk(bx, y - p.bandHalfHeight - 0.001)).toBe(true);
+        expect(paperOk(bx, y + p.bandHalfHeight + 0.001)).toBe(true);
+        // The dot under the row: tone, height, roughness, radius.
+        const dx = placeX(chosen),
+          dy = y + p.dotDrop;
+        expect(toneAt(sample, dx, dy)).toBeCloseTo(p.dotTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.dotHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(
+          near(toneAt(sample, dx + p.dotRadius - 0.0004, dy), p.dotTone),
+        ).toBe(true);
+        expect(paperOk(dx + p.dotRadius + 0.001, dy)).toBe(true);
+        expect(paperOk(dx, dy + p.dotRadius + 0.001)).toBe(true);
+      }
+      // Nothing above the first row or below the last row's dot.
+      expect(paperOk(placeX(0.5), p.top - 0.005)).toBe(true);
+      expect(
+        paperOk(placeX(0.5), rowY(rows - 1) + p.dotDrop + p.dotRadius + 0.012),
+      ).toBe(true);
+    }
+  });
+
+  it('softens the edge of a tick, a band and a dot over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      const { sample, chosen } = fareyOf(seed),
+        y = rowY(1),
+        x = placeX(0),
+        // Row 2 has a tick at 0 which is old (it first came in the row above), clear of the band's end.
+        bx = placeX(0.9),
+        by = rowY(0);
+      // The old tick at 0 in the second row: its two sides and its top over the paper.
+      close(
+        toneAt(sample, x + p.tickHalfWidth - quarter, y + 0.016),
+        mix(p.paperTone, p.oldTickTone, 0.75),
+      );
+      close(
+        toneAt(sample, x - p.tickHalfWidth - quarter, y + 0.016),
+        mix(p.paperTone, p.oldTickTone, 0.25),
+      );
+      close(
+        toneAt(sample, x, y - p.tickHalfHeight + quarter),
+        mix(p.paperTone, p.oldTickTone, 0.75),
+      );
+      close(
+        toneAt(sample, x, y - p.tickHalfHeight - quarter),
+        mix(p.paperTone, p.oldTickTone, 0.25),
+      );
+      // The first row's band, wide as the row: its top and bottom edges over the paper, away from ticks and dots.
+      close(
+        toneAt(sample, bx, by - p.bandHalfHeight + quarter),
+        mix(p.paperTone, p.bandTone, 0.75),
+      );
+      close(
+        toneAt(sample, bx, by - p.bandHalfHeight - quarter),
+        mix(p.paperTone, p.bandTone, 0.25),
+      );
+      close(
+        toneAt(sample, bx, by + p.bandHalfHeight - quarter),
+        mix(p.paperTone, p.bandTone, 0.75),
+      );
+      close(
+        toneAt(sample, bx, by + p.bandHalfHeight + quarter),
+        mix(p.paperTone, p.bandTone, 0.25),
+      );
+      // The dot's edge over the paper.
+      const dx = placeX(chosen),
+        dy = rowY(0) + p.dotDrop;
+      close(
+        toneAt(sample, dx + p.dotRadius - quarter, dy),
+        mix(p.paperTone, p.dotTone, 0.75),
+      );
+      close(
+        toneAt(sample, dx + p.dotRadius + quarter, dy),
+        mix(p.paperTone, p.dotTone, 0.25),
+      );
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('fareysequence', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('fareysequence', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.97),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('fareysequence', 0),
+      b = createSurfaceSampler('fareysequence', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.1451],
+        [0.5001, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
