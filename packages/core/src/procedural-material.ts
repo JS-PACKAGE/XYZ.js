@@ -1076,6 +1076,7 @@ export type ProceduralMaterialKind =
   | 'lorenzattractor'
   | 'ellipsebilliard'
   | 'lsystemplants'
+  | 'pursuitpolygons'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2400,6 +2401,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'lorenzattractor',
   'ellipsebilliard',
   'lsystemplants',
+  'pursuitpolygons',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

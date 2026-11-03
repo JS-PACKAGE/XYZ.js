@@ -46207,6 +46207,121 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'pursuitpolygons': {
+        const p = proceduralMaterialPresets.pursuitpolygons,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant =
+            p.variants[
+              Math.floor(hash(0, 52, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          buckets: number[][] = Array.from(
+            { length: p.buckets * p.buckets },
+            () => [],
+          ),
+          segments: number[][] = [],
+          inverseSoft = 1 / p.edgeSoft,
+          step = 0.5 / p.buckets;
+        // A regular polygon with the number of corners n of the variant (first number) and the
+        // circumradius of the preset stands about the centre of the tile with a corner at the top. Every
+        // corner is moved the fraction f (second number) of the way towards the next corner round the
+        // polygon, which gives the next, smaller and turned polygon, and so on for K (third number)
+        // steps; every side of all K + 1 polygons is a segment (the pursuit of n bugs on the corners,
+        // each running at the next, drawn as the polygons they form at equal times). Every segment is
+        // filed into the buckets x buckets buckets that a point within its half width plus half a step
+        // of its path could be in, so a lookup needs only the bucket of the sample. The lines get
+        // thinner towards the middle: the half width of the polygon number k is
+        // halfWidth (1 - fade k / K).
+        {
+          const corners = variant[0],
+            fraction = variant[1],
+            count = variant[2];
+          let xs: number[] = [],
+            ys: number[] = [];
+          for (let i = 0; i < corners; i++) {
+            xs.push(
+              p.radius * Math.cos(Math.PI / 2 + (2 * Math.PI * i) / corners),
+            );
+            ys.push(
+              -p.radius * Math.sin(Math.PI / 2 + (2 * Math.PI * i) / corners),
+            );
+          }
+          for (let k = 0; k <= count; k++) {
+            const half = p.halfWidth * (1 - (p.fade * k) / count),
+              reach = half + step / 2;
+            for (let i = 0; i < corners; i++) {
+              const j = (i + 1) % corners,
+                x0 = 0.5 + xs[i],
+                y0 = 0.5 + ys[i],
+                dx = xs[j] - xs[i],
+                dy = ys[j] - ys[i],
+                length = Math.hypot(dx, dy),
+                index = segments.length,
+                filed = new Set<number>();
+              segments.push([x0, y0, dx, dy, dx * dx + dy * dy, half * half]);
+              for (
+                let s = 0, n = Math.max(1, Math.ceil(length / step));
+                s <= n;
+                s++
+              )
+                for (const ox of [-reach, reach])
+                  for (const oy of [-reach, reach]) {
+                    const bx = Math.floor((x0 + (dx * s) / n + ox) * p.buckets),
+                      by = Math.floor((y0 + (dy * s) / n + oy) * p.buckets);
+                    if (bx < 0 || by < 0 || bx >= p.buckets || by >= p.buckets)
+                      continue;
+                    const bucket = by * p.buckets + bx;
+                    if (!filed.has(bucket)) {
+                      filed.add(bucket);
+                      buckets[bucket].push(index);
+                    }
+                  }
+            }
+            xs = xs.map((x, i) => x + fraction * (xs[(i + 1) % corners] - x));
+            ys = ys.map((y, i) => y + fraction * (ys[(i + 1) % corners] - y));
+          }
+        }
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            bx = Math.floor(fu * p.buckets),
+            by = Math.floor(fv * p.buckets);
+          // The segments are a union by 1 - product of (1 - t^2) with t = max(0, 1 - squared distance /
+          // squared half width), a function of the squared distance to a segment: every t^2 is C1 and
+          // exactly zero at the rim, so the union is C1 even where the segments overlap.
+          let open = 1;
+          for (const index of buckets[by * p.buckets + bx]) {
+            const [x0, y0, dx, dy, lengthSquared, widthSquared] =
+                segments[index],
+              wx = fu - x0,
+              wy = fv - y0,
+              along =
+                lengthSquared > 0
+                  ? clamp((wx * dx + wy * dy) / lengthSquared)
+                  : 0,
+              ex = wx - along * dx,
+              ey = wy - along * dy,
+              t = clamp(1 - (ex * ex + ey * ey) / widthSquared);
+            open *= 1 - t * t;
+          }
+          const total = 1 - open,
+            mask = smooth(clamp(total * inverseSoft)),
+            tone = p.toneSpan,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * total * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -55084,6 +55199,7 @@ export function createSurfaceSampler(
     kind === 'lorenzattractor' ||
     kind === 'ellipsebilliard' ||
     kind === 'lsystemplants' ||
+    kind === 'pursuitpolygons' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

@@ -1102,6 +1102,7 @@ const kinds: ProceduralMaterialKind[] = [
   'lorenzattractor',
   'ellipsebilliard',
   'lsystemplants',
+  'pursuitpolygons',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -178026,6 +178027,282 @@ describe('L-system plants as plants grown by Lindenmayer systems and drawn by a 
     expect(green / (512 * 512)).toBeLessThan(33.6);
     expect(blue / (512 * 512)).toBeGreaterThan(22);
     expect(blue / (512 * 512)).toBeLessThan(23.2);
+    expect(maxTilt).toBeGreaterThan(0.049);
+    expect(maxTilt).toBeLessThan(0.054);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Pursuit polygons as the polygons of bugs chasing each other round the corners of a polygon, drawn as thin lines', () => {
+  const p = proceduralMaterialPresets.pursuitpolygons;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /**
+   * The sides of all the polygons of a variant in tile coordinates, from the closed form and not by
+   * moving the corners step by step as the sampler does: with the corners of the first polygon at
+   * R e^(i (pi/2 + 2 pi j / n)), moving every corner the fraction f towards the next multiplies the
+   * whole polygon by the complex number 1 - f + f e^(2 pi i / n), so the corner j of the polygon
+   * number k is R i (1 - f + f w)^k w^j with w = e^(2 pi i / n); the tile is x = 0.5 + Re, y = 0.5 - Im.
+   */
+  const sidesOf = (variant: readonly number[]): number[][] => {
+    const [corners, fraction, count] = variant,
+      multiply = (u: number[], v: number[]): number[] => [
+        u[0] * v[0] - u[1] * v[1],
+        u[0] * v[1] + u[1] * v[0],
+      ],
+      factor = [
+        1 - fraction + fraction * Math.cos((2 * Math.PI) / corners),
+        fraction * Math.sin((2 * Math.PI) / corners),
+      ],
+      sides: number[][] = [];
+    let polygon = [0, p.radius];
+    for (let k = 0; k <= count; k++) {
+      for (let j = 0; j < corners; j++) {
+        const from = multiply(polygon, [
+            Math.cos((2 * Math.PI * j) / corners),
+            Math.sin((2 * Math.PI * j) / corners),
+          ]),
+          to = multiply(polygon, [
+            Math.cos((2 * Math.PI * (j + 1)) / corners),
+            Math.sin((2 * Math.PI * (j + 1)) / corners),
+          ]);
+        sides.push([0.5 + from[0], 0.5 - from[1], 0.5 + to[0], 0.5 - to[1]]);
+      }
+      polygon = multiply(polygon, factor);
+    }
+    return sides;
+  };
+  const lines = p.variants.map((variant) => sidesOf(variant));
+  /** The colours read from the sampler at 3 points (20%, 50% and 80%) of every side of a variant. */
+  const colorsOnLines = (seed: number, index: number): number[] => {
+    const sample = createSurfaceSampler('pursuitpolygons', seed),
+      out = empty(),
+      colors: number[] = [];
+    for (const [x0, y0, x1, y1] of lines[index])
+      for (const at of [0.2, 0.5, 0.8]) {
+        sample(x0 + (x1 - x0) * at, y0 + (y1 - y0) * at, out);
+        colors.push(out.color);
+      }
+    return colors;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('pursuitpolygons', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('pursuitpolygons', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0253);
+      expect(low).toBeLessThan(0.0257);
+      expect(high).toBeGreaterThan(0.8738);
+      expect(high).toBeLessThan(0.8742);
+      expect(dark / 65536).toBeGreaterThan(0.0566);
+      expect(dark / 65536).toBeLessThan(0.1186);
+      expect(mean / 65536).toBeGreaterThan(0.0873);
+      expect(mean / 65536).toBeLessThan(0.1393);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.846);
+      expect(heightHigh).toBeLessThan(0.8472);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('draws the sides of exactly one of the variants and nothing far from them', () => {
+    // For each seed exactly one of the 6 variants of the preset has all the points along all the sides
+    // of all its polygons (3 per side at 20%, 50% and 80%, 432 to 1,944 points; at most 4 of them may
+    // read dark) lit above 0.3, with the least colour above 0.8 (the other 5 variants have hundreds of
+    // points reading dark); the variant for each seed (0 to 5 for the seeds 9, 11, 1, 6, 7 and 0) was
+    // found with a probe and is written here, so that table is not an independent check of the
+    // seed's choice (all 6 variants are covered). Points of a lattice that are more than 0.02 from
+    // every side read dark (below 0.2).
+    const expected = new Map([
+      [9, 0],
+      [11, 1],
+      [1, 2],
+      [6, 3],
+      [7, 4],
+      [0, 5],
+    ]);
+    for (const [seed, index] of expected) {
+      const matching = p.variants
+        .map((_, i) => ({ i, colors: colorsOnLines(seed, i) }))
+        .filter(({ colors }) => colors.filter((c) => c < 0.3).length <= 4);
+      expect(matching.map(({ i }) => i)).toEqual([index]);
+      expect(Math.min(...matching[0].colors)).toBeGreaterThan(0.8);
+      const sample = createSurfaceSampler('pursuitpolygons', seed),
+        out = empty();
+      let tested = 0,
+        wrong = 0;
+      for (let i = 0; i < 4000; i++) {
+        const x = (i * 0.61803398875) % 1,
+          y = (i * 0.41421356237) % 1;
+        let nearest = Infinity;
+        for (const [x0, y0, x1, y1] of lines[index]) {
+          const along = Math.min(
+            1,
+            Math.max(
+              0,
+              ((x - x0) * (x1 - x0) + (y - y0) * (y1 - y0)) /
+                ((x1 - x0) ** 2 + (y1 - y0) ** 2),
+            ),
+          );
+          nearest = Math.min(
+            nearest,
+            Math.hypot(x - x0 - along * (x1 - x0), y - y0 - along * (y1 - y0)),
+          );
+        }
+        if (nearest <= 0.02) continue;
+        tested++;
+        sample(x, y, out);
+        wrong += Number(out.color >= 0.2);
+      }
+      expect(tested).toBeGreaterThan(1000);
+      expect(wrong).toBe(0);
+    }
+  });
+  it('draws a different swirl per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 1 pick different variants (5 and 2), so about a seventh of the grid changes.
+    const first = litGrid(0),
+      second = litGrid(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.12);
+    expect(different / first.length).toBeLessThan(0.15);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('pursuitpolygons', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.buckets, p.grainCells, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 pink swirl maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('pursuitpolygons', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(85.6);
+    expect(red / (512 * 512)).toBeLessThan(86.8);
+    expect(green / (512 * 512)).toBeGreaterThan(53.3);
+    expect(green / (512 * 512)).toBeLessThan(54.5);
+    expect(blue / (512 * 512)).toBeGreaterThan(79.2);
+    expect(blue / (512 * 512)).toBeLessThan(80.4);
     expect(maxTilt).toBeGreaterThan(0.049);
     expect(maxTilt).toBeLessThan(0.054);
     expect(invalid).toBe(0);

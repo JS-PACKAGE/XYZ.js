@@ -1139,6 +1139,7 @@ try {
     'lorenzattractor',
     'ellipsebilliard',
     'lsystemplants',
+    'pursuitpolygons',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
