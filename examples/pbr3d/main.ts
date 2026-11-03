@@ -1145,6 +1145,7 @@ try {
     'poincaretriangles',
     'sphericaltriangles',
     'fareydisc',
+    'conformalspiral',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

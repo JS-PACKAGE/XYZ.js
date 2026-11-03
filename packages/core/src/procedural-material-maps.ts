@@ -47152,6 +47152,85 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'conformalspiral': {
+        const p = proceduralMaterialPresets.conformalspiral,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant =
+            p.variants[
+              Math.floor(hash(0, 58, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          // A conformal spiral tiling: in the complex logarithm L = ln z = (ln r, angle) the picture is a
+          // lattice of equal squares whose sides are the vectors A = (a, b) and B = (-b, a) with
+          // a = 2 pi q / (p^2 + q^2) and b = 2 pi p / (p^2 + q^2), so that the turn of the angle by 2 pi,
+          // the vector (0, 2 pi), is p A + q B, a whole number of cells. The map exp is conformal, so on the
+          // disc the cells are curved squares (all the angles right angles) that shrink without end
+          // towards the middle, spiral where q is not 0 and look the same at every scale (the picture is
+          // unchanged by the scaling by exp(a) together with a turn by b). p + q is even, so that the cut
+          // of the angle at 180 degrees (the coordinates jump by p and q) does not change the parity of
+          // the sum of the two cell numbers.
+          turns = variant[0],
+          twist = variant[1],
+          side = (2 * Math.PI) / Math.sqrt(turns * turns + twist * twist),
+          widthSquared = p.lineHalfWidth * p.lineHalfWidth,
+          inverseSoft = 1 / p.edgeSoft;
+        return () => {
+          const scale = 1 / p.diskRadius,
+            gx = (fract(u) - 0.5) * scale,
+            gy = (fract(v) - 0.5) * scale,
+            radius = Math.sqrt(gx * gx + gy * gy),
+            logRadius = Math.log(Math.max(radius, 1e-12)),
+            angle = Math.atan2(gy, gx),
+            // L = m A + n B solved for the cell coordinates m and n.
+            firstCoordinate =
+              (twist * logRadius + turns * angle) / (2 * Math.PI),
+            secondCoordinate =
+              (-turns * logRadius + twist * angle) / (2 * Math.PI),
+            firstIndex = Math.floor(firstCoordinate),
+            secondIndex = Math.floor(secondCoordinate),
+            firstFraction = firstCoordinate - firstIndex,
+            secondFraction = secondCoordinate - secondIndex,
+            firstDistance = side * Math.min(firstFraction, 1 - firstFraction),
+            secondDistance =
+              side * Math.min(secondFraction, 1 - secondFraction),
+            firstT = clamp(1 - (firstDistance * firstDistance) / widthSquared),
+            secondT = clamp(
+              1 - (secondDistance * secondDistance) / widthSquared,
+            ),
+            line = 1 - (1 - firstT * firstT) * (1 - secondT * secondT),
+            odd = (((firstIndex + secondIndex) % 2) + 2) % 2,
+            inner = smooth(clamp((radius - p.innerStart) / p.innerSpan)),
+            inside = inner * smooth(clamp((p.fadeStart - radius) / 0.02)),
+            fill =
+              (odd === 1 ? p.fillOdd : p.fillEven) +
+              p.fillGradient * clamp(radius),
+            rimT = clamp(
+              1 -
+                ((radius - 1) * (radius - 1)) /
+                  (p.ringHalfWidth * p.ringHalfWidth),
+            ),
+            ring = rimT * rimT,
+            ink = clamp(inside * (fill * (1 - line) + line) + ring),
+            mask = smooth(clamp(ink * inverseSoft)),
+            tone = p.toneSpan * ink,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            tone +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(inside * line + ring) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -56035,6 +56114,7 @@ export function createSurfaceSampler(
     kind === 'poincaretriangles' ||
     kind === 'sphericaltriangles' ||
     kind === 'fareydisc' ||
+    kind === 'conformalspiral' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

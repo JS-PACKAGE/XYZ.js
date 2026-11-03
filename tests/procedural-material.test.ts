@@ -1108,6 +1108,7 @@ const kinds: ProceduralMaterialKind[] = [
   'poincaretriangles',
   'sphericaltriangles',
   'fareydisc',
+  'conformalspiral',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -180383,6 +180384,278 @@ describe('Farey disc as the ideal triangle tessellation of the Poincare disc, tw
     expect(green / (512 * 512)).toBeLessThan(70.5);
     expect(blue / (512 * 512)).toBeGreaterThan(63.2);
     expect(blue / (512 * 512)).toBeLessThan(64.4);
+    expect(maxTilt).toBeGreaterThan(0.052);
+    expect(maxTilt).toBeLessThan(0.057);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Conformal spiral as a conformal spiral checkerboard in the complex logarithm', () => {
+  const p = proceduralMaterialPresets.conformalspiral;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  // The tiling is built here forwards, from the cells to the picture, and not by the inverse map of the
+  // sampler: with the sides of the cells in the complex logarithm A = (a, b) and B = (-b, a), a = 2 pi q / (p^2 + q^2),
+  // b = 2 pi p / (p^2 + q^2) for a variant (p, q), the cell (i, j) is the set of the points exp(L) (cos Im L, sin Im L)
+  // for L = (i + x) A + (j + y) B with x and y in (0, 1). So its middle is x = y = 0.5, the middle of its first side is
+  // (x, y) = (0, 0.5) and the middle of its second side is (0.5, 0); the angle Im L is taken in (-pi, pi) so that each
+  // cell is listed once. The sampler works backwards: it takes the logarithm of the point and solves a linear map.
+  const place = (
+    turns: number,
+    twist: number,
+    first: number,
+    second: number,
+  ): number[] => {
+    const total = turns * turns + twist * twist,
+      a = (2 * Math.PI * twist) / total,
+      b = (2 * Math.PI * turns) / total,
+      x = first * a - second * b,
+      y = first * b + second * a,
+      radius = Math.exp(x);
+    return [
+      0.5 + p.diskRadius * radius * Math.cos(y),
+      0.5 + p.diskRadius * radius * Math.sin(y),
+      radius,
+      y,
+    ];
+  };
+  /** The check points on the sides and the middles of the cells (the radius between 0.13 and 0.85) of each variant. */
+  const sets = p.variants.map(([turns, twist]) => {
+    const lines: number[][] = [],
+      cells: { point: number[]; odd: number }[] = [];
+    const listed = (point: number[]): boolean =>
+      point[2] >= 0.13 &&
+      point[2] <= 0.85 &&
+      point[3] > -Math.PI &&
+      point[3] < Math.PI;
+    for (let i = -120; i <= 120; i++)
+      for (let j = -120; j <= 120; j++) {
+        for (const [first, second] of [
+          [i, j + 0.5],
+          [i + 0.5, j],
+        ]) {
+          const point = place(turns, twist, first, second);
+          if (listed(point)) lines.push([point[0], point[1]]);
+        }
+        const middle = place(turns, twist, i + 0.5, j + 0.5);
+        if (listed(middle))
+          cells.push({
+            point: [middle[0], middle[1]],
+            odd: (((i + j) % 2) + 2) % 2,
+          });
+      }
+    return { lines, cells };
+  });
+  /** The colours read from the sampler at the check points on the sides of the cells of a variant. */
+  const colorsOnLines = (seed: number, index: number): number[] => {
+    const sample = createSurfaceSampler('conformalspiral', seed),
+      out = empty();
+    return sets[index].lines.map(([x, y]) => {
+      sample(x, y, out);
+      return out.color;
+    });
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('conformalspiral', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('conformalspiral', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0251);
+      expect(low).toBeLessThan(0.0257);
+      expect(high).toBeGreaterThan(0.8727);
+      expect(high).toBeLessThan(0.8739);
+      expect(dark / 65536).toBeGreaterThan(0.108);
+      expect(dark / 65536).toBeLessThan(0.131);
+      expect(mean / 65536).toBeGreaterThan(0.2364);
+      expect(mean / 65536).toBeLessThan(0.2472);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.874);
+      expect(heightHigh).toBeLessThan(0.8772);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The variant for each of the seeds 1, 2, 14, 9, 0 and 3 (variants 0 to 5) was found with a probe and is
+  // written here, so that table is not an independent check of the seed's choice.
+  const seeds = [1, 2, 14, 9, 0, 3];
+  it('draws the sides of every cell of the variant and only the variant', () => {
+    // All the check points on the sides of the cells of the variant of each seed read bright (> 0.7; at most
+    // 3 may read lower), and each of the other variants has at least 20 check points reading lower, since
+    // the cells or their twist differ (in the probe the others had at least 113).
+    seeds.forEach((seed, index) => {
+      expect(sets[index].lines.length).toBeGreaterThan(130);
+      expect(
+        colorsOnLines(seed, index).filter((c) => c < 0.7).length,
+      ).toBeLessThanOrEqual(3);
+      p.variants.forEach((_, other) => {
+        if (other === index) return;
+        expect(
+          colorsOnLines(seed, other).filter((c) => c < 0.7).length,
+        ).toBeGreaterThan(20);
+      });
+    });
+  });
+  it('colours neighbouring cells in two tones by the parity of i + j', () => {
+    // At the middle of every cell of the variant (68 to 132 of them) the colour is below 0.25 (0.13 to 0.21
+    // in the probe) for one parity of the two cell numbers' sum i + j and above (0.35 to 0.42) for the
+    // other, the same way for all the seeds. Cells that share a side always differ in i + j by one, so this is
+    // the checkerboard.
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('conformalspiral', seed),
+        out = empty();
+      expect(sets[index].cells.length).toBeGreaterThanOrEqual(68);
+      for (const { point, odd } of sets[index].cells) {
+        sample(point[0], point[1], out);
+        if (odd === 0) expect(out.color).toBeLessThan(0.25);
+        else expect(out.color).toBeGreaterThan(0.3);
+      }
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 1 pick different variants (the cell vectors (17, -7) and (15, 1)).
+    const first = litGrid(0),
+      second = litGrid(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.17);
+    expect(different / first.length).toBeLessThan(0.195);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('conformalspiral', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [12, p.grainCells, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 amber spiral checker maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('conformalspiral', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(74.9);
+    expect(red / (512 * 512)).toBeLessThan(76.1);
+    expect(green / (512 * 512)).toBeGreaterThan(50.4);
+    expect(green / (512 * 512)).toBeLessThan(51.6);
+    expect(blue / (512 * 512)).toBeGreaterThan(58.3);
+    expect(blue / (512 * 512)).toBeLessThan(59.5);
     expect(maxTilt).toBeGreaterThan(0.052);
     expect(maxTilt).toBeLessThan(0.057);
     expect(invalid).toBe(0);
