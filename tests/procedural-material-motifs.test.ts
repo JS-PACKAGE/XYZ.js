@@ -52728,3 +52728,272 @@ describe('bloomfilter: a bit row, keys put in as dots at their bits, and questio
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('linearprobing: a hash table row after each key, with a dot at its home slot and the key in the first empty slot from there', () => {
+  const p = proceduralMaterialPresets.linearprobing,
+    out = empty();
+  type Table = { sample: Sampler; owner: number[][]; homes: number[] };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const near = (tone: number, wanted: number): boolean =>
+    Math.abs(tone - wanted) < 0.01;
+  const centreX = (slot: number): number => p.left + (slot + 0.5) * p.pitch;
+  const centreY = (row: number): number => p.top + (row + 0.5) * p.rowPitch;
+
+  // Read the picture: per row the key (by order put in) in every slot (-1 for empty) and the slot with the dot above it.
+  const tableOf = (seed: number): Table => {
+    const sample = createSurfaceSampler('linearprobing', seed),
+      owner: number[][] = [],
+      homes: number[] = [];
+    for (
+      let row = 0;
+      Math.abs(toneAt(sample, centreX(0), centreY(row)) - p.paperTone) > 0.02;
+      row++
+    ) {
+      owner.push(
+        Array.from({ length: p.slotCount }, (_, slot) => {
+          const tone = toneAt(sample, centreX(slot), centreY(row));
+          if (near(tone, p.emptyTone)) return -1;
+          const key = Math.round((tone - p.firstKeyTone) / p.keyToneStep) + 0;
+          expect(
+            Math.abs(tone - (p.firstKeyTone + key * p.keyToneStep)),
+          ).toBeLessThan(0.01);
+          return key;
+        }),
+      );
+      const dots = Array.from(
+        { length: p.slotCount },
+        (_, slot) => slot,
+      ).filter((slot) =>
+        near(
+          toneAt(sample, centreX(slot), centreY(row) - p.homeDrop),
+          p.homeTone,
+        ),
+      );
+      expect(dots.length).toBe(1);
+      homes.push(dots[0]);
+    }
+    expect(p.keyCounts).toContain(owner.length);
+    return { sample, owner, homes };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'puts every key in the first empty slot from its home slot on, round past the last slot, and leaves the others where they were (seed %i)',
+    (seed) => {
+      const { owner, homes } = tableOf(seed);
+      owner.forEach((row, t) => {
+        const before =
+            t === 0 ? new Array<number>(p.slotCount).fill(-1) : owner[t - 1],
+          // The first empty slot from the home slot on, by trying the slots one distance after another.
+          slot = Array.from(
+            { length: p.slotCount },
+            (_, d) => (homes[t] + d) % p.slotCount,
+          ).find((candidate) => before[candidate] < 0);
+        expect(slot).toBeDefined();
+        // Only that slot is new and it holds this key; the rest is as it was.
+        row.forEach((key, s) => expect(key).toBe(s === slot ? t : before[s]));
+        expect(row.filter((key) => key >= 0).length).toBe(t + 1);
+      });
+    },
+  );
+
+  it('uses every number of keys, collisions, longer probes, going round past the last slot and every home slot, over 60 seeds', () => {
+    const counts = new Set<number>(),
+      homeSlots = new Set<number>();
+    let collisions = 0,
+      wraps = 0,
+      longest = 0,
+      probes = 0,
+      keys = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const { owner, homes } = tableOf(seed * 43 + 8);
+      counts.add(owner.length);
+      owner.forEach((row, t) => {
+        const slot = row.indexOf(t),
+          distance = (slot - homes[t] + p.slotCount) % p.slotCount;
+        homeSlots.add(homes[t]);
+        keys++;
+        collisions += Number(distance > 0);
+        wraps += Number(slot < homes[t]);
+        probes += distance;
+        longest = Math.max(longest, distance);
+      });
+    }
+    expect([...counts].sort((a, b) => a - b)).toEqual([...p.keyCounts]);
+    expect([...homeSlots].sort((a, b) => a - b)).toEqual(
+      Array.from({ length: p.slotCount }, (_, i) => i),
+    );
+    expect(collisions).toBeGreaterThan(keys * 0.2);
+    expect(collisions).toBeLessThan(keys * 0.6);
+    expect(wraps).toBeGreaterThan(8);
+    expect(longest).toBeGreaterThan(4);
+    expect(probes / keys).toBeGreaterThan(0.5);
+  });
+
+  it('draws the slots and the dots with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, owner, homes } = tableOf(seed),
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      owner.forEach((row, t) => {
+        const y = centreY(t);
+        row.forEach((key, s) => {
+          const x = centreX(s),
+            tone = key < 0 ? p.emptyTone : p.firstKeyTone + key * p.keyToneStep,
+            level = key < 0 ? p.emptyHeight : p.keyHeight;
+          // A slot: tone, height, roughness, size, and the gap to its neighbours.
+          expect(toneAt(sample, x, y)).toBeCloseTo(tone, 6);
+          expect(out.height / p.relief).toBeCloseTo(level, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          expect(
+            toneAt(sample, x + p.slotHalf - 0.0004, y + p.slotHalf - 0.0004),
+          ).toBeCloseTo(tone, 6);
+          expect(
+            toneAt(sample, x - p.slotHalf + 0.0004, y - p.slotHalf + 0.0004),
+          ).toBeCloseTo(tone, 6);
+          expect(paperOk(x + p.slotHalf + 0.001, y)).toBe(true);
+          expect(paperOk(x, y + p.slotHalf + 0.001)).toBe(true);
+          expect(paperOk(x, y - p.slotHalf - 0.001)).toBe(true);
+          // A dot only over the slot that is the key's home: tone, height, roughness, radius, and no dot over the others.
+          const dotY = y - p.homeDrop;
+          if (homes[t] === s) {
+            expect(toneAt(sample, x, dotY)).toBeCloseTo(p.homeTone, 6);
+            expect(out.height / p.relief).toBeCloseTo(p.homeHeight, 6);
+            expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+            expect(
+              near(toneAt(sample, x + p.homeRadius - 0.0004, dotY), p.homeTone),
+            ).toBe(true);
+            expect(paperOk(x + p.homeRadius + 0.001, dotY)).toBe(true);
+            expect(paperOk(x, dotY - p.homeRadius - 0.001)).toBe(true);
+          } else expect(paperOk(x, dotY)).toBe(true);
+        });
+      });
+      // Nothing beside the table, nor below the last row.
+      expect(paperOk(p.left - 0.01, centreY(0))).toBe(true);
+      expect(paperOk(p.left + p.slotCount * p.pitch + 0.01, centreY(0))).toBe(
+        true,
+      );
+      expect(paperOk(centreX(3), centreY(owner.length))).toBe(true);
+      expect(paperOk(centreX(3), p.top - 0.005)).toBe(true);
+    }
+  });
+
+  it('softens the edge of a slot and a dot over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      const { sample, owner, homes } = tableOf(seed),
+        x = centreX(0),
+        y = centreY(0),
+        tone =
+          owner[0][0] < 0
+            ? p.emptyTone
+            : p.firstKeyTone + owner[0][0] * p.keyToneStep,
+        dotX = centreX(homes[0]),
+        dotY = centreY(0) - p.homeDrop;
+      // The slot's four sides over the paper (the first slot of the first row).
+      close(
+        toneAt(sample, x + p.slotHalf - quarter, y),
+        mix(p.paperTone, tone, 0.75),
+      );
+      close(
+        toneAt(sample, x + p.slotHalf + quarter, y),
+        mix(p.paperTone, tone, 0.25),
+      );
+      close(
+        toneAt(sample, x - p.slotHalf + quarter, y),
+        mix(p.paperTone, tone, 0.75),
+      );
+      close(
+        toneAt(sample, x - p.slotHalf - quarter, y),
+        mix(p.paperTone, tone, 0.25),
+      );
+      close(
+        toneAt(sample, x, y + p.slotHalf - quarter),
+        mix(p.paperTone, tone, 0.75),
+      );
+      close(
+        toneAt(sample, x, y + p.slotHalf + quarter),
+        mix(p.paperTone, tone, 0.25),
+      );
+      close(
+        toneAt(sample, x, y - p.slotHalf + quarter),
+        mix(p.paperTone, tone, 0.75),
+      );
+      close(
+        toneAt(sample, x, y - p.slotHalf - quarter),
+        mix(p.paperTone, tone, 0.25),
+      );
+      // The dot's edge over the paper.
+      close(
+        toneAt(sample, dotX + p.homeRadius - quarter, dotY),
+        mix(p.paperTone, p.homeTone, 0.75),
+      );
+      close(
+        toneAt(sample, dotX + p.homeRadius + quarter, dotY),
+        mix(p.paperTone, p.homeTone, 0.25),
+      );
+      close(
+        toneAt(sample, dotX, dotY - p.homeRadius + quarter),
+        mix(p.paperTone, p.homeTone, 0.75),
+      );
+      close(
+        toneAt(sample, dotX, dotY - p.homeRadius - quarter),
+        mix(p.paperTone, p.homeTone, 0.25),
+      );
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('linearprobing', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('linearprobing', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.97),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('linearprobing', 0),
+      b = createSurfaceSampler('linearprobing', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.2151],
+        [0.8001, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

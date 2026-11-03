@@ -14492,6 +14492,35 @@ export declare const proceduralMaterialPresets: Readonly<{
         paperRoughness: 0.8;
         inkRoughness: 0.4;
     }>;
+    linearprobing: Readonly<{
+        dark: readonly [30, 36, 58];
+        light: readonly [245, 242, 231];
+        roughness: 0.55;
+        relief: 0.004;
+        slotCount: 16;
+        keyCounts: readonly number[];
+        left: 0.1;
+        pitch: 0.05;
+        top: 0.08;
+        rowPitch: 0.075;
+        slotHalf: 0.02;
+        homeDrop: 0.03;
+        homeRadius: 0.006;
+        edgeSoft: 0.0006;
+        grainCells: 192;
+        paperTone: 0.96;
+        emptyTone: 0.88;
+        firstKeyTone: 0.08;
+        keyToneStep: 0.04;
+        homeTone: 0.12;
+        grainTone: 0.03;
+        paperHeight: 0.2;
+        emptyHeight: 0.3;
+        keyHeight: 0.75;
+        homeHeight: 0.85;
+        paperRoughness: 0.8;
+        inkRoughness: 0.4;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -20977,6 +21006,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    linearprobing: 1;
     bloomfilter: 1;
     gamblersruin: 1;
     nimgame: 1;

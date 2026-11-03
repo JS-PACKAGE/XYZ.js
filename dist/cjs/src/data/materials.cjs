@@ -24763,6 +24763,47 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .8,
 		inkRoughness: .4
 	}),
+	linearprobing: Object.freeze({
+		dark: [
+			30,
+			36,
+			58
+		],
+		light: [
+			245,
+			242,
+			231
+		],
+		roughness: .55,
+		relief: .004,
+		slotCount: 16,
+		keyCounts: Object.freeze([
+			8,
+			10,
+			12
+		]),
+		left: .1,
+		pitch: .05,
+		top: .08,
+		rowPitch: .075,
+		slotHalf: .02,
+		homeDrop: .03,
+		homeRadius: .006,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .96,
+		emptyTone: .88,
+		firstKeyTone: .08,
+		keyToneStep: .04,
+		homeTone: .12,
+		grainTone: .03,
+		paperHeight: .2,
+		emptyHeight: .3,
+		keyHeight: .75,
+		homeHeight: .85,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -33444,6 +33485,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	linearprobing: 1,
 	bloomfilter: 1,
 	gamblersruin: 1,
 	nimgame: 1,
