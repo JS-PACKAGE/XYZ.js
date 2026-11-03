@@ -15762,6 +15762,40 @@ export const proceduralMaterialPresets = Object.freeze({
     paperRoughness: 0.8,
     inkRoughness: 0.4,
   }),
+  kolakoskisequence: Object.freeze({
+    dark: [30, 38, 62] as const,
+    light: [245, 242, 231] as const,
+    roughness: 0.55,
+    relief: 0.004,
+    // A Kolakoski sequence, the sequence that describes itself: it is built of runs of equal symbols that alternate between two symbols (1 and 2, 2 and
+    // 1, 1 and 3 or 3 and 1, the first symbol being the one the sequence starts with), and the length of its n-th run is its n-th symbol. The top 4
+    // rows hold its first 64 symbols, each a square in the shade of the symbol (1 darkest, 3 palest); the 3 rows under a gap hold the lengths of its runs
+    // one after the other (as many as the 64 symbols hold whole runs), which are the same symbols again, drawn the same way. The seed picks the pair of symbols.
+    symbolPairs: Object.freeze([
+      Object.freeze([1, 2]),
+      Object.freeze([2, 1]),
+      Object.freeze([1, 3]),
+      Object.freeze([3, 1]),
+    ]),
+    symbolCount: 64,
+    columns: 16,
+    left: 0.085,
+    pitch: 0.052,
+    top: 0.08,
+    rowPitch: 0.07,
+    runRows: 3,
+    runTop: 0.42,
+    cellHalf: 0.02,
+    edgeSoft: 0.0006,
+    grainCells: 192,
+    paperTone: 0.96,
+    symbolTones: Object.freeze([0.14, 0.5, 0.78]),
+    grainTone: 0.03,
+    paperHeight: 0.2,
+    symbolHeights: Object.freeze([0.85, 0.6, 0.35]),
+    paperRoughness: 0.8,
+    inkRoughness: 0.4,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -22254,6 +22288,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  kolakoskisequence: 1,
   crcdivision: 1,
   lfsrstates: 1,
   fareysequence: 1,

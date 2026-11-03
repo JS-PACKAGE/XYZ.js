@@ -14650,6 +14650,31 @@ export declare const proceduralMaterialPresets: Readonly<{
         paperRoughness: 0.8;
         inkRoughness: 0.4;
     }>;
+    kolakoskisequence: Readonly<{
+        dark: readonly [30, 38, 62];
+        light: readonly [245, 242, 231];
+        roughness: 0.55;
+        relief: 0.004;
+        symbolPairs: readonly (readonly number[])[];
+        symbolCount: 64;
+        columns: 16;
+        left: 0.085;
+        pitch: 0.052;
+        top: 0.08;
+        rowPitch: 0.07;
+        runRows: 3;
+        runTop: 0.42;
+        cellHalf: 0.02;
+        edgeSoft: 0.0006;
+        grainCells: 192;
+        paperTone: 0.96;
+        symbolTones: readonly number[];
+        grainTone: 0.03;
+        paperHeight: 0.2;
+        symbolHeights: readonly number[];
+        paperRoughness: 0.8;
+        inkRoughness: 0.4;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -21135,6 +21160,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    kolakoskisequence: 1;
     crcdivision: 1;
     lfsrstates: 1;
     fareysequence: 1;

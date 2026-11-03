@@ -24996,6 +24996,52 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .8,
 		inkRoughness: .4
 	}),
+	kolakoskisequence: Object.freeze({
+		dark: [
+			30,
+			38,
+			62
+		],
+		light: [
+			245,
+			242,
+			231
+		],
+		roughness: .55,
+		relief: .004,
+		symbolPairs: Object.freeze([
+			Object.freeze([1, 2]),
+			Object.freeze([2, 1]),
+			Object.freeze([1, 3]),
+			Object.freeze([3, 1])
+		]),
+		symbolCount: 64,
+		columns: 16,
+		left: .085,
+		pitch: .052,
+		top: .08,
+		rowPitch: .07,
+		runRows: 3,
+		runTop: .42,
+		cellHalf: .02,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .96,
+		symbolTones: Object.freeze([
+			.14,
+			.5,
+			.78
+		]),
+		grainTone: .03,
+		paperHeight: .2,
+		symbolHeights: Object.freeze([
+			.85,
+			.6,
+			.35
+		]),
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -33677,6 +33723,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	kolakoskisequence: 1,
 	crcdivision: 1,
 	lfsrstates: 1,
 	fareysequence: 1,

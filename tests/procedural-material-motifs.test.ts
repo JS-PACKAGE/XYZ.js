@@ -54376,3 +54376,259 @@ describe('crcdivision: a message and four zero bits divided by a polynomial a st
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('kolakoskisequence: a sequence that describes itself by its run lengths, its symbols in rows and the lengths of its runs under them', () => {
+  const p = proceduralMaterialPresets.kolakoskisequence,
+    out = empty(),
+    symbolRows = p.symbolCount / p.columns;
+  type Kolakoski = { sample: Sampler; symbols: number[]; runLengths: number[] };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const near = (tone: number, wanted: number): boolean =>
+    Math.abs(tone - wanted) < 0.01;
+  const centreX = (column: number): number => p.left + (column + 0.5) * p.pitch;
+  const symbolY = (row: number): number => p.top + (row + 0.5) * p.rowPitch;
+  const runY = (row: number): number => p.runTop + (row + 0.5) * p.rowPitch;
+  // The symbol of a square from its shade (0 for paper, where there is no square).
+  const symbolOf = (tone: number): number => {
+    const found = p.symbolTones.findIndex((candidate) => near(tone, candidate));
+    return found + 1;
+  };
+
+  // Read the picture: the symbols of the top rows, and the run lengths of the rows under them (until the first empty place).
+  const kolakoskiOf = (seed: number): Kolakoski => {
+    const sample = createSurfaceSampler('kolakoskisequence', seed),
+      symbols: number[] = [],
+      runLengths: number[] = [];
+    for (let row = 0; row < symbolRows; row++)
+      for (let column = 0; column < p.columns; column++) {
+        const symbol = symbolOf(toneAt(sample, centreX(column), symbolY(row)));
+        expect(symbol).toBeGreaterThan(0);
+        symbols.push(symbol);
+      }
+    for (let row = 0; row < p.runRows; row++)
+      for (let column = 0; column < p.columns; column++) {
+        const symbol = symbolOf(toneAt(sample, centreX(column), runY(row)));
+        if (symbol === 0) {
+          // Nothing after the first empty place.
+          expect(
+            Math.abs(toneAt(sample, centreX(column), runY(row)) - p.paperTone),
+          ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+          return { sample, symbols, runLengths };
+        }
+        runLengths.push(symbol);
+      }
+    return { sample, symbols, runLengths };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'is made of runs of two alternating symbols whose lengths are the symbols of the sequence itself, and the run rows list those lengths (seed %i)',
+    (seed) => {
+      const { symbols, runLengths } = kolakoskiOf(seed),
+        // The runs found in the picture: maximal blocks of one symbol.
+        runs: { symbol: number; length: number }[] = [];
+      symbols.forEach((symbol) => {
+        const last = runs[runs.length - 1];
+        if (last && last.symbol === symbol) last.length++;
+        else runs.push({ symbol, length: 1 });
+      });
+      // Two symbols only, the pair the seed picked, the first symbol the one the sequence starts with.
+      const used = [...new Set(symbols)];
+      expect(used.length).toBe(2);
+      expect(p.symbolPairs.map((pair) => [...pair])).toContainEqual([
+        symbols[0],
+        used.find((symbol) => symbol !== symbols[0]),
+      ]);
+      // The runs alternate between the two symbols, and the length of the n-th run is the n-th symbol (the last run may be cut off by the end).
+      runs.forEach((run, n) => {
+        expect(run.symbol).toBe(
+          n % 2 === 0
+            ? symbols[0]
+            : used.find((symbol) => symbol !== symbols[0]),
+        );
+        if (n < runs.length - 1) expect(run.length).toBe(symbols[n]);
+        else expect(run.length).toBeLessThanOrEqual(symbols[n]);
+      });
+      // The run rows hold the lengths of the whole runs, in order, and nothing else.
+      const last = runs[runs.length - 1],
+        whole =
+          runs.length - (last.length === symbols[runs.length - 1] ? 0 : 1);
+      expect(runLengths).toEqual(runs.slice(0, whole).map((run) => run.length));
+      // Because the sequence describes itself, those lengths are the beginning of the sequence.
+      expect(runLengths).toEqual(symbols.slice(0, runLengths.length));
+    },
+  );
+
+  it('uses every pair of symbols, long and short sequences of runs, over 60 seeds', () => {
+    const pairs = new Set<string>();
+    let fewest = 99,
+      most = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const { symbols, runLengths } = kolakoskiOf(seed * 67 + 16);
+      pairs.add(
+        `${symbols[0]},${[...new Set(symbols)].find((symbol) => symbol !== symbols[0])}`,
+      );
+      fewest = Math.min(fewest, runLengths.length);
+      most = Math.max(most, runLengths.length);
+    }
+    expect([...pairs].sort()).toEqual(
+      p.symbolPairs.map((pair) => pair.join(',')).sort(),
+    );
+    // 1,2 and 2,1 sequences have about 42 runs in 64 symbols (an average run of 1.5); 1,3 and 3,1 about 32 (an average of 2).
+    expect(fewest).toBeLessThan(35);
+    expect(most).toBeGreaterThan(40);
+    expect(most).toBeLessThanOrEqual(p.runRows * p.columns);
+  });
+
+  it('draws the squares of the symbol rows and the run rows with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, symbols, runLengths } = kolakoskiOf(seed),
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9,
+        square = (x: number, y: number, symbol: number): void => {
+          const tone = p.symbolTones[symbol - 1],
+            level = p.symbolHeights[symbol - 1];
+          // A square: tone, height, roughness, size, and the gap to its neighbours.
+          expect(toneAt(sample, x, y)).toBeCloseTo(tone, 6);
+          expect(out.height / p.relief).toBeCloseTo(level, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          expect(
+            toneAt(sample, x + p.cellHalf - 0.0004, y + p.cellHalf - 0.0004),
+          ).toBeCloseTo(tone, 6);
+          expect(
+            toneAt(sample, x - p.cellHalf + 0.0004, y - p.cellHalf + 0.0004),
+          ).toBeCloseTo(tone, 6);
+          expect(paperOk(x + p.cellHalf + 0.001, y)).toBe(true);
+          expect(paperOk(x - p.cellHalf - 0.001, y)).toBe(true);
+          expect(paperOk(x, y + p.cellHalf + 0.001)).toBe(true);
+          expect(paperOk(x, y - p.cellHalf - 0.001)).toBe(true);
+        };
+      symbols.forEach((symbol, i) =>
+        square(
+          centreX(i % p.columns),
+          symbolY(Math.floor(i / p.columns)),
+          symbol,
+        ),
+      );
+      runLengths.forEach((length, i) =>
+        square(centreX(i % p.columns), runY(Math.floor(i / p.columns)), length),
+      );
+      // The places after the last run length, the gap between the symbol rows and the run rows, and the margins are paper.
+      for (let i = runLengths.length; i < p.runRows * p.columns; i++)
+        expect(
+          paperOk(centreX(i % p.columns), runY(Math.floor(i / p.columns))),
+        ).toBe(true);
+      expect(paperOk(centreX(3), (symbolY(symbolRows - 1) + runY(0)) / 2)).toBe(
+        true,
+      );
+      expect(paperOk(p.left - 0.01, symbolY(0))).toBe(true);
+      expect(paperOk(centreX(p.columns) + 0.003, symbolY(0))).toBe(true);
+      expect(paperOk(centreX(3), p.top - 0.01)).toBe(true);
+      expect(paperOk(centreX(3), runY(p.runRows) + 0.003)).toBe(true);
+    }
+  });
+
+  it('softens the edge of a square over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      const { sample, symbols, runLengths } = kolakoskiOf(seed),
+        x = centreX(0),
+        y = symbolY(0),
+        tone = p.symbolTones[symbols[0] - 1],
+        ry = runY(0),
+        runTone = p.symbolTones[runLengths[0] - 1];
+      // The four sides of the first square of the symbol rows and of the run rows, over the paper.
+      for (const [cy, target] of [
+        [y, tone],
+        [ry, runTone],
+      ]) {
+        close(
+          toneAt(sample, x + p.cellHalf - quarter, cy),
+          mix(p.paperTone, target, 0.75),
+        );
+        close(
+          toneAt(sample, x + p.cellHalf + quarter, cy),
+          mix(p.paperTone, target, 0.25),
+        );
+        close(
+          toneAt(sample, x - p.cellHalf + quarter, cy),
+          mix(p.paperTone, target, 0.75),
+        );
+        close(
+          toneAt(sample, x - p.cellHalf - quarter, cy),
+          mix(p.paperTone, target, 0.25),
+        );
+        close(
+          toneAt(sample, x, cy + p.cellHalf - quarter),
+          mix(p.paperTone, target, 0.75),
+        );
+        close(
+          toneAt(sample, x, cy + p.cellHalf + quarter),
+          mix(p.paperTone, target, 0.25),
+        );
+        close(
+          toneAt(sample, x, cy - p.cellHalf + quarter),
+          mix(p.paperTone, target, 0.75),
+        );
+        close(
+          toneAt(sample, x, cy - p.cellHalf - quarter),
+          mix(p.paperTone, target, 0.25),
+        );
+      }
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('kolakoskisequence', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('kolakoskisequence', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.97),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('kolakoskisequence', 0),
+      b = createSurfaceSampler('kolakoskisequence', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.1151],
+        [0.1801, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

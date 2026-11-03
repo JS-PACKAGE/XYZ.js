@@ -45149,6 +45149,76 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'kolakoskisequence': {
+        const p = proceduralMaterialPresets.kolakoskisequence,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x50d01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          pair =
+            p.symbolPairs[
+              Math.floor(hash(70, 1, seed ^ 0x50d02) * p.symbolPairs.length)
+            ],
+          sequence: number[] = [],
+          // runLengths: the lengths of the runs that the symbols hold whole, in order.
+          runLengths: number[] = [];
+        // Build the sequence: run r is made of the symbol pair[r % 2], and is as long as the r-th symbol of the sequence itself.
+        for (let run = 0; sequence.length < p.symbolCount; run++) {
+          const start = sequence.length;
+          sequence.push(pair[run % 2]);
+          const length = sequence[run];
+          for (let k = 1; k < length && sequence.length < p.symbolCount; k++)
+            sequence.push(pair[run % 2]);
+          // A run that the symbols hold whole counts; one cut off by the end of the symbols does not.
+          if (sequence.length - start === length) runLengths.push(length);
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          const column = Math.floor((fu - p.left) / p.pitch);
+          if (column >= 0 && column < p.columns) {
+            const cx = p.left + (column + 0.5) * p.pitch,
+              dx = Math.abs(fu - cx),
+              symbolRow = Math.floor((fv - p.top) / p.rowPitch),
+              runRow = Math.floor((fv - p.runTop) / p.rowPitch);
+            let symbol = 0,
+              cy = 0;
+            if (symbolRow >= 0 && symbolRow < p.symbolCount / p.columns) {
+              symbol = sequence[symbolRow * p.columns + column];
+              cy = p.top + (symbolRow + 0.5) * p.rowPitch;
+            } else if (runRow >= 0 && runRow < p.runRows) {
+              const at = runRow * p.columns + column;
+              symbol = at < runLengths.length ? runLengths[at] : 0;
+              cy = p.runTop + (runRow + 0.5) * p.rowPitch;
+            }
+            if (symbol > 0)
+              paint(
+                cover(
+                  Math.min(p.cellHalf - dx, p.cellHalf - Math.abs(fv - cy)),
+                ),
+                p.symbolTones[symbol - 1],
+                p.symbolHeights[symbol - 1],
+              );
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -72678,6 +72748,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'kolakoskisequence' ||
     kind === 'crcdivision' ||
     kind === 'lfsrstates' ||
     kind === 'fareysequence' ||
