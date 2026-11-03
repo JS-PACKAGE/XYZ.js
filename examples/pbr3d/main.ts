@@ -1132,6 +1132,7 @@ try {
     'knightstour',
     'fareygraph',
     'hypercube',
+    'kaprekar',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

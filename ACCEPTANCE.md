@@ -13332,3 +13332,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試加kinds清單新條目，`-t`選中的6項皆通過；型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Hypercube as|hypercube|kinds|catalog|distinct|periodic"`定向測試**2446項通過／4166項未選**，輸出`GATES-OK`。
 - 未驗證：fareygraph與hypercube未跑完整suite與瀏覽器gallery（最近一次完整複驗至騎士巡遊）；不push。
+
+## 2026-11-03 新增材質：卡普雷卡爾常數表（kaprekar）
+
+- 範圍：新增`kaprekar`（目前目錄1068→1069種，含plain的gallery 1070項）：4位數的卡普雷卡爾程序（數字排成最大與最小相減）：100×100的表，第(列, 欄)格顯示數字100·列＋欄需要幾次相減才到6174（9階青綠色調，0到7次，10個重複數字最暗）；seed沿環面平移；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 211,072 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽只看了seed 7一張，格寬約5像素，看起來是對比不高的青綠色編織狀細紋，我認為不算特別好看，但可接受為一種細密的紋理，所以仍提交；(2)動手前以`/tmp/absent.sh`確認`kaprekar`不存在；(3)名稱「Kaprekar」與常數6174是我憑記憶寫的，沒有查文獻；測試用自己的運算確認所有非重複數字都在7次內到達6174（次數統計1、383、576、2,400、1,272、1,518、1,656、2,184，共9,990個，另有10個重複數字），這是在0到9999上的計算，不是定理的證明；(4)這一輪還丟棄了兩個構想（歐幾里得正方形剖分、忙碌海狸時空圖，見上一節超立方體的紀錄）；(5)測試**不**證明定理本身，只做了4位數；(6)AO最低值在256²取樣也是0.6（格太小、縫幾乎佔滿），不像其他64格的表有0.7344的下限，這是我從探針數字觀察到的，沒有進一步調整；(7)256²與512²取樣的亮處占比相近（約46%）；(8)建構（10,000個數字、每個最多7次字串排序）與取樣耗時**未量測**；(9)專屬測試第一次執行即通過（先以探針量好界線與計數）。
+- 實測（工具實跑）：全部10,000個數字的次數統計（−1：10；0到7：1、383、576、2,400、1,272、1,518、1,656、2,184）；四個seed（0／1／0xffffffff／7）各有唯一符合的平移(20, 88)、(2, 57)、(6, 84)、(79, 66)，最大擬合誤差0.01477–0.01494；讀回與整數階的最大差距0.192階；256²（seed 0／1／0xffffffff）亮處（color>0.5）46.35%–46.54%、color 0.02559–0.02576至0.77626–0.77657、平均0.43049–0.43078、roughness恆為0.4、AO最低0.6、height至多0.8388–0.8405 relief；512²（seed 0／1／0xffffffff／7）亮處46.32%–46.40%、color 0.02522–0.02532至0.77681–0.77701、平均0.43059–0.43064、AO最低0.6、height至多0.8412–0.8425 relief；seed 0與1相比，512²中color>0.5的取樣31.0%不同、格中心顏色差>0.05的格子83.7%；seed 7的512²maps平均r／g／b約(65.3, 115.5, 98.6)、法線tilt²最大約0.0469、z分量最小252。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試加kinds清單新條目，`-t`選中的5項皆通過；型別檢查與eslint乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Kaprekar as|kaprekar|kinds|catalog|distinct|periodic"`定向測試**2447項通過／4170項未選**，輸出`GATES-OK`。
+- 未驗證：fareygraph、hypercube與kaprekar未跑完整suite與瀏覽器gallery（最近一次完整複驗至騎士巡遊）；不push。

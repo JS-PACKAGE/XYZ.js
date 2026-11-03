@@ -45276,6 +45276,73 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'kaprekar': {
+        const p = proceduralMaterialPresets.kaprekar,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft,
+          shiftX = Math.floor(hash(0, 42, seed ^ p.seedSalt) * p.cells),
+          shiftY = Math.floor(hash(1, 42, seed ^ p.seedSalt) * p.cells),
+          // Kaprekar's routine on 4 digit numbers: sort the digits (leading zeros kept) into the biggest and the
+          // smallest number and subtract, and repeat; the number of subtractions needed to reach 6174 is
+          // shown for the number 100 row + column in the cell in that row and column (0 to 9999 in 100
+          // rows of 100). A tone of 9 steps from dark to bright stands for 0 to 7 subtractions; the ten
+          // repdigits (0000, 1111, ..., 9999) never get there (the subtraction gives 0) and take the darkest
+          // tone. The seed moves the table around the torus.
+          tones = new Float64Array(p.cells * p.cells);
+        for (let number = 0; number < p.cells * p.cells; number++) {
+          let current = number,
+            steps = 0;
+          while (current !== 6174 && steps < 20) {
+            const digits = String(current).padStart(4, '0').split('').sort(),
+              next =
+                Number([...digits].reverse().join('')) -
+                Number(digits.join(''));
+            if (next === 0) {
+              steps = -1;
+              break;
+            }
+            current = next;
+            steps++;
+          }
+          tones[number] = (p.toneSpan * (steps + 1)) / 9;
+        }
+        return () => {
+          // One compact-support rounded-square kernel per cell (a quartic superellipse
+          // through smoothstep, exactly zero before the cell boundary), so the cell
+          // lookup never jumps and the field is C1.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            ax = (x - col - 0.5) * inverseHalf,
+            ay = (y - row - 0.5) * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            tone =
+              tones[
+                ((row + shiftY) % p.cells) * p.cells +
+                  ((col + shiftX) % p.cells)
+              ],
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -54146,6 +54213,7 @@ export function createSurfaceSampler(
     kind === 'knightstour' ||
     kind === 'fareygraph' ||
     kind === 'hypercube' ||
+    kind === 'kaprekar' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
