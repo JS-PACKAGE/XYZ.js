@@ -41149,6 +41149,176 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'karnaughmap': {
+        const p = proceduralMaterialPresets.karnaughmap,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x4bf01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          variables =
+            p.variables[
+              Math.floor(hash(33, 22, seed ^ 0x4bf02) * p.variables.length)
+            ],
+          minterms = 1 << variables,
+          rows = variables === 4 ? 4 : 2,
+          rowBits = variables - 2,
+          // Gray code of the labels of the rows and of the columns (the second variable of each pair changes first).
+          gray = (i: number): number => i ^ (i >> 1),
+          value = new Uint8Array(minterms),
+          stripStep = p.stripSpan / (minterms - 1);
+        // The function: a seeded set of minterms, with at least 3 ones and 3 zeros (the next hash is tried until it has them).
+        for (let attempt = 0; ; attempt++) {
+          let ones = 0;
+          for (let m = 0; m < minterms; m++) {
+            value[m] = hash(m, attempt, seed ^ 0x4bf03) < 0.5 ? 1 : 0;
+            ones += value[m];
+          }
+          if (ones >= 3 && minterms - ones >= 3) break;
+        }
+        // Inside a square of half width `half` at (cx, cy) in uv (negative outside), and a square's frame.
+        const box = (
+          x: number,
+          y: number,
+          cx: number,
+          cy: number,
+          half: number,
+        ): number => half - Math.max(Math.abs(x - cx), Math.abs(y - cy));
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          // The cells of the map: the grid and a fill where the function is 1.
+          const column = Math.floor((fu - p.mapLeft) / p.cell),
+            row = Math.floor((fv - p.mapTop) / p.cell);
+          // Grid lines: the nearest line of the map's grid, inside its extent.
+          const gx = Math.round((fu - p.mapLeft) / p.cell),
+            gy = Math.round((fv - p.mapTop) / p.cell);
+          if (
+            gx >= 0 &&
+            gx <= 4 &&
+            fv >= p.mapTop - p.gridHalf &&
+            fv <= p.mapTop + rows * p.cell + p.gridHalf
+          ) {
+            const a = cover(
+              p.gridHalf - Math.abs(fu - p.mapLeft - gx * p.cell),
+            );
+            shade += (p.gridTone - shade) * a;
+            elevation += (p.gridHeight - elevation) * a;
+            rough += (p.inkRoughness - rough) * a;
+            mask = Math.max(mask, a);
+          }
+          if (
+            gy >= 0 &&
+            gy <= rows &&
+            fu >= p.mapLeft - p.gridHalf &&
+            fu <= p.mapLeft + 4 * p.cell + p.gridHalf
+          ) {
+            const a = cover(p.gridHalf - Math.abs(fv - p.mapTop - gy * p.cell));
+            shade += (p.gridTone - shade) * a;
+            elevation += (p.gridHeight - elevation) * a;
+            rough += (p.inkRoughness - rough) * a;
+            mask = Math.max(mask, a);
+          }
+          if (
+            column >= 0 &&
+            column < 4 &&
+            row >= 0 &&
+            row < rows &&
+            value[(gray(row) << 2) | gray(column)] === 1
+          ) {
+            const a = cover(
+              box(
+                fu,
+                fv,
+                p.mapLeft + (column + 0.5) * p.cell,
+                p.mapTop + (row + 0.5) * p.cell,
+                p.cell / 2 - p.fillInset,
+              ),
+            );
+            shade += (p.fillTone - shade) * a;
+            elevation += (p.fillHeight - elevation) * a;
+            rough += (p.inkRoughness - rough) * a;
+            mask = Math.max(mask, a);
+          }
+          // The labels: two bits above every column, and the bits of the variable (or two) beside every row.
+          for (let c = 0; c < 4; c++)
+            for (let b = 0; b < 2; b++) {
+              const cx =
+                  p.mapLeft +
+                  (c + 0.5) * p.cell +
+                  (b === 0 ? -p.labelSpread : p.labelSpread),
+                inside = box(fu, fv, cx, p.labelColumnY, p.labelHalf),
+                bit = (gray(c) >> (1 - b)) & 1,
+                a =
+                  bit === 1
+                    ? cover(inside)
+                    : cover(inside) * (1 - cover(inside - p.labelFrame));
+              if (a > 0) {
+                shade += (p.labelTone - shade) * a;
+                elevation += (p.labelHeight - elevation) * a;
+                rough += (p.inkRoughness - rough) * a;
+                mask = Math.max(mask, a);
+              }
+            }
+          for (let r = 0; r < rows; r++)
+            for (let b = 0; b < rowBits; b++) {
+              const cx =
+                  p.labelRowX +
+                  (rowBits === 1
+                    ? 0
+                    : b === 0
+                      ? -p.labelSpread
+                      : p.labelSpread),
+                inside = box(
+                  fu,
+                  fv,
+                  cx,
+                  p.mapTop + (r + 0.5) * p.cell,
+                  p.labelHalf,
+                ),
+                bit = (gray(r) >> (rowBits - 1 - b)) & 1,
+                a =
+                  bit === 1
+                    ? cover(inside)
+                    : cover(inside) * (1 - cover(inside - p.labelFrame));
+              if (a > 0) {
+                shade += (p.labelTone - shade) * a;
+                elevation += (p.labelHeight - elevation) * a;
+                rough += (p.inkRoughness - rough) * a;
+                mask = Math.max(mask, a);
+              }
+            }
+          // The truth table: one square for each minterm, filled for 1 and a frame for 0.
+          for (let m = 0; m < minterms; m++) {
+            const inside = box(
+                fu,
+                fv,
+                p.stripX,
+                p.stripTop + m * stripStep,
+                p.labelHalf,
+              ),
+              a =
+                value[m] === 1
+                  ? cover(inside)
+                  : cover(inside) * (1 - cover(inside - p.labelFrame));
+            if (a > 0) {
+              shade += (p.stripTone - shade) * a;
+              elevation += (p.stripHeight - elevation) * a;
+              rough += (p.inkRoughness - rough) * a;
+              mask = Math.max(mask, a);
+            }
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -68678,6 +68848,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'karnaughmap' ||
     kind === 'bsttreeorder' ||
     kind === 'kdtreesplits' ||
     kind === 'spanningtree' ||

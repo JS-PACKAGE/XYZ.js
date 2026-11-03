@@ -41399,3 +41399,391 @@ describe('bsttreeorder: a binary search tree drawn in order along the width, ton
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('karnaughmap: a Boolean function as a Gray-coded map, with its truth table beside it', () => {
+  const p = proceduralMaterialPresets.karnaughmap,
+    out = empty();
+  type Karnaugh = {
+    variables: number;
+    rows: number;
+    sample: Sampler;
+    rowLabels: number[];
+    columnLabels: number[];
+    cells: number[][];
+    strip: number[];
+  };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const cellX = (c: number): number => p.mapLeft + (c + 0.5) * p.cell;
+  const cellY = (r: number): number => p.mapTop + (r + 0.5) * p.cell;
+  const bitsOf = (x: number): number =>
+    x.toString(2).replaceAll('0', '').length;
+
+  // Read a labelling square: null when there is no frame (the square is not there), else whether it is filled.
+  const readBit = (
+    sample: Sampler,
+    cx: number,
+    cy: number,
+    tone: number,
+  ): number | null => {
+    if (
+      Math.abs(toneAt(sample, cx - p.labelHalf + p.labelFrame / 2, cy) - tone) >
+      0.005
+    )
+      return null;
+    return Math.abs(toneAt(sample, cx, cy) - tone) < 0.005 ? 1 : 0;
+  };
+  const columnBitX = (c: number, b: number): number =>
+    cellX(c) + (b === 0 ? -p.labelSpread : p.labelSpread);
+  const rowBitX = (rowBits: number, b: number): number =>
+    p.labelRowX +
+    (rowBits === 1 ? 0 : b === 0 ? -p.labelSpread : p.labelSpread);
+
+  const mapOf = (seed: number): Karnaugh => {
+    const sample = createSurfaceSampler('karnaughmap', seed),
+      found = p.variables
+        .map((variables): Karnaugh | null => {
+          const rows = variables === 4 ? 4 : 2,
+            rowBits = variables - 2,
+            minterms = 1 << variables,
+            columnLabels: number[] = [],
+            rowLabels: number[] = [],
+            strip: number[] = [],
+            cells: number[][] = [];
+          for (let c = 0; c < 4; c++) {
+            const bits = [0, 1].map((b) =>
+              readBit(sample, columnBitX(c, b), p.labelColumnY, p.labelTone),
+            );
+            if (bits.includes(null)) return null;
+            columnLabels.push(((bits[0] as number) << 1) | (bits[1] as number));
+          }
+          for (let r = 0; r < rows; r++) {
+            const bits = Array.from({ length: rowBits }, (_, b) =>
+              readBit(sample, rowBitX(rowBits, b), cellY(r), p.labelTone),
+            );
+            if (bits.includes(null)) return null;
+            rowLabels.push(
+              bits.reduce<number>(
+                (word, bit) => (word << 1) | (bit as number),
+                0,
+              ),
+            );
+          }
+          for (let m = 0; m < minterms; m++) {
+            const bit = readBit(
+              sample,
+              p.stripX,
+              p.stripTop + (m * p.stripSpan) / (minterms - 1),
+              p.stripTone,
+            );
+            if (bit === null) return null;
+            strip.push(bit);
+          }
+          for (let r = 0; r < rows; r++)
+            cells.push(
+              Array.from({ length: 4 }, (_, c) =>
+                Math.abs(toneAt(sample, cellX(c), cellY(r)) - p.fillTone) <
+                0.005
+                  ? 1
+                  : 0,
+              ),
+            );
+          return {
+            variables,
+            rows,
+            sample,
+            rowLabels,
+            columnLabels,
+            cells,
+            strip,
+          };
+        })
+        .filter((map) => map !== null);
+    expect(found).toHaveLength(1);
+    return found[0];
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows the function twice, as a Gray-coded map and as a truth table, and they agree (seed %i)',
+    (seed) => {
+      const { variables, rows, rowLabels, columnLabels, cells, strip } =
+        mapOf(seed);
+      // The labels of the columns (and of the rows) go round in Gray code: all different and neighbours, also the first and the last, differ in one bit.
+      for (const labels of [columnLabels, rowLabels]) {
+        expect(new Set(labels).size).toBe(labels.length);
+        for (let i = 0; i < labels.length; i++)
+          if (labels.length > 2 || i === 1)
+            expect(bitsOf(labels[i] ^ labels[(i + 1) % labels.length])).toBe(1);
+      }
+      expect(columnLabels).toHaveLength(4);
+      expect(rowLabels).toHaveLength(rows);
+      // The cell in a row and a column is the minterm made of the row's and the column's label, the row's bits being the higher ones.
+      for (let r = 0; r < rows; r++)
+        for (let c = 0; c < 4; c++)
+          expect(cells[r][c]).toBe(
+            strip[(rowLabels[r] << 2) | columnLabels[c]],
+          );
+      const ones = strip.reduce((a, b) => a + b, 0);
+      expect(strip).toHaveLength(1 << variables);
+      expect(ones).toBeGreaterThanOrEqual(3);
+      expect(strip.length - ones).toBeGreaterThanOrEqual(3);
+    },
+  );
+
+  it('uses both numbers of variables, balanced functions and every minterm as a 1 and as a 0, across 120 seeds', () => {
+    const variables = new Set<number>();
+    const asOne = new Array<number>(16).fill(0),
+      asZero = new Array<number>(16).fill(0);
+    let ones = 0,
+      total = 0;
+    for (let seed = 0; seed < 120; seed++) {
+      const map = mapOf(seed);
+      variables.add(map.variables);
+      map.strip.forEach((bit, m) => {
+        if (map.variables === 4) (bit === 1 ? asOne : asZero)[m]++;
+        ones += bit;
+        total++;
+      });
+    }
+    expect([...variables].sort()).toEqual([...p.variables]);
+    expect(asOne.every((count) => count > 5)).toBe(true);
+    expect(asZero.every((count) => count > 5)).toBe(true);
+    expect(ones / total).toBeGreaterThan(0.4);
+    expect(ones / total).toBeLessThan(0.6);
+  });
+
+  it('draws the grid lines only over the map, and the fills, labels and truth table with their tones, heights and roughness', () => {
+    for (const seed of seeds) {
+      const { variables, rows, sample, cells, strip } = mapOf(seed);
+      for (let k = 0; k <= 4; k++) {
+        const x = p.mapLeft + k * p.cell;
+        expect(toneAt(sample, x, cellY(0))).toBeCloseTo(p.gridTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.gridHeight, 6);
+        expect(
+          Math.abs(
+            toneAt(sample, x, p.mapTop + rows * p.cell + 0.05) - p.paperTone,
+          ),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      for (let k = 0; k <= rows; k++) {
+        const y = p.mapTop + k * p.cell;
+        expect(toneAt(sample, cellX(0), y)).toBeCloseTo(p.gridTone, 6);
+        expect(
+          Math.abs(
+            toneAt(sample, p.mapLeft + 4 * p.cell + 0.03, y) - p.paperTone,
+          ),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      // The map has no lines beyond its last row and column, or before its first (the lines stop at the map): paper at those places.
+      for (const [u, v] of [
+        [p.mapLeft - 0.03, cellY(0)],
+        [p.mapLeft + 5 * p.cell, cellY(0)],
+        [cellX(0), p.mapTop + (rows + 1) * p.cell],
+        [cellX(3), p.mapTop + (rows + 2) * p.cell],
+        [p.mapLeft + p.cell, p.mapTop - 0.03],
+        [p.mapLeft + 3 * p.cell, p.mapTop - 0.03],
+        [p.mapLeft - 0.03, p.mapTop + p.cell],
+        [p.mapLeft - 0.03, p.mapTop + rows * p.cell],
+      ])
+        expect(
+          Math.abs(toneAt(sample, u, v) - p.paperTone),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      // A filled cell: the fill's tone, up to the inset from its edge, and not into the margin.
+      for (let r = 0; r < rows; r++)
+        for (let c = 0; c < 4; c++)
+          if (cells[r][c] === 1) {
+            expect(toneAt(sample, cellX(c), cellY(r))).toBeCloseTo(
+              p.fillTone,
+              6,
+            );
+            expect(out.height / p.relief).toBeCloseTo(p.fillHeight, 6);
+            expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+            expect(
+              toneAt(
+                sample,
+                cellX(c) + p.cell / 2 - p.fillInset - 0.002,
+                cellY(r),
+              ),
+            ).toBeCloseTo(p.fillTone, 6);
+            expect(
+              toneAt(
+                sample,
+                cellX(c) + p.cell / 2 - p.fillInset + 0.003,
+                cellY(r),
+              ),
+            ).toBeGreaterThan(0.5);
+          } else
+            expect(
+              Math.abs(toneAt(sample, cellX(c), cellY(r)) - p.paperTone),
+            ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      // The labels and the strip: tone, height and roughness; a frame has paper inside.
+      expect(
+        toneAt(
+          sample,
+          columnBitX(0, 0),
+          p.labelColumnY - p.labelHalf + p.labelFrame / 2,
+        ),
+      ).toBeCloseTo(p.labelTone, 6);
+      expect(out.height / p.relief).toBeCloseTo(p.labelHeight, 6);
+      // A row label has the same tone, height and roughness.
+      expect(
+        toneAt(
+          sample,
+          rowBitX(variables - 2, 0) - p.labelHalf + p.labelFrame / 2,
+          cellY(0),
+        ),
+      ).toBeCloseTo(p.labelTone, 6);
+      expect(out.height / p.relief).toBeCloseTo(p.labelHeight, 6);
+      expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+      strip.forEach((bit, m) => {
+        const y = p.stripTop + (m * p.stripSpan) / (strip.length - 1);
+        expect(
+          toneAt(sample, p.stripX, y - p.labelHalf + p.labelFrame / 2),
+        ).toBeCloseTo(p.stripTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.stripHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        if (bit === 0)
+          expect(
+            Math.abs(toneAt(sample, p.stripX, y) - p.paperTone),
+          ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+        // The size: inside at labelHalf - 0.002 and outside at labelHalf + 0.003.
+        expect(
+          toneAt(
+            sample,
+            p.stripX + p.labelHalf - 0.002,
+            y - p.labelHalf + 0.003,
+          ),
+        ).toBeCloseTo(p.stripTone, 6);
+        expect(
+          toneAt(sample, p.stripX + p.labelHalf + 0.003, y),
+        ).toBeGreaterThan(0.85);
+      });
+    }
+  });
+
+  it('softens the edge of a fill, of a grid line and of a label over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft;
+    for (const seed of seeds) {
+      const { variables, rows, sample, cells, strip } = mapOf(seed),
+        mix = (target: number, amount: number): number =>
+          p.paperTone + (target - p.paperTone) * smoothstep(amount);
+      for (let r = 0; r < rows; r++) {
+        const c = cells[r].indexOf(1);
+        if (c < 0) continue;
+        const edge = cellX(c) + p.cell / 2 - p.fillInset;
+        expect(
+          Math.abs(
+            toneAt(sample, edge - quarter, cellY(r)) - mix(p.fillTone, 0.75),
+          ),
+        ).toBeLessThan(0.03);
+        expect(
+          Math.abs(
+            toneAt(sample, edge + quarter, cellY(r)) - mix(p.fillTone, 0.25),
+          ),
+        ).toBeLessThan(0.03);
+        break;
+      }
+      // A grid line, a quarter of the soft width inside and outside its half width (on the left of a vertical one).
+      const x = p.mapLeft + 2 * p.cell;
+      for (const row of [0, 1]) {
+        if (row >= rows) continue;
+        expect(
+          Math.abs(
+            toneAt(sample, x - (p.gridHalf - quarter), cellY(row)) -
+              mix(p.gridTone, 0.75),
+          ),
+        ).toBeLessThan(0.03);
+        expect(
+          Math.abs(
+            toneAt(sample, x - (p.gridHalf + quarter), cellY(row)) -
+              mix(p.gridTone, 0.25),
+          ),
+        ).toBeLessThan(0.03);
+      }
+      // The top edge of a strip square (filled or a frame: the top edge is ink in both).
+      const y = p.stripTop - p.labelHalf;
+      expect(
+        Math.abs(
+          toneAt(sample, p.stripX, y + quarter) - mix(p.stripTone, 0.75),
+        ),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(
+          toneAt(sample, p.stripX, y - quarter) - mix(p.stripTone, 0.25),
+        ),
+      ).toBeLessThan(0.03);
+      // The inside edge of the frame of a square that is a 0, and the frame is as wide as labelFrame.
+      const zero = strip.indexOf(0),
+        zy = p.stripTop + (zero * p.stripSpan) / (strip.length - 1),
+        inner = p.stripX - p.labelHalf + p.labelFrame;
+      expect(
+        Math.abs(toneAt(sample, inner - quarter, zy) - mix(p.stripTone, 0.75)),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(toneAt(sample, inner + quarter, zy) - mix(p.stripTone, 0.25)),
+      ).toBeLessThan(0.03);
+      // The frames of a column label and of a row label (both are 0 bits in their first place): the same width.
+      for (const [cx, cy] of [
+        [columnBitX(0, 0), p.labelColumnY],
+        [rowBitX(variables - 2, 0), cellY(0)],
+      ]) {
+        const edge = cx - p.labelHalf + p.labelFrame;
+        expect(
+          Math.abs(toneAt(sample, edge - quarter, cy) - mix(p.labelTone, 0.75)),
+        ).toBeLessThan(0.03);
+        expect(
+          Math.abs(toneAt(sample, edge + quarter, cy) - mix(p.labelTone, 0.25)),
+        ).toBeLessThan(0.03);
+      }
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('karnaughmap', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const { sample } = mapOf(0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0051, 0.95),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('karnaughmap', 0),
+      b = createSurfaceSampler('karnaughmap', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

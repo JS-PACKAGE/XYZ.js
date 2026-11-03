@@ -23392,6 +23392,49 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .8,
 		inkRoughness: .4
 	}),
+	karnaughmap: Object.freeze({
+		dark: [
+			20,
+			26,
+			40
+		],
+		light: [
+			240,
+			236,
+			224
+		],
+		roughness: .55,
+		relief: .004,
+		variables: Object.freeze([3, 4]),
+		mapLeft: .23,
+		mapTop: .3,
+		cell: .1,
+		fillInset: .012,
+		labelHalf: .014,
+		labelSpread: .0225,
+		labelFrame: .005,
+		labelColumnY: .24,
+		labelRowX: .14,
+		stripX: .86,
+		stripTop: .12,
+		stripSpan: .74,
+		gridHalf: .0011,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .93,
+		gridTone: .6,
+		fillTone: .15,
+		labelTone: .3,
+		stripTone: .45,
+		grainTone: .03,
+		paperHeight: .2,
+		gridHeight: .3,
+		fillHeight: .8,
+		labelHeight: .6,
+		stripHeight: .7,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -32073,6 +32116,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	karnaughmap: 1,
 	bsttreeorder: 1,
 	kdtreesplits: 1,
 	spanningtree: 1,
