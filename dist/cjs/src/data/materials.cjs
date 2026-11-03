@@ -26415,6 +26415,100 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: .08,
 		gapOcclusion: .4
 	}),
+	mapattractors: Object.freeze({
+		dark: [
+			18,
+			3,
+			16
+		],
+		light: [
+			255,
+			150,
+			220
+		],
+		roughness: .38,
+		relief: 8e-4,
+		seedSalt: 14289,
+		margin: .04,
+		nodes: 384,
+		points: 5e5,
+		settle: 1e3,
+		boost: 60,
+		saturation: .25,
+		variants: [
+			[
+				0,
+				-1.4,
+				1.6,
+				1,
+				.7,
+				.28,
+				.115,
+				1.75
+			],
+			[
+				0,
+				1.5,
+				-1.8,
+				1.6,
+				.9,
+				0,
+				0,
+				2.7
+			],
+			[
+				0,
+				-1.8,
+				-2,
+				-.5,
+				-.9,
+				-.063,
+				0,
+				1.98
+			],
+			[
+				1,
+				-2,
+				-2,
+				-1.2,
+				2,
+				0,
+				-.045,
+				2.08
+			],
+			[
+				1,
+				1.4,
+				-2.3,
+				2.4,
+				-2.1,
+				0,
+				0,
+				2.08
+			],
+			[
+				1,
+				-2.24,
+				.43,
+				-.65,
+				-2.43,
+				-.866,
+				.467,
+				1.5
+			]
+		],
+		edgeSoft: .35,
+		grainCells: 128,
+		gapTone: .04,
+		toneFloor: .14,
+		toneSpan: .72,
+		lineTone: .9,
+		grainTone: .03,
+		cellHeight: .8,
+		toneHeight: .12,
+		grainHeight: .08,
+		gapOcclusion: .4
+	}),
 	vermiculation: Object.freeze({
 		dark: [
 			60,
@@ -28493,6 +28587,7 @@ var proceduralTileMeters = Object.freeze({
 	catenaryfestoons: .5,
 	cornuspirals: .5,
 	htree: .5,
+	mapattractors: .5,
 	dominotiling: .5,
 	vermiculation: .4,
 	kikko: .3,

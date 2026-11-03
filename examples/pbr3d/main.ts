@@ -1157,6 +1157,7 @@ try {
     'catenaryfestoons',
     'cornuspirals',
     'htree',
+    'mapattractors',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

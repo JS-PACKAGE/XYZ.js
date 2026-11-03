@@ -48398,6 +48398,121 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'mapattractors': {
+        const p = proceduralMaterialPresets.mapattractors,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant =
+            p.variants[
+              Math.floor(hash(0, 70, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          kind2 = variant[0],
+          a = variant[1],
+          b = variant[2],
+          c = variant[3],
+          d = variant[4],
+          windowX = variant[5] - variant[7],
+          windowY = variant[6] - variant[7],
+          windowSide = 2 * variant[7],
+          nodes = p.nodes,
+          span = 1 - 2 * p.margin,
+          inverseSoft = 1 / p.edgeSoft,
+          // The density of the orbit of a planar map, kept as a grid of nodes: the orbit of (0.1, 0.1) is followed
+          // for `settle` steps and the next `points` positions are spread bilinearly over the grid, which is blurred
+          // once by [1 2 1] / 4 in each direction and turned into a tone by a logarithm that saturates at a
+          // quarter of the highest density. The maps are Clifford (kind 0): x' = sin(a y) + c cos(a x),
+          // y' = sin(b x) + d cos(b y), and de Jong (kind 1): x' = sin(a y) - cos(b x), y' = sin(c x) - cos(d y).
+          tones = new Float32Array(nodes * nodes);
+        {
+          const counts = new Float64Array(nodes * nodes),
+            temporary = new Float64Array(nodes * nodes);
+          let x = 0.1,
+            y = 0.1;
+          for (let i = -p.settle; i < p.points; i++) {
+            const nextX =
+                kind2 === 0
+                  ? Math.sin(a * y) + c * Math.cos(a * x)
+                  : Math.sin(a * y) - Math.cos(b * x),
+              nextY =
+                kind2 === 0
+                  ? Math.sin(b * x) + d * Math.cos(b * y)
+                  : Math.sin(c * x) - Math.cos(d * y);
+            x = nextX;
+            y = nextY;
+            if (i < 0) continue;
+            const gx = ((x - windowX) / windowSide) * (nodes - 1),
+              gy = ((y - windowY) / windowSide) * (nodes - 1);
+            if (gx < 0 || gy < 0 || gx >= nodes - 1 || gy >= nodes - 1)
+              continue;
+            const ix = Math.floor(gx),
+              iy = Math.floor(gy),
+              tx = gx - ix,
+              ty = gy - iy;
+            counts[iy * nodes + ix] += (1 - tx) * (1 - ty);
+            counts[iy * nodes + ix + 1] += tx * (1 - ty);
+            counts[(iy + 1) * nodes + ix] += (1 - tx) * ty;
+            counts[(iy + 1) * nodes + ix + 1] += tx * ty;
+          }
+          for (let row = 0; row < nodes; row++)
+            for (let column = 0; column < nodes; column++)
+              temporary[row * nodes + column] =
+                0.25 * counts[row * nodes + Math.max(0, column - 1)] +
+                0.5 * counts[row * nodes + column] +
+                0.25 * counts[row * nodes + Math.min(nodes - 1, column + 1)];
+          let highest = 0;
+          for (let row = 0; row < nodes; row++)
+            for (let column = 0; column < nodes; column++) {
+              const blurred =
+                0.25 * temporary[Math.max(0, row - 1) * nodes + column] +
+                0.5 * temporary[row * nodes + column] +
+                0.25 * temporary[Math.min(nodes - 1, row + 1) * nodes + column];
+              counts[row * nodes + column] = blurred;
+              highest = Math.max(highest, blurred);
+            }
+          const reference = p.saturation * highest;
+          for (let i = 0; i < tones.length; i++)
+            tones[i] = Math.min(
+              1,
+              Math.log1p((p.boost * counts[i]) / reference) /
+                Math.log1p(p.boost),
+            );
+        }
+        return () => {
+          const gx = ((fract(u) - p.margin) / span) * (nodes - 1),
+            gy = ((fract(v) - p.margin) / span) * (nodes - 1);
+          let tone = 0;
+          if (gx >= 0 && gy >= 0 && gx < nodes - 1 && gy < nodes - 1) {
+            const ix = Math.floor(gx),
+              iy = Math.floor(gy),
+              // Smoothstep weights, so that the picture is C1 across the nodes.
+              sx = (gx - ix) * (gx - ix) * (3 - 2 * (gx - ix)),
+              sy = (gy - iy) * (gy - iy) * (3 - 2 * (gy - iy)),
+              base = iy * nodes + ix;
+            tone =
+              (1 - sy) * ((1 - sx) * tones[base] + sx * tones[base + 1]) +
+              sy *
+                ((1 - sx) * tones[base + nodes] + sx * tones[base + nodes + 1]);
+          }
+          const ink = clamp(p.lineTone * tone),
+            mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(ink) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -57293,6 +57408,7 @@ export function createSurfaceSampler(
     kind === 'catenaryfestoons' ||
     kind === 'cornuspirals' ||
     kind === 'htree' ||
+    kind === 'mapattractors' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

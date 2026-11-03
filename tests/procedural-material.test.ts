@@ -1120,6 +1120,7 @@ const kinds: ProceduralMaterialKind[] = [
   'catenaryfestoons',
   'cornuspirals',
   'htree',
+  'mapattractors',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -184509,6 +184510,344 @@ describe('H-tree as nested H shapes', () => {
     expect(blue / (512 * 512)).toBeLessThan(44.8);
     expect(maxTilt).toBeGreaterThan(0.051);
     expect(maxTilt).toBeLessThan(0.0525);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Map attractors as the density of the orbit of a planar chaotic map', () => {
+  const p = proceduralMaterialPresets.mapattractors;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const cells = 48,
+    resolution = 192,
+    span = 1 - 2 * p.margin;
+  type Attractor = readonly [
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+  ];
+  /**
+   * The independent histogram of a variant: the orbit of (-0.7, 0.3) (the sampler starts from (0.1, 0.1)) for 1.5 million
+   * steps after 2000 (the sampler uses 500 thousand after 1000), counted in 48 by 48 cells of the tile where the window of
+   * the variant fills the plot (the tile less a margin of 0.04 all round), with the extremes of the orbit. The maps are Clifford
+   * (kind 0): x' = sin(a y) + c cos(a x), y' = sin(b x) + d cos(b y), and de Jong (kind 1): x' = sin(a y) - cos(b x),
+   * y' = sin(c x) - cos(d y).
+   */
+  const orbitOf = ([kind, a, b, c, d, centreX, centreY, half]: Attractor) => {
+    const counts = new Float64Array(cells * cells);
+    let x = -0.7,
+      y = 0.3,
+      lowU = 1,
+      highU = 0,
+      lowV = 1,
+      highV = 0;
+    for (let i = -2000; i < 1500000; i++) {
+      [x, y] =
+        kind === 0
+          ? [
+              Math.sin(a * y) + c * Math.cos(a * x),
+              Math.sin(b * x) + d * Math.cos(b * y),
+            ]
+          : [
+              Math.sin(a * y) - Math.cos(b * x),
+              Math.sin(c * x) - Math.cos(d * y),
+            ];
+      if (i < 0) continue;
+      const u = p.margin + ((x - (centreX - half)) / (2 * half)) * span,
+        v = p.margin + ((y - (centreY - half)) / (2 * half)) * span;
+      lowU = Math.min(lowU, u);
+      highU = Math.max(highU, u);
+      lowV = Math.min(lowV, v);
+      highV = Math.max(highV, v);
+      const column = Math.floor(u * cells),
+        row = Math.floor(v * cells);
+      if (column >= 0 && column < cells && row >= 0 && row < cells)
+        counts[row * cells + column]++;
+    }
+    return { counts, lowU, highU, lowV, highV };
+  };
+  const orbits = p.variants.map(orbitOf);
+  /** The mean colour in each of the 48 by 48 cells of a 192 by 192 reading of the tile. */
+  const cellMeans = (seed: number): Float64Array => {
+    const sample = createSurfaceSampler('mapattractors', seed),
+      out = empty(),
+      means = new Float64Array(cells * cells),
+      per = resolution / cells;
+    for (let y = 0; y < resolution; y++)
+      for (let x = 0; x < resolution; x++) {
+        sample((x + 0.5) / resolution, (y + 0.5) / resolution, out);
+        means[Math.floor(y / per) * cells + Math.floor(x / per)] +=
+          out.color / (per * per);
+      }
+    return means;
+  };
+  const pearson = (x: ArrayLike<number>, y: ArrayLike<number>): number => {
+    let meanX = 0,
+      meanY = 0;
+    for (let i = 0; i < x.length; i++) {
+      meanX += x[i] / x.length;
+      meanY += y[i] / x.length;
+    }
+    let both = 0,
+      onlyX = 0,
+      onlyY = 0;
+    for (let i = 0; i < x.length; i++) {
+      both += (x[i] - meanX) * (y[i] - meanY);
+      onlyX += (x[i] - meanX) ** 2;
+      onlyY += (y[i] - meanY) ** 2;
+    }
+    return both / Math.sqrt(onlyX * onlyY);
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('mapattractors', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('mapattractors', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0253);
+      expect(low).toBeLessThan(0.0258);
+      expect(high).toBeGreaterThan(0.795);
+      expect(high).toBeLessThan(0.803);
+      expect(dark / 65536).toBeGreaterThan(0.036);
+      expect(dark / 65536).toBeLessThan(0.122);
+      expect(mean / 65536).toBeGreaterThan(0.084);
+      expect(mean / 65536).toBeLessThan(0.188);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.775);
+      expect(heightHigh).toBeLessThan(0.786);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The variant for each of the seeds 2, 9, 3, 6, 13 and 0 (variants 0 to 5) was found with a probe by the correlation with
+  // the independent orbit and is written here, so that table is not an independent check of the seed's choice.
+  const seeds = [2, 9, 3, 6, 13, 0];
+  it('follows the density of the orbit of its own map and not of the others', () => {
+    // The Pearson correlation between the square root of the count of the independent orbit in each of the 48 by 48
+    // cells and the mean colour of the cell is above 0.94 for the variant of the seed (0.957 to 0.969 in the probe) and below
+    // 0.55 for each other variant (0.469 at most in the probe), although the sampler has a different start and a
+    // third of the points.
+    seeds.forEach((seed, index) => {
+      const means = cellMeans(seed);
+      orbits.forEach((orbit, other) => {
+        const correlation = pearson(orbit.counts.map(Math.sqrt), means);
+        if (other === index) expect(correlation).toBeGreaterThan(0.94);
+        else expect(correlation).toBeLessThan(0.55);
+      });
+    });
+  });
+  it('stays dark where the orbit never goes', () => {
+    // In the cells with no point of the independent orbit in them or in the eight cells around them (682 to 1367 cells per
+    // variant in the probe) the mean colour is under 0.06 (0.0493 at most in the probe, the level of the background).
+    seeds.forEach((seed, index) => {
+      const means = cellMeans(seed),
+        counts = orbits[index].counts;
+      let far = 0;
+      for (let row = 0; row < cells; row++)
+        for (let column = 0; column < cells; column++) {
+          let empty = true;
+          for (let dr = -1; dr <= 1; dr++)
+            for (let dc = -1; dc <= 1; dc++) {
+              const r = row + dr,
+                c = column + dc;
+              if (
+                r >= 0 &&
+                c >= 0 &&
+                r < cells &&
+                c < cells &&
+                counts[r * cells + c] > 0
+              )
+                empty = false;
+            }
+          if (!empty) continue;
+          far++;
+          expect(means[row * cells + column]).toBeLessThan(0.06);
+        }
+      expect(far).toBeGreaterThan(600);
+    });
+  });
+  it('keeps every bright pixel within the extent of the orbit', () => {
+    // No pixel of the 256 by 256 reading with a colour above 0.5 is more than 0.01 of the tile outside the box that the
+    // independent orbit reaches (the most is 0.0032 outside in the probe; 1129 to 7929 bright pixels per variant).
+    seeds.forEach((seed, index) => {
+      const orbit = orbits[index],
+        sample = createSurfaceSampler('mapattractors', seed),
+        out = empty();
+      let bright = 0,
+        outside = 0,
+        worst = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          const u = (x + 0.5) / 256,
+            v = (y + 0.5) / 256;
+          sample(u, v, out);
+          if (out.color <= 0.5) continue;
+          bright++;
+          const beyond = Math.max(
+            orbit.lowU - u,
+            u - orbit.highU,
+            orbit.lowV - v,
+            v - orbit.highV,
+          );
+          worst = Math.max(worst, beyond);
+          outside += Number(beyond > 0.01);
+        }
+      expect(bright).toBeGreaterThan(1000);
+      expect(outside).toBe(0);
+      expect(worst).toBeLessThan(0.01);
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 2 pick different variants (the de Jong map with a = 1.4 and the Clifford map with a = -1.4).
+    const first = litGrid(0),
+      second = litGrid(2);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.122);
+    expect(different / first.length).toBeLessThan(0.13);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('mapattractors', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 rose attractor maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('mapattractors', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(37.5);
+    expect(red / (512 * 512)).toBeLessThan(38.7);
+    expect(green / (512 * 512)).toBeGreaterThan(14.9);
+    expect(green / (512 * 512)).toBeLessThan(16.1);
+    expect(blue / (512 * 512)).toBeGreaterThan(32.7);
+    expect(blue / (512 * 512)).toBeLessThan(33.9);
+    expect(maxTilt).toBeGreaterThan(0.024);
+    expect(maxTilt).toBeLessThan(0.0248);
     expect(invalid).toBe(0);
   });
 });

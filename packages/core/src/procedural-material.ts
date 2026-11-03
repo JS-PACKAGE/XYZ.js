@@ -1094,6 +1094,7 @@ export type ProceduralMaterialKind =
   | 'catenaryfestoons'
   | 'cornuspirals'
   | 'htree'
+  | 'mapattractors'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2436,6 +2437,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'catenaryfestoons',
   'cornuspirals',
   'htree',
+  'mapattractors',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
