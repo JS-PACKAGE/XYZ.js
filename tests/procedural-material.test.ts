@@ -1117,6 +1117,7 @@ const kinds: ProceduralMaterialKind[] = [
   'polygonoffsets',
   'zordercurve',
   'logisticbifurcation',
+  'catenaryfestoons',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -183458,6 +183459,377 @@ describe('Logistic bifurcation as the bifurcation diagram of the logistic map', 
     expect(blue / (512 * 512)).toBeLessThan(33.6);
     expect(maxTilt).toBeGreaterThan(0.043);
     expect(maxTilt).toBeLessThan(0.046);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Catenary festoons as rows of hanging chains between pegs', () => {
+  const p = proceduralMaterialPresets.catenaryfestoons;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const size = 512;
+  /** The cosh of the catenary, written with exp so that it is not the sampler's own call. */
+  const cosh = (x: number): number => (Math.exp(x) + Math.exp(-x)) / 2;
+  type Festoon = readonly [number, number, number, number];
+  /**
+   * The row k of variant [spans, rows, sagRatio, stagger] hangs its chains from pegs at v = k / rows, the spans being
+   * 1 / spans wide (the odd rows shifted by half a span when the variant staggers); the chain at distance s along the row
+   * from the middle of a span is a catenary a (cosh(c) - cosh(s / a)) below the pegs, with c the sag ratio and a = span / (2 c).
+   */
+  const chainV = (
+    [spans, rows, sag]: Festoon,
+    k: number,
+    s: number,
+  ): number => {
+    const a = 1 / spans / (2 * sag);
+    return k / rows + a * (cosh(sag) - cosh(s / a));
+  };
+  const rowOffset = ([spans, , , stagger]: Festoon, k: number): number =>
+    stagger !== 0 && ((k % 2) + 2) % 2 === 1 ? 1 / spans / 2 : 0;
+  const pegsOf = (variant: Festoon): [number, number][] => {
+    const pegs: [number, number][] = [];
+    for (let k = 0; k < variant[1]; k++)
+      for (let i = 0; i < variant[0]; i++)
+        pegs.push([
+          (rowOffset(variant, k) + i / variant[0]) % 1,
+          k / variant[1],
+        ]);
+    return pegs;
+  };
+  /** The distinct polyline points of all the chains near the tile, 201 per span (for the brute-force distance). */
+  const polylineOf = (variant: Festoon): [number, number][] => {
+    const points: [number, number][] = [],
+      width = 1 / variant[0];
+    for (let k = -1; k <= variant[1]; k++)
+      for (let i = -1; i <= variant[0]; i++)
+        for (let j = 0; j <= 200; j++) {
+          const s = -width / 2 + (width * j) / 200;
+          points.push([
+            rowOffset(variant, k) + i * width + width / 2 + s,
+            chainV(variant, k, s),
+          ]);
+        }
+    return points;
+  };
+  const nearPeg = (
+    pegs: [number, number][],
+    u: number,
+    v: number,
+    distance: number,
+  ): boolean =>
+    pegs.some(([pu, pv]) =>
+      [-1, 0, 1].some((du) =>
+        [-1, 0, 1].some(
+          (dv) => Math.hypot(u - pu - du, v - pv - dv) < distance,
+        ),
+      ),
+    );
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('catenaryfestoons', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('catenaryfestoons', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0254);
+      expect(low).toBeLessThan(0.0256);
+      expect(high).toBeGreaterThan(0.853);
+      expect(high).toBeLessThan(0.865);
+      expect(dark / 65536).toBeGreaterThan(0.024);
+      expect(dark / 65536).toBeLessThan(0.096);
+      expect(mean / 65536).toBeGreaterThan(0.061);
+      expect(mean / 65536).toBeLessThan(0.13);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.84);
+      expect(heightHigh).toBeLessThan(0.865);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The variant for each of the seeds 3, 2, 1, 9, 0 and 5 (variants 0 to 5) was found with a probe by the independent
+  // peg positions and is written here, so that table is not an independent check of the seed's choice.
+  const seeds = [3, 2, 1, 9, 0, 5];
+  it('draws a bright peg at every peg of its own variant and not at those of the others', () => {
+    // Every peg of the variant of the seed has a colour above 0.7 (1.000 in the probe), while for each other variant
+    // at most 0.6 of its pegs do (0.500 at most in the probe, as variants 0 and 5 share the pegs of the even rows).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('catenaryfestoons', seed),
+        out = empty();
+      p.variants.forEach((variant, other) => {
+        const pegs = pegsOf(variant);
+        let hits = 0;
+        for (const [u, v] of pegs) {
+          sample(u, v, out);
+          hits += Number(out.color > 0.7);
+        }
+        if (other === index) expect(hits).toBe(pegs.length);
+        else expect(hits / pegs.length).toBeLessThan(0.6);
+      });
+    });
+  });
+  it('leaves the middle of each span dark at the height of the pegs', () => {
+    // At the middle of every span of its own row, at the height of the pegs, there is no chain (the chain hangs
+    // below), so the colour stays under 0.1 (0.055 at most in the probe).
+    seeds.forEach((seed, index) => {
+      const variant = p.variants[index],
+        sample = createSurfaceSampler('catenaryfestoons', seed),
+        out = empty();
+      for (let k = 0; k < variant[1]; k++)
+        for (let i = 0; i < variant[0]; i++) {
+          sample(
+            (rowOffset(variant, k) + (i + 0.5) / variant[0]) % 1,
+            k / variant[1],
+            out,
+          );
+          expect(out.color).toBeLessThan(0.1);
+        }
+    });
+  });
+  it('puts the middle of each chain on the catenary', () => {
+    // In the columns at 0, 0.15 and 0.3 of a span either side of the middle of a span, for the rows 1 to rows - 2, the
+    // 512 by 512 reading has one run of pixels with a colour above 0.5 within 0.3 of a row pitch around the catenary,
+    // and the middle of that run is within 0.75 of a pixel of it (0.476 at worst in the probe; 30 to 320 columns per
+    // variant, no column with other than one run). A parabola with the same depth at the middle would be off by 1.88,
+    // 3.32 and 2.29 pixels at worst for the variants 1, 3 and 5, so for those the test is able to tell the two apart.
+    seeds.forEach((seed, index) => {
+      const variant = p.variants[index],
+        [spans, rows, sag] = variant,
+        width = 1 / spans,
+        pitch = 1 / rows,
+        depth = (1 / spans / (2 * sag)) * (cosh(sag) - 1),
+        sample = createSurfaceSampler('catenaryfestoons', seed),
+        out = empty();
+      let tested = 0,
+        parabola = 0;
+      for (let k = 1; k < rows - 1; k++)
+        for (let i = 0; i < spans; i++)
+          for (const fraction of [-0.3, -0.15, 0, 0.15, 0.3]) {
+            const s = fraction * width,
+              u = (rowOffset(variant, k) + i * width + width / 2 + s) % 1,
+              expected = chainV(variant, k, s),
+              runs: number[][] = [];
+            let start = -1;
+            const last = Math.ceil((expected + 0.3 * pitch) * size);
+            for (
+              let y = Math.floor((expected - 0.3 * pitch) * size);
+              y <= last;
+              y++
+            ) {
+              sample(u, (y + 0.5) / size, out);
+              const bright = out.color > 0.5;
+              if (bright && start < 0) start = y;
+              if (!bright && start >= 0) {
+                runs.push([start, y - 1]);
+                start = -1;
+              }
+            }
+            if (start >= 0) runs.push([start, last]);
+            expect(runs.length).toBe(1);
+            expect(
+              Math.abs((runs[0][0] + runs[0][1]) / 2 + 0.5 - expected * size),
+            ).toBeLessThan(0.75);
+            parabola = Math.max(
+              parabola,
+              Math.abs(
+                k * pitch + depth * (1 - (2 * fraction) ** 2) - expected,
+              ) * size,
+            );
+            tested++;
+          }
+      expect(tested).toBeGreaterThanOrEqual(30);
+      if (index === 1 || index === 3 || index === 5)
+        expect(parabola).toBeGreaterThan(1.5);
+    });
+  });
+  it('keeps every bright pixel on a chain and every point of a chain bright', () => {
+    // Away from the pegs (0.03), every pixel of the 512 by 512 reading with a colour above 0.5 is within 0.0045
+    // (the half width of the line) of a point of the brute-force polyline of the catenaries (0.00258 at worst in
+    // the probe; 4254 to 9752 such pixels per variant), and every point of that polyline, also away from the pegs, has a
+    // colour above 0.5 (all of 3420 to 14300 points in the probe).
+    seeds.forEach((seed, index) => {
+      const variant = p.variants[index],
+        pegs = pegsOf(variant),
+        points = polylineOf(variant),
+        sample = createSurfaceSampler('catenaryfestoons', seed),
+        out = empty();
+      let bright = 0,
+        farthest = 0;
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          const u = (x + 0.5) / size,
+            v = (y + 0.5) / size;
+          sample(u, v, out);
+          if (out.color <= 0.5 || nearPeg(pegs, u, v, 0.03)) continue;
+          bright++;
+          let best = 1;
+          for (const [pu, pv] of points) {
+            const dx = Math.abs(pu - u),
+              dy = Math.abs(pv - v);
+            if (dx < 0.05 && dy < 0.05)
+              best = Math.min(best, Math.hypot(dx, dy));
+          }
+          farthest = Math.max(farthest, best);
+        }
+      expect(bright).toBeGreaterThan(4000);
+      expect(farthest).toBeLessThan(0.0045);
+      let on = 0,
+        total = 0;
+      for (const [pu, pv] of points) {
+        const u = ((pu % 1) + 1) % 1;
+        if (pv < 0 || pv >= 1 || nearPeg(pegs, u, pv, 0.03)) continue;
+        sample(u, pv, out);
+        on += Number(out.color > 0.5);
+        total++;
+      }
+      expect(total).toBeGreaterThan(3000);
+      expect(on).toBe(total);
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 1 pick different variants (8 spans in 10 staggered rows and 3 spans in 4 staggered rows).
+    const first = litGrid(0),
+      second = litGrid(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.108);
+    expect(different / first.length).toBeLessThan(0.12);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('catenaryfestoons', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 teal chain festoon maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('catenaryfestoons', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(14);
+    expect(red / (512 * 512)).toBeLessThan(15.1);
+    expect(green / (512 * 512)).toBeGreaterThan(29.8);
+    expect(green / (512 * 512)).toBeLessThan(31);
+    expect(blue / (512 * 512)).toBeGreaterThan(32.8);
+    expect(blue / (512 * 512)).toBeLessThan(34);
+    expect(maxTilt).toBeGreaterThan(0.029);
+    expect(maxTilt).toBeLessThan(0.0305);
     expect(invalid).toBe(0);
   });
 });

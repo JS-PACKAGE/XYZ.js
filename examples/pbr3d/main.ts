@@ -1154,6 +1154,7 @@ try {
     'polygonoffsets',
     'zordercurve',
     'logisticbifurcation',
+    'catenaryfestoons',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

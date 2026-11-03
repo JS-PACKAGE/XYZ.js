@@ -48010,6 +48010,78 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'catenaryfestoons': {
+        const p = proceduralMaterialPresets.catenaryfestoons,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant =
+            p.variants[
+              Math.floor(hash(0, 67, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          spans = variant[0],
+          rows = variant[1],
+          sagRatio = variant[2],
+          stagger = variant[3],
+          spanWidth = 1 / spans,
+          pitch = 1 / rows,
+          // The chains are catenaries y = a (cosh(c) - cosh(s / a)) below the pegs, where s is the distance
+          // along the row from the middle of a span, a = span / (2 c) and c = sagRatio is the half span in
+          // units of a; the depth at the middle is a (cosh(c) - 1).
+          catenary = spanWidth / (2 * sagRatio),
+          coshSag = Math.cosh(sagRatio),
+          lineWidthSquared = p.lineHalfWidth * p.lineHalfWidth,
+          pegSquared = p.pegRadius * p.pegRadius,
+          inverseSoft = 1 / p.edgeSoft;
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            firstRow = Math.floor(fv * rows);
+          let keepLine = 1,
+            keepPeg = 1;
+          for (let k = firstRow - 1; k <= firstRow + 1; k++) {
+            // Odd rows are shifted by half a span when the variant staggers (the number of rows is then even).
+            const offset =
+                stagger !== 0 && Math.abs(k % 2) === 1 ? spanWidth / 2 : 0,
+              s = (fract((fu - offset) / spanWidth) - 0.5) * spanWidth,
+              pegV = k * pitch,
+              slope = Math.sinh(s / catenary),
+              offsetV =
+                fv - pegV - catenary * (coshSag - Math.cosh(s / catenary)),
+              // The distance to the curve to first order: the vertical offset times the cosine of the slope angle.
+              lineDistanceSquared = (offsetV * offsetV) / (1 + slope * slope),
+              pegDistance = Math.hypot(spanWidth / 2 - Math.abs(s), fv - pegV),
+              // The chain fades in only outside hangStart from the peg: where two spans meet the first-order distance
+              // above has a kink (the slope changes sign), and the line kernel reaches at most lineHalfWidth times
+              // cosh(sagRatio) (0.014 at most) from the peg there, so with hangStart 0.016 the kink never shows.
+              hung = smooth(clamp((pegDistance - p.hangStart) / p.hangSpan)),
+              lineT = clamp(1 - lineDistanceSquared / lineWidthSquared) * hung,
+              pegT = clamp(1 - (pegDistance * pegDistance) / pegSquared);
+            keepLine *= 1 - lineT * lineT;
+            keepPeg *= 1 - pegT * pegT;
+          }
+          const ink = clamp(
+              p.lineTone * (1 - keepLine) + p.pegTone * (1 - keepPeg),
+            ),
+            mask = smooth(clamp(ink * inverseSoft)),
+            tone = p.toneSpan * ink,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            tone +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(ink) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -56902,6 +56974,7 @@ export function createSurfaceSampler(
     kind === 'polygonoffsets' ||
     kind === 'zordercurve' ||
     kind === 'logisticbifurcation' ||
+    kind === 'catenaryfestoons' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
