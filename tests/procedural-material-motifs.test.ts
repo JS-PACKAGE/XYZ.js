@@ -48748,3 +48748,456 @@ describe('mergesortruns: bottom-up merge sort in rows of bars, one row per level
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('bresenhamlines: four grids with a line rasterised into cells and the true line over it', () => {
+  const p = proceduralMaterialPresets.bresenhamlines,
+    out = empty(),
+    size = p.cells * p.pitch,
+    corner = 0.009;
+  type Panel = {
+    x0: number;
+    y0: number;
+    x1: number;
+    y1: number;
+    lit: boolean[][];
+    ends: [number, number][];
+  };
+  type Panels = { sample: Sampler; panels: Panel[] };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const near = (tone: number, wanted: number): boolean =>
+    Math.abs(tone - wanted) < 0.01;
+  const originX = (panel: number): number =>
+    p.originX + (panel % p.panels) * p.panelPitch;
+  const originY = (panel: number): number =>
+    p.originY + Math.floor(panel / p.panels) * p.panelPitch;
+  const centreX = (panel: number, column: number): number =>
+    originX(panel) + (column + 0.5) * p.pitch;
+  const centreY = (panel: number, row: number): number =>
+    originY(panel) + (row + 0.5) * p.pitch;
+
+  // Read the picture: for each cell of each grid whether the line fills it (at least two of its four corners show a filled tone), and the end cells.
+  const panelsOf = (seed: number): Panels => {
+    const sample = createSurfaceSampler('bresenhamlines', seed),
+      panels: Panel[] = [];
+    for (let panel = 0; panel < p.panels * p.panels; panel++) {
+      const lit: boolean[][] = [],
+        ends: [number, number][] = [];
+      for (let row = 0; row < p.cells; row++) {
+        const cells: boolean[] = [];
+        for (let column = 0; column < p.cells; column++) {
+          let filled = 0,
+            end = 0;
+          for (const [sx, sy] of [
+            [-1, -1],
+            [1, -1],
+            [-1, 1],
+            [1, 1],
+          ]) {
+            const tone = toneAt(
+              sample,
+              centreX(panel, column) + sx * corner,
+              centreY(panel, row) + sy * corner,
+            );
+            end += Number(near(tone, p.endTone));
+            filled += Number(near(tone, p.endTone) || near(tone, p.litTone));
+          }
+          cells.push(filled >= 2);
+          if (end >= 2) ends.push([column, row]);
+        }
+        lit.push(cells);
+      }
+      // The two end cells, the one further left first (the lower one when level).
+      expect(ends.length).toBe(2);
+      ends.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+      panels.push({
+        x0: ends[0][0],
+        y0: ends[0][1],
+        x1: ends[1][0],
+        y1: ends[1][1],
+        lit,
+        ends,
+      });
+    }
+    return { sample, panels };
+  };
+
+  // The cells the line fills by rounding its height (or width) at every step, the half way cases going further along (the sampler steps with an error term instead).
+  const expectedCells = (
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+  ): Set<string> => {
+    const cells = new Set<string>(),
+      dx = Math.abs(x1 - x0),
+      dy = Math.abs(y1 - y0),
+      sx = x1 >= x0 ? 1 : -1,
+      sy = y1 >= y0 ? 1 : -1;
+    if (dx >= dy)
+      for (let k = 0; k <= dx; k++)
+        cells.add(
+          `${x0 + sx * k},${y0 + sy * Math.floor((2 * dy * k + dx) / (2 * dx))}`,
+        );
+    else
+      for (let k = 0; k <= dy; k++)
+        cells.add(
+          `${x0 + sx * Math.floor((2 * dx * k + dy) / (2 * dy))},${y0 + sy * k}`,
+        );
+    return cells;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'fills exactly the cells the straight line between the end cells rounds to, with the end cells at least 8 apart (seed %i)',
+    (seed) => {
+      for (const { x0, y0, x1, y1, lit } of panelsOf(seed).panels) {
+        expect(
+          Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)),
+        ).toBeGreaterThanOrEqual(p.minSpan);
+        const expected = expectedCells(x0, y0, x1, y1),
+          found = new Set<string>();
+        lit.forEach((cells, row) =>
+          cells.forEach(
+            (filled, column) => filled && found.add(`${column},${row}`),
+          ),
+        );
+        expect([...found].sort()).toEqual([...expected].sort());
+      }
+    },
+  );
+
+  it('uses every direction of line, with the half way cases and the steep and the shallow ones, over 60 seeds', () => {
+    let steep = 0,
+      shallow = 0,
+      diagonal = 0,
+      up = 0,
+      down = 0,
+      ties = 0,
+      total = 0;
+    const reached = new Set<number>();
+    for (let seed = 0; seed < 60; seed++)
+      for (const { x0, y0, x1, y1, lit } of panelsOf(seed * 29 + 5).panels) {
+        const dx = Math.abs(x1 - x0),
+          dy = Math.abs(y1 - y0);
+        steep += Number(dy > dx);
+        shallow += Number(dx > dy);
+        diagonal += Number(dx === dy);
+        up += Number(y1 < y0);
+        down += Number(y1 > y0);
+        // A half way case: a step where the line is exactly between two cells (2 * minor * k + major is a multiple of 2 * major, never off by half).
+        const major = Math.max(dx, dy),
+          minor = Math.min(dx, dy);
+        for (let k = 1; k < major; k++)
+          ties += Number((2 * minor * k) % (2 * major) === major);
+        reached.add(x0).add(x1).add(y0).add(y1);
+        total += lit.flat().filter(Boolean).length;
+      }
+    expect(steep).toBeGreaterThan(30);
+    expect(shallow).toBeGreaterThan(30);
+    expect(diagonal).toBeGreaterThan(0);
+    expect(up).toBeGreaterThan(40);
+    expect(down).toBeGreaterThan(40);
+    expect(ties).toBeGreaterThan(10);
+    // The end cells use the whole grid.
+    expect(Math.min(...reached)).toBe(0);
+    expect(Math.max(...reached)).toBe(p.cells - 1);
+    expect(total / 240).toBeGreaterThan(9);
+  });
+
+  // How far a point is from the true line of a panel.
+  const lineDistance = (
+    panel: Panel,
+    index: number,
+    x: number,
+    y: number,
+  ): number => {
+    const ax = centreX(index, panel.x0),
+      ay = centreY(index, panel.y0),
+      bx = centreX(index, panel.x1),
+      by = centreY(index, panel.y1),
+      t = Math.max(
+        0,
+        Math.min(
+          1,
+          ((x - ax) * (bx - ax) + (y - ay) * (by - ay)) /
+            ((bx - ax) ** 2 + (by - ay) ** 2),
+        ),
+      );
+    return Math.hypot(x - (ax + t * (bx - ax)), y - (ay + t * (by - ay)));
+  };
+
+  it('draws the cells, the end cells, the grid lines and the true line with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, panels } = panelsOf(seed),
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      panels.forEach((panel, index) => {
+        const { x0, y0, x1, y1, lit } = panel,
+          ox = originX(index),
+          oy = originY(index),
+          clear = (x: number, y: number): boolean =>
+            lineDistance(panel, index, x, y) > 0.004;
+        lit.forEach((cells, row) =>
+          cells.forEach((filled, column) => {
+            const cx = centreX(index, column),
+              cy = centreY(index, row),
+              isEnd =
+                (column === x0 && row === y0) || (column === x1 && row === y1),
+              tone = isEnd ? p.endTone : p.litTone;
+            for (const [sx, sy] of [
+              [-1, -1],
+              [1, -1],
+              [-1, 1],
+              [1, 1],
+            ]) {
+              // The cell's inner corners, in and outside: filled out to cellHalf from the middle, and paper beyond it (where no line is).
+              const inX = cx + sx * (p.cellHalf - 0.0008),
+                inY = cy + sy * (p.cellHalf - 0.0008),
+                outX = cx + sx * (p.cellHalf + 0.0008),
+                outY = cy + sy * (p.cellHalf - 0.003);
+              if (filled && clear(inX, inY)) {
+                expect(toneAt(sample, inX, inY)).toBeCloseTo(tone, 6);
+                expect(out.height / p.relief).toBeCloseTo(
+                  isEnd ? p.endHeight : p.litHeight,
+                  6,
+                );
+                expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+              }
+              if (filled && clear(outX, outY))
+                expect(paperOk(outX, outY)).toBe(true);
+              if (!filled && clear(inX, inY))
+                expect(paperOk(inX, inY)).toBe(true);
+            }
+          }),
+        );
+        // The grid lines: every vertical and horizontal one, their tone, height, roughness and thickness, with the gap of paper beside them.
+        for (let k = 0; k <= p.cells; k++)
+          for (const row of [2, 9]) {
+            const x = ox + k * p.pitch,
+              y = centreY(index, row);
+            if (!clear(x, y)) continue;
+            expect(toneAt(sample, x, y)).toBeCloseTo(p.gridTone, 6);
+            expect(out.height / p.relief).toBeCloseTo(p.gridHeight, 6);
+            expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+            expect(
+              near(toneAt(sample, x + p.gridHalf - 0.0004, y), p.gridTone),
+            ).toBe(true);
+            expect(
+              near(toneAt(sample, x - p.gridHalf + 0.0004, y), p.gridTone),
+            ).toBe(true);
+            if (k === 0) expect(paperOk(x - p.gridHalf - 0.0012, y)).toBe(true);
+            if (k === p.cells)
+              expect(paperOk(x + p.gridHalf + 0.0012, y)).toBe(true);
+          }
+        for (let k = 0; k <= p.cells; k++)
+          for (const column of [2, 9]) {
+            const x = centreX(index, column),
+              y = oy + k * p.pitch;
+            if (!clear(x, y)) continue;
+            expect(toneAt(sample, x, y)).toBeCloseTo(p.gridTone, 6);
+            expect(
+              near(toneAt(sample, x, y + p.gridHalf - 0.0004), p.gridTone),
+            ).toBe(true);
+            if (k === 0) expect(paperOk(x, y - p.gridHalf - 0.0012)).toBe(true);
+            if (k === p.cells)
+              expect(paperOk(x, y + p.gridHalf + 0.0012)).toBe(true);
+            // Beside the line, in the gap to the cells.
+            for (const side of [-1, 1])
+              if (
+                clear(x, y + side * (p.gridHalf + 0.0008)) &&
+                k > 0 &&
+                k < p.cells
+              )
+                expect(paperOk(x, y + side * (p.gridHalf + 0.0008))).toBe(true);
+          }
+        // The ends of the grid lines: paper just beyond each of them (clear of the true line), and paper beside every line (the gap to the cells).
+        for (const k of [3, 10]) {
+          const along = oy + k * p.pitch,
+            across = ox + k * p.pitch;
+          for (const [px, py] of [
+            [ox - p.gridHalf - 0.0008, along],
+            [ox + size + p.gridHalf + 0.0008, along],
+            [across, oy - p.gridHalf - 0.0008],
+            [across, oy + size + p.gridHalf + 0.0008],
+            [across + p.gridHalf + 0.0008, centreY(index, 2)],
+          ])
+            if (clear(px, py)) expect(paperOk(px, py)).toBe(true);
+        }
+        // The true line: tone, height, roughness and thickness, halfway along, and its ends at the middles of the end cells.
+        const ax = centreX(index, x0),
+          ay = centreY(index, y0),
+          bx = centreX(index, x1),
+          by = centreY(index, y1),
+          length = Math.hypot(bx - ax, by - ay),
+          mx = (ax + bx) / 2,
+          my = (ay + by) / 2,
+          nx = -(by - ay) / length,
+          ny = (bx - ax) / length,
+          ux = (bx - ax) / length,
+          uy = (by - ay) / length;
+        expect(toneAt(sample, mx, my)).toBeCloseTo(p.lineTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.lineHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        for (const side of [-1, 1]) {
+          expect(
+            near(
+              toneAt(
+                sample,
+                mx + side * nx * (p.lineHalf - 0.0004),
+                my + side * ny * (p.lineHalf - 0.0004),
+              ),
+              p.lineTone,
+            ),
+          ).toBe(true);
+          expect(
+            near(
+              toneAt(
+                sample,
+                mx + side * nx * (p.lineHalf + 0.0006),
+                my + side * ny * (p.lineHalf + 0.0006),
+              ),
+              p.lineTone,
+            ),
+          ).toBe(false);
+        }
+        expect(
+          near(toneAt(sample, ax + ux * 0.0005, ay + uy * 0.0005), p.lineTone),
+        ).toBe(true);
+        expect(
+          near(toneAt(sample, ax - ux * 0.002, ay - uy * 0.002), p.lineTone),
+        ).toBe(false);
+        expect(
+          near(toneAt(sample, bx - ux * 0.0005, by - uy * 0.0005), p.lineTone),
+        ).toBe(true);
+        expect(
+          near(toneAt(sample, bx + ux * 0.002, by + uy * 0.002), p.lineTone),
+        ).toBe(false);
+      });
+      // Nothing between the grids or outside them.
+      expect(
+        paperOk(originX(0) + size + 0.012, originY(0) + 8.5 * p.pitch),
+      ).toBe(true);
+      expect(paperOk(0.5, 0.01)).toBe(true);
+    }
+  });
+
+  it('softens the edge of a filled cell, a grid line and the true line over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      const { sample, panels } = panelsOf(seed),
+        panel = panels[0],
+        { x0, y0, x1, y1 } = panel,
+        cx = centreX(0, x0),
+        cy = centreY(0, y0),
+        // A side of the first end cell facing away from the other end and clear of the true line: x (left or right) of its middle.
+        side = x0 <= x1 ? -1 : 1;
+      // The end cell's side, over the paper beside it.
+      close(
+        toneAt(sample, cx + side * (p.cellHalf - quarter), cy + 0.004),
+        mix(p.paperTone, p.endTone, 0.75),
+      );
+      close(
+        toneAt(sample, cx + side * (p.cellHalf + quarter), cy + 0.004),
+        mix(p.paperTone, p.endTone, 0.25),
+      );
+      // The panel's top grid line (between columns of cells, so no cell is near): its outer side, over the paper.
+      const mid = originX(0) + 3 * p.pitch;
+      close(
+        toneAt(sample, mid, originY(0) - p.gridHalf + quarter),
+        mix(p.paperTone, p.gridTone, 0.75),
+      );
+      close(
+        toneAt(sample, mid, originY(0) - p.gridHalf - quarter),
+        mix(p.paperTone, p.gridTone, 0.25),
+      );
+      // The panel's left grid line, outer side (a column of paper left of the first panel, so the panel needs room for the soft edge).
+      const row = originY(0) + 8.5 * p.pitch;
+      close(
+        toneAt(sample, originX(0) - p.gridHalf + quarter, row),
+        mix(p.paperTone, p.gridTone, 0.75),
+      );
+      close(
+        toneAt(sample, originX(0) - p.gridHalf - quarter, row),
+        mix(p.paperTone, p.gridTone, 0.25),
+      );
+      // The true line's side where it lies over the first end cell, a little way from its middle.
+      const bx = centreX(0, x1),
+        by = centreY(0, y1),
+        length = Math.hypot(bx - cx, by - cy),
+        px = cx + ((bx - cx) / length) * 0.004,
+        py = cy + ((by - cy) / length) * 0.004,
+        nx = -(by - cy) / length,
+        ny = (bx - cx) / length;
+      close(
+        toneAt(
+          sample,
+          px + nx * (p.lineHalf - quarter),
+          py + ny * (p.lineHalf - quarter),
+        ),
+        mix(p.endTone, p.lineTone, 0.75),
+      );
+      close(
+        toneAt(
+          sample,
+          px + nx * (p.lineHalf + quarter),
+          py + ny * (p.lineHalf + quarter),
+        ),
+        mix(p.endTone, p.lineTone, 0.25),
+      );
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('bresenhamlines', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('bresenhamlines', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.01),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('bresenhamlines', 0),
+      b = createSurfaceSampler('bresenhamlines', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.2101],
+        [0.2201, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

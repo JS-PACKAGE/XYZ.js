@@ -43449,6 +43449,160 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'bresenhamlines': {
+        const p = proceduralMaterialPresets.bresenhamlines,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x4fe01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          count = p.panels * p.panels,
+          size = p.cells * p.pitch,
+          // Per panel: the end cells, and for every cell whether it is filled (1) or is an end cell (2).
+          ends = new Int32Array(count * 4),
+          filled = new Uint8Array(count * p.cells * p.cells);
+        for (let panel = 0; panel < count; panel++) {
+          // End cells at least minSpan apart along one direction (tried with different draws; the last try is kept if none qualifies).
+          for (let attempt = 0; attempt < 24; attempt++) {
+            for (let k = 0; k < 4; k++)
+              ends[panel * 4 + k] = Math.floor(
+                hash(panel * 4 + k, 11 + attempt, seed ^ 0x4fe02) * p.cells,
+              );
+            if (
+              Math.max(
+                Math.abs(ends[panel * 4 + 2] - ends[panel * 4]),
+                Math.abs(ends[panel * 4 + 3] - ends[panel * 4 + 1]),
+              ) >= p.minSpan
+            )
+              break;
+          }
+          // Draw from the end cell further left, so where the line is exactly between two cells the choice does not depend on which end the draws
+          // gave first (a vertical line has no such cells).
+          if (ends[panel * 4] > ends[panel * 4 + 2])
+            for (let k = 0; k < 2; k++) {
+              const swap = ends[panel * 4 + k];
+              ends[panel * 4 + k] = ends[panel * 4 + 2 + k];
+              ends[panel * 4 + 2 + k] = swap;
+            }
+          // Bresenham's line.
+          let x = ends[panel * 4],
+            y = ends[panel * 4 + 1];
+          const x1 = ends[panel * 4 + 2],
+            y1 = ends[panel * 4 + 3],
+            dx = Math.abs(x1 - x),
+            dy = -Math.abs(y1 - y),
+            sx = x < x1 ? 1 : -1,
+            sy = y < y1 ? 1 : -1;
+          let error = dx + dy;
+          for (;;) {
+            filled[panel * p.cells * p.cells + y * p.cells + x] = 1;
+            if (x === x1 && y === y1) break;
+            const doubled = 2 * error;
+            if (doubled >= dy) {
+              error += dy;
+              x += sx;
+            }
+            if (doubled <= dx) {
+              error += dx;
+              y += sy;
+            }
+          }
+          filled[
+            panel * p.cells * p.cells +
+              ends[panel * 4 + 1] * p.cells +
+              ends[panel * 4]
+          ] = 2;
+          filled[panel * p.cells * p.cells + y1 * p.cells + x1] = 2;
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          const panelX = Math.floor((fu - p.originX + 0.02) / p.panelPitch),
+            panelY = Math.floor((fv - p.originY + 0.02) / p.panelPitch);
+          if (
+            panelX >= 0 &&
+            panelX < p.panels &&
+            panelY >= 0 &&
+            panelY < p.panels
+          ) {
+            const panel = panelY * p.panels + panelX,
+              ox = p.originX + panelX * p.panelPitch,
+              oy = p.originY + panelY * p.panelPitch,
+              gu = (fu - ox) / p.pitch,
+              gv = (fv - oy) / p.pitch,
+              column = Math.min(p.cells - 1, Math.max(0, Math.floor(gu))),
+              row = Math.min(p.cells - 1, Math.max(0, Math.floor(gv))),
+              state =
+                filled[panel * p.cells * p.cells + row * p.cells + column];
+            // The cell, a little in from its edges, when the line fills it.
+            if (state > 0)
+              paint(
+                cover(
+                  p.cellHalf -
+                    Math.max(
+                      Math.abs((gu - column - 0.5) * p.pitch),
+                      Math.abs((gv - row - 0.5) * p.pitch),
+                    ),
+                ),
+                state === 2 ? p.endTone : p.litTone,
+                state === 2 ? p.endHeight : p.litHeight,
+              );
+            // The grid lines between the cells (a vertical and a horizontal one, painted once where they cross).
+            const lineU = Math.abs(fu - ox - Math.round(gu) * p.pitch),
+              lineV = Math.abs(fv - oy - Math.round(gv) * p.pitch),
+              inside = Math.min(
+                fu - (ox - p.gridHalf),
+                ox + size + p.gridHalf - fu,
+                fv - (oy - p.gridHalf),
+                oy + size + p.gridHalf - fv,
+              );
+            paint(
+              Math.min(
+                cover(inside),
+                Math.max(cover(p.gridHalf - lineU), cover(p.gridHalf - lineV)),
+              ),
+              p.gridTone,
+              p.gridHeight,
+            );
+            // The straight line between the middles of the end cells.
+            const ax = ox + (ends[panel * 4] + 0.5) * p.pitch,
+              ay = oy + (ends[panel * 4 + 1] + 0.5) * p.pitch,
+              bx = ox + (ends[panel * 4 + 2] + 0.5) * p.pitch,
+              by = oy + (ends[panel * 4 + 3] + 0.5) * p.pitch,
+              along = clamp(
+                ((fu - ax) * (bx - ax) + (fv - ay) * (by - ay)) /
+                  ((bx - ax) ** 2 + (by - ay) ** 2),
+              );
+            paint(
+              cover(
+                p.lineHalf -
+                  Math.hypot(
+                    fu - (ax + along * (bx - ax)),
+                    fv - (ay + along * (by - ay)),
+                  ),
+              ),
+              p.lineTone,
+              p.lineHeight,
+            );
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -70978,6 +71132,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'bresenhamlines' ||
     kind === 'mergesortruns' ||
     kind === 'radixsortpasses' ||
     kind === 'paretochart' ||
