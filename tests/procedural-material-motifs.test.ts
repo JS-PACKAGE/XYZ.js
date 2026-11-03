@@ -53680,3 +53680,288 @@ describe('fareysequence: rows of ticks at the fractions in lowest terms up to ea
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('lfsrstates: rows of an eight bit shift register with taps as dots, the output bit and the feedback bit beside each row', () => {
+  const p = proceduralMaterialPresets.lfsrstates,
+    out = empty();
+  type Run = {
+    sample: Sampler;
+    taps: number[];
+    states: number[];
+    outputs: number[];
+    feedbacks: number[];
+  };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const near = (tone: number, wanted: number): boolean =>
+    Math.abs(tone - wanted) < 0.01;
+  const centreX = (column: number): number => p.left + (column + 0.5) * p.pitch;
+  const centreY = (row: number): number => p.top + (row + 0.5) * p.rowPitch;
+  const tapY = p.top - p.tapRise;
+  const bitAt = (sample: Sampler, x: number, y: number): number => {
+    const tone = toneAt(sample, x, y);
+    expect(near(tone, p.setTone) || near(tone, p.clearTone)).toBe(true);
+    return near(tone, p.setTone) ? 1 : 0;
+  };
+
+  // Read the picture: the tapped bits (dots above the columns), then per row the register (bit 7 at the left), the output square and the feedback square.
+  const runOf = (seed: number): Run => {
+    const sample = createSurfaceSampler('lfsrstates', seed),
+      taps = Array.from({ length: p.bitCount }, (_, column) => column)
+        .filter((column) =>
+          near(toneAt(sample, centreX(column), tapY), p.tapTone),
+        )
+        .map((column) => p.bitCount - 1 - column)
+        .sort((a, b) => a - b),
+      states: number[] = [],
+      outputs: number[] = [],
+      feedbacks: number[] = [];
+    for (
+      let row = 0;
+      Math.abs(toneAt(sample, centreX(0), centreY(row)) - p.paperTone) > 0.02;
+      row++
+    ) {
+      let state = 0;
+      for (let column = 0; column < p.bitCount; column++)
+        state |=
+          bitAt(sample, centreX(column), centreY(row)) <<
+          (p.bitCount - 1 - column);
+      states.push(state);
+      outputs.push(bitAt(sample, centreX(p.outputColumn), centreY(row)));
+      feedbacks.push(bitAt(sample, centreX(p.feedbackColumn), centreY(row)));
+    }
+    expect(p.stateCounts).toContain(states.length);
+    return { sample, taps, states, outputs, feedbacks };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shifts the register right every row, the bit that leaves shown, the exclusive or of the tapped bits entering at the left, and never reaches zero (seed %i)',
+    (seed) => {
+      const { taps, states, outputs, feedbacks } = runOf(seed);
+      expect(p.tapSets.map((set) => [...set])).toContainEqual(taps);
+      expect(taps).toContain(0);
+      expect(states[0]).toBeGreaterThan(0);
+      const parity = (value: number): number =>
+        Array.from({ length: p.bitCount }, (_, bit) => bit).filter(
+          (bit) => (value >> bit) & 1 && taps.includes(bit),
+        ).length % 2;
+      states.forEach((state, t) => {
+        // The bit shown as leaving is bit 0, and the bit shown as entering is the exclusive or (parity) of the tapped bits.
+        expect(outputs[t]).toBe(state & 1);
+        expect(feedbacks[t]).toBe(parity(state));
+        expect(state).toBeGreaterThan(0);
+        if (t + 1 < states.length)
+          expect(states[t + 1]).toBe(
+            Math.floor(state / 2) + feedbacks[t] * 2 ** (p.bitCount - 1),
+          );
+      });
+    },
+  );
+
+  it('uses every number of rows and set of taps, and visits many different registers, over 60 seeds', () => {
+    const counts = new Set<number>(),
+      tapSets = new Set<string>();
+    let ones = 0,
+      cells = 0,
+      distinct = 0,
+      rowsSeen = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const { taps, states } = runOf(seed * 59 + 14);
+      counts.add(states.length);
+      tapSets.add(taps.join(','));
+      distinct += new Set(states).size;
+      rowsSeen += states.length;
+      states.forEach((state) => {
+        for (let bit = 0; bit < p.bitCount; bit++) ones += (state >> bit) & 1;
+        cells += p.bitCount;
+      });
+    }
+    expect([...counts].sort((a, b) => a - b)).toEqual([...p.stateCounts]);
+    expect(tapSets.size).toBe(p.tapSets.length);
+    // These taps are chosen so that the registers do not repeat within the rows, and about half the bits are set.
+    expect(distinct).toBe(rowsSeen);
+    expect(ones / cells).toBeGreaterThan(0.4);
+    expect(ones / cells).toBeLessThan(0.6);
+  });
+
+  it('starts from every register except zero, over 3000 seeds (the first row only)', () => {
+    const starts = new Set<number>();
+    for (let seed = 0; seed < 3000; seed++) {
+      const sample = createSurfaceSampler('lfsrstates', seed * 7 + 1);
+      let state = 0;
+      for (let column = 0; column < p.bitCount; column++)
+        state |=
+          bitAt(sample, centreX(column), centreY(0)) <<
+          (p.bitCount - 1 - column);
+      starts.add(state);
+    }
+    expect(starts.size).toBe(2 ** p.bitCount - 1);
+    expect(starts.has(0)).toBe(false);
+  });
+
+  it('draws the register squares, the output and feedback squares and the tap dots with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, taps, states, outputs, feedbacks } = runOf(seed),
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      states.forEach((state, t) => {
+        const y = centreY(t);
+        const square = (x: number, half: number, set: number): void => {
+          const tone = set ? p.setTone : p.clearTone,
+            level = set ? p.setHeight : p.clearHeight;
+          // A square: tone, height, roughness, size, and the gap to the next.
+          expect(toneAt(sample, x, y)).toBeCloseTo(tone, 6);
+          expect(out.height / p.relief).toBeCloseTo(level, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          expect(
+            toneAt(sample, x + half - 0.0004, y + half - 0.0004),
+          ).toBeCloseTo(tone, 6);
+          expect(
+            toneAt(sample, x - half + 0.0004, y - half + 0.0004),
+          ).toBeCloseTo(tone, 6);
+          expect(paperOk(x + half + 0.001, y)).toBe(true);
+          expect(paperOk(x - half - 0.001, y)).toBe(true);
+          expect(paperOk(x, y + half + 0.001)).toBe(true);
+          expect(paperOk(x, y - half - 0.001)).toBe(true);
+        };
+        for (let column = 0; column < p.bitCount; column++)
+          square(
+            centreX(column),
+            p.cellHalf,
+            (state >> (p.bitCount - 1 - column)) & 1,
+          );
+        square(centreX(p.outputColumn), p.markHalf, outputs[t]);
+        square(centreX(p.feedbackColumn), p.markHalf, feedbacks[t]);
+      });
+      // The tap dots: tone, height, roughness, radius, one over each tapped bit and none over the others.
+      for (let column = 0; column < p.bitCount; column++) {
+        const x = centreX(column);
+        if (taps.includes(p.bitCount - 1 - column)) {
+          expect(toneAt(sample, x, tapY)).toBeCloseTo(p.tapTone, 6);
+          expect(out.height / p.relief).toBeCloseTo(p.tapHeight, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          expect(
+            near(toneAt(sample, x + p.tapRadius - 0.0004, tapY), p.tapTone),
+          ).toBe(true);
+          expect(paperOk(x + p.tapRadius + 0.001, tapY)).toBe(true);
+          expect(paperOk(x, tapY - p.tapRadius - 0.001)).toBe(true);
+          expect(paperOk(x, tapY + p.tapRadius + 0.001)).toBe(true);
+        } else expect(paperOk(x, tapY)).toBe(true);
+      }
+      // Nothing beside the squares, in the gap between the register and the output, or below the last row.
+      expect(paperOk(p.left - 0.01, centreY(0))).toBe(true);
+      expect(paperOk(centreX(8), centreY(0))).toBe(true);
+      expect(paperOk(centreX(p.feedbackColumn + 1.5), centreY(0))).toBe(true);
+      expect(paperOk(centreX(3), centreY(states.length))).toBe(true);
+      expect(paperOk(centreX(3), tapY - p.tapRadius - 0.01)).toBe(true);
+    }
+  });
+
+  it('softens the edge of a register square, an output square and a tap dot over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      const { sample, taps, states, feedbacks } = runOf(seed),
+        // The first square of the first row (bit 7).
+        x = centreX(0),
+        y = centreY(0),
+        tone = (states[0] >> (p.bitCount - 1)) & 1 ? p.setTone : p.clearTone,
+        fx = centreX(p.feedbackColumn),
+        feedbackTone = feedbacks[0] ? p.setTone : p.clearTone,
+        tx = centreX(p.bitCount - 1 - taps[0]);
+      close(
+        toneAt(sample, x + p.cellHalf - quarter, y),
+        mix(p.paperTone, tone, 0.75),
+      );
+      close(
+        toneAt(sample, x + p.cellHalf + quarter, y),
+        mix(p.paperTone, tone, 0.25),
+      );
+      close(
+        toneAt(sample, x, y - p.cellHalf + quarter),
+        mix(p.paperTone, tone, 0.75),
+      );
+      close(
+        toneAt(sample, x, y - p.cellHalf - quarter),
+        mix(p.paperTone, tone, 0.25),
+      );
+      close(
+        toneAt(sample, fx + p.markHalf - quarter, y),
+        mix(p.paperTone, feedbackTone, 0.75),
+      );
+      close(
+        toneAt(sample, fx + p.markHalf + quarter, y),
+        mix(p.paperTone, feedbackTone, 0.25),
+      );
+      close(
+        toneAt(sample, tx + p.tapRadius - quarter, tapY),
+        mix(p.paperTone, p.tapTone, 0.75),
+      );
+      close(
+        toneAt(sample, tx + p.tapRadius + quarter, tapY),
+        mix(p.paperTone, p.tapTone, 0.25),
+      );
+      close(
+        toneAt(sample, tx, tapY - p.tapRadius + quarter),
+        mix(p.paperTone, p.tapTone, 0.75),
+      );
+      close(
+        toneAt(sample, tx, tapY - p.tapRadius - quarter),
+        mix(p.paperTone, p.tapTone, 0.25),
+      );
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('lfsrstates', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('lfsrstates', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.97),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('lfsrstates', 0),
+      b = createSurfaceSampler('lfsrstates', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.2761],
+        [0.1801, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

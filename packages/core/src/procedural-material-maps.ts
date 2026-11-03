@@ -44936,6 +44936,100 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'lfsrstates': {
+        const p = proceduralMaterialPresets.lfsrstates,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x50b01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          states =
+            p.stateCounts[
+              Math.floor(hash(68, 1, seed ^ 0x50b02) * p.stateCounts.length)
+            ],
+          taps =
+            p.tapSets[
+              Math.floor(hash(68, 2, seed ^ 0x50b03) * p.tapSets.length)
+            ],
+          // register[t]: the bits of state t (bit i is 1 << i); the first state is not zero.
+          register = new Int32Array(states),
+          // feedback[t]: the exclusive or of the tapped bits of state t, the bit that comes in at the left.
+          feedback = new Uint8Array(states),
+          full = (1 << p.bitCount) - 1;
+        register[0] = 1 + Math.floor(hash(68, 3, seed ^ 0x50b04) * full);
+        for (let t = 0; t < states; t++) {
+          let bit = 0;
+          for (const tap of taps) bit ^= (register[t] >> tap) & 1;
+          feedback[t] = bit;
+          if (t + 1 < states)
+            register[t + 1] = (register[t] >> 1) | (bit << (p.bitCount - 1));
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          const row = Math.floor((fv - p.top) / p.rowPitch),
+            column = Math.floor((fu - p.left) / p.pitch);
+          if (row >= 0 && row < states && column >= 0) {
+            const cy = p.top + (row + 0.5) * p.rowPitch,
+              dy = Math.abs(fv - cy);
+            if (column < p.bitCount) {
+              const cx = p.left + (column + 0.5) * p.pitch,
+                set = (register[row] >> (p.bitCount - 1 - column)) & 1;
+              paint(
+                cover(
+                  Math.min(p.cellHalf - Math.abs(fu - cx), p.cellHalf - dy),
+                ),
+                set ? p.setTone : p.clearTone,
+                set ? p.setHeight : p.clearHeight,
+              );
+            }
+            // The bit that goes out (bit 0 of the state) and the bit that comes in, as smaller squares.
+            const out = register[row] & 1,
+              outX = p.left + (p.outputColumn + 0.5) * p.pitch,
+              inX = p.left + (p.feedbackColumn + 0.5) * p.pitch;
+            paint(
+              cover(
+                Math.min(p.markHalf - Math.abs(fu - outX), p.markHalf - dy),
+              ),
+              out ? p.setTone : p.clearTone,
+              out ? p.setHeight : p.clearHeight,
+            );
+            paint(
+              cover(Math.min(p.markHalf - Math.abs(fu - inX), p.markHalf - dy)),
+              feedback[row] ? p.setTone : p.clearTone,
+              feedback[row] ? p.setHeight : p.clearHeight,
+            );
+          }
+          // The taps: a dot above the column of each tapped bit.
+          if (Math.abs(fv - (p.top - p.tapRise)) < p.tapRadius + p.edgeSoft)
+            for (const tap of taps) {
+              const cx = p.left + (p.bitCount - 1 - tap + 0.5) * p.pitch;
+              paint(
+                cover(
+                  p.tapRadius - Math.hypot(fu - cx, fv - (p.top - p.tapRise)),
+                ),
+                p.tapTone,
+                p.tapHeight,
+              );
+            }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -72465,6 +72559,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'lfsrstates' ||
     kind === 'fareysequence' ||
     kind === 'unionfindmerges' ||
     kind === 'linearprobing' ||
