@@ -1124,6 +1124,7 @@ try {
     'gabrielgraph',
     'euclideanmst',
     'relativeneighborhood',
+    'sortingnetwork',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

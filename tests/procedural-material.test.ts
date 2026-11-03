@@ -1087,6 +1087,7 @@ const kinds: ProceduralMaterialKind[] = [
   'gabrielgraph',
   'euclideanmst',
   'relativeneighborhood',
+  'sortingnetwork',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -173939,6 +173940,317 @@ describe('Relative neighbourhood graph as the relative neighbourhood graph of a 
     expect(blue / (512 * 512)).toBeLessThan(59.1);
     expect(maxTilt).toBeGreaterThan(0.014);
     expect(maxTilt).toBeLessThan(0.017);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Sorting network as a sorting network for 16 wires, one of three chosen by the seed', () => {
+  const p = proceduralMaterialPresets.sortingnetwork;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /**
+   * The centre of every dot read back from the sampler: the pixels with a colour above 0.7 (the
+   * dots are brighter than the links and the wires) of a 512 by 512 grid are grouped into 4-connected components on the torus (a flood fill
+   * written here, nothing from the sampler), and the centre of a component is its circular
+   * mean in u and v, which is right for discs that wrap around the edge of the tile.
+   */
+  const readDiscs = (
+    seed: number,
+  ): { centres: number[][]; areas: number[] } => {
+    const sample = createSurfaceSampler('sortingnetwork', seed),
+      out = empty(),
+      size = 512,
+      lit: boolean[] = [],
+      label = new Int32Array(size * size).fill(-1),
+      centres: number[][] = [],
+      areas: number[] = [];
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        lit.push(out.color > 0.7);
+      }
+    for (let start = 0; start < size * size; start++) {
+      if (!lit[start] || label[start] >= 0) continue;
+      const stack = [start];
+      label[start] = centres.length;
+      let area = 0,
+        cu = 0,
+        su = 0,
+        cv = 0,
+        sv = 0;
+      while (stack.length > 0) {
+        const at = stack.pop() as number,
+          x = at % size,
+          y = Math.floor(at / size);
+        area++;
+        cu += Math.cos((2 * Math.PI * (x + 0.5)) / size);
+        su += Math.sin((2 * Math.PI * (x + 0.5)) / size);
+        cv += Math.cos((2 * Math.PI * (y + 0.5)) / size);
+        sv += Math.sin((2 * Math.PI * (y + 0.5)) / size);
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const next =
+            ((y + dy + size) % size) * size + ((x + dx + size) % size);
+          if (lit[next] && label[next] < 0) {
+            label[next] = centres.length;
+            stack.push(next);
+          }
+        }
+      }
+      centres.push([
+        (((Math.atan2(su, cu) / (2 * Math.PI)) % 1) + 1) % 1,
+        (((Math.atan2(sv, cv) / (2 * Math.PI)) % 1) + 1) % 1,
+      ]);
+      areas.push(area);
+    }
+    return { centres, areas };
+  };
+  it('draws the sorting networks, which really sort, and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('sortingnetwork', seed),
+        a = empty();
+      // Seed 0 draws Batcher's odd-even merge sort (63 comparators in 24 columns), seed 1 the
+      // odd-even transposition sort (120 in 16) and seed 0xffffffff the bitonic sort (80 in 26). The
+      // comparators are read back from the colours alone: the dots (colour above 0.7) are grouped
+      // into columns by their u within 0.004 and, sorted by v, paired two by two; each dot sits on
+      // a wire (v within 0.05 of a wire's row in wire units) and the link between the two of a pair
+      // is lit (colour above 0.52) while the gap to the next pair of the column is not. Applying the
+      // comparators from left to right to every one of the 65536 inputs of 0s and 1s must sort them
+      // (by the 0-1 principle that is a proof that the network sorts), and leaving out the first,
+      // the middle or the last comparator must break that, so the check is not vacuous.
+      const { centres, areas } = readDiscs(seed),
+        read = (x: number, y: number): number => {
+          sample(x - Math.floor(x), y - Math.floor(y), a);
+          return a.color;
+        },
+        columns: number[][][] = [],
+        network: number[][] = [];
+      for (const centre of [...centres].sort((m, n) => m[0] - n[0])) {
+        const last = columns[columns.length - 1];
+        if (last && Math.abs(last[0][0] - centre[0]) < 0.004) last.push(centre);
+        else columns.push([centre]);
+      }
+      let oddColumns = 0,
+        offWire = 0,
+        brokenLinks = 0,
+        bridgedGaps = 0;
+      const wireOf = (centre: number[]): number => {
+        const wire = Math.round(centre[1] * p.wires - 0.5);
+        offWire += Number(Math.abs(centre[1] * p.wires - 0.5 - wire) > 0.05);
+        return wire;
+      };
+      for (const column of columns) {
+        column.sort((m, n) => m[1] - n[1]);
+        if (column.length % 2 === 1) {
+          oddColumns++;
+          continue;
+        }
+        for (let k = 0; k < column.length; k += 2) {
+          network.push([wireOf(column[k]), wireOf(column[k + 1])]);
+          brokenLinks += Number(
+            !(read(column[k][0], (column[k][1] + column[k + 1][1]) / 2) > 0.52),
+          );
+          if (k + 2 < column.length)
+            bridgedGaps += Number(
+              read(column[k][0], (column[k + 1][1] + column[k + 2][1]) / 2) >
+                0.52,
+            );
+        }
+      }
+      const sorts = (list: number[][]): boolean => {
+        for (let input = 0; input < 1 << p.wires; input++) {
+          let word = input;
+          for (const [top, bottom] of list)
+            if (((word >> top) & 1) === 1 && ((word >> bottom) & 1) === 0)
+              word ^= (1 << top) | (1 << bottom);
+          let ones = 0;
+          for (let bit = 0; bit < p.wires; bit++) ones += (word >> bit) & 1;
+          if (word !== ((1 << ones) - 1) << (p.wires - ones)) return false;
+        }
+        return true;
+      };
+      const expected = { 0: [63, 24], 1: [120, 16], 4294967295: [80, 26] }[
+        seed as 0 | 1 | 4294967295
+      ];
+      expect([network.length, columns.length]).toEqual(expected);
+      expect(centres).toHaveLength(2 * network.length);
+      expect(Math.min(...areas)).toBeGreaterThan(5);
+      expect(Math.max(...areas)).toBeLessThan(20);
+      expect([oddColumns, offWire, brokenLinks, bridgedGaps]).toEqual([
+        0, 0, 0, 0,
+      ]);
+      expect(sorts(network)).toBe(true);
+      for (const left of [
+        0,
+        Math.floor(network.length / 2),
+        network.length - 1,
+      ])
+        expect(sorts(network.filter((_, index) => index !== left))).toBe(false);
+      // Between the columns every wire is a line of colour 0.44 to 0.47 and the rows between the
+      // wires are dark (below 0.06).
+      for (let wire = 0; wire < p.wires; wire++) {
+        expect(read(0, (wire + 0.5) / p.wires)).toBeGreaterThan(0.43);
+        expect(read(0, (wire + 0.5) / p.wires)).toBeLessThan(0.48);
+        expect(read(0, wire / p.wires + 1e-9)).toBeLessThan(0.06);
+      }
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0252);
+      expect(low).toBeLessThan(0.0257);
+      expect(high).toBeGreaterThan(0.76);
+      expect(high).toBeLessThan(0.845);
+      expect(dark / 65536).toBeGreaterThan(0.087);
+      expect(dark / 65536).toBeLessThan(0.118);
+      expect(mean / 65536).toBeGreaterThan(0.132);
+      expect(mean / 65536).toBeLessThan(0.144);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 3);
+      expect(heightHigh).toBeGreaterThan(0.818);
+      expect(heightHigh).toBeLessThan(0.842);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('draws a different network per seed and is deterministic for one seed', () => {
+    const first = readDiscs(0).centres;
+    // Seed 0 has 63 comparators (126 dots), seed 1 has 120 (240) and seed 0xffffffff has 80 (160).
+    expect(first).toHaveLength(126);
+    expect(readDiscs(1).centres).toHaveLength(240);
+    expect(readDiscs(0xffffffff).centres).toHaveLength(160);
+    expect(readDiscs(0).centres).toEqual(first);
+  });
+  it('keeps the dots, links, wires, ground and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('sortingnetwork', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.wires, 24, 26, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793, 0.5 / 16, 7.5 / 16]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      // Straight through the middle of the links and dots of the columns of the three networks.
+      for (const n of [16, 24, 26])
+        for (let i = 0; i < n; i++)
+          for (const y of [0.137, 0.31, 0.5 / 16 + 0.0001, 0.793]) {
+            check((i + 0.5) / n, y);
+            check(y, (i + 0.5) / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 green circuit maps with raised dots, links and wires and shaded ground', () => {
+    const maps = generateProceduralMaps('sortingnetwork', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(19.4);
+    expect(red / (512 * 512)).toBeLessThan(20.5);
+    expect(green / (512 * 512)).toBeGreaterThan(42.9);
+    expect(green / (512 * 512)).toBeLessThan(44);
+    expect(blue / (512 * 512)).toBeGreaterThan(43.7);
+    expect(blue / (512 * 512)).toBeLessThan(44.9);
+    expect(maxTilt).toBeGreaterThan(0.017);
+    expect(maxTilt).toBeLessThan(0.021);
     expect(invalid).toBe(0);
   });
 });

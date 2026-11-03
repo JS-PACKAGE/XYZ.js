@@ -44430,6 +44430,135 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'sortingnetwork': {
+        const p = proceduralMaterialPresets.sortingnetwork,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          wires = p.wires,
+          network: number[][] = [],
+          wireSquared = p.wireHalf * p.wireHalf,
+          linkSquared = p.linkHalf * p.linkHalf,
+          dotSquared = p.dotRadius * p.dotRadius,
+          around = (delta: number): number => delta - Math.round(delta),
+          // The three sorting networks for 16 wires, each a list of comparators (top, bottom) that put
+          // the smaller value on the wire with the lower number: Batcher's odd-even merge sort (63
+          // comparators), the bitonic sort in its standard form (80) and the odd-even transposition
+          // sort (120). The seed picks one.
+          which = Math.floor(hash(0, 34, seed ^ p.seedSalt) * 3);
+        if (which === 0) {
+          const merge = (low: number, size: number, reach: number): void => {
+            const step = reach * 2;
+            if (step < size) {
+              merge(low, size, step);
+              merge(low + reach, size, step);
+              for (let i = low + reach; i + reach < low + size; i += step)
+                network.push([i, i + reach]);
+            } else network.push([low, low + reach]);
+          };
+          const sort = (low: number, size: number): void => {
+            if (size <= 1) return;
+            sort(low, size / 2);
+            sort(low + size / 2, size / 2);
+            merge(low, size, 1);
+          };
+          sort(0, wires);
+        } else if (which === 1) {
+          for (let size = 2; size <= wires; size *= 2) {
+            for (let start = 0; start < wires; start += size)
+              for (let i = 0; i < size / 2; i++)
+                network.push([start + i, start + size - 1 - i]);
+            for (let span = size / 4; span >= 1; span /= 2)
+              for (let i = 0; i < wires; i++)
+                if (i % (2 * span) < span) network.push([i, i + span]);
+          }
+        } else {
+          for (let round = 0; round < wires; round++)
+            for (let i = round % 2; i + 1 < wires; i += 2)
+              network.push([i, i + 1]);
+        }
+        // Every comparator goes into the first layer after the layers of both its wires; the
+        // comparators of a layer are then dealt into columns so that two comparators in one column
+        // never cover the same wires between them (greedy interval colouring), and the columns of the
+        // layers follow one another from left to right across the tile.
+        const lastLayer = new Array<number>(wires).fill(0),
+          layerOf = network.map(([top, bottom]) => {
+            const layer = Math.max(lastLayer[top], lastLayer[bottom]) + 1;
+            lastLayer[top] = lastLayer[bottom] = layer;
+            return layer;
+          }),
+          columns: number[][][] = [];
+        for (let layer = 1; layer <= Math.max(...layerOf); layer++) {
+          const bottoms: number[] = [],
+            fresh: number[][][] = [];
+          for (const [top, bottom] of network
+            .filter((_, i) => layerOf[i] === layer)
+            .sort((m, n) => m[0] - n[0])) {
+            const slot = bottoms.findIndex((end) => end < top);
+            if (slot < 0) {
+              bottoms.push(bottom);
+              fresh.push([[top, bottom]]);
+            } else {
+              bottoms[slot] = bottom;
+              fresh[slot].push([top, bottom]);
+            }
+          }
+          columns.push(...fresh);
+        }
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            count = columns.length,
+            around0 = Math.floor(fu * count),
+            nearest = Math.min(wires - 1, Math.floor(fv * wires)),
+            wireOffset = fv - (nearest + 0.5) / wires,
+            wireT = clamp(1 - (wireOffset * wireOffset) / wireSquared);
+          let openLink = 1,
+            openDot = 1;
+          // The links and dots of the column of the sample and its two neighbours (a dot can be wider
+          // than half the column spacing), each a union by 1 - product of (1 - t^2) with
+          // t = max(0, 1 - squared distance / squared radius): every t^2 is C1 and exactly zero at the
+          // rim, so the unions and the field are C1.
+          for (let shift = -1; shift <= 1; shift++) {
+            const column = (around0 + shift + count) % count,
+              x = (column + 0.5) / count,
+              dx = around(fu - x);
+            for (const [top, bottom] of columns[column]) {
+              const yTop = (top + 0.5) / wires,
+                yBottom = (bottom + 0.5) / wires,
+                ey = fv < yTop ? fv - yTop : fv > yBottom ? fv - yBottom : 0,
+                link = clamp(1 - (dx * dx + ey * ey) / linkSquared),
+                dotTop = clamp(
+                  1 - (dx * dx + (fv - yTop) * (fv - yTop)) / dotSquared,
+                ),
+                dotBottom = clamp(
+                  1 - (dx * dx + (fv - yBottom) * (fv - yBottom)) / dotSquared,
+                );
+              openLink *= 1 - link * link;
+              openDot *= (1 - dotTop * dotTop) * (1 - dotBottom * dotBottom);
+            }
+          }
+          const total = 1 - (1 - wireT * wireT) * openLink * openDot,
+            mask = smooth(clamp(total / p.edgeSoft)),
+            tone =
+              p.toneSpan *
+              (p.wireTone +
+                p.linkGain * (1 - openLink) +
+                p.dotGain * (1 - openDot)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * total * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -53292,6 +53421,7 @@ export function createSurfaceSampler(
     kind === 'gabrielgraph' ||
     kind === 'euclideanmst' ||
     kind === 'relativeneighborhood' ||
+    kind === 'sortingnetwork' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

@@ -1061,6 +1061,7 @@ export type ProceduralMaterialKind =
   | 'gabrielgraph'
   | 'euclideanmst'
   | 'relativeneighborhood'
+  | 'sortingnetwork'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2370,6 +2371,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'gabrielgraph',
   'euclideanmst',
   'relativeneighborhood',
+  'sortingnetwork',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
