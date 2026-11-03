@@ -38556,6 +38556,125 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'tetrominoes': {
+        const p = proceduralMaterialPresets.tetrominoes,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x32801),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          size =
+            p.sizes[Math.floor(hash(3, 1, seed ^ 0x32802) * p.sizes.length)],
+          cells = size * size,
+          // Every distinct turn of every piece type, its cells as offsets sorted by row then column.
+          turns: { type: number; xs: number[]; ys: number[] }[] = [],
+          // The piece covering each cell, and the type of each piece.
+          owner = new Int16Array(cells),
+          types: number[] = [];
+        p.shapes.forEach((shape, type) => {
+          let xs = shape.map((cell) => cell[0]),
+            ys = shape.map((cell) => cell[1]);
+          const seen = new Set<string>();
+          for (let turn = 0; turn < 4; turn++) {
+            const minX = Math.min(...xs),
+              minY = Math.min(...ys),
+              sorted = xs
+                .map((x, i) => [x - minX, ys[i] - minY])
+                .sort((a, b) => a[1] - b[1] || a[0] - b[0]),
+              key = sorted.join(';');
+            if (!seen.has(key)) {
+              seen.add(key);
+              turns.push({
+                type,
+                xs: sorted.map((cell) => cell[0]),
+                ys: sorted.map((cell) => cell[1]),
+              });
+            }
+            // A quarter turn: (x, y) becomes (-y, x).
+            [xs, ys] = [ys.map((y) => -y), xs];
+          }
+        });
+        // A shuffled depth-first search that always covers the first empty cell with the first cell of a piece.
+        let counter = 0,
+          steps = 0;
+        const search = (attempt: number): boolean => {
+          const first = owner.indexOf(-1);
+          if (first < 0) return true;
+          if (++steps > p.steps) return false;
+          const order = turns.map((_, i) => i);
+          for (let i = order.length - 1; i > 0; i--) {
+            const j = Math.floor(
+              hash(counter++, attempt, seed ^ 0x32803) * (i + 1),
+            );
+            [order[i], order[j]] = [order[j], order[i]];
+          }
+          const column = first % size,
+            row = Math.floor(first / size);
+          for (const index of order) {
+            const turn = turns[index],
+              covered = turn.xs.map(
+                (x, k) =>
+                  ((row + turn.ys[k] - turn.ys[0]) % size) * size +
+                  ((column + size + x - turn.xs[0]) % size),
+              );
+            if (covered.every((cell) => owner[cell] === -1)) {
+              const id = types.length;
+              types.push(turn.type);
+              for (const cell of covered) owner[cell] = id;
+              if (search(attempt)) return true;
+              for (const cell of covered) owner[cell] = -1;
+              types.pop();
+            }
+          }
+          return false;
+        };
+        let found = false;
+        for (let attempt = 0; attempt < p.tries && !found; attempt++) {
+          owner.fill(-1);
+          types.length = 0;
+          steps = 0;
+          found = search(attempt);
+        }
+        if (!found) {
+          // Rows of horizontal I pieces.
+          types.length = 0;
+          for (let i = 0; i < cells; i++) {
+            const id =
+              Math.floor(i / size) * (size / 4) + Math.floor((i % size) / 4);
+            owner[i] = id;
+            types[id] = 0;
+          }
+        }
+        return () => {
+          const fx = (u - Math.floor(u)) * size,
+            fy = (v - Math.floor(v)) * size,
+            column = Math.floor(fx),
+            row = Math.floor(fy),
+            piece = owner[row * size + column],
+            left = owner[row * size + ((column + size - 1) % size)],
+            right = owner[row * size + ((column + 1) % size)],
+            above = owner[((row + size - 1) % size) * size + column],
+            below = owner[((row + 1) % size) * size + column];
+          // Distance to the nearest edge shared with a different piece, in uv.
+          let nearest = Infinity;
+          if (left !== piece) nearest = Math.min(nearest, fx - column);
+          if (right !== piece) nearest = Math.min(nearest, column + 1 - fx);
+          if (above !== piece) nearest = Math.min(nearest, fy - row);
+          if (below !== piece) nearest = Math.min(nearest, row + 1 - fy);
+          const line = cover(p.lineHalf - nearest / size),
+            rank = types[piece] / (p.shapes.length - 1),
+            tone = p.tones[types[piece]];
+          color = clamp(
+            tone +
+              (p.lineTone - tone) * line +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          const elevation = p.lowHeight + (p.highHeight - p.lowHeight) * rank;
+          height = clamp(elevation + (p.lineHeight - elevation) * line);
+          roughness =
+            p.pieceRoughness + (p.lineRoughness - p.pieceRoughness) * line;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -66085,6 +66204,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'tetrominoes' ||
     kind === 'candlestickcharts' ||
     kind === 'paleygraphmatrix' ||
     kind === 'superformulacells' ||

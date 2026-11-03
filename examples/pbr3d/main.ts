@@ -711,6 +711,7 @@ try {
     'dcbarreljackfaces',
     'stfiberadapterfaces',
     'to92packagefaces',
+    'tetrominoes',
     'candlestickcharts',
     'paleygraphmatrix',
     'superformulacells',

@@ -32357,3 +32357,251 @@ describe('candlestickcharts: closed candlestick series in stacked panels', () =>
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('tetrominoes: a grid tiled exactly by tetrominoes', () => {
+  const p = proceduralMaterialPresets.tetrominoes;
+  // The seven tetromino types in the order of the preset (I, O, T, S, Z, J, L), found again from the cells of a piece alone: every
+  // quarter turn of each type, normalised to the corner and sorted, gives a key. Turning over is not allowed, so S and Z (and J and L)
+  // have different keys.
+  const keyOf = (cells: number[][]): string => {
+    const minX = Math.min(...cells.map((cell) => cell[0])),
+      minY = Math.min(...cells.map((cell) => cell[1]));
+    return cells
+      .map(([x, y]) => `${x - minX},${y - minY}`)
+      .sort()
+      .join(';');
+  };
+  const typeByKey = new Map<string, number>();
+  p.shapes.forEach((shape, type) => {
+    let cells = shape.map((cell) => [...cell]);
+    for (let turn = 0; turn < 4; turn++) {
+      typeByKey.set(keyOf(cells), type);
+      cells = cells.map(([x, y]) => [-y, x]);
+    }
+  });
+  const toneClass = (tone: number): number =>
+    p.tones.findIndex((value) => Math.abs(tone - value) < 0.05);
+
+  type Reading = {
+    size: number;
+    classes: number[];
+    pieces: number[];
+    count: number;
+  };
+  // Reads an n x n grid: the tone class in the middle of every cell, and which neighbouring cells are separated by a dark line at the
+  // middle of their shared edge; returns the pieces (groups of cells not separated by lines, wrapping round), or null when the grid
+  // does not read as a tiling by tetrominoes of the right tones.
+  const readGrid = (seed: number, n: number): Reading | null => {
+    const sample = createSurfaceSampler('tetrominoes', seed),
+      out = empty(),
+      classes: number[] = [],
+      right: boolean[] = [],
+      below: boolean[] = [];
+    for (let row = 0; row < n; row++)
+      for (let column = 0; column < n; column++) {
+        sample((column + 0.5) / n, (row + 0.5) / n, out);
+        classes.push(toneClass(out.color));
+        sample((column + 1) / n, (row + 0.5) / n, out);
+        right.push(out.color < 0.11);
+        sample((column + 0.5) / n, (row + 1) / n, out);
+        below.push(out.color < 0.11);
+      }
+    if (classes.includes(-1)) return null;
+    // Group the cells: breadth-first search over neighbours not separated by a line, keeping unwrapped coordinates.
+    const pieces = new Array<number>(n * n).fill(-1);
+    let count = 0;
+    for (let start = 0; start < n * n; start++) {
+      if (pieces[start] >= 0) continue;
+      const cells: number[][] = [],
+        queue: number[][] = [
+          [start % n, Math.floor(start / n), start % n, Math.floor(start / n)],
+        ];
+      pieces[start] = count;
+      while (queue.length > 0) {
+        const [column, row, x, y] = queue.shift() as number[];
+        cells.push([x, y]);
+        const here = row * n + column,
+          neighbours = [
+            [(column + 1) % n, row, x + 1, y, !right[here]],
+            [
+              (column + n - 1) % n,
+              row,
+              x - 1,
+              y,
+              !right[row * n + ((column + n - 1) % n)],
+            ],
+            [column, (row + 1) % n, x, y + 1, !below[here]],
+            [
+              column,
+              (row + n - 1) % n,
+              x,
+              y - 1,
+              !below[((row + n - 1) % n) * n + column],
+            ],
+          ];
+        for (const [nc, nr, nx, ny, joined] of neighbours) {
+          if (joined && pieces[(nr as number) * n + (nc as number)] < 0) {
+            pieces[(nr as number) * n + (nc as number)] = count;
+            queue.push([
+              nc as number,
+              nr as number,
+              nx as number,
+              ny as number,
+            ]);
+          }
+        }
+      }
+      // A tetromino of the type whose tone every cell has.
+      const type = typeByKey.get(keyOf(cells));
+      if (cells.length !== 4 || type === undefined) return null;
+      if (
+        cells.some(
+          ([x, y]) =>
+            classes[(((y % n) + n) % n) * n + (((x % n) + n) % n)] !== type,
+        )
+      )
+        return null;
+      count++;
+    }
+    return { size: n, classes, pieces, count };
+  };
+  const readingOf = (seed: number): Reading => {
+    const found = p.sizes
+      .map((n) => readGrid(seed, n))
+      .filter((reading) => reading !== null);
+    expect(found).toHaveLength(1);
+    return found[0];
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'covers the grid exactly with tetrominoes, each in the tone of its type (seed %i)',
+    (seed) => {
+      const { size, classes, count } = readingOf(seed);
+      expect(count).toBe((size * size) / 4);
+      // Several types occur, and the pieces are not all alike.
+      expect(new Set(classes).size).toBeGreaterThanOrEqual(5);
+    },
+  );
+
+  it('uses both grid sizes and every piece type across seeds', () => {
+    const sizes = new Set<number>(),
+      types = new Set<number>();
+    for (let seed = 0; seed < 30; seed++) {
+      const { size, classes } = readingOf(seed);
+      sizes.add(size);
+      for (const type of classes) types.add(type);
+    }
+    expect([...sizes].sort((a, b) => a - b)).toEqual([...p.sizes]);
+    expect(types.size).toBe(p.shapes.length);
+  });
+
+  it('draws lines of half width 0.0016 between different pieces only, and sets height and roughness', () => {
+    for (const seed of seeds) {
+      const { size, classes, pieces } = readingOf(seed),
+        sample = createSurfaceSampler('tetrominoes', seed),
+        out = empty();
+      let lines = 0,
+        joins = 0;
+      for (let row = 0; row < size; row++)
+        for (let column = 0; column < size; column++) {
+          const here = row * size + column,
+            type = classes[here];
+          // Inside a cell: the tone, the height and the roughness of the type.
+          sample((column + 0.5) / size, (row + 0.5) / size, out);
+          expect(Math.abs(out.color - p.tones[type])).toBeLessThan(0.03);
+          expect(
+            Math.abs(
+              out.height / p.relief -
+                (p.lowHeight +
+                  ((p.highHeight - p.lowHeight) * type) /
+                    (p.shapes.length - 1)),
+            ),
+          ).toBeLessThan(0.03);
+          expect(Math.abs(out.roughness - p.pieceRoughness)).toBeLessThan(0.03);
+          // The edge to the right and the edge below, each read in the middle of the edge and across it.
+          for (const across of [true, false]) {
+            const next = across
+                ? row * size + ((column + 1) % size)
+                : ((row + 1) % size) * size + column,
+              at = (offset: number): void =>
+                across
+                  ? sample(
+                      (column + 1) / size + offset,
+                      (row + 0.5) / size,
+                      out,
+                    )
+                  : sample(
+                      (column + 0.5) / size,
+                      (row + 1) / size + offset,
+                      out,
+                    );
+            if (pieces[here] !== pieces[next]) {
+              // Between two pieces: dark within 0.0011 either side, each cell's own tone from 0.0024.
+              for (const offset of [0, 0.0011, -0.0011]) {
+                at(offset);
+                expect(out.color).toBeLessThan(0.12);
+              }
+              expect(
+                Math.abs(out.height / p.relief - p.lineHeight),
+              ).toBeLessThan(0.05);
+              expect(Math.abs(out.roughness - p.lineRoughness)).toBeLessThan(
+                0.05,
+              );
+              at(-0.0024);
+              expect(Math.abs(out.color - p.tones[type])).toBeLessThan(0.03);
+              at(0.0024);
+              expect(Math.abs(out.color - p.tones[classes[next]])).toBeLessThan(
+                0.03,
+              );
+              lines++;
+            } else {
+              // Inside a piece: no line on the shared edge, from either side.
+              for (const offset of [0, 0.0008, -0.0008]) {
+                at(offset);
+                expect(Math.abs(out.color - p.tones[type])).toBeLessThan(0.03);
+              }
+              joins++;
+            }
+          }
+        }
+      expect(lines).toBeGreaterThan(size);
+      expect(joins).toBeGreaterThan(size);
+    }
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('tetrominoes', 0),
+      b = createSurfaceSampler('tetrominoes', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

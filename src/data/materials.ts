@@ -13377,6 +13377,75 @@ export const proceduralMaterialPresets = Object.freeze({
     bodyRoughness: 0.45,
     wickRoughness: 0.4,
   }),
+  tetrominoes: Object.freeze({
+    dark: [28, 24, 40] as const,
+    light: [246, 242, 228] as const,
+    roughness: 0.58,
+    relief: 0.004,
+    // Tetromino tiling: the tile is a 8 x 8 or 12 x 12 grid of cells (the seed picks) covered exactly by tetrominoes, none turned over:
+    // I, O, T, S, Z, J and L, each in its four turns. The seed shuffles a depth-first search for a tiling of the grid with wrap-around
+    // (50 tries of at most 20000 steps each; if none succeeds, rows of horizontal I pieces are used). A piece is filled with the tone of
+    // its type, and a dark line separates cells that belong to different pieces.
+    sizes: Object.freeze([8, 12]),
+    // The cells [x, y] of each piece type in one turn; the other turns are found by quarter turns.
+    shapes: Object.freeze([
+      Object.freeze([
+        [0, 0],
+        [1, 0],
+        [2, 0],
+        [3, 0],
+      ]),
+      Object.freeze([
+        [0, 0],
+        [1, 0],
+        [0, 1],
+        [1, 1],
+      ]),
+      Object.freeze([
+        [0, 0],
+        [1, 0],
+        [2, 0],
+        [1, 1],
+      ]),
+      Object.freeze([
+        [1, 0],
+        [2, 0],
+        [0, 1],
+        [1, 1],
+      ]),
+      Object.freeze([
+        [0, 0],
+        [1, 0],
+        [1, 1],
+        [2, 1],
+      ]),
+      Object.freeze([
+        [0, 0],
+        [0, 1],
+        [1, 1],
+        [2, 1],
+      ]),
+      Object.freeze([
+        [2, 0],
+        [0, 1],
+        [1, 1],
+        [2, 1],
+      ]),
+    ]),
+    tones: Object.freeze([0.16, 0.28, 0.4, 0.52, 0.64, 0.76, 0.88]),
+    tries: 50,
+    steps: 20000,
+    lineHalf: 0.0016,
+    edgeSoft: 0.001,
+    grainCells: 192,
+    lineTone: 0.05,
+    grainTone: 0.03,
+    lowHeight: 0.35,
+    highHeight: 0.9,
+    lineHeight: 0.05,
+    pieceRoughness: 0.5,
+    lineRoughness: 0.7,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -19869,6 +19938,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  tetrominoes: 1,
   candlestickcharts: 1,
   paleygraphmatrix: 1,
   superformulacells: 1,

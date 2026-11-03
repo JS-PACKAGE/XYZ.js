@@ -2033,6 +2033,10 @@
 
 這是作者設計的示意：價格是隨機走勢，不是任何市場資料，也不代表交易訊號；所謂「封閉」只是為了讓tile無縫。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`tetrominoes`（四格骨牌鋪面）使目前目錄1116→1117種，含plain的gallery為1118項。tile是8×8或12×12個格子（seed決定），由七種四格骨牌（I、O、T、S、Z、J、L，只轉不翻面，各四個方向）剛好鋪滿且環繞相接；seed洗牌後以深度優先搜尋找出一種鋪法（最多50次嘗試、每次至多20000步；若都失敗改用水平I形排滿，我量測的300個seed沒有出現過這種情形），每片依種類填上七種灰階之一，不同片之間的格邊有深色線。Metallic與mortar為0。
+
+這是作者設計的示意：七種色調只用亮度區分；不宣稱鋪法在統計上均勻（搜尋順序有偏）或每個seed都含全部七種骨牌。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

@@ -21751,6 +21751,86 @@ var proceduralMaterialPresets = Object.freeze({
 		bodyRoughness: .45,
 		wickRoughness: .4
 	}),
+	tetrominoes: Object.freeze({
+		dark: [
+			28,
+			24,
+			40
+		],
+		light: [
+			246,
+			242,
+			228
+		],
+		roughness: .58,
+		relief: .004,
+		sizes: Object.freeze([8, 12]),
+		shapes: Object.freeze([
+			Object.freeze([
+				[0, 0],
+				[1, 0],
+				[2, 0],
+				[3, 0]
+			]),
+			Object.freeze([
+				[0, 0],
+				[1, 0],
+				[0, 1],
+				[1, 1]
+			]),
+			Object.freeze([
+				[0, 0],
+				[1, 0],
+				[2, 0],
+				[1, 1]
+			]),
+			Object.freeze([
+				[1, 0],
+				[2, 0],
+				[0, 1],
+				[1, 1]
+			]),
+			Object.freeze([
+				[0, 0],
+				[1, 0],
+				[1, 1],
+				[2, 1]
+			]),
+			Object.freeze([
+				[0, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1]
+			]),
+			Object.freeze([
+				[2, 0],
+				[0, 1],
+				[1, 1],
+				[2, 1]
+			])
+		]),
+		tones: Object.freeze([
+			.16,
+			.28,
+			.4,
+			.52,
+			.64,
+			.76,
+			.88
+		]),
+		tries: 50,
+		steps: 2e4,
+		lineHalf: .0016,
+		edgeSoft: .001,
+		grainCells: 192,
+		lineTone: .05,
+		grainTone: .03,
+		lowHeight: .35,
+		highHeight: .9,
+		lineHeight: .05,
+		pieceRoughness: .5,
+		lineRoughness: .7
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -30432,6 +30512,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	tetrominoes: 1,
 	candlestickcharts: 1,
 	paleygraphmatrix: 1,
 	superformulacells: 1,
