@@ -1161,6 +1161,7 @@ try {
     'wallpapergroups',
     'sphericalharmonics',
     'cylinderflow',
+    'fieldlines',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

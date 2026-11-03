@@ -48795,6 +48795,97 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'fieldlines': {
+        const p = proceduralMaterialPresets.fieldlines,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          charges =
+            p.variants[
+              Math.floor(hash(0, 74, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          // The field of line charges q at (x, y) in the plane: the potential is the sum of q ln r, the field is its gradient
+          // sum of q (position - charge) / r^2, and the field lines are the contours of the sum of q atan2(...), whose jump
+          // across a branch cut is 2 pi q, a whole number of the line spacing 2 pi / linesPerCharge, so the lines are the same
+          // on either side. Each charge then sends out linesPerCharge |q| lines (Gauss's law).
+          lineSpacing = (2 * Math.PI) / p.linesPerCharge,
+          half = 0.5 - p.margin,
+          fieldWidthSquared = p.fieldHalfWidth * p.fieldHalfWidth,
+          potentialWidthSquared = p.potentialHalfWidth * p.potentialHalfWidth,
+          chargeSquared = p.chargeRadius * p.chargeRadius,
+          inverseSoft = 1 / p.edgeSoft;
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            x = ((fu - 0.5) / half) * p.extent,
+            y = ((0.5 - fv) / half) * p.extent,
+            outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
+            outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
+            boxDistance =
+              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              Math.min(Math.max(outsideX, outsideY), 0);
+          let angle = 0,
+            potential = 0,
+            fieldX = 0,
+            fieldY = 0,
+            keepCharge = 1;
+          for (const [cx, cy, q] of charges) {
+            const dx = x - cx,
+              dy = y - cy,
+              distanceSquared = dx * dx + dy * dy;
+            angle += q * Math.atan2(dy, dx);
+            potential += 0.5 * q * Math.log(distanceSquared);
+            fieldX += (q * dx) / distanceSquared;
+            fieldY += (q * dy) / distanceSquared;
+            // Each charge, of either sign, is a small disc (the lines merge inside it anyway).
+            const disc = clamp(1 - distanceSquared / chargeSquared);
+            keepCharge *= 1 - disc * disc;
+          }
+          const speedSquared = fieldX * fieldX + fieldY * fieldY + p.regularise,
+            fieldLevel = Math.round(angle / lineSpacing),
+            potentialLevel = Math.round(potential / p.potentialSpacing);
+          let keepField = 1,
+            keepPotential = 1;
+          for (let k = -1; k <= 1; k++) {
+            const lineGap = angle - (fieldLevel + k) * lineSpacing,
+              potentialGap =
+                potential - (potentialLevel + k) * p.potentialSpacing,
+              fieldT = clamp(
+                1 - (lineGap * lineGap) / (speedSquared * fieldWidthSquared),
+              ),
+              potentialT = clamp(
+                1 -
+                  (potentialGap * potentialGap) /
+                    (speedSquared * potentialWidthSquared),
+              );
+            keepField *= 1 - fieldT * fieldT;
+            keepPotential *= 1 - potentialT * potentialT;
+          }
+          const inside = smooth(clamp(-boxDistance / p.fade)),
+            ink = clamp(
+              inside *
+                (p.lineTone * (1 - keepField) +
+                  p.potentialTone * (1 - keepPotential) * keepField +
+                  p.chargeTone * (1 - keepCharge)),
+            ),
+            mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(ink) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -57694,6 +57785,7 @@ export function createSurfaceSampler(
     kind === 'wallpapergroups' ||
     kind === 'sphericalharmonics' ||
     kind === 'cylinderflow' ||
+    kind === 'fieldlines' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

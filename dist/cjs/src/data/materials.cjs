@@ -27040,6 +27040,141 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: .08,
 		gapOcclusion: .4
 	}),
+	fieldlines: Object.freeze({
+		dark: [
+			14,
+			6,
+			22
+		],
+		light: [
+			255,
+			170,
+			235
+		],
+		roughness: .38,
+		relief: 8e-4,
+		seedSalt: 23577,
+		margin: .05,
+		fade: .012,
+		extent: 2.2,
+		linesPerCharge: 12,
+		potentialSpacing: .2,
+		fieldHalfWidth: .02,
+		potentialHalfWidth: .014,
+		potentialTone: .4,
+		chargeRadius: .13,
+		regularise: 1e-4,
+		variants: [
+			[[
+				-.8,
+				0,
+				1
+			], [
+				.8,
+				0,
+				-1
+			]],
+			[[
+				-.8,
+				0,
+				1
+			], [
+				.8,
+				0,
+				1
+			]],
+			[
+				[
+					-.9,
+					0,
+					2
+				],
+				[
+					.7,
+					.7,
+					-1
+				],
+				[
+					.7,
+					-.7,
+					-1
+				]
+			],
+			[
+				[
+					-.8,
+					-.8,
+					1
+				],
+				[
+					.8,
+					-.8,
+					-1
+				],
+				[
+					.8,
+					.8,
+					1
+				],
+				[
+					-.8,
+					.8,
+					-1
+				]
+			],
+			[
+				[
+					0,
+					.9,
+					1
+				],
+				[
+					-.8,
+					-.6,
+					1
+				],
+				[
+					.8,
+					-.6,
+					1
+				]
+			],
+			[
+				[
+					-1.2,
+					0,
+					1
+				],
+				[
+					-.4,
+					0,
+					-1
+				],
+				[
+					.4,
+					0,
+					1
+				],
+				[
+					1.2,
+					0,
+					-1
+				]
+			]
+		],
+		edgeSoft: .35,
+		grainCells: 128,
+		gapTone: .04,
+		toneFloor: .14,
+		toneSpan: .72,
+		lineTone: .9,
+		chargeTone: 1,
+		grainTone: .03,
+		cellHeight: .8,
+		toneHeight: .12,
+		grainHeight: .08,
+		gapOcclusion: .4
+	}),
 	vermiculation: Object.freeze({
 		dark: [
 			60,
@@ -29122,6 +29257,7 @@ var proceduralTileMeters = Object.freeze({
 	wallpapergroups: .5,
 	sphericalharmonics: .5,
 	cylinderflow: .5,
+	fieldlines: .5,
 	dominotiling: .5,
 	vermiculation: .4,
 	kikko: .3,

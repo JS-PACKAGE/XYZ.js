@@ -16448,6 +16448,36 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.08;
         gapOcclusion: 0.4;
     }>;
+    fieldlines: Readonly<{
+        dark: readonly [14, 6, 22];
+        light: readonly [255, 170, 235];
+        roughness: 0.38;
+        relief: 0.0008;
+        seedSalt: 23577;
+        margin: 0.05;
+        fade: 0.012;
+        extent: 2.2;
+        linesPerCharge: 12;
+        potentialSpacing: 0.2;
+        fieldHalfWidth: 0.02;
+        potentialHalfWidth: 0.014;
+        potentialTone: 0.4;
+        chargeRadius: 0.13;
+        regularise: 0.0001;
+        variants: readonly [readonly [readonly [-0.8, 0, 1], readonly [0.8, 0, -1]], readonly [readonly [-0.8, 0, 1], readonly [0.8, 0, 1]], readonly [readonly [-0.9, 0, 2], readonly [0.7, 0.7, -1], readonly [0.7, -0.7, -1]], readonly [readonly [-0.8, -0.8, 1], readonly [0.8, -0.8, -1], readonly [0.8, 0.8, 1], readonly [-0.8, 0.8, -1]], readonly [readonly [0, 0.9, 1], readonly [-0.8, -0.6, 1], readonly [0.8, -0.6, 1]], readonly [readonly [-1.2, 0, 1], readonly [-0.4, 0, -1], readonly [0.4, 0, 1], readonly [1.2, 0, -1]]];
+        edgeSoft: 0.35;
+        grainCells: 128;
+        gapTone: 0.04;
+        toneFloor: 0.14;
+        toneSpan: 0.72;
+        lineTone: 0.9;
+        chargeTone: 1;
+        grainTone: 0.03;
+        cellHeight: 0.8;
+        toneHeight: 0.12;
+        grainHeight: 0.08;
+        gapOcclusion: 0.4;
+    }>;
     vermiculation: Readonly<{
         dark: readonly [60, 48, 36];
         light: readonly [220, 204, 172];
@@ -18208,6 +18238,7 @@ export declare const proceduralTileMeters: Readonly<{
     wallpapergroups: 0.5;
     sphericalharmonics: 0.5;
     cylinderflow: 0.5;
+    fieldlines: 0.5;
     dominotiling: 0.5;
     vermiculation: 0.4;
     kikko: 0.3;

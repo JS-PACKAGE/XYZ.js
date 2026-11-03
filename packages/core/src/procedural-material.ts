@@ -1098,6 +1098,7 @@ export type ProceduralMaterialKind =
   | 'wallpapergroups'
   | 'sphericalharmonics'
   | 'cylinderflow'
+  | 'fieldlines'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2444,6 +2445,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'wallpapergroups',
   'sphericalharmonics',
   'cylinderflow',
+  'fieldlines',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

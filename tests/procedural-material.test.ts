@@ -1124,6 +1124,7 @@ const kinds: ProceduralMaterialKind[] = [
   'wallpapergroups',
   'sphericalharmonics',
   'cylinderflow',
+  'fieldlines',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -186061,6 +186062,409 @@ describe('Cylinder flow as the streamlines of potential flow past a cylinder', (
     expect(blue / (512 * 512)).toBeLessThan(49.8);
     expect(maxTilt).toBeGreaterThan(0.0442);
     expect(maxTilt).toBeLessThan(0.0452);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Field lines as the field lines and equipotentials of line charges', () => {
+  const p = proceduralMaterialPresets.fieldlines;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const size = 512,
+    half = 0.5 - p.margin,
+    spacing = (2 * Math.PI) / p.linesPerCharge;
+  type Charges = readonly (readonly [number, number, number])[];
+  /** The position in the plane (y up) of a tile position, and the tile position of a position in the plane. */
+  const world = (u: number, v: number): [number, number] => [
+    ((u - 0.5) / half) * p.extent,
+    ((0.5 - v) / half) * p.extent,
+  ];
+  const tilePosition = (x: number, y: number): [number, number] => [
+    0.5 + (x / p.extent) * half,
+    0.5 - (y / p.extent) * half,
+  ];
+  /** The field of line charges (the sum of q (position - charge) / r^2) and the sum of q atan2 whose contours are the field lines. */
+  const fieldOf = (charges: Charges, x: number, y: number) => {
+    let fieldX = 0,
+      fieldY = 0,
+      angle = 0;
+    for (const [cx, cy, q] of charges) {
+      const dx = x - cx,
+        dy = y - cy,
+        squared = dx * dx + dy * dy;
+      fieldX += (q * dx) / squared;
+      fieldY += (q * dy) / squared;
+      angle += q * Math.atan2(dy, dx);
+    }
+    return { fieldX, fieldY, angle };
+  };
+  const readTile = (seed: number): Float32Array => {
+    const sample = createSurfaceSampler('fieldlines', seed),
+      out = empty(),
+      image = new Float32Array(size * size);
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        image[y * size + x] = out.color;
+      }
+    return image;
+  };
+  const insidePlot = (x: number, y: number, extra: number): boolean => {
+    const u = (x + 0.5) / size,
+      v = (y + 0.5) / size;
+    return (
+      u >= p.margin + extra &&
+      u <= 1 - p.margin - extra &&
+      v >= p.margin + extra &&
+      v <= 1 - p.margin - extra
+    );
+  };
+  const nearCharge = (
+    charges: Charges,
+    x: number,
+    y: number,
+    distance: number,
+  ): boolean =>
+    charges.some(([cx, cy]) => Math.hypot(x - cx, y - cy) < distance);
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('fieldlines', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('fieldlines', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0253);
+      expect(low).toBeLessThan(0.0259);
+      expect(high).toBeGreaterThan(0.869);
+      expect(high).toBeLessThan(0.874);
+      expect(dark / 65536).toBeGreaterThan(0.04);
+      expect(dark / 65536).toBeLessThan(0.064);
+      expect(mean / 65536).toBeGreaterThan(0.088);
+      expect(mean / 65536).toBeLessThan(0.12);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.869);
+      expect(heightHigh).toBeLessThan(0.876);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The charges for each of the seeds 12, 0, 2, 38, 4 and 1 (the variants 0 to 5: a dipole, an equal pair, 2 : -1 : -1, a quadrupole, three
+  // equal charges and four alternating along a line) were found with a probe by the fit to the independent field lines and are
+  // written here, so that table is not an independent check of the seed's choice.
+  const seeds = [12, 0, 2, 38, 4, 1];
+  it('draws the field lines of its own charges and not those of the others', () => {
+    // Of the pixels with a colour above 0.5 more than 0.4 from every charge (4559 to 11704 per variant in the probe), the
+    // fraction lying within 0.8 of the half width of the line (first order, in the plane: the difference in the sum of q atan2 to a multiple
+    // of 2 pi / 12 divided by the strength of the field) is above 0.99 for the charges of the seed (1.000 in the
+    // probe) and below 0.4 for the charges of each other variant (0.22 at most in the probe).
+    seeds.forEach((seed, index) => {
+      const image = readTile(seed),
+        bright: [number, number][] = [];
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          if (image[y * size + x] <= 0.5 || !insidePlot(x, y, 0.02)) continue;
+          const [wx, wy] = world((x + 0.5) / size, (y + 0.5) / size);
+          if (!nearCharge(p.variants[index], wx, wy, 0.4))
+            bright.push([wx, wy]);
+        }
+      expect(bright.length).toBeGreaterThan(4000);
+      p.variants.forEach((charges, other) => {
+        let fits = 0;
+        for (const [wx, wy] of bright) {
+          const { fieldX, fieldY, angle } = fieldOf(charges, wx, wy);
+          fits += Number(
+            Math.abs(angle - Math.round(angle / spacing) * spacing) /
+              Math.hypot(fieldX, fieldY) <
+              0.8 * p.fieldHalfWidth,
+          );
+        }
+        if (other === index) expect(fits / bright.length).toBeGreaterThan(0.99);
+        else expect(fits / bright.length).toBeLessThan(0.4);
+      });
+    });
+  });
+  it("sends out 12 |q| field lines from each charge (Gauss's law)", () => {
+    // Around each charge, on a circle of radius 0.35 (in the plane) the number of separate runs of pixels with a colour above 0.5 (the
+    // field lines; the equipotentials are dimmer) is 12 times the size of the charge: 12 for a charge of 1 and 24 for a charge
+    // of 2, for all 18 charges of the 6 variants in the probe.
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('fieldlines', seed),
+        out = empty();
+      for (const [cx, cy, q] of p.variants[index]) {
+        const lit: boolean[] = [];
+        for (let i = 0; i < 1440; i++) {
+          const angle = (2 * Math.PI * i) / 1440,
+            [u, v] = tilePosition(
+              cx + 0.35 * Math.cos(angle),
+              cy + 0.35 * Math.sin(angle),
+            );
+          sample(u, v, out);
+          lit.push(out.color > 0.5);
+        }
+        let runs = 0;
+        for (let i = 0; i < 1440; i++)
+          if (lit[i] && !lit[(i + 1439) % 1440]) runs++;
+        expect(runs).toBe(p.linesPerCharge * Math.abs(q));
+      }
+    });
+  });
+  it('runs along the field: the lines have the direction of the field', () => {
+    // At every third pixel of the 512 by 512 reading with a colour above 0.75 (the middle of a field line) more than 0.6 from every
+    // charge, whose neighbourhood (radius 4 pixels, colour above 0.5) has at least 8 pixels and is clearly elongated (the larger
+    // eigenvalue of the covariance at least 3 times the smaller), the angle of the line differs from that of the field by
+    // under 11.5 degrees (|sin| below 0.2) for all of the 108 to 317 pixels per variant (0.127 at the worst in the probe).
+    seeds.forEach((seed, index) => {
+      const charges = p.variants[index],
+        image = readTile(seed);
+      let tested = 0,
+        worst = 0;
+      for (let y = 8; y < size - 8; y += 3)
+        for (let x = 8; x < size - 8; x += 3) {
+          if (image[y * size + x] < 0.75 || !insidePlot(x, y, 0.04)) continue;
+          const [wx, wy] = world((x + 0.5) / size, (y + 0.5) / size);
+          if (nearCharge(charges, wx, wy, 0.6)) continue;
+          const points: [number, number][] = [];
+          let meanX = 0,
+            meanY = 0;
+          for (let dy = -4; dy <= 4; dy++)
+            for (let dx = -4; dx <= 4; dx++)
+              if (
+                dx * dx + dy * dy <= 16 &&
+                image[(y + dy) * size + x + dx] > 0.5
+              ) {
+                points.push([dx, dy]);
+                meanX += dx;
+                meanY += dy;
+              }
+          if (points.length < 8) continue;
+          meanX /= points.length;
+          meanY /= points.length;
+          let sxx = 0,
+            syy = 0,
+            sxy = 0;
+          for (const [dx, dy] of points) {
+            sxx += (dx - meanX) ** 2;
+            syy += (dy - meanY) ** 2;
+            sxy += (dx - meanX) * (dy - meanY);
+          }
+          const trace = sxx + syy,
+            spread = Math.sqrt(
+              Math.max(0, (trace * trace) / 4 - (sxx * syy - sxy * sxy)),
+            );
+          if (trace / 2 + spread < 3 * Math.max(trace / 2 - spread, 1e-9))
+            continue;
+          const { fieldX, fieldY } = fieldOf(charges, wx, wy),
+            difference = Math.abs(
+              Math.sin(
+                0.5 * Math.atan2(2 * sxy, sxx - syy) -
+                  Math.atan2(-fieldY, fieldX),
+              ),
+            );
+          tested++;
+          worst = Math.max(worst, difference);
+        }
+      expect(tested).toBeGreaterThan(80);
+      expect(worst).toBeLessThan(0.2);
+    });
+  });
+  it('is mirror symmetric as far as its charges are', () => {
+    // Reversing the sign of every charge leaves the field lines and the set of equipotentials unchanged, so a mirror image of the
+    // charges that is the same up to sign leaves the picture unchanged: left to right for the variants 0, 1, 3, 4 and 5, top to bottom for the variants 0, 1, 2,
+    // 3 and 5 (the lit state differs for under 0.003 of the pixels, 0.0011 at most in the probe), and the other
+    // mirrors change it for over 0.05 of them (0.0998 and 0.1071 in the probe).
+    const acrossX = [true, true, false, true, true, true],
+      acrossY = [true, true, true, true, false, true];
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('fieldlines', seed),
+        out = empty(),
+        lit = new Uint8Array(256 * 256);
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+          lit[y * 256 + x] = Number(out.color > 0.5);
+        }
+      let differX = 0,
+        differY = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          differX += Number(lit[y * 256 + x] !== lit[y * 256 + (255 - x)]);
+          differY += Number(lit[y * 256 + x] !== lit[(255 - y) * 256 + x]);
+        }
+      if (acrossX[index]) expect(differX / 65536).toBeLessThan(0.003);
+      else expect(differX / 65536).toBeGreaterThan(0.05);
+      if (acrossY[index]) expect(differY / 65536).toBeLessThan(0.003);
+      else expect(differY / 65536).toBeGreaterThan(0.05);
+    });
+  });
+  it('draws a field line through the null point of the field', () => {
+    // The field of two equal charges vanishes at the middle point (0, 0), and that of three equal charges at the point of
+    // least field strength found by a scan of the plane in steps of 0.01 (0, 0.09, with a strength of 0.0019): a line goes through
+    // each of them (a separatrix, whose value is a multiple of the line spacing by symmetry) and the colour is above 0.7 (0.785 and 0.790 in the probe).
+    const sample = createSurfaceSampler('fieldlines', seeds[1]),
+      out = empty();
+    sample(0.5, 0.5, out);
+    expect(out.color).toBeGreaterThan(0.7);
+    let weakest = [0, 0],
+      least = Infinity;
+    for (let i = -100; i <= 100; i++)
+      for (let j = -100; j <= 100; j++) {
+        const { fieldX, fieldY } = fieldOf(p.variants[4], i * 0.01, j * 0.01),
+          strength = Math.hypot(fieldX, fieldY);
+        if (strength < least) {
+          least = strength;
+          weakest = [i * 0.01, j * 0.01];
+        }
+      }
+    expect(least).toBeLessThan(0.01);
+    const [u, v] = tilePosition(weakest[0], weakest[1]);
+    createSurfaceSampler('fieldlines', seeds[4])(u, v, out);
+    expect(out.color).toBeGreaterThan(0.7);
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 2 pick different charges (the equal pair and 2 : -1 : -1).
+    const first = litGrid(0),
+      second = litGrid(2);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.087);
+    expect(different / first.length).toBeLessThan(0.091);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('fieldlines', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 rose field line maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('fieldlines', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(43.5);
+    expect(red / (512 * 512)).toBeLessThan(44.8);
+    expect(green / (512 * 512)).toBeGreaterThan(25.9);
+    expect(green / (512 * 512)).toBeLessThan(27.2);
+    expect(blue / (512 * 512)).toBeGreaterThan(48);
+    expect(blue / (512 * 512)).toBeLessThan(49.3);
+    expect(maxTilt).toBeGreaterThan(0.0335);
+    expect(maxTilt).toBeLessThan(0.0345);
     expect(invalid).toBe(0);
   });
 });
