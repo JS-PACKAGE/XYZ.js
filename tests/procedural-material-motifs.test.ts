@@ -43003,3 +43003,321 @@ describe('hashchains: a hash table with chaining, the keys in binary in boxes fr
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('huffmancodes: a Huffman code for symbols of different frequencies, as bars and bit squares', () => {
+  const p = proceduralMaterialPresets.huffmancodes,
+    out = empty();
+  type Row = { frequency: number; code: number[] };
+  type Code = { sample: Sampler; rows: Row[] };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const rowY = (row: number): number => p.top + (row + 0.5) * p.rowPitch;
+  const bitCentre = (place: number): number => p.bitX + place * p.bitPitch;
+  // The cost of an optimal prefix code: repeatedly join the two lightest weights, the cost being the sum of the joins (a different way to find it).
+  const optimalCost = (weights: number[]): number => {
+    const pool = weights.slice();
+    let cost = 0;
+    while (pool.length > 1) {
+      pool.sort((a, b) => a - b);
+      const joined = pool[0] + pool[1];
+      cost += joined;
+      pool.splice(0, 2, joined);
+    }
+    return cost;
+  };
+
+  const codeOf = (seed: number): Code => {
+    const sample = createSurfaceSampler('huffmancodes', seed),
+      rows: Row[] = [];
+    for (
+      let row = 0;
+      Math.abs(toneAt(sample, p.barX + p.unit / 2, rowY(row)) - p.barTone) <
+      0.01;
+      row++
+    ) {
+      let frequency = 0;
+      while (
+        Math.abs(
+          toneAt(sample, p.barX + (frequency + 0.5) * p.unit, rowY(row)) -
+            p.barTone,
+        ) < 0.01
+      )
+        frequency++;
+      // The bits, from the left, until the first place with neither a square nor a frame; and none after.
+      const code: number[] = [];
+      for (let place = 0; ; place++) {
+        const cx = bitCentre(place),
+          centre = toneAt(sample, cx, rowY(row)),
+          ring = toneAt(sample, cx + p.bitHalf - p.ringWidth / 2, rowY(row));
+        if (centre < 0.2) code.push(1);
+        else if (Math.abs(ring - p.ringTone) < 0.01) code.push(0);
+        else {
+          for (let later = place; later < place + 3; later++) {
+            expect(toneAt(sample, bitCentre(later), rowY(row))).toBeGreaterThan(
+              0.85,
+            );
+            expect(
+              toneAt(
+                sample,
+                bitCentre(later) + p.bitHalf - p.ringWidth / 2,
+                rowY(row),
+              ),
+            ).toBeGreaterThan(0.85);
+          }
+          break;
+        }
+      }
+      rows.push({ frequency, code });
+    }
+    return { sample, rows };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'is a prefix code that is complete and as cheap as an optimal one, with the most frequent symbol first (seed %i)',
+    (seed) => {
+      const { rows } = codeOf(seed);
+      expect(p.counts).toContain(rows.length);
+      for (const row of rows) {
+        expect(row.frequency).toBeGreaterThanOrEqual(1);
+        expect(row.frequency).toBeLessThanOrEqual(p.maxFrequency);
+        expect(row.code.length).toBeGreaterThanOrEqual(1);
+        expect(row.code.length).toBeLessThanOrEqual(rows.length - 1);
+      }
+      // Rows in order of falling frequency; a more frequent symbol never has the longer code.
+      for (let i = 0; i < rows.length; i++)
+        for (let j = i + 1; j < rows.length; j++) {
+          expect(rows[i].frequency).toBeGreaterThanOrEqual(rows[j].frequency);
+          if (rows[i].frequency > rows[j].frequency)
+            expect(rows[i].code.length).toBeLessThanOrEqual(
+              rows[j].code.length,
+            );
+          // No code is the start of another (or equal to it).
+          const [short, long] =
+            rows[i].code.length <= rows[j].code.length
+              ? [rows[i].code, rows[j].code]
+              : [rows[j].code, rows[i].code];
+          expect(short.every((bit, k) => bit === long[k])).toBe(false);
+        }
+      // Complete: the codes fill the whole code space, so no code could be shortened.
+      expect(
+        rows.reduce((sum, row) => sum + 2 ** -row.code.length, 0),
+      ).toBeCloseTo(1, 12);
+      // As cheap as the optimal code for these frequencies.
+      expect(
+        rows.reduce((sum, row) => sum + row.frequency * row.code.length, 0),
+      ).toBe(optimalCost(rows.map((row) => row.frequency)));
+    },
+  );
+
+  it('uses every number of symbols, frequencies from the whole range skewed to the low ones, and codes of every length, over 60 seeds', () => {
+    const counts = new Set<number>(),
+      lengths = new Set<number>();
+    let total = 0,
+      low = 0,
+      highest = 0,
+      lowest = Infinity;
+    for (let seed = 0; seed < 60; seed++) {
+      const { rows } = codeOf(seed * 37 + 5);
+      counts.add(rows.length);
+      for (const row of rows) {
+        total++;
+        low += Number(row.frequency <= 4);
+        highest = Math.max(highest, row.frequency);
+        lowest = Math.min(lowest, row.frequency);
+        lengths.add(row.code.length);
+      }
+    }
+    expect([...counts].sort((a, b) => a - b)).toEqual([...p.counts]);
+    expect(lowest).toBe(1);
+    expect(highest).toBeGreaterThan(24);
+    expect(low / total).toBeGreaterThan(0.28);
+    expect(low / total).toBeLessThan(0.45);
+    expect([...lengths].sort((a, b) => a - b)).toEqual(
+      [1, 2, 3, 4, 5, 6].filter((length) => length <= Math.max(...lengths)),
+    );
+    expect(Math.max(...lengths)).toBeGreaterThanOrEqual(5);
+  });
+
+  it('draws the bars and the squares with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, rows } = codeOf(seed),
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      rows.forEach((row, r) => {
+        const y = rowY(r),
+          end = p.barX + row.frequency * p.unit;
+        // The bar: its tone, height and roughness; it starts at barX and ends after frequency units, with a half-height of barHalf.
+        expect(toneAt(sample, p.barX + 0.002, y)).toBeCloseTo(p.barTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.barHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(toneAt(sample, end - 0.002, y)).toBeCloseTo(p.barTone, 6);
+        expect(paperOk(end + 0.003, y)).toBe(true);
+        expect(paperOk(p.barX - 0.003, y)).toBe(true);
+        expect(
+          toneAt(sample, (p.barX + end) / 2, y + p.barHalf - 0.002),
+        ).toBeCloseTo(p.barTone, 6);
+        expect(
+          toneAt(sample, (p.barX + end) / 2, y - p.barHalf + 0.002),
+        ).toBeCloseTo(p.barTone, 6);
+        expect(paperOk((p.barX + end) / 2, y + p.barHalf + 0.003)).toBe(true);
+        expect(paperOk((p.barX + end) / 2, y - p.barHalf - 0.003)).toBe(true);
+        row.code.forEach((bit, place) => {
+          const cx = bitCentre(place);
+          if (bit === 1) {
+            expect(toneAt(sample, cx, y)).toBeCloseTo(p.bitOnTone, 6);
+            expect(out.height / p.relief).toBeCloseTo(p.bitOnHeight, 6);
+            expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+            expect(
+              toneAt(sample, cx + p.bitHalf - 0.0015, y - p.bitHalf + 0.0015),
+            ).toBeCloseTo(p.bitOnTone, 6);
+          } else {
+            // The empty frame: paper inside, the ring of width ringWidth, paper outside.
+            expect(paperOk(cx, y)).toBe(true);
+            expect(
+              toneAt(sample, cx + p.bitHalf - p.ringWidth / 2, y),
+            ).toBeCloseTo(p.ringTone, 6);
+            expect(out.height / p.relief).toBeCloseTo(p.ringHeight, 6);
+            expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+            expect(
+              toneAt(sample, cx, y - p.bitHalf + p.ringWidth - 0.0007),
+            ).toBeCloseTo(p.ringTone, 6);
+            expect(
+              paperOk(cx + p.bitHalf - p.ringWidth - 0.0015, y + 0.002),
+            ).toBe(true);
+          }
+          expect(paperOk(cx + p.bitHalf + 0.003, y)).toBe(true);
+          expect(paperOk(cx, y - p.bitHalf - 0.003)).toBe(true);
+        });
+        // Nothing after the last bit of the code.
+        expect(paperOk(bitCentre(row.code.length), y)).toBe(true);
+        // And nothing before the first one, between the bars and the code.
+        expect(paperOk(bitCentre(-1), y)).toBe(true);
+      });
+      expect(paperOk(p.barX + 0.1, rowY(rows.length))).toBe(true);
+      expect(paperOk(p.barX + 0.1, p.top - 0.02)).toBe(true);
+    }
+  });
+
+  it('softens the edge of a bar, a square and a frame over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount);
+    for (const seed of seeds) {
+      const { sample, rows } = codeOf(seed);
+      rows.forEach((row, r) => {
+        const y = rowY(r),
+          end = p.barX + row.frequency * p.unit,
+          close = (actual: number, expected: number): void =>
+            expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+        close(
+          toneAt(sample, end - quarter, y),
+          mix(p.paperTone, p.barTone, 0.75),
+        );
+        close(
+          toneAt(sample, end + quarter, y),
+          mix(p.paperTone, p.barTone, 0.25),
+        );
+        close(
+          toneAt(sample, p.barX + quarter, y),
+          mix(p.paperTone, p.barTone, 0.75),
+        );
+        close(
+          toneAt(sample, p.barX - quarter, y),
+          mix(p.paperTone, p.barTone, 0.25),
+        );
+        close(
+          toneAt(sample, (p.barX + end) / 2, y + p.barHalf - quarter),
+          mix(p.paperTone, p.barTone, 0.75),
+        );
+        close(
+          toneAt(sample, (p.barX + end) / 2, y + p.barHalf + quarter),
+          mix(p.paperTone, p.barTone, 0.25),
+        );
+        row.code.forEach((bit, place) => {
+          const cx = bitCentre(place);
+          if (bit === 1) {
+            close(
+              toneAt(sample, cx + p.bitHalf - quarter, y),
+              mix(p.paperTone, p.bitOnTone, 0.75),
+            );
+            close(
+              toneAt(sample, cx + p.bitHalf + quarter, y),
+              mix(p.paperTone, p.bitOnTone, 0.25),
+            );
+            close(
+              toneAt(sample, cx, y - p.bitHalf + quarter),
+              mix(p.paperTone, p.bitOnTone, 0.75),
+            );
+          } else {
+            close(
+              toneAt(sample, cx + p.bitHalf - quarter, y),
+              mix(p.paperTone, p.ringTone, 0.75),
+            );
+            close(
+              toneAt(sample, cx + p.bitHalf + quarter, y),
+              mix(p.paperTone, p.ringTone, 0.25),
+            );
+            close(
+              toneAt(sample, cx + p.bitHalf - p.ringWidth + quarter, y),
+              mix(p.paperTone, p.ringTone, 0.75),
+            );
+            close(
+              toneAt(sample, cx + p.bitHalf - p.ringWidth - quarter, y),
+              mix(p.paperTone, p.ringTone, 0.25),
+            );
+          }
+        });
+      });
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('huffmancodes', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('huffmancodes', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.97),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('huffmancodes', 0),
+      b = createSurfaceSampler('huffmancodes', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

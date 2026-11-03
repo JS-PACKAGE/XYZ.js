@@ -41710,6 +41710,106 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'huffmancodes': {
+        const p = proceduralMaterialPresets.huffmancodes,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x4ef01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          n =
+            p.counts[Math.floor(hash(37, 1, seed ^ 0x4ef02) * p.counts.length)],
+          order = Array.from({ length: n }, (_, i) => i),
+          frequency = new Int32Array(n),
+          // Rows by frequency, the most frequent first: the frequency, and the code with its length and bits (first bit most significant).
+          rowFrequency = new Int32Array(n),
+          codeLength = new Int32Array(n),
+          codeBits = new Int32Array(n),
+          // The trees: weight, the two parts (-1 for a leaf), whether it is still free to join.
+          weight = new Int32Array(2 * n - 1),
+          left = new Int32Array(2 * n - 1).fill(-1),
+          right = new Int32Array(2 * n - 1).fill(-1),
+          free = new Uint8Array(2 * n - 1);
+        for (let i = 0; i < n; i++)
+          frequency[i] =
+            1 + Math.floor(hash(i, 5, seed ^ 0x4ef03) ** 2 * p.maxFrequency);
+        order.sort((a, b) => frequency[b] - frequency[a] || a - b);
+        for (let r = 0; r < n; r++) {
+          rowFrequency[r] = frequency[order[r]];
+          weight[r] = rowFrequency[r];
+          free[r] = 1;
+        }
+        // Join the two lightest free trees (the lower number first among equals) until one is left; the first one joined is the left part.
+        for (let node = n; node < 2 * n - 1; node++) {
+          const picked: number[] = [];
+          for (let k = 0; k < 2; k++) {
+            let best = -1;
+            for (let t = 0; t < node; t++)
+              if (free[t] === 1 && (best < 0 || weight[t] < weight[best]))
+                best = t;
+            free[best] = 0;
+            picked.push(best);
+          }
+          left[node] = picked[0];
+          right[node] = picked[1];
+          weight[node] = weight[picked[0]] + weight[picked[1]];
+          free[node] = 1;
+        }
+        // Walk down from the root, a 0 to the left and a 1 to the right, to give each leaf its code.
+        const walk = (node: number, length: number, bits: number): void => {
+          if (left[node] < 0) {
+            codeLength[node] = length;
+            codeBits[node] = bits;
+            return;
+          }
+          walk(left[node], length + 1, bits * 2);
+          walk(right[node], length + 1, bits * 2 + 1);
+        };
+        walk(2 * n - 2, 0, 0);
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            row = Math.floor((fv - p.top) / p.rowPitch);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          if (row >= 0 && row < n) {
+            const ly = fv - (p.top + (row + 0.5) * p.rowPitch),
+              barEnd = p.barX + rowFrequency[row] * p.unit,
+              bar = cover(
+                Math.min(fu - p.barX, barEnd - fu, p.barHalf - Math.abs(ly)),
+              ),
+              place = Math.floor((fu - p.bitX) / p.bitPitch + 0.5),
+              bx = fu - p.bitX - place * p.bitPitch;
+            shade += (p.barTone - shade) * bar;
+            elevation += (p.barHeight - elevation) * bar;
+            rough += (p.inkRoughness - rough) * bar;
+            mask = bar;
+            if (place >= 0 && place < codeLength[row]) {
+              const inside = p.bitHalf - Math.max(Math.abs(bx), Math.abs(ly)),
+                on = (codeBits[row] >> (codeLength[row] - 1 - place)) & 1,
+                square = cover(inside),
+                amount =
+                  on === 1
+                    ? square
+                    : square * (1 - cover(inside - p.ringWidth));
+              shade += ((on === 1 ? p.bitOnTone : p.ringTone) - shade) * amount;
+              elevation +=
+                ((on === 1 ? p.bitOnHeight : p.ringHeight) - elevation) *
+                amount;
+              rough += (p.inkRoughness - rough) * amount;
+              // The squares are right of the longest bar, so the bar does not touch them.
+              mask = amount;
+            }
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -69239,6 +69339,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'huffmancodes' ||
     kind === 'hashchains' ||
     kind === 'editdistance' ||
     kind === 'nearesttour' ||
