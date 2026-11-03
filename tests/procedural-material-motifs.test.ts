@@ -45896,3 +45896,359 @@ describe('ganttschedule: a Gantt chart whose tasks start when the last task they
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('quicksortsteps: quicksort on a row of bars, a row for the start and one after each partition', () => {
+  const p = proceduralMaterialPresets.quicksortsteps,
+    out = empty(),
+    gap = (p.barPitch - p.barWidth) / 2;
+  type Call = { low: number; high: number; pivot: number };
+  type Sorting = { sample: Sampler; rows: number[][]; calls: Call[] };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const rowTop = (row: number): number => p.top + row * p.rowPitch;
+  const slotX = (slot: number): number => p.left + (slot + 0.5) * p.barPitch;
+  const isBar = (tone: number): boolean =>
+    Math.abs(tone - p.barTone) < 0.01 || Math.abs(tone - p.placedTone) < 0.01;
+
+  // Read the picture: the rows of bar heights, and for each row after the first the bracket's range and the dot's place.
+  const sortingOf = (seed: number): Sorting => {
+    const sample = createSurfaceSampler('quicksortsteps', seed),
+      rows: number[][] = [],
+      calls: Call[] = [];
+    for (let row = 0; ; row++) {
+      const base = rowTop(row) + p.baseOffset;
+      let n = 0;
+      while (isBar(toneAt(sample, slotX(n), base - 0.002))) n++;
+      if (n === 0) break;
+      const heights: number[] = [];
+      for (let slot = 0; slot < n; slot++) {
+        let y = base - 0.001;
+        while (isBar(toneAt(sample, slotX(slot), y))) y -= 0.0005;
+        const value = Math.round((base - y) / p.unit);
+        heights.push(value);
+        // A bar is darker when it is the height of its place.
+        expect(
+          Math.abs(
+            toneAt(sample, slotX(slot), base - 0.002) -
+              (value === slot + 1 ? p.placedTone : p.barTone),
+          ),
+        ).toBeLessThan(0.005);
+      }
+      rows.push(heights);
+      if (row > 0) {
+        // The bracket: the run of its tone along its row, from the left side of the first bar to the right side of the last.
+        let first: number | null = null,
+          last = 0;
+        for (
+          let x = p.left - 0.02;
+          x <= p.left + n * p.barPitch + 0.02;
+          x += 0.0004
+        ) {
+          if (
+            Math.abs(
+              toneAt(sample, x, rowTop(row) + p.bracketOffset) - p.bracketTone,
+            ) < 0.01
+          ) {
+            first ??= x;
+            last = x;
+          }
+        }
+        expect(first).not.toBeNull();
+        const low = Math.round((first! - p.left - gap) / p.barPitch),
+          high = Math.round((last - p.left - p.barPitch + gap) / p.barPitch);
+        // The dot: its centre along its row.
+        const dotXs: number[] = [];
+        for (
+          let x = p.left - 0.02;
+          x <= p.left + n * p.barPitch + 0.02;
+          x += 0.0004
+        )
+          if (
+            Math.abs(toneAt(sample, x, rowTop(row) + p.dotOffset) - p.dotTone) <
+            0.01
+          )
+            dotXs.push(x);
+        expect(dotXs.length).toBeGreaterThan(0);
+        const pivot = Math.floor(
+          ((dotXs[0] + dotXs[dotXs.length - 1]) / 2 - p.left) / p.barPitch,
+        );
+        calls.push({ low, high, pivot });
+      }
+    }
+    expect(p.sizes).toContain(rows[0].length);
+    return { sample, rows, calls };
+  };
+
+  // Quicksort by recursion (the sampler uses a stack): Lomuto partition about the last element, the left part before the right one.
+  const expectedSteps = (
+    start: number[],
+  ): { rows: number[][]; calls: Call[] } => {
+    const array = start.slice(),
+      rows = [start.slice()],
+      calls: Call[] = [],
+      sort = (low: number, high: number): void => {
+        if (low >= high) return;
+        const pivot = array[high];
+        let store = low;
+        for (let i = low; i < high; i++)
+          if (array[i] < pivot) {
+            [array[store], array[i]] = [array[i], array[store]];
+            store++;
+          }
+        [array[store], array[high]] = [array[high], array[store]];
+        rows.push(array.slice());
+        calls.push({ low, high, pivot: store });
+        sort(low, store - 1);
+        sort(store + 1, high);
+      };
+    sort(0, array.length - 1);
+    return { rows, calls };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows quicksort from a shuffled row: every row is the partition of the one before about the bracketed range, and the last is sorted (seed %i)',
+    (seed) => {
+      const { rows, calls } = sortingOf(seed),
+        n = rows[0].length;
+      // The start is a shuffle of 1 to n; every row has the same bars.
+      expect(rows[0].slice().sort((a, b) => a - b)).toEqual(
+        Array.from({ length: n }, (_, i) => i + 1),
+      );
+      const expected = expectedSteps(rows[0]);
+      expect(rows).toEqual(expected.rows);
+      expect(calls).toEqual(expected.calls);
+      expect(rows[rows.length - 1]).toEqual(
+        Array.from({ length: n }, (_, i) => i + 1),
+      );
+      // The pivot is where it belongs when it is put down.
+      for (let k = 0; k < calls.length; k++) {
+        expect(rows[k + 1][calls[k].pivot]).toBe(calls[k].pivot + 1);
+        expect(calls[k].low).toBeLessThan(calls[k].high);
+      }
+    },
+  );
+
+  it('uses every size and gives shuffles with about one bar in its place on average, over 60 seeds', () => {
+    const sizes = new Set<number>();
+    let fixed = 0,
+      shuffles = 0,
+      firstRows = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const { rows } = sortingOf(seed * 67 + 10);
+      sizes.add(rows[0].length);
+      fixed += rows[0].filter((value, i) => value === i + 1).length;
+      shuffles++;
+      firstRows += rows.length;
+    }
+    expect([...sizes].sort((a, b) => a - b)).toEqual([...p.sizes]);
+    // A uniform shuffle has one fixed point on average (a cyclic one has none).
+    expect(fixed / shuffles).toBeGreaterThan(0.6);
+    expect(fixed / shuffles).toBeLessThan(1.5);
+    expect(firstRows / shuffles).toBeGreaterThan(4);
+  });
+
+  it('draws the bars, brackets and dots with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, rows, calls } = sortingOf(seed),
+        n = rows[0].length,
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      rows.forEach((values, row) => {
+        const base = rowTop(row) + p.baseOffset;
+        values.forEach((value, slot) => {
+          const placed = value === slot + 1,
+            left = p.left + slot * p.barPitch + gap,
+            right = left + p.barWidth;
+          expect(
+            toneAt(sample, slotX(slot), base - (value * p.unit) / 2),
+          ).toBeCloseTo(placed ? p.placedTone : p.barTone, 6);
+          expect(out.height / p.relief).toBeCloseTo(
+            placed ? p.placedHeight : p.barHeight,
+            6,
+          );
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          // The extent: a gap in from the slot on each side, standing on the base, to value units high.
+          expect(toneAt(sample, left + 0.0015, base - 0.0015)).toBeCloseTo(
+            placed ? p.placedTone : p.barTone,
+            6,
+          );
+          expect(toneAt(sample, right - 0.0015, base - 0.0015)).toBeCloseTo(
+            placed ? p.placedTone : p.barTone,
+            6,
+          );
+          expect(paperOk(left - 0.0015, base - 0.0015)).toBe(true);
+          expect(paperOk(right + 0.0015, base - 0.0015)).toBe(true);
+          expect(
+            toneAt(sample, slotX(slot), base - value * p.unit + 0.0015),
+          ).toBeCloseTo(placed ? p.placedTone : p.barTone, 6);
+          // (Off the middle, clear of the pivot's dot just above a tall bar.)
+          expect(
+            paperOk(slotX(slot) - 0.02, base - value * p.unit - 0.0015),
+          ).toBe(true);
+          expect(paperOk(slotX(slot), base + 0.0015)).toBe(true);
+        });
+      });
+      calls.forEach(({ low, high, pivot }, k) => {
+        const row = k + 1,
+          y = rowTop(row) + p.bracketOffset,
+          left = p.left + low * p.barPitch + gap,
+          right = p.left + high * p.barPitch + p.barPitch - gap;
+        expect(toneAt(sample, (left + right) / 2, y)).toBeCloseTo(
+          p.bracketTone,
+          6,
+        );
+        expect(out.height / p.relief).toBeCloseTo(p.bracketHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        // The bracket's ends, thickness; paper beyond.
+        expect(toneAt(sample, left + 0.002, y)).toBeCloseTo(p.bracketTone, 6);
+        expect(toneAt(sample, right - 0.002, y)).toBeCloseTo(p.bracketTone, 6);
+        expect(paperOk(left - 0.002, y)).toBe(true);
+        expect(paperOk(right + 0.002, y)).toBe(true);
+        expect(
+          toneAt(sample, (left + right) / 2 + 0.01, y + p.bracketHalf - 0.0004),
+        ).toBeCloseTo(p.bracketTone, 6);
+        expect(
+          paperOk((left + right) / 2 + 0.01, y + p.bracketHalf + 0.0015),
+        ).toBe(true);
+        // The dot.
+        const dotX = slotX(pivot),
+          dotY = rowTop(row) + p.dotOffset;
+        expect(toneAt(sample, dotX, dotY)).toBeCloseTo(p.dotTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.dotHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(toneAt(sample, dotX + p.dotRadius - 0.001, dotY)).toBeCloseTo(
+          p.dotTone,
+          6,
+        );
+        expect(paperOk(dotX + p.dotRadius + 0.0015, dotY)).toBe(true);
+      });
+      // No bracket or dot on the first row; nothing below the last row, or at the sides.
+      expect(paperOk(slotX(0), rowTop(0) + p.bracketOffset)).toBe(true);
+      expect(paperOk(slotX(2), rowTop(0) + p.dotOffset)).toBe(true);
+      expect(paperOk(0.5, rowTop(rows.length) + 0.01)).toBe(true);
+      expect(paperOk(p.left - 0.03, rowTop(1))).toBe(true);
+      expect(paperOk(p.left + n * p.barPitch + 0.03, rowTop(1))).toBe(true);
+    }
+  });
+
+  it('softens the edge of a bar, a bracket and a dot over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      const { sample, rows, calls } = sortingOf(seed),
+        base = rowTop(0) + p.baseOffset,
+        tallest = rows[0].indexOf(Math.max(...rows[0])),
+        value = rows[0][tallest],
+        tone = value === tallest + 1 ? p.placedTone : p.barTone;
+      // The top and the sides of a bar.
+      close(
+        toneAt(sample, slotX(tallest), base - value * p.unit + quarter),
+        mix(p.paperTone, tone, 0.75),
+      );
+      close(
+        toneAt(sample, slotX(tallest), base - value * p.unit - quarter),
+        mix(p.paperTone, tone, 0.25),
+      );
+      close(
+        toneAt(
+          sample,
+          p.left + tallest * p.barPitch + gap + quarter,
+          base - 0.004,
+        ),
+        mix(p.paperTone, tone, 0.75),
+      );
+      close(
+        toneAt(
+          sample,
+          p.left + tallest * p.barPitch + gap - quarter,
+          base - 0.004,
+        ),
+        mix(p.paperTone, tone, 0.25),
+      );
+      // A bracket's lower edge, its left end, and a dot's edge (over paper).
+      const { low, high, pivot } = calls[0],
+        y = rowTop(1) + p.bracketOffset,
+        left = p.left + low * p.barPitch + gap,
+        middle = (left + p.left + high * p.barPitch + p.barPitch - gap) / 2;
+      close(
+        toneAt(sample, middle + 0.01, y + p.bracketHalf - quarter),
+        mix(p.paperTone, p.bracketTone, 0.75),
+      );
+      close(
+        toneAt(sample, middle + 0.01, y + p.bracketHalf + quarter),
+        mix(p.paperTone, p.bracketTone, 0.25),
+      );
+      close(
+        toneAt(sample, left + quarter, y),
+        mix(p.paperTone, p.bracketTone, 0.75),
+      );
+      close(
+        toneAt(sample, left - quarter, y),
+        mix(p.paperTone, p.bracketTone, 0.25),
+      );
+      const dotX = slotX(pivot),
+        dotY = rowTop(1) + p.dotOffset;
+      close(
+        toneAt(sample, dotX + p.dotRadius - quarter, dotY),
+        mix(p.paperTone, p.dotTone, 0.75),
+      );
+      close(
+        toneAt(sample, dotX + p.dotRadius + quarter, dotY),
+        mix(p.paperTone, p.dotTone, 0.25),
+      );
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('quicksortsteps', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('quicksortsteps', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.97),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('quicksortsteps', 0),
+      b = createSurfaceSampler('quicksortsteps', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.0701],
+        [0.1301, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

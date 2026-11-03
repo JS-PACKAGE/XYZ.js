@@ -42571,6 +42571,123 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'quicksortsteps': {
+        const p = proceduralMaterialPresets.quicksortsteps,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x4f601),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          n = p.sizes[Math.floor(hash(44, 1, seed ^ 0x4f602) * p.sizes.length)],
+          array = Array.from({ length: n }, (_, i) => i + 1),
+          // The rows: the array at the start and after each partition; for each partition its range and where the pivot ended.
+          states: number[][] = [],
+          lows: number[] = [-1],
+          highs: number[] = [-1],
+          pivots: number[] = [-1],
+          pending: [number, number][] = [[0, n - 1]];
+        // Shuffle (Fisher-Yates).
+        for (let i = n - 1; i > 0; i--) {
+          const j = Math.floor(hash(i, 5, seed ^ 0x4f603) * (i + 1));
+          [array[i], array[j]] = [array[j], array[i]];
+        }
+        states.push(array.slice());
+        // Quicksort with the last bar of a range as the pivot, the left part before the right one.
+        while (pending.length > 0) {
+          const [low, high] = pending.pop()!;
+          if (low >= high) continue;
+          const pivot = array[high];
+          let place = low;
+          for (let j = low; j < high; j++)
+            if (array[j] < pivot) {
+              [array[place], array[j]] = [array[j], array[place]];
+              place++;
+            }
+          [array[place], array[high]] = [array[high], array[place]];
+          states.push(array.slice());
+          lows.push(low);
+          highs.push(high);
+          pivots.push(place);
+          pending.push([place + 1, high], [low, place - 1]);
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          const row = Math.floor((fv - p.top) / p.rowPitch),
+            across = (fu - p.left) / p.barPitch;
+          if (
+            row >= 0 &&
+            row < states.length &&
+            across > -0.5 &&
+            across < n + 0.5
+          ) {
+            const rowTop = p.top + row * p.rowPitch,
+              base = rowTop + p.baseOffset,
+              slot = Math.min(n - 1, Math.max(0, Math.floor(across))),
+              inSlot = (across - slot) * p.barPitch,
+              value = states[row][slot],
+              placed = value === slot + 1;
+            // The bar of this slot, a gap in from each side, standing on the row's base.
+            const gap = (p.barPitch - p.barWidth) / 2;
+            paint(
+              cover(
+                Math.min(
+                  inSlot - gap,
+                  p.barPitch - gap - inSlot,
+                  base - fv,
+                  fv - (base - value * p.unit),
+                ),
+              ),
+              placed ? p.placedTone : p.barTone,
+              placed ? p.placedHeight : p.barHeight,
+            );
+            if (row > 0) {
+              // The bracket over the range partitioned, from the left side of its first bar to the right side of its last.
+              const barLeft = p.left + lows[row] * p.barPitch + gap,
+                barRight = p.left + highs[row] * p.barPitch + p.barPitch - gap;
+              paint(
+                cover(
+                  Math.min(
+                    p.bracketHalf - Math.abs(fv - (rowTop + p.bracketOffset)),
+                    fu - barLeft,
+                    barRight - fu,
+                  ),
+                ),
+                p.bracketTone,
+                p.bracketHeight,
+              );
+              // The dot over the place the pivot ended in.
+              paint(
+                cover(
+                  p.dotRadius -
+                    Math.hypot(
+                      fu - (p.left + (pivots[row] + 0.5) * p.barPitch),
+                      fv - (rowTop + p.dotOffset),
+                    ),
+                ),
+                p.dotTone,
+                p.dotHeight,
+              );
+            }
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -70100,6 +70217,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'quicksortsteps' ||
     kind === 'ganttschedule' ||
     kind === 'lorenzcurve' ||
     kind === 'zordercurve' ||
