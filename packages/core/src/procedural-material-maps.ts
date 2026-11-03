@@ -42298,6 +42298,137 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'lorenzcurve': {
+        const p = proceduralMaterialPresets.lorenzcurve,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x4f401),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          count =
+            p.counts[Math.floor(hash(42, 1, seed ^ 0x4f402) * p.counts.length)],
+          incomes = new Int32Array(count),
+          // The cumulative share of the total after each income, from 0 to 1, in rank order.
+          cumulative = new Float64Array(count + 1),
+          barWidth = p.side / count;
+        for (let i = 0; i < count; i++)
+          incomes[i] =
+            1 + Math.floor(hash(i, 3, seed ^ 0x4f403) ** 2 * p.maxIncome);
+        incomes.sort();
+        let total = 0;
+        for (let i = 0; i < count; i++) total += incomes[i];
+        for (let i = 0; i < count; i++)
+          cumulative[i + 1] = cumulative[i] + incomes[i] / total;
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          const across = (fu - p.plotLeft) / p.side;
+          if (across > -0.02 && across < 1.02) {
+            // The plot: x across (0 to 1 over the plot), y up (0 to 1).
+            const up = (p.plotTop + p.side - fv) / p.side,
+              step = Math.min(
+                count - 1,
+                Math.max(0, Math.floor(across * count)),
+              ),
+              rise = cumulative[step + 1] - cumulative[step],
+              slope = rise * count,
+              curve = cumulative[step] + rise * (across * count - step),
+              inPlot = Math.min(across, 1 - across, up, 1 - up) * p.side;
+            if (inPlot > -0.02) {
+              // The fill between the line of equality and the curve (the curve is below it), then the frame and the line of equality.
+              paint(
+                cover(Math.min(up - curve, across - up, inPlot) * p.side),
+                p.fillTone,
+                p.fillHeight,
+              );
+              paint(
+                cover(
+                  Math.min(
+                    p.frameHalf -
+                      Math.min(
+                        Math.abs(across),
+                        Math.abs(across - 1),
+                        Math.abs(up),
+                        Math.abs(up - 1),
+                      ) *
+                        p.side,
+                    inPlot + p.frameHalf,
+                  ),
+                ),
+                p.frameTone,
+                p.frameHeight,
+              );
+              paint(
+                cover(
+                  Math.min(
+                    p.diagonalHalf -
+                      (Math.abs(up - across) * p.side) / Math.SQRT2,
+                    inPlot + p.diagonalHalf,
+                  ),
+                ),
+                p.diagonalTone,
+                p.frameHeight,
+              );
+              paint(
+                cover(
+                  Math.min(
+                    p.curveHalf -
+                      (Math.abs(up - curve) * p.side) /
+                        Math.sqrt(1 + slope * slope),
+                    inPlot + p.curveHalf,
+                  ),
+                ),
+                p.curveTone,
+                p.curveHeight,
+              );
+              for (let k = 0; k <= count; k++)
+                paint(
+                  cover(
+                    p.dotRadius -
+                      Math.hypot(across - k / count, up - cumulative[k]) *
+                        p.side,
+                  ),
+                  p.dotTone,
+                  p.dotHeight,
+                );
+            }
+          }
+          // The bars of the incomes, under the plot, on the same horizontal scale.
+          const bar = Math.floor(across * count);
+          if (bar >= 0 && bar < count) {
+            const inBar = across * p.side - bar * barWidth,
+              top = p.barBase - incomes[bar] * p.unit;
+            paint(
+              cover(
+                Math.min(
+                  inBar - p.barGap,
+                  barWidth - p.barGap - inBar,
+                  fv - top,
+                  p.barBase - fv,
+                ),
+              ),
+              p.barTone,
+              p.barHeight,
+            );
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -69827,6 +69958,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'lorenzcurve' ||
     kind === 'zordercurve' ||
     kind === 'histogrambins' ||
     kind === 'sankeyflows' ||

@@ -45015,3 +45015,459 @@ describe('zordercurve: a Z-order curve through the cells of a grid, a segment fr
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('lorenzcurve: a Lorenz curve drawn from the incomes shown as bars under it', () => {
+  const p = proceduralMaterialPresets.lorenzcurve,
+    out = empty();
+  type Case = {
+    sample: Sampler;
+    incomes: number[];
+    cumulative: number[];
+    gini: number;
+  };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  // Plot coordinates (x across and y up, each 0 to 1 over the plot) to the page.
+  const pageX = (x: number): number => p.plotLeft + x * p.side;
+  const pageY = (y: number): number => p.plotTop + p.side - y * p.side;
+
+  const caseOf = (seed: number): Case => {
+    const sample = createSurfaceSampler('lorenzcurve', seed),
+      centres: number[] = [];
+    // The bars: runs of the bar tone along a row just above the baseline; the height of each from the baseline up.
+    let first: number | null = null,
+      last = 0;
+    for (
+      let x = p.plotLeft - 0.02;
+      x <= p.plotLeft + p.side + 0.02;
+      x += 0.0007
+    ) {
+      if (Math.abs(toneAt(sample, x, p.barBase - 0.001) - p.barTone) < 0.01) {
+        if (first === null) first = x;
+        last = x;
+      } else if (first !== null) {
+        centres.push((first + last) / 2);
+        first = null;
+      }
+    }
+    const incomes = centres.map((x) => {
+      let y = p.barBase - 0.001;
+      while (Math.abs(toneAt(sample, x, y) - p.barTone) < 0.01) y -= 0.0005;
+      return Math.round((p.barBase - y) / p.unit);
+    });
+    expect(p.counts).toContain(incomes.length);
+    centres.forEach((x, i) =>
+      expect(Math.abs(x - pageX((i + 0.5) / incomes.length))).toBeLessThan(
+        0.0015,
+      ),
+    );
+    const total = incomes.reduce((a, b) => a + b, 0),
+      cumulative = [0];
+    for (const income of incomes)
+      cumulative.push(cumulative[cumulative.length - 1] + income / total);
+    // The Gini coefficient of the incomes by the mean absolute difference (the Lorenz area gives the same).
+    let differences = 0;
+    for (const a of incomes)
+      for (const b of incomes) differences += Math.abs(a - b);
+    return {
+      sample,
+      incomes,
+      cumulative,
+      gini: differences / (2 * incomes.length * total),
+    };
+  };
+
+  // What the model says about a point of the plot: 'skip' near any edge, else the tone to expect.
+  const expectation = (
+    c: Case,
+    x: number,
+    y: number,
+  ): number | 'skip' | 'paper' => {
+    const n = c.incomes.length,
+      step = Math.min(n - 1, Math.max(0, Math.floor(x * n))),
+      rise = c.cumulative[step + 1] - c.cumulative[step],
+      curve = c.cumulative[step] + rise * (x * n - step),
+      slope = rise * n,
+      margin = 0.0015,
+      side = p.side,
+      dotDistance = Math.min(
+        ...c.cumulative.map((cum, k) => Math.hypot(x - k / n, y - cum) * side),
+      ),
+      curveDistance =
+        (Math.abs(y - curve) * side) / Math.sqrt(1 + slope * slope),
+      diagonalDistance = (Math.abs(y - x) * side) / Math.SQRT2,
+      frameDistance =
+        Math.min(Math.abs(x), Math.abs(x - 1), Math.abs(y), Math.abs(y - 1)) *
+        side;
+    if (Math.abs(dotDistance - p.dotRadius) < margin) return 'skip';
+    if (dotDistance < p.dotRadius) return p.dotTone;
+    if (Math.abs(curveDistance - p.curveHalf) < margin) return 'skip';
+    if (curveDistance < p.curveHalf) return p.curveTone;
+    if (
+      Math.abs(diagonalDistance - p.diagonalHalf) < margin ||
+      Math.abs(frameDistance - p.frameHalf) < margin
+    )
+      return 'skip';
+    if (diagonalDistance < p.diagonalHalf) return p.diagonalTone;
+    if (frameDistance < p.frameHalf) return p.frameTone;
+    // Between the curve and the line of equality (a little way from both): the fill; everywhere else in the plot, paper.
+    if (y > curve + 0.0005 && y < x - 0.0005) return p.fillTone;
+    if (Math.abs(y - curve) < 0.001 || Math.abs(y - x) < 0.001) return 'skip';
+    return 'paper';
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws the Lorenz curve of the incomes in its bars, with the area of the fill half the Gini coefficient (seed %i)',
+    (seed) => {
+      const c = caseOf(seed),
+        n = c.incomes.length;
+      expect(c.incomes).toEqual(c.incomes.slice().sort((a, b) => a - b));
+      expect(
+        c.incomes.every((income) => income >= 1 && income <= p.maxIncome),
+      ).toBe(true);
+      let points = 0,
+        fill = 0,
+        checked = 0;
+      for (let i = 0; i < 90; i++)
+        for (let j = 0; j < 90; j++) {
+          const x = 0.005 + (i * 0.99) / 89,
+            y = 0.005 + (j * 0.99) / 89,
+            tone = toneAt(c.sample, pageX(x), pageY(y)),
+            want = expectation(c, x, y);
+          points++;
+          // The picture's fill: the points with the fill's tone (no other part of the plot has it).
+          fill += Number(Math.abs(tone - p.fillTone) < 0.006);
+          if (want === 'skip') continue;
+          checked++;
+          if (want === 'paper')
+            expect(Math.abs(tone - p.paperTone)).toBeLessThanOrEqual(
+              p.grainTone / 2 + 1e-9,
+            );
+          else expect(tone).toBeCloseTo(want, 6);
+        }
+      expect(checked).toBeGreaterThan(points * 0.9);
+      // The fill is the region between the line of equality and the curve, whose area is half the Gini coefficient of the unit square, less what
+      // the lines drawn over its edges (half their widths) and the dots (half of each) take of it.
+      let curveLength = 0;
+      for (let k = 0; k < n; k++)
+        curveLength +=
+          Math.hypot(1 / n, c.cumulative[k + 1] - c.cumulative[k]) * p.side;
+      const covered =
+        (p.curveHalf * curveLength +
+          p.diagonalHalf * Math.SQRT2 * p.side +
+          ((n - 1) * Math.PI * p.dotRadius ** 2) / 2) /
+        p.side ** 2;
+      expect(Math.abs(fill / points - (c.gini / 2 - covered))).toBeLessThan(
+        0.004,
+      );
+      // The cumulative share ends at 1.
+      expect(c.cumulative[n]).toBeCloseTo(1, 12);
+    },
+  );
+
+  it('uses every number of incomes with every size of income, skewed to the small ones, and a range of Gini coefficients, over 60 seeds', () => {
+    const counts = new Set<number>();
+    let smallest = Infinity,
+      largest = 0,
+      lowGini = Infinity,
+      highGini = 0,
+      small = 0,
+      total = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const { incomes, gini } = caseOf(seed * 59 + 6);
+      counts.add(incomes.length);
+      smallest = Math.min(smallest, ...incomes);
+      largest = Math.max(largest, ...incomes);
+      lowGini = Math.min(lowGini, gini);
+      highGini = Math.max(highGini, gini);
+      for (const income of incomes) {
+        total++;
+        small += Number(income <= p.maxIncome / 4);
+      }
+    }
+    expect([...counts].sort((a, b) => a - b)).toEqual([...p.counts]);
+    expect(smallest).toBe(1);
+    expect(largest).toBeGreaterThanOrEqual(p.maxIncome - 1);
+    expect(largest).toBeLessThanOrEqual(p.maxIncome);
+    expect(highGini - lowGini).toBeGreaterThan(0.1);
+    // Squaring a uniform draw puts half the incomes in the lowest quarter of the range (a quarter if they were uniform).
+    expect(small / total).toBeGreaterThan(0.42);
+    expect(small / total).toBeLessThan(0.58);
+  });
+
+  it('draws the dots, the lines, the fill and the bars with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const c = caseOf(seed),
+        n = c.incomes.length,
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(c.sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      c.cumulative.forEach((cum, k) => {
+        expect(toneAt(c.sample, pageX(k / n), pageY(cum))).toBeCloseTo(
+          p.dotTone,
+          6,
+        );
+        expect(out.height / p.relief).toBeCloseTo(p.dotHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+      });
+      // The curve between two dots, and its thickness (across it, along the normal).
+      const k = n - 3,
+        dx = 1 / n,
+        dy = c.cumulative[k + 1] - c.cumulative[k],
+        length = Math.hypot(dx * p.side, dy * p.side),
+        mid: [number, number] = [
+          pageX(k / n + dx / 2),
+          pageY(c.cumulative[k] + dy / 2),
+        ],
+        normal: [number, number] = [
+          (dy * p.side) / length,
+          (dx * p.side) / length,
+        ];
+      expect(toneAt(c.sample, ...mid)).toBeCloseTo(p.curveTone, 6);
+      expect(out.height / p.relief).toBeCloseTo(p.curveHeight, 6);
+      expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+      for (const side of [-1, 1])
+        expect(
+          toneAt(
+            c.sample,
+            mid[0] + side * normal[0] * (p.curveHalf - 0.0006),
+            mid[1] + side * normal[1] * (p.curveHalf - 0.0006),
+          ),
+        ).toBeCloseTo(p.curveTone, 6);
+      // The line of equality and the frame: tone, height and roughness.
+      expect(toneAt(c.sample, pageX(0.5), pageY(0.5))).toBeCloseTo(
+        p.diagonalTone,
+        6,
+      );
+      expect(out.height / p.relief).toBeCloseTo(p.frameHeight, 6);
+      expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+      expect(toneAt(c.sample, pageX(0), pageY(0.6))).toBeCloseTo(
+        p.frameTone,
+        6,
+      );
+      expect(toneAt(c.sample, pageX(0.4), pageY(1))).toBeCloseTo(
+        p.frameTone,
+        6,
+      );
+      expect(out.height / p.relief).toBeCloseTo(p.frameHeight, 6);
+      expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+      // The frame's lines are as wide as frameHalf on both sides, on each of the four sides of the plot.
+      for (const [x, y] of [
+        [pageX(0) - (p.frameHalf - 0.0004), pageY(0.6)],
+        [pageX(0) + (p.frameHalf - 0.0004), pageY(0.6)],
+        [pageX(1) - (p.frameHalf - 0.0004), pageY(0.6)],
+        [pageX(1) + (p.frameHalf - 0.0004), pageY(0.6)],
+        [pageX(0.4), pageY(0) - (p.frameHalf - 0.0004)],
+        [pageX(0.4), pageY(0) + (p.frameHalf - 0.0004)],
+        [pageX(0.4), pageY(1) - (p.frameHalf - 0.0004)],
+        [pageX(0.4), pageY(1) + (p.frameHalf - 0.0004)],
+      ])
+        expect(toneAt(c.sample, x, y)).toBeCloseTo(p.frameTone, 6);
+      // The fill, half way between the curve and the line of equality above the middle of a step.
+      const fillX = (k + 0.5) / n,
+        fillCurve = c.cumulative[k] + dy / 2;
+      expect(
+        toneAt(c.sample, pageX(fillX), pageY((fillCurve + fillX) / 2)),
+      ).toBeCloseTo(p.fillTone, 6);
+      expect(out.height / p.relief).toBeCloseTo(p.fillHeight, 6);
+      expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+      // The bars: tone, height, roughness and extent (a gap in from each side of its slot).
+      c.incomes.forEach((income, bar) => {
+        const left = pageX(bar / n),
+          width = p.side / n,
+          top = p.barBase - income * p.unit;
+        expect(
+          toneAt(c.sample, left + width / 2, (top + p.barBase) / 2),
+        ).toBeCloseTo(p.barTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.barHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(
+          toneAt(c.sample, left + p.barGap + 0.0015, p.barBase - 0.003),
+        ).toBeCloseTo(p.barTone, 6);
+        expect(
+          toneAt(c.sample, left + width - p.barGap - 0.0015, p.barBase - 0.003),
+        ).toBeCloseTo(p.barTone, 6);
+        expect(paperOk(left + p.barGap - 0.0015, p.barBase - 0.003)).toBe(true);
+        expect(
+          paperOk(left + width - p.barGap + 0.0015, p.barBase - 0.003),
+        ).toBe(true);
+        expect(toneAt(c.sample, left + width / 2, top + 0.0015)).toBeCloseTo(
+          p.barTone,
+          6,
+        );
+        expect(paperOk(left + width / 2, top - 0.0015)).toBe(true);
+        expect(paperOk(left + width / 2, p.barBase + 0.003)).toBe(true);
+      });
+      // Nothing outside the plot and the bars, and nothing just outside the plot's frame (where the fill or the curve might run on).
+      for (const [x, y] of [
+        [0.05, 0.4],
+        [0.95, 0.4],
+        [0.5, 0.03],
+        [0.5, 0.72],
+        ...[0.2, 0.5, 0.9].flatMap((up): [number, number][] => [
+          [pageX(1) + 0.008, pageY(up)],
+          [pageX(0) - 0.008, pageY(up)],
+        ]),
+        ...[0.3, 0.7].flatMap((across): [number, number][] => [
+          [pageX(across), pageY(1) - 0.008],
+          [pageX(across), pageY(0) + 0.008],
+        ]),
+      ])
+        expect(paperOk(x, y)).toBe(true);
+    }
+  });
+
+  it('softens the edge of the curve, a dot, the line of equality and a bar over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      const c = caseOf(seed),
+        n = c.incomes.length,
+        k = n - 3,
+        dx = 1 / n,
+        dy = c.cumulative[k + 1] - c.cumulative[k],
+        slope = dy / dx,
+        factor = Math.sqrt(1 + slope * slope),
+        x = k / n + dx / 2,
+        curve = c.cumulative[k] + dy / 2;
+      // The curve's lower edge (paper below it) and upper edge (the fill above it): vertical distances are longer by the factor.
+      close(
+        toneAt(
+          c.sample,
+          pageX(x),
+          pageY(curve) + (p.curveHalf - quarter) * factor,
+        ),
+        mix(p.paperTone, p.curveTone, 0.75),
+      );
+      close(
+        toneAt(
+          c.sample,
+          pageX(x),
+          pageY(curve) + (p.curveHalf + quarter) * factor,
+        ),
+        mix(p.paperTone, p.curveTone, 0.25),
+      );
+      close(
+        toneAt(
+          c.sample,
+          pageX(x),
+          pageY(curve) - (p.curveHalf - quarter) * factor,
+        ),
+        mix(p.fillTone, p.curveTone, 0.75),
+      );
+      close(
+        toneAt(
+          c.sample,
+          pageX(x),
+          pageY(curve) - (p.curveHalf + quarter) * factor,
+        ),
+        mix(p.fillTone, p.curveTone, 0.25),
+      );
+      // The line of equality's upper edge, with paper above it, away from the curve (near x = 0.3).
+      const gap = (p.diagonalHalf * Math.SQRT2 - quarter * Math.SQRT2) / p.side,
+        outer = (p.diagonalHalf * Math.SQRT2 + quarter * Math.SQRT2) / p.side;
+      close(
+        toneAt(c.sample, pageX(0.3), pageY(0.3 + gap)),
+        mix(p.paperTone, p.diagonalTone, 0.75),
+      );
+      close(
+        toneAt(c.sample, pageX(0.3), pageY(0.3 + outer)),
+        mix(p.paperTone, p.diagonalTone, 0.25),
+      );
+      // A dot's lower right edge, a perpendicular to the curve away on its paper side.
+      const norm = Math.hypot(dy, dx),
+        px = dy / norm,
+        py = dx / norm,
+        vx = pageX(k / n),
+        vy = pageY(c.cumulative[k]);
+      close(
+        toneAt(
+          c.sample,
+          vx + px * (p.dotRadius - quarter),
+          vy + py * (p.dotRadius - quarter),
+        ),
+        mix(p.paperTone, p.dotTone, 0.75),
+      );
+      close(
+        toneAt(
+          c.sample,
+          vx + px * (p.dotRadius + quarter),
+          vy + py * (p.dotRadius + quarter),
+        ),
+        mix(p.paperTone, p.dotTone, 0.25),
+      );
+      // The top of the tallest bar and its side.
+      const tallest = c.incomes.length - 1,
+        left = pageX(tallest / n),
+        top = p.barBase - c.incomes[tallest] * p.unit;
+      close(
+        toneAt(c.sample, left + p.side / n / 2, top + quarter),
+        mix(p.paperTone, p.barTone, 0.75),
+      );
+      close(
+        toneAt(c.sample, left + p.side / n / 2, top - quarter),
+        mix(p.paperTone, p.barTone, 0.25),
+      );
+      close(
+        toneAt(c.sample, left + p.barGap + quarter, top + 0.01),
+        mix(p.paperTone, p.barTone, 0.75),
+      );
+      close(
+        toneAt(c.sample, left + p.barGap - quarter, top + 0.01),
+        mix(p.paperTone, p.barTone, 0.25),
+      );
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('lorenzcurve', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('lorenzcurve', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.0113),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('lorenzcurve', 0),
+      b = createSurfaceSampler('lorenzcurve', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
