@@ -44889,6 +44889,158 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'knightstour': {
+        const p = proceduralMaterialPresets.knightstour,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          size = p.board,
+          cells = size * size,
+          lineSquared = p.lineRadius * p.lineRadius,
+          dotSquared = p.dotRadius * p.dotRadius,
+          moves = [
+            [1, 2],
+            [2, 1],
+            [2, -1],
+            [1, -2],
+            [-1, -2],
+            [-2, -1],
+            [-2, 1],
+            [-1, 2],
+          ],
+          free = (visited: Uint8Array, x: number, y: number): boolean =>
+            x >= 0 &&
+            y >= 0 &&
+            x < size &&
+            y < size &&
+            visited[y * size + x] === 0,
+          // The knight's moves still open from a square, counted without the squares already visited.
+          exits = (visited: Uint8Array, cell: number): number => {
+            let count = 0;
+            for (const [dx, dy] of moves)
+              count += Number(
+                free(visited, (cell % size) + dx, Math.floor(cell / size) + dy),
+              );
+            return count;
+          };
+        // A knight's tour of the board by Warnsdorff's rule: from a hashed starting square the knight
+        // always goes to the unvisited square from which it has the fewest further moves, ties being
+        // broken by the hash. The rule can get stuck, so up to 'attempts' tours are tried (each from
+        // its own hashed start and tie-breaking) and the first one that visits every square is kept;
+        // if none does, the longest is kept.
+        let path: number[] = [];
+        for (
+          let attempt = 0;
+          attempt < p.attempts && path.length < cells;
+          attempt++
+        ) {
+          const visited = new Uint8Array(cells),
+            start = Math.floor(hash(attempt, 0, seed ^ p.seedSalt) * cells),
+            walk = [start];
+          visited[start] = 1;
+          for (let step = 1; step < cells; step++) {
+            const at = walk[walk.length - 1];
+            let best = -1,
+              fewest = Infinity,
+              ties = 0;
+            for (const [dx, dy] of moves) {
+              const x = (at % size) + dx,
+                y = Math.floor(at / size) + dy;
+              if (!free(visited, x, y)) continue;
+              const target = y * size + x,
+                open = exits(visited, target);
+              if (open < fewest) {
+                fewest = open;
+                best = target;
+                ties = 1;
+              } else if (open === fewest) {
+                ties++;
+                if (
+                  hash(attempt * cells + step, 1 + ties, seed ^ p.seedSalt) <
+                  1 / ties
+                )
+                  best = target;
+              }
+            }
+            if (best < 0) break;
+            visited[best] = 1;
+            walk.push(best);
+          }
+          if (walk.length > path.length) path = walk;
+        }
+        const following = new Int16Array(cells).fill(-1),
+          order = new Int16Array(cells).fill(0);
+        path.forEach((cell, index) => {
+          order[cell] = index;
+          if (index + 1 < path.length) following[cell] = path[index + 1];
+        });
+        return () => {
+          const x = fract(u) * size,
+            y = fract(v) * size,
+            column = Math.floor(x),
+            row = Math.floor(y);
+          // Every square is a dot and every knight's move of the tour is a capsule from the middle of
+          // one square to the middle of the next, its tone going from firstTone of the span at the
+          // start of the tour to the whole span at its end. Dots and capsules are each a union by
+          // 1 - product of (1 - t^2) with t = max(0, 1 - squared distance / squared radius), so the
+          // field is C1; where capsules cross, their tones are averaged with the weights t^2 (which
+          // is smooth wherever one of them is non-zero).
+          let openLines = 1,
+            openDots = 1,
+            weight = 0,
+            weighted = 0;
+          for (let oy = -3; oy <= 3; oy++)
+            for (let ox = -3; ox <= 3; ox++) {
+              const cx = column + ox,
+                cy = row + oy;
+              if (cx < 0 || cy < 0 || cx >= size || cy >= size) continue;
+              const cell = cy * size + cx;
+              if (Math.abs(ox) <= 1 && Math.abs(oy) <= 1) {
+                const dx = x - (cx + 0.5),
+                  dy = y - (cy + 0.5),
+                  t = clamp(1 - (dx * dx + dy * dy) / dotSquared);
+                openDots *= 1 - t * t;
+              }
+              const next = following[cell];
+              if (next < 0) continue;
+              const ax = cx + 0.5,
+                ay = cy + 0.5,
+                bx = (next % size) + 0.5,
+                by = Math.floor(next / size) + 0.5,
+                sx = bx - ax,
+                sy = by - ay,
+                along = clamp(
+                  ((x - ax) * sx + (y - ay) * sy) / (sx * sx + sy * sy),
+                ),
+                ex = x - (ax + along * sx),
+                ey = y - (ay + along * sy),
+                t = clamp(1 - (ex * ex + ey * ey) / lineSquared),
+                share = t * t;
+              openLines *= 1 - share;
+              weight += share;
+              weighted +=
+                share *
+                (p.firstTone + ((1 - p.firstTone) * order[cell]) / (cells - 1));
+            }
+          const dots = 1 - openDots,
+            lineTone = weight > 0 ? weighted / weight : p.firstTone,
+            total = 1 - openLines * openDots,
+            mask = smooth(clamp(total / p.edgeSoft)),
+            tone = p.toneSpan * (lineTone * (1 - dots) + dots),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * total * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -53756,6 +53908,7 @@ export function createSurfaceSampler(
     kind === 'paleyhadamard' ||
     kind === 'hamiltoncycle' ||
     kind === 'daynight' ||
+    kind === 'knightstour' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

@@ -1129,6 +1129,7 @@ try {
     'paleyhadamard',
     'hamiltoncycle',
     'daynight',
+    'knightstour',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

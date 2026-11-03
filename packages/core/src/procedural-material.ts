@@ -1066,6 +1066,7 @@ export type ProceduralMaterialKind =
   | 'paleyhadamard'
   | 'hamiltoncycle'
   | 'daynight'
+  | 'knightstour'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2380,6 +2381,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'paleyhadamard',
   'hamiltoncycle',
   'daynight',
+  'knightstour',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

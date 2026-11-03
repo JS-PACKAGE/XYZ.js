@@ -13299,3 +13299,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試加kinds清單新條目，`-t`選中的6項皆通過；型別檢查與eslint乾淨。
 - gates（工具實跑，第二次完整重跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Day and Night as|daynight|kinds|catalog|distinct|periodic"`定向測試**2440項通過／4154項未選**，輸出`GATES-OK`。
 - 未驗證：hamiltoncycle與daynight未跑完整suite與瀏覽器gallery（最近一次完整複驗至佩利阿達馬矩陣）；不push。
+
+## 2026-11-03 新增材質：騎士巡遊（knightstour）
+
+- 範圍：新增`knightstour`（目前目錄1065→1066種，含plain的gallery 1067項）：16×16棋盤上用Warnsdorff規則（最多重試60次，平手由hash決定）走出的騎士巡遊；圓點為格、線段為日字步，色調由起點的0.45倍span漸亮到終點；琥珀色蛛網；seed決定起點與平手處理；點與線以`1 − Π(1 − t²)`取聯集，所以場為C1；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 132,096 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽只看了seed 7一張；(2)動手前以`/tmp/absent.sh`確認`knight`字樣不存在；(3)**測試讀回的第一版是錯的**：只用5個取樣點（20%、35%、50%、65%、80%）判斷日字相連，在100個探針seed（100–199）中有24個得到「不是完整巡遊」（多出一或兩條相連邊，度數3的格）；我先懷疑sampler，查了三條「相連」的線段色調剖面後發現多出的那一對的線段上多數位置是暗的（約0.04），5個取樣點剛好都落在別的日字線段的交叉點上；改成13個點（20%到80%、每5%）後100個seed全部是完整巡遊，所以錯在讀回方法，不在sampler；(4)我另外用一個**獨立於sampler**的腳本（不同的亂數與平手處理）看單次Warnsdorff嘗試的失敗率：20,000次中173次（0.865%）卡住、583次走成首尾相隔一個日字的封閉巡遊，這只用來說明為什麼sampler要重試，不是sampler本身的統計；sampler的重試上限60次，我沒有記錄各seed實際用了幾次嘗試，也不能證明所有seed都會在60次內走滿（只檢查了測試的八個seed與探針的100個seed；若走不滿，sampler保留最長的一次，不會偽造完整的結果）；(5)Warnsdorff規則是我憑記憶寫的，**沒有查文獻**；(6)我的測試生成器把一個測試標題寫成含撇號的單引號字串（`knight's`），在跑prettier之前發現語法錯誤並改成沒有撇號的標題，沒有進入任何測試執行；(7)256²與512²取樣的亮處占比略有不同，原因是取樣點在線上的位置不同，測試採用256²的數值範圍；(8)建構與取樣耗時**未量測**；(9)專屬測試在13點判準確定後第一次執行即通過。
+- 實測（工具實跑）：seed 0／1／2／3／7／0xffffffff／109／110都是256個格中心全亮、255條相連、兩個端點、其餘度數2、走一圈256格並到達另一端、沒有模稜兩可的讀回、tile邊緣沒有亮點；seed 100–199共100個seed同樣通過；seed 0與1的255步中有93步相同；256²（seed 0／1／0xffffffff）亮處（color>0.5）24.39%–24.45%、color 0.02546–0.02573至0.85101–0.85236、平均0.23899–0.23970、roughness恆為0.4、AO最低0.6、height至多0.8425–0.8440 relief；512²（seed 0／1／0xffffffff／7）亮處28.21%–28.38%、color 0.02513–0.02519至0.85238–0.85374、平均0.24216–0.24325、AO最低0.6、height至多0.8469–0.8493 relief；seed 0與1相比，512²中color>0.5的取樣25.9%不同；seed 7的512²maps平均r／g／b約(70.8, 47.2, 42.1)、法線tilt²最大約0.0280、z分量最小253。我實看了預覽（seed 7）。
+- 測試：新增5項專屬測試加kinds清單新條目，`-t`選中的6項皆通過；型別檢查與eslint乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "tour as a|knightstour|kinds|catalog|distinct|periodic"`定向測試**2442項通過／4158項未選**，輸出`GATES-OK`。
+- 未驗證：hamiltoncycle、daynight與knightstour未跑完整suite與瀏覽器gallery（最近一次完整複驗至佩利阿達馬矩陣）；不push。

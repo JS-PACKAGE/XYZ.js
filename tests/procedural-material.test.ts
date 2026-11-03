@@ -1092,6 +1092,7 @@ const kinds: ProceduralMaterialKind[] = [
   'paleyhadamard',
   'hamiltoncycle',
   'daynight',
+  'knightstour',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -175210,6 +175211,274 @@ describe('Day and Night as four generations of the Day and Night cellular automa
     expect(blue / (512 * 512)).toBeLessThan(77.3);
     expect(maxTilt).toBeGreaterThan(0.035);
     expect(maxTilt).toBeLessThan(0.04);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe("Knight's tour as a knight's tour of a 16 by 16 board by Warnsdorff's rule", () => {
+  const p = proceduralMaterialPresets.knightstour;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const cells = 16,
+    knightMoves = [
+      [1, 2],
+      [2, 1],
+      [2, -1],
+      [1, -2],
+    ];
+  /**
+   * The 16 by 16 board read back from the sampler as a graph: the colour at the centre of a square
+   * above 0.3 means it is on the tour, and two squares a knight's move apart are joined when all
+   * thirteen points from 20% to 80% of the way along the segment between their centres, in steps
+   * of 5%, are lit (colour above 0.3). Five points were not enough: the crossings of other moves
+   * of the tour fell on exactly those points for a pair that was not joined. 'ambiguous' counts the
+   * read-backs between 0.2 and 0.4, 'unlit' the square centres that are not lit and 'crossing' the
+   * lit points in the middle of the squares along the tile edges, which must be none.
+   */
+  const readTour = (
+    seed: number,
+  ): {
+    joined: number[][];
+    ambiguous: number;
+    unlit: number;
+    crossing: number;
+  } => {
+    const sample = createSurfaceSampler('knightstour', seed),
+      out = empty(),
+      read = (x: number, y: number): number => {
+        sample(x / cells, y / cells, out);
+        return out.color;
+      },
+      joined: number[][] = Array.from({ length: cells * cells }, () => []);
+    let ambiguous = 0,
+      unlit = 0,
+      crossing = 0;
+    const lit = (x: number, y: number): boolean => {
+      const color = read(x, y);
+      ambiguous += Number(color > 0.2 && color < 0.4);
+      return color > 0.3;
+    };
+    for (let y = 0; y < cells; y++)
+      for (let x = 0; x < cells; x++) {
+        unlit += Number(!lit(x + 0.5, y + 0.5));
+        for (const [dx, dy] of knightMoves) {
+          const ox = x + dx,
+            oy = y + dy;
+          if (ox < 0 || oy < 0 || ox >= cells || oy >= cells) continue;
+          let all = true;
+          for (let k = 0; k < 13 && all; k++)
+            all = lit(
+              x + 0.5 + dx * (0.2 + 0.05 * k),
+              y + 0.5 + dy * (0.2 + 0.05 * k),
+            );
+          if (all) {
+            joined[y * cells + x].push(oy * cells + ox);
+            joined[oy * cells + ox].push(y * cells + x);
+          }
+        }
+      }
+    for (let i = 0; i < cells; i++)
+      crossing += Number(lit(0, i + 0.5)) + Number(lit(i + 0.5, 0));
+    return { joined, ambiguous, unlit, crossing };
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('knightstour', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0254);
+      expect(low).toBeLessThan(0.0258);
+      expect(high).toBeGreaterThan(0.85);
+      expect(high).toBeLessThan(0.853);
+      expect(dark / 65536).toBeGreaterThan(0.243);
+      expect(dark / 65536).toBeLessThan(0.245);
+      expect(mean / 65536).toBeGreaterThan(0.238);
+      expect(mean / 65536).toBeLessThan(0.241);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.841);
+      expect(heightHigh).toBeLessThan(0.845);
+      expect(invalid).toBe(0);
+    }
+  });
+  it("draws a knight's tour that visits every square once", () => {
+    // Read back from the colours alone: every one of the 256 square centres is lit, exactly two
+    // squares are joined to one square and all the others to two, nothing is ambiguous and nothing
+    // is lit along the tile edge, and walking along the joins from one of the two ends visits all
+    // 256 squares: a knight's path through every square, whose joins are knight's moves by the way
+    // they were read. The seeds were 0, 1, 2, 3, 7, 0xffffffff and 109 and 110 (the last two had
+    // fooled the first, five-point version of the read-back); a probe also checked 100 seeds from
+    // 100 to 199 and found a complete tour in each, which is not a proof for every seed.
+    for (const seed of [0, 1, 2, 3, 7, 0xffffffff, 109, 110]) {
+      const { joined, ambiguous, unlit, crossing } = readTour(seed);
+      expect([ambiguous, unlit, crossing]).toEqual([0, 0, 0]);
+      const ends = joined.flatMap((list, cell) =>
+        list.length === 1 ? [cell] : [],
+      );
+      expect(ends).toHaveLength(2);
+      expect(joined.filter((list) => list.length === 2)).toHaveLength(
+        cells * cells - 2,
+      );
+      let visited = 0,
+        previous = -1,
+        at = ends[0];
+      for (;;) {
+        visited++;
+        const next = joined[at].find((cell) => cell !== previous);
+        if (next === undefined || visited > cells * cells) break;
+        previous = at;
+        at = next;
+      }
+      expect(visited).toBe(cells * cells);
+      expect(at).toBe(ends[1]);
+    }
+  });
+  it('draws a different tour per seed and is deterministic for one seed', () => {
+    const edges = (seed: number): Set<string> => {
+      const set = new Set<string>(),
+        { joined } = readTour(seed);
+      joined.forEach((list, cell) =>
+        list.forEach((other) => {
+          if (other > cell) set.add(`${cell}-${other}`);
+        }),
+      );
+      return set;
+    };
+    const first = edges(0),
+      second = edges(1);
+    let shared = 0;
+    for (const edge of first) shared += Number(second.has(edge));
+    // 255 moves each; a third of them are common to two different tours.
+    expect(first.size).toBe(255);
+    expect(second.size).toBe(255);
+    expect(shared / first.size).toBeGreaterThan(0.3);
+    expect(shared / first.size).toBeLessThan(0.43);
+    expect(edges(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('knightstour', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [cells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 amber knight tour maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('knightstour', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(70.2);
+    expect(red / (512 * 512)).toBeLessThan(71.5);
+    expect(green / (512 * 512)).toBeGreaterThan(46.6);
+    expect(green / (512 * 512)).toBeLessThan(47.9);
+    expect(blue / (512 * 512)).toBeGreaterThan(41.5);
+    expect(blue / (512 * 512)).toBeLessThan(42.7);
+    expect(maxTilt).toBeGreaterThan(0.026);
+    expect(maxTilt).toBeLessThan(0.03);
     expect(invalid).toBe(0);
   });
 });
