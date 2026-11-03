@@ -47037,6 +47037,121 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'fareydisc': {
+        const p = proceduralMaterialPresets.fareydisc,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          centre =
+            p.centres[
+              Math.floor(hash(0, 57, seed ^ p.seedSalt) * p.centres.length)
+            ],
+          shiftX = centre[0] * Math.cos(centre[1]),
+          shiftY = centre[0] * Math.sin(centre[1]),
+          // The tessellation of the Poincare disc by ideal triangles (the Farey tessellation, the
+          // tessellation {3, infinity}): the central triangle has its corners on the unit circle at the angles
+          // 90, 210 and 330 degrees; its three sides lie on circles that cut the unit circle at a right angle,
+          // about the points at the distance 2 at 150, 270 and 30 degrees (the mid-angles of the sides) with the
+          // radius the square root of 3 (a side between two corners 120 degrees apart: the centre is at
+          // 1 / cos 60 = 2 and the radius is tan 60). The picture is that tessellation moved by the
+          // isometry of the disc z -> (z + a) / (1 + conj(a) z) that takes the middle of the picture to a, the
+          // point of the variant (the centre of the triangle, the middle of a side or some further point).
+          sideCentres = [150, 270, 30].map((degrees) => [
+            2 * Math.cos((degrees * Math.PI) / 180),
+            2 * Math.sin((degrees * Math.PI) / 180),
+          ]),
+          circleSquared = 3,
+          circleRadius = Math.sqrt(3),
+          inverseSoft = 1 / p.edgeSoft;
+        return () => {
+          // The point in the disc (after the isometry) is folded into the central triangle by inversion in
+          // the circles of its three sides while it is inside one of them; the reflections form the symmetry
+          // group of the tessellation, so the folded point has the same distance to the sides of the
+          // tessellation as the point has, and the number of reflections is even or odd in the same way for all
+          // ways of folding, which colours the triangles in two tones.
+          const scale = 1 / p.diskRadius,
+            gx = (fract(u) - 0.5) * scale,
+            gy = (fract(v) - 0.5) * scale,
+            radiusSquared = gx * gx + gy * gy,
+            radius = Math.sqrt(radiusSquared),
+            // The image of the point under z -> (z + a) / (1 + conj(a) z), written out in real numbers.
+            denominatorX = 1 + shiftX * gx + shiftY * gy,
+            denominatorY = shiftX * gy - shiftY * gx,
+            numeratorX = gx + shiftX,
+            numeratorY = gy + shiftY,
+            norm = denominatorX * denominatorX + denominatorY * denominatorY;
+          let x =
+              (numeratorX * denominatorX + numeratorY * denominatorY) / norm,
+            y = (numeratorY * denominatorX - numeratorX * denominatorY) / norm,
+            reflections = 0;
+          for (let fold = 0; fold < p.maxFolds; fold++) {
+            let moved = false;
+            for (const side of sideCentres) {
+              const dx = x - side[0],
+                dy = y - side[1],
+                distanceSquared = dx * dx + dy * dy;
+              if (distanceSquared < circleSquared) {
+                const factor = circleSquared / distanceSquared;
+                x = side[0] + dx * factor;
+                y = side[1] + dy * factor;
+                moved = true;
+                reflections++;
+              }
+            }
+            if (!moved) break;
+          }
+          // Twice the distance in the picture over 1 - |z|^2 is the distance in the hyperbolic plane; the
+          // lines are the union of the three sides of the triangle (symmetric about every mirror, so the
+          // field is C1).
+          const foldedSquared = x * x + y * y,
+            conformal = 2 / Math.max(1e-6, 1 - foldedSquared),
+            widthSquared = p.lineHalfWidth * p.lineHalfWidth,
+            lineOf = (side: number[]): number => {
+              const dx = x - side[0],
+                dy = y - side[1],
+                distance = Math.sqrt(dx * dx + dy * dy) - circleRadius,
+                t = clamp(
+                  1 -
+                    (conformal * distance * conformal * distance) /
+                      widthSquared,
+                );
+              return t * t;
+            },
+            line =
+              1 -
+              (1 - lineOf(sideCentres[0])) *
+                (1 - lineOf(sideCentres[1])) *
+                (1 - lineOf(sideCentres[2])),
+            inside = smooth(clamp((p.fadeStart - radius) / 0.02)),
+            fill =
+              (reflections % 2 === 0 ? p.fillEven : p.fillOdd) +
+              p.fillGradient * clamp(foldedSquared),
+            ringT = clamp(
+              1 -
+                ((radius - 1) * (radius - 1)) /
+                  (p.ringHalfWidth * p.ringHalfWidth),
+            ),
+            ring = ringT * ringT,
+            ink = clamp(inside * (fill * (1 - line) + line) + ring),
+            mask = smooth(clamp(ink * inverseSoft)),
+            tone = p.toneSpan * ink,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            tone +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(inside * line + ring) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -55919,6 +56034,7 @@ export function createSurfaceSampler(
     kind === 'sphericaltiling' ||
     kind === 'poincaretriangles' ||
     kind === 'sphericaltriangles' ||
+    kind === 'fareydisc' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

@@ -1107,6 +1107,7 @@ const kinds: ProceduralMaterialKind[] = [
   'sphericaltiling',
   'poincaretriangles',
   'sphericaltriangles',
+  'fareydisc',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -180031,6 +180032,357 @@ describe('Spherical triangles as the mirror lines of a polyhedral group seen by 
     expect(green / (512 * 512)).toBeLessThan(57.9);
     expect(blue / (512 * 512)).toBeGreaterThan(33.8);
     expect(blue / (512 * 512)).toBeLessThan(35);
+    expect(maxTilt).toBeGreaterThan(0.052);
+    expect(maxTilt).toBeLessThan(0.057);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Farey disc as the ideal triangle tessellation of the Poincare disc, two-coloured by parity', () => {
+  const p = proceduralMaterialPresets.fareydisc;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  // The Farey tessellation is built here from the fractions and not by folding: the corners are the points
+  // p / q of the real line and 1 / 0 taken to the unit circle by x -> (x - i) / (x + i), the triangles are the
+  // triples a, a (+) b, b of the Stern-Brocot tree (the mediant (+) adds numerators and denominators) from
+  // the root 0, 1, 1 / 0 and the edges are their sides (the pairs of fractions with p s - q r = 1). The root
+  // is taken to the central triangle of the picture, with its corners at 90, 210 and 330 degrees, by the
+  // Mobius map found from the three pairs of corners with the cross ratio. The dual graph of the triangles
+  // is a tree, so the triangles are coloured in two tones by the parity of their depth in it.
+  type C = [number, number];
+  const mul = (a: C, b: C): C => [
+    a[0] * b[0] - a[1] * b[1],
+    a[0] * b[1] + a[1] * b[0],
+  ];
+  const add = (a: C, b: C): C => [a[0] + b[0], a[1] + b[1]];
+  const sub = (a: C, b: C): C => [a[0] - b[0], a[1] - b[1]];
+  const div = (a: C, b: C): C => {
+    const n = b[0] * b[0] + b[1] * b[1];
+    return [(a[0] * b[0] + a[1] * b[1]) / n, (a[1] * b[0] - a[0] * b[1]) / n];
+  };
+  type M = [C, C, C, C];
+  const apply = (m: M, z: C): C =>
+    div(add(mul(m[0], z), m[1]), add(mul(m[2], z), m[3]));
+  const compose = (x: M, y: M): M => [
+    add(mul(x[0], y[0]), mul(x[1], y[2])),
+    add(mul(x[0], y[1]), mul(x[1], y[3])),
+    add(mul(x[2], y[0]), mul(x[3], y[2])),
+    add(mul(x[2], y[1]), mul(x[3], y[3])),
+  ];
+  const toUnit = (a: C, b: C, c: C): M => [
+    sub(b, c),
+    mul([-1, 0], mul(a, sub(b, c))),
+    sub(b, a),
+    mul([-1, 0], mul(c, sub(b, a))),
+  ];
+  const inverse = (m: M): M => [
+    m[3],
+    [-m[1][0], -m[1][1]],
+    [-m[2][0], -m[2][1]],
+    m[0],
+  ];
+  const cayley = (f: [number, number]): C => {
+    const [p, q] = f,
+      s = p * p + q * q;
+    return [(p * p - q * q) / s, (-2 * p * q) / s];
+  };
+  const corner = (deg: number): C => [
+    Math.cos((deg * Math.PI) / 180),
+    Math.sin((deg * Math.PI) / 180),
+  ];
+  const regular: C[] = [corner(90), corner(210), corner(330)];
+  const toRegular = (a: C, b: C, c: C): M =>
+    compose(
+      inverse(toUnit(regular[0], regular[1], regular[2])),
+      toUnit(a, b, c),
+    );
+  type Frac = [number, number];
+  const triangles: { v: [Frac, Frac, Frac]; depth: number }[] = [];
+  const walk = (a: Frac, b: Frac, depth: number, limit: number): void => {
+    const m: Frac = [a[0] + b[0], a[1] + b[1]];
+    triangles.push({ v: [a, m, b], depth });
+    if (depth < limit) {
+      walk(a, m, depth + 1, limit);
+      walk(m, b, depth + 1, limit);
+    }
+  };
+  walk([0, 1], [1, 0], 0, 7);
+  walk([-1, 0], [0, 1], 1, 7);
+  // geodesic between two boundary points as points in the disc
+  const geodesic = (a: C, b: C, count: number): C[] => {
+    const mid = Math.atan2(a[1] + b[1], a[0] + b[0]),
+      half =
+        Math.acos(Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1]))) / 2,
+      centreDistance = 1 / Math.cos(half),
+      radius = Math.tan(half),
+      centre: C = [
+        centreDistance * Math.cos(mid),
+        centreDistance * Math.sin(mid),
+      ],
+      start = Math.atan2(a[1] - centre[1], a[0] - centre[0]);
+    let end = Math.atan2(b[1] - centre[1], b[0] - centre[0]);
+    while (end - start > Math.PI) end -= 2 * Math.PI;
+    while (end - start < -Math.PI) end += 2 * Math.PI;
+    const out: C[] = [];
+    for (let k = 0; k < count; k++) {
+      const t = start + ((end - start) * (k + 0.5)) / count;
+      out.push([
+        centre[0] + radius * Math.cos(t),
+        centre[1] + radius * Math.sin(t),
+      ]);
+    }
+    return out;
+  };
+  const shiftBack = (w: C, a: C): C =>
+    div(sub(w, a), sub([1, 0], mul([a[0], -a[1]], w)));
+  // the frame of the Farey tessellation (the triangle 0, 1, infinity) moved onto the regular central triangle
+  const frame: M = toRegular(cayley([0, 1]), cayley([1, 1]), cayley([1, 0]));
+  const world = (f: Frac): C => apply(frame, cayley(f));
+
+  const centres = p.centres.map((c): C => [
+    c[0] * Math.cos(c[1]),
+    c[0] * Math.sin(c[1]),
+  ]);
+  /** The picture positions of check points on the edges (24 per edge) and the centres of the triangles of each variant, within the radius of the picture where they are tested. */
+  const edgePoints = centres.map((shift) => {
+      const points: C[] = [];
+      for (const triangle of triangles) {
+        const [x, y, z] = triangle.v.map(world);
+        for (const [s, e] of [
+          [x, y],
+          [y, z],
+          [x, z],
+        ] as C[][])
+          for (const g of geodesic(s, e, 24)) {
+            const q = shiftBack(g, shift);
+            if (Math.hypot(q[0], q[1]) <= 0.9) points.push(q);
+          }
+      }
+      return points;
+    }),
+    centrePoints = centres.map((shift) => {
+      const points: { q: C; depth: number }[] = [];
+      for (const triangle of triangles) {
+        const [x, y, z] = triangle.v.map(world),
+          q = shiftBack(apply(inverse(toRegular(x, y, z)), [0, 0]), shift);
+        if (Math.hypot(q[0], q[1]) <= 0.8)
+          points.push({ q, depth: triangle.depth });
+      }
+      return points;
+    });
+  /** The colours read from the sampler at the check points on the edges of a variant. */
+  const colorsOnEdges = (seed: number, index: number): number[] => {
+    const sample = createSurfaceSampler('fareydisc', seed),
+      out = empty();
+    return edgePoints[index].map((q) => {
+      sample(0.5 + p.diskRadius * q[0], 0.5 + p.diskRadius * q[1], out);
+      return out.color;
+    });
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('fareydisc', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('fareydisc', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0254);
+      expect(low).toBeLessThan(0.0259);
+      expect(high).toBeGreaterThan(0.8713);
+      expect(high).toBeLessThan(0.8734);
+      expect(dark / 65536).toBeGreaterThan(0.05);
+      expect(dark / 65536).toBeLessThan(0.0527);
+      expect(mean / 65536).toBeGreaterThan(0.1874);
+      expect(mean / 65536).toBeLessThan(0.1884);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.8713);
+      expect(heightHigh).toBeLessThan(0.8757);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The variant for each of the seeds 1, 0, 8, 4 and 2 (variants 0 to 4: the centre of a triangle, the middle of
+  // a side and three further points) was found with a probe and is written here, so that table is not an
+  // independent check of the seed's choice.
+  const seeds = [1, 0, 8, 4, 2];
+  it('draws every edge of the Farey tessellation of the variant', () => {
+    // All the check points on the listed edges (the 24 points of each edge, those within 0.9 of the middle of
+    // the picture; at most 3 may read lower than 0.7) read bright (> 0.7), and each other variant has at least
+    // 100 check points reading lower, since the shifts differ.
+    seeds.forEach((seed, index) => {
+      expect(edgePoints[index].length).toBeGreaterThan(800);
+      const own = colorsOnEdges(seed, index);
+      expect(own.filter((c) => c < 0.7).length).toBeLessThanOrEqual(3);
+      p.centres.forEach((_, other) => {
+        if (other === index) return;
+        expect(
+          colorsOnEdges(seed, other).filter((c) => c < 0.7).length,
+        ).toBeGreaterThan(100);
+      });
+    });
+  });
+  it('colours the triangles in two tones by the parity of their depth in the tree of the tessellation', () => {
+    // At the centre of every listed triangle within 0.8 of the middle (6 to 10 of them per variant, 6 for the
+    // centre of a side, found by taking the triangle to the central one with a Mobius map and taking the
+    // origin back, and not by folding) the colour is low (below 0.2, 0.12 to 0.15 in the probe) when the
+    // depth is even and high (0.3 to 0.4) when it is odd, the same way for all the seeds.
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('fareydisc', seed),
+        out = empty();
+      expect(centrePoints[index].length).toBeGreaterThanOrEqual(6);
+      for (const { q, depth } of centrePoints[index]) {
+        sample(0.5 + p.diskRadius * q[0], 0.5 + p.diskRadius * q[1], out);
+        if (depth % 2 === 0) expect(out.color).toBeLessThan(0.2);
+        else {
+          expect(out.color).toBeGreaterThan(0.3);
+          expect(out.color).toBeLessThan(0.4);
+        }
+      }
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 1 pick different variants (the middle of a side and the centre of a triangle).
+    const first = litGrid(0),
+      second = litGrid(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.075);
+    expect(different / first.length).toBeLessThan(0.095);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('fareydisc', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [12, p.grainCells, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 green ideal triangle maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('fareydisc', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(34);
+    expect(red / (512 * 512)).toBeLessThan(35.2);
+    expect(green / (512 * 512)).toBeGreaterThan(69.3);
+    expect(green / (512 * 512)).toBeLessThan(70.5);
+    expect(blue / (512 * 512)).toBeGreaterThan(63.2);
+    expect(blue / (512 * 512)).toBeLessThan(64.4);
     expect(maxTilt).toBeGreaterThan(0.052);
     expect(maxTilt).toBeLessThan(0.057);
     expect(invalid).toBe(0);

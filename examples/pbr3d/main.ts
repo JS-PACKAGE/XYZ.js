@@ -1144,6 +1144,7 @@ try {
     'sphericaltiling',
     'poincaretriangles',
     'sphericaltriangles',
+    'fareydisc',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
