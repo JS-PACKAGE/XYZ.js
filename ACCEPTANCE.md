@@ -13205,3 +13205,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Josephus as|josephus|kinds|catalog|distinct|periodic"`定向測試**2418項通過／4127項未選**。
 - 未驗證：josephus未跑完整suite與瀏覽器gallery（最近一次完整複驗至骨牌鋪磚）；不push。
+
+## 2026-11-03 新增材質：謝林隔離模型（schelling）
+
+- 範圍：新增`schelling`（目前目錄1056→1057種，含plain的gallery 1058項）：48×48環面上的謝林隔離模型——約10%空格、兩種住戶各約45%，周圍8個鄰格中已被佔用者至少40%同種才滿意，不滿意者依序搬到第一個會滿意的空格（最多60輪）；seed決定起始混合；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 133,376 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽只看了一版；(2)動手前以`/tmp/absent.sh`確認`schelling`在kind清單與README都不存在；(3)這一輪先放棄了三個構想，皆沒有留下程式碼：Greenberg–Hastings與Brian's Brain（見上一節），以及`catmap`（Arnold貓映射在60×60表上的軌道長度）——它實作並預覽過兩個版本：以軌道長度排名著色時80%的格子是同一個最長軌道，整張圖近乎單色；反過來讓短軌道亮則整體偏暗而雜亂，兩者都不合格，我用`git checkout -- .`丟棄（未提交）；(4)測試只靠讀回，檢查「安定狀態」的定義，**不**證明是特定搬遷順序的結果，也**不**證明所有seed都收斂（只檢查了六個seed）；(5)256²與512²取樣的亮處占比不同，原因是格寬（約5.3與10.7像素）與取樣點在格內位置不同，測試採用256²的數值範圍；(6)建構時間只有單次、未控制條件的量測（六個seed約50.0含暖機、8.9、8.7、9.4、8.8、8.3 ms），取樣耗時**未量測**；(7)測試第一次執行即通過（先以探針量好界線）。
+- 實測（工具實跑，seed 0／1／0xffffffff／7／12345／99）：空格232／216／232／249／248／220個；不滿意的住戶與「能靠空格變滿意的不滿意住戶」皆為0個；鄰居中同種的比例0.8147／0.8202／0.8172／0.8180／0.8179／0.8303；各seed沒有模稜兩可的讀回；256²（seed 0／1／0xffffffff）亮處（color>0.5）34.45%–35.16%、color 0.02548–0.02591至0.85407–0.85463、平均0.45537–0.45802、roughness恆為0.4、AO最低0.6、height至多0.8474–0.8500 relief；512²（seed 0／1／0xffffffff／7）亮處33.94%–35.57%、color 0.02524–0.02548至0.85463–0.85485、平均0.45041–0.45840、AO最低0.6、height至多0.8499–0.8507 relief；seed 0與1相比，512²中color>0.5的取樣37.5%不同、格中心顏色差>0.05的格子60.2%；seed 7的512²maps平均r／g／b約(126.9, 84.3, 53.5)、法線tilt²最大約0.0296、z分量最小253。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Schelling as|schelling|kinds|catalog|distinct|periodic"`定向測試**2420項通過／4130項未選**。
+- 未驗證：josephus與schelling未跑完整suite與瀏覽器gallery（最近一次完整複驗至骨牌鋪磚）；不push。

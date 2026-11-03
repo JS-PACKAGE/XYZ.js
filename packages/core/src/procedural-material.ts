@@ -1057,6 +1057,7 @@ export type ProceduralMaterialKind =
   | 'partitionmod5'
   | 'stirlingparity'
   | 'josephus'
+  | 'schelling'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2362,6 +2363,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'partitionmod5',
   'stirlingparity',
   'josephus',
+  'schelling',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

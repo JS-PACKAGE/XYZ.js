@@ -1120,6 +1120,7 @@ try {
     'partitionmod5',
     'stirlingparity',
     'josephus',
+    'schelling',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

@@ -43935,6 +43935,97 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'schelling': {
+        const p = proceduralMaterialPresets.schelling,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft,
+          size = p.cells,
+          grid = new Uint8Array(size * size),
+          wrap = (n: number): number => (n + size) % size,
+          // Schelling's segregation model on the size by size torus: every cell is empty (0) or holds
+          // an agent of one of two kinds (1 and 2). An agent is happy when at least minSame of the
+          // occupied cells among its 8 neighbours (wrapping round the torus) hold its own kind, or
+          // when it has no occupied neighbour. 'skip' is the cell an agent is leaving: it counts as
+          // empty.
+          happy = (cell: number, kind: number, skip: number): boolean => {
+            const x = cell % size,
+              y = Math.floor(cell / size);
+            let same = 0,
+              occupied = 0;
+            for (let dy = -1; dy <= 1; dy++)
+              for (let dx = -1; dx <= 1; dx++) {
+                if (dx === 0 && dy === 0) continue;
+                const other = wrap(y + dy) * size + wrap(x + dx);
+                if (other === skip || grid[other] === 0) continue;
+                occupied++;
+                same += Number(grid[other] === kind);
+              }
+            return occupied === 0 || same / occupied >= p.minSame;
+          };
+        for (let i = 0; i < grid.length; i++) {
+          const r = hash(i, 0, seed ^ p.seedSalt);
+          grid[i] = r < p.emptyShare ? 0 : r < (1 + p.emptyShare) / 2 ? 1 : 2;
+        }
+        // Sweeps in cell order: an unhappy agent moves to the first empty cell, counted from a hashed
+        // place in the list of empty cells, where it would be happy. The sweeps stop when nobody moves
+        // or after p.sweeps sweeps.
+        for (let sweep = 0; sweep < p.sweeps; sweep++) {
+          let moved = false;
+          for (let i = 0; i < grid.length; i++) {
+            const kind = grid[i];
+            if (kind === 0 || happy(i, kind, -1)) continue;
+            const empties: number[] = [];
+            for (let j = 0; j < grid.length; j++)
+              if (grid[j] === 0) empties.push(j);
+            const start = Math.floor(
+              hash(sweep * grid.length + i, 1, seed ^ p.seedSalt) *
+                empties.length,
+            );
+            for (let k = 0; k < empties.length; k++) {
+              const target = empties[(k + start) % empties.length];
+              if (happy(target, kind, i)) {
+                grid[i] = 0;
+                grid[target] = kind;
+                moved = true;
+                break;
+              }
+            }
+          }
+          if (!moved) break;
+        }
+        return () => {
+          // One compact-support rounded-square kernel per cell (a quartic superellipse
+          // through smoothstep, exactly zero before the cell boundary), so the cell
+          // lookup never jumps and the field is C1.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            ax = (x - col - 0.5) * inverseHalf,
+            ay = (y - row - 0.5) * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            tone = (p.toneSpan * grid[row * size + col]) / 2,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -52793,6 +52884,7 @@ export function createSurfaceSampler(
     kind === 'partitionmod5' ||
     kind === 'stirlingparity' ||
     kind === 'josephus' ||
+    kind === 'schelling' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
