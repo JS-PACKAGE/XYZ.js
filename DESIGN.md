@@ -2149,6 +2149,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`nearesttour`（最近鄰路徑）使目前目錄1145→1146種，含plain的gallery為1147項。在24×24格點上有8、10或12個點（任三點不共線，也沒有點離不屬於它的路段太近），從其中一個點出發（外面圍一圈環），每一步都走到還沒走過的最近的點；每段路徑依走的先後上色（第一段最深、最後一段最淺），路徑不封閉。seed決定點數、位置與起點。這是作者設計的示意；每段路徑都可以回頭驗證是不是當時最近的點。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

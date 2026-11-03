@@ -41787,3 +41787,380 @@ describe('karnaughmap: a Boolean function as a Gray-coded map, with its truth ta
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('nearesttour: a nearest-neighbour tour, each leg toned by when it is travelled', () => {
+  const p = proceduralMaterialPresets.nearesttour,
+    out = empty(),
+    cell = 1 / p.lattice;
+  type Leg = { a: number; b: number; tone: number };
+  type Tour = {
+    n: number;
+    sample: Sampler;
+    sites: [number, number][];
+    start: number;
+    legs: Leg[];
+  };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const place = (site: [number, number]): [number, number] => [
+    (site[0] + 0.5) * cell,
+    (site[1] + 0.5) * cell,
+  ];
+  const gapTo = (
+    a: [number, number],
+    b: [number, number],
+    q: [number, number],
+  ): number => {
+    const sx = b[0] - a[0],
+      sy = b[1] - a[1],
+      t = Math.max(
+        0,
+        Math.min(
+          1,
+          ((q[0] - a[0]) * sx + (q[1] - a[1]) * sy) / (sx * sx + sy * sy),
+        ),
+      );
+    return Math.hypot(q[0] - a[0] - t * sx, q[1] - a[1] - t * sy);
+  };
+  const legTone = (n: number, step: number): number =>
+    p.legFirst + ((p.legLast - p.legFirst) * (step - 1)) / (n - 2);
+
+  const tourOf = (seed: number): Tour => {
+    const sample = createSurfaceSampler('nearesttour', seed),
+      sites: [number, number][] = [];
+    for (let y = 0; y < p.lattice; y++)
+      for (let x = 0; x < p.lattice; x++) {
+        const [cx, cy] = place([x, y]);
+        if (
+          [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ].every(
+            ([dx, dy]) =>
+              Math.abs(
+                toneAt(sample, cx + dx * 0.008, cy + dy * 0.008) - p.nodeTone,
+              ) < 0.005,
+          )
+        )
+          sites.push([x, y]);
+      }
+    expect(p.counts).toContain(sites.length);
+    // The start has a ring round it, darker than any leg.
+    const starts = sites.flatMap((site, i) => {
+      const [cx, cy] = place(site);
+      return [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ].every(
+        ([dx, dy]) =>
+          Math.abs(
+            toneAt(sample, cx + dx * p.startRing, cy + dy * p.startRing) -
+              p.ringTone,
+          ) < 0.005,
+      )
+        ? [i]
+        : [];
+    });
+    expect(starts).toHaveLength(1);
+    // The legs: a pair is joined when the free stretch of its segment (clear of its two discs, of any other disc and of the start's ring) is one
+    // leg tone throughout. Two points one lattice step apart have no such stretch but the middle.
+    const legs: Leg[] = [],
+      clear = (k: number): number => (k === starts[0] ? 0.0275 : 0.02);
+    for (let i = 0; i < sites.length; i++)
+      for (let j = i + 1; j < sites.length; j++) {
+        const a = place(sites[i]),
+          b = place(sites[j]),
+          length = Math.hypot(b[0] - a[0], b[1] - a[1]),
+          from = (i === starts[0] ? 0.0275 : 0.018) / length,
+          to = 1 - (j === starts[0] ? 0.0275 : 0.018) / length,
+          tones: number[] = [];
+        for (let s = 0; s < 9; s++) {
+          const t = from < to ? from + ((to - from) * s) / 8 : 0.5;
+          const q: [number, number] = [
+            a[0] + t * (b[0] - a[0]),
+            a[1] + t * (b[1] - a[1]),
+          ];
+          if (
+            sites.some(
+              (other, k) =>
+                k !== i &&
+                k !== j &&
+                Math.hypot(place(other)[0] - q[0], place(other)[1] - q[1]) <
+                  clear(k),
+            )
+          )
+            continue;
+          tones.push(toneAt(sample, ...q));
+        }
+        if (
+          tones.length >= 1 &&
+          tones.every(
+            (tone) =>
+              tone >= p.legFirst - 0.01 &&
+              tone <= p.legLast + 0.01 &&
+              Math.abs(tone - tones[0]) < 0.01,
+          )
+        )
+          legs.push({ a: i, b: j, tone: tones[0] });
+      }
+    return { n: sites.length, sample, sites, start: starts[0], legs };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'visits every point once, always going on to the nearest point not yet visited, from the ringed start (seed %i)',
+    (seed) => {
+      const { n, sites, start, legs } = tourOf(seed),
+        squared = (i: number, j: number): number =>
+          (sites[i][0] - sites[j][0]) ** 2 + (sites[i][1] - sites[j][1]) ** 2;
+      expect(legs).toHaveLength(n - 1);
+      const ordered = legs.slice().sort((x, y) => x.tone - y.tone),
+        visited = new Set<number>([start]);
+      let at = start;
+      ordered.forEach((leg, k) => {
+        // The legs are travelled in the order of their tones, each from where the last one ended.
+        expect(leg.a === at || leg.b === at).toBe(true);
+        const next = leg.a === at ? leg.b : leg.a;
+        expect(visited.has(next)).toBe(false);
+        // Nearest neighbour: no unvisited point is closer to here (equally near ones allowed).
+        for (let q = 0; q < n; q++)
+          if (!visited.has(q))
+            expect(squared(at, next)).toBeLessThanOrEqual(squared(at, q));
+        expect(leg.tone).toBeCloseTo(legTone(n, k + 1), 2);
+        visited.add(next);
+        at = next;
+      });
+      expect(visited.size).toBe(n);
+    },
+  );
+
+  it('uses all three point counts across 60 seeds, keeps points off the margin, none three on a line and every other point clear of a leg', () => {
+    const counts = new Set<number>();
+    for (let seed = 0; seed < 60; seed++) {
+      const { n, sites, legs } = tourOf(seed);
+      counts.add(n);
+      for (const [x, y] of sites) {
+        expect(x).toBeGreaterThanOrEqual(p.margin);
+        expect(x).toBeLessThan(p.lattice - p.margin);
+        expect(y).toBeGreaterThanOrEqual(p.margin);
+        expect(y).toBeLessThan(p.lattice - p.margin);
+      }
+      for (let i = 0; i < n; i++)
+        for (let j = i + 1; j < n; j++)
+          for (let k = j + 1; k < n; k++)
+            expect(
+              (sites[j][0] - sites[i][0]) * (sites[k][1] - sites[i][1]) -
+                (sites[j][1] - sites[i][1]) * (sites[k][0] - sites[i][0]),
+            ).not.toBe(0);
+      for (const leg of legs)
+        sites.forEach((site, k) => {
+          if (k !== leg.a && k !== leg.b)
+            expect(
+              gapTo(place(sites[leg.a]), place(sites[leg.b]), place(site)),
+            ).toBeGreaterThanOrEqual(p.clearance);
+        });
+    }
+    expect([...counts].sort((a, b) => a - b)).toEqual([...p.counts]);
+  });
+
+  it('draws the nodes, the start ring and the legs with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, sites, start, legs } = tourOf(seed);
+      sites.forEach((site, i) => {
+        const [cx, cy] = place(site);
+        expect(toneAt(sample, cx, cy)).toBeCloseTo(p.nodeTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.nodeHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(
+          toneAt(sample, cx + p.nodeRadius - 0.002, cy + 0.0001),
+        ).toBeCloseTo(p.nodeTone, 6);
+        if (i === start) {
+          expect(toneAt(sample, cx + p.startRing, cy)).toBeCloseTo(
+            p.ringTone,
+            6,
+          );
+          expect(out.height / p.relief).toBeCloseTo(p.ringHeight, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          // Between the disc and the ring there is paper or a leg, lighter than the ring.
+          expect(toneAt(sample, cx, cy - p.startRing + 0.004)).toBeGreaterThan(
+            0.1,
+          );
+        } else
+          expect(toneAt(sample, cx + p.startRing, cy)).toBeGreaterThan(0.1);
+      });
+      for (const leg of legs) {
+        const a = place(sites[leg.a]),
+          b = place(sites[leg.b]),
+          length = Math.hypot(b[0] - a[0], b[1] - a[1]),
+          normal: [number, number] = [
+            -(b[1] - a[1]) / length,
+            (b[0] - a[0]) / length,
+          ],
+          mid: [number, number] = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+        expect(toneAt(sample, ...mid)).toBeCloseTo(leg.tone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.legHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        for (const side of [-1, 1]) {
+          expect(
+            toneAt(
+              sample,
+              mid[0] + side * normal[0] * (p.legHalf - 0.0005),
+              mid[1] + side * normal[1] * (p.legHalf - 0.0005),
+            ),
+          ).toBeCloseTo(leg.tone, 6);
+          const out2: [number, number] = [
+            mid[0] + side * normal[0] * (p.legHalf + 0.002),
+            mid[1] + side * normal[1] * (p.legHalf + 0.002),
+          ];
+          if (
+            legs.every(
+              (other) =>
+                other === leg ||
+                gapTo(place(sites[other.a]), place(sites[other.b]), out2) >
+                  0.01,
+            ) &&
+            sites.every(
+              (s) =>
+                Math.hypot(place(s)[0] - out2[0], place(s)[1] - out2[1]) > 0.02,
+            )
+          )
+            expect(
+              Math.abs(toneAt(sample, ...out2) - p.paperTone),
+            ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+        }
+      }
+    }
+  });
+
+  it('softens a leg, a node and the ring over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft;
+    for (const seed of seeds) {
+      const { sample, sites, start, legs } = tourOf(seed),
+        mix = (from: number, target: number, amount: number): number =>
+          from + (target - from) * smoothstep(amount);
+      let checked = 0;
+      for (const leg of legs) {
+        const a = place(sites[leg.a]),
+          b = place(sites[leg.b]),
+          length = Math.hypot(b[0] - a[0], b[1] - a[1]),
+          normal: [number, number] = [
+            -(b[1] - a[1]) / length,
+            (b[0] - a[0]) / length,
+          ],
+          mid: [number, number] = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2],
+          far = (distance: number): [number, number] => [
+            mid[0] + normal[0] * distance,
+            mid[1] + normal[1] * distance,
+          ];
+        if (
+          legs.some(
+            (other) =>
+              other !== leg &&
+              gapTo(place(sites[other.a]), place(sites[other.b]), mid) < 0.02,
+          )
+        )
+          continue;
+        expect(
+          Math.abs(
+            toneAt(sample, ...far(p.legHalf - quarter)) -
+              mix(p.paperTone, leg.tone, 0.75),
+          ),
+        ).toBeLessThan(0.03);
+        expect(
+          Math.abs(
+            toneAt(sample, ...far(p.legHalf + quarter)) -
+              mix(p.paperTone, leg.tone, 0.25),
+          ),
+        ).toBeLessThan(0.03);
+        checked++;
+      }
+      expect(checked).toBeGreaterThan(2);
+      // The ring of the start and the edge of its disc, in the directions where no leg runs close by (the first such one for each).
+      const [cx, cy] = place(sites[start]),
+        near = (q: [number, number]): boolean =>
+          legs.some(
+            (leg) => gapTo(place(sites[leg.a]), place(sites[leg.b]), q) < 0.006,
+          ),
+        directions = [
+          [-1, 0],
+          [1, 0],
+          [0, -1],
+          [0, 1],
+        ];
+      for (const [radius, half, target] of [
+        [p.startRing, p.ringHalf, p.ringTone],
+        [p.nodeRadius, 0, p.nodeTone],
+      ]) {
+        const direction = directions.find(
+          ([dx, dy]) => !near([cx + dx * radius, cy + dy * radius]),
+        );
+        expect(direction).toBeDefined();
+        const [dx, dy] = direction!,
+          at = (offset: number): number =>
+            toneAt(
+              sample,
+              cx + dx * (radius + offset),
+              cy + dy * (radius + offset),
+            );
+        expect(
+          Math.abs(at(half - quarter) - mix(p.paperTone, target, 0.75)),
+        ).toBeLessThan(0.03);
+        expect(
+          Math.abs(at(half + quarter) - mix(p.paperTone, target, 0.25)),
+        ).toBeLessThan(0.03);
+      }
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('nearesttour', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const { sample } = tourOf(0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.0113),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('nearesttour', 0),
+      b = createSurfaceSampler('nearesttour', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

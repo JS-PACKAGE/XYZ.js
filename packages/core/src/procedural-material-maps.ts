@@ -41319,6 +41319,153 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'nearesttour': {
+        const p = proceduralMaterialPresets.nearesttour,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x4cf01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          n =
+            p.counts[
+              Math.floor(hash(34, 23, seed ^ 0x4cf02) * p.counts.length)
+            ],
+          sites = p.lattice - 2 * p.margin,
+          cell = 1 / p.lattice,
+          lx = new Int32Array(n),
+          ly = new Int32Array(n),
+          px = new Float64Array(n),
+          py = new Float64Array(n),
+          // The tour: the order the points are visited in.
+          visit = new Int32Array(n),
+          visited = new Uint8Array(n);
+        // Try point sets (and a start) until one has no three points on a line and no point near a leg it is not an end of.
+        for (let attempt = 0; ; attempt++) {
+          let ok = true;
+          for (let i = 0; i < n && ok; i++) {
+            const x =
+                p.margin +
+                Math.floor(hash(i, attempt * 3, seed ^ 0x4cf03) * sites),
+              y =
+                p.margin +
+                Math.floor(hash(i, attempt * 3 + 1, seed ^ 0x4cf04) * sites);
+            for (let j = 0; j < i; j++)
+              if (lx[j] === x && ly[j] === y) ok = false;
+            lx[i] = x;
+            ly[i] = y;
+          }
+          for (let i = 0; i < n && ok; i++)
+            for (let j = i + 1; j < n && ok; j++)
+              for (let k = j + 1; k < n && ok; k++)
+                if (
+                  (lx[j] - lx[i]) * (ly[k] - ly[i]) -
+                    (ly[j] - ly[i]) * (lx[k] - lx[i]) ===
+                  0
+                )
+                  ok = false;
+          if (!ok) continue;
+          for (let i = 0; i < n; i++) {
+            px[i] = (lx[i] + 0.5) * cell;
+            py[i] = (ly[i] + 0.5) * cell;
+          }
+          // Walk: from the start, to the nearest point not yet visited (the first of equally near ones).
+          visited.fill(0);
+          visit[0] = Math.floor(hash(34, attempt, seed ^ 0x4cf05) * n);
+          visited[visit[0]] = 1;
+          for (let step = 1; step < n; step++) {
+            const at = visit[step - 1];
+            let best = -1,
+              bestDistance = Infinity;
+            for (let j = 0; j < n; j++) {
+              if (visited[j] === 1) continue;
+              const d = (lx[j] - lx[at]) ** 2 + (ly[j] - ly[at]) ** 2;
+              if (d < bestDistance) {
+                bestDistance = d;
+                best = j;
+              }
+            }
+            visit[step] = best;
+            visited[best] = 1;
+          }
+          // No other point within the clearance of a leg.
+          for (let step = 1; step < n && ok; step++) {
+            const a = visit[step - 1],
+              b = visit[step],
+              sx = px[b] - px[a],
+              sy = py[b] - py[a];
+            for (let k = 0; k < n && ok; k++) {
+              if (k === a || k === b) continue;
+              const t = Math.max(
+                0,
+                Math.min(
+                  1,
+                  ((px[k] - px[a]) * sx + (py[k] - py[a]) * sy) /
+                    (sx * sx + sy * sy),
+                ),
+              );
+              if (
+                Math.hypot(px[k] - px[a] - t * sx, py[k] - py[a] - t * sy) <
+                p.clearance
+              )
+                ok = false;
+            }
+          }
+          if (ok) break;
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let leg = Infinity,
+            legStep = 1,
+            node = Infinity;
+          for (let step = 1; step < n; step++) {
+            const a = visit[step - 1],
+              b = visit[step],
+              sx = px[b] - px[a],
+              sy = py[b] - py[a],
+              t = Math.max(
+                0,
+                Math.min(
+                  1,
+                  ((fu - px[a]) * sx + (fv - py[a]) * sy) / (sx * sx + sy * sy),
+                ),
+              ),
+              d = Math.hypot(fu - px[a] - t * sx, fv - py[a] - t * sy);
+            if (d < leg) {
+              leg = d;
+              legStep = step;
+            }
+          }
+          for (let i = 0; i < n; i++)
+            node = Math.min(node, Math.hypot(fu - px[i], fv - py[i]));
+          const start = Math.hypot(fu - px[visit[0]], fv - py[visit[0]]),
+            legAmount = cover(p.legHalf - leg),
+            ringAmount = cover(p.ringHalf - Math.abs(start - p.startRing)),
+            nodeAmount = cover(p.nodeRadius - node),
+            tone =
+              p.legFirst + ((p.legLast - p.legFirst) * (legStep - 1)) / (n - 2);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness;
+          shade += (tone - shade) * legAmount;
+          elevation += (p.legHeight - elevation) * legAmount;
+          rough += (p.inkRoughness - rough) * legAmount;
+          shade += (p.ringTone - shade) * ringAmount;
+          elevation += (p.ringHeight - elevation) * ringAmount;
+          rough += (p.inkRoughness - rough) * ringAmount;
+          shade += (p.nodeTone - shade) * nodeAmount;
+          elevation += (p.nodeHeight - elevation) * nodeAmount;
+          rough += (p.inkRoughness - rough) * nodeAmount;
+          color = clamp(
+            shade +
+              p.grainTone *
+                (grainField(u, v) - 0.5) *
+                (1 - Math.max(legAmount, ringAmount, nodeAmount)),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -68848,6 +68995,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'nearesttour' ||
     kind === 'karnaughmap' ||
     kind === 'bsttreeorder' ||
     kind === 'kdtreesplits' ||
