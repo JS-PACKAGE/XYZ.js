@@ -13741,3 +13741,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試（強度相關、艾里暗環在 J₁ 零點、N − 1 條暗線、矩形孔徑零線、對稱）加色調範圍、seed差異與決定性、C1掃描、maps共4項，再加kinds清單新條目，`-t`選中的10項皆通過。變異檢查（做過兩次）：把 J₁ 積分的正弦項拿掉，該describe 9項中7項失敗；把陣列因子遞迴的起始 2cos φ 改成 cos φ，5項失敗；兩者皆已還原（`cmp`確認）。限制：seed對應的配置是探針量出再寫入，不是獨立oracle；亮度壓縮公式在測試裡重複；後面的環與次極大高度不測；標量夫朗和斐近似；沒有查文獻；取樣耗時未量測；未對照任何參考圖。型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Diffraction patterns as|diffractionpatterns|kinds|catalog|distinct|periodic"`定向測試**2525項通過／4366項未選**，輸出`GATES-OK`。
 - 未驗證：zerovelocitycurves、keplerorbits、errordiffusion與diffractionpatterns未跑完整suite（完整suite最近一次在`8079add97`：179檔10,786項通過；`1c389dab7`的完整suite正在另一個worktree執行，尚無結果）；瀏覽器gallery最近一次在`1c389dab7`（1104種）複驗過至errordiffusion，diffractionpatterns未驗；不push。
+
+## 2026-11-04 完整測試與瀏覽器gallery複驗（至誤差擴散抖色）
+
+- 範圍：在`1c389dab7`（新增誤差擴散抖色之後；diffractionpatterns尚未提交）重跑完整測試與瀏覽器gallery。這段不新增材質，只記錄實跑結果。
+- 完整測試（工具實跑，乾淨的detached worktree）：**179個測試檔、10,810項全部通過**（1597 s），比上一次完整複驗（`8079add97`的10,786項）多24項，與zerovelocitycurves 9項、keplerorbits 8項、errordiffusion 7項（各含kinds條目）的定向測試選取數相符（9 + 8 + 7 = 24）。
+- 瀏覽器gallery（工具實跑，無頭Chrome，vite從乾淨worktree提供`/examples/pbr3d/`）：WebGPU分頁與`?renderer=webgl2`分頁各自讀到「1104 procedural material presets」、選單1105個選項；各自選取zerovelocitycurves、keplerorbits、errordiffusion、escapefractals、fieldlines，頁面讀數都更新（每個selection回傳true）；console錯誤項目兩個分頁都是0；讀回三個新材質的選項文字與`index.html`標籤一致。限制：只涵蓋「可選取、讀數更新、無console錯誤」，沒有目視畫面或像素比對；跨瀏覽器、跨GPU行為沒有驗證。
+- 未驗證：diffractionpatterns（`a9b676048`）未跑完整suite與瀏覽器gallery；不push。
