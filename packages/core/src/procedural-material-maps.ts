@@ -44143,6 +44143,100 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'funnelchart': {
+        const p = proceduralMaterialPresets.funnelchart,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x50301),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          stages =
+            p.stageCounts[
+              Math.floor(hash(61, 1, seed ^ 0x50302) * p.stageCounts.length)
+            ],
+          kept: number[] = [1],
+          value: number[] = [1];
+        // How many are still there at every stage: each keeps a random share of the one before.
+        for (let i = 1; i < stages; i++) {
+          kept.push(
+            p.minKept + hash(i, 20, seed ^ 0x50303) * (p.maxKept - p.minKept),
+          );
+          value.push(value[i - 1] * kept[i]);
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          const stage = Math.floor((fv - p.top) / p.stagePitch),
+            // The stage whose bar or slanted side is at this height (the funnel is one shape, so its sides are painted once).
+            at = Math.min(Math.max(stage, 0), stages - 1),
+            barTop = p.top + at * p.stagePitch,
+            barBottom = barTop + p.stageHeight,
+            half = (value[at] * p.fullWidth) / 2,
+            nextHalf =
+              at < stages - 1 ? (value[at + 1] * p.fullWidth) / 2 : half,
+            reach =
+              half +
+              (nextHalf - half) * clamp((fv - barBottom) / p.slantHeight),
+            lastBottom = p.top + (stages - 1) * p.stagePitch + p.stageHeight;
+          // The bar's share of the funnel at this height: the bar of this stage, or the next one's top edge softening into this stage's slant.
+          let barShare = 0;
+          for (let k = at; k <= Math.min(at + 1, stages - 1); k++) {
+            const top = p.top + k * p.stagePitch;
+            barShare = Math.max(
+              barShare,
+              cover(
+                Math.min(
+                  k === 0 ? 1 : fv - top,
+                  k === stages - 1 ? 1 : top + p.stageHeight - fv,
+                ),
+              ),
+            );
+          }
+          paint(
+            cover(
+              Math.min(
+                reach - Math.abs(fu - p.centerX),
+                fv - p.top,
+                lastBottom - fv,
+              ),
+            ),
+            p.slantTone + (p.barTone - p.slantTone) * barShare,
+            p.slantHeightLevel + (p.barHeight - p.slantHeightLevel) * barShare,
+          );
+          // The track and the bar of the share kept, at the right of the stage: one shape, the kept part a different tone.
+          if (stage >= 0 && stage < stages) {
+            const middle = barTop + p.stageHeight / 2,
+              keptShare = cover(p.trackLeft + kept[stage] * p.trackLength - fu);
+            paint(
+              cover(
+                Math.min(
+                  p.trackHalf - Math.abs(fv - middle),
+                  fu - p.trackLeft,
+                  p.trackLeft + p.trackLength - fu,
+                ),
+              ),
+              p.trackTone + (p.keptTone - p.trackTone) * keptShare,
+              p.trackHeight + (p.keptHeight - p.trackHeight) * keptShare,
+            );
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -71672,6 +71766,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'funnelchart' ||
     kind === 'lrucachetrace' ||
     kind === 'knapsacktable' ||
     kind === 'bfswavefront' ||

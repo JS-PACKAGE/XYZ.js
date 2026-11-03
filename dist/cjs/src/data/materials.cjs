@@ -24537,6 +24537,47 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .8,
 		inkRoughness: .4
 	}),
+	funnelchart: Object.freeze({
+		dark: [
+			26,
+			38,
+			58
+		],
+		light: [
+			245,
+			242,
+			231
+		],
+		roughness: .55,
+		relief: .004,
+		stageCounts: Object.freeze([5, 6]),
+		minKept: .45,
+		maxKept: .95,
+		centerX: .37,
+		fullWidth: .6,
+		top: .08,
+		stagePitch: .145,
+		stageHeight: .1,
+		slantHeight: .045,
+		trackLeft: .74,
+		trackLength: .2,
+		trackHalf: .012,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .96,
+		barTone: .3,
+		slantTone: .72,
+		trackTone: .88,
+		keptTone: .18,
+		grainTone: .03,
+		paperHeight: .2,
+		barHeight: .7,
+		slantHeightLevel: .4,
+		trackHeight: .3,
+		keptHeight: .8,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -33218,6 +33259,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	funnelchart: 1,
 	lrucachetrace: 1,
 	prefixtrie: 1,
 	knapsacktable: 1,

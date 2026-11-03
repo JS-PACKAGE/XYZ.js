@@ -50842,3 +50842,388 @@ describe('lrucachetrace: a least recently used cache of a few slots over a run o
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('funnelchart: stages as bars that narrow by the share kept, with slanted sides and a bar for each share', () => {
+  const p = proceduralMaterialPresets.funnelchart,
+    out = empty(),
+    trackRight = p.trackLeft + p.trackLength;
+  type Funnel = { sample: Sampler; widths: number[]; kept: number[] };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const near = (tone: number, wanted: number): boolean =>
+    Math.abs(tone - wanted) < 0.01;
+  // The place between an inside and an outside point where the tone is the given middle one.
+  const halfway = (
+    sample: Sampler,
+    y: number,
+    inside: number,
+    outside: number,
+    middle: number,
+  ): number => {
+    let a = inside,
+      b = outside;
+    const rising = toneAt(sample, outside, y) > toneAt(sample, inside, y);
+    for (let i = 0; i < 40; i++) {
+      const m = (a + b) / 2;
+      if (toneAt(sample, m, y) > middle === rising) b = m;
+      else a = m;
+    }
+    return (a + b) / 2;
+  };
+  const barTop = (stage: number): number => p.top + stage * p.stagePitch;
+  const middleY = (stage: number): number => barTop(stage) + p.stageHeight / 2;
+
+  // Read the picture: each stage's bar width (along its middle, out to both sides from the centre) and the length of its bar of the share kept.
+  const funnelOf = (seed: number): Funnel => {
+    const sample = createSurfaceSampler('funnelchart', seed),
+      widths: number[] = [],
+      kept: number[] = [];
+    for (
+      let stage = 0;
+      near(toneAt(sample, p.centerX, middleY(stage)), p.barTone);
+      stage++
+    ) {
+      let left: number = p.centerX,
+        right: number = p.centerX;
+      while (near(toneAt(sample, left - 0.0002, middleY(stage)), p.barTone))
+        left -= 0.0002;
+      while (near(toneAt(sample, right + 0.0002, middleY(stage)), p.barTone))
+        right += 0.0002;
+      // The edges are where the tone is half way across the softened edge, found by halving (the walk above only gets within a step).
+      right = halfway(
+        sample,
+        middleY(stage),
+        right,
+        right + 0.0006,
+        (p.paperTone + p.barTone) / 2,
+      );
+      left = halfway(
+        sample,
+        middleY(stage),
+        left,
+        left - 0.0006,
+        (p.paperTone + p.barTone) / 2,
+      );
+      widths.push(right - left);
+      let end: number = p.trackLeft + 0.002;
+      while (near(toneAt(sample, end + 0.0002, middleY(stage)), p.keptTone))
+        end += 0.0002;
+      if (p.trackLeft + p.trackLength - end > 0.006)
+        end = halfway(
+          sample,
+          middleY(stage),
+          end,
+          end + 0.0006,
+          (p.trackTone + p.keptTone) / 2,
+        );
+      kept.push((end - p.trackLeft) / p.trackLength);
+    }
+    expect(p.stageCounts).toContain(widths.length);
+    return { sample, widths, kept };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'narrows every stage by the share kept, the first stage full width and the bar of each share as long as the narrowing (seed %i)',
+    (seed) => {
+      const { widths, kept } = funnelOf(seed),
+        values = widths.map((width) => width / p.fullWidth);
+      // The first stage is the full width and keeps all (a full bar).
+      expect(Math.abs(values[0] - 1)).toBeLessThan(0.004);
+      expect(Math.abs(kept[0] - 1)).toBeLessThan(0.01);
+      for (let i = 1; i < values.length; i++) {
+        // The share kept is the bar's length, and must be how much narrower the stage is than the one before, between the least and the most kept.
+        expect(Math.abs(kept[i] - values[i] / values[i - 1])).toBeLessThan(
+          0.01,
+        );
+        expect(kept[i]).toBeGreaterThan(p.minKept - 0.01);
+        expect(kept[i]).toBeLessThan(p.maxKept + 0.01);
+      }
+    },
+  );
+
+  it('uses both numbers of stages and shares kept across the range, over 60 seeds', () => {
+    const counts = new Set<number>();
+    let sum = 0,
+      total = 0,
+      low = 1,
+      high = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const { widths, kept } = funnelOf(seed * 29 + 3);
+      counts.add(widths.length);
+      for (let i = 1; i < kept.length; i++) {
+        sum += kept[i];
+        total++;
+        low = Math.min(low, kept[i]);
+        high = Math.max(high, kept[i]);
+      }
+    }
+    expect([...counts].sort((a, b) => a - b)).toEqual([...p.stageCounts]);
+    // Shares kept are spread evenly between the least and the most.
+    expect(Math.abs(sum / total - (p.minKept + p.maxKept) / 2)).toBeLessThan(
+      0.03,
+    );
+    expect(low).toBeLessThan(p.minKept + 0.04);
+    expect(high).toBeGreaterThan(p.maxKept - 0.04);
+  });
+
+  it('draws the bars, the slanted sides, the tracks and the bars of the shares with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, widths, kept } = funnelOf(seed),
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      widths.forEach((width, stage) => {
+        const top = barTop(stage),
+          bottom = top + p.stageHeight,
+          middle = middleY(stage),
+          half = width / 2;
+        // The bar: tone, height, roughness, and its sides (the decoded width is the one the picture has), top and bottom.
+        expect(toneAt(sample, p.centerX, middle)).toBeCloseTo(p.barTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.barHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(toneAt(sample, p.centerX + half - 0.002, middle)).toBeCloseTo(
+          p.barTone,
+          6,
+        );
+        expect(toneAt(sample, p.centerX - half + 0.002, middle)).toBeCloseTo(
+          p.barTone,
+          6,
+        );
+        expect(paperOk(p.centerX + half + 0.002, middle)).toBe(true);
+        expect(paperOk(p.centerX - half - 0.002, middle)).toBe(true);
+        expect(toneAt(sample, p.centerX, top + 0.0015)).toBeCloseTo(
+          p.barTone,
+          6,
+        );
+        expect(toneAt(sample, p.centerX, bottom - 0.0015)).toBeCloseTo(
+          p.barTone,
+          6,
+        );
+        if (stage === 0) expect(paperOk(p.centerX, top - 0.002)).toBe(true);
+        // The slanted sides under it, joining its width to the next one's (a quarter, half and three quarters of the way down).
+        if (stage < widths.length - 1) {
+          const next = widths[stage + 1] / 2;
+          for (const at of [0.25, 0.5, 0.75]) {
+            const y = bottom + at * p.slantHeight,
+              reach = half + (next - half) * at;
+            expect(toneAt(sample, p.centerX, y)).toBeCloseTo(p.slantTone, 6);
+            expect(out.height / p.relief).toBeCloseTo(p.slantHeightLevel, 6);
+            expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+            expect(toneAt(sample, p.centerX + reach - 0.002, y)).toBeCloseTo(
+              p.slantTone,
+              6,
+            );
+            expect(toneAt(sample, p.centerX - reach + 0.002, y)).toBeCloseTo(
+              p.slantTone,
+              6,
+            );
+            expect(paperOk(p.centerX + reach + 0.002, y)).toBe(true);
+            expect(paperOk(p.centerX - reach - 0.002, y)).toBe(true);
+          }
+          expect(toneAt(sample, p.centerX, bottom + 0.0015)).toBeCloseTo(
+            p.slantTone,
+            6,
+          );
+          expect(
+            toneAt(sample, p.centerX, bottom + p.slantHeight - 0.0015),
+          ).toBeCloseTo(p.slantTone, 6);
+        }
+        // The track and the bar of the share kept: tone, height, roughness, thickness and ends.
+        const keptEnd = p.trackLeft + kept[stage] * p.trackLength;
+        expect(toneAt(sample, p.trackLeft + 0.002, middle)).toBeCloseTo(
+          p.keptTone,
+          6,
+        );
+        expect(out.height / p.relief).toBeCloseTo(p.keptHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(
+          toneAt(sample, p.trackLeft + 0.002, middle + p.trackHalf - 0.0004),
+        ).toBeCloseTo(p.keptTone, 6);
+        expect(
+          paperOk(p.trackLeft + 0.002, middle + p.trackHalf + 0.0008),
+        ).toBe(true);
+        expect(paperOk(p.trackLeft - 0.002, middle)).toBe(true);
+        if (trackRight - keptEnd > 0.006) {
+          expect(toneAt(sample, trackRight - 0.002, middle)).toBeCloseTo(
+            p.trackTone,
+            6,
+          );
+          expect(out.height / p.relief).toBeCloseTo(p.trackHeight, 6);
+          expect(
+            toneAt(sample, trackRight - 0.002, middle + p.trackHalf - 0.0004),
+          ).toBeCloseTo(p.trackTone, 6);
+          expect(toneAt(sample, keptEnd + 0.003, middle)).toBeCloseTo(
+            p.trackTone,
+            6,
+          );
+        }
+        expect(paperOk(trackRight + 0.002, middle)).toBe(true);
+      });
+      // Nothing under the last stage.
+      expect(paperOk(p.centerX, barTop(widths.length) + 0.02)).toBe(true);
+    }
+  });
+
+  it('softens the edge of a bar, a slanted side, a track and the bar of a share over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      const { sample, widths, kept } = funnelOf(seed),
+        half = widths[0] / 2,
+        top = barTop(0),
+        middle = middleY(0),
+        // The first bar's left side and top, over the paper.
+        left = p.centerX - half;
+      close(
+        toneAt(sample, left + quarter, middle),
+        mix(p.paperTone, p.barTone, 0.75),
+      );
+      close(
+        toneAt(sample, left - quarter, middle),
+        mix(p.paperTone, p.barTone, 0.25),
+      );
+      close(
+        toneAt(sample, p.centerX, top + quarter),
+        mix(p.paperTone, p.barTone, 0.75),
+      );
+      close(
+        toneAt(sample, p.centerX, top - quarter),
+        mix(p.paperTone, p.barTone, 0.25),
+      );
+      // The bottom of the last bar, over the paper (nothing is drawn under the funnel).
+      const end = barTop(widths.length - 1) + p.stageHeight;
+      close(
+        toneAt(sample, p.centerX, end - quarter),
+        mix(p.paperTone, p.barTone, 0.75),
+      );
+      close(
+        toneAt(sample, p.centerX, end + quarter),
+        mix(p.paperTone, p.barTone, 0.25),
+      );
+      expect(
+        Math.abs(toneAt(sample, p.centerX, end + 0.002) - p.paperTone),
+      ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      // Where a bar meets the slanted side under it (the bottom of the first bar) and the bar under that (the top of the second), the tones run into each other.
+      const join = barTop(0) + p.stageHeight,
+        joinNext = barTop(1);
+      close(
+        toneAt(sample, p.centerX, join - quarter),
+        mix(p.slantTone, p.barTone, 0.75),
+      );
+      close(
+        toneAt(sample, p.centerX, join + quarter),
+        mix(p.slantTone, p.barTone, 0.25),
+      );
+      close(
+        toneAt(sample, p.centerX, joinNext - quarter),
+        mix(p.slantTone, p.barTone, 0.25),
+      );
+      close(
+        toneAt(sample, p.centerX, joinNext + quarter),
+        mix(p.slantTone, p.barTone, 0.75),
+      );
+      // The slanted side of the first stage, halfway down it, over the paper (the edge is softened across, not along, the side).
+      const next = widths[1] / 2,
+        reach = (half + next) / 2,
+        slantMiddle = barTop(0) + p.stageHeight + p.slantHeight / 2;
+      close(
+        toneAt(sample, p.centerX + reach - quarter, slantMiddle),
+        mix(p.paperTone, p.slantTone, 0.75),
+      );
+      close(
+        toneAt(sample, p.centerX + reach + quarter, slantMiddle),
+        mix(p.paperTone, p.slantTone, 0.25),
+      );
+      // The left end and the top of the track where the bar of the share kept lies over it: painted once, so the edge is a single blend over the paper.
+      close(
+        toneAt(sample, p.trackLeft + quarter, middleY(1)),
+        mix(p.paperTone, p.keptTone, 0.75),
+      );
+      close(
+        toneAt(sample, p.trackLeft - quarter, middleY(1)),
+        mix(p.paperTone, p.keptTone, 0.25),
+      );
+      close(
+        toneAt(sample, p.trackLeft + 0.004, middleY(1) - p.trackHalf + quarter),
+        mix(p.paperTone, p.keptTone, 0.75),
+      );
+      close(
+        toneAt(sample, p.trackLeft + 0.004, middleY(1) - p.trackHalf - quarter),
+        mix(p.paperTone, p.keptTone, 0.25),
+      );
+      // The track's right end, and the share's bar end, over the track.
+      const keptEnd = p.trackLeft + kept[1] * p.trackLength;
+      close(
+        toneAt(sample, trackRightOf() - quarter, middleY(1)),
+        mix(p.paperTone, p.trackTone, 0.75),
+      );
+      close(
+        toneAt(sample, trackRightOf() + quarter, middleY(1)),
+        mix(p.paperTone, p.trackTone, 0.25),
+      );
+      close(
+        toneAt(sample, keptEnd - quarter, middleY(1)),
+        mix(p.trackTone, p.keptTone, 0.75),
+      );
+      close(
+        toneAt(sample, keptEnd + quarter, middleY(1)),
+        mix(p.trackTone, p.keptTone, 0.25),
+      );
+    }
+    function trackRightOf(): number {
+      return trackRight;
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('funnelchart', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('funnelchart', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.97),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('funnelchart', 0),
+      b = createSurfaceSampler('funnelchart', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.4301],
+        [0.5201, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
