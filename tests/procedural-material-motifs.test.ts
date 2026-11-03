@@ -55011,3 +55011,481 @@ describe('slopegraph: items as dots on a left and a right axis joined by straigh
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('astroidladder: a ladder of fixed length sliding in a corner drawn at many places, with dots at its ends and where it touches the astroid', () => {
+  const p = proceduralMaterialPresets.astroidladder,
+    out = empty(),
+    // How far along an axis a dot is still read for its ladder: a little past the diagonal, so that a ladder near it is read from at least one end.
+    side = 0.78;
+  type Ladders = {
+    sample: Sampler;
+    length: number;
+    power: number;
+    feet: number[];
+    tops: number[];
+    angles: number[];
+  };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const near = (tone: number, wanted: number, within = 0.01): boolean =>
+    Math.abs(tone - wanted) < within;
+
+  // The dots along one axis in one direction from the middle (as offsets from the middle): the stretches where the tone is the end dots', and of those
+  // the ones that are narrow enough to be one dot standing alone, by their middles.
+  const dotsAlong = (sample: Sampler, horizontal: boolean): number[] => {
+    const alone: number[] = [];
+    let start = Number.NaN,
+      end = Number.NaN;
+    // A dot's middle, from the far edge of it (away from the ladder's line, which runs on up the other way): the place where the tone is half way between the
+    // dot's and the axis's, found by halving, less the authored radius.
+    const middleOf = (from: number): number => {
+      let lo = from,
+        hi = from + 0.006;
+      const mid = (p.endTone + p.axisTone) / 2;
+      for (let i = 0; i < 40; i++) {
+        const m = (lo + hi) / 2,
+          tone = horizontal
+            ? toneAt(sample, p.centerX + m, p.centerY)
+            : toneAt(sample, p.centerX, p.centerY + m);
+        if (tone > mid) hi = m;
+        else lo = m;
+      }
+      return (lo + hi) / 2 - p.endRadius;
+    };
+    const flush = (): void => {
+      if (!Number.isNaN(start) && end - start < 0.0062)
+        alone.push(middleOf((start + end) / 2));
+      start = Number.NaN;
+    };
+    for (let d = 0.0035; d <= p.axisReach; d += 0.0003) {
+      const tone = horizontal
+        ? toneAt(sample, p.centerX + d, p.centerY)
+        : toneAt(sample, p.centerX, p.centerY + d);
+      if (tone < 0.2) {
+        if (Number.isNaN(start)) start = d;
+        end = d;
+      } else flush();
+    }
+    flush();
+    return alone;
+  };
+
+  // Read the picture: the length of the ladders (the authored length that the dots on both axes agree with), the angles at which they lean (read from the dots that
+  // are nearer the middle than the diagonal, which are read exactly enough, and told apart where two ends give the same ladder) and so their number and spread.
+  const laddersOf = (seed: number): Ladders => {
+    const sample = createSurfaceSampler('astroidladder', seed),
+      feet = dotsAlong(sample, true),
+      tops = dotsAlong(sample, false);
+    expect(feet.length).toBeGreaterThan(5);
+    expect(tops.length).toBeGreaterThan(5);
+    // (Where a touching dot lies on an end dot, near the tips, the tone is the touching one's: both are darker than 0.3, the axis is not.)
+    const fits = p.lengths.filter((length) =>
+      feet
+        .filter((x) => x < length * side)
+        .every(
+          (x) =>
+            toneAt(
+              sample,
+              p.centerX,
+              p.centerY + Math.sqrt(length * length - x * x),
+            ) < 0.3,
+        ),
+    );
+    expect(fits.length).toBe(1);
+    const length = fits[0],
+      angles = [
+        ...feet
+          .filter((x) => x < length * side)
+          .map((x) => Math.acos(x / length)),
+        ...tops
+          .filter((y) => y < length * side)
+          .map((y) => Math.asin(y / length)),
+      ].sort((a, b) => a - b),
+      merged: number[] = [];
+    angles.forEach((angle) => {
+      if (merged.length === 0 || angle - merged[merged.length - 1] > 0.004)
+        merged.push(angle);
+    });
+    const count = merged.length,
+      powers = p.powers.filter((candidate) =>
+        merged.every(
+          (angle, k) =>
+            Math.abs(
+              angle - Math.pow((k + 0.5) / count, candidate) * (Math.PI / 2),
+            ) < 0.006,
+        ),
+      );
+    expect(powers.length).toBe(1);
+    return { sample, length, power: powers[0], feet, tops, angles: merged };
+  };
+
+  // The distance from a place (offsets from the middle, in the first corner) to the line of the ladder leaning at an angle.
+  const distanceToLine = (
+    length: number,
+    angle: number,
+    x: number,
+    y: number,
+  ): number => {
+    const foot = length * Math.cos(angle),
+      top = length * Math.sin(angle);
+    return Math.abs(x * top + y * foot - foot * top) / length;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws a ladder of one length at each of the places, with its foot, its top, its middle and its touching point right (seed %i)',
+    (seed) => {
+      const { sample, length, angles } = laddersOf(seed);
+      expect(p.ladderCounts).toContain(angles.length);
+      angles.forEach((angle) => {
+        const x = length * Math.cos(angle),
+          y = length * Math.sin(angle);
+        for (const [sx, sy] of [
+          [1, 1],
+          [-1, 1],
+          [1, -1],
+          [-1, -1],
+        ]) {
+          // The foot and the top are dots on the axes in all four directions (the end tone, or the touching tone where a touching dot lies on it).
+          expect(toneAt(sample, p.centerX + sx * x, p.centerY)).toBeLessThan(
+            0.3,
+          );
+          expect(toneAt(sample, p.centerX, p.centerY + sy * y)).toBeLessThan(
+            0.3,
+          );
+          // The line between them is drawn at its middle (darker than the axes), and the touching point (x^3, y^3) over length squared, in the touching tone,
+          // is on the ladder's line.
+          expect(
+            toneAt(sample, p.centerX + (sx * x) / 2, p.centerY + (sy * y) / 2),
+          ).toBeLessThan(p.axisTone - 0.2);
+          const tx = (x * x * x) / (length * length),
+            ty = (y * y * y) / (length * length);
+          expect(
+            near(
+              toneAt(sample, p.centerX + sx * tx, p.centerY + sy * ty),
+              p.touchTone,
+              0.03,
+            ),
+          ).toBe(true);
+          expect(distanceToLine(length, angle, tx, ty)).toBeLessThan(1e-9);
+        }
+      });
+      // Outside the astroid, in the corners, there is nothing.
+      for (const [sx, sy] of [
+        [1, 1],
+        [-1, -1],
+      ])
+        expect(
+          Math.abs(
+            toneAt(sample, p.centerX + sx * 0.35, p.centerY + sy * 0.35) -
+              p.paperTone,
+          ),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+    },
+  );
+
+  it('uses every number of ladders, every length and every spread, over 60 seeds', () => {
+    const counts = new Set<number>(),
+      lengths = new Set<number>(),
+      powers = new Set<number>();
+    for (let seed = 0; seed < 60; seed++) {
+      const { length, power, angles } = laddersOf(seed * 73 + 20);
+      counts.add(angles.length);
+      lengths.add(length);
+      powers.add(power);
+    }
+    expect([...counts].sort((a, b) => a - b)).toEqual([...p.ladderCounts]);
+    expect([...lengths].sort((a, b) => a - b)).toEqual([...p.lengths]);
+    expect([...powers].sort((a, b) => a - b)).toEqual([...p.powers]);
+  });
+
+  it('draws the axes, the lines, the end dots and the touching dots with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, length, angles, feet } = laddersOf(seed),
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      // The axes: tone, height, roughness, thickness, and how far they reach (read out past the astroid, where there is nothing else).
+      const reach = p.axisReach - 0.004;
+      expect(toneAt(sample, p.centerX + reach, p.centerY)).toBeCloseTo(
+        p.axisTone,
+        6,
+      );
+      expect(out.height / p.relief).toBeCloseTo(p.axisHeight, 6);
+      expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+      expect(
+        toneAt(sample, p.centerX + reach, p.centerY + p.axisHalf - 0.0004),
+      ).toBeCloseTo(p.axisTone, 6);
+      expect(paperOk(p.centerX + reach, p.centerY + p.axisHalf + 0.0008)).toBe(
+        true,
+      );
+      expect(paperOk(p.centerX + p.axisReach + 0.002, p.centerY)).toBe(true);
+      expect(toneAt(sample, p.centerX - reach, p.centerY)).toBeCloseTo(
+        p.axisTone,
+        6,
+      );
+      expect(toneAt(sample, p.centerX, p.centerY - reach)).toBeCloseTo(
+        p.axisTone,
+        6,
+      );
+      expect(
+        toneAt(sample, p.centerX - p.axisHalf + 0.0004, p.centerY - reach),
+      ).toBeCloseTo(p.axisTone, 6);
+      expect(paperOk(p.centerX - p.axisHalf - 0.0008, p.centerY - reach)).toBe(
+        true,
+      );
+      expect(paperOk(p.centerX, p.centerY - p.axisReach - 0.002)).toBe(true);
+      expect(toneAt(sample, p.centerX, p.centerY + reach)).toBeCloseTo(
+        p.axisTone,
+        6,
+      );
+      // A foot standing alone, far enough from the tip that nothing else is on it: the end dot's tone, height, roughness and radius (along the axis, where the
+      // ladder's line does not go: past the dot the axis shows again).
+      const x = feet.find(
+        (candidate) => candidate > 0.06 && candidate < length * 0.7,
+      ) as number;
+      expect(x).toBeDefined();
+      expect(toneAt(sample, p.centerX + x, p.centerY)).toBeCloseTo(
+        p.endTone,
+        6,
+      );
+      expect(out.height / p.relief).toBeCloseTo(p.endHeight, 6);
+      expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+      expect(
+        toneAt(sample, p.centerX + x + p.endRadius - 0.0006, p.centerY),
+      ).toBeCloseTo(p.endTone, 6);
+      expect(
+        toneAt(sample, p.centerX + x + p.endRadius + 0.0006, p.centerY),
+      ).toBeCloseTo(p.axisTone, 6);
+      // That ladder's touching dot: tone, height, roughness, and its radius measured outward from the astroid (nothing is beyond the astroid).
+      const angle = Math.acos(x / length),
+        y = length * Math.sin(angle),
+        tx = (x * x * x) / (length * length),
+        ty = (y * y * y) / (length * length),
+        nx = y / length,
+        ny = x / length;
+      expect(toneAt(sample, p.centerX + tx, p.centerY + ty)).toBeCloseTo(
+        p.touchTone,
+        6,
+      );
+      expect(out.height / p.relief).toBeCloseTo(p.touchHeight, 6);
+      expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+      expect(
+        near(
+          toneAt(
+            sample,
+            p.centerX + tx + nx * (p.touchRadius - 0.0004),
+            p.centerY + ty + ny * (p.touchRadius - 0.0004),
+          ),
+          p.touchTone,
+        ),
+      ).toBe(true);
+      expect(
+        paperOk(
+          p.centerX + tx + nx * (p.touchRadius + 0.0004),
+          p.centerY + ty + ny * (p.touchRadius + 0.0004),
+        ),
+      ).toBe(true);
+      // A line: tone, height, roughness and thickness, measured across it at a place that no other ladder passes close to (near the foot, where the ladders are
+      // far apart), found from the ladders' angles.
+      const lonely = angles.find(
+          (other) => Math.abs(other - angle) < 0.004,
+        ) as number,
+        along = [
+          0.5, 0.45, 0.55, 0.4, 0.6, 0.35, 0.65, 0.3, 0.7, 0.25, 0.75, 0.2, 0.8,
+          0.15, 0.85, 0.1, 0.9,
+        ].find((fraction) => {
+          const px = x * (1 - fraction) + 0 * fraction,
+            py = y * fraction;
+          return angles.every(
+            (other) =>
+              Math.abs(other - lonely) < 1e-6 ||
+              distanceToLine(length, other, px, py) > 0.006,
+          );
+        });
+      expect(along).toBeDefined();
+      const fraction = along as number,
+        px = x * (1 - fraction),
+        py = y * fraction;
+      expect(toneAt(sample, p.centerX + px, p.centerY + py)).toBeCloseTo(
+        p.lineTone,
+        6,
+      );
+      expect(out.height / p.relief).toBeCloseTo(p.lineHeight, 6);
+      expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+      expect(
+        toneAt(
+          sample,
+          p.centerX + px + nx * (p.lineHalf - 0.0004),
+          p.centerY + py + ny * (p.lineHalf - 0.0004),
+        ),
+      ).toBeCloseTo(p.lineTone, 6);
+      expect(
+        toneAt(
+          sample,
+          p.centerX + px - nx * (p.lineHalf - 0.0004),
+          p.centerY + py - ny * (p.lineHalf - 0.0004),
+        ),
+      ).toBeCloseTo(p.lineTone, 6);
+      expect(
+        paperOk(
+          p.centerX + px + nx * (p.lineHalf + 0.0004),
+          p.centerY + py + ny * (p.lineHalf + 0.0004),
+        ),
+      ).toBe(true);
+      expect(
+        paperOk(
+          p.centerX + px - nx * (p.lineHalf + 0.0004),
+          p.centerY + py - ny * (p.lineHalf + 0.0004),
+        ),
+      ).toBe(true);
+    }
+  });
+
+  it('softens the edge of an axis, a line, an end dot and a touching dot over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      const { sample, length, angles, feet } = laddersOf(seed),
+        reach = p.axisReach - 0.004,
+        x = feet.find(
+          (candidate) => candidate > 0.06 && candidate < length * 0.7,
+        ) as number,
+        angle = Math.acos(x / length),
+        y = length * Math.sin(angle),
+        tx = (x * x * x) / (length * length),
+        ty = (y * y * y) / (length * length),
+        nx = y / length,
+        ny = x / length,
+        lonely = angles.find(
+          (other) => Math.abs(other - angle) < 0.004,
+        ) as number,
+        fraction = [
+          0.5, 0.45, 0.55, 0.4, 0.6, 0.35, 0.65, 0.3, 0.7, 0.25, 0.75, 0.2, 0.8,
+          0.15, 0.85, 0.1, 0.9,
+        ].find((candidate) =>
+          angles.every(
+            (other) =>
+              Math.abs(other - lonely) < 1e-6 ||
+              distanceToLine(
+                length,
+                other,
+                x * (1 - candidate),
+                y * candidate,
+              ) > 0.006,
+          ),
+        ) as number,
+        px = x * (1 - fraction),
+        py = y * fraction;
+      // An axis's side over the paper.
+      close(
+        toneAt(sample, p.centerX + reach, p.centerY + p.axisHalf - quarter),
+        mix(p.paperTone, p.axisTone, 0.75),
+      );
+      close(
+        toneAt(sample, p.centerX + reach, p.centerY + p.axisHalf + quarter),
+        mix(p.paperTone, p.axisTone, 0.25),
+      );
+      // A line's two edges (across it) over the paper, an end dot's edge along the axis over the axis, and a touching dot's outer edge over the paper.
+      close(
+        toneAt(
+          sample,
+          p.centerX + px + nx * (p.lineHalf - quarter),
+          p.centerY + py + ny * (p.lineHalf - quarter),
+        ),
+        mix(p.paperTone, p.lineTone, 0.75),
+      );
+      close(
+        toneAt(
+          sample,
+          p.centerX + px + nx * (p.lineHalf + quarter),
+          p.centerY + py + ny * (p.lineHalf + quarter),
+        ),
+        mix(p.paperTone, p.lineTone, 0.25),
+      );
+      close(
+        toneAt(
+          sample,
+          p.centerX + px - nx * (p.lineHalf - quarter),
+          p.centerY + py - ny * (p.lineHalf - quarter),
+        ),
+        mix(p.paperTone, p.lineTone, 0.75),
+      );
+      close(
+        toneAt(sample, p.centerX + x + p.endRadius - quarter, p.centerY),
+        mix(p.axisTone, p.endTone, 0.75),
+      );
+      close(
+        toneAt(sample, p.centerX + x + p.endRadius + quarter, p.centerY),
+        mix(p.axisTone, p.endTone, 0.25),
+      );
+      close(
+        toneAt(
+          sample,
+          p.centerX + tx + nx * (p.touchRadius - quarter),
+          p.centerY + ty + ny * (p.touchRadius - quarter),
+        ),
+        mix(p.paperTone, p.touchTone, 0.75),
+      );
+      close(
+        toneAt(
+          sample,
+          p.centerX + tx + nx * (p.touchRadius + quarter),
+          p.centerY + ty + ny * (p.touchRadius + quarter),
+        ),
+        mix(p.paperTone, p.touchTone, 0.25),
+      );
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('astroidladder', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('astroidladder', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.97),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('astroidladder', 0),
+      b = createSurfaceSampler('astroidladder', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.4301],
+        [0.4601, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

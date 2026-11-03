@@ -2281,6 +2281,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`astroidladder`（星形線的滑動梯子）使目前目錄1180→1181種，含plain的gallery為1182項。星形線（astroid）的滑動梯子：一把長度固定的梯子靠在牆角，上端在一條軸上、腳在另一條軸上，往下滑時畫在14、18或22個位置（四個角落依兩軸鏡射都畫）。位置在四分之一圈上均勻排開，或依seed選的冪次偏向一端。每個梯子在兩條軸上各有一個端點圓點，以及它與所有梯子共同相切的曲線（星形線）相切處的一個較小圓點，那一點是(L cos³θ, L sin³θ)。seed決定梯子數、長度與位置的分佈。這是作者設計的示意；梯子數、長度與分佈冪次都可以只從畫面讀出（端點圓點的位置），每個端點對應的另一端必須落在長度為L的圓上（x²＋y²＝L²）、線的中點必須畫了線、相切點必須在梯子的線上，由畫面獨立解出並驗算。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

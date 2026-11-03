@@ -14708,6 +14708,37 @@ export declare const proceduralMaterialPresets: Readonly<{
         paperRoughness: 0.8;
         inkRoughness: 0.4;
     }>;
+    astroidladder: Readonly<{
+        dark: readonly [28, 36, 62];
+        light: readonly [245, 242, 231];
+        roughness: 0.55;
+        relief: 0.004;
+        ladderCounts: readonly number[];
+        lengths: readonly number[];
+        powers: readonly number[];
+        centerX: 0.5;
+        centerY: 0.5;
+        axisHalf: 0.0012;
+        axisReach: 0.45;
+        lineHalf: 0.0015;
+        endRadius: 0.003;
+        touchRadius: 0.0026;
+        edgeSoft: 0.0006;
+        grainCells: 192;
+        paperTone: 0.96;
+        axisTone: 0.84;
+        lineTone: 0.5;
+        endTone: 0.12;
+        touchTone: 0.28;
+        grainTone: 0.03;
+        paperHeight: 0.2;
+        axisHeight: 0.3;
+        lineHeight: 0.6;
+        endHeight: 0.85;
+        touchHeight: 0.75;
+        paperRoughness: 0.8;
+        inkRoughness: 0.4;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -21193,6 +21224,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    astroidladder: 1;
     slopegraph: 1;
     kolakoskisequence: 1;
     crcdivision: 1;

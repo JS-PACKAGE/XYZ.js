@@ -45315,6 +45315,103 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'astroidladder': {
+        const p = proceduralMaterialPresets.astroidladder,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x50f01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          ladders =
+            p.ladderCounts[
+              Math.floor(hash(72, 1, seed ^ 0x50f02) * p.ladderCounts.length)
+            ],
+          length =
+            p.lengths[
+              Math.floor(hash(72, 2, seed ^ 0x50f03) * p.lengths.length)
+            ],
+          power =
+            p.powers[Math.floor(hash(72, 3, seed ^ 0x50f04) * p.powers.length)],
+          // Where each ladder's foot is on the x axis and its top on the y axis (the corner is the middle; the other three corners are mirrors).
+          foot = new Float64Array(ladders),
+          top = new Float64Array(ladders);
+        for (let k = 0; k < ladders; k++) {
+          const angle = Math.pow((k + 0.5) / ladders, power) * (Math.PI / 2);
+          foot[k] = length * Math.cos(angle);
+          top[k] = length * Math.sin(angle);
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          // The picture is the same in all four corners: fold it about the two axes.
+          const ax = Math.abs(fu - p.centerX),
+            ay = Math.abs(fv - p.centerY);
+          // The axes (one shape, painted once where they cross).
+          paint(
+            Math.max(
+              cover(Math.min(p.axisHalf - ay, p.axisReach - ax)),
+              cover(Math.min(p.axisHalf - ax, p.axisReach - ay)),
+            ),
+            p.axisTone,
+            p.axisHeight,
+          );
+          if (ax < length + p.endRadius && ay < length + p.endRadius) {
+            let lines = 0,
+              ends = 0,
+              touches = 0;
+            // Ladders, ends and touching points overlap one another (near the tips of the astroid, and where ladders cross), so each kind is
+            // combined by its largest coverage and painted once.
+            for (let k = 0; k < ladders; k++) {
+              const x = foot[k],
+                y = top[k],
+                // The ladder: the segment from (x, 0) to (0, y); its line is X / x + Y / y = 1.
+                across = Math.abs(ax * y + ay * x - x * y) / length;
+              if (
+                across < p.lineHalf + p.edgeSoft &&
+                ax < x + p.lineHalf &&
+                ay < y + p.lineHalf
+              )
+                lines = Math.max(lines, cover(p.lineHalf - across));
+              // A dot at each end of the ladder, on the axes.
+              ends = Math.max(
+                ends,
+                cover(p.endRadius - Math.hypot(ax - x, ay)),
+                cover(p.endRadius - Math.hypot(ax, ay - y)),
+              );
+              // The point where the ladder touches the astroid, (x^3, y^3) over the length squared.
+              touches = Math.max(
+                touches,
+                cover(
+                  p.touchRadius -
+                    Math.hypot(
+                      ax - (x * x * x) / (length * length),
+                      ay - (y * y * y) / (length * length),
+                    ),
+                ),
+              );
+            }
+            paint(lines, p.lineTone, p.lineHeight);
+            paint(ends, p.endTone, p.endHeight);
+            paint(touches, p.touchTone, p.touchHeight);
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -72844,6 +72941,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'astroidladder' ||
     kind === 'slopegraph' ||
     kind === 'kolakoskisequence' ||
     kind === 'crcdivision' ||

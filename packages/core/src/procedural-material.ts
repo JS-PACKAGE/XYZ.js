@@ -648,6 +648,7 @@ export type ProceduralMaterialKind =
   | 'dcbarreljackfaces'
   | 'stfiberadapterfaces'
   | 'to92packagefaces'
+  | 'astroidladder'
   | 'slopegraph'
   | 'kolakoskisequence'
   | 'crcdivision'
@@ -2077,6 +2078,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'dcbarreljackfaces',
   'stfiberadapterfaces',
   'to92packagefaces',
+  'astroidladder',
   'slopegraph',
   'kolakoskisequence',
   'crcdivision',
