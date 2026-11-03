@@ -47907,6 +47907,109 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'logisticbifurcation': {
+        const p = proceduralMaterialPresets.logisticbifurcation,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant =
+            p.variants[
+              Math.floor(hash(0, 66, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          rangeStart = variant[0],
+          rangeEnd = variant[1],
+          valueLow = variant[2],
+          valueHigh = variant[3],
+          span = 1 - 2 * p.margin,
+          dotWidthSquared = p.dotHalfWidth * p.dotHalfWidth,
+          frameWidthSquared = p.frameHalfWidth * p.frameHalfWidth,
+          inverseSoft = 1 / p.edgeSoft,
+          // The bifurcation diagram of the logistic map x -> r x (1 - x): across the plot, r runs from
+          // rangeStart to rangeEnd, and for each r the orbit of x = 0.5 is followed for `transient` steps
+          // and then the next `plotted` values are the points of the attractor, drawn as small dots (up
+          // is larger x). In the chaotic bands the points change completely for a tiny change of r (the orbit
+          // is a polynomial of a very high degree in r), so r is taken at the middle of one of `columns` equal
+          // steps of the range and the points of a column step are remembered; the picture is then constant
+          // across a column step (a fraction of a pixel wide) and noise-like from step to step in the chaotic bands.
+          remembered: (Float64Array | undefined)[] = [],
+          pointsOf = (fraction: number): Float64Array => {
+            const step = Math.min(
+                p.columns - 1,
+                Math.floor(fraction * p.columns),
+              ),
+              known = remembered[step];
+            if (known) return known;
+            const r =
+                rangeStart +
+                ((step + 0.5) / p.columns) * (rangeEnd - rangeStart),
+              points = new Float64Array(p.plotted);
+            let x = 0.5;
+            for (let count = 0; count < p.transient; count++)
+              x = r * x * (1 - x);
+            let distinct = 0;
+            for (let k = 0; k < p.plotted; k++) {
+              x = r * x * (1 - x);
+              // A point equal to an earlier one (an orbit on a cycle repeats its points) is kept once, so a cycle
+              // is drawn as a few dots and not as the same dot many times over.
+              let repeated = false;
+              for (let j = 0; j < distinct; j++)
+                if (Math.abs(points[j] - x) < 1e-9) {
+                  repeated = true;
+                  break;
+                }
+              if (!repeated) points[distinct++] = x;
+            }
+            const kept = points.subarray(0, distinct);
+            remembered[step] = kept;
+            return kept;
+          };
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            // The signed distance to the rectangle of the plot (negative inside) in tile units.
+            outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
+            outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
+            boxDistance =
+              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              Math.min(Math.max(outsideX, outsideY), 0),
+            frameT = clamp(1 - (boxDistance * boxDistance) / frameWidthSquared),
+            inside = smooth(clamp(-boxDistance / p.fade));
+          let keep = 1;
+          if (inside > 0) {
+            const column = Math.min(1, Math.max(0, (fu - p.margin) / span)),
+              value =
+                valueHigh -
+                Math.min(1, Math.max(0, (fv - p.margin) / span)) *
+                  (valueHigh - valueLow),
+              scale = span / (valueHigh - valueLow),
+              points = pointsOf(column);
+            for (let k = 0; k < points.length; k++) {
+              const distance = (points[k] - value) * scale,
+                t = clamp(1 - (distance * distance) / dotWidthSquared);
+              keep *= 1 - t * t;
+            }
+          }
+          const dots = inside * (1 - keep),
+            ink = clamp(p.dotTone * dots + p.frameTone * frameT * frameT),
+            mask = smooth(clamp(ink * inverseSoft)),
+            tone = p.toneSpan * ink,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            tone +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(ink) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -56798,6 +56901,7 @@ export function createSurfaceSampler(
     kind === 'powerdiagram' ||
     kind === 'polygonoffsets' ||
     kind === 'zordercurve' ||
+    kind === 'logisticbifurcation' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

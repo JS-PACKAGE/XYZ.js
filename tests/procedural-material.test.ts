@@ -1116,6 +1116,7 @@ const kinds: ProceduralMaterialKind[] = [
   'powerdiagram',
   'polygonoffsets',
   'zordercurve',
+  'logisticbifurcation',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -183046,6 +183047,417 @@ describe('Z-order curve as the Morton curve through the cells of a grid', () => 
     expect(blue / (512 * 512)).toBeLessThan(52.8);
     expect(maxTilt).toBeGreaterThan(0.0015);
     expect(maxTilt).toBeLessThan(0.0025);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Logistic bifurcation as the bifurcation diagram of the logistic map', () => {
+  const p = proceduralMaterialPresets.logisticbifurcation;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const size = 512,
+    span = 1 - 2 * p.margin;
+  /**
+   * The orbit of x = 0.5 under x -> r x (1 - x), written as r x - r x^2 and not as the sampler's r x (1 - x), after the
+   * transient of the preset, with the distinct points of the next 256 steps (to within 1e-6) and the mean of
+   * ln |r (1 - 2 x)| (the Lyapunov exponent, negative on a stable cycle).
+   */
+  const orbit = (
+    r: number,
+    transient: number,
+  ): { exponent: number; points: number[] } => {
+    let x = 0.5,
+      exponent = 0;
+    const points: number[] = [];
+    for (let i = 0; i < transient; i++) x = r * x - r * x * x;
+    for (let i = 0; i < 256; i++) {
+      x = r * x - r * x * x;
+      exponent += Math.log(Math.abs(r * (1 - 2 * x)) + 1e-300);
+      if (!points.some((q) => Math.abs(q - x) < 1e-6)) points.push(x);
+    }
+    return { exponent: exponent / 256, points };
+  };
+  /**
+   * The settled stable columns of each variant, by the independent orbit: a column step k (of the preset's columns
+   * steps of the range) counts when its r is the middle of the step, the Lyapunov exponent is below -0.05, there
+   * are at most 40 points, and the orbit after the preset's short transient is the same set of points (to within
+   * 1e-5) as after 20000 steps, so the finite transient has really settled. Each has the pixel column u, r, the
+   * points as rows of the 512 by 512 reading, and whether any lies within 8 rows of the window used for counting
+   * (0.02 inside the plot).
+   */
+  const columnsOf = p.variants.map(([start, end, low, high]) => {
+    const found: { u: number; r: number; rows: number[]; clean: boolean }[] =
+      [];
+    for (let i = 0; i < 400; i++) {
+      const step = Math.floor(((i + 0.5) / 400) * p.columns),
+        fraction = (step + 0.5) / p.columns,
+        r = start + fraction * (end - start),
+        short = orbit(r, p.transient),
+        long = orbit(r, 20000);
+      if (
+        short.exponent > -0.05 ||
+        short.points.length > 40 ||
+        short.points.length !== long.points.length ||
+        !short.points.every((q) =>
+          long.points.some((w) => Math.abs(w - q) < 1e-5),
+        )
+      )
+        continue;
+      const rows = short.points.map(
+          (x) => (p.margin + ((high - x) / (high - low)) * span) * size,
+        ),
+        top = (p.margin + 0.02) * size,
+        bottom = (1 - p.margin - 0.02) * size;
+      found.push({
+        u: p.margin + fraction * span,
+        r,
+        rows,
+        clean:
+          rows.every(
+            (y) => Math.abs(y - top) >= 8 && Math.abs(y - bottom) >= 8,
+          ) &&
+          fraction * span > 0.02 &&
+          fraction * span < span - 0.02,
+      });
+    }
+    return found;
+  });
+  /** The number of runs of bright pixels (colour above 0.5) in a column of the 512 by 512 reading, within 0.02 inside the plot. */
+  const runsIn = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    u: number,
+  ): number => {
+    const out = empty();
+    let runs = 0,
+      previous = false;
+    for (
+      let y = Math.ceil((p.margin + 0.02) * size);
+      y < (1 - p.margin - 0.02) * size;
+      y++
+    ) {
+      sample(u, (y + 0.5) / size, out);
+      const bright = out.color > 0.5;
+      if (bright && !previous) runs++;
+      previous = bright;
+    }
+    return runs;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('logisticbifurcation', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('logisticbifurcation', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0255);
+      expect(low).toBeLessThan(0.0259);
+      expect(high).toBeGreaterThan(0.8);
+      expect(high).toBeLessThan(0.803);
+      expect(dark / 65536).toBeGreaterThan(0.047);
+      expect(dark / 65536).toBeLessThan(0.165);
+      expect(mean / 65536).toBeGreaterThan(0.084);
+      expect(mean / 65536).toBeLessThan(0.177);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.785);
+      expect(heightHigh).toBeLessThan(0.79);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The variant for each of the seeds 1, 8, 7, 13, 2 and 0 (variants 0 to 5) was found with a probe and is written
+  // here, so that table is not an independent check of the seed's choice.
+  const seeds = [1, 8, 7, 13, 2, 0];
+  it('draws the settled attractor of its own range and not the others', () => {
+    // At the points of the stable cycles found by the independent orbit (487, 438, 216, 1136, 743 and 196 for
+    // the variants, those more than 0.015 inside the plot) the colour is above 0.5 for all of those of the variant of
+    // the seed (1.000 in the probe) and for fewer than 30% of those of each other variant (at most 0.131 in the probe, 0.226 with the columns the test lists).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('logisticbifurcation', seed),
+        out = empty(),
+        hitsOf = (variant: number): number => {
+          let hits = 0,
+            total = 0;
+          for (const column of columnsOf[variant])
+            for (const row of column.rows) {
+              const v = row / size;
+              if (v < p.margin + 0.015 || v > 1 - p.margin - 0.015) continue;
+              if (
+                column.u < p.margin + 0.012 ||
+                column.u > 1 - p.margin - 0.012
+              )
+                continue;
+              sample(column.u, v, out);
+              hits += Number(out.color > 0.5);
+              total++;
+            }
+          return hits / total;
+        };
+      expect(hitsOf(index)).toBeGreaterThan(0.99);
+      p.variants.forEach((_, other) => {
+        if (other !== index) expect(hitsOf(other)).toBeLessThan(0.3);
+      });
+    });
+  });
+  it('has no bright run in a stable column other than the points of the cycle', () => {
+    // In the stable columns of the variant whose points are all more than 8 rows from the counting window, and
+    // whose points are either within 1.5 rows of each other (they merge into one dot) or more than 6 rows apart, the
+    // number of runs of bright pixels equals the number of such groups of points (5 to 49 columns per
+    // variant in the probe, 0 mismatches).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('logisticbifurcation', seed);
+      let tested = 0;
+      for (const column of columnsOf[index]) {
+        if (!column.clean) continue;
+        const top = (p.margin + 0.02) * size,
+          bottom = (1 - p.margin - 0.02) * size,
+          rows = column.rows
+            .filter((y) => y > top && y < bottom)
+            .sort((x, y) => x - y),
+          groups: number[] = [];
+        let ambiguous = false;
+        for (const y of rows) {
+          if (!groups.length || y - groups[groups.length - 1] > 6)
+            groups.push(y);
+          else if (y - groups[groups.length - 1] > 1.5) ambiguous = true;
+        }
+        if (ambiguous) continue;
+        expect(runsIn(sample, column.u)).toBe(groups.length);
+        tested++;
+      }
+      expect(tested).toBeGreaterThanOrEqual(4);
+    });
+  });
+  it('keeps every bright pixel between the bounds of the map', () => {
+    // Every orbit of the logistic map (r > 2) lies in the interval from f(f(1/2)) = r^2 (4 - r) / 16 to f(1/2) = r / 4,
+    // so no pixel with a colour above 0.6 inside the plot (0.02 off its edge) is more than 1% of the range of x above the
+    // curve x = r / 4 or below the curve x = r^2 (4 - r) / 16 (0.0023 of the range at worst in the probe), with
+    // 1.9 to 35 thousand bright pixels per variant.
+    seeds.forEach((seed, index) => {
+      const [start, end, low, high] = p.variants[index],
+        sample = createSurfaceSampler('logisticbifurcation', seed),
+        out = empty();
+      let bright = 0,
+        outside = 0;
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          const u = (x + 0.5) / size,
+            v = (y + 0.5) / size;
+          if (
+            u < p.margin + 0.02 ||
+            u > 1 - p.margin - 0.02 ||
+            v < p.margin + 0.02 ||
+            v > 1 - p.margin - 0.02
+          )
+            continue;
+          sample(u, v, out);
+          if (out.color < 0.6) continue;
+          const r = start + ((u - p.margin) / span) * (end - start),
+            value = high - ((v - p.margin) / span) * (high - low);
+          bright++;
+          outside += Number(
+            Math.max(value - r / 4, (r * r * (4 - r)) / 16 - value) >
+              0.01 * (high - low),
+          );
+        }
+      expect(bright).toBeGreaterThan(1500);
+      expect(outside).toBe(0);
+    });
+  });
+  it('follows the closed forms of the fixed point and the 2-cycle', () => {
+    // For r between 2.45 and 2.95 the only stable point is x = 1 - 1 / r, and for r between 3.12 and 3.38 the two
+    // points of the 2-cycle are x = ((r + 1) +- sqrt((r - 3)(r + 1))) / (2 r) (variants 0 and 4 cover those r). In
+    // such a column there is exactly one run of bright pixels (two for the 2-cycle) and its middle is within 1.5 rows of the
+    // closed form.
+    for (const index of [0, 4]) {
+      const [, , low, high] = p.variants[index],
+        sample = createSurfaceSampler('logisticbifurcation', seeds[index]),
+        out = empty();
+      let tested = 0;
+      for (const column of columnsOf[index]) {
+        if (!column.clean) continue;
+        const r = column.r,
+          expected =
+            r >= 2.45 && r <= 2.95
+              ? [1 - 1 / r]
+              : r >= 3.12 && r <= 3.38
+                ? [
+                    (r + 1 + Math.sqrt((r - 3) * (r + 1))) / (2 * r),
+                    (r + 1 - Math.sqrt((r - 3) * (r + 1))) / (2 * r),
+                  ]
+                : null;
+        if (!expected) continue;
+        const centres: number[] = [];
+        let start = -1;
+        for (
+          let y = Math.ceil((p.margin + 0.02) * size);
+          y <= Math.floor((1 - p.margin - 0.02) * size);
+          y++
+        ) {
+          sample(column.u, (y + 0.5) / size, out);
+          const bright = out.color > 0.5 && y < (1 - p.margin - 0.02) * size;
+          if (bright && start < 0) start = y;
+          if (!bright && start >= 0) {
+            centres.push((start + y - 1) / 2 + 0.5);
+            start = -1;
+          }
+        }
+        expect(centres.length).toBe(expected.length);
+        const rowsOf = expected
+          .map((x) => (p.margin + ((high - x) / (high - low)) * span) * size)
+          .sort((x, y) => x - y);
+        centres.forEach((centre, k) =>
+          expect(Math.abs(centre - rowsOf[k])).toBeLessThan(1.5),
+        );
+        tested++;
+      }
+      expect(tested).toBeGreaterThanOrEqual(4);
+    }
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 1 pick different variants (r from 3.82 to 3.87 and r from 2.4 to 4).
+    const first = litGrid(0),
+      second = litGrid(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.095);
+    expect(different / first.length).toBeLessThan(0.107);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('logisticbifurcation', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 cream bifurcation diagram maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('logisticbifurcation', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(55.5);
+    expect(red / (512 * 512)).toBeLessThan(56.7);
+    expect(green / (512 * 512)).toBeGreaterThan(48.7);
+    expect(green / (512 * 512)).toBeLessThan(49.9);
+    expect(blue / (512 * 512)).toBeGreaterThan(32.4);
+    expect(blue / (512 * 512)).toBeLessThan(33.6);
+    expect(maxTilt).toBeGreaterThan(0.043);
+    expect(maxTilt).toBeLessThan(0.046);
     expect(invalid).toBe(0);
   });
 });

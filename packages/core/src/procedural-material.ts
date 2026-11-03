@@ -1090,6 +1090,7 @@ export type ProceduralMaterialKind =
   | 'powerdiagram'
   | 'polygonoffsets'
   | 'zordercurve'
+  | 'logisticbifurcation'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2428,6 +2429,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'powerdiagram',
   'polygonoffsets',
   'zordercurve',
+  'logisticbifurcation',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

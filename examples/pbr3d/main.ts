@@ -1153,6 +1153,7 @@ try {
     'powerdiagram',
     'polygonoffsets',
     'zordercurve',
+    'logisticbifurcation',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
