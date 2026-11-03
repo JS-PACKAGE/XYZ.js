@@ -43803,6 +43803,82 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'dominotiling': {
+        const p = proceduralMaterialPresets.dominotiling,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          size = p.cells,
+          partner = Int32Array.from(
+            { length: size * size },
+            (_, i) => Math.floor(i / size) * size + ((i % size) ^ 1),
+          ),
+          wrap = (n: number): number => (n + size) % size;
+        // A random domino tiling of the size x size torus (size even): every cell is paired with
+        // one neighbour. It starts as the brick wall of horizontal dominoes (x paired with x xor
+        // 1) and flips are applied one after the other: a random 2 x 2 block (top left corner from
+        // the hash, wrapping round the torus) that holds two parallel dominoes has them turned
+        // through a right angle, so the tiling stays a perfect pairing of the cells all the time.
+        for (let step = 0; step < p.flips; step++) {
+          const x = Math.floor(hash(step, 0, seed ^ p.seedSalt) * size),
+            y = Math.floor(hash(step, 1, seed ^ p.seedSalt) * size),
+            a = y * size + x,
+            b = y * size + wrap(x + 1),
+            c = wrap(y + 1) * size + x,
+            d = wrap(y + 1) * size + wrap(x + 1);
+          if (partner[a] === b && partner[c] === d) {
+            partner[a] = c;
+            partner[c] = a;
+            partner[b] = d;
+            partner[d] = b;
+          } else if (partner[a] === c && partner[b] === d) {
+            partner[a] = b;
+            partner[b] = a;
+            partner[c] = d;
+            partner[d] = c;
+          }
+        }
+        return () => {
+          // The cell of the point and its partner give the domino; every domino is a rounded
+          // rectangle (a quartic superellipse through smoothstep) of the two cells, measured from
+          // the middle of the domino, zero before the cell boundary on every side, so the lookup
+          // never jumps and the field is C1.
+          const x = fract(u) * size,
+            y = fract(v) * size,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            other = partner[row * size + col],
+            otherCol = other % size,
+            otherRow = Math.floor(other / size);
+          let stepX = otherCol - col,
+            stepY = otherRow - row;
+          if (stepX > 1) stepX -= size;
+          if (stepX < -1) stepX += size;
+          if (stepY > 1) stepY -= size;
+          if (stepY < -1) stepY += size;
+          const fx = x - col - 0.5 - stepX / 2,
+            fy = y - row - 0.5 - stepY / 2,
+            ax = fx / (p.kernelHalf + Math.abs(stepX) / 2),
+            ay = fy / (p.kernelHalf + Math.abs(stepY) / 2),
+            s = ax ** 4 + ay ** 4,
+            mask = smooth(clamp((1 - s) / p.edgeSoft)),
+            dome = smooth(clamp(1 - s)),
+            tone =
+              p.toneSpan * (stepX === 0 ? p.verticalTone : p.horizontalTone),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -52660,6 +52736,7 @@ export function createSurfaceSampler(
     kind === 'nimproduct' ||
     kind === 'partitionmod5' ||
     kind === 'stirlingparity' ||
+    kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
     kind === 'vermiculation' ||

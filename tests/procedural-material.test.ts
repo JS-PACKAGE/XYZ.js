@@ -1082,6 +1082,7 @@ const kinds: ProceduralMaterialKind[] = [
   'nimproduct',
   'partitionmod5',
   'stirlingparity',
+  'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
   'vermiculation',
@@ -172294,6 +172295,239 @@ describe('Stirling parity as the parity of the Stirling numbers of the second ki
     expect(blue / (512 * 512)).toBeLessThan(26.5);
     expect(maxTilt).toBeGreaterThan(0.035);
     expect(maxTilt).toBeLessThan(0.045);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Domino tiling as a random domino tiling of a 32 by 32 torus from flips of 2 by 2 blocks', () => {
+  const p = proceduralMaterialPresets.dominotiling;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const cells = 32,
+    neighbours = [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ];
+  /**
+   * The tiling read back from the sampler: for every cell the tone at its centre (above 0.54 for
+   * a horizontal domino, below for a vertical one) and the neighbours across which the colour at the
+   * midpoint of the two cell centres is not the dark seam (above 0.2), i.e. the cells that belong to
+   * the same domino.
+   */
+  const readTiling = (
+    seed: number,
+  ): { horizontal: boolean[]; joined: number[][]; ambiguous: number } => {
+    const sample = createSurfaceSampler('dominotiling', seed),
+      out = empty(),
+      read = (x: number, y: number): number => {
+        sample(
+          (((x % cells) + cells) % cells) / cells,
+          (((y % cells) + cells) % cells) / cells,
+          out,
+        );
+        return out.color;
+      },
+      horizontal: boolean[] = [],
+      joined: number[][] = [];
+    let ambiguous = 0;
+    for (let row = 0; row < cells; row++)
+      for (let col = 0; col < cells; col++) {
+        const centre = read(col + 0.5, row + 0.5);
+        if (Math.abs(centre - 0.54) < 0.08) ambiguous++;
+        horizontal.push(centre > 0.54);
+        const list: number[] = [];
+        neighbours.forEach(([dx, dy], index) => {
+          const middle = read(col + 0.5 + dx / 2, row + 0.5 + dy / 2);
+          if (Math.abs(middle - 0.2) < 0.05) ambiguous++;
+          if (middle > 0.2) list.push(index);
+        });
+        joined.push(list);
+      }
+    return { horizontal, joined, ambiguous };
+  };
+  it('draws a perfect domino tiling and keeps the tones bounded', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('dominotiling', seed),
+        a = empty();
+      // Every one of the 1024 cells belongs to exactly one domino: exactly one neighbour is joined,
+      // the neighbour is joined back to it (and to nothing else), a joined pair is across a
+      // horizontal step exactly when both cells read as horizontal, there are 512 dominoes and
+      // each direction makes up 40% to 60% of the cells, and no read-back is ambiguous. This is the
+      // definition of a domino tiling, read from the colours alone.
+      const { horizontal, joined, ambiguous } = readTiling(seed);
+      expect(ambiguous).toBe(0);
+      let backwards = 0,
+        wrongClass = 0;
+      for (let row = 0; row < cells; row++)
+        for (let col = 0; col < cells; col++) {
+          const list = joined[row * cells + col];
+          expect(list).toHaveLength(1);
+          const [dx, dy] = neighbours[list[0]],
+            otherRow = (row + dy + cells) % cells,
+            otherCol = (col + dx + cells) % cells,
+            back = joined[otherRow * cells + otherCol];
+          backwards += Number(back.length !== 1 || back[0] !== (list[0] ^ 1));
+          wrongClass += Number(
+            horizontal[row * cells + col] !== (dy === 0) ||
+              horizontal[otherRow * cells + otherCol] !== (dy === 0),
+          );
+        }
+      expect(backwards).toBe(0);
+      expect(wrongClass).toBe(0);
+      const share = horizontal.filter(Boolean).length / (cells * cells);
+      expect(share).toBeGreaterThan(0.4);
+      expect(share).toBeLessThan(0.6);
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0255);
+      expect(low).toBeLessThan(0.0263);
+      expect(high).toBeGreaterThan(0.713);
+      expect(high).toBeLessThan(0.715);
+      expect(dark / 65536).toBeGreaterThan(0.33);
+      expect(dark / 65536).toBeLessThan(0.347);
+      expect(mean / 65536).toBeGreaterThan(0.414);
+      expect(mean / 65536).toBeLessThan(0.42);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 3);
+      expect(heightHigh).toBeGreaterThan(0.832);
+      expect(heightHigh).toBeLessThan(0.835);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('draws a different tiling per seed and is deterministic for one seed', () => {
+    const first = readTiling(0).joined,
+      second = readTiling(1).joined;
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i][0] !== second[i][0]);
+    expect(different / first.length).toBeGreaterThan(0.7);
+    expect(different / first.length).toBeLessThan(0.8);
+    expect(readTiling(0)).toEqual(readTiling(0));
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('dominotiling', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [cells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 sand and slate domino maps with raised dominoes and shaded seams', () => {
+    const maps = generateProceduralMaps('dominotiling', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(106.5);
+    expect(red / (512 * 512)).toBeLessThan(107.5);
+    expect(green / (512 * 512)).toBeGreaterThan(104);
+    expect(green / (512 * 512)).toBeLessThan(105);
+    expect(blue / (512 * 512)).toBeGreaterThan(86.5);
+    expect(blue / (512 * 512)).toBeLessThan(87.5);
+    expect(maxTilt).toBeGreaterThan(0.015);
+    expect(maxTilt).toBeLessThan(0.019);
     expect(invalid).toBe(0);
   });
 });

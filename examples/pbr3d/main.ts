@@ -1119,6 +1119,7 @@ try {
     'nimproduct',
     'partitionmod5',
     'stirlingparity',
+    'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
     'vermiculation',

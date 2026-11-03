@@ -13180,3 +13180,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Stirling parity as|stirlingparity|kinds|catalog|distinct|periodic"`定向測試**2414項通過／4121項未選**。
 - 未驗證：partitionmod5與stirlingparity未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-03 新增材質：骨牌鋪磚（dominotiling）
+
+- 範圍：新增`dominotiling`（目前目錄1054→1055種，含plain的gallery 1056項）：32×32格環面的隨機骨牌鋪磚（從橫放的磚牆出發做40,000次翻轉：隨機2×2方塊內若是兩塊平行骨牌就一起轉90°，所以始終是完美配對）；橫放骨牌淺沙色、直放骨牌深石板灰、深色接縫；seed決定所有翻轉的位置；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 135,168 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。與既有`dominoes`（遊戲骨牌）不同，已在文件中註明。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽只看了一版；(2)動手前以`/tmp/absent.sh`檢查，kind清單中`domino`出現在既有的`dominoes`（遊戲骨牌，不同概念），所以改用`dominotiling`這個名稱，並在文件註明差異；(3)測試只靠讀回檢查完美配對的定義（每格恰一個相連鄰格、相連雙向、方向與橫直放一致、共512塊、橫放占40%–60%），**不**證明鋪磚是所有鋪磚中的均勻隨機樣本，翻轉鏈在40,000步後是否混合均勻沒有驗證（預覽可見橫放與直放各自成片的區域）；(4)測試生成器第一次把新describe插在Wang tiles describe後面而不是檔案最後，寫入前我發現並改為附加在檔案最後；(5)256²與512²取樣的亮處占比不同，原因是格寬（8與16像素）與取樣點在格內位置不同，測試採用256²的數值範圍；(6)建構（40,000次翻轉）與取樣耗時**未量測**；(7)測試第一次執行即通過（探針數值先量好才寫界線）。
+- 實測（工具實跑，seed 0／1／0xffffffff／7）：1,024格每一格恰好一個相連鄰格、相連雙向一致、方向與橫直放一致、無模稜兩可（各seed 0個例外）；橫放的格子516／540／540／500個；seed 0與1相比配對方向不同的格子75.2%；256²（seed 0／1／0xffffffff）亮處（color>0.5）33.07%–34.61%、color 0.02567–0.02618至0.71389–0.71453、平均0.41423–0.41980、roughness恆為0.4、AO最低0.6、height至多0.8332–0.8343 relief；512²（四個seed）亮處36.58%–39.51%、color 0.02520–0.02538至0.71463–0.71480、平均0.41664–0.42608、AO最低0.6、height至多0.8361–0.8368 relief；seed 0與1相比，512²中color>0.5的取樣41.2%不同；seed 7的512²maps平均r／g／b約(107.0, 104.5, 87.2)、法線tilt²最大約0.0168、z分量最小254。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Domino tiling as|dominotiling|kinds|catalog|distinct|periodic"`定向測試**2416項通過／4124項未選**。
+- 未驗證：partitionmod5、stirlingparity與dominotiling未跑完整suite與瀏覽器gallery；不push。
