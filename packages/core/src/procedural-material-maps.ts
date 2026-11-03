@@ -45599,6 +45599,130 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'arbelos': {
+        const p = proceduralMaterialPresets.arbelos,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x52001),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // Where C is, as the share of A to B that is A to C: under half or over half, never near half.
+          share = p.shareLow + p.shareSpan * hash(74, 1, seed ^ 0x52002),
+          leftShare = hash(74, 2, seed ^ 0x52003) < 0.5 ? share : 1 - share,
+          length = p.right - p.left,
+          // Half of A to C and of C to B, and the middle of each; the middle of the big half circle is the middle of A to B.
+          a = (length * leftShare) / 2,
+          b = (length * (1 - leftShare)) / 2,
+          cx = p.left + 2 * a,
+          big = a + b,
+          bigX = p.left + big,
+          leftX = p.left + a,
+          rightX = cx + b,
+          // D: the line up from C meets the big half circle at a height of 2 sqrt(a b) (the square root of A to C times C to B).
+          lift = 2 * Math.sqrt(a * b),
+          // The twin circles: radius a b / (a + b), the middle at the radius from the line up from C and 2 sqrt(a r) up (from the small half circle's tangency).
+          twin = (a * b) / big,
+          leftTwinX = cx - twin,
+          rightTwinX = cx + twin,
+          leftTwinY = p.baselineY - 2 * Math.sqrt(a * twin),
+          rightTwinY = p.baselineY - 2 * Math.sqrt(b * twin);
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          // A half circle (the upper half, v above the line): the distance to its curve. Below the line there is none (its ends are hidden under the dots).
+          const arc = (x: number, radius: number): number =>
+            fv <= p.baselineY
+              ? Math.abs(Math.hypot(fu - x, fv - p.baselineY) - radius)
+              : Infinity;
+          if (
+            fu > p.left - 0.02 &&
+            fu < p.right + 0.02 &&
+            fv > p.baselineY - big - 0.02 &&
+            fv < p.baselineY + 0.02
+          ) {
+            // The line from A to B.
+            paint(
+              cover(
+                Math.min(
+                  p.baselineHalf - Math.abs(fv - p.baselineY),
+                  fu - p.left,
+                  p.right - fu,
+                ),
+              ),
+              p.baselineTone,
+              p.baselineHeight,
+            );
+            // The three half circles: combined by their largest coverage (they meet at the ends of the line).
+            paint(
+              Math.max(
+                cover(p.arcHalf - arc(bigX, big)),
+                cover(p.arcHalf - arc(leftX, a)),
+                cover(p.arcHalf - arc(rightX, b)),
+              ),
+              p.arcTone,
+              p.arcHeight,
+            );
+            // The line up from C to D.
+            paint(
+              cover(
+                Math.min(
+                  p.lineHalf - Math.abs(fu - cx),
+                  fv - (p.baselineY - lift),
+                  p.baselineY - fv,
+                ),
+              ),
+              p.lineTone,
+              p.lineHeight,
+            );
+            // The twin circles.
+            paint(
+              Math.max(
+                cover(
+                  p.twinHalf -
+                    Math.abs(Math.hypot(fu - leftTwinX, fv - leftTwinY) - twin),
+                ),
+                cover(
+                  p.twinHalf -
+                    Math.abs(
+                      Math.hypot(fu - rightTwinX, fv - rightTwinY) - twin,
+                    ),
+                ),
+              ),
+              p.twinTone,
+              p.twinHeight,
+            );
+            // The points A, B, C and D.
+            paint(
+              Math.max(
+                cover(p.dotRadius - Math.hypot(fu - p.left, fv - p.baselineY)),
+                cover(p.dotRadius - Math.hypot(fu - p.right, fv - p.baselineY)),
+                cover(p.dotRadius - Math.hypot(fu - cx, fv - p.baselineY)),
+                cover(
+                  p.dotRadius - Math.hypot(fu - cx, fv - (p.baselineY - lift)),
+                ),
+              ),
+              p.dotTone,
+              p.dotHeight,
+            );
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -73128,6 +73252,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'arbelos' ||
     kind === 'eulerlinetriangle' ||
     kind === 'astroidladder' ||
     kind === 'slopegraph' ||

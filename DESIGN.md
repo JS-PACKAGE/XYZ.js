@@ -2297,6 +2297,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`arbelos`（阿基米德的鞋匠刀形）使目前目錄1182→1183種，含plain的gallery為1184項。阿基米德的鞋匠刀形（arbelos）：線段AB上有一個大半圓，裡面在AC與CB上各有一個較小的半圓（C在AB上的位置依seed而定，不會在中間附近，份額落在0.25到0.42之間，左右隨機），從C向上畫一條垂線到大半圓上的D，以及阿基米德的雙生圓：垂線兩側各一個圓，各自與垂線及它所在位置的兩個半圓相切，兩個圓的半徑相同，等於ab/(a+b)（a、b為AC與CB的一半）。A、B、C、D各有一個深色圓點。這是作者設計的示意；測試端只從畫面讀出線上的三個圓點（在線下方一小段、只有圓點的地方，用對分法找每個圓點兩邊的邊緣取中點），其餘獨立算出：a、b、大半圓半徑、D的高度（AC乘CB的平方根）、雙生圓的半徑與圓心（圓心用「與垂線相切且與大半圓內切」解出，不用取樣端的公式），並驗算它們同時與小半圓外切；再驗證畫面上每個圓、半圓、垂線、基線與圓點的位置、色調、高度、粗糙度與粗細。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

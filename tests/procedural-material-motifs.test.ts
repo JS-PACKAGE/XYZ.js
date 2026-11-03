@@ -56115,3 +56115,608 @@ describe('eulerlinetriangle: the altitudes, circumcircle, centroid and the line 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('arbelos: a big half circle with two smaller ones inside, the line up from C and Archimedes twin circles', () => {
+  const p = proceduralMaterialPresets.arbelos,
+    out = empty();
+  type Point = [number, number];
+  type Model = {
+    sample: Sampler;
+    a: number;
+    b: number;
+    cx: number;
+    big: number;
+    lift: number;
+    twin: number;
+    twinLeft: Point;
+    twinRight: Point;
+  };
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const near = (tone: number, wanted: number, within = 0.01): boolean =>
+    Math.abs(tone - wanted) < within;
+
+  // Read the picture: the three dots on the line (found just under the line, where only the dots are, at the middle of each one's two edges, found by halving), from which
+  // everything else follows: half of A to C and of C to B, the radius of the big half circle, how high D is and the twin circles' radius and middles, the last
+  // worked out from the big half circle and the line up from C alone (the circle that touches both and has the stated radius), then checked against the small half circle.
+  const modelOf = (seed: number): Model => {
+    const sample = createSurfaceSampler('arbelos', seed),
+      row = p.baselineY + 0.004,
+      mid = (p.dotTone + p.paperTone) / 2,
+      centres: number[] = [];
+    let start = Number.NaN;
+    for (let i = 0; i <= 1000; i++) {
+      const x = 0.05 + (i * 0.9) / 1000,
+        dark = toneAt(sample, x, row) < 0.5;
+      if (dark && Number.isNaN(start)) start = x;
+      if (!dark && !Number.isNaN(start)) {
+        const middle = (start + x - 0.0009) / 2,
+          edge = (inside: number, outside: number): number => {
+            let lo = inside,
+              hi = outside;
+            for (let k = 0; k < 40; k++) {
+              const m = (lo + hi) / 2;
+              if (toneAt(sample, m, row) < mid) lo = m;
+              else hi = m;
+            }
+            return (lo + hi) / 2;
+          };
+        centres.push(
+          (edge(middle, middle - 0.02) + edge(middle, middle + 0.02)) / 2,
+        );
+        start = Number.NaN;
+      }
+    }
+    expect(centres.length).toBe(3);
+    const [left, cx, right] = centres,
+      a = (cx - left) / 2,
+      b = (right - cx) / 2,
+      big = a + b,
+      twin = (a * b) / (a + b),
+      // The twin circle on the left: touches the line up from C (so its middle is its radius to the left of it) and the big half circle from inside (its middle is
+      // the big radius less its own away from the big half circle's middle); likewise on the right.
+      height = (x: number, radius: number): number =>
+        p.baselineY - Math.sqrt((big - radius) ** 2 - (x - (left + big)) ** 2);
+    return {
+      sample,
+      a,
+      b,
+      cx,
+      big,
+      lift: Math.sqrt(a * 2 * b * 2),
+      twin,
+      twinLeft: [cx - twin, height(cx - twin, twin)],
+      twinRight: [cx + twin, height(cx + twin, twin)],
+    };
+  };
+
+  // The distance from a place to each thing drawn.
+  const distances = (
+    m: Model,
+    x: number,
+    y: number,
+  ): Record<string, number> => {
+    const arc = (centre: number, radius: number): number =>
+        y <= p.baselineY
+          ? Math.abs(Math.hypot(x - centre, y - p.baselineY) - radius)
+          : Math.min(
+              Math.hypot(x - (centre - radius), y - p.baselineY),
+              Math.hypot(x - (centre + radius), y - p.baselineY),
+            ),
+      left = m.cx - 2 * m.a,
+      segment = (ax: number, ay: number, bx: number, by: number): number => {
+        const dx = bx - ax,
+          dy = by - ay,
+          t = Math.min(
+            1,
+            Math.max(0, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy)),
+          );
+        return Math.hypot(x - (ax + t * dx), y - (ay + t * dy));
+      };
+    return {
+      baseline: segment(left, p.baselineY, left + 2 * m.big, p.baselineY),
+      big: arc(left + m.big, m.big),
+      small: arc(left + m.a, m.a),
+      smaller: arc(m.cx + m.b, m.b),
+      line: segment(m.cx, p.baselineY - m.lift, m.cx, p.baselineY),
+      twinLeft: Math.abs(
+        Math.hypot(x - m.twinLeft[0], y - m.twinLeft[1]) - m.twin,
+      ),
+      twinRight: Math.abs(
+        Math.hypot(x - m.twinRight[0], y - m.twinRight[1]) - m.twin,
+      ),
+      dotA: Math.hypot(x - left, y - p.baselineY) - p.dotRadius,
+      dotB: Math.hypot(x - (left + 2 * m.big), y - p.baselineY) - p.dotRadius,
+      dotC: Math.hypot(x - m.cx, y - p.baselineY) - p.dotRadius,
+      dotD: Math.hypot(x - m.cx, y - (p.baselineY - m.lift)) - p.dotRadius,
+    };
+  };
+  const clear = (
+    m: Model,
+    x: number,
+    y: number,
+    except: string,
+    margin = 0.008,
+  ): boolean =>
+    Object.entries(distances(m, x, y)).every(
+      ([name, distance]) => name === except || distance > margin,
+    );
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'puts the points A and B at the ends of the line, D at the square root of A to C times C to B above C, and two twin circles of radius a b / (a + b) that touch the line up from C and both arcs they lie between (seed %i)',
+    (seed) => {
+      const m = modelOf(seed),
+        left = m.cx - 2 * m.a;
+      // A and B are at the ends the preset states.
+      expect(Math.abs(left - p.left)).toBeLessThan(1e-4);
+      expect(Math.abs(left + 2 * m.big - p.right)).toBeLessThan(1e-4);
+      // C is neither near the middle nor an end: the share of A to B that is A to C is in [0.25, 0.42] or [0.58, 0.75].
+      const share = (2 * m.a) / (2 * m.big);
+      expect(Math.min(share, 1 - share)).toBeGreaterThan(p.shareLow - 1e-3);
+      expect(Math.min(share, 1 - share)).toBeLessThan(
+        p.shareLow + p.shareSpan + 1e-3,
+      );
+      // The twin circles touch the line up from C from either side, the small half circle on their side from outside and the big half circle from inside, and have the radius a b / (a + b)
+      // (each distance worked from the middles, not from the radius formula).
+      const dist = (p1: Point, p2: Point): number =>
+          Math.hypot(p1[0] - p2[0], p1[1] - p2[1]),
+        bigMiddle: Point = [left + m.big, p.baselineY],
+        leftMiddle: Point = [left + m.a, p.baselineY],
+        rightMiddle: Point = [m.cx + m.b, p.baselineY];
+      expect(Math.abs(m.twinLeft[0] - (m.cx - m.twin))).toBeLessThan(1e-12);
+      expect(Math.abs(m.twinRight[0] - (m.cx + m.twin))).toBeLessThan(1e-12);
+      expect(
+        Math.abs(dist(m.twinLeft, bigMiddle) - (m.big - m.twin)),
+      ).toBeLessThan(1e-9);
+      expect(
+        Math.abs(dist(m.twinRight, bigMiddle) - (m.big - m.twin)),
+      ).toBeLessThan(1e-9);
+      expect(
+        Math.abs(dist(m.twinLeft, leftMiddle) - (m.a + m.twin)),
+      ).toBeLessThan(1e-9);
+      expect(
+        Math.abs(dist(m.twinRight, rightMiddle) - (m.b + m.twin)),
+      ).toBeLessThan(1e-9);
+      // The twin circles are really drawn there: the ring's tone at eight places round each (those near another line or circle are not twin ring tone: they are the others' tone).
+      let seen = 0;
+      for (const middle of [m.twinLeft, m.twinRight])
+        for (let k = 0; k < 16; k++) {
+          const x = middle[0] + m.twin * Math.cos((k * Math.PI) / 8),
+            y = middle[1] + m.twin * Math.sin((k * Math.PI) / 8);
+          if (
+            !clear(
+              m,
+              x,
+              y,
+              middle === m.twinLeft ? 'twinLeft' : 'twinRight',
+              0.006,
+            )
+          )
+            continue;
+          seen++;
+          expect(toneAt(m.sample, x, y)).toBeCloseTo(p.twinTone, 6);
+        }
+      expect(seen).toBeGreaterThan(12);
+      // Where the ring touches the others (the tangent points) the tone is not paper: the ring touches the line at (cx, the middle's height) and the big half circle at the
+      // end of the line from the big half circle's middle through the twin's middle.
+      for (const middle of [m.twinLeft, m.twinRight]) {
+        const ex = middle[0] - bigMiddle[0],
+          ey = middle[1] - bigMiddle[1],
+          reach = Math.hypot(ex, ey),
+          tx = bigMiddle[0] + (ex / reach) * m.big,
+          ty = bigMiddle[1] + (ey / reach) * m.big;
+        expect(toneAt(m.sample, tx, ty)).toBeLessThan(p.paperTone - 0.1);
+        expect(toneAt(m.sample, m.cx, middle[1])).toBeLessThan(
+          p.paperTone - 0.1,
+        );
+      }
+      // D: the line up from C meets the big half circle at a height of the square root of A to C times C to B (2 sqrt(a b)); the dot is there.
+      expect(Math.abs(m.lift - Math.sqrt(2 * m.a * 2 * m.b))).toBeLessThan(
+        1e-12,
+      );
+      expect(
+        Math.abs(
+          Math.hypot(m.cx - bigMiddle[0], p.baselineY - m.lift - bigMiddle[1]) -
+            m.big,
+        ),
+      ).toBeLessThan(1e-9);
+      for (const [x, y] of [
+        [left, p.baselineY],
+        [m.cx, p.baselineY],
+        [left + 2 * m.big, p.baselineY],
+        [m.cx, p.baselineY - m.lift],
+      ])
+        expect(toneAt(m.sample, x, y)).toBeCloseTo(p.dotTone, 6);
+      // Just outside the dots the strokes carry on to them: the half circles rise from A and B right above the dots, the line runs along to the dots at its ends, and the line
+      // up from C runs down from D (where nothing else is within a few thousandths).
+      const lift = 0.0092,
+        rise = (centre: number, radius: number, end: number): Point => [
+          end +
+            (centre - end) *
+              (1 - Math.sqrt(1 - (lift / radius) ** 2)) *
+              (radius / Math.abs(centre - end)),
+          p.baselineY - lift,
+        ];
+      for (const [centre, radius, end] of [
+        [left + m.big, m.big, left],
+        [left + m.a, m.a, left],
+        [left + m.big, m.big, left + 2 * m.big],
+        [m.cx + m.b, m.b, left + 2 * m.big],
+      ] as const) {
+        const [x, y] = rise(centre, radius, end);
+        expect(toneAt(m.sample, x, y)).toBeCloseTo(p.arcTone, 6);
+      }
+      expect(
+        toneAt(m.sample, left + p.dotRadius + 0.0006, p.baselineY),
+      ).toBeCloseTo(p.baselineTone, 6);
+      expect(
+        toneAt(m.sample, left + 2 * m.big - p.dotRadius - 0.0006, p.baselineY),
+      ).toBeCloseTo(p.baselineTone, 6);
+      // (the line is the ink there unless another thing is within a few thousandths of the place).
+      for (const [y, dot] of [
+        [p.baselineY - m.lift + p.dotRadius + 0.0006, 'dotD'],
+        [p.baselineY - p.dotRadius - 0.0006, 'dotC'],
+      ] as const)
+        if (
+          Object.entries(distances(m, m.cx, y)).every(
+            ([name, distance]) =>
+              name === 'line' ||
+              name === dot ||
+              (dot === 'dotC' && (name === 'small' || name === 'smaller')) ||
+              distance > 0.004,
+          )
+        )
+          expect(toneAt(m.sample, m.cx, y)).toBeCloseTo(p.lineTone, 6);
+      // Nothing below the line (beyond the dots) or above the big half circle.
+      expect(
+        near(
+          toneAt(m.sample, m.cx, p.baselineY + 0.03),
+          p.paperTone,
+          p.grainTone / 2 + 1e-6,
+        ),
+      ).toBe(true);
+      expect(
+        near(
+          toneAt(m.sample, left + m.big, p.baselineY - m.big - 0.03),
+          p.paperTone,
+          p.grainTone / 2 + 1e-6,
+        ),
+      ).toBe(true);
+      void near;
+    },
+  );
+
+  it('puts C at both sides of the middle, never near it, and uses the whole range, over 200 seeds', () => {
+    let lowest = 1,
+      highest = 0,
+      leftward = 0,
+      nearest = 1;
+    for (let seed = 0; seed < 200; seed++) {
+      const m = modelOf(seed * 131 + 17),
+        share = m.a / (m.a + m.b),
+        away = Math.min(share, 1 - share);
+      lowest = Math.min(lowest, away);
+      highest = Math.max(highest, away);
+      nearest = Math.min(nearest, Math.abs(share - 0.5));
+      leftward += Number(share < 0.5);
+    }
+    // The share of the shorter part of A to B runs over [0.25, 0.42], never nearer the middle than that.
+    expect(lowest).toBeGreaterThan(p.shareLow - 2e-3);
+    expect(lowest).toBeLessThan(p.shareLow + 0.02);
+    expect(highest).toBeLessThan(p.shareLow + p.shareSpan + 2e-3);
+    expect(highest).toBeGreaterThan(p.shareLow + p.shareSpan - 0.02);
+    expect(nearest).toBeGreaterThan(0.5 - p.shareLow - p.shareSpan - 2e-3);
+    // And the longer part is on the left about half the time.
+    expect(leftward).toBeGreaterThan(80);
+    expect(leftward).toBeLessThan(120);
+  });
+
+  it('draws the line, the half circles, the line up from C, the twin circles and the dots with their tones, heights, roughness and sizes', () => {
+    const paperOk = (m: Model, x: number, y: number): boolean =>
+      Math.abs(toneAt(m.sample, x, y) - p.paperTone) <= p.grainTone / 2 + 1e-9;
+    for (const seed of seeds) {
+      const m = modelOf(seed),
+        left = m.cx - 2 * m.a,
+        bigMiddle: Point = [left + m.big, p.baselineY];
+      // A stroke: tone, height, roughness at a place clear of the others, and the thickness measured across it, in both directions.
+      const stroke = (
+        name: string,
+        half: number,
+        tone: number,
+        level: number,
+        places: Point[],
+        normal: (x: number, y: number) => Point,
+      ): void => {
+        const place = places.find(([x, y]) => clear(m, x, y, name, 0.008));
+        expect(place).toBeDefined();
+        const [x, y] = place as Point,
+          [nx, ny] = normal(x, y);
+        expect(toneAt(m.sample, x, y)).toBeCloseTo(tone, 6);
+        expect(out.height / p.relief).toBeCloseTo(level, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(
+          toneAt(m.sample, x + nx * (half - 0.0004), y + ny * (half - 0.0004)),
+        ).toBeCloseTo(tone, 6);
+        expect(
+          toneAt(m.sample, x - nx * (half - 0.0004), y - ny * (half - 0.0004)),
+        ).toBeCloseTo(tone, 6);
+        expect(
+          paperOk(m, x + nx * (half + 0.0004), y + ny * (half + 0.0004)),
+        ).toBe(true);
+        expect(
+          paperOk(m, x - nx * (half + 0.0004), y - ny * (half + 0.0004)),
+        ).toBe(true);
+      };
+      const along = (from: number, to: number, count: number): number[] =>
+        Array.from(
+          { length: count },
+          (_, i) => from + ((to - from) * (i + 0.5)) / count,
+        );
+      // The line from A to B.
+      stroke(
+        'baseline',
+        p.baselineHalf,
+        p.baselineTone,
+        p.baselineHeight,
+        along(left + 0.02, left + 2 * m.big - 0.02, 60).map((x): Point => [
+          x,
+          p.baselineY,
+        ]),
+        () => [0, 1],
+      );
+      // The three half circles (radially).
+      const circle = (centre: number, radius: number): Point[] =>
+        along(0.02, Math.PI - 0.02, 90).map((angle): Point => [
+          centre - radius * Math.cos(angle),
+          p.baselineY - radius * Math.sin(angle),
+        ]);
+      const radial =
+        (centre: number): ((x: number, y: number) => Point) =>
+        (x, y) => {
+          const length = Math.hypot(x - centre, y - p.baselineY);
+          return [(x - centre) / length, (y - p.baselineY) / length];
+        };
+      stroke(
+        'big',
+        p.arcHalf,
+        p.arcTone,
+        p.arcHeight,
+        circle(bigMiddle[0], m.big),
+        radial(bigMiddle[0]),
+      );
+      stroke(
+        'small',
+        p.arcHalf,
+        p.arcTone,
+        p.arcHeight,
+        circle(left + m.a, m.a),
+        radial(left + m.a),
+      );
+      stroke(
+        'smaller',
+        p.arcHalf,
+        p.arcTone,
+        p.arcHeight,
+        circle(m.cx + m.b, m.b),
+        radial(m.cx + m.b),
+      );
+      // The line up from C.
+      stroke(
+        'line',
+        p.lineHalf,
+        p.lineTone,
+        p.lineHeight,
+        along(p.baselineY - m.lift, p.baselineY, 80).map((y): Point => [
+          m.cx,
+          y,
+        ]),
+        () => [1, 0],
+      );
+      // The twin circles.
+      for (const [name, middle] of [
+        ['twinLeft', m.twinLeft],
+        ['twinRight', m.twinRight],
+      ] as const)
+        stroke(
+          name,
+          p.twinHalf,
+          p.twinTone,
+          p.twinHeight,
+          along(0, Math.PI * 2, 90).map((angle): Point => [
+            middle[0] + m.twin * Math.cos(angle),
+            middle[1] + m.twin * Math.sin(angle),
+          ]),
+          (x, y) => [(x - middle[0]) / m.twin, (y - middle[1]) / m.twin],
+        );
+      // A dot: tone, height, roughness and radius, in a direction with nothing else near.
+      const dots: [string, Point][] = [
+        ['dotA', [left, p.baselineY]],
+        ['dotB', [left + 2 * m.big, p.baselineY]],
+        ['dotC', [m.cx, p.baselineY]],
+        ['dotD', [m.cx, p.baselineY - m.lift]],
+      ];
+      for (const [name, [x, y]] of dots) {
+        expect(toneAt(m.sample, x, y)).toBeCloseTo(p.dotTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.dotHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        const direction = along(0, Math.PI * 2, 32).find(
+          (angle) =>
+            [
+              p.dotRadius - 0.0004,
+              p.dotRadius + 0.0004,
+              p.dotRadius + 0.004,
+            ].every((reach) =>
+              clear(
+                m,
+                x + reach * Math.cos(angle),
+                y + reach * Math.sin(angle),
+                name,
+                0.004,
+              ),
+            ) &&
+            Object.entries(
+              distances(
+                m,
+                x + 0.012 * Math.cos(angle),
+                y + 0.012 * Math.sin(angle),
+              ),
+            ).every(([other, distance]) => other === name || distance > 0.003),
+        ) as number;
+        expect(direction).toBeDefined();
+        const [dx, dy] = [Math.cos(direction), Math.sin(direction)];
+        expect(
+          toneAt(
+            m.sample,
+            x + dx * (p.dotRadius - 0.0004),
+            y + dy * (p.dotRadius - 0.0004),
+          ),
+        ).toBeCloseTo(p.dotTone, 6);
+        expect(
+          paperOk(
+            m,
+            x + dx * (p.dotRadius + 0.0004),
+            y + dy * (p.dotRadius + 0.0004),
+          ),
+        ).toBe(true);
+      }
+    }
+  });
+
+  it('softens the edge of a stroke, a ring and a dot over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      const m = modelOf(seed),
+        left = m.cx - 2 * m.a;
+      // The line from A to B: across it at the first clear place; a half circle (the small one) radially; the line up from C across it; a twin ring radially; a dot outward.
+      const baseline = [0.3, 0.5, 0.6, 0.7]
+        .map((t) => left + 2 * m.big * t)
+        .find((x) => clear(m, x, p.baselineY, 'baseline', 0.008)) as number;
+      close(
+        toneAt(m.sample, baseline, p.baselineY + p.baselineHalf - quarter),
+        mix(p.paperTone, p.baselineTone, 0.75),
+      );
+      close(
+        toneAt(m.sample, baseline, p.baselineY + p.baselineHalf + quarter),
+        mix(p.paperTone, p.baselineTone, 0.25),
+      );
+      const lineY = [0.3, 0.5, 0.7]
+        .map((t) => p.baselineY - m.lift * t)
+        .find((y) => clear(m, m.cx, y, 'line', 0.008)) as number;
+      close(
+        toneAt(m.sample, m.cx + p.lineHalf - quarter, lineY),
+        mix(p.paperTone, p.lineTone, 0.75),
+      );
+      close(
+        toneAt(m.sample, m.cx + p.lineHalf + quarter, lineY),
+        mix(p.paperTone, p.lineTone, 0.25),
+      );
+      // A half circle's outer edge: the big one, high up on its left, outside it there is only paper.
+      const bigMiddle = left + m.big,
+        angle = 0.5,
+        radius = (reach: number): Point => [
+          bigMiddle - reach * Math.cos(angle),
+          p.baselineY - reach * Math.sin(angle),
+        ];
+      close(
+        toneAt(m.sample, ...radius(m.big + p.arcHalf - quarter)),
+        mix(p.paperTone, p.arcTone, 0.75),
+      );
+      close(
+        toneAt(m.sample, ...radius(m.big + p.arcHalf + quarter)),
+        mix(p.paperTone, p.arcTone, 0.25),
+      );
+      // A twin ring's outer edge, away from the circle's middle, where clear.
+      const ring = (middle: Point, name: string): void => {
+        const spot = Array.from(
+          { length: 36 },
+          (_, i) => i * ((Math.PI * 2) / 36),
+        ).find((a) =>
+          clear(
+            m,
+            middle[0] + (m.twin + p.twinHalf) * Math.cos(a),
+            middle[1] + (m.twin + p.twinHalf) * Math.sin(a),
+            name,
+            0.006,
+          ),
+        ) as number;
+        expect(spot).toBeDefined();
+        for (const [offset, amount] of [
+          [-quarter, 0.75],
+          [quarter, 0.25],
+        ])
+          close(
+            toneAt(
+              m.sample,
+              middle[0] + (m.twin + p.twinHalf + offset) * Math.cos(spot),
+              middle[1] + (m.twin + p.twinHalf + offset) * Math.sin(spot),
+            ),
+            mix(p.paperTone, p.twinTone, amount),
+          );
+      };
+      ring(m.twinLeft, 'twinLeft');
+      ring(m.twinRight, 'twinRight');
+      // The dot at B, outward along the line's direction (to the right), where only paper is.
+      const right = left + 2 * m.big;
+      close(
+        toneAt(m.sample, right + p.dotRadius - quarter, p.baselineY),
+        mix(p.paperTone, p.dotTone, 0.75),
+      );
+      close(
+        toneAt(m.sample, right + p.dotRadius + quarter, p.baselineY),
+        mix(p.paperTone, p.dotTone, 0.25),
+      );
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('arbelos', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('arbelos', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.97),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('arbelos', 0),
+      b = createSurfaceSampler('arbelos', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.7101],
+        [0.3201, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

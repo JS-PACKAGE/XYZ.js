@@ -25192,6 +25192,47 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .8,
 		inkRoughness: .4
 	}),
+	arbelos: Object.freeze({
+		dark: [
+			30,
+			40,
+			66
+		],
+		light: [
+			246,
+			243,
+			232
+		],
+		roughness: .55,
+		relief: .004,
+		left: .1,
+		right: .9,
+		baselineY: .7,
+		shareLow: .25,
+		shareSpan: .17,
+		baselineHalf: .0016,
+		arcHalf: .0022,
+		lineHalf: .0015,
+		twinHalf: .002,
+		dotRadius: .008,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .96,
+		baselineTone: .3,
+		arcTone: .5,
+		lineTone: .64,
+		twinTone: .22,
+		dotTone: .1,
+		grainTone: .03,
+		paperHeight: .2,
+		baselineHeight: .45,
+		arcHeight: .6,
+		lineHeight: .35,
+		twinHeight: .75,
+		dotHeight: .9,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -33873,6 +33914,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	arbelos: 1,
 	eulerlinetriangle: 1,
 	astroidladder: 1,
 	slopegraph: 1,
