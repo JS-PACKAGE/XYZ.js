@@ -44021,6 +44021,128 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'lrucachetrace': {
+        const p = proceduralMaterialPresets.lrucachetrace,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x50201),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          slots =
+            p.slotCounts[
+              Math.floor(hash(60, 1, seed ^ 0x50202) * p.slotCounts.length)
+            ],
+          requests: number[] = [],
+          // contents[step * slots + slot]: the page in the slot after that request (-1 when empty); used[step]: the slot the request used.
+          contents = new Int32Array(p.steps * slots).fill(-1),
+          used = new Int32Array(p.steps),
+          hit = new Uint8Array(p.steps),
+          lastUse = new Int32Array(slots).fill(-1),
+          current = new Int32Array(slots).fill(-1);
+        for (let t = 0; t < p.steps; t++) {
+          const repeat = t > 0 && hash(t, 17, seed ^ 0x50203) < p.repeatShare;
+          requests.push(
+            repeat
+              ? requests[
+                  t -
+                    1 -
+                    Math.floor(hash(t, 18, seed ^ 0x50204) * Math.min(3, t))
+                ]
+              : Math.floor(hash(t, 19, seed ^ 0x50205) * p.pages),
+          );
+        }
+        for (let t = 0; t < p.steps; t++) {
+          const page = requests[t];
+          let slot = current.indexOf(page);
+          hit[t] = slot >= 0 ? 1 : 0;
+          if (slot < 0) {
+            // The slot used least recently takes it (an empty slot has never been used, so the first of those comes first).
+            slot = 0;
+            for (let k = 1; k < slots; k++)
+              if (lastUse[k] < lastUse[slot]) slot = k;
+            current[slot] = page;
+          }
+          lastUse[slot] = t;
+          used[t] = slot;
+          for (let k = 0; k < slots; k++) contents[t * slots + k] = current[k];
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          const across = (fu - p.left) / p.pitch;
+          if (across > -0.5 && across < p.steps + 0.5) {
+            const step = Math.min(p.steps - 1, Math.max(0, Math.floor(across))),
+              cx = p.left + (step + 0.5) * p.pitch,
+              inX = p.squareHalf - Math.abs(fu - cx),
+              requestY = p.top,
+              slotY = (k: number): number =>
+                p.top + p.gapAfterRequest + (k + 1) * p.rowPitch,
+              markY = slotY(slots - 1) + p.markerDrop;
+            // The request.
+            paint(
+              cover(Math.min(inX, p.squareHalf - Math.abs(fv - requestY))),
+              p.pageTones[requests[step]],
+              p.pageHeights[requests[step]],
+            );
+            // The slots after the request, and the frame round the one it used.
+            for (let k = 0; k < slots; k++) {
+              const page = contents[step * slots + k];
+              paint(
+                cover(Math.min(inX, p.squareHalf - Math.abs(fv - slotY(k)))),
+                page < 0 ? p.emptyTone : p.pageTones[page],
+                page < 0 ? p.emptyHeight : p.pageHeights[page],
+              );
+            }
+            const usedY = slotY(used[step]),
+              outer = p.squareHalf + p.frameGap + p.frameHalf;
+            paint(
+              Math.min(
+                cover(
+                  Math.min(
+                    outer - Math.abs(fu - cx),
+                    outer - Math.abs(fv - usedY),
+                  ),
+                ),
+                cover(
+                  Math.max(
+                    Math.abs(fu - cx) - (outer - 2 * p.frameHalf),
+                    Math.abs(fv - usedY) - (outer - 2 * p.frameHalf),
+                  ),
+                ),
+              ),
+              p.frameTone,
+              p.frameHeight,
+            );
+            // The mark under the slots: a ring for a hit, a dot for a miss.
+            const away = Math.hypot(fu - cx, fv - markY);
+            paint(
+              cover(
+                hit[step]
+                  ? p.ringHalf - Math.abs(away - p.ringRadius)
+                  : p.markerRadius - away,
+              ),
+              p.markTone,
+              p.markHeight,
+            );
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -71550,6 +71672,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'lrucachetrace' ||
     kind === 'knapsacktable' ||
     kind === 'bfswavefront' ||
     kind === 'bresenhamlines' ||

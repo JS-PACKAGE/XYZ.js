@@ -24478,6 +24478,65 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .8,
 		inkRoughness: .4
 	}),
+	lrucachetrace: Object.freeze({
+		dark: [
+			26,
+			36,
+			56
+		],
+		light: [
+			245,
+			242,
+			231
+		],
+		roughness: .55,
+		relief: .004,
+		steps: 14,
+		pages: 6,
+		slotCounts: Object.freeze([3, 4]),
+		left: .08,
+		pitch: .06,
+		squareHalf: .022,
+		top: .12,
+		rowPitch: .07,
+		gapAfterRequest: .03,
+		markerDrop: .06,
+		markerRadius: .009,
+		ringRadius: .012,
+		ringHalf: .0022,
+		frameHalf: .0015,
+		frameGap: .0035,
+		repeatShare: .45,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .96,
+		pageTones: Object.freeze([
+			.2,
+			.32,
+			.44,
+			.56,
+			.68,
+			.8
+		]),
+		pageHeights: Object.freeze([
+			.8,
+			.7,
+			.6,
+			.5,
+			.4,
+			.3
+		]),
+		emptyTone: .9,
+		emptyHeight: .15,
+		frameTone: .06,
+		markTone: .16,
+		grainTone: .03,
+		paperHeight: .2,
+		frameHeight: .9,
+		markHeight: .7,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -33159,6 +33218,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	lrucachetrace: 1,
 	prefixtrie: 1,
 	knapsacktable: 1,
 	bfswavefront: 1,

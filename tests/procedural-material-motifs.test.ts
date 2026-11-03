@@ -50469,3 +50469,376 @@ describe('prefixtrie: a trie of words of three letters drawn as a tree', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('lrucachetrace: a least recently used cache of a few slots over a run of page requests', () => {
+  const p = proceduralMaterialPresets.lrucachetrace,
+    out = empty();
+  type Trace = {
+    sample: Sampler;
+    slots: number;
+    requests: number[];
+    contents: number[][];
+    used: number[];
+    hit: boolean[];
+  };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const near = (tone: number, wanted: number): boolean =>
+    Math.abs(tone - wanted) < 0.01;
+  const centreX = (step: number): number => p.left + (step + 0.5) * p.pitch;
+  const slotY = (k: number): number =>
+    p.top + p.gapAfterRequest + (k + 1) * p.rowPitch;
+  const markY = (slots: number): number => slotY(slots - 1) + p.markerDrop;
+  const pageOf = (tone: number): number =>
+    near(tone, p.emptyTone)
+      ? -1
+      : p.pageTones.findIndex((candidate) => near(tone, candidate));
+
+  // Read the picture: the requests, the slots after each (page or empty), the slot each request used (the framed one) and hit or miss (ring or dot).
+  const traceOf = (seed: number): Trace => {
+    const sample = createSurfaceSampler('lrucachetrace', seed);
+    let slots = 0;
+    while (
+      Math.abs(toneAt(sample, centreX(0), slotY(slots)) - p.paperTone) > 0.02
+    )
+      slots++;
+    expect(p.slotCounts).toContain(slots);
+    const requests: number[] = [],
+      contents: number[][] = [],
+      used: number[] = [],
+      hit: boolean[] = [];
+    for (let step = 0; step < p.steps; step++) {
+      const x = centreX(step);
+      requests.push(
+        p.pageTones.findIndex((candidate) =>
+          near(toneAt(sample, x, p.top), candidate),
+        ),
+      );
+      expect(requests[step]).toBeGreaterThanOrEqual(0);
+      const column: number[] = [];
+      for (let k = 0; k < slots; k++) {
+        column.push(pageOf(toneAt(sample, x - 0.012, slotY(k) + 0.012)));
+        expect(column[k]).toBeGreaterThanOrEqual(-1);
+        expect(
+          near(toneAt(sample, x - 0.012, slotY(k) + 0.012), p.emptyTone) ||
+            column[k] >= 0,
+        ).toBe(true);
+      }
+      contents.push(column);
+      const framed = Array.from({ length: slots }, (_, k) => k).filter((k) =>
+        near(
+          toneAt(sample, x + p.squareHalf + p.frameGap, slotY(k)),
+          p.frameTone,
+        ),
+      );
+      expect(framed.length).toBe(1);
+      used.push(framed[0]);
+      // A dot has its middle drawn; a ring has its middle bare and its edge drawn.
+      const dot = near(toneAt(sample, x, markY(slots)), p.markTone),
+        ring =
+          near(toneAt(sample, x + p.ringRadius, markY(slots)), p.markTone) &&
+          !dot;
+      expect(dot || ring).toBe(true);
+      hit.push(ring);
+    }
+    return { sample, slots, requests, contents, used, hit };
+  };
+
+  // Simulate the cache by keeping the pages in the order they were used (the sampler keeps the time each slot was last used instead).
+  const simulate = (
+    slots: number,
+    requests: number[],
+  ): { contents: number[][]; used: number[]; hit: boolean[] } => {
+    const cache: number[] = new Array<number>(slots).fill(-1),
+      recent: number[] = [],
+      contents: number[][] = [],
+      used: number[] = [],
+      hit: boolean[] = [];
+    for (const page of requests) {
+      let slot = cache.indexOf(page);
+      hit.push(slot >= 0);
+      if (slot < 0) {
+        slot = cache.indexOf(-1);
+        if (slot < 0)
+          slot = cache.indexOf(
+            recent.find((candidate) => cache.includes(candidate))!,
+          );
+        cache[slot] = page;
+      }
+      // The page goes to the end of the order of use (the front is the least recently used).
+      const at = recent.indexOf(page);
+      if (at >= 0) recent.splice(at, 1);
+      recent.push(page);
+      used.push(slot);
+      contents.push(cache.slice());
+    }
+    return { contents, used, hit };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows the cache after every request as least recently used replacement leaves it, with the slot used framed and a ring for a hit (seed %i)',
+    (seed) => {
+      const { slots, requests, contents, used, hit } = traceOf(seed),
+        expected = simulate(slots, requests);
+      expect(requests.length).toBe(p.steps);
+      requests.forEach((page) => {
+        expect(page).toBeGreaterThanOrEqual(0);
+        expect(page).toBeLessThan(p.pages);
+      });
+      expect(contents).toEqual(expected.contents);
+      expect(used).toEqual(expected.used);
+      expect(hit).toEqual(expected.hit);
+      // The request is in the slot it used.
+      requests.forEach((page, step) =>
+        expect(contents[step][used[step]]).toBe(page),
+      );
+    },
+  );
+
+  it('uses every size and page, hits and misses, and throws pages out, over 60 seeds', () => {
+    const sizes = new Set<number>(),
+      pages = new Set<number>();
+    let hits = 0,
+      total = 0,
+      evictions = 0,
+      repeats = 0,
+      recent = 0,
+      far = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const { slots, requests, contents, hit } = traceOf(seed * 19 + 2);
+      sizes.add(slots);
+      requests.forEach((page, step) => {
+        pages.add(page);
+        hits += Number(hit[step]);
+        total++;
+        // A throw out: a miss while every slot was full.
+        if (
+          !hit[step] &&
+          step > 0 &&
+          contents[step - 1].every((entry) => entry >= 0)
+        )
+          evictions++;
+        // A request for the page just asked for.
+        repeats += Number(step > 0 && requests[step - 1] === page);
+        // A request equal to one of the three before, and one equal to the third before only (a repeat from furthest back).
+        recent += Number(
+          [1, 2, 3].some(
+            (back) => step >= back && requests[step - back] === page,
+          ),
+        );
+        far += Number(
+          step >= 3 &&
+            requests[step - 3] === page &&
+            requests[step - 1] !== page &&
+            requests[step - 2] !== page,
+        );
+      });
+    }
+    expect([...sizes].sort((a, b) => a - b)).toEqual([...p.slotCounts]);
+    expect([...pages].sort((a, b) => a - b)).toEqual(
+      Array.from({ length: p.pages }, (_, i) => i),
+    );
+    expect(hits / total).toBeGreaterThan(0.25);
+    expect(hits / total).toBeLessThan(0.7);
+    expect(evictions).toBeGreaterThan(50);
+    expect(repeats).toBeGreaterThan(30);
+    // 45 in a hundred requests repeat one of the last three; with chance repeats on top, about 0.59 are equal to one of them (0.36 without the repeats).
+    expect(recent / total).toBeGreaterThan(0.52);
+    expect(recent / total).toBeLessThan(0.66);
+    expect(far / total).toBeGreaterThan(0.055);
+  });
+
+  it('draws the requests, the slots, the frames and the marks with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, slots, requests, contents, used, hit } = traceOf(seed),
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9,
+        ringCentre = p.squareHalf + p.frameGap;
+      for (let step = 0; step < p.steps; step++) {
+        const x = centreX(step),
+          squares: [number, number, number][] = [
+            [p.top, requests[step], 0],
+            ...contents[step].map((page, k): [number, number, number] => [
+              slotY(k),
+              page,
+              1,
+            ]),
+          ];
+        for (const [y, page] of squares) {
+          const tone = page < 0 ? p.emptyTone : p.pageTones[page],
+            level = page < 0 ? p.emptyHeight : p.pageHeights[page];
+          // A square: tone, height, roughness, and its size (paper beyond the sides and the gap between rows).
+          expect(toneAt(sample, x - 0.012, y + 0.012)).toBeCloseTo(tone, 6);
+          expect(out.height / p.relief).toBeCloseTo(level, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          expect(
+            toneAt(
+              sample,
+              x - p.squareHalf + 0.0015,
+              y - p.squareHalf + 0.0015,
+            ),
+          ).toBeCloseTo(tone, 6);
+          expect(paperOk(x - p.squareHalf - 0.001, y - 0.012)).toBe(true);
+          expect(paperOk(x + p.squareHalf + 0.001, y - 0.012)).toBe(true);
+          expect(paperOk(x - 0.012, y - p.squareHalf - 0.001)).toBe(true);
+          expect(paperOk(x - 0.012, y + p.squareHalf + 0.001)).toBe(true);
+        }
+        // The frame round the slot used: tone, height, roughness, thickness and the gap inside it.
+        const fy = slotY(used[step]);
+        expect(toneAt(sample, x + ringCentre, fy)).toBeCloseTo(p.frameTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.frameHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(
+          near(
+            toneAt(sample, x + ringCentre + p.frameHalf - 0.0004, fy),
+            p.frameTone,
+          ),
+        ).toBe(true);
+        expect(paperOk(x + ringCentre + p.frameHalf + 0.0008, fy)).toBe(true);
+        expect(paperOk(x + ringCentre - p.frameHalf - 0.0004, fy - 0.01)).toBe(
+          true,
+        );
+        expect(near(toneAt(sample, x, fy - ringCentre), p.frameTone)).toBe(
+          true,
+        );
+        // The mark: a dot of markerRadius for a miss, a ring of ringRadius for a hit.
+        const my = markY(slots);
+        if (hit[step]) {
+          expect(toneAt(sample, x + p.ringRadius, my)).toBeCloseTo(
+            p.markTone,
+            6,
+          );
+          expect(out.height / p.relief).toBeCloseTo(p.markHeight, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          expect(
+            near(
+              toneAt(sample, x + p.ringRadius + p.ringHalf - 0.0004, my),
+              p.markTone,
+            ),
+          ).toBe(true);
+          expect(paperOk(x + p.ringRadius + p.ringHalf + 0.0008, my)).toBe(
+            true,
+          );
+          expect(paperOk(x + p.ringRadius - p.ringHalf - 0.0008, my)).toBe(
+            true,
+          );
+          expect(paperOk(x, my)).toBe(true);
+        } else {
+          expect(toneAt(sample, x, my)).toBeCloseTo(p.markTone, 6);
+          expect(out.height / p.relief).toBeCloseTo(p.markHeight, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          expect(
+            near(toneAt(sample, x + p.markerRadius - 0.001, my), p.markTone),
+          ).toBe(true);
+          expect(paperOk(x + p.markerRadius + 0.0015, my)).toBe(true);
+        }
+      }
+      // Nothing below the marks.
+      expect(paperOk(centreX(3), markY(slots) + 0.03)).toBe(true);
+    }
+  });
+
+  it('softens the edge of a square, a frame and a mark over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      const { sample, slots, requests, hit } = traceOf(seed),
+        x = centreX(0),
+        tone = p.pageTones[requests[0]],
+        step = hit.indexOf(true) >= 0 ? hit.indexOf(true) : 0,
+        miss = hit.indexOf(false),
+        ringed = centreX(step),
+        dotted = centreX(miss);
+      // The request square's sides and top over the paper.
+      close(
+        toneAt(sample, x - p.squareHalf + quarter, p.top - 0.012),
+        mix(p.paperTone, tone, 0.75),
+      );
+      close(
+        toneAt(sample, x - p.squareHalf - quarter, p.top - 0.012),
+        mix(p.paperTone, tone, 0.25),
+      );
+      close(
+        toneAt(sample, x + 0.012, p.top - p.squareHalf + quarter),
+        mix(p.paperTone, tone, 0.75),
+      );
+      close(
+        toneAt(sample, x + 0.012, p.top - p.squareHalf - quarter),
+        mix(p.paperTone, tone, 0.25),
+      );
+      // A miss's dot edge and a hit's ring (outer side), over the paper.
+      const my = markY(slots);
+      close(
+        toneAt(sample, dotted + p.markerRadius - quarter, my),
+        mix(p.paperTone, p.markTone, 0.75),
+      );
+      close(
+        toneAt(sample, dotted + p.markerRadius + quarter, my),
+        mix(p.paperTone, p.markTone, 0.25),
+      );
+      if (hit.indexOf(true) >= 0) {
+        close(
+          toneAt(sample, ringed + p.ringRadius + p.ringHalf - quarter, my),
+          mix(p.paperTone, p.markTone, 0.75),
+        );
+        close(
+          toneAt(sample, ringed + p.ringRadius + p.ringHalf + quarter, my),
+          mix(p.paperTone, p.markTone, 0.25),
+        );
+      }
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('lrucachetrace', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('lrucachetrace', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.7),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('lrucachetrace', 0),
+      b = createSurfaceSampler('lrucachetrace', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.1201],
+        [0.1801, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
