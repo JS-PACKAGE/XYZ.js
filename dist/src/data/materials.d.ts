@@ -15877,6 +15877,27 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.08;
         gapOcclusion: 0.4;
     }>;
+    lsystemplants: Readonly<{
+        dark: readonly [6, 18, 14];
+        light: readonly [170, 255, 150];
+        roughness: 0.4;
+        relief: 0.0008;
+        seedSalt: 19091;
+        fit: 0.84;
+        halfWidth: 0.0022;
+        variants: readonly [readonly ["X", "X=F+[[X]-X]-F[-FX]+X;F=FF", 25, 5], readonly ["F", "F=FF+[+F-F-F]-[-F+F+F]", 22.5, 4], readonly ["F", "F=F[+F]F[-F]F", 25.7, 5], readonly ["X", "X=F[+X]F[-X]+X;F=FF", 20, 6], readonly ["F", "F=FF-[-F+F+F]+[+F-F-F]", 22.5, 4], readonly ["F", "F=F[+F]F[-F][F]", 20, 5]];
+        buckets: 24;
+        edgeSoft: 0.35;
+        grainCells: 128;
+        gapTone: 0.04;
+        toneFloor: 0.14;
+        toneSpan: 0.72;
+        grainTone: 0.03;
+        cellHeight: 0.8;
+        toneHeight: 0.12;
+        grainHeight: 0.08;
+        gapOcclusion: 0.4;
+    }>;
     vermiculation: Readonly<{
         dark: readonly [60, 48, 36];
         light: readonly [220, 204, 172];
@@ -17614,6 +17635,7 @@ export declare const proceduralTileMeters: Readonly<{
     harmonograph: 0.5;
     lorenzattractor: 0.5;
     ellipsebilliard: 0.5;
+    lsystemplants: 0.5;
     dominotiling: 0.5;
     vermiculation: 0.4;
     kikko: 0.3;

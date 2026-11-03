@@ -46068,6 +46068,145 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'lsystemplants': {
+        const p = proceduralMaterialPresets.lsystemplants,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant =
+            p.variants[
+              Math.floor(hash(0, 50, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          buckets: number[][] = Array.from(
+            { length: p.buckets * p.buckets },
+            () => [],
+          ),
+          segments: number[][] = [],
+          rules = new Map<string, string>(
+            variant[1]
+              .split(';')
+              .map(
+                (rule) =>
+                  [rule.split('=')[0], rule.split('=')[1]] as [string, string],
+              ),
+          ),
+          turn = (variant[2] * Math.PI) / 180,
+          inverseSoft = 1 / p.edgeSoft,
+          step = 0.5 / p.buckets;
+        // The L-system of the variant (axiom, rules 'letter=replacement' separated by ';', angle in
+        // degrees, number of rewrites): every letter of the word is replaced in parallel by its rule
+        // (letters without a rule stay), iterations times. The word is then drawn by a turtle that
+        // starts at the origin heading up: F moves one unit forward and leaves a segment, + and - turn
+        // by the angle to the left and to the right, [ and ] save and restore position and heading,
+        // all other letters do nothing. The figure is moved by the centre of its bounding box and scaled
+        // by fit over its larger side so that it fills the tile, the second coordinate upside down so
+        // that the plant stands up. Every segment is filed into the buckets x buckets buckets that a
+        // point within its half width plus half a step of its path could be in, so a lookup needs only
+        // the bucket of the sample.
+        let word: string = variant[0];
+        for (let i = 0; i < variant[3]; i++)
+          word = [...word]
+            .map((letter) => rules.get(letter) ?? letter)
+            .join('');
+        const lines: number[][] = [],
+          saved: number[][] = [];
+        {
+          let x = 0,
+            y = 0,
+            heading = Math.PI / 2;
+          for (const letter of word) {
+            if (letter === 'F') {
+              const nextX = x + Math.cos(heading),
+                nextY = y + Math.sin(heading);
+              lines.push([x, y, nextX, nextY]);
+              x = nextX;
+              y = nextY;
+            } else if (letter === '+') heading += turn;
+            else if (letter === '-') heading -= turn;
+            else if (letter === '[') saved.push([x, y, heading]);
+            else if (letter === ']') [x, y, heading] = saved.pop() as number[];
+          }
+        }
+        const lowX = Math.min(...lines.map((q) => Math.min(q[0], q[2]))),
+          highX = Math.max(...lines.map((q) => Math.max(q[0], q[2]))),
+          lowY = Math.min(...lines.map((q) => Math.min(q[1], q[3]))),
+          highY = Math.max(...lines.map((q) => Math.max(q[1], q[3]))),
+          scale = p.fit / Math.max(highX - lowX, highY - lowY),
+          reach = p.halfWidth + step / 2;
+        for (const line of lines) {
+          const x0 = 0.5 + (line[0] - (lowX + highX) / 2) * scale,
+            y0 = 0.5 - (line[1] - (lowY + highY) / 2) * scale,
+            dx = (line[2] - line[0]) * scale,
+            dy = -(line[3] - line[1]) * scale,
+            length = Math.hypot(dx, dy),
+            index = segments.length,
+            filed = new Set<number>();
+          segments.push([
+            x0,
+            y0,
+            dx,
+            dy,
+            dx * dx + dy * dy,
+            p.halfWidth * p.halfWidth,
+          ]);
+          for (
+            let s = 0, n = Math.max(1, Math.ceil(length / step));
+            s <= n;
+            s++
+          )
+            for (const ox of [-reach, reach])
+              for (const oy of [-reach, reach]) {
+                const bx = Math.floor((x0 + (dx * s) / n + ox) * p.buckets),
+                  by = Math.floor((y0 + (dy * s) / n + oy) * p.buckets);
+                if (bx < 0 || by < 0 || bx >= p.buckets || by >= p.buckets)
+                  continue;
+                const bucket = by * p.buckets + bx;
+                if (!filed.has(bucket)) {
+                  filed.add(bucket);
+                  buckets[bucket].push(index);
+                }
+              }
+        }
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            bx = Math.floor(fu * p.buckets),
+            by = Math.floor(fv * p.buckets);
+          // The segments are a union by 1 - product of (1 - t^2) with t = max(0, 1 - squared distance /
+          // squared half width), a function of the squared distance to a segment: every t^2 is C1 and
+          // exactly zero at the rim, so the union is C1 even where the segments overlap.
+          let open = 1;
+          for (const index of buckets[by * p.buckets + bx]) {
+            const [x0, y0, dx, dy, lengthSquared, widthSquared] =
+                segments[index],
+              wx = fu - x0,
+              wy = fv - y0,
+              along =
+                lengthSquared > 0
+                  ? clamp((wx * dx + wy * dy) / lengthSquared)
+                  : 0,
+              ex = wx - along * dx,
+              ey = wy - along * dy,
+              t = clamp(1 - (ex * ex + ey * ey) / widthSquared);
+            open *= 1 - t * t;
+          }
+          const total = 1 - open,
+            mask = smooth(clamp(total * inverseSoft)),
+            tone = p.toneSpan,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * total * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -54944,6 +55083,7 @@ export function createSurfaceSampler(
     kind === 'harmonograph' ||
     kind === 'lorenzattractor' ||
     kind === 'ellipsebilliard' ||
+    kind === 'lsystemplants' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

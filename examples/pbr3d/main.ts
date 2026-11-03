@@ -1138,6 +1138,7 @@ try {
     'harmonograph',
     'lorenzattractor',
     'ellipsebilliard',
+    'lsystemplants',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

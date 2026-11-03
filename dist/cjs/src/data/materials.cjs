@@ -25418,6 +25418,72 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: .08,
 		gapOcclusion: .4
 	}),
+	lsystemplants: Object.freeze({
+		dark: [
+			6,
+			18,
+			14
+		],
+		light: [
+			170,
+			255,
+			150
+		],
+		roughness: .4,
+		relief: 8e-4,
+		seedSalt: 19091,
+		fit: .84,
+		halfWidth: .0022,
+		variants: [
+			[
+				`X`,
+				`X=F+[[X]-X]-F[-FX]+X;F=FF`,
+				25,
+				5
+			],
+			[
+				`F`,
+				`F=FF+[+F-F-F]-[-F+F+F]`,
+				22.5,
+				4
+			],
+			[
+				`F`,
+				`F=F[+F]F[-F]F`,
+				25.7,
+				5
+			],
+			[
+				`X`,
+				`X=F[+X]F[-X]+X;F=FF`,
+				20,
+				6
+			],
+			[
+				`F`,
+				`F=FF-[-F+F+F]+[+F-F-F]`,
+				22.5,
+				4
+			],
+			[
+				`F`,
+				`F=F[+F]F[-F][F]`,
+				20,
+				5
+			]
+		],
+		buckets: 24,
+		edgeSoft: .35,
+		grainCells: 128,
+		gapTone: .04,
+		toneFloor: .14,
+		toneSpan: .72,
+		grainTone: .03,
+		cellHeight: .8,
+		toneHeight: .12,
+		grainHeight: .08,
+		gapOcclusion: .4
+	}),
 	vermiculation: Object.freeze({
 		dark: [
 			60,
@@ -27477,6 +27543,7 @@ var proceduralTileMeters = Object.freeze({
 	harmonograph: .5,
 	lorenzattractor: .5,
 	ellipsebilliard: .5,
+	lsystemplants: .5,
 	dominotiling: .5,
 	vermiculation: .4,
 	kikko: .3,
