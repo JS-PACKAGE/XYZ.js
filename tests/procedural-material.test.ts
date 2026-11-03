@@ -1118,6 +1118,7 @@ const kinds: ProceduralMaterialKind[] = [
   'zordercurve',
   'logisticbifurcation',
   'catenaryfestoons',
+  'cornuspirals',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -183830,6 +183831,356 @@ describe('Catenary festoons as rows of hanging chains between pegs', () => {
     expect(blue / (512 * 512)).toBeLessThan(34);
     expect(maxTilt).toBeGreaterThan(0.029);
     expect(maxTilt).toBeLessThan(0.0305);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Cornu spirals as Euler spirals in a grid of cells', () => {
+  const p = proceduralMaterialPresets.cornuspirals;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const size = 512,
+    scale = p.extent / 0.8;
+  type Spirals = readonly [number, number, number, number];
+  /**
+   * The Fresnel integrals C(t) and S(t) (the Cornu spiral) by their Maclaurin series, not by the sampler's Simpson table.
+   * The curve is odd in t.
+   */
+  const fresnel = (t: number): [number, number] => {
+    const x = Math.abs(t);
+    let c = 0,
+      s = 0,
+      factorial = 1;
+    for (let n = 0; n < 40; n++) {
+      if (n > 0) factorial *= (2 * n - 1) * (2 * n);
+      c +=
+        ((n % 2 ? -1 : 1) * (Math.PI / 2) ** (2 * n) * x ** (4 * n + 1)) /
+        (factorial * (4 * n + 1));
+      s +=
+        ((n % 2 ? -1 : 1) * (Math.PI / 2) ** (2 * n + 1) * x ** (4 * n + 3)) /
+        (factorial * (2 * n + 1) * (4 * n + 3));
+    }
+    return t < 0 ? [-c, -s] : [c, s];
+  };
+  /**
+   * The point of the curve (x, y) of the spiral in the cell (column, row) as a position in the tile. A cell whose
+   * column + row is odd is mirrored (y to -y) when the variant says so and then turned a quarter turn (the cell's
+   * (x, y) is the curve's (-y, x)); the curve is at 0.44 / 0.8 cell units per curve unit.
+   */
+  const tilePoint = (
+    variant: Spirals,
+    column: number,
+    row: number,
+    x: number,
+    y: number,
+  ): [number, number] => {
+    const odd = (column + row) % 2 === 1;
+    let localX = scale * x,
+      localY = scale * y;
+    if (variant[2] !== 0 && odd) [localX, localY] = [-localY, localX];
+    if (variant[3] !== 0 && odd) localY = -localY;
+    return [
+      (column + 0.5 + localX) / variant[0],
+      (row + 0.5 + localY) / variant[0],
+    ];
+  };
+  /** 3001 points along the curve of each cell, from t = -limit to limit. */
+  const pointsOf = (variant: Spirals): [number, number][] => {
+    const points: [number, number][] = [];
+    for (let column = 0; column < variant[0]; column++)
+      for (let row = 0; row < variant[0]; row++)
+        for (let k = 0; k <= 3000; k++) {
+          const [x, y] = fresnel(-variant[1] + (2 * variant[1] * k) / 3000);
+          points.push(tilePoint(variant, column, row, x, y));
+        }
+    return points;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('cornuspirals', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('cornuspirals', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0254);
+      expect(low).toBeLessThan(0.0257);
+      expect(high).toBeGreaterThan(0.863);
+      expect(high).toBeLessThan(0.874);
+      expect(dark / 65536).toBeGreaterThan(0.015);
+      expect(dark / 65536).toBeLessThan(0.018);
+      expect(mean / 65536).toBeGreaterThan(0.053);
+      expect(mean / 65536).toBeLessThan(0.055);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.85);
+      expect(heightHigh).toBeLessThan(0.875);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The variant for each of the seeds 4, 0, 1, 2, 20 and 10 (variants 0 to 5) was found with a probe by the series curve
+  // and is written here, so that table is not an independent check of the seed's choice.
+  const seeds = [4, 0, 1, 2, 20, 10];
+  it('draws the Euler spiral of its own variant in every cell and not those of the others', () => {
+    // Every one of the 3001 points per cell of the series curve of the variant of the seed has a colour above 0.5
+    // (all of 12004 to 48016 points in the probe), while for each other variant fewer than 65% of its points do (at most
+    // 0.546 in the probe, as some variants share the cell size and the shape of a part of the curve).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('cornuspirals', seed),
+        out = empty();
+      p.variants.forEach((variant, other) => {
+        const points = pointsOf(variant);
+        let on = 0;
+        for (const [u, v] of points) {
+          sample(u, v, out);
+          on += Number(out.color > 0.5);
+        }
+        if (other === index) expect(on).toBe(points.length);
+        else expect(on / points.length).toBeLessThan(0.65);
+      });
+    });
+  });
+  it('keeps every bright pixel within the line of a spiral', () => {
+    // Away from the dot at the centre of each cell (0.045 of a cell), every pixel of the 512 by 512 reading with a
+    // colour above 0.5 is within 0.6 of the half width of the line (0.007 of a cell) of a point of the series curve
+    // (0.52 of it at worst in the probe; 3532 to 5143 such pixels per variant). The distance is searched in the
+    // 5 by 5 buckets (of 64 by 64) around the pixel.
+    seeds.forEach((seed, index) => {
+      const variant = p.variants[index],
+        points = pointsOf(variant),
+        buckets: [number, number][][] = Array.from(
+          { length: 64 * 64 },
+          () => [],
+        ),
+        sample = createSurfaceSampler('cornuspirals', seed),
+        out = empty();
+      for (const point of points)
+        buckets[
+          Math.min(63, Math.floor(point[1] * 64)) * 64 +
+            Math.min(63, Math.floor(point[0] * 64))
+        ].push(point);
+      let bright = 0,
+        farthest = 0;
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          const u = (x + 0.5) / size,
+            v = (y + 0.5) / size;
+          sample(u, v, out);
+          if (out.color <= 0.5) continue;
+          const centreU = (Math.floor(u * variant[0]) + 0.5) / variant[0],
+            centreV = (Math.floor(v * variant[0]) + 0.5) / variant[0];
+          if (Math.hypot(u - centreU, v - centreV) < 0.045 / variant[0])
+            continue;
+          bright++;
+          let best = 1;
+          for (let dy = -2; dy <= 2; dy++)
+            for (let dx = -2; dx <= 2; dx++) {
+              const bx = Math.floor(u * 64) + dx,
+                by = Math.floor(v * 64) + dy;
+              if (bx < 0 || by < 0 || bx > 63 || by > 63) continue;
+              for (const [pu, pv] of buckets[by * 64 + bx])
+                best = Math.min(best, Math.hypot(pu - u, pv - v));
+            }
+          farthest = Math.max(farthest, best / (0.007 / variant[0]));
+        }
+      expect(bright).toBeGreaterThan(3000);
+      expect(farthest).toBeLessThan(0.6);
+    });
+  });
+  it('repeats the spiral in every cell under the turn and the mirror of the variant', () => {
+    // The cell of an even column + row shows the curve as it is; an odd one shows it mirrored and turned as the
+    // variant says. Over 2000 points of each other cell the colour above 0.5 agrees with that of the
+    // first cell at the corresponding point for at least 99.5% of the points (0.9993 at worst in the probe, the
+    // difference coming from the grain moving a colour across 0.5).
+    seeds.forEach((seed, index) => {
+      const [cells, , turn, mirror] = p.variants[index],
+        sample = createSurfaceSampler('cornuspirals', seed),
+        out = empty();
+      let agree = 0,
+        total = 0;
+      for (let column = 0; column < cells; column++)
+        for (let row = 0; row < cells; row++) {
+          if (column === 0 && row === 0) continue;
+          for (let k = 0; k < 2000; k++) {
+            const localX = ((k * 0.61803398875) % 1) - 0.5,
+              localY = ((k * 0.41421356237) % 1) - 0.5;
+            let shownX = localX,
+              shownY = localY;
+            if ((column + row) % 2 === 1) {
+              if (mirror !== 0) shownY = -shownY;
+              if (turn !== 0) [shownX, shownY] = [-shownY, shownX];
+            }
+            sample(
+              (column + 0.5 + localX) / cells,
+              (row + 0.5 + localY) / cells,
+              out,
+            );
+            const here = out.color > 0.5;
+            sample((0.5 + shownX) / cells, (0.5 + shownY) / cells, out);
+            agree += Number(here === out.color > 0.5);
+            total++;
+          }
+        }
+      expect(agree / total).toBeGreaterThan(0.995);
+    });
+  });
+  it('puts a bright dot at the middle of every cell, where the curve has its inflection', () => {
+    // The colour at the centre of every cell is above 0.8 (0.845 at the lowest in the probe).
+    seeds.forEach((seed, index) => {
+      const cells = p.variants[index][0],
+        sample = createSurfaceSampler('cornuspirals', seed),
+        out = empty();
+      for (let column = 0; column < cells; column++)
+        for (let row = 0; row < cells; row++) {
+          sample((column + 0.5) / cells, (row + 0.5) / cells, out);
+          expect(out.color).toBeGreaterThan(0.8);
+        }
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 1 pick different variants (3 by 3 cells with a mirror and 2 by 2 cells with a turn).
+    const first = litGrid(0),
+      second = litGrid(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.03);
+    expect(different / first.length).toBeLessThan(0.034);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('cornuspirals', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 amber Euler spiral maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('cornuspirals', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(29.1);
+    expect(red / (512 * 512)).toBeLessThan(30.3);
+    expect(green / (512 * 512)).toBeGreaterThan(16.5);
+    expect(green / (512 * 512)).toBeLessThan(17.7);
+    expect(blue / (512 * 512)).toBeGreaterThan(32.9);
+    expect(blue / (512 * 512)).toBeLessThan(34.2);
+    expect(maxTilt).toBeGreaterThan(0.039);
+    expect(maxTilt).toBeLessThan(0.0405);
     expect(invalid).toBe(0);
   });
 });

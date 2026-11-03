@@ -1092,6 +1092,7 @@ export type ProceduralMaterialKind =
   | 'zordercurve'
   | 'logisticbifurcation'
   | 'catenaryfestoons'
+  | 'cornuspirals'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2432,6 +2433,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'zordercurve',
   'logisticbifurcation',
   'catenaryfestoons',
+  'cornuspirals',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

@@ -1155,6 +1155,7 @@ try {
     'zordercurve',
     'logisticbifurcation',
     'catenaryfestoons',
+    'cornuspirals',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

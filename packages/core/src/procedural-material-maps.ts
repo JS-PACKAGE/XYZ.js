@@ -48082,6 +48082,191 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'cornuspirals': {
+        const p = proceduralMaterialPresets.cornuspirals,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant =
+            p.variants[
+              Math.floor(hash(0, 68, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          cells = variant[0],
+          limit = variant[1],
+          turn = variant[2],
+          mirror = variant[3],
+          segments = p.segments,
+          step = (2 * limit) / segments,
+          // The Cornu spiral (the Euler spiral, the clothoid) (C(t), S(t)) = the integral from 0 to t of
+          // (cos(pi s^2 / 2), sin(pi s^2 / 2)) ds, a curve of unit speed whose curvature pi t is proportional to
+          // the arc length t; it is odd in t, so the table is built for t >= 0 with Simpson's rule and mirrored.
+          curveX = new Float64Array(segments + 1),
+          curveY = new Float64Array(segments + 1),
+          phase = (t: number): number => 0.5 * Math.PI * t * t,
+          half = segments / 2;
+        for (let j = 1; j <= half; j++) {
+          const from = (j - 1) * step,
+            substep = step / 4;
+          let sumX = 0,
+            sumY = 0;
+          for (let m = 0; m <= 4; m++) {
+            const weight = m === 0 || m === 4 ? 1 : m % 2 === 1 ? 4 : 2,
+              angle = phase(from + m * substep);
+            sumX += weight * Math.cos(angle);
+            sumY += weight * Math.sin(angle);
+          }
+          curveX[half + j] = curveX[half + j - 1] + (substep / 3) * sumX;
+          curveY[half + j] = curveY[half + j - 1] + (substep / 3) * sumY;
+          curveX[half - j] = -curveX[half + j];
+          curveY[half - j] = -curveY[half + j];
+        }
+        const scale = p.extent / 0.8,
+          lineWidth = p.lineHalfWidth / scale,
+          lineWidthSquared = lineWidth * lineWidth,
+          dotWidthSquared = (p.dotRadius / scale) * (p.dotRadius / scale),
+          inverseSoft = 1 / p.edgeSoft,
+          gridSize = p.gridCells,
+          gridExtent = 0.8 + lineWidth,
+          gridStep = (2 * gridExtent) / gridSize,
+          // The segments whose bounding box, widened by the half width of the line, meets each cell of a grid over
+          // the curve, so that a pixel looks at a few segments (none for most of the background).
+          gridLists: number[][] = Array.from(
+            { length: gridSize * gridSize },
+            () => [],
+          );
+        for (let j = 0; j < segments; j++) {
+          const lowX = Math.min(curveX[j], curveX[j + 1]) - lineWidth,
+            highX = Math.max(curveX[j], curveX[j + 1]) + lineWidth,
+            lowY = Math.min(curveY[j], curveY[j + 1]) - lineWidth,
+            highY = Math.max(curveY[j], curveY[j + 1]) + lineWidth;
+          for (
+            let gy = Math.max(0, Math.floor((lowY + gridExtent) / gridStep));
+            gy <=
+            Math.min(gridSize - 1, Math.floor((highY + gridExtent) / gridStep));
+            gy++
+          )
+            for (
+              let gx = Math.max(0, Math.floor((lowX + gridExtent) / gridStep));
+              gx <=
+              Math.min(
+                gridSize - 1,
+                Math.floor((highX + gridExtent) / gridStep),
+              );
+              gx++
+            )
+              gridLists[gy * gridSize + gx].push(j);
+        }
+        // The point of the exact curve at t, from the table node below it by two Gauss points over the rest.
+        let pointX = 0,
+          pointY = 0;
+        const pointAt = (t: number): void => {
+          const j = Math.min(
+              segments - 1,
+              Math.max(0, Math.floor((t + limit) / step)),
+            ),
+            node = -limit + j * step,
+            rest = t - node,
+            first = phase(node + rest * 0.21132486540518713),
+            second = phase(node + rest * 0.7886751345948129);
+          pointX =
+            curveX[j] + 0.5 * rest * (Math.cos(first) + Math.cos(second));
+          pointY =
+            curveY[j] + 0.5 * rest * (Math.sin(first) + Math.sin(second));
+        };
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            column = Math.floor(fu * cells),
+            row = Math.floor(fv * cells),
+            odd = (column + row) % 2 === 1;
+          let localX = fu * cells - column - 0.5,
+            localY = fv * cells - row - 0.5;
+          if (mirror !== 0 && odd) localY = -localY;
+          if (turn !== 0 && odd) {
+            const swapped = localY;
+            localY = -localX;
+            localX = swapped;
+          }
+          const x = localX / scale,
+            y = localY / scale;
+          let keepLine = 1;
+          const gx = Math.floor((x + gridExtent) / gridStep),
+            gy = Math.floor((y + gridExtent) / gridStep);
+          if (gx >= 0 && gx < gridSize && gy >= 0 && gy < gridSize) {
+            const list = gridLists[gy * gridSize + gx];
+            let best = Infinity,
+              foot = 0;
+            for (let k = 0; k < list.length; k++) {
+              const j = list[k],
+                dx = curveX[j + 1] - curveX[j],
+                dy = curveY[j + 1] - curveY[j],
+                along = Math.min(
+                  1,
+                  Math.max(
+                    0,
+                    ((x - curveX[j]) * dx + (y - curveY[j]) * dy) /
+                      (dx * dx + dy * dy),
+                  ),
+                ),
+                ex = curveX[j] + along * dx - x,
+                ey = curveY[j] + along * dy - y,
+                squared = ex * ex + ey * ey;
+              if (squared < best) {
+                best = squared;
+                foot = -limit + (j + along) * step;
+              }
+            }
+            if (best < lineWidthSquared) {
+              // Newton steps on (P(t) - x) . P'(t) = 0 from the foot on the polyline, so the distance is that to the
+              // curve itself and not to its polygon (whose creases at the corners would show in the kernel).
+              let t = foot;
+              for (let iteration = 0; iteration < 3; iteration++) {
+                pointAt(t);
+                const angle = phase(t),
+                  cosine = Math.cos(angle),
+                  sine = Math.sin(angle),
+                  rx = pointX - x,
+                  ry = pointY - y;
+                t = Math.min(
+                  limit,
+                  Math.max(
+                    -limit,
+                    t -
+                      (rx * cosine + ry * sine) /
+                        (1 + Math.PI * t * (-rx * sine + ry * cosine)),
+                  ),
+                );
+              }
+              pointAt(t);
+              const lineT = clamp(
+                1 -
+                  ((pointX - x) * (pointX - x) + (pointY - y) * (pointY - y)) /
+                    lineWidthSquared,
+              );
+              keepLine = 1 - lineT * lineT;
+            }
+          }
+          const dotT = clamp(1 - (x * x + y * y) / dotWidthSquared),
+            ink = clamp(p.lineTone * (1 - keepLine) + p.dotTone * dotT * dotT),
+            mask = smooth(clamp(ink * inverseSoft)),
+            tone = p.toneSpan * ink,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            tone +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(ink) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -56975,6 +57160,7 @@ export function createSurfaceSampler(
     kind === 'zordercurve' ||
     kind === 'logisticbifurcation' ||
     kind === 'catenaryfestoons' ||
+    kind === 'cornuspirals' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
