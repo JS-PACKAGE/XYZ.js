@@ -1171,6 +1171,7 @@ try {
     'diffractionpatterns',
     'mapprojections',
     'brillouinzones',
+    'powderdiffraction',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

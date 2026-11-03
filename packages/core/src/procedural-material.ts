@@ -1108,6 +1108,7 @@ export type ProceduralMaterialKind =
   | 'diffractionpatterns'
   | 'mapprojections'
   | 'brillouinzones'
+  | 'powderdiffraction'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2464,6 +2465,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'diffractionpatterns',
   'mapprojections',
   'brillouinzones',
+  'powderdiffraction',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

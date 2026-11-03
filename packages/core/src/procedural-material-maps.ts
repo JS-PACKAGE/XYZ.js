@@ -49900,6 +49900,99 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'powderdiffraction': {
+        const p = proceduralMaterialPresets.powderdiffraction,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant =
+            p.variants[
+              Math.floor(hash(0, 85, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          [lattice, ratio] = variant,
+          plot = 0.5 - p.margin,
+          tilePerWorld = plot / p.extent,
+          inverseSoft = 1 / p.edgeSoft,
+          halfSquared = p.ringHalfWidth * p.ringHalfWidth,
+          // The reflections (h, k, l) allowed by the lattice (all of them for the simple one, h + k + l even for the body-centred one, all odd or
+          // all even for the face-centred one), counted by the value N = h^2 + k^2 + l^2 of their ring.
+          multiplicity = new Map<number, number>();
+        for (let h = -p.reach; h <= p.reach; h++)
+          for (let k = -p.reach; k <= p.reach; k++)
+            for (let l = -p.reach; l <= p.reach; l++) {
+              if (h === 0 && k === 0 && l === 0) continue;
+              const allowed =
+                lattice === 0 ||
+                (lattice === 1 && (h + k + l) % 2 === 0) ||
+                (lattice === 2 &&
+                  Math.abs(h) % 2 === Math.abs(k) % 2 &&
+                  Math.abs(k) % 2 === Math.abs(l) % 2);
+              if (!allowed) continue;
+              const n = h * h + k * k + l * l;
+              multiplicity.set(n, (multiplicity.get(n) ?? 0) + 1);
+            }
+        const rings: { radius: number; weight: number }[] = [];
+        for (const [n, count] of multiplicity) {
+          const sinTheta = Math.sqrt(n) / ratio;
+          if (sinTheta >= 1) continue;
+          const theta = Math.asin(sinTheta),
+            radius = p.distance * Math.tan(2 * theta);
+          if (radius > 1.6 * p.extent) continue;
+          rings.push({
+            radius,
+            weight:
+              ((count * (1 + Math.cos(2 * theta) ** 2)) /
+                (sinTheta * sinTheta * Math.cos(theta))) *
+              Math.exp(-p.debyeWaller * sinTheta * sinTheta),
+          });
+        }
+        const strongest = Math.max(...rings.map((ring) => ring.weight));
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            x = ((fu - 0.5) / plot) * p.extent,
+            y = -((fv - 0.5) / plot) * p.extent,
+            radius = Math.hypot(x, y);
+          let ringInk = 0;
+          for (const ring of rings) {
+            const distance = (radius - ring.radius) * tilePerWorld,
+              t = clamp(1 - (distance * distance) / halfSquared);
+            ringInk = Math.max(
+              ringInk,
+              (p.toneFloor0 +
+                p.toneSpan0 * Math.sqrt(ring.weight / strongest)) *
+                t *
+                t,
+            );
+          }
+          const outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
+            outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
+            boxDistance =
+              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              Math.min(Math.max(outsideX, outsideY), 0),
+            inside = smooth(clamp(-boxDistance / p.fade)),
+            stop = smooth(clamp((radius - p.stopRadius) / p.stopRadius)),
+            background =
+              p.backgroundTone / (1 + p.backgroundScale * radius * radius),
+            ink = clamp(inside * stop * (1 - (1 - background) * (1 - ringInk))),
+            mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(ink) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -58809,6 +58902,7 @@ export function createSurfaceSampler(
     kind === 'diffractionpatterns' ||
     kind === 'mapprojections' ||
     kind === 'brillouinzones' ||
+    kind === 'powderdiffraction' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

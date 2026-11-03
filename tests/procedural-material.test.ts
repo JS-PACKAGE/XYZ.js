@@ -1134,6 +1134,7 @@ const kinds: ProceduralMaterialKind[] = [
   'diffractionpatterns',
   'mapprojections',
   'brillouinzones',
+  'powderdiffraction',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -189837,6 +189838,291 @@ describe('Brillouin zones as the Bragg planes and zones of six reciprocal lattic
     expect(blue / (512 * 512)).toBeLessThan(66.4);
     expect(maxTilt).toBeGreaterThan(0.029);
     expect(maxTilt).toBeLessThan(0.0301);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Powder diffraction as the Debye-Scherrer rings of six cubic lattices', () => {
+  const p = proceduralMaterialPresets.powderdiffraction;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const tilePerWorld = (0.5 - p.margin) / p.extent;
+  /** Whether the reflection (h, k, l) is allowed in the cubic lattice 0 (simple), 1 (body centred: h + k + l even) or 2 (face centred: h, k, l all odd or all even). */
+  const allowed = (lattice: number, h: number, k: number, l: number): boolean =>
+    lattice === 0 ||
+    (lattice === 1 && (h + k + l) % 2 === 0) ||
+    (lattice === 2 &&
+      Math.abs(h) % 2 === Math.abs(k) % 2 &&
+      Math.abs(k) % 2 === Math.abs(l) % 2);
+  /** The values N = h^2 + k^2 + l^2 of the reflections up to 9 that the lattice allows. */
+  const allowedValues = (lattice: number): Set<number> => {
+    const values = new Set<number>();
+    for (let h = -9; h <= 9; h++)
+      for (let k = -9; k <= 9; k++)
+        for (let l = -9; l <= 9; l++)
+          if ((h !== 0 || k !== 0 || l !== 0) && allowed(lattice, h, k, l))
+            values.add(h * h + k * k + l * l);
+    return values;
+  };
+  /** The radius L tan 2θ, with sin θ = sqrt(N) / ratio (Bragg's law), of the rings of the reflections that the lattice allows (or that it forbids) from 0.1 to 0.95. */
+  const ringRadii = (index: number, wanted: boolean): number[] => {
+    const [lattice, ratio] = p.variants[index],
+      values = allowedValues(lattice),
+      radii: number[] = [];
+    for (let n = 1; n <= ratio * ratio; n++) {
+      if (values.has(n) !== wanted || Math.sqrt(n) >= ratio) continue;
+      const radius = p.distance * Math.tan(2 * Math.asin(Math.sqrt(n) / ratio));
+      if (radius >= 0.1 && radius <= 0.95) radii.push(radius);
+    }
+    return radii;
+  };
+  const colourAt = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    radius: number,
+    angle: number,
+  ): number => {
+    sample(
+      0.5 + radius * Math.cos(angle) * tilePerWorld,
+      0.5 - radius * Math.sin(angle) * tilePerWorld,
+      out,
+    );
+    return out.color;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('powderdiffraction', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('powderdiffraction', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0255);
+      expect(low).toBeLessThan(0.0259);
+      expect(high).toBeGreaterThan(0.825);
+      expect(high).toBeLessThan(0.839);
+      expect(dark / 65536).toBeGreaterThan(0.018);
+      expect(dark / 65536).toBeLessThan(0.0362);
+      expect(mean / 65536).toBeGreaterThan(0.076);
+      expect(mean / 65536).toBeLessThan(0.137);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.813);
+      expect(heightHigh).toBeLessThan(0.8305);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (the simple, the body-centred and the face-centred lattice with the ratios 10 and 13, 11 and 14, and 10 and 13) is 18, 8, 0, 9, 1 and 2; the table was
+  // found with a probe by the rings found at the allowed radii but not at those of the other variants (the smallest margin to the second best being 0.583) and is written here, so it is not an
+  // independent check of the seed's choice.
+  const seeds = [18, 8, 0, 9, 1, 2];
+  it('puts a ring at the Bragg angle of every allowed reflection and nowhere else', () => {
+    // On a ray at 0.64 rad, in steps of 0.0005, the maxima of the colour above 0.2 from the radius 0.1 to 0.95 are within 0.001 of the radii L tan 2θ of the allowed rings, one maximum for each (the
+    // worst distance was 0.0003 in the probe; 12, 20, 8, 13, 5 and 8 rings, the lowest colour at a ring 0.370).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('powderdiffraction', seed),
+        out = empty(),
+        expected = ringRadii(index, true),
+        peaks: number[] = [];
+      let previous = 0,
+        current = colourAt(sample, out, 0.0995, 0.64);
+      for (let radius = 0.1; radius <= 0.95; radius += 0.0005) {
+        const next = colourAt(sample, out, radius + 0.0005, 0.64);
+        if (current > 0.2 && current >= previous && current > next)
+          peaks.push(radius);
+        previous = current;
+        current = next;
+      }
+      expect(peaks.length).toBe(expected.length);
+      expected.forEach((radius, i) =>
+        expect(Math.abs(peaks[i] - radius)).toBeLessThan(0.001),
+      );
+    });
+  });
+  it('leaves out the rings of the reflections that the lattice forbids', () => {
+    // At the radii of the forbidden reflections (the odd values for the body-centred lattice, the mixed parity ones for the face-centred lattice, and for the simple lattice the values 7, 15, 23 that are not a sum
+    // of three squares) that are more than 0.03 from an allowed ring, the colour is under 0.12 at every angle in steps of 0.1 rad (0.092 at the most in the probe, the grain and the background; 1, 3, 8, 4, 8 and 15 radii).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('powderdiffraction', seed),
+        out = empty(),
+        own = ringRadii(index, true),
+        forbidden = ringRadii(index, false).filter((radius) =>
+          own.every((r) => Math.abs(r - radius) > 0.03),
+        );
+      expect(forbidden.length).toBeGreaterThan(0);
+      for (const radius of forbidden)
+        for (let angle = 0; angle < 6.28; angle += 0.1)
+          expect(colourAt(sample, out, radius, angle)).toBeLessThan(0.12);
+    });
+  });
+  it('draws the rings as circles', () => {
+    // On each allowed ring, at the angles 0.02 rad apart whose point lies within 0.96 of the centre along both axes, the colour varies by under 0.05 (0.0289 at the most in the probe, the grain), and it stays above 0.3.
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('powderdiffraction', seed),
+        out = empty();
+      for (const radius of ringRadii(index, true)) {
+        let low = 1,
+          high = 0;
+        for (let angle = 0; angle < 6.2832; angle += 0.02) {
+          if (
+            radius *
+              Math.max(Math.abs(Math.cos(angle)), Math.abs(Math.sin(angle))) >
+            0.96
+          )
+            continue;
+          const colour = colourAt(sample, out, radius, angle);
+          low = Math.min(low, colour);
+          high = Math.max(high, colour);
+        }
+        expect(high - low).toBeLessThan(0.05);
+        expect(low).toBeGreaterThan(0.3);
+      }
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 2 pick different lattices (body centred with the ratio 11 and face centred with the ratio 13).
+    const first = litGrid(0),
+      second = litGrid(2);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.0376);
+    expect(different / first.length).toBeLessThan(0.0377);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('powderdiffraction', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 mint ring maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('powderdiffraction', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(19.7);
+    expect(red / (512 * 512)).toBeLessThan(20.7);
+    expect(green / (512 * 512)).toBeGreaterThan(34.5);
+    expect(green / (512 * 512)).toBeLessThan(35.5);
+    expect(blue / (512 * 512)).toBeGreaterThan(30.5);
+    expect(blue / (512 * 512)).toBeLessThan(31.5);
+    expect(maxTilt).toBeGreaterThan(0.0334);
+    expect(maxTilt).toBeLessThan(0.0346);
     expect(invalid).toBe(0);
   });
 });
