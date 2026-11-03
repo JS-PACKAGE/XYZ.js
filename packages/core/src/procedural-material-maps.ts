@@ -47629,6 +47629,123 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'powerdiagram': {
+        const p = proceduralMaterialPresets.powerdiagram,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant =
+            p.variants[
+              Math.floor(hash(0, 63, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          cells = variant[0],
+          spread = variant[1],
+          widthSquared = p.lineHalfWidth * p.lineHalfWidth,
+          inverseSoft = 1 / p.edgeSoft,
+          // One disc in each cell of a cells by cells grid (a cell has the side 1 here), its centre jittered
+          // inside the cell and its radius 0.2 +- 0.06 times the spread; the discs do not touch each other.
+          // The sites of the cells -2 to cells + 1 are listed (the grid repeats with the tile) as
+          // x, y, radius and a random choice of the tone of the disc.
+          span = cells + 4,
+          sites = new Float64Array(span * span * 4);
+        for (let column = -2; column < cells + 2; column++)
+          for (let row = -2; row < cells + 2; row++) {
+            const wrappedColumn = ((column % cells) + cells) % cells,
+              wrappedRow = ((row % cells) + cells) % cells,
+              key = seed ^ p.seedSalt,
+              at = ((column + 2) * span + row + 2) * 4;
+            sites[at] =
+              column +
+              p.margin +
+              p.jitter * hash(wrappedColumn, wrappedRow, key);
+            sites[at + 1] =
+              row +
+              p.margin +
+              p.jitter * hash(wrappedColumn + 97, wrappedRow + 13, key);
+            sites[at + 2] =
+              p.baseRadius +
+              spread *
+                p.radiusSpread *
+                (2 * hash(wrappedColumn + 211, wrappedRow + 57, key) - 1);
+            sites[at + 3] =
+              hash(wrappedColumn + 331, wrappedRow + 7, key) < 0.5 ? 0 : 1;
+          }
+        const powers = new Float64Array(25);
+        return () => {
+          // The power of the point about a disc is the squared distance to its centre minus the squared radius;
+          // the cell of a disc in the power diagram is where its power is the least, its sides lie on the
+          // radical axes (the lines of equal power) of the neighbouring discs, and the distance from a point
+          // to the radical axis of the discs i and j is (power_j - power_i) / (2 |centre_j - centre_i|).
+          const px = fract(u) * cells,
+            py = fract(v) * cells,
+            column = Math.floor(px),
+            row = Math.floor(py);
+          let best = 0,
+            bestPower = Infinity,
+            count = 0;
+          for (let dc = -2; dc <= 2; dc++)
+            for (let dr = -2; dr <= 2; dr++) {
+              const at = ((column + dc + 2) * span + row + dr + 2) * 4,
+                dx = px - sites[at],
+                dy = py - sites[at + 1],
+                power = dx * dx + dy * dy - sites[at + 2] * sites[at + 2];
+              powers[count++] = power;
+              if (power < bestPower) {
+                bestPower = power;
+                best = at;
+              }
+            }
+          let edge = Infinity;
+          count = 0;
+          for (let dc = -2; dc <= 2; dc++)
+            for (let dr = -2; dr <= 2; dr++) {
+              const at = ((column + dc + 2) * span + row + dr + 2) * 4,
+                gap = powers[count++] - bestPower;
+              if (gap <= 0) continue;
+              edge = Math.min(
+                edge,
+                gap /
+                  (2 *
+                    Math.hypot(
+                      sites[at] - sites[best],
+                      sites[at + 1] - sites[best + 1],
+                    )),
+              );
+            }
+          const radius = sites[best + 2],
+            toCentre = Math.sqrt(Math.max(0, bestPower + radius * radius)),
+            outlineDistance = Math.abs(toCentre - radius),
+            edgeT = clamp(1 - (edge * edge) / widthSquared),
+            outlineT = clamp(
+              1 - (outlineDistance * outlineDistance) / widthSquared,
+            ),
+            line = 1 - (1 - edgeT * edgeT) * (1 - outlineT * outlineT),
+            fill =
+              bestPower < 0
+                ? sites[best + 3] === 0
+                  ? p.fillEven
+                  : p.fillOdd
+                : p.fillCell,
+            ink = clamp(fill * (1 - line) + line),
+            mask = smooth(clamp(ink * inverseSoft)),
+            tone = p.toneSpan * ink,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            tone +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(line) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -56517,6 +56634,7 @@ export function createSurfaceSampler(
     kind === 'confocalconics' ||
     kind === 'eisensteinprimes' ||
     kind === 'reuleauxfield' ||
+    kind === 'powerdiagram' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

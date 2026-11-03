@@ -1150,6 +1150,7 @@ try {
     'confocalconics',
     'eisensteinprimes',
     'reuleauxfield',
+    'powerdiagram',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

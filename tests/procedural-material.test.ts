@@ -1113,6 +1113,7 @@ const kinds: ProceduralMaterialKind[] = [
   'confocalconics',
   'eisensteinprimes',
   'reuleauxfield',
+  'powerdiagram',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -182011,6 +182012,392 @@ describe('Reuleaux field as Reuleaux polygons of constant width, one in each cel
     expect(blue / (512 * 512)).toBeLessThan(87.8);
     expect(maxTilt).toBeGreaterThan(0.018);
     expect(maxTilt).toBeLessThan(0.022);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Power diagram as discs and the radical-axis cells of their power diagram', () => {
+  const p = proceduralMaterialPresets.powerdiagram;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const size = 512;
+  type Disc = {
+    area: number;
+    x: number;
+    y: number;
+    radius: number;
+    round: number;
+    outline: number;
+  };
+  /**
+   * A 512 by 512 reading of a seed and the discs found in it: the 4-connected regions of at least 60 pixels whose
+   * colour is in [0.42, 0.70) and whose roundness 2 pi I / area^2 (I the polar moment about the centroid, 1 for a
+   * disc) is within 0.03 of 1; the thin bands where the colour passes through that range at the lines are
+   * not round. For each disc the radius of its drawn outline is the mean distance of the bright pixels (colour above
+   * 0.7, weighted by the colour) within 7 pixels outside its region. Nothing about how the sampler places the discs
+   * or draws the lines is used.
+   */
+  const read = (seed: number): { colors: Float32Array; discs: Disc[] } => {
+    const sample = createSurfaceSampler('powerdiagram', seed),
+      out = empty(),
+      colors = new Float32Array(size * size),
+      seen = new Uint8Array(size * size),
+      discs: Disc[] = [];
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        colors[y * size + x] = out.color;
+      }
+    const inside = (at: number): boolean =>
+      colors[at] >= 0.42 && colors[at] < 0.7;
+    for (let start = 0; start < size * size; start++) {
+      if (seen[start] || !inside(start)) continue;
+      const pixels: number[] = [],
+        stack = [start];
+      seen[start] = 1;
+      while (stack.length) {
+        const at = stack.pop()!,
+          x = at % size,
+          y = (at - x) / size;
+        pixels.push(at);
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const nx = x + dx,
+            ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
+          const next = ny * size + nx;
+          if (!seen[next] && inside(next)) {
+            seen[next] = 1;
+            stack.push(next);
+          }
+        }
+      }
+      if (pixels.length < 60) continue;
+      let sx = 0,
+        sy = 0,
+        sxx = 0,
+        syy = 0;
+      for (const at of pixels) {
+        const x = (at % size) + 0.5,
+          y = Math.floor(at / size) + 0.5;
+        sx += x;
+        sy += y;
+        sxx += x * x;
+        syy += y * y;
+      }
+      const x = sx / pixels.length,
+        y = sy / pixels.length,
+        round =
+          (2 * Math.PI * (sxx + syy - pixels.length * (x * x + y * y))) /
+          (pixels.length * pixels.length);
+      if (Math.abs(round - 1) >= 0.03) continue;
+      const radius = Math.sqrt(pixels.length / Math.PI);
+      let weighted = 0,
+        weights = 0;
+      const reach = Math.ceil(radius + 8);
+      for (let py = Math.floor(y - reach); py <= y + reach; py++)
+        for (let px = Math.floor(x - reach); px <= x + reach; px++) {
+          if (px < 0 || py < 0 || px >= size || py >= size) continue;
+          const distance = Math.hypot(px + 0.5 - x, py + 0.5 - y),
+            color = colors[py * size + px];
+          if (distance < radius || distance > radius + 7 || color < 0.7)
+            continue;
+          weighted += distance * color;
+          weights += color;
+        }
+      discs.push({
+        area: pixels.length,
+        x,
+        y,
+        radius,
+        round,
+        outline: weighted / weights,
+      });
+    }
+    return { colors, discs };
+  };
+  /**
+   * The distances, in pixels, from the bisecting line of the two smallest powers to each bright pixel (colour
+   * above 0.78, more than 5 pixels from every outline) that is not on a disc: the power of a point p about a disc
+   * of centre c and radius r is |p - c|^2 - r^2, and the distance of p from the line where the powers about the
+   * discs a and b are equal is (power_b - power_a) / (2 |c_a - c_b|), taken for the two discs of the least power
+   * among the discs and their copies in the eight neighbouring tiles. With the radii set to zero this is the
+   * distance to the ordinary Voronoi bisector. Sorted.
+   */
+  const bisectorResiduals = (
+    colors: Float32Array,
+    discs: Disc[],
+    useRadii: boolean,
+  ): number[] => {
+    const all: { x: number; y: number; radius: number }[] = [];
+    for (const disc of discs)
+      for (const dx of [-size, 0, size])
+        for (const dy of [-size, 0, size])
+          all.push({
+            x: disc.x + dx,
+            y: disc.y + dy,
+            radius: useRadii ? disc.outline : 0,
+          });
+    const residuals: number[] = [];
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        if (colors[y * size + x] < 0.78) continue;
+        const px = x + 0.5,
+          py = y + 0.5;
+        if (
+          discs.some(
+            (disc) =>
+              Math.abs(Math.hypot(px - disc.x, py - disc.y) - disc.outline) < 5,
+          )
+        )
+          continue;
+        let first = Infinity,
+          second = Infinity,
+          a = -1,
+          b = -1;
+        all.forEach((disc, k) => {
+          if (Math.abs(disc.x - px) > 200 || Math.abs(disc.y - py) > 200)
+            return;
+          const power =
+            (px - disc.x) ** 2 + (py - disc.y) ** 2 - disc.radius ** 2;
+          if (power < first) {
+            second = first;
+            b = a;
+            first = power;
+            a = k;
+          } else if (power < second) {
+            second = power;
+            b = k;
+          }
+        });
+        residuals.push(
+          (second - first) /
+            (2 * Math.hypot(all[a].x - all[b].x, all[a].y - all[b].y)),
+        );
+      }
+    return residuals.sort((u, v) => u - v);
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('powerdiagram', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('powerdiagram', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.138);
+      expect(low).toBeLessThan(0.14);
+      expect(high).toBeGreaterThan(0.872);
+      expect(high).toBeLessThan(0.874);
+      expect(dark / 65536).toBeGreaterThan(0.196);
+      expect(dark / 65536).toBeLessThan(0.206);
+      expect(mean / 65536).toBeGreaterThan(0.275);
+      expect(mean / 65536).toBeLessThan(0.283);
+      expect(occlusionLow).toBeGreaterThan(0.7);
+      expect(occlusionLow).toBeLessThan(0.72);
+      expect(heightHigh).toBeGreaterThan(0.874);
+      expect(heightHigh).toBeLessThan(0.8756);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The variant for each of the seeds 0, 2, 15, 1, 3 and 5 (variants 0 to 5) was found with a probe and is written
+  // here; it is then checked against the number of discs and the spread of their radii read from the picture.
+  const seeds = [0, 2, 15, 1, 3, 5];
+  it('draws one round disc in each cell, with the radii spread of the variant', () => {
+    // The discs found in the picture number cells^2, are round (the roundness within 0.01 of 1; 0.002 at worst in
+    // the probe), have their centres in the cell at the fractions margin to margin + jitter of its side (within 1.5
+    // pixels), and the difference between the largest and the smallest radius over 2 x 0.09 x the side of a cell is the
+    // spread of the variant to within 0.1 (it was 0.03, 0.49, 0.94 for the spreads 0, 0.5, 1 in the probe).
+    seeds.forEach((seed, index) => {
+      const [cells, spread] = p.variants[index],
+        side = size / cells,
+        { discs } = read(seed),
+        radii = discs.map((disc) => disc.outline);
+      expect(discs.length).toBe(cells * cells);
+      for (const disc of discs) {
+        expect(Math.abs(disc.round - 1)).toBeLessThan(0.01);
+        for (const coordinate of [disc.x, disc.y]) {
+          const fraction = (coordinate % side) / side;
+          expect(fraction).toBeGreaterThan(p.margin - 1.5 / side);
+          expect(fraction).toBeLessThan(p.margin + p.jitter + 1.5 / side);
+        }
+      }
+      expect(
+        Math.abs(
+          (Math.max(...radii) - Math.min(...radii)) /
+            (2 * p.radiusSpread * side) -
+            spread,
+        ),
+      ).toBeLessThan(0.1);
+    });
+  });
+  it('puts the cell edges on the radical axes of the discs and not on the Voronoi bisectors', () => {
+    // From the discs found in the picture (their centroids and the radii of their drawn outlines) the distance of
+    // every bright line pixel not on a disc from the line of equal power of its two least-power discs has a median
+    // below 0.6 pixel, a 99th percentile below 1.1 and a maximum below 1.8 (0.30 to 0.46, 0.69 to 0.95 and 0.81 to
+    // 1.40 in the probe; the pixel is 1). Where the radii differ (every variant but the first) the same
+    // distance for the ordinary Voronoi bisector of the centres has a 99th percentile above 1.3 (1.5 to 3.8 in the
+    // probe), so the edges are those of the power diagram and not those of the Voronoi diagram.
+    seeds.forEach((seed, index) => {
+      const { colors, discs } = read(seed),
+        power = bisectorResiduals(colors, discs, true),
+        voronoi = bisectorResiduals(colors, discs, false);
+      expect(power.length).toBeGreaterThan(8000);
+      expect(power[power.length >> 1]).toBeLessThan(0.6);
+      expect(power[Math.floor(power.length * 0.99)]).toBeLessThan(1.1);
+      expect(power[power.length - 1]).toBeLessThan(1.8);
+      if (p.variants[index][1] > 0)
+        expect(voronoi[Math.floor(voronoi.length * 0.99)]).toBeGreaterThan(1.3);
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 1 pick different variants (5 by 5 cells with equal radii and 5 by 5 cells with the full spread).
+    const first = litGrid(0),
+      second = litGrid(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.265);
+    expect(different / first.length).toBeLessThan(0.285);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('powerdiagram', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [12, p.grainCells, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 coral power diagram maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('powerdiagram', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(91.2);
+    expect(red / (512 * 512)).toBeLessThan(92.4);
+    expect(green / (512 * 512)).toBeGreaterThan(47.8);
+    expect(green / (512 * 512)).toBeLessThan(49);
+    expect(blue / (512 * 512)).toBeGreaterThan(46.7);
+    expect(blue / (512 * 512)).toBeLessThan(47.9);
+    expect(maxTilt).toBeGreaterThan(0.024);
+    expect(maxTilt).toBeLessThan(0.028);
     expect(invalid).toBe(0);
   });
 });
