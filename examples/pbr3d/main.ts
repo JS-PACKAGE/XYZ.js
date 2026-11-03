@@ -1158,6 +1158,7 @@ try {
     'cornuspirals',
     'htree',
     'mapattractors',
+    'wallpapergroups',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

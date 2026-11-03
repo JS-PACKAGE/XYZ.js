@@ -48513,6 +48513,73 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'wallpapergroups': {
+        const p = proceduralMaterialPresets.wallpapergroups,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          group =
+            p.groups[
+              Math.floor(hash(0, 71, seed ^ p.seedSalt) * p.groups.length)
+            ],
+          lineWidthSquared = p.lineHalfWidth * p.lineHalfWidth,
+          dotWidthSquared = p.dotRadius * p.dotRadius,
+          inverseSoft = 1 / p.edgeSoft;
+        return () => {
+          // The position in the cell; the picture is the union of the motif seen through every operation of the group
+          // (each maps the position to another position of the cell, and the motif is drawn once in the cell).
+          const x = fract(fract(u) * p.cells),
+            y = fract(fract(v) * p.cells);
+          let keepLine = 1,
+            keepDot = 1;
+          for (const [a, b, c, d, shiftX, shiftY] of group) {
+            const qx = fract(a * x + b * y + shiftX),
+              qy = fract(c * x + d * y + shiftY);
+            for (const [x0, y0, x1, y1] of p.strokes) {
+              const dx = x1 - x0,
+                dy = y1 - y0,
+                along = Math.min(
+                  1,
+                  Math.max(
+                    0,
+                    ((qx - x0) * dx + (qy - y0) * dy) / (dx * dx + dy * dy),
+                  ),
+                ),
+                ex = x0 + along * dx - qx,
+                ey = y0 + along * dy - qy,
+                t = clamp(1 - (ex * ex + ey * ey) / lineWidthSquared);
+              keepLine *= 1 - t * t;
+            }
+            const t = clamp(
+              1 -
+                ((qx - p.dot[0]) * (qx - p.dot[0]) +
+                  (qy - p.dot[1]) * (qy - p.dot[1])) /
+                  dotWidthSquared,
+            );
+            keepDot *= 1 - t * t;
+          }
+          const ink = clamp(
+              p.lineTone * (1 - keepLine) + p.dotTone * (1 - keepDot),
+            ),
+            mask = smooth(clamp(ink * inverseSoft)),
+            tone = p.toneSpan * ink,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            tone +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(ink) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -57409,6 +57476,7 @@ export function createSurfaceSampler(
     kind === 'cornuspirals' ||
     kind === 'htree' ||
     kind === 'mapattractors' ||
+    kind === 'wallpapergroups' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
