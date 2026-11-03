@@ -40572,6 +40572,107 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'intervalpartition': {
+        const p = proceduralMaterialPresets.intervalpartition,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x46a01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          lane = new Uint8Array(p.maxIntervals),
+          begin = new Uint8Array(p.maxIntervals),
+          finish = new Uint8Array(p.maxIntervals),
+          laneEnd = new Uint8Array(p.lanes),
+          depth = new Uint8Array(p.timeUnits),
+          unitWidth = 1 / p.timeUnits;
+        let count = 0,
+          time = 0;
+        for (let k = 0; k < p.maxIntervals; k++) {
+          time += Math.floor(hash(k, 27, seed ^ 0x46a02) * (p.maxGap + 1));
+          const length =
+            p.minLength +
+            Math.floor(hash(k, 28, seed ^ 0x46a03) * p.lengthSpan);
+          if (time + length > p.timeUnits) break;
+          // The first lane that is free at this start, if there is one.
+          let free = -1;
+          for (let l = 0; l < p.lanes && free < 0; l++)
+            if (laneEnd[l] <= time) free = l;
+          if (free < 0) continue;
+          laneEnd[free] = time + length;
+          lane[count] = free;
+          begin[count] = time;
+          finish[count] = time + length;
+          for (let t = time; t < time + length; t++) depth[t]++;
+          count++;
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            column = Math.min(p.timeUnits - 1, Math.floor(fu * p.timeUnits)),
+            row = Math.floor((fv - p.lanesTop) / p.laneHeight),
+            time2 = fu * p.timeUnits;
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          // Guides every guideEvery time units, and the separators between the lanes.
+          paint(
+            cover(
+              p.guideHalf -
+                Math.abs(
+                  fu -
+                    Math.round(fu * (p.timeUnits / p.guideEvery)) /
+                      (p.timeUnits / p.guideEvery),
+                ),
+            ),
+            p.guideTone,
+            p.guideHeight,
+          );
+          const separator = (fv - p.lanesTop) / p.laneHeight;
+          if (separator >= -0.01 && separator <= p.lanes + 0.01)
+            paint(
+              cover(
+                p.separatorHalf -
+                  Math.abs(separator - Math.round(separator)) * p.laneHeight,
+              ),
+              p.separatorTone,
+              p.separatorHeight,
+            );
+          if (row >= 0 && row < p.lanes) {
+            const centre = p.lanesTop + (row + 0.5) * p.laneHeight;
+            for (let k = 0; k < count; k++) {
+              if (lane[k] !== row) continue;
+              const inside = Math.min(
+                (time2 - begin[k]) * unitWidth - p.barGap,
+                (finish[k] - time2) * unitWidth - p.barGap,
+                p.barHalf - Math.abs(fv - centre),
+              );
+              paint(cover(inside), p.laneLow + p.laneStep * row, p.barHeight);
+            }
+          }
+          // The depth strip: the column of this time unit, as tall as the number of intervals alive in it.
+          const stripInside = Math.min(
+            p.stripBottom - fv,
+            depth[column] * p.stripUnit - (p.stripBottom - fv),
+            unitWidth / 2 -
+              Math.abs(fu - (column + 0.5) * unitWidth) -
+              p.stripGap,
+          );
+          if (depth[column] > 0)
+            paint(cover(stripInside), p.stripTone, p.stripHeight);
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -68101,6 +68202,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'intervalpartition' ||
     kind === 'waterfallchart' ||
     kind === 'chorddiagrams' ||
     kind === 'qamconstellation' ||

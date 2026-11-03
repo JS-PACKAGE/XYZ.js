@@ -39633,3 +39633,375 @@ describe('waterfallchart: a start bar, floating steps with connectors and a tota
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('intervalpartition: intervals packed into lanes by the greedy rule, with their depth profile', () => {
+  const p = proceduralMaterialPresets.intervalpartition,
+    out = empty(),
+    unitWidth = 1 / p.timeUnits;
+  type Interval = { lane: number; start: number; end: number };
+  type Layout = { sample: Sampler; intervals: Interval[]; strip: number[] };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const laneY = (lane: number): number =>
+    p.lanesTop + (lane + 0.5) * p.laneHeight;
+  const laneTone = (lane: number): number => p.laneLow + p.laneStep * lane;
+
+  const layoutOf = (seed: number): Layout => {
+    const sample = createSurfaceSampler('intervalpartition', seed),
+      steps = p.timeUnits * 8,
+      intervals: Interval[] = [];
+    // The runs of the lane's tone along the middle of each lane; the bars are inset by barGap, so the run is a little shorter than the interval.
+    for (let lane = 0; lane < p.lanes; lane++) {
+      let first = -1;
+      for (let i = 0; i <= steps; i++) {
+        const on =
+          i < steps &&
+          Math.abs(
+            toneAt(sample, (i + 0.5) / steps, laneY(lane)) - laneTone(lane),
+          ) < 0.03;
+        if (on && first < 0) first = i;
+        if (!on && first >= 0) {
+          const start = Math.round(
+              (first + 0.5) / 8 - p.barGap * p.timeUnits - 0.06,
+            ),
+            end = Math.round((i - 1 + 0.5) / 8 + p.barGap * p.timeUnits + 0.06);
+          intervals.push({ lane, start, end });
+          first = -1;
+        }
+      }
+    }
+    // The depth strip: how many units tall the column of each time unit is.
+    const strip = Array.from({ length: p.timeUnits }, (_, t) => {
+      let samples = 0;
+      for (let k = 0; k < 400; k++) {
+        const v = 0.78 + (k + 0.5) * ((p.stripBottom - 0.78) / 400);
+        if (
+          Math.abs(toneAt(sample, (t + 0.5) * unitWidth, v) - p.stripTone) <
+          0.03
+        )
+          samples++;
+      }
+      return Math.round(
+        (samples * ((p.stripBottom - 0.78) / 400)) / p.stripUnit,
+      );
+    });
+    return { sample, intervals, strip };
+  };
+  const depthOf = (intervals: Interval[]): number[] =>
+    Array.from(
+      { length: p.timeUnits },
+      (_, t) => intervals.filter((iv) => iv.start <= t && t < iv.end).length,
+    );
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'packs the intervals by the greedy rule into as many lanes as the deepest overlap, and the strip shows the depth (seed %i)',
+    (seed) => {
+      const { intervals, strip } = layoutOf(seed),
+        depth = depthOf(intervals);
+      expect(intervals.length).toBeGreaterThan(8);
+      expect(intervals.length).toBeLessThanOrEqual(p.maxIntervals);
+      for (const iv of intervals) {
+        expect(iv.start).toBeGreaterThanOrEqual(0);
+        expect(iv.end).toBeLessThanOrEqual(p.timeUnits);
+        expect(iv.end - iv.start).toBeGreaterThanOrEqual(p.minLength);
+        expect(iv.end - iv.start).toBeLessThanOrEqual(
+          p.minLength + p.lengthSpan - 1,
+        );
+      }
+      // No two intervals of a lane overlap.
+      for (const a of intervals)
+        for (const b of intervals)
+          if (a !== b && a.lane === b.lane)
+            expect(a.end <= b.start || b.end <= a.start).toBe(true);
+      // The strip is the number of intervals alive in each time unit.
+      expect(strip).toEqual(depth);
+      // First fit: an interval in lane k began when every lower lane was busy, so the lanes used are as many as the deepest overlap.
+      for (const iv of intervals)
+        for (let lower = 0; lower < iv.lane; lower++)
+          expect(
+            intervals.some(
+              (o) =>
+                o.lane === lower && o.start <= iv.start && iv.start < o.end,
+            ),
+          ).toBe(true);
+      const used = new Set(intervals.map((iv) => iv.lane));
+      expect(used.size).toBe(Math.max(...depth));
+      expect([...used].sort()).toEqual(
+        Array.from({ length: used.size }, (_, k) => k),
+      );
+    },
+  );
+
+  it('reaches all six lanes, never fewer than three, and has touching intervals across 60 seeds', () => {
+    const lanes = new Set<number>();
+    let touching = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const { intervals } = layoutOf(seed);
+      lanes.add(new Set(intervals.map((iv) => iv.lane)).size);
+      for (const a of intervals)
+        touching += intervals.filter(
+          (b) => a !== b && a.lane === b.lane && a.end === b.start,
+        ).length;
+    }
+    expect(Math.min(...lanes)).toBeGreaterThanOrEqual(3);
+    expect(Math.max(...lanes)).toBe(p.lanes);
+    expect(touching).toBeGreaterThan(5);
+  });
+
+  it('reaches the shortest and the longest interval and one that ends at the last time unit, across 200 seeds', () => {
+    let shortest = Infinity,
+      longest = 0,
+      latest = 0;
+    for (let seed = 0; seed < 200; seed++)
+      for (const iv of layoutOf(seed).intervals) {
+        shortest = Math.min(shortest, iv.end - iv.start);
+        longest = Math.max(longest, iv.end - iv.start);
+        latest = Math.max(latest, iv.end);
+      }
+    expect(shortest).toBe(p.minLength);
+    expect(longest).toBe(p.minLength + p.lengthSpan - 1);
+    expect(latest).toBe(p.timeUnits);
+  });
+
+  it('draws the bars in the tone of their lane, with heights and roughness, a gap where two intervals touch, and the bar height', () => {
+    for (const seed of seeds) {
+      const { sample, intervals } = layoutOf(seed);
+      for (const iv of intervals) {
+        const u = ((iv.start + iv.end) / 2) * unitWidth,
+          y = laneY(iv.lane);
+        expect(toneAt(sample, u, y)).toBeCloseTo(laneTone(iv.lane), 6);
+        expect(out.height / p.relief).toBeCloseTo(p.barHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        // The height of the bar: inside at barHalf - 0.003 either side, paper beyond barHalf + 0.003.
+        for (const side of [-1, 1]) {
+          expect(toneAt(sample, u, y + side * (p.barHalf - 0.003))).toBeCloseTo(
+            laneTone(iv.lane),
+            6,
+          );
+          expect(
+            toneAt(sample, u, y + side * (p.barHalf + 0.003)),
+          ).toBeGreaterThan(0.7);
+        }
+        // Along the lane, the bar ends barGap short of the interval at each end, and is paper beyond.
+        const inset = p.barGap;
+        expect(
+          toneAt(sample, iv.start * unitWidth + inset + 0.001, y),
+        ).toBeCloseTo(laneTone(iv.lane), 6);
+        expect(
+          toneAt(sample, iv.start * unitWidth + inset - 0.001, y),
+        ).toBeGreaterThan(0.7);
+        expect(
+          toneAt(sample, iv.end * unitWidth - inset - 0.001, y),
+        ).toBeCloseTo(laneTone(iv.lane), 6);
+        expect(
+          toneAt(sample, iv.end * unitWidth - inset + 0.001, y),
+        ).toBeGreaterThan(0.7);
+      }
+    }
+  });
+
+  it('softens the end of a bar, its top and a column of the strip over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft;
+    for (const seed of seeds) {
+      const { sample, intervals, strip } = layoutOf(seed),
+        iv =
+          intervals.find(
+            (candidate) => candidate.start > 2 && candidate.lane === 0,
+          ) ?? intervals[0],
+        y = laneY(iv.lane),
+        tone = laneTone(iv.lane),
+        mix = (target: number, amount: number): number =>
+          p.paperTone + (target - p.paperTone) * smoothstep(amount),
+        edge = iv.start * unitWidth + p.barGap;
+      expect(
+        Math.abs(toneAt(sample, edge + quarter, y) - mix(tone, 0.75)),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(toneAt(sample, edge - quarter, y) - mix(tone, 0.25)),
+      ).toBeLessThan(0.03);
+      const middle = ((iv.start + iv.end) / 2) * unitWidth;
+      expect(
+        Math.abs(
+          toneAt(sample, middle, y - p.barHalf + quarter) - mix(tone, 0.75),
+        ),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(
+          toneAt(sample, middle, y - p.barHalf - quarter) - mix(tone, 0.25),
+        ),
+      ).toBeLessThan(0.03);
+      // The top of a strip column, and its bottom.
+      const t = strip.findIndex(
+          (d, k) => d > 0 && strip[k - 1] !== d && strip[k + 1] !== d,
+        ),
+        column = (t + 0.5) * unitWidth,
+        top = p.stripBottom - strip[t] * p.stripUnit;
+      expect(t).toBeGreaterThanOrEqual(0);
+      expect(
+        Math.abs(
+          toneAt(sample, column, top + quarter) - mix(p.stripTone, 0.75),
+        ),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(
+          toneAt(sample, column, top - quarter) - mix(p.stripTone, 0.25),
+        ),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(
+          toneAt(sample, column, p.stripBottom - quarter) -
+            mix(p.stripTone, 0.75),
+        ),
+      ).toBeLessThan(0.03);
+    }
+  });
+
+  it('draws the strip columns with their tone, height and roughness, separated by a gap, with the guides and the lane separators', () => {
+    for (const seed of seeds) {
+      const { sample, strip } = layoutOf(seed);
+      strip.forEach((depth, t) => {
+        if (depth === 0) return;
+        const u = (t + 0.5) * unitWidth;
+        expect(
+          toneAt(sample, u, p.stripBottom - (depth * p.stripUnit) / 2),
+        ).toBeCloseTo(p.stripTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.stripHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        // Beside it the next column: against it there is a gap of 2 stripGap, and just inside each column's edge, past the soft edge, it is the column.
+        if (t + 1 < p.timeUnits && strip[t + 1] > 0) {
+          const y =
+              p.stripBottom - (Math.min(depth, strip[t + 1]) * p.stripUnit) / 2,
+            boundary = (t + 1) * unitWidth;
+          expect(toneAt(sample, boundary, y)).toBeGreaterThan(0.7);
+          expect(
+            toneAt(sample, boundary - p.stripGap - p.edgeSoft, y),
+          ).toBeCloseTo(p.stripTone, 6);
+          expect(
+            toneAt(sample, boundary + p.stripGap + p.edgeSoft, y),
+          ).toBeCloseTo(p.stripTone, 6);
+        }
+      });
+      // Guides every 8 time units, over the paper above the lanes; the separators every lane height across the lane area.
+      for (let k = 0; k < p.timeUnits / p.guideEvery; k++) {
+        expect(
+          toneAt(sample, (k * p.guideEvery) / p.timeUnits, 0.02),
+        ).toBeCloseTo(p.guideTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.guideHeight, 6);
+        expect(
+          Math.abs(
+            toneAt(sample, (k * p.guideEvery) / p.timeUnits + 0.004, 0.02) -
+              p.paperTone,
+          ),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      for (let k = 0; k <= p.lanes; k++) {
+        // A column of the guide-free middle of the width where no bar is: look for the first such u.
+        const y = p.lanesTop + k * p.laneHeight,
+          u = Array.from({ length: 512 }, (_, i) => (i + 0.5) / 512).find(
+            (x) =>
+              Math.abs(x * 8 - Math.round(x * 8)) > 0.01 &&
+              toneAt(sample, x, laneY(Math.min(k, p.lanes - 1))) > 0.8 &&
+              toneAt(sample, x, laneY(Math.max(k - 1, 0))) > 0.8,
+          );
+        expect(u).toBeDefined();
+        expect(toneAt(sample, u as number, y)).toBeCloseTo(p.separatorTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.separatorHeight, 6);
+        // Beyond its half width and the soft edge it is paper, and a quarter of the soft width inside its edge it is at share 0.75.
+        const quarter = 0.25 * p.edgeSoft,
+          smoothstep = (x: number): number => x * x * (3 - 2 * x);
+        for (const side of [-1, 1]) {
+          expect(
+            Math.abs(
+              toneAt(
+                sample,
+                u as number,
+                y + side * (p.separatorHalf + p.edgeSoft),
+              ) - p.paperTone,
+            ),
+          ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+          expect(
+            Math.abs(
+              toneAt(
+                sample,
+                u as number,
+                y + side * (p.separatorHalf - quarter),
+              ) -
+                (p.paperTone +
+                  (p.separatorTone - p.paperTone) * smoothstep(0.75)),
+            ),
+          ).toBeLessThan(0.02);
+        }
+      }
+      // No separator above the first lane or below the last one.
+      expect(
+        Math.abs(toneAt(sample, 0.0123, p.lanesTop - 0.02) - p.paperTone),
+      ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      expect(
+        Math.abs(
+          toneAt(sample, 0.0123, p.lanesTop + p.lanes * p.laneHeight + 0.02) -
+            p.paperTone,
+        ),
+      ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      // A time unit with no interval alive has no strip column, not even a hairline along its bottom, and the separator that would
+      // come one lane height below the last one (in the strip's area) is not drawn.
+      const idle = strip.findIndex((depth) => depth === 0);
+      expect(idle).toBeGreaterThanOrEqual(0);
+      for (const v of [
+        p.stripBottom,
+        p.lanesTop + (p.lanes + 1) * p.laneHeight,
+      ])
+        expect(
+          Math.abs(toneAt(sample, (idle + 0.5) * unitWidth, v) - p.paperTone),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('intervalpartition', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const { sample } = layoutOf(0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0191, 0.02),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('intervalpartition', 0),
+      b = createSurfaceSampler('intervalpartition', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
