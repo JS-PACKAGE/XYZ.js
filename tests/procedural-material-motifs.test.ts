@@ -32605,3 +32605,222 @@ describe('tetrominoes: a grid tiled exactly by tetrominoes', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('errordiffusion: error-diffusion dithering of a periodic picture', () => {
+  const p = proceduralMaterialPresets.errordiffusion;
+  type Choice = { size: number; kernel: number; picture: number };
+
+  // The picture value at the middle of a cell, and the dithered bits of a size x size grid by a kernel, written again here: scan the
+  // rows, round each value to the nearer of 0 and 1, and hand the error on to later cells (in scan order) by the kernel's taps, the
+  // cells wrapping round the tile.
+  const pictureAt = (
+    picture: readonly number[],
+    size: number,
+    column: number,
+    row: number,
+  ): number => {
+    const x = (column + 0.5) / size,
+      y = (row + 0.5) / size,
+      tau = Math.PI * 2;
+    return (
+      0.5 +
+      picture[4] * Math.sin(tau * (picture[0] * x + picture[2])) +
+      picture[5] * Math.sin(tau * (picture[1] * y + picture[3])) +
+      picture[6] * Math.sin(tau * (picture[0] * x + picture[1] * y))
+    );
+  };
+  const dither = ({ size, kernel, picture }: Choice): number[][] => {
+    const rows = Array.from({ length: size }, (_, row) =>
+        Array.from({ length: size }, (_, column) =>
+          pictureAt(p.pictures[picture], size, column, row),
+        ),
+      ),
+      bits = rows.map((line) => line.map(() => 0));
+    for (let row = 0; row < size; row++)
+      for (let column = 0; column < size; column++) {
+        const value = rows[row][column],
+          bit = value >= 0.5 ? 1 : 0;
+        bits[row][column] = bit;
+        for (const [dx, dy, weight] of p.kernels[kernel].taps) {
+          const targetRow = (row + dy) % size,
+            targetColumn = (column + dx + size) % size;
+          if (targetRow * size + targetColumn > row * size + column)
+            rows[targetRow][targetColumn] +=
+              ((value - bit) * weight) / p.kernels[kernel].divisor;
+        }
+      }
+    return bits;
+  };
+  const choices: Choice[] = p.sizes.flatMap((size) =>
+    p.kernels.flatMap((_, kernel) =>
+      p.pictures.map((_, picture) => ({ size, kernel, picture })),
+    ),
+  );
+  const expectedBits = new Map<Choice, number[][]>();
+  const bitsOf = (choice: Choice): number[][] => {
+    let bits = expectedBits.get(choice);
+    if (!bits) expectedBits.set(choice, (bits = dither(choice)));
+    return bits;
+  };
+  // The picture drawn for a seed: the one choice whose bits are found in the middle of every cell (stopping at the first cell that
+  // differs).
+  const choiceOf = (seed: number): Choice => {
+    const sample = createSurfaceSampler('errordiffusion', seed),
+      out = empty(),
+      found = choices.filter((choice) => {
+        const bits = bitsOf(choice);
+        for (let row = 0; row < choice.size; row++)
+          for (let column = 0; column < choice.size; column++) {
+            sample(
+              (column + 0.5) / choice.size,
+              (row + 0.5) / choice.size,
+              out,
+            );
+            if (Number(out.color > 0.5) !== bits[row][column]) return false;
+          }
+        return true;
+      });
+    expect(found).toHaveLength(1);
+    return found[0];
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows exactly the dithered bits of one kernel and picture on one grid (seed %i)',
+    (seed) => {
+      const choice = choiceOf(seed),
+        bits = bitsOf(choice),
+        { size } = choice;
+      // The bits follow the picture: in every 8 x 8 block the share of ones is near the mean picture value there (within 0.2: one kernel
+      // passes on only three quarters of the error, and errors are not passed back to earlier cells).
+      let worst = 0;
+      for (let top = 0; top + 8 <= size; top += 8)
+        for (let left = 0; left + 8 <= size; left += 8) {
+          let ones = 0,
+            mean = 0;
+          for (let row = top; row < top + 8; row++)
+            for (let column = left; column < left + 8; column++) {
+              ones += bits[row][column];
+              mean += Math.min(
+                1,
+                Math.max(
+                  0,
+                  pictureAt(p.pictures[choice.picture], size, column, row),
+                ),
+              );
+            }
+          worst = Math.max(worst, Math.abs(ones - mean) / 64);
+        }
+      expect(worst).toBeLessThan(0.2);
+    },
+  );
+
+  it('uses every grid, kernel and picture across seeds', () => {
+    const sizes = new Set<number>(),
+      kernels = new Set<number>(),
+      pictures = new Set<number>();
+    for (let seed = 0; seed < 40; seed++) {
+      const { size, kernel, picture } = choiceOf(seed);
+      sizes.add(size);
+      kernels.add(kernel);
+      pictures.add(picture);
+    }
+    expect([...sizes].sort((a, b) => a - b)).toEqual([...p.sizes]);
+    expect(kernels.size).toBe(p.kernels.length);
+    expect(pictures.size).toBe(p.pictures.length);
+  });
+
+  it('blends the tones across a cell edge and sets height and roughness by the bit', () => {
+    for (const seed of seeds) {
+      const choice = choiceOf(seed),
+        bits = bitsOf(choice),
+        { size } = choice,
+        sample = createSurfaceSampler('errordiffusion', seed),
+        out = empty();
+      let different = 0,
+        same = 0;
+      for (let k = 0; k < 400; k++) {
+        const column = (k * 7) % size,
+          row = (k * 13 + 5) % size,
+          bit = bits[row][column],
+          right = bits[row][(column + 1) % size];
+        // The middle of the cell: its tone, height and roughness.
+        sample((column + 0.5) / size, (row + 0.5) / size, out);
+        expect(Math.abs(out.color - (bit ? p.onTone : p.offTone))).toBeLessThan(
+          0.03,
+        );
+        expect(
+          Math.abs(out.height / p.relief - (bit ? p.onHeight : p.offHeight)),
+        ).toBeLessThan(0.03);
+        expect(
+          Math.abs(out.roughness - (bit ? p.onRoughness : p.offRoughness)),
+        ).toBeLessThan(0.03);
+        // Part way through the soft edge (0.0002 inside the cell): the cell's tone and the neighbour's mixed by a smoothstep.
+        const t = Math.min(1, Math.max(0, 0.0002 / p.edgeSoft + 0.5)),
+          weight = t * t * (3 - 2 * t),
+          ownTone = bit ? p.onTone : p.offTone,
+          otherTone = right ? p.onTone : p.offTone;
+        sample((column + 1) / size - 0.0002, (row + 0.5) / size, out);
+        expect(
+          Math.abs(out.color - (otherTone + (ownTone - otherTone) * weight)),
+        ).toBeLessThan(0.03);
+        // On the edge to the right: the mean of the two tones; 0.0008 either side it is already the cell's own tone.
+        sample((column + 1) / size, (row + 0.5) / size, out);
+        expect(
+          Math.abs(
+            out.color -
+              ((bit ? p.onTone : p.offTone) + (right ? p.onTone : p.offTone)) /
+                2,
+          ),
+        ).toBeLessThan(0.04);
+        sample((column + 1) / size - 0.0008, (row + 0.5) / size, out);
+        expect(Math.abs(out.color - (bit ? p.onTone : p.offTone))).toBeLessThan(
+          0.04,
+        );
+        sample((column + 1) / size + 0.0008, (row + 0.5) / size, out);
+        expect(
+          Math.abs(out.color - (right ? p.onTone : p.offTone)),
+        ).toBeLessThan(0.04);
+        if (bit === right) same++;
+        else different++;
+      }
+      expect(different).toBeGreaterThan(40);
+      expect(same).toBeGreaterThan(40);
+    }
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('errordiffusion', 0),
+      b = createSurfaceSampler('errordiffusion', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

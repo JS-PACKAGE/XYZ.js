@@ -13446,6 +13446,118 @@ export const proceduralMaterialPresets = Object.freeze({
     pieceRoughness: 0.5,
     lineRoughness: 0.7,
   }),
+  errordiffusion: Object.freeze({
+    dark: [20, 22, 34] as const,
+    light: [248, 244, 230] as const,
+    roughness: 0.6,
+    relief: 0.004,
+    // Error-diffusion dithering: a smooth periodic picture is turned into one bit per cell of an n x n grid, scanning the cells row by
+    // row; each cell is rounded to the nearer of 0 and 1 and the rounding error is spread over later cells by one of six kernels.
+    // Neighbours wrap around the tile, but an error is only passed to a cell that comes later in the scan. The kernel weights are
+    // typed from memory (no reference was consulted). The seed picks the grid, the kernel and the picture.
+    sizes: Object.freeze([48, 64, 96]),
+    // Each kernel: the divisor, then [dx, dy, weight] for the cells that receive the error (dy = 0 only with dx > 0).
+    kernels: Object.freeze([
+      Object.freeze({
+        divisor: 16,
+        taps: Object.freeze([
+          [1, 0, 7],
+          [-1, 1, 3],
+          [0, 1, 5],
+          [1, 1, 1],
+        ]),
+      }),
+      Object.freeze({
+        divisor: 8,
+        taps: Object.freeze([
+          [1, 0, 1],
+          [2, 0, 1],
+          [-1, 1, 1],
+          [0, 1, 1],
+          [1, 1, 1],
+          [0, 2, 1],
+        ]),
+      }),
+      Object.freeze({
+        divisor: 48,
+        taps: Object.freeze([
+          [1, 0, 7],
+          [2, 0, 5],
+          [-2, 1, 3],
+          [-1, 1, 5],
+          [0, 1, 7],
+          [1, 1, 5],
+          [2, 1, 3],
+          [-2, 2, 1],
+          [-1, 2, 3],
+          [0, 2, 5],
+          [1, 2, 3],
+          [2, 2, 1],
+        ]),
+      }),
+      Object.freeze({
+        divisor: 42,
+        taps: Object.freeze([
+          [1, 0, 8],
+          [2, 0, 4],
+          [-2, 1, 2],
+          [-1, 1, 4],
+          [0, 1, 8],
+          [1, 1, 4],
+          [2, 1, 2],
+          [-2, 2, 1],
+          [-1, 2, 2],
+          [0, 2, 4],
+          [1, 2, 2],
+          [2, 2, 1],
+        ]),
+      }),
+      Object.freeze({
+        divisor: 32,
+        taps: Object.freeze([
+          [1, 0, 8],
+          [2, 0, 4],
+          [-2, 1, 2],
+          [-1, 1, 4],
+          [0, 1, 8],
+          [1, 1, 4],
+          [2, 1, 2],
+        ]),
+      }),
+      Object.freeze({
+        divisor: 32,
+        taps: Object.freeze([
+          [1, 0, 5],
+          [2, 0, 3],
+          [-2, 1, 2],
+          [-1, 1, 4],
+          [0, 1, 5],
+          [1, 1, 4],
+          [2, 1, 2],
+          [-1, 2, 2],
+          [0, 2, 3],
+          [1, 2, 2],
+        ]),
+      }),
+    ]),
+    // The pictures: 0.5 + a sin(2 pi (fx x + px)) + b sin(2 pi (fy y + py)) + c sin(2 pi (fx x + fy y)) at the middle of a cell, as
+    // [fx, fy, px, py, a, b, c] with whole frequencies so that the picture repeats.
+    pictures: Object.freeze([
+      Object.freeze([1, 1, 0.1, 0.35, 0.26, 0.2, 0.04]),
+      Object.freeze([2, 1, 0.6, 0.05, 0.22, 0.24, 0.02]),
+      Object.freeze([1, 2, 0.3, 0.8, 0.3, 0.16, 0.03]),
+      Object.freeze([2, 2, 0.45, 0.2, 0.2, 0.2, 0.08]),
+    ]),
+    edgeSoft: 0.0008,
+    grainCells: 192,
+    offTone: 0.14,
+    onTone: 0.9,
+    grainTone: 0.02,
+    offHeight: 0.2,
+    onHeight: 0.8,
+    offRoughness: 0.7,
+    onRoughness: 0.5,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -19938,6 +20050,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  errordiffusion: 1,
   tetrominoes: 1,
   candlestickcharts: 1,
   paleygraphmatrix: 1,

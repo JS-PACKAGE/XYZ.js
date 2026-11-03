@@ -38675,6 +38675,82 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'errordiffusion': {
+        const p = proceduralMaterialPresets.errordiffusion,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x32901),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          size =
+            p.sizes[Math.floor(hash(3, 1, seed ^ 0x32902) * p.sizes.length)],
+          kernel =
+            p.kernels[
+              Math.floor(hash(5, 2, seed ^ 0x32903) * p.kernels.length)
+            ],
+          picture =
+            p.pictures[
+              Math.floor(hash(7, 3, seed ^ 0x32904) * p.pictures.length)
+            ],
+          cells = size * size,
+          // The value still to be rounded at each cell, then its bit.
+          pending = new Float64Array(cells),
+          bits = new Uint8Array(cells);
+        for (let i = 0; i < cells; i++) {
+          const x = ((i % size) + 0.5) / size,
+            y = (Math.floor(i / size) + 0.5) / size;
+          pending[i] =
+            0.5 +
+            picture[4] * Math.sin(TAU * (picture[0] * x + picture[2])) +
+            picture[5] * Math.sin(TAU * (picture[1] * y + picture[3])) +
+            picture[6] * Math.sin(TAU * (picture[0] * x + picture[1] * y));
+        }
+        for (let i = 0; i < cells; i++) {
+          const bit = pending[i] >= 0.5 ? 1 : 0,
+            error = pending[i] - bit,
+            column = i % size,
+            row = Math.floor(i / size);
+          bits[i] = bit;
+          for (const [dx, dy, weight] of kernel.taps) {
+            const target =
+              ((row + dy) % size) * size + ((column + dx + size) % size);
+            if (target > i)
+              pending[target] += (error * weight) / kernel.divisor;
+          }
+        }
+        return () => {
+          const fx = (u - Math.floor(u)) * size,
+            fy = (v - Math.floor(v)) * size,
+            column = Math.floor(fx),
+            row = Math.floor(fy),
+            here = row * size + column,
+            // The nearest cell edge and the cell beyond it, in uv.
+            toLeft = fx - column,
+            toRight = column + 1 - fx,
+            toTop = fy - row,
+            toBottom = row + 1 - fy,
+            nearest = Math.min(toLeft, toRight, toTop, toBottom),
+            beyond =
+              nearest === toLeft
+                ? row * size + ((column + size - 1) % size)
+                : nearest === toRight
+                  ? row * size + ((column + 1) % size)
+                  : nearest === toTop
+                    ? ((row + size - 1) % size) * size + column
+                    : ((row + 1) % size) * size + column,
+            own = cover(nearest / size),
+            ownBit = bits[here],
+            otherBit = bits[beyond],
+            on = otherBit + (ownBit - otherBit) * own;
+          color = clamp(
+            p.offTone +
+              (p.onTone - p.offTone) * on +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(p.offHeight + (p.onHeight - p.offHeight) * on);
+          roughness = p.offRoughness + (p.onRoughness - p.offRoughness) * on;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -66204,6 +66280,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'errordiffusion' ||
     kind === 'tetrominoes' ||
     kind === 'candlestickcharts' ||
     kind === 'paleygraphmatrix' ||

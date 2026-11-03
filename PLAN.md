@@ -2029,6 +2029,10 @@
 
 這是作者設計的示意：七種色調只用亮度區分；不宣稱鋪法在統計上均勻（搜尋順序有偏）或每個seed都含全部七種骨牌。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`errordiffusion`（誤差擴散抖色）使目前目錄1117→1118種，含plain的gallery為1119項。把一幅平滑且週期的灰階圖（三個正弦項，頻率為整數所以可無縫重複）取成n×n個格子（n為48、64或96，由seed決定），由上而下逐列掃描，每格四捨五入成0或1（亮／暗兩種色調），把進位誤差用六種核（Floyd–Steinberg、Atkinson、Jarvis–Judice–Ninke、Stucki、Burkes、Sierra）之一分給之後掃描到的格子；seed決定格數、核與圖。鄰格計算環繞，但誤差只傳給掃描順序在後面的格子。格邊有一小段柔化的混色。Metallic與mortar為0。
+
+這是作者設計的示意：六種核的權重是我憑記憶寫的，沒有查閱任何文獻確認，所以不宣稱與標準演算法逐字相同，只保證「同一份權重在取樣器與測試端的獨立實作一致」；誤差不傳回前面的格子，所以並非嚴格的環面誤差擴散。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
