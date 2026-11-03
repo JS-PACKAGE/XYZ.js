@@ -1125,6 +1125,7 @@ try {
     'euclideanmst',
     'relativeneighborhood',
     'sortingnetwork',
+    'cayleytable',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

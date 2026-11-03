@@ -44559,6 +44559,78 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'cayleytable': {
+        const p = proceduralMaterialPresets.cayleytable,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft,
+          size = p.cells,
+          // The multiplication table (the Cayley table) of one of six groups of order 16, picked by
+          // the seed: the cyclic group Z16, Z8 x Z2, Z4 x Z4, Z4 x Z2 x Z2, Z2 x Z2 x Z2 x Z2 and the
+          // dihedral group of the octagon (a rotation a and a reflection bit b, element number
+          // 8 b + a, with (a, b)(c, d) = (a + (-1)^b c, b + d)). The elements of a direct product
+          // are numbered in mixed radix with the first factor varying fastest, so element 0 is the
+          // identity; the cell in row i and column j holds the number of the product of i and j
+          // and shows it as one of 16 tones from dark to bright.
+          which = Math.floor(hash(0, 35, seed ^ p.seedSalt) * 6),
+          factors =
+            which < 5
+              ? [[16], [8, 2], [4, 4], [4, 2, 2], [2, 2, 2, 2]][which]
+              : [],
+          grid = Uint8Array.from({ length: size * size }, (_, cell) => {
+            const left = Math.floor(cell / size),
+              right = cell % size;
+            if (which === 5) {
+              const a = left % 8,
+                b = Math.floor(left / 8),
+                c = right % 8,
+                d = Math.floor(right / 8);
+              return (b ^ d) * 8 + ((a + (b === 0 ? c : 8 - c)) % 8);
+            }
+            let product = 0,
+              stride = 1,
+              x = left,
+              y = right;
+            for (const modulus of factors) {
+              product += (((x % modulus) + (y % modulus)) % modulus) * stride;
+              stride *= modulus;
+              x = Math.floor(x / modulus);
+              y = Math.floor(y / modulus);
+            }
+            return product;
+          });
+        return () => {
+          // One compact-support rounded-square kernel per cell (a quartic superellipse
+          // through smoothstep, exactly zero before the cell boundary), so the cell
+          // lookup never jumps and the field is C1.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            ax = (x - col - 0.5) * inverseHalf,
+            ay = (y - row - 0.5) * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            tone = (p.toneSpan * grid[row * size + col]) / 15,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -53422,6 +53494,7 @@ export function createSurfaceSampler(
     kind === 'euclideanmst' ||
     kind === 'relativeneighborhood' ||
     kind === 'sortingnetwork' ||
+    kind === 'cayleytable' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

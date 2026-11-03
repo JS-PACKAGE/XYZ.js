@@ -1088,6 +1088,7 @@ const kinds: ProceduralMaterialKind[] = [
   'euclideanmst',
   'relativeneighborhood',
   'sortingnetwork',
+  'cayleytable',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -174251,6 +174252,255 @@ describe('Sorting network as a sorting network for 16 wires, one of three chosen
     expect(blue / (512 * 512)).toBeLessThan(44.9);
     expect(maxTilt).toBeGreaterThan(0.017);
     expect(maxTilt).toBeLessThan(0.021);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Cayley table as the multiplication table of one of six groups of order 16, picked by the seed', () => {
+  const p = proceduralMaterialPresets.cayleytable;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const cells = 16;
+  /** Colour read at the centre of every cell, grain included. */
+  const cellColors = (seed: number): number[] => {
+    const sample = createSurfaceSampler('cayleytable', seed),
+      out = empty(),
+      colors: number[] = [];
+    for (let row = 0; row < cells; row++)
+      for (let col = 0; col < cells; col++) {
+        sample((col + 0.5) / cells, (row + 0.5) / cells, out);
+        colors.push(out.color);
+      }
+    return colors;
+  };
+  /**
+   * The table read back as the numbers 0 to 15: the colour at the centre of every cell is
+   * toneFloor plus a multiple of toneSpan / 15, the grain stays within a third of a step, so
+   * rounding gives the number. 'worst' is the largest distance of a read-back from a whole step.
+   */
+  const readTable = (seed: number): { table: number[][]; worst: number } => {
+    const colors = cellColors(seed),
+      table: number[][] = [];
+    let worst = 0;
+    for (let row = 0; row < cells; row++) {
+      table.push([]);
+      for (let col = 0; col < cells; col++) {
+        const steps =
+          (colors[row * cells + col] - p.toneFloor) / (p.toneSpan / 15);
+        worst = Math.max(worst, Math.abs(steps - Math.round(steps)));
+        // + 0 turns a rounded -0 (a read-back a little below the floor) into 0.
+        table[row].push(Math.round(steps) + 0);
+      }
+    }
+    return { table, worst };
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('cayleytable', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0255);
+      expect(low).toBeLessThan(0.0258);
+      expect(high).toBeGreaterThan(0.853);
+      expect(high).toBeLessThan(0.855);
+      expect(dark / 65536).toBeGreaterThan(0.357);
+      expect(dark / 65536).toBeLessThan(0.358);
+      expect(mean / 65536).toBeGreaterThan(0.364);
+      expect(mean / 65536).toBeLessThan(0.366);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.843);
+      expect(heightHigh).toBeLessThan(0.847);
+      expect(invalid).toBe(0);
+    }
+  });
+  it('draws a real group table: Latin square, identity, associative, and the right group for the seed', () => {
+    // Seeds 0, 1, 4, 8, 12 and 13 pick the six groups. From the table alone: every row and column
+    // holds every number once (a Latin square), the row and column 0 are the identity, the product
+    // is associative for all 4096 triples, and three numbers that tell the groups of order 16 apart
+    // are read off - whether the table is symmetric, the number of elements other than the identity
+    // that give 0 when squared and the largest order of an element. I worked out by hand that these
+    // are (symmetric, 15, 2) for Z2^4, (symmetric, 7, 4) for Z4 x Z2 x Z2, (symmetric, 3, 8) for
+    // Z8 x Z2, (symmetric, 3, 4) for Z4 x Z4, (symmetric, 1, 16) for Z16 and (not symmetric, 9, 8)
+    // for the dihedral group of the octagon; I did not check them against the literature.
+    const expected: Record<number, [boolean, number, number]> = {
+      0: [true, 15, 2],
+      1: [true, 7, 4],
+      4: [true, 3, 8],
+      8: [true, 3, 4],
+      12: [true, 1, 16],
+      13: [false, 9, 8],
+    };
+    for (const [name, [symmetric, involutions, longest]] of Object.entries(
+      expected,
+    )) {
+      const { table, worst } = readTable(Number(name));
+      expect(worst).toBeLessThan(0.4);
+      for (let i = 0; i < cells; i++) {
+        expect(new Set(table[i]).size).toBe(cells);
+        expect(new Set(table.map((row) => row[i])).size).toBe(cells);
+        expect(table[0][i]).toBe(i);
+        expect(table[i][0]).toBe(i);
+      }
+      let broken = 0,
+        commuting = 0;
+      for (let i = 0; i < cells; i++)
+        for (let j = 0; j < cells; j++) {
+          commuting += Number(table[i][j] === table[j][i]);
+          for (let k = 0; k < cells; k++)
+            broken += Number(table[table[i][j]][k] !== table[i][table[j][k]]);
+        }
+      expect(broken).toBe(0);
+      expect(commuting === cells * cells).toBe(symmetric);
+      let squares = 0,
+        order = 0;
+      for (let i = 0; i < cells; i++) {
+        if (i > 0) squares += Number(table[i][i] === 0);
+        let power = i,
+          steps = 1;
+        while (power !== 0) {
+          power = table[power][i];
+          steps++;
+        }
+        order = Math.max(order, steps);
+      }
+      expect([squares, order]).toEqual([involutions, longest]);
+    }
+  });
+  it('draws a different table per seed and is deterministic for one seed', () => {
+    const first = cellColors(0),
+      second = cellColors(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(Math.abs(first[i] - second[i]) > 0.05);
+    expect(different / first.length).toBeGreaterThan(0.22);
+    expect(different / first.length).toBeLessThan(0.28);
+    expect(cellColors(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('cayleytable', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [cells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 rose Cayley table maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('cayleytable', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(105.2);
+    expect(red / (512 * 512)).toBeLessThan(106.3);
+    expect(green / (512 * 512)).toBeGreaterThan(48.3);
+    expect(green / (512 * 512)).toBeLessThan(49.4);
+    expect(blue / (512 * 512)).toBeGreaterThan(69.6);
+    expect(blue / (512 * 512)).toBeLessThan(70.7);
+    expect(maxTilt).toBeGreaterThan(0.006);
+    expect(maxTilt).toBeLessThan(0.008);
     expect(invalid).toBe(0);
   });
 });
