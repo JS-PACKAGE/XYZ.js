@@ -39562,6 +39562,152 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'windbarbs': {
+        const p = proceduralMaterialPresets.windbarbs,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x39901),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          grid =
+            p.grids[Math.floor(hash(6, 2, seed ^ 0x39902) * p.grids.length)],
+          cells = grid * grid,
+          cell = 1 / grid,
+          sine = new Float64Array(cells),
+          cosine = new Float64Array(cells),
+          flags = new Uint8Array(cells),
+          longs = new Uint8Array(cells),
+          shorts = new Uint8Array(cells),
+          steps = p.maxSpeed / p.speedStep + 1;
+        for (let i = 0; i < cells; i++) {
+          const column = i % grid,
+            row = Math.floor(i / grid),
+            angle =
+              Math.floor(hash(column, row, seed ^ 0x39903) * p.directions) *
+              p.directionStep,
+            // Speed in knots, then as flags (50), long barbs (10) and a short barb (5).
+            speed =
+              Math.floor(hash(column, row, seed ^ 0x39904) * steps) *
+              p.speedStep;
+          sine[i] = Math.sin(angle);
+          cosine[i] = Math.cos(angle);
+          flags[i] = Math.floor(speed / 50);
+          longs[i] = Math.floor((speed % 50) / 10);
+          shorts[i] = Math.floor((speed % 10) / 5);
+        }
+        // Distance from (x, y) to the segment (ax, ay)-(bx, by).
+        const segment = (
+          x: number,
+          y: number,
+          ax: number,
+          ay: number,
+          bx: number,
+          by: number,
+        ): number => {
+          const sx = bx - ax,
+            sy = by - ay,
+            t = Math.max(
+              0,
+              Math.min(
+                1,
+                ((x - ax) * sx + (y - ay) * sy) / (sx * sx + sy * sy),
+              ),
+            );
+          return Math.hypot(x - ax - t * sx, y - ay - t * sy);
+        };
+        return () => {
+          const fx = (u - Math.floor(u)) * grid,
+            fy = (v - Math.floor(v)) * grid,
+            index = Math.floor(fy) * grid + Math.floor(fx),
+            dx = fx - Math.floor(fx) - 0.5,
+            dy = fy - Math.floor(fy) - 0.5,
+            r = Math.hypot(dx, dy),
+            // Along the staff (towards its tip) and across it (clockwise side positive), in cell widths.
+            along = dx * sine[index] - dy * cosine[index],
+            across = dx * cosine[index] + dy * sine[index],
+            calm = flags[index] + longs[index] + shorts[index] === 0;
+          // Distance to the nearest mark; the marks are all the same tone, so only the least distance (inside negative) matters.
+          let distance =
+            Math.abs(r - (calm ? p.calmRadius : p.ringRadius)) - p.ringHalf;
+          if (calm)
+            distance = Math.min(
+              distance,
+              Math.abs(r - p.ringRadius) - p.ringHalf,
+            );
+          else {
+            distance = Math.min(
+              distance,
+              segment(along, across, p.staffStart, 0, p.staffLength, 0) -
+                p.staffHalf,
+            );
+            // The flags and then the long and short barbs, each in the next slot in from the tip.
+            let slot = 0;
+            for (let k = 0; k < flags[index]; k++, slot++) {
+              const a = p.staffLength - slot * p.slot,
+                // Triangle (a, 0), (a - flagWidth, 0), (a, flagHeight): signed distance to its edges.
+                d1 = segment(along, across, a, 0, a - p.flagWidth, 0),
+                d2 = segment(
+                  along,
+                  across,
+                  a - p.flagWidth,
+                  0,
+                  a,
+                  p.flagHeight,
+                ),
+                d3 = segment(along, across, a, p.flagHeight, a, 0),
+                inTriangle =
+                  across >= 0 &&
+                  along <= a &&
+                  along >=
+                    a - p.flagWidth + (across * p.flagWidth) / p.flagHeight;
+              distance = Math.min(
+                distance,
+                inTriangle ? -Math.min(d1, d2, d3) : Math.min(d1, d2, d3),
+              );
+            }
+            for (let k = 0; k < longs[index]; k++, slot++) {
+              const a = p.staffLength - slot * p.slot;
+              distance = Math.min(
+                distance,
+                segment(
+                  along,
+                  across,
+                  a,
+                  0,
+                  a - p.longBarbBack,
+                  p.longBarbSide,
+                ) - p.barbHalf,
+              );
+            }
+            // A lone short barb (5 knots) is one step in from the tip.
+            if (shorts[index] > 0) {
+              if (slot === 0) slot = 1;
+              const a = p.staffLength - slot * p.slot;
+              distance = Math.min(
+                distance,
+                segment(
+                  along,
+                  across,
+                  a,
+                  0,
+                  a - p.shortBarbBack,
+                  p.shortBarbSide,
+                ) - p.barbHalf,
+              );
+            }
+          }
+          const ink = cover(-distance * cell);
+          color = clamp(
+            p.paperTone +
+              (p.inkTone - p.paperTone) * ink +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * ink);
+          roughness = clamp(
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink,
+          );
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -67091,6 +67237,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'windbarbs' ||
     kind === 'compassrose' ||
     kind === 'smithchart' ||
     kind === 'mahjongdots' ||

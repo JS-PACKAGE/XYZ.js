@@ -13046,6 +13046,40 @@ export declare const proceduralMaterialPresets: Readonly<{
         paperRoughness: 0.7;
         inkRoughness: 0.4;
     }>;
+    windbarbs: Readonly<{
+        dark: readonly [18, 26, 40];
+        light: readonly [244, 242, 232];
+        roughness: 0.55;
+        relief: 0.004;
+        grids: readonly number[];
+        maxSpeed: 65;
+        speedStep: 5;
+        directionStep: number;
+        directions: 36;
+        ringRadius: 0.05;
+        calmRadius: 0.085;
+        ringHalf: 0.006;
+        staffStart: 0.05;
+        staffLength: 0.38;
+        staffHalf: 0.005;
+        slot: 0.055;
+        flagWidth: 0.05;
+        flagHeight: 0.09;
+        longBarbBack: 0.05;
+        longBarbSide: 0.09;
+        shortBarbBack: 0.025;
+        shortBarbSide: 0.045;
+        barbHalf: 0.005;
+        edgeSoft: 0.0008;
+        grainCells: 192;
+        paperTone: 0.94;
+        inkTone: 0.1;
+        grainTone: 0.03;
+        paperHeight: 0.3;
+        inkHeight: 0.8;
+        paperRoughness: 0.7;
+        inkRoughness: 0.4;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -19531,6 +19565,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    windbarbs: 1;
     compassrose: 1;
     smithchart: 1;
     mahjongdots: 1;

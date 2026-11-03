@@ -35661,3 +35661,418 @@ describe('compassrose: a 16-point star inside a dial of ticks', () => {
     expect(different).toBeGreaterThan(30);
   });
 });
+
+describe('windbarbs: a grid of wind symbols that encode a speed and a direction', () => {
+  const p = proceduralMaterialPresets.windbarbs,
+    out = empty(),
+    degrees = Math.PI / 180;
+  type Station = {
+    column: number;
+    row: number;
+    direction: number;
+    speed: number;
+  };
+  type Layout = { grid: number; stations: Station[]; sample: Sampler };
+
+  // Signed distance (negative inside) to the shapes of a wind symbol, in cell widths, in coordinates `along` the staff from the station
+  // towards its tip and `across` it on the clockwise side. Written again here from the plain description.
+  const toSegment = (
+    x: number,
+    y: number,
+    ax: number,
+    ay: number,
+    bx: number,
+    by: number,
+  ): number => {
+    const sx = bx - ax,
+      sy = by - ay,
+      t = Math.min(
+        1,
+        Math.max(0, ((x - ax) * sx + (y - ay) * sy) / (sx * sx + sy * sy)),
+      );
+    return Math.hypot(x - (ax + t * sx), y - (ay + t * sy));
+  };
+  const symbolDistance = (
+    speed: number,
+    along: number,
+    across: number,
+  ): number => {
+    const flags = Math.floor(speed / 50),
+      longs = Math.floor((speed % 50) / 10),
+      short = Math.floor((speed % 10) / 5),
+      r = Math.hypot(along, across);
+    if (speed === 0)
+      return Math.min(Math.abs(r - 0.05), Math.abs(r - 0.085)) - 0.006;
+    let d = Math.min(
+      Math.abs(r - 0.05) - 0.006,
+      toSegment(along, across, 0.05, 0, 0.38, 0) - 0.005,
+    );
+    // The slot numbers (counted in from the tip) of the flags, long barbs and the short barb.
+    for (let slot = 0; slot < flags + longs + short; slot++) {
+      const a = 0.38 - slot * 0.055 - (speed === 5 ? 0.055 : 0);
+      if (slot < flags) {
+        // The triangle (a, 0), (a - 0.05, 0), (a, 0.09).
+        const edges = Math.min(
+          toSegment(along, across, a, 0, a - 0.05, 0),
+          toSegment(along, across, a - 0.05, 0, a, 0.09),
+          toSegment(along, across, a, 0.09, a, 0),
+        );
+        const inside =
+          across >= 0 &&
+          along <= a &&
+          (a - along) * 0.09 <= (0.05 * (0.09 - across)) / 1 + 1e-12;
+        d = Math.min(d, inside ? -edges : edges);
+      } else if (slot < flags + longs)
+        d = Math.min(d, toSegment(along, across, a, 0, a - 0.05, 0.09) - 0.005);
+      else
+        d = Math.min(
+          d,
+          toSegment(along, across, a, 0, a - 0.025, 0.045) - 0.005,
+        );
+    }
+    return d;
+  };
+
+  const toneAt = (
+    sample: Sampler,
+    grid: number,
+    column: number,
+    row: number,
+    direction: number,
+    along: number,
+    across: number,
+  ): number => {
+    // The picture point for (along, across): `along` is clockwise-from-north `direction`, `across` is clockwise of it.
+    const x = along * Math.sin(direction) + across * Math.cos(direction),
+      y = -along * Math.cos(direction) + across * Math.sin(direction);
+    sample((column + 0.5 + x) / grid, (row + 0.5 + y) / grid, out);
+    return out.color;
+  };
+
+  // Probe points in (along, across): a grid over the symbol, and the middle of every flag and barb of every speed (a speed lacking a
+  // barb that another has must show paper there).
+  const probes: [number, number][] = Array.from(
+    { length: 60 * 40 },
+    (_, k): [number, number] => [
+      -0.12 + ((k % 60) / 59) * 0.58,
+      -0.12 + (Math.floor(k / 60) / 39) * 0.3,
+    ],
+  );
+  for (let speed = 5; speed <= p.maxSpeed; speed += 5) {
+    const flags = Math.floor(speed / 50),
+      longs = Math.floor((speed % 50) / 10),
+      short = Math.floor((speed % 10) / 5);
+    for (let slot = 0; slot < flags + longs + short; slot++) {
+      const a = 0.38 - slot * 0.055 - (speed === 5 ? 0.055 : 0);
+      if (slot < flags) probes.push([a - 0.0167, 0.03], [a - 0.02, 0.0075]);
+      else if (slot < flags + longs)
+        probes.push(
+          [a - 0.025, 0.045],
+          [a - 0.0125, 0.0225],
+          [a - 0.0375, 0.0675],
+        );
+      else probes.push([a - 0.0125, 0.0225]);
+    }
+  }
+
+  const layoutOf = (seed: number): Layout => {
+    const sample = createSurfaceSampler('windbarbs', seed),
+      found = p.grids
+        .map((grid): Layout | null => {
+          const stations: Station[] = [];
+          for (let row = 0; row < grid; row++)
+            for (let column = 0; column < grid; column++) {
+              // The staff direction: where the circle of radius 0.12 is dark (the barbs are all further out).
+              let sumX = 0,
+                sumY = 0,
+                count = 0;
+              for (let k = 0; k < 1440; k++) {
+                const angle = (2 * Math.PI * (k + 0.5)) / 1440;
+                sample(
+                  (column + 0.5 + 0.12 * Math.sin(angle)) / grid,
+                  (row + 0.5 - 0.12 * Math.cos(angle)) / grid,
+                  out,
+                );
+                if (out.color < 0.5) {
+                  sumX += Math.sin(angle);
+                  sumY += Math.cos(angle);
+                  count++;
+                }
+              }
+              // Directions are multiples of 10 degrees: the mean of the dark points is within half a degree of one.
+              const raw = count > 0 ? Math.atan2(sumX, sumY) : 0,
+                direction = Math.round(raw / (10 * degrees)) * 10 * degrees;
+              if (Math.abs(raw - direction) >= 0.5 * degrees) return null;
+              const candidates = Array.from(
+                { length: p.maxSpeed / 5 + 1 },
+                (_, k) => k * 5,
+              ).filter((speed) => {
+                if ((speed === 0) !== (count === 0)) return false;
+                for (const [along, across] of probes) {
+                  const distance = symbolDistance(speed, along, across);
+                  if (Math.abs(distance) < 0.003) continue;
+                  const tone = toneAt(
+                    sample,
+                    grid,
+                    column,
+                    row,
+                    direction,
+                    along,
+                    across,
+                  );
+                  if (distance < 0 ? tone > 0.4 : tone < 0.8) return false;
+                }
+                return true;
+              });
+              if (candidates.length !== 1) return null;
+              stations.push({ column, row, direction, speed: candidates[0] });
+            }
+          return { grid, stations, sample };
+        })
+        .filter((layout) => layout !== null);
+    expect(found).toHaveLength(1);
+    return found[0];
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws every cell as a ring, a staff and the flags and barbs of one speed (seed %i)',
+    (seed) => {
+      const { grid, stations } = layoutOf(seed);
+      expect(stations).toHaveLength(grid * grid);
+      for (const { speed } of stations) {
+        expect(speed % 5).toBe(0);
+        expect(speed).toBeLessThanOrEqual(p.maxSpeed);
+      }
+    },
+  );
+
+  it('uses both grids, every speed from 0 to 65 and every direction across seeds', () => {
+    const grids = new Set<number>(),
+      speeds = new Set<number>(),
+      directions = new Set<number>();
+    for (let seed = 0; seed < 40; seed++) {
+      const { grid, stations } = layoutOf(seed);
+      grids.add(grid);
+      for (const { speed, direction } of stations) {
+        speeds.add(speed);
+        if (speed > 0)
+          directions.add((Math.round(direction / degrees / 10) + 36) % 36);
+      }
+    }
+    expect([...grids].sort((a, b) => a - b)).toEqual([...p.grids]);
+    expect([...speeds].sort((a, b) => a - b)).toEqual(
+      Array.from({ length: 14 }, (_, k) => k * 5),
+    );
+    expect(directions.size).toBe(p.directions);
+  });
+
+  it('puts the flags nearest the tip, then the long barbs and then the short barb, with a lone short barb one step in', () => {
+    // Speeds 65 (a flag, a long barb, a short one), 5 (a lone short barb), 10 and 50, each found in some cell of some seed.
+    const wanted = new Map<
+      number,
+      { sample: Sampler; grid: number; station: Station }
+    >();
+    for (let seed = 0; seed < 80 && wanted.size < 4; seed++) {
+      const layout = layoutOf(seed);
+      for (const station of layout.stations)
+        if (
+          [65, 5, 10, 50].includes(station.speed) &&
+          !wanted.has(station.speed)
+        )
+          wanted.set(station.speed, {
+            sample: layout.sample,
+            grid: layout.grid,
+            station,
+          });
+    }
+    expect(wanted.size).toBe(4);
+    for (const [speed, { sample, grid, station }] of wanted) {
+      const at = (along: number, across: number): number =>
+        toneAt(
+          sample,
+          grid,
+          station.column,
+          station.row,
+          station.direction,
+          along,
+          across,
+        );
+      // Where each element of each speed stands: the flag's inside near its right angle, a barb's middle, in slots 0.055 apart from the tip
+      // (0.38) inwards; the point shown is inside it, and the paper point is one more slot in (or the tip's own slot for a lone short barb).
+      const flagInside = (a: number): [number, number] => [a - 0.0167, 0.03],
+        longMiddle = (a: number): [number, number] => [a - 0.025, 0.045],
+        shortMiddle = (a: number): [number, number] => [a - 0.0125, 0.0225];
+      const slotIn = (slots: number): number => 0.38 - slots * 0.055,
+        expected: Record<
+          number,
+          { ink: [number, number][]; paper: [number, number][] }
+        > = {
+          50: {
+            ink: [flagInside(slotIn(0))],
+            paper: [flagInside(slotIn(1)), longMiddle(slotIn(1))],
+          },
+          10: {
+            ink: [longMiddle(slotIn(0))],
+            paper: [longMiddle(slotIn(1)), shortMiddle(slotIn(1))],
+          },
+          // A flag, then a long barb, then a short one, and nothing in the slot after.
+          65: {
+            ink: [
+              flagInside(slotIn(0)),
+              longMiddle(slotIn(1)),
+              shortMiddle(slotIn(2)),
+            ],
+            paper: [longMiddle(slotIn(3)), shortMiddle(slotIn(3))],
+          },
+          // A lone short barb is one step in: ink there, paper in the tip's own slot.
+          5: {
+            ink: [shortMiddle(slotIn(1))],
+            paper: [shortMiddle(slotIn(0)), longMiddle(slotIn(2))],
+          },
+        },
+        { ink, paper } = expected[speed];
+      expect(ink.length).toBeGreaterThan(0);
+      for (const [along, across] of ink)
+        expect(at(along, across)).toBeLessThan(0.4);
+      for (const [along, across] of paper)
+        expect(at(along, across)).toBeGreaterThan(0.8);
+    }
+  });
+
+  it('draws the station ring and the staff from the ring to a rounded tip at their sizes, and a calm cell as two rings with no staff', () => {
+    let calm = 0;
+    for (let seed = 0; seed < 30 && calm < 2; seed++) {
+      const { grid, stations, sample } = layoutOf(seed),
+        side = (p.edgeSoft * grid) / 2 + 0.0005;
+      for (const station of stations) {
+        const at = (along: number, across: number): number =>
+          toneAt(
+            sample,
+            grid,
+            station.column,
+            station.row,
+            station.direction,
+            along,
+            across,
+          );
+        if (station.speed > 0) {
+          // The ring, on the side away from the staff: ink from 0.05 - 0.006 to 0.05 + 0.006, paper beyond that.
+          for (const radius of [0.05, 0.05 + 0.006 - side, 0.05 - 0.006 + side])
+            expect(at(-radius, 0)).toBeLessThan(0.3);
+          for (const radius of [0.05 + 0.006 + side, 0.05 - 0.006 - side])
+            expect(at(-radius, 0)).toBeGreaterThan(0.8);
+          // The staff: ink along its length, the tip rounded (a cap of its half width), paper beyond the cap and across the staff.
+          for (const along of [0.056 + side, 0.2, 0.38])
+            expect(at(along, 0)).toBeLessThan(0.3);
+          expect(at(0.38 + p.staffHalf - side, 0)).toBeLessThan(0.3);
+          expect(at(0.38 + p.staffHalf + side, 0)).toBeGreaterThan(0.8);
+          // The corner of a square end (0.0049 past the end and across) is outside the round cap.
+          expect(at(0.38 + 0.0049, 0.0049)).toBeGreaterThan(0.8);
+        } else {
+          calm++;
+          for (const radius of [0.05, 0.085]) {
+            expect(at(radius, 0)).toBeLessThan(0.3);
+            expect(at(radius + 0.006 - side, 0)).toBeLessThan(0.3);
+            expect(at(radius + 0.006 + side, 0)).toBeGreaterThan(0.8);
+          }
+          // Between the rings, and out where a staff would be: paper, in every direction.
+          for (let k = 0; k < 12; k++) {
+            const angle = (k * 30 + 7) * degrees;
+            sample(
+              (station.column + 0.5 + 0.0675 * Math.sin(angle)) / grid,
+              (station.row + 0.5 - 0.0675 * Math.cos(angle)) / grid,
+              out,
+            );
+            expect(out.color).toBeGreaterThan(0.8);
+            for (const radius of [0.15, 0.25, 0.35]) {
+              sample(
+                (station.column + 0.5 + radius * Math.sin(angle)) / grid,
+                (station.row + 0.5 - radius * Math.cos(angle)) / grid,
+                out,
+              );
+              expect(out.color).toBeGreaterThan(0.8);
+            }
+          }
+        }
+      }
+    }
+    expect(calm).toBeGreaterThanOrEqual(2);
+  });
+
+  it('softens an edge of the staff over edgeSoft and gives ink and paper their heights and roughness', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x);
+    for (const seed of seeds) {
+      const { grid, stations, sample } = layoutOf(seed),
+        station = stations.find((s) => s.speed > 0) as Station,
+        // Cell widths from the staff edge for a quarter of edgeSoft (in uv).
+        quarter = 0.25 * p.edgeSoft * grid,
+        at = (along: number, across: number): number =>
+          toneAt(
+            sample,
+            grid,
+            station.column,
+            station.row,
+            station.direction,
+            along,
+            across,
+          );
+      expect(Math.abs(at(0.1, 0) - p.inkTone)).toBeLessThan(0.02);
+      expect(at(0.1, p.staffHalf - quarter)).toBeCloseTo(
+        p.paperTone + (p.inkTone - p.paperTone) * smoothstep(0.75),
+        1,
+      );
+      expect(at(0.1, p.staffHalf + quarter)).toBeCloseTo(
+        p.paperTone + (p.inkTone - p.paperTone) * smoothstep(0.25),
+        1,
+      );
+      expect(at(0.1, p.staffHalf + 3 * quarter)).toBeCloseTo(p.paperTone, 1);
+      expect(at(0.1, -(p.staffHalf + 3 * quarter))).toBeCloseTo(p.paperTone, 1);
+      at(0.1, 0);
+      expect(out.height / p.relief).toBeCloseTo(p.inkHeight, 6);
+      expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+      at(0.2, -0.1);
+      expect(out.height / p.relief).toBeCloseTo(p.paperHeight, 6);
+      expect(out.roughness).toBeCloseTo(p.paperRoughness, 6);
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('windbarbs', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('windbarbs', 0),
+      b = createSurfaceSampler('windbarbs', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(20);
+  });
+});

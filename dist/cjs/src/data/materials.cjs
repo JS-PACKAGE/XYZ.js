@@ -22653,6 +22653,48 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .7,
 		inkRoughness: .4
 	}),
+	windbarbs: Object.freeze({
+		dark: [
+			18,
+			26,
+			40
+		],
+		light: [
+			244,
+			242,
+			232
+		],
+		roughness: .55,
+		relief: .004,
+		grids: Object.freeze([3, 4]),
+		maxSpeed: 65,
+		speedStep: 5,
+		directionStep: 10 * Math.PI / 180,
+		directions: 36,
+		ringRadius: .05,
+		calmRadius: .085,
+		ringHalf: .006,
+		staffStart: .05,
+		staffLength: .38,
+		staffHalf: .005,
+		slot: .055,
+		flagWidth: .05,
+		flagHeight: .09,
+		longBarbBack: .05,
+		longBarbSide: .09,
+		shortBarbBack: .025,
+		shortBarbSide: .045,
+		barbHalf: .005,
+		edgeSoft: 8e-4,
+		grainCells: 192,
+		paperTone: .94,
+		inkTone: .1,
+		grainTone: .03,
+		paperHeight: .3,
+		inkHeight: .8,
+		paperRoughness: .7,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -31334,6 +31376,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	windbarbs: 1,
 	compassrose: 1,
 	smithchart: 1,
 	mahjongdots: 1,
