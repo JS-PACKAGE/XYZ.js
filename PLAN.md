@@ -2149,6 +2149,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`hashchains`（鏈結雜湊表）使目前目錄1147→1148種，含plain的gallery為1149項。拉鍊法的雜湊表：6、7或8個桶（每桶一列），依序插入10、14或18個7位元的鍵，每個鍵放進「鍵除以桶數的餘數」那個桶；每個桶從左邊的方塊向右接一串盒子，每個盒子是一個鍵，裡面用二進位（最高位在左，深色小方塊是1），外框的灰度表示插入的先後（最早最深、最晚最淺），所以每一串都是依插入順序排列；沒有一串超過5個。seed決定桶數、鍵數與鍵。這是作者設計的示意；每個鍵在哪一串可以用餘數重新算出。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

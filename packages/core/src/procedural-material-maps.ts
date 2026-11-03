@@ -41580,6 +41580,136 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'hashchains': {
+        const p = proceduralMaterialPresets.hashchains,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x4ec01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          m =
+            p.buckets[
+              Math.floor(hash(36, 1, seed ^ 0x4ec02) * p.buckets.length)
+            ],
+          count =
+            p.keyCounts[
+              Math.floor(hash(36, 2, seed ^ 0x4ec03) * p.keyCounts.length)
+            ],
+          keyRange = 1 << p.keyBits,
+          keys = new Int32Array(count),
+          // The chain of each bucket: its length, and for each place in it the key and when it was inserted (0 for the first of all).
+          chainLength = new Uint8Array(m),
+          chainKey = new Int32Array(m * p.maxChain),
+          chainRank = new Int32Array(m * p.maxChain),
+          bitPitch = (p.boxWidth - 2 * p.bitInset) / p.keyBits;
+        // Try sets of distinct keys until no chain is longer than the limit.
+        for (let attempt = 0; ; attempt++) {
+          let ok = true;
+          chainLength.fill(0);
+          for (let i = 0; i < count && ok; i++) {
+            const key = Math.floor(hash(i, attempt, seed ^ 0x4ec04) * keyRange),
+              bucket = key % m;
+            for (let j = 0; j < i; j++) if (keys[j] === key) ok = false;
+            keys[i] = key;
+            if (chainLength[bucket] === p.maxChain) ok = false;
+            else {
+              chainKey[bucket * p.maxChain + chainLength[bucket]] = key;
+              chainRank[bucket * p.maxChain + chainLength[bucket]] = i;
+              chainLength[bucket]++;
+            }
+          }
+          if (ok) break;
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            row = Math.floor((fv - p.top) / p.rowPitch);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          if (row >= 0 && row < m) {
+            const ly = fv - (p.top + (row + 0.5) * p.rowPitch),
+              length = chainLength[row],
+              slot = cover(
+                p.slotHalf - Math.max(Math.abs(fu - p.slotX), Math.abs(ly)),
+              ),
+              // Each box is centred in its cell of the row, so that its soft edge has both sides.
+              place = Math.floor(
+                (fu - p.boxLeft + (p.boxPitch - p.boxWidth) / 2) / p.boxPitch,
+              ),
+              bx = fu - p.boxLeft - place * p.boxPitch - p.boxWidth / 2,
+              inBox = place >= 0 && place < length,
+              boxInside = inBox
+                ? Math.min(
+                    p.boxWidth / 2 - Math.abs(bx),
+                    p.boxHalfHeight - Math.abs(ly),
+                  )
+                : -1,
+              boxFill = cover(boxInside),
+              frame = boxFill * (1 - cover(boxInside - p.frameWidth));
+            // The link from the slot to the last box of the chain, hidden behind the boxes.
+            const lastLeft = p.boxLeft + (length - 1) * p.boxPitch,
+              link =
+                length > 0
+                  ? cover(p.linkHalf - Math.abs(ly)) *
+                    Math.min(cover(fu - p.slotX), cover(lastLeft - fu)) *
+                    (1 - boxFill)
+                  : 0;
+            shade += (p.linkTone - shade) * link;
+            elevation += (p.linkHeight - elevation) * link;
+            rough += (p.inkRoughness - rough) * link;
+            shade += (p.slotTone - shade) * slot;
+            elevation += (p.slotHeight - elevation) * slot;
+            rough += (p.inkRoughness - rough) * slot;
+            mask = Math.max(link, slot);
+            if (inBox) {
+              const rank = chainRank[row * p.maxChain + place],
+                tone =
+                  p.rankFirst +
+                  ((p.rankLast - p.rankFirst) * rank) / (count - 1),
+                bit = Math.min(
+                  p.keyBits - 1,
+                  Math.max(
+                    0,
+                    Math.floor((bx + p.boxWidth / 2 - p.bitInset) / bitPitch),
+                  ),
+                ),
+                on =
+                  (chainKey[row * p.maxChain + place] >>
+                    (p.keyBits - 1 - bit)) &
+                  1,
+                cell =
+                  on === 1
+                    ? cover(
+                        p.bitHalf -
+                          Math.max(
+                            Math.abs(
+                              bx +
+                                p.boxWidth / 2 -
+                                p.bitInset -
+                                (bit + 0.5) * bitPitch,
+                            ),
+                            Math.abs(ly),
+                          ),
+                      )
+                    : 0;
+              shade += (tone - shade) * frame;
+              elevation += (p.frameHeight - elevation) * frame;
+              rough += (p.inkRoughness - rough) * frame;
+              shade += (p.bitTone - shade) * cell;
+              elevation += (p.bitHeight - elevation) * cell;
+              rough += (p.inkRoughness - rough) * cell;
+              mask = Math.max(mask, frame, cell);
+            }
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -69109,6 +69239,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'hashchains' ||
     kind === 'editdistance' ||
     kind === 'nearesttour' ||
     kind === 'karnaughmap' ||

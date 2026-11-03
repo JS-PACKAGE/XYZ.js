@@ -42604,3 +42604,402 @@ describe('editdistance: the table of the edit distance between two strings, with
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('hashchains: a hash table with chaining, the keys in binary in boxes framed by when they were inserted', () => {
+  const p = proceduralMaterialPresets.hashchains,
+    out = empty(),
+    bitPitch = (p.boxWidth - 2 * p.bitInset) / p.keyBits;
+  type Box = { key: number; rank: number; tone: number };
+  type Table = {
+    sample: Sampler;
+    buckets: number;
+    count: number;
+    chains: Box[][];
+  };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const rowY = (row: number): number => p.top + (row + 0.5) * p.rowPitch;
+  const boxX = (place: number): number => p.boxLeft + place * p.boxPitch;
+  const rankTone = (count: number, rank: number): number =>
+    p.rankFirst + ((p.rankLast - p.rankFirst) * rank) / (count - 1);
+
+  const tableOf = (seed: number): Table => {
+    const sample = createSurfaceSampler('hashchains', seed);
+    let buckets = 0;
+    while (Math.abs(toneAt(sample, p.slotX, rowY(buckets)) - p.slotTone) < 0.01)
+      buckets++;
+    expect(p.buckets).toContain(buckets);
+    const chains: Box[][] = [];
+    let count = 0;
+    for (let row = 0; row < buckets; row++) {
+      const chain: Box[] = [];
+      // A box is there when the left side of its frame has a frame tone; there is none from the first gap on, and none beyond the limit.
+      for (let place = 0; place <= p.maxChain; place++) {
+        const tone = toneAt(sample, boxX(place) + p.frameWidth / 2, rowY(row));
+        if (tone < p.rankFirst - 0.005 || tone > p.rankLast + 0.005) {
+          for (let later = place; later <= p.maxChain; later++)
+            expect(
+              toneAt(sample, boxX(later) + p.frameWidth / 2, rowY(row)),
+            ).toBeGreaterThan(p.rankLast + 0.005);
+          break;
+        }
+        let key = 0;
+        for (let bit = 0; bit < p.keyBits; bit++)
+          key =
+            key * 2 +
+            Number(
+              toneAt(
+                sample,
+                boxX(place) + p.bitInset + (bit + 0.5) * bitPitch,
+                rowY(row),
+              ) < 0.3,
+            );
+        chain.push({ key, rank: -1, tone });
+      }
+      expect(chain.length).toBeLessThanOrEqual(p.maxChain);
+      chains.push(chain);
+      count += chain.length;
+    }
+    // The ranks follow from the tones once the number of keys is known.
+    for (const chain of chains)
+      for (const box of chain) {
+        box.rank = Math.round(
+          ((box.tone - p.rankFirst) / (p.rankLast - p.rankFirst)) * (count - 1),
+        );
+        expect(box.tone).toBeCloseTo(rankTone(count, box.rank), 2);
+      }
+    return { sample, buckets, count, chains };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'puts each key into the chain of its value modulo the number of buckets, in the order of insertion (seed %i)',
+    (seed) => {
+      const { buckets, count, chains } = tableOf(seed);
+      expect(p.keyCounts).toContain(count);
+      const all = chains.flat();
+      // The keys are distinct and the ranks are 0 to count - 1, each once.
+      expect(new Set(all.map((box) => box.key)).size).toBe(count);
+      expect(all.map((box) => box.rank).sort((a, b) => a - b)).toEqual(
+        Array.from({ length: count }, (_, i) => i),
+      );
+      // Insert the keys again in the order of their ranks, each at the end of the chain of its bucket: the same chains.
+      const inserted: Box[] = all.slice().sort((a, b) => a.rank - b.rank),
+        rebuilt: number[][] = Array.from({ length: buckets }, () => []);
+      for (const box of inserted) rebuilt[box.key % buckets].push(box.key);
+      expect(chains.map((chain) => chain.map((box) => box.key))).toEqual(
+        rebuilt,
+      );
+    },
+  );
+
+  it('uses every size and every key bit, with no chain beyond the limit and some at it, over 60 seeds', () => {
+    const bucketsSeen = new Set<number>(),
+      countsSeen = new Set<number>(),
+      ones = new Array<number>(p.keyBits).fill(0);
+    let keys = 0,
+      longest = 0,
+      emptyRows = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const { buckets, count, chains } = tableOf(seed * 29 + 3);
+      bucketsSeen.add(buckets);
+      countsSeen.add(count);
+      for (const chain of chains) {
+        longest = Math.max(longest, chain.length);
+        emptyRows += Number(chain.length === 0);
+        for (const box of chain) {
+          keys++;
+          for (let bit = 0; bit < p.keyBits; bit++)
+            ones[bit] += (box.key >> (p.keyBits - 1 - bit)) & 1;
+        }
+      }
+    }
+    expect([...bucketsSeen].sort((a, b) => a - b)).toEqual([...p.buckets]);
+    expect([...countsSeen].sort((a, b) => a - b)).toEqual([...p.keyCounts]);
+    expect(longest).toBe(p.maxChain);
+    expect(emptyRows).toBeGreaterThan(0);
+    for (const count of ones) {
+      expect(count / keys).toBeGreaterThan(0.4);
+      expect(count / keys).toBeLessThan(0.6);
+    }
+  });
+
+  it('draws the slots, links, boxes and bits with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, buckets, chains } = tableOf(seed),
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      for (let row = 0; row < buckets; row++) {
+        const y = rowY(row),
+          chain = chains[row];
+        expect(toneAt(sample, p.slotX, y)).toBeCloseTo(p.slotTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.slotHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        // The slot is a square of half-side slotHalf.
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          expect(
+            toneAt(
+              sample,
+              p.slotX + dx * (p.slotHalf - 0.002),
+              y + dy * (p.slotHalf - 0.002),
+            ),
+          ).toBeCloseTo(p.slotTone, 6);
+          // Beyond the edge is paper, except to the right of the slot, where its link runs.
+          if (dx !== 1)
+            expect(
+              paperOk(
+                p.slotX + dx * (p.slotHalf + 0.003),
+                y + dy * (p.slotHalf + 0.003),
+              ),
+            ).toBe(true);
+        }
+        expect(paperOk(p.slotX - p.slotHalf - 0.003, y)).toBe(true);
+        if (chain.length === 0) {
+          // No link, no box.
+          expect(paperOk(p.slotX + p.slotHalf + 0.02, y)).toBe(true);
+          expect(paperOk(boxX(0) + p.boxWidth / 2, y)).toBe(true);
+          continue;
+        }
+        // The link: from the slot to the last box, in the gaps, toned and as thick as linkHalf on both sides; none beyond the last box.
+        const gaps = [
+          (p.slotX + p.slotHalf + boxX(0)) / 2,
+          ...chain
+            .slice(1)
+            .map(
+              (_, k) => boxX(k) + p.boxWidth + (p.boxPitch - p.boxWidth) / 2,
+            ),
+        ];
+        for (const x of gaps) {
+          expect(toneAt(sample, x, y)).toBeCloseTo(p.linkTone, 6);
+          expect(out.height / p.relief).toBeCloseTo(p.linkHeight, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          expect(toneAt(sample, x, y + p.linkHalf - 0.0005)).toBeCloseTo(
+            p.linkTone,
+            6,
+          );
+          expect(toneAt(sample, x, y - p.linkHalf + 0.0005)).toBeCloseTo(
+            p.linkTone,
+            6,
+          );
+          expect(paperOk(x, y + p.linkHalf + 0.002)).toBe(true);
+          expect(paperOk(x, y - p.linkHalf - 0.002)).toBe(true);
+        }
+        expect(paperOk(boxX(chain.length - 1) + p.boxWidth + 0.02, y)).toBe(
+          true,
+        );
+        chain.forEach((box, place) => {
+          const left = boxX(place);
+          // The frame: its tone, height and roughness, and its width, on the left side and at the top.
+          expect(toneAt(sample, left + p.frameWidth - 0.0005, y)).toBeCloseTo(
+            box.tone,
+            6,
+          );
+          expect(out.height / p.relief).toBeCloseTo(p.frameHeight, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          expect(
+            toneAt(
+              sample,
+              left + p.boxWidth / 2 + 0.003,
+              y - p.boxHalfHeight + p.frameWidth - 0.0005,
+            ),
+          ).toBeCloseTo(box.tone, 6);
+          expect(paperOk(left - 0.003, y + 0.012)).toBe(true);
+          expect(
+            paperOk(left + p.boxWidth / 2 + 0.003, y - p.boxHalfHeight - 0.003),
+          ).toBe(true);
+          // Inside, between the frame and the bits, is paper (the link is hidden behind the box).
+          expect(paperOk(left + p.frameWidth + 0.002, y + 0.0005)).toBe(true);
+          // The bits: a dark square of half-side bitHalf for each 1, in a row of keyBits places.
+          for (let bit = 0; bit < p.keyBits; bit++) {
+            const cx = left + p.bitInset + (bit + 0.5) * bitPitch;
+            if ((box.key >> (p.keyBits - 1 - bit)) & 1) {
+              expect(toneAt(sample, cx, y)).toBeCloseTo(p.bitTone, 6);
+              expect(out.height / p.relief).toBeCloseTo(p.bitHeight, 6);
+              expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+              expect(
+                toneAt(sample, cx + p.bitHalf - 0.0008, y + p.bitHalf - 0.0008),
+              ).toBeCloseTo(p.bitTone, 6);
+              expect(paperOk(cx + p.bitHalf + 0.0015, y)).toBe(true);
+              expect(paperOk(cx, y + p.bitHalf + 0.0015)).toBe(true);
+            } else expect(paperOk(cx, y)).toBe(true);
+          }
+        });
+      }
+      // Nothing below the last bucket.
+      expect(paperOk(p.slotX, rowY(buckets) + 0.01)).toBe(true);
+      expect(paperOk(0.5, p.top - 0.03)).toBe(true);
+    }
+  });
+
+  it('softens the edge of a slot, a link, a frame and a bit over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount);
+    for (const seed of seeds) {
+      const { sample, buckets, chains } = tableOf(seed);
+      let checked = 0;
+      for (let row = 0; row < buckets; row++) {
+        const y = rowY(row);
+        expect(
+          Math.abs(
+            toneAt(sample, p.slotX, y - p.slotHalf + quarter) -
+              mix(p.paperTone, p.slotTone, 0.75),
+          ),
+        ).toBeLessThan(0.03);
+        expect(
+          Math.abs(
+            toneAt(sample, p.slotX, y - p.slotHalf - quarter) -
+              mix(p.paperTone, p.slotTone, 0.25),
+          ),
+        ).toBeLessThan(0.03);
+        expect(
+          Math.abs(
+            toneAt(sample, p.slotX, y + p.slotHalf - quarter) -
+              mix(p.paperTone, p.slotTone, 0.75),
+          ),
+        ).toBeLessThan(0.03);
+        expect(
+          Math.abs(
+            toneAt(sample, p.slotX, y + p.slotHalf + quarter) -
+              mix(p.paperTone, p.slotTone, 0.25),
+          ),
+        ).toBeLessThan(0.03);
+        const chain = chains[row];
+        if (chain.length === 0) continue;
+        const gap = (p.slotX + p.slotHalf + boxX(0)) / 2;
+        expect(
+          Math.abs(
+            toneAt(sample, gap, y + p.linkHalf - quarter) -
+              mix(p.paperTone, p.linkTone, 0.75),
+          ),
+        ).toBeLessThan(0.03);
+        expect(
+          Math.abs(
+            toneAt(sample, gap, y + p.linkHalf + quarter) -
+              mix(p.paperTone, p.linkTone, 0.25),
+          ),
+        ).toBeLessThan(0.03);
+        chain.forEach((box, place) => {
+          const left = boxX(place),
+            middle = left + p.boxWidth / 2;
+          // The outer edge of the frame at its top, the inner edge, and the side's outer edge.
+          expect(
+            Math.abs(
+              toneAt(sample, middle + 0.003, y - p.boxHalfHeight + quarter) -
+                mix(p.paperTone, box.tone, 0.75),
+            ),
+          ).toBeLessThan(0.03);
+          expect(
+            Math.abs(
+              toneAt(sample, middle + 0.003, y - p.boxHalfHeight - quarter) -
+                mix(p.paperTone, box.tone, 0.25),
+            ),
+          ).toBeLessThan(0.03);
+          expect(
+            Math.abs(
+              toneAt(
+                sample,
+                middle + 0.003,
+                y - p.boxHalfHeight + p.frameWidth - quarter,
+              ) - mix(p.paperTone, box.tone, 0.75),
+            ),
+          ).toBeLessThan(0.03);
+          expect(
+            Math.abs(
+              toneAt(
+                sample,
+                middle + 0.003,
+                y - p.boxHalfHeight + p.frameWidth + quarter,
+              ) - mix(p.paperTone, box.tone, 0.25),
+            ),
+          ).toBeLessThan(0.03);
+          expect(
+            Math.abs(
+              toneAt(sample, left + quarter, y + 0.012) -
+                mix(p.paperTone, box.tone, 0.75),
+            ),
+          ).toBeLessThan(0.03);
+          expect(
+            Math.abs(
+              toneAt(sample, left - quarter, y + 0.012) -
+                mix(p.paperTone, box.tone, 0.25),
+            ),
+          ).toBeLessThan(0.03);
+          checked++;
+          for (let bit = 0; bit < p.keyBits; bit++)
+            if ((box.key >> (p.keyBits - 1 - bit)) & 1) {
+              const cx = left + p.bitInset + (bit + 0.5) * bitPitch;
+              expect(
+                Math.abs(
+                  toneAt(sample, cx, y + p.bitHalf - quarter) -
+                    mix(p.paperTone, p.bitTone, 0.75),
+                ),
+              ).toBeLessThan(0.03);
+              expect(
+                Math.abs(
+                  toneAt(sample, cx, y + p.bitHalf + quarter) -
+                    mix(p.paperTone, p.bitTone, 0.25),
+                ),
+              ).toBeLessThan(0.03);
+              break;
+            }
+        });
+      }
+      expect(checked).toBeGreaterThan(6);
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('hashchains', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('hashchains', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.97),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('hashchains', 0),
+      b = createSurfaceSampler('hashchains', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
