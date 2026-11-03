@@ -1168,6 +1168,7 @@ try {
     'zerovelocitycurves',
     'keplerorbits',
     'errordiffusion',
+    'diffractionpatterns',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

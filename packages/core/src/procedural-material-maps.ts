@@ -49542,6 +49542,92 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'diffractionpatterns': {
+        const p = proceduralMaterialPresets.diffractionpatterns,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant =
+            p.variants[
+              Math.floor(hash(0, 82, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          [aperture, count, scale, spacing, degrees, second] = variant,
+          angle = (degrees * Math.PI) / 180,
+          cos = Math.cos(angle),
+          sin = Math.sin(angle),
+          plot = 0.5 - p.margin,
+          inverseSoft = 1 / p.edgeSoft,
+          // J1(x) = (1 / 2 pi) integral of cos(t - x sin t): the trapezoid rule over the whole period converges very fast.
+          steps = p.integralSteps,
+          stepCos = new Float64Array(steps),
+          stepSin = new Float64Array(steps);
+        for (let k = 0; k < steps; k++) {
+          stepCos[k] = Math.cos((2 * Math.PI * k) / steps);
+          stepSin[k] = Math.sin((2 * Math.PI * k) / steps);
+        }
+        const besselOne = (x: number): number => {
+            let sum = 0;
+            for (let k = 0; k < steps; k++) {
+              const phase = x * stepSin[k];
+              sum +=
+                stepCos[k] * Math.cos(phase) + stepSin[k] * Math.sin(phase);
+            }
+            return sum / steps;
+          },
+          sinc = (x: number): number =>
+            Math.abs(x) < 1e-9 ? 1 : Math.sin(x) / x;
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            x = ((fu - 0.5) / plot) * p.extent,
+            y = -((fv - 0.5) / plot) * p.extent;
+          let single: number;
+          if (aperture === 0) {
+            const rho = scale * Math.hypot(x, y);
+            single = rho < 1e-6 ? 1 : ((2 * besselOne(rho)) / rho) ** 2;
+          } else single = (sinc(scale * x) * sinc(second * y)) ** 2;
+          // The array factor of N equal apertures in a row: [sin(N phi) / (N sin phi)]^2 with phi = (spacing / diameter) a x', where
+          // sin(N phi) / sin(phi) is the Chebyshev polynomial U(N - 1) of cos(phi), summed by its recurrence so that it stays finite at the principal maxima.
+          let arrayFactor = 1;
+          if (count > 1) {
+            const cosine = Math.cos(spacing * scale * (x * cos + y * sin));
+            let previous = 1,
+              current = 2 * cosine;
+            for (let n = 2; n < count; n++) {
+              const next = 2 * cosine * current - previous;
+              previous = current;
+              current = next;
+            }
+            arrayFactor = (current / count) ** 2;
+          }
+          const intensity = single * arrayFactor,
+            tone =
+              ((1 + p.saturation) * intensity) / (intensity + p.saturation),
+            outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
+            outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
+            boxDistance =
+              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              Math.min(Math.max(outsideX, outsideY), 0),
+            inside = smooth(clamp(-boxDistance / p.fade)),
+            ink = clamp(inside * tone),
+            mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(ink) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -58448,6 +58534,7 @@ export function createSurfaceSampler(
     kind === 'zerovelocitycurves' ||
     kind === 'keplerorbits' ||
     kind === 'errordiffusion' ||
+    kind === 'diffractionpatterns' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

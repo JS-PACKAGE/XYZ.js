@@ -1105,6 +1105,7 @@ export type ProceduralMaterialKind =
   | 'zerovelocitycurves'
   | 'keplerorbits'
   | 'errordiffusion'
+  | 'diffractionpatterns'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2458,6 +2459,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'zerovelocitycurves',
   'keplerorbits',
   'errordiffusion',
+  'diffractionpatterns',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

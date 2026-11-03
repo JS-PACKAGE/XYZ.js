@@ -1131,6 +1131,7 @@ const kinds: ProceduralMaterialKind[] = [
   'zerovelocitycurves',
   'keplerorbits',
   'errordiffusion',
+  'diffractionpatterns',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -188703,6 +188704,414 @@ describe('Error diffusion as dithered images with six diffusion kernels', () => 
     expect(blue / (512 * 512)).toBeLessThan(51.7);
     expect(maxTilt).toBeGreaterThan(0.0236);
     expect(maxTilt).toBeLessThan(0.0247);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Diffraction patterns as the Fraunhofer patterns of apertures in a row', () => {
+  const p = proceduralMaterialPresets.diffractionpatterns;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const tilePerWorld = (0.5 - p.margin) / p.extent;
+  /** J1 by its power series, which is accurate in double precision for the arguments up to about 20 used here (the sampler integrates instead). */
+  const besselOne = (x: number): number => {
+    let term = x / 2,
+      sum = term;
+    for (let k = 1; k < 80; k++) {
+      term *= -(x * x) / 4 / (k * (k + 1));
+      sum += term;
+      if (Math.abs(term) < 1e-18) break;
+    }
+    return sum;
+  };
+  /** The first four zeros of J1 by Newton's method on the series. */
+  const besselZeros = (): number[] => {
+    const zeros: number[] = [];
+    let guess = 3.8;
+    for (let n = 0; n < 4; n++) {
+      let x = guess;
+      for (let i = 0; i < 60; i++)
+        x -=
+          besselOne(x) / ((besselOne(x + 1e-6) - besselOne(x - 1e-6)) / 2e-6);
+      zeros.push(x);
+      guess = x + 3.15;
+    }
+    return zeros;
+  };
+  const sinc = (x: number): number =>
+    Math.abs(x) < 1e-9 ? 1 : Math.sin(x) / x;
+  /** The intensity of a row of N equal apertures: the single-aperture pattern times [sin(N phi) / (N sin phi)]^2, written with the direct ratio of sines. */
+  const intensityOf = (index: number, x: number, y: number): number => {
+    const [aperture, count, scale, spacing, degrees, second] =
+        p.variants[index],
+      angle = (degrees * Math.PI) / 180;
+    let single: number;
+    if (aperture === 0) {
+      const rho = scale * Math.hypot(x, y);
+      single = rho < 1e-6 ? 1 : ((2 * besselOne(rho)) / rho) ** 2;
+    } else single = (sinc(scale * x) * sinc(second * y)) ** 2;
+    let array = 1;
+    if (count > 1) {
+      const phi = spacing * scale * (x * Math.cos(angle) + y * Math.sin(angle)),
+        denominator = count * Math.sin(phi);
+      array =
+        Math.abs(denominator) < 1e-9
+          ? 1
+          : (Math.sin(count * phi) / denominator) ** 2;
+    }
+    return single * array;
+  };
+  const toneOf = (intensity: number): number =>
+    ((1 + p.saturation) * intensity) / (intensity + p.saturation);
+  /** The colour at a position of the plane (y up) read back from the sampler of a seed. */
+  const colourAt = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    x: number,
+    y: number,
+  ): number => {
+    sample(0.5 + x * tilePerWorld, 0.5 - y * tilePerWorld, out);
+    return out.color;
+  };
+  /** The offset from a predicted position, along a direction from the middle, of the darkest colour within a window around it. */
+  const darkestOffset = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    direction: [number, number],
+    radius: number,
+    window: number,
+  ): number => {
+    let best = Infinity,
+      where = radius;
+    for (let r = radius - window; r <= radius + window; r += 0.0001) {
+      const colour = colourAt(sample, out, direction[0] * r, direction[1] * r);
+      if (colour < best) {
+        best = colour;
+        where = r;
+      }
+    }
+    return where - radius;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('diffractionpatterns', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('diffractionpatterns', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0253);
+      expect(low).toBeLessThan(0.0258);
+      expect(high).toBeGreaterThan(0.86);
+      expect(high).toBeLessThan(0.872);
+      expect(dark / 65536).toBeGreaterThan(0.0074);
+      expect(dark / 65536).toBeLessThan(0.015);
+      expect(mean / 65536).toBeGreaterThan(0.0565);
+      expect(mean / 65536).toBeLessThan(0.063);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.85);
+      expect(heightHigh).toBeLessThan(0.873);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (the Airy patterns of two scales, a rectangular aperture, and rows of 2, 5 and 3 circular apertures) is 7, 12, 1, 0, 10 and 2;
+  // the table was found with a probe by the correlation with the independent intensity (the smallest margin to the second best being 0.266) and is written here, so
+  // it is not an independent check of the seed's choice.
+  const seeds = [7, 12, 1, 0, 10, 2];
+  it('draws the intensity of its own apertures and not those of the others', () => {
+    // On a 96 by 96 grid inside the plot (within 0.45 of the middle) the Pearson correlation of the colour with the tone of the intensity written in the test
+    // (the series for J1, the direct ratio of sines) is above 0.99 for the variant of the seed (0.995 to 0.996 in the probe) and below 0.85 for each other
+    // variant (0.734 at most in the probe).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('diffractionpatterns', seed),
+        out = empty();
+      p.variants.forEach((_, other) => {
+        let n = 0,
+          sx = 0,
+          sy = 0,
+          sxx = 0,
+          syy = 0,
+          sxy = 0;
+        for (let i = 0; i < 96; i++)
+          for (let j = 0; j < 96; j++) {
+            const u = 0.1 + (0.8 * (i + 0.5)) / 96,
+              v = 0.1 + (0.8 * (j + 0.5)) / 96,
+              x = ((u - 0.5) / (0.5 - p.margin)) * p.extent,
+              y = -((v - 0.5) / (0.5 - p.margin)) * p.extent;
+            if (Math.hypot(x, y) > 0.45) continue;
+            const tone = toneOf(intensityOf(other, x, y));
+            sample(u, v, out);
+            n++;
+            sx += tone;
+            sy += out.color;
+            sxx += tone * tone;
+            syy += out.color * out.color;
+            sxy += tone * out.color;
+          }
+        const correlation =
+          (n * sxy - sx * sy) /
+          Math.sqrt((n * sxx - sx * sx) * (n * syy - sy * sy));
+        if (other === index) expect(correlation).toBeGreaterThan(0.99);
+        else expect(correlation).toBeLessThan(0.85);
+      });
+    });
+  });
+  it('has its dark rings at the zeros of J1 for a circular aperture', () => {
+    // Perpendicular to the row of apertures, where the array factor is 1, the darkest colour near the first and second zeros of J1 divided by the scale
+    // (3.8317 and 7.0156; zeros found by Newton's method on the series in the test) lies within 0.002 and 0.006 of the zero (0.0007 and 0.0047 at the worst
+    // in the probe, for the five circular variants). The later rings are not tested: their contrast is too low against the grain (the third zero was
+    // off by 0.0075 to 0.0100 in the probe).
+    const zeros = besselZeros();
+    expect(zeros[0]).toBeCloseTo(3.83171, 4);
+    expect(zeros[1]).toBeCloseTo(7.01559, 4);
+    seeds.forEach((seed, index) => {
+      const [aperture, , scale, , degrees] = p.variants[index];
+      if (aperture !== 0) return;
+      const sample = createSurfaceSampler('diffractionpatterns', seed),
+        out = empty(),
+        angle = (degrees * Math.PI) / 180,
+        direction: [number, number] = [-Math.sin(angle), Math.cos(angle)];
+      expect(
+        Math.abs(darkestOffset(sample, out, direction, zeros[0] / scale, 0.01)),
+      ).toBeLessThan(0.002);
+      expect(
+        Math.abs(darkestOffset(sample, out, direction, zeros[1] / scale, 0.01)),
+      ).toBeLessThan(0.006);
+    });
+  });
+  it('has N - 1 dark lines between the principal maxima of a row of N apertures', () => {
+    // Along the row the array factor [sin(N phi) / (N sin phi)]^2 is zero at phi = (m + k / N) pi for k = 1 to N - 1, i.e. at x = (m + k / N) pi / (spacing a).
+    // Inside the main lobe (before 0.95 of the first zero of J1 divided by the scale) the darkest colour near each of these (3, 19 and 6 zeros for the rows of
+    // 2, 5 and 3 apertures) is within 0.001 of the zero (0.0003 at the worst in the probe) and the colour there is below 0.07 (0.051 at the highest).
+    const zeros = besselZeros();
+    let total = 0;
+    seeds.forEach((seed, index) => {
+      const [, count, scale, spacing, degrees] = p.variants[index];
+      if (count < 2) return;
+      const sample = createSurfaceSampler('diffractionpatterns', seed),
+        out = empty(),
+        angle = (degrees * Math.PI) / 180,
+        direction: [number, number] = [Math.cos(angle), Math.sin(angle)],
+        lobe = (0.95 * zeros[0]) / scale;
+      for (let m = 0; m < 200; m++)
+        for (let k = 1; k < count; k++) {
+          const position = ((m + k / count) * Math.PI) / (spacing * scale);
+          if (position >= lobe) continue;
+          expect(
+            Math.abs(darkestOffset(sample, out, direction, position, 0.004)),
+          ).toBeLessThan(0.001);
+          expect(
+            colourAt(
+              sample,
+              out,
+              direction[0] * position,
+              direction[1] * position,
+            ),
+          ).toBeLessThan(0.07);
+          total++;
+        }
+    });
+    expect(total).toBe(28);
+  });
+  it('has dark lines at the zeros of the sinc functions of a rectangular aperture', () => {
+    // The intensity sinc^2(a x) sinc^2(b y) is zero on the whole lines x = n pi / a and y = n pi / b: along x = pi / a, x = 2 pi / a and y = pi / b (from -0.6 to 0.6 in
+    // steps of 0.002) the colour stays below 0.06 (0.0535 at the highest in the probe), while the middle is above 0.8 (0.856) and the middle of the first
+    // side lobe at x = 1.5 pi / a is above 0.5 (0.636).
+    seeds.forEach((seed, index) => {
+      const [aperture, , scale, , , second] = p.variants[index];
+      if (aperture !== 1) return;
+      const sample = createSurfaceSampler('diffractionpatterns', seed),
+        out = empty();
+      for (let t = -0.6; t <= 0.6; t += 0.002) {
+        expect(colourAt(sample, out, Math.PI / scale, t)).toBeLessThan(0.06);
+        expect(colourAt(sample, out, (2 * Math.PI) / scale, t)).toBeLessThan(
+          0.06,
+        );
+        expect(colourAt(sample, out, t, Math.PI / second)).toBeLessThan(0.06);
+      }
+      expect(colourAt(sample, out, 0, 0)).toBeGreaterThan(0.8);
+      expect(colourAt(sample, out, (1.5 * Math.PI) / scale, 0)).toBeGreaterThan(
+        0.5,
+      );
+    });
+  });
+  it('is symmetric under a half turn, and under the mirrors when the row lies along an axis', () => {
+    // The intensity does not change under x -> -x, y -> -y together, so on a 256 by 256 grid the lit state (colour above 0.3) differs for under 0.002 of the
+    // cells for every variant (0.0007 at most in the probe); for the variants whose row is along an axis (or that are a single aperture) each mirror does the
+    // same (0.00052 at most), while the row at 35 degrees changes over 0.005 of the cells under a mirror (0.0142).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('diffractionpatterns', seed),
+        out = empty(),
+        lit = new Uint8Array(256 * 256);
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+          lit[y * 256 + x] = Number(out.color > 0.3);
+        }
+      let turn = 0,
+        mirrorX = 0,
+        mirrorY = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          turn += Number(lit[y * 256 + x] !== lit[(255 - y) * 256 + 255 - x]);
+          mirrorX += Number(lit[y * 256 + x] !== lit[y * 256 + 255 - x]);
+          mirrorY += Number(lit[y * 256 + x] !== lit[(255 - y) * 256 + x]);
+        }
+      expect(turn / 65536).toBeLessThan(0.002);
+      if (p.variants[index][4] % 90 === 0) {
+        expect(mirrorX / 65536).toBeLessThan(0.002);
+        expect(mirrorY / 65536).toBeLessThan(0.002);
+      } else {
+        expect(mirrorX / 65536).toBeGreaterThan(0.005);
+        expect(mirrorY / 65536).toBeGreaterThan(0.005);
+      }
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 7 and 12 pick different scales of the Airy pattern.
+    const first = litGrid(7),
+      second = litGrid(12);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.0089);
+    expect(different / first.length).toBeLessThan(0.0093);
+    expect(litGrid(7)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('diffractionpatterns', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 cream diffraction maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('diffractionpatterns', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(24.9);
+    expect(red / (512 * 512)).toBeLessThan(26);
+    expect(green / (512 * 512)).toBeGreaterThan(25.6);
+    expect(green / (512 * 512)).toBeLessThan(26.7);
+    expect(blue / (512 * 512)).toBeGreaterThan(37.2);
+    expect(blue / (512 * 512)).toBeLessThan(38.3);
+    expect(maxTilt).toBeGreaterThan(0.0019);
+    expect(maxTilt).toBeLessThan(0.0021);
     expect(invalid).toBe(0);
   });
 });
