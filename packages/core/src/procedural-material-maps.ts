@@ -39988,6 +39988,71 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'fenwicktree': {
+        const p = proceduralMaterialPresets.fenwicktree,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x3ee01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          size =
+            p.sizes[Math.floor(hash(16, 6, seed ^ 0x3ee02) * p.sizes.length)],
+          levels = Math.log2(size) + 1,
+          query = 1 + Math.floor(hash(17, 6, seed ^ 0x3ee03) * size),
+          update = 1 + Math.floor(hash(18, 6, seed ^ 0x3ee04) * size),
+          onQuery = new Uint8Array(size + 1),
+          onUpdate = new Uint8Array(size + 1);
+        // The prefix query visits q, then q minus its lowest set bit, down to 0; the update visits u, then u plus its lowest set bit, up to size.
+        for (let i = query; i > 0; i -= i & -i) onQuery[i] = 1;
+        for (let i = update; i <= size; i += i & -i) onUpdate[i] = 1;
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            row = Math.min(levels - 1, Math.floor(fv * levels)),
+            level = levels - 1 - row,
+            width = 1 << level,
+            column = Math.min(size - 1, Math.floor(fu * size)),
+            block = Math.floor(column / width);
+          let ink = 0,
+            ring = 0,
+            ringTwo = 0,
+            tone = p.groundTone;
+          // A row holds a bar in every second block of its width: the block's last position is the index of the bar, of lowbit width.
+          if (block % 2 === 0) {
+            const index = (block + 1) * width,
+              left = fu - (block * width) / size,
+              right = ((block + 1) * width) / size - fu,
+              top = fv - row / levels,
+              bottom = (row + 1) / levels - fv,
+              inside = Math.min(
+                left - p.gapX / 2,
+                right - p.gapX / 2,
+                top - p.gapY / 2,
+                bottom - p.gapY / 2,
+              );
+            ink = cover(inside);
+            ring = onQuery[index] ? cover(p.outline - inside) * ink : 0;
+            ringTwo = onUpdate[index]
+              ? cover(inside - p.outline) * cover(2 * p.outline - inside) * ink
+              : 0;
+            tone =
+              p.lowTone + ((p.highTone - p.lowTone) * level) / (levels - 1);
+          }
+          let shade = p.groundTone + p.grainTone * (grainField(u, v) - 0.5),
+            elevation = p.groundHeight,
+            rough = p.groundRoughness;
+          shade += (tone - shade) * ink;
+          elevation += (p.barHeight - elevation) * ink;
+          rough += (p.barRoughness - rough) * ink;
+          shade += (p.updateTone - shade) * ringTwo;
+          elevation += (p.outlineHeight - elevation) * ringTwo;
+          shade += (p.queryTone - shade) * ring;
+          elevation += (p.outlineHeight - elevation) * ring;
+          color = clamp(shade);
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -67517,6 +67582,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'fenwicktree' ||
     kind === 'jacobisymbols' ||
     kind === 'vicsekfractal' ||
     kind === 'segmenttree' ||

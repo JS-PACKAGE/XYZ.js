@@ -14089,6 +14089,34 @@ export const proceduralMaterialPresets = Object.freeze({
     gapRoughness: 0.85,
     cellRoughness: 0.4,
   }),
+  fenwicktree: Object.freeze({
+    dark: [20, 22, 30] as const,
+    light: [236, 232, 220] as const,
+    roughness: 0.6,
+    relief: 0.004,
+    // Fenwick tree (binary indexed tree): N = 16 or 32 positions across, and a row for each level: index i (1 to N) has a bar that covers
+    // the lowbit(i) positions ending at i, in the row of its lowbit (the single positions at the bottom, the whole width at the top), so
+    // the bar of index 12 (lowbit 4) covers positions 9 to 12. The bars of a row are toned by level. The seed picks a query index q and an
+    // update index u: the bars on the path of a prefix query (q, then q - lowbit(q), down to 0) have a dark outline, and the bars on the path
+    // of an update (u, then u + lowbit(u), up to N) a light one inside it.
+    sizes: Object.freeze([16, 32]),
+    gapX: 0.003,
+    gapY: 0.012,
+    outline: 0.004,
+    edgeSoft: 0.0006,
+    grainCells: 192,
+    lowTone: 0.55,
+    highTone: 0.82,
+    queryTone: 0.02,
+    updateTone: 0.98,
+    groundTone: 0.3,
+    grainTone: 0.04,
+    barHeight: 0.7,
+    groundHeight: 0.1,
+    outlineHeight: 0.95,
+    barRoughness: 0.4,
+    groundRoughness: 0.9,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -20581,6 +20609,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  fenwicktree: 1,
   jacobisymbols: 1,
   vicsekfractal: 1,
   segmenttree: 1,

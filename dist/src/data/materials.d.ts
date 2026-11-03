@@ -13177,6 +13177,29 @@ export declare const proceduralMaterialPresets: Readonly<{
         gapRoughness: 0.85;
         cellRoughness: 0.4;
     }>;
+    fenwicktree: Readonly<{
+        dark: readonly [20, 22, 30];
+        light: readonly [236, 232, 220];
+        roughness: 0.6;
+        relief: 0.004;
+        sizes: readonly number[];
+        gapX: 0.003;
+        gapY: 0.012;
+        outline: 0.004;
+        edgeSoft: 0.0006;
+        grainCells: 192;
+        lowTone: 0.55;
+        highTone: 0.82;
+        queryTone: 0.02;
+        updateTone: 0.98;
+        groundTone: 0.3;
+        grainTone: 0.04;
+        barHeight: 0.7;
+        groundHeight: 0.1;
+        outlineHeight: 0.95;
+        barRoughness: 0.4;
+        groundRoughness: 0.9;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -19662,6 +19685,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    fenwicktree: 1;
     jacobisymbols: 1;
     vicsekfractal: 1;
     segmenttree: 1;

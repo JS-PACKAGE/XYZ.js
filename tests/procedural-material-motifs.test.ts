@@ -37297,3 +37297,329 @@ describe('jacobisymbols: a window of the table of Jacobi symbols', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('fenwicktree: bars of a binary indexed tree with a prefix query path and an update path outlined', () => {
+  const p = proceduralMaterialPresets.fenwicktree,
+    out = empty();
+  type Tree = {
+    size: number;
+    levels: number;
+    sample: Sampler;
+    query: number[];
+    update: number[];
+  };
+  const near = (a: number, b: number, tolerance: number): boolean =>
+    Math.abs(a - b) < tolerance;
+  const lowbit = (i: number): number => i & -i;
+
+  // Where the bar of index i (1 to size) is: its level (log2 of its lowbit), and its edges and middle in uv, for a tree of `size` positions.
+  const barOf = (
+    size: number,
+    i: number,
+  ): {
+    level: number;
+    left: number;
+    right: number;
+    top: number;
+    bottom: number;
+    cx: number;
+    cy: number;
+  } => {
+    const level = Math.log2(lowbit(i)),
+      levels = Math.log2(size) + 1,
+      row = levels - 1 - level;
+    return {
+      level,
+      left: (i - lowbit(i)) / size,
+      right: i / size,
+      top: row / levels,
+      bottom: (row + 1) / levels,
+      cx: (i - lowbit(i) / 2) / size,
+      cy: (row + 0.5) / levels,
+    };
+  };
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const levelTone = (level: number, levels: number): number =>
+    p.lowTone + ((p.highTone - p.lowTone) * level) / (levels - 1);
+
+  const treeOf = (seed: number): Tree => {
+    const sample = createSurfaceSampler('fenwicktree', seed),
+      found = p.sizes
+        .map((size): Tree | null => {
+          const levels = Math.log2(size) + 1,
+            query: number[] = [],
+            update: number[] = [];
+          // Every bar has the tone of its level in its middle, and the empty blocks of each row are ground.
+          for (let i = 1; i <= size; i++) {
+            const bar = barOf(size, i);
+            if (
+              !near(
+                toneAt(sample, bar.cx, bar.cy),
+                levelTone(bar.level, levels),
+                0.03,
+              )
+            ) {
+              return null;
+            }
+            // Outlines: the dark one is the outer ring of the bar, the light one inside it.
+            const half = p.outline * 0.5 + p.gapX / 2,
+              inner = p.outline * 1.5 + p.gapX / 2;
+            if (
+              near(toneAt(sample, bar.left + half, bar.cy), p.queryTone, 0.04)
+            )
+              query.push(i);
+            if (
+              near(toneAt(sample, bar.left + inner, bar.cy), p.updateTone, 0.04)
+            )
+              update.push(i);
+          }
+          for (let level = 0; level < levels; level++)
+            for (let block = 1; block < size / (1 << level); block += 2) {
+              const row = levels - 1 - level;
+              if (
+                !near(
+                  toneAt(
+                    sample,
+                    ((block + 0.5) * (1 << level)) / size,
+                    (row + 0.5) / levels,
+                  ),
+                  p.groundTone,
+                  0.04,
+                )
+              )
+                return null;
+            }
+          return { size, levels, sample, query, update };
+        })
+        .filter((tree) => tree !== null);
+    expect(found).toHaveLength(1);
+    return found[0];
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws a bar for every index in its level, with the query and update paths outlined as the algorithms give them (seed %i)',
+    (seed) => {
+      const { size, query, update } = treeOf(seed);
+      // The prefix query path: the largest index marked, then each time its lowest set bit cleared, down to 0.
+      const q = Math.max(...query),
+        path: number[] = [];
+      for (let i = q; i > 0; i &= i - 1) path.push(i);
+      expect(query.slice().sort((a, b) => b - a)).toEqual(path);
+      // The update path: the bars that cover the smallest marked index u, which are the indices u, u + lowbit(u), ... up to the size.
+      const u = Math.min(...update),
+        covering: number[] = [];
+      for (let i = 1; i <= size; i++)
+        if (i - lowbit(i) < u && u <= i) covering.push(i);
+      expect(update).toEqual(covering);
+    },
+  );
+
+  it('uses both sizes and many query and update indices across seeds', () => {
+    const sizes = new Set<number>(),
+      queries = new Set<string>(),
+      updates = new Set<string>();
+    for (let seed = 0; seed < 60; seed++) {
+      const { size, query, update } = treeOf(seed);
+      sizes.add(size);
+      queries.add(`${size}:${Math.max(...query)}`);
+      updates.add(`${size}:${Math.min(...update)}`);
+    }
+    expect([...sizes].sort((a, b) => a - b)).toEqual([...p.sizes]);
+    expect(queries.size).toBeGreaterThan(20);
+    expect(updates.size).toBeGreaterThan(20);
+  });
+
+  it('reaches the first and the last index for both the query and the update', () => {
+    const seenQuery = new Set<string>(),
+      seenUpdate = new Set<string>();
+    for (let seed = 0; seed < 300; seed++) {
+      const { size, query, update } = treeOf(seed),
+        q = Math.max(...query),
+        u = Math.min(...update);
+      if (q === 1 || q === size)
+        seenQuery.add(`${size}:${q === 1 ? 'first' : 'last'}`);
+      if (u === 1 || u === size)
+        seenUpdate.add(`${size}:${u === 1 ? 'first' : 'last'}`);
+    }
+    expect([...seenQuery].sort()).toEqual([
+      '16:first',
+      '16:last',
+      '32:first',
+      '32:last',
+    ]);
+    expect([...seenUpdate].sort()).toEqual([
+      '16:first',
+      '16:last',
+      '32:first',
+      '32:last',
+    ]);
+  });
+
+  it('keeps bars gapX and gapY inside their cells and softens their edges over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x);
+    for (const seed of seeds) {
+      const { size, levels, sample, query, update } = treeOf(seed),
+        // A bar with no outline at all.
+        plain = Array.from({ length: size }, (_, k) => k + 1).find(
+          (i) => !query.includes(i) && !update.includes(i) && lowbit(i) > 1,
+        ) as number,
+        bar = barOf(size, plain),
+        tone = levelTone(bar.level, levels),
+        quarter = 0.25 * p.edgeSoft,
+        edges: [number, number, number, number][] = [
+          [bar.left + p.gapX / 2, bar.cy, 1, 0],
+          [bar.right - p.gapX / 2, bar.cy, -1, 0],
+          [bar.cx, bar.top + p.gapY / 2, 0, 1],
+          [bar.cx, bar.bottom - p.gapY / 2, 0, -1],
+        ];
+      for (const [u, v, dx, dy] of edges) {
+        const at = (offset: number): number =>
+          toneAt(sample, u + dx * offset, v + dy * offset);
+        expect(
+          Math.abs(
+            at(quarter) -
+              (p.groundTone + (tone - p.groundTone) * smoothstep(0.75)),
+          ),
+        ).toBeLessThan(0.03);
+        expect(
+          Math.abs(
+            at(-quarter) -
+              (p.groundTone + (tone - p.groundTone) * smoothstep(0.25)),
+          ),
+        ).toBeLessThan(0.03);
+        expect(at(3 * quarter)).toBeCloseTo(tone, 6);
+        expect(Math.abs(at(-3 * quarter) - p.groundTone)).toBeLessThan(0.04);
+      }
+    }
+  });
+
+  it('draws the query outline from the edge inwards over outline, and the update outline in the next outline', () => {
+    for (const seed of seeds) {
+      const { size, levels, sample, query, update } = treeOf(seed),
+        side = p.edgeSoft / 2 + 0.0003,
+        onlyQuery = query.find((i) => !update.includes(i) && lowbit(i) > 1),
+        onlyUpdate = update.find((i) => !query.includes(i) && lowbit(i) > 1),
+        both = query.find((i) => update.includes(i) && lowbit(i) > 1);
+      for (const [index, hasQuery, hasUpdate] of [
+        [onlyQuery, true, false],
+        [onlyUpdate, false, true],
+        [both, true, true],
+      ] as const) {
+        if (index === undefined) continue;
+        const bar = barOf(size, index),
+          tone = levelTone(bar.level, levels),
+          // Distance in from the left edge of the bar's drawn box.
+          at = (inside: number): number =>
+            toneAt(sample, bar.left + p.gapX / 2 + inside, bar.cy);
+        // The outer ring: dark for a query bar, else the bar's own tone; from outline to 2 outline: light for an update bar.
+        expect(
+          Math.abs(at(p.outline / 2) - (hasQuery ? p.queryTone : tone)),
+        ).toBeLessThan(0.04);
+        expect(
+          Math.abs(at(p.outline * 1.5) - (hasUpdate ? p.updateTone : tone)),
+        ).toBeLessThan(0.04);
+        expect(Math.abs(at(p.outline * 2 + side) - tone)).toBeLessThan(0.04);
+        if (hasQuery)
+          expect(
+            Math.abs(
+              at(p.outline + (hasUpdate ? -side : side)) -
+                (hasUpdate ? p.queryTone : tone),
+            ),
+          ).toBeLessThan(0.1);
+      }
+      expect(
+        onlyQuery !== undefined ||
+          onlyUpdate !== undefined ||
+          both !== undefined,
+      ).toBe(true);
+    }
+  });
+
+  it('gives bars, ground and outlines their heights and roughness, with grain only on the ground', () => {
+    for (const seed of seeds) {
+      const { size, levels, sample, query, update } = treeOf(seed),
+        read = (u: number, v: number): { h: number; r: number } => {
+          sample(u, v, out);
+          return { h: out.height / p.relief, r: out.roughness };
+        },
+        index = query[0],
+        bar = barOf(size, index);
+      expect(read(bar.left + p.gapX / 2 + p.outline / 2, bar.cy).h).toBeCloseTo(
+        p.outlineHeight,
+        6,
+      );
+      // The update outline too (the ring from outline to 2 outline in), on the first marked update bar that is wide enough.
+      const updated = Array.from({ length: size }, (_, k) => k + 1).find(
+          (i) => update.includes(i) && lowbit(i) > 1,
+        ) as number,
+        updatedBar = barOf(size, updated);
+      expect(
+        read(updatedBar.left + p.gapX / 2 + p.outline * 1.5, updatedBar.cy).h,
+      ).toBeCloseTo(p.outlineHeight, 6);
+      const plain = Array.from({ length: size }, (_, k) => k + 1).find(
+          (i) => !query.includes(i) && lowbit(i) === 1,
+        ) as number,
+        middle = barOf(size, plain);
+      expect(read(middle.cx, middle.cy).h).toBeCloseTo(p.barHeight, 6);
+      expect(read(middle.cx, middle.cy).r).toBeCloseTo(p.barRoughness, 6);
+      // The ground: between the bars of the bottom row, and in an empty block of a row above it.
+      const emptyBlock = read((2 + 0.5 * 2) / size, (levels - 1.5) / levels);
+      expect(emptyBlock.h).toBeCloseTo(p.groundHeight, 6);
+      expect(emptyBlock.r).toBeCloseTo(p.groundRoughness, 6);
+      // A bar has the same tone everywhere inside it away from the outlines; the ground varies with the grain.
+      const tones = Array.from({ length: 6 }, (_, k) =>
+        toneAt(sample, middle.cx, middle.cy + (k - 2.5) * 0.01),
+      );
+      expect(Math.max(...tones) - Math.min(...tones)).toBeLessThan(1e-9);
+      const groundTones = Array.from({ length: 30 }, (_, k) =>
+        toneAt(sample, 0.0123 + k * 0.0131, (levels - 1.5) / levels - 0.001),
+      );
+      expect(
+        Math.max(...groundTones) - Math.min(...groundTones),
+      ).toBeGreaterThan(0.005);
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('fenwicktree', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('fenwicktree', 0),
+      b = createSurfaceSampler('fenwicktree', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
