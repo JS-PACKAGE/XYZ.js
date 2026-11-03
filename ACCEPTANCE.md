@@ -13645,3 +13645,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增7項專屬測試（秩相關、節線個數、帶諧函數零點、數值範圍與色調、seed差異與決定性、C1掃描、maps）加kinds清單新條目；獨立算式是勒壤得多項式的顯式和逐次微分。變異檢查（只做了一次）：把sampler遞迴式的 (l + m − 1) 改成 (l + m)，該describe的7項中6項失敗（只有C1掃描通過）；已還原。限制：seed對應的起點是探針量出再寫入，不是獨立oracle；節線檢查限制在圖的0.03至0.97；l = 0之外未檢查振幅；符號慣例只對照獨立算式；取樣耗時未量測；未對照任何參考圖。型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`（用修正後的腳本，格式錯誤會使gates失敗）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Spherical harmonics as|sphericalharmonics|kinds|catalog|distinct|periodic"`定向測試**2505項通過／4306項未選**，輸出`GATES-OK`。
 - 未驗證：mapattractors、wallpapergroups與sphericalharmonics未跑完整suite與瀏覽器gallery（最近一次完整複驗至H樹）；不push。
+
+## 2026-11-04 完整測試與瀏覽器gallery複驗（至球諧函數）
+
+- 完整suite（工具實跑）：在commit `da5abea69`（`[P08] Add Spherical Harmonics material`）的乾淨worktree執行`vitest run`，**179個檔案、10,740項測試全部通過**，耗時1334.10 s（同時進行gallery檢查，所以時間不能與先前的紀錄直接比較）；對照前一次紀錄（`f7e0a8be6`，10,716項），新增的mapattractors（8項）、wallpapergroups（8項）、sphericalharmonics（8項）共24項，與數量吻合；其間的文字更正提交沒有新增測試。
+- 瀏覽器gallery（headless Chrome，`--enable-unsafe-webgpu --use-angle=metal`）：預設（WebGPU）與`?renderer=webgl2`兩個分頁讀數皆為「1096 procedural material presets」、select共1097個選項；依序選取sphericalharmonics、wallpapergroups、mapattractors、htree、plain都在期限內更新讀數，兩個分頁的console錯誤皆為0；並在另一個分頁讀出前三個選項的文字，確認是各自的描述（不是範本字樣）。這**只**涵蓋「可選取、讀數更新、無console錯誤」與上述選項文字，沒有逐材質截圖，也不證明視覺品質，沒有逐一選過全部1096種；mapattractors在建構時要跑50萬步映射（Bun量測約125至195 ms），gallery啟動時間受影響多少我沒有量測；這次沒有量測頁面載入時間。**mapattractors的像素在不同JavaScript引擎之間不保證逐位元相同**（sin／cos的精度因引擎而異），gallery在Chrome（V8）中的畫面是否與Node（vitest）相同，我沒有驗證。
+- 未驗證：沒有量測建構與取樣耗時；不push。
