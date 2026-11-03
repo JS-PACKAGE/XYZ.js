@@ -13195,3 +13195,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 完整suite（工具實跑）：在commit `9b2c8622f`（`[P08] Add Domino tiling material`）的乾淨worktree執行`vitest run`，**179個檔案、10,469項測試全部通過**，耗時1181.38 s；對照前一次紀錄（`46593d123`，10,454項），新增的partitionmod5、stirlingparity、dominotiling各加5項共15項，與數量吻合。
 - 瀏覽器gallery（headless Chrome，`--enable-unsafe-webgpu --use-angle=metal`）：頁面載入約265 s後，預設（WebGPU）與`?renderer=webgl2`兩個分頁讀數皆為「1055 procedural material presets」、select共1056個選項；依序選取partitionmod5、stirlingparity、dominotiling、plain（WebGPU分頁另加nimproduct）都在期限內更新讀數，兩個分頁的console錯誤皆為0。這**只**涵蓋「可選取、讀數更新、無console錯誤」，沒有逐材質截圖，也不證明視覺品質；只選了上述少數kind，沒有逐一選過全部1055種。這次兩次`browser.open`都一次成功。
 - 未驗證：沒有量測建構與取樣耗時；不push。
+
+## 2026-11-03 新增材質：約瑟夫問題（josephus）
+
+- 範圍：新增`josephus`（目前目錄1055→1056種，含plain的gallery 1057項）：64×64的約瑟夫問題表——n個人圍圈、每數k個淘汰，第n−1列、第k−1欄顯示倖存者落在圓圈的哪一個八分之一（7階深海軍藍到金黃）；seed平移環面；預設0.5 m nominal tile、0.0008 UV-relative relief；保留的cache 163,840 B。作者示意，沒有引用特定來源或照片、**沒有對照照片**。
+- 調整與錯誤紀錄（誠實紀錄）：(1)預覽只看了一版；(2)動手前以`/tmp/absent.sh`確認`josephus`在kind清單與README都不存在；(3)先放棄了兩個構想：Brian's Brain（以隨機起始演化30步後只剩約12%的格子活躍，視覺過稀）與Greenberg–Hastings（起始探針的初始化有偏差，修正後在32×32環面仍全數熄滅，沒有形成螺旋），兩者都沒有進入實作，沒有留下程式碼；(4)我在文件第一版寫了「約8萬次遞迴步」，是估算錯誤，實際為64×Σ(n−1)=64×2,016=129,024次，已在所有文件改正；(5)256²與512²取樣的亮處占比不同，原因是格寬（4與8像素）與取樣點在格內位置不同，測試採用256²的數值範圍；(6)建構與取樣耗時**未量測**；(7)測試第一次執行即通過（先以探針量好界線）。
+- 測試的限制：sampler用遞迴、測試用另一個獨立的方式（真的演出淘汰過程）重算整張表，兩者在4,096格完全相同；k=2封閉形式是標準結論，僅用來交叉核對演出的實作，我沒有另外驗證該定理本身；不證明不規則區域有特別的統計性質。
+- 實測（工具實跑）：遞迴與演出在4,096格上完全相同；八個色階出現707／425／494／463／566／473／527／441次；四個seed（0／1／0xffffffff／7）各有唯一符合的平移(57, 36)、(7, 38)、(11, 48)、(62, 16)，最大擬合誤差0.014995–0.015；256²（seed 0／1／0xffffffff）亮處（color>0.5）恆為36.75%、color 0.05929–0.06033至0.85361–0.85400、平均0.40192–0.40200、roughness恆為0.4、AO最低0.7344、height至多0.8468–0.8471 relief；512²（四個seed）亮處29.60%–29.65%、color 0.02528–0.02541至0.85406–0.85475、平均0.34779–0.34794、AO最低0.7344、height至多0.8487–0.8505 relief；seed 0與1相比，512²中color>0.5的取樣31.2%不同、格中心顏色差>0.05的格子87.96%；seed 7的512²maps平均r／g／b約(95.2, 85.6, 63.9)、法線tilt²最大約0.0378、z分量最小253。我實看了預覽（seed 7）。
+- 測試：新增4項專屬測試，`-t`選中的5項（含kinds清單新條目）皆通過；型別檢查與eslint乾淨。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Josephus as|josephus|kinds|catalog|distinct|periodic"`定向測試**2418項通過／4127項未選**。
+- 未驗證：josephus未跑完整suite與瀏覽器gallery（最近一次完整複驗至骨牌鋪磚）；不push。
