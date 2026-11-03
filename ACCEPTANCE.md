@@ -13504,3 +13504,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增6項專屬測試（數值範圍、相切與圓度、色調交替、seed差異與決定性、C1掃描、maps）加kinds清單新條目，`-t`選中的7項皆通過；型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Steiner chain as|steinerchain|kinds|catalog|distinct|periodic"`定向測試**2478項通過／4229項未選**，輸出`GATES-OK`。
 - 未驗證：steinerchain未跑完整suite與瀏覽器gallery（最近一次完整複驗至球面三角形群立體投影；之後的fareydisc、conformalspiral同樣未跑）；不push。
+
+## 2026-11-03 完整測試與瀏覽器gallery複驗（至Steiner鏈）
+
+- 完整suite（工具實跑）：在commit `26f02f272`（`[P08] Add Steiner Chain material`）的乾淨worktree執行`vitest run`，**179個檔案、10,636項測試全部通過**，耗時1196.71 s；對照前一次紀錄（`82380b123`，10,615項），新增的fareydisc、conformalspiral、steinerchain各7項共21項，與數量吻合（各含kinds清單的一個新條目）；修正下拉選單標籤的提交沒有新增測試。
+- 瀏覽器gallery（headless Chrome，`--enable-unsafe-webgpu --use-angle=metal`）：頁面載入約345 s（與完整suite同時執行）後，預設（WebGPU）與`?renderer=webgl2`兩個分頁讀數皆為「1083 procedural material presets」、select共1084個選項；依序選取fareydisc、conformalspiral、steinerchain、plain都在期限內更新讀數，兩個分頁的console錯誤皆為0。另在WebGPU分頁讀出select中perfectarray、sphericaltriangles、fareydisc、conformalspiral、steinerchain、hypercube的選項文字，**確認修正後的標籤確實顯示**（hypercube仍是它自己的標籤）。這**只**涵蓋「可選取、讀數更新、無console錯誤」與上述六個選項文字，沒有逐材質截圖，也不證明視覺品質；沒有逐一選過全部1083種，也沒有逐一讀其他選項的文字。
+- 未驗證：沒有量測建構與取樣耗時；不push。
