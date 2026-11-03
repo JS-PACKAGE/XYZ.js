@@ -44806,6 +44806,89 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'daynight': {
+        const p = proceduralMaterialPresets.daynight,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseHalf = 1 / p.kernelHalf,
+          inverseSoft = 1 / p.edgeSoft,
+          // The Day and Night cellular automaton (a dead cell is born with 3, 6, 7 or 8 live neighbours
+          // among the 8 around it, a live cell stays with 3, 4, 6, 7 or 8) on a panel x panel torus,
+          // started from a random soup (a cell is alive when its hash is below density) and run for
+          // warmup generations. The tile shows four generations in a row, each in its own panel of
+          // panel x panel cells: the panel at the top left is the generation after the warm-up, the
+          // top right the next one, then the bottom left and the bottom right.
+          panel = p.panel,
+          size = panel * 2,
+          step = (now: Uint8Array): Uint8Array =>
+            Uint8Array.from({ length: panel * panel }, (_, cell) => {
+              const x = cell % panel,
+                y = Math.floor(cell / panel);
+              let alive = 0;
+              for (let dy = -1; dy <= 1; dy++)
+                for (let dx = -1; dx <= 1; dx++)
+                  if (dx !== 0 || dy !== 0)
+                    alive +=
+                      now[
+                        ((y + dy + panel) % panel) * panel +
+                          ((x + dx + panel) % panel)
+                      ];
+              return (
+                now[cell] === 1
+                  ? alive >= 3 && alive !== 5
+                  : alive === 3 || alive >= 6
+              )
+                ? 1
+                : 0;
+            }),
+          frames: Uint8Array[] = [
+            Uint8Array.from({ length: panel * panel }, (_, cell) =>
+              hash(cell, 0, seed ^ p.seedSalt) < p.density ? 1 : 0,
+            ),
+          ];
+        for (let generation = 0; generation < p.warmup + 3; generation++) {
+          const next = step(frames[frames.length - 1]);
+          if (generation < p.warmup) frames[0] = next;
+          else frames.push(next);
+        }
+        const grid = Uint8Array.from({ length: size * size }, (_, cell) => {
+          const row = Math.floor(cell / size),
+            col = cell % size;
+          return frames[Math.floor(row / panel) * 2 + Math.floor(col / panel)][
+            (row % panel) * panel + (col % panel)
+          ];
+        });
+        return () => {
+          // One compact-support rounded-square kernel per cell (a quartic superellipse
+          // through smoothstep, exactly zero before the cell boundary), so the cell
+          // lookup never jumps and the field is C1.
+          const x = fract(u) * size,
+            y = fract(v) * size,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            ax = (x - col - 0.5) * inverseHalf,
+            ay = (y - row - 0.5) * inverseHalf,
+            ax2 = ax * ax,
+            ay2 = ay * ay,
+            s = ax2 * ax2 + ay2 * ay2,
+            mask = smooth(clamp((1 - s) * inverseSoft)),
+            dome = smooth(clamp(1 - s)),
+            tone = p.toneSpan * grid[row * size + col],
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor + tone - p.gapTone) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * dome * (1 - p.toneHeight + p.toneHeight * tone) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -53672,6 +53755,7 @@ export function createSurfaceSampler(
     kind === 'cayleytable' ||
     kind === 'paleyhadamard' ||
     kind === 'hamiltoncycle' ||
+    kind === 'daynight' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

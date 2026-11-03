@@ -24926,6 +24926,35 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: .08,
 		gapOcclusion: .4
 	}),
+	daynight: Object.freeze({
+		dark: [
+			10,
+			20,
+			40
+		],
+		light: [
+			255,
+			240,
+			140
+		],
+		roughness: .4,
+		relief: 8e-4,
+		seedSalt: 11671,
+		panel: 32,
+		warmup: 24,
+		density: .5,
+		kernelHalf: .46,
+		edgeSoft: .3,
+		grainCells: 128,
+		gapTone: .04,
+		toneFloor: .14,
+		toneSpan: .7,
+		grainTone: .03,
+		cellHeight: .8,
+		toneHeight: .12,
+		grainHeight: .08,
+		gapOcclusion: .4
+	}),
 	vermiculation: Object.freeze({
 		dark: [
 			60,
@@ -26975,6 +27004,7 @@ var proceduralTileMeters = Object.freeze({
 	cayleytable: .5,
 	paleyhadamard: .5,
 	hamiltoncycle: .5,
+	daynight: .5,
 	dominotiling: .5,
 	vermiculation: .4,
 	kikko: .3,

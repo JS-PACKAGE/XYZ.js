@@ -1128,6 +1128,7 @@ try {
     'cayleytable',
     'paleyhadamard',
     'hamiltoncycle',
+    'daynight',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
