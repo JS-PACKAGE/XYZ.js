@@ -1110,6 +1110,7 @@ export type ProceduralMaterialKind =
   | 'brillouinzones'
   | 'powderdiffraction'
   | 'arnoldtongues'
+  | 'kelvinwake'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2468,6 +2469,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'brillouinzones',
   'powderdiffraction',
   'arnoldtongues',
+  'kelvinwake',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

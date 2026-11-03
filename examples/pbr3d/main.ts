@@ -1173,6 +1173,7 @@ try {
     'brillouinzones',
     'powderdiffraction',
     'arnoldtongues',
+    'kelvinwake',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

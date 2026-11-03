@@ -50057,6 +50057,98 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'kelvinwake': {
+        const p = proceduralMaterialPresets.kelvinwake,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          crests =
+            p.variants[
+              Math.floor(hash(0, 87, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          inverseSoft = 1 / p.edgeSoft,
+          // The wave vector at the angle t to the track has y / x = g(t) = sin t cos t / (1 + sin^2 t) at the crests: g rises from 0 to 1 / (2 sqrt 2)
+          // (the Kelvin angle, 19.47 degrees) at sin t = 1 / sqrt 3 and then falls to 0 again, so each point inside the wedge has a transverse and a
+          // divergent wave.
+          cuspAngle = Math.asin(Math.sqrt(1 / 3)),
+          cuspSlope = Math.SQRT2 / 4,
+          slopeOf = (t: number): number => {
+            const s = Math.sin(t);
+            return (s * Math.cos(t)) / (1 + s * s);
+          },
+          wavelength = 1 / crests;
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            x = (fu - p.margin) / (1 - 2 * p.margin),
+            y = (0.5 - fv) / (1 - 2 * p.margin),
+            radius = Math.hypot(x, y);
+          let ink = 0;
+          if (x > 1e-4) {
+            const slope = Math.abs(y) / x,
+              inWedge = smooth(
+                clamp((cuspSlope + p.wedgeSoft - slope) / (2 * p.wedgeSoft)),
+              ),
+              target = Math.min(slope, cuspSlope),
+              decay = 1 / Math.sqrt(1 + radius / p.decayLength),
+              axisFade = smooth(clamp(slope / p.axisSoft));
+            let transverseLow = 0,
+              transverseHigh = cuspAngle,
+              divergentLow = cuspAngle,
+              divergentHigh = Math.PI / 2;
+            for (let i = 0; i < 50; i++) {
+              const transverse = (transverseLow + transverseHigh) / 2,
+                divergent = (divergentLow + divergentHigh) / 2;
+              if (slopeOf(transverse) < target) transverseLow = transverse;
+              else transverseHigh = transverse;
+              if (slopeOf(divergent) > target) divergentLow = divergent;
+              else divergentHigh = divergent;
+            }
+            const transverse = (transverseLow + transverseHigh) / 2,
+              divergent = (divergentLow + divergentHigh) / 2;
+            let ridges = 0;
+            for (const angle of [transverse, divergent]) {
+              const sine = Math.sin(angle),
+                cosine = Math.cos(angle),
+                phase = (TAU * x) / (cosine * (1 + sine * sine) * wavelength),
+                ridge = ((1 + Math.cos(phase)) / 2) ** p.crestPower,
+                weight =
+                  angle === transverse
+                    ? 1
+                    : cosine * cosine * axisFade * axisFade;
+              ridges = 1 - (1 - ridges) * (1 - weight * ridge);
+            }
+            ink = inWedge * decay * ridges;
+          }
+          const hull = clamp(
+            1 - (radius * radius) / (p.hullRadius * p.hullRadius),
+          );
+          ink = Math.max(ink, hull * hull);
+          const outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
+            outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
+            boxDistance =
+              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              Math.min(Math.max(outsideX, outsideY), 0),
+            inside = smooth(clamp(-boxDistance / p.fade));
+          ink = clamp(inside * ink);
+          const mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(ink) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -58968,6 +59060,7 @@ export function createSurfaceSampler(
     kind === 'brillouinzones' ||
     kind === 'powderdiffraction' ||
     kind === 'arnoldtongues' ||
+    kind === 'kelvinwake' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

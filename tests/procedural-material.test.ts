@@ -1136,6 +1136,7 @@ const kinds: ProceduralMaterialKind[] = [
   'brillouinzones',
   'powderdiffraction',
   'arnoldtongues',
+  'kelvinwake',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -190480,6 +190481,314 @@ describe('Arnold tongues as the mode locking of the circle map', () => {
     expect(blue / (512 * 512)).toBeLessThan(50.4);
     expect(maxTilt).toBeGreaterThan(0.0463);
     expect(maxTilt).toBeLessThan(0.0475);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Kelvin wake as the crest lines of the waves behind a ship', () => {
+  const p = proceduralMaterialPresets.kelvinwake;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The Kelvin angle: tan of arcsin(1/3) is 1 / (2 sqrt 2), the greatest y / x of the wake. */
+  const cuspSlope = 1 / (2 * Math.SQRT2);
+  /** The angle t of the wave vector at the cusp: sin t = 1 / sqrt 3. */
+  const cuspAngle = Math.asin(Math.sqrt(1 / 3));
+  const colourAt = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    x: number,
+    y: number,
+  ): number => {
+    sample(
+      p.margin + x * (1 - 2 * p.margin),
+      0.5 - y * (1 - 2 * p.margin),
+      out,
+    );
+    return out.color;
+  };
+  /** The point of the crest of the phase `phase` (in length) at the angle t of the wave vector, found by the forward parametrisation x = phase cos t (1 + sin^2 t), y = phase sin t cos^2 t. */
+  const crestPoint = (phase: number, angle: number): [number, number] => [
+    phase * Math.cos(angle) * (1 + Math.sin(angle) ** 2),
+    phase * Math.sin(angle) * Math.cos(angle) ** 2,
+  ];
+  /** The local maxima of the colour above 0.3 along the axis (y = 0) from x = 0.03 to 0.97 in steps of 0.0005. */
+  const axisCrests = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+  ): number[] => {
+    const peaks: number[] = [];
+    let previous = 0,
+      current = colourAt(sample, out, 0.03, 0);
+    for (let x = 0.03; x <= 0.97; x += 0.0005) {
+      const next = colourAt(sample, out, x + 0.0005, 0);
+      if (current > 0.3 && current >= previous && current > next) peaks.push(x);
+      previous = current;
+      current = next;
+    }
+    return peaks;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('kelvinwake', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('kelvinwake', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0255);
+      expect(low).toBeLessThan(0.0257);
+      expect(high).toBeGreaterThan(0.727);
+      expect(high).toBeLessThan(0.798);
+      expect(dark / 65536).toBeGreaterThan(0.0185);
+      expect(dark / 65536).toBeLessThan(0.023);
+      expect(mean / 65536).toBeGreaterThan(0.062);
+      expect(mean / 65536).toBeLessThan(0.066);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.696);
+      expect(heightHigh).toBeLessThan(0.775);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (3, 4, 5, 6, 8 and 10 transverse wavelengths along the plot) is 0, 2, 15, 1, 12 and 10; the table was found with a probe from the spacing of the crests along the axis
+  // (for every seed the rounded reciprocal of the spacing was one of the six counts) and is written here, so it is not an independent check of the seed's choice.
+  const seeds = [0, 2, 15, 1, 12, 10];
+  it('puts the transverse and divergent crests on the parametrised curves of constant phase', () => {
+    // The far-field crests are the curves x = phase cos t (1 + sin^2 t), y = phase sin t cos^2 t for t from -pi/2 to pi/2 and phase = m wavelengths (derived by hand from the stationary phase of the wave vector at the
+    // angle t from the track; t up to the angle at the cusp, sin t = 1 / sqrt 3, is the transverse family and t beyond it is the divergent family). The sampler finds the angle from y / x by bisection instead, so
+    // this is the forward direction of the same relation. At the points of those curves (every 0.0125 rad of t from 0 to 0.8 on both sides, for m from 1 up to the number of wavelengths, inside the plot with x from 0.05
+    // to 0.95 and |y| up to 0.46) the colour is above 0.3 (0.358 at the lowest for the transverse family and 0.349 for the divergent one in the probe; 198 to 853 and 58 to 233 points), and half a wavelength further out
+    // along the same ray of t, for the variants 0 to 4, it is lower by at least 0.1 (0.227 at the lowest in the probe; the variant with 10 wavelengths had 2 of 1160 pairs not lower by 0.1 because the neighbouring
+    // crest of the other family lies there, so it is left out).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('kelvinwake', seed),
+        out = empty(),
+        crests = p.variants[index];
+      let transverse = 0,
+        divergent = 0;
+      for (let m = 1; m <= crests; m++)
+        for (let angle = -0.8; angle <= 0.8; angle += 0.0125) {
+          const [x, y] = crestPoint(m / crests, angle);
+          if (x < 0.05 || x > 0.95 || Math.abs(y) > 0.46) continue;
+          const crest = colourAt(sample, out, x, y);
+          expect(crest).toBeGreaterThan(0.3);
+          if (Math.abs(angle) <= cuspAngle) transverse++;
+          else divergent++;
+          const [outerX, outerY] = crestPoint((m + 0.5) / crests, angle);
+          if (index < 5 && outerX <= 0.95 && Math.abs(outerY) <= 0.46)
+            expect(
+              crest - colourAt(sample, out, outerX, outerY),
+            ).toBeGreaterThan(0.1);
+        }
+      expect(transverse).toBeGreaterThan(150);
+      expect(divergent).toBeGreaterThan(40);
+    });
+  });
+  it('stops at the Kelvin angle, the arcsine of 1/3, on both sides of the track', () => {
+    // Along the rays y / x = 0.97, 0.99, 1.0, 1.02 ... times the Kelvin slope 1 / (2 sqrt 2) (from x = 0.2 to 0.95 while |y| is up to 0.46), the greatest colour is above 0.6 inside the wedge (0.69 at the lowest in the probe for
+    // 0.97 and 0.99), and under 0.1 outside it (0.055 at the highest in the probe, the grain, for 1.02, 1.04, 1.06 and 1.1), and every point of the plot (x from 0.1, y / x from 1.04 times the slope up to 2.5) is under 0.1 too.
+    seeds.forEach((seed) => {
+      const sample = createSurfaceSampler('kelvinwake', seed),
+        out = empty(),
+        rayMaximum = (slope: number): number => {
+          let highest = 0;
+          for (let x = 0.2; x <= 0.95 && slope * x <= 0.46; x += 0.0005)
+            highest = Math.max(highest, colourAt(sample, out, x, slope * x));
+          return highest;
+        };
+      for (const fraction of [0.97, 0.99])
+        expect(rayMaximum(cuspSlope * fraction)).toBeGreaterThan(0.6);
+      for (const fraction of [1.02, 1.04, 1.06, 1.1])
+        expect(rayMaximum(cuspSlope * fraction)).toBeLessThan(0.1);
+      let counted = 0;
+      for (let x = 0.1; x <= 0.95; x += 0.005)
+        for (
+          let slope = cuspSlope * 1.04;
+          slope <= 2.5 && slope * x <= 0.46;
+          slope += 0.01
+        ) {
+          expect(colourAt(sample, out, x, slope * x)).toBeLessThan(0.1);
+          counted++;
+        }
+      expect(counted).toBeGreaterThan(5000);
+    });
+  });
+  it('has the transverse crests on the track one wavelength apart', () => {
+    // On the track (y = 0) the wave vector is along it, so the phase is x itself: the crests are at the whole numbers of the wavelength 1 / N (N being the number of wavelengths along the plot). The maxima of the colour along the
+    // axis are within 0.001 of those places (0.00067 at the worst in the probe) and there are N - 1 of them (the one at x = 1 lies on the edge of the plot, in its fade).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('kelvinwake', seed),
+        out = empty(),
+        crests = p.variants[index],
+        peaks = axisCrests(sample, out);
+      expect(peaks.length).toBe(crests - 1);
+      peaks.forEach((x, i) =>
+        expect(Math.abs(x - (i + 1) / crests)).toBeLessThan(0.001),
+      );
+    });
+  });
+  it('is mirror symmetric about the track', () => {
+    // The wake is the same on both sides of the track, so the colour at (x, y) and at (x, -y) differs by under 0.05 (0.0287 at the most in the probe, the grain; 2970 pairs per variant).
+    seeds.forEach((seed) => {
+      const sample = createSurfaceSampler('kelvinwake', seed),
+        out = empty();
+      let pairs = 0;
+      for (let x = 0.05; x <= 0.95; x += 0.01)
+        for (let y = 0.003; y <= 0.45; y += 0.0137) {
+          expect(
+            Math.abs(
+              colourAt(sample, out, x, y) - colourAt(sample, out, x, -y),
+            ),
+          ).toBeLessThan(0.05);
+          pairs++;
+        }
+      expect(pairs).toBeGreaterThan(2500);
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 2 pick different wavelengths (3 and 4 along the plot).
+    const first = litGrid(0),
+      second = litGrid(2);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.0388);
+    expect(different / first.length).toBeLessThan(0.0389);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('kelvinwake', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 sea wake maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('kelvinwake', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(13.3);
+    expect(red / (512 * 512)).toBeLessThan(13.9);
+    expect(green / (512 * 512)).toBeGreaterThan(28);
+    expect(green / (512 * 512)).toBeLessThan(28.7);
+    expect(blue / (512 * 512)).toBeGreaterThan(38.3);
+    expect(blue / (512 * 512)).toBeLessThan(39);
+    expect(maxTilt).toBeGreaterThan(0.031);
+    expect(maxTilt).toBeLessThan(0.032);
     expect(invalid).toBe(0);
   });
 });
