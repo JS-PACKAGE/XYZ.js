@@ -47538,6 +47538,97 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'reuleauxfield': {
+        const p = proceduralMaterialPresets.reuleauxfield,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant =
+            p.variants[
+              Math.floor(hash(0, 62, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          corners = variant[0],
+          cells = variant[1],
+          // A Reuleaux polygon of the width w (an odd number of corners n): the intersection of the n discs of
+          // the radius w centred at the corners of a regular n-gon whose longest diagonals have the length w, so
+          // every corner is at the distance w from the two opposite ones. Its circumradius is
+          // w / (2 cos(pi / (2 n))). One shape stands in the middle of each cell of a cells by cells grid (a cell
+          // has the side 1 here), turned by a random multiple of the angle of symmetry, and fits inside its cell.
+          width = p.shapeWidth,
+          circumradius = width / (2 * Math.cos(Math.PI / (2 * corners))),
+          half = (corners - 1) / 2,
+          halfArc = Math.PI / (2 * corners),
+          widthSquared = p.lineHalfWidth * p.lineHalfWidth,
+          inverseSoft = 1 / p.edgeSoft;
+        return () => {
+          const cx = fract(u) * cells,
+            cy = fract(v) * cells,
+            column = Math.floor(cx),
+            row = Math.floor(cy),
+            x = cx - column - 0.5,
+            y = cy - row - 0.5,
+            turn =
+              hash(column, row, seed ^ p.seedSalt) * ((2 * Math.PI) / corners);
+          let keep = 1,
+            inside = true;
+          for (let k = 0; k < corners; k++) {
+            const angle = turn + (2 * Math.PI * k) / corners,
+              centreX = circumradius * Math.cos(angle),
+              centreY = circumradius * Math.sin(angle),
+              dx = x - centreX,
+              dy = y - centreY,
+              distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance > width) inside = false;
+            // The arc of this circle between the two opposite corners: the angles about the centre within
+            // half the arc, pi / (2 n), of the direction to the middle of the polygon.
+            let across = Math.atan2(dy, dx) - (angle + Math.PI);
+            across -= 2 * Math.PI * Math.round(across / (2 * Math.PI));
+            let arcDistance: number;
+            if (Math.abs(across) <= halfArc)
+              arcDistance = Math.abs(distance - width);
+            else {
+              const first = angle + (2 * Math.PI * half) / corners,
+                second = angle + (2 * Math.PI * (half + 1)) / corners;
+              arcDistance = Math.min(
+                Math.hypot(
+                  x - circumradius * Math.cos(first),
+                  y - circumradius * Math.sin(first),
+                ),
+                Math.hypot(
+                  x - circumradius * Math.cos(second),
+                  y - circumradius * Math.sin(second),
+                ),
+              );
+            }
+            const t = clamp(1 - (arcDistance * arcDistance) / widthSquared);
+            keep *= 1 - t * t;
+          }
+          const line = 1 - keep,
+            fill = inside
+              ? (column + row) % 2 === 0
+                ? p.fillEven
+                : p.fillOdd
+              : 0,
+            ink = clamp(fill * (1 - line) + line),
+            mask = smooth(clamp(ink * inverseSoft)),
+            tone = p.toneSpan * ink,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            tone +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(line) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -56425,6 +56516,7 @@ export function createSurfaceSampler(
     kind === 'steinerchain' ||
     kind === 'confocalconics' ||
     kind === 'eisensteinprimes' ||
+    kind === 'reuleauxfield' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

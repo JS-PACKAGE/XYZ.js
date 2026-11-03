@@ -1149,6 +1149,7 @@ try {
     'steinerchain',
     'confocalconics',
     'eisensteinprimes',
+    'reuleauxfield',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

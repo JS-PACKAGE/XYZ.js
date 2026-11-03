@@ -1112,6 +1112,7 @@ const kinds: ProceduralMaterialKind[] = [
   'steinerchain',
   'confocalconics',
   'eisensteinprimes',
+  'reuleauxfield',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -181628,6 +181629,388 @@ describe('Eisenstein primes as the prime Eisenstein integers on the triangular l
     expect(blue / (512 * 512)).toBeLessThan(58.1);
     expect(maxTilt).toBeGreaterThan(0.006);
     expect(maxTilt).toBeLessThan(0.009);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Reuleaux field as Reuleaux polygons of constant width, one in each cell', () => {
+  const p = proceduralMaterialPresets.reuleauxfield;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const size = 512;
+  type Shape = {
+    area: number;
+    x: number;
+    y: number;
+    tone: number;
+    widths: number[];
+    meanWidth: number;
+    ratio: number;
+  };
+  /**
+   * The shapes found in a 512 by 512 reading of a seed: the 4-connected regions of at least 2500 pixels whose
+   * colour is in [0.32, 0.62) (the fill; the thin bands where the colour passes through that range at the lines are
+   * far smaller), each with its area, centroid, mean colour, its width in 180 directions (the extent of the pixel
+   * centres along the direction plus one pixel) and the ratio of the largest to the smallest distance of a
+   * boundary pixel from the centroid. Nothing about how the sampler builds the shapes is used.
+   */
+  const shapesOf = (seed: number): Shape[] => {
+    const sample = createSurfaceSampler('reuleauxfield', seed),
+      out = empty(),
+      colors = new Float32Array(size * size),
+      label = new Int32Array(size * size).fill(-1),
+      shapes: Shape[] = [];
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        colors[y * size + x] = out.color;
+      }
+    const inside = (at: number): boolean =>
+      colors[at] >= 0.32 && colors[at] < 0.62;
+    for (let start = 0; start < size * size; start++) {
+      if (label[start] >= 0 || !inside(start)) continue;
+      const id = shapes.length + 1000000,
+        pixels: number[] = [],
+        stack = [start];
+      label[start] = id;
+      while (stack.length) {
+        const at = stack.pop()!,
+          x = at % size,
+          y = (at - x) / size;
+        pixels.push(at);
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const nx = x + dx,
+            ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
+          const next = ny * size + nx;
+          if (label[next] < 0 && inside(next)) {
+            label[next] = id;
+            stack.push(next);
+          }
+        }
+      }
+      if (pixels.length < 2500) {
+        for (const at of pixels) label[at] = -2;
+        continue;
+      }
+      let sx = 0,
+        sy = 0,
+        sc = 0;
+      for (const at of pixels) {
+        sx += (at % size) + 0.5;
+        sy += Math.floor(at / size) + 0.5;
+        sc += colors[at];
+      }
+      const x = sx / pixels.length,
+        y = sy / pixels.length,
+        widths: number[] = [];
+      for (let k = 0; k < 180; k++) {
+        const ux = Math.cos((Math.PI * k) / 180),
+          uy = Math.sin((Math.PI * k) / 180);
+        let low = Infinity,
+          high = -Infinity;
+        for (const at of pixels) {
+          const projection =
+            ((at % size) + 0.5) * ux + (Math.floor(at / size) + 0.5) * uy;
+          low = Math.min(low, projection);
+          high = Math.max(high, projection);
+        }
+        widths.push(high - low + 1);
+      }
+      let nearest = Infinity,
+        farthest = 0;
+      for (const at of pixels) {
+        const px = at % size,
+          py = Math.floor(at / size);
+        if (
+          [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ].every(
+            ([dx, dy]) =>
+              px + dx >= 0 &&
+              py + dy >= 0 &&
+              px + dx < size &&
+              py + dy < size &&
+              label[(py + dy) * size + px + dx] === id,
+          )
+        )
+          continue;
+        const radius = Math.hypot(px + 0.5 - x, py + 0.5 - y);
+        nearest = Math.min(nearest, radius);
+        farthest = Math.max(farthest, radius);
+      }
+      shapes.push({
+        area: pixels.length,
+        x,
+        y,
+        tone: sc / pixels.length,
+        widths,
+        meanWidth:
+          widths.reduce((sum, value) => sum + value, 0) / widths.length,
+        ratio: farthest / nearest,
+      });
+    }
+    return shapes;
+  };
+  /**
+   * The geometry of a Reuleaux polygon of n corners (n odd) from the textbook construction, not the sampler's: with the
+   * longest diagonal equal to the width w the regular n-gon has the circumradius w / (2 cos(pi / 2n)), and the area is
+   * that of the n-gon, n / 2 R^2 sin(2 pi / n), plus n circular segments of the radius w and the angle pi / n,
+   * w^2 / 2 (pi / n - sin(pi / n)) each. Returns the ratio of the area to w^2 and of the largest to the smallest
+   * distance from the middle to the boundary, R / (w - R).
+   */
+  const reuleaux = (corners: number): { area: number; ratio: number } => {
+    const circumradius = 1 / (2 * Math.cos(Math.PI / (2 * corners)));
+    return {
+      area:
+        (corners / 2) *
+          circumradius *
+          circumradius *
+          Math.sin((2 * Math.PI) / corners) +
+        (corners / 2) * (Math.PI / corners - Math.sin(Math.PI / corners)),
+      ratio: circumradius / (1 - circumradius),
+    };
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('reuleauxfield', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('reuleauxfield', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0254);
+      expect(low).toBeLessThan(0.0258);
+      expect(high).toBeGreaterThan(0.873);
+      expect(high).toBeLessThan(0.874);
+      expect(dark / 65536).toBeGreaterThan(0.207);
+      expect(dark / 65536).toBeLessThan(0.22);
+      expect(mean / 65536).toBeGreaterThan(0.274);
+      expect(mean / 65536).toBeLessThan(0.29);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.875);
+      expect(heightHigh).toBeLessThan(0.8766);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The variant for each of the seeds 3, 16, 1, 0, 2 and 7 (variants 0 to 5) was found with a probe and is written
+  // here; it is then checked against the number of shapes and the corner ratio read from the picture.
+  const seeds = [3, 16, 1, 0, 2, 7];
+  it('draws one shape of constant width in each cell, of the number of corners of the variant', () => {
+    // For each seed the shapes of the picture (found as regions, see above) number cells^2 and their ratio of
+    // the largest to the smallest boundary distance from the centroid is within 0.06 of R / (w - R) of a
+    // Reuleaux polygon of the number of corners of the variant (1.37, 1.11 and 1.05 for 3, 5 and 7 corners; the probe's
+    // worst shapes are 0.040 off for 3 corners, 0.016 for 5 and 0.016 for 7, the lines eating the rim lengthen the ratio) and above 1.04 (so none is a circle). Every shape has the same width in
+    // all the 180 directions to within 3.5 pixels (1.5 to 2.4 in the probe, of 97 to 130), the shapes of a picture have
+    // mean widths within 2.5 pixels of each other, and the area over the squared width is within 2% of that of the
+    // textbook Reuleaux polygon (0.70, 0.76 and 0.77; 0.3% to 1.4% less in the probe because the lines eat the rim).
+    seeds.forEach((seed, index) => {
+      const [corners, cells] = p.variants[index],
+        shapes = shapesOf(seed),
+        ideal = reuleaux(corners);
+      expect(shapes.length).toBe(cells * cells);
+      for (const shape of shapes) {
+        expect(Math.abs(shape.ratio - ideal.ratio)).toBeLessThan(0.06);
+        expect(shape.ratio).toBeGreaterThan(1.04);
+        expect(
+          Math.max(...shape.widths) - Math.min(...shape.widths),
+        ).toBeLessThan(3.5);
+        expect(
+          Math.abs(
+            shape.area / (shape.meanWidth * shape.meanWidth) / ideal.area - 1,
+          ),
+        ).toBeLessThan(0.02);
+      }
+      const means = shapes.map((shape) => shape.meanWidth);
+      expect(Math.max(...means) - Math.min(...means)).toBeLessThan(2.5);
+    });
+    // Reading the number of corners from the ratio and the cells from the count gives back the variant of the table.
+    seeds.forEach((seed, index) => {
+      const shapes = shapesOf(seed),
+        ratio =
+          shapes.reduce((sum, shape) => sum + shape.ratio, 0) / shapes.length,
+        corners = [3, 5, 7].reduce((best, candidate) =>
+          Math.abs(reuleaux(candidate).ratio - ratio) <
+          Math.abs(reuleaux(best).ratio - ratio)
+            ? candidate
+            : best,
+        ),
+        cells = Math.round(Math.sqrt(shapes.length));
+      expect([corners, cells]).toEqual([...p.variants[index]]);
+    });
+  });
+  it('centres each shape in its cell and tones the cells like a checkerboard', () => {
+    // The centroid of a Reuleaux polygon is its middle, so the centroid of every shape is within 1.5 pixels of the
+    // middle of its cell, the shape is narrower than its cell (the mean width below 0.82 of the cell, the design
+    // being 0.8 minus the lines), and the mean colour is below 0.43 for an even sum of the cell's column and row and above
+    // it for an odd one (about 0.35 and 0.5).
+    seeds.forEach((seed, index) => {
+      const cells = p.variants[index][1],
+        cell = size / cells;
+      for (const shape of shapesOf(seed)) {
+        const column = Math.floor(shape.x / cell),
+          row = Math.floor(shape.y / cell);
+        expect(Math.abs(shape.x - (column + 0.5) * cell)).toBeLessThan(1.5);
+        expect(Math.abs(shape.y - (row + 0.5) * cell)).toBeLessThan(1.5);
+        expect(shape.meanWidth).toBeLessThan(0.82 * cell);
+        if ((column + row) % 2 === 0) expect(shape.tone).toBeLessThan(0.43);
+        else expect(shape.tone).toBeGreaterThan(0.43);
+      }
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 1 pick different variants (5 corners in 3 by 3 cells and 5 corners in 4 by 4 cells).
+    const first = litGrid(0),
+      second = litGrid(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.33);
+    expect(different / first.length).toBeLessThan(0.35);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('reuleauxfield', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [12, p.grainCells, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 teal Reuleaux field maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('reuleauxfield', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(38.8);
+    expect(red / (512 * 512)).toBeLessThan(40);
+    expect(green / (512 * 512)).toBeGreaterThan(89.5);
+    expect(green / (512 * 512)).toBeLessThan(90.7);
+    expect(blue / (512 * 512)).toBeGreaterThan(86.6);
+    expect(blue / (512 * 512)).toBeLessThan(87.8);
+    expect(maxTilt).toBeGreaterThan(0.018);
+    expect(maxTilt).toBeLessThan(0.022);
     expect(invalid).toBe(0);
   });
 });
