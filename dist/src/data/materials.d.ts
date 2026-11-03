@@ -16194,6 +16194,33 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.08;
         gapOcclusion: 0.4;
     }>;
+    polygonoffsets: Readonly<{
+        dark: readonly [10, 26, 12];
+        light: readonly [200, 255, 140];
+        roughness: 0.4;
+        relief: 0.0008;
+        seedSalt: 32289;
+        diskRadius: 0.46;
+        step: 0.045;
+        lineHalfWidth: 0.009;
+        ringHalfWidth: 0.004;
+        fadeStart: 0.94;
+        shapes: readonly [readonly [readonly [0, -0.55], readonly [0.1352, -0.1861], readonly [0.5231, -0.17], readonly [0.2187, 0.0711], readonly [0.3233, 0.445], readonly [0, 0.23], readonly [-0.3233, 0.445], readonly [-0.2187, 0.0711], readonly [-0.5231, -0.17], readonly [-0.1352, -0.1861]], readonly [readonly [0.55, 0], readonly [0.2598, 0.15], readonly [0.275, 0.4763], readonly [0, 0.3], readonly [-0.275, 0.4763], readonly [-0.2598, 0.15], readonly [-0.55, 0], readonly [-0.2598, -0.15], readonly [-0.275, -0.4763], readonly [0, -0.3], readonly [0.275, -0.4763], readonly [0.2598, -0.15]], readonly [readonly [-0.45, -0.5], readonly [-0.1, -0.5], readonly [-0.1, 0.1], readonly [0.45, 0.1], readonly [0.45, 0.5], readonly [-0.45, 0.5]], readonly [readonly [0, -0.55], readonly [0.5, 0.3], readonly [-0.5, 0.3]], readonly [readonly [-0.15, -0.5], readonly [0.15, -0.5], readonly [0.15, -0.15], readonly [0.5, -0.15], readonly [0.5, 0.15], readonly [0.15, 0.15], readonly [0.15, 0.5], readonly [-0.15, 0.5], readonly [-0.15, 0.15], readonly [-0.5, 0.15], readonly [-0.5, -0.15], readonly [-0.15, -0.15]], readonly [readonly [-0.5, -0.35], readonly [0, -0.35], readonly [0.5, 0], readonly [0, 0.35], readonly [-0.5, 0.35], readonly [-0.2, 0]]];
+        edgeSoft: 0.35;
+        grainCells: 128;
+        gapTone: 0.04;
+        toneFloor: 0.14;
+        toneSpan: 0.72;
+        outsideEven: 0.08;
+        outsideOdd: 0.2;
+        insideEven: 0.32;
+        insideOdd: 0.48;
+        grainTone: 0.03;
+        cellHeight: 0.8;
+        toneHeight: 0.12;
+        grainHeight: 0.08;
+        gapOcclusion: 0.4;
+    }>;
     vermiculation: Readonly<{
         dark: readonly [60, 48, 36];
         light: readonly [220, 204, 172];
@@ -17944,6 +17971,7 @@ export declare const proceduralTileMeters: Readonly<{
     eisensteinprimes: 0.5;
     reuleauxfield: 0.5;
     powerdiagram: 0.5;
+    polygonoffsets: 0.5;
     dominotiling: 0.5;
     vermiculation: 0.4;
     kikko: 0.3;

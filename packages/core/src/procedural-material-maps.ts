@@ -47746,6 +47746,82 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'polygonoffsets': {
+        const p = proceduralMaterialPresets.polygonoffsets,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          shape =
+            p.shapes[
+              Math.floor(hash(0, 64, seed ^ p.seedSalt) * p.shapes.length)
+            ],
+          corners = shape.length,
+          widthSquared = p.lineHalfWidth * p.lineHalfWidth,
+          inverseSoft = 1 / p.edgeSoft;
+        return () => {
+          // The signed distance of the point to the polygon (negative inside), the least distance to a side
+          // with the parity of the number of crossings of a ray for the inside; the lines are at the whole
+          // multiples of the step of this distance (the offset curves of the polygon, with the corners
+          // rounded outside and mitred inside), and the bands between them take alternating tones.
+          const scale = 1 / p.diskRadius,
+            gx = (fract(u) - 0.5) * scale,
+            gy = (fract(v) - 0.5) * scale,
+            radius = Math.sqrt(gx * gx + gy * gy);
+          let nearest = Infinity,
+            within = false;
+          for (let k = 0; k < corners; k++) {
+            const a = shape[k],
+              b = shape[(k + 1) % corners],
+              ex = b[0] - a[0],
+              ey = b[1] - a[1],
+              wx = gx - a[0],
+              wy = gy - a[1],
+              along = clamp((wx * ex + wy * ey) / (ex * ex + ey * ey)),
+              distance = Math.hypot(wx - along * ex, wy - along * ey);
+            nearest = Math.min(nearest, distance);
+            if (a[1] > gy !== b[1] > gy && gx < a[0] + ((gy - a[1]) * ex) / ey)
+              within = !within;
+          }
+          const signed = within ? -nearest : nearest,
+            level = Math.round(signed / p.step),
+            offset = Math.abs(signed - level * p.step),
+            band = Math.floor(nearest / p.step),
+            lineT = clamp(1 - (offset * offset) / widthSquared),
+            line = lineT * lineT,
+            visible = smooth(clamp((p.fadeStart - radius) / 0.02)),
+            fill = within
+              ? band % 2 === 0
+                ? p.insideEven
+                : p.insideOdd
+              : band % 2 === 0
+                ? p.outsideEven
+                : p.outsideOdd,
+            rimT = clamp(
+              1 -
+                ((radius - 1) * (radius - 1)) /
+                  (p.ringHalfWidth * p.ringHalfWidth),
+            ),
+            ring = rimT * rimT,
+            ink = clamp(visible * (fill * (1 - line) + line) + ring),
+            mask = smooth(clamp(ink * inverseSoft)),
+            tone = p.toneSpan * ink,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            tone +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(visible * line + ring) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -56635,6 +56711,7 @@ export function createSurfaceSampler(
     kind === 'eisensteinprimes' ||
     kind === 'reuleauxfield' ||
     kind === 'powerdiagram' ||
+    kind === 'polygonoffsets' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

@@ -1088,6 +1088,7 @@ export type ProceduralMaterialKind =
   | 'eisensteinprimes'
   | 'reuleauxfield'
   | 'powerdiagram'
+  | 'polygonoffsets'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2424,6 +2425,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'eisensteinprimes',
   'reuleauxfield',
   'powerdiagram',
+  'polygonoffsets',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

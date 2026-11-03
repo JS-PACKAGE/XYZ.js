@@ -1151,6 +1151,7 @@ try {
     'eisensteinprimes',
     'reuleauxfield',
     'powerdiagram',
+    'polygonoffsets',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

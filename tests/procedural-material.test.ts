@@ -1114,6 +1114,7 @@ const kinds: ProceduralMaterialKind[] = [
   'eisensteinprimes',
   'reuleauxfield',
   'powerdiagram',
+  'polygonoffsets',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -182398,6 +182399,336 @@ describe('Power diagram as discs and the radical-axis cells of their power diagr
     expect(blue / (512 * 512)).toBeLessThan(47.9);
     expect(maxTilt).toBeGreaterThan(0.024);
     expect(maxTilt).toBeLessThan(0.028);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Polygon offsets as the offset curves of a polygon in alternating bands', () => {
+  const p = proceduralMaterialPresets.polygonoffsets;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /**
+   * The signed distance of a point (in disc radii) to a polygon, negative inside, by brute force and not by the
+   * formula of the sampler: the least distance to the 401 points taken along each side, and the inside by the
+   * winding number (the sum of the angles that the sides subtend, which is 2 pi inside and 0 outside).
+   */
+  const signedDistance = (
+    shape: readonly (readonly number[])[],
+    x: number,
+    y: number,
+  ): number => {
+    let nearest = Infinity,
+      turn = 0;
+    shape.forEach((a, i) => {
+      const b = shape[(i + 1) % shape.length];
+      for (let k = 0; k <= 400; k++) {
+        const t = k / 400;
+        nearest = Math.min(
+          nearest,
+          Math.hypot(
+            x - (a[0] + (b[0] - a[0]) * t),
+            y - (a[1] + (b[1] - a[1]) * t),
+          ),
+        );
+      }
+      let angle =
+        Math.atan2(b[1] - y, b[0] - x) - Math.atan2(a[1] - y, a[0] - x);
+      while (angle > Math.PI) angle -= 2 * Math.PI;
+      while (angle < -Math.PI) angle += 2 * Math.PI;
+      turn += angle;
+    });
+    return Math.abs(turn) > Math.PI ? -nearest : nearest;
+  };
+  const position = (x: number, y: number): number[] => [
+    0.5 + p.diskRadius * x,
+    0.5 + p.diskRadius * y,
+  ];
+  /**
+   * The check points of each shape built forwards from the polygon: from the middle of each side, along its normal,
+   * at the signed distances +-(k + f) step for k = 1 to 30 and f = 0 (on a line of the picture) or 0.5 (in the middle of a
+   * band), within 0.85 of the middle of the tile and only where the brute-force distance of the point equals the
+   * distance travelled to within 0.001 (that is, where the side is the nearest part of the polygon). The band
+   * points are classified by outside or inside and by the parity of the band number floor(|distance| / step).
+   */
+  const sets = p.shapes.map((shape) => {
+    const lines: number[][] = [],
+      bands: { point: number[]; kind: number }[] = [];
+    shape.forEach((a, i) => {
+      const b = shape[(i + 1) % shape.length],
+        length = Math.hypot(b[0] - a[0], b[1] - a[1]),
+        normalX = (b[1] - a[1]) / length,
+        normalY = -(b[0] - a[0]) / length;
+      for (const sign of [1, -1])
+        for (let k = 1; k <= 30; k++)
+          for (const fraction of [0, 0.5]) {
+            const travelled = (k + fraction) * p.step * sign,
+              x = (a[0] + b[0]) / 2 + normalX * travelled,
+              y = (a[1] + b[1]) / 2 + normalY * travelled;
+            if (Math.hypot(x, y) > 0.85) continue;
+            const distance = signedDistance(shape, x, y);
+            if (Math.abs(Math.abs(distance) - Math.abs(travelled)) > 0.001)
+              continue;
+            if (fraction === 0) lines.push(position(x, y));
+            else
+              bands.push({
+                point: position(x, y),
+                kind:
+                  (distance < 0 ? 2 : 0) +
+                  (Math.floor(Math.abs(distance) / p.step) % 2),
+              });
+          }
+    });
+    return { lines, bands };
+  });
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('polygonoffsets', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('polygonoffsets', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0255);
+      expect(low).toBeLessThan(0.0259);
+      expect(high).toBeGreaterThan(0.872);
+      expect(high).toBeLessThan(0.8745);
+      expect(dark / 65536).toBeGreaterThan(0.147);
+      expect(dark / 65536).toBeLessThan(0.151);
+      expect(mean / 65536).toBeGreaterThan(0.2245);
+      expect(mean / 65536).toBeLessThan(0.23);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.873);
+      expect(heightHigh).toBeLessThan(0.878);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The shape for each of the seeds 0, 1, 5, 2, 4 and 3 (shapes 0 to 5) was found with a probe and is written here,
+  // so that table is not an independent check of the seed's choice.
+  const seeds = [0, 1, 5, 2, 4, 3];
+  it('draws the offset curves of the polygon of the variant and no other', () => {
+    // All the check points on the lines (the signed distances that are whole multiples of the step) of the shape
+    // of each seed read bright (> 0.7; at most 2 may read lower), and each other shape has at least 20 check points
+    // reading lower (at least 43 in the probe); the check points in the middle of a band read below 0.6, the colour
+    // of the fill (up to 0.5 in the probe).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('polygonoffsets', seed),
+        out = empty(),
+        lowOf = (shape: number): number => {
+          let low = 0;
+          for (const [x, y] of sets[shape].lines) {
+            sample(x, y, out);
+            low += Number(out.color < 0.7);
+          }
+          return low;
+        };
+      expect(sets[index].lines.length).toBeGreaterThan(50);
+      expect(lowOf(index)).toBeLessThanOrEqual(2);
+      p.shapes.forEach((_, other) => {
+        if (other !== index) expect(lowOf(other)).toBeGreaterThan(20);
+      });
+      for (const { point } of sets[index].bands) {
+        sample(point[0], point[1], out);
+        expect(out.color).toBeLessThan(0.6);
+      }
+    });
+  });
+  it('puts every bright line pixel on an offset curve of the polygon', () => {
+    // For the pixels of a 256 by 256 reading with a colour above 0.78 (the cores of the lines) within 0.85 of the
+    // middle, the brute-force signed distance to the polygon is within 0.006 of a whole multiple of the step (0.0032
+    // at worst in the probe; the half width of the lines is 0.009 and the distance changes by 1 per unit of
+    // length).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('polygonoffsets', seed),
+        out = empty();
+      let bright = 0,
+        bad = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+          if (out.color < 0.78) continue;
+          const gx = ((x + 0.5) / 256 - 0.5) / p.diskRadius,
+            gy = ((y + 0.5) / 256 - 0.5) / p.diskRadius;
+          if (Math.hypot(gx, gy) > 0.85) continue;
+          const distance = signedDistance(p.shapes[index], gx, gy);
+          bright++;
+          bad += Number(
+            Math.abs(distance - p.step * Math.round(distance / p.step)) > 0.006,
+          );
+        }
+      expect(bright).toBeGreaterThan(3000);
+      expect(bad).toBe(0);
+    });
+  });
+  it('tones the bands by inside or outside and by the parity of the band number', () => {
+    // At the middle of every band (the distance travelled from a side, checked by the brute-force distance) the
+    // colour is, by outside or inside and the parity of the band number: outside even below 0.18 (0.098 to 0.125
+    // in the probe), outside odd from 0.19 to 0.30 (0.231 to 0.259), inside even from 0.30 to 0.42 (0.356 to 0.380; the
+    // star shapes have none, their inside bands being too narrow for a side to be the nearest part) and inside odd
+    // from 0.43 to 0.56 (0.472 to 0.498).
+    const ranges = [
+      [0, 0.18],
+      [0.19, 0.3],
+      [0.3, 0.42],
+      [0.43, 0.56],
+    ];
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('polygonoffsets', seed),
+        out = empty(),
+        seen = new Set<number>();
+      for (const { point, kind } of sets[index].bands) {
+        sample(point[0], point[1], out);
+        expect(out.color).toBeGreaterThan(ranges[kind][0]);
+        expect(out.color).toBeLessThan(ranges[kind][1]);
+        seen.add(kind);
+      }
+      expect(seen.has(0) && seen.has(1) && seen.has(3)).toBe(true);
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 1 pick different shapes (the five-pointed star and the six-pointed star).
+    const first = litGrid(0),
+      second = litGrid(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.2);
+    expect(different / first.length).toBeLessThan(0.22);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('polygonoffsets', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 green polygon offset maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('polygonoffsets', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(52.7);
+    expect(red / (512 * 512)).toBeLessThan(53.9);
+    expect(green / (512 * 512)).toBeGreaterThan(77.6);
+    expect(green / (512 * 512)).toBeLessThan(78.8);
+    expect(blue / (512 * 512)).toBeGreaterThan(40.6);
+    expect(blue / (512 * 512)).toBeLessThan(41.8);
+    expect(maxTilt).toBeGreaterThan(0.052);
+    expect(maxTilt).toBeLessThan(0.057);
     expect(invalid).toBe(0);
   });
 });

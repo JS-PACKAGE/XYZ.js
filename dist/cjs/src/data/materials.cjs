@@ -26007,6 +26007,103 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: .08,
 		gapOcclusion: .4
 	}),
+	polygonoffsets: Object.freeze({
+		dark: [
+			10,
+			26,
+			12
+		],
+		light: [
+			200,
+			255,
+			140
+		],
+		roughness: .4,
+		relief: 8e-4,
+		seedSalt: 32289,
+		diskRadius: .46,
+		step: .045,
+		lineHalfWidth: .009,
+		ringHalfWidth: .004,
+		fadeStart: .94,
+		shapes: [
+			[
+				[0, -.55],
+				[.1352, -.1861],
+				[.5231, -.17],
+				[.2187, .0711],
+				[.3233, .445],
+				[0, .23],
+				[-.3233, .445],
+				[-.2187, .0711],
+				[-.5231, -.17],
+				[-.1352, -.1861]
+			],
+			[
+				[.55, 0],
+				[.2598, .15],
+				[.275, .4763],
+				[0, .3],
+				[-.275, .4763],
+				[-.2598, .15],
+				[-.55, 0],
+				[-.2598, -.15],
+				[-.275, -.4763],
+				[0, -.3],
+				[.275, -.4763],
+				[.2598, -.15]
+			],
+			[
+				[-.45, -.5],
+				[-.1, -.5],
+				[-.1, .1],
+				[.45, .1],
+				[.45, .5],
+				[-.45, .5]
+			],
+			[
+				[0, -.55],
+				[.5, .3],
+				[-.5, .3]
+			],
+			[
+				[-.15, -.5],
+				[.15, -.5],
+				[.15, -.15],
+				[.5, -.15],
+				[.5, .15],
+				[.15, .15],
+				[.15, .5],
+				[-.15, .5],
+				[-.15, .15],
+				[-.5, .15],
+				[-.5, -.15],
+				[-.15, -.15]
+			],
+			[
+				[-.5, -.35],
+				[0, -.35],
+				[.5, 0],
+				[0, .35],
+				[-.5, .35],
+				[-.2, 0]
+			]
+		],
+		edgeSoft: .35,
+		grainCells: 128,
+		gapTone: .04,
+		toneFloor: .14,
+		toneSpan: .72,
+		outsideEven: .08,
+		outsideOdd: .2,
+		insideEven: .32,
+		insideOdd: .48,
+		grainTone: .03,
+		cellHeight: .8,
+		toneHeight: .12,
+		grainHeight: .08,
+		gapOcclusion: .4
+	}),
 	vermiculation: Object.freeze({
 		dark: [
 			60,
@@ -28079,6 +28176,7 @@ var proceduralTileMeters = Object.freeze({
 	eisensteinprimes: .5,
 	reuleauxfield: .5,
 	powerdiagram: .5,
+	polygonoffsets: .5,
 	dominotiling: .5,
 	vermiculation: .4,
 	kikko: .3,
