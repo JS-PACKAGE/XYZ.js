@@ -45219,6 +45219,102 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'slopegraph': {
+        const p = proceduralMaterialPresets.slopegraph,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x50e01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          items =
+            p.itemCounts[
+              Math.floor(hash(71, 1, seed ^ 0x50e02) * p.itemCounts.length)
+            ],
+          before = new Float64Array(items),
+          after = new Float64Array(items),
+          shuffle = (salt: number): number[] => {
+            // The levels in a random order (the first `items` of them are the ones used).
+            const levels = Array.from({ length: p.levelCount }, (_, i) => i);
+            for (let i = p.levelCount - 1; i > 0; i--) {
+              const j = Math.floor(hash(i, salt, seed ^ 0x50e03) * (i + 1));
+              [levels[i], levels[j]] = [levels[j], levels[i]];
+            }
+            return levels;
+          },
+          starts = shuffle(36),
+          ends = shuffle(37),
+          levelY = (level: number): number => p.top + level * p.levelPitch;
+        for (let i = 0; i < items; i++) {
+          before[i] = levelY(starts[i]);
+          after[i] = levelY(ends[i]);
+        }
+        const span = p.rightX - p.leftX,
+          bottom = levelY(p.levelCount - 1);
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          // The two axes.
+          for (const x of [p.leftX, p.rightX])
+            paint(
+              cover(
+                Math.min(
+                  p.axisHalf - Math.abs(fu - x),
+                  fv - (p.top - p.axisReach),
+                  bottom + p.axisReach - fv,
+                ),
+              ),
+              p.axisTone,
+              p.axisHeight,
+            );
+          // The lines, each the segment from its left dot to its right dot.
+          if (fu > p.leftX - p.lineHalf && fu < p.rightX + p.lineHalf) {
+            const along = (fu - p.leftX) / span;
+            for (let i = 0; i < items; i++) {
+              const rise = before[i] - after[i],
+                // The point of the line above this x, and how far (across the line) this pixel is from it.
+                lineY = before[i] - rise * along,
+                slope = rise / span,
+                distance = Math.abs(fv - lineY) / Math.sqrt(1 + slope * slope);
+              if (distance > p.lineHalf + p.edgeSoft) continue;
+              const up = rise > 1e-9,
+                down = rise < -1e-9;
+              paint(
+                cover(p.lineHalf - distance),
+                up ? p.riseTone : down ? p.fallTone : p.levelTone,
+                up ? p.riseHeight : down ? p.fallHeight : p.levelHeight,
+              );
+            }
+          }
+          // The dots at the ends of the lines.
+          for (let i = 0; i < items; i++)
+            for (let side = 0; side < 2; side++) {
+              const x = side === 0 ? p.leftX : p.rightX,
+                y = side === 0 ? before[i] : after[i];
+              if (Math.abs(fv - y) < p.dotRadius + p.edgeSoft)
+                paint(
+                  cover(p.dotRadius - Math.hypot(fu - x, fv - y)),
+                  p.dotTone,
+                  p.dotHeight,
+                );
+            }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -72748,6 +72844,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'slopegraph' ||
     kind === 'kolakoskisequence' ||
     kind === 'crcdivision' ||
     kind === 'lfsrstates' ||

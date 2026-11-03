@@ -54632,3 +54632,382 @@ describe('kolakoskisequence: a sequence that describes itself by its run lengths
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('slopegraph: items as dots on a left and a right axis joined by straight lines, rising lines dark and falling lines mid-toned', () => {
+  const p = proceduralMaterialPresets.slopegraph,
+    out = empty(),
+    span = p.rightX - p.leftX,
+    lineTones = [p.riseTone, p.fallTone, p.levelTone];
+  type Edge = { from: number; to: number };
+  type Graph = {
+    sample: Sampler;
+    edges: Edge[];
+    left: number[];
+    right: number[];
+  };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const near = (tone: number, wanted: number): boolean =>
+    Math.abs(tone - wanted) < 0.01;
+  const levelY = (level: number): number => p.top + level * p.levelPitch;
+  const bottom = levelY(p.levelCount - 1);
+  // The place on the line from a left level to a right level at a fraction of the way along, and the unit step across the line there.
+  const pointOn = (
+    from: number,
+    to: number,
+    along: number,
+  ): { x: number; y: number; nx: number; ny: number } => {
+    const dy = levelY(to) - levelY(from),
+      length = Math.hypot(span, dy);
+    return {
+      x: p.leftX + along * span,
+      y: levelY(from) + along * dy,
+      nx: -dy / length,
+      ny: span / length,
+    };
+  };
+  // A pixel where two lines cross is a little off either tone, so a looser match than near().
+  const anyLineTone = (tone: number): boolean =>
+    lineTones.some((candidate) => Math.abs(tone - candidate) < 0.03);
+
+  // Read the picture: the levels with a dot on each axis, then which left level is joined to which right level (the pairs whose line is there all along).
+  const graphOf = (seed: number): Graph => {
+    const sample = createSurfaceSampler('slopegraph', seed),
+      levels = Array.from({ length: p.levelCount }, (_, level) => level),
+      left = levels.filter((level) =>
+        near(toneAt(sample, p.leftX, levelY(level)), p.dotTone),
+      ),
+      right = levels.filter((level) =>
+        near(toneAt(sample, p.rightX, levelY(level)), p.dotTone),
+      ),
+      edges: Edge[] = [];
+    expect(p.itemCounts).toContain(left.length);
+    expect(right.length).toBe(left.length);
+    for (const from of left)
+      for (const to of right) {
+        const present = [0.2, 0.35, 0.5, 0.65, 0.8].every((along) => {
+          const { x, y } = pointOn(from, to, along);
+          return anyLineTone(toneAt(sample, x, y));
+        });
+        if (present) edges.push({ from, to });
+      }
+    return { sample, edges, left, right };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'joins every left dot to exactly one right dot by a straight line, rising lines dark, falling ones mid-toned and level ones pale (seed %i)',
+    (seed) => {
+      const { sample, edges, left, right } = graphOf(seed);
+      // Every dot has exactly one line: the pairs are a one-to-one matching.
+      expect(edges.length).toBe(left.length);
+      expect(edges.map((edge) => edge.from).sort((a, b) => a - b)).toEqual(
+        left,
+      );
+      expect(edges.map((edge) => edge.to).sort((a, b) => a - b)).toEqual(right);
+      edges.forEach(({ from, to }) => {
+        // The tone is by direction (a lower level number is higher up: the line rises when it ends on a smaller level number), away from other lines and dots.
+        const wanted =
+            to < from ? p.riseTone : to > from ? p.fallTone : p.levelTone,
+          clear = [0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85].filter(
+            (along) => {
+              const { x, y } = pointOn(from, to, along);
+              return edges.every((other) => {
+                if (other.from === from && other.to === to) return true;
+                const o = pointOn(other.from, other.to, along),
+                  dx = x - o.x,
+                  dy = y - o.y,
+                  across = Math.abs(dx * o.nx + dy * o.ny);
+                return across > 0.012 || Math.abs(dx) > 0.2;
+              });
+            },
+          );
+        expect(clear.length).toBeGreaterThan(0);
+        clear.forEach((along) => {
+          const { x, y } = pointOn(from, to, along);
+          expect(near(toneAt(sample, x, y), wanted)).toBe(true);
+        });
+      });
+    },
+  );
+
+  it('uses every number of items and rising, falling and level lines, and lines that cross, over 60 seeds', () => {
+    const counts = new Set<number>();
+    let rising = 0,
+      falling = 0,
+      level = 0,
+      crossings = 0,
+      total = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const { edges, left } = graphOf(seed * 71 + 18);
+      counts.add(left.length);
+      edges.forEach((edge, i) => {
+        rising += Number(edge.to < edge.from);
+        falling += Number(edge.to > edge.from);
+        level += Number(edge.to === edge.from);
+        total++;
+        // Two lines cross when their ends are in opposite orders on the two axes.
+        for (const other of edges.slice(i + 1))
+          crossings += Number(
+            (edge.from - other.from) * (edge.to - other.to) < 0,
+          );
+      });
+    }
+    expect([...counts].sort((a, b) => a - b)).toEqual([...p.itemCounts]);
+    expect(rising).toBeGreaterThan(total * 0.3);
+    expect(falling).toBeGreaterThan(total * 0.3);
+    expect(level).toBeGreaterThan(10);
+    expect(level).toBeLessThan(total * 0.15);
+    // Chosen at random, about half of all pairs of lines cross.
+    expect(crossings).toBeGreaterThan(300);
+  });
+
+  it('draws the axes, the lines and the dots with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, edges, left, right } = graphOf(seed),
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      // The axes: tone, height, roughness, thickness and how far they reach above and below the levels (read between the dots).
+      for (const x of [p.leftX, p.rightX]) {
+        const y = levelY(0) - p.axisReach + 0.003,
+          between = levelY(p.levelCount - 1) + p.axisReach - 0.003;
+        for (const probe of [y, between]) {
+          expect(toneAt(sample, x, probe)).toBeCloseTo(p.axisTone, 6);
+          expect(out.height / p.relief).toBeCloseTo(p.axisHeight, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          expect(toneAt(sample, x + p.axisHalf - 0.0004, probe)).toBeCloseTo(
+            p.axisTone,
+            6,
+          );
+          expect(paperOk(x + p.axisHalf + 0.0008, probe)).toBe(true);
+        }
+        expect(paperOk(x, levelY(0) - p.axisReach - 0.002)).toBe(true);
+        expect(paperOk(x, bottom + p.axisReach + 0.002)).toBe(true);
+      }
+      // A dot: tone, height, roughness and radius, on each axis (on the side away from the line).
+      left.forEach((level) => {
+        const y = levelY(level);
+        expect(toneAt(sample, p.leftX, y)).toBeCloseTo(p.dotTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.dotHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(
+          near(toneAt(sample, p.leftX - p.dotRadius + 0.0005, y), p.dotTone),
+        ).toBe(true);
+        expect(paperOk(p.leftX - p.dotRadius - 0.0012, y)).toBe(true);
+        expect(paperOk(p.leftX - 0.02, y)).toBe(true);
+      });
+      right.forEach((level) => {
+        const y = levelY(level);
+        expect(toneAt(sample, p.rightX, y)).toBeCloseTo(p.dotTone, 6);
+        expect(
+          near(toneAt(sample, p.rightX + p.dotRadius - 0.0005, y), p.dotTone),
+        ).toBe(true);
+        expect(paperOk(p.rightX + p.dotRadius + 0.0012, y)).toBe(true);
+      });
+      // A line: tone, height, roughness, and its thickness measured across it, at a place clear of the other lines.
+      edges.forEach(({ from, to }) => {
+        const wanted =
+            to < from ? p.riseTone : to > from ? p.fallTone : p.levelTone,
+          level =
+            to < from ? p.riseHeight : to > from ? p.fallHeight : p.levelHeight,
+          along = [0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85].find(
+            (candidate) => {
+              const here = pointOn(from, to, candidate);
+              return edges.every((other) => {
+                if (other.from === from && other.to === to) return true;
+                const o = pointOn(other.from, other.to, candidate);
+                return (
+                  Math.abs((here.x - o.x) * o.nx + (here.y - o.y) * o.ny) >
+                    0.02 || Math.abs(here.x - o.x) > 0.2
+                );
+              });
+            },
+          );
+        if (along === undefined) return;
+        const { x, y, nx, ny } = pointOn(from, to, along);
+        expect(toneAt(sample, x, y)).toBeCloseTo(wanted, 6);
+        expect(out.height / p.relief).toBeCloseTo(level, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(
+          toneAt(
+            sample,
+            x + nx * (p.lineHalf - 0.0004),
+            y + ny * (p.lineHalf - 0.0004),
+          ),
+        ).toBeCloseTo(wanted, 6);
+        expect(
+          toneAt(
+            sample,
+            x - nx * (p.lineHalf - 0.0004),
+            y - ny * (p.lineHalf - 0.0004),
+          ),
+        ).toBeCloseTo(wanted, 6);
+        expect(
+          paperOk(
+            x + nx * (p.lineHalf + 0.0008),
+            y + ny * (p.lineHalf + 0.0008),
+          ),
+        ).toBe(true);
+        expect(
+          paperOk(
+            x - nx * (p.lineHalf + 0.0008),
+            y - ny * (p.lineHalf + 0.0008),
+          ),
+        ).toBe(true);
+      });
+      // A line reaches right up to its dots: just past a dot's edge, along the line, it is there already.
+      edges.forEach(({ from, to }) => {
+        const wanted =
+          to < from ? p.riseTone : to > from ? p.fallTone : p.levelTone;
+        for (const along of [0.025, 0.975]) {
+          const here = pointOn(from, to, along),
+            clear = edges.every((other) => {
+              if (other.from === from && other.to === to) return true;
+              const o = pointOn(other.from, other.to, along);
+              return (
+                Math.abs((here.x - o.x) * o.nx + (here.y - o.y) * o.ny) >
+                  0.02 || Math.abs(here.x - o.x) > 0.2
+              );
+            });
+          if (clear)
+            expect(near(toneAt(sample, here.x, here.y), wanted)).toBe(true);
+        }
+      });
+      // The top and bottom of a dot: where the dot's circle is closest to straight up, a little off the axis through it.
+      const poleY = levelY(left[0]);
+      expect(
+        toneAt(sample, p.leftX - 0.0018, poleY - p.dotRadius),
+      ).toBeLessThan(p.paperTone - 0.04);
+      expect(
+        toneAt(sample, p.leftX - 0.0018, poleY + p.dotRadius),
+      ).toBeLessThan(p.paperTone - 0.04);
+      // Nothing outside the axes.
+      expect(paperOk(p.leftX - 0.05, (levelY(0) + bottom) / 2 + 0.003)).toBe(
+        true,
+      );
+      expect(paperOk(p.rightX + 0.05, (levelY(0) + bottom) / 2 + 0.003)).toBe(
+        true,
+      );
+    }
+  });
+
+  it('softens the edge of an axis, a line and a dot over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      const { sample, edges, left } = graphOf(seed),
+        y = levelY(0) - p.axisReach + 0.003,
+        // A line with room on both sides: one clear of every other line at its middle.
+        chosen = edges.find(({ from, to }) => {
+          const here = pointOn(from, to, 0.5);
+          return edges.every((other) => {
+            if (other.from === from && other.to === to) return true;
+            const o = pointOn(other.from, other.to, 0.5);
+            return (
+              Math.abs((here.x - o.x) * o.nx + (here.y - o.y) * o.ny) > 0.02
+            );
+          });
+        });
+      expect(chosen).toBeDefined();
+      const { from, to } = chosen as Edge,
+        wanted = to < from ? p.riseTone : to > from ? p.fallTone : p.levelTone,
+        { x, y: lineY, nx, ny } = pointOn(from, to, 0.5),
+        dotY = levelY(left[0]);
+      // The axis's side over the paper.
+      close(
+        toneAt(sample, p.leftX + p.axisHalf - quarter, y),
+        mix(p.paperTone, p.axisTone, 0.75),
+      );
+      close(
+        toneAt(sample, p.leftX + p.axisHalf + quarter, y),
+        mix(p.paperTone, p.axisTone, 0.25),
+      );
+      // The line's two edges, measured across it.
+      close(
+        toneAt(
+          sample,
+          x + nx * (p.lineHalf - quarter),
+          lineY + ny * (p.lineHalf - quarter),
+        ),
+        mix(p.paperTone, wanted, 0.75),
+      );
+      close(
+        toneAt(
+          sample,
+          x + nx * (p.lineHalf + quarter),
+          lineY + ny * (p.lineHalf + quarter),
+        ),
+        mix(p.paperTone, wanted, 0.25),
+      );
+      close(
+        toneAt(
+          sample,
+          x - nx * (p.lineHalf - quarter),
+          lineY - ny * (p.lineHalf - quarter),
+        ),
+        mix(p.paperTone, wanted, 0.75),
+      );
+      // A dot's edge on the side away from its line, over the paper.
+      close(
+        toneAt(sample, p.leftX - p.dotRadius + quarter, dotY),
+        mix(p.paperTone, p.dotTone, 0.75),
+      );
+      close(
+        toneAt(sample, p.leftX - p.dotRadius - quarter, dotY),
+        mix(p.paperTone, p.dotTone, 0.25),
+      );
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('slopegraph', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('slopegraph', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.97),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('slopegraph', 0),
+      b = createSurfaceSampler('slopegraph', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3051],
+        [0.5001, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
