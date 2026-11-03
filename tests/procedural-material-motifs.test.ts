@@ -40325,3 +40325,388 @@ describe('ecdfplot: an empirical cumulative distribution step plot with a rug an
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('spanningtree: a minimum spanning tree toned by the order Kruskal accepts its edges', () => {
+  const p = proceduralMaterialPresets.spanningtree,
+    out = empty(),
+    cell = 1 / p.lattice;
+  type Edge = { a: number; b: number; tone: number };
+  type Tree = {
+    n: number;
+    sample: Sampler;
+    sites: [number, number][];
+    edges: Edge[];
+  };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const place = (site: [number, number]): [number, number] => [
+    (site[0] + 0.5) * cell,
+    (site[1] + 0.5) * cell,
+  ];
+  const squared = (a: [number, number], b: [number, number]): number =>
+    (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2;
+
+  const treeOf = (seed: number): Tree => {
+    const sample = createSurfaceSampler('spanningtree', seed),
+      sites: [number, number][] = [];
+    // The points: a lattice site whose four points at 0.01 round it (where no line of the tree can cover all four) are in the node's tone.
+    for (let y = 0; y < p.lattice; y++)
+      for (let x = 0; x < p.lattice; x++) {
+        const [cx, cy] = place([x, y]);
+        if (
+          [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ].every(
+            ([dx, dy]) =>
+              Math.abs(
+                toneAt(sample, cx + dx * 0.01, cy + dy * 0.01) - p.nodeTone,
+              ) < 0.005,
+          )
+        )
+          sites.push([x, y]);
+      }
+    expect(p.counts).toContain(sites.length);
+    // The edges: a pair is joined when the free part of the segment between them (clear of the two discs) has the same edge tone all along.
+    const edges: Edge[] = [];
+    for (let i = 0; i < sites.length; i++)
+      for (let j = i + 1; j < sites.length; j++) {
+        const a = place(sites[i]),
+          b = place(sites[j]),
+          length = Math.hypot(b[0] - a[0], b[1] - a[1]),
+          free0 = 0.018 / length,
+          free1 = 1 - 0.018 / length;
+        // A pair with another point on or beside its segment is not an edge of a minimum tree (the shorter pieces would do).
+        const crowded = sites.some((other, k) => {
+          if (k === i || k === j) return false;
+          const q = place(other),
+            t =
+              ((q[0] - a[0]) * (b[0] - a[0]) + (q[1] - a[1]) * (b[1] - a[1])) /
+              length ** 2;
+          return (
+            t > 0 &&
+            t < 1 &&
+            Math.hypot(
+              q[0] - a[0] - t * (b[0] - a[0]),
+              q[1] - a[1] - t * (b[1] - a[1]),
+            ) < 0.012
+          );
+        });
+        if (crowded || free1 <= free0) continue;
+        const tones = Array.from({ length: 5 }, (_, s) => {
+          const t = free0 + ((free1 - free0) * s) / 4;
+          return toneAt(
+            sample,
+            a[0] + t * (b[0] - a[0]),
+            a[1] + t * (b[1] - a[1]),
+          );
+        });
+        if (
+          tones.every(
+            (tone) =>
+              tone >= p.edgeFirst - 0.01 &&
+              tone <= p.edgeLast + 0.01 &&
+              Math.abs(tone - tones[0]) < 0.01,
+          )
+        )
+          edges.push({ a: i, b: j, tone: tones[2] });
+      }
+    return { n: sites.length, sample, sites, edges };
+  };
+  // The weight of a minimum spanning tree by Prim's algorithm (a different way to build it than the sampler's).
+  const primWeight = (sites: [number, number][]): number => {
+    const joined = new Set<number>([0]);
+    let total = 0;
+    while (joined.size < sites.length) {
+      let best = Infinity,
+        pick = -1;
+      for (const i of joined)
+        for (let j = 0; j < sites.length; j++) {
+          if (joined.has(j)) continue;
+          const d =
+            (sites[i][0] - sites[j][0]) ** 2 + (sites[i][1] - sites[j][1]) ** 2;
+          if (d < best) {
+            best = d;
+            pick = j;
+          }
+        }
+      joined.add(pick);
+      total += best;
+    }
+    return total;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'joins the points by a spanning tree of the minimum total weight, whose edges are toned in the order of their lengths (seed %i)',
+    (seed) => {
+      const { n, sites, edges } = treeOf(seed),
+        weight = (e: Edge): number =>
+          (sites[e.a][0] - sites[e.b][0]) ** 2 +
+          (sites[e.a][1] - sites[e.b][1]) ** 2;
+      expect(edges).toHaveLength(n - 1);
+      // Connected: every point reached from the first through the edges.
+      const reached = new Set<number>([0]);
+      for (let round = 0; round < n; round++)
+        for (const e of edges) {
+          if (reached.has(e.a) || reached.has(e.b)) {
+            reached.add(e.a);
+            reached.add(e.b);
+          }
+        }
+      expect(reached.size).toBe(n);
+      // Minimum: the same total weight as Prim's tree.
+      expect(edges.reduce((sum, e) => sum + weight(e), 0)).toBe(
+        primWeight(sites),
+      );
+      // Kruskal accepts the shorter edges first: a lighter tone never goes with a longer edge than a darker one.
+      for (const e of edges)
+        for (const f of edges)
+          if (e.tone < f.tone - 1e-6)
+            expect(weight(e)).toBeLessThanOrEqual(weight(f));
+      // The tones are the ramp from edgeFirst to edgeLast in n - 1 equal steps.
+      const tones = edges.map((e) => e.tone).sort((x, y) => x - y);
+      tones.forEach((tone, k) =>
+        expect(tone).toBeCloseTo(
+          p.edgeFirst + ((p.edgeLast - p.edgeFirst) * k) / (n - 2),
+          2,
+        ),
+      );
+    },
+  );
+
+  it('uses all three point counts, keeps the points inside the margin and apart, across 60 seeds', () => {
+    const counts = new Set<number>();
+    for (let seed = 0; seed < 60; seed++) {
+      const { n, sites } = treeOf(seed);
+      counts.add(n);
+      for (const [x, y] of sites) {
+        expect(x).toBeGreaterThanOrEqual(p.margin);
+        expect(x).toBeLessThan(p.lattice - p.margin);
+        expect(y).toBeGreaterThanOrEqual(p.margin);
+        expect(y).toBeLessThan(p.lattice - p.margin);
+      }
+    }
+    expect([...counts].sort((a, b) => a - b)).toEqual([...p.counts]);
+  });
+
+  it('reaches the first and the last lattice site of the allowed range, and lets points share a row or a column, across 120 seeds', () => {
+    const xs = new Set<number>(),
+      ys = new Set<number>();
+    let sharedRow = 0,
+      sharedColumn = 0;
+    for (let seed = 0; seed < 120; seed++) {
+      const { sites } = treeOf(seed);
+      for (const [x, y] of sites) {
+        xs.add(x);
+        ys.add(y);
+      }
+      for (let i = 0; i < sites.length; i++)
+        for (let j = i + 1; j < sites.length; j++) {
+          sharedRow += Number(sites[i][1] === sites[j][1]);
+          sharedColumn += Number(sites[i][0] === sites[j][0]);
+        }
+    }
+    for (const set of [xs, ys]) {
+      expect(Math.min(...set)).toBe(p.margin);
+      expect(Math.max(...set)).toBe(p.lattice - p.margin - 1);
+    }
+    expect(sharedRow).toBeGreaterThan(50);
+    expect(sharedColumn).toBeGreaterThan(50);
+  });
+
+  it('draws the nodes and the edges with their tones, heights and roughness, and their sizes', () => {
+    for (const seed of seeds) {
+      const { sample, sites, edges } = treeOf(seed);
+      for (const site of sites) {
+        const [cx, cy] = place(site);
+        expect(toneAt(sample, cx, cy)).toBeCloseTo(p.nodeTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.nodeHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        // The disc has the radius, and beyond it (if no edge is there) is paper or an edge.
+        expect(
+          toneAt(sample, cx + p.nodeRadius - 0.002, cy + 0.0001),
+        ).toBeCloseTo(p.nodeTone, 6);
+        expect(toneAt(sample, cx, cy - p.nodeRadius + 0.002)).toBeCloseTo(
+          p.nodeTone,
+          6,
+        );
+        expect(
+          toneAt(
+            sample,
+            cx + (p.nodeRadius - 0.002) * 0.7,
+            cy + (p.nodeRadius - 0.002) * 0.7,
+          ),
+        ).toBeCloseTo(p.nodeTone, 6);
+      }
+      for (const e of edges) {
+        const a = place(sites[e.a]),
+          b = place(sites[e.b]),
+          length = Math.hypot(b[0] - a[0], b[1] - a[1]),
+          normal: [number, number] = [
+            -(b[1] - a[1]) / length,
+            (b[0] - a[0]) / length,
+          ],
+          mid: [number, number] = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+        expect(toneAt(sample, mid[0], mid[1])).toBeCloseTo(e.tone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.edgeHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        // Its width across: inside at edgeHalf - 0.0005 and paper at edgeHalf + 0.002, on either side (if no other line is near).
+        for (const side of [-1, 1]) {
+          const near = (distance: number): [number, number] => [
+            mid[0] + side * normal[0] * distance,
+            mid[1] + side * normal[1] * distance,
+          ];
+          expect(toneAt(sample, ...near(p.edgeHalf - 0.0005))).toBeCloseTo(
+            e.tone,
+            6,
+          );
+          const outside = near(p.edgeHalf + 0.002);
+          if (
+            sites.every((s) => squared(place(s), outside) > 0.02 ** 2) &&
+            edges.every((f) => f === e || segmentGap(sites, f, outside) > 0.01)
+          )
+            expect(
+              Math.abs(toneAt(sample, ...outside) - p.paperTone),
+            ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+        }
+      }
+    }
+  });
+
+  // Distance from a point to the segment of an edge.
+  const segmentGap = (
+    sites: [number, number][],
+    e: Edge,
+    q: [number, number],
+  ): number => {
+    const a = place(sites[e.a]),
+      b = place(sites[e.b]),
+      length2 = squared(a, b),
+      t = Math.max(
+        0,
+        Math.min(
+          1,
+          ((q[0] - a[0]) * (b[0] - a[0]) + (q[1] - a[1]) * (b[1] - a[1])) /
+            length2,
+        ),
+      );
+    return Math.hypot(
+      q[0] - a[0] - t * (b[0] - a[0]),
+      q[1] - a[1] - t * (b[1] - a[1]),
+    );
+  };
+
+  it('softens the edge of a node and of an edge over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft;
+    for (const seed of seeds) {
+      const { sample, sites, edges } = treeOf(seed),
+        mix = (target: number, amount: number): number =>
+          p.paperTone + (target - p.paperTone) * smoothstep(amount);
+      let checked = 0;
+      for (const site of sites) {
+        const [cx, cy] = place(site);
+        // Straight up from the centre, where no edge (of this point or another) comes near the probe points.
+        const probe = (offset: number): [number, number] => [
+          cx,
+          cy - p.nodeRadius + offset,
+        ];
+        if (
+          edges.some((e) =>
+            [quarter, -quarter].some(
+              (offset) => segmentGap(sites, e, probe(offset)) < 0.006,
+            ),
+          )
+        )
+          continue;
+        expect(
+          Math.abs(toneAt(sample, ...probe(quarter)) - mix(p.nodeTone, 0.75)),
+        ).toBeLessThan(0.03);
+        expect(
+          Math.abs(toneAt(sample, ...probe(-quarter)) - mix(p.nodeTone, 0.25)),
+        ).toBeLessThan(0.03);
+        checked++;
+      }
+      expect(checked).toBeGreaterThan(0);
+      for (const e of edges) {
+        const a = place(sites[e.a]),
+          b = place(sites[e.b]),
+          length = Math.hypot(b[0] - a[0], b[1] - a[1]),
+          normal: [number, number] = [
+            -(b[1] - a[1]) / length,
+            (b[0] - a[0]) / length,
+          ],
+          mid: [number, number] = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2],
+          far = (distance: number): [number, number] => [
+            mid[0] + normal[0] * distance,
+            mid[1] + normal[1] * distance,
+          ];
+        if (
+          edges.some((f) => f !== e && segmentGap(sites, f, mid) < 0.02) ||
+          sites.some((s) => squared(place(s), mid) < 0.02 ** 2)
+        )
+          continue;
+        expect(
+          Math.abs(
+            toneAt(sample, ...far(p.edgeHalf - quarter)) - mix(e.tone, 0.75),
+          ),
+        ).toBeLessThan(0.03);
+        expect(
+          Math.abs(
+            toneAt(sample, ...far(p.edgeHalf + quarter)) - mix(e.tone, 0.25),
+          ),
+        ).toBeLessThan(0.03);
+      }
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('spanningtree', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const { sample } = treeOf(0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.0113),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('spanningtree', 0),
+      b = createSurfaceSampler('spanningtree', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

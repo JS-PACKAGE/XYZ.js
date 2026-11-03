@@ -40782,6 +40782,123 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'spanningtree': {
+        const p = proceduralMaterialPresets.spanningtree,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x48c01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          n =
+            p.counts[
+              Math.floor(hash(30, 18, seed ^ 0x48c02) * p.counts.length)
+            ],
+          sites = p.lattice - 2 * p.margin,
+          lx = new Int32Array(n),
+          ly = new Int32Array(n),
+          // The edges of the tree in the order Kruskal accepts them, as the two end points.
+          from = new Int32Array(n - 1),
+          to = new Int32Array(n - 1),
+          parent = new Int32Array(n);
+        // Distinct lattice sites for the points: try again with the next hash until a free one comes up.
+        for (let i = 0; i < n; i++) {
+          for (let attempt = 0; ; attempt++) {
+            const x =
+                p.margin + Math.floor(hash(i, attempt, seed ^ 0x48c03) * sites),
+              y =
+                p.margin + Math.floor(hash(attempt, i, seed ^ 0x48c04) * sites);
+            let free = true;
+            for (let j = 0; j < i && free; j++)
+              free = lx[j] !== x || ly[j] !== y;
+            if (free) {
+              lx[i] = x;
+              ly[i] = y;
+              break;
+            }
+          }
+        }
+        // Every pair, shortest first (ties by the first point, then the second), joined when its ends are not yet connected.
+        const pairs: number[] = [];
+        for (let i = 0; i < n; i++)
+          for (let j = i + 1; j < n; j++) pairs.push(i * n + j);
+        const squared = (pair: number): number => {
+          const i = Math.floor(pair / n),
+            j = pair % n;
+          return (lx[i] - lx[j]) ** 2 + (ly[i] - ly[j]) ** 2;
+        };
+        pairs.sort((a, b) => squared(a) - squared(b) || a - b);
+        for (let i = 0; i < n; i++) parent[i] = i;
+        const root = (i: number): number => {
+          let r = i;
+          while (parent[r] !== r) r = parent[r];
+          return r;
+        };
+        let accepted = 0;
+        for (const pair of pairs) {
+          const i = Math.floor(pair / n),
+            j = pair % n,
+            ri = root(i),
+            rj = root(j);
+          if (ri === rj) continue;
+          parent[ri] = rj;
+          from[accepted] = i;
+          to[accepted] = j;
+          accepted++;
+        }
+        const cell = 1 / p.lattice,
+          px = new Float64Array(n),
+          py = new Float64Array(n);
+        for (let i = 0; i < n; i++) {
+          px[i] = (lx[i] + 0.5) * cell;
+          py[i] = (ly[i] + 0.5) * cell;
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let edge = Infinity,
+            tone = p.edgeFirst,
+            node = Infinity;
+          for (let e = 0; e < n - 1; e++) {
+            const ax = px[from[e]],
+              ay = py[from[e]],
+              sx = px[to[e]] - ax,
+              sy = py[to[e]] - ay,
+              t = Math.max(
+                0,
+                Math.min(
+                  1,
+                  ((fu - ax) * sx + (fv - ay) * sy) / (sx * sx + sy * sy),
+                ),
+              ),
+              d = Math.hypot(fu - ax - t * sx, fv - ay - t * sy);
+            if (d < edge) {
+              edge = d;
+              tone = p.edgeFirst + ((p.edgeLast - p.edgeFirst) * e) / (n - 2);
+            }
+          }
+          for (let i = 0; i < n; i++)
+            node = Math.min(node, Math.hypot(fu - px[i], fv - py[i]));
+          const edgeAmount = cover(p.edgeHalf - edge),
+            nodeAmount = cover(p.nodeRadius - node);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness;
+          shade += (tone - shade) * edgeAmount;
+          elevation += (p.edgeHeight - elevation) * edgeAmount;
+          rough += (p.inkRoughness - rough) * edgeAmount;
+          shade += (p.nodeTone - shade) * nodeAmount;
+          elevation += (p.nodeHeight - elevation) * nodeAmount;
+          rough += (p.inkRoughness - rough) * nodeAmount;
+          color = clamp(
+            shade +
+              p.grainTone *
+                (grainField(u, v) - 0.5) *
+                (1 - Math.max(edgeAmount, nodeAmount)),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -68311,6 +68428,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'spanningtree' ||
     kind === 'ecdfplot' ||
     kind === 'intervalpartition' ||
     kind === 'waterfallchart' ||
