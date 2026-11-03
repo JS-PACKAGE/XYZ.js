@@ -50020,3 +50020,452 @@ describe('knapsacktable: two 0/1 knapsack problems as the table of dynamic progr
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('prefixtrie: a trie of words of three letters drawn as a tree', () => {
+  const p = proceduralMaterialPresets.prefixtrie,
+    out = empty();
+  type Node = {
+    depth: number;
+    y: number;
+    letter: number;
+    ends: boolean;
+    children: Node[];
+  };
+  type Trie = { sample: Sampler; root: Node; nodes: Node[] };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const near = (tone: number, wanted: number): boolean =>
+    Math.abs(tone - wanted) < 0.01;
+  const nodeX = (depth: number): number => p.left + depth * p.xPitch;
+  const middleX = (depth: number): number => nodeX(depth) + p.xPitch / 2;
+
+  // The middles of the runs (down y at fixed x) where the tone is wanted, as { middle, length }.
+  const verticalRuns = (
+    sample: Sampler,
+    x: number,
+    wanted: number,
+  ): { middle: number; length: number; first: number; last: number }[] => {
+    const found: {
+      middle: number;
+      length: number;
+      first: number;
+      last: number;
+    }[] = [];
+    let from: number | null = null;
+    for (let y = 0; y <= 1.0001; y += 0.0005) {
+      const hit = near(toneAt(sample, x, y), wanted);
+      if (hit && from === null) from = y;
+      if (!hit && from !== null) {
+        found.push({
+          middle: (from + y - 0.0005) / 2,
+          length: y - 0.0005 - from,
+          first: from,
+          last: y - 0.0005,
+        });
+        from = null;
+      }
+    }
+    return found;
+  };
+
+  // Read the picture: the nodes (dots) column by column, whether each has a ring, and how they are joined: the children of a node are the next column's
+  // nodes inside the run of the line's tone up the middle of the step; a child's letter is the shade of the last stretch of the line into it.
+  const trieOf = (seed: number): Trie => {
+    const sample = createSurfaceSampler('prefixtrie', seed),
+      byDepth: Node[][] = [];
+    for (let depth = 0; depth <= p.maxLength; depth++) {
+      const dots = verticalRuns(sample, nodeX(depth), p.nodeTone).filter(
+        (run) => run.length > 0.02,
+      );
+      byDepth.push(
+        dots.map((run) => ({
+          depth,
+          y: run.middle,
+          letter: -1,
+          ends:
+            near(
+              toneAt(sample, nodeX(depth), run.middle - p.ringRadius),
+              p.nodeTone,
+            ) &&
+            near(
+              toneAt(sample, nodeX(depth), run.middle + p.ringRadius),
+              p.nodeTone,
+            ),
+          children: [],
+        })),
+      );
+    }
+    expect(byDepth[0].length).toBe(1);
+    const root = byDepth[0][0],
+      nodes: Node[] = [];
+    const visit = (node: Node): void => {
+      nodes.push(node);
+      if (node.depth === p.maxLength) return;
+      // The run of the trunk's tone up the middle of the step that includes this node's row.
+      const runs = verticalRuns(
+          sample,
+          middleX(node.depth) - 0.0008,
+          p.trunkTone,
+        ),
+        run = runs.find(
+          (candidate) =>
+            candidate.first - 0.002 <= node.y &&
+            node.y <= candidate.last + 0.002,
+        );
+      if (run === undefined) return;
+      for (const child of byDepth[node.depth + 1]) {
+        if (child.y < run.first - 0.002 || child.y > run.last + 0.002) continue;
+        const tone = toneAt(sample, middleX(node.depth) + 0.04, child.y);
+        child.letter = p.letterTones.findIndex((candidate) =>
+          near(tone, candidate),
+        );
+        expect(child.letter).toBeGreaterThanOrEqual(0);
+        node.children.push(child);
+        visit(child);
+      }
+    };
+    visit(root);
+    // Every dot found belongs to the tree.
+    expect(nodes.length).toBe(
+      byDepth.reduce((sum, column) => sum + column.length, 0),
+    );
+    return { sample, root, nodes };
+  };
+
+  const wordsOf = (node: Node, prefix: string): string[] => [
+    ...(node.ends && node.depth > 0 ? [prefix] : []),
+    ...node.children.flatMap((child) =>
+      wordsOf(child, prefix + 'abc'[child.letter]),
+    ),
+  ];
+
+  // The layout worked out again from the shape alone: leaves in a column of slots (in the order of the letters), parents halfway between their first and last child.
+  const expectedY = (root: Node): Map<Node, number> => {
+    const placed = new Map<Node, number>();
+    let leaves = 0;
+    const place = (node: Node): void => {
+      const ordered = node.children.slice().sort((a, b) => a.letter - b.letter);
+      ordered.forEach(place);
+      placed.set(
+        node,
+        ordered.length === 0
+          ? p.top + leaves++ * p.slotPitch
+          : (placed.get(ordered[0])! +
+              placed.get(ordered[ordered.length - 1])!) /
+              2,
+      );
+    };
+    place(root);
+    return placed;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws a trie of the words, each letter a step and each word end a ring, laid out in order of the letters (seed %i)',
+    (seed) => {
+      const { root, nodes } = trieOf(seed),
+        words = wordsOf(root, '');
+      // The words: distinct, 6 to 8 of them, 2 to 4 letters, and every leaf ends one.
+      expect(new Set(words).size).toBe(words.length);
+      expect(words.length).toBeGreaterThanOrEqual(p.minWords);
+      expect(words.length).toBeLessThanOrEqual(p.maxWords);
+      for (const word of words) {
+        expect(word.length).toBeGreaterThanOrEqual(p.minLength);
+        expect(word.length).toBeLessThanOrEqual(p.maxLength);
+      }
+      for (const node of nodes) {
+        if (node.children.length === 0) expect(node.ends).toBe(true);
+        // No two steps out of a node use the same letter.
+        expect(new Set(node.children.map((child) => child.letter)).size).toBe(
+          node.children.length,
+        );
+      }
+      // The nodes are the distinct prefixes of the words (and the empty one).
+      const prefixes = new Set(['']);
+      for (const word of words)
+        for (let i = 1; i <= word.length; i++) prefixes.add(word.slice(0, i));
+      expect(nodes.length).toBe(prefixes.size);
+      // Rows: the layout rule.
+      const placed = expectedY(root);
+      for (const node of nodes)
+        expect(Math.abs(node.y - placed.get(node)!)).toBeLessThan(0.0012);
+    },
+  );
+
+  it('uses every number of words, length and letter, shared starts and words that begin others, over 60 seeds', () => {
+    const counts = new Set<number>(),
+      lengths = new Set<number>(),
+      letters = new Set<number>();
+    let shared = 0,
+      inner = 0,
+      branches = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const { root, nodes } = trieOf(seed * 17 + 3),
+        words = wordsOf(root, '');
+      counts.add(words.length);
+      for (const word of words) lengths.add(word.length);
+      for (const node of nodes) {
+        if (node.depth > 0) letters.add(node.letter);
+        inner += Number(node.ends && node.children.length > 0);
+        branches += Number(node.children.length >= 2);
+      }
+      // A start shared by two words: fewer nodes than the letters of the words add up to.
+      shared += Number(
+        nodes.length - 1 < words.reduce((sum, word) => sum + word.length, 0),
+      );
+    }
+    expect([...counts].sort((a, b) => a - b)).toEqual([6, 7, 8]);
+    expect([...lengths].sort((a, b) => a - b)).toEqual([2, 3, 4]);
+    expect([...letters].sort((a, b) => a - b)).toEqual([0, 1, 2]);
+    expect(shared).toBeGreaterThan(50);
+    expect(inner).toBeGreaterThan(5);
+    expect(branches).toBeGreaterThan(100);
+  });
+
+  it('draws the dots, the rings and the lines with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, nodes } = trieOf(seed),
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      for (const node of nodes) {
+        const x = nodeX(node.depth);
+        // The dot: tone, height, roughness, radius, and the gap of paper between it and its ring (or the lines).
+        expect(toneAt(sample, x, node.y)).toBeCloseTo(p.nodeTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.nodeHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(
+          near(toneAt(sample, x, node.y - p.nodeRadius + 0.001), p.nodeTone),
+        ).toBe(true);
+        expect(
+          near(toneAt(sample, x, node.y + p.nodeRadius - 0.001), p.nodeTone),
+        ).toBe(true);
+        expect(paperOk(x, node.y - p.nodeRadius - 0.0015)).toBe(true);
+        expect(paperOk(x, node.y + p.nodeRadius + 0.0015)).toBe(true);
+        // The ring: only on word ends, with its thickness.
+        if (node.ends) {
+          expect(toneAt(sample, x, node.y - p.ringRadius)).toBeCloseTo(
+            p.nodeTone,
+            6,
+          );
+          expect(toneAt(sample, x, node.y + p.ringRadius)).toBeCloseTo(
+            p.nodeTone,
+            6,
+          );
+          expect(
+            near(
+              toneAt(sample, x, node.y - p.ringRadius - p.ringHalf + 0.0004),
+              p.nodeTone,
+            ),
+          ).toBe(true);
+          expect(paperOk(x, node.y - p.ringRadius - p.ringHalf - 0.0008)).toBe(
+            true,
+          );
+          expect(paperOk(x, node.y - p.ringRadius + p.ringHalf + 0.0008)).toBe(
+            true,
+          );
+        } else expect(paperOk(x, node.y - p.ringRadius)).toBe(true);
+        // The lines out of it: along its row to the middle of the step, a bar up or down, then each child's last stretch in the letter's shade.
+        if (node.children.length === 0) continue;
+        const middle = middleX(node.depth),
+          ys = [node.y, ...node.children.map((child) => child.y)],
+          low = Math.min(...ys),
+          high = Math.max(...ys);
+        expect(toneAt(sample, x + 0.03, node.y)).toBeCloseTo(p.trunkTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.trunkHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(
+          near(
+            toneAt(sample, x + 0.03, node.y + p.lineHalf - 0.0004),
+            p.trunkTone,
+          ),
+        ).toBe(true);
+        expect(paperOk(x + 0.03, node.y + p.lineHalf + 0.0008)).toBe(true);
+        if (high - low > 0.01) {
+          // Points on the bar between two rows (the middle of each gap between neighbouring rows), where only the bar is.
+          const rows = [...new Set(ys.map((y) => Math.round(y * 10000)))]
+            .sort((m, n) => m - n)
+            .map((y) => y / 10000);
+          for (let k = 1; k < rows.length; k++) {
+            if (rows[k] - rows[k - 1] < 0.014) continue;
+            const bar = (rows[k] + rows[k - 1]) / 2;
+            expect(toneAt(sample, middle, bar)).toBeCloseTo(p.trunkTone, 6);
+            expect(
+              near(
+                toneAt(sample, middle + p.lineHalf - 0.0004, bar),
+                p.trunkTone,
+              ),
+            ).toBe(true);
+            expect(
+              near(
+                toneAt(sample, middle - p.lineHalf + 0.0004, bar),
+                p.trunkTone,
+              ),
+            ).toBe(true);
+            expect(paperOk(middle + p.lineHalf + 0.0008, bar)).toBe(true);
+            expect(paperOk(middle - p.lineHalf - 0.0008, bar)).toBe(true);
+          }
+          // The bar's square ends past the first and last child rows (the left half only has the bar; the right half has the child's line).
+          if (Math.abs(node.y - low) > 0.002)
+            expect(
+              near(toneAt(sample, middle - 0.0008, low - 0.0008), p.trunkTone),
+            ).toBe(true);
+          if (Math.abs(node.y - high) > 0.002)
+            expect(
+              near(toneAt(sample, middle - 0.0008, high + 0.0008), p.trunkTone),
+            ).toBe(true);
+          // The bar's ends: paper beyond them, and only a faint trace in the soft edge just past them.
+          expect(paperOk(middle, low - p.lineHalf - 0.002)).toBe(true);
+          expect(paperOk(middle, high + p.lineHalf + 0.002)).toBe(true);
+          expect(
+            Math.abs(
+              toneAt(sample, middle + 0.0006, low - p.lineHalf - 0.0003) -
+                p.paperTone,
+            ),
+          ).toBeLessThan(0.03);
+          expect(
+            Math.abs(
+              toneAt(sample, middle + 0.0006, high + p.lineHalf + 0.0003) -
+                p.paperTone,
+            ),
+          ).toBeLessThan(0.03);
+        }
+        // The line along the node's row ends at the bar (nothing past it unless a child is on the same row).
+        if (!node.children.some((child) => Math.abs(child.y - node.y) < 0.002))
+          expect(paperOk(middle + 0.004, node.y)).toBe(true);
+        // A child's own row has nothing before the bar (unless it is the node's row).
+        for (const child of node.children)
+          if (Math.abs(child.y - node.y) > 0.01)
+            expect(paperOk(middle - 0.008, child.y)).toBe(true);
+        for (const child of node.children) {
+          const tone = p.letterTones[child.letter];
+          expect(toneAt(sample, middle + 0.04, child.y)).toBeCloseTo(tone, 6);
+          expect(out.height / p.relief).toBeCloseTo(
+            p.letterHeights[child.letter],
+            6,
+          );
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          expect(
+            near(
+              toneAt(sample, middle + 0.04, child.y + p.lineHalf - 0.0004),
+              tone,
+            ),
+          ).toBe(true);
+          expect(paperOk(middle + 0.04, child.y + p.lineHalf + 0.0008)).toBe(
+            true,
+          );
+          expect(paperOk(middle + 0.04, child.y - p.lineHalf - 0.0008)).toBe(
+            true,
+          );
+        }
+      }
+      // Nothing to the left of the root's dot, where a line would stick out if it began before the dot's middle.
+      expect(paperOk(nodeX(0) - 0.018, nodes[0].y)).toBe(true);
+      // Nothing beside the tree.
+      expect(paperOk(0.02, 0.5)).toBe(true);
+      expect(paperOk(0.5, 0.995)).toBe(true);
+    }
+  });
+
+  it('softens the edge of a dot, a ring and a line over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      const { sample, root, nodes } = trieOf(seed),
+        x = nodeX(root.depth),
+        // A dot's upper edge, over the paper (nothing lies above it).
+        ringed = nodes.find((node) => node.ends);
+      close(
+        toneAt(sample, x, root.y - p.nodeRadius + quarter),
+        mix(p.paperTone, p.nodeTone, 0.75),
+      );
+      close(
+        toneAt(sample, x, root.y - p.nodeRadius - quarter),
+        mix(p.paperTone, p.nodeTone, 0.25),
+      );
+      // A ring's outer edge, over the paper.
+      if (ringed !== undefined) {
+        const rx = nodeX(ringed.depth);
+        close(
+          toneAt(sample, rx, ringed.y - p.ringRadius - p.ringHalf + quarter),
+          mix(p.paperTone, p.nodeTone, 0.75),
+        );
+        close(
+          toneAt(sample, rx, ringed.y - p.ringRadius - p.ringHalf - quarter),
+          mix(p.paperTone, p.nodeTone, 0.25),
+        );
+      }
+      // The root's line along its row: its lower side, over the paper.
+      close(
+        toneAt(sample, x + 0.04, root.y + p.lineHalf - quarter),
+        mix(p.paperTone, p.trunkTone, 0.75),
+      );
+      close(
+        toneAt(sample, x + 0.04, root.y + p.lineHalf + quarter),
+        mix(p.paperTone, p.trunkTone, 0.25),
+      );
+      // A child's last stretch: its lower side, over the paper.
+      const child = root.children[0],
+        tone = p.letterTones[child.letter];
+      close(
+        toneAt(sample, middleX(0) + 0.04, child.y + p.lineHalf - quarter),
+        mix(p.paperTone, tone, 0.75),
+      );
+      close(
+        toneAt(sample, middleX(0) + 0.04, child.y + p.lineHalf + quarter),
+        mix(p.paperTone, tone, 0.25),
+      );
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('prefixtrie', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('prefixtrie', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.97),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('prefixtrie', 0),
+      b = createSurfaceSampler('prefixtrie', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.2101],
+        [0.4801, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

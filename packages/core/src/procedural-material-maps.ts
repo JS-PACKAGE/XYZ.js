@@ -43857,6 +43857,170 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'prefixtrie': {
+        const p = proceduralMaterialPresets.prefixtrie,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x50101),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          wordCount =
+            p.minWords +
+            Math.floor(
+              hash(59, 1, seed ^ 0x50102) * (p.maxWords - p.minWords + 1),
+            ),
+          words = new Set<string>();
+        // Distinct random words (a word is drawn again when it repeats an earlier one; after 64 repeats in a row it is left out).
+        for (let w = 0; w < wordCount; w++) {
+          for (let attempt = 0; attempt < 64; attempt++) {
+            const length =
+              p.minLength +
+              Math.floor(
+                hash(w, 15 + attempt, seed ^ 0x50103) *
+                  (p.maxLength - p.minLength + 1),
+              );
+            let word = '';
+            for (let i = 0; i < length; i++)
+              word += Math.floor(
+                hash(w * 8 + i, 16 + attempt, seed ^ 0x50104) * p.letters,
+              );
+            if (!words.has(word)) {
+              words.add(word);
+              break;
+            }
+          }
+        }
+        // The trie: node 0 is the root; children[node * letters + letter] is the child for that letter (or -1).
+        const maxNodes = 1 + wordCount * p.maxLength,
+          children = new Int32Array(maxNodes * p.letters).fill(-1),
+          depth = new Int32Array(maxNodes),
+          letterOf = new Int32Array(maxNodes),
+          ends = new Uint8Array(maxNodes),
+          parentOf = new Int32Array(maxNodes).fill(-1),
+          slotY = new Float64Array(maxNodes);
+        let nodes = 1;
+        for (const word of words) {
+          let node = 0;
+          for (const digit of word) {
+            const letter = Number(digit);
+            if (children[node * p.letters + letter] < 0) {
+              children[node * p.letters + letter] = nodes;
+              depth[nodes] = depth[node] + 1;
+              letterOf[nodes] = letter;
+              parentOf[nodes] = node;
+              nodes++;
+            }
+            node = children[node * p.letters + letter];
+          }
+          ends[node] = 1;
+        }
+        // Layout: leaves one slot apart in the order of the letters, every other node halfway between its first and last child.
+        let slot = 0;
+        const place = (node: number): void => {
+          let first = -1,
+            last = -1;
+          for (let letter = 0; letter < p.letters; letter++) {
+            const child = children[node * p.letters + letter];
+            if (child < 0) continue;
+            place(child);
+            if (first < 0) first = child;
+            last = child;
+          }
+          slotY[node] =
+            first < 0
+              ? p.top + slot++ * p.slotPitch
+              : (slotY[first] + slotY[last]) / 2;
+        };
+        place(0);
+        const nodeX = (node: number): number => p.left + depth[node] * p.xPitch;
+        // How far from a node's middle its ring (the widest thing round it) reaches, with the soft edge.
+        const nodeReach = p.ringRadius + p.ringHalf + p.edgeSoft;
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          let trunk = 0,
+            ring = 0,
+            dot = 0,
+            letterInk = 0,
+            letterNode = 0;
+          for (let node = 0; node < nodes; node++) {
+            const x = nodeX(node),
+              y = slotY[node];
+            if (Math.abs(fu - x) < nodeReach && Math.abs(fv - y) < nodeReach) {
+              const away = Math.hypot(fu - x, fv - y);
+              dot = Math.max(dot, cover(p.nodeRadius - away));
+              if (ends[node])
+                ring = Math.max(
+                  ring,
+                  cover(p.ringHalf - Math.abs(away - p.ringRadius)),
+                );
+            }
+            const parent = parentOf[node];
+            if (parent < 0) continue;
+            const fromX = nodeX(parent),
+              middle = (fromX + x) / 2,
+              fromY = slotY[parent];
+            // Only the rectangle the connector lies in matters (a quick way out for every other pixel).
+            const reach = p.lineHalf + p.edgeSoft;
+            if (
+              fu < fromX - reach ||
+              fu > x + reach ||
+              fv < Math.min(fromY, y) - reach ||
+              fv > Math.max(fromY, y) + reach
+            )
+              continue;
+            // From the parent along its row to the middle, up or down to this child's row, then along it into the child (in the letter's shade).
+            trunk = Math.max(
+              trunk,
+              cover(
+                Math.min(
+                  p.lineHalf - Math.abs(fv - fromY),
+                  fu - fromX,
+                  middle + p.lineHalf - fu,
+                ),
+              ),
+              cover(
+                Math.min(
+                  p.lineHalf - Math.abs(fu - middle),
+                  fv - (Math.min(fromY, y) - p.lineHalf),
+                  Math.max(fromY, y) + p.lineHalf - fv,
+                ),
+              ),
+            );
+            const into = cover(
+              Math.min(p.lineHalf - Math.abs(fv - y), fu - middle, x - fu),
+            );
+            if (into > letterInk) {
+              letterInk = into;
+              letterNode = node;
+            }
+          }
+          paint(trunk, p.trunkTone, p.trunkHeight);
+          paint(
+            letterInk,
+            p.letterTones[letterOf[letterNode]],
+            p.letterHeights[letterOf[letterNode]],
+          );
+          paint(ring, p.nodeTone, p.nodeHeight);
+          paint(dot, p.nodeTone, p.nodeHeight);
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),

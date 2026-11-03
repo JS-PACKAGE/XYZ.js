@@ -12687,6 +12687,56 @@ function createSurfaceSampler(t, r) {
 					J = clamp(i + t.grainTone * (n(G, K) - .5) * (1 - p)), Y = clamp(d), X = clamp(f), Z = 1;
 				};
 			}
+			case `prefixtrie`: {
+				let t = require_materials.proceduralMaterialPresets.prefixtrie, n = cachedNoise(t.grainCells, t.grainCells, r ^ 327937), i = 1 / t.edgeSoft, cover = (e) => smooth(clamp(e * i + .5)), a = t.minWords + Math.floor(hash(59, 1, r ^ 327938) * (t.maxWords - t.minWords + 1)), o = /* @__PURE__ */ new Set();
+				for (let e = 0; e < a; e++) for (let n = 0; n < 64; n++) {
+					let i = t.minLength + Math.floor(hash(e, 15 + n, r ^ 327939) * (t.maxLength - t.minLength + 1)), a = ``;
+					for (let o = 0; o < i; o++) a += Math.floor(hash(e * 8 + o, 16 + n, r ^ 327940) * t.letters);
+					if (!o.has(a)) {
+						o.add(a);
+						break;
+					}
+				}
+				let s = 1 + a * t.maxLength, c = new Int32Array(s * t.letters).fill(-1), l = new Int32Array(s), u = new Int32Array(s), d = new Uint8Array(s), f = new Int32Array(s).fill(-1), p = new Float64Array(s), m = 1;
+				for (let e of o) {
+					let n = 0;
+					for (let r of e) {
+						let e = Number(r);
+						c[n * t.letters + e] < 0 && (c[n * t.letters + e] = m, l[m] = l[n] + 1, u[m] = e, f[m] = n, m++), n = c[n * t.letters + e];
+					}
+					d[n] = 1;
+				}
+				let h = 0, place = (e) => {
+					let n = -1, r = -1;
+					for (let i = 0; i < t.letters; i++) {
+						let a = c[e * t.letters + i];
+						a < 0 || (place(a), n < 0 && (n = a), r = a);
+					}
+					p[e] = n < 0 ? t.top + h++ * t.slotPitch : (p[n] + p[r]) / 2;
+				};
+				place(0);
+				let nodeX = (e) => t.left + l[e] * t.xPitch, g = t.ringRadius + t.ringHalf + t.edgeSoft;
+				return () => {
+					let e = G - Math.floor(G), r = K - Math.floor(K), i = t.paperTone, a = t.paperHeight, o = t.paperRoughness, s = 0, paint = (e, n, r) => {
+						e <= 0 || (i += (n - i) * e, a += (r - a) * e, o += (t.inkRoughness - o) * e, s = Math.max(s, e));
+					}, c = 0, l = 0, h = 0, _ = 0, v = 0;
+					for (let n = 0; n < m; n++) {
+						let i = nodeX(n), a = p[n];
+						if (Math.abs(e - i) < g && Math.abs(r - a) < g) {
+							let o = Math.hypot(e - i, r - a);
+							h = Math.max(h, cover(t.nodeRadius - o)), d[n] && (l = Math.max(l, cover(t.ringHalf - Math.abs(o - t.ringRadius))));
+						}
+						let o = f[n];
+						if (o < 0) continue;
+						let s = nodeX(o), u = (s + i) / 2, m = p[o], y = t.lineHalf + t.edgeSoft;
+						if (e < s - y || e > i + y || r < Math.min(m, a) - y || r > Math.max(m, a) + y) continue;
+						c = Math.max(c, cover(Math.min(t.lineHalf - Math.abs(r - m), e - s, u + t.lineHalf - e)), cover(Math.min(t.lineHalf - Math.abs(e - u), r - (Math.min(m, a) - t.lineHalf), Math.max(m, a) + t.lineHalf - r)));
+						let b = cover(Math.min(t.lineHalf - Math.abs(r - a), e - u, i - e));
+						b > _ && (_ = b, v = n);
+					}
+					paint(c, t.trunkTone, t.trunkHeight), paint(_, t.letterTones[u[v]], t.letterHeights[u[v]]), paint(l, t.nodeTone, t.nodeHeight), paint(h, t.nodeTone, t.nodeHeight), J = clamp(i + t.grainTone * (n(G, K) - .5) * (1 - s)), Y = clamp(a), X = clamp(o), Z = 1;
+				};
+			}
 			case `to92packagefaces`: {
 				let t = require_materials.proceduralMaterialPresets.to92packagefaces, i = new Float64Array(t.cells * t.cells * 4), a = cachedNoise(t.grainCells, t.grainCells, r ^ 143617), o = t.leadCount - 1, s = -o * t.leadPitch * .5, c = -s + Math.max(t.leadRootHalfWidth, t.leadHalfWidth), l = Math.abs(t.bodyCenterY) + t.bodyHalfHeight, u = Math.abs(t.leadCenterY) + t.leadHalfHeight, d = t.maxScale * Math.sqrt(Math.max(t.bodyHalfWidth * t.bodyHalfWidth + l * l, c * c + u * u)), f = 1 / (t.bodyHalfWidth * t.bodyHalfWidth), p = 1 / t.bodyHalfHeight, m = 1 / t.bodyRoundBevel, h = 1 / t.bodyBevel, g = 1 / t.leadPitch, _ = 1 / t.leadShoulderBlend, v = 1 / t.leadBevelX, y = 1 / t.leadBevelY, b = t.leadHalfWidth - t.leadRootHalfWidth, x = t.leadTone - t.backingTone, S = t.leadHeight - t.backingHeight, C = t.leadRoughness - t.backingRoughness, w = t.leadAO - t.backingAO, T = t.bodyTone - t.backingTone, E = t.bodyHeight - t.backingHeight, D = t.roughness - t.backingRoughness, O = t.bodyAO - t.backingAO;
 				for (let e = 0; e < t.cells; e++) for (let a = 0; a < t.cells; a++) {
