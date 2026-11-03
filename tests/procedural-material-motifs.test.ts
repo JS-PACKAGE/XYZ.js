@@ -52361,3 +52361,370 @@ describe('gamblersruin: five gamblers playing rounds of win or lose one coin, a 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('bloomfilter: a bit row, keys put in as dots at their bits, and questions answered by a ring or a filled square', () => {
+  const p = proceduralMaterialPresets.bloomfilter,
+    out = empty(),
+    queryRow = p.insertCount + 2;
+  type Filter = {
+    sample: Sampler;
+    bits: boolean[];
+    inserted: number[][];
+    asked: number[][];
+    maybe: boolean[];
+  };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const near = (tone: number, wanted: number): boolean =>
+    Math.abs(tone - wanted) < 0.01;
+  const centreX = (column: number): number => p.left + (column + 0.5) * p.pitch;
+  const centreY = (row: number): number => p.top + (row + 0.5) * p.rowPitch;
+
+  // Read the picture: the bit row, the bits each key put in points to (the cells of its row with a dot), and the answer to each question.
+  const filterOf = (seed: number): Filter => {
+    const sample = createSurfaceSampler('bloomfilter', seed),
+      pointed = (row: number): number[] =>
+        Array.from({ length: p.bitCount }, (_, column) => column).filter(
+          (column) =>
+            near(toneAt(sample, centreX(column), centreY(row)), p.dotTone),
+        ),
+      bits = Array.from({ length: p.bitCount }, (_, column) =>
+        near(toneAt(sample, centreX(column), centreY(0)), p.setTone),
+      ),
+      inserted = Array.from({ length: p.insertCount }, (_, key) =>
+        pointed(key + 1),
+      ),
+      asked = Array.from({ length: p.queryCount }, (_, q) =>
+        pointed(queryRow + q),
+      ),
+      // A ring has its middle bare; a filled square has it drawn.
+      maybe = Array.from(
+        { length: p.queryCount },
+        (_, q) =>
+          !near(toneAt(sample, p.markX, centreY(queryRow + q)), p.markTone),
+      );
+    bits.forEach((set, column) =>
+      expect(
+        set || near(toneAt(sample, centreX(column), centreY(0)), p.unsetTone),
+      ).toBe(true),
+    );
+    maybe.forEach((answer, q) => {
+      const ring = near(
+        toneAt(sample, p.markX + p.ringRadius, centreY(queryRow + q)),
+        p.markTone,
+      );
+      expect(
+        answer
+          ? ring
+          : near(toneAt(sample, p.markX, centreY(queryRow + q)), p.markTone),
+      ).toBe(true);
+    });
+    return { sample, bits, inserted, asked, maybe };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'sets the bits the keys put in point to, and answers each question maybe in only when all its bits are set (seed %i)',
+    (seed) => {
+      const { bits, inserted, asked, maybe } = filterOf(seed);
+      [...inserted, ...asked].forEach((points) => {
+        expect(points.length).toBeGreaterThanOrEqual(1);
+        expect(points.length).toBeLessThanOrEqual(p.hashCount);
+      });
+      // The bit row is exactly the bits the keys put in point to.
+      const expectedBits = Array.from({ length: p.bitCount }, (_, column) =>
+        inserted.some((points) => points.includes(column)),
+      );
+      expect(bits).toEqual(expectedBits);
+      // A question gets a ring exactly when every one of its bits is set.
+      asked.forEach((points, q) =>
+        expect(maybe[q]).toBe(points.every((column) => bits[column])),
+      );
+      // The first questions are about keys that went in: the same bits as one of them, so a ring.
+      for (let q = 0; q < p.memberQueries; q++) {
+        expect(
+          inserted.some(
+            (points) =>
+              points.length === asked[q].length &&
+              points.every((column, i) => column === asked[q][i]),
+          ),
+        ).toBe(true);
+        expect(maybe[q]).toBe(true);
+      }
+    },
+  );
+
+  it('shows rings and filled squares, false positives, bits set and not, and keys hitting the same bit, over 60 seeds', () => {
+    let rings = 0,
+      squares = 0,
+      falsePositive = 0,
+      setBits = 0,
+      repeated = 0,
+      keyRows = 0;
+    const used = new Set<number>(),
+      memberRows = new Set<number>();
+    for (let seed = 0; seed < 60; seed++) {
+      const { bits, inserted, asked, maybe } = filterOf(seed * 41 + 6);
+      setBits += bits.filter(Boolean).length;
+      inserted.forEach((points) => {
+        keyRows++;
+        // Fewer dots than the number of hashes: two of the hashes pointed to the same bit.
+        repeated += Number(points.length < p.hashCount);
+        points.forEach((column) => used.add(column));
+      });
+      asked.slice(0, p.memberQueries).forEach((points) => {
+        // The row of the key put in that the question is about (the first with the same bits).
+        memberRows.add(
+          inserted.findIndex(
+            (row) =>
+              row.length === points.length &&
+              row.every((column, i) => column === points[i]),
+          ),
+        );
+      });
+      asked.forEach((points, q) => {
+        rings += Number(maybe[q]);
+        squares += Number(!maybe[q]);
+        falsePositive += Number(q >= p.memberQueries && maybe[q]);
+        points.forEach((column) => used.add(column));
+      });
+    }
+    expect([...memberRows].sort((a, b) => a - b)).toEqual(
+      Array.from({ length: p.insertCount }, (_, i) => i),
+    );
+    expect(rings).toBeGreaterThan(120);
+    expect(squares).toBeGreaterThan(60);
+    // A question for a key that never went in may get a ring anyway.
+    expect(falsePositive).toBeGreaterThan(8);
+    expect(repeated).toBeGreaterThan(20);
+    expect(repeated).toBeLessThan(keyRows / 2);
+    expect([...used].sort((a, b) => a - b)).toEqual(
+      Array.from({ length: p.bitCount }, (_, i) => i),
+    );
+    // Roughly half of the bits are set: 6 keys, 3 bits each, over 24 bits.
+    const mean = setBits / 60;
+    expect(mean).toBeGreaterThan(11);
+    expect(mean).toBeLessThan(15);
+  });
+
+  it('draws the bit row, the dots and the answers with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, bits, inserted, asked, maybe } = filterOf(seed),
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      bits.forEach((set, column) => {
+        const x = centreX(column),
+          y = centreY(0),
+          tone = set ? p.setTone : p.unsetTone,
+          level = set ? p.setHeight : p.unsetHeight;
+        // A cell of the bit row: tone, height, roughness, size, and the gap to the next one.
+        expect(toneAt(sample, x, y)).toBeCloseTo(tone, 6);
+        expect(out.height / p.relief).toBeCloseTo(level, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(
+          toneAt(sample, x + p.cellHalf - 0.0004, y + p.cellHalf - 0.0004),
+        ).toBeCloseTo(tone, 6);
+        expect(
+          toneAt(sample, x - p.cellHalf + 0.0004, y - p.cellHalf + 0.0004),
+        ).toBeCloseTo(tone, 6);
+        expect(paperOk(x + p.cellHalf + 0.001, y)).toBe(true);
+        expect(paperOk(x, y - p.cellHalf - 0.001)).toBe(true);
+        expect(paperOk(x, y + p.cellHalf + 0.001)).toBe(true);
+      });
+      const dots = [
+        ...inserted.map((points, key) => ({ points, row: key + 1 })),
+        ...asked.map((points, q) => ({ points, row: queryRow + q })),
+      ];
+      dots.forEach(({ points, row }) => {
+        const y = centreY(row);
+        for (let column = 0; column < p.bitCount; column++) {
+          const x = centreX(column);
+          if (points.includes(column)) {
+            // A dot: tone, height, roughness, radius.
+            expect(toneAt(sample, x, y)).toBeCloseTo(p.dotTone, 6);
+            expect(out.height / p.relief).toBeCloseTo(p.dotHeight, 6);
+            expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+            expect(
+              near(toneAt(sample, x + p.dotRadius - 0.0005, y), p.dotTone),
+            ).toBe(true);
+            expect(paperOk(x + p.dotRadius + 0.0012, y)).toBe(true);
+            expect(paperOk(x, y + p.dotRadius + 0.0012)).toBe(true);
+          } else expect(paperOk(x, y)).toBe(true);
+        }
+      });
+      maybe.forEach((answer, q) => {
+        const y = centreY(queryRow + q);
+        if (answer) {
+          // A ring: bare middle, tone, height, roughness, radius, thickness.
+          expect(paperOk(p.markX, y)).toBe(true);
+          expect(toneAt(sample, p.markX + p.ringRadius, y)).toBeCloseTo(
+            p.markTone,
+            6,
+          );
+          expect(out.height / p.relief).toBeCloseTo(p.markHeight, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          expect(
+            near(
+              toneAt(sample, p.markX + p.ringRadius + p.ringHalf - 0.0004, y),
+              p.markTone,
+            ),
+          ).toBe(true);
+          expect(paperOk(p.markX + p.ringRadius + p.ringHalf + 0.0008, y)).toBe(
+            true,
+          );
+          expect(paperOk(p.markX + p.ringRadius - p.ringHalf - 0.0008, y)).toBe(
+            true,
+          );
+        } else {
+          // A filled square: tone, height, roughness, half width.
+          expect(toneAt(sample, p.markX, y)).toBeCloseTo(p.markTone, 6);
+          expect(out.height / p.relief).toBeCloseTo(p.markHeight, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          expect(
+            toneAt(
+              sample,
+              p.markX + p.squareHalf - 0.0004,
+              y + p.squareHalf - 0.0004,
+            ),
+          ).toBeCloseTo(p.markTone, 6);
+          expect(paperOk(p.markX + p.squareHalf + 0.001, y)).toBe(true);
+          expect(paperOk(p.markX, y - p.squareHalf - 0.001)).toBe(true);
+        }
+      });
+      // The blank row between the keys put in and the questions, and above the bit row.
+      expect(paperOk(centreX(5), centreY(p.insertCount + 1))).toBe(true);
+      expect(paperOk(centreX(5), p.top - 0.01)).toBe(true);
+      expect(paperOk(p.markX, centreY(0))).toBe(true);
+      expect(paperOk(p.markX, centreY(1))).toBe(true);
+    }
+  });
+
+  it('softens the edge of a cell, a dot, a ring and a square over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    let rings = 0,
+      squares = 0;
+    for (const seed of seeds) {
+      const { bits, inserted, maybe } = filterOf(seed),
+        sample = createSurfaceSampler('bloomfilter', seed),
+        set = bits.indexOf(true),
+        x = centreX(set),
+        y = centreY(0),
+        dotX = centreX(inserted[0][0]),
+        dotY = centreY(1);
+      // A set cell's sides over the paper.
+      close(
+        toneAt(sample, x + p.cellHalf - quarter, y),
+        mix(p.paperTone, p.setTone, 0.75),
+      );
+      close(
+        toneAt(sample, x + p.cellHalf + quarter, y),
+        mix(p.paperTone, p.setTone, 0.25),
+      );
+      close(
+        toneAt(sample, x, y - p.cellHalf + quarter),
+        mix(p.paperTone, p.setTone, 0.75),
+      );
+      close(
+        toneAt(sample, x, y - p.cellHalf - quarter),
+        mix(p.paperTone, p.setTone, 0.25),
+      );
+      // A dot over the paper.
+      close(
+        toneAt(sample, dotX + p.dotRadius - quarter, dotY),
+        mix(p.paperTone, p.dotTone, 0.75),
+      );
+      close(
+        toneAt(sample, dotX + p.dotRadius + quarter, dotY),
+        mix(p.paperTone, p.dotTone, 0.25),
+      );
+      // A ring's outer edge, and a square's side.
+      maybe.forEach((answer, q) => {
+        const my = centreY(queryRow + q);
+        if (answer) {
+          rings++;
+          close(
+            toneAt(sample, p.markX + p.ringRadius + p.ringHalf - quarter, my),
+            mix(p.paperTone, p.markTone, 0.75),
+          );
+          close(
+            toneAt(sample, p.markX + p.ringRadius + p.ringHalf + quarter, my),
+            mix(p.paperTone, p.markTone, 0.25),
+          );
+        } else {
+          squares++;
+          close(
+            toneAt(sample, p.markX + p.squareHalf - quarter, my),
+            mix(p.paperTone, p.markTone, 0.75),
+          );
+          close(
+            toneAt(sample, p.markX + p.squareHalf + quarter, my),
+            mix(p.paperTone, p.markTone, 0.25),
+          );
+          close(
+            toneAt(sample, p.markX, my + p.squareHalf - quarter),
+            mix(p.paperTone, p.markTone, 0.75),
+          );
+          close(
+            toneAt(sample, p.markX, my + p.squareHalf + quarter),
+            mix(p.paperTone, p.markTone, 0.25),
+          );
+        }
+      });
+    }
+    expect(rings).toBeGreaterThan(5);
+    expect(squares).toBeGreaterThan(5);
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('bloomfilter', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('bloomfilter', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.98),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('bloomfilter', 0),
+      b = createSurfaceSampler('bloomfilter', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.1131],
+        [0.4001, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

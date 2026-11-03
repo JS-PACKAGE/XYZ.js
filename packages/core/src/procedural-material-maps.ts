@@ -44553,6 +44553,114 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'bloomfilter': {
+        const p = proceduralMaterialPresets.bloomfilter,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x50701),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // bitsOf[key * hashCount + j]: the bit the j-th hash of the key points to; the keys are the ones put in, then the ones asked about.
+          keys = p.insertCount + p.queryCount,
+          bitsOf = new Int32Array(keys * p.hashCount),
+          set = new Uint8Array(p.bitCount),
+          maybe = new Uint8Array(p.queryCount);
+        for (let key = 0; key < keys; key++)
+          for (let j = 0; j < p.hashCount; j++)
+            bitsOf[key * p.hashCount + j] = Math.floor(
+              hash(key * 4 + j, 30, seed ^ 0x50702) * p.bitCount,
+            );
+        // The first memberQueries questions ask about keys that were put in: they point to the same bits as that key.
+        for (let q = 0; q < p.memberQueries; q++) {
+          const member = Math.floor(
+              hash(q, 31, seed ^ 0x50703) * p.insertCount,
+            ),
+            key = p.insertCount + q;
+          for (let j = 0; j < p.hashCount; j++)
+            bitsOf[key * p.hashCount + j] = bitsOf[member * p.hashCount + j];
+        }
+        for (let key = 0; key < p.insertCount; key++)
+          for (let j = 0; j < p.hashCount; j++)
+            set[bitsOf[key * p.hashCount + j]] = 1;
+        for (let q = 0; q < p.queryCount; q++) {
+          maybe[q] = 1;
+          for (let j = 0; j < p.hashCount; j++)
+            if (!set[bitsOf[(p.insertCount + q) * p.hashCount + j]])
+              maybe[q] = 0;
+        }
+        // Rows: 0 the bit row, 1 to insertCount the keys put in, one blank row, then the questions.
+        const queryRow = p.insertCount + 2;
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          const row = Math.floor((fv - p.top) / p.rowPitch),
+            cy = p.top + (row + 0.5) * p.rowPitch,
+            column = Math.floor((fu - p.left) / p.pitch);
+          if (row >= 0 && row <= queryRow + p.queryCount - 1) {
+            const cx = p.left + (column + 0.5) * p.pitch;
+            if (column >= 0 && column < p.bitCount) {
+              if (row === 0)
+                paint(
+                  cover(
+                    Math.min(
+                      p.cellHalf - Math.abs(fu - cx),
+                      p.cellHalf - Math.abs(fv - cy),
+                    ),
+                  ),
+                  set[column] ? p.setTone : p.unsetTone,
+                  set[column] ? p.setHeight : p.unsetHeight,
+                );
+              else if (row !== p.insertCount + 1) {
+                const key =
+                  row <= p.insertCount
+                    ? row - 1
+                    : p.insertCount + row - queryRow;
+                let pointed = false;
+                for (let j = 0; j < p.hashCount; j++)
+                  if (bitsOf[key * p.hashCount + j] === column) pointed = true;
+                if (pointed)
+                  paint(
+                    cover(p.dotRadius - Math.hypot(fu - cx, fv - cy)),
+                    p.dotTone,
+                    p.dotHeight,
+                  );
+              }
+            }
+            // The answer at the right end of a question's row: a ring for maybe in, a filled square for surely not.
+            if (row >= queryRow) {
+              const away = Math.hypot(fu - p.markX, fv - cy);
+              paint(
+                cover(
+                  maybe[row - queryRow]
+                    ? p.ringHalf - Math.abs(away - p.ringRadius)
+                    : Math.min(
+                        p.squareHalf - Math.abs(fu - p.markX),
+                        p.squareHalf - Math.abs(fv - cy),
+                      ),
+                ),
+                p.markTone,
+                p.markHeight,
+              );
+            }
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -72082,6 +72190,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'bloomfilter' ||
     kind === 'gamblersruin' ||
     kind === 'nimgame' ||
     kind === 'wordlefeedback' ||

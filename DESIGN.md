@@ -2257,6 +2257,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`bloomfilter`（布隆過濾器）使目前目錄1172→1173種，含plain的gallery為1174項。布隆過濾器：最上面一列24個位元（設了的是深色方塊、沒設的是淡色方塊）；6個放進去的鍵，每個鍵的3個雜湊各指向一個位元，在該鍵自己的一列、對應位元的位置畫一個圓點；再來是6個查詢（其中2個是放進去過的鍵，4個不是），各有一列圓點，列的右端用圓環表示「它的位元全都設了」（可能在裡面）、用實心方塊表示「有位元沒設」（一定不在裡面）。沒放進去過的鍵也可能得到圓環（誤判）。seed決定每個雜湊指向的位元與哪些鍵被查詢。這是作者設計的示意；位元列必須剛好是所有放進去的鍵所指位元的聯集，每個查詢的圓環與方塊必須剛好等於「它的位元是否全都設了」，由畫面獨立解出並驗算。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
