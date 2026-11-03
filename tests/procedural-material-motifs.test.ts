@@ -37943,3 +37943,340 @@ describe('semaphorefigures: stick figures holding a flag on each arm at multiple
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('hofstadterq: a scatter plot of 128 consecutive terms of the Hofstadter Q sequence', () => {
+  const p = proceduralMaterialPresets.hofstadterq,
+    out = empty();
+  type Plot = {
+    start: number;
+    sample: Sampler;
+    values: number[];
+    dotX: number[];
+    dotY: number[];
+    place: (value: number) => number;
+  };
+
+  // Q(n) by memoised recursion straight from the definition (the sampler fills an array in order instead).
+  const memory = new Map<number, number>();
+  const q = (n: number): number => {
+    if (n <= 2) return 1;
+    const known = memory.get(n);
+    if (known !== undefined) return known;
+    const value = q(n - q(n - 1)) + q(n - q(n - 2));
+    memory.set(n, value);
+    return value;
+  };
+  // Filling the memory in order keeps the recursion shallow.
+  for (let n = 1; n <= 2200; n++) q(n);
+
+  const rulingY = (k: number): number =>
+    p.margin + (k * (1 - 2 * p.margin)) / p.rulings;
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const plotOf = (seed: number): Plot => {
+    const sample = createSurfaceSampler('hofstadterq', seed),
+      found = p.starts
+        .map((start): Plot | null => {
+          const values = Array.from({ length: p.terms }, (_, i) =>
+              q(start + i),
+            ),
+            low = Math.min(...values),
+            high = Math.max(...values),
+            place = (value: number): number =>
+              p.margin + ((high - value) / (high - low)) * (1 - 2 * p.margin),
+            dotX = values.map((_, i) => (i + 0.5) / p.terms),
+            dotY = values.map((value) => place(value));
+          // The right window has a dot at every one of its places.
+          return dotX.every((x, i) => toneAt(sample, x, dotY[i]) < 0.4)
+            ? { start, sample, values, dotX, dotY, place }
+            : null;
+        })
+        .filter((plot) => plot !== null);
+    expect(found).toHaveLength(1);
+    return found[0];
+  };
+  // Where the guide Q = n / 2 is at a given u.
+  const guideAt = (plot: Plot, u: number): number =>
+    plot.place((plot.start + u * p.terms) / 2);
+  const farFromDots = (
+    plot: Plot,
+    u: number,
+    v: number,
+    clear: number,
+  ): boolean =>
+    plot.dotX.every((x, i) => Math.hypot(u - x, v - plot.dotY[i]) > clear);
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'puts a dot at the height of every term of its window, in the tone of its column (seed %i)',
+    (seed) => {
+      const plot = plotOf(seed);
+      for (let i = 0; i < p.terms; i++) {
+        expect(toneAt(plot.sample, plot.dotX[i], plot.dotY[i])).toBeCloseTo(
+          p.dotLow + ((p.dotHigh - p.dotLow) * i) / (p.terms - 1),
+          6,
+        );
+        expect(out.height / p.relief).toBeCloseTo(p.dotHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+      }
+    },
+  );
+
+  it('uses every start of the window across 60 seeds', () => {
+    const seen = new Set<number>();
+    for (let seed = 0; seed < 60; seed++) seen.add(plotOf(seed).start);
+    expect([...seen].sort((a, b) => a - b)).toEqual([...p.starts]);
+  });
+
+  it('lets a dot reach into the neighbouring columns on both sides, also across the seam of the tile', () => {
+    const reach = 0.5 / p.terms + 0.0001;
+    let checked = 0;
+    for (const seed of seeds) {
+      const plot = plotOf(seed);
+      for (let i = 0; i < p.terms; i++)
+        for (const side of [-1, 1]) {
+          const j = (i + side + p.terms) % p.terms,
+            tone = p.dotLow + ((p.dotHigh - p.dotLow) * i) / (p.terms - 1);
+          // The dot of the neighbouring column must be out of the way for the dot's own tone to be the only one there.
+          if (Math.abs(plot.dotY[j] - plot.dotY[i]) < 4 * p.dotRadius) continue;
+          checked++;
+          expect(
+            toneAt(plot.sample, plot.dotX[i] + side * reach, plot.dotY[i]),
+          ).toBeCloseTo(tone, 6);
+        }
+    }
+    expect(checked).toBeGreaterThan(500);
+  });
+
+  it('puts the smallest and the biggest term of the window at the bottom and the top margin', () => {
+    for (const seed of seeds) {
+      const plot = plotOf(seed);
+      expect(Math.max(...plot.dotY)).toBeCloseTo(1 - p.margin, 12);
+      expect(Math.min(...plot.dotY)).toBeCloseTo(p.margin, 12);
+      // Beyond the margins, over the column of the extreme term, there is only paper.
+      const lowColumn = plot.values.indexOf(Math.min(...plot.values)),
+        highColumn = plot.values.indexOf(Math.max(...plot.values));
+      expect(
+        toneAt(
+          plot.sample,
+          plot.dotX[lowColumn],
+          1 - p.margin + 3 * p.dotRadius,
+        ),
+      ).toBeGreaterThan(0.5);
+      expect(
+        toneAt(plot.sample, plot.dotX[highColumn], p.margin - 3 * p.dotRadius),
+      ).toBeGreaterThan(0.5);
+    }
+  });
+
+  it('draws the 9 horizontal rulings inside the plot only', () => {
+    for (const seed of seeds) {
+      const plot = plotOf(seed);
+      for (let k = 0; k <= p.rulings; k++) {
+        const u = Array.from({ length: 400 }, (_, i) => (i + 0.5) / 400).find(
+          (x) =>
+            Math.abs(guideAt(plot, x) - rulingY(k)) > 0.02 &&
+            farFromDots(plot, x, rulingY(k), 0.02),
+        );
+        expect(u).toBeDefined();
+        expect(toneAt(plot.sample, u as number, rulingY(k))).toBeCloseTo(
+          p.rulingTone,
+          6,
+        );
+        expect(out.height / p.relief).toBeCloseTo(p.rulingHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        // At a quarter of the soft width inside and outside the line's edge, and well beyond it, on either side.
+        const quarter = 0.25 * p.edgeSoft,
+          smooth = (x: number): number => x * x * (3 - 2 * x),
+          mix = (x: number): number =>
+            p.paperTone + (p.rulingTone - p.paperTone) * smooth(x);
+        for (const side of [-1, 1]) {
+          for (const [offset, expected] of [
+            [p.rulingHalf - quarter, mix(0.75)],
+            [p.rulingHalf + quarter, mix(0.25)],
+          ] as const) {
+            const v = rulingY(k) + side * offset;
+            if (Math.abs(guideAt(plot, u as number) - v) > 0.02)
+              expect(
+                Math.abs(toneAt(plot.sample, u as number, v) - expected),
+              ).toBeLessThan(0.03);
+          }
+          const far = rulingY(k) + side * (p.rulingHalf + 0.004);
+          if (
+            Math.abs(guideAt(plot, u as number) - far) > 0.02 &&
+            farFromDots(plot, u as number, far, 0.02)
+          )
+            expect(
+              Math.abs(toneAt(plot.sample, u as number, far) - p.paperTone),
+            ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+        }
+      }
+      // Over the top margin and under the bottom one there are no rulings.
+      for (const v of [p.margin / 2, 1 - p.margin / 2]) {
+        let paper = 0;
+        for (let i = 0; i < 100; i++) {
+          const u = (i + 0.5) / 100;
+          if (
+            Math.abs(guideAt(plot, u) - v) > 0.02 &&
+            farFromDots(plot, u, v, 0.02)
+          ) {
+            expect(
+              Math.abs(toneAt(plot.sample, u, v) - p.paperTone),
+            ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+            paper++;
+          }
+        }
+        expect(paper).toBeGreaterThan(30);
+      }
+    }
+  });
+
+  it('draws the guide Q = n / 2 with its width measured across the line', () => {
+    for (const seed of seeds) {
+      const plot = plotOf(seed),
+        slope = guideAt(plot, 1) - guideAt(plot, 0),
+        across = 1 / Math.hypot(1, slope);
+      let checked = 0;
+      for (let i = 0; i < 160; i++) {
+        const u = (i + 0.5) / 160,
+          v = guideAt(plot, u),
+          nearRuling = Array.from({ length: p.rulings + 1 }, (_, k) => k).some(
+            (k) => Math.abs(rulingY(k) - v) < 0.012,
+          );
+        if (
+          v < 0.01 ||
+          v > 0.99 ||
+          nearRuling ||
+          !farFromDots(plot, u, v, 0.02)
+        )
+          continue;
+        checked++;
+        expect(toneAt(plot.sample, u, v)).toBeCloseTo(p.guideTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.guideHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(
+          toneAt(plot.sample, u, v + (p.guideHalf * 0.5) / across),
+        ).toBeCloseTo(p.guideTone, 6);
+        // At a quarter of the soft width inside and outside the line's edge (its half width measured across the line).
+        const quarter = 0.25 * p.edgeSoft,
+          smooth = (x: number): number => x * x * (3 - 2 * x),
+          mix = (x: number): number =>
+            p.paperTone + (p.guideTone - p.paperTone) * smooth(x);
+        for (const side of [-1, 1]) {
+          expect(
+            Math.abs(
+              toneAt(
+                plot.sample,
+                u,
+                v + (side * (p.guideHalf - quarter)) / across,
+              ) - mix(0.75),
+            ),
+          ).toBeLessThan(0.03);
+          expect(
+            Math.abs(
+              toneAt(
+                plot.sample,
+                u,
+                v + (side * (p.guideHalf + quarter)) / across,
+              ) - mix(0.25),
+            ),
+          ).toBeLessThan(0.03);
+        }
+        expect(
+          Math.abs(
+            toneAt(plot.sample, u, v + (p.guideHalf + 0.004) / across) -
+              p.paperTone,
+          ),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      expect(checked).toBeGreaterThan(30);
+    }
+  });
+
+  it('softens an isolated dot over edgeSoft around its radius', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft;
+    for (const seed of seeds) {
+      const plot = plotOf(seed),
+        i = plot.dotX.findIndex(
+          (x, k) =>
+            plot.dotX.every(
+              (ox, o) =>
+                o === k ||
+                Math.hypot(x - ox, plot.dotY[k] - plot.dotY[o]) >
+                  4 * p.dotRadius,
+            ) &&
+            Math.abs(guideAt(plot, x) - plot.dotY[k]) > 3 * p.dotRadius &&
+            Array.from({ length: p.rulings + 1 }, (_, r) => r).every(
+              (r) => Math.abs(rulingY(r) - plot.dotY[k]) > 3 * p.dotRadius,
+            ),
+        );
+      expect(i).toBeGreaterThanOrEqual(0);
+      const tone = p.dotLow + ((p.dotHigh - p.dotLow) * i) / (p.terms - 1),
+        top = plot.dotY[i] - p.dotRadius;
+      // Inside the dot's top edge by a quarter of the soft width, and outside it by the same.
+      expect(
+        Math.abs(
+          toneAt(plot.sample, plot.dotX[i], top + quarter) -
+            (p.paperTone + (tone - p.paperTone) * smoothstep(0.75)),
+        ),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(
+          toneAt(plot.sample, plot.dotX[i], top - quarter) -
+            (p.paperTone + (tone - p.paperTone) * smoothstep(0.25)),
+        ),
+      ).toBeLessThan(0.03);
+      expect(toneAt(plot.sample, plot.dotX[i], top + 3 * quarter)).toBeCloseTo(
+        tone,
+        6,
+      );
+    }
+  });
+
+  it('has grain on the paper only, keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('hofstadterq', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const plot = plotOf(0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(plot.sample, 0.0113 + i * 0.0191, 0.021),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.004);
+    const a = createSurfaceSampler('hofstadterq', 0),
+      b = createSurfaceSampler('hofstadterq', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

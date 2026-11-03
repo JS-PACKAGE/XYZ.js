@@ -2105,6 +2105,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`hofstadterq`（霍夫施塔特Q數列散點圖）使目前目錄1134→1135種，含plain的gallery為1136項。Q(1)=Q(2)=1、Q(n)=Q(n−Q(n−1))+Q(n−Q(n−2))，畫連續128項的散點圖，每欄一個點，高度縮放到視窗內最小項與最大項剛好落在上下邊界；seed決定視窗從第幾項開始（1、129、257、513、1025、2049）。另畫一條表示Q=n/2的細斜線與把圖分成8格的9條細橫線。這是作者設計的示意，色調（亮度）從左到右依欄位漸變。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

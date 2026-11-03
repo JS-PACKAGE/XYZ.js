@@ -40161,6 +40161,87 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'hofstadterq': {
+        const p = proceduralMaterialPresets.hofstadterq,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x41b01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          start =
+            p.starts[Math.floor(hash(21, 9, seed ^ 0x41b02) * p.starts.length)],
+          last = start + p.terms - 1,
+          sequence = new Int32Array(last + 1);
+        sequence[1] = 1;
+        sequence[2] = 1;
+        for (let n = 3; n <= last; n++)
+          sequence[n] =
+            sequence[n - sequence[n - 1]] + sequence[n - sequence[n - 2]];
+        let smallest = Infinity,
+          biggest = -Infinity;
+        for (let n = start; n <= last; n++) {
+          smallest = Math.min(smallest, sequence[n]);
+          biggest = Math.max(biggest, sequence[n]);
+        }
+        const span = biggest - smallest,
+          // Height of a value of Q in the picture (0 at the top).
+          place = (value: number): number =>
+            p.margin + (1 - (value - smallest) / span) * (1 - 2 * p.margin),
+          dotY = new Float64Array(p.terms);
+        for (let i = 0; i < p.terms; i++) dotY[i] = place(sequence[start + i]);
+        // The guide Q = n / 2 as a line y = guideStart + slope * x, and the distance across it from the vertical one.
+        const guideStart = place(start / 2),
+          slope = place((start + p.terms) / 2) - guideStart,
+          guideScale = 1 / Math.hypot(1, slope);
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            column = Math.floor(fu * p.terms);
+          let dot = 0,
+            tone = 0;
+          for (let di = -1; di <= 1; di++) {
+            const index = column + di,
+              wrapped = (index + p.terms) % p.terms,
+              amount = cover(
+                p.dotRadius -
+                  Math.hypot(fu - (index + 0.5) / p.terms, fv - dotY[wrapped]),
+              );
+            if (amount > dot) {
+              dot = amount;
+              tone = wrapped / (p.terms - 1);
+            }
+          }
+          // The horizontal lines every 1/rulings of the plot height.
+          const ruling = ((fv - p.margin) / (1 - 2 * p.margin)) * p.rulings,
+            rulingDistance =
+              Math.abs(ruling - Math.round(ruling)) *
+              ((1 - 2 * p.margin) / p.rulings),
+            rulingAmount = cover(p.rulingHalf - rulingDistance),
+            guideAmount = cover(
+              p.guideHalf - Math.abs(fv - guideStart - slope * fu) * guideScale,
+            );
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness;
+          shade += (p.rulingTone - shade) * rulingAmount;
+          elevation += (p.rulingHeight - elevation) * rulingAmount;
+          rough += (p.inkRoughness - rough) * rulingAmount;
+          shade += (p.guideTone - shade) * guideAmount;
+          elevation += (p.guideHeight - elevation) * guideAmount;
+          rough += (p.inkRoughness - rough) * guideAmount;
+          shade += (p.dotLow + (p.dotHigh - p.dotLow) * tone - shade) * dot;
+          elevation += (p.dotHeight - elevation) * dot;
+          rough += (p.inkRoughness - rough) * dot;
+          color = clamp(
+            shade +
+              p.grainTone *
+                (grainField(u, v) - 0.5) *
+                (1 - Math.max(dot, rulingAmount, guideAmount)),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -67690,6 +67771,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'hofstadterq' ||
     kind === 'semaphorefigures' ||
     kind === 'fenwicktree' ||
     kind === 'jacobisymbols' ||
