@@ -42429,6 +42429,148 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'ganttschedule': {
+        const p = proceduralMaterialPresets.ganttschedule,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x4f501),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          count =
+            p.taskCounts[
+              Math.floor(hash(43, 1, seed ^ 0x4f502) * p.taskCounts.length)
+            ],
+          duration = new Int32Array(count),
+          begin = new Int32Array(count),
+          // The dependencies as pairs: the earlier task and the later one.
+          from: number[] = [],
+          to: number[] = [];
+        // Try sets of durations and dependencies until every task finishes within the horizon.
+        for (let attempt = 0; ; attempt++) {
+          from.length = 0;
+          to.length = 0;
+          let ok = true;
+          for (let i = 0; i < count && ok; i++) {
+            duration[i] =
+              p.minDuration +
+              Math.floor(
+                hash(i, attempt * 5, seed ^ 0x4f503) *
+                  (p.maxDuration - p.minDuration + 1),
+              );
+            // No dependency for the first task, and for a quarter of the others; otherwise one or two on earlier tasks.
+            const wanted =
+              i === 0 || hash(i, attempt * 5 + 1, seed ^ 0x4f504) < 0.25
+                ? 0
+                : hash(i, attempt * 5 + 2, seed ^ 0x4f505) < 0.5
+                  ? 1
+                  : 2;
+            const chosen: number[] = [];
+            for (let k = 0; k < wanted; k++) {
+              const earlier = Math.floor(
+                hash(i, attempt * 5 + 3 + k, seed ^ 0x4f506) * i,
+              );
+              if (!chosen.includes(earlier)) chosen.push(earlier);
+            }
+            begin[i] = 0;
+            for (const earlier of chosen) {
+              begin[i] = Math.max(begin[i], begin[earlier] + duration[earlier]);
+              from.push(earlier);
+              to.push(i);
+            }
+            ok = begin[i] + duration[i] <= p.horizon;
+          }
+          if (ok) break;
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          const time = (fu - p.left) / p.unit,
+            chartHeight = count * p.rowPitch,
+            inRows = fv - p.top;
+          if (
+            time > -0.5 &&
+            time < p.horizon + 0.5 &&
+            inRows > -0.01 &&
+            inRows < chartHeight + 0.01
+          ) {
+            // The grid: a thin line at each unit of time over the rows.
+            const nearGrid = Math.abs(time - Math.round(time)) * p.unit;
+            paint(
+              cover(
+                Math.min(
+                  p.gridHalf - nearGrid,
+                  Math.min(inRows, chartHeight - inRows) + p.gridHalf,
+                ),
+              ),
+              p.gridTone,
+              p.gridHeight,
+            );
+            // The links: along the earlier task's row from its end to the start of the later task, and down at that start to the later row. Where
+            // several overlap (two earlier tasks for one later one) the strongest counts, so that a soft edge is not blended in twice.
+            let link = 0;
+            for (let d = 0; d < from.length; d++) {
+              const a = from[d],
+                b = to[d],
+                x = p.left + begin[b] * p.unit,
+                ya = p.top + (a + 0.5) * p.rowPitch,
+                yb = p.top + (b + 0.5) * p.rowPitch,
+                startX = p.left + (begin[a] + duration[a]) * p.unit;
+              link = Math.max(
+                link,
+                cover(
+                  Math.min(p.linkHalf - Math.abs(fv - ya), fu - startX, x - fu),
+                ),
+                cover(
+                  Math.min(p.linkHalf - Math.abs(fu - x), fv - ya, yb - fv),
+                ),
+              );
+            }
+            paint(link, p.linkTone, p.linkHeight);
+            // The bars.
+            const row = Math.floor(inRows / p.rowPitch);
+            if (row >= 0 && row < count) {
+              const y = p.top + (row + 0.5) * p.rowPitch,
+                x0 = p.left + begin[row] * p.unit,
+                x1 = x0 + duration[row] * p.unit;
+              paint(
+                cover(Math.min(fu - x0, x1 - fu, p.barHalf - Math.abs(fv - y))),
+                p.barTone,
+                p.barHeight,
+              );
+            }
+            // The dots where the links leave the earlier rows (one where several links leave at the same place).
+            let dot = 0;
+            for (let d = 0; d < from.length; d++)
+              dot = Math.max(
+                dot,
+                cover(
+                  p.dotRadius -
+                    Math.hypot(
+                      fu - (p.left + begin[to[d]] * p.unit),
+                      fv - (p.top + (from[d] + 0.5) * p.rowPitch),
+                    ),
+                ),
+              );
+            paint(dot, p.dotTone, p.dotHeight);
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -69958,6 +70100,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'ganttschedule' ||
     kind === 'lorenzcurve' ||
     kind === 'zordercurve' ||
     kind === 'histogrambins' ||

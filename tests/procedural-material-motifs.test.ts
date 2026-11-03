@@ -45471,3 +45471,428 @@ describe('lorenzcurve: a Lorenz curve drawn from the incomes shown as bars under
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('ganttschedule: a Gantt chart whose tasks start when the last task they depend on has finished', () => {
+  const p = proceduralMaterialPresets.ganttschedule,
+    out = empty();
+  type Task = { start: number; end: number };
+  type Chart = { sample: Sampler; tasks: Task[]; dots: [number, number][] };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const rowY = (row: number): number => p.top + (row + 0.5) * p.rowPitch;
+  const timeX = (time: number): number => p.left + time * p.unit;
+  const near = (tone: number, target: number): boolean =>
+    Math.abs(tone - target) < 0.01;
+
+  const chartOf = (seed: number): Chart => {
+    const sample = createSurfaceSampler('ganttschedule', seed),
+      tasks: Task[] = [],
+      dots: [number, number][] = [];
+    // The tasks: for each row, the runs of whole time units whose middle has the bar tone.
+    for (let row = 0; ; row++) {
+      const covered = Array.from({ length: p.horizon }, (_, t) =>
+        near(toneAt(sample, timeX(t + 0.5), rowY(row)), p.barTone),
+      );
+      if (!covered.some((on) => on)) break;
+      const start = covered.indexOf(true),
+        end = covered.lastIndexOf(true) + 1;
+      // One bar: every unit between its first and last is covered.
+      expect(covered.slice(start, end).every((on) => on)).toBe(true);
+      tasks.push({ start, end });
+    }
+    expect(p.taskCounts).toContain(tasks.length);
+    // The dots: at a boundary of the time units, in a row.
+    for (let row = 0; row < tasks.length; row++)
+      for (let time = 0; time <= p.horizon; time++)
+        if (near(toneAt(sample, timeX(time), rowY(row)), p.dotTone))
+          dots.push([time, row]);
+    return { sample, tasks, dots };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'starts every task as soon as the last of the tasks it depends on has finished, and draws only real dependencies (seed %i)',
+    (seed) => {
+      const { sample, tasks, dots } = chartOf(seed);
+      tasks.forEach((task, i) => {
+        const duration = task.end - task.start;
+        expect(duration).toBeGreaterThanOrEqual(p.minDuration);
+        expect(duration).toBeLessThanOrEqual(p.maxDuration);
+        expect(task.end).toBeLessThanOrEqual(p.horizon);
+        // The dependencies of this task as far as the picture shows them: a dot at its start in an earlier row, joined to this row by a link down at
+        // that time (the links in the gaps between rows, all the way) and, if the earlier task ends before, a link along its row.
+        const preds = dots
+          .filter(([time, row]) => time === task.start && row < i)
+          .map(([, row]) => row)
+          .filter((row) => {
+            for (let r = row; r < i; r++) {
+              const tone = toneAt(
+                sample,
+                timeX(task.start),
+                p.top + (r + 1) * p.rowPitch,
+              );
+              if (!near(tone, p.linkTone)) return false;
+            }
+            if (tasks[row].end < task.start)
+              return near(
+                toneAt(
+                  sample,
+                  timeX((tasks[row].end + task.start) / 2),
+                  rowY(row),
+                ),
+                p.linkTone,
+              );
+            return true;
+          });
+        if (task.start === 0) {
+          expect(dots.some(([time, row]) => time === 0 && row < i)).toBe(false);
+        } else {
+          expect(preds.length).toBeGreaterThanOrEqual(1);
+          // It starts when the last of them ends (and the others end no later).
+          expect(Math.max(...preds.map((row) => tasks[row].end))).toBe(
+            task.start,
+          );
+        }
+      });
+      // Every dot belongs to a dependency: some later task starts at its time, and its row's task has ended by then.
+      for (const [time, row] of dots) {
+        expect(tasks[row].end).toBeLessThanOrEqual(time);
+        expect(tasks.some((task, i) => i > row && task.start === time)).toBe(
+          true,
+        );
+      }
+    },
+  );
+
+  it('uses every number of tasks and duration, with tasks that start at once, wait on one task or on two, within the horizon, over 150 seeds', () => {
+    const counts = new Set<number>(),
+      durations = new Set<number>();
+    let early = 0,
+      others = 0,
+      waiting = 0,
+      single = 0,
+      double = 0,
+      latest = 0;
+    for (let seed = 0; seed < 150; seed++) {
+      const { tasks, dots } = chartOf(seed * 61 + 8);
+      counts.add(tasks.length);
+      tasks.forEach((task, i) => {
+        durations.add(task.end - task.start);
+        if (i > 0) {
+          others++;
+          early += Number(task.start === 0);
+        }
+        if (task.start > 0) waiting++;
+        latest = Math.max(latest, task.end);
+        // How many earlier tasks it shows waiting on, where no other task starts at the same time (so the dots are its own).
+        if (
+          task.start > 0 &&
+          tasks.filter((other) => other.start === task.start).length === 1
+        ) {
+          const waits = dots.filter(
+            ([time, row]) => time === task.start && row < i,
+          ).length;
+          single += Number(waits === 1);
+          double += Number(waits >= 2);
+        }
+      });
+    }
+    expect([...counts].sort((a, b) => a - b)).toEqual([...p.taskCounts]);
+    expect([...durations].sort((a, b) => a - b)).toEqual([1, 2, 3, 4]);
+    // A quarter of the tasks after the first have no dependency, so start at once.
+    expect(early / others).toBeGreaterThan(0.18);
+    expect(early / others).toBeLessThan(0.34);
+    expect(waiting).toBeGreaterThan(500);
+    // Of those that wait, about half depend on one task, the rest on one or two (two when the two draws differ).
+    expect(single / (single + double)).toBeGreaterThan(0.5);
+    expect(single / (single + double)).toBeLessThan(0.82);
+    expect(latest).toBeGreaterThan(14);
+    expect(latest).toBeLessThanOrEqual(p.horizon);
+  });
+
+  it('draws the bars, links, dots and grid with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, tasks, dots } = chartOf(seed),
+        paperOrGrid = (u: number, v: number): boolean => {
+          // Paper, a grid line or a link: anything but the bar and the dots.
+          const tone = toneAt(sample, u, v);
+          return (
+            Math.abs(tone - p.paperTone) <= p.grainTone / 2 + 1e-9 ||
+            near(tone, p.gridTone) ||
+            near(tone, p.linkTone)
+          );
+        };
+      tasks.forEach((task, row) => {
+        const y = rowY(row),
+          x0 = timeX(task.start),
+          x1 = timeX(task.end);
+        expect(toneAt(sample, (x0 + x1) / 2, y)).toBeCloseTo(p.barTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.barHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        // The bar's extent: from its start to its end, a half-height of barHalf.
+        expect(toneAt(sample, x0 + 0.002, y + p.barHalf - 0.002)).toBeCloseTo(
+          p.barTone,
+          6,
+        );
+        expect(toneAt(sample, x1 - 0.002, y - p.barHalf + 0.002)).toBeCloseTo(
+          p.barTone,
+          6,
+        );
+        expect(paperOrGrid(x1 + p.dotRadius + 0.003, y)).toBe(true);
+        expect(paperOrGrid((x0 + x1) / 2, y + p.barHalf + 0.003)).toBe(true);
+        expect(paperOrGrid((x0 + x1) / 2, y - p.barHalf - 0.003)).toBe(true);
+      });
+      // The dots, and the links of their dependencies (between the dot and the later task).
+      for (const [time, row] of dots) {
+        const x = timeX(time),
+          y = rowY(row);
+        expect(toneAt(sample, x, y)).toBeCloseTo(p.dotTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.dotHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(toneAt(sample, x + p.dotRadius - 0.0015, y)).toBeCloseTo(
+          p.dotTone,
+          6,
+        );
+        expect(toneAt(sample, x, y - p.dotRadius + 0.0015)).toBeCloseTo(
+          p.dotTone,
+          6,
+        );
+        // Outside the dot, along the row to the right of it, away from any link or bar (the dot is at the start of a later task's row only above it).
+        const gapY = p.top + (row + 1) * p.rowPitch;
+        expect(toneAt(sample, x, gapY)).toBeCloseTo(p.linkTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.linkHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(toneAt(sample, x + p.linkHalf - 0.0004, gapY)).toBeCloseTo(
+          p.linkTone,
+          6,
+        );
+        expect(toneAt(sample, x - p.linkHalf + 0.0004, gapY)).toBeCloseTo(
+          p.linkTone,
+          6,
+        );
+        expect(
+          paperOrGrid(x + p.linkHalf + 0.002, gapY) ||
+            near(toneAt(sample, x + p.linkHalf + 0.002, gapY), p.linkTone),
+        ).toBe(true);
+      }
+      // The grid: a line at each unit of time, in the gaps between rows, where no link runs.
+      const linkTimes = new Set(dots.map(([time]) => time));
+      let gridChecked = 0;
+      for (let time = 0; time <= p.horizon; time++) {
+        if (linkTimes.has(time)) continue;
+        const y = p.top + p.rowPitch,
+          x = timeX(time);
+        expect(toneAt(sample, x, y)).toBeCloseTo(p.gridTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.gridHeight, 6);
+        expect(toneAt(sample, x + p.gridHalf - 0.0003, y)).toBeCloseTo(
+          p.gridTone,
+          6,
+        );
+        expect(
+          Math.abs(toneAt(sample, x + p.gridHalf + 0.002, y) - p.paperTone),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+        gridChecked++;
+      }
+      expect(gridChecked).toBeGreaterThan(5);
+      // The grid lines stop at the last row (a little past it, nothing).
+      const bottom = p.top + tasks.length * p.rowPitch,
+        stub = Array.from({ length: p.horizon + 1 }, (_, time) => time).find(
+          (time) => !linkTimes.has(time),
+        );
+      expect(
+        Math.abs(toneAt(sample, timeX(stub!), bottom + 0.005) - p.paperTone),
+      ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      expect(toneAt(sample, timeX(stub!), bottom - 0.005)).toBeCloseTo(
+        p.gridTone,
+        6,
+      );
+      // Nothing above the chart, below it, or to the left or right of the time axis.
+      for (const [x, y] of [
+        [0.5, 0.03],
+        [0.5, p.top + tasks.length * p.rowPitch + 0.03],
+        [p.left - 0.03, 0.3],
+        [timeX(p.horizon) + 0.03, 0.3],
+      ])
+        expect(
+          Math.abs(toneAt(sample, x, y) - p.paperTone),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+    }
+  });
+
+  it('runs each link exactly from the end of the earlier task along its row to the start of the later one and down to its row, and no further', () => {
+    let times = 0,
+      gaps = 0;
+    for (const seed of [...seeds, 1, 2, 3, 4, 5, 6]) {
+      const { sample, tasks, dots } = chartOf(seed),
+        link = (u: number, v: number): boolean =>
+          near(toneAt(sample, u, v), p.linkTone);
+      for (let time = 1; time <= p.horizon; time++) {
+        // Only at times where one task starts, so that its links are plainly its own.
+        const starting = tasks.flatMap((task, i) =>
+          task.start === time ? [i] : [],
+        );
+        if (starting.length !== 1) continue;
+        const later = starting[0],
+          rows = dots
+            .filter(([at, row]) => at === time && row < later)
+            .map(([, row]) => row);
+        if (rows.length === 0) continue;
+        times++;
+        const x = timeX(time);
+        // Down: a link in the gap below a row if an earlier row's dot is at or above it and the later task's row is below it.
+        for (let gap = 0; gap < tasks.length - 1; gap++) {
+          expect(link(x, p.top + (gap + 1) * p.rowPitch)).toBe(
+            Math.min(...rows) <= gap && gap < later,
+          );
+          gaps++;
+        }
+        // Along: from the end of the earlier task to this time (checked just before it, clear of the dot), and not to the right of it or before the
+        // earlier task's start.
+        for (const row of rows) {
+          const y = rowY(row);
+          if (tasks[row].end < time) {
+            expect(link(x - 0.012, y)).toBe(true);
+            // Its thickness: as wide as linkHalf on both sides of the row's middle.
+            for (const side of [-1, 1]) {
+              expect(link(x - 0.012, y + side * (p.linkHalf - 0.0004))).toBe(
+                true,
+              );
+              expect(link(x - 0.012, y + side * (p.linkHalf + 0.0006))).toBe(
+                false,
+              );
+            }
+          }
+          // Past this time, unless the row has a later dependency running on (and then only if no other link crosses here).
+          if (!dots.some(([at, other]) => other === row && at > time))
+            expect(link(x + 0.02, y)).toBe(false);
+          expect(link(timeX(tasks[row].start) - 0.01, y)).toBe(false);
+        }
+      }
+    }
+    expect(times).toBeGreaterThan(8);
+    expect(gaps).toBeGreaterThan(30);
+  });
+
+  it('softens the edge of a bar, a link, a dot and a grid line over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    let dotsChecked = 0;
+    for (const seed of seeds) {
+      const { sample, tasks, dots } = chartOf(seed),
+        linkTimes = new Set(dots.map(([time]) => time));
+      // The top and bottom edges of every bar, a third of a unit in from its start (away from the lines at the unit boundaries).
+      tasks.forEach((task, row) => {
+        const x = timeX(task.start) + 0.3 * p.unit,
+          y = rowY(row);
+        close(
+          toneAt(sample, x, y - p.barHalf + quarter),
+          mix(p.paperTone, p.barTone, 0.75),
+        );
+        close(
+          toneAt(sample, x, y - p.barHalf - quarter),
+          mix(p.paperTone, p.barTone, 0.25),
+        );
+        close(
+          toneAt(sample, x, y + p.barHalf - quarter),
+          mix(p.paperTone, p.barTone, 0.75),
+        );
+        close(
+          toneAt(sample, x, y + p.barHalf + quarter),
+          mix(p.paperTone, p.barTone, 0.25),
+        );
+      });
+      // A dot's top edge, over the grid line that runs down its column (a dot where the earlier task ended before, so no bar is at its edge).
+      const waiting = dots.find(([time, row]) => tasks[row].end < time);
+      if (waiting !== undefined) {
+        const x = timeX(waiting[0]),
+          dy = rowY(waiting[1]);
+        close(
+          toneAt(sample, x, dy - p.dotRadius + quarter),
+          mix(p.gridTone, p.dotTone, 0.75),
+        );
+        close(
+          toneAt(sample, x, dy - p.dotRadius - quarter),
+          mix(p.gridTone, p.dotTone, 0.25),
+        );
+        dotsChecked++;
+      }
+      // A link's side, in the gap below the first dot (paper beside it, the grid line being narrower).
+      const [linkTime, linkRow] = dots[0],
+        linkX = timeX(linkTime),
+        gap = p.top + (linkRow + 1) * p.rowPitch;
+      close(
+        toneAt(sample, linkX + p.linkHalf - quarter, gap),
+        mix(p.paperTone, p.linkTone, 0.75),
+      );
+      close(
+        toneAt(sample, linkX + p.linkHalf + quarter, gap),
+        mix(p.paperTone, p.linkTone, 0.25),
+      );
+      // A grid line's side, at a time where no link runs.
+      const free = Array.from({ length: p.horizon + 1 }, (_, t) => t).find(
+        (t) => !linkTimes.has(t) && t > 0 && t < p.horizon,
+      );
+      expect(free).toBeDefined();
+      close(
+        toneAt(sample, timeX(free!) + p.gridHalf - quarter, p.top + p.rowPitch),
+        mix(p.paperTone, p.gridTone, 0.75),
+      );
+      close(
+        toneAt(sample, timeX(free!) + p.gridHalf + quarter, p.top + p.rowPitch),
+        mix(p.paperTone, p.gridTone, 0.25),
+      );
+    }
+    expect(dotsChecked).toBeGreaterThan(0);
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('ganttschedule', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('ganttschedule', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.0113),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('ganttschedule', 0),
+      b = createSurfaceSampler('ganttschedule', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
