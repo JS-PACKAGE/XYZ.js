@@ -48167,3 +48167,297 @@ describe('paretochart: bars sorted by height with the line of running totals and
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('radixsortpasses: least significant digit radix sort in rows of bars, one row for the start and one after each pass', () => {
+  const p = proceduralMaterialPresets.radixsortpasses,
+    out = empty(),
+    digits = 1 << p.digitBits,
+    gap = (p.barPitch - p.barWidth) / 2;
+  type Rows = { sample: Sampler; rows: number[][]; digitOf: number[][] };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const near = (tone: number, wanted: number): boolean =>
+    Math.abs(tone - wanted) < 0.01;
+  const baseOf = (row: number): number =>
+    p.top + row * p.rowPitch + p.baseOffset;
+  const slotX = (slot: number): number => p.left + (slot + 0.5) * p.barPitch;
+  const barTones = [...p.digitTones, p.doneTone];
+  const isBar = (tone: number): boolean =>
+    barTones.some((candidate) => near(tone, candidate));
+
+  // Read the picture: each row's bar heights (as numbers) and the digit each bar's tone stands for (-1 for the sorted tone).
+  const rowsOf = (seed: number): Rows => {
+    const sample = createSurfaceSampler('radixsortpasses', seed),
+      rows: number[][] = [],
+      digitOf: number[][] = [];
+    for (
+      let row = 0;
+      isBar(toneAt(sample, slotX(0), baseOf(row) - 0.003));
+      row++
+    ) {
+      const values: number[] = [],
+        tones: number[] = [];
+      for (
+        let slot = 0;
+        isBar(toneAt(sample, slotX(slot), baseOf(row) - 0.003));
+        slot++
+      ) {
+        let y = baseOf(row) - 0.003;
+        while (isBar(toneAt(sample, slotX(slot), y))) y -= 0.0002;
+        values.push(
+          Math.round((baseOf(row) - y - 0.0001) / p.unit) - p.minLevel,
+        );
+        const tone = toneAt(sample, slotX(slot), baseOf(row) - 0.003);
+        tones.push(
+          near(tone, p.doneTone)
+            ? -1
+            : p.digitTones.findIndex((candidate) => near(tone, candidate)),
+        );
+      }
+      rows.push(values);
+      digitOf.push(tones);
+    }
+    expect(p.sizes).toContain(rows[0].length);
+    return { sample, rows, digitOf };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shades each bar by the digit its pass looks at, regroups every row by it in a stable order, and ends sorted (seed %i)',
+    (seed) => {
+      const { rows, digitOf } = rowsOf(seed),
+        n = rows[0].length;
+      expect(rows.length).toBe(p.passes + 1);
+      for (const row of rows) expect(row.length).toBe(n);
+      rows[0].forEach((value) => {
+        expect(value).toBeGreaterThanOrEqual(0);
+        expect(value).toBeLessThanOrEqual(p.maxValue);
+      });
+      for (let pass = 0; pass < p.passes; pass++) {
+        const digit = (value: number): number =>
+          Math.floor(value / digits ** pass) % digits;
+        // Every bar's tone is its digit (not a stored guess: it is worked out here from the number).
+        rows[pass].forEach((value, slot) =>
+          expect(digitOf[pass][slot]).toBe(digit(value)),
+        );
+        // The next row: the same bars sorted by that digit alone (the sort is stable, so equal digits keep their order).
+        expect(rows[pass + 1]).toEqual(
+          rows[pass].slice().sort((a, b) => digit(a) - digit(b)),
+        );
+      }
+      // The last row: in order, in the sorted tone.
+      expect(rows[p.passes]).toEqual(rows[0].slice().sort((a, b) => a - b));
+      expect(digitOf[p.passes].every((tone) => tone === -1)).toBe(true);
+    },
+  );
+
+  it('uses every size, the whole range of numbers and every digit, over 60 seeds', () => {
+    const sizes = new Set<number>(),
+      seen = new Set<number>(),
+      tones = new Set<number>();
+    let sum = 0,
+      count = 0,
+      reordered = 0,
+      lowest = Infinity,
+      highest = -Infinity;
+    for (let seed = 0; seed < 60; seed++) {
+      const { rows, digitOf } = rowsOf(seed * 59 + 7);
+      sizes.add(rows[0].length);
+      for (const value of rows[0]) {
+        seen.add(value >> 4);
+        sum += value;
+        lowest = Math.min(lowest, value);
+        highest = Math.max(highest, value);
+        count++;
+      }
+      for (const row of digitOf) for (const tone of row) tones.add(tone);
+      // A stable sort leaves equal digits in the order they came: some pass has a group not in numeric order.
+      for (let pass = 0; pass < p.passes; pass++)
+        rows[pass + 1].forEach((value, i) => {
+          if (
+            i > 0 &&
+            (rows[pass + 1][i - 1] >> (pass * p.digitBits)) % digits ===
+              (value >> (pass * p.digitBits)) % digits
+          )
+            reordered += Number(rows[pass + 1][i - 1] > value);
+        });
+    }
+    expect([...sizes].sort((a, b) => a - b)).toEqual([...p.sizes]);
+    expect([...seen].sort((a, b) => a - b)).toEqual([0, 1, 2, 3]);
+    // Both ends of 0 to maxValue are reached.
+    expect(lowest).toBe(0);
+    expect(highest).toBe(p.maxValue);
+    expect([...tones].sort((a, b) => a - b)).toEqual([-1, 0, 1, 2, 3]);
+    expect(Math.abs(sum / count - p.maxValue / 2)).toBeLessThan(3);
+    expect(reordered).toBeGreaterThan(20);
+  });
+
+  it('draws the bars and the base lines with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, rows, digitOf } = rowsOf(seed),
+        n = rows[0].length,
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      rows.forEach((values, row) => {
+        const base = baseOf(row),
+          end = p.left + n * p.barPitch;
+        values.forEach((value, slot) => {
+          const digit = digitOf[row][slot],
+            tone = digit < 0 ? p.doneTone : p.digitTones[digit],
+            level = digit < 0 ? p.doneHeight : p.digitHeights[digit],
+            left = p.left + slot * p.barPitch + gap,
+            right = left + p.barWidth,
+            top = base - (value + p.minLevel) * p.unit;
+          expect(toneAt(sample, slotX(slot), base - 0.003)).toBeCloseTo(
+            tone,
+            6,
+          );
+          expect(out.height / p.relief).toBeCloseTo(level, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          expect(toneAt(sample, left + 0.0015, base - 0.003)).toBeCloseTo(
+            tone,
+            6,
+          );
+          expect(toneAt(sample, right - 0.0015, base - 0.003)).toBeCloseTo(
+            tone,
+            6,
+          );
+          expect(toneAt(sample, slotX(slot), top + 0.0015)).toBeCloseTo(
+            tone,
+            6,
+          );
+          expect(paperOk(left - 0.0015, base - 0.003)).toBe(true);
+          expect(paperOk(right + 0.0015, base - 0.003)).toBe(true);
+          expect(paperOk(slotX(slot), top - 0.0015)).toBe(true);
+          // Nothing of the bar under its base line.
+          expect(paperOk(slotX(slot), base + p.baseHalf + 0.003)).toBe(true);
+        });
+        // The base line: tone, height, roughness, thickness and ends.
+        const outside = p.left - p.baseOverhang / 2;
+        expect(toneAt(sample, outside, base)).toBeCloseTo(p.baseTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.baseHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(toneAt(sample, outside, base + p.baseHalf - 0.0004)).toBeCloseTo(
+          p.baseTone,
+          6,
+        );
+        expect(paperOk(outside, base + p.baseHalf + 0.0006)).toBe(true);
+        expect(paperOk(outside, base - p.baseHalf - 0.0006)).toBe(true);
+        expect(
+          toneAt(sample, p.left - p.baseOverhang + 0.002, base),
+        ).toBeCloseTo(p.baseTone, 6);
+        expect(toneAt(sample, end + p.baseOverhang - 0.002, base)).toBeCloseTo(
+          p.baseTone,
+          6,
+        );
+        expect(paperOk(p.left - p.baseOverhang - 0.002, base)).toBe(true);
+        expect(paperOk(end + p.baseOverhang + 0.002, base)).toBe(true);
+      });
+      // Nothing below the last row.
+      expect(paperOk(slotX(1), baseOf(rows.length) - p.baseOffset + 0.03)).toBe(
+        true,
+      );
+    }
+  });
+
+  it('softens the edge of a bar and a base line over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      const { sample, rows, digitOf } = rowsOf(seed),
+        last = rows[0].length - 1,
+        base = baseOf(0),
+        tone =
+          digitOf[0][last] < 0 ? p.doneTone : p.digitTones[digitOf[0][last]],
+        left = p.left + last * p.barPitch + gap,
+        top = base - (rows[0][last] + p.minLevel) * p.unit,
+        outside = p.left - p.baseOverhang / 2;
+      // The last bar's side and top, over the paper.
+      close(
+        toneAt(sample, left + quarter, base - 0.003),
+        mix(p.paperTone, tone, 0.75),
+      );
+      close(
+        toneAt(sample, left - quarter, base - 0.003),
+        mix(p.paperTone, tone, 0.25),
+      );
+      close(
+        toneAt(sample, slotX(last), top + quarter),
+        mix(p.paperTone, tone, 0.75),
+      );
+      close(
+        toneAt(sample, slotX(last), top - quarter),
+        mix(p.paperTone, tone, 0.25),
+      );
+      // The base line's lower side, and its left end, over the paper.
+      close(
+        toneAt(sample, outside, base + p.baseHalf - quarter),
+        mix(p.paperTone, p.baseTone, 0.75),
+      );
+      close(
+        toneAt(sample, outside, base + p.baseHalf + quarter),
+        mix(p.paperTone, p.baseTone, 0.25),
+      );
+      close(
+        toneAt(sample, p.left - p.baseOverhang + quarter, base),
+        mix(p.paperTone, p.baseTone, 0.75),
+      );
+      close(
+        toneAt(sample, p.left - p.baseOverhang - quarter, base),
+        mix(p.paperTone, p.baseTone, 0.25),
+      );
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('radixsortpasses', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('radixsortpasses', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.97),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('radixsortpasses', 0),
+      b = createSurfaceSampler('radixsortpasses', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.1851],
+        [0.1801, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

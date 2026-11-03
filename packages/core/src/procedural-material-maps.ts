@@ -43262,6 +43262,95 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'radixsortpasses': {
+        const p = proceduralMaterialPresets.radixsortpasses,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x4fc01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          n = p.sizes[Math.floor(hash(55, 1, seed ^ 0x4fc02) * p.sizes.length)],
+          digits = 1 << p.digitBits,
+          rows: number[][] = [
+            Array.from({ length: n }, (_, i) =>
+              Math.floor(hash(i, 9, seed ^ 0x4fc03) * (p.maxValue + 1)),
+            ),
+          ];
+        // One stable counting sort per pass, on the digit that pass looks at.
+        for (let pass = 0; pass < p.passes; pass++) {
+          const before = rows[pass],
+            shift = pass * p.digitBits,
+            next: number[] = [];
+          for (let digit = 0; digit < digits; digit++)
+            for (const value of before)
+              if (((value >> shift) & (digits - 1)) === digit) next.push(value);
+          rows.push(next);
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          const row = Math.floor((fv - p.top) / p.rowPitch),
+            across = (fu - p.left) / p.barPitch;
+          if (
+            row >= 0 &&
+            row < rows.length &&
+            across > -0.5 &&
+            across < n + 0.5
+          ) {
+            const base = p.top + row * p.rowPitch + p.baseOffset,
+              slot = Math.min(n - 1, Math.max(0, Math.floor(across))),
+              inSlot = (across - slot) * p.barPitch,
+              gap = (p.barPitch - p.barWidth) / 2,
+              value = rows[row][slot],
+              // The last row is sorted and drawn in one tone; the others by the digit the pass from that row looks at.
+              digit =
+                row < p.passes
+                  ? (value >> (row * p.digitBits)) & (digits - 1)
+                  : -1;
+            // The bar of this slot, a gap in from each side, standing on the row's base line.
+            paint(
+              cover(
+                Math.min(
+                  inSlot - gap,
+                  p.barPitch - gap - inSlot,
+                  base - fv,
+                  fv - (base - (value + p.minLevel) * p.unit),
+                ),
+              ),
+              digit < 0 ? p.doneTone : p.digitTones[digit],
+              digit < 0 ? p.doneHeight : p.digitHeights[digit],
+            );
+            // The base line under the bars.
+            paint(
+              cover(
+                Math.min(
+                  p.baseHalf - Math.abs(fv - base),
+                  fu - (p.left - p.baseOverhang),
+                  p.left + n * p.barPitch + p.baseOverhang - fu,
+                ),
+              ),
+              p.baseTone,
+              p.baseHeight,
+            );
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -70791,6 +70880,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'radixsortpasses' ||
     kind === 'paretochart' ||
     kind === 'vernierscale' ||
     kind === 'kmpfailure' ||
