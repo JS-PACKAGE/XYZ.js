@@ -648,6 +648,7 @@ export type ProceduralMaterialKind =
   | 'dcbarreljackfaces'
   | 'stfiberadapterfaces'
   | 'to92packagefaces'
+  | 'qrcodemodules'
   | 'gaugedials'
   | 'flagpatterns'
   | 'intelhexrecords'
@@ -2020,6 +2021,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'dcbarreljackfaces',
   'stfiberadapterfaces',
   'to92packagefaces',
+  'qrcodemodules',
   'gaugedials',
   'flagpatterns',
   'intelhexrecords',

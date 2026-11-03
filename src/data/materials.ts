@@ -13749,6 +13749,27 @@ export const proceduralMaterialPresets = Object.freeze({
     bezelRoughness: 0.3,
     faceRoughness: 0.35,
   }),
+  qrcodemodules: Object.freeze({
+    dark: [12, 12, 16] as const,
+    light: [248, 246, 238] as const,
+    roughness: 0.6,
+    relief: 0.004,
+    // QR-code style modules: a square symbol of 21, 25 or 29 modules a side (versions 1 to 3) with a quiet zone of 4 light modules all
+    // round it. The three finder patterns (7 x 7 rings with 3 x 3 centres) with their light separators, the timing patterns along row 6 and
+    // column 6, the dark module, and for versions 2 and 3 the 5 x 5 alignment pattern are placed as the QR standard places them. The other
+    // modules, including the format information areas, are random: it looks like a QR code but is not one that can be read. The seed picks
+    // the version and the random modules.
+    versions: Object.freeze([1, 2, 3]),
+    quietModules: 4,
+    darkShare: 0.5,
+    edgeSoft: 0.0004,
+    inkTone: 0.05,
+    paperTone: 0.95,
+    inkHeight: 0.75,
+    paperHeight: 0.25,
+    inkRoughness: 0.45,
+    paperRoughness: 0.8,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -20241,6 +20262,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  qrcodemodules: 1,
   gaugedials: 1,
   flagpatterns: 1,
   intelhexrecords: 1,

@@ -2061,6 +2061,10 @@
 
 這是作者設計的示意，不是任何真實儀表的複製；只有色調（亮度）而沒有色相或數字。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`qrcodemodules`（QR碼模組）使目前目錄1123→1124種，含plain的gallery為1125項。一個邊長21、25或29個模組（版本1至3）的方形符號，四周各有4個模組寬的淺色靜區。三個定位圖案（7×7的外環與3×3的中心）與其淺色分隔線、沿第6列與第6行的時序圖案、暗模組，以及版本2與3的5×5對齊圖案，都放在QR標準規定的位置；其餘模組（包含格式資訊區）是隨機的。seed決定版本與隨機模組。模組邊緣有很小的柔化，只在鄰格色調不同處混合。Metallic與mortar為0。
+
+這看起來像QR碼，但不是可以讀取的QR碼：資料、錯誤更正、遮罩與格式資訊都沒有實作，我也沒有用任何QR讀取器驗證。標準規定的位置是我憑記憶寫的，並以測試端另外寫的位圖表檢查。預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

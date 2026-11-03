@@ -12939,6 +12939,22 @@ export declare const proceduralMaterialPresets: Readonly<{
         bezelRoughness: 0.3;
         faceRoughness: 0.35;
     }>;
+    qrcodemodules: Readonly<{
+        dark: readonly [12, 12, 16];
+        light: readonly [248, 246, 238];
+        roughness: 0.6;
+        relief: 0.004;
+        versions: readonly number[];
+        quietModules: 4;
+        darkShare: 0.5;
+        edgeSoft: 0.0004;
+        inkTone: 0.05;
+        paperTone: 0.95;
+        inkHeight: 0.75;
+        paperHeight: 0.25;
+        inkRoughness: 0.45;
+        paperRoughness: 0.8;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -19424,6 +19440,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    qrcodemodules: 1;
     gaugedials: 1;
     flagpatterns: 1;
     intelhexrecords: 1;

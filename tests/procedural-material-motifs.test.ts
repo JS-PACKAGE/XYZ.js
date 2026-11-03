@@ -34289,3 +34289,241 @@ describe('gaugedials: a grid of round analogue gauges', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('qrcodemodules: QR-style modules with the standard function patterns', () => {
+  const p = proceduralMaterialPresets.qrcodemodules;
+  const FINDER = [
+      '1111111',
+      '1000001',
+      '1011101',
+      '1011101',
+      '1011101',
+      '1000001',
+      '1111111',
+    ],
+    ALIGNMENT = ['11111', '10001', '10101', '10001', '11111'];
+  const out = empty();
+  const sizeOf = (version: number): number => 17 + 4 * version;
+
+  // What the QR standard fixes for module (x, y) of a symbol of size n, or null where the module is data or format information.
+  const fixedModule = (n: number, x: number, y: number): number | null => {
+    for (const [ox, oy] of [
+      [0, 0],
+      [n - 7, 0],
+      [0, n - 7],
+    ])
+      if (x >= ox && x < ox + 7 && y >= oy && y < oy + 7)
+        return Number(FINDER[y - oy][x - ox]);
+    // Separators: the light line between each finder pattern and the rest.
+    if ((x === 7 && y <= 7) || (y === 7 && x <= 7)) return 0;
+    if ((x === n - 8 && y <= 7) || (y === 7 && x >= n - 8)) return 0;
+    if ((x === 7 && y >= n - 8) || (y === n - 8 && x <= 7)) return 0;
+    if (y === 6 && x >= 8 && x <= n - 9) return Number(x % 2 === 0);
+    if (x === 6 && y >= 8 && y <= n - 9) return Number(y % 2 === 0);
+    if (x === 8 && y === n - 8) return 1;
+    if (n >= 25 && Math.abs(x - (n - 7)) <= 2 && Math.abs(y - (n - 7)) <= 2)
+      return Number(ALIGNMENT[y - (n - 9)][x - (n - 9)]);
+    return null;
+  };
+
+  const modulesOf = (sample: Sampler, n: number): number[][] => {
+    const total = n + 2 * p.quietModules;
+    return Array.from({ length: n }, (_, y) =>
+      Array.from({ length: n }, (_, x) => {
+        sample(
+          (x + p.quietModules + 0.5) / total,
+          (y + p.quietModules + 0.5) / total,
+          out,
+        );
+        return Number(out.color < 0.5);
+      }),
+    );
+  };
+  // The version whose function patterns the picture has everywhere, and its modules.
+  const symbolOf = (
+    seed: number,
+  ): { n: number; modules: number[][]; sample: Sampler } => {
+    const sample = createSurfaceSampler('qrcodemodules', seed),
+      fits = p.versions.filter((version) => {
+        const n = sizeOf(version),
+          modules = modulesOf(sample, n);
+        return modules.every((row, y) =>
+          row.every(
+            (bit, x) =>
+              fixedModule(n, x, y) === null || fixedModule(n, x, y) === bit,
+          ),
+        );
+      });
+    expect(fits).toHaveLength(1);
+    const n = sizeOf(fits[0]);
+    return { n, modules: modulesOf(sample, n), sample };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'has the finder, separator, timing, dark-module and alignment patterns at the standard places (seed %i)',
+    (seed) => {
+      const { n, modules, sample } = symbolOf(seed),
+        total = n + 2 * p.quietModules;
+      let fixed = 0;
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++)
+          fixed += Number(fixedModule(n, x, y) !== null);
+      // 3 x 64 finder and separator modules, the timing patterns, one dark module, and the alignment pattern from version 2.
+      expect(fixed).toBe(3 * 64 + 2 * (n - 16) + 1 + (n >= 25 ? 25 : 0));
+      // The quiet zone is light, on a band of points all round the symbol.
+      for (let k = 0; k < 200; k++) {
+        const t = (k + 0.5) / 200,
+          near = (p.quietModules - 0.5) / total;
+        for (const [u, v] of [
+          [t, near],
+          [t, 1 - near],
+          [near, t],
+          [1 - near, t],
+        ]) {
+          sample(u, v, out);
+          expect(out.color).toBeGreaterThan(0.9);
+        }
+      }
+      expect(modules).toHaveLength(n);
+    },
+  );
+
+  it('fills the other modules about half dark, not the same as their mirror image, with every version in use', () => {
+    const versions = new Set<number>();
+    let data = 0,
+      dark = 0,
+      different = 0,
+      compared = 0;
+    for (let seed = 0; seed < 30; seed++) {
+      const { n, modules } = symbolOf(seed);
+      versions.add(n);
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          if (fixedModule(n, x, y) !== null) continue;
+          data++;
+          dark += modules[y][x];
+          if (x < y && fixedModule(n, y, x) === null) {
+            compared++;
+            different += Number(modules[y][x] !== modules[x][y]);
+          }
+        }
+    }
+    expect([...versions].sort((a, b) => a - b)).toEqual(p.versions.map(sizeOf));
+    expect(Math.abs(dark / data - p.darkShare)).toBeLessThan(0.03);
+    expect(Math.abs(different / compared - 0.5)).toBeLessThan(0.05);
+  });
+
+  it('blends the two tones over edgeSoft at the edge of a module with a different neighbour, and nowhere else', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x);
+    for (const seed of seeds) {
+      const { n, sample } = symbolOf(seed),
+        total = n + 2 * p.quietModules,
+        edge = p.quietModules / total,
+        middle = (p.quietModules + 3.5) / total,
+        half = p.edgeSoft / 2,
+        paper = p.paperTone,
+        ink = p.inkTone,
+        toneAt = (u: number, v: number): number => {
+          sample(u, v, out);
+          return out.color;
+        };
+      // Each of the four edges of the first finder pattern: ink inside, paper (the quiet zone or the separator) outside; a quarter of the
+      // transition away on either side, on the edge itself and clear of it. `inward` is +1 where ink lies at larger u or v.
+      const far = (p.quietModules + 7) / total;
+      for (const [position, along, inward, horizontal] of [
+        [edge, middle, 1, true],
+        [far, middle, -1, true],
+        [edge, middle, 1, false],
+        [far, middle, -1, false],
+      ] as const) {
+        const probe = (offset: number): number =>
+          horizontal
+            ? toneAt(position + offset, along)
+            : toneAt(along, position + offset);
+        expect(probe((inward * half) / 2)).toBeCloseTo(
+          paper + (ink - paper) * smoothstep(0.75),
+          2,
+        );
+        expect(probe((-inward * half) / 2)).toBeCloseTo(
+          paper + (ink - paper) * (1 - smoothstep(0.75)),
+          2,
+        );
+        expect(probe(0)).toBeCloseTo((paper + ink) / 2, 2);
+        expect(probe(inward * 2 * p.edgeSoft)).toBeCloseTo(ink, 6);
+        expect(probe(-inward * 2 * p.edgeSoft)).toBeCloseTo(paper, 6);
+      }
+      // Between two dark modules (the top row of the finder pattern) nothing changes, and likewise between two light ones.
+      for (const offset of [-0.0001, 0, 0.0001]) {
+        expect(
+          toneAt(
+            (p.quietModules + 3) / total + offset,
+            (p.quietModules + 0.5) / total,
+          ),
+        ).toBeCloseTo(ink, 9);
+        expect(
+          toneAt(
+            (p.quietModules + 7 + 0.5) / total + offset,
+            (p.quietModules + 7 + 0.5) / total,
+          ),
+        ).toBeCloseTo(paper, 9);
+      }
+    }
+  });
+
+  it('gives ink modules their height and roughness and paper its own', () => {
+    for (const seed of seeds) {
+      const { n, sample } = symbolOf(seed),
+        total = n + 2 * p.quietModules;
+      sample(
+        (p.quietModules + 3.5) / total,
+        (p.quietModules + 3.5) / total,
+        out,
+      );
+      expect(out.height / p.relief).toBeCloseTo(p.inkHeight, 6);
+      expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+      sample(0.5 / total, 0.5 / total, out);
+      expect(out.height / p.relief).toBeCloseTo(p.paperHeight, 6);
+      expect(out.roughness).toBeCloseTo(p.paperRoughness, 6);
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('qrcodemodules', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('qrcodemodules', 0),
+      b = createSurfaceSampler('qrcodemodules', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

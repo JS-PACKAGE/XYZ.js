@@ -22422,6 +22422,34 @@ var proceduralMaterialPresets = Object.freeze({
 		bezelRoughness: .3,
 		faceRoughness: .35
 	}),
+	qrcodemodules: Object.freeze({
+		dark: [
+			12,
+			12,
+			16
+		],
+		light: [
+			248,
+			246,
+			238
+		],
+		roughness: .6,
+		relief: .004,
+		versions: Object.freeze([
+			1,
+			2,
+			3
+		]),
+		quietModules: 4,
+		darkShare: .5,
+		edgeSoft: 4e-4,
+		inkTone: .05,
+		paperTone: .95,
+		inkHeight: .75,
+		paperHeight: .25,
+		inkRoughness: .45,
+		paperRoughness: .8
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -31103,6 +31131,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	qrcodemodules: 1,
 	gaugedials: 1,
 	flagpatterns: 1,
 	intelhexrecords: 1,

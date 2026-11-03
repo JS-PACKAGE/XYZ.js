@@ -39220,6 +39220,74 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'qrcodemodules': {
+        const p = proceduralMaterialPresets.qrcodemodules,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          version =
+            p.versions[
+              Math.floor(hash(7, 3, seed ^ 0x35501) * p.versions.length)
+            ],
+          size = 17 + 4 * version,
+          total = size + 2 * p.quietModules,
+          dark = new Uint8Array(size * size),
+          // Distance of a module from the centre of a finder pattern at (cx, cy) (the largest of the two offsets), and the same for the alignment pattern.
+          ring = (x: number, y: number, cx: number, cy: number): number =>
+            Math.max(Math.abs(x - cx), Math.abs(y - cy)),
+          alignmentCentre = size - 7;
+        for (let y = 0; y < size; y++)
+          for (let x = 0; x < size; x++) {
+            let bit: number;
+            const toFarX = x >= size - 8,
+              toFarY = y >= size - 8,
+              finderCentreX = toFarX ? size - 4 : 3,
+              finderCentreY = toFarY ? size - 4 : 3;
+            if ((x < 8 || toFarX) && (y < 8 || toFarY) && !(toFarX && toFarY)) {
+              // A finder pattern and its separator: rings of dark (3), light (2), dark (centre 3 x 3), and the separator light beyond.
+              const m = ring(x, y, finderCentreX, finderCentreY);
+              bit = m === 3 ? 1 : m === 2 ? 0 : m <= 1 ? 1 : 0;
+            } else if (y === 6) bit = 1 - (x % 2);
+            else if (x === 6) bit = 1 - (y % 2);
+            else if (x === 8 && y === size - 8) bit = 1;
+            else if (
+              version >= 2 &&
+              ring(x, y, alignmentCentre, alignmentCentre) <= 2
+            ) {
+              const m = ring(x, y, alignmentCentre, alignmentCentre);
+              bit = m === 1 ? 0 : 1;
+            } else bit = hash(x, y, seed ^ 0x35502) < p.darkShare ? 1 : 0;
+            dark[y * size + x] = bit;
+          }
+        const bitAt = (x: number, y: number): number =>
+          x < 0 || y < 0 || x >= size || y >= size ? 0 : dark[y * size + x];
+        return () => {
+          const gx = (u - Math.floor(u)) * total - p.quietModules,
+            gy = (v - Math.floor(v)) * total - p.quietModules,
+            x = Math.floor(gx),
+            y = Math.floor(gy),
+            own = bitAt(x, y),
+            module = 1 / total,
+            fx = gx - x,
+            fy = gy - y;
+          // The nearest side of the module whose neighbour is the other tone; the modules are blended over edgeSoft there.
+          let nearest = Infinity;
+          if (bitAt(x - 1, y) !== own) nearest = Math.min(nearest, fx);
+          if (bitAt(x + 1, y) !== own) nearest = Math.min(nearest, 1 - fx);
+          if (bitAt(x, y - 1) !== own) nearest = Math.min(nearest, fy);
+          if (bitAt(x, y + 1) !== own) nearest = Math.min(nearest, 1 - fy);
+          const weightOwn = nearest === Infinity ? 1 : cover(nearest * module),
+            inkShare = own ? weightOwn : 1 - weightOwn;
+          color = clamp(p.paperTone + (p.inkTone - p.paperTone) * inkShare);
+          height = clamp(
+            p.paperHeight + (p.inkHeight - p.paperHeight) * inkShare,
+          );
+          roughness = clamp(
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * inkShare,
+          );
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -66749,6 +66817,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'qrcodemodules' ||
     kind === 'gaugedials' ||
     kind === 'flagpatterns' ||
     kind === 'intelhexrecords' ||
