@@ -53965,3 +53965,414 @@ describe('lfsrstates: rows of an eight bit shift register with taps as dots, the
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('crcdivision: a message and four zero bits divided by a polynomial a step at a time, with the divisor above and the remainder framed', () => {
+  const p = proceduralMaterialPresets.crcdivision,
+    out = empty(),
+    width = p.messageBits + p.checkBits,
+    rows = p.messageBits + 1,
+    divisorLength = p.checkBits + 1;
+  type Division = {
+    sample: Sampler;
+    divisor: number;
+    bits: number[][];
+    subtracted: boolean[];
+  };
+
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const near = (tone: number, wanted: number): boolean =>
+    Math.abs(tone - wanted) < 0.01;
+  const centreX = (column: number): number => p.left + (column + 0.5) * p.pitch;
+  const centreY = (row: number): number => p.top + (row + 0.5) * p.rowPitch;
+  const bitAt = (sample: Sampler, x: number, y: number): number => {
+    const tone = toneAt(sample, x, y);
+    expect(near(tone, p.setTone) || near(tone, p.clearTone)).toBe(true);
+    return near(tone, p.setTone) ? 1 : 0;
+  };
+
+  // Read the picture: the divisor (small squares above, the most significant bit at the left), every row of the dividend and which steps subtracted it
+  // (a filled dot at the left of the row, against a ring).
+  const divisionOf = (seed: number): Division => {
+    const sample = createSurfaceSampler('crcdivision', seed);
+    let divisor = 0;
+    for (let column = 0; column < divisorLength; column++)
+      divisor = divisor * 2 + bitAt(sample, centreX(column), p.divisorTop);
+    const bits = Array.from({ length: rows }, (_, row) =>
+        Array.from({ length: width }, (_, column) =>
+          bitAt(sample, centreX(column), centreY(row)),
+        ),
+      ),
+      subtracted = Array.from({ length: rows }, (_, row) => {
+        if (row === 0) return false;
+        const dot = near(
+            toneAt(sample, p.left - p.dotDrop, centreY(row)),
+            p.markTone,
+          ),
+          ring =
+            near(
+              toneAt(sample, p.left - p.dotDrop + p.ringRadius, centreY(row)),
+              p.markTone,
+            ) && !dot;
+        expect(dot || ring).toBe(true);
+        return dot;
+      });
+    return { sample, divisor, bits, subtracted };
+  };
+
+  // The remainder worked out another way: a shift register of the check bits' width that takes the bits of the message in one at a time (the zeros that the division
+  // appends are what the register's width stands for), and then the check bits too for the codeword.
+  const remainderOf = (
+    message: number[],
+    divisor: number,
+    extra: number[],
+  ): number => {
+    const mask = 2 ** p.checkBits - 1;
+    let register = 0;
+    for (const bit of [...message, ...extra]) {
+      const feedback = ((register >> (p.checkBits - 1)) & 1) ^ bit;
+      register = (register << 1) & mask;
+      if (feedback) register ^= divisor & mask;
+    }
+    return register;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'divides the message and four zero bits by the divisor a bit at a time, leaving as the remainder what a shift register gets (seed %i)',
+    (seed) => {
+      const { divisor, bits, subtracted } = divisionOf(seed);
+      expect(p.divisors).toContain(divisor);
+      const message = bits[0].slice(0, p.messageBits);
+      // The dividend is the message followed by as many zero bits as the divisor has bits less one.
+      expect(bits[0].slice(p.messageBits)).toEqual(
+        new Array<number>(p.checkBits).fill(0),
+      );
+      for (let step = 0; step < p.messageBits; step++) {
+        const before = bits[step],
+          row = bits[step + 1],
+          // The divisor is taken from the bits that start at this place when the bit there is set.
+          applied = before[step] === 1,
+          expected = before.map((bit, column) =>
+            applied && column >= step && column < step + divisorLength
+              ? bit ^ ((divisor >> (divisorLength - 1 - (column - step))) & 1)
+              : bit,
+          );
+        expect(subtracted[step + 1]).toBe(applied);
+        expect(row).toEqual(expected);
+      }
+      // All the bits of the message are used up, and the last four are the remainder, the same as the shift register gets.
+      const last = bits[rows - 1];
+      expect(last.slice(0, p.messageBits)).toEqual(
+        new Array<number>(p.messageBits).fill(0),
+      );
+      const remainder = last
+        .slice(p.messageBits)
+        .reduce((sum, bit) => sum * 2 + bit, 0);
+      expect(remainder).toBe(remainderOf(message, divisor, []));
+      // The message followed by the check bits divides by the divisor with nothing left over.
+      expect(remainderOf(message, divisor, last.slice(p.messageBits))).toBe(0);
+    },
+  );
+
+  it('uses every divisor, steps that subtract and steps that do not, and every remainder, over 1000 seeds', () => {
+    const divisors = new Set<number>(),
+      remainders = new Set<number>();
+    let taken = 0,
+      skipped = 0,
+      leadingClear = 0,
+      setBits = 0;
+    for (let seed = 0; seed < 1000; seed++) {
+      const { divisor, bits, subtracted } = divisionOf(seed * 61 + 15);
+      divisors.add(divisor);
+      remainders.add(
+        bits[rows - 1]
+          .slice(p.messageBits)
+          .reduce((sum, bit) => sum * 2 + bit, 0),
+      );
+      subtracted.slice(1).forEach((did) => {
+        taken += Number(did);
+        skipped += Number(!did);
+      });
+      leadingClear += Number(bits[0][0] === 0);
+      setBits += bits[0]
+        .slice(0, p.messageBits)
+        .reduce((sum, bit) => sum + bit, 0);
+    }
+    expect([...divisors].sort((a, b) => a - b)).toEqual(
+      [...p.divisors].sort((a, b) => a - b),
+    );
+    expect([...remainders].sort((a, b) => a - b)).toEqual(
+      Array.from({ length: 2 ** p.checkBits }, (_, i) => i),
+    );
+    expect(taken / (taken + skipped)).toBeGreaterThan(0.35);
+    expect(taken / (taken + skipped)).toBeLessThan(0.65);
+    // A message whose first bit is clear: the first step then subtracts nothing.
+    expect(leadingClear).toBeGreaterThan(450);
+    expect(leadingClear).toBeLessThan(550);
+    // About half of the message bits are set.
+    expect(Math.abs(setBits / (1000 * p.messageBits) - 0.5)).toBeLessThan(0.02);
+  });
+
+  it('draws the divisor, the dividend squares, the dots and rings and the frame with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, divisor, bits, subtracted } = divisionOf(seed),
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9,
+        square = (x: number, y: number, half: number, set: number): void => {
+          const tone = set ? p.setTone : p.clearTone,
+            level = set ? p.setHeight : p.clearHeight;
+          expect(toneAt(sample, x, y)).toBeCloseTo(tone, 6);
+          expect(out.height / p.relief).toBeCloseTo(level, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          expect(
+            toneAt(sample, x + half - 0.0004, y + half - 0.0004),
+          ).toBeCloseTo(tone, 6);
+          expect(
+            toneAt(sample, x - half + 0.0004, y - half + 0.0004),
+          ).toBeCloseTo(tone, 6);
+          expect(paperOk(x, y - half - 0.001)).toBe(true);
+          expect(paperOk(x, y + half + 0.001) || y === centreY(rows - 1)).toBe(
+            true,
+          );
+        };
+      for (let column = 0; column < divisorLength; column++) {
+        square(
+          centreX(column),
+          p.divisorTop,
+          p.divisorHalf,
+          (divisor >> (divisorLength - 1 - column)) & 1,
+        );
+        expect(
+          paperOk(centreX(column) + p.divisorHalf + 0.001, p.divisorTop),
+        ).toBe(true);
+      }
+      bits.forEach((row, r) => {
+        row.forEach((bit, column) => {
+          const x = centreX(column),
+            y = centreY(r);
+          expect(toneAt(sample, x, y)).toBeCloseTo(
+            bit ? p.setTone : p.clearTone,
+            6,
+          );
+          expect(out.height / p.relief).toBeCloseTo(
+            bit ? p.setHeight : p.clearHeight,
+            6,
+          );
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          expect(
+            toneAt(sample, x + p.cellHalf - 0.0004, y + p.cellHalf - 0.0004),
+          ).toBeCloseTo(bit ? p.setTone : p.clearTone, 6);
+          expect(
+            toneAt(sample, x - p.cellHalf + 0.0004, y - p.cellHalf + 0.0004),
+          ).toBeCloseTo(bit ? p.setTone : p.clearTone, 6);
+          // The gap between neighbouring squares (not at the end of the remainder, where the frame is).
+          if (!(
+            r === rows - 1 &&
+            column >= p.messageBits - 1 &&
+            column <= width - 1
+          ))
+            expect(paperOk(x + p.cellHalf + 0.001, y)).toBe(true);
+        });
+        // The dot or the ring at the left of a step's row: tone, height, roughness, radius, thickness.
+        if (r > 0) {
+          const x = p.left - p.dotDrop,
+            y = centreY(r);
+          if (subtracted[r]) {
+            expect(toneAt(sample, x, y)).toBeCloseTo(p.markTone, 6);
+            expect(out.height / p.relief).toBeCloseTo(p.markHeight, 6);
+            expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+            expect(
+              near(toneAt(sample, x + p.dotRadius - 0.0004, y), p.markTone),
+            ).toBe(true);
+            expect(paperOk(x + p.dotRadius + 0.001, y)).toBe(true);
+          } else {
+            expect(paperOk(x, y)).toBe(true);
+            expect(toneAt(sample, x + p.ringRadius, y)).toBeCloseTo(
+              p.markTone,
+              6,
+            );
+            expect(out.height / p.relief).toBeCloseTo(p.markHeight, 6);
+            expect(
+              near(
+                toneAt(sample, x + p.ringRadius + p.ringHalf - 0.0004, y),
+                p.markTone,
+              ),
+            ).toBe(true);
+            expect(paperOk(x + p.ringRadius + p.ringHalf + 0.0008, y)).toBe(
+              true,
+            );
+            expect(paperOk(x + p.ringRadius - p.ringHalf - 0.0008, y)).toBe(
+              true,
+            );
+          }
+        } else expect(paperOk(p.left - p.dotDrop, centreY(0))).toBe(true);
+      });
+      // The frame round the remainder: tone, height, roughness, thickness and position, and none round anything else.
+      const last = centreY(rows - 1),
+        blockHalf = (p.checkBits - 1) * 0.5 * p.pitch + p.cellHalf,
+        frameX = centreX(width - 1) - (p.checkBits - 1) * 0.5 * p.pitch,
+        top = last - (p.cellHalf + p.frameGap),
+        right = frameX + blockHalf + p.frameGap;
+      expect(toneAt(sample, frameX, top)).toBeCloseTo(p.frameTone, 6);
+      expect(out.height / p.relief).toBeCloseTo(p.frameHeight, 6);
+      expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+      expect(toneAt(sample, right, last)).toBeCloseTo(p.frameTone, 6);
+      expect(
+        near(toneAt(sample, right + p.frameHalf - 0.0004, last), p.frameTone),
+      ).toBe(true);
+      expect(paperOk(right + p.frameHalf + 0.0008, last)).toBe(true);
+      // Inside the ring, between it and the squares, is paper: the ring is as thick as the authored half width twice.
+      expect(paperOk(right - p.frameHalf - 0.0008, last)).toBe(true);
+      expect(paperOk(frameX, top + p.frameHalf + 0.0008)).toBe(true);
+      expect(
+        paperOk(frameX, last - p.cellHalf - p.frameGap - p.frameHalf - 0.001),
+      ).toBe(true);
+      expect(paperOk(frameX, centreY(rows - 2) + p.cellHalf + p.frameGap)).toBe(
+        true,
+      );
+      // Nothing above the divisor, below the last row or to the right of the squares.
+      expect(paperOk(centreX(3), p.divisorTop - p.divisorHalf - 0.01)).toBe(
+        true,
+      );
+      expect(paperOk(centreX(3), centreY(rows) + 0.002)).toBe(true);
+      expect(paperOk(centreX(width) + 0.01, centreY(3))).toBe(true);
+    }
+  });
+
+  it('softens the edge of a square, a dot, a ring, the divisor squares and the frame over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      const { sample, divisor, bits, subtracted } = divisionOf(seed),
+        x = centreX(0),
+        y = centreY(0),
+        tone = bits[0][0] ? p.setTone : p.clearTone,
+        dx = centreX(0),
+        dTone = (divisor >> (divisorLength - 1)) & 1 ? p.setTone : p.clearTone,
+        step = subtracted.indexOf(true, 1),
+        ringed = subtracted.indexOf(false, 1);
+      // A square's sides over the paper (the first square of the dividend), and a divisor square's.
+      close(
+        toneAt(sample, x + p.cellHalf - quarter, y),
+        mix(p.paperTone, tone, 0.75),
+      );
+      close(
+        toneAt(sample, x + p.cellHalf + quarter, y),
+        mix(p.paperTone, tone, 0.25),
+      );
+      close(
+        toneAt(sample, x, y - p.cellHalf + quarter),
+        mix(p.paperTone, tone, 0.75),
+      );
+      close(
+        toneAt(sample, x, y - p.cellHalf - quarter),
+        mix(p.paperTone, tone, 0.25),
+      );
+      close(
+        toneAt(sample, dx + p.divisorHalf - quarter, p.divisorTop),
+        mix(p.paperTone, dTone, 0.75),
+      );
+      close(
+        toneAt(sample, dx + p.divisorHalf + quarter, p.divisorTop),
+        mix(p.paperTone, dTone, 0.25),
+      );
+      // A dot's edge and a ring's outer edge, over the paper.
+      close(
+        toneAt(
+          sample,
+          p.left - p.dotDrop + p.dotRadius - quarter,
+          centreY(step),
+        ),
+        mix(p.paperTone, p.markTone, 0.75),
+      );
+      close(
+        toneAt(
+          sample,
+          p.left - p.dotDrop + p.dotRadius + quarter,
+          centreY(step),
+        ),
+        mix(p.paperTone, p.markTone, 0.25),
+      );
+      close(
+        toneAt(
+          sample,
+          p.left - p.dotDrop + p.ringRadius + p.ringHalf - quarter,
+          centreY(ringed),
+        ),
+        mix(p.paperTone, p.markTone, 0.75),
+      );
+      close(
+        toneAt(
+          sample,
+          p.left - p.dotDrop + p.ringRadius + p.ringHalf + quarter,
+          centreY(ringed),
+        ),
+        mix(p.paperTone, p.markTone, 0.25),
+      );
+      // The frame's outer edge, over the paper (its top).
+      const last = centreY(rows - 1),
+        frameX = centreX(width - 1) - (p.checkBits - 1) * 0.5 * p.pitch,
+        frameTop = last - (p.cellHalf + p.frameGap + p.frameHalf);
+      close(
+        toneAt(sample, frameX, frameTop + quarter),
+        mix(p.paperTone, p.frameTone, 0.75),
+      );
+      close(
+        toneAt(sample, frameX, frameTop - quarter),
+        mix(p.paperTone, p.frameTone, 0.25),
+      );
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('crcdivision', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('crcdivision', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.97),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('crcdivision', 0),
+      b = createSurfaceSampler('crcdivision', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.1701],
+        [0.1801, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

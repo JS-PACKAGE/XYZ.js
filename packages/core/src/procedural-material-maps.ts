@@ -45030,6 +45030,125 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'crcdivision': {
+        const p = proceduralMaterialPresets.crcdivision,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x50c01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          width = p.messageBits + p.checkBits,
+          rows = p.messageBits + 1,
+          divisor =
+            p.divisors[
+              Math.floor(hash(69, 1, seed ^ 0x50c02) * p.divisors.length)
+            ],
+          divisorLength = p.checkBits + 1,
+          // bits[row * width + column]: the dividend after `row` steps, the most significant bit at the left; subtracted[row]: whether step `row` (the one that made this row) subtracted the divisor.
+          bits = new Uint8Array(rows * width),
+          subtracted = new Uint8Array(rows);
+        for (let c = 0; c < p.messageBits; c++)
+          bits[c] = hash(c, 35, seed ^ 0x50c03) < 0.5 ? 1 : 0;
+        for (let row = 1; row < rows; row++) {
+          const step = row - 1;
+          for (let c = 0; c < width; c++)
+            bits[row * width + c] = bits[(row - 1) * width + c];
+          // The next bit from the left: when it is set, subtract (exclusive or) the divisor from the bits that start there.
+          if (bits[(row - 1) * width + step]) {
+            subtracted[row] = 1;
+            for (let j = 0; j < divisorLength; j++)
+              bits[row * width + step + j] ^=
+                (divisor >> (divisorLength - 1 - j)) & 1;
+          }
+        }
+        const blockHalf = (p.checkBits - 1) * 0.5 * p.pitch + p.cellHalf,
+          frameOuterX = blockHalf + p.frameGap + p.frameHalf,
+          frameOuterY = p.cellHalf + p.frameGap + p.frameHalf,
+          frameX =
+            p.left + (width - 1 - (p.checkBits - 1) * 0.5 + 0.5) * p.pitch;
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          const column = Math.floor((fu - p.left) / p.pitch),
+            row = Math.floor((fv - p.top) / p.rowPitch);
+          if (row >= 0 && row < rows) {
+            const cy = p.top + (row + 0.5) * p.rowPitch,
+              dy = Math.abs(fv - cy);
+            if (column >= 0 && column < width) {
+              const cx = p.left + (column + 0.5) * p.pitch,
+                set = bits[row * width + column];
+              paint(
+                cover(
+                  Math.min(p.cellHalf - Math.abs(fu - cx), p.cellHalf - dy),
+                ),
+                set ? p.setTone : p.clearTone,
+                set ? p.setHeight : p.clearHeight,
+              );
+            }
+            // At the left of a step's row: a dot when the divisor was subtracted, a ring when not (none beside the dividend).
+            if (row > 0) {
+              const away = Math.hypot(fu - (p.left - p.dotDrop), fv - cy);
+              paint(
+                cover(
+                  subtracted[row]
+                    ? p.dotRadius - away
+                    : p.ringHalf - Math.abs(away - p.ringRadius),
+                ),
+                p.markTone,
+                p.markHeight,
+              );
+            }
+            // The frame round the remainder, the last four bits of the last row.
+            if (row === rows - 1) {
+              const dx = Math.abs(fu - frameX);
+              paint(
+                Math.min(
+                  cover(Math.min(frameOuterX - dx, frameOuterY - dy)),
+                  cover(
+                    Math.max(
+                      dx - (frameOuterX - 2 * p.frameHalf),
+                      dy - (frameOuterY - 2 * p.frameHalf),
+                    ),
+                  ),
+                ),
+                p.frameTone,
+                p.frameHeight,
+              );
+            }
+          }
+          // The divisor, a row of small squares above the dividend.
+          if (column >= 0 && column < divisorLength) {
+            const cx = p.left + (column + 0.5) * p.pitch,
+              set = (divisor >> (divisorLength - 1 - column)) & 1;
+            paint(
+              cover(
+                Math.min(
+                  p.divisorHalf - Math.abs(fu - cx),
+                  p.divisorHalf - Math.abs(fv - p.divisorTop),
+                ),
+              ),
+              set ? p.setTone : p.clearTone,
+              set ? p.setHeight : p.clearHeight,
+            );
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -72559,6 +72678,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'crcdivision' ||
     kind === 'lfsrstates' ||
     kind === 'fareysequence' ||
     kind === 'unionfindmerges' ||
