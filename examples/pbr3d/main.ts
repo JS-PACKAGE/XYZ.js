@@ -1175,6 +1175,7 @@ try {
     'arnoldtongues',
     'kelvinwake',
     'jacobielliptic',
+    'hofstadterbutterfly',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

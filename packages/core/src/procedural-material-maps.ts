@@ -50331,6 +50331,103 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'hofstadterbutterfly': {
+        const p = proceduralMaterialPresets.hofstadterbutterfly,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          [fluxCentre, fluxHalf, energyCentre, energyHalf, largest] =
+            p.variants[
+              Math.floor(hash(0, 89, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          plot = 0.5 - p.margin,
+          inverseSoft = 1 / p.edgeSoft,
+          fluxReach = (p.alphaHalf * fluxHalf) / plot,
+          energyEdge = (p.energyEdge * energyHalf) / plot,
+          greatestCommonDivisor = (first: number, second: number): number => {
+            while (second) [first, second] = [second, first % second];
+            return first;
+          };
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            flux = fluxCentre + (fluxHalf * (fu - 0.5)) / plot,
+            energy = energyCentre + (energyHalf * (0.5 - fv)) / plot;
+          let band = 0;
+          for (let q = 1; q <= largest; q++) {
+            const numerator = Math.round(flux * q),
+              offset = flux - numerator / q;
+            if (
+              numerator < 0 ||
+              numerator > q ||
+              Math.abs(offset) >= fluxReach ||
+              greatestCommonDivisor(numerator, q) !== 1
+            )
+              continue;
+            // The trace of the product of the q transfer matrices [[E - 2 cos(2 pi p n / q + ky), -1], [1, 0]] and its derivative in E, at ky = pi / (2q).
+            let a = 1,
+              b = 0,
+              c = 0,
+              d = 1,
+              da = 0,
+              db = 0,
+              dc = 0,
+              dd = 0;
+            for (let n = 1; n <= q; n++) {
+              const value =
+                energy -
+                2 * Math.cos((TAU * numerator * n) / q + Math.PI / (2 * q));
+              [a, b, c, d, da, db, dc, dd] = [
+                value * a - c,
+                value * b - d,
+                a,
+                b,
+                a + value * da - dc,
+                b + value * db - dd,
+                da,
+                db,
+              ];
+            }
+            const trace = a + d,
+              slope = Math.abs(da + dd),
+              inside = 4 - Math.abs(trace),
+              reach = clamp(1 - (offset * offset) / (fluxReach * fluxReach)),
+              edge =
+                slope < 1e-9
+                  ? Number(inside > -1e-9)
+                  : smooth(clamp(inside / slope / energyEdge + 0.5));
+            band = Math.max(
+              band,
+              Math.max(p.toneMin, 1 - p.toneStep * (q - 1)) *
+                reach *
+                reach *
+                edge,
+            );
+          }
+          const outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
+            outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
+            boxDistance =
+              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              Math.min(Math.max(outsideX, outsideY), 0),
+            ink = clamp(smooth(clamp(-boxDistance / p.fade)) * band),
+            mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(ink) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -59244,6 +59341,7 @@ export function createSurfaceSampler(
     kind === 'arnoldtongues' ||
     kind === 'kelvinwake' ||
     kind === 'jacobielliptic' ||
+    kind === 'hofstadterbutterfly' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

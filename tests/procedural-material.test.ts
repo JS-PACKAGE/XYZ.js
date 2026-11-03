@@ -1138,6 +1138,7 @@ const kinds: ProceduralMaterialKind[] = [
   'arnoldtongues',
   'kelvinwake',
   'jacobielliptic',
+  'hofstadterbutterfly',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -191156,6 +191157,446 @@ describe('Jacobi elliptic functions as the phase and modulus lines of sn, cn and
     expect(blue / (512 * 512)).toBeLessThan(46.2);
     expect(maxTilt).toBeGreaterThan(0.0334);
     expect(maxTilt).toBeLessThan(0.0346);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Hofstadter butterfly as the spectrum of electrons on a lattice in a magnetic field', () => {
+  const p = proceduralMaterialPresets.hofstadterbutterfly;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const plot = 0.5 - p.margin;
+  const greatestCommonDivisor = (first: number, second: number): number =>
+    second ? greatestCommonDivisor(second, first % second) : first;
+  /** The position (fu, fv) in the tile of the flux alpha and the energy E of a variant. */
+  const positionOf = (
+    index: number,
+    flux: number,
+    energy: number,
+  ): [number, number] => {
+    const [fluxCentre, fluxHalf, energyCentre, energyHalf] = p.variants[index];
+    return [
+      0.5 + ((flux - fluxCentre) / fluxHalf) * plot,
+      0.5 - ((energy - energyCentre) / energyHalf) * plot,
+    ];
+  };
+  const colourAtSpectrum = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    index: number,
+    flux: number,
+    energy: number,
+  ): number => {
+    const [fu, fv] = positionOf(index, flux, energy);
+    sample(fu, fv, out);
+    return out.color;
+  };
+  const insidePlot = (
+    index: number,
+    flux: number,
+    energy: number,
+    limit: number,
+  ): boolean => {
+    const [fu, fv] = positionOf(index, flux, energy);
+    return fu >= limit && fu <= 1 - limit && fv >= limit && fv <= 1 - limit;
+  };
+  /** The eigenvalues, in ascending order, of a real symmetric matrix by Jacobi rotations. */
+  const symmetricEigenvalues = (input: number[][]): number[] => {
+    const a = input.map((row) => row.slice()),
+      n = a.length;
+    for (let sweep = 0; sweep < 60; sweep++) {
+      let off = 0;
+      for (let i = 0; i < n; i++)
+        for (let j = i + 1; j < n; j++) off += a[i][j] * a[i][j];
+      if (off < 1e-22) break;
+      for (let i = 0; i < n; i++)
+        for (let j = i + 1; j < n; j++) {
+          if (Math.abs(a[i][j]) < 1e-300) continue;
+          const theta = (a[j][j] - a[i][i]) / (2 * a[i][j]),
+            t =
+              Math.sign(theta || 1) /
+              (Math.abs(theta) + Math.sqrt(theta * theta + 1)),
+            c = 1 / Math.sqrt(t * t + 1),
+            s = t * c;
+          for (let k = 0; k < n; k++) {
+            const aik = a[i][k],
+              ajk = a[j][k];
+            a[i][k] = c * aik - s * ajk;
+            a[j][k] = s * aik + c * ajk;
+          }
+          for (let k = 0; k < n; k++) {
+            const aki = a[k][i],
+              akj = a[k][j];
+            a[k][i] = c * aki - s * akj;
+            a[k][j] = s * aki + c * akj;
+          }
+        }
+    }
+    return a.map((row, i) => row[i]).sort((x, y) => x - y);
+  };
+  /** The q energy levels of the Hofstadter Hamiltonian at the flux p / q and the Bloch phases (kx, ky): H[n][n] = 2 cos(2 pi p n / q + ky), the neighbours coupled with 1, and the corner entries carrying exp(+-i q kx). The Hermitian matrix is solved as the real symmetric one [[A, -B], [B, A]] of twice the size, whose eigenvalues are each doubled. */
+  const energyLevels = (
+    numerator: number,
+    denominator: number,
+    kx: number,
+    ky: number,
+  ): number[] => {
+    const q = denominator,
+      real = Array.from({ length: q }, () => new Array<number>(q).fill(0)),
+      imaginary = Array.from({ length: q }, () => new Array<number>(q).fill(0));
+    for (let n = 0; n < q; n++)
+      real[n][n] += 2 * Math.cos((2 * Math.PI * numerator * n) / q + ky);
+    for (let n = 0; n < q; n++) {
+      const next = (n + 1) % q,
+        phase = n === q - 1 ? q * kx : 0;
+      real[n][next] += Math.cos(phase);
+      imaginary[n][next] += Math.sin(phase);
+      real[next][n] += Math.cos(phase);
+      imaginary[next][n] -= Math.sin(phase);
+    }
+    const doubled = Array.from({ length: 2 * q }, () =>
+      new Array<number>(2 * q).fill(0),
+    );
+    for (let i = 0; i < q; i++)
+      for (let j = 0; j < q; j++) {
+        doubled[i][j] = real[i][j];
+        doubled[i + q][j + q] = real[i][j];
+        doubled[i][j + q] = -imaginary[i][j];
+        doubled[i + q][j] = imaginary[i][j];
+      }
+    return symmetricEigenvalues(doubled).filter((_, i) => i % 2 === 0);
+  };
+  /** The bands at the flux p / q: the range of each level over the Bloch phases (16 by 16 in a cell of 2 pi / q), the bands that touch (within 0.002, as at E = 0 for even q) merged. */
+  const bandsOf = (
+    numerator: number,
+    denominator: number,
+  ): [number, number][] => {
+    const low = new Array<number>(denominator).fill(Infinity),
+      high = new Array<number>(denominator).fill(-Infinity);
+    for (let i = 0; i < 16; i++)
+      for (let j = 0; j < 16; j++)
+        energyLevels(
+          numerator,
+          denominator,
+          (2 * Math.PI * i) / (16 * denominator),
+          (2 * Math.PI * j) / (16 * denominator),
+        ).forEach((level, k) => {
+          low[k] = Math.min(low[k], level);
+          high[k] = Math.max(high[k], level);
+        });
+    const bands: [number, number][] = [];
+    for (let k = 0; k < denominator; k++) {
+      const last = bands[bands.length - 1];
+      if (last && low[k] - last[1] < 0.002)
+        last[1] = Math.max(last[1], high[k]);
+      else bands.push([low[k], high[k]]);
+    }
+    return bands;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('hofstadterbutterfly', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('hofstadterbutterfly', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0253);
+      expect(low).toBeLessThan(0.0257);
+      expect(high).toBeGreaterThan(0.807);
+      expect(high).toBeLessThan(0.811);
+      expect(dark / 65536).toBeGreaterThan(0.0115);
+      expect(dark / 65536).toBeLessThan(0.0249);
+      expect(mean / 65536).toBeGreaterThan(0.0545);
+      expect(mean / 65536).toBeLessThan(0.07);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.79);
+      expect(heightHigh).toBeLessThan(0.799);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (the full flux range with q up to 24, the flux 0 to 0.5 with q up to 48, the full range with q up to 12, the upper half of the energies with q up to 36, the flux 0 to 0.5 with q up to 24,
+  // and the full range with q up to 48) is 0, 2, 8, 7, 1 and 5; the table was found with a probe by the correlation of the lit pixels with the bands that the probe finds from the trace of the transfer matrices
+  // (the smallest margin to the second best being 0.101) and is written here, so it is not an independent check of the seed's choice.
+  const seeds = [0, 2, 8, 7, 1, 5];
+  it('is lit on the bands of the Hamiltonian found from its eigenvalues and dark in the gaps', () => {
+    // For each flux p / q in lowest terms with q from 2 to 7 that lies in the plot (0.07 to 0.93 of the tile; 17 values for the full range and 8 for the half) the test builds the q by q Hamiltonian of Harper's equation and finds
+    // its eigenvalues by Jacobi rotations for 16 by 16 Bloch phases; the range of each level is a band. Along the column of that flux, every 0.004 in energy over 90% of the plot, the colour is above 0.5 where the energy is
+    // at least 0.02 inside a band, and below 0.5 where it is at least 0.02 outside every band. The edges were within 0.006 of the eigenvalue edges in the probe (the bands are drawn from the trace of the transfer matrices, a
+    // different construction), and the bands narrower than 0.04 (the outer bands of q = 6 and 7, a few hundredths wide) are only checked for the dark outside them.
+    seeds.forEach((seed, index) => {
+      const variant = p.variants[index],
+        sample = createSurfaceSampler('hofstadterbutterfly', seed),
+        out = empty();
+      let fractions = 0,
+        lit = 0,
+        dark = 0;
+      for (let q = 2; q <= 7; q++)
+        for (let numerator = 1; numerator < q; numerator++) {
+          if (greatestCommonDivisor(numerator, q) !== 1 || q > variant[4])
+            continue;
+          const flux = numerator / q,
+            [fu] = positionOf(index, flux, 0);
+          if (fu < 0.07 || fu > 0.93) continue;
+          fractions++;
+          const bands = bandsOf(numerator, q),
+            lowest = Math.max(variant[2] - variant[3] * 0.9, -4.2),
+            highest = Math.min(variant[2] + variant[3] * 0.9, 4.2);
+          for (let energy = lowest; energy <= highest; energy += 0.004) {
+            const colour = colourAtSpectrum(sample, out, index, flux, energy);
+            if (
+              bands.some(
+                ([low, high]) => energy >= low + 0.02 && energy <= high - 0.02,
+              )
+            ) {
+              expect(colour).toBeGreaterThan(0.5);
+              lit++;
+            } else if (
+              bands.every(
+                ([low, high]) => energy < low - 0.02 || energy > high + 0.02,
+              )
+            ) {
+              expect(colour).toBeLessThan(0.5);
+              dark++;
+            }
+          }
+        }
+      expect(fractions).toBeGreaterThanOrEqual(8);
+      expect(lit).toBeGreaterThan(2000);
+      expect(dark).toBeGreaterThan(1000);
+    });
+  });
+  it('is mirror symmetric in the energy and, over the full flux range, in the flux', () => {
+    // The spectrum is symmetric under E -> -E (the plots centred on E = 0: variants 0, 1, 2, 4 and 5) and under alpha -> 1 - alpha (the plots over the full flux range: variants 0, 2, 3 and 5), so the colours at the two points differ
+    // by under 0.05 (0.0294 at the most in the probe, the grain; 14898 and 11136 pairs).
+    seeds.forEach((seed, index) => {
+      const variant = p.variants[index],
+        sample = createSurfaceSampler('hofstadterbutterfly', seed),
+        out = empty();
+      let energyPairs = 0,
+        fluxPairs = 0;
+      if (variant[2] === 0)
+        for (let i = 0; i < 400; i++)
+          for (let j = 0; j < 40; j++) {
+            const flux =
+                variant[0] - variant[1] + (2 * variant[1] * (i + 0.37)) / 400,
+              energy = 0.05 + (4.3 * (j + 0.61)) / 40;
+            if (
+              !insidePlot(index, flux, energy, 0.06) ||
+              !insidePlot(index, flux, -energy, 0.06)
+            )
+              continue;
+            expect(
+              Math.abs(
+                colourAtSpectrum(sample, out, index, flux, energy) -
+                  colourAtSpectrum(sample, out, index, flux, -energy),
+              ),
+            ).toBeLessThan(0.05);
+            energyPairs++;
+          }
+      if (variant[0] === 0.5 && variant[1] === 0.5)
+        for (let i = 0; i < 200; i++)
+          for (let j = 0; j < 60; j++) {
+            const flux = 0.002 + (0.496 * (i + 0.37)) / 200,
+              energy =
+                variant[2] - variant[3] + (2 * variant[3] * (j + 0.61)) / 60;
+            if (
+              !insidePlot(index, flux, energy, 0.06) ||
+              !insidePlot(index, 1 - flux, energy, 0.06)
+            )
+              continue;
+            expect(
+              Math.abs(
+                colourAtSpectrum(sample, out, index, flux, energy) -
+                  colourAtSpectrum(sample, out, index, 1 - flux, energy),
+              ),
+            ).toBeLessThan(0.05);
+            fluxPairs++;
+          }
+      if (variant[2] === 0) expect(energyPairs).toBeGreaterThan(10000);
+      if (variant[0] === 0.5 && variant[1] === 0.5)
+        expect(fluxPairs).toBeGreaterThan(8000);
+    });
+  });
+  it('draws nothing above the greatest energy 4 of the spectrum', () => {
+    // The energy of Harper's equation never leaves [-4, 4] (the hopping adds at most 2 and the potential at most 2), so above E = 4.06 (up to 4.4, the top of the plots) every pixel of the plot is dark: the colour is under 0.1
+    // (0.0549 at the most in the probe, the grain; 2583 or 4018 pixels per variant).
+    seeds.forEach((seed, index) => {
+      const variant = p.variants[index],
+        sample = createSurfaceSampler('hofstadterbutterfly', seed),
+        out = empty();
+      let counted = 0;
+      for (let i = 0; i < 300; i++)
+        for (let j = 0; j < 20; j++) {
+          const flux =
+              variant[0] - variant[1] + (2 * variant[1] * (i + 0.37)) / 300,
+            energy = 4.06 + ((variant[2] + variant[3] - 4.06) * (j + 0.5)) / 20;
+          if (!insidePlot(index, flux, energy, 0.06)) continue;
+          expect(
+            colourAtSpectrum(sample, out, index, flux, energy),
+          ).toBeLessThan(0.1);
+          counted++;
+        }
+      expect(counted).toBeGreaterThan(2000);
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 2 pick different plots (the full flux range and the flux 0 to 0.5).
+    const first = litGrid(0),
+      second = litGrid(2);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.0274);
+    expect(different / first.length).toBeLessThan(0.0276);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the colour smooth where it is not steep and periodic across signed UV periods', () => {
+    // The edges of the bands are steep: the distance to a band edge is the distance in E divided by the slope of the trace, and a band edge is drawn over only 0.004 of the tile, so the C1 sweep of the other materials (second difference over
+    // a step of 1e-10 divided by the step, under 0.03) does not apply to every value. Where the central slope over that step is under 100 in absolute value (98.0% to 99.6% of the 259392 values of the sweep per variant in the
+    // probe, the largest slope kept being 100.00), the second difference divided by the step stays under 0.03 for the colour, height, roughness, occlusion, metallic and mortar (0.0148 at the worst in the probe over the grid lines
+    // at 13, 129 and 509 divisions and 16384 random points per variant), so a kink of the margin, the fade or the grain would still show; the same points give the same output when the UV is shifted by whole periods (1.3e-13
+    // at the worst in the probe).
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('hofstadterbutterfly', seed);
+      let worst = 0,
+        drift = 0,
+        used = 0,
+        total = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys) {
+            total++;
+            if (Math.abs((c[key] - a[key]) / (2 * h)) > 100) continue;
+            used++;
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+          }
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(used / total).toBeGreaterThan(0.97);
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 blue butterfly maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('hofstadterbutterfly', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(20.5);
+    expect(red / (512 * 512)).toBeLessThan(21.5);
+    expect(green / (512 * 512)).toBeGreaterThan(25.7);
+    expect(green / (512 * 512)).toBeLessThan(26.7);
+    expect(blue / (512 * 512)).toBeGreaterThan(44.2);
+    expect(blue / (512 * 512)).toBeLessThan(45.2);
+    expect(maxTilt).toBeGreaterThan(0.0253);
+    expect(maxTilt).toBeLessThan(0.0265);
     expect(invalid).toBe(0);
   });
 });
