@@ -1119,6 +1119,7 @@ const kinds: ProceduralMaterialKind[] = [
   'logisticbifurcation',
   'catenaryfestoons',
   'cornuspirals',
+  'htree',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -184181,6 +184182,333 @@ describe('Cornu spirals as Euler spirals in a grid of cells', () => {
     expect(blue / (512 * 512)).toBeLessThan(34.2);
     expect(maxTilt).toBeGreaterThan(0.039);
     expect(maxTilt).toBeLessThan(0.0405);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('H-tree as nested H shapes', () => {
+  const p = proceduralMaterialPresets.htree;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const size = 512;
+  type HTree = readonly [number, number, number];
+  /**
+   * The segments and the leaf ends of the H-tree of a variant [generations, ratio, turned], built by explicit
+   * generations and not by the sampler's recursion. An H of size L about (x, y) has a bar of length L and two bars of
+   * length L across its ends (a turned one has the main bar upright); the next generation is four H of size ratio L, turned
+   * a quarter turn, centred on the four ends of the cross bars; those of the last generation get a dot. The whole figure
+   * reaches 0.46 from the centre of the tile, the squares of the generations adding up to L (1 + ratio + ratio^2 + ...) / 2.
+   */
+  const buildTree = ([generations, ratio, turned]: HTree) => {
+    let sum = 0,
+      power = 1;
+    for (let k = 0; k < generations; k++) {
+      sum += power;
+      power *= ratio;
+    }
+    const segments: number[][] = [],
+      leaves: number[][] = [];
+    let level: [number, number, number, boolean][] = [
+      [0.5, 0.5, (p.extent * 2) / sum, turned !== 0],
+    ];
+    for (let generation = 0; generation < generations; generation++) {
+      const next: [number, number, number, boolean][] = [];
+      for (const [x, y, size, upright] of level) {
+        const half = size / 2;
+        if (upright) {
+          segments.push([x, y - half, x, y + half]);
+          segments.push([x - half, y - half, x + half, y - half]);
+          segments.push([x - half, y + half, x + half, y + half]);
+        } else {
+          segments.push([x - half, y, x + half, y]);
+          segments.push([x - half, y - half, x - half, y + half]);
+          segments.push([x + half, y - half, x + half, y + half]);
+        }
+        for (const sx of [-1, 1])
+          for (const sy of [-1, 1]) {
+            if (generation + 1 < generations)
+              next.push([x + sx * half, y + sy * half, size * ratio, !upright]);
+            else leaves.push([x + sx * half, y + sy * half]);
+          }
+      }
+      level = next;
+    }
+    return { segments, leaves };
+  };
+  /** Seven points along each segment, ends included. */
+  const pointsOf = (segments: number[][]): [number, number][] => {
+    const points: [number, number][] = [];
+    for (const [ax, ay, bx, by] of segments)
+      for (let k = 0; k <= 6; k++)
+        points.push([ax + ((bx - ax) * k) / 6, ay + ((by - ay) * k) / 6]);
+    return points;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('htree', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('htree', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0253);
+      expect(low).toBeLessThan(0.0257);
+      expect(high).toBeGreaterThan(0.873);
+      expect(high).toBeLessThan(0.875);
+      expect(dark / 65536).toBeGreaterThan(0.066);
+      expect(dark / 65536).toBeLessThan(0.2);
+      expect(mean / 65536).toBeGreaterThan(0.091);
+      expect(mean / 65536).toBeLessThan(0.204);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.875);
+      expect(heightHigh).toBeLessThan(0.879);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The variant for each of the seeds 0, 8, 6, 13, 1 and 4 (variants 0 to 5) was found with a probe by the segments
+  // of the separate construction and is written here, so that table is not an independent check of the seed's choice.
+  const seeds = [0, 8, 6, 13, 1, 4];
+  it('draws the segments of its own variant and not those of the others', () => {
+    // Every one of the 7 points per segment (1785 or 7161 points) of the variant of the seed has a colour above 0.5 (all of
+    // them in the probe), while for each other variant fewer than 45% of its points do (0.351 at most in the probe, as the
+    // variants share the biggest bars when their generations and ratios are the same).
+    seeds.forEach((seed, index) => {
+      const sample = createSurfaceSampler('htree', seed),
+        out = empty();
+      p.variants.forEach((variant, other) => {
+        const points = pointsOf(buildTree(variant).segments);
+        let on = 0;
+        for (const [u, v] of points) {
+          sample(u, v, out);
+          on += Number(out.color > 0.5);
+        }
+        if (other === index) expect(on).toBe(points.length);
+        else expect(on / points.length).toBeLessThan(0.45);
+      });
+    });
+  });
+  it('keeps every bright pixel within a line or a dot', () => {
+    // Every pixel of the 512 by 512 reading with a colour above 0.5 is closer than 0.85 of the half width of the
+    // line (0.004) to a segment or closer than 0.85 of the radius of the dot (0.008) to a leaf end (0.744 at worst in the
+    // probe; 16295 to 52138 such pixels per variant). The distance to the segments is searched in 32 by 32 buckets.
+    seeds.forEach((seed, index) => {
+      const { segments, leaves } = buildTree(p.variants[index]),
+        buckets: number[][] = Array.from({ length: 32 * 32 }, () => []),
+        sample = createSurfaceSampler('htree', seed),
+        out = empty();
+      segments.forEach(([ax, ay, bx, by], i) => {
+        for (
+          let gy = Math.max(0, Math.floor((Math.min(ay, by) - 0.02) * 32));
+          gy <= Math.min(31, Math.floor((Math.max(ay, by) + 0.02) * 32));
+          gy++
+        )
+          for (
+            let gx = Math.max(0, Math.floor((Math.min(ax, bx) - 0.02) * 32));
+            gx <= Math.min(31, Math.floor((Math.max(ax, bx) + 0.02) * 32));
+            gx++
+          )
+            buckets[gy * 32 + gx].push(i);
+      });
+      let bright = 0,
+        farthest = 0;
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          const u = (x + 0.5) / size,
+            v = (y + 0.5) / size;
+          sample(u, v, out);
+          if (out.color <= 0.5) continue;
+          bright++;
+          let line = 1,
+            dot = 1;
+          for (const i of buckets[
+            Math.min(31, Math.floor(v * 32)) * 32 +
+              Math.min(31, Math.floor(u * 32))
+          ]) {
+            const [ax, ay, bx, by] = segments[i],
+              along = Math.min(
+                1,
+                Math.max(
+                  0,
+                  ((u - ax) * (bx - ax) + (v - ay) * (by - ay)) /
+                    ((bx - ax) ** 2 + (by - ay) ** 2),
+                ),
+              );
+            line = Math.min(
+              line,
+              Math.hypot(
+                ax + along * (bx - ax) - u,
+                ay + along * (by - ay) - v,
+              ),
+            );
+          }
+          for (const [lx, ly] of leaves)
+            dot = Math.min(dot, Math.hypot(lx - u, ly - v));
+          farthest = Math.max(
+            farthest,
+            Math.min(line / p.lineHalfWidth, dot / p.dotRadius),
+          );
+        }
+      expect(bright).toBeGreaterThan(15000);
+      expect(farthest).toBeLessThan(0.85);
+    });
+  });
+  it('puts a bright dot at every leaf end of the last generation', () => {
+    // The colour at each of the 256 or 1024 leaf ends is above 0.8 (0.845 at the lowest in the probe).
+    seeds.forEach((seed, index) => {
+      const { leaves } = buildTree(p.variants[index]),
+        sample = createSurfaceSampler('htree', seed),
+        out = empty();
+      for (const [u, v] of leaves) {
+        sample(u, v, out);
+        expect(out.color).toBeGreaterThan(0.8);
+      }
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 1 pick different variants (5 generations of ratio 0.5 and 4 generations of ratio 0.38, turned).
+    const first = litGrid(0),
+      second = litGrid(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.225);
+    expect(different / first.length).toBeLessThan(0.233);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('htree', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 ice-blue H-tree maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('htree', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(27.1);
+    expect(red / (512 * 512)).toBeLessThan(28.4);
+    expect(green / (512 * 512)).toBeGreaterThan(31.5);
+    expect(green / (512 * 512)).toBeLessThan(32.7);
+    expect(blue / (512 * 512)).toBeGreaterThan(43.5);
+    expect(blue / (512 * 512)).toBeLessThan(44.8);
+    expect(maxTilt).toBeGreaterThan(0.051);
+    expect(maxTilt).toBeLessThan(0.0525);
     expect(invalid).toBe(0);
   });
 });

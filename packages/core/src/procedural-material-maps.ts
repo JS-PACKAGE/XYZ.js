@@ -48267,6 +48267,137 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'htree': {
+        const p = proceduralMaterialPresets.htree,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant =
+            p.variants[
+              Math.floor(hash(0, 69, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          depth = variant[0],
+          ratio = variant[1],
+          rotated = variant[2],
+          // An H of size L fills the square of side L about its centre (a bar of length L and two of length L
+          // across its ends); the next generation is four H of size ratio L (a ratio of 0.5 is the classic H-tree, in which each
+          // bar is 1 / sqrt(2) of the one before it), turned a quarter turn, centred on the four corners of that square. The squares of all generations then reach `half` from the centre of the
+          // tile, with half the sum of the ratio powers over the generations times L / 2.
+          reachOf = (generation: number): number => {
+            let sum = 0,
+              power = 1;
+            for (let k = generation; k < depth; k++) {
+              sum += power;
+              power *= ratio;
+            }
+            return sum / 2;
+          },
+          reaches = Array.from({ length: depth + 1 }, (_, generation) =>
+            reachOf(generation),
+          ),
+          size = p.extent / reaches[0],
+          lineWidthSquared = p.lineHalfWidth * p.lineHalfWidth,
+          dotWidthSquared = p.dotRadius * p.dotRadius,
+          inverseSoft = 1 / p.edgeSoft;
+        // The position being drawn and the products of the kernels so far, shared with `visit`.
+        let x = 0,
+          y = 0,
+          keepLine = 1,
+          keepDot = 1;
+        // The H of one generation, with the generations below it, skipped when the tile position is farther from
+        // its square (widened by the reach of the generations below) than the width of a line.
+        const visit = (
+          centreX: number,
+          centreY: number,
+          length: number,
+          turned: boolean,
+          generation: number,
+        ): void => {
+          const reach = length * reaches[generation] + p.lineHalfWidth;
+          if (Math.abs(x - centreX) > reach || Math.abs(y - centreY) > reach)
+            return;
+          const half = length / 2,
+            // Along the main bar and across it at each end: three segments of length L.
+            mainX = turned ? 0 : half,
+            mainY = turned ? half : 0;
+          for (let k = 0; k < 3; k++) {
+            let ax = centreX,
+              ay = centreY,
+              bx = centreX,
+              by = centreY;
+            if (k === 0) {
+              ax -= mainX;
+              ay -= mainY;
+              bx += mainX;
+              by += mainY;
+            } else {
+              const sign = k === 1 ? -1 : 1;
+              // The ends of the main bar are (centre -/+ main); a cross bar is perpendicular to it there.
+              ax += sign * mainX + (turned ? -half : 0);
+              ay += sign * mainY + (turned ? 0 : -half);
+              bx += sign * mainX + (turned ? half : 0);
+              by += sign * mainY + (turned ? 0 : half);
+            }
+            const dx = bx - ax,
+              dy = by - ay,
+              along = Math.min(
+                1,
+                Math.max(
+                  0,
+                  ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy),
+                ),
+              ),
+              ex = ax + along * dx - x,
+              ey = ay + along * dy - y,
+              t = clamp(1 - (ex * ex + ey * ey) / lineWidthSquared);
+            keepLine *= 1 - t * t;
+          }
+          // The four corners of the square are the ends of the cross bars: the next generation is centred there,
+          // and on the last generation they get a dot.
+          for (let corner = 0; corner < 4; corner++) {
+            const cornerX = centreX + (corner % 2 === 0 ? -half : half),
+              cornerY = centreY + (corner < 2 ? -half : half);
+            if (generation + 1 < depth)
+              visit(cornerX, cornerY, length * ratio, !turned, generation + 1);
+            else {
+              const t = clamp(
+                1 -
+                  ((x - cornerX) * (x - cornerX) +
+                    (y - cornerY) * (y - cornerY)) /
+                    dotWidthSquared,
+              );
+              keepDot *= 1 - t * t;
+            }
+          }
+        };
+        return () => {
+          x = fract(u) - 0.5;
+          y = fract(v) - 0.5;
+          keepLine = 1;
+          keepDot = 1;
+          visit(0, 0, size, rotated !== 0, 0);
+          const ink = clamp(
+              p.lineTone * (1 - keepLine) + p.dotTone * (1 - keepDot),
+            ),
+            mask = smooth(clamp(ink * inverseSoft)),
+            tone = p.toneSpan * ink,
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            tone +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(ink) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -57161,6 +57292,7 @@ export function createSurfaceSampler(
     kind === 'logisticbifurcation' ||
     kind === 'catenaryfestoons' ||
     kind === 'cornuspirals' ||
+    kind === 'htree' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

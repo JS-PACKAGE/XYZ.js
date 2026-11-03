@@ -1093,6 +1093,7 @@ export type ProceduralMaterialKind =
   | 'logisticbifurcation'
   | 'catenaryfestoons'
   | 'cornuspirals'
+  | 'htree'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2434,6 +2435,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'logisticbifurcation',
   'catenaryfestoons',
   'cornuspirals',
+  'htree',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

@@ -1156,6 +1156,7 @@ try {
     'logisticbifurcation',
     'catenaryfestoons',
     'cornuspirals',
+    'htree',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
