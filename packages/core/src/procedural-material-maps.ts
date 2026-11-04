@@ -64917,15 +64917,16 @@ export function writeNormals(
   size: number,
   normal: Uint8ClampedArray,
 ): void {
+  const last = size - 1;
   for (let y = 0; y < size; y++) {
-    const up = ((y + size - 1) % size) * size,
-      down = ((y + 1) % size) * size;
+    const row = y * size,
+      up = (y === 0 ? last : y - 1) * size,
+      down = (y === last ? 0 : y + 1) * size;
     for (let x = 0; x < size; x++) {
-      const i = y * size + x,
-        p = i * 4;
+      const p = (row + x) * 4;
       const dx =
-        ((height[y * size + ((x + 1) % size)] -
-          height[y * size + ((x + size - 1) % size)]) *
+        ((height[row + (x === last ? 0 : x + 1)] -
+          height[row + (x === 0 ? last : x - 1)]) *
           size) /
         2;
       // Image rows and renderer UV.v both increase downward (uploads do not flip Y).
@@ -64967,31 +64968,47 @@ export function generateProceduralMaps(
     mortar: 0,
     metallic: 0,
   };
+  const contrast = controls.contrast ?? 1;
+  const roughnessBias = controls.roughnessBias ?? 0;
+  const tint = controls.tint;
+  const dark = preset.dark,
+    light = preset.light;
+  const dark0 = dark[0],
+    dark1 = dark[1],
+    dark2 = dark[2];
+  const span0 = light[0] - dark0,
+    span1 = light[1] - dark1,
+    span2 = light[2] - dark2;
+  const { baseColor, metallicRoughness, occlusion } = maps;
   for (let y = 0; y < size; y++)
     for (let x = 0; x < size; x++) {
       sample((x + 0.5) / size, (y + 0.5) / size, surface);
-      const contrast = controls.contrast ?? 1;
-      const roughnessBias = controls.roughnessBias ?? 0;
-      surface.color = clamp(0.5 + (surface.color - 0.5) * contrast);
+      const surfaceColor = clamp(0.5 + (surface.color - 0.5) * contrast);
+      const mortar = surface.mortar,
+        open = 1 - mortar;
       const i = y * size + x,
         p = i * 4;
       heights[i] = surface.height;
-      for (let c = 0; c < 3; c++) {
-        const authored =
-          preset.dark[c] + (preset.light[c] - preset.dark[c]) * surface.color;
-        // Tint scales only the surface pigment; mortar/grout keeps its neutral tone.
-        const color =
-          controls.tint === undefined ? authored : authored * controls.tint[c];
-        maps.baseColor[p + c] = Math.round(
-          color * (1 - surface.mortar) + (c === 2 ? 139 : 153) * surface.mortar,
-        );
-        maps.occlusion[p + c] = byte(surface.occlusion);
+      // Tint scales only the surface pigment; mortar/grout keeps its neutral tone.
+      let color0 = dark0 + span0 * surfaceColor,
+        color1 = dark1 + span1 * surfaceColor,
+        color2 = dark2 + span2 * surfaceColor;
+      if (tint !== undefined) {
+        color0 *= tint[0];
+        color1 *= tint[1];
+        color2 *= tint[2];
       }
-      maps.baseColor[p + 3] = maps.occlusion[p + 3] = 255;
-      maps.metallicRoughness[p] = 255;
-      maps.metallicRoughness[p + 1] = byte(surface.roughness + roughnessBias);
-      maps.metallicRoughness[p + 2] = byte(surface.metallic);
-      maps.metallicRoughness[p + 3] = 255;
+      baseColor[p] = Math.round(color0 * open + 153 * mortar);
+      baseColor[p + 1] = Math.round(color1 * open + 153 * mortar);
+      baseColor[p + 2] = Math.round(color2 * open + 139 * mortar);
+      baseColor[p + 3] = 255;
+      const ao = byte(surface.occlusion);
+      occlusion[p] = occlusion[p + 1] = occlusion[p + 2] = ao;
+      occlusion[p + 3] = 255;
+      metallicRoughness[p] = 255;
+      metallicRoughness[p + 1] = byte(surface.roughness + roughnessBias);
+      metallicRoughness[p + 2] = byte(surface.metallic);
+      metallicRoughness[p + 3] = 255;
     }
   writeNormals(heights, size, maps.normal);
   if (controls.heightMap) {
