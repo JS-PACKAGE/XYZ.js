@@ -14413,3 +14413,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：8項（色調範圍、點的位置與序號與格點上沒有多的或少的點、各序列的性質、群組的平移、逐點比對、不同變體與組別與決定性、C1與UV週期、maps），`-t "Low-discrepancy points as"`8項通過（整組實跑約10 s，含傳輸與匯入）。變異檢查（做過31次）：29次被抓到（失敗項數1到6），其中2次不算：(a)我寫的空操作（`let rho = 1.3;`改成`1.3 + 0`），不是真的變異；(b)等價變異（格子索引的格數24改成6，3×3鄰格仍涵蓋半徑，沒有改變任何點的歸屬以外的結果）。被抓到的包括：基數反轉的四處（5、5、6、6項）、塑膠數的迭代式與次數（3、3項）、Fibonacci數的上界（2項）、兩個平移常數（各5項）、Halton的底、點的座標（5、2、3、3項）、不加平移（各5項）、格子過細（4項）、鄰格範圍的兩個方向（各5項）、環面距離（4、5項）、平滑起點（4項）、取最大遮罩（6項）、序號分母（6項）、色調、height、地面色調、occlusion（4、5、3、1項）、計數排序的前綴和（4項）。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Low-discrepancy points as|lowdiscrepancy|kinds|catalog|distinct|periodic"`定向測試**2635項通過／4731項未選**，輸出`GATES-OK`。
 - 未驗證：完整suite（最近一次在`eb8b32611`，有1項逾時失敗、單獨重跑通過，不含gridsplits、hamiltonpaths與lowdiscrepancy）、瀏覽器gallery（最近一次在`27cd9ec5f`，hamiltonpaths與lowdiscrepancy尚未檢查）、跨瀏覽器與跨GPU；不push。
+
+## 2026-11-05 完整測試與瀏覽器gallery複驗（至lowdiscrepancy，`41676b27e`）
+
+- 完整suite（工具實跑，`/private/tmp/xyz-ct-suite`在`41676b27e`的乾淨detached worktree，完整`vitest run`）：**179個檔案、11,302項測試全部通過，沒有失敗**，耗時1851 s；跑的時候我沒有同時開其他重工作。上一次完整suite（`eb8b32611`）是11,270項、1項逾時失敗；這次的差額32項裡，我新增的是gridsplits、hamiltonpaths與lowdiscrepancy（各8到9項，我沒有逐一對帳），其餘是主目錄上別人的commit加的測試，我沒有逐項確認來源。上次那項逾時的`Rosemary sprigs …`這次通過，但我沒有查出逾時的根因（推測是當時負載，未證實）。
+- 瀏覽器gallery（工具實跑，Chrome，`http://127.0.0.1:5391/examples/pbr3d/`，服務`/private/tmp/xyz-ct`的`41676b27e`）：WebGPU下目錄1162種、選項1163項；`?renderer=webgl2`下選項1163項（`count`欄位這次讀到`null`，我沒有查原因，只憑選項數）。`hamiltonpaths`與`lowdiscrepancy`在WebGPU與webgl2下都能選取且不丟錯（`tab.errors()`皆空）；`gridsplits`在`27cd9ec5f`時已檢查過，這次沒有重選。只做了「能選取且沒有錯誤」，沒有逐像素比對兩個backend，也沒有檢查畫面外觀。
+- 未驗證：Canvas2D fallback下的gallery、其他瀏覽器與GPU；不push。
