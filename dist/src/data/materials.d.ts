@@ -16727,6 +16727,49 @@ export declare const proceduralMaterialPresets: Readonly<{
         netHeight: 0.9;
         inkRoughness: 0.45;
     }>;
+    fencingpiste: Readonly<{
+        dark: readonly [28, 44, 70];
+        light: readonly [236, 238, 232];
+        roughness: 0.45;
+        relief: 0.004;
+        metre: 0.05;
+        pisteLength: 14;
+        pisteWidth: 1.5;
+        guardDistance: 2;
+        warningLength: 2;
+        runback: 1.5;
+        lineWidth: 0.1;
+        dashPieces: 11;
+        surfaces: readonly (Readonly<{
+            floor: 0.6;
+            piste: 0.4;
+            warning: 0.52;
+            runback: 0.3;
+        }> | Readonly<{
+            floor: 0.3;
+            piste: 0.45;
+            warning: 0.22;
+            runback: 0.38;
+        }> | Readonly<{
+            floor: 0.45;
+            piste: 0.22;
+            warning: 0.34;
+            runback: 0.12;
+        }> | Readonly<{
+            floor: 0.2;
+            piste: 0.32;
+            warning: 0.45;
+            runback: 0.1;
+        }>)[];
+        toneShift: 0.04;
+        edgeSoft: 0.0006;
+        lineTone: 0.96;
+        floorHeight: 0.15;
+        runbackHeight: 0.26;
+        pisteHeight: 0.3;
+        lineHeight: 0.35;
+        inkRoughness: 0.45;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -23212,6 +23255,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    fencingpiste: 1;
     tabletennistable: 1;
     futsalcourt: 1;
     fieldhockeypitch: 1;

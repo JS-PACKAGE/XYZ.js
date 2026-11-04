@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'fencingpiste',
   'tabletennistable',
   'futsalcourt',
   'fieldhockeypitch',
@@ -51452,6 +51453,70 @@ export function createSurfaceSampler(
           elevation += (p.netHeight - elevation) * net;
           color = clamp(shade);
           height = clamp(elevation);
+          roughness = clamp(p.inkRoughness);
+          occlusion = 1;
+        };
+      }
+      case 'fencingpiste': {
+        const p = proceduralMaterialPresets.fencingpiste,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(126, 1, seed ^ 0x260001) * p.surfaces.length)
+            ],
+          across = hash(126, 2, seed ^ 0x260002) < 0.5,
+          shift = (hash(126, 3, seed ^ 0x260003) * 2 - 1) * p.toneShift,
+          halfLength = p.pisteLength / 2,
+          halfWidth = p.pisteWidth / 2,
+          reach = halfLength + p.runback,
+          line = p.lineWidth,
+          // The width of the piste is cut into dashPieces pieces, the first, the third and so on being the dashes of the centre line.
+          pieceLength = p.pisteWidth / p.dashPieces;
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            // The place in metres from the middle of the piste (x along its length).
+            ax = Math.abs(((across ? fv : fu) - 0.5) / p.metre),
+            y = ((across ? fu : fv) - 0.5) / p.metre,
+            inside = Math.min(reach - ax, halfWidth - Math.abs(y)),
+            court = cover(inside * p.metre),
+            // The last 2 metres before the rear limit, and the run-back; the edge between them is in the middle of the line of the rear limit, which hides it.
+            warning = cover((ax - (halfLength - p.warningLength)) * p.metre),
+            runback = cover((ax - halfLength) * p.metre),
+            // Half a dash in the pieces across the width: the distance to the nearest end of a dash inside a dash, minus it inside a gap.
+            piece = (y + halfWidth) / pieceLength,
+            phase = piece - 2 * Math.floor(piece / 2),
+            dash =
+              (phase < 1
+                ? Math.min(phase, 1 - phase)
+                : -Math.min(phase - 1, 2 - phase)) * pieceLength,
+            marking = Math.max(
+              cover((line / 2 - Math.abs(ax - halfLength)) * p.metre),
+              cover((line / 2 - Math.abs(ax - p.guardDistance)) * p.metre),
+              cover(Math.min(line / 2 - ax, dash) * p.metre),
+            ),
+            // The lines go to the edge of the piste, so the line has the edge of the piste at its end.
+            lined = court > 0 ? Math.min(1, marking / court) : 0,
+            tone =
+              surface.piste +
+              shift +
+              (surface.warning - surface.piste) * warning +
+              (surface.runback - surface.warning) * runback,
+            elevation =
+              p.pisteHeight + (p.runbackHeight - p.pisteHeight) * runback;
+          color = clamp(
+            surface.floor +
+              shift +
+              (tone + (p.lineTone - tone) * lined - surface.floor - shift) *
+                court,
+          );
+          height = clamp(
+            p.floorHeight +
+              (elevation + (p.lineHeight - elevation) * lined - p.floorHeight) *
+                court,
+          );
           roughness = clamp(p.inkRoughness);
           occlusion = 1;
         };

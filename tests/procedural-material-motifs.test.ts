@@ -78078,3 +78078,327 @@ describe('tabletennistable: a table tennis table with its net seen from above, w
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('fencingpiste: a fencing piste seen from above, with the dimensions of the FIE Technical Rules, laid along or across by the seed', () => {
+  const p = proceduralMaterialPresets.fencingpiste,
+    out = empty(),
+    m = p.metre,
+    toneAt = (
+      sample: Sampler,
+      x: number,
+      y: number,
+      across: boolean,
+    ): number => {
+      // A place in metres from the middle of the piste (x along its length) as a place on the picture.
+      sample(0.5 + (across ? y : x) * m, 0.5 + (across ? x : y) * m, out);
+      return out.color;
+    };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    mix = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    // The probes are exact (the edges are straight), so the tolerance is tiny.
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  // The facts of the piste, in metres (the FIE Technical Rules, August 2026, articles t.17 to t.19, which were read for this): the combat area 1.5 wide and 14 long, the centre line broken, the on-guard lines
+  // 2 on each side of it, the lines of the rear limits 7 from it, and the last 2 before the rear limits of a colour of their own.
+  const rules = { length: 14, width: 1.5, guard: 2, rear: 7, warning: 2 },
+    halfW = rules.width / 2,
+    l = p.lineWidth,
+    pieceLength = rules.width / p.dashPieces;
+  type Kind = 'floor' | 'piste' | 'warning' | 'runback' | 'line';
+  // The piece of the picture a place is in; the centre line has the pieces across the width, the first, the third and so on being the dashes.
+  const classify = (x: number, y: number): Kind => {
+    const ax = Math.abs(x),
+      ay = Math.abs(y);
+    if (ax > rules.rear + p.runback || ay > halfW) return 'floor';
+    if (
+      Math.abs(ax - rules.rear) <= l / 2 ||
+      Math.abs(ax - rules.guard) <= l / 2 ||
+      (ax <= l / 2 && Math.floor((y + halfW) / pieceLength) % 2 === 0)
+    )
+      return 'line';
+    if (ax > rules.rear) return 'runback';
+    return ax >= rules.rear - rules.warning ? 'warning' : 'piste';
+  };
+  type Surface = {
+    across: boolean;
+    surface: number;
+    shift: number;
+    tones: { floor: number; piste: number; warning: number; runback: number };
+  };
+  const readSurface = (sample: Sampler): Surface => {
+    const options: Surface[] = [];
+    for (const across of [false, true]) {
+      const floor = toneAt(sample, 9, 5, across),
+        piste = toneAt(sample, 3.5, 0.3, across),
+        warning = toneAt(sample, 6, 0.3, across),
+        runback = toneAt(sample, 7.8, 0.3, across);
+      p.surfaces.forEach((surface, index) => {
+        const shift = floor - surface.floor;
+        if (
+          Math.abs(shift) <= p.toneShift + 1e-9 &&
+          Math.abs(piste - surface.piste - shift) < 1e-6 &&
+          Math.abs(warning - surface.warning - shift) < 1e-6 &&
+          Math.abs(runback - surface.runback - shift) < 1e-6
+        )
+          options.push({
+            across,
+            surface: index,
+            shift,
+            tones: { floor, piste, warning, runback },
+          });
+      });
+    }
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+
+  it('has the dimensions of the piste in the preset, and the piste with its run-back inside the tile', () => {
+    expect(p.pisteLength).toBe(rules.length);
+    expect(p.pisteWidth).toBe(rules.width);
+    expect(p.guardDistance).toBe(rules.guard);
+    expect(p.warningLength).toBe(rules.warning);
+    expect(p.dashPieces % 2).toBe(1);
+    expect((rules.length / 2 + p.runback) * 2 * m).toBeLessThan(1);
+    expect(rules.length / 2 - rules.warning).toBeGreaterThan(rules.guard + l);
+  });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws every place of the picture as the rules and the widths say, with its tone, height and roughness, both ways round (seed %i)',
+    { timeout: 120000 },
+    (seed) => {
+      const sample = createSurfaceSampler('fencingpiste', seed),
+        { across, tones } = readSurface(sample),
+        expected: Record<Kind, { tone: number; height: number }> = {
+          floor: { tone: tones.floor, height: p.floorHeight },
+          piste: { tone: tones.piste, height: p.pisteHeight },
+          warning: { tone: tones.warning, height: p.pisteHeight },
+          runback: { tone: tones.runback, height: p.runbackHeight },
+          line: { tone: p.lineTone, height: p.lineHeight },
+        },
+        counts: Record<Kind, number> = {
+          floor: 0,
+          piste: 0,
+          warning: 0,
+          runback: 0,
+          line: 0,
+        },
+        step = 0.0371,
+        clear = 0.008;
+      // Every place of the picture (the tile is 20 across; the places within 0.008 of a change in the picture are skipped: the softened edges are checked below, exactly).
+      for (let x = -9.99; x <= 9.99; x += step)
+        for (let y = -9.99; y <= 9.99; y += step) {
+          const kind = classify(x, y);
+          if (
+            [
+              [clear, 0],
+              [-clear, 0],
+              [0, clear],
+              [0, -clear],
+              [clear, clear],
+              [-clear, -clear],
+              [clear, -clear],
+              [-clear, clear],
+            ].some(([dx, dy]) => classify(x + dx, y + dy) !== kind)
+          )
+            continue;
+          counts[kind]++;
+          expect(toneAt(sample, x, y, across)).toBeCloseTo(
+            expected[kind].tone,
+            6,
+          );
+          expect(out.height / p.relief).toBeCloseTo(expected[kind].height, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        }
+      expect(counts.floor).toBeGreaterThan(60000);
+      expect(counts.piste).toBeGreaterThan(300);
+      expect(counts.warning).toBeGreaterThan(300);
+      expect(counts.runback).toBeGreaterThan(100);
+      expect(counts.line).toBeGreaterThan(300);
+    },
+  );
+
+  it('uses every surface and both ways round over 1000 seeds, about equally often, with the tones shifted over the whole range', () => {
+    const surfaces = new Map<number, number>(),
+      shifts: number[] = [];
+    let acrossCount = 0;
+    for (let seed = 0; seed < 1000; seed++) {
+      const { across, surface, shift } = readSurface(
+        createSurfaceSampler('fencingpiste', seed * 7 + 1),
+      );
+      shifts.push(shift);
+      surfaces.set(surface, (surfaces.get(surface) ?? 0) + 1);
+      acrossCount += Number(across);
+    }
+    expect(surfaces.size).toBe(p.surfaces.length);
+    for (const count of surfaces.values())
+      expect(Math.abs(count - 1000 / p.surfaces.length)).toBeLessThan(50);
+    expect(Math.abs(acrossCount / 1000 - 0.5)).toBeLessThan(0.05);
+    expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+    expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+    expect(
+      Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+    ).toBeLessThan(p.toneShift * 0.15);
+    for (let quarter = 0; quarter < 4; quarter++)
+      expect(
+        Math.abs(
+          shifts.filter(
+            (shift) =>
+              Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+          ).length - 250,
+        ),
+      ).toBeLessThan(50);
+  });
+
+  it('puts each edge of each line where the rules put it: just inside it the line, just outside it not (both ends, every dash, both ways round)', () => {
+    const delta = 0.0004 / m,
+      ways = new Set<boolean>();
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 7]) {
+      const sample = createSurfaceSampler('fencingpiste', seed),
+        { across } = readSurface(sample),
+        isLine = (x: number, y: number): boolean =>
+          Math.abs(toneAt(sample, x, y, across) - p.lineTone) < 1e-6;
+      ways.add(across);
+      for (const sx of [1, -1]) {
+        // The lines of the rear limits (7 from the centre line) and the on-guard lines (2), both edges, at three places across the width, and the end of each at the edge of the piste.
+        for (const centre of [rules.rear, rules.guard])
+          for (const y of [-0.5, 0, 0.5]) {
+            expect(isLine(sx * (centre - l / 2 + delta), y)).toBe(true);
+            expect(isLine(sx * (centre - l / 2 - delta), y)).toBe(false);
+            expect(isLine(sx * (centre + l / 2 - delta), y)).toBe(true);
+            expect(isLine(sx * (centre + l / 2 + delta), y)).toBe(false);
+          }
+        for (const centre of [rules.rear, rules.guard])
+          for (const sy of [1, -1]) {
+            expect(isLine(sx * centre, sy * (halfW - delta))).toBe(true);
+            expect(isLine(sx * centre, sy * (halfW + delta))).toBe(false);
+          }
+      }
+      // The centre line: a dash at each side of the width and six dashes in all; both edges of each dash and the sides of the line.
+      let dashes = 0;
+      for (let piece = 0; piece < p.dashPieces; piece++) {
+        const from = -halfW + piece * pieceLength,
+          middle = from + pieceLength / 2;
+        expect(isLine(0, middle)).toBe(piece % 2 === 0);
+        if (piece % 2 === 0) {
+          dashes++;
+          expect(isLine(0, from + delta)).toBe(true);
+          expect(isLine(0, from + pieceLength - delta)).toBe(true);
+          if (piece > 0) expect(isLine(0, from - delta)).toBe(false);
+          if (piece < p.dashPieces - 1)
+            expect(isLine(0, from + pieceLength + delta)).toBe(false);
+          expect(isLine(l / 2 - delta, middle)).toBe(true);
+          expect(isLine(l / 2 + delta, middle)).toBe(false);
+          expect(isLine(-l / 2 + delta, middle)).toBe(true);
+          expect(isLine(-l / 2 - delta, middle)).toBe(false);
+        }
+      }
+      expect(dashes).toBe(6);
+      // Beyond the end of the piste there is no line (the dashes of the centre line stop at its edges).
+      expect(isLine(0, -halfW - delta)).toBe(false);
+      expect(isLine(0, halfW + delta)).toBe(false);
+    }
+    expect(ways.size).toBe(2);
+  });
+
+  it('softens the edge of the piste, of the last 2 metres, of the run-back and of a line over edgeSoft', () => {
+    const sample = createSurfaceSampler('fencingpiste', 2),
+      { across, tones } = readSurface(sample),
+      quarter = (0.25 * p.edgeSoft) / m,
+      tone = (x: number, y: number): number => toneAt(sample, x, y, across),
+      start = rules.rear - rules.warning,
+      end = rules.rear + p.runback;
+    // The side of the piste (over the floor), the end of the run-back, and the start of the last 2 metres (over the piste).
+    close(tone(3.5, halfW + quarter), mix(tones.floor, tones.piste, 0.25));
+    close(tone(3.5, halfW - quarter), mix(tones.floor, tones.piste, 0.75));
+    close(tone(end + quarter, 0.3), mix(tones.floor, tones.runback, 0.25));
+    close(tone(end - quarter, 0.3), mix(tones.floor, tones.runback, 0.75));
+    close(tone(start - quarter, 0.3), mix(tones.piste, tones.warning, 0.25));
+    close(tone(start + quarter, 0.3), mix(tones.piste, tones.warning, 0.75));
+    // The line of the rear limit over the last 2 metres and the run-back (their edge is under the line), the on-guard line over the piste, the centre line over the piste.
+    close(
+      tone(rules.rear - l / 2 - quarter, 0.3),
+      mix(tones.warning, p.lineTone, 0.25),
+    );
+    close(
+      tone(rules.rear - l / 2 + quarter, 0.3),
+      mix(tones.warning, p.lineTone, 0.75),
+    );
+    close(
+      tone(rules.rear + l / 2 + quarter, 0.3),
+      mix(tones.runback, p.lineTone, 0.25),
+    );
+    close(
+      tone(rules.rear + l / 2 - quarter, 0.3),
+      mix(tones.runback, p.lineTone, 0.75),
+    );
+    close(
+      tone(rules.guard + l / 2 + quarter, 0.3),
+      mix(tones.piste, p.lineTone, 0.25),
+    );
+    // (the middle piece across the width is a gap, so the centre line is probed in the dash before it)
+    const dashY = -halfW + 4.5 * pieceLength;
+    close(tone(l / 2 + quarter, dashY), mix(tones.piste, p.lineTone, 0.25));
+    close(tone(l / 2 - quarter, dashY), mix(tones.piste, p.lineTone, 0.75));
+    // The ends of a dash of the centre line (the third piece across the width) over the piste, and the end of the first dash at the side of the piste, which has the edge of the piste.
+    const from = -halfW + 2 * pieceLength;
+    close(tone(0, from - quarter), mix(tones.piste, p.lineTone, 0.25));
+    close(tone(0, from + quarter), mix(tones.piste, p.lineTone, 0.75));
+    close(
+      tone(0, from + pieceLength - quarter),
+      mix(tones.piste, p.lineTone, 0.75),
+    );
+    close(
+      tone(0, from + pieceLength + quarter),
+      mix(tones.piste, p.lineTone, 0.25),
+    );
+    close(tone(0, -halfW - quarter), mix(tones.floor, p.lineTone, 0.25));
+    close(tone(0, -halfW + quarter), mix(tones.floor, p.lineTone, 0.75));
+    // The end of a line at the side of the piste has the edge of the piste.
+    close(
+      tone(rules.guard, halfW + quarter),
+      mix(tones.floor, p.lineTone, 0.25),
+    );
+    close(
+      tone(rules.guard, halfW - quarter),
+      mix(tones.floor, p.lineTone, 0.75),
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('fencingpiste', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('fencingpiste', 0),
+      b = createSurfaceSampler('fencingpiste', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

@@ -28510,6 +28510,62 @@ var proceduralMaterialPresets = Object.freeze({
 		netHeight: .9,
 		inkRoughness: .45
 	}),
+	fencingpiste: Object.freeze({
+		dark: [
+			28,
+			44,
+			70
+		],
+		light: [
+			236,
+			238,
+			232
+		],
+		roughness: .45,
+		relief: .004,
+		metre: .05,
+		pisteLength: 14,
+		pisteWidth: 1.5,
+		guardDistance: 2,
+		warningLength: 2,
+		runback: 1.5,
+		lineWidth: .1,
+		dashPieces: 11,
+		surfaces: Object.freeze([
+			Object.freeze({
+				floor: .6,
+				piste: .4,
+				warning: .52,
+				runback: .3
+			}),
+			Object.freeze({
+				floor: .3,
+				piste: .45,
+				warning: .22,
+				runback: .38
+			}),
+			Object.freeze({
+				floor: .45,
+				piste: .22,
+				warning: .34,
+				runback: .12
+			}),
+			Object.freeze({
+				floor: .2,
+				piste: .32,
+				warning: .45,
+				runback: .1
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		lineTone: .96,
+		floorHeight: .15,
+		runbackHeight: .26,
+		pisteHeight: .3,
+		lineHeight: .35,
+		inkRoughness: .45
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -37191,6 +37247,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	fencingpiste: 1,
 	tabletennistable: 1,
 	futsalcourt: 1,
 	fieldhockeypitch: 1,

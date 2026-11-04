@@ -18182,6 +18182,41 @@ export const proceduralMaterialPresets = Object.freeze({
     netHeight: 0.9,
     inkRoughness: 0.45,
   }),
+  fencingpiste: Object.freeze({
+    dark: [28, 44, 70] as const,
+    light: [236, 238, 232] as const,
+    roughness: 0.45,
+    relief: 0.004,
+    // A fencing piste seen from above, with the dimensions of the FIE Technical Rules (August 2026, articles t.17 to t.19, read for this), in metres (the length of the piste along one axis of the picture; the tile
+    // is 20 across): the combat area 14 long and 1.5 wide, the centre line (a broken line across the whole width), the two on-guard lines 2 either side of it, the two lines of the rear limits 7 from it, and the
+    // last 2 metres before each rear limit of a colour of their own (the rules say "if possible by a different colour of piste"). The rules give no width for the lines, the pattern of the broken line, nor the run-back
+    // beyond the rear limits (which the article t.18 mentions, but does not measure): here the lines are 0.1 wide and centred on their distances, the centre line has eleven pieces across the width, six of them dashes
+    // (so that there is a dash at each side), and the run-back is 1.5 beyond each rear limit with a tone of its own (my choices); round the piste is the floor. The conductive safety borders, the score machine
+    // and everything else are not drawn. The seed picks the surface (the tones of the floor, the piste, the last 2 metres and the run-back, all shifted together a little) and lays the piste along the picture or across it.
+    metre: 0.05,
+    pisteLength: 14,
+    pisteWidth: 1.5,
+    guardDistance: 2,
+    warningLength: 2,
+    runback: 1.5,
+    lineWidth: 0.1,
+    dashPieces: 11,
+    surfaces: Object.freeze([
+      Object.freeze({ floor: 0.6, piste: 0.4, warning: 0.52, runback: 0.3 }),
+      Object.freeze({ floor: 0.3, piste: 0.45, warning: 0.22, runback: 0.38 }),
+      Object.freeze({ floor: 0.45, piste: 0.22, warning: 0.34, runback: 0.12 }),
+      Object.freeze({ floor: 0.2, piste: 0.32, warning: 0.45, runback: 0.1 }),
+    ]),
+    // How much the four tones may all be shifted together (from -toneShift to toneShift) by the seed: the wear of the floor and the piste.
+    toneShift: 0.04,
+    edgeSoft: 0.0006,
+    lineTone: 0.96,
+    floorHeight: 0.15,
+    runbackHeight: 0.26,
+    pisteHeight: 0.3,
+    lineHeight: 0.35,
+    inkRoughness: 0.45,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -24674,6 +24709,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  fencingpiste: 1,
   tabletennistable: 1,
   futsalcourt: 1,
   fieldhockeypitch: 1,
