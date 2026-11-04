@@ -1182,6 +1182,7 @@ try {
     'vortexstreet',
     'newtonfractal',
     'talbotcarpet',
+    'diffractioncatastrophes',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

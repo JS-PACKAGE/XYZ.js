@@ -1145,6 +1145,7 @@ const kinds: ProceduralMaterialKind[] = [
   'vortexstreet',
   'newtonfractal',
   'talbotcarpet',
+  'diffractioncatastrophes',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -193673,6 +193674,307 @@ describe('Talbot carpet as the near-field intensity behind a grating, repeating 
     expect(blue / (512 * 512)).toBeLessThan(41.6);
     expect(maxTilt).toBeGreaterThan(0.0033);
     expect(maxTilt).toBeLessThan(0.0034);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Diffraction catastrophes as the Pearcey cusp and the butterfly with their interference fringes', () => {
+  const p = proceduralMaterialPresets.diffractioncatastrophes;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const plot = 0.5 - p.margin;
+  /** The intensity |P(x, y)|^2 of the variant at the point (x, y) of its plot, read back from the sampler: the height is cellHeight times the tone 1 - exp(-intensity / reference), which is inverted here. */
+  const intensityAt = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    variant: number,
+    x: number,
+    y: number,
+  ): number => {
+    sample(
+      0.5 + ((x - p.centreXs[variant]) * plot) / p.halfWidths[variant],
+      0.5 - (y * plot) / p.halfWidths[variant],
+      out,
+    );
+    return -Math.log(1 - out.height / p.relief / p.cellHeight) * p.reference;
+  };
+  /** The intensity of int exp(i (t^(2 d) + a t^4 + x t^2 + y t)) dt along the real axis from -T to T by Simpson's rule (the sampler goes along rays in the complex plane instead), T = 5 for d = 2 and 4 for d = 3, with a phase step of at most 0.3. */
+  const realAxisIntensity = (variant: number, x: number, y: number): number => {
+    const degree = p.degrees[variant],
+      quartic = p.quartics[variant],
+      limit = degree === 2 ? 5 : 4,
+      steps = Math.round((2 * limit) / (degree === 2 ? 0.0005 : 0.0001)),
+      h = (2 * limit) / steps;
+    let re = 0,
+      im = 0;
+    for (let k = 0; k <= steps; k++) {
+      const t = -limit + k * h,
+        t2 = t * t,
+        phase =
+          (degree === 2 ? t2 * t2 : t2 * t2 * t2 + quartic * t2 * t2) +
+          x * t2 +
+          y * t,
+        weight = k === 0 || k === steps ? 1 : k % 2 ? 4 : 2;
+      re += weight * Math.cos(phase);
+      im += weight * Math.sin(phase);
+    }
+    return ((re * h) / 3) ** 2 + ((im * h) / 3) ** 2;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('diffractioncatastrophes', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('diffractioncatastrophes', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0253);
+      expect(low).toBeLessThan(0.0267);
+      expect(high).toBeGreaterThan(0.79);
+      expect(high).toBeLessThan(0.83);
+      expect(dark / 65536).toBeGreaterThan(0.088);
+      expect(dark / 65536).toBeLessThan(0.342);
+      expect(mean / 65536).toBeGreaterThan(0.245);
+      expect(mean / 65536).toBeLessThan(0.369);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.715);
+      expect(heightHigh).toBeLessThan(0.75);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (the Pearcey integral in three windows, then the butterfly with a = -2, -1 and -3) is 6, 1, 21, 3, 2 and 0; the table was found with a probe by which variant's real-axis integral matches the
+  // intensities of the seed at six points, and is written here, so it is not an independent check of the seed's choice.
+  const seeds = [6, 1, 21, 3, 2, 0];
+  it('agrees with the integral along the real axis, which the sampler does not use', () => {
+    // The sampler integrates along rays t = s exp(i pi / (8 d)) in the complex plane (the integrand then falls off, and 70 to 85 nodes do); the test integrates along the real axis from -T to T by Simpson's rule with some 20,000 to 80,000 nodes.
+    // On 80 points of each variant (inside the plot, on a golden-ratio sequence) they differ by at most 0.0209, 0.0206 and 0.0199 for the Pearcey variants (the cut-off of the real axis at T = 5 gives the error: some 0.006 at the larger intensities) and
+    // by at most 0.0016, 0.0015 and 0.0014 for the butterfly variants in the probe, on 150 points.
+    seeds.forEach((seed, variant) => {
+      const sample = createSurfaceSampler('diffractioncatastrophes', seed),
+        out = empty();
+      let worst = 0;
+      for (let k = 0; k < 80; k++) {
+        const x =
+            p.centreXs[variant] +
+            p.halfWidths[variant] *
+              (1.72 * ((k * 0.6180339887 + 0.1) % 1) - 0.86),
+          y =
+            p.halfWidths[variant] *
+            (1.72 * ((k * 0.7548776662 + 0.3) % 1) - 0.86);
+        worst = Math.max(
+          worst,
+          Math.abs(
+            intensityAt(sample, out, variant, x, y) -
+              realAxisIntensity(variant, x, y),
+          ),
+        );
+      }
+      expect(worst).toBeLessThan(variant < 3 ? 0.04 : 0.005);
+    });
+  });
+  it('is mirror symmetric in y and has the value of the Pearcey integral at the origin', () => {
+    // The integrand for -y is the complex conjugate of that for y with t -> -t, so |P(x, -y)| = |P(x, y)| (1.1e-14 at the most in the probe on 100 points of each variant), and at the origin the Pearcey integral is the integral of
+    // exp(i t^4), 2 Gamma(5 / 4) exp(i pi / 8) with the modulus 1.8128049541, so the intensity is 3.28626 (the same to the 5 digits printed by the probe) for the two variants whose plot contains the origin.
+    seeds.forEach((seed, variant) => {
+      const sample = createSurfaceSampler('diffractioncatastrophes', seed),
+        out = empty();
+      for (let k = 0; k < 100; k++) {
+        const x =
+            p.centreXs[variant] +
+            p.halfWidths[variant] *
+              (1.72 * ((k * 0.6180339887 + 0.2) % 1) - 0.86),
+          y = p.halfWidths[variant] * 0.86 * ((k * 0.7548776662 + 0.4) % 1);
+        expect(
+          Math.abs(
+            intensityAt(sample, out, variant, x, y) -
+              intensityAt(sample, out, variant, x, -y),
+          ),
+        ).toBeLessThan(1e-9);
+      }
+      if (variant < 2)
+        expect(
+          Math.abs(
+            intensityAt(sample, out, variant, 0, 0) - (2 * 0.90640247705) ** 2,
+          ),
+        ).toBeLessThan(1e-4);
+    });
+  });
+  it('puts the outermost fringe of the Pearcey pattern near the fold lines of the cusp', () => {
+    // The stationary points of t^4 + x t^2 + y t merge on the curve y = +-(4 |x| / 3) sqrt(|x| / 6), which is where the fold caustics run; going down from the edge of the plot along y at fixed x the outermost local maximum of the intensity (over 0.15)
+    // lies within -0.2 and 0.55 of it (-0.05 for x = -3 and 0.40 for x = -4 in the probe, a little beyond the caustic at x = -4 because the cusp is near).
+    for (const [variant, x] of [
+      [0, -3],
+      [0, -4],
+      [2, -3],
+    ]) {
+      const sample = createSurfaceSampler(
+          'diffractioncatastrophes',
+          seeds[variant],
+        ),
+        out = empty(),
+        caustic = ((4 * -x) / 3) * Math.sqrt(-x / 6),
+        top = p.halfWidths[variant] * 0.86,
+        profile: number[] = [];
+      for (let y = 0; y <= top; y += 0.01)
+        profile.push(intensityAt(sample, out, variant, x, y));
+      let found = -1;
+      for (let k = profile.length - 2; k > 0 && found < 0; k--)
+        if (
+          profile[k] > profile[k - 1] &&
+          profile[k] >= profile[k + 1] &&
+          profile[k] > 0.15
+        )
+          found = k;
+      expect(found).toBeGreaterThan(0);
+      expect(found * 0.01 - caustic).toBeGreaterThan(-0.2);
+      expect(found * 0.01 - caustic).toBeLessThan(0.55);
+    }
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 2 pick different variants (the butterfly with a = -3 and with a = -1).
+    const first = litGrid(0),
+      second = litGrid(2);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.1869);
+    expect(different / first.length).toBeLessThan(0.1871);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('diffractioncatastrophes', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 pale-blue fringe maps with raised bright lobes and shaded gaps', () => {
+    const maps = generateProceduralMaps('diffractioncatastrophes', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(42.7);
+    expect(red / (512 * 512)).toBeLessThan(43.7);
+    expect(green / (512 * 512)).toBeGreaterThan(74.8);
+    expect(green / (512 * 512)).toBeLessThan(75.8);
+    expect(blue / (512 * 512)).toBeGreaterThan(91.9);
+    expect(blue / (512 * 512)).toBeLessThan(92.9);
+    expect(maxTilt).toBeGreaterThan(0.0018);
+    expect(maxTilt).toBeLessThan(0.002);
     expect(invalid).toBe(0);
   });
 });

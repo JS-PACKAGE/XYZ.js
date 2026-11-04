@@ -51025,6 +51025,94 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'diffractioncatastrophes': {
+        const p = proceduralMaterialPresets.diffractioncatastrophes,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant = Math.floor(
+            hash(0, 97, seed ^ p.seedSalt) * p.degrees.length,
+          ),
+          degree = p.degrees[variant],
+          quartic = p.quartics[variant],
+          centreX = p.centreXs[variant],
+          halfWidth = p.halfWidths[variant],
+          step = p.steps[variant],
+          count = Math.round(p.spans[variant] / step),
+          plot = 0.5 - p.margin,
+          inverseSoft = 1 / p.edgeSoft,
+          angle = Math.PI / (8 * degree),
+          cosAngle = Math.cos(angle),
+          sinAngle = Math.sin(angle),
+          // For each node s = k step of the ray: the phase of t^2, of the leading term and of the quartic term at t = s exp(i angle), and the weight of the trapezoid rule (twice for the pair of nodes +-s, which share their even part).
+          s2 = new Float64Array(count + 1),
+          squareRe = new Float64Array(count + 1),
+          squareIm = new Float64Array(count + 1),
+          fixedRe = new Float64Array(count + 1),
+          fixedIm = new Float64Array(count + 1);
+        for (let k = 0; k <= count; k++) {
+          const s = k * step,
+            leading = s ** (2 * degree),
+            quarticTerm = degree === 3 ? quartic * s ** 4 : 0;
+          s2[k] = s;
+          squareRe[k] = s * s * Math.cos(2 * angle);
+          squareIm[k] = s * s * Math.sin(2 * angle);
+          fixedRe[k] =
+            leading * Math.cos(2 * degree * angle) +
+            quarticTerm * Math.cos(4 * angle);
+          fixedIm[k] =
+            leading * Math.sin(2 * degree * angle) +
+            quarticTerm * Math.sin(4 * angle);
+        }
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            x = centreX + (halfWidth * (fu - 0.5)) / plot,
+            y = (halfWidth * (0.5 - fv)) / plot;
+          // The integral is the sum over the nodes of exp(i (fixed + x t^2)) 2 cos(y t) (the nodes +-s pair up), times exp(i angle) step.
+          let re = 0,
+            im = 0;
+          for (let k = 0; k <= count; k++) {
+            const magnitude = Math.exp(-(fixedIm[k] + x * squareIm[k])),
+              phase = fixedRe[k] + x * squareRe[k],
+              er = magnitude * Math.cos(phase),
+              ei = magnitude * Math.sin(phase),
+              argument = y * s2[k],
+              ur = argument * cosAngle,
+              vi = argument * sinAngle,
+              grow = Math.exp(vi),
+              shrink = 1 / grow,
+              cr = Math.cos(ur) * 0.5 * (grow + shrink),
+              ci = -Math.sin(ur) * 0.5 * (grow - shrink),
+              weight = k === 0 ? 1 : 2;
+            re += weight * (er * cr - ei * ci);
+            im += weight * (er * ci + ei * cr);
+          }
+          const pr = (re * cosAngle - im * sinAngle) * step,
+            pi = (re * sinAngle + im * cosAngle) * step,
+            outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
+            outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
+            boxDistance =
+              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              Math.min(Math.max(outsideX, outsideY), 0),
+            edge = smooth(clamp(-boxDistance / p.fade)),
+            ink = clamp(
+              edge * (1 - Math.exp(-(pr * pr + pi * pi) / p.reference)),
+            ),
+            mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * ink;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -59945,6 +60033,7 @@ export function createSurfaceSampler(
     kind === 'vortexstreet' ||
     kind === 'newtonfractal' ||
     kind === 'talbotcarpet' ||
+    kind === 'diffractioncatastrophes' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

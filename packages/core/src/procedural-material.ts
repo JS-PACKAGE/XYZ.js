@@ -1119,6 +1119,7 @@ export type ProceduralMaterialKind =
   | 'vortexstreet'
   | 'newtonfractal'
   | 'talbotcarpet'
+  | 'diffractioncatastrophes'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2486,6 +2487,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'vortexstreet',
   'newtonfractal',
   'talbotcarpet',
+  'diffractioncatastrophes',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
