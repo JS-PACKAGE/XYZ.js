@@ -1180,6 +1180,7 @@ const kinds: ProceduralMaterialKind[] = [
   'latinsquares',
   'booleanfunctions',
   'setpartitions',
+  'compositions',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -206742,6 +206743,367 @@ describe('Set partitions as every partition of a kind drawn once', () => {
     expect(blue / (512 * 512)).toBeLessThan(40.5);
     expect(maxTilt).toBeGreaterThan(0.0483);
     expect(maxTilt).toBeLessThan(0.0485);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Compositions as every composition of a kind drawn once', () => {
+  const p = proceduralMaterialPresets.compositions;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The layout of the panels of a variant (seed % 6): slots of 1 / cols by 1 / rows, each with the strip (total by 1 cells, at its top left) and the margin around it, drawn at one scale and centred in the slot. */
+  const geometry = (seed: number) => {
+    const variant = seed % p.totals.length,
+      total: number = p.totals[variant],
+      cols: number = p.cols[variant],
+      rows: number = p.rows[variant],
+      scale = Math.min(
+        1 / (cols * (total + 2 * p.margin)),
+        1 / (rows * (1 + 2 * p.margin)),
+      );
+    return {
+      total,
+      kind: p.kinds[variant] as number,
+      top: p.tops[variant] as number,
+      cols,
+      rows,
+      scale,
+      originX: (1 / cols - scale * (total + 2 * p.margin)) / 2,
+      originY: (1 / rows - scale * (1 + 2 * p.margin)) / 2,
+    };
+  };
+  type Geometry = ReturnType<typeof geometry>;
+  /** The composition of every panel slot of a seed read back from the picture (null for an empty slot): the strip is cut where the height at the seam between two cells is 0, and the height at the middle of every cell must be that of the length of its part. */
+  const readCompositions = (seed: number): (number[] | null)[] => {
+    const g = geometry(seed),
+      sample = createSurfaceSampler('compositions', seed),
+      out = empty(),
+      compositions: (number[] | null)[] = [],
+      level = (x: number, slot: number): number => {
+        sample(
+          (slot % g.cols) / g.cols + g.originX + g.scale * (p.margin + x),
+          Math.floor(slot / g.cols) / g.rows +
+            g.originY +
+            g.scale * (p.margin + 0.5),
+          out,
+        );
+        return out.height / p.relief / p.cellHeight;
+      };
+    for (let slot = 0; slot < g.cols * g.rows; slot++) {
+      const levels = Array.from({ length: g.total }, (_, i) =>
+        level(i + 0.5, slot),
+      );
+      // An empty slot shows the ground at every cell.
+      if (levels.every((value) => value === 0)) {
+        compositions.push(null);
+        continue;
+      }
+      const parts: number[] = [];
+      let length = 0;
+      for (let i = 0; i < g.total; i++) {
+        length++;
+        if (i === g.total - 1 || level(i + 1, slot) === 0) {
+          for (let k = i - length + 1; k <= i; k++) {
+            // The height of every cell of the part is that of its length.
+            const fraction =
+              (levels[k] - p.levels[0]) / (p.levels[1] - p.levels[0]);
+            expect(1 + fraction * (g.top - 1)).toBeCloseTo(length, 9);
+          }
+          parts.push(length);
+          length = 0;
+        }
+      }
+      compositions.push(parts);
+    }
+    return compositions;
+  };
+  /** Whether a composition (its parts in order) is of the kind and adds up to the total, from the definitions. */
+  const isOfKind = (g: Geometry, parts: number[]): boolean => {
+    if (parts.reduce((a, b) => a + b, 0) !== g.total) return false;
+    if (g.kind === 1) return parts.every((part) => part <= 2);
+    if (g.kind === 2) return parts.every((part) => part % 2 === 1);
+    if (g.kind === 3) return new Set(parts).size === parts.length;
+    return true;
+  };
+  /** Every composition of the kind by going through all the 2^(total - 1) ways to cut a strip of cells at none or some of the seams between them and testing each by the definition. */
+  const allCompositions = (g: Geometry): string[] => {
+    const found: string[] = [];
+    for (let cuts = 0; cuts < 2 ** (g.total - 1); cuts++) {
+      const parts: number[] = [];
+      let length = 1;
+      for (let seam = 0; seam < g.total - 1; seam++) {
+        if (Math.floor(cuts / 2 ** seam) % 2 === 1) {
+          parts.push(length);
+          length = 1;
+        } else length++;
+      }
+      parts.push(length);
+      if (isOfKind(g, parts)) found.push(parts.join('+'));
+    }
+    return found;
+  };
+  /** The grid of 256 by 256 colours above 0.2, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('compositions', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.2));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { high: 0.9608, lit: 0.24101, mean: 0.13022 }],
+      [1, { high: 0.9618, lit: 0.26662, mean: 0.13819 }],
+      [0xffffffff, { high: 0.9638, lit: 0.27899, mean: 0.20675 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('compositions', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.2);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0154);
+      expect(low).toBeLessThan(0.0156);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws every composition of the kind exactly once, read back from the picture and compared with all the ways to cut a strip', () => {
+    for (let seed = 0; seed < 12; seed++) {
+      const g = geometry(seed),
+        read = readCompositions(seed),
+        drawn = read.filter((parts): parts is number[] => parts !== null),
+        names = drawn.map((parts) => parts.join('+'));
+      for (const parts of drawn) expect(isOfKind(g, parts)).toBe(true);
+      expect(new Set(names).size).toBe(drawn.length);
+      expect([...names].sort()).toEqual(allCompositions(g).sort());
+      expect(read.slice(drawn.length).every((parts) => parts === null)).toBe(
+        true,
+      );
+    }
+    // The numbers: 2^(n - 1) compositions of n (128 of 8 and 256 of 9), the Fibonacci numbers 89 and 233 with parts of at most 2, 144 with odd parts only, and 101 with all parts different.
+    expect(
+      [0, 1, 2, 3, 4, 5].map(
+        (seed) =>
+          readCompositions(seed).filter((parts) => parts !== null).length,
+      ),
+    ).toEqual([128, 256, 89, 233, 144, 101]);
+  });
+  it('shuffles the panels by group without changing the set of compositions', () => {
+    for (const seed of [1, 2, 4]) {
+      const names = (s: number) =>
+          readCompositions(s).map((parts) =>
+            parts === null ? '-' : parts.join('+'),
+          ),
+        first = names(seed),
+        second = names(seed + 6),
+        third = names(seed + 12);
+      expect(first).not.toEqual(second);
+      expect(second).not.toEqual(third);
+      expect([...first].sort()).toEqual([...second].sort());
+      expect([...first].sort()).toEqual([...third].sort());
+    }
+  });
+  it('agrees with the ideal parts and gaps away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5]) {
+      const g = geometry(seed),
+        compositions = readCompositions(seed),
+        sample = createSurfaceSampler('compositions', seed),
+        out = empty(),
+        half = p.gapWidth / 2;
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          col = Math.min(g.cols - 1, Math.floor(u * g.cols)),
+          row = Math.min(g.rows - 1, Math.floor(v * g.rows)),
+          parts = compositions[row * g.cols + col],
+          x = (u - col / g.cols - g.originX) / g.scale - p.margin,
+          y = (v - row / g.rows - g.originY) / g.scale - p.margin,
+          i = Math.floor(x);
+        let ink = 0,
+          fraction = 0,
+          near = false;
+        if (parts !== null && i >= 0 && i < g.total && y >= 0 && y < 1) {
+          // The cell i is in the part from first to last, and a side has a gap only at an end of its part.
+          let first = 0;
+          for (const part of parts) {
+            if (i < first + part) {
+              const sides = [y, 1 - y];
+              if (i === first) sides.push(x - i);
+              if (i === first + part - 1) sides.push(i + 1 - x);
+              if (
+                sides.some(
+                  (distance) => distance > half && distance < half + p.edgeSoft,
+                )
+              )
+                near = true;
+              ink = sides.every((distance) => distance > half) ? 1 : 0;
+              fraction = (part - 1) / (g.top - 1);
+              break;
+            }
+            first += part;
+          }
+        }
+        if (near) continue;
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.levels[0] + (p.levels[1] - p.levels[0]) * fraction),
+          12,
+        );
+        expect(
+          Math.abs(
+            out.color -
+              (p.toneGround * (1 - ink) +
+                (p.tones[0] + (p.tones[1] - p.tones[0]) * fraction) * ink),
+          ),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(5000);
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeGreaterThan(0.367);
+    expect(unlike(first, litGrid(1))).toBeLessThan(0.3672);
+    expect(unlike(first, litGrid(6))).toBeGreaterThan(0.044);
+    expect(unlike(first, litGrid(6))).toBeLessThan(0.0441);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('compositions', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 blue composition maps on dark navy with raised strips and shaded gaps', () => {
+    const maps = generateProceduralMaps('compositions', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(28.9);
+    expect(red / (512 * 512)).toBeLessThan(29.8);
+    expect(green / (512 * 512)).toBeGreaterThan(33.4);
+    expect(green / (512 * 512)).toBeLessThan(34.3);
+    expect(blue / (512 * 512)).toBeGreaterThan(64.1);
+    expect(blue / (512 * 512)).toBeLessThan(65);
+    expect(maxTilt).toBeGreaterThan(0.1034);
+    expect(maxTilt).toBeLessThan(0.1036);
     expect(invalid).toBe(0);
   });
 });

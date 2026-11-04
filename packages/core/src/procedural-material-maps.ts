@@ -54795,6 +54795,105 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'compositions': {
+        const p = proceduralMaterialPresets.compositions,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.totals.length,
+          group = Math.floor(unsigned / p.totals.length),
+          total: number = p.totals[variant],
+          kind: number = p.kinds[variant],
+          top: number = p.tops[variant],
+          cols = p.cols[variant],
+          rows = p.rows[variant],
+          // Every composition of the kind as the start and the length of the part of every cell, found part after part (the lengths of the parts of a composition are all different for kind 3, at most 2 for kind 1 and odd for kind 2).
+          panels = (() => {
+            const found: { start: Uint8Array; length: Uint8Array }[] = [],
+              parts: number[] = [],
+              split = (left: number): void => {
+                if (left === 0) {
+                  const start = new Uint8Array(total),
+                    length = new Uint8Array(total);
+                  let at = 0;
+                  for (const part of parts) {
+                    for (let i = 0; i < part; i++) {
+                      start[at + i] = at;
+                      length[at + i] = part;
+                    }
+                    at += part;
+                  }
+                  found.push({ start, length });
+                  return;
+                }
+                for (let part = 1; part <= left; part++) {
+                  if (kind === 1 && part > 2) break;
+                  if (kind === 2 && part % 2 === 0) continue;
+                  if (kind === 3 && parts.includes(part)) continue;
+                  parts.push(part);
+                  split(left - part);
+                  parts.pop();
+                }
+              };
+            split(total);
+            for (let k = found.length - 1; k > 0; k--) {
+              const other = Math.floor(
+                hash(k, 331, group ^ p.seedSalt) * (k + 1),
+              );
+              [found[k], found[other]] = [found[other], found[k]];
+            }
+            return found;
+          })(),
+          scale = Math.min(
+            1 / (cols * (total + 2 * p.margin)),
+            1 / (rows * (1 + 2 * p.margin)),
+          ),
+          originX = (1 / cols - scale * (total + 2 * p.margin)) / 2,
+          originY = (1 / rows - scale * (1 + 2 * p.margin)) / 2,
+          halfGap = p.gapWidth / 2,
+          // 1 on the cell side of a gap, 0 at the edge itself, at the distance fromEdge in cells.
+          edge = (fromEdge: number): number =>
+            smooth(clamp((fromEdge - halfGap) / p.edgeSoft));
+        return () => {
+          const tileU = fract(u),
+            tileV = fract(v),
+            col = Math.min(cols - 1, Math.floor(tileU * cols)),
+            row = Math.min(rows - 1, Math.floor(tileV * rows)),
+            index = row * cols + col,
+            grain = grainField(u, v);
+          let mask = 0,
+            fraction = 0;
+          if (index < panels.length) {
+            const x = (tileU - col / cols - originX) / scale - p.margin,
+              y = (tileV - row / rows - originY) / scale - p.margin,
+              i = Math.floor(x);
+            if (i >= 0 && i < total && y >= 0 && y < 1) {
+              const { start, length } = panels[index],
+                fx = x - i;
+              // A side of a cell has no gap where the next cell is of the same part.
+              mask =
+                (start[i] === i ? edge(fx) : 1) *
+                (start[i] + length[i] - 1 === i ? edge(1 - fx) : 1) *
+                edge(y) *
+                edge(1 - y);
+              fraction = (length[i] - 1) / (top - 1);
+            }
+          }
+          color =
+            p.toneGround * (1 - mask) +
+            (p.tones[0] + (p.tones[1] - p.tones[0]) * fraction) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+            mask *
+            (p.levels[0] + (p.levels[1] - p.levels[0]) * fraction);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -63750,6 +63849,7 @@ export function createSurfaceSampler(
     kind === 'latinsquares' ||
     kind === 'booleanfunctions' ||
     kind === 'setpartitions' ||
+    kind === 'compositions' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

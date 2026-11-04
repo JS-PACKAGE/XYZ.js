@@ -1217,6 +1217,7 @@ try {
     'latinsquares',
     'booleanfunctions',
     'setpartitions',
+    'compositions',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
