@@ -1151,6 +1151,7 @@ const kinds: ProceduralMaterialKind[] = [
   'zetalandscape',
   'fresneldiffraction',
   'islamicstars',
+  'gerstnerocean',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -195654,6 +195655,313 @@ describe('Islamic stars as polygons in contact on square-lattice tilings', () =>
     expect(blue / (512 * 512)).toBeLessThan(74.5);
     expect(maxTilt).toBeGreaterThan(0.0112);
     expect(maxTilt).toBeLessThan(0.0113);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Gerstner ocean as trochoidal waves with foam where the surface folds', () => {
+  const p = proceduralMaterialPresets.gerstnerocean;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const wrap = (x: number): number => x - Math.floor(x);
+  /** Where the water that rests at (x0, y0) is and how high: x0 minus the sum of A k-hat sin(k x0 - phase), A = s / |k| and k = 2 pi (m, n), and the height sum of A cos(k x0 - phase) as a level 0.5 + 0.5 height / (sum of A) like the sampler's. */
+  const forward = (variant: number, x0: number, y0: number) => {
+    let x = x0,
+      y = y0,
+      height = 0,
+      total = 0;
+    for (const [m, n, s, phase] of p.waves[variant]) {
+      const length = Math.hypot(m, n),
+        amplitude = s / (2 * Math.PI * length),
+        angle = 2 * Math.PI * (m * x0 + n * y0) - phase;
+      x -= amplitude * (m / length) * Math.sin(angle);
+      y -= amplitude * (n / length) * Math.sin(angle);
+      height += amplitude * Math.cos(angle);
+      total += amplitude;
+    }
+    return { x, y, level: 0.5 + (0.5 * height) / total };
+  };
+  /** The Jacobian determinant of the displacement (the area of the water per area of rest) by central differences of the forward map with step 1e-6, not by the derivative formula that the sampler uses. */
+  const jacobian = (variant: number, x0: number, y0: number): number => {
+    const e = 1e-6,
+      right = forward(variant, x0 + e, y0),
+      left = forward(variant, x0 - e, y0),
+      up = forward(variant, x0, y0 + e),
+      down = forward(variant, x0, y0 - e);
+    return (
+      ((right.x - left.x) * (up.y - down.y) -
+        (up.x - down.x) * (right.y - left.y)) /
+      (4 * e * e)
+    );
+  };
+  /** The level of the sampler at the point (x, y) of the tile. */
+  const levelAt = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    x: number,
+    y: number,
+  ): number => {
+    sample(x, y, out);
+    return out.height / p.relief;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('gerstnerocean', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('gerstnerocean', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0672);
+      expect(low).toBeLessThan(0.11);
+      expect(high).toBeGreaterThan(0.531);
+      expect(high).toBeLessThan(0.795);
+      expect(dark / 65536).toBeGreaterThan(0.004);
+      expect(dark / 65536).toBeLessThan(0.0108);
+      expect(mean / 65536).toBeGreaterThan(0.2712);
+      expect(mean / 65536).toBeLessThan(0.2824);
+      expect(occlusionLow).toBeGreaterThan(0.649);
+      expect(occlusionLow).toBeLessThan(0.683);
+      expect(heightHigh).toBeGreaterThan(0.919);
+      expect(heightHigh).toBeLessThan(1.0001);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (the single swell, the wind sea, the cross sea, the choppy sea, the storm and the swell with chop) is 2, 3, 5, 0, 7 and 1; the table was found with a probe, by comparing the height of each of 40 seeds at 8 points with the six forward maps, and is written here, so it is not an independent check of the seed's choice.
+  const seeds = [2, 3, 5, 0, 7, 1];
+  it('has at the displaced point of every rest position the height of the wave sum', () => {
+    // The test goes forward, from the rest position (x0, y0) to the displaced point and the height there, where the sampler finds the rest position by Newton's method from the point; at 100 points of each variant (on a golden-ratio sequence) the heights agree to the tolerance 1e-9 (4e-15 at the most on 400 points in the probe).
+    seeds.forEach((seed, variant) => {
+      const sample = createSurfaceSampler('gerstnerocean', seed),
+        out = empty();
+      let worst = 0;
+      for (let k = 0; k < 100; k++) {
+        const x0 = (k * 0.6180339887 + 0.07) % 1,
+          y0 = (k * 0.7548776662 + 0.21) % 1,
+          water = forward(variant, x0, y0);
+        worst = Math.max(
+          worst,
+          Math.abs(
+            levelAt(sample, out, wrap(water.x), wrap(water.y)) - water.level,
+          ),
+        );
+      }
+      expect(worst).toBeLessThan(1e-9);
+    });
+  });
+  it('whitens the crests where the water folds and keeps the rest to the height, within the grain', () => {
+    // The tone is waterFloor + waterSpan * level + foamTone * foam + grain, foam being smoothstep((foamHigh - J) / (foamHigh - foamLow)) of the Jacobian J (1.0 where the water is neither stretched nor squeezed); J here is by central differences. The grain is a noise that the test cannot see, so the tone must be within grainTone / 2 of the model (the sampler's grain is between -0.5 and 0.5 times grainTone). For the single swell (steepness 0.62) J is 0.38 at the crest, where foam is 1.
+    seeds.forEach((seed, variant) => {
+      const sample = createSurfaceSampler('gerstnerocean', seed),
+        out = empty();
+      let foamed = 0;
+      for (let k = 0; k < 200; k++) {
+        const x0 = (k * 0.6180339887 + 0.11) % 1,
+          y0 = (k * 0.7548776662 + 0.27) % 1,
+          water = forward(variant, x0, y0),
+          foam = Math.min(
+            1,
+            Math.max(
+              0,
+              (p.foamHigh - jacobian(variant, x0, y0)) /
+                (p.foamHigh - p.foamLow),
+            ),
+          ),
+          smooth = foam * foam * (3 - 2 * foam);
+        sample(wrap(water.x), wrap(water.y), out);
+        foamed += Number(smooth > 0.5);
+        expect(
+          Math.abs(out.occlusion - (1 - p.troughOcclusion * (1 - water.level))),
+        ).toBeLessThan(1e-9);
+        expect(
+          Math.abs(
+            out.color -
+              (p.waterFloor + p.waterSpan * water.level + p.foamTone * smooth),
+          ),
+        ).toBeLessThan(p.grainTone / 2 + 1e-6);
+      }
+      // The variants whose minimum J is above foamHigh have no foam; the others have some among the 200 points or at the crest below.
+      if (variant === 0) expect(foamed).toBeGreaterThan(10);
+    });
+    const sample = createSurfaceSampler('gerstnerocean', seeds[0]),
+      out = empty(),
+      [m, n, , phase] = p.waves[0][0],
+      crest = phase / (2 * Math.PI) / m,
+      water = forward(0, crest, 0);
+    sample(wrap(water.x), wrap(water.y), out);
+    expect(n).toBe(1);
+    expect(
+      Math.abs(out.color - (p.waterFloor + p.waterSpan + p.foamTone)),
+    ).toBeLessThan(p.grainTone / 2 + 1e-6);
+  });
+  it("is the trochoid of Kepler's equation for the single swell", () => {
+    // For one wave the displacement is along the wave direction only, so with theta = k x0 - phase and M = k x - phase (x the position along the wave direction) the surface obeys the equation theta - s sin theta = M of Kepler with the eccentricity s, and the level is 0.5 + 0.5 cos theta. The test solves it by bisection (60 halvings) at 200 points, where the sampler uses Newton's method in the plane (the difference is 1e-9 at the most in the test's tolerance).
+    const sample = createSurfaceSampler('gerstnerocean', seeds[0]),
+      out = empty(),
+      [m, n, s, phase] = p.waves[0][0],
+      length = Math.hypot(m, n),
+      wavenumber = 2 * Math.PI * length;
+    for (let k = 0; k < 200; k++) {
+      const x = (k * 0.6180339887 + 0.05) % 1,
+        y = (k * 0.7548776662 + 0.35) % 1,
+        mean = wavenumber * ((m * x + n * y) / length) - phase;
+      let low = mean - s,
+        high = mean + s;
+      for (let step = 0; step < 60; step++) {
+        const middle = (low + high) / 2;
+        if (middle - s * Math.sin(middle) < mean) low = middle;
+        else high = middle;
+      }
+      const theta = (low + high) / 2;
+      expect(
+        Math.abs(levelAt(sample, out, x, y) - (0.5 + 0.5 * Math.cos(theta))),
+      ).toBeLessThan(1e-9);
+    }
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 2 pick different variants (the choppy sea and the single swell).
+    const first = litGrid(0),
+      second = litGrid(2);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.1363);
+    expect(different / first.length).toBeLessThan(0.1364);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('gerstnerocean', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 deep sea-blue wave maps with raised crests and shaded troughs', () => {
+    const maps = generateProceduralMaps('gerstnerocean', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(61.7);
+    expect(red / (512 * 512)).toBeLessThan(62.7);
+    expect(green / (512 * 512)).toBeGreaterThan(83.2);
+    expect(green / (512 * 512)).toBeLessThan(84.2);
+    expect(blue / (512 * 512)).toBeGreaterThan(94.6);
+    expect(blue / (512 * 512)).toBeLessThan(95.6);
+    expect(maxTilt).toBeGreaterThan(0.0366);
+    expect(maxTilt).toBeLessThan(0.0368);
     expect(invalid).toBe(0);
   });
 });

@@ -51617,6 +51617,99 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'gerstnerocean': {
+        const p = proceduralMaterialPresets.gerstnerocean,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant = Math.floor(
+            hash(0, 103, seed ^ p.seedSalt) * p.waves.length,
+          ),
+          waves = p.waves[variant],
+          count = waves.length,
+          // Per wave: the wave vector k, its unit direction, the amplitude A = s / |k| and the phase.
+          kx = new Float64Array(count),
+          ky = new Float64Array(count),
+          ux = new Float64Array(count),
+          uy = new Float64Array(count),
+          amplitude = new Float64Array(count),
+          steepness = new Float64Array(count),
+          phase = new Float64Array(count);
+        let heightSum = 0;
+        for (let i = 0; i < count; i++) {
+          const length = Math.hypot(waves[i][0], waves[i][1]);
+          kx[i] = 2 * Math.PI * waves[i][0];
+          ky[i] = 2 * Math.PI * waves[i][1];
+          ux[i] = waves[i][0] / length;
+          uy[i] = waves[i][1] / length;
+          steepness[i] = waves[i][2];
+          amplitude[i] = waves[i][2] / (2 * Math.PI * length);
+          phase[i] = waves[i][3];
+          heightSum += amplitude[i];
+        }
+        return () => {
+          const x = fract(u),
+            y = fract(v);
+          // The rest position (px, py) of the water that is at (x, y): Newton's method on position + displacement = (x, y), whose Jacobian matrix is [[a, b], [b, d]] and has a positive determinant as the steepnesses add up to less than 1.
+          let px = x,
+            py = y;
+          for (let step = 0; step < 24; step++) {
+            let dx = 0,
+              dy = 0,
+              a = 1,
+              b = 0,
+              d = 1;
+            for (let i = 0; i < count; i++) {
+              const angle = kx[i] * px + ky[i] * py - phase[i],
+                sine = Math.sin(angle),
+                cosine = Math.cos(angle);
+              dx -= amplitude[i] * ux[i] * sine;
+              dy -= amplitude[i] * uy[i] * sine;
+              a -= steepness[i] * cosine * ux[i] * ux[i];
+              b -= steepness[i] * cosine * ux[i] * uy[i];
+              d -= steepness[i] * cosine * uy[i] * uy[i];
+            }
+            const rx = px + dx - x,
+              ry = py + dy - y,
+              determinant = a * d - b * b,
+              stepX = (d * rx - b * ry) / determinant,
+              stepY = (a * ry - b * rx) / determinant;
+            px -= stepX;
+            py -= stepY;
+            if (Math.abs(stepX) + Math.abs(stepY) < 1e-15) break;
+          }
+          // The height and the Jacobian at the converged rest position.
+          let jx = 1,
+            jb = 0,
+            jy = 1;
+          let surface = 0;
+          for (let i = 0; i < count; i++) {
+            const angle = kx[i] * px + ky[i] * py - phase[i],
+              cosine = Math.cos(angle);
+            jx -= steepness[i] * cosine * ux[i] * ux[i];
+            jb -= steepness[i] * cosine * ux[i] * uy[i];
+            jy -= steepness[i] * cosine * uy[i] * uy[i];
+            surface += amplitude[i] * cosine;
+          }
+          const level = 0.5 + (0.5 * surface) / heightSum,
+            foam = smooth(
+              clamp(
+                (p.foamHigh - (jx * jy - jb * jb)) / (p.foamHigh - p.foamLow),
+              ),
+            ),
+            grain = grainField(u, v);
+          color =
+            p.waterFloor +
+            p.waterSpan * level +
+            p.foamTone * foam +
+            p.grainTone * (grain - 0.5);
+          height = level;
+          occlusion = 1 - p.troughOcclusion * (1 - level);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -60543,6 +60636,7 @@ export function createSurfaceSampler(
     kind === 'zetalandscape' ||
     kind === 'fresneldiffraction' ||
     kind === 'islamicstars' ||
+    kind === 'gerstnerocean' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

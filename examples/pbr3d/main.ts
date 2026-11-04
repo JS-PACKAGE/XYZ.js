@@ -1188,6 +1188,7 @@ try {
     'zetalandscape',
     'fresneldiffraction',
     'islamicstars',
+    'gerstnerocean',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

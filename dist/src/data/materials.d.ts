@@ -17147,6 +17147,22 @@ export declare const proceduralMaterialPresets: Readonly<{
         cellHeight: 0.8;
         gapOcclusion: 0.4;
     }>;
+    gerstnerocean: Readonly<{
+        dark: readonly [2, 22, 36];
+        light: readonly [215, 240, 245];
+        roughness: 0.08;
+        relief: 0.01;
+        seedSalt: 28193;
+        waves: readonly [readonly [readonly [2, 1, 0.62, 3.214]], readonly [readonly [3, -1, 0.09, 3.972], readonly [5, 1, 0.056, 1.346], readonly [4, 5, 0.045, 5.19], readonly [3, 2, 0.079, 1.312], readonly [2, 3, 0.079, 5.274], readonly [5, 4, 0.045, 0.348], readonly [5, 3, 0.049, 6.193], readonly [3, 3, 0.067, 1.446], readonly [7, 1, 0.04, 3.196]], readonly [readonly [5, 1, 0.066, 0.165], readonly [7, -1, 0.046, 3.696], readonly [4, 1, 0.08, 4.015], readonly [5, 0, 0.066, 4.995], readonly [4, 0, 0.083, 5.819], readonly [0, 7, 0.054, 0.415], readonly [2, 5, 0.07, 6.008], readonly [1, 5, 0.074, 0.772], readonly [1, 6, 0.062, 2.972], readonly [2, 7, 0.052, 4.224]], readonly [readonly [7, 0, 0.094, 2.595], readonly [6, 2, 0.104, 1.751], readonly [9, 5, 0.064, 5.778], readonly [14, 7, 0.042, 6.155], readonly [12, 1, 0.055, 0.504], readonly [1, 7, 0.093, 2.914], readonly [1, 6, 0.109, 3.959], readonly [13, 8, 0.043, 1.005], readonly [8, 9, 0.055, 2.715], readonly [14, 3, 0.046, 1.848], readonly [4, 15, 0.043, 0.599], readonly [8, 10, 0.052, 2.837]], readonly [readonly [14, -11, 0.04, 3.582], readonly [6, -9, 0.066, 4.773], readonly [8, -8, 0.063, 4.359], readonly [6, -2, 0.113, 2.195], readonly [8, -13, 0.047, 1.311], readonly [9, -1, 0.079, 0.416], readonly [7, -4, 0.088, 3.781], readonly [0, -9, 0.079, 3.373], readonly [16, 4, 0.043, 0.017], readonly [7, -3, 0.094, 4.826], readonly [5, -15, 0.045, 1.554], readonly [8, 4, 0.08, 6.283], readonly [15, 5, 0.045, 0.351], readonly [17, 6, 0.04, 4.348]], readonly [readonly [2, 0, 0.2, 0.2], readonly [2, 1, 0.15, 6.25], readonly [14, 1, 0, 5.801], readonly [10, -3, 0, 1.199], readonly [10, -1, 0, 1.509], readonly [10, 2, 0, 1.537], readonly [13, 5, 0, 3.923], readonly [9, 7, 0, 1.61], readonly [8, 4, 0, 2.378], readonly [12, 9, 0, 3.221], readonly [6, 5, 0, 0.42]]];
+        foamHigh: 0.7;
+        foamLow: 0.38;
+        waterFloor: 0.08;
+        waterSpan: 0.42;
+        foamTone: 0.45;
+        grainCells: 128;
+        grainTone: 0.03;
+        troughOcclusion: 0.35;
+    }>;
     vermiculation: Readonly<{
         dark: readonly [60, 48, 36];
         light: readonly [220, 204, 172];
@@ -18934,6 +18950,7 @@ export declare const proceduralTileMeters: Readonly<{
     zetalandscape: 0.5;
     fresneldiffraction: 0.5;
     islamicstars: 0.5;
+    gerstnerocean: 0.5;
     dominotiling: 0.5;
     vermiculation: 0.4;
     kikko: 0.3;

@@ -1125,6 +1125,7 @@ export type ProceduralMaterialKind =
   | 'zetalandscape'
   | 'fresneldiffraction'
   | 'islamicstars'
+  | 'gerstnerocean'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2498,6 +2499,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'zetalandscape',
   'fresneldiffraction',
   'islamicstars',
+  'gerstnerocean',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
