@@ -1,6 +1,6 @@
 import { proceduralMaterialPresets } from '../../../src/data/materials.js';
 import type { ProceduralMaterialKind } from './procedural-material.js';
-import { hypot3 } from '../../math/src/hypot.js';
+import { hypot2, hypot3 } from '../../math/src/hypot.js';
 
 const TAU = Math.PI * 2;
 const clamp = (v: number): number => Math.max(0, Math.min(1, v));
@@ -2844,7 +2844,7 @@ export function createSurfaceSampler(
             x = dx * poses[i] + dy * poses[i + 1],
             y = dy * poses[i] - dx * poses[i + 1],
             ax = Math.abs(x),
-            radial = Math.hypot(x, Math.min(0, y - p.arcY)) - p.bowRadius,
+            radial = hypot2(x, Math.min(0, y - p.arcY)) - p.bowRadius,
             beyond = Math.max(0, y - p.pinY),
             bowQ = radial * radial + beyond * beyond,
             bow = smooth(clamp((tubeSquared - bowQ) * inverseTube)),
@@ -17550,7 +17550,7 @@ export function createSurfaceSampler(
           inverseBulge = 1 / (bulgeSquared - bulgeCore * bulgeCore),
           mouthHalfX = Math.max(p.slotHalfWidth, p.bulgeRadius),
           mouthHalfY = Math.max(p.slotHalfHeight, p.bulgeRadius),
-          projectionNorm = Math.hypot(p.rowSlope, 1),
+          projectionNorm = hypot2(p.rowSlope, 1),
           cornerProjection = p.slotCorner * projectionNorm,
           bulgeProjection = p.bulgeRadius * projectionNorm,
           upperRowProjection = Math.max(
@@ -19967,7 +19967,7 @@ export function createSurfaceSampler(
           for (let j = 0; j < piece.length; j++, edge++) {
             const a = piece[j],
               b = piece[(j + 1) % piece.length],
-              inverse = 1 / Math.hypot(b[0] - a[0], b[1] - a[1]),
+              inverse = 1 / hypot2(b[0] - a[0], b[1] - a[1]),
               nx = (a[1] - b[1]) * inverse,
               ny = (b[0] - a[0]) * inverse,
               at = edge * 3;
@@ -25155,7 +25155,7 @@ export function createSurfaceSampler(
           const cell = (Math.floor(vc) * p.cells + Math.floor(uc)) * stride;
           const x = fract(uc) - 0.5,
             y = fract(vc) - 0.5 - p.centerY;
-          const radius = Math.hypot(x, y);
+          const radius = hypot2(x, y);
           const radial =
             smooth(clamp((p.outerRadius - p.gap - radius) / p.bevel)) *
             smooth(clamp((radius - p.innerRadius - p.gap) / p.bevel));
@@ -25330,7 +25330,7 @@ export function createSurfaceSampler(
                 ),
               );
           }
-          const radius = Math.hypot(x, y);
+          const radius = hypot2(x, y);
           const ring =
             outer * smooth(clamp((radius - p.boreRadius) / p.boreBevel));
           // Slots lower the crown to a steel floor, not transparent cutouts;
@@ -26840,7 +26840,7 @@ export function createSurfaceSampler(
             if (col % 2 === 0) raised += (1 - raised) * plate;
           }
           const pinX = fract(x + 0.5) - 0.5,
-            radius = Math.hypot(pinX, y);
+            radius = hypot2(pinX, y);
           const pin = smooth(
             clamp(
               (p.pinRadius * p.pinRadius - radius * radius) /
@@ -26991,8 +26991,8 @@ export function createSurfaceSampler(
             branches[i + 5] = 1 / (radius * radius);
             extent = Math.max(
               extent,
-              Math.hypot(x, y) + radius,
-              Math.hypot(x + dx, y + dy) + radius,
+              hypot2(x, y) + radius,
+              hypot2(x + dx, y + dy) + radius,
             );
           }
           // Keep all rotated descendants inside their owning cell.
@@ -27052,7 +27052,7 @@ export function createSurfaceSampler(
           const i = Math.floor(vCell) * p.cells + Math.floor(uCell);
           const x = fract(uCell) - 0.5,
             y = fract(vCell) - 0.5;
-          const radius = Math.hypot(x, y);
+          const radius = hypot2(x, y);
           const face = smooth(clamp((radius - p.holeRadius) / p.holeShoulder));
           const rim = smooth(
             clamp(1 - ((radius - p.rimRadius) / p.rimWidth) ** 2),
@@ -27179,7 +27179,7 @@ export function createSurfaceSampler(
         return () => {
           const x = fract(u * p.cells) - 0.5,
             y = fract(v * p.cells) - 0.5;
-          const radius = Math.hypot(x, y);
+          const radius = hypot2(x, y);
           const wall = smooth(clamp((radius - p.boreRadius) / p.boreShoulder));
           const t = clamp((radius - coneStart) / (p.coneRadius - coneStart));
           const e = p.coneShoulder;
@@ -27376,7 +27376,7 @@ export function createSurfaceSampler(
             rotations[i] = Math.cos(phase);
             rotations[i + 1] = Math.sin(phase);
           }
-        const inverseSlopeLength = 1 / Math.hypot(1, p.slope);
+        const inverseSlopeLength = 1 / hypot2(1, p.slope);
         const grainField = cachedNoise(96, 96, seed ^ 0x5b83);
         return () => {
           const uCell = u * p.cells,
@@ -27459,7 +27459,7 @@ export function createSurfaceSampler(
             (Math.floor(vCell) * p.cells + Math.floor(uCell)) * p.chambers * 2;
           const x = fract(uCell) - 0.5,
             y = fract(vCell) - 0.5,
-            radius = Math.hypot(x, y);
+            radius = hypot2(x, y);
           const face = smooth(clamp((p.radius - radius) / p.edge));
           const rind = smooth(clamp((radius - p.rindStart) / p.rindWidth));
           let chambers = 0,
@@ -27605,7 +27605,7 @@ export function createSurfaceSampler(
             vCell = v * p.cells;
           const x = fract(uCell) - 0.5,
             y = fract(vCell) - 0.5,
-            radius = Math.hypot(x, y);
+            radius = hypot2(x, y);
           const phase = phases[Math.floor(vCell) * p.cells + Math.floor(uCell)];
           let face = 0;
           if (radius > p.boreRadius && radius < p.rootRadius + p.toothDepth) {
@@ -27729,7 +27729,7 @@ export function createSurfaceSampler(
           const i = (Math.floor(vCell) * p.cells + Math.floor(uCell)) * stride;
           const x = fract(uCell) - 0.5,
             y = fract(vCell) - 0.5;
-          const radius = Math.hypot(x, y);
+          const radius = hypot2(x, y);
           let face = 0,
             stone = 0;
           if (radius < p.courseWidth) {
@@ -27787,7 +27787,7 @@ export function createSurfaceSampler(
             dy = fract(vCell) - 0.5;
           const x = dx * rotations[i] + dy * rotations[i + 1],
             y = dy * rotations[i] - dx * rotations[i + 1];
-          const radius = Math.hypot(x, y);
+          const radius = hypot2(x, y);
           const face = smooth(clamp((p.radius - radius) / p.edge));
           const crown =
             1 - smooth(clamp((radius - p.crownStart) / p.crownWidth));
@@ -27972,7 +27972,7 @@ export function createSurfaceSampler(
               ),
             );
           }
-          const radius = Math.hypot(x, y);
+          const radius = hypot2(x, y);
           const face =
             outer * smooth(clamp((radius - p.boreRadius) / p.boreBevel));
           const grain = grainField(u, v);
@@ -28012,7 +28012,7 @@ export function createSurfaceSampler(
             i = (Math.floor(vCell) * p.cells + Math.floor(uCell)) * 12,
             x = fract(uCell) - 0.5,
             y = fract(vCell) - 0.5,
-            radius = Math.hypot(x, y);
+            radius = hypot2(x, y);
           let hex = 1;
           for (let side = 0; side < 6; side++) {
             const j = i + side * 2;
@@ -28079,7 +28079,7 @@ export function createSurfaceSampler(
             i = (Math.floor(vCell) * p.cells + Math.floor(uCell)) * 12,
             x = fract(uCell) - 0.5,
             y = fract(vCell) - 0.5,
-            radius = Math.hypot(x, y);
+            radius = hypot2(x, y);
           let hex = 1;
           for (let side = 0; side < 6; side++) {
             const j = i + side * 2;
@@ -28349,8 +28349,8 @@ export function createSurfaceSampler(
               index = Math.floor(side),
               neighbor = side - index < 0.5 ? index - 1 : index + 1,
               dy = v - cusp,
-              first = Math.hypot(u - lobe * (index + 0.5 + offset), dy),
-              second = Math.hypot(u - lobe * (neighbor + 0.5 + offset), dy),
+              first = hypot2(u - lobe * (index + 0.5 + offset), dy),
+              second = hypot2(u - lobe * (neighbor + 0.5 + offset), dy),
               mix = clamp(0.5 + (0.5 * (second - first)) / blend),
               nearest =
                 second +
@@ -28487,9 +28487,9 @@ export function createSurfaceSampler(
               (p.baseWidth +
                 (p.tipWidth - p.baseWidth) * smooth(clamped / length)) *
               poses[i + 4],
-            distance = Math.hypot(along - clamped, lateral),
+            distance = hypot2(along - clamped, lateral),
             discRadius = p.discRadius * poses[i + 4],
-            centerDistance = Math.hypot(x, y),
+            centerDistance = hypot2(x, y),
             armCover = smooth(clamp((halfWidth - distance) * inverseShoulder)),
             discCover = smooth(
               clamp((discRadius - centerDistance) * inverseShoulder),
@@ -29888,7 +29888,7 @@ export function createSurfaceSampler(
           for (let a = 0; a < vx.length; a++)
             for (let b = a + 1; b < vx.length; b++)
               if (
-                Math.abs(Math.hypot(vx[a] - vx[b], vy[a] - vy[b]) - side) < 1e-9
+                Math.abs(hypot2(vx[a] - vx[b], vy[a] - vy[b]) - side) < 1e-9
               ) {
                 near[a].push(b);
                 near[b].push(a);
@@ -29952,7 +29952,7 @@ export function createSurfaceSampler(
             // Inward unit normals and offsets of the sides of the counterclockwise polygon.
             corners.forEach((q, k) => {
               const r = corners[(k + 1) % n],
-                length = Math.hypot(r[0] - q[0], r[1] - q[1]),
+                length = hypot2(r[0] - q[0], r[1] - q[1]),
                 nx = (q[1] - r[1]) / length,
                 ny = (r[0] - q[0]) / length;
               faceData[f * stride + 4 + k * 3] = nx;
@@ -30061,7 +30061,7 @@ export function createSurfaceSampler(
               ay = s * a[0] + c * a[1],
               bx = c * b[0] - s * b[1],
               by = s * b[0] + c * b[1],
-              length = Math.hypot(bx - ax, by - ay),
+              length = hypot2(bx - ax, by - ay),
               nx = (ay - by) / length,
               ny = (bx - ax) / length,
               at = (f * 5 + k) * 3;
@@ -31579,7 +31579,7 @@ export function createSurfaceSampler(
             (Math.floor(vCell) * p.cells + Math.floor(uCell)) * p.canals * 4;
           const x = fract(uCell) - 0.5,
             y = fract(vCell) - 0.5;
-          const radius = Math.hypot(x, y);
+          const radius = hypot2(x, y);
           const face = smooth(clamp((p.radius - radius) / p.edge));
           const rind = smooth(clamp((radius - p.rindStart) / p.rindWidth));
           let holes = smooth(
@@ -31965,7 +31965,7 @@ export function createSurfaceSampler(
           const cell = Math.floor(vCell) * p.cells + Math.floor(uCell);
           const x = fract(uCell) - 0.5,
             y = fract(vCell) - 0.5;
-          const r = Math.hypot(x, y);
+          const r = hypot2(x, y);
           // A tiny negative turn can round its fractional part to exactly 1.
           // Wrap the integer owner too, so the closing seam stays in this cell.
           const wedge =
@@ -32167,7 +32167,7 @@ export function createSurfaceSampler(
           const x = fract(uCell) - 0.5,
             y = fract(vCell) - 0.5;
           const phase = phases[Math.floor(vCell) * p.cells + Math.floor(uCell)];
-          const r = Math.hypot(x, y);
+          const r = hypot2(x, y);
           const contour =
             p.radius +
             p.amplitude * Math.cos(p.lobes * Math.atan2(y, x) + phase);
@@ -32201,7 +32201,7 @@ export function createSurfaceSampler(
                 ay = axis ? vx : vy,
                 bx = axis ? -wy : wx,
                 by = axis ? wx : wy;
-              const inverse = sign / Math.hypot(bx - ax, by - ay);
+              const inverse = sign / hypot2(bx - ax, by - ay);
               const nx = (ay - by) * inverse,
                 ny = (bx - ax) * inverse;
               const offset = ((parity * 2 + axis) * 5 + edge) * 3;
@@ -32501,7 +32501,7 @@ export function createSurfaceSampler(
             dy = fract(vCell) - 0.5;
           const x = dx * slices[i]! + dy * slices[i + 1]!,
             y = dy * slices[i]! - dx * slices[i + 1]!;
-          const r = Math.hypot(x, y),
+          const r = hypot2(x, y),
             theta = Math.atan2(y, x);
           const radius =
             p.innerRadius +
@@ -32830,7 +32830,7 @@ export function createSurfaceSampler(
             y = v * p.cells;
           const dx = fract(x) - 0.5,
             dy = fract(y) - 0.5;
-          const r = Math.hypot(dx, dy);
+          const r = hypot2(dx, dy);
           const phase = phases[Math.floor(y) * p.cells + Math.floor(x)];
           const wave =
             0.5 + 0.5 * Math.cos(p.teeth * Math.atan2(dy, dx) + phase);
@@ -32890,7 +32890,7 @@ export function createSurfaceSampler(
           const i = (Math.floor(y) * p.cells + Math.floor(x)) * 22;
           const dx = fract(x) - 0.5,
             dy = fract(y) - 0.5;
-          const face = smooth(clamp((pods[i] - Math.hypot(dx, dy)) / 0.04));
+          const face = smooth(clamp((pods[i] - hypot2(dx, dy)) / 0.04));
           let cavities = 0,
             rims = 0,
             seeds = 0;
@@ -33621,7 +33621,7 @@ export function createSurfaceSampler(
           const radius = tubes[i]!,
             inner = tubes[i + 1]!,
             tone = tubes[i + 2]!;
-          const distance = Math.hypot(fract(x) - 0.5, fract(y) - 0.5);
+          const distance = hypot2(fract(x) - 0.5, fract(y) - 0.5);
           const wall =
             smooth(clamp((radius - distance) / p.edge)) *
             smooth(clamp((distance - inner) / p.edge));
@@ -34945,7 +34945,7 @@ export function createSurfaceSampler(
             cellY = ((cy % ny) + ny) % ny;
           const fx = fract(u * nx + stagger) - 0.5,
             fy = fract(v * ny) - 0.5;
-          const d = Math.hypot(fx, fy);
+          const d = hypot2(fx, fy);
           const r = 0.38 + 0.1 * hash(cellX, cellY, seed ^ 0x2f1a);
           const dome = smooth(clamp((r - d) / (r * 0.55)));
           // Shedding pits gather where smooth noise stays high and never reach the domes.
@@ -35017,7 +35017,7 @@ export function createSurfaceSampler(
             cellY = ((cy % ny) + ny) % ny;
           const fx = fract(u * nx) - 0.5,
             fy = fract(v * ny) - 0.5;
-          const d = Math.hypot(fx, fy);
+          const d = hypot2(fx, fy);
           const hole = smooth(clamp((0.22 - d) / 0.1));
           const rim =
             smooth(clamp((d - 0.22) / 0.06)) * smooth(clamp((0.42 - d) / 0.08));
@@ -35058,7 +35058,7 @@ export function createSurfaceSampler(
             cellY = ((cy % ny) + ny) % ny;
           const fx = fract(u * nx) - 0.5,
             fy = fract(v * ny) - 0.5;
-          const d = Math.hypot(fx, fy);
+          const d = hypot2(fx, fy);
           const cup = smooth(clamp((0.34 - d) / 0.12));
           const rim =
             smooth(clamp((d - 0.32) / 0.06)) * smooth(clamp((0.48 - d) / 0.06));
@@ -35425,7 +35425,7 @@ export function createSurfaceSampler(
           // Radial juice segments meet at recessed pith under a raised rind ring.
           const du = fract(u) - 0.5,
             dv = fract(v) - 0.5;
-          const r = Math.hypot(du, dv);
+          const r = hypot2(du, dv);
           const theta = Math.atan2(dv, du);
           const body = smooth(clamp((0.46 - r) / 0.03));
           const rind =
@@ -35461,7 +35461,7 @@ export function createSurfaceSampler(
           // Pale core with a ring of dark seeds and radiating fibers.
           const du = fract(u) - 0.5,
             dv = fract(v) - 0.5;
-          const r = Math.hypot(du, dv);
+          const r = hypot2(du, dv);
           const theta = Math.atan2(dv, du);
           const body = smooth(clamp((0.46 - r) / 0.03));
           const rind =
@@ -35501,7 +35501,7 @@ export function createSurfaceSampler(
           // Buttery smooth flesh cradles an elliptical pit recess.
           const du = fract(u) - 0.5,
             dv = fract(v) - 0.5;
-          const r = Math.hypot(du, dv);
+          const r = hypot2(du, dv);
           const body = smooth(clamp((0.46 - r) / 0.03));
           const rind =
             smooth(clamp((0.45 - r) / 0.03)) - smooth(clamp((0.39 - r) / 0.03));
@@ -41054,7 +41054,7 @@ export function createSurfaceSampler(
               owners[slot] = index;
               fromX[slot] = x - siteX;
               fromY[slot] = y - siteY;
-              distances[slot] = Math.hypot(fromX[slot], fromY[slot]);
+              distances[slot] = hypot2(fromX[slot], fromY[slot]);
               nearest = Math.min(nearest, distances[slot]);
               slot++;
             }
@@ -41878,7 +41878,7 @@ export function createSurfaceSampler(
             row = Math.floor(y),
             px = (x - col - 0.5) * inverseRadius,
             py = (y - row - 0.5) * inverseRadius,
-            radius = Math.hypot(px, py),
+            radius = hypot2(px, py),
             index =
               ((row + shiftY) % p.cells) * p.cells + ((col + shiftX) % p.cells),
             mask = smooth(clamp((1 - radius) * inverseSoft)),
@@ -41931,7 +41931,7 @@ export function createSurfaceSampler(
             row = Math.floor(y),
             px = (x - col - 0.5) * inverseRadius,
             py = (y - row - 0.5) * inverseRadius,
-            radius = Math.hypot(px, py),
+            radius = hypot2(px, py),
             shapeCol = (col + shiftX) % p.cells,
             shapeRow = (row + shiftY) % p.cells,
             quarter = (p.folds[shapeCol] * Math.atan2(py, px)) / 4,
@@ -42541,14 +42541,14 @@ export function createSurfaceSampler(
             row = Math.floor(y),
             px = (x - col - 0.5) * inverseRadius,
             py = (y - row - 0.5) * inverseRadius,
-            radius = Math.hypot(px, py),
+            radius = hypot2(px, py),
             shapeCol = (col + shiftX) % p.cells,
             shapeRow = (row + shiftY) % p.cells,
             focus = p.firstFocus + p.focusStep * shapeCol,
             rings = p.firstRings + shapeRow,
             real = px * px - py * py - focus * focus,
             imaginary = 2 * px * py,
-            product = Math.hypot(real, imaginary),
+            product = hypot2(real, imaginary),
             tone =
               0.5 +
               0.5 *
@@ -42983,7 +42983,7 @@ export function createSurfaceSampler(
         return () => {
           const dx = fract(u) - 0.5,
             dy = fract(v) - 0.5,
-            radius = Math.hypot(dx, dy),
+            radius = hypot2(dx, dy),
             // The angle in sectors, counted from the middle of the sector 0 (the sector
             // index is only the integer part, the fraction decides the blending).
             around = (Math.atan2(dy, dx) / (2 * Math.PI)) * sectors,
@@ -43095,7 +43095,7 @@ export function createSurfaceSampler(
           const average = sum / (2 * p.folds),
             wave = Math.cos(2 * Math.PI * p.bands * average),
             value = smooth(clamp(wave / p.sharpness / 2 + 0.5)),
-            mask = smooth(clamp((p.radius - Math.hypot(dx, dy)) / p.edgeSoft)),
+            mask = smooth(clamp((p.radius - hypot2(dx, dy)) / p.edgeSoft)),
             tone = p.toneSpan * value,
             grain = grainField(u, v);
           color =
@@ -43156,8 +43156,8 @@ export function createSurfaceSampler(
             // of the diameter on the other.
             const distance =
               across >= 0
-                ? Math.abs(Math.hypot(along, across) - arc.radius)
-                : Math.hypot(Math.abs(along) - arc.radius, across);
+                ? Math.abs(hypot2(along, across) - arc.radius)
+                : hypot2(Math.abs(along) - arc.radius, across);
             open *= 1 - smooth(clamp((p.strokeRadius - distance) / p.edgeSoft));
           }
           const mask = 1 - open,
@@ -43193,7 +43193,7 @@ export function createSurfaceSampler(
         return () => {
           const real = Math.cos(2 * Math.PI * (p.periods * fract(u) + shiftX)),
             imaginary = Math.cos(2 * Math.PI * (p.periods * fract(v) + shiftY)),
-            magnitude = Math.hypot(real, imaginary),
+            magnitude = hypot2(real, imaginary),
             // The unit vector of the phase, raised to the power spokes by repeated products.
             unitX = magnitude > 0 ? real / magnitude : 1,
             unitY = magnitude > 0 ? imaginary / magnitude : 0;
@@ -43382,14 +43382,14 @@ export function createSurfaceSampler(
           const fu = fract(u),
             fv = fract(v);
           let open = 1;
-          if (Math.hypot(fu - 0.5, fv - 0.5) < p.radius + p.strokeRadius)
+          if (hypot2(fu - 0.5, fv - 0.5) < p.radius + p.strokeRadius)
             for (const [x1, y1, x2, y2] of chords) {
               const vx = x2 - x1,
                 vy = y2 - y1,
                 along = clamp(
                   ((fu - x1) * vx + (fv - y1) * vy) / (vx * vx + vy * vy),
                 ),
-                distance = Math.hypot(
+                distance = hypot2(
                   fu - (x1 + along * vx),
                   fv - (y1 + along * vy),
                 );
@@ -44137,7 +44137,7 @@ export function createSurfaceSampler(
           for (let j = i + 1; j < px.length; j++) {
             const dx = around(px[j] - px[i]),
               dy = around(py[j] - py[i]),
-              length = Math.hypot(dx, dy);
+              length = hypot2(dx, dy);
             if (length > p.maxEdge) continue;
             const mx = px[i] + dx / 2,
               my = py[i] + dy / 2,
@@ -44276,7 +44276,7 @@ export function createSurfaceSampler(
           for (let j = i + 1; j < px.length; j++) {
             const dx = around(px[j] - px[i]),
               dy = around(py[j] - py[i]),
-              length = Math.hypot(dx, dy);
+              length = hypot2(dx, dy);
             if (length <= p.maxEdge) pairs.push([length, i, j, dx, dy]);
           }
         // Kruskal's algorithm: the pairs from the shortest, a pair is kept when it joins two
@@ -44407,16 +44407,13 @@ export function createSurfaceSampler(
           for (let j = i + 1; j < px.length; j++) {
             const dx = around(px[j] - px[i]),
               dy = around(py[j] - py[i]),
-              length = Math.hypot(dx, dy);
+              length = hypot2(dx, dy);
             if (length > p.maxEdge) continue;
             let empty = true;
             for (let k = 0; k < px.length && empty; k++) {
               if (k === i || k === j) continue;
-              const toI = Math.hypot(
-                  around(px[k] - px[i]),
-                  around(py[k] - py[i]),
-                ),
-                toJ = Math.hypot(around(px[k] - px[j]), around(py[k] - py[j]));
+              const toI = hypot2(around(px[k] - px[i]), around(py[k] - py[i])),
+                toJ = hypot2(around(px[k] - px[j]), around(py[k] - py[j]));
               empty = Math.max(toI, toJ) >= length;
             }
             if (!empty) continue;
@@ -45155,7 +45152,7 @@ export function createSurfaceSampler(
               for (const shiftY of [0, -1, 1]) {
                 const ridge = Math.abs(offsetY + shiftY);
                 if (ridge > reach) continue;
-                const rho = Math.hypot(across, ridge),
+                const rho = hypot2(across, ridge),
                   t = clamp(
                     1 - ((rho - radius) * (rho - radius)) / widthSquared,
                   ),
@@ -45247,7 +45244,7 @@ export function createSurfaceSampler(
             const other = vertex | (1 << k),
               dx = px[other] - px[vertex],
               dy = py[other] - py[vertex],
-              length = Math.hypot(dx, dy),
+              length = hypot2(dx, dy),
               index = edges.length,
               filed = new Set<number>();
             edges.push([
@@ -45525,7 +45522,7 @@ export function createSurfaceSampler(
                 : `${b}_${a}_${Math.round(-dx * 1e6)}_${Math.round(-dy * 1e6)}`;
             if (knownEdges.has(key)) return;
             knownEdges.add(key);
-            const length = Math.hypot(dx, dy),
+            const length = hypot2(dx, dy),
               index = edges.length,
               filed = new Set<number>();
             edges.push([x0, y0, dx, dy, length * length]);
@@ -45551,7 +45548,7 @@ export function createSurfaceSampler(
               for (let tx = -1; tx <= 1; tx++) {
                 const dx = px[k] + tx - px[i],
                   dy = py[k] + ty - py[i],
-                  distance = Math.hypot(dx, dy);
+                  distance = hypot2(dx, dy);
                 if (distance === 0 || distance > 2 * p.maxEdge) continue;
                 wide.push([dx, dy, k, tx, ty]);
                 if (k > i && distance <= p.maxEdge)
@@ -45756,7 +45753,7 @@ export function createSurfaceSampler(
             index = segments.length,
             dx = next[0] - previous[0],
             dy = next[1] - previous[1],
-            length = Math.hypot(dx, dy),
+            length = hypot2(dx, dy),
             reach = half + step / 2,
             filed = new Set<number>();
           segments.push([
@@ -45906,7 +45903,7 @@ export function createSurfaceSampler(
             index = segments.length,
             dx = next[0] - previous[0],
             dy = next[1] - previous[1],
-            length = Math.hypot(dx, dy),
+            length = hypot2(dx, dy),
             reach = half + step / 2,
             filed = new Set<number>();
           segments.push([
@@ -46016,7 +46013,7 @@ export function createSurfaceSampler(
             const index = segments.length,
               dx = x1 - x0,
               dy = y1 - y0,
-              length = Math.hypot(dx, dy),
+              length = hypot2(dx, dy),
               reach = half + step / 2,
               filed = new Set<number>();
             segments.push([x0, y0, dx, dy, dx * dx + dy * dy, half * half]);
@@ -46074,10 +46071,7 @@ export function createSurfaceSampler(
               p.chordHalfWidth,
             );
             // Unit length keeps the next t of the same scale whatever the chord length was.
-            const length = Math.hypot(
-              dx - along * normalX,
-              dy - along * normalY,
-            );
+            const length = hypot2(dx - along * normalX, dy - along * normalY);
             dx = (dx - along * normalX) / length;
             dy = (dy - along * normalY) / length;
             x = nextX;
@@ -46194,7 +46188,7 @@ export function createSurfaceSampler(
             y0 = 0.5 - (line[1] - (lowY + highY) / 2) * scale,
             dx = (line[2] - line[0]) * scale,
             dy = -(line[3] - line[1]) * scale,
-            length = Math.hypot(dx, dy),
+            length = hypot2(dx, dy),
             index = segments.length,
             filed = new Set<number>();
           segments.push([
@@ -46312,7 +46306,7 @@ export function createSurfaceSampler(
                 y0 = 0.5 + ys[i],
                 dx = xs[j] - xs[i],
                 dy = ys[j] - ys[i],
-                length = Math.hypot(dx, dy),
+                length = hypot2(dx, dy),
                 index = segments.length,
                 filed = new Set<number>();
               segments.push([x0, y0, dx, dy, dx * dx + dy * dy, half * half]);
@@ -46511,7 +46505,7 @@ export function createSurfaceSampler(
           inverseGolden = 1 / golden,
           corners: number[][] = [],
           unit = (v: number[]): number[] => {
-            const length = Math.hypot(v[0], v[1], v[2]);
+            const length = hypot3(v[0], v[1], v[2]);
             return [v[0] / length, v[1] / length, v[2] / length];
           },
           cross = (a: number[], b: number[]): number[] => [
@@ -46563,7 +46557,7 @@ export function createSurfaceSampler(
         // at V that make the smallest angle are in one face.
         const corner = corners[0],
           distances = corners.map((other) =>
-            Math.hypot(
+            hypot3(
               other[0] - corner[0],
               other[1] - corner[1],
               other[2] - corner[2],
@@ -46869,7 +46863,7 @@ export function createSurfaceSampler(
           inverseGolden = 1 / golden,
           corners: number[][] = [],
           unit = (v: number[]): number[] => {
-            const length = Math.hypot(v[0], v[1], v[2]);
+            const length = hypot3(v[0], v[1], v[2]);
             return [v[0] / length, v[1] / length, v[2] / length];
           },
           cross = (a: number[], b: number[]): number[] => [
@@ -46921,7 +46915,7 @@ export function createSurfaceSampler(
         // at V that make the smallest angle are in one face.
         const corner = corners[0],
           distances = corners.map((other) =>
-            Math.hypot(
+            hypot3(
               other[0] - corner[0],
               other[1] - corner[1],
               other[2] - corner[2],
@@ -47340,7 +47334,7 @@ export function createSurfaceSampler(
               y =
                 (aa * (c[0] - b[0]) + bb * (a[0] - c[0]) + cc * (b[0] - a[0])) /
                 d;
-            return [x, y, Math.hypot(a[0] - x, a[1] - y)];
+            return [x, y, hypot2(a[0] - x, a[1] - y)];
           },
           imageOf = (cx: number, cy: number, radius: number): number[] =>
             circleOf(
@@ -47372,7 +47366,7 @@ export function createSurfaceSampler(
             fill = x * x + y * y < 1 ? p.fillGap : 0;
           for (let k = 0; k < circles.length; k++) {
             const circle = circles[k],
-              distance = Math.hypot(x - circle[0], y - circle[1]) - circle[2],
+              distance = hypot2(x - circle[0], y - circle[1]) - circle[2],
               t = clamp(1 - (distance * distance) / widthSquared);
             keep *= 1 - t * t;
             if (k >= 2 && distance < 0)
@@ -47428,8 +47422,8 @@ export function createSurfaceSampler(
             radius = Math.sqrt(gx * gx + gy * gy),
             x = gx * cosTurn + gy * sinTurn,
             y = gy * cosTurn - gx * sinTurn,
-            first = Math.hypot(x + focus, y),
-            second = Math.hypot(x - focus, y),
+            first = hypot2(x + focus, y),
+            second = hypot2(x - focus, y),
             coshMu = Math.max(1, (first + second) / (2 * focus)),
             cosNu = Math.max(-1, Math.min(1, (first - second) / (2 * focus))),
             mu = Math.log(coshMu + Math.sqrt(coshMu * coshMu - 1)),
@@ -47646,11 +47640,11 @@ export function createSurfaceSampler(
               const first = angle + (2 * Math.PI * half) / corners,
                 second = angle + (2 * Math.PI * (half + 1)) / corners;
               arcDistance = Math.min(
-                Math.hypot(
+                hypot2(
                   x - circumradius * Math.cos(first),
                   y - circumradius * Math.sin(first),
                 ),
-                Math.hypot(
+                hypot2(
                   x - circumradius * Math.cos(second),
                   y - circumradius * Math.sin(second),
                 ),
@@ -47762,7 +47756,7 @@ export function createSurfaceSampler(
                 edge,
                 gap /
                   (2 *
-                    Math.hypot(
+                    hypot2(
                       sites[at] - sites[best],
                       sites[at + 1] - sites[best + 1],
                     )),
@@ -47833,7 +47827,7 @@ export function createSurfaceSampler(
               wx = gx - a[0],
               wy = gy - a[1],
               along = clamp((wx * ex + wy * ey) / (ex * ex + ey * ey)),
-              distance = Math.hypot(wx - along * ex, wy - along * ey);
+              distance = hypot2(wx - along * ex, wy - along * ey);
             nearest = Math.min(nearest, distance);
             if (a[1] > gy !== b[1] > gy && gx < a[0] + ((gy - a[1]) * ex) / ey)
               within = !within;
@@ -48026,7 +48020,7 @@ export function createSurfaceSampler(
             outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
             outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
             boxDistance =
-              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              hypot2(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
               Math.min(Math.max(outsideX, outsideY), 0),
             frameT = clamp(1 - (boxDistance * boxDistance) / frameWidthSquared),
             inside = smooth(clamp(-boxDistance / p.fade));
@@ -48106,7 +48100,7 @@ export function createSurfaceSampler(
                 fv - pegV - catenary * (coshSag - Math.cosh(s / catenary)),
               // The distance to the curve to first order: the vertical offset times the cosine of the slope angle.
               lineDistanceSquared = (offsetV * offsetV) / (1 + slope * slope),
-              pegDistance = Math.hypot(spanWidth / 2 - Math.abs(s), fv - pegV),
+              pegDistance = hypot2(spanWidth / 2 - Math.abs(s), fv - pegV),
               // The chain fades in only outside hangStart from the peg: where two spans meet the first-order distance
               // above has a kink (the slope changes sign), and the line kernel reaches at most lineHalfWidth times
               // cosh(sagRatio) (0.014 at most) from the peg there, so with hangStart 0.016 the kink never shows.
@@ -48704,7 +48698,7 @@ export function createSurfaceSampler(
             outsideX = Math.max(p.margin - cellX, cellX - (1 - p.margin)),
             outsideY = Math.max(p.margin - cellY, cellY - (1 - p.margin)),
             boxDistance =
-              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              hypot2(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
               Math.min(Math.max(outsideX, outsideY), 0),
             inside = smooth(clamp(-boxDistance / p.fade)),
             frameT = clamp(1 - (boxDistance * boxDistance) / frameWidthSquared);
@@ -48784,7 +48778,7 @@ export function createSurfaceSampler(
             outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
             outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
             boxDistance =
-              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              hypot2(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
               Math.min(Math.max(outsideX, outsideY), 0),
             inside = smooth(clamp(-boxDistance / p.fade)),
             // psi and its gradient; the cylinder itself is masked, and psi is not used inside radius 1.
@@ -48878,7 +48872,7 @@ export function createSurfaceSampler(
             outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
             outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
             boxDistance =
-              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              hypot2(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
               Math.min(Math.max(outsideX, outsideY), 0);
           let angle = 0,
             potential = 0,
@@ -48966,12 +48960,12 @@ export function createSurfaceSampler(
         return () => {
           const fu = fract(u),
             fv = fract(v),
-            firstDistance = Math.hypot(fu - firstX, fv - firstY),
-            secondDistance = Math.hypot(fu - secondX, fv - secondY),
+            firstDistance = hypot2(fu - firstX, fv - firstY),
+            secondDistance = hypot2(fu - secondX, fv - secondY),
             outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
             outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
             boxDistance =
-              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              hypot2(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
               Math.min(Math.max(outsideX, outsideY), 0),
             inside = smooth(clamp(-boxDistance / p.fade)),
             // Close to a source the distance has a cone, so the intensity blends to 0.5 there.
@@ -49067,7 +49061,7 @@ export function createSurfaceSampler(
                   : 8 / (Math.PI * Math.PI),
             value = p.amplitude * scale * sum,
             slope = p.amplitude * scale * slopeSum * 2 * Math.PI,
-            curveDistance = Math.abs(y - value) / Math.hypot(1, slope),
+            curveDistance = Math.abs(y - value) / hypot2(1, slope),
             curveT = clamp(1 - (curveDistance * curveDistance) / curveSquared),
             levelDistance = Math.min(
               Math.abs(Math.abs(y) - p.amplitude),
@@ -49123,7 +49117,7 @@ export function createSurfaceSampler(
             outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
             outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
             boxDistance =
-              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              hypot2(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
               Math.min(Math.max(outsideX, outsideY), 0),
             inside = smooth(clamp(-boxDistance / p.fade));
           let zr = 0,
@@ -49163,8 +49157,7 @@ export function createSurfaceSampler(
                 ? 0
                 : escaped +
                   1 -
-                  Math.log(Math.log(Math.hypot(zr, zi)) / logBailout) /
-                    logPower,
+                  Math.log(Math.log(hypot2(zr, zi)) / logBailout) / logPower,
             tone =
               escaped < 0
                 ? p.insideTone
@@ -49221,8 +49214,8 @@ export function createSurfaceSampler(
           },
           potentialOf = (x: number, y: number): number =>
             0.5 * (x * x + y * y) +
-            massOne / Math.hypot(x + mu, y) +
-            mu / Math.hypot(x - 1 + mu, y),
+            massOne / hypot2(x + mu, y) +
+            mu / hypot2(x - 1 + mu, y),
           // The potential at the minima L4 and L5, and at the saddles L1, L2 and L3 found by bisection on the axis.
           minimum = 1.5 - (mu * massOne) / 2,
           criticalLevels = [
@@ -49278,7 +49271,7 @@ export function createSurfaceSampler(
             outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
             outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
             boxDistance =
-              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              hypot2(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
               Math.min(Math.max(outsideX, outsideY), 0),
             inside = smooth(clamp(-boxDistance / p.fade)),
             ink = clamp(
@@ -49371,7 +49364,7 @@ export function createSurfaceSampler(
               fx = (px + orbit.axis * orbit.eccentricity) / orbit.axis,
               fy = py / orbit.minor,
               implicit = fx * fx + fy * fy - 1,
-              gradient = 2 * Math.hypot(fx / orbit.axis, fy / orbit.minor),
+              gradient = 2 * hypot2(fx / orbit.axis, fy / orbit.minor),
               distance =
                 (Math.abs(implicit) / Math.max(gradient, 1e-9)) * tilePerWorld;
             orbitT = Math.max(
@@ -49388,8 +49381,8 @@ export function createSurfaceSampler(
                 ),
               ),
               spokeDistance =
-                Math.hypot(x - along * dot.x, y - along * dot.y) * tilePerWorld,
-              dotDistance = Math.hypot(x - dot.x, y - dot.y) * tilePerWorld;
+                hypot2(x - along * dot.x, y - along * dot.y) * tilePerWorld,
+              dotDistance = hypot2(x - dot.x, y - dot.y) * tilePerWorld;
             spokeT = Math.max(
               spokeT,
               clamp(1 - (spokeDistance * spokeDistance) / spokeSquared),
@@ -49399,12 +49392,12 @@ export function createSurfaceSampler(
               clamp(1 - (dotDistance * dotDistance) / dotSquared),
             );
           }
-          const starDistance = Math.hypot(x, y) * tilePerWorld,
+          const starDistance = hypot2(x, y) * tilePerWorld,
             starT = clamp(1 - (starDistance * starDistance) / starSquared),
             outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
             outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
             boxDistance =
-              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              hypot2(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
               Math.min(Math.max(outsideX, outsideY), 0),
             inside = smooth(clamp(-boxDistance / p.fade)),
             ink = clamp(
@@ -49534,7 +49527,7 @@ export function createSurfaceSampler(
               return Math.max(
                 0,
                 1 -
-                  Math.hypot(
+                  hypot2(
                     (column - (size - 1) / 2) / ((size - 1) / 2),
                     (row - (size - 1) / 2) / ((size - 1) / 2),
                   ) /
@@ -49574,7 +49567,7 @@ export function createSurfaceSampler(
             outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
             outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
             boxDistance =
-              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              hypot2(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
               Math.min(Math.max(outsideX, outsideY), 0),
             inside = smooth(clamp(-boxDistance / p.fade)),
             ink = clamp(
@@ -49639,7 +49632,7 @@ export function createSurfaceSampler(
             y = -((fv - 0.5) / plot) * p.extent;
           let single: number;
           if (aperture === 0) {
-            const rho = scale * Math.hypot(x, y);
+            const rho = scale * hypot2(x, y);
             single = rho < 1e-6 ? 1 : ((2 * besselOne(rho)) / rho) ** 2;
           } else single = (sinc(scale * x) * sinc(second * y)) ** 2;
           // The array factor of N equal apertures in a row: [sin(N phi) / (N sin phi)]^2 with phi = (spacing / diameter) a x', where
@@ -49662,7 +49655,7 @@ export function createSurfaceSampler(
             outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
             outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
             boxDistance =
-              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              hypot2(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
               Math.min(Math.max(outsideX, outsideY), 0),
             inside = smooth(clamp(-boxDistance / p.fade)),
             ink = clamp(inside * tone),
@@ -49734,7 +49727,7 @@ export function createSurfaceSampler(
                 ? null
                 : [latitude, longitude];
             }
-            const rho = Math.hypot(x, y);
+            const rho = hypot2(x, y);
             if (projection === 5 && rho > 1) return null;
             if (rho < 1e-12) return [centreLatitude, 0];
             const angle =
@@ -49772,18 +49765,18 @@ export function createSurfaceSampler(
             outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
             outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
             boxDistance =
-              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              hypot2(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
               Math.min(Math.max(outsideX, outsideY), 0),
             inside = smooth(clamp(-boxDistance / p.fade));
           let ink = 0;
           if (here && east && west && north && south) {
             const [latitude, longitude] = here,
               // The gradients of latitude and longitude with respect to the plane (the longitude one wrapped), in tile units per radian.
-              latitudeSlope = Math.hypot(
+              latitudeSlope = hypot2(
                 (east[0] - west[0]) / (2 * step),
                 (north[0] - south[0]) / (2 * step),
               ),
-              longitudeSlope = Math.hypot(
+              longitudeSlope = hypot2(
                 wrap(east[1] - west[1]) / (2 * step),
                 wrap(north[1] - south[1]) / (2 * step),
               ),
@@ -49830,7 +49823,7 @@ export function createSurfaceSampler(
                       ),
                     ),
                   distance = angularDistance(latitude, longitude),
-                  slope = Math.hypot(
+                  slope = hypot2(
                     (angularDistance(east[0], east[1]) -
                       angularDistance(west[0], west[1])) /
                       (2 * step),
@@ -49902,7 +49895,7 @@ export function createSurfaceSampler(
             if (i === 0 && j === 0) continue;
             const x = i * variant[0] + j * variant[2],
               y = i * variant[1] + j * variant[3];
-            vectors.push({ x, y, length: Math.hypot(x, y) });
+            vectors.push({ x, y, length: hypot2(x, y) });
           }
         return () => {
           const fu = fract(u),
@@ -49929,7 +49922,7 @@ export function createSurfaceSampler(
             outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
             outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
             boxDistance =
-              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              hypot2(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
               Math.min(Math.max(outsideX, outsideY), 0),
             inside = smooth(clamp(-boxDistance / p.fade)),
             ink = clamp(
@@ -50008,7 +50001,7 @@ export function createSurfaceSampler(
             fv = fract(v),
             x = ((fu - 0.5) / plot) * p.extent,
             y = -((fv - 0.5) / plot) * p.extent,
-            radius = Math.hypot(x, y);
+            radius = hypot2(x, y);
           let ringInk = 0;
           for (const ring of rings) {
             const distance = (radius - ring.radius) * tilePerWorld,
@@ -50024,7 +50017,7 @@ export function createSurfaceSampler(
           const outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
             outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
             boxDistance =
-              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              hypot2(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
               Math.min(Math.max(outsideX, outsideY), 0),
             inside = smooth(clamp(-boxDistance / p.fade)),
             stop = smooth(clamp((radius - p.stopRadius) / p.stopRadius)),
@@ -50090,7 +50083,7 @@ export function createSurfaceSampler(
           const outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
             outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
             boxDistance =
-              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              hypot2(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
               Math.min(Math.max(outsideX, outsideY), 0),
             inside = smooth(clamp(-boxDistance / p.fade)),
             background = p.backgroundTone * (1 - Math.abs(2 * rotation - 1)),
@@ -50138,7 +50131,7 @@ export function createSurfaceSampler(
             fv = fract(v),
             x = (fu - p.margin) / (1 - 2 * p.margin),
             y = (0.5 - fv) / (1 - 2 * p.margin),
-            radius = Math.hypot(x, y);
+            radius = hypot2(x, y);
           let ink = 0;
           if (x > 1e-4) {
             const slope = Math.abs(y) / x,
@@ -50183,7 +50176,7 @@ export function createSurfaceSampler(
           const outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
             outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
             boxDistance =
-              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              hypot2(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
               Math.min(Math.max(outsideX, outsideY), 0),
             inside = smooth(clamp(-boxDistance / p.fade));
           ink = clamp(inside * ink);
@@ -50365,7 +50358,7 @@ export function createSurfaceSampler(
           const outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
             outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
             boxDistance =
-              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              hypot2(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
               Math.min(Math.max(outsideX, outsideY), 0),
             inside = smooth(clamp(-boxDistance / p.fade));
           ink = clamp(inside * ink);
@@ -50463,7 +50456,7 @@ export function createSurfaceSampler(
           const outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
             outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
             boxDistance =
-              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              hypot2(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
               Math.min(Math.max(outsideX, outsideY), 0),
             ink = clamp(smooth(clamp(-boxDistance / p.fade)) * band),
             mask = smooth(clamp(ink * inverseSoft)),
@@ -50565,7 +50558,7 @@ export function createSurfaceSampler(
             fv = fract(v),
             x = (p.extent * (fu - 0.5)) / plot,
             y = (p.extent * (0.5 - fv)) / plot;
-          const ringDistance = Math.abs(Math.hypot(x, y) - 1) * unit;
+          const ringDistance = Math.abs(hypot2(x, y) - 1) * unit;
           let ink =
             p.outlineTone *
             clamp(1 - (ringDistance * ringDistance) / lineSquared) ** 2;
@@ -50579,7 +50572,7 @@ export function createSurfaceSampler(
               ),
               dx = x - ax - along * sx,
               dy = y - ay - along * sy,
-              distance = Math.hypot(dx, dy) * unit;
+              distance = hypot2(dx, dy) * unit;
             if (distance < p.lineHalf)
               ink = Math.max(
                 ink,
@@ -50590,7 +50583,7 @@ export function createSurfaceSampler(
           const outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
             outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
             boxDistance =
-              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              hypot2(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
               Math.min(Math.max(outsideX, outsideY), 0);
           ink = clamp(smooth(clamp(-boxDistance / p.fade)) * ink);
           const mask = smooth(clamp(ink * inverseSoft)),
@@ -50647,7 +50640,7 @@ export function createSurfaceSampler(
                 ridge =
                   ((1 + Math.cos((TAU * time) / period)) / 2) ** p.crestPower,
                 // The crests are period / |grad s| apart in space (|grad s| = hypot(M s + x, y) / sqrt(discriminant)): where they come closer than crestSpacingOff (the dense lines beside the source at the Mach number 1) they fade out, to avoid the moire.
-                spacing = (period * root) / Math.hypot(mach * time + x, y),
+                spacing = (period * root) / hypot2(mach * time + x, y),
                 crowding = smooth(
                   clamp(
                     (spacing - p.crestSpacingOff) /
@@ -50664,7 +50657,7 @@ export function createSurfaceSampler(
           const outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
             outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
             boxDistance =
-              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              hypot2(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
               Math.min(Math.max(outsideX, outsideY), 0);
           ink = clamp(smooth(clamp(-boxDistance / p.fade)) * ink);
           const mask = smooth(clamp(ink * inverseSoft)),
@@ -50708,7 +50701,7 @@ export function createSurfaceSampler(
           },
           // |psi|^2 up to a constant at distance r and cos(theta) = c from the z axis: the radial part r^l exp(-r / n) L(2 r / n) (rho = 2 r / n) and the associated Legendre function by the recurrence in l.
           density = (x: number, z: number): number => {
-            const r = Math.hypot(x, z),
+            const r = hypot2(x, z),
               rho = (2 * r) / principal,
               cosine = r > 1e-12 ? z / r : 0;
             let polynomial = 0,
@@ -50768,7 +50761,7 @@ export function createSurfaceSampler(
             outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
             outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
             boxDistance =
-              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              hypot2(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
               Math.min(Math.max(outsideX, outsideY), 0),
             ink = clamp(
               smooth(clamp(-boxDistance / p.fade)) *
@@ -50842,7 +50835,7 @@ export function createSurfaceSampler(
             level = stream / p.levelStep,
             distance =
               (Math.abs(level - Math.round(level)) * p.levelStep * unit) /
-              Math.max(Math.hypot(gradientX, gradientY), 1e-9),
+              Math.max(hypot2(gradientX, gradientY), 1e-9),
             kernel = clamp(1 - (distance * distance) / lineSquared),
             reach = smooth(
               clamp((p.levelLimit - Math.abs(stream)) / p.levelFade),
@@ -50860,7 +50853,7 @@ export function createSurfaceSampler(
           const outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
             outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
             boxDistance =
-              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              hypot2(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
               Math.min(Math.max(outsideX, outsideY), 0);
           ink = clamp(smooth(clamp(-boxDistance / p.fade)) * ink);
           const mask = smooth(clamp(ink * inverseSoft)),
@@ -51027,7 +51020,7 @@ export function createSurfaceSampler(
           const outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
             outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
             boxDistance =
-              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              hypot2(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
               Math.min(Math.max(outsideX, outsideY), 0),
             edge = smooth(clamp(-boxDistance / p.fade)),
             ink = clamp(edge * tone * shade),
@@ -51149,7 +51142,7 @@ export function createSurfaceSampler(
             outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
             outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
             boxDistance =
-              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              hypot2(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
               Math.min(Math.max(outsideX, outsideY), 0),
             edge = smooth(clamp(-boxDistance / p.fade)),
             ink = clamp(
@@ -51256,7 +51249,7 @@ export function createSurfaceSampler(
             outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
             outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
             boxDistance =
-              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              hypot2(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
               Math.min(Math.max(outsideX, outsideY), 0),
             edge = smooth(clamp(-boxDistance / p.fade)),
             ink = clamp(edge * clamp(-lambda / p.lambdaScale)),
@@ -51343,7 +51336,7 @@ export function createSurfaceSampler(
             scaleRe /= terms * terms;
             scaleIm /= terms * terms;
           }
-          const modulus = Math.hypot(re, im),
+          const modulus = hypot2(re, im),
             phaseBand = 0.5 + 0.5 * Math.cos(p.phaseBands * Math.atan2(im, re)),
             modulusBand =
               0.5 +
@@ -51352,7 +51345,7 @@ export function createSurfaceSampler(
             outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
             outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
             boxDistance =
-              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              hypot2(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
               Math.min(Math.max(outsideX, outsideY), 0),
             edge = smooth(clamp(-boxDistance / p.fade)),
             ink = clamp(
@@ -51493,7 +51486,7 @@ export function createSurfaceSampler(
             outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
             outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
             boxDistance =
-              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              hypot2(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
               Math.min(Math.max(outsideX, outsideY), 0),
             edge = smooth(clamp(-boxDistance / p.fade)),
             ink = clamp(
@@ -51693,7 +51686,7 @@ export function createSurfaceSampler(
           phase = new Float64Array(count);
         let heightSum = 0;
         for (let i = 0; i < count; i++) {
-          const length = Math.hypot(waves[i][0], waves[i][1]);
+          const length = hypot2(waves[i][0], waves[i][1]);
           kx[i] = 2 * Math.PI * waves[i][0];
           ky[i] = 2 * Math.PI * waves[i][1];
           ux[i] = waves[i][0] / length;
@@ -51817,7 +51810,7 @@ export function createSurfaceSampler(
                 clamp(
                   0.5 +
                     (p.discRadius -
-                      Math.hypot(
+                      hypot2(
                         cellX - Math.round(cellX),
                         cellY - Math.round(cellY),
                       )) /
@@ -52098,7 +52091,7 @@ export function createSurfaceSampler(
               other = cell % 2 === 0 ? c.light : c.dark,
               own = cell % 2 === 0 ? c.dark : c.light,
               board = other + (own - other) * step(Math.min(ex, ey) / c.count),
-              radius = Math.hypot(
+              radius = hypot2(
                 (fu - c.centre[0]) / c.radii[0],
                 (fv - c.centre[1]) / c.radii[1],
               ),
@@ -52137,17 +52130,17 @@ export function createSurfaceSampler(
           disparity = (i: number, j: number): number => {
             const x = i + 0.5 - columns / 2,
               y = j + 0.5 - p.rows / 2;
-            if (shape === 0) return Math.hypot(x, y) < 11 ? 2 : 0;
+            if (shape === 0) return hypot2(x, y) < 11 ? 2 : 0;
             if (shape === 1)
               return Math.abs(x) < 10 && Math.abs(y) < 10 ? -2 : 0;
             if (shape === 2) {
-              const radius = Math.hypot(x, y);
+              const radius = hypot2(x, y);
               return radius > 6 && radius < 12 ? 1 : 0;
             }
             if (shape === 3) return Math.abs(x) + Math.abs(y) < 13 ? 2 : 0;
             if (shape === 4) return Math.round(x / 7);
-            if (Math.hypot(i + 0.5 - 8, j + 0.5 - 20) < 6) return 2;
-            return Math.hypot(i + 0.5 - 24, j + 0.5 - 44) < 6 ? -2 : 0;
+            if (hypot2(i + 0.5 - 8, j + 0.5 - 20) < 6) return 2;
+            return hypot2(i + 0.5 - 24, j + 0.5 - 44) < 6 ? -2 : 0;
           };
         return () => {
           const fu = fract(u),
@@ -52195,17 +52188,15 @@ export function createSurfaceSampler(
           // The union of all the shapes as 1 minus the product of 1 - mask (every mask is C1).
           let free = 1;
           for (const [cx, cy, radius] of figure.discs)
-            free *= 1 - step(radius - Math.hypot(x - cx, y - cy));
+            free *= 1 - step(radius - hypot2(x - cx, y - cy));
           for (const [cx, cy, radius] of figure.rings)
             free *=
               1 -
-              step(
-                p.ringHalfWidth - Math.abs(Math.hypot(x - cx, y - cy) - radius),
-              );
+              step(p.ringHalfWidth - Math.abs(hypot2(x - cx, y - cy) - radius));
           for (const [cx, cy, radius, mouth, opening] of figure.pacmen) {
             const dx = x - cx,
               dy = y - cy,
-              distance = Math.hypot(dx, dy),
+              distance = hypot2(dx, dy),
               half = (opening * Math.PI) / 360;
             // The angle from the direction of the mouth, 0 to pi, and the signed distance to the nearest edge of the mouth (positive outside it: the mouth is a wedge of the half angle half, which is under a right angle).
             let turn = Math.abs(Math.atan2(dy, dx) - (mouth * Math.PI) / 180);
@@ -52498,11 +52489,11 @@ export function createSurfaceSampler(
             const first = type === 1 ? [1, 0] : [0, 0],
               second = type === 1 ? [0, 1] : [1, 1],
               firstMask = band(
-                Math.abs(Math.hypot(a - first[0], b - first[1]) - 0.5),
+                Math.abs(hypot2(a - first[0], b - first[1]) - 0.5),
                 halfWidth,
               ),
               secondMask = band(
-                Math.abs(Math.hypot(a - second[0], b - second[1]) - 0.5),
+                Math.abs(hypot2(a - second[0], b - second[1]) - 0.5),
                 halfWidth,
               );
             ink = 1 - (1 - firstMask) * (1 - secondMask);
@@ -52807,7 +52798,7 @@ export function createSurfaceSampler(
           let mask = 0;
           if (count > 0) {
             const radius = p.dotMin + (p.dotMax - p.dotMin) * level,
-              distance = Math.hypot(x - i - 0.5, y - j - 0.5);
+              distance = hypot2(x - i - 0.5, y - j - 0.5);
             mask = smooth(clamp((radius - distance) / p.edgeSoft + 0.5));
           }
           const tone = p.toneMin + (p.toneMax - p.toneMin) * level;
@@ -52880,8 +52871,7 @@ export function createSurfaceSampler(
           if (incidence[j * points + i] === 1)
             mask = smooth(
               clamp(
-                (p.dotRadius - Math.hypot(x - i - 0.5, y - j - 0.5)) /
-                  p.edgeSoft +
+                (p.dotRadius - hypot2(x - i - 0.5, y - j - 0.5)) / p.edgeSoft +
                   0.5,
               ),
             );
@@ -52974,7 +52964,7 @@ export function createSurfaceSampler(
                     (x - step + dy * (y - heights[step])) / (1 + dy * dy),
                   ),
                 ),
-                distance = Math.hypot(
+                distance = hypot2(
                   x - step - along,
                   y - heights[step] - dy * along,
                 );
@@ -52991,7 +52981,7 @@ export function createSurfaceSampler(
               nearY <= Math.min(nearX, length - nearX) &&
               (motzkin || (nearX + nearY) % 2 === 0)
             )
-              dotInk = band(Math.hypot(x - nearX, y - nearY), p.dotRadius);
+              dotInk = band(hypot2(x - nearX, y - nearY), p.dotRadius);
           }
           const ink = 1 - (1 - strokeInk) * (1 - dotInk),
             tone =
@@ -53162,7 +53152,7 @@ export function createSurfaceSampler(
             for (let bead = 0; bead < length; bead++) {
               const angle = -Math.PI / 2 + (2 * Math.PI * bead) / length,
                 mask = band(
-                  Math.hypot(x - Math.cos(angle), y - Math.sin(angle)),
+                  hypot2(x - Math.cos(angle), y - Math.sin(angle)),
                   beads[bead] ? p.filledRadius : p.emptyRadius,
                 ),
                 tone = beads[bead]
@@ -53267,7 +53257,7 @@ export function createSurfaceSampler(
                     ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy),
                   ),
                 ),
-                distance = Math.hypot(x - ax - along * dx, y - ay - along * dy);
+                distance = hypot2(x - ax - along * dx, y - ay - along * dy);
               if (chosen[k]) treeFree *= 1 - band(distance, p.treeHalf);
               else edgeFree *= 1 - band(distance, p.otherHalf);
             });
@@ -53275,7 +53265,7 @@ export function createSurfaceSampler(
               otherMask = (1 - edgeFree) * treeFree;
             let dotFree = 1;
             for (const [vx, vy] of vertices)
-              dotFree *= 1 - band(Math.hypot(x - vx, y - vy), p.dotRadius);
+              dotFree *= 1 - band(hypot2(x - vx, y - vy), p.dotRadius);
             const dotMask = 1 - dotFree,
               under = 1 - dotMask;
             toneSum =
@@ -53549,13 +53539,13 @@ export function createSurfaceSampler(
               pathFree *=
                 1 -
                 band(
-                  Math.hypot(x - ax - along * dx, y - ay - along * dy),
+                  hypot2(x - ax - along * dx, y - ay - along * dy),
                   p.pathHalf,
                 );
             }
             const pathMask = 1 - pathFree,
               startMask = band(
-                Math.hypot(x - vertices[0][0], y - vertices[0][1]),
+                hypot2(x - vertices[0][0], y - vertices[0][1]),
                 p.startRadius,
               ),
               // The faint grid: a dot on the lattice vertex nearest to the point, inside the box.
@@ -53563,7 +53553,7 @@ export function createSurfaceSampler(
               nearY = Math.round(y),
               latticeMask =
                 nearX >= 0 && nearY >= 0 && nearX <= length && nearY <= length
-                  ? band(Math.hypot(x - nearX, y - nearY), p.dotRadius)
+                  ? band(hypot2(x - nearX, y - nearY), p.dotRadius)
                   : 0,
               under = 1 - startMask,
               latticeOnly = (1 - pathMask) * latticeMask;
@@ -53694,7 +53684,7 @@ export function createSurfaceSampler(
               if (perm[i] === j) {
                 mask = edge(fx) * edge(1 - fx) * edge(fy) * edge(1 - fy);
                 level = panels[index].level;
-              } else dot = band(Math.hypot(fx - 0.5, fy - 0.5), p.dotRadius);
+              } else dot = band(hypot2(fx - 0.5, fy - 0.5), p.dotRadius);
             }
           }
           const tone = p.toneMin + (p.toneMax - p.toneMin) * level,
@@ -53966,7 +53956,7 @@ export function createSurfaceSampler(
                   // Distance from the side to the point, positive on the inside of the polygon.
                   distance =
                     (orient * ((bx - ax) * (y - ay) - (by - ay) * (x - ax))) /
-                    Math.hypot(bx - ax, by - ay);
+                    hypot2(bx - ax, by - ay);
                 if (distance < 0) {
                   inside = false;
                   break;
@@ -54248,7 +54238,7 @@ export function createSurfaceSampler(
               edgeFree *=
                 1 -
                 band(
-                  Math.hypot(x - ax - along * dx, y - ay - along * dy),
+                  hypot2(x - ax - along * dx, y - ay - along * dy),
                   p.edgeHalf,
                 );
             }
@@ -54257,7 +54247,7 @@ export function createSurfaceSampler(
               dotHeight = 0;
             for (let k = 0; k < count; k++) {
               const mask = band(
-                Math.hypot(x - corners[k][0], y - corners[k][1]),
+                hypot2(x - corners[k][0], y - corners[k][1]),
                 p.dotRadius,
               );
               if (mask === 0) continue;
@@ -54413,7 +54403,7 @@ export function createSurfaceSampler(
               lineFree *=
                 1 -
                 band(
-                  Math.hypot(x - ax - along * dx, y - ay - along * dy),
+                  hypot2(x - ax - along * dx, y - ay - along * dy),
                   p.lineHalf,
                 );
             }
@@ -54421,7 +54411,7 @@ export function createSurfaceSampler(
               dotTone = 0,
               dotHeight = 0;
             for (const [nx, ny, children] of nodes) {
-              const mask = band(Math.hypot(x - nx, y - ny), p.dotRadius);
+              const mask = band(hypot2(x - nx, y - ny), p.dotRadius);
               if (mask === 0) continue;
               const fraction = children / (size - 1);
               dotFree *= 1 - mask;
@@ -55274,7 +55264,7 @@ export function createSurfaceSampler(
                 );
               nearest = Math.min(
                 nearest,
-                Math.hypot(x - ax - along * dx, y - ay - along * dy),
+                hypot2(x - ax - along * dx, y - ay - along * dy),
               );
             }
             mask = smooth(clamp((p.lineHalf - nearest) / p.edgeSoft + 0.5));
@@ -55663,11 +55653,11 @@ export function createSurfaceSampler(
                 );
               nearestLine = Math.min(
                 nearestLine,
-                Math.hypot(x - ax - along * dx, y - ay - along * dy),
+                hypot2(x - ax - along * dx, y - ay - along * dy),
               );
             }
             for (const [dx, dy] of dots)
-              nearestDot = Math.min(nearestDot, Math.hypot(x - dx, y - dy));
+              nearestDot = Math.min(nearestDot, hypot2(x - dx, y - dy));
             ink =
               1 -
               (1 - band(nearestLine, p.lineHalf)) *
@@ -55905,16 +55895,13 @@ export function createSurfaceSampler(
               );
               nearestLine = Math.min(
                 nearestLine,
-                Math.hypot(
-                  x - ax - along * (bx - ax),
-                  y - ay - along * (by - ay),
-                ),
+                hypot2(x - ax - along * (bx - ax), y - ay - along * (by - ay)),
               );
             }
             const { ends } = paths[index],
               nearestDot = Math.min(
-                Math.hypot(x - ends[0], y - ends[1]),
-                Math.hypot(x - ends[2], y - ends[3]),
+                hypot2(x - ends[0], y - ends[1]),
+                hypot2(x - ends[2], y - ends[3]),
               );
             ink =
               1 -
@@ -56020,7 +56007,7 @@ export function createSurfaceSampler(
                 ax = Math.min(ax, 1 - ax);
                 ay = Math.min(ay, 1 - ay);
                 const mask = smooth(
-                  clamp((radius - Math.hypot(ax, ay)) / p.edgeSoft + 0.5),
+                  clamp((radius - hypot2(ax, ay)) / p.edgeSoft + 0.5),
                 );
                 if (mask > ink) {
                   ink = mask;
@@ -56913,7 +56900,7 @@ export function createSurfaceSampler(
                     corner(0, 1),
                   ];
                 if (
-                  Math.hypot(
+                  hypot2(
                     (corners[0][0] + corners[2][0]) / 2,
                     (corners[0][1] + corners[2][1]) / 2,
                   ) > p.patchRadius
@@ -61910,9 +61897,7 @@ export function createSurfaceSampler(
                   0.09 * Math.sin(3 * angle - variation * TAU));
               // Lobes only affect the border; the center is a flat mineral crust,
               // not a rounded moss tuft. Every colony fits the fixed neighborhood.
-              const face = smooth(
-                clamp((1 - Math.hypot(dx, dy) / radius) / 0.18),
-              );
+              const face = smooth(clamp((1 - hypot2(dx, dy) / radius) / 0.18));
               crust += (1 - crust) * face;
               pigment += face * (variation - 0.5);
             }
@@ -61994,7 +61979,7 @@ export function createSurfaceSampler(
           const pores = smooth(
             clamp((noise(u, v, 96, 96, seed ^ 0x15e7) - 0.62) / 0.23),
           );
-          const distance = Math.hypot(dx, dy);
+          const distance = hypot2(dx, dy);
           const checkSupport =
             smooth(clamp((distance - 0.07) / 0.08)) *
             smooth(clamp((0.43 - distance) / 0.08));
@@ -62608,7 +62593,7 @@ export function createSurfaceSampler(
           // A chewy ring rises around the recessed hole, seeded with sesame.
           const dx = Math.min(Math.abs(u - 0.5), 1 - Math.abs(u - 0.5));
           const dy = Math.min(Math.abs(v - 0.5), 1 - Math.abs(v - 0.5));
-          const d = Math.hypot(dx, dy) * 2;
+          const d = hypot2(dx, dy) * 2;
           const ring = smooth(clamp((0.12 - Math.abs(d - 0.34)) / 0.06));
           const hole = smooth(clamp((0.16 - d) / 0.08));
           const sesame = smooth(
@@ -62686,7 +62671,7 @@ export function createSurfaceSampler(
           const spoke =
             1 - (1 - spokeU) * (1 - spokeV) * (1 - spokeA) * (1 - spokeB);
           const rad =
-            Math.hypot(
+            hypot2(
               Math.sin(Math.PI * (u - 0.5)),
               Math.sin(Math.PI * (v - 0.5)),
             ) *
@@ -62788,7 +62773,7 @@ export function createSurfaceSampler(
         return () => {
           // Ringed tentacles rise around the recessed central mouth.
           const rad =
-            Math.hypot(
+            hypot2(
               Math.sin(Math.PI * (u - 0.5)),
               Math.sin(Math.PI * (v - 0.5)),
             ) *
@@ -62877,7 +62862,7 @@ export function createSurfaceSampler(
           // Seeded round bubbles dome over the clear glass body.
           const dx = fract(u * 8) - 0.5,
             dy = fract(v * 8) - 0.5;
-          const r = Math.hypot(dx, dy);
+          const r = hypot2(dx, dy);
           const bubble = smooth(clamp((0.34 - r) / 0.14));
           const micro = noise(u, v, 32, 32, seed ^ 0x1a44);
           color = 0.48 + 0.32 * bubble + 0.08 * micro;
@@ -62909,7 +62894,7 @@ export function createSurfaceSampler(
           // Tooled medallions with swirl rings emboss over the compressed ground.
           const tx = fract(u * 4) - 0.5,
             ty = fract(v * 4) - 0.5;
-          const r = Math.hypot(tx, ty);
+          const r = hypot2(tx, ty);
           const medallion = smooth(clamp((0.36 - r) / 0.16));
           const swirl = smooth(clamp((0.035 - Math.abs(r - 0.18)) / 0.02));
           const grain = noise(u, v, 24, 24, seed ^ 0x3c66);
@@ -63041,7 +63026,7 @@ export function createSurfaceSampler(
           // Lofty quilted puffs dome between the recessed piped seams.
           const px = fract(u * 2) - 0.5,
             py = fract(v * 2) - 0.5;
-          const puff = smooth(clamp((0.36 - Math.hypot(px, py)) / 0.16));
+          const puff = smooth(clamp((0.36 - hypot2(px, py)) / 0.16));
           const seam =
             smooth(
               clamp((0.045 - Math.min(fract(u * 2), 1 - fract(u * 2))) / 0.025),
@@ -63061,7 +63046,7 @@ export function createSurfaceSampler(
           // Button tufts pull dimples into the coarse woven surface.
           const tx = fract(u * 4) - 0.5,
             ty = fract(v * 4) - 0.5;
-          const r = Math.hypot(tx, ty);
+          const r = hypot2(tx, ty);
           const tuft = smooth(clamp((0.18 - r) / 0.08));
           const weave = noise(u, v, 24, 24, seed ^ 0x68aa);
           color = 0.46 + 0.3 * (1 - tuft) * 0.4 + 0.1 * weave;
@@ -63133,7 +63118,7 @@ export function createSurfaceSampler(
           // Round pebbles dome over the coarse sand between them.
           const px = fract(u * 5) - 0.5,
             py = fract(v * 5) - 0.5;
-          const pebble = smooth(clamp((0.34 - Math.hypot(px, py)) / 0.14));
+          const pebble = smooth(clamp((0.34 - hypot2(px, py)) / 0.14));
           const grain = noise(u, v, 32, 32, seed ^ 0xe333);
           color = 0.44 + 0.32 * pebble + 0.08 * grain;
           height = 0.44 + 0.26 * pebble + 0.02 * grain;
@@ -63206,7 +63191,7 @@ export function createSurfaceSampler(
           // Dripping cone tips hang over the shadowed pockets between them.
           const cx = fract(u * 4) - 0.5,
             cy = fract(v * 4) - 0.5;
-          const cone = smooth(clamp((0.32 - Math.hypot(cx, cy)) / 0.16));
+          const cone = smooth(clamp((0.32 - hypot2(cx, cy)) / 0.16));
           const drip = smooth(
             clamp((noise(u, v, 20, 20, seed ^ 0x9ddd) - 0.7) / 0.08),
           );
@@ -63251,7 +63236,7 @@ export function createSurfaceSampler(
           // Glossy fruit chunks sit in the clear set syrup.
           const jx = fract(u * 5) - 0.5,
             jy = fract(v * 5) - 0.5;
-          const chunk = smooth(clamp((0.3 - Math.hypot(jx, jy)) / 0.14));
+          const chunk = smooth(clamp((0.3 - hypot2(jx, jy)) / 0.14));
           const syrup = noise(u, v, 16, 16, seed ^ 0x1555);
           const grain = noise(u, v, 32, 32, seed ^ 0x2666);
           color = 0.42 + 0.32 * chunk + 0.12 * syrup + 0.06 * grain;
@@ -63279,7 +63264,7 @@ export function createSurfaceSampler(
           // Sugar rods scatter over the frosted base.
           const sx = Math.sin(Math.PI * (fract(u * 6) - 0.5)),
             sy = Math.sin(Math.PI * (fract(v * 6) - 0.5));
-          const t = clamp((0.32 - Math.hypot(sx * 0.5, sy * 2)) / 0.32);
+          const t = clamp((0.32 - hypot2(sx * 0.5, sy * 2)) / 0.32);
           const rod = 0.5 - 0.5 * Math.cos(Math.PI * t);
           const grain = noise(u, v, 32, 32, seed ^ 0x6aaa);
           color = 0.52 + 0.28 * rod + 0.08 * grain;
@@ -63352,7 +63337,7 @@ export function createSurfaceSampler(
           const tx = Math.min(fract(u * 4), 1 - fract(u * 4)),
             ty = Math.min(fract(v * 4), 1 - fract(v * 4));
           const tube = smooth(clamp((Math.min(tx, ty) - 0.03) / 0.12));
-          const hr = Math.hypot(fract(u * 4) - 0.5, fract(v * 4) - 0.5);
+          const hr = hypot2(fract(u * 4) - 0.5, fract(v * 4) - 0.5);
           const bore = smooth(clamp((0.12 - hr) / 0.06));
           const grain = noise(u, v, 32, 32, seed ^ 0x1555);
           color = 0.5 + 0.3 * tube - 0.12 * bore + 0.06 * grain;
@@ -63412,7 +63397,7 @@ export function createSurfaceSampler(
           // Die-cut lace holes sink through the pressed paper webbing.
           const sx = Math.sin(Math.PI * (fract(u * 6) - 0.5)),
             sy = Math.sin(Math.PI * (fract(v * 6) - 0.5));
-          const hole = smooth(clamp((0.16 - Math.hypot(sx, sy)) / 0.07));
+          const hole = smooth(clamp((0.16 - hypot2(sx, sy)) / 0.07));
           const grain = noise(u, v, 32, 32, seed ^ 0x5999);
           color = 0.52 + 0.28 * (1 - hole) + 0.06 * grain;
           height = 0.46 + 0.2 * (1 - hole) + 0.02 * grain;
@@ -63425,7 +63410,7 @@ export function createSurfaceSampler(
           // Layered cutout shapes rise over the flat backing sheet.
           const sx = Math.sin(Math.PI * (fract(u * 5) - 0.5)),
             sy = Math.sin(Math.PI * (fract(v * 5) - 0.5));
-          const shape = smooth(clamp((0.5 - Math.hypot(sx * 0.7, sy)) / 0.2));
+          const shape = smooth(clamp((0.5 - hypot2(sx * 0.7, sy)) / 0.2));
           const grain = noise(u, v, 32, 32, seed ^ 0x6aaa);
           color = 0.42 + 0.34 * shape + 0.08 * grain;
           height = 0.44 + 0.24 * shape + 0.02 * grain;
@@ -63438,7 +63423,7 @@ export function createSurfaceSampler(
           // Seed heads pack in a domed grid across the disk.
           const sx = Math.sin(Math.PI * (fract(u * 10) - 0.5)),
             sy = Math.sin(Math.PI * (fract(v * 10) - 0.5));
-          const st = clamp((0.6 - Math.hypot(sx * 0.9, sy * 1.4)) / 0.6);
+          const st = clamp((0.6 - hypot2(sx * 0.9, sy * 1.4)) / 0.6);
           const head = 0.5 - 0.5 * Math.cos(Math.PI * st);
           const grain = noise(u, v, 32, 32, seed ^ 0x7bbb);
           color = 0.44 + 0.3 * head + 0.08 * grain;
@@ -63452,7 +63437,7 @@ export function createSurfaceSampler(
           // Radial petals fan around the recessed seed center.
           const sx = Math.sin(Math.PI * (u - 0.5)),
             sy = Math.sin(Math.PI * (v - 0.5));
-          const r = Math.hypot(sx, sy);
+          const r = hypot2(sx, sy);
           const ang = Math.atan2(sy, sx);
           const petal =
             (0.5 + 0.5 * Math.cos(ang * 12)) *
@@ -63471,7 +63456,7 @@ export function createSurfaceSampler(
           // Three heart lobes spread from the stem join with fine veins.
           const sx = Math.sin(Math.PI * (u - 0.5)),
             sy = Math.sin(Math.PI * (v - 0.5));
-          const r = Math.hypot(sx, sy);
+          const r = hypot2(sx, sy);
           const ang = Math.atan2(sy, sx);
           const lobe =
             (0.5 + 0.5 * Math.cos(ang * 3)) * smooth(clamp((0.5 - r) / 0.14));
@@ -63490,10 +63475,10 @@ export function createSurfaceSampler(
             by = Math.min(fract(v * 2), 1 - fract(v * 2));
           const piece = smooth(clamp((Math.min(bx, by) - 0.02) / 0.05));
           const knobH = smooth(
-            clamp((0.13 - Math.hypot(bx, fract(v * 2) - 0.5)) / 0.05),
+            clamp((0.13 - hypot2(bx, fract(v * 2) - 0.5)) / 0.05),
           );
           const knobV = smooth(
-            clamp((0.13 - Math.hypot(by, fract(u * 2) - 0.5)) / 0.05),
+            clamp((0.13 - hypot2(by, fract(u * 2) - 0.5)) / 0.05),
           );
           const top = 1 - (1 - piece) * (1 - knobH) * (1 - knobV);
           const grain = noise(u, v, 32, 32, seed ^ 0xbbcc);
@@ -63508,7 +63493,7 @@ export function createSurfaceSampler(
           // Cylindrical studs dome over the smooth brick plate.
           const sx = Math.sin(Math.PI * (fract(u * 4) - 0.5)),
             sy = Math.sin(Math.PI * (fract(v * 4) - 0.5));
-          const st = clamp((0.55 - Math.hypot(sx * 0.8, sy * 0.8)) / 0.55);
+          const st = clamp((0.55 - hypot2(sx * 0.8, sy * 0.8)) / 0.55);
           const stud = 0.5 - 0.5 * Math.cos(Math.PI * st);
           const grain = noise(u, v, 32, 32, seed ^ 0xcddc);
           color = 0.46 + 0.3 * stud + 0.06 * grain;
@@ -63591,7 +63576,7 @@ export function createSurfaceSampler(
           // Dense felt nap holds the crisp white marking dots.
           const fx = Math.sin(Math.PI * (fract(u * 8) - 0.5)),
             fy = Math.sin(Math.PI * (fract(v * 8) - 0.5));
-          const dot = smooth(clamp((0.18 - Math.hypot(fx, fy)) / 0.08));
+          const dot = smooth(clamp((0.18 - hypot2(fx, fy)) / 0.08));
           const felt = noise(u, v, 32, 32, seed ^ 0x4999);
           color = 0.36 + 0.34 * dot + 0.1 * felt;
           height = 0.46 + 0.16 * dot + 0.02 * felt;
@@ -63622,7 +63607,7 @@ export function createSurfaceSampler(
           // Rounded climbing holds rise over the gritty wall panels.
           const cx = Math.sin(Math.PI * (fract(u * 3) - 0.5)),
             cy = Math.sin(Math.PI * (fract(v * 3) - 0.5));
-          const ht = clamp((0.5 - Math.hypot(cx * 0.8, cy)) / 0.5);
+          const ht = clamp((0.5 - hypot2(cx * 0.8, cy)) / 0.5);
           const hold = 0.5 - 0.5 * Math.cos(Math.PI * ht);
           const grit = noise(u, v, 32, 32, seed ^ 0x8ddd);
           color = 0.4 + 0.34 * hold + 0.08 * grit;
@@ -63689,7 +63674,7 @@ export function createSurfaceSampler(
           // Perforation holes punch the film between the horizontal divider grooves.
           const fx = Math.sin(Math.PI * (fract(u * 4) - 0.5)),
             fy = Math.sin(Math.PI * (fract(v * 2) - 0.5));
-          const d = Math.hypot(fx, fy);
+          const d = hypot2(fx, fy);
           const hole = smooth(clamp((0.3 - d) / 0.28));
           const groove = (1 + Math.cos(Math.PI * 2 * fract(v * 2))) / 2;
           const grain = noise(u, v, 16, 32, seed ^ 0x5e6f);
@@ -63706,14 +63691,12 @@ export function createSurfaceSampler(
             av = Math.sin(Math.PI * v),
             ay = Math.sin(Math.PI * (fract(v * 8 + 0.5) - 0.5)),
             au = Math.sin(Math.PI * u);
-          const dTop = Math.hypot(ax, av),
-            dSide = Math.hypot(ay, au);
+          const dTop = hypot2(ax, av),
+            dSide = hypot2(ay, au);
           const hT = smooth(clamp((0.3 - dTop) / 0.28)),
             hS = smooth(clamp((0.3 - dSide) / 0.28));
           const hole = hT + hS - hT * hS;
-          const med = smooth(
-            clamp((0.4 - Math.hypot(u - 0.5, v - 0.5)) / 0.12),
-          );
+          const med = smooth(clamp((0.4 - hypot2(u - 0.5, v - 0.5)) / 0.12));
           const grain = noise(u, v, 32, 32, seed ^ 0x6f7a);
           color = (0.5 + 0.28 * med + 0.1 * grain) * (1 - 0.72 * hole);
           height = 0.5 + 0.13 * med - 0.42 * hole + 0.03 * grain;
@@ -63728,7 +63711,7 @@ export function createSurfaceSampler(
             v1 = (u - v) * 6;
           const fx = Math.sin(Math.PI * (fract(u1) - 0.5)),
             fy = Math.sin(Math.PI * (fract(v1) - 0.5));
-          const d = Math.hypot(fx, fy);
+          const d = hypot2(fx, fy);
           const tone = noise(u, v, 4, 4, seed ^ 0x7a8b),
             grain = noise(u, v, 64, 64, seed ^ 0x8b9c);
           const dot = smooth(clamp((0.28 + 0.42 * tone - d) / 0.22));
@@ -63754,7 +63737,7 @@ export function createSurfaceSampler(
           // Cross-recessed screw heads sit inside their shallow panel dimples.
           const fx = Math.sin(Math.PI * (fract(u * 4) - 0.5)),
             fy = Math.sin(Math.PI * (fract(v * 4) - 0.5));
-          const d = Math.hypot(fx, fy);
+          const d = hypot2(fx, fy);
           const head = smooth(clamp((0.55 - d) / 0.3));
           const slotX = 1 - smooth(clamp((Math.abs(fx) - 0.08) / 0.12)),
             slotY = 1 - smooth(clamp((Math.abs(fy) - 0.08) / 0.12));
@@ -63789,7 +63772,7 @@ export function createSurfaceSampler(
           const w1 = noise(u, v, 4, 4, seed ^ 0xcfd0) - 0.5,
             w2 = noise(u, v, 4, 4, seed ^ 0xd0e1) - 0.5,
             w3 = noise(u, v, 4, 4, seed ^ 0xe1f2) - 0.5;
-          const r = Math.hypot(u - 0.5 + 0.06 * w1, v - 0.5 + 0.06 * w2);
+          const r = hypot2(u - 0.5 + 0.06 * w1, v - 0.5 + 0.06 * w2);
           const yolk = smooth(clamp((0.16 - r) / 0.06));
           const white = smooth(clamp((0.34 - (r + 0.1 * w3)) / 0.1));
           const grain = noise(u, v, 32, 32, seed ^ 0xf203);
@@ -63808,7 +63791,7 @@ export function createSurfaceSampler(
             w2 = noise(u, v, 6, 6, seed ^ 0x1425) - 0.5;
           const mod =
             1 + 0.16 * (w1 * (2 * fx * fx - 1) + w2 * (2 * fy * fy - 1));
-          const d = Math.hypot(fx * 1.2, fy * 0.8) * mod;
+          const d = hypot2(fx * 1.2, fy * 0.8) * mod;
           const grain = smooth(clamp((0.34 - d) / 0.22));
           const sheen = noise(u, v, 32, 32, seed ^ 0x2536);
           color = 0.62 + 0.28 * grain + 0.06 * sheen;
@@ -63822,7 +63805,7 @@ export function createSurfaceSampler(
           // Chocolate discs sink into the soft cookie crumb.
           const fx = Math.sin(Math.PI * (fract(u * 3) - 0.5)),
             fy = Math.sin(Math.PI * (fract(v * 3) - 0.5));
-          const d = Math.hypot(fx, fy);
+          const d = hypot2(fx, fy);
           const radius =
             0.45 +
             0.1 * hash(Math.floor(u * 3), Math.floor(v * 3), seed ^ 0x3647);
@@ -63852,7 +63835,7 @@ export function createSurfaceSampler(
           // Pebbled leather grain with a recessed seam crease.
           const fx = Math.sin(Math.PI * (fract(u * 10) - 0.5)),
             fy = Math.sin(Math.PI * (fract(v * 10) - 0.5));
-          const d = Math.hypot(fx, fy);
+          const d = hypot2(fx, fy);
           const bs = smooth(clamp((0.5 - d) / 0.34));
           const gn = noise(u, v, 32, 32, seed ^ 0x697a);
           const rawSeam = (1 + Math.cos(Math.PI * 2 * fract(u * 2))) / 2;
@@ -63886,7 +63869,7 @@ export function createSurfaceSampler(
           // Rosettes with four-fold petals dome above the soil.
           const fx = Math.sin(Math.PI * (fract(u * 3) - 0.5)),
             fy = Math.sin(Math.PI * (fract(v * 3) - 0.5));
-          const d = Math.hypot(fx, fy);
+          const d = hypot2(fx, fy);
           const petal =
             0.72 +
             0.28 *
@@ -63917,7 +63900,7 @@ export function createSurfaceSampler(
           // Clipped leaf clusters dome above the trimmed gaps.
           const fx = Math.sin(Math.PI * (fract(u * 3) - 0.5)),
             fy = Math.sin(Math.PI * (fract(v * 3) - 0.5));
-          const d = Math.hypot(fx, fy);
+          const d = hypot2(fx, fy);
           const w1 = noise(u, v, 3, 3, seed ^ 0xbecf) - 0.5,
             w2 = noise(u, v, 3, 3, seed ^ 0xcfd0) - 0.5;
           const mod =
@@ -63983,7 +63966,7 @@ export function createSurfaceSampler(
           const hole = smooth(
             clamp(
               (0.18 -
-                Math.hypot(
+                hypot2(
                   Math.sin(Math.PI * (fract(u * 4) - 0.5)),
                   Math.sin(Math.PI * (fract(v * 2) - 0.5)),
                 )) /
@@ -64002,7 +63985,7 @@ export function createSurfaceSampler(
           // Tilted jingle discs dome over the drum skin.
           const fx = Math.sin(Math.PI * (fract(u * 5) - 0.5)),
             fy = Math.sin(Math.PI * (fract(v * 5) - 0.5));
-          const d = Math.hypot(fx * 1.35, fy * 0.85);
+          const d = hypot2(fx * 1.35, fy * 0.85);
           const disc = smooth(clamp((0.46 - d) / 0.16));
           const skin = noise(u, v, 32, 32, seed ^ 0x5869);
           color = 0.38 + 0.34 * disc + 0.1 * skin;
@@ -64016,7 +63999,7 @@ export function createSurfaceSampler(
           // Paired shells dimple at their centers above the felt backing.
           const fx = Math.sin(Math.PI * (fract(u * 3) - 0.5)),
             fy = Math.sin(Math.PI * (fract(v * 3) - 0.5));
-          const d = Math.hypot(fx, fy);
+          const d = hypot2(fx, fy);
           const shell = smooth(clamp((0.56 - d) / 0.3));
           const dimple = smooth(clamp((0.16 - d) / 0.1));
           const grain = noise(u, v, 32, 32, seed ^ 0x697a);
@@ -64031,7 +64014,7 @@ export function createSurfaceSampler(
           // Elongated capsule halves dome over the blister backing.
           const fx = Math.sin(Math.PI * (fract(u * 3) - 0.5)),
             fy = Math.sin(Math.PI * (fract(v * 2) - 0.5));
-          const d = Math.hypot(fx * 0.72, fy * 1.25);
+          const d = hypot2(fx * 0.72, fy * 1.25);
           const body = smooth(clamp((0.52 - d) / 0.3));
           const seam = 1 - smooth(clamp((Math.abs(fy) - 0.06) / 0.12));
           const groove = seam * body;
@@ -64047,7 +64030,7 @@ export function createSurfaceSampler(
           // Round tablets carry a score groove across their crowns.
           const fx = Math.sin(Math.PI * (fract(u * 4) - 0.5)),
             fy = Math.sin(Math.PI * (fract(v * 4) - 0.5));
-          const d = Math.hypot(fx, fy);
+          const d = hypot2(fx, fy);
           const tablet = smooth(clamp((0.62 - d) / 0.3));
           const score = 1 - smooth(clamp((Math.abs(fx) - 0.05) / 0.1));
           const groove = score * tablet;
