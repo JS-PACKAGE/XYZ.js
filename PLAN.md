@@ -2313,6 +2313,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`binarynecklaces`（二元項鍊）使目前目錄1188→1189種，含plain的gallery為1190項。所有n顆珠子的二元項鍊（每顆珠子深色或淺色，兩條項鍊能互相轉動成同一條就算同一條）：6顆有14種、7顆20種、8顆36種。每一條畫在環上、放在格子中的一格（6顆時15格用14格，其他剛好填滿），每格依seed轉過不同的珠數，所以同一條項鍊不會以相同的樣子畫兩次；seed決定珠子數、各條項鍊的排列順序與空格。這是作者設計的示意；測試端從畫面讀出是哪一種版面（珠子位置上是珠子色調的那一種）、每格是否有項鍊與每顆珠子的深淺，並獨立驗證：畫面上的格子數等於項鍊數公式 (1/n)Σφ(d)2^(n/d)、任兩格轉動後都不相同、所有格子轉到最小的轉法之後恰好是「n顆珠子的全部2^n種圖樣各轉到最小」得到的集合、不少於四成的格子不是以最小的轉法呈現，以及（對於每種轉法都不同的項鍊）各個轉珠數出現的次數大致相同。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

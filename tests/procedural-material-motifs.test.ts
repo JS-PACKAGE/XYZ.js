@@ -59321,3 +59321,415 @@ describe('catalantriangulations: every way to cut a convex polygon into triangle
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('binarynecklaces: every binary necklace of 6, 7 or 8 beads (up to turning), each on a ring in a cell of a grid', () => {
+  const p = proceduralMaterialPresets.binarynecklaces,
+    out = empty();
+  type Point = [number, number];
+  type Layout = {
+    beads: number;
+    columns: number;
+    rows: number;
+    cell: number;
+    left: number;
+    top: number;
+    ring: number;
+    bead: number;
+  };
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const layoutOf = (choice: number): Layout => {
+    const columns = p.columns[choice],
+      rows = p.rows[choice],
+      beads = p.beads[choice],
+      cell = Math.min(p.extent / columns, p.extent / rows),
+      ring = cell * p.ringShare;
+    return {
+      beads,
+      columns,
+      rows,
+      cell,
+      left: 0.5 - (columns * cell) / 2,
+      top: 0.5 - (rows * cell) / 2,
+      ring,
+      bead: ring * Math.sin(Math.PI / beads) * p.beadShare,
+    };
+  };
+  const centreOf = (layout: Layout, column: number, row: number): Point => [
+    layout.left + (column + 0.5) * layout.cell,
+    layout.top + (row + 0.5) * layout.cell,
+  ];
+  // The beads' places on the ring in a cell: the first straight up, going clockwise on the screen.
+  const beadsOf = (layout: Layout, column: number, row: number): Point[] => {
+    const [cx, cy] = centreOf(layout, column, row);
+    return Array.from({ length: layout.beads }, (_, k): Point => [
+      cx +
+        layout.ring * Math.cos(-Math.PI / 2 + (k * Math.PI * 2) / layout.beads),
+      cy +
+        layout.ring * Math.sin(-Math.PI / 2 + (k * Math.PI * 2) / layout.beads),
+    ]);
+  };
+  // The smallest of all the turns of a pattern of n beads, and the number of necklaces by the formula (1 / n) sum over the divisors d of n of phi(d) 2^(n / d).
+  const smallestTurn = (bits: number, n: number): number => {
+    let best = bits;
+    for (let k = 1; k < n; k++)
+      best = Math.min(best, ((bits << k) | (bits >> (n - k))) & ((1 << n) - 1));
+    return best;
+  };
+  const necklaceCount = (n: number): number => {
+    let total = 0;
+    for (let d = 1; d <= n; d++) {
+      if (n % d !== 0) continue;
+      let phi = 0;
+      for (let k = 1; k <= d; k++) {
+        let a = k,
+          b = d;
+        while (b) [a, b] = [b, a % b];
+        phi += Number(a === 1);
+      }
+      total += phi * 2 ** (n / d);
+    }
+    return total / n;
+  };
+
+  // Read the picture: which of the three layouts it is (the one where the beads' places hold bead tones), and in each cell whether it holds a necklace and which beads are dark.
+  const readCells = (
+    seed: number,
+  ): {
+    sample: Sampler;
+    layout: Layout;
+    cells: ({ column: number; row: number; bits: number } | null)[];
+  } => {
+    const sample = createSurfaceSampler('binarynecklaces', seed),
+      isBead = (x: number, y: number): boolean =>
+        Math.abs(toneAt(sample, x, y) - p.darkTone) < 1e-6 ||
+        Math.abs(toneAt(sample, x, y) - p.lightTone) < 1e-6,
+      scores = p.beads.map((_, choice) => {
+        const layout = layoutOf(choice);
+        let score = 0;
+        for (let row = 0; row < layout.rows; row++)
+          for (let column = 0; column < layout.columns; column++)
+            score += beadsOf(layout, column, row).filter(([x, y]) =>
+              isBead(x, y),
+            ).length;
+        return score;
+      }),
+      layout = layoutOf(scores.indexOf(Math.max(...scores))),
+      cells: ({ column: number; row: number; bits: number } | null)[] = [];
+    for (let row = 0; row < layout.rows; row++)
+      for (let column = 0; column < layout.columns; column++) {
+        const beads = beadsOf(layout, column, row);
+        if (!beads.every(([x, y]) => isBead(x, y))) {
+          expect(beads.some(([x, y]) => isBead(x, y))).toBe(false);
+          cells.push(null);
+          continue;
+        }
+        cells.push({
+          column,
+          row,
+          bits: beads.reduce(
+            (sum, [x, y], k) =>
+              sum +
+              (Math.abs(toneAt(sample, x, y) - p.darkTone) < 1e-6 ? 1 << k : 0),
+            0,
+          ),
+        });
+      }
+    return { sample, layout, cells };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws every binary necklace of the beads once (as a set of patterns up to turning) and nothing else, each cell turned by its own number of beads (seed %i)',
+    (seed) => {
+      const { sample, layout, cells } = readCells(seed),
+        filled = cells.filter(
+          (cell): cell is { column: number; row: number; bits: number } =>
+            cell !== null,
+        ),
+        n = layout.beads,
+        canonical = filled.map((cell) => smallestTurn(cell.bits, n));
+      // As many cells as there are necklaces by the formula, no two the same up to turning, and between them all of them (every pattern of n beads turned to its smallest).
+      expect(filled.length).toBe(necklaceCount(n));
+      expect(new Set(canonical).size).toBe(filled.length);
+      const all = new Set<number>();
+      for (let bits = 0; bits < 1 << n; bits++) all.add(smallestTurn(bits, n));
+      expect(new Set(canonical)).toEqual(all);
+      // The cells are turned: most are not shown in their smallest turn.
+      expect(
+        filled.filter((cell, i) => cell.bits !== canonical[i]).length,
+      ).toBeGreaterThan(filled.length * 0.4);
+      // An empty cell is paper.
+      cells.forEach((cell, index) => {
+        if (cell !== null) return;
+        const [cx, cy] = centreOf(
+          layout,
+          index % layout.columns,
+          Math.floor(index / layout.columns),
+        );
+        expect(
+          Math.abs(toneAt(sample, cx, cy) - p.paperTone),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+        expect(
+          Math.abs(toneAt(sample, cx, cy - layout.ring) - p.paperTone),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      });
+    },
+  );
+
+  // One seed for each number of beads (found by reading which layout the picture has).
+  const beadSeeds = (): number[] =>
+    p.beads.map((beads) => {
+      for (let seed = 0; seed < 200; seed++)
+        if (readCells(seed).layout.beads === beads) return seed;
+      throw new Error('no seed');
+    });
+
+  it('uses every number of beads, different orders of the necklaces and different empty cells, over 60 seeds', () => {
+    const counts = new Set<number>(),
+      firsts = new Set<number>(),
+      empties = new Set<number>(),
+      turns = new Set<number>();
+    for (let seed = 0; seed < 60; seed++) {
+      const { layout, cells } = readCells(seed * 13 + 4);
+      counts.add(layout.beads);
+      const first = cells.find((cell) => cell !== null) as { bits: number };
+      firsts.add(smallestTurn(first.bits, layout.beads));
+      turns.add(first.bits);
+      cells.forEach((cell, index) => {
+        if (cell === null) empties.add(index);
+      });
+    }
+    expect([...counts].sort()).toEqual([...p.beads]);
+    expect(firsts.size).toBeGreaterThan(8);
+    expect(turns.size).toBeGreaterThan(12);
+    expect(empties.size).toBeGreaterThan(3);
+  });
+
+  it('turns each necklace by any number of beads, equally often (for the necklaces that look different in every turn), over 60 seeds', () => {
+    // A cell's turn: the number of beads the smallest turn of its pattern has to be moved to give the pattern in the cell (bead k of the cell is bead (k + turn) of the smallest one);
+    // it is clear only for a pattern whose turns are all different.
+    const counts: Map<number, number[]> = new Map(
+      p.beads.map((n) => [n, new Array<number>(n).fill(0)]),
+    );
+    for (let seed = 0; seed < 60; seed++) {
+      const { layout, cells } = readCells(seed * 13 + 4),
+        n = layout.beads;
+      for (const cell of cells) {
+        if (cell === null) continue;
+        const smallest = smallestTurn(cell.bits, n),
+          matches = Array.from({ length: n }, (_, t) => t).filter((t) =>
+            Array.from({ length: n }, (_, k) => k).every(
+              (k) =>
+                ((cell.bits >> k) & 1) === ((smallest >> ((k + t) % n)) & 1),
+            ),
+          );
+        if (matches.length === 1) (counts.get(n) as number[])[matches[0]]++;
+      }
+    }
+    for (const [n, histogram] of counts) {
+      const total = histogram.reduce((sum, count) => sum + count, 0);
+      if (total < 60) continue;
+      for (const count of histogram)
+        expect(count).toBeGreaterThan((0.4 * total) / n);
+    }
+    expect(
+      [...counts.values()].some(
+        (histogram) => histogram.reduce((sum, count) => sum + count, 0) > 200,
+      ),
+    ).toBe(true);
+  });
+
+  it('draws the ring, the beads and their outlines with their tones, heights, roughness and sizes', () => {
+    for (const seed of beadSeeds()) {
+      const { sample, layout, cells } = readCells(seed),
+        paperOk = (x: number, y: number): boolean =>
+          Math.abs(toneAt(sample, x, y) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      cells.forEach((cell) => {
+        if (cell === null) return;
+        const beads = beadsOf(layout, cell.column, cell.row),
+          [cx, cy] = centreOf(layout, cell.column, cell.row);
+        beads.forEach(([x, y], k) => {
+          const dark = ((cell.bits >> k) & 1) === 1,
+            ox = (x - cx) / layout.ring,
+            oy = (y - cy) / layout.ring,
+            fill = dark ? p.darkTone : p.lightTone;
+          expect(toneAt(sample, x, y)).toBeCloseTo(fill, 6);
+          expect(out.height / p.relief).toBeCloseTo(
+            dark ? p.darkHeight : p.lightHeight,
+            6,
+          );
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          // The bead's size: the fill just inside the outline, the outline's tone at its radius (and either side within its half width), paper just outside (outwards).
+          expect(
+            toneAt(
+              sample,
+              x + ox * (layout.bead - p.outlineHalf - 0.0004),
+              y + oy * (layout.bead - p.outlineHalf - 0.0004),
+            ),
+          ).toBeCloseTo(fill, 6);
+          expect(
+            toneAt(sample, x + ox * layout.bead, y + oy * layout.bead),
+          ).toBeCloseTo(p.outlineTone, 6);
+          expect(out.height / p.relief).toBeCloseTo(p.outlineHeight, 6);
+          expect(
+            toneAt(
+              sample,
+              x + ox * (layout.bead + p.outlineHalf - 0.0004),
+              y + oy * (layout.bead + p.outlineHalf - 0.0004),
+            ),
+          ).toBeCloseTo(p.outlineTone, 6);
+          expect(
+            paperOk(
+              x + ox * (layout.bead + p.outlineHalf + 0.0004),
+              y + oy * (layout.bead + p.outlineHalf + 0.0004),
+            ),
+          ).toBe(true);
+        });
+        // The ring between two beads (half way round): its tone, height and thickness radially.
+        for (let k = 0; k < layout.beads; k++) {
+          const angle = -Math.PI / 2 + ((k + 0.5) * Math.PI * 2) / layout.beads,
+            at = (reach: number): Point => [
+              cx + reach * Math.cos(angle),
+              cy + reach * Math.sin(angle),
+            ];
+          expect(toneAt(sample, ...at(layout.ring))).toBeCloseTo(p.ringTone, 6);
+          expect(out.height / p.relief).toBeCloseTo(p.ringHeight, 6);
+          expect(
+            toneAt(sample, ...at(layout.ring + p.ringHalf - 0.0004)),
+          ).toBeCloseTo(p.ringTone, 6);
+          expect(
+            toneAt(sample, ...at(layout.ring - p.ringHalf + 0.0004)),
+          ).toBeCloseTo(p.ringTone, 6);
+          expect(paperOk(...at(layout.ring + p.ringHalf + 0.0004))).toBe(true);
+          expect(paperOk(...at(layout.ring - p.ringHalf - 0.0004))).toBe(true);
+        }
+      });
+    }
+  });
+
+  it('softens the edge of a bead outline and of the ring over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of beadSeeds()) {
+      const { sample, layout, cells } = readCells(seed),
+        cell = cells.find((candidate) => candidate !== null) as {
+          column: number;
+          row: number;
+          bits: number;
+        },
+        beads = beadsOf(layout, cell.column, cell.row),
+        [cx, cy] = centreOf(layout, cell.column, cell.row),
+        [x, y] = beads[0],
+        ox = (x - cx) / layout.ring,
+        oy = (y - cy) / layout.ring,
+        fill = (cell.bits & 1) === 1 ? p.darkTone : p.lightTone;
+      // The outline's outer edge over the paper and inner edge over the bead.
+      close(
+        toneAt(
+          sample,
+          x + ox * (layout.bead + p.outlineHalf - quarter),
+          y + oy * (layout.bead + p.outlineHalf - quarter),
+        ),
+        mix(p.paperTone, p.outlineTone, 0.75),
+      );
+      close(
+        toneAt(
+          sample,
+          x + ox * (layout.bead + p.outlineHalf + quarter),
+          y + oy * (layout.bead + p.outlineHalf + quarter),
+        ),
+        mix(p.paperTone, p.outlineTone, 0.25),
+      );
+      close(
+        toneAt(
+          sample,
+          x + ox * (layout.bead - p.outlineHalf + quarter),
+          y + oy * (layout.bead - p.outlineHalf + quarter),
+        ),
+        mix(fill, p.outlineTone, 0.75),
+      );
+      close(
+        toneAt(
+          sample,
+          x + ox * (layout.bead - p.outlineHalf - quarter),
+          y + oy * (layout.bead - p.outlineHalf - quarter),
+        ),
+        mix(fill, p.outlineTone, 0.25),
+      );
+      // The ring's two edges over the paper, half way between the first two beads.
+      const angle = -Math.PI / 2 + Math.PI / layout.beads,
+        at = (reach: number): Point => [
+          cx + reach * Math.cos(angle),
+          cy + reach * Math.sin(angle),
+        ];
+      close(
+        toneAt(sample, ...at(layout.ring + p.ringHalf - quarter)),
+        mix(p.paperTone, p.ringTone, 0.75),
+      );
+      close(
+        toneAt(sample, ...at(layout.ring + p.ringHalf + quarter)),
+        mix(p.paperTone, p.ringTone, 0.25),
+      );
+      close(
+        toneAt(sample, ...at(layout.ring - p.ringHalf + quarter)),
+        mix(p.paperTone, p.ringTone, 0.75),
+      );
+      close(
+        toneAt(sample, ...at(layout.ring - p.ringHalf - quarter)),
+        mix(p.paperTone, p.ringTone, 0.25),
+      );
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('binarynecklaces', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('binarynecklaces', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.01),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('binarynecklaces', 0),
+      b = createSurfaceSampler('binarynecklaces', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3501],
+        [0.2201, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

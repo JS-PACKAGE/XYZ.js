@@ -46348,6 +46348,109 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'binarynecklaces': {
+        const p = proceduralMaterialPresets.binarynecklaces,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x59001),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          choice = Math.floor(hash(82, 1, seed ^ 0x59002) * p.beads.length),
+          count = p.beads[choice],
+          columns = p.columns[choice],
+          rows = p.rows[choice],
+          // (The columns always limit the size: the grids are wider than tall.)
+          cell = p.extent / columns,
+          left = 0.5 - (columns * cell) / 2,
+          top = 0.5 - (rows * cell) / 2,
+          ring = cell * p.ringShare,
+          bead = ring * Math.sin(Math.PI / count) * p.beadShare,
+          // The necklaces: the bit patterns of count beads that are the smallest of their turns.
+          necklaces: number[] = [],
+          holds = new Int16Array(columns * rows).fill(-1),
+          turns = new Uint8Array(columns * rows);
+        for (let bits = 0; bits < 1 << count; bits++) {
+          let smallest = true;
+          for (let k = 1; k < count && smallest; k++) {
+            const turned =
+              ((bits << k) | (bits >> (count - k))) & ((1 << count) - 1);
+            if (turned < bits) smallest = false;
+          }
+          if (smallest) necklaces.push(bits);
+        }
+        // The cells are given out to the necklaces in the order of a number from the seed, each turned by a number of beads from the seed.
+        Array.from({ length: columns * rows }, (_, index) => index)
+          .sort(
+            (a, b) =>
+              hash(82, 2, seed ^ (0x59003 + a * 131)) -
+              hash(82, 2, seed ^ (0x59003 + b * 131)),
+          )
+          .slice(0, necklaces.length)
+          .forEach((cellIndex, way) => {
+            holds[cellIndex] = way;
+            turns[cellIndex] = Math.floor(
+              hash(82, 3, seed ^ (0x59004 + way * 131)) * count,
+            );
+          });
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          const column = Math.floor((fu - left) / cell),
+            row = Math.floor((fv - top) / cell),
+            index = row * columns + column,
+            inside = column >= 0 && column < columns && row >= 0 && row < rows,
+            way = inside ? holds[index] : -1,
+            x = fu - left - (column + 0.5) * cell,
+            y = fv - top - (row + 0.5) * cell,
+            away = Math.hypot(x, y);
+          if (way >= 0 && away < ring + bead + 0.01) {
+            // The ring through the beads' middles.
+            paint(
+              cover(p.ringHalf - Math.abs(away - ring)),
+              p.ringTone,
+              p.ringHeight,
+            );
+            // The nearest bead: the beads are at equal angles round the ring, the first straight up; this necklace turned by the cell's number of beads.
+            const angle = Math.atan2(y, x) + Math.PI / 2,
+              step = TAU / count,
+              nearest = Math.round(angle / step),
+              a = nearest * step - Math.PI / 2,
+              distance = Math.hypot(
+                x - ring * Math.cos(a),
+                y - ring * Math.sin(a),
+              ),
+              position = ((nearest % count) + count) % count,
+              dark =
+                (necklaces[way] >> ((position + turns[index]) % count)) & 1;
+            paint(
+              cover(bead - distance),
+              dark ? p.darkTone : p.lightTone,
+              dark ? p.darkHeight : p.lightHeight,
+            );
+            paint(
+              cover(p.outlineHalf - Math.abs(distance - bead)),
+              p.outlineTone,
+              p.outlineHeight,
+            );
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -73877,6 +73980,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'binarynecklaces' ||
     kind === 'catalantriangulations' ||
     kind === 'eisensteinprimes' ||
     kind === 'keplerorbit' ||
