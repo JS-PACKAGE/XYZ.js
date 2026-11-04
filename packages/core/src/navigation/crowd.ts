@@ -81,6 +81,10 @@ export class CrowdSolver {
   readonly neighborDistance: number;
   readonly timeHorizon: number;
   private readonly agents = new Map<number, Agent>();
+  private readonly controllers = new Set<
+    CharacterController3D | CharacterController2D
+  >();
+  private world3D = false;
   private readonly obstacles = new Map<number, Disc>();
   private readonly ordered: Agent[] = [];
   /** Neighbor cells by column then row: numeric keys, where `${x},${z}` strings allocated. */
@@ -183,15 +187,11 @@ export class CrowdSolver {
       throw new Error('Duplicate crowd ID.');
     if (this.agents.size >= this.maxAgents)
       throw new RangeError('Crowd agent budget exceeded.');
-    for (const agent of this.agents.values()) {
-      if (
-        (agent.controller3D === controller3D && controller3D) ||
-        (agent.controller2D === controller2D && controller2D)
-      )
-        throw new Error('A controller may be registered only once.');
-      if (!!agent.controller3D !== !!controller3D)
-        throw new Error('Use separate solvers for XY and XZ worlds.');
-    }
+    const controller = controller3D ?? controller2D!;
+    if (this.controllers.has(controller))
+      throw new Error('A controller may be registered only once.');
+    if (this.agents.size && this.world3D !== !!controller3D)
+      throw new Error('Use separate solvers for XY and XZ worlds.');
     const agent: Agent = {
       id: options.id,
       radius: options.radius,
@@ -212,11 +212,20 @@ export class CrowdSolver {
           );
         agent.state = 'removed';
         agent.velocity.set(0, 0, 0);
-        this.agents.delete(agent.id);
+        this.removeAgent(agent.id);
       },
     };
     this.agents.set(agent.id, agent);
+    this.controllers.add(controller);
+    this.world3D = !!controller3D;
     return agent;
+  }
+
+  private removeAgent(id: number): void {
+    const agent = this.agents.get(id);
+    if (!agent) return;
+    this.controllers.delete(agent.controller3D ?? agent.controller2D!);
+    this.agents.delete(id);
   }
 
   addObstacle(
@@ -280,7 +289,7 @@ export class CrowdSolver {
         const controller = agent.controller3D ?? agent.controller2D!;
         if (controller.destroyed || controller.object.destroyed) {
           agent.state = 'removed';
-          this.agents.delete(agent.id);
+          this.removeAgent(agent.id);
           continue;
         }
         const position = controller.object.position;
@@ -576,6 +585,7 @@ export class CrowdSolver {
       agent.velocity.set(0, 0, 0);
     }
     this.agents.clear();
+    this.controllers.clear();
     this.obstacles.clear();
     this.grid.clear();
     this.buckets.length = 0;
