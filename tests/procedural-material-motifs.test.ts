@@ -61080,3 +61080,328 @@ describe('beattypartition: the two Beatty sequences that share out the whole num
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('cycliccellular: four panels of a cyclic cellular automaton on a torus, the steps one after the other', () => {
+  const p = proceduralMaterialPresets.cycliccellular,
+    out = empty(),
+    panel = (p.extent - p.panelGap) / 2,
+    cell = panel / p.side,
+    left = 0.5 - p.extent / 2,
+    half = cell / 2 - p.gapHalf,
+    toneAt = (sample: Sampler, u: number, v: number): number => {
+      sample(u, v, out);
+      return out.color;
+    };
+  type Rule = { states: number; threshold: number };
+  const centre = (
+    panelIndex: number,
+    column: number,
+    row: number,
+  ): [number, number] => [
+    left + (panelIndex % 2) * (panel + p.panelGap) + (column + 0.5) * cell,
+    left +
+      Math.floor(panelIndex / 2) * (panel + p.panelGap) +
+      (row + 0.5) * cell,
+  ];
+  const ramp = (states: number, state: number): number =>
+    p.lowTone + ((p.highTone - p.lowTone) * state) / (states - 1);
+  // One step of the rule on the torus: the neighbours are counted by their places in the grid taken modulo the side.
+  const step = (grid: number[][], rule: Rule): number[][] =>
+    grid.map((line, row) =>
+      line.map((own, column) => {
+        const target = (own + 1) % rule.states;
+        let count = 0;
+        for (const dy of [-1, 0, 1])
+          for (const dx of [-1, 0, 1])
+            if (
+              (dx !== 0 || dy !== 0) &&
+              grid[(row + dy + p.side) % p.side][
+                (column + dx + p.side) % p.side
+              ] === target
+            )
+              count++;
+        return count >= rule.threshold ? target : own;
+      }),
+    );
+  // Read the four panels as tones, then the rules (of the presets) that give every tone and every step from the one before.
+  const readPanels = (
+    seed: number,
+  ): { sample: Sampler; tones: number[][][]; rules: Rule[] } => {
+    const sample = createSurfaceSampler('cycliccellular', seed),
+      tones = [0, 1, 2, 3].map((index) =>
+        Array.from({ length: p.side }, (_, row) =>
+          Array.from({ length: p.side }, (_, column) =>
+            toneAt(sample, ...centre(index, column, row)),
+          ),
+        ),
+      ),
+      rules = p.rules.filter((rule) => {
+        const states = tones.map((grid) =>
+          grid.map((line) =>
+            line.map(
+              (tone) =>
+                Array.from({ length: rule.states }, (_, s) => s).find(
+                  (s) => Math.abs(ramp(rule.states, s) - tone) < 1e-6,
+                ) ?? -1,
+            ),
+          ),
+        );
+        return (
+          states.every((grid) =>
+            grid.every((line) => line.every((state) => state >= 0)),
+          ) &&
+          [0, 1, 2].every(
+            (k) =>
+              JSON.stringify(step(states[k], rule)) ===
+              JSON.stringify(states[k + 1]),
+          )
+        );
+      });
+    return { sample, tones, rules: [...rules] };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows four steps of the rule one after the other, each the step of the one before on the torus (seed %i)',
+    (seed) => {
+      const { tones, rules } = readPanels(seed);
+      // Exactly one rule of the presets fits (tones of its states, and each panel its step from the one before).
+      expect(rules.length).toBe(1);
+      // The fields are not all one state and the steps change something.
+      const rule = rules[0],
+        all = tones.map((grid) => grid.flat());
+      for (const flat of all)
+        expect(
+          new Set(flat.map((tone) => Math.round(tone * 1e6))).size,
+        ).toBeGreaterThanOrEqual(Math.min(rule.states, 4));
+      expect(
+        all.filter(
+          (flat, k) =>
+            k > 0 &&
+            flat.some((tone, i) => Math.abs(tone - all[k - 1][i]) > 1e-6),
+        ).length,
+      ).toBe(3);
+      // The first panel has been run some steps from random: neighbouring cells agree far more often than the 1 / states of an even random field.
+      let agree = 0;
+      for (let row = 0; row < p.side; row++)
+        for (let column = 0; column < p.side; column++)
+          agree +=
+            Number(
+              Math.abs(
+                tones[0][row][column] - tones[0][row][(column + 1) % p.side],
+              ) < 1e-6,
+            ) +
+            Number(
+              Math.abs(
+                tones[0][row][column] - tones[0][(row + 1) % p.side][column],
+              ) < 1e-6,
+            );
+      expect(agree / (2 * p.side * p.side)).toBeGreaterThan(1.8 / rule.states);
+    },
+  );
+
+  it('uses every rule, over 200 seeds, and no seed settles into a picture that no longer changes', () => {
+    const used = new Set<string>();
+    for (let seed = 0; seed < 200; seed++) {
+      const { tones, rules } = readPanels(seed * 7 + 1);
+      used.add(JSON.stringify(rules[0]));
+      // No seed settles into a picture that no longer changes.
+      for (let k = 1; k < 4; k++)
+        expect(
+          tones[k].some((line, row) =>
+            line.some(
+              (tone, column) =>
+                Math.abs(tone - tones[k - 1][row][column]) > 1e-6,
+            ),
+          ),
+        ).toBe(true);
+    }
+    expect(used.size).toBe(p.rules.length);
+  });
+
+  it('draws each state with its tone, height and roughness, as a square of its size, and nothing outside the panels', () => {
+    for (const seed of [1, 3, 5]) {
+      const { sample, tones, rules } = readPanels(seed),
+        rule = rules[0],
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      for (const [state, level] of [
+        [0, 0],
+        [rule.states - 1, 1],
+      ]) {
+        const tone = ramp(rule.states, state);
+        let found: [number, number, number] | null = null;
+        for (let index = 0; index < 4 && !found; index++)
+          for (let row = 0; row < p.side && !found; row++)
+            for (let column = 0; column < p.side && !found; column++)
+              if (Math.abs(tones[index][row][column] - tone) < 1e-6)
+                found = [index, column, row];
+        const [index, column, row] = found as [number, number, number],
+          [cx, cy] = centre(index, column, row);
+        expect(toneAt(sample, cx, cy)).toBeCloseTo(tone, 6);
+        expect(out.height / p.relief).toBeCloseTo(
+          p.lowHeight + (p.highHeight - p.lowHeight) * level,
+          6,
+        );
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          expect(
+            toneAt(
+              sample,
+              cx + dx * (half - 0.0004),
+              cy + dy * (half - 0.0004),
+            ),
+          ).toBeCloseTo(tone, 6);
+          expect(
+            toneAt(
+              sample,
+              cx + (half - 0.0004) * (dx + dy),
+              cy + (half - 0.0004) * (dx + dy),
+            ),
+          ).toBeCloseTo(tone, 6);
+          expect(
+            paperOk(cx + dx * (half + 0.0004), cy + dy * (half + 0.0004)),
+          ).toBe(true);
+          expect(out.height / p.relief).toBeCloseTo(p.paperHeight, 6);
+          expect(out.roughness).toBeCloseTo(p.paperRoughness, 6);
+        }
+      }
+      // The panels' corners (the first and last cell of each), the gap between the panels and the margin around them.
+      const near = p.gapHalf + 0.0006;
+      for (let index = 0; index < 4; index++) {
+        const x0 = left + (index % 2) * (panel + p.panelGap),
+          y0 = left + Math.floor(index / 2) * (panel + p.panelGap);
+        expect(toneAt(sample, x0 + near, y0 + near)).toBeCloseTo(
+          tones[index][0][0],
+          6,
+        );
+        expect(
+          toneAt(sample, x0 + panel - near, y0 + panel - near),
+        ).toBeCloseTo(tones[index][p.side - 1][p.side - 1], 6);
+        expect(toneAt(sample, x0 + panel - near, y0 + near)).toBeCloseTo(
+          tones[index][0][p.side - 1],
+          6,
+        );
+        expect(toneAt(sample, x0 + near, y0 + panel - near)).toBeCloseTo(
+          tones[index][p.side - 1][0],
+          6,
+        );
+      }
+      for (const [u, v] of [
+        [left + panel + p.panelGap / 2, left + panel / 2],
+        [left + panel / 2, left + panel + p.panelGap / 2],
+        [left - 0.004, 0.5],
+        [left + p.extent + 0.004, 0.5],
+        [0.5, left - 0.004],
+        [0.5, left + p.extent + 0.004],
+      ])
+        expect(paperOk(u, v)).toBe(true);
+    }
+  });
+
+  it('softens the edge of a cell over edgeSoft', () => {
+    const { sample, tones } = readPanels(3),
+      smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      [cx, cy] = centre(2, 7, 11),
+      tone = tones[2][11][7],
+      mixed = (amount: number): number =>
+        p.paperTone + (tone - p.paperTone) * smoothstep(amount);
+    for (const [dx, dy] of [
+      [1, 0],
+      [0, 1],
+      [-1, 0],
+      [0, -1],
+    ]) {
+      // (Between cells of a panel the neighbour's softened edge also reaches over the gap a little, which the tolerance covers.)
+      expect(
+        Math.abs(
+          toneAt(
+            sample,
+            cx + dx * (half - quarter),
+            cy + dy * (half - quarter),
+          ) - mixed(0.75),
+        ),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(
+          toneAt(
+            sample,
+            cx + dx * (half + quarter),
+            cy + dy * (half + quarter),
+          ) - mixed(0.25),
+        ),
+      ).toBeLessThan(0.03);
+    }
+  });
+
+  it('fades the grain of the paper out over the edge of a cell, as much as the cell covers', () => {
+    const { sample, tones } = readPanels(3),
+      smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      amount = smoothstep(0.25),
+      residuals: number[] = [];
+    for (let column = 0; column < p.side; column++)
+      for (const t of [-0.8, -0.3, 0.3, 0.8]) {
+        const [cx, cy] = centre(0, column, 6),
+          tone = toneAt(sample, cx + t * half, cy - half - 0.25 * p.edgeSoft);
+        residuals.push(
+          tone - (p.paperTone + (tones[0][6][column] - p.paperTone) * amount),
+        );
+      }
+    const largest = Math.max(...residuals.map(Math.abs));
+    expect(largest).toBeGreaterThan(0.003);
+    expect(largest).toBeLessThanOrEqual(
+      0.5 * p.grainTone * (1 - amount) + 1e-9,
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('cycliccellular', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('cycliccellular', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0013 + i * 0.0021, 0.01),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('cycliccellular', 0),
+      b = createSurfaceSampler('cycliccellular', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3501],
+        [0.2201, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

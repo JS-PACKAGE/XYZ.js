@@ -46743,6 +46743,91 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'cycliccellular': {
+        const p = proceduralMaterialPresets.cycliccellular,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x5f001),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          rule =
+            p.rules[Math.floor(hash(88, 1, seed ^ 0x5f002) * p.rules.length)],
+          panel = (p.extent - p.panelGap) / 2,
+          cell = panel / p.side,
+          left = 0.5 - p.extent / 2,
+          cells = p.side * p.side,
+          // The states at the steps burnIn to burnIn + 3, one after the other.
+          panels: Uint8Array[] = [];
+        let states = Uint8Array.from({ length: cells }, (_, index) =>
+          Math.floor(hash(88, 2, seed ^ (0x5f003 + index * 131)) * rule.states),
+        );
+        for (let step = 0; step < p.burnIn + 4; step++) {
+          if (step >= p.burnIn) panels.push(states);
+          const next = new Uint8Array(cells);
+          for (let row = 0; row < p.side; row++)
+            for (let column = 0; column < p.side; column++) {
+              const own = states[row * p.side + column],
+                target = (own + 1) % rule.states;
+              // The eight neighbours (the cell itself, counted too, is never in the next state, so it adds nothing).
+              let count = 0;
+              for (let dy = -1; dy <= 1; dy++)
+                for (let dx = -1; dx <= 1; dx++)
+                  count += Number(
+                    states[
+                      ((row + dy + p.side) % p.side) * p.side +
+                        ((column + dx + p.side) % p.side)
+                    ] === target,
+                  );
+              next[row * p.side + column] =
+                count >= rule.threshold ? target : own;
+            }
+          states = next;
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            pitch = panel + p.panelGap,
+            panelColumn = Math.floor((fu - left) / pitch),
+            panelRow = Math.floor((fv - left) / pitch);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          if (
+            panelColumn >= 0 &&
+            panelColumn < 2 &&
+            panelRow >= 0 &&
+            panelRow < 2
+          ) {
+            const column = Math.floor((fu - left - panelColumn * pitch) / cell),
+              row = Math.floor((fv - left - panelRow * pitch) / cell);
+            if (column >= 0 && column < p.side && row >= 0 && row < p.side) {
+              const x = fu - left - panelColumn * pitch - (column + 0.5) * cell,
+                y = fv - left - panelRow * pitch - (row + 0.5) * cell,
+                amount = cover(
+                  cell / 2 - p.gapHalf - Math.max(Math.abs(x), Math.abs(y)),
+                ),
+                level =
+                  panels[panelRow * 2 + panelColumn][row * p.side + column] /
+                  (rule.states - 1);
+              shade +=
+                (p.lowTone + (p.highTone - p.lowTone) * level - shade) * amount;
+              elevation +=
+                (p.lowHeight +
+                  (p.highHeight - p.lowHeight) * level -
+                  elevation) *
+                amount;
+              rough += (p.inkRoughness - rough) * amount;
+              mask = amount;
+            }
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -74272,6 +74357,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'cycliccellular' ||
     kind === 'beattypartition' ||
     kind === 'walshmatrix' ||
     kind === 'paperfoldingruler' ||

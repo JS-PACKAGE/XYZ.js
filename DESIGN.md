@@ -2345,6 +2345,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`cycliccellular`（循環細胞自動機）使目前目錄1194→1195種，含plain的gallery為1196項。20×20的環面（每條邊與對邊相接）上的循環細胞自動機：每格有0到states−1的狀態，狀態為s的格子在八個鄰格中至少有threshold個已經是s+1（超過最後一個狀態則回到0）時前進到s+1，否則不變；初始狀態由seed隨機，先跑burnIn步，四個面板（兩列兩欄）依序顯示第burnIn、burnIn+1、burnIn+2、burnIn+3步；狀態由深到淺塗色調與高度。規則由seed從三組（6狀態門檻2、8狀態門檻1、10狀態門檻1）中選；會很快凍結成不再變化的規則（例如8狀態門檻3、8狀態門檻2）沒有採用。這是作者設計的示意；測試端從畫面讀出四個面板每格的色調，並用獨立的實作（以環面取模計算八個鄰格）驗證：恰好一組規則吻合（各色調屬於該規則的階，且第二、三、四面板各為前一面板的一步），每個面板至少出現多種狀態、三次相鄰的面板都不相同，第一個面板的相鄰格相同的比例明顯高於均勻隨機，200個seed中三組規則都被選到而且沒有任何seed凍結。初始隨機狀態與burnIn的步數本身無法由畫面驗證。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
