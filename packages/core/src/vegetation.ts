@@ -327,31 +327,38 @@ export function scatterVegetation(
           castShadow: options.castShadow,
           receiveShadow: options.receiveShadow,
         });
-        for (let i = 0; i < count; i++) {
-          const offset = (start + i) * 5,
-            p = tile.placements;
-          const yaw = p[offset + 3]!,
-            scale = p[offset + 4]!,
-            c = Math.cos(yaw) * scale,
-            s = Math.sin(yaw) * scale;
-          const e = matrix.elements;
-          e[0] = c;
-          e[1] = 0;
-          e[2] = -s;
-          e[3] = 0;
-          e[4] = 0;
-          e[5] = scale;
-          e[6] = 0;
-          e[7] = 0;
-          e[8] = s;
-          e[9] = 0;
-          e[10] = c;
-          e[11] = 0;
-          e[12] = p[offset]!;
-          e[13] = p[offset + 1]!;
-          e[14] = p[offset + 2]!;
-          e[15] = 1;
-          mesh.setMatrixAt(i, matrix);
+        const first = draws[0];
+        if (first) {
+          // LODs share placements; copy the already validated Float32 transforms.
+          mesh.matrices.set(first.matrices);
+          mesh.version = first.version;
+        } else {
+          for (let i = 0; i < count; i++) {
+            const offset = (start + i) * 5,
+              p = tile.placements;
+            const yaw = p[offset + 3]!,
+              scale = p[offset + 4]!,
+              c = Math.cos(yaw) * scale,
+              s = Math.sin(yaw) * scale;
+            const e = matrix.elements;
+            e[0] = c;
+            e[1] = 0;
+            e[2] = -s;
+            e[3] = 0;
+            e[4] = 0;
+            e[5] = scale;
+            e[6] = 0;
+            e[7] = 0;
+            e[8] = s;
+            e[9] = 0;
+            e[10] = c;
+            e[11] = 0;
+            e[12] = p[offset]!;
+            e[13] = p[offset + 1]!;
+            e[14] = p[offset + 2]!;
+            e[15] = 1;
+            mesh.setMatrixAt(i, matrix);
+          }
         }
         draws.push(mesh);
         meshes.push(mesh);
