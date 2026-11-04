@@ -154,6 +154,7 @@ export class World {
 
   removeSystem(system: System): boolean {
     this.assertAlive();
+    if (!this.systemCounts.has(system)) return false;
     const entry = this.systems.find(
       (candidate) => candidate.active && candidate.system === system,
     );
