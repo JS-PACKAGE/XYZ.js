@@ -1185,6 +1185,7 @@ try {
     'diffractioncatastrophes',
     'standardmap',
     'lyapunovfractal',
+    'zetalandscape',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

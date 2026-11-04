@@ -1148,6 +1148,7 @@ const kinds: ProceduralMaterialKind[] = [
   'diffractioncatastrophes',
   'standardmap',
   'lyapunovfractal',
+  'zetalandscape',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -194526,6 +194527,446 @@ describe('Lyapunov fractal as the Markus-Lyapunov exponent of the driven logisti
     expect(blue / (512 * 512)).toBeLessThan(39.1);
     expect(maxTilt).toBeGreaterThan(0.0515);
     expect(maxTilt).toBeLessThan(0.0519);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Zeta landscape as the phase and modulus bands of the Riemann zeta function', () => {
+  const p = proceduralMaterialPresets.zetalandscape;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const plot = 0.5 - p.margin;
+  /** The tone (0 to 1) of the pixel at (u, v) read back from the sampler: the height is cellHeight times it. */
+  const inkAt = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    u: number,
+    v: number,
+  ): number => {
+    sample(u, v, out);
+    return out.height / p.relief / p.cellHeight;
+  };
+  /** The pixel (u, v) at the point s = sigma + i t of the plane in the window of the variant. */
+  const pixelOf = (
+    variant: number,
+    sigma: number,
+    t: number,
+  ): [number, number] => [
+    0.5 + ((sigma - p.centreSigmas[variant]) * plot) / p.halfWidths[variant],
+    0.5 - ((t - p.centreTs[variant]) * plot) / p.halfWidths[variant],
+  ];
+  /** The tone that the preset formula gives for the value zeta = re + i im (inside the plot). */
+  const predictInk = (re: number, im: number): number => {
+    const modulus = Math.hypot(re, im),
+      phaseBand = 0.5 + 0.5 * Math.cos(p.phaseBands * Math.atan2(im, re)),
+      modulusBand =
+        0.5 +
+        0.5 *
+          Math.cos(
+            (2 * Math.PI * Math.log(Math.max(modulus, 1e-300))) /
+              Math.log(p.modulusRatio),
+          ),
+      alive = Math.min(1, Math.max(0, modulus / p.zeroRadius));
+    return Math.min(
+      1,
+      Math.max(
+        0,
+        alive *
+          alive *
+          (3 - 2 * alive) *
+          (p.phaseWeight * phaseBand + (1 - p.phaseWeight) * modulusBand),
+      ),
+    );
+  };
+  const primes: number[] = [];
+  for (let n = 2; n < 1000; n++)
+    if (primes.every((q) => q * q > n || n % q !== 0)) primes.push(n);
+  /** zeta(s) as the Euler product over the primes below 1000, for sigma of 2 or more (the tail is under 2e-4). */
+  const eulerProduct = (sigma: number, t: number): [number, number] => {
+    let re = 1,
+      im = 0;
+    for (const q of primes) {
+      const magnitude = q ** -sigma,
+        factorRe = 1 - magnitude * Math.cos(t * Math.log(q)),
+        factorIm = magnitude * Math.sin(t * Math.log(q)),
+        norm = factorRe * factorRe + factorIm * factorIm;
+      [re, im] = [
+        (re * factorRe + im * factorIm) / norm,
+        (im * factorRe - re * factorIm) / norm,
+      ];
+    }
+    return [re, im];
+  };
+  /** zeta(s) as eta(s) / (1 - 2^(1 - s)), the alternating series eta summed by the Euler transform (the sum over k of 2^-(k + 1) times the k-th finite difference, 60 terms), for 0 < sigma < 1. */
+  const etaZeta = (sigma: number, t: number): [number, number] => {
+    const terms = Array.from({ length: 61 }, (_, j): [number, number] => [
+      (j + 1) ** -sigma * Math.cos(t * Math.log(j + 1)),
+      -((j + 1) ** -sigma) * Math.sin(t * Math.log(j + 1)),
+    ]);
+    let re = 0,
+      im = 0;
+    for (let k = 0; k <= 60; k++) {
+      let sumRe = 0,
+        sumIm = 0,
+        binomial = 1;
+      for (let j = 0; j <= k; j++) {
+        sumRe += (j % 2 ? -1 : 1) * binomial * terms[j][0];
+        sumIm += (j % 2 ? -1 : 1) * binomial * terms[j][1];
+        binomial = (binomial * (k - j)) / (j + 1);
+      }
+      re += sumRe / 2 ** (k + 1);
+      im += sumIm / 2 ** (k + 1);
+    }
+    const magnitude = 2 ** (1 - sigma),
+      denominatorRe = 1 - magnitude * Math.cos(t * Math.log(2)),
+      denominatorIm = magnitude * Math.sin(t * Math.log(2)),
+      norm = denominatorRe * denominatorRe + denominatorIm * denominatorIm;
+    return [
+      (re * denominatorRe + im * denominatorIm) / norm,
+      (im * denominatorRe - re * denominatorIm) / norm,
+    ];
+  };
+  const multiply = (
+    a: [number, number],
+    b: [number, number],
+  ): [number, number] => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
+  /** Gamma(z) by the Lanczos approximation (g = 7, 9 coefficients), for the real part of z of 0.5 or more. */
+  const gamma = (re: number, im: number): [number, number] => {
+    const coefficients = [
+      0.9999999999998099, 676.5203681218851, -1259.1392167224028,
+      771.32342877765313, -176.61502916214059, 12.507343278686905,
+      -0.13857109526572012, 0.000009984369578019572, 1.5056327351493116e-7,
+    ];
+    let sumRe = coefficients[0],
+      sumIm = 0;
+    for (let i = 1; i < 9; i++) {
+      const dr = re - 1 + i,
+        norm = dr * dr + im * im;
+      sumRe += (coefficients[i] * dr) / norm;
+      sumIm -= (coefficients[i] * im) / norm;
+    }
+    const tr = re - 1 + 7.5,
+      logR = Math.log(Math.hypot(tr, im)),
+      logA = Math.atan2(im, tr),
+      exponentRe = (re - 0.5) * logR - im * logA - tr,
+      exponentIm = (re - 0.5) * logA + im * logR - im,
+      scale = Math.sqrt(2 * Math.PI) * Math.exp(exponentRe);
+    return multiply(
+      [scale * Math.cos(exponentIm), scale * Math.sin(exponentIm)],
+      [sumRe, sumIm],
+    );
+  };
+  /** zeta(s) for sigma of -1.5 or less by the functional equation zeta(s) = 2^s pi^(s - 1) sin(pi s / 2) Gamma(1 - s) zeta(1 - s), zeta(1 - s) by the Euler product. */
+  const reflected = (sigma: number, t: number): [number, number] => {
+    const mirror = eulerProduct(1 - sigma, -t),
+      factorModulus = Math.exp(
+        sigma * Math.log(2) + (sigma - 1) * Math.log(Math.PI),
+      ),
+      factorAngle = t * Math.log(2) + t * Math.log(Math.PI),
+      sine: [number, number] = [
+        Math.sin((Math.PI * sigma) / 2) * Math.cosh((Math.PI * t) / 2),
+        Math.cos((Math.PI * sigma) / 2) * Math.sinh((Math.PI * t) / 2),
+      ];
+    return multiply(
+      multiply(
+        multiply(
+          [
+            factorModulus * Math.cos(factorAngle),
+            factorModulus * Math.sin(factorAngle),
+          ],
+          sine,
+        ),
+        gamma(1 - sigma, -t),
+      ),
+      mirror,
+    );
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('zetalandscape', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('zetalandscape', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0251);
+      expect(low).toBeLessThan(0.0262);
+      expect(high).toBeGreaterThan(0.871);
+      expect(high).toBeLessThan(0.876);
+      expect(dark / 65536).toBeGreaterThan(0.537);
+      expect(dark / 65536).toBeLessThan(0.591);
+      expect(mean / 65536).toBeGreaterThan(0.486);
+      expect(mean / 65536).toBeLessThan(0.537);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.79);
+      expect(heightHigh).toBeLessThan(0.81);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (the windows centred on s = -0.5, 0.5 + 14.1347 i, 23 i, 1 + 12 i, 31 i and -1 + 9 i) is 1, 12, 14, 5, 0 and 7; the table was found with a probe by which variant's window the
+  // values of zeta match at twelve points, and is written here, so it is not an independent check of the seed's choice.
+  const seeds = [1, 12, 14, 5, 0, 7];
+  const spread = (
+    variant: number,
+    k: number,
+    low: number,
+    high: number,
+  ): [number, number] => [
+    low + (high - low) * ((k * 0.6180339887 + 0.1) % 1),
+    p.centreTs[variant] +
+      p.halfWidths[variant] * (1.72 * ((k * 0.7548776662 + 0.3) % 1) - 0.86),
+  ];
+  it('agrees with the Euler product where sigma is 2 or more', () => {
+    // The sampler sums n^-s for n below 24 and an Euler-Maclaurin tail; the test multiplies the Euler factors 1 / (1 - p^-s) of the primes below 1000 (the tail is under 2e-4 for sigma of 2 or more), which is another sum entirely.
+    // On 400 points of each variant with sigma from 2 to the edge of the plot the tones agree to within 0.01 at all of them (0.0002 at the worst in the probe on 1500 points); at most 2 are allowed to differ.
+    seeds.forEach((seed, variant) => {
+      const sample = createSurfaceSampler('zetalandscape', seed),
+        out = empty(),
+        high = p.centreSigmas[variant] + p.halfWidths[variant] * 0.86;
+      let different = 0;
+      for (let k = 0; k < 400; k++) {
+        const [sigma, t] = spread(variant, k, 2, high),
+          [u, v] = pixelOf(variant, sigma, t);
+        different += Number(
+          Math.abs(
+            inkAt(sample, out, u, v) - predictInk(...eulerProduct(sigma, t)),
+          ) > 0.01,
+        );
+      }
+      expect(different).toBeLessThanOrEqual(2);
+    });
+  });
+  it('agrees with the alternating series of eta in the critical strip', () => {
+    // For sigma between 0.15 and 0.85 and t up to 16, zeta(s) = eta(s) / (1 - 2^(1 - s)) with eta summed by the Euler transform (another series, valid in the strip); on 300 points in the windows that contain such points (five of the six)
+    // the tones agree to within 0.01 at all of them (0.0000 in the probe), at most 2 are allowed to differ.
+    seeds.forEach((seed, variant) => {
+      const low = p.centreTs[variant] - p.halfWidths[variant] * 0.86,
+        high = Math.min(p.centreTs[variant] + p.halfWidths[variant] * 0.86, 16);
+      if (high < low + 0.5) return;
+      const sample = createSurfaceSampler('zetalandscape', seed),
+        out = empty(),
+        sigmaLow = Math.max(
+          0.15,
+          p.centreSigmas[variant] - p.halfWidths[variant] * 0.86,
+        ),
+        sigmaHigh = Math.min(
+          0.85,
+          p.centreSigmas[variant] + p.halfWidths[variant] * 0.86,
+        );
+      let different = 0;
+      for (let k = 0; k < 300; k++) {
+        const sigma =
+            sigmaLow + (sigmaHigh - sigmaLow) * ((k * 0.6180339887 + 0.1) % 1),
+          t = low + (high - low) * ((k * 0.7548776662 + 0.3) % 1),
+          [u, v] = pixelOf(variant, sigma, t);
+        different += Number(
+          Math.abs(
+            inkAt(sample, out, u, v) - predictInk(...etaZeta(sigma, t)),
+          ) > 0.01,
+        );
+      }
+      expect(different).toBeLessThanOrEqual(2);
+    });
+  });
+  it('agrees with the functional equation on the left of the strip', () => {
+    // For sigma of -1.5 or less the test uses zeta(s) = 2^s pi^(s - 1) sin(pi s / 2) Gamma(1 - s) zeta(1 - s), with Gamma by the Lanczos approximation and zeta(1 - s) by the Euler product; the sampler's values there are up to some 1e8 and come
+    // from a sum whose terms are larger still. On 300 points of each variant the tones agree to within 0.02 at all of them (0.0092 at the worst, in the window of -1 + 9 i, and under 0.0015 in the others in the probe on 1500 points); at most 2 are allowed to differ.
+    seeds.forEach((seed, variant) => {
+      const sample = createSurfaceSampler('zetalandscape', seed),
+        out = empty(),
+        low = p.centreSigmas[variant] - p.halfWidths[variant] * 0.86;
+      let different = 0;
+      for (let k = 0; k < 300; k++) {
+        const [sigma, t] = spread(variant, k, low, -1.5),
+          [u, v] = pixelOf(variant, sigma, t);
+        different += Number(
+          Math.abs(
+            inkAt(sample, out, u, v) - predictInk(...reflected(sigma, t)),
+          ) > 0.02,
+        );
+      }
+      expect(different).toBeLessThanOrEqual(2);
+    });
+  });
+  it('has the exact values on the real axis, the trivial zeros and the zeros of the critical line', () => {
+    // On the real axis zeta(2) = pi^2 / 6, zeta(4) = pi^4 / 90, zeta(3) = 1.2020569031595942, zeta(0) = -1/2, zeta(-1) = -1/12 and zeta(1/2) = -1.4603545088095868 (constants from my memory, which the sampler reproduces to the 7 digits that the probe printed): the tones are those of the exact values to 1e-4
+    // (the window of -0.5, which contains the pole at s = 1 and the trivial zeros at -2 and -4, where the tone is 0 to 1e-6), and the tone is 0 (below 1e-6; 1e-15 at the most in the probe) at the first six zeros 1/2 + i t with t = 14.134725141734693, 21.022039638771556, 25.01085758014569, 30.424876125859512, 32.93506158773919 and 37.58617815882567
+    // (from my memory; the sampler's |zeta| there is under 1e-10 in the prototype, which confirms them) in the windows that contain them (11 pairs of window and zero: 1, 3, 1, 5 and 1 in the windows of 14 i, 23 i, 12 i, 31 i and 9 i).
+    const sample = createSurfaceSampler('zetalandscape', seeds[0]),
+      out = empty();
+    for (const [sigma, value] of [
+      [2, Math.PI ** 2 / 6],
+      [4, Math.PI ** 4 / 90],
+      [3, 1.2020569031595942],
+      [0, -0.5],
+      [-1, -1 / 12],
+      [0.5, -1.4603545088095868],
+    ]) {
+      const [u, v] = pixelOf(0, sigma, 0);
+      expect(
+        Math.abs(inkAt(sample, out, u, v) - predictInk(value, 0)),
+      ).toBeLessThan(1e-4);
+    }
+    for (const sigma of [-2, -4]) {
+      const [u, v] = pixelOf(0, sigma, 0);
+      expect(inkAt(sample, out, u, v)).toBeLessThan(1e-6);
+    }
+    let counted = 0;
+    seeds.forEach((seed, variant) => {
+      const windowed = createSurfaceSampler('zetalandscape', seed);
+      for (const t of [
+        14.134725141734693, 21.022039638771556, 25.01085758014569,
+        30.424876125859512, 32.93506158773919, 37.58617815882567,
+      ]) {
+        if (
+          Math.abs(t - p.centreTs[variant]) > p.halfWidths[variant] * 0.85 ||
+          Math.abs(0.5 - p.centreSigmas[variant]) > p.halfWidths[variant] * 0.85
+        )
+          continue;
+        const [u, v] = pixelOf(variant, 0.5, t);
+        expect(inkAt(windowed, out, u, v)).toBeLessThan(1e-6);
+        counted++;
+      }
+    });
+    expect(counted).toBe(11);
+  });
+  it('is the same at s and its complex conjugate in the window that is symmetric about the real axis', () => {
+    // zeta(conj s) = conj zeta(s), so the phase only changes sign and the bands are the same: in the window centred on s = -0.5 the tone at sigma + i t equals the one at sigma - i t (4.5e-5 at the most on 300 points in the probe, rounding in the sums).
+    const sample = createSurfaceSampler('zetalandscape', seeds[0]),
+      out = empty();
+    let worst = 0;
+    for (let k = 0; k < 300; k++) {
+      const sigma = -6 + 10.4 * ((k * 0.6180339887 + 0.1) % 1),
+        t = 5.1 * ((k * 0.7548776662 + 0.3) % 1),
+        [u, v] = pixelOf(0, sigma, t),
+        [u2, v2] = pixelOf(0, sigma, -t);
+      worst = Math.max(
+        worst,
+        Math.abs(inkAt(sample, out, u, v) - inkAt(sample, out, u2, v2)),
+      );
+    }
+    expect(worst).toBeLessThan(5e-4);
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 1 pick different windows (the one centred on 31 i and the one centred on -0.5).
+    const first = litGrid(0),
+      second = litGrid(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.275);
+    expect(different / first.length).toBeLessThan(0.2751);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('repeats every channel across signed UV periods', () => {
+    // The picture is not periodic (a margin of 0.04 and a window of the plane), but the sampler wraps u and v. It is not C1 in the standard sweep (the sums in the left of the window have terms up to 1e16 and the rounding in them is over the 3e-12 that a second difference at 1e-10 can tolerate:
+    // 31093, 501, 24106, 14717, 24947 and 31255 records over the threshold in the six variants of the probe, the 501 being the window with the smallest values), so what is checked is only that the values at (k / 1024, j / 1024), which are exact in binary, are the same at (u - 7, v + 11).
+    const a = empty(),
+      b = empty();
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('zetalandscape', seed);
+      let drift = 0;
+      for (let k = 0; k < 64; k++)
+        for (let j = 0; j < 64; j++) {
+          const u = (k * 16 + 3) / 1024,
+            v = (j * 16 + 5) / 1024;
+          sample(u, v, a);
+          sample(u - 7, v + 11, b);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(a[key] - b[key]));
+        }
+      expect(drift).toBe(0);
+    }
+  });
+  it('writes actual512 pale-blue landscape maps with raised bands and dark zeros', () => {
+    const maps = generateProceduralMaps('zetalandscape', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(97.4);
+    expect(red / (512 * 512)).toBeLessThan(98.4);
+    expect(green / (512 * 512)).toBeGreaterThan(123.9);
+    expect(green / (512 * 512)).toBeLessThan(124.9);
+    expect(blue / (512 * 512)).toBeGreaterThan(140.9);
+    expect(blue / (512 * 512)).toBeLessThan(141.9);
+    expect(maxTilt).toBeGreaterThan(0.0252);
+    expect(maxTilt).toBeLessThan(0.0253);
     expect(invalid).toBe(0);
   });
 });

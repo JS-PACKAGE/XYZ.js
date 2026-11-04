@@ -51218,6 +51218,106 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'zetalandscape': {
+        const p = proceduralMaterialPresets.zetalandscape,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant = Math.floor(
+            hash(0, 100, seed ^ p.seedSalt) * p.halfWidths.length,
+          ),
+          centreSigma = p.centreSigmas[variant],
+          centreT = p.centreTs[variant],
+          halfWidth = p.halfWidths[variant],
+          plot = 0.5 - p.margin,
+          inverseSoft = 1 / p.edgeSoft,
+          terms = p.terms,
+          logs = new Float64Array(terms),
+          // B_2k / (2k)! for k = 1 to 7.
+          tail = [
+            1 / 12,
+            -1 / 720,
+            1 / 30240,
+            -1 / 1209600,
+            1 / 47900160,
+            -691 / 1307674368000,
+            1 / 74724249600,
+          ],
+          bandScale = (2 * Math.PI) / Math.log(p.modulusRatio);
+        for (let n = 1; n < terms; n++) logs[n] = Math.log(n);
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            sigma = centreSigma + (halfWidth * (fu - 0.5)) / plot,
+            t = centreT + (halfWidth * (0.5 - fv)) / plot;
+          // The sum of n^-s for n < terms.
+          let re = 0,
+            im = 0;
+          for (let n = 1; n < terms; n++) {
+            const magnitude = Math.exp(-sigma * logs[n]),
+              angle = -t * logs[n];
+            re += magnitude * Math.cos(angle);
+            im += magnitude * Math.sin(angle);
+          }
+          // N^-s with N = terms, then the term N^(1 - s) / (s - 1) and N^-s / 2.
+          const logN = Math.log(terms),
+            magnitudeN = Math.exp(-sigma * logN),
+            powerRe = magnitudeN * Math.cos(-t * logN),
+            powerIm = magnitudeN * Math.sin(-t * logN),
+            deltaRe = sigma - 1,
+            deltaSquared = Math.max(deltaRe * deltaRe + t * t, 1e-18);
+          re +=
+            (terms * (powerRe * deltaRe + powerIm * t)) / deltaSquared +
+            powerRe / 2;
+          im +=
+            (terms * (powerIm * deltaRe - powerRe * t)) / deltaSquared +
+            powerIm / 2;
+          // The Euler-Maclaurin tail: B_2k / (2k)! s (s + 1) ... (s + 2k - 2) N^(-s - 2k + 1).
+          let productRe = sigma,
+            productIm = t,
+            scaleRe = powerRe / terms,
+            scaleIm = powerIm / terms;
+          for (let k = 1; k <= tail.length; k++) {
+            re += tail[k - 1] * (productRe * scaleRe - productIm * scaleIm);
+            im += tail[k - 1] * (productRe * scaleIm + productIm * scaleRe);
+            const firstRe = productRe * (sigma + 2 * k - 1) - productIm * t,
+              firstIm = productRe * t + productIm * (sigma + 2 * k - 1);
+            productRe = firstRe * (sigma + 2 * k) - firstIm * t;
+            productIm = firstRe * t + firstIm * (sigma + 2 * k);
+            scaleRe /= terms * terms;
+            scaleIm /= terms * terms;
+          }
+          const modulus = Math.hypot(re, im),
+            phaseBand = 0.5 + 0.5 * Math.cos(p.phaseBands * Math.atan2(im, re)),
+            modulusBand =
+              0.5 +
+              0.5 * Math.cos(bandScale * Math.log(Math.max(modulus, 1e-300))),
+            alive = smooth(clamp(modulus / p.zeroRadius)),
+            outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
+            outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
+            boxDistance =
+              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              Math.min(Math.max(outsideX, outsideY), 0),
+            edge = smooth(clamp(-boxDistance / p.fade)),
+            ink = clamp(
+              edge *
+                alive *
+                (p.phaseWeight * phaseBand + (1 - p.phaseWeight) * modulusBand),
+            ),
+            mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * ink;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -60141,6 +60241,7 @@ export function createSurfaceSampler(
     kind === 'diffractioncatastrophes' ||
     kind === 'standardmap' ||
     kind === 'lyapunovfractal' ||
+    kind === 'zetalandscape' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
