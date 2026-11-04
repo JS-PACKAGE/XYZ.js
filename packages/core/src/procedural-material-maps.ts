@@ -52766,6 +52766,80 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'projectiveplane': {
+        const p = proceduralMaterialPresets.projectiveplane,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.orders.length,
+          group = Math.floor(unsigned / p.orders.length),
+          order = p.orders[variant],
+          points = order * order + order + 1,
+          // 1 where the point (column) lies on the line (row), row by row.
+          incidence = (() => {
+            // The multiplier is one of the units mod points, found by stepping from a hash.
+            const gcd = (a: number, b: number): number =>
+                b === 0 ? a : gcd(b, a % b),
+              units: number[] = [];
+            for (let k = 1; k < points; k++)
+              if (gcd(k, points) === 1) units.push(k);
+            const multiplier =
+                units[
+                  Math.floor(hash(0, 171, group ^ p.seedSalt) * units.length)
+                ],
+              shift = Math.floor(hash(1, 171, group ^ p.seedSalt) * points),
+              member = new Uint8Array(points);
+            for (const d of p.sets[variant])
+              member[(d * multiplier + shift) % points] = 1;
+            // Shuffles of the rows and the columns (Fisher-Yates from hashes) or the identity.
+            const shuffle = hash(2, 171, group ^ p.seedSalt) < 0.5,
+              permutation = (salt: number): number[] => {
+                const order = Array.from({ length: points }, (_, k) => k);
+                if (shuffle)
+                  for (let k = points - 1; k > 0; k--) {
+                    const other = Math.floor(
+                      hash(k, salt, group ^ p.seedSalt) * (k + 1),
+                    );
+                    [order[k], order[other]] = [order[other], order[k]];
+                  }
+                return order;
+              },
+              rows = permutation(172),
+              columns = permutation(173),
+              matrix = new Uint8Array(points * points);
+            for (let row = 0; row < points; row++)
+              for (let column = 0; column < points; column++)
+                matrix[row * points + column] =
+                  member[(columns[column] - rows[row] + points) % points];
+            return matrix;
+          })();
+        return () => {
+          const x = fract(u) * points,
+            y = fract(v) * points,
+            i = Math.floor(x),
+            j = Math.floor(y),
+            grain = grainField(u, v);
+          let mask = 0;
+          if (incidence[j * points + i] === 1)
+            mask = smooth(
+              clamp(
+                (p.dotRadius - Math.hypot(x - i - 0.5, y - j - 0.5)) /
+                  p.edgeSoft +
+                  0.5,
+              ),
+            );
+          color =
+            p.toneGround +
+            (p.toneDot - p.toneGround) * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -61704,6 +61778,7 @@ export function createSurfaceSampler(
     kind === 'trominotiling' ||
     kind === 'magicsquares' ||
     kind === 'costasambiguity' ||
+    kind === 'projectiveplane' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

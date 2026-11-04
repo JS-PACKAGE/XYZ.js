@@ -1163,6 +1163,7 @@ const kinds: ProceduralMaterialKind[] = [
   'trominotiling',
   'magicsquares',
   'costasambiguity',
+  'projectiveplane',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -199955,6 +199956,276 @@ describe('Costas ambiguity as the thumbtack function of a Welch Costas array', (
     expect(blue / (512 * 512)).toBeLessThan(32.6);
     expect(maxTilt).toBeGreaterThan(0.0865);
     expect(maxTilt).toBeLessThan(0.0866);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Projective plane as the incidence matrix of points and lines that meet once', () => {
+  const p = proceduralMaterialPresets.projectiveplane;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The order q of the plane of a seed (seed % 6 picks it) and the number of points v = q^2 + q + 1. */
+  const sizeOf = (seed: number) => {
+    const q = p.orders[seed % p.orders.length];
+    return { q, v: q * q + q + 1 };
+  };
+  /** The incidence matrix of a seed read back from the picture: 1 where a cell holds a dot (ink above 0.5 at its middle), row by row. The occlusion is 1 - gapOcclusion times (1 - ink). */
+  const readMatrix = (seed: number): number[] => {
+    const { v } = sizeOf(seed),
+      sample = createSurfaceSampler('projectiveplane', seed),
+      out = empty(),
+      matrix: number[] = [];
+    for (let j = 0; j < v; j++)
+      for (let i = 0; i < v; i++) {
+        sample((i + 0.5) / v, (j + 0.5) / v, out);
+        matrix.push(1 - (1 - out.occlusion) / p.gapOcclusion > 0.5 ? 1 : 0);
+      }
+    return matrix;
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('projectiveplane', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('projectiveplane', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0154);
+      expect(low).toBeLessThan(0.0156);
+      expect(high).toBeGreaterThan(0.9336);
+      expect(high).toBeLessThan(0.9341);
+      expect(lit / 65536).toBeGreaterThan(0.0564);
+      expect(lit / 65536).toBeLessThan(0.1238);
+      expect(mean / 65536).toBeGreaterThan(0.081);
+      expect(mean / 65536).toBeLessThan(0.142);
+      expect(heightHigh).toBeGreaterThan(0.799);
+      expect(heightHigh).toBeLessThan(0.8001);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('is the incidence matrix of a projective plane: q + 1 dots in every row and column and exactly one common dot in any two rows and in any two columns', () => {
+    for (let seed = 0; seed < 30; seed++) {
+      const { q, v } = sizeOf(seed),
+        matrix = readMatrix(seed);
+      let total = 0;
+      for (let a = 0; a < v; a++) {
+        let inRow = 0,
+          inColumn = 0;
+        for (let b = 0; b < v; b++) {
+          inRow += matrix[a * v + b];
+          inColumn += matrix[b * v + a];
+        }
+        expect(inRow).toBe(q + 1);
+        expect(inColumn).toBe(q + 1);
+        total += inRow;
+      }
+      expect(total).toBe(v * (q + 1));
+      for (let a = 0; a < v; a++)
+        for (let b = a + 1; b < v; b++) {
+          let sharedRows = 0,
+            sharedColumns = 0;
+          for (let k = 0; k < v; k++) {
+            sharedRows += matrix[a * v + k] & matrix[b * v + k];
+            sharedColumns += matrix[k * v + a] & matrix[k * v + b];
+          }
+          expect(sharedRows).toBe(1);
+          expect(sharedColumns).toBe(1);
+        }
+    }
+  });
+  it('is circulant with a perfect difference set when the rows and the columns are not shuffled, and not circulant when they are', () => {
+    for (let seed = 0; seed < 30; seed++) {
+      const { q, v } = sizeOf(seed),
+        matrix = readMatrix(seed);
+      let circulant = true;
+      for (let a = 0; a < v && circulant; a++)
+        for (let b = 0; b < v; b++)
+          if (matrix[a * v + b] !== matrix[((a + 1) % v) * v + ((b + 1) % v)]) {
+            circulant = false;
+            break;
+          }
+      // The groups 0 to 3 (seeds 0 to 23) shuffle and the group 4 (seeds 24 to 29) does not (measured).
+      expect(circulant).toBe(seed >= 24);
+      if (!circulant) continue;
+      // The dots of the first row form a set of q + 1 residues in which every non-zero residue is a difference exactly once.
+      const set = [...Array(v).keys()].filter((k) => matrix[k] === 1),
+        times = new Array<number>(v).fill(0);
+      expect(set.length).toBe(q + 1);
+      for (const a of set)
+        for (const b of set) if (a !== b) times[(a - b + v) % v]++;
+      expect(times.slice(1)).toEqual(new Array<number>(v - 1).fill(1));
+    }
+  });
+  it('agrees with the ideal dots of predicates away from their edges: ink, height, tone and occlusion', () => {
+    for (const seed of [0, 1, 2, 3, 4, 5]) {
+      const { v } = sizeOf(seed),
+        matrix = readMatrix(seed),
+        sample = createSurfaceSampler('projectiveplane', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const x = ((k * 0.61803398875) % 1) * v,
+          y = ((k * 0.41421356237) % 1) * v,
+          i = Math.floor(x),
+          j = Math.floor(y),
+          distance = Math.hypot(x - i - 0.5, y - j - 0.5),
+          dot = matrix[j * v + i] === 1;
+        // Away from the smoothed edge of the dot (it runs from dotRadius - edgeSoft / 2 to dotRadius + edgeSoft / 2).
+        if (dot && Math.abs(distance - p.dotRadius) <= p.edgeSoft / 2 + 1e-9)
+          continue;
+        compared++;
+        const ink = dot && distance < p.dotRadius ? 1 : 0;
+        sample(x / v, y / v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(p.relief * p.cellHeight * ink, 12);
+        expect(
+          Math.abs(
+            out.color - (p.toneGround + (p.toneDot - p.toneGround) * ink),
+          ),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      expect(compared).toBeGreaterThan(5500);
+    }
+  });
+  it('draws a different view per order and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeGreaterThan(0.1976);
+    expect(unlike(first, litGrid(1))).toBeLessThan(0.1977);
+    expect(unlike(first, litGrid(6))).toBeGreaterThan(0.1858);
+    expect(unlike(first, litGrid(6))).toBeLessThan(0.1859);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('projectiveplane', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 mint dot maps on dark navy with raised dots and shaded ground', () => {
+    const maps = generateProceduralMaps('projectiveplane', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(28.2);
+    expect(red / (512 * 512)).toBeLessThan(29.2);
+    expect(green / (512 * 512)).toBeGreaterThan(43.4);
+    expect(green / (512 * 512)).toBeLessThan(44.4);
+    expect(blue / (512 * 512)).toBeGreaterThan(51);
+    expect(blue / (512 * 512)).toBeLessThan(52);
+    expect(maxTilt).toBeGreaterThan(0.0684);
+    expect(maxTilt).toBeLessThan(0.0685);
     expect(invalid).toBe(0);
   });
 });

@@ -1200,6 +1200,7 @@ try {
     'trominotiling',
     'magicsquares',
     'costasambiguity',
+    'projectiveplane',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

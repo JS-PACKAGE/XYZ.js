@@ -1137,6 +1137,7 @@ export type ProceduralMaterialKind =
   | 'trominotiling'
   | 'magicsquares'
   | 'costasambiguity'
+  | 'projectiveplane'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2522,6 +2523,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'trominotiling',
   'magicsquares',
   'costasambiguity',
+  'projectiveplane',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
