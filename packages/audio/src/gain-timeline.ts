@@ -14,6 +14,7 @@ interface GainSegment {
 export class GainTimeline {
   private segments: GainSegment[] = [];
   private ordered = true;
+  private applying = 0;
   constructor(private initial = 1) {}
 
   private indexAt(time: number): number {
@@ -139,7 +140,9 @@ export class GainTimeline {
       else high = middle;
     }
     // Ramps replace the entire future suffix; completed segments remain ordered.
-    this.segments.length = low;
+    // Native-param wrappers may reenter while apply is replaying the old schedule.
+    if (this.applying) this.segments = this.segments.slice(0, low);
+    else this.segments.length = low;
     const segment = this.segments[low - 1];
     if (segment && segment.end > time)
       this.segments[low - 1] = { ...segment, end: time, to: value };
@@ -150,14 +153,19 @@ export class GainTimeline {
   apply(param: AudioParam, now: number, offset = 0): void {
     param.cancelScheduledValues(now + offset);
     param.setValueAtTime(this.valueAt(now), now + offset);
-    for (const segment of this.segments) {
-      if (segment.end < now) continue;
-      if (segment.start > now)
-        param.setValueAtTime(segment.from, segment.start + offset);
-      const end = Math.max(now, segment.end) + offset;
-      if (segment.curve === 'exponential')
-        param.exponentialRampToValueAtTime(segment.to, end);
-      else param.linearRampToValueAtTime(segment.to, end);
+    this.applying++;
+    try {
+      for (const segment of this.segments) {
+        if (segment.end < now) continue;
+        if (segment.start > now)
+          param.setValueAtTime(segment.from, segment.start + offset);
+        const end = Math.max(now, segment.end) + offset;
+        if (segment.curve === 'exponential')
+          param.exponentialRampToValueAtTime(segment.to, end);
+        else param.linearRampToValueAtTime(segment.to, end);
+      }
+    } finally {
+      this.applying--;
     }
   }
 }
