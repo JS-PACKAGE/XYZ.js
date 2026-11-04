@@ -1178,6 +1178,7 @@ try {
     'hofstadterbutterfly',
     'raindropoptics',
     'machcone',
+    'hydrogenorbitals',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

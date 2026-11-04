@@ -1141,6 +1141,7 @@ const kinds: ProceduralMaterialKind[] = [
   'hofstadterbutterfly',
   'raindropoptics',
   'machcone',
+  'hydrogenorbitals',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -192274,6 +192275,377 @@ describe('Mach cone as the wavefronts of a moving source', () => {
     expect(blue / (512 * 512)).toBeLessThan(17.7);
     expect(maxTilt).toBeGreaterThan(0.0439);
     expect(maxTilt).toBeLessThan(0.045);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Hydrogen orbitals as the probability density of an electron in a plane through the nucleus', () => {
+  const p = proceduralMaterialPresets.hydrogenorbitals;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const plot = 0.5 - p.margin;
+  /** The colour at the point (x, z) of the plane of a variant, in Bohr radii (z up). */
+  const colourAtPoint = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    index: number,
+    x: number,
+    z: number,
+  ): number => {
+    const half = p.variants[index][3];
+    sample(0.5 + (x / half) * plot, 0.5 - (z / half) * plot, out);
+    return out.color;
+  };
+  /** The radial function of the hydrogen atom, r^l exp(-rho / 2) L(rho) with rho = 2 r / n, the generalised Laguerre polynomial L_{n-l-1}^{2l+1} found here by its three-term recurrence (the sampler sums the explicit series). */
+  const radialFunction = (index: number, r: number): number => {
+    const [n, l] = p.variants[index],
+      rho = (2 * r) / n,
+      alpha = 2 * l + 1,
+      degree = n - l - 1;
+    let previous = 1,
+      current = 1 + alpha - rho;
+    if (degree === 0) current = 1;
+    else
+      for (let k = 1; k < degree; k++)
+        [previous, current] = [
+          current,
+          ((2 * k + 1 + alpha - rho) * current - (k + alpha) * previous) /
+            (k + 1),
+        ];
+    return rho ** l * Math.exp(-rho / 2) * current;
+  };
+  /** The associated Legendre function P_l^m(x) found as (1 - x^2)^(m/2) times the m-th derivative of the explicit sum of the Legendre polynomial (the sampler uses the recurrence in l). */
+  const legendreFunction = (index: number, x: number): number => {
+    const [, l, m] = p.variants[index];
+    const binomial = (top: number, bottom: number): number => {
+      let result = 1;
+      for (let i = 1; i <= bottom; i++)
+        result = (result * (top - bottom + i)) / i;
+      return result;
+    };
+    let sum = 0;
+    for (let k = 0; k <= Math.floor(l / 2); k++) {
+      const power = l - 2 * k;
+      if (power < m) continue;
+      let falling = 1;
+      for (let j = 0; j < m; j++) falling *= power - j;
+      sum +=
+        ((k % 2 ? -1 : 1) *
+          binomial(l, k) *
+          binomial(2 * l - 2 * k, l) *
+          falling *
+          x ** (power - m)) /
+        2 ** l;
+    }
+    return (1 - x * x) ** (m / 2) * sum;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('hydrogenorbitals', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('hydrogenorbitals', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0256);
+      expect(low).toBeLessThan(0.0259);
+      expect(high).toBeGreaterThan(0.8685);
+      expect(high).toBeLessThan(0.873);
+      expect(dark / 65536).toBeGreaterThan(0.0032);
+      expect(dark / 65536).toBeLessThan(0.025);
+      expect(mean / 65536).toBeGreaterThan(0.1129);
+      expect(mean / 65536).toBeLessThan(0.1517);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.864);
+      expect(heightHigh).toBeLessThan(0.874);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (the orbitals 2s, 3p, 3d, 4p, 4d with m = 1 and 4f) is 2, 6, 4, 1, 0 and 3; the table was found with a probe by the correlation of the colour with the density that the probe computes
+  // with the same pair of functions as this test (the smallest margin to the second best being 0.146) and is written here, so it is not an independent check of the seed's choice.
+  const seeds = [2, 6, 4, 1, 0, 3];
+  it('is dark on the spheres of the radial nodes found from the Laguerre polynomial', () => {
+    // Along the ray at the polar angle where the angular function is the largest (found by a scan; near the z axis for m = 0), the radial function changes sign n - l - 1 times (2s at 2 Bohr radii, 3p at 6 and 4d at
+    // 12, and the others, all found here by sign changes of the recurrence). At each of those radii, up to 0.9 of the half width, the colour is under 0.08 (0.05 at the highest in the probe, the grain) and 4 pixels either side
+    // it is at least 0.04 higher (0.068 at the lowest in the probe), so each node is a dark ring; the orbitals 3d and 4f have none, and the number of rings found is the number of nodes.
+    seeds.forEach((seed, index) => {
+      const [n, l, , half] = p.variants[index],
+        sample = createSurfaceSampler('hydrogenorbitals', seed),
+        out = empty(),
+        pixel = (2 * half) / (0.92 * 512);
+      let polar = 0,
+        largest = -1;
+      for (let angle = 0.02; angle < Math.PI - 0.02; angle += 0.01) {
+        const value = Math.abs(legendreFunction(index, Math.cos(angle)));
+        if (value > largest) {
+          largest = value;
+          polar = angle;
+        }
+      }
+      const nodes: number[] = [];
+      let previous = radialFunction(index, 1e-3);
+      for (let r = 0.01; r < half * 1.4; r += 0.0005) {
+        const value = radialFunction(index, r);
+        if (Math.sign(value) !== Math.sign(previous) && value !== 0)
+          nodes.push(r);
+        previous = value;
+      }
+      expect(nodes.length).toBe(n - l - 1);
+      const along = (r: number): number =>
+        colourAtPoint(
+          sample,
+          out,
+          index,
+          r * Math.sin(polar),
+          r * Math.cos(polar),
+        );
+      let rings = 0;
+      for (const r of nodes) {
+        if (r > half * 0.9) continue;
+        expect(along(r)).toBeLessThan(0.08);
+        expect(
+          Math.min(along(r - 4 * pixel), along(r + 4 * pixel)) - along(r),
+        ).toBeGreaterThan(0.04);
+        rings++;
+      }
+      expect(rings).toBe(n - l - 1);
+    });
+  });
+  it('is dark on the cones and the plane of the angular nodes found from the Legendre function', () => {
+    // On the circle (3600 steps) at the radius where the radial function is largest, the dark dips (local minima of the colour under 0.3) are at the angles of the zeros of the associated Legendre function P_l^m(cos theta)
+    // in the plane, on both sides of the axis, and for m > 0 on the z axis itself (sin^m theta = 0): there are 0, 2, 4, 2, 4 and 6 of them for the six orbitals, and they are within 0.01 rad of the predicted angles (0.0011 at the
+    // worst in the probe).
+    seeds.forEach((seed, index) => {
+      const [, , m, half] = p.variants[index],
+        sample = createSurfaceSampler('hydrogenorbitals', seed),
+        out = empty();
+      let radius = 0,
+        largest = -1;
+      for (let r = 0.2; r < half * 0.7; r += 0.02) {
+        const value = Math.abs(radialFunction(index, r));
+        if (value > largest) {
+          largest = value;
+          radius = r;
+        }
+      }
+      const steps = 3600,
+        circle: number[] = [];
+      for (let i = 0; i < steps; i++) {
+        const angle = (2 * Math.PI * (i + 0.5)) / steps;
+        circle.push(
+          colourAtPoint(
+            sample,
+            out,
+            index,
+            radius * Math.sin(angle),
+            radius * Math.cos(angle),
+          ),
+        );
+      }
+      const dips: number[] = [];
+      for (let i = 0; i < steps; i++)
+        if (
+          circle[i] < circle[(i + steps - 1) % steps] &&
+          circle[i] <= circle[(i + 1) % steps] &&
+          circle[i] < 0.3
+        )
+          dips.push((2 * Math.PI * (i + 0.5)) / steps);
+      const expected: number[] = [];
+      let previous = legendreFunction(index, Math.cos(0.001));
+      for (let angle = 0.002; angle < Math.PI; angle += 0.0005) {
+        const value = legendreFunction(index, Math.cos(angle));
+        if (Math.sign(value) !== Math.sign(previous) && value !== 0)
+          expected.push(angle, 2 * Math.PI - angle);
+        previous = value;
+      }
+      if (m > 0) expected.push(0, Math.PI);
+      expect(dips.length).toBe(expected.length);
+      for (const angle of expected) {
+        const wrapped = ((angle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+        expect(
+          Math.min(
+            ...dips.map((dip) =>
+              Math.min(
+                Math.abs(dip - wrapped),
+                2 * Math.PI - Math.abs(dip - wrapped),
+              ),
+            ),
+          ),
+        ).toBeLessThan(0.01);
+      }
+    });
+  });
+  it('has the symmetries of the density under x -> -x and z -> -z', () => {
+    // The density depends on cos^2(m phi), which is 1 in the plane, and on P_l^m(cos theta)^2, which is even in cos theta, so it is the same under x -> -x, z -> -z and both: the colours differ by under 0.05 (0.0292 at the most
+    // in the probe, the grain; 3600 points per variant).
+    seeds.forEach((seed, index) => {
+      const half = p.variants[index][3],
+        sample = createSurfaceSampler('hydrogenorbitals', seed),
+        out = empty();
+      let counted = 0;
+      for (let i = 0; i < 60; i++)
+        for (let j = 0; j < 60; j++) {
+          const x = half * (0.02 + (0.9 * (i + 0.37)) / 60),
+            z = half * (0.02 + (0.9 * (j + 0.61)) / 60),
+            colour = colourAtPoint(sample, out, index, x, z);
+          for (const [dx, dz] of [
+            [-x, z],
+            [x, -z],
+            [-x, -z],
+          ])
+            expect(
+              Math.abs(colour - colourAtPoint(sample, out, index, dx, dz)),
+            ).toBeLessThan(0.05);
+          counted++;
+        }
+      expect(counted).toBe(3600);
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 2 pick different orbitals (4d with m = 1 and 2s).
+    const first = litGrid(0),
+      second = litGrid(2);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.0256);
+    expect(different / first.length).toBeLessThan(0.0257);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('hydrogenorbitals', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 ember orbital maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('hydrogenorbitals', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(50.2);
+    expect(red / (512 * 512)).toBeLessThan(51.2);
+    expect(green / (512 * 512)).toBeGreaterThan(25.4);
+    expect(green / (512 * 512)).toBeLessThan(26.4);
+    expect(blue / (512 * 512)).toBeGreaterThan(17.1);
+    expect(blue / (512 * 512)).toBeLessThan(18.1);
+    expect(maxTilt).toBeGreaterThan(0.0018);
+    expect(maxTilt).toBeLessThan(0.002);
     expect(invalid).toBe(0);
   });
 });

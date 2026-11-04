@@ -50629,6 +50629,113 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'hydrogenorbitals': {
+        const p = proceduralMaterialPresets.hydrogenorbitals,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          [principal, angular, magnetic, half] =
+            p.variants[
+              Math.floor(hash(0, 92, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          plot = 0.5 - p.margin,
+          inverseSoft = 1 / p.edgeSoft,
+          degree = principal - angular - 1,
+          alpha = 2 * angular + 1,
+          // The coefficients of the generalised Laguerre polynomial L_k^alpha(x) = sum (-1)^i C(k + alpha, k - i) x^i / i!.
+          laguerre: number[] = [],
+          binomial = (top: number, bottom: number): number => {
+            let result = 1;
+            for (let i = 1; i <= bottom; i++)
+              result = (result * (top - bottom + i)) / i;
+            return result;
+          },
+          // |psi|^2 up to a constant at distance r and cos(theta) = c from the z axis: the radial part r^l exp(-r / n) L(2 r / n) (rho = 2 r / n) and the associated Legendre function by the recurrence in l.
+          density = (x: number, z: number): number => {
+            const r = Math.hypot(x, z),
+              rho = (2 * r) / principal,
+              cosine = r > 1e-12 ? z / r : 0;
+            let polynomial = 0,
+              power = 1;
+            for (let i = 0; i <= degree; i++) {
+              polynomial += laguerre[i] * power;
+              power *= rho;
+            }
+            const radial = rho ** angular * Math.exp(-rho / 2) * polynomial;
+            let first = 1;
+            if (magnetic > 0) {
+              const sine = Math.sqrt((1 - cosine) * (1 + cosine));
+              let factor = 1;
+              for (let i = 1; i <= magnetic; i++) {
+                first *= factor * sine;
+                factor += 2;
+              }
+            }
+            let legendre = first;
+            if (angular > magnetic) {
+              let previous = first;
+              legendre = cosine * (2 * magnetic + 1) * first;
+              for (let l = magnetic + 2; l <= angular; l++) {
+                const next =
+                  (cosine * (2 * l - 1) * legendre -
+                    (l + magnetic - 1) * previous) /
+                  (l - magnetic);
+                previous = legendre;
+                legendre = next;
+              }
+            }
+            return (radial * legendre) ** 2;
+          };
+        for (let i = 0; i <= degree; i++) {
+          let factorial = 1;
+          for (let j = 2; j <= i; j++) factorial *= j;
+          laguerre.push(
+            ((i % 2 ? -1 : 1) * binomial(degree + alpha, degree - i)) /
+              factorial,
+          );
+        }
+        let greatest = 0;
+        for (let i = 0; i < p.scanCells; i++)
+          for (let j = 0; j < p.scanCells; j++)
+            greatest = Math.max(
+              greatest,
+              density(
+                (half * (2 * (i + 0.5))) / p.scanCells - half,
+                (half * (2 * (j + 0.5))) / p.scanCells - half,
+              ),
+            );
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            x = (half * (fu - 0.5)) / plot,
+            z = (half * (0.5 - fv)) / plot,
+            outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
+            outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
+            boxDistance =
+              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              Math.min(Math.max(outsideX, outsideY), 0),
+            ink = clamp(
+              smooth(clamp(-boxDistance / p.fade)) *
+                clamp(density(x, z) / greatest) ** p.densityPower,
+            ),
+            mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(ink) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -59545,6 +59652,7 @@ export function createSurfaceSampler(
     kind === 'hofstadterbutterfly' ||
     kind === 'raindropoptics' ||
     kind === 'machcone' ||
+    kind === 'hydrogenorbitals' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
