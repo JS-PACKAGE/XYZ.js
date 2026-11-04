@@ -2301,6 +2301,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`keplerorbit`（克卜勒第二定律的軌道圖）使目前目錄1185→1186種，含plain的gallery為1187項。克卜勒第二定律：行星在橢圓軌道上、太陽在其中一個焦點，等間隔的時間（平近點角等間隔增加）標出行星的位置；從太陽到這些位置的線把軌道切成楔形，兩種交替的色調上色。所有楔形面積相同（這就是定律），儘管遠離太陽的楔形又細又長、靠近太陽的又短又寬。seed決定軌道的半長軸、離心率、楔形數（8、10或12）、軌道朝哪個方向，以及第一個位置的時間。這是作者設計的示意；測試端從畫面讀出太陽與行星的圓點位置（先粗掃整張圖找出圓點的精確色調，再取周圍同色調像素的中心），用最小平方法擬合1/r＝A＋B cosθ＋C sinθ（太陽在焦點的橢圓極座標式）得到半長軸、離心率與方向，驗證擬合值與預設吻合；再由各行星的位置算出真近點角、偏近點角、平近點角（克卜勒方程式），驗證它們等間隔；並在畫面上數每個楔形的像素（以色調判斷、以平近點角分楔形，加回線條與太陽佔掉的面積），驗證各楔形面積都等於橢圓面積除以楔形數（容許差3%）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

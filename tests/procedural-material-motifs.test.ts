@@ -57828,3 +57828,680 @@ describe('pythagoreanproof: a right triangle with a square ruled into unit cells
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('keplerorbit: an elliptical orbit with equal-area wedges swept in equal times', () => {
+  const p = proceduralMaterialPresets.keplerorbit,
+    out = empty(),
+    smoothstepSpan = 0.3473;
+  type Point = [number, number];
+  type Orbit = {
+    sample: Sampler;
+    sun: Point;
+    planets: Point[];
+    axis: number;
+    eccentricity: number;
+    minor: number;
+    turn: number;
+    centre: Point;
+    // The planets with their mean anomalies, sorted by them.
+    order: { point: Point; mean: number }[];
+  };
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const nearest = (value: number, list: readonly number[]): number =>
+    list.reduce((best, candidate) =>
+      Math.abs(candidate - value) < Math.abs(best - value) ? candidate : best,
+    );
+  const TURN = Math.PI * 2;
+
+  // The mean anomaly of a place seen from the sun: its true anomaly from the periapsis direction, the eccentric anomaly and Kepler's equation read the other way round.
+  const meanAnomaly = (
+    orbit: { sun: Point; turn: number; eccentricity: number },
+    x: number,
+    y: number,
+  ): number => {
+    const anomaly = Math.atan2(y - orbit.sun[1], x - orbit.sun[0]) - orbit.turn,
+      eccentric = Math.atan2(
+        Math.sqrt(1 - orbit.eccentricity ** 2) * Math.sin(anomaly),
+        orbit.eccentricity + Math.cos(anomaly),
+      ),
+      mean = eccentric - orbit.eccentricity * Math.sin(eccentric);
+    return ((mean % TURN) + TURN) % TURN;
+  };
+  // The place on the orbit at a given mean anomaly (Kepler's equation solved by Newton's method), as seen in the picture: the direction from the sun and the distance.
+  const placeAt = (
+    orbit: { turn: number; eccentricity: number; axis: number },
+    mean: number,
+  ): { angle: number; radius: number } => {
+    let eccentric = mean;
+    for (let i = 0; i < 30; i++)
+      eccentric -=
+        (eccentric - orbit.eccentricity * Math.sin(eccentric) - mean) /
+        (1 - orbit.eccentricity * Math.cos(eccentric));
+    return {
+      angle:
+        orbit.turn +
+        Math.atan2(
+          Math.sqrt(1 - orbit.eccentricity ** 2) * Math.sin(eccentric),
+          Math.cos(eccentric) - orbit.eccentricity,
+        ),
+      radius: orbit.axis * (1 - orbit.eccentricity * Math.cos(eccentric)),
+    };
+  };
+  // The mean anomaly half way between a planet and the next one in time order (round the end too).
+  const halfWay = (orbit: Orbit, k: number): number => {
+    const next =
+      orbit.order[(k + 1) % orbit.order.length].mean +
+      (k + 1 === orbit.order.length ? TURN : 0);
+    return (orbit.order[k].mean + next) / 2;
+  };
+  // The orbit as the picture's own numbers with the eccentricity snapped to the preset's (the fit is close to it; the snapped one is exact).
+  const exact = (
+    orbit: Orbit,
+  ): { turn: number; eccentricity: number; axis: number } => ({
+    turn: orbit.turn,
+    eccentricity: nearest(orbit.eccentricity, p.eccentricities),
+    axis: nearest(orbit.axis, p.semiMajors),
+  });
+
+  // Read the picture: the planet dots (a coarse scan for the dots' exact tone, then each pinned down to the middle of the pixels of that tone round it) and the sun (the same
+  // with its tone); then the orbit by fitting 1 / r = A + B cos(angle) + C sin(angle) to the planets as seen from the sun (the polar form of an ellipse with the sun at a focus).
+  const orbitFor = (seed: number): Orbit => {
+    const sample = createSurfaceSampler('keplerorbit', seed),
+      pinned = (tone: number, hits: Point[], window: number): Point => {
+        const cx = hits.reduce((sum, hit) => sum + hit[0], 0) / hits.length,
+          cy = hits.reduce((sum, hit) => sum + hit[1], 0) / hits.length;
+        let sumX = 0,
+          sumY = 0,
+          count = 0;
+        for (let y = cy - window; y <= cy + window; y += 0.0004)
+          for (let x = cx - window; x <= cx + window; x += 0.0004)
+            if (Math.abs(toneAt(sample, x, y) - tone) < 0.004) {
+              sumX += x;
+              sumY += y;
+              count++;
+            }
+        return [sumX / count, sumY / count];
+      },
+      clusters = (tone: number): Point[][] => {
+        const found: Point[][] = [];
+        for (let y = 0.05; y < 0.95; y += 0.004)
+          for (let x = 0.05; x < 0.95; x += 0.004) {
+            if (Math.abs(toneAt(sample, x, y) - tone) >= 0.01) continue;
+            const group = found.find(
+              (hits) => Math.hypot(hits[0][0] - x, hits[0][1] - y) < 0.03,
+            );
+            if (group) group.push([x, y]);
+            else found.push([[x, y]]);
+          }
+        return found.filter((hits) => hits.length >= 5);
+      },
+      sunHits = clusters(p.sunTone),
+      planetHits = clusters(p.planetTone);
+    expect(sunHits.length).toBe(1);
+    const sun = pinned(p.sunTone, sunHits[0], 0.022),
+      planets = planetHits.map((hits) => pinned(p.planetTone, hits, 0.014)),
+      rows = planets.map(([x, y]) => {
+        const r = Math.hypot(x - sun[0], y - sun[1]),
+          angle = Math.atan2(y - sun[1], x - sun[0]);
+        return [1, Math.cos(angle), Math.sin(angle), 1 / r];
+      }),
+      // The least squares fit by the normal equations (solved by Cramer's rule).
+      normal = [0, 1, 2].map((i) =>
+        [0, 1, 2].map((j) =>
+          rows.reduce((sum, row) => sum + row[i] * row[j], 0),
+        ),
+      ),
+      target = [0, 1, 2].map((i) =>
+        rows.reduce((sum, row) => sum + row[i] * row[3], 0),
+      ),
+      det3 = (m: number[][]): number =>
+        m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) -
+        m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) +
+        m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]),
+      [a0, b0, c0] = [0, 1, 2].map(
+        (k) =>
+          det3(
+            normal.map((row, i) =>
+              row.map((value, j) => (j === k ? target[i] : value)),
+            ),
+          ) / det3(normal),
+      ),
+      eccentricity = Math.hypot(b0, c0) / a0,
+      turn = Math.atan2(c0, b0),
+      axis = 1 / a0 / (1 - eccentricity ** 2),
+      centre: Point = [
+        sun[0] - axis * eccentricity * Math.cos(turn),
+        sun[1] - axis * eccentricity * Math.sin(turn),
+      ],
+      order = planets
+        .map((point) => ({
+          point,
+          mean: meanAnomaly(
+            {
+              sun,
+              turn,
+              eccentricity: nearest(eccentricity, p.eccentricities),
+            },
+            point[0],
+            point[1],
+          ),
+        }))
+        .sort((a, b) => a.mean - b.mean);
+    return {
+      sample,
+      sun,
+      planets,
+      axis,
+      eccentricity,
+      minor: axis * Math.sqrt(1 - eccentricity ** 2),
+      turn,
+      centre,
+      order,
+    };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws an ellipse of a stated size and shape with the sun at a focus and planet positions at equal steps of mean anomaly, the wedges between them alternating in tone (seed %i)',
+    (seed) => {
+      const orbit = orbitFor(seed);
+      // The planets' number, and the orbit's size, shape and place (the fit's numbers are close to the preset's).
+      expect(p.counts).toContain(orbit.planets.length);
+      expect(
+        Math.abs(orbit.axis - nearest(orbit.axis, p.semiMajors)),
+      ).toBeLessThan(0.004);
+      expect(
+        Math.abs(
+          orbit.eccentricity - nearest(orbit.eccentricity, p.eccentricities),
+        ),
+      ).toBeLessThan(0.004);
+      expect(
+        Math.hypot(orbit.centre[0] - p.centerX, orbit.centre[1] - p.centerY),
+      ).toBeLessThan(0.002);
+      // Equal steps of time: the planets' mean anomalies (from their places, by the true anomaly, the eccentric anomaly and Kepler's equation) are equally spaced.
+      const count = orbit.planets.length,
+        step = TURN / count;
+      orbit.order.forEach((entry, k) => {
+        const next = orbit.order[(k + 1) % count],
+          gap = (((next.mean - entry.mean) % TURN) + TURN) % TURN;
+        expect(Math.abs(gap - step)).toBeLessThan(0.006);
+      });
+      // The wedges alternate in tone: at the middle of each wedge (half way from the sun to the orbit, in the direction of the orbit's place half way between its two planets in time)
+      // the tone is one of the two wedge tones and it alternates round the orbit.
+      const tones = orbit.order.map((_, k) => {
+        const place = placeAt(exact(orbit), halfWay(orbit, k));
+        const tone = toneAt(
+          orbit.sample,
+          orbit.sun[0] + 0.5 * place.radius * Math.cos(place.angle),
+          orbit.sun[1] + 0.5 * place.radius * Math.sin(place.angle),
+        );
+        // The wedge's height and roughness go with its tone.
+        expect(out.height / p.relief).toBeCloseTo(
+          Math.abs(tone - p.wedgeTone) < 1e-6
+            ? p.wedgeHeight
+            : p.otherWedgeHeight,
+          6,
+        );
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        return tone;
+      });
+      const first =
+        Math.abs(tones[0] - p.wedgeTone) < 1e-6
+          ? p.wedgeTone
+          : p.otherWedgeTone;
+      tones.forEach((tone, k) =>
+        expect(tone).toBeCloseTo(
+          k % 2 === 0
+            ? first
+            : first === p.wedgeTone
+              ? p.otherWedgeTone
+              : p.wedgeTone,
+          6,
+        ),
+      );
+      expect([p.wedgeTone, p.otherWedgeTone]).toContain(first);
+    },
+  );
+
+  it('gives wedges of equal area, measured by counting the pixels of each wedge in the picture', () => {
+    for (const seed of seeds) {
+      const orbit = orbitFor(seed),
+        count = orbit.planets.length,
+        model = { sun: orbit.sun, ...exact(orbit) },
+        areas = new Array<number>(count).fill(0),
+        step = 0.002;
+      for (
+        let y = orbit.centre[1] - orbit.axis - 0.02;
+        y < orbit.centre[1] + orbit.axis + 0.02;
+        y += step
+      )
+        for (
+          let x = orbit.centre[0] - orbit.axis - 0.02;
+          x < orbit.centre[0] + orbit.axis + 0.02;
+          x += step
+        ) {
+          const tone = toneAt(orbit.sample, x, y);
+          if (
+            Math.abs(tone - p.wedgeTone) > 0.006 &&
+            Math.abs(tone - p.otherWedgeTone) > 0.006
+          )
+            continue;
+          const mean = meanAnomaly(model, x, y);
+          // The wedge: the last planet at or before this mean anomaly (round the end: the last one).
+          let wedge = count - 1;
+          for (let k = 0; k < count; k++)
+            if (orbit.order[k].mean > mean) {
+              wedge = (k + count - 1) % count;
+              break;
+            }
+          areas[wedge] += step * step;
+        }
+      // The wedges' area by the law: the ellipse's area over the number of wedges. What the lines take away is added back: the half widths of the lines to the two planets, the orbit
+      // along the arc and the sun's share.
+      const whole = (Math.PI * orbit.axis * orbit.minor) / count;
+      areas.forEach((area, k) => {
+        const a = orbit.order[k].point,
+          b = orbit.order[(k + 1) % count].point,
+          ra = Math.hypot(a[0] - orbit.sun[0], a[1] - orbit.sun[1]),
+          rb = Math.hypot(b[0] - orbit.sun[0], b[1] - orbit.sun[1]),
+          angle = Math.abs(
+            Math.atan2(
+              (a[0] - orbit.sun[0]) * (b[1] - orbit.sun[1]) -
+                (a[1] - orbit.sun[1]) * (b[0] - orbit.sun[0]),
+              (a[0] - orbit.sun[0]) * (b[0] - orbit.sun[0]) +
+                (a[1] - orbit.sun[1]) * (b[1] - orbit.sun[1]),
+            ),
+          ),
+          lost =
+            p.rayHalf * (ra + rb) +
+            p.orbitHalf * Math.hypot(a[0] - b[0], a[1] - b[1]) +
+            0.5 * p.sunRadius ** 2 * angle;
+        expect(Math.abs((area + lost) / whole - 1)).toBeLessThan(0.03);
+      });
+      // They are not alike in shape: the longest line to a planet is longer than the shortest, which is what the law is about (equal areas all the same).
+      const lengths = orbit.planets.map(([x, y]) =>
+        Math.hypot(x - orbit.sun[0], y - orbit.sun[1]),
+      );
+      expect(Math.max(...lengths) / Math.min(...lengths)).toBeGreaterThan(1.3);
+    }
+  });
+
+  it('uses every semi-major axis, eccentricity and number of wedges, and every way round, over 60 seeds', () => {
+    const axes = new Set<number>(),
+      eccentricities = new Set<number>(),
+      counts = new Set<number>(),
+      turns: number[] = [],
+      firsts: number[] = [];
+    let startsEven = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const orbit = orbitFor(seed * 41 + 3);
+      // The time of the first position: the earliest planet's mean anomaly is anywhere in a step; and which of the two wedge tones the wedge after it has is either (the tone goes with
+      // the wedge's number from the first position, which is anywhere in the turn).
+      firsts.push(orbit.order[0].mean / (TURN / orbit.planets.length));
+      const place = placeAt(
+        exact(orbit),
+        (orbit.order[0].mean + orbit.order[1].mean) / 2,
+      );
+      startsEven += Number(
+        Math.abs(
+          toneAt(
+            orbit.sample,
+            orbit.sun[0] + 0.5 * place.radius * Math.cos(place.angle),
+            orbit.sun[1] + 0.5 * place.radius * Math.sin(place.angle),
+          ) - p.wedgeTone,
+        ) < 1e-6,
+      );
+      axes.add(nearest(orbit.axis, p.semiMajors));
+      eccentricities.add(nearest(orbit.eccentricity, p.eccentricities));
+      counts.add(orbit.planets.length);
+      turns.push(((orbit.turn % TURN) + TURN) % TURN);
+    }
+    expect([...axes].sort()).toEqual([...p.semiMajors]);
+    expect([...eccentricities].sort()).toEqual([...p.eccentricities]);
+    expect([...counts].sort((a, b) => a - b)).toEqual([...p.counts]);
+    // (The ones near a whole step are, within the reading's error, at nought: those say nothing.)
+    expect(
+      firsts.filter((phase) => phase > 0.2 && phase < 0.8).length,
+    ).toBeGreaterThan(15);
+    expect(startsEven).toBeGreaterThan(15);
+    expect(startsEven).toBeLessThan(45);
+    // The orbit points every way: the turns fall in every eighth of a turn.
+    for (let sector = 0; sector < 8; sector++)
+      expect(
+        turns.filter((turn) => Math.floor(turn / (Math.PI / 4)) === sector)
+          .length,
+      ).toBeGreaterThan(1);
+  });
+
+  // A crossing: where along a straight line from a point the tone passes a given level, found by halving between a near place and a far one.
+  const crossing = (
+    sample: Sampler,
+    from: Point,
+    direction: Point,
+    near: number,
+    far: number,
+    level: number,
+  ): number => {
+    let lo = near,
+      hi = far;
+    const below =
+      toneAt(sample, from[0] + direction[0] * lo, from[1] + direction[1] * lo) <
+      level;
+    for (let i = 0; i < 44; i++) {
+      const mid = (lo + hi) / 2;
+      if (
+        toneAt(
+          sample,
+          from[0] + direction[0] * mid,
+          from[1] + direction[1] * mid,
+        ) <
+          level ===
+        below
+      )
+        lo = mid;
+      else hi = mid;
+    }
+    return (lo + hi) / 2;
+  };
+  // The transition from one tone to another along a line, measured between a quarter and three quarters of the way, in units of edgeSoft.
+  const span = (
+    sample: Sampler,
+    from: Point,
+    direction: Point,
+    near: number,
+    far: number,
+    tone: number,
+    other: number,
+  ): number =>
+    Math.abs(
+      crossing(
+        sample,
+        from,
+        direction,
+        near,
+        far,
+        tone + 0.25 * (other - tone),
+      ) -
+        crossing(
+          sample,
+          from,
+          direction,
+          near,
+          far,
+          tone + 0.75 * (other - tone),
+        ),
+    ) /
+    (smoothstepSpan * p.edgeSoft);
+
+  it('draws the orbit line, the lines to the planets, the planets and the sun with their tones, heights, roughness, sizes and soft edges', () => {
+    for (const seed of seeds) {
+      const orbit = orbitFor(seed),
+        count = orbit.planets.length,
+        model = exact(orbit);
+      for (let k = 0; k < count; k++) {
+        // The orbit line, across it half way between two planets in time: from just inside to just outside, the middle of its two edges gives its tone, height and roughness, and the
+        // distance between the edges its thickness (the same whichever way the middle is out); the soft edge from a quarter to three quarters is smoothstep's span of edgeSoft.
+        const place = placeAt(model, halfWay(orbit, k)),
+          onOrbit: Point = [
+            orbit.sun[0] + place.radius * Math.cos(place.angle),
+            orbit.sun[1] + place.radius * Math.sin(place.angle),
+          ],
+          dx = onOrbit[0] - orbit.centre[0],
+          dy = onOrbit[1] - orbit.centre[1],
+          x = dx * Math.cos(orbit.turn) + dy * Math.sin(orbit.turn),
+          y = -dx * Math.sin(orbit.turn) + dy * Math.cos(orbit.turn),
+          gx = x / model.axis ** 2,
+          gy = y / (model.axis * Math.sqrt(1 - model.eccentricity ** 2)) ** 2,
+          length = Math.hypot(gx, gy),
+          outward: Point = [
+            (gx * Math.cos(orbit.turn) - gy * Math.sin(orbit.turn)) / length,
+            (gx * Math.sin(orbit.turn) + gy * Math.cos(orbit.turn)) / length,
+          ],
+          inner = toneAt(
+            orbit.sample,
+            onOrbit[0] - outward[0] * 0.006,
+            onOrbit[1] - outward[1] * 0.006,
+          ),
+          outerEdge = crossing(
+            orbit.sample,
+            onOrbit,
+            outward,
+            -0.0005,
+            0.006,
+            (p.orbitTone + p.paperTone) / 2,
+          ),
+          innerEdge = crossing(
+            orbit.sample,
+            onOrbit,
+            outward,
+            0.0005,
+            -0.006,
+            (p.orbitTone + inner) / 2,
+          ),
+          middle = (outerEdge + innerEdge) / 2;
+        expect(
+          Math.abs((outerEdge - innerEdge) / 2 - p.orbitHalf),
+        ).toBeLessThan(0.00005);
+        expect(
+          toneAt(
+            orbit.sample,
+            onOrbit[0] + outward[0] * middle,
+            onOrbit[1] + outward[1] * middle,
+          ),
+        ).toBeCloseTo(p.orbitTone, 3);
+        expect(out.height / p.relief).toBeCloseTo(p.orbitHeight, 3);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 3);
+        expect(
+          Math.abs(
+            span(
+              orbit.sample,
+              onOrbit,
+              outward,
+              -0.0005,
+              0.006,
+              p.orbitTone,
+              p.paperTone,
+            ) - 1,
+          ),
+        ).toBeLessThan(0.06);
+        // The line from the sun to this planet, across it half way along: the ray's tone, thickness (from the edges against the wedge tones either side) and its soft edge.
+        const planet = orbit.order[k].point,
+          along: Point = [
+            (planet[0] - orbit.sun[0]) /
+              Math.hypot(planet[0] - orbit.sun[0], planet[1] - orbit.sun[1]),
+            (planet[1] - orbit.sun[1]) /
+              Math.hypot(planet[0] - orbit.sun[0], planet[1] - orbit.sun[1]),
+          ],
+          across: Point = [-along[1], along[0]],
+          reach =
+            0.5 *
+            Math.hypot(planet[0] - orbit.sun[0], planet[1] - orbit.sun[1]),
+          centre: Point = [
+            orbit.sun[0] + along[0] * reach,
+            orbit.sun[1] + along[1] * reach,
+          ],
+          left = toneAt(
+            orbit.sample,
+            centre[0] + across[0] * 0.006,
+            centre[1] + across[1] * 0.006,
+          ),
+          right = toneAt(
+            orbit.sample,
+            centre[0] - across[0] * 0.006,
+            centre[1] - across[1] * 0.006,
+          ),
+          leftEdge = crossing(
+            orbit.sample,
+            centre,
+            across,
+            0.0004,
+            0.006,
+            (p.rayTone + left) / 2,
+          ),
+          rightEdge = crossing(
+            orbit.sample,
+            centre,
+            across,
+            -0.0004,
+            -0.006,
+            (p.rayTone + right) / 2,
+          );
+        expect(Math.abs(left - right)).toBeGreaterThan(0.1);
+        expect(Math.abs((leftEdge - rightEdge) / 2 - p.rayHalf)).toBeLessThan(
+          0.00005,
+        );
+        const rayMiddle = (leftEdge + rightEdge) / 2;
+        expect(
+          toneAt(
+            orbit.sample,
+            centre[0] + across[0] * rayMiddle,
+            centre[1] + across[1] * rayMiddle,
+          ),
+        ).toBeCloseTo(p.rayTone, 3);
+        expect(out.height / p.relief).toBeCloseTo(p.rayHeight, 3);
+        expect(
+          Math.abs(
+            span(orbit.sample, centre, across, 0.0004, 0.006, p.rayTone, left) -
+              1,
+          ),
+        ).toBeLessThan(0.06);
+      }
+      // The planets: tone, height and roughness at the middle; the radius from the two edges along the orbit (the line goes on both sides, so each edge is against its tone), which
+      // does not depend on where the middle is; and the soft edge outward over the paper.
+      for (const planet of orbit.planets) {
+        expect(toneAt(orbit.sample, planet[0], planet[1])).toBeCloseTo(
+          p.planetTone,
+          3,
+        );
+        expect(out.height / p.relief).toBeCloseTo(p.planetHeight, 3);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 3);
+        const dx = planet[0] - orbit.centre[0],
+          dy = planet[1] - orbit.centre[1],
+          x = dx * Math.cos(orbit.turn) + dy * Math.sin(orbit.turn),
+          y = -dx * Math.sin(orbit.turn) + dy * Math.cos(orbit.turn),
+          gx = x / model.axis ** 2,
+          gy = y / (model.axis * Math.sqrt(1 - model.eccentricity ** 2)) ** 2,
+          length = Math.hypot(gx, gy),
+          outward: Point = [
+            (gx * Math.cos(orbit.turn) - gy * Math.sin(orbit.turn)) / length,
+            (gx * Math.sin(orbit.turn) + gy * Math.cos(orbit.turn)) / length,
+          ],
+          tangent: Point = [-outward[1], outward[0]],
+          level = (p.planetTone + p.orbitTone) / 2,
+          forward = crossing(orbit.sample, planet, tangent, 0, 0.014, level),
+          backward = crossing(
+            orbit.sample,
+            planet,
+            [-tangent[0], -tangent[1]],
+            0,
+            0.014,
+            level,
+          );
+        expect(
+          Math.abs((forward + backward) / 2 - p.planetRadius),
+        ).toBeLessThan(0.00005);
+        expect(
+          Math.abs(
+            span(
+              orbit.sample,
+              planet,
+              outward,
+              0,
+              0.02,
+              p.planetTone,
+              p.paperTone,
+            ) - 1,
+          ),
+        ).toBeLessThan(0.06);
+      }
+      // The sun: tone, height; its radius and soft edge along the middle of the widest wedge (where no line is near).
+      expect(toneAt(orbit.sample, orbit.sun[0], orbit.sun[1])).toBeCloseTo(
+        p.sunTone,
+        3,
+      );
+      expect(out.height / p.relief).toBeCloseTo(p.sunHeight, 3);
+      const widest = orbit.order.reduce(
+          (best, _, k) =>
+            halfWay(orbit, k) - orbit.order[k].mean >
+            halfWay(orbit, best) - orbit.order[best].mean
+              ? k
+              : best,
+          0,
+        ),
+        mid = placeAt(model, halfWay(orbit, widest)),
+        direction: Point = [Math.cos(mid.angle), Math.sin(mid.angle)],
+        fill = toneAt(
+          orbit.sample,
+          orbit.sun[0] + direction[0] * 0.03,
+          orbit.sun[1] + direction[1] * 0.03,
+        ),
+        edge = crossing(
+          orbit.sample,
+          orbit.sun,
+          direction,
+          0,
+          0.03,
+          (p.sunTone + fill) / 2,
+        );
+      expect(
+        [p.wedgeTone, p.otherWedgeTone].some(
+          (tone) => Math.abs(tone - fill) < 1e-6,
+        ),
+      ).toBe(true);
+      expect(Math.abs(edge - p.sunRadius)).toBeLessThan(0.0004);
+      expect(
+        Math.abs(
+          span(orbit.sample, orbit.sun, direction, 0, 0.03, p.sunTone, fill) -
+            1,
+        ),
+      ).toBeLessThan(0.06);
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('keplerorbit', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('keplerorbit', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.01),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('keplerorbit', 0),
+      b = createSurfaceSampler('keplerorbit', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.4801],
+        [0.5201, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

@@ -46045,6 +46045,122 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'keplerorbit': {
+        const p = proceduralMaterialPresets.keplerorbit,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x56001),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          axis =
+            p.semiMajors[
+              Math.floor(hash(79, 1, seed ^ 0x56002) * p.semiMajors.length)
+            ],
+          eccentricity =
+            p.eccentricities[
+              Math.floor(hash(79, 2, seed ^ 0x56003) * p.eccentricities.length)
+            ],
+          count =
+            p.counts[Math.floor(hash(79, 3, seed ^ 0x56004) * p.counts.length)],
+          turn = hash(79, 4, seed ^ 0x56005) * TAU,
+          start = hash(79, 5, seed ^ 0x56006) * TAU,
+          minor = axis * Math.sqrt(1 - eccentricity * eccentricity),
+          focus = axis * eccentricity,
+          step = TAU / count,
+          cosTurn = Math.cos(turn),
+          sinTurn = Math.sin(turn),
+          // The planet's positions in the orbit's own frame (the middle of the ellipse at the origin, the long axis along x, the sun at x = focus): from the mean
+          // anomaly M at equal steps through Kepler's equation M = E - e sin E (solved by Newton's method), x = a cos E, y = b sin E.
+          planets = Array.from({ length: count }, (_, k) => {
+            const mean = start + k * step;
+            let eccentric = mean;
+            for (let i = 0; i < 12; i++)
+              eccentric -=
+                (eccentric - eccentricity * Math.sin(eccentric) - mean) /
+                (1 - eccentricity * Math.cos(eccentric));
+            return [axis * Math.cos(eccentric), minor * Math.sin(eccentric)];
+          });
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          // Here in the orbit's frame.
+          const dx = fu - p.centerX,
+            dy = fv - p.centerY,
+            x = dx * cosTurn + dy * sinTurn,
+            y = -dx * sinTurn + dy * cosTurn;
+          if (Math.abs(x) < axis + 0.03 && Math.abs(y) < axis + 0.03) {
+            // How far inside the ellipse (the level set of x^2/a^2 + y^2/b^2 - 1, taken to first order).
+            const level =
+                (x * x) / (axis * axis) + (y * y) / (minor * minor) - 1,
+              slope = 2 * Math.hypot(x / (axis * axis), y / (minor * minor)),
+              inside = -level / slope;
+            if (inside > -p.edgeSoft) {
+              // The wedge: the mean anomaly of the direction from the sun (the true anomaly -> eccentric anomaly -> mean anomaly), in steps from the first position.
+              const anomaly = Math.atan2(y, x - focus),
+                eccentric = Math.atan2(
+                  Math.sqrt(1 - eccentricity * eccentricity) *
+                    Math.sin(anomaly),
+                  eccentricity + Math.cos(anomaly),
+                ),
+                mean = eccentric - eccentricity * Math.sin(eccentric),
+                even = ((Math.floor((mean - start) / step) % 2) + 2) % 2 === 0;
+              paint(
+                cover(inside),
+                even ? p.wedgeTone : p.otherWedgeTone,
+                even ? p.wedgeHeight : p.otherWedgeHeight,
+              );
+              // The lines from the sun to the positions (combined: they meet at the sun).
+              let rays = 0;
+              for (const [px, py] of planets) {
+                const ex = px - focus,
+                  t = clamp(((x - focus) * ex + y * py) / (ex * ex + py * py));
+                rays = Math.max(
+                  rays,
+                  cover(p.rayHalf - Math.hypot(x - focus - t * ex, y - t * py)),
+                );
+              }
+              paint(rays, p.rayTone, p.rayHeight);
+            }
+            if (Math.abs(inside) < p.planetRadius + p.edgeSoft) {
+              // The orbit, and the positions on it.
+              paint(
+                cover(p.orbitHalf - Math.abs(inside)),
+                p.orbitTone,
+                p.orbitHeight,
+              );
+              let dots = 0;
+              for (const [px, py] of planets)
+                dots = Math.max(
+                  dots,
+                  cover(p.planetRadius - Math.hypot(x - px, y - py)),
+                );
+              paint(dots, p.planetTone, p.planetHeight);
+            }
+            // The sun, at the focus.
+            paint(
+              cover(p.sunRadius - Math.hypot(x - focus, y)),
+              p.sunTone,
+              p.sunHeight,
+            );
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -73574,6 +73690,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'keplerorbit' ||
     kind === 'pythagoreanproof' ||
     kind === 'contributiongraph' ||
     kind === 'arbelos' ||

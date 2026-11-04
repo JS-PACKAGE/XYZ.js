@@ -14877,6 +14877,40 @@ export declare const proceduralMaterialPresets: Readonly<{
         paperRoughness: 0.8;
         inkRoughness: 0.4;
     }>;
+    keplerorbit: Readonly<{
+        dark: readonly [28, 36, 64];
+        light: readonly [246, 243, 232];
+        roughness: 0.55;
+        relief: 0.004;
+        semiMajors: readonly number[];
+        eccentricities: readonly number[];
+        counts: readonly number[];
+        centerX: 0.5;
+        centerY: 0.5;
+        orbitHalf: 0.002;
+        rayHalf: 0.0012;
+        planetRadius: 0.009;
+        sunRadius: 0.015;
+        edgeSoft: 0.0006;
+        grainCells: 192;
+        paperTone: 0.97;
+        wedgeTone: 0.88;
+        otherWedgeTone: 0.74;
+        orbitTone: 0.3;
+        rayTone: 0.5;
+        planetTone: 0.1;
+        sunTone: 0.04;
+        grainTone: 0.03;
+        paperHeight: 0.2;
+        wedgeHeight: 0.3;
+        otherWedgeHeight: 0.42;
+        orbitHeight: 0.6;
+        rayHeight: 0.5;
+        planetHeight: 0.8;
+        sunHeight: 0.95;
+        paperRoughness: 0.8;
+        inkRoughness: 0.4;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -21362,6 +21396,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    keplerorbit: 1;
     pythagoreanproof: 1;
     contributiongraph: 1;
     arbelos: 1;

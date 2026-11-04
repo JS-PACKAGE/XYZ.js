@@ -25358,6 +25358,60 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .8,
 		inkRoughness: .4
 	}),
+	keplerorbit: Object.freeze({
+		dark: [
+			28,
+			36,
+			64
+		],
+		light: [
+			246,
+			243,
+			232
+		],
+		roughness: .55,
+		relief: .004,
+		semiMajors: Object.freeze([
+			.3,
+			.34,
+			.38
+		]),
+		eccentricities: Object.freeze([
+			.45,
+			.6,
+			.75
+		]),
+		counts: Object.freeze([
+			8,
+			10,
+			12
+		]),
+		centerX: .5,
+		centerY: .5,
+		orbitHalf: .002,
+		rayHalf: .0012,
+		planetRadius: .009,
+		sunRadius: .015,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		wedgeTone: .88,
+		otherWedgeTone: .74,
+		orbitTone: .3,
+		rayTone: .5,
+		planetTone: .1,
+		sunTone: .04,
+		grainTone: .03,
+		paperHeight: .2,
+		wedgeHeight: .3,
+		otherWedgeHeight: .42,
+		orbitHeight: .6,
+		rayHeight: .5,
+		planetHeight: .8,
+		sunHeight: .95,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -34039,6 +34093,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	keplerorbit: 1,
 	pythagoreanproof: 1,
 	contributiongraph: 1,
 	arbelos: 1,
