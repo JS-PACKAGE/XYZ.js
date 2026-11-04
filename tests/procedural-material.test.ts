@@ -1170,6 +1170,7 @@ const kinds: ProceduralMaterialKind[] = [
   'spanningtrees',
   'polyominoes',
   'selfavoidingwalks',
+  'permutations',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -202648,6 +202649,418 @@ describe('Self-avoiding walks as every walk of n steps drawn once', () => {
     expect(blue / (512 * 512)).toBeLessThan(38.7);
     expect(maxTilt).toBeGreaterThan(0.107);
     expect(maxTilt).toBeLessThan(0.1071);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Permutations as every permutation of a kind drawn once', () => {
+  const p = proceduralMaterialPresets.permutations;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The layout of the panels of a variant (seed % 6): slots of 1 / cols by 1 / rows, each with a box of size by size cells and the margin around it, drawn at one scale and centred in the slot. */
+  const geometry = (seed: number) => {
+    const variant = seed % p.sizes.length,
+      size: number = p.sizes[variant],
+      cols: number = p.cols[variant],
+      rows: number = p.rows[variant],
+      span = size + 2 * p.margin,
+      scale = Math.min(1 / (cols * span), 1 / (rows * span));
+    return {
+      size,
+      kind: p.kinds[variant] as number,
+      cols,
+      rows,
+      scale,
+      originX: (1 / cols - scale * span) / 2,
+      originY: (1 / rows - scale * span) / 2,
+    };
+  };
+  type Panel = { perm: number[]; inversions: number };
+  /** The permutation of every panel slot of a seed read back from the picture (null for an empty slot): the filled cell of a column is the cell whose height is above the middle between a faint dot and a filled cell, and the height of the filled cells gives the number of inversions. */
+  const readPanels = (seed: number): (Panel | null)[] => {
+    const g = geometry(seed),
+      sample = createSurfaceSampler('permutations', seed),
+      out = empty(),
+      most = (g.size * (g.size - 1)) / 2,
+      panels: (Panel | null)[] = [];
+    for (let slot = 0; slot < g.cols * g.rows; slot++) {
+      const col = slot % g.cols,
+        row = Math.floor(slot / g.cols),
+        perm: number[] = [],
+        levels = new Set<number>();
+      for (let i = 0; i < g.size; i++) {
+        const filled: number[] = [];
+        for (let j = 0; j < g.size; j++) {
+          sample(
+            col / g.cols + g.originX + g.scale * (p.margin + i + 0.5),
+            row / g.rows + g.originY + g.scale * (p.margin + j + 0.5),
+            out,
+          );
+          const height = out.height / p.relief / p.cellHeight;
+          if (height > (p.dotHeight + p.heightBase) / 2) {
+            filled.push(j);
+            levels.add(
+              Math.round(((height - p.heightBase) / p.heightSwing) * most),
+            );
+          }
+        }
+        if (i === 0 && filled.length === 0) break;
+        // One filled cell in every column of a panel, and the same number of inversions in all of them.
+        expect(filled.length).toBe(1);
+        perm.push(filled[0]);
+      }
+      if (perm.length === 0) panels.push(null);
+      else {
+        expect([...levels].length).toBe(1);
+        panels.push({ perm, inversions: [...levels][0] });
+      }
+    }
+    return panels;
+  };
+  /** The permutations of 0 to n - 1 in the order of the next-permutation rule, written again here. */
+  const allPermutations = (n: number): number[][] => {
+    const perm = Array.from({ length: n }, (_, k) => k),
+      found: number[][] = [];
+    for (;;) {
+      found.push(perm.slice());
+      let k = n - 2;
+      while (k >= 0 && perm[k] > perm[k + 1]) k--;
+      if (k < 0) return found;
+      let m = n - 1;
+      while (perm[m] < perm[k]) m--;
+      [perm[k], perm[m]] = [perm[m], perm[k]];
+      perm.push(...perm.splice(k + 1).reverse());
+    }
+  };
+  /** The lengths of the cycles of a permutation. */
+  const cycleLengths = (perm: number[]): number[] => {
+    const seen = new Set<number>(),
+      lengths: number[] = [];
+    for (let start = 0; start < perm.length; start++) {
+      if (seen.has(start)) continue;
+      let length = 0;
+      for (let at = start; !seen.has(at); at = perm[at]) {
+        seen.add(at);
+        length++;
+      }
+      lengths.push(length);
+    }
+    return lengths;
+  };
+  /** Whether a stack can sort the permutation (that holds exactly when it avoids the pattern 231): push the entries one after the other and pop whenever the top is the next number. */
+  const stackSortable = (perm: number[]): boolean => {
+    const stack: number[] = [];
+    let next = 0;
+    for (const value of perm) {
+      stack.push(value);
+      while (stack.length > 0 && stack[stack.length - 1] === next) {
+        stack.pop();
+        next++;
+      }
+    }
+    return next === perm.length;
+  };
+  /** The number of inversions as the number of swaps of neighbours that bubble sort makes. */
+  const bubbleSwaps = (perm: number[]): number => {
+    const work = perm.slice();
+    let swaps = 0;
+    for (let again = true; again;) {
+      again = false;
+      for (let k = 0; k + 1 < work.length; k++)
+        if (work[k] > work[k + 1]) {
+          [work[k], work[k + 1]] = [work[k + 1], work[k]];
+          swaps++;
+          again = true;
+        }
+    }
+    return swaps;
+  };
+  const ofKind = (kind: number, perm: number[]): boolean =>
+    kind === 0 ||
+    (kind === 1 && stackSortable(perm)) ||
+    (kind === 2 && cycleLengths(perm).every((length) => length <= 2)) ||
+    (kind === 3 && cycleLengths(perm).every((length) => length >= 2)) ||
+    (kind === 4 && cycleLengths(perm).length === 1);
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('permutations', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { high: 0.9615, lit: 0.04483, mean: 0.08464 }],
+      [1, { high: 0.9639, lit: 0.05495, mean: 0.09545 }],
+      [0xffffffff, { high: 0.9595, lit: 0.0628, mean: 0.10475 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('permutations', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0154);
+      expect(low).toBeLessThan(0.016);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws every permutation of the kind exactly once, read back from the picture and compared with a list written again here', () => {
+    for (let seed = 0; seed < 12; seed++) {
+      const g = geometry(seed),
+        read = readPanels(seed),
+        drawn = read.filter((panel): panel is Panel => panel !== null),
+        names = drawn.map(({ perm }) => perm.join('')),
+        wanted = allPermutations(g.size)
+          .filter((perm) => ofKind(g.kind, perm))
+          .map((perm) => perm.join(''));
+      expect(new Set(names).size).toBe(drawn.length);
+      expect([...names].sort()).toEqual(wanted.sort());
+      expect(read.slice(drawn.length).every((panel) => panel === null)).toBe(
+        true,
+      );
+      // The level of a panel is its number of inversions, counted again by the swaps of bubble sort.
+      for (const { perm, inversions } of drawn)
+        expect(inversions).toBe(bubbleSwaps(perm));
+    }
+    // The numbers: 24 and 120 permutations of 4 and 5, 132 of 6 that avoid 231, 232 involutions of 7, 265 derangements of 6 and 120 cyclic permutations of 6.
+    expect(
+      [0, 1, 2, 3, 4, 5].map(
+        (seed) => readPanels(seed).filter((panel) => panel !== null).length,
+      ),
+    ).toEqual([24, 120, 132, 232, 265, 120]);
+  });
+  it('gives the permutations of 5 the numbers of inversions of the Mahonian row 1, 4, 9, 15, 20, 22, 20, 15, 9, 4, 1', () => {
+    const counts = new Array<number>(11).fill(0);
+    for (const panel of readPanels(1))
+      if (panel !== null) counts[panel.inversions]++;
+    expect(counts).toEqual([1, 4, 9, 15, 20, 22, 20, 15, 9, 4, 1]);
+  });
+  it('shuffles the panels by group without changing the set of permutations', () => {
+    for (const seed of [0, 1, 4]) {
+      const names = (s: number) =>
+          readPanels(s).map((panel) =>
+            panel === null ? '-' : panel.perm.join(''),
+          ),
+        first = names(seed),
+        second = names(seed + 6),
+        third = names(seed + 12);
+      expect(first).not.toEqual(second);
+      expect(second).not.toEqual(third);
+      expect([...first].sort()).toEqual([...second].sort());
+      expect([...first].sort()).toEqual([...third].sort());
+    }
+  });
+  it('agrees with the ideal filled cells, dots and box away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5]) {
+      const g = geometry(seed),
+        panels = readPanels(seed),
+        sample = createSurfaceSampler('permutations', seed),
+        out = empty(),
+        half = p.gapWidth / 2,
+        most = (g.size * (g.size - 1)) / 2;
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          col = Math.min(g.cols - 1, Math.floor(u * g.cols)),
+          row = Math.min(g.rows - 1, Math.floor(v * g.rows)),
+          panel = panels[row * g.cols + col],
+          x = (u - col / g.cols - g.originX) / g.scale - p.margin,
+          y = (v - row / g.rows - g.originY) / g.scale - p.margin,
+          i = Math.floor(x),
+          j = Math.floor(y);
+        let fill = false,
+          dot = false,
+          box = false,
+          near = false,
+          level = 0;
+        // A distance is in the smoothed zone when it is between half the gap and half the gap plus the smoothing.
+        const smoothed = (distance: number) =>
+          distance > half && distance < half + p.edgeSoft;
+        if (panel !== null) {
+          const sides = [x, g.size - x, y, g.size - y];
+          if (sides.some(smoothed)) near = true;
+          box = sides.every((distance) => distance > half);
+          if (i >= 0 && j >= 0 && i < g.size && j < g.size) {
+            if (panel.perm[i] === j) {
+              const inner = [x - i, i + 1 - x, y - j, j + 1 - y];
+              if (inner.some(smoothed)) near = true;
+              fill = inner.every((distance) => distance > half);
+              level = panel.inversions / most;
+            } else {
+              const distance = Math.hypot(x - i - 0.5, y - j - 0.5);
+              if (Math.abs(distance - p.dotRadius) <= p.edgeSoft / 2 + 1e-9)
+                near = true;
+              dot = distance < p.dotRadius;
+            }
+          }
+        }
+        if (near) continue;
+        compared++;
+        const ink = fill || dot ? 1 : 0,
+          tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ((fill ? p.heightBase + p.heightSwing * level : 0) +
+              (dot ? p.dotHeight : 0) +
+              (ink === 0 && box ? p.boxHeight : 0)),
+          12,
+        );
+        expect(
+          Math.abs(
+            out.color -
+              ((box ? p.toneBox : p.toneGround) * (1 - ink) +
+                (fill ? tone : 0) +
+                (dot ? p.toneDot : 0)),
+          ),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(5200);
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeGreaterThan(0.093);
+    expect(unlike(first, litGrid(1))).toBeLessThan(0.0935);
+    expect(unlike(first, litGrid(6))).toBeGreaterThan(0.079);
+    expect(unlike(first, litGrid(6))).toBeLessThan(0.0792);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('permutations', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 lavender permutation maps on dark indigo with raised cells and shaded ground', () => {
+    const maps = generateProceduralMaps('permutations', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(35);
+    expect(red / (512 * 512)).toBeLessThan(35.8);
+    expect(green / (512 * 512)).toBeGreaterThan(26.7);
+    expect(green / (512 * 512)).toBeLessThan(27.5);
+    expect(blue / (512 * 512)).toBeGreaterThan(56.5);
+    expect(blue / (512 * 512)).toBeLessThan(57.4);
+    expect(maxTilt).toBeGreaterThan(0.1034);
+    expect(maxTilt).toBeLessThan(0.1036);
     expect(invalid).toBe(0);
   });
 });

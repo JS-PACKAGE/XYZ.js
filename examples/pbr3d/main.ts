@@ -1207,6 +1207,7 @@ try {
     'spanningtrees',
     'polyominoes',
     'selfavoidingwalks',
+    'permutations',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

@@ -53533,6 +53533,132 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'permutations': {
+        const p = proceduralMaterialPresets.permutations,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.sizes.length,
+          group = Math.floor(unsigned / p.sizes.length),
+          size: number = p.sizes[variant],
+          kind: number = p.kinds[variant],
+          cols = p.cols[variant],
+          rows = p.rows[variant],
+          mostInversions = (size * (size - 1)) / 2,
+          // Whether the permutation (perm[column] is the row of the filled cell) is of the kind of the variant.
+          wanted = (perm: number[]): boolean => {
+            if (kind === 1) {
+              // 231: positions a < b < c holding the values middle, high, low.
+              for (let a = 0; a < size; a++)
+                for (let b = a + 1; b < size; b++)
+                  for (let c = b + 1; c < size; c++)
+                    if (perm[c] < perm[a] && perm[a] < perm[b]) return false;
+              return true;
+            }
+            if (kind === 2)
+              return perm.every((row, column) => perm[row] === column);
+            if (kind === 3) return perm.every((row, column) => row !== column);
+            if (kind === 4) {
+              let length = 1;
+              for (let at = perm[0]; at !== 0; at = perm[at]) length++;
+              return length === size;
+            }
+            return true;
+          },
+          // Every permutation of the kind, found by placing the rows one column after the other, in a shuffled order.
+          panels = (() => {
+            const found: { perm: number[]; level: number }[] = [],
+              perm: number[] = [],
+              used = new Array<boolean>(size).fill(false),
+              place = (): void => {
+                if (perm.length === size) {
+                  if (!wanted(perm)) return;
+                  let inversions = 0;
+                  for (let a = 0; a < size; a++)
+                    for (let b = a + 1; b < size; b++)
+                      inversions += Number(perm[a] > perm[b]);
+                  found.push({
+                    perm: perm.slice(),
+                    level: inversions / mostInversions,
+                  });
+                  return;
+                }
+                for (let row = 0; row < size; row++) {
+                  if (used[row]) continue;
+                  used[row] = true;
+                  perm.push(row);
+                  place();
+                  perm.pop();
+                  used[row] = false;
+                }
+              };
+            place();
+            for (let k = found.length - 1; k > 0; k--) {
+              const other = Math.floor(
+                hash(k, 241, group ^ p.seedSalt) * (k + 1),
+              );
+              [found[k], found[other]] = [found[other], found[k]];
+            }
+            return found;
+          })(),
+          span = size + 2 * p.margin,
+          scale = Math.min(1 / (cols * span), 1 / (rows * span)),
+          originX = (1 / cols - scale * span) / 2,
+          originY = (1 / rows - scale * span) / 2,
+          halfGap = p.gapWidth / 2,
+          // 1 on the cell side of a gap, 0 at the edge itself, at the distance fromEdge in cells.
+          edge = (fromEdge: number): number =>
+            smooth(clamp((fromEdge - halfGap) / p.edgeSoft)),
+          // 1 inside the distance half, 0 outside, 1/2 at half, smoothed over edgeSoft.
+          band = (distance: number, half: number): number =>
+            smooth(clamp((half - distance) / p.edgeSoft + 0.5));
+        return () => {
+          const tileU = fract(u),
+            tileV = fract(v),
+            col = Math.min(cols - 1, Math.floor(tileU * cols)),
+            row = Math.min(rows - 1, Math.floor(tileV * rows)),
+            index = row * cols + col,
+            grain = grainField(u, v);
+          let mask = 0,
+            dot = 0,
+            box = 0,
+            level = 0;
+          if (index < panels.length) {
+            const x = (tileU - col / cols - originX) / scale - p.margin,
+              y = (tileV - row / rows - originY) / scale - p.margin,
+              i = Math.floor(x),
+              j = Math.floor(y);
+            // The box of the panel is a little lighter and higher than the ground around it.
+            box = edge(x) * edge(size - x) * edge(y) * edge(size - y);
+            if (i >= 0 && j >= 0 && i < size && j < size) {
+              const fx = x - i,
+                fy = y - j,
+                { perm } = panels[index];
+              if (perm[i] === j) {
+                mask = edge(fx) * edge(1 - fx) * edge(fy) * edge(1 - fy);
+                level = panels[index].level;
+              } else dot = band(Math.hypot(fx - 0.5, fy - 0.5), p.dotRadius);
+            }
+          }
+          const tone = p.toneMin + (p.toneMax - p.toneMin) * level,
+            ink = Math.max(mask, dot);
+          color =
+            (p.toneGround + (p.toneBox - p.toneGround) * box) * (1 - ink) +
+            tone * mask +
+            p.toneDot * dot +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+            (mask * (p.heightBase + p.heightSwing * level) +
+              dot * p.dotHeight +
+              (1 - ink) * box * p.boxHeight);
+          occlusion = 1 - p.gapOcclusion * (1 - ink);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -62478,6 +62604,7 @@ export function createSurfaceSampler(
     kind === 'spanningtrees' ||
     kind === 'polyominoes' ||
     kind === 'selfavoidingwalks' ||
+    kind === 'permutations' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
