@@ -336,11 +336,17 @@ export class WorldStreamingController extends EventTarget {
       for (const record of this.records.values()) {
         record.activeWanted = record.residentWanted = false;
         const { min, max } = record.cell.bounds;
-        record.distance = hypot3(
-          Math.max(min.x - focus.x, 0, focus.x - max.x),
-          Math.max(min.y - focus.y, 0, focus.y - max.y),
-          Math.max(min.z - focus.z, 0, focus.z - max.z),
-        );
+        const dx = Math.max(min.x - focus.x, 0, focus.x - max.x),
+          dy = Math.max(min.y - focus.y, 0, focus.y - max.y),
+          dz = Math.max(min.z - focus.z, 0, focus.z - max.z);
+        const reach =
+          record.state === 'active'
+            ? this.retireDistance
+            : this.prefetchDistance;
+        // Euclidean distance cannot be smaller than any component. Far cells
+        // never enter the ranking, so only nearby cells need an exact norm.
+        if (dx > reach || dy > reach || dz > reach) continue;
+        record.distance = hypot3(dx, dy, dz);
         if (
           record.distance <= this.prefetchDistance ||
           (record.state === 'active' && record.distance <= this.retireDistance)
