@@ -358,8 +358,15 @@ export function demuxMP4(
       sampleOffsets[sample] = offset;
       offset += sizes[sample++]!;
     }
-    if (!media.some((box) => start >= box.start && offset <= box.end))
-      invalid();
+    // Root boxes are disjoint and already ordered by their byte positions.
+    let low = 0;
+    let high = media.length;
+    while (low < high) {
+      const middle = (low + high) >>> 1;
+      if (media[middle]!.start <= start) low = middle + 1;
+      else high = middle;
+    }
+    if (low === 0 || offset > media[low - 1]!.end) invalid();
     ranges.push({ offset: start, end: offset });
   }
   if (sample !== count) invalid();

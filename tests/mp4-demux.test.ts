@@ -59,10 +59,18 @@ interface FixtureOptions {
   constant?: boolean;
   timeScale?: number;
   record?: Uint8Array;
+  mediaSplit?: number;
 }
 const fixture = (options: FixtureOptions = {}): Uint8Array => {
   const ftyp = box('ftyp', str('isom'), u32(0), str('isom'));
-  const mdat = box('mdat', new Uint8Array([11, 12, 21, 22, 23, 31]));
+  const samples = new Uint8Array([11, 12, 21, 22, 23, 31]);
+  const mdat =
+    options.mediaSplit === undefined
+      ? box('mdat', samples)
+      : cat(
+          box('mdat', samples.subarray(0, options.mediaSplit)),
+          box('mdat', samples.subarray(options.mediaSplit)),
+        );
   const track = (
     audio = false,
     codec = options.codec ?? 'avc1',
@@ -92,9 +100,11 @@ const fixture = (options: FixtureOptions = {}): Uint8Array => {
       ? full('stsz', u32(2, options.sampleCount ?? 3))
       : full('stsz', u32(0, options.sampleCount ?? 3, 2, 3, 1));
     const offset = options.offset ?? ftyp.length + 8;
+    const secondOffset =
+      offset + 5 + (options.mediaSplit === undefined ? 0 : 8);
     const offsets = options.co64
-      ? full('co64', u32(2, 0, offset, 0, offset + 5))
-      : full('stco', u32(2, offset, offset + 5));
+      ? full('co64', u32(2, 0, offset, 0, secondOffset))
+      : full('stco', u32(2, offset, secondOffset));
     const stbl = box(
       'stbl',
       stsd,
@@ -166,6 +176,14 @@ describe('bounded MP4 demux', () => {
       [21, 22, 23],
       [31],
     ]));
+  it('finds disjoint media payloads without accepting a chunk spanning their headers', () => {
+    expect(demuxMP4(fixture({ mediaSplit: 5 })).chunks.map(contents)).toEqual([
+      [11, 12],
+      [21, 22, 23],
+      [31],
+    ]);
+    expect(() => demuxMP4(fixture({ mediaSplit: 4 }))).toThrow(RangeError);
+  });
   it('ignores audio descriptions and selects only first video', () =>
     expect(
       demuxMP4(fixture({ audio: true, secondVideo: true })).config.codec,
