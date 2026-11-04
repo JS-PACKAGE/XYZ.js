@@ -17285,6 +17285,46 @@ export declare const proceduralMaterialPresets: Readonly<{
         cellHeight: 0.8;
         gapOcclusion: 0.4;
     }>;
+    sizeillusions: Readonly<{
+        dark: readonly [10, 12, 18];
+        light: readonly [236, 232, 224];
+        roughness: 0.5;
+        relief: 0.0008;
+        seedSalt: 18985;
+        variants: readonly [{
+            readonly discs: readonly [readonly [0.27, 0.5, 0.05], readonly [0.44, 0.5, 0.09], readonly [0.355, 0.6472, 0.09], readonly [0.185, 0.6472, 0.09], readonly [0.1, 0.5, 0.09], readonly [0.185, 0.3528, 0.09], readonly [0.355, 0.3528, 0.09], readonly [0.73, 0.5, 0.05], readonly [0.835, 0.5, 0.03], readonly [0.8042, 0.5742, 0.03], readonly [0.73, 0.605, 0.03], readonly [0.6558, 0.5742, 0.03], readonly [0.625, 0.5, 0.03], readonly [0.6558, 0.4258, 0.03], readonly [0.73, 0.395, 0.03], readonly [0.8042, 0.4258, 0.03]];
+            readonly rings: readonly [];
+            readonly pacmen: readonly [];
+        }, {
+            readonly discs: readonly [readonly [0.25, 0.25, 0.04], readonly [0.365, 0.25, 0.06], readonly [0.3075, 0.3496, 0.06], readonly [0.1925, 0.3496, 0.06], readonly [0.135, 0.25, 0.06], readonly [0.1925, 0.1504, 0.06], readonly [0.3075, 0.1504, 0.06], readonly [0.75, 0.25, 0.04], readonly [0.82, 0.25, 0.02], readonly [0.7995, 0.2995, 0.02], readonly [0.75, 0.32, 0.02], readonly [0.7005, 0.2995, 0.02], readonly [0.68, 0.25, 0.02], readonly [0.7005, 0.2005, 0.02], readonly [0.75, 0.18, 0.02], readonly [0.7995, 0.2005, 0.02], readonly [0.25, 0.75, 0.04], readonly [0.32, 0.75, 0.02], readonly [0.2995, 0.7995, 0.02], readonly [0.25, 0.82, 0.02], readonly [0.2005, 0.7995, 0.02], readonly [0.18, 0.75, 0.02], readonly [0.2005, 0.7005, 0.02], readonly [0.25, 0.68, 0.02], readonly [0.2995, 0.7005, 0.02], readonly [0.75, 0.75, 0.04], readonly [0.865, 0.75, 0.06], readonly [0.8075, 0.8496, 0.06], readonly [0.6925, 0.8496, 0.06], readonly [0.635, 0.75, 0.06], readonly [0.6925, 0.6504, 0.06], readonly [0.8075, 0.6504, 0.06]];
+            readonly rings: readonly [];
+            readonly pacmen: readonly [];
+        }, {
+            readonly discs: readonly [readonly [0.27, 0.5, 0.08], readonly [0.73, 0.5, 0.08]];
+            readonly rings: readonly [readonly [0.27, 0.5, 0.12], readonly [0.73, 0.5, 0.21]];
+            readonly pacmen: readonly [];
+        }, {
+            readonly discs: readonly [];
+            readonly rings: readonly [];
+            readonly pacmen: readonly [readonly [0.5, 0.2575, 0.09, 90, 60], readonly [0.29, 0.6212, 0.09, -29.9911, 60], readonly [0.71, 0.6212, 0.09, -150.0089, 60]];
+        }, {
+            readonly discs: readonly [];
+            readonly rings: readonly [];
+            readonly pacmen: readonly [readonly [0.3, 0.3, 0.1, 45, 90], readonly [0.7, 0.3, 0.1, 135, 90], readonly [0.7, 0.7, 0.1, -135, 90], readonly [0.3, 0.7, 0.1, -45, 90]];
+        }, {
+            readonly discs: readonly [readonly [0.27, 0.5, 0.07], readonly [0.44, 0.5, 0.09], readonly [0.355, 0.6472, 0.09], readonly [0.185, 0.6472, 0.09], readonly [0.1, 0.5, 0.09], readonly [0.185, 0.3528, 0.09], readonly [0.355, 0.3528, 0.09], readonly [0.73, 0.5, 0.03], readonly [0.835, 0.5, 0.03], readonly [0.8042, 0.5742, 0.03], readonly [0.73, 0.605, 0.03], readonly [0.6558, 0.5742, 0.03], readonly [0.625, 0.5, 0.03], readonly [0.6558, 0.4258, 0.03], readonly [0.73, 0.395, 0.03], readonly [0.8042, 0.4258, 0.03]];
+            readonly rings: readonly [];
+            readonly pacmen: readonly [];
+        }];
+        ringHalfWidth: 0.005;
+        edgeWidth: 0.004;
+        grainCells: 128;
+        toneDark: 0.05;
+        toneLight: 0.9;
+        grainTone: 0.03;
+        cellHeight: 0.8;
+        gapOcclusion: 0.4;
+    }>;
     vermiculation: Readonly<{
         dark: readonly [60, 48, 36];
         light: readonly [220, 204, 172];
@@ -19077,6 +19117,7 @@ export declare const proceduralTileMeters: Readonly<{
     lineillusions: 0.5;
     contrastillusions: 0.5;
     randomdotstereogram: 0.5;
+    sizeillusions: 0.5;
     dominotiling: 0.5;
     vermiculation: 0.4;
     kikko: 0.3;

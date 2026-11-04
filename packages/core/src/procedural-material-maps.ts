@@ -52120,6 +52120,60 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'sizeillusions': {
+        const p = proceduralMaterialPresets.sizeillusions,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant = Math.floor(
+            hash(0, 108, seed ^ p.seedSalt) * p.variants.length,
+          ),
+          figure = p.variants[variant],
+          width = p.edgeWidth,
+          // A smooth step that is 0 well below the edge and 1 well above it (distance in tile lengths, positive on the inside).
+          step = (distance: number): number =>
+            smooth(clamp(0.5 + distance / (2 * width)));
+        return () => {
+          const x = fract(u),
+            y = fract(v);
+          // The union of all the shapes as 1 minus the product of 1 - mask (every mask is C1).
+          let free = 1;
+          for (const [cx, cy, radius] of figure.discs)
+            free *= 1 - step(radius - Math.hypot(x - cx, y - cy));
+          for (const [cx, cy, radius] of figure.rings)
+            free *=
+              1 -
+              step(
+                p.ringHalfWidth - Math.abs(Math.hypot(x - cx, y - cy) - radius),
+              );
+          for (const [cx, cy, radius, mouth, opening] of figure.pacmen) {
+            const dx = x - cx,
+              dy = y - cy,
+              distance = Math.hypot(dx, dy),
+              half = (opening * Math.PI) / 360;
+            // The angle from the direction of the mouth, 0 to pi, and the signed distance to the nearest edge of the mouth (positive outside it: the mouth is a wedge of the half angle half, which is under a right angle).
+            let turn = Math.abs(Math.atan2(dy, dx) - (mouth * Math.PI) / 180);
+            if (turn > Math.PI) turn = 2 * Math.PI - turn;
+            const toEdge =
+                turn - half < Math.PI / 2
+                  ? distance * Math.sin(turn - half)
+                  : distance,
+              outside = step(toEdge);
+            free *= 1 - step(radius - distance) * outside;
+          }
+          const ink = 1 - free,
+            grain = grainField(u, v);
+          color =
+            p.toneDark +
+            (p.toneLight - p.toneDark) * ink +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * ink;
+          occlusion = 1 - p.gapOcclusion * (1 - ink);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -61051,6 +61105,7 @@ export function createSurfaceSampler(
     kind === 'lineillusions' ||
     kind === 'contrastillusions' ||
     kind === 'randomdotstereogram' ||
+    kind === 'sizeillusions' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

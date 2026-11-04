@@ -1156,6 +1156,7 @@ const kinds: ProceduralMaterialKind[] = [
   'lineillusions',
   'contrastillusions',
   'randomdotstereogram',
+  'sizeillusions',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -197549,6 +197550,413 @@ describe('Random-dot stereogram as a shape hidden in the disparity of two dot fi
     expect(blue / (512 * 512)).toBeLessThan(50.4);
     expect(maxTilt).toBeGreaterThan(0.0135);
     expect(maxTilt).toBeLessThan(0.0137);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Size illusions as the Ebbinghaus, Delboeuf and Kanizsa figures', () => {
+  const p = proceduralMaterialPresets.sizeillusions;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const tone = (value: number): number =>
+    p.toneDark + (p.toneLight - p.toneDark) * value;
+  /** The ideal figure of the variant at (x, y) by predicates (1 inside any disc, ring or pac-man, 0 outside) and the distance in tile lengths to the nearest edge of any of its shapes. */
+  const ideal = (
+    variant: number,
+    x: number,
+    y: number,
+  ): { value: number; distance: number } => {
+    const figure = p.variants[variant];
+    let inside = false,
+      distance = 1;
+    for (const [cx, cy, radius] of figure.discs) {
+      const d = Math.hypot(x - cx, y - cy);
+      if (d < radius) inside = true;
+      distance = Math.min(distance, Math.abs(d - radius));
+    }
+    for (const [cx, cy, radius] of figure.rings) {
+      const d = Math.hypot(x - cx, y - cy);
+      if (Math.abs(d - radius) < p.ringHalfWidth) inside = true;
+      distance = Math.min(
+        distance,
+        Math.abs(Math.abs(d - radius) - p.ringHalfWidth),
+      );
+    }
+    for (const [cx, cy, radius, mouth, opening] of figure.pacmen) {
+      const dx = x - cx,
+        dy = y - cy,
+        d = Math.hypot(dx, dy),
+        half = ((opening / 2) * Math.PI) / 180,
+        turn = Math.atan2(dy, dx) - (mouth * Math.PI) / 180,
+        delta = Math.atan2(Math.sin(turn), Math.cos(turn)),
+        gap = Math.abs(Math.abs(delta) - half);
+      if (d < radius && Math.abs(delta) >= half) inside = true;
+      distance = Math.min(
+        distance,
+        Math.abs(d - radius),
+        gap < Math.PI / 2 ? d * Math.sin(gap) : d,
+      );
+    }
+    return { value: inside ? 1 : 0, distance };
+  };
+  /** The strap ink at the point (x, y) of the tile, read back from the sampler: the height is cellHeight times the ink (the grain is not in the height). */
+  const inkAt = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    x: number,
+    y: number,
+  ): number => {
+    sample(x, y, out);
+    return out.height / p.relief / p.cellHeight;
+  };
+  /** The stretches [start, end] along the line y = fixed (in 8192 steps over the tile) where the ink is above 0.5, with their ends found by linear interpolation. */
+  const stretchesAlong = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    y: number,
+  ): number[][] => {
+    const steps = 8192,
+      stretches: number[][] = [];
+    let before = inkAt(sample, out, 0, y) - 0.5,
+      start = before > 0 ? 0 : -1;
+    for (let k = 1; k <= steps; k++) {
+      const level = inkAt(sample, out, k / steps, y) - 0.5,
+        crossing = (k - 1) / steps + before / (before - level) / steps;
+      if (before <= 0 && level > 0) start = crossing;
+      if (before > 0 && level <= 0 && start >= 0) {
+        stretches.push([start, crossing]);
+        start = -1;
+      }
+      before = level;
+    }
+    return stretches;
+  };
+  /** The centres in degrees of the arcs of a ring of the given radius round (cx, cy) where the ink is above 0.5, with their widths in degrees, from the angle 0 (along +x, y downward in the tile) in 3600 steps; an arc that spans the angle 0 is joined. */
+  const ringArcs = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    cx: number,
+    cy: number,
+    radius: number,
+  ): { centre: number; width: number }[] => {
+    const steps = 3600,
+      on: boolean[] = [];
+    for (let k = 0; k < steps; k++) {
+      const turn = (2 * Math.PI * k) / steps;
+      on.push(
+        inkAt(
+          sample,
+          out,
+          cx + radius * Math.cos(turn),
+          cy + radius * Math.sin(turn),
+        ) > 0.5,
+      );
+    }
+    const first = on.indexOf(false),
+      arcs: { centre: number; width: number }[] = [];
+    if (first < 0) return arcs;
+    let start = -1;
+    for (let k = 0; k <= steps; k++) {
+      const active = k < steps && on[(first + k) % steps];
+      if (active && start < 0) start = k;
+      if (!active && start >= 0) {
+        arcs.push({
+          centre: (((first + (start + k - 1) / 2) * 360) / steps) % 360,
+          width: ((k - start) * 360) / steps,
+        });
+        start = -1;
+      }
+    }
+    return arcs;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('sizeillusions', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('sizeillusions', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0351);
+      expect(low).toBeLessThan(0.0358);
+      expect(high).toBeGreaterThan(0.9135);
+      expect(high).toBeLessThan(0.9142);
+      expect(dark / 65536).toBeGreaterThan(0.0601);
+      expect(dark / 65536).toBeLessThan(0.188);
+      expect(mean / 65536).toBeGreaterThan(0.1019);
+      expect(mean / 65536).toBeLessThan(0.2105);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.799);
+      expect(heightHigh).toBeLessThan(0.8001);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (the Ebbinghaus pair, the lattice of clusters, the Delboeuf discs, the Kanizsa triangle, the Kanizsa square and the Ebbinghaus pair of unequal discs) is 0, 32, 4, 16, 1 and 3; the table was found with a probe, by comparing the tone of each of 40 seeds at up to 34 points away from the edges (including 4 points that tell the last variant from the first) with the six variants, and is written here, so it is not an independent check of the seed's choice.
+  const seeds = [0, 32, 4, 16, 1, 3];
+  it('agrees with the ideal figure of predicates everywhere away from the edges', () => {
+    // At the points of 500 of a golden-ratio sequence that are farther than twice the edge width from every edge of the ideal figure (about 450 of them: 5359 to 5579 of 6000 in the probe) the tone is that of the ideal value to within half the grain (0.01492 at the most in the probe, grainTone / 2 being 0.015) and the occlusion is 1 - gapOcclusion (1 - value) to 1e-9 (0 in the probe).
+    seeds.forEach((seed, variant) => {
+      const sample = createSurfaceSampler('sizeillusions', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 500; k++) {
+        const x = (k * 0.6180339887 + 0.07) % 1,
+          y = (k * 0.7548776662 + 0.21) % 1,
+          figure = ideal(variant, x, y);
+        if (figure.distance < 2 * p.edgeWidth) continue;
+        compared++;
+        sample(x, y, out);
+        expect(Math.abs(out.color - tone(figure.value))).toBeLessThan(
+          p.grainTone / 2 + 1e-6,
+        );
+        expect(
+          Math.abs(out.occlusion - (1 - p.gapOcclusion * (1 - figure.value))),
+        ).toBeLessThan(1e-9);
+      }
+      expect(compared).toBeGreaterThan(350);
+    });
+  });
+  it('measures the central discs of the Ebbinghaus and Delboeuf figures and their surrounds from the picture', () => {
+    // The widths of the stretches of ink along the line through the centres (found by scanning 8192 steps and interpolating, to within 3e-4) are measured, not read from the preset: in the pair the central discs are 0.10 wide, equal, one among the large discs (0.18 wide, in the stretches that run into the central disc's neighbours) and the other among the small ones (0.06 wide); in the lattice the central discs on the top row are 0.08 wide and equal; in the Delboeuf variant the discs are 0.16 wide and equal and the rings are at the radii 0.12 and 0.21 from their centres (the middle of the ring stretches); in the unequal pair the central discs are 0.14 and 0.06 wide.
+    const out = empty(),
+      near = (value: number, wanted: number) => Math.abs(value - wanted) < 3e-4;
+    const stretchAround = (stretches: number[][], x: number): number[] =>
+      stretches.find(([start, end]) => start < x && end > x) ?? [0, 0];
+    const pair = createSurfaceSampler('sizeillusions', seeds[0]),
+      pairStretches = stretchesAlong(pair, out, 0.5),
+      [leftFrom, leftTo] = stretchAround(pairStretches, 0.27),
+      [rightFrom, rightTo] = stretchAround(pairStretches, 0.73);
+    expect(near(leftTo - leftFrom, 0.1)).toBe(true);
+    expect(near(rightTo - rightFrom, 0.1)).toBe(true);
+    expect(
+      near(
+        stretchAround(pairStretches, 0.27 + 0.17)[1] -
+          stretchAround(pairStretches, 0.27 + 0.17)[0],
+        0.18,
+      ),
+    ).toBe(true);
+    expect(
+      near(
+        stretchAround(pairStretches, 0.73 + 0.105)[1] -
+          stretchAround(pairStretches, 0.73 + 0.105)[0],
+        0.06,
+      ),
+    ).toBe(true);
+    const lattice = createSurfaceSampler('sizeillusions', seeds[1]),
+      latticeStretches = stretchesAlong(lattice, out, 0.25),
+      [bigFrom, bigTo] = stretchAround(latticeStretches, 0.25),
+      [smallFrom, smallTo] = stretchAround(latticeStretches, 0.75);
+    expect(near(bigTo - bigFrom, 0.08)).toBe(true);
+    expect(near(smallTo - smallFrom, 0.08)).toBe(true);
+    const delboeuf = createSurfaceSampler('sizeillusions', seeds[2]),
+      delboeufStretches = stretchesAlong(delboeuf, out, 0.5),
+      [closeFrom, closeTo] = stretchAround(delboeufStretches, 0.27),
+      [farFrom, farTo] = stretchAround(delboeufStretches, 0.73);
+    expect(near(closeTo - closeFrom, 0.16)).toBe(true);
+    expect(near(farTo - farFrom, 0.16)).toBe(true);
+    const ringRadii = [0.27 + 0.12, 0.73 + 0.21].map((x) => {
+      const [from, to] = stretchAround(delboeufStretches, x);
+      return (from + to) / 2;
+    });
+    expect(near(ringRadii[0] - 0.27, 0.12)).toBe(true);
+    expect(near(ringRadii[1] - 0.73, 0.21)).toBe(true);
+    const unequal = createSurfaceSampler('sizeillusions', seeds[5]),
+      unequalStretches = stretchesAlong(unequal, out, 0.5),
+      [largeFrom, largeTo] = stretchAround(unequalStretches, 0.27),
+      [tinyFrom, tinyTo] = stretchAround(unequalStretches, 0.73);
+    expect(near(largeTo - largeFrom, 0.14)).toBe(true);
+    expect(near(tinyTo - tinyFrom, 0.06)).toBe(true);
+  });
+  it('cuts the Kanizsa pac-men with mouths that face the middle and draws nothing along the edges of the illusory figure', () => {
+    // Round each pac-man (a ring of radius 0.05, inside the disc) there is one arc of ink above 0.5, as wide as 360 minus the mouth angle (60 degrees for the triangle, 90 for the square; 0.3 degrees is the tolerance), whose centre is opposite to the direction from the pac-man to the middle of all the pac-men (0.2 degrees is the tolerance), so the mouths face the middle; and along the straight line between two neighbouring pac-men, in the stretch between their discs (0.02 clear of both), the ink is 0 everywhere, so the triangle or square that is seen has no edge drawn.
+    const out = empty();
+    for (const variant of [3, 4]) {
+      const sample = createSurfaceSampler('sizeillusions', seeds[variant]),
+        centres = (p.variants[variant].pacmen as unknown as number[][]).map(
+          ([cx, cy]: number[]) => [cx, cy] as const,
+        ),
+        middleX =
+          centres.reduce((sum: number, c: readonly number[]) => sum + c[0], 0) /
+          centres.length,
+        middleY =
+          centres.reduce((sum: number, c: readonly number[]) => sum + c[1], 0) /
+          centres.length;
+      (p.variants[variant].pacmen as unknown as number[][]).forEach(
+        ([cx, cy, , , opening]: number[]) => {
+          const arcs = ringArcs(sample, out, cx, cy, 0.05),
+            toMiddle =
+              ((Math.atan2(middleY - cy, middleX - cx) * 180) / Math.PI + 360) %
+              360,
+            expectedCentre = (toMiddle + 180) % 360;
+          expect(arcs.length).toBe(1);
+          expect(Math.abs(arcs[0].width - (360 - opening))).toBeLessThan(0.3);
+          expect(
+            Math.abs(((arcs[0].centre - expectedCentre + 540) % 360) - 180),
+          ).toBeLessThan(0.2);
+        },
+      );
+      const pacmen = p.variants[variant].pacmen as unknown as number[][];
+      for (let a = 0; a < pacmen.length; a++) {
+        const b = (a + 1) % pacmen.length,
+          dx = pacmen[b][0] - pacmen[a][0],
+          dy = pacmen[b][1] - pacmen[a][1],
+          length = Math.hypot(dx, dy),
+          from = (pacmen[a][2] + 0.02) / length,
+          to = 1 - (pacmen[b][2] + 0.02) / length;
+        for (let k = 0; k <= 40; k++) {
+          const t = from + ((to - from) * k) / 40;
+          expect(
+            inkAt(sample, out, pacmen[a][0] + t * dx, pacmen[a][1] + t * dy),
+          ).toBeLessThan(1e-9);
+        }
+      }
+    }
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 1 pick different variants (the Ebbinghaus pair and the Kanizsa square).
+    const first = litGrid(0),
+      second = litGrid(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.2281);
+    expect(different / first.length).toBeLessThan(0.2282);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('sizeillusions', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 ivory shape maps on near-black with raised figures and shaded ground', () => {
+    const maps = generateProceduralMaps('sizeillusions', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(32.5);
+    expect(red / (512 * 512)).toBeLessThan(33.5);
+    expect(green / (512 * 512)).toBeGreaterThan(33.9);
+    expect(green / (512 * 512)).toBeLessThan(34.9);
+    expect(blue / (512 * 512)).toBeGreaterThan(38.5);
+    expect(blue / (512 * 512)).toBeLessThan(39.5);
+    expect(maxTilt).toBeGreaterThan(0.014);
+    expect(maxTilt).toBeLessThan(0.0141);
     expect(invalid).toBe(0);
   });
 });

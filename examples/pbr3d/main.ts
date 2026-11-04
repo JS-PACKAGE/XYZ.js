@@ -1193,6 +1193,7 @@ try {
     'lineillusions',
     'contrastillusions',
     'randomdotstereogram',
+    'sizeillusions',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
