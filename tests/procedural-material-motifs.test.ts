@@ -64343,3 +64343,597 @@ describe('chessopening: a chess board with the pieces of an opening, white at th
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('ludoboard: a Ludo board with the yards, lanes and centre of four colours turned and ordered by the seed', () => {
+  const p = proceduralMaterialPresets.ludoboard,
+    out = empty(),
+    half = (p.side * p.cell) / 2,
+    left = 0.5 - half,
+    outer = half + p.frame,
+    last = p.side - 1,
+    toneAt = (sample: Sampler, u: number, v: number): number => {
+      sample(u, v, out);
+      return out.color;
+    },
+    spot = (
+      column: number,
+      row: number,
+      fx: number,
+      fy: number,
+    ): [number, number] => [
+      left + (column + fx) * p.cell,
+      left + (row + fy) * p.cell,
+    ];
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    mix = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+  // The facts of the board, written from corner 0 at the top left and turned a quarter round clockwise for the others: the yard (the first six cells either way), the lane along the middle of the left arm
+  // (row 7, columns 1 to 5), its start cell (column 1, row 6), and the triangle of the centre on the left of it.
+  const turn = (
+    column: number,
+    row: number,
+    times: number,
+  ): [number, number] => {
+    let c = column,
+      r = row;
+    for (let k = 0; k < times; k++) [c, r] = [last - r, c];
+    return [c, r];
+  };
+  type Cell = {
+    kind: 'yard' | 'inner' | 'lane' | 'centre' | 'track';
+    corner: number;
+  };
+  const classify = (column: number, row: number): Cell => {
+    for (let k = 0; k < 4; k++) {
+      for (let c = 0; c <= 5; c++)
+        for (let r = 0; r <= 5; r++) {
+          const [tc, tr] = turn(c, r, k);
+          if (tc === column && tr === row)
+            return {
+              kind: c >= 1 && c <= 4 && r >= 1 && r <= 4 ? 'inner' : 'yard',
+              corner: k,
+            };
+        }
+      const lane: [number, number][] = [[1, 6]];
+      for (let c = 1; c <= 5; c++) lane.push([c, 7]);
+      for (const [c, r] of lane) {
+        const [tc, tr] = turn(c, r, k);
+        if (tc === column && tr === row) return { kind: 'lane', corner: k };
+      }
+    }
+    if (column >= 6 && column <= 8 && row >= 6 && row <= 8)
+      return { kind: 'centre', corner: -1 };
+    return { kind: 'track', corner: -1 };
+  };
+  // The direction from the middle of the board to the lane of corner k: left for 0, then turned clockwise (up, right, down).
+  const directions = [
+    [-1, 0],
+    [0, -1],
+    [1, 0],
+    [0, 1],
+  ];
+  const corners = [
+    [0, 0],
+    [last, 0],
+    [last, last],
+    [0, last],
+  ];
+  const decodeColours = (sample: Sampler): number[] =>
+    corners.map(([c, r]) => toneAt(sample, ...spot(c, r, 0.5, 0.5)));
+  // The tones of the corners are those of the preset taken from a place of the preset, going round or backwards.
+  const arrangement = (colours: number[]): [number, number] | null => {
+    for (let shift = 0; shift < 4; shift++)
+      for (const step of [1, 3])
+        if (
+          colours.every(
+            (tone, k) =>
+              Math.abs(tone - p.colourTones[(shift + step * k) % 4]) < 1e-6,
+          )
+        )
+          return [shift, step];
+    return null;
+  };
+  const expectedTone = (
+    cell: Cell,
+    colours: number[],
+    column: number,
+    row: number,
+    fx: number,
+    fy: number,
+  ): number => {
+    switch (cell.kind) {
+      case 'yard':
+      case 'lane':
+        return colours[cell.corner];
+      case 'inner':
+        return p.yardInnerTone;
+      case 'track':
+        return p.trackTone;
+      default: {
+        const dx = column + fx - 7.5,
+          dy = row + fy - 7.5;
+        let best = 0;
+        directions.forEach(([x, y], k) => {
+          if (
+            x * dx + y * dy >
+            directions[best][0] * dx + directions[best][1] * dy
+          )
+            best = k;
+        });
+        return colours[best];
+      }
+    }
+  };
+  // Where to read a cell: its middle, in the centre a place off the diagonals, in the inner part of a yard the corner farthest from the spots.
+  const probe = (cell: Cell, column: number, row: number): [number, number] => {
+    if (cell.kind === 'centre') return [0.8, 0.6];
+    if (cell.kind !== 'inner') return [0.5, 0.5];
+    let best: [number, number] = [0.12, 0.12],
+      far = -1;
+    for (const [fx, fy] of [
+      [0.12, 0.12],
+      [0.88, 0.12],
+      [0.12, 0.88],
+      [0.88, 0.88],
+    ]) {
+      const [ox, oy] = [column > 8 ? 9 : 0, row > 8 ? 9 : 0];
+      const near = Math.min(
+        ...[2, 4].flatMap((sx) =>
+          [2, 4].map((sy) =>
+            Math.hypot(column + fx - (ox + sx), row + fy - (oy + sy)),
+          ),
+        ),
+      );
+      if (near > far) {
+        far = near;
+        best = [fx, fy];
+      }
+    }
+    return best;
+  };
+  const spotCentre = (corner: number, index: number): [number, number] => {
+    // The spot on the left or right (index bit 0) and the upper or lower (bit 1) of the yard of the corner, as the yard stands on the board.
+    const [ox, oy] = [
+      corner === 1 || corner === 2 ? 9 : 0,
+      corner >= 2 ? 9 : 0,
+    ];
+    return [
+      left + (ox + 2 + 2 * (index & 1)) * p.cell,
+      left + (oy + 2 + 2 * (index >> 1)) * p.cell,
+    ];
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws the 225 cells with the facts of the board, the four colours round it in the order of the preset or backwards (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('ludoboard', seed),
+        colours = decodeColours(sample);
+      expect(arrangement(colours)).not.toBeNull();
+      expect(new Set(colours).size).toBe(4);
+      for (let row = 0; row <= last; row++)
+        for (let column = 0; column <= last; column++) {
+          const cell = classify(column, row),
+            [fx, fy] = probe(cell, column, row);
+          expect(toneAt(sample, ...spot(column, row, fx, fy))).toBeCloseTo(
+            expectedTone(cell, colours, column, row, fx, fy),
+            6,
+          );
+        }
+    },
+  );
+
+  it('uses all eight arrangements of the colours over 60 seeds', () => {
+    const found = new Set<string>();
+    for (let seed = 0; seed < 60; seed++)
+      found.add(
+        String(
+          arrangement(
+            decodeColours(createSurfaceSampler('ludoboard', seed * 3 + 1)),
+          ),
+        ),
+      );
+    expect(found.size).toBe(8);
+    expect(found.has('null')).toBe(false);
+  });
+
+  it('has tokens on about the share fill of the 16 spots, over 300 seeds, and not the same ones for every seed', () => {
+    let tokens = 0;
+    const patterns = new Set<string>();
+    for (let seed = 0; seed < 300; seed++) {
+      const sample = createSurfaceSampler('ludoboard', seed * 7 + 1);
+      let pattern = '';
+      for (let corner = 0; corner < 4; corner++)
+        for (let index = 0; index < 4; index++) {
+          const present =
+            Math.abs(
+              toneAt(sample, ...spotCentre(corner, index)) - p.tokenTone,
+            ) < 1e-6;
+          tokens += Number(present);
+          pattern += present ? 'x' : '.';
+        }
+      patterns.add(pattern);
+    }
+    expect(Math.abs(tokens / 4800 - p.fill)).toBeLessThan(0.03);
+    expect(patterns.size).toBeGreaterThan(250);
+  });
+
+  it('draws a spot of the colour of its yard under every token, the token dark and raised, in the right size', () => {
+    for (const seed of [2, 5, 9]) {
+      const sample = createSurfaceSampler('ludoboard', seed),
+        colours = decodeColours(sample);
+      for (let corner = 0; corner < 4; corner++)
+        for (let index = 0; index < 4; index++) {
+          const [cx, cy] = spotCentre(corner, index),
+            present = Math.abs(toneAt(sample, cx, cy) - p.tokenTone) < 1e-6;
+          expect(
+            present ||
+              Math.abs(toneAt(sample, cx, cy) - colours[corner]) < 1e-6,
+          ).toBe(true);
+          expect(out.height / p.relief).toBeCloseTo(
+            present ? p.tokenHeight : p.spotHeight,
+            6,
+          );
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          for (const [dx, dy] of [
+            [1, 0],
+            [0, 1],
+            [-1, 0],
+            [0, -1],
+            [Math.SQRT1_2, Math.SQRT1_2],
+            [-Math.SQRT1_2, Math.SQRT1_2],
+          ]) {
+            if (present) {
+              expect(
+                toneAt(
+                  sample,
+                  cx + dx * (p.tokenRadius - 0.0004),
+                  cy + dy * (p.tokenRadius - 0.0004),
+                ),
+              ).toBeCloseTo(p.tokenTone, 6);
+              expect(
+                toneAt(
+                  sample,
+                  cx + dx * (p.tokenRadius + 0.0004),
+                  cy + dy * (p.tokenRadius + 0.0004),
+                ),
+              ).toBeCloseTo(colours[corner], 6);
+            }
+            expect(
+              toneAt(
+                sample,
+                cx + dx * (p.spotRadius - 0.0004),
+                cy + dy * (p.spotRadius - 0.0004),
+              ),
+            ).toBeCloseTo(colours[corner], 6);
+            expect(
+              toneAt(
+                sample,
+                cx + dx * (p.spotRadius + 0.0004),
+                cy + dy * (p.spotRadius + 0.0004),
+              ),
+            ).toBeCloseTo(p.yardInnerTone, 6);
+          }
+        }
+    }
+  });
+
+  it('draws the frame, the cells, the lines between the cells of the cross and nothing outside the frame with their tones, heights and roughness', () => {
+    const sample = createSurfaceSampler('ludoboard', 2),
+      colours = decodeColours(sample),
+      paperOk = (u: number, v: number): boolean =>
+        Math.abs(toneAt(sample, u, v) - p.paperTone) <= p.grainTone / 2 + 1e-9;
+    // The frame and its width.
+    expect(toneAt(sample, 0.5, 0.5 - half - p.frame / 2)).toBeCloseTo(
+      p.frameTone,
+      6,
+    );
+    expect(out.height / p.relief).toBeCloseTo(p.frameHeight, 6);
+    expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+    for (const [dx, dy] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ]) {
+      expect(
+        toneAt(
+          sample,
+          0.5 + dx * (outer - 0.0004) + dy * 0.013,
+          0.5 + dy * (outer - 0.0004) + dx * 0.013,
+        ),
+      ).toBeCloseTo(p.frameTone, 6);
+      expect(
+        paperOk(
+          0.5 + dx * (outer + 0.0004) + dy * 0.013,
+          0.5 + dy * (outer + 0.0004) + dx * 0.013,
+        ),
+      ).toBe(true);
+      expect(out.height / p.relief).toBeCloseTo(p.paperHeight, 6);
+      expect(
+        toneAt(
+          sample,
+          0.5 + dx * (half + 0.0004) + dy * 0.013,
+          0.5 + dy * (half + 0.0004) + dx * 0.013,
+        ),
+      ).toBeCloseTo(p.frameTone, 6);
+    }
+    // A track cell, a lane cell, a yard (the colour part, the inner part) and a centre cell: heights and roughness.
+    expect(toneAt(sample, ...spot(7, 0, 0.5, 0.5))).toBeCloseTo(p.trackTone, 6);
+    expect(out.height / p.relief).toBeCloseTo(p.cellHeight, 6);
+    expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+    expect(toneAt(sample, ...spot(7, 3, 0.5, 0.5))).toBeCloseTo(colours[1], 6);
+    expect(out.height / p.relief).toBeCloseTo(p.colourHeight, 6);
+    expect(toneAt(sample, ...spot(0, 0, 0.5, 0.5))).toBeCloseTo(colours[0], 6);
+    expect(out.height / p.relief).toBeCloseTo(p.colourHeight, 6);
+    expect(toneAt(sample, ...spot(1, 1, 0.12, 0.12))).toBeCloseTo(
+      p.yardInnerTone,
+      6,
+    );
+    expect(out.height / p.relief).toBeCloseTo(p.cellHeight, 6);
+    expect(toneAt(sample, ...spot(6, 6, 0.8, 0.6))).toBeCloseTo(colours[1], 6);
+    expect(out.height / p.relief).toBeCloseTo(p.colourHeight, 6);
+    // The cells at the ends of the arms reach the frame (the track tone to the board's edge, with no line on the edge), and the four corners of the board are yard cells.
+    expect(
+      toneAt(sample, left + 15 * p.cell - 0.0008, ...[spot(14, 7, 0, 0.5)[1]]),
+    ).toBeCloseTo(p.trackTone, 6);
+    expect(toneAt(sample, left + 0.0008, spot(0, 7, 0, 0.5)[1])).toBeCloseTo(
+      p.trackTone,
+      6,
+    );
+    expect(toneAt(sample, spot(7, 0, 0.5, 0)[0], left + 0.0008)).toBeCloseTo(
+      p.trackTone,
+      6,
+    );
+    expect(
+      toneAt(sample, spot(7, 14, 0.5, 0)[0], left + 15 * p.cell - 0.0008),
+    ).toBeCloseTo(p.trackTone, 6);
+    // The line between two cells of the cross: its tone, height and width, and the lack of a line in the inside of a yard and on a boundary of two yard cells.
+    for (const [bu, bv, vertical] of [
+      [7, 0.5, true],
+      [9, 3.5, true],
+      [7.5, 2, false],
+      [12.5, 8, false],
+      [3.5, 6, false],
+      [6, 11.5, true],
+    ] as const) {
+      const [lu, lv] = spot(bu, bv, 0, 0),
+        along = (distance: number): [number, number] =>
+          vertical ? [lu + distance, lv] : [lu, lv + distance];
+      expect(toneAt(sample, ...along(0))).toBeCloseTo(p.lineTone, 6);
+      expect(out.height / p.relief).toBeCloseTo(p.lineHeight, 6);
+      for (const sign of [1, -1]) {
+        expect(
+          toneAt(sample, ...along(sign * (p.lineHalf - 0.0004))),
+        ).toBeCloseTo(p.lineTone, 6);
+        expect(
+          Math.abs(
+            toneAt(sample, ...along(sign * (p.lineHalf + 0.0004))) - p.lineTone,
+          ),
+        ).toBeGreaterThan(0.1);
+      }
+    }
+    expect(toneAt(sample, ...spot(3, 1, 0, 0.1))).toBeCloseTo(
+      p.yardInnerTone,
+      6,
+    );
+    expect(toneAt(sample, ...spot(1, 3, 0.1, 0))).toBeCloseTo(
+      p.yardInnerTone,
+      6,
+    );
+    expect(toneAt(sample, ...spot(5, 0, 0, 0.5))).toBeCloseTo(colours[0], 6);
+    for (const [u, v] of [
+      [0.5 - outer - 0.01, 0.5],
+      [0.5 + outer + 0.01, 0.5],
+      [0.5, 0.5 - outer - 0.01],
+      [0.5, 0.5 + outer + 0.01],
+      [0.01, 0.01],
+    ])
+      expect(paperOk(u, v)).toBe(true);
+  });
+
+  it('softens the edge of the frame, of the board, of a line, of a spot and of a token over edgeSoft', () => {
+    const sample = createSurfaceSampler('ludoboard', 2),
+      colours = decodeColours(sample),
+      quarter = 0.25 * p.edgeSoft;
+    close(
+      toneAt(sample, 0.5 + 0.013, 0.5 - outer + quarter),
+      mix(p.paperTone, p.frameTone, 0.75),
+    );
+    close(
+      toneAt(sample, 0.5 + 0.013, 0.5 - outer - quarter),
+      mix(p.paperTone, p.frameTone, 0.25),
+    );
+    // The top edge of the board over the frame, along an arm: its track cell.
+    close(
+      toneAt(sample, spot(7, 0, 0.3, 0)[0], 0.5 - half + quarter),
+      mix(p.frameTone, p.trackTone, 0.75),
+    );
+    close(
+      toneAt(sample, spot(7, 0, 0.3, 0)[0], 0.5 - half - quarter),
+      mix(p.frameTone, p.trackTone, 0.25),
+    );
+    // Along the left edge, the yard's colour.
+    close(
+      toneAt(sample, 0.5 - half + quarter, spot(0, 2, 0, 0.5)[1]),
+      mix(p.frameTone, colours[0], 0.75),
+    );
+    close(
+      toneAt(sample, 0.5 - half - quarter, spot(0, 2, 0, 0.5)[1]),
+      mix(p.frameTone, colours[0], 0.25),
+    );
+    // A line between two track cells.
+    const [lu, lv] = spot(7, 0, 0, 0.5);
+    close(
+      toneAt(sample, lu + p.lineHalf - quarter, lv),
+      mix(p.trackTone, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, lu + p.lineHalf + quarter, lv),
+      mix(p.trackTone, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, lu - p.lineHalf + quarter, lv),
+      mix(p.trackTone, p.lineTone, 0.75),
+    );
+    // The spot of a yard and its token.
+    for (let corner = 0; corner < 4; corner++)
+      for (let index = 0; index < 4; index++) {
+        const [cx, cy] = spotCentre(corner, index),
+          present = Math.abs(toneAt(sample, cx, cy) - p.tokenTone) < 1e-6;
+        close(
+          toneAt(sample, cx + p.spotRadius - quarter, cy),
+          mix(p.yardInnerTone, colours[corner], 0.75),
+        );
+        close(
+          toneAt(sample, cx, cy + p.spotRadius + quarter),
+          mix(p.yardInnerTone, colours[corner], 0.25),
+        );
+        if (present) {
+          close(
+            toneAt(sample, cx + p.tokenRadius - quarter, cy),
+            mix(colours[corner], p.tokenTone, 0.75),
+          );
+          close(
+            toneAt(sample, cx, cy - p.tokenRadius - quarter),
+            mix(colours[corner], p.tokenTone, 0.25),
+          );
+        }
+      }
+  });
+
+  it('turns the colours round the board by a quarter each about equally often and runs them backwards about half the time, over 300 seeds', () => {
+    const shifts = [0, 0, 0, 0];
+    let backwards = 0;
+    for (let seed = 0; seed < 300; seed++) {
+      const colours = decodeColours(
+          createSurfaceSampler('ludoboard', seed * 5 + 2),
+        ),
+        [, step] = arrangement(colours) as [number, number];
+      // The first colour of the preset, wherever it stands, sets the turn; backwards is the step of three.
+      shifts[colours.indexOf(p.colourTones[0])] += 1;
+      backwards += Number(step === 3);
+    }
+    for (const count of shifts) expect(Math.abs(count - 75)).toBeLessThan(25);
+    expect(Math.abs(backwards / 300 - 0.5)).toBeLessThan(0.1);
+  });
+
+  it('changes the colour of the centre exactly on its diagonals', () => {
+    const sample = createSurfaceSampler('ludoboard', 4),
+      colours = decodeColours(sample);
+    for (const reach of [0.6, 1.2, 1.4])
+      for (const [sx, sy] of [
+        [1, 1],
+        [-1, 1],
+        [1, -1],
+        [-1, -1],
+      ])
+        for (const off of [-0.05, 0.05]) {
+          // On a side of the diagonal through the middle of the board: the one of the lane in the direction of the bigger part.
+          const dx = sx * reach,
+            dy = sy * (reach + off),
+            best = directions.reduce(
+              (found, [x, y], k) =>
+                x * dx + y * dy >
+                directions[found][0] * dx + directions[found][1] * dy
+                  ? k
+                  : found,
+              0,
+            );
+          expect(
+            toneAt(
+              sample,
+              left + (7.5 + dx) * p.cell,
+              left + (7.5 + dy) * p.cell,
+            ),
+          ).toBeCloseTo(colours[best], 6);
+        }
+  });
+
+  it('softens the edge of the board over the frame at the ends of all four arms, not only where a yard is', () => {
+    const sample = createSurfaceSampler('ludoboard', 2),
+      quarter = 0.25 * p.edgeSoft;
+    for (const [dx, dy] of [
+      [-1, 0],
+      [1, 0],
+      [0, -1],
+      [0, 1],
+    ]) {
+      // The end of the arm in the middle of the side (the middle of the cell, a little off the middle of the board along the edge).
+      const cu = 0.5 + dx * (half - quarter) + (dy !== 0 ? 0.01 : 0),
+        cv = 0.5 + dy * (half - quarter) + (dx !== 0 ? 0.01 : 0);
+      close(toneAt(sample, cu, cv), mix(p.frameTone, p.trackTone, 0.75));
+      close(
+        toneAt(sample, cu + dx * 2 * quarter, cv + dy * 2 * quarter),
+        mix(p.frameTone, p.trackTone, 0.25),
+      );
+    }
+  });
+
+  it('fades the grain of the paper out over the edge of the frame, as much as the frame covers', () => {
+    const sample = createSurfaceSampler('ludoboard', 2),
+      amount = smoothstep(0.25),
+      residuals: number[] = [];
+    for (let k = 0; k < 40; k++)
+      residuals.push(
+        toneAt(
+          sample,
+          0.5 - outer + 0.02 + k * 0.021,
+          0.5 - outer - 0.25 * p.edgeSoft,
+        ) -
+          (p.paperTone + (p.frameTone - p.paperTone) * amount),
+      );
+    const largest = Math.max(...residuals.map(Math.abs));
+    expect(largest).toBeGreaterThan(0.003);
+    expect(largest).toBeLessThanOrEqual(
+      0.5 * p.grainTone * (1 - amount) + 1e-9,
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('ludoboard', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('ludoboard', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.01),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('ludoboard', 0),
+      b = createSurfaceSampler('ludoboard', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3501],
+        [0.2201, t],
+        [t, spot(2, 2, 0.5, 0.5)[1]],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

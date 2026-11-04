@@ -2369,6 +2369,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`ludoboard`（魯多棋盤）使目前目錄1202→1203種，含plain的gallery為1204項。15×15格的魯多棋盤：中間是三格寬的十字形四臂與3×3的中心，四個角落各有6×6的營地（內有淺色的4×4方塊、四個圓位，各圓位依機率有一枚深色棋子）；每種顏色有營地、沿一臂中線的五格家路、家路旁的起點格，以及中心朝向該家路的三角形；其餘為淺色的走道格，十字形的格與格之間、與營地之間有細線。四種顏色是四個色調，seed決定它們繞著棋盤轉幾個四分之一圈、是否反向（共八種排法）以及各圓位有沒有棋子（機率`fill`）。這是作者設計的示意，沒有文字；測試端以另外寫的棋盤事實（以左上角為起點、轉四分之一圈得到其他三個角的營地、家路與起點格；中心以方向最大者決定三角形）檢查225格每一格的色調、顏色的排列是預設色調的八種之一、300個seed中八種排法與棋子比例（0.7）與各圓位組合，並逐項檢查圓位與棋子的半徑與柔化、線的色調／寬度／柔化、棋盤四邊（含四個臂端）對框的柔化、框外為紙面。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

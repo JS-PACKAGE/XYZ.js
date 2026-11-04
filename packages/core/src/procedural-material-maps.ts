@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'ludoboard',
   'chessopening',
   'xiangqiboard',
   'cribbageboard',
@@ -48307,6 +48308,163 @@ export function createSurfaceSampler(
                   shade) *
                 disc;
               elevation += (p.pieceHeight - elevation) * disc;
+            }
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
+      case 'ludoboard': {
+        const p = proceduralMaterialPresets.ludoboard,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x77001),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          last = p.side - 1,
+          half = (p.side * p.cell) / 2,
+          left = 0.5 - half,
+          shift = Math.floor(hash(96, 1, seed ^ 0x77002) * 4),
+          step = hash(96, 2, seed ^ 0x77003) < 0.5 ? 1 : 3,
+          // The tone of the colour of corner k, clockwise from the top left (the lane of corner k runs along the left, top, right and bottom arm).
+          colourOf = (k: number): number =>
+            p.colourTones[(shift + step * k) % 4],
+          // A cell of the cross (an arm or the centre): not in a yard.
+          isCross = (column: number, row: number): boolean =>
+            column >= 0 &&
+            column <= last &&
+            row >= 0 &&
+            row <= last &&
+            ((column > 5 && column < 9) || (row > 5 && row < 9)),
+          // The corner (clockwise from 0 at the top left) whose colour a cell of the cross has, or -1 for a track cell. The lane of corner k: the five cells along the middle of the left (0),
+          // top (1), right (2) or bottom (3) arm next to the centre; its start cell is the cell of the arm of its lane, the cell before.
+          ownerOf = (column: number, row: number): number => {
+            if (row === 7 && column >= 1 && column <= 5) return 0;
+            if (column === 7 && row >= 1 && row <= 5) return 1;
+            if (row === 7 && column >= 9 && column <= 13) return 2;
+            if (column === 7 && row >= 9 && row <= 13) return 3;
+            if (column === 1 && row === 6) return 0;
+            if (column === 8 && row === 1) return 1;
+            if (column === 13 && row === 8) return 2;
+            if (column === 6 && row === 13) return 3;
+            return -1;
+          };
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const outer = half + p.frame,
+            framed = cover(
+              Math.min(outer - Math.abs(fu - 0.5), outer - Math.abs(fv - 0.5)),
+            );
+          if (framed > 0) {
+            shade += (p.frameTone - shade) * framed;
+            elevation += (p.frameHeight - elevation) * framed;
+            rough += (p.inkRoughness - rough) * framed;
+            mask = framed;
+            const boardU = (fu - left) / p.cell,
+              boardV = (fv - left) / p.cell,
+              // The nearest cell (over the frame the board's edge softening reaches past the first and last cells).
+              column = Math.min(last, Math.max(0, Math.floor(boardU))),
+              row = Math.min(last, Math.max(0, Math.floor(boardV))),
+              inside = cover(
+                Math.min(half - Math.abs(fu - 0.5), half - Math.abs(fv - 0.5)),
+              );
+            let cellTone: number = p.trackTone,
+              cellHeight: number = p.cellHeight;
+            const yardCorner = isCross(column, row)
+              ? -1
+              : (column > 8 ? 1 : 0) + (row > 8 ? 2 : 0);
+            // Corners clockwise: top left 0, top right 1, bottom right 2, bottom left 3.
+            const corner =
+              yardCorner === 2 ? 3 : yardCorner === 3 ? 2 : yardCorner;
+            if (yardCorner >= 0) {
+              const innerColumn = column - (column > 8 ? 9 : 0),
+                innerRow = row - (row > 8 ? 9 : 0);
+              if (
+                innerColumn >= 1 &&
+                innerColumn <= 4 &&
+                innerRow >= 1 &&
+                innerRow <= 4
+              )
+                cellTone = p.yardInnerTone;
+              else {
+                cellTone = colourOf(corner);
+                cellHeight = p.colourHeight;
+              }
+            } else if (column > 5 && column < 9 && row > 5 && row < 9) {
+              // The centre: four triangles meeting in the middle, each turned to the arm of its lane.
+              const dx = boardU - 7.5,
+                dy = boardV - 7.5,
+                arm =
+                  Math.abs(dx) > Math.abs(dy)
+                    ? dx < 0
+                      ? 0
+                      : 2
+                    : dy < 0
+                      ? 1
+                      : 3;
+              cellTone = colourOf(arm);
+              cellHeight = p.colourHeight;
+            } else {
+              const owner = ownerOf(column, row);
+              if (owner >= 0) {
+                cellTone = colourOf(owner);
+                cellHeight = p.colourHeight;
+              }
+            }
+            shade += (cellTone - shade) * inside;
+            elevation += (cellHeight - elevation) * inside;
+            // The lines between the cells of the cross (and between it and the yards), the crossings painted once.
+            const lineColumn = Math.round(boardU),
+              lineRow = Math.round(boardV);
+            let line = 0;
+            if (
+              lineColumn >= 1 &&
+              lineColumn <= last &&
+              (isCross(lineColumn - 1, row) || isCross(lineColumn, row))
+            )
+              line = cover(p.lineHalf - Math.abs(boardU - lineColumn) * p.cell);
+            if (
+              lineRow >= 1 &&
+              lineRow <= last &&
+              (isCross(column, lineRow - 1) || isCross(column, lineRow))
+            )
+              line = Math.max(
+                line,
+                cover(p.lineHalf - Math.abs(boardV - lineRow) * p.cell),
+              );
+            // Only on the board: the lines of the arms end at its edge, they do not run on into the frame.
+            line *= inside;
+            shade += (p.lineTone - shade) * line;
+            elevation += (p.lineHeight - elevation) * line;
+            if (yardCorner >= 0) {
+              // The four spots of the yard, each with a token or not.
+              const originColumn = column > 8 ? 9 : 0,
+                originRow = row > 8 ? 9 : 0,
+                spotColumn = boardU - originColumn < 3 ? 0 : 1,
+                spotRow = boardV - originRow < 3 ? 0 : 1,
+                distance = Math.hypot(
+                  fu - left - (originColumn + 2 + 2 * spotColumn) * p.cell,
+                  fv - left - (originRow + 2 + 2 * spotRow) * p.cell,
+                ),
+                disc = cover(p.spotRadius - distance);
+              shade += (colourOf(corner) - shade) * disc;
+              elevation += (p.spotHeight - elevation) * disc;
+              if (
+                hash(corner * 4 + spotRow * 2 + spotColumn, 3, seed ^ 0x77004) <
+                p.fill
+              ) {
+                const token = cover(p.tokenRadius - distance);
+                shade += (p.tokenTone - shade) * token;
+                elevation += (p.tokenHeight - elevation) * token;
+              }
             }
           }
           color = clamp(
