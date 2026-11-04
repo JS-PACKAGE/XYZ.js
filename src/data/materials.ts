@@ -17830,6 +17830,39 @@ export const proceduralMaterialPresets = Object.freeze({
     lineHeight: 0.36,
     inkRoughness: 0.5,
   }),
+  netballcourt: Object.freeze({
+    dark: [20, 56, 92] as const,
+    light: [240, 240, 232] as const,
+    roughness: 0.45,
+    relief: 0.004,
+    // A netball court seen from above with the markings of the World Netball rules, in metres (the length of the court along one axis): the court 30.5 by 15.25, the two transverse lines that divide it into
+    // thirds (centred on the third marks, a choice of mine: the rules put the lines between the thirds), the centre circle 0.9 across and in each goal third the goal circle, a semicircle of radius 4.9 about
+    // the middle of the goal line; round the court the clear surround of 3.05 and the ground beyond. Distances are to the outer edge of a line and the lines are part of the area they bound. The lines are 0.15
+    // wide (the rules give 0.05, three times) so that they show in a tile. The seed picks the surface (the tones of the court, the surround and the ground, all shifted together a little) and lays the court
+    // along the picture or across it.
+    metre: 0.025,
+    courtLength: 30.5,
+    courtWidth: 15.25,
+    goalCircleRadius: 4.9,
+    centreCircleDiameter: 0.9,
+    margin: 3.05,
+    lineWidth: 0.15,
+    surfaces: Object.freeze([
+      Object.freeze({ court: 0.5, margin: 0.36, ground: 0.2 }),
+      Object.freeze({ court: 0.42, margin: 0.56, ground: 0.26 }),
+      Object.freeze({ court: 0.58, margin: 0.3, ground: 0.14 }),
+      Object.freeze({ court: 0.36, margin: 0.46, ground: 0.3 }),
+    ]),
+    // How much the three tones may all be shifted together (from -toneShift to toneShift) by the seed: the wear of the surface.
+    toneShift: 0.04,
+    edgeSoft: 0.0006,
+    lineTone: 0.96,
+    groundHeight: 0.15,
+    marginHeight: 0.25,
+    courtHeight: 0.3,
+    lineHeight: 0.35,
+    inkRoughness: 0.45,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -24322,6 +24355,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  netballcourt: 1,
   gridironfield: 1,
   squashcourt: 1,
   pickleballcourt: 1,

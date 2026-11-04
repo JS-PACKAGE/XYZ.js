@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'netballcourt',
   'gridironfield',
   'squashcourt',
   'pickleballcourt',
@@ -50815,6 +50816,69 @@ export function createSurfaceSampler(
             (fieldTone + (p.lineTone - fieldTone) * lined - shade) * court;
           elevation +=
             (fieldHeight + (p.lineHeight - fieldHeight) * lined - elevation) *
+            court;
+          color = clamp(shade);
+          height = clamp(elevation);
+          roughness = clamp(p.inkRoughness);
+          occlusion = 1;
+        };
+      }
+      case 'netballcourt': {
+        const p = proceduralMaterialPresets.netballcourt,
+          inverseSoft = 1 / p.edgeSoft,
+          norm = (x: number, y: number): number => Math.sqrt(x * x + y * y),
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(119, 1, seed ^ 0x1f0001) * p.surfaces.length)
+            ],
+          across = hash(119, 2, seed ^ 0x1f0002) < 0.5,
+          shift = (hash(119, 3, seed ^ 0x1f0003) * 2 - 1) * p.toneShift,
+          halfLength = p.courtLength / 2,
+          halfWidth = p.courtWidth / 2,
+          line = p.lineWidth,
+          // The transverse lines are on the marks of the thirds (a third of the length from each other, the middle third centred), a ring is a line wide inside its radius.
+          thirdMark = p.courtLength / 6,
+          ring = (distance: number, radius: number): number =>
+            cover(
+              Math.min(distance - (radius - line), radius - distance) * p.metre,
+            );
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            // The place in metres from the middle of the court (x along its length).
+            x = ((across ? fv : fu) - 0.5) / p.metre,
+            y = ((across ? fu : fv) - 0.5) / p.metre,
+            ax = Math.abs(x),
+            margin = cover(
+              Math.min(
+                halfLength + p.margin - ax,
+                halfWidth + p.margin - Math.abs(y),
+              ) * p.metre,
+            ),
+            inside = Math.min(halfLength - ax, halfWidth - Math.abs(y)),
+            court = cover(inside * p.metre),
+            // The lines: the outline, the transverse lines, the centre circle and the goal circles (about the middle of the outer edge of the goal lines; the half outside the court is not there).
+            marking = Math.max(
+              cover(Math.min(inside, line - inside) * p.metre),
+              cover((line / 2 - Math.abs(ax - thirdMark)) * p.metre),
+              ring(norm(x, y), p.centreCircleDiameter / 2),
+              ring(norm(ax - halfLength, y), p.goalCircleRadius),
+            );
+          // Court or line over the surround, the line only where there is court (so that a line at the edge of the court has the edge of the court).
+          const lined = court > 0 ? Math.min(1, marking / court) : 0,
+            courtTone = surface.court + shift;
+          let shade = surface.ground + shift,
+            elevation = p.groundHeight;
+          shade += (surface.margin + shift - shade) * margin;
+          elevation += (p.marginHeight - elevation) * margin;
+          shade +=
+            (courtTone + (p.lineTone - courtTone) * lined - shade) * court;
+          elevation +=
+            (p.courtHeight +
+              (p.lineHeight - p.courtHeight) * lined -
+              elevation) *
             court;
           color = clamp(shade);
           height = clamp(elevation);

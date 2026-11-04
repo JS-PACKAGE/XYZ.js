@@ -75019,3 +75019,373 @@ describe('gridironfield: an American football field seen from above, with the ya
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('netballcourt: a netball court seen from above with the markings of the World Netball rules, laid along or across by the seed', () => {
+  const p = proceduralMaterialPresets.netballcourt,
+    out = empty(),
+    m = p.metre,
+    toneAt = (
+      sample: Sampler,
+      x: number,
+      y: number,
+      across: boolean,
+    ): number => {
+      // A place in metres from the middle of the court (x along its length) as a place on the picture.
+      sample(0.5 + (across ? y : x) * m, 0.5 + (across ? x : y) * m, out);
+      return out.color;
+    };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    mix = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    // The probes are exact (the edges are straight or circular), so the tolerance is tiny.
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  // The facts of the court, in metres (the World Netball rules, as given by a web search whose summary quotes them; they were not read in the rules themselves): 30.5 by 15.25, divided into thirds by two transverse lines,
+  // the centre circle 0.9 across, the goal circles of radius 4.9 about the middle of the outer edge of the goal lines, lines 0.05 wide and part of the area they bound, a surround of at least 3.05.
+  const rules = {
+      length: 30.5,
+      width: 15.25,
+      goalCircle: 4.9,
+      centreCircle: 0.9,
+      surround: 3.05,
+      line: 0.05,
+    },
+    halfL = rules.length / 2,
+    halfW = rules.width / 2,
+    thirdMark = rules.length / 6,
+    w = p.lineWidth;
+  type Kind = 'ground' | 'margin' | 'court' | 'line';
+  // The piece of the picture a place is in (two pieces of line next to each other are two pieces).
+  const piece = (x: number, y: number): string => {
+    const ax = Math.abs(x),
+      ay = Math.abs(y),
+      centre = Math.hypot(x, y),
+      goal = Math.hypot(ax - halfL, y);
+    if (ax > halfL + p.margin || ay > halfW + p.margin) return 'ground';
+    if (ax > halfL || ay > halfW) return 'margin';
+    if (ax >= halfL - w || ay >= halfW - w) return 'line outline';
+    if (Math.abs(ax - thirdMark) <= w / 2) return 'line third';
+    if (
+      centre <= rules.centreCircle / 2 &&
+      centre >= rules.centreCircle / 2 - w
+    )
+      return 'line centre';
+    if (goal <= rules.goalCircle && goal >= rules.goalCircle - w)
+      return 'line goal';
+    return 'court';
+  };
+  const classify = (x: number, y: number): Kind => {
+    const label = piece(x, y);
+    return label.startsWith('line') ? 'line' : (label as Kind);
+  };
+  type Surface = {
+    across: boolean;
+    surface: number;
+    shift: number;
+    tones: { court: number; margin: number; ground: number };
+  };
+  const readSurface = (sample: Sampler): Surface => {
+    const options: Surface[] = [];
+    for (const across of [false, true]) {
+      const court = toneAt(sample, 8, 3, across),
+        margin = toneAt(sample, halfL + 1, 0, across),
+        ground = toneAt(sample, 0, 12, across);
+      p.surfaces.forEach((surface, index) => {
+        const shift = ground - surface.ground;
+        if (
+          Math.abs(shift) <= p.toneShift + 1e-9 &&
+          Math.abs(court - surface.court - shift) < 1e-6 &&
+          Math.abs(margin - surface.margin - shift) < 1e-6
+        )
+          options.push({
+            across,
+            surface: index,
+            shift,
+            tones: { court, margin, ground },
+          });
+      });
+    }
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+
+  it('has the rules of the court in the preset, with the lines three times as wide as the rules', () => {
+    expect(p.courtLength).toBe(rules.length);
+    expect(p.courtWidth).toBe(rules.width);
+    expect(p.goalCircleRadius).toBe(rules.goalCircle);
+    expect(p.centreCircleDiameter).toBe(rules.centreCircle);
+    expect(p.margin).toBe(rules.surround);
+    expect(p.lineWidth).toBeCloseTo(3 * rules.line, 12);
+  });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws every place of the picture as the rules and the widths say, with its tone, height and roughness, along the picture or across it (seed %i)',
+    { timeout: 120000 },
+    (seed) => {
+      const sample = createSurfaceSampler('netballcourt', seed),
+        { across, tones } = readSurface(sample),
+        expected: Record<Kind, { tone: number; height: number }> = {
+          ground: { tone: tones.ground, height: p.groundHeight },
+          margin: { tone: tones.margin, height: p.marginHeight },
+          court: { tone: tones.court, height: p.courtHeight },
+          line: { tone: p.lineTone, height: p.lineHeight },
+        },
+        counts: Record<Kind, number> = {
+          ground: 0,
+          margin: 0,
+          court: 0,
+          line: 0,
+        },
+        step = 0.06,
+        clear = 0.02;
+      // Every place of the picture (the tile is 40 across; the places within 0.02 of a change in the picture are skipped: the softened edges are checked below, exactly).
+      for (let x = -20; x <= 20; x += step)
+        for (let y = -20; y <= 20; y += step) {
+          const kind = classify(x, y);
+          if (
+            [
+              [clear, 0],
+              [-clear, 0],
+              [0, clear],
+              [0, -clear],
+              [clear, clear],
+              [-clear, -clear],
+              [clear, -clear],
+              [-clear, clear],
+            ].some(([dx, dy]) => piece(x + dx, y + dy) !== piece(x, y))
+          )
+            continue;
+          counts[kind]++;
+          expect(toneAt(sample, x, y, across)).toBeCloseTo(
+            expected[kind].tone,
+            6,
+          );
+          expect(out.height / p.relief).toBeCloseTo(expected[kind].height, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        }
+      expect(counts.line).toBeGreaterThan(800);
+      expect(counts.court).toBeGreaterThan(40000);
+      expect(counts.margin).toBeGreaterThan(8000);
+      expect(counts.ground).toBeGreaterThan(20000);
+    },
+  );
+
+  it('uses every surface and both ways over 1000 seeds, about equally often, with the tones shifted over the whole range', () => {
+    const surfaces = new Map<number, number>(),
+      shifts: number[] = [];
+    let acrossCount = 0;
+    for (let seed = 0; seed < 1000; seed++) {
+      const { across, surface, shift } = readSurface(
+        createSurfaceSampler('netballcourt', seed * 7 + 1),
+      );
+      shifts.push(shift);
+      surfaces.set(surface, (surfaces.get(surface) ?? 0) + 1);
+      acrossCount += Number(across);
+    }
+    expect(surfaces.size).toBe(p.surfaces.length);
+    for (const count of surfaces.values())
+      expect(Math.abs(count - 1000 / p.surfaces.length)).toBeLessThan(50);
+    expect(Math.abs(acrossCount / 1000 - 0.5)).toBeLessThan(0.05);
+    expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+    expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+    expect(
+      Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+    ).toBeLessThan(p.toneShift * 0.15);
+    for (let quarter = 0; quarter < 4; quarter++)
+      expect(
+        Math.abs(
+          shifts.filter(
+            (shift) =>
+              Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+          ).length - 250,
+        ),
+      ).toBeLessThan(50);
+  });
+
+  it('puts each edge of each marking where the rules put it: just inside it the line, just outside it not (both ends, both sides, both ways)', () => {
+    const delta = 0.0004 / m,
+      acrosses = new Set<boolean>();
+    for (const seed of [1, 2, 3]) {
+      const sample = createSurfaceSampler('netballcourt', seed),
+        { across } = readSurface(sample),
+        isLine = (x: number, y: number): boolean =>
+          Math.abs(toneAt(sample, x, y, across) - p.lineTone) < 1e-6;
+      acrosses.add(across);
+      for (const sx of [1, -1])
+        for (const sy of [1, -1]) {
+          const at = (x: number, y: number): boolean => isLine(sx * x, sy * y),
+            // A place round the middle of the outer edge of the goal line of this end, at a radius and an angle from the line through the middle of the goal line into the court.
+            round = (radius: number, degrees: number): [number, number] => [
+              sx * (halfL - radius * Math.cos((degrees * Math.PI) / 180)),
+              sy * radius * Math.sin((degrees * Math.PI) / 180),
+            ];
+          // The sideline and the goal line, both edges.
+          expect(at(10, halfW - w + delta)).toBe(true);
+          expect(at(10, halfW - w - delta)).toBe(false);
+          expect(at(10, halfW - delta)).toBe(true);
+          expect(at(10, halfW + delta)).toBe(false);
+          expect(at(halfL - w + delta, 6.5)).toBe(true);
+          expect(at(halfL - w - delta, 6.5)).toBe(false);
+          expect(at(halfL - delta, 6.5)).toBe(true);
+          expect(at(halfL + delta, 6.5)).toBe(false);
+          // The transverse line on the mark of the third (centred), both edges, across the court.
+          for (const y of [0.5, 3, 7]) {
+            expect(at(thirdMark + w / 2 - delta, y)).toBe(true);
+            expect(at(thirdMark + w / 2 + delta, y)).toBe(false);
+            expect(at(thirdMark - w / 2 + delta, y)).toBe(true);
+            expect(at(thirdMark - w / 2 - delta, y)).toBe(false);
+          }
+          // The goal circle: both edges on the arc, and where it meets the goal line (the line goes right up to it, and the arc does not go outside the court).
+          for (const degrees of [5, 25, 55, 85]) {
+            expect(isLine(...round(rules.goalCircle - delta, degrees))).toBe(
+              true,
+            );
+            expect(isLine(...round(rules.goalCircle + delta, degrees))).toBe(
+              false,
+            );
+            expect(
+              isLine(...round(rules.goalCircle - w + delta, degrees)),
+            ).toBe(true);
+            expect(
+              isLine(...round(rules.goalCircle - w - delta, degrees)),
+            ).toBe(false);
+          }
+          expect(at(halfL - rules.goalCircle + delta, 0)).toBe(true);
+          expect(at(halfL + 0.1, rules.goalCircle - w / 2)).toBe(false);
+          expect(at(halfL - 0.3, rules.goalCircle + 0.2)).toBe(false);
+          // Nothing in the middle of the goal circle or between the lines.
+          expect(at(halfL - 2, 0)).toBe(false);
+          expect(at(halfL - 8, 3)).toBe(false);
+        }
+      // The centre circle (0.9 across, outer edge and inner edge), and nothing in the middle of it.
+      for (const degrees of [10, 80, 100, 170, 190, 260, 280, 350]) {
+        const point = (radius: number): [number, number] => [
+          radius * Math.cos((degrees * Math.PI) / 180),
+          radius * Math.sin((degrees * Math.PI) / 180),
+        ];
+        expect(isLine(...point(rules.centreCircle / 2 - delta))).toBe(true);
+        expect(isLine(...point(rules.centreCircle / 2 + delta))).toBe(false);
+        expect(isLine(...point(rules.centreCircle / 2 - w + delta))).toBe(true);
+        expect(isLine(...point(rules.centreCircle / 2 - w - delta))).toBe(
+          false,
+        );
+      }
+      expect(isLine(0, 0)).toBe(false);
+    }
+    expect(acrosses.size).toBe(2);
+  });
+
+  it('softens the edge of the surround, of the court and of a line over edgeSoft', () => {
+    const sample = createSurfaceSampler('netballcourt', 2),
+      { across, tones } = readSurface(sample),
+      quarter = (0.25 * p.edgeSoft) / m;
+    close(
+      toneAt(sample, 5, halfW + p.margin - quarter, across),
+      mix(tones.ground, tones.margin, 0.75),
+    );
+    close(
+      toneAt(sample, 5, halfW + p.margin + quarter, across),
+      mix(tones.ground, tones.margin, 0.25),
+    );
+    close(
+      toneAt(sample, halfL + p.margin - quarter, 3, across),
+      mix(tones.ground, tones.margin, 0.75),
+    );
+    // The outline over the surround (outer edge) and over the court (inner edge).
+    close(
+      toneAt(sample, 10, halfW - quarter, across),
+      mix(tones.margin, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, 10, halfW + quarter, across),
+      mix(tones.margin, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, halfL - quarter, 6.5, across),
+      mix(tones.margin, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, 10, halfW - w - quarter, across),
+      mix(tones.court, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, 10, halfW - w + quarter, across),
+      mix(tones.court, p.lineTone, 0.75),
+    );
+    // The transverse line, the centre circle and the goal circle over the court.
+    close(
+      toneAt(sample, thirdMark + w / 2 + quarter, 3, across),
+      mix(tones.court, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, thirdMark - w / 2 - quarter, 3, across),
+      mix(tones.court, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, rules.centreCircle / 2 + quarter, 0, across),
+      mix(tones.court, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, rules.centreCircle / 2 - quarter, 0, across),
+      mix(tones.court, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, rules.centreCircle / 2 - w - quarter, 0, across),
+      mix(tones.court, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, halfL - rules.goalCircle + quarter, 0, across),
+      mix(tones.court, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, halfL - rules.goalCircle - quarter, 0, across),
+      mix(tones.court, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, halfL - rules.goalCircle + w + quarter, 0, across),
+      mix(tones.court, p.lineTone, 0.25),
+    );
+    // Where the goal circle meets the goal line: the arc reaches the outer edge of the line, the line has its own edge there.
+    close(
+      toneAt(sample, halfL + quarter, rules.goalCircle - w / 2, across),
+      mix(tones.margin, p.lineTone, 0.25),
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('netballcourt', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('netballcourt', 0),
+      b = createSurfaceSampler('netballcourt', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

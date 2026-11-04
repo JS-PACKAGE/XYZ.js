@@ -28073,6 +28073,57 @@ var proceduralMaterialPresets = Object.freeze({
 		lineHeight: .36,
 		inkRoughness: .5
 	}),
+	netballcourt: Object.freeze({
+		dark: [
+			20,
+			56,
+			92
+		],
+		light: [
+			240,
+			240,
+			232
+		],
+		roughness: .45,
+		relief: .004,
+		metre: .025,
+		courtLength: 30.5,
+		courtWidth: 15.25,
+		goalCircleRadius: 4.9,
+		centreCircleDiameter: .9,
+		margin: 3.05,
+		lineWidth: .15,
+		surfaces: Object.freeze([
+			Object.freeze({
+				court: .5,
+				margin: .36,
+				ground: .2
+			}),
+			Object.freeze({
+				court: .42,
+				margin: .56,
+				ground: .26
+			}),
+			Object.freeze({
+				court: .58,
+				margin: .3,
+				ground: .14
+			}),
+			Object.freeze({
+				court: .36,
+				margin: .46,
+				ground: .3
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		lineTone: .96,
+		groundHeight: .15,
+		marginHeight: .25,
+		courtHeight: .3,
+		lineHeight: .35,
+		inkRoughness: .45
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -36754,6 +36805,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	netballcourt: 1,
 	gridironfield: 1,
 	squashcourt: 1,
 	pickleballcourt: 1,

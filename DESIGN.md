@@ -2469,6 +2469,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`netballcourt`（籃網球場）使目前目錄1225→1226種，含plain的gallery為1227項。從正上方看的籃網球場，單位是公尺（場地長軸沿著圖的一軸，貼圖40公尺見方，場地置中）：場地30.5×15.25、把場地分成三等分的兩條橫線、直徑0.9公尺的中圈、每個球門區的球門圈（以球門線外緣中點為圓心、半徑4.9公尺的半圓），場地周圍3.05公尺的淨空區與其外的地面。距離量到線的外緣，線算在它所界定的區域之內。線寬0.15公尺（規則0.05，三倍），這樣在貼圖中才看得見。兩條橫線取在三等分的記號上、線以記號為中心，這是我的選擇（規則把線畫在分區之間）。seed選一種表面（場地、淨空區與地面的色調，四種之一，再一起偏移不超過`toneShift`）並把球場沿著圖或橫過圖放（兩種之一）。尺寸來自一次網路搜尋的摘要（引用World Netball規則），沒有直接讀規則原文。這是作者設計的示意，沒有球架或文字；測試端以另外寫的規則尺寸（含「preset的數值等於這些尺寸，線三倍」的斷言）逐項檢查：整張圖（40×40公尺，每隔0.06公尺）的每一個位置（避開離任何邊或兩段線接縫0.02公尺以內），由另外寫的分類函式（地面／淨空區／場地／線，含每片線的標籤）給出色調與高度，與取樣器逐一相同（兩種放法）；外框、橫線、中圈與球門圈（四個角度上的兩個邊緣、圓弧與球門線相接處、圓弧不越出場地）的每一端與兩側，在兩側各0.0004個貼圖單位處精確在內或在外；色調偏移一致且1000個seed涵蓋整個範圍，四種表面與兩種放法大致各佔相同比例；各邊緣的柔化（1e-4的緊容許值）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
