@@ -56720,3 +56720,502 @@ describe('arbelos: a big half circle with two smaller ones inside, the line up f
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('contributiongraph: five years of daily activity cells in week columns with month gaps and a key', () => {
+  const p = proceduralMaterialPresets.contributiongraph,
+    out = empty(),
+    half = p.cell / 2,
+    monthLengths = (leap: boolean): number[] => [
+      31,
+      leap ? 29 : 28,
+      31,
+      30,
+      31,
+      30,
+      31,
+      31,
+      30,
+      31,
+      30,
+      31,
+    ];
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+
+  // The real calendar, worked out here again: whether a year is a leap year, the weekday of January 1 (0 for Sunday; by counting days from a known date:
+  // January 1 of 2000 was a Saturday), and for each week column of a year the month of its top day.
+  const isLeap = (year: number): boolean =>
+    year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const newYearWeekday = (year: number): number => {
+    let days = 0;
+    for (let y = 2000; y < year; y++) days += isLeap(y) ? 366 : 365;
+    for (let y = 2000; y > year; y--) days -= isLeap(y - 1) ? 366 : 365;
+    return (((6 + days) % 7) + 7) % 7;
+  };
+  const columnsOf = (
+    year: number,
+  ): { weeks: number; start: number; days: number; centres: number[] } => {
+    const start = newYearWeekday(year),
+      days = isLeap(year) ? 366 : 365,
+      weeks = Math.ceil((start + days) / 7),
+      lengths = monthLengths(isLeap(year)),
+      centres: number[] = [];
+    let gaps = 0,
+      previous = 0;
+    for (let week = 0; week < weeks; week++) {
+      let day = Math.max(0, week * 7 - start),
+        month = 0;
+      while (day >= lengths[month]) day -= lengths[month++];
+      if (week > 0 && month !== previous) gaps++;
+      previous = month;
+      centres.push(p.left + half + week * p.pitch + gaps * p.monthGap);
+    }
+    return { weeks, start, days, centres };
+  };
+  const cellCentreY = (band: number, row: number): number =>
+    p.top + band * p.bandPitch + (row + 0.5) * p.pitch;
+
+  type Calendar = {
+    sample: Sampler;
+    columns: number[][];
+    levels: number[][][];
+  };
+  // Read the picture: in each of the five year-bands, the columns (stretches along the band where any of the seven rows has a cell) and for each row of each column
+  // the cell's level (which of the five shades its tone is) or none.
+  const readCalendar = (seed: number): Calendar => {
+    const sample = createSurfaceSampler('contributiongraph', seed),
+      columns: number[][] = [],
+      levels: number[][][] = [],
+      shadeOf = (tone: number): number => {
+        if (tone > p.paperTone - 0.04) return -1;
+        const nearest = p.levelTones.reduce(
+          (best, shade, i) =>
+            Math.abs(shade - tone) < Math.abs(p.levelTones[best] - tone)
+              ? i
+              : best,
+          0,
+        );
+        expect(Math.abs(p.levelTones[nearest] - tone)).toBeLessThan(1e-6);
+        return nearest;
+      };
+    for (let band = 0; band < p.bands; band++) {
+      const found: number[] = [];
+      let start = Number.NaN;
+      for (let x = 0.02; x < 0.99; x += 0.001) {
+        const ink = Array.from(
+          { length: 7 },
+          (_, row) =>
+            toneAt(sample, x, cellCentreY(band, row)) < p.paperTone - 0.04,
+        ).some(Boolean);
+        if (ink && Number.isNaN(start)) start = x;
+        if (!ink && !Number.isNaN(start)) {
+          found.push((start + x - 0.001) / 2);
+          start = Number.NaN;
+        }
+      }
+      columns.push(found);
+      levels.push(
+        found.map((x) =>
+          Array.from({ length: 7 }, (_, row) =>
+            shadeOf(toneAt(sample, x, cellCentreY(band, row))),
+          ),
+        ),
+      );
+    }
+    return { sample, columns, levels };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows five consecutive years of the real calendar: each year has its days, starts on its weekday, and has a gap in front of each week that starts a new month (seed %i)',
+    (seed) => {
+      const { columns, levels } = readCalendar(seed);
+      // Per band, from the cells found: the first row with a cell in the first column (the weekday of January 1) and the number of cells (the days of the year).
+      const starts = levels.map((band) =>
+          band[0].findIndex((level) => level >= 0),
+        ),
+        counts = levels.map((band) =>
+          band.reduce(
+            (sum, column) => sum + column.filter((level) => level >= 0).length,
+            0,
+          ),
+        );
+      // Exactly one of the listed first years has this weekday for its January 1, and leap years falling as the picture's years do.
+      const fits = p.years.filter((year) =>
+        [0, 1, 2, 3, 4].every(
+          (band) =>
+            newYearWeekday(year + band) === starts[band] &&
+            (isLeap(year + band) ? 366 : 365) === counts[band],
+        ),
+      );
+      expect(fits.length).toBe(1);
+      const year = fits[0];
+      // The cells of a year are the days in order: the column a week, with no cell before January 1 or after December 31 and none missing in between.
+      for (let band = 0; band < p.bands; band++) {
+        const model = columnsOf(year + band);
+        expect(columns[band].length).toBe(model.weeks);
+        columns[band].forEach((x, week) =>
+          expect(Math.abs(x - model.centres[week])).toBeLessThan(0.0012),
+        );
+        levels[band].forEach((column, week) =>
+          column.forEach((level, row) => {
+            const index = week * 7 + row - model.start;
+            expect(level >= 0).toBe(index >= 0 && index < model.days);
+          }),
+        );
+      }
+      // Every cell has one of the five shades, and the key at the bottom is the five shades in order.
+      levels.forEach((band) =>
+        band.forEach((column) =>
+          column.forEach((level) => expect(level).toBeLessThan(5)),
+        ),
+      );
+      for (let shade = 0; shade < 5; shade++) {
+        const x = p.keyLeft + half + shade * p.pitch;
+        expect(
+          toneAt(
+            createSurfaceSampler('contributiongraph', seed),
+            x,
+            p.keyTop + half,
+          ),
+        ).toBeCloseTo(p.levelTones[shade], 6);
+      }
+    },
+  );
+
+  it('starts from each listed year, with weekdays busier than weekends and some weeks busier than others as the preset says, over 60 seeds', () => {
+    // The level of a day is floor(levelScale x a share of the week's busyness x a random share), at most 4 (the weekend's share is weekendFactor of it): the shares of each
+    // level over days, and so the mean level, are worked out here from the preset's numbers by averaging over a fine grid of the two random numbers.
+    const model = (factor: number): { mean: number; shares: number[] } => {
+      const shares = [0, 0, 0, 0, 0],
+        grid = 400;
+      for (let i = 0; i < grid; i++)
+        for (let j = 0; j < grid; j++) {
+          const busy =
+              p.quietestWeek +
+              ((p.busiestWeek - p.quietestWeek) * (i + 0.5)) / grid,
+            effort = ((j + 0.5) / grid) * busy * factor;
+          shares[Math.min(4, Math.floor(effort * p.levelScale))]++;
+        }
+      const total = grid * grid;
+      return {
+        mean: shares.reduce(
+          (sum, count, level) => sum + (count * level) / total,
+          0,
+        ),
+        shares: shares.map((count) => count / total),
+      };
+    };
+    const years = new Set<number>(),
+      counts = {
+        weekday: [0, 0, 0, 0, 0],
+        sunday: [0, 0, 0, 0, 0],
+        saturday: [0, 0, 0, 0, 0],
+      };
+    let sameWeekdays = 0,
+      fullWeeks = 0,
+      covariance = 0,
+      varianceA = 0,
+      varianceB = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const { levels } = readCalendar(seed * 211 + 5),
+        starts = levels.map((band) => band[0].findIndex((level) => level >= 0)),
+        tally = levels.map((band) =>
+          band.reduce(
+            (sum, column) => sum + column.filter((level) => level >= 0).length,
+            0,
+          ),
+        ),
+        year = p.years.find((candidate) =>
+          [0, 1, 2, 3, 4].every(
+            (band) =>
+              newYearWeekday(candidate + band) === starts[band] &&
+              (isLeap(candidate + band) ? 366 : 365) === tally[band],
+          ),
+        ) as number;
+      expect(year).toBeDefined();
+      years.add(year);
+      levels.forEach((band) => {
+        // Within a year, the weekday levels of full weeks (Monday to Wednesday against Thursday and Friday): busy weeks are busy for all of them, so these move together.
+        const pairs: [number, number][] = [];
+        band.forEach((column) => {
+          column.forEach((level, row) => {
+            if (level < 0) return;
+            counts[row === 0 ? 'sunday' : row === 6 ? 'saturday' : 'weekday'][
+              level
+            ]++;
+          });
+          if (column.every((level) => level >= 0)) {
+            fullWeeks++;
+            sameWeekdays += Number(
+              column.slice(1, 6).every((level) => level === column[1]),
+            );
+            pairs.push([
+              (column[1] + column[2] + column[3]) / 3,
+              (column[4] + column[5]) / 2,
+            ]);
+          }
+        });
+        const meanA =
+            pairs.reduce((sum, pair) => sum + pair[0], 0) / pairs.length,
+          meanB = pairs.reduce((sum, pair) => sum + pair[1], 0) / pairs.length;
+        for (const [x, y] of pairs) {
+          covariance += (x - meanA) * (y - meanB);
+          varianceA += (x - meanA) ** 2;
+          varianceB += (y - meanB) ** 2;
+        }
+      });
+    }
+    expect([...years].sort((a, b) => a - b)).toEqual([...p.years]);
+    const weekdayModel = model(1),
+      weekendModel = model(p.weekendFactor);
+    for (const [name, expected] of [
+      ['weekday', weekdayModel],
+      ['sunday', weekendModel],
+      ['saturday', weekendModel],
+    ] as const) {
+      const total = counts[name].reduce((sum, count) => sum + count, 0);
+      counts[name].forEach((count, level) =>
+        expect(Math.abs(count / total - expected.shares[level])).toBeLessThan(
+          0.012,
+        ),
+      );
+      expect(
+        Math.abs(
+          counts[name].reduce((sum, count, level) => sum + count * level, 0) /
+            total -
+            expected.mean,
+        ),
+      ).toBeLessThan(0.025);
+    }
+    // All five shades occur, and weekends really are quieter.
+    counts.weekday.forEach((count) => expect(count).toBeGreaterThan(300));
+    expect(weekendModel.mean).toBeLessThan(weekdayModel.mean / 2);
+    // The five weekdays of a week are seldom the same level (they are separate random numbers), and within a year the weeks differ: weekdays early and late in the same week
+    // move together (a correlation well above nought, which only a busyness that changes from week to week gives).
+    expect(sameWeekdays / fullWeeks).toBeLessThan(0.05);
+    expect(covariance / Math.sqrt(varianceA * varianceB)).toBeGreaterThan(0.25);
+  });
+
+  it('draws every cell as a square of the cell size at the pitch, with its shade, height and roughness, paper where there is no day, and the key', () => {
+    for (const seed of seeds) {
+      const { sample, columns, levels } = readCalendar(seed),
+        paperOk = (x: number, y: number): boolean =>
+          Math.abs(toneAt(sample, x, y) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      for (let band = 0; band < p.bands; band++)
+        columns[band].forEach((column, week) => {
+          // The column's centre exactly (the grid's spacing is the preset's, so use it, not the coarse decoded middle).
+          const x = columnsOf(
+            (p.years.find((candidate) =>
+              [0, 1, 2, 3, 4].every(
+                (b) =>
+                  newYearWeekday(candidate + b) ===
+                  levels[b][0].findIndex((l) => l >= 0),
+              ),
+            ) as number) + band,
+          ).centres[week];
+          expect(Math.abs(x - column)).toBeLessThan(0.0012);
+          levels[band][week].forEach((level, row) => {
+            const y = cellCentreY(band, row);
+            if (level < 0) {
+              expect(paperOk(x, y)).toBe(true);
+              return;
+            }
+            expect(toneAt(sample, x, y)).toBeCloseTo(p.levelTones[level], 6);
+            expect(out.height / p.relief).toBeCloseTo(p.levelHeights[level], 6);
+            expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          });
+        });
+      // The square's size and the gaps between squares, on the first full row and column of every band: inside the edge it is the shade, outside paper.
+      for (let band = 0; band < p.bands; band++) {
+        const week = columns[band].length >> 1,
+          row = [0, 3, 6, 3, 0][band],
+          x = columnsOf(
+            (p.years.find((candidate) =>
+              [0, 1, 2, 3, 4].every(
+                (b) =>
+                  newYearWeekday(candidate + b) ===
+                  levels[b][0].findIndex((l) => l >= 0),
+              ),
+            ) as number) + band,
+          ).centres[week],
+          y = cellCentreY(band, row),
+          level = levels[band][week][row];
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          expect(
+            toneAt(sample, x + dx * (half - 0.0004), y + dy * (half - 0.0004)),
+          ).toBeCloseTo(p.levelTones[level], 6);
+          expect(
+            paperOk(x + dx * (half + 0.0004), y + dy * (half + 0.0004)),
+          ).toBe(true);
+        }
+      }
+      // The key: five squares, from the key's left, at the pitch, with the five shades' heights; nothing either side of them.
+      for (let shade = 0; shade < 5; shade++) {
+        const x = p.keyLeft + half + shade * p.pitch;
+        expect(toneAt(sample, x, p.keyTop + half)).toBeCloseTo(
+          p.levelTones[shade],
+          6,
+        );
+        expect(out.height / p.relief).toBeCloseTo(p.levelHeights[shade], 6);
+        // The square's size: the shade right up to the edge on all four sides, paper just outside.
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          expect(
+            toneAt(
+              sample,
+              x + dx * (half - 0.0004),
+              p.keyTop + half + dy * (half - 0.0004),
+            ),
+          ).toBeCloseTo(p.levelTones[shade], 6);
+          expect(
+            paperOk(
+              x + dx * (half + 0.0004),
+              p.keyTop + half + dy * (half + 0.0004),
+            ),
+          ).toBe(true);
+        }
+      }
+      expect(paperOk(p.keyLeft - 0.004, p.keyTop + half)).toBe(true);
+      expect(
+        paperOk(p.keyLeft + 4 * p.pitch + p.cell + 0.004, p.keyTop + half),
+      ).toBe(true);
+    }
+  });
+
+  it('softens the edge of a cell over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      // The key's squares: the edge on each side over the paper.
+      const keySample = createSurfaceSampler('contributiongraph', seed);
+      for (let shade = 0; shade < 5; shade++)
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const x = p.keyLeft + half + shade * p.pitch,
+            y = p.keyTop + half;
+          close(
+            toneAt(
+              keySample,
+              x + dx * (half - quarter),
+              y + dy * (half - quarter),
+            ),
+            mix(p.paperTone, p.levelTones[shade], 0.75),
+          );
+          close(
+            toneAt(
+              keySample,
+              x + dx * (half + quarter),
+              y + dy * (half + quarter),
+            ),
+            mix(p.paperTone, p.levelTones[shade], 0.25),
+          );
+        }
+      const { sample, levels } = readCalendar(seed),
+        year = p.years.find((candidate) =>
+          [0, 1, 2, 3, 4].every(
+            (b) =>
+              newYearWeekday(candidate + b) ===
+              levels[b][0].findIndex((l) => l >= 0),
+          ),
+        ) as number;
+      for (let band = 0; band < p.bands; band++) {
+        const model = columnsOf(year + band),
+          week = 10 + band,
+          row = [0, 6, 3, 1, 5][band],
+          level = levels[band][week][row],
+          x = model.centres[week],
+          y = cellCentreY(band, row),
+          tone = p.levelTones[level];
+        // The right and left sides (across a gap to the next cell: there is only paper between) and the top and bottom.
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          close(
+            toneAt(
+              sample,
+              x + dx * (half - quarter),
+              y + dy * (half - quarter),
+            ),
+            mix(p.paperTone, tone, 0.75),
+          );
+          close(
+            toneAt(
+              sample,
+              x + dx * (half + quarter),
+              y + dy * (half + quarter),
+            ),
+            mix(p.paperTone, tone, 0.25),
+          );
+        }
+      }
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('contributiongraph', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('contributiongraph', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.04),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('contributiongraph', 0),
+      b = createSurfaceSampler('contributiongraph', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.1301],
+        [0.2001, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

@@ -45723,6 +45723,145 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'contributiongraph': {
+        const p = proceduralMaterialPresets.contributiongraph,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x53001),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          firstYear =
+            p.years[Math.floor(hash(76, 1, seed ^ 0x53002) * p.years.length)],
+          monthDays = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31],
+          half = p.cell / 2,
+          // The weekday of January 1 of a year, 0 for Sunday (Sakamoto's rule).
+          weekdayOfNewYear = (year: number): number => {
+            const before = year - 1;
+            return (
+              (before +
+                Math.floor(before / 4) -
+                Math.floor(before / 100) +
+                Math.floor(before / 400) +
+                1) %
+              7
+            );
+          },
+          // One year of cells (the listed years are all between 1990 and 2021, so a year is a leap year if it is divisible by four): where each week's column is, and the level of every day (255 where the grid has no day: before January 1 and after December 31).
+          columns: Float64Array[] = [],
+          levels: Uint8Array[] = [];
+        for (let band = 0; band < p.bands; band++) {
+          const year = firstYear + band,
+            leap = year % 4 === 0,
+            days = leap ? 366 : 365,
+            start = weekdayOfNewYear(year),
+            weeks = Math.ceil((start + days) / 7),
+            centres = new Float64Array(weeks),
+            shades = new Uint8Array(weeks * 7).fill(255);
+          let gaps = 0,
+            lastMonth = 0;
+          for (let week = 0; week < weeks; week++) {
+            // The month of the week's top day (January for the first week, whose top day is before January 1): a gap in front of a week that starts a new month.
+            let day = week * 7 - start,
+              month = 0;
+            while (day >= monthDays[month] + (month === 1 && leap ? 1 : 0)) {
+              day -= monthDays[month] + (month === 1 && leap ? 1 : 0);
+              month++;
+            }
+            if (month !== lastMonth) gaps++;
+            lastMonth = month;
+            centres[week] = p.left + half + week * p.pitch + gaps * p.monthGap;
+            // This week's busyness: some weeks busier than others.
+            const busy =
+              p.quietestWeek +
+              (p.busiestWeek - p.quietestWeek) *
+                hash(76, 2, seed ^ (0x53003 + band * 977 + week * 31));
+            for (let row = 0; row < 7; row++) {
+              const index = week * 7 + row - start;
+              if (index < 0 || index >= days) continue;
+              const effort =
+                hash(76, 3, seed ^ (0x53004 + band * 40503 + index * 7)) *
+                busy *
+                (row === 0 || row === 6 ? p.weekendFactor : 1);
+              shades[week * 7 + row] = Math.min(
+                4,
+                Math.floor(effort * p.levelScale),
+              );
+            }
+          }
+          columns.push(centres);
+          levels.push(shades);
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          // The year this pixel is nearest to, and in it the nearest column and row.
+          const band = Math.min(
+              p.bands - 1,
+              Math.max(
+                0,
+                Math.round((fv - p.top - 3.5 * p.pitch) / p.bandPitch),
+              ),
+            ),
+            row = Math.min(
+              6,
+              Math.max(
+                0,
+                Math.round((fv - p.top - band * p.bandPitch) / p.pitch - 0.5),
+              ),
+            ),
+            centres = columns[band];
+          let week = 0;
+          for (let i = 1; i < centres.length; i++)
+            if (Math.abs(fu - centres[i]) < Math.abs(fu - centres[week]))
+              week = i;
+          const level = levels[band][week * 7 + row];
+          if (level !== 255) {
+            const rowCentre =
+              p.top + band * p.bandPitch + (row + 0.5) * p.pitch;
+            paint(
+              cover(
+                Math.min(
+                  half - Math.abs(fu - centres[week]),
+                  half - Math.abs(fv - rowCentre),
+                ),
+              ),
+              p.levelTones[level],
+              p.levelHeights[level],
+            );
+          }
+          // The key: the five shades side by side.
+          const keyColumn = Math.round((fu - p.keyLeft - half) / p.pitch);
+          if (keyColumn >= 0 && keyColumn < 5) {
+            const keyCentreX = p.keyLeft + half + keyColumn * p.pitch;
+            paint(
+              cover(
+                Math.min(
+                  half - Math.abs(fu - keyCentreX),
+                  half - Math.abs(fv - (p.keyTop + half)),
+                ),
+              ),
+              p.levelTones[keyColumn],
+              p.levelHeights[keyColumn],
+            );
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -73252,6 +73391,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'contributiongraph' ||
     kind === 'arbelos' ||
     kind === 'eulerlinetriangle' ||
     kind === 'astroidladder' ||
