@@ -67394,3 +67394,544 @@ describe('tablutboard: a Tablut board with the pieces of an opening, turned by t
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('poolrack: a pool table with the fifteen balls racked and the cue ball, the rack at either end', () => {
+  const p = proceduralMaterialPresets.poolrack,
+    out = empty(),
+    R = p.ballRadius,
+    toneAt = (sample: Sampler, dx: number, dy: number): number => {
+      sample(0.5 + dx, 0.5 + dy, out);
+      return out.color;
+    };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    mix = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(0.03),
+    same = (a: number, b: number): boolean => Math.abs(a - b) < 1e-6;
+  // The places of the fifteen balls of the rack from the facts of the packing of discs: the point of the triangle on the foot spot, five rows going away from the head string, a row of n balls
+  // being n discs touching along a line, and each row set a half disc over from the one before it.
+  type Place = { x: number; y: number; row: number; index: number };
+  const rackPlaces = (side: number): Place[] => {
+    const places: Place[] = [];
+    for (let row = 0; row < 5; row++)
+      for (let index = 0; index <= row; index++)
+        places.push({
+          x: (side * p.halfWidth) / 2 + side * row * Math.sqrt(3) * R,
+          y: (index - row / 2) * 2 * R,
+          row,
+          index,
+        });
+    return places;
+  };
+  type Rack = { side: number; numbers: number[] };
+  // Read a ball at a place: a solid is its own tone in the middle; a striped ball is white in the middle (the band) and its own tone at an end, a little above the middle.
+  const ballNumberAt = (sample: Sampler, x: number, y: number): number => {
+    const middle = toneAt(sample, x, y);
+    const numberOf = (tone: number): number =>
+      p.ballTones.findIndex((candidate) => same(candidate, tone)) + 1;
+    if (same(middle, p.cueTone))
+      return numberOf(toneAt(sample, x, y - 0.8 * R));
+    return numberOf(middle);
+  };
+  const readRack = (sample: Sampler): Rack => {
+    // Which end: the point of the rack on the foot spot has a ball on it at that end and cloth at the other.
+    const candidates = [1, -1].filter(
+      (side) => ballNumberAt(sample, (side * p.halfWidth) / 2, 0) > 0,
+    );
+    expect(candidates.length).toBe(1);
+    const side = candidates[0];
+    return {
+      side,
+      numbers: rackPlaces(side).map((place) =>
+        ballNumberAt(sample, place.x, place.y),
+      ),
+    };
+  };
+  // Where the cue ball is: the middle of the pixels of its tone on the cloth between the head string and the head rail (a scan on a grid, centred on the white disc).
+  const findCue = (sample: Sampler, side: number): { x: number; y: number } => {
+    let total = [0, 0],
+      count = 0;
+    for (let ix = 0; ix <= 400; ix++)
+      for (let iy = 0; iy <= 160; iy++) {
+        const x =
+            (-side * p.halfWidth) / 2 -
+            side * (ix / 400) * (p.halfWidth / 2 - 0.004) +
+            side * 0.003,
+          y = -p.halfHeight + 0.004 + (iy / 160) * (2 * p.halfHeight - 0.008);
+        if (same(toneAt(sample, x, y), p.cueTone)) {
+          total = [total[0] + x, total[1] + y];
+          count++;
+        }
+      }
+    expect(count).toBeGreaterThan(20);
+    return { x: total[0] / count, y: total[1] / count };
+  };
+
+  it('has the facts of the packing in the model: fifteen places, thirty pairs touching, the eight ball in the middle of the third row', () => {
+    for (const side of [1, -1]) {
+      const places = rackPlaces(side);
+      expect(places.length).toBe(15);
+      let touching = 0;
+      for (let a = 0; a < 15; a++)
+        for (let b = a + 1; b < 15; b++)
+          touching += Number(
+            Math.abs(
+              Math.hypot(places[a].x - places[b].x, places[a].y - places[b].y) -
+                2 * R,
+            ) < 1e-9,
+          );
+      expect(touching).toBe(30);
+      // The point of the triangle is on the foot spot, and the middle place of the third row is on the middle line of the table.
+      expect(places[0].x).toBeCloseTo((side * p.halfWidth) / 2, 12);
+      expect(places[4].row).toBe(2);
+      expect(places[4].y).toBeCloseTo(0, 12);
+    }
+  });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'racks the fifteen balls in the triangle, the eight ball in the middle, a solid and a stripe in the back corners, each number once (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('poolrack', seed),
+        { numbers } = readRack(sample);
+      expect([...numbers].sort((a, b) => a - b)).toEqual(
+        Array.from({ length: 15 }, (_, index) => index + 1),
+      );
+      expect(numbers[4]).toBe(8);
+      const corners = [numbers[10], numbers[14]];
+      expect(corners.filter((number) => number < 8).length).toBe(1);
+      expect(corners.filter((number) => number > 8).length).toBe(1);
+      // The cue ball is behind the head string (between it and the head rail) and well inside the cloth.
+      const { side } = readRack(sample),
+        cue = findCue(sample, side);
+      expect(side * cue.x).toBeLessThan(-p.halfWidth / 2);
+      expect(Math.abs(cue.x)).toBeLessThan(p.halfWidth - 0.03);
+      expect(Math.abs(cue.y)).toBeLessThan(p.halfHeight - 0.03);
+    },
+  );
+
+  it('puts the rack at either end, the solid at either back corner, every number at the point and the cue ball anywhere behind the head string, over 300 seeds', () => {
+    let right = 0,
+      solidFirst = 0;
+    const pairs = new Set<string>(),
+      apex = new Map<number, number>(),
+      cueXs: number[] = [],
+      cueYs: number[] = [];
+    for (let seed = 0; seed < 300; seed++) {
+      const sample = createSurfaceSampler('poolrack', seed * 7 + 1),
+        { side, numbers } = readRack(sample),
+        cue = findCue(sample, side);
+      right += Number(side === 1);
+      solidFirst += Number(numbers[10] < 8);
+      pairs.add(
+        `${Math.min(numbers[10], numbers[14])}/${Math.max(numbers[10], numbers[14])}`,
+      );
+      apex.set(numbers[0], (apex.get(numbers[0]) ?? 0) + 1);
+      cueXs.push(cue.x * side);
+      cueYs.push(cue.y);
+    }
+    expect(Math.abs(right / 300 - 0.5)).toBeLessThan(0.1);
+    expect(Math.abs(solidFirst / 300 - 0.5)).toBeLessThan(0.1);
+    // The solid and the stripe at the back corners are picked independently (about 49 pairs possible).
+    expect(pairs.size).toBeGreaterThan(40);
+    expect(apex.has(8)).toBe(false);
+    expect(apex.size).toBe(14);
+    for (const count of apex.values())
+      expect(Math.abs(count - 300 / 14)).toBeLessThan(16);
+    // The cue ball goes the whole way behind the head string and across the table.
+    expect(Math.min(...cueXs)).toBeLessThan(
+      -p.halfWidth / 2 - 0.01 - (p.halfWidth / 2 - 0.06) + 0.012,
+    );
+    expect(Math.min(...cueXs)).toBeGreaterThan(
+      -p.halfWidth / 2 - 0.01 - (p.halfWidth / 2 - 0.06) - 0.004,
+    );
+    expect(Math.max(...cueXs)).toBeGreaterThan(-p.halfWidth / 2 - 0.03);
+    expect(Math.min(...cueYs)).toBeLessThan(-p.halfHeight + 0.04 + 0.012);
+    expect(Math.min(...cueYs)).toBeGreaterThan(-p.halfHeight + 0.04 - 0.004);
+    expect(Math.max(...cueYs)).toBeGreaterThan(p.halfHeight - 0.04 - 0.012);
+    expect(Math.max(...cueYs)).toBeLessThan(p.halfHeight - 0.04 + 0.004);
+  });
+
+  it('draws the rail, the cloth, the six pockets, the eighteen diamonds and the head string with their tones, heights, roughness and sizes, and nothing outside the rail', () => {
+    const sample = createSurfaceSampler('poolrack', 2),
+      { side } = readRack(sample),
+      outerX = p.halfWidth + p.rail,
+      outerY = p.halfHeight + p.rail,
+      headX = (-side * p.halfWidth) / 2,
+      paperOk = (dx: number, dy: number): boolean =>
+        Math.abs(toneAt(sample, dx, dy) - p.paperTone) <=
+        p.grainTone / 2 + 1e-9;
+    // The rail's width and its tone, the cloth's, the paper outside.
+    expect(toneAt(sample, 0.07, -p.halfHeight - p.rail / 2 - 0.0)).toBeCloseTo(
+      p.railTone,
+      6,
+    );
+    expect(out.height / p.relief).toBeCloseTo(p.railHeight, 6);
+    expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+    expect(toneAt(sample, 0.07, -p.halfHeight + 0.01)).toBeCloseTo(
+      p.clothTone,
+      6,
+    );
+    expect(out.height / p.relief).toBeCloseTo(p.clothHeight, 6);
+    for (const [dx, dy] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ]) {
+      const outer = dx !== 0 ? outerX : outerY,
+        inner = dx !== 0 ? p.halfWidth : p.halfHeight,
+        along = dx !== 0 ? 0.07 : 0.13,
+        at = (distance: number): [number, number] =>
+          dx !== 0 ? [dx * distance, along] : [along, dy * distance];
+      expect(toneAt(sample, ...at(outer - 0.0004))).toBeCloseTo(p.railTone, 6);
+      expect(paperOk(...at(outer + 0.0004))).toBe(true);
+      expect(toneAt(sample, ...at(inner + 0.0004))).toBeCloseTo(p.railTone, 6);
+      expect(toneAt(sample, ...at(inner - 0.0004))).toBeCloseTo(p.clothTone, 6);
+    }
+    // The pockets: the four corners and the two middles of the long sides, tone, height and radius.
+    for (const [cx, cy, radius] of [
+      [-p.halfWidth, -p.halfHeight, p.pocketRadius],
+      [p.halfWidth, -p.halfHeight, p.pocketRadius],
+      [-p.halfWidth, p.halfHeight, p.pocketRadius],
+      [p.halfWidth, p.halfHeight, p.pocketRadius],
+      [0, -p.halfHeight, p.sidePocketRadius],
+      [0, p.halfHeight, p.sidePocketRadius],
+    ]) {
+      expect(toneAt(sample, cx, cy)).toBeCloseTo(p.pocketTone, 6);
+      expect(out.height / p.relief).toBeCloseTo(p.pocketHeight, 6);
+      for (const [ux, uy] of [
+        [1, 0],
+        [0, 1],
+        [-1, 0],
+        [0, -1],
+        [Math.SQRT1_2, Math.SQRT1_2],
+        [-Math.SQRT1_2, Math.SQRT1_2],
+      ]) {
+        expect(
+          toneAt(
+            sample,
+            cx + ux * (radius - 0.0004),
+            cy + uy * (radius - 0.0004),
+          ),
+        ).toBeCloseTo(p.pocketTone, 6);
+        // Outside: the cloth or the rail, never the pocket's tone.
+        expect(
+          Math.abs(
+            toneAt(
+              sample,
+              cx + ux * (radius + 0.0004),
+              cy + uy * (radius + 0.0004),
+            ) - p.pocketTone,
+          ),
+        ).toBeGreaterThan(0.1);
+      }
+    }
+    // The eighteen diamonds: six on each long side (at a eighth of the length apart, none at the middle) and three on each end (at a quarter of the width apart): tone, height, radius.
+    let diamonds = 0;
+    const centres: [number, number][] = [];
+    for (const sy of [-1, 1])
+      for (const mark of [-3, -2, -1, 1, 2, 3])
+        centres.push([
+          (mark * 2 * p.halfWidth) / 8,
+          sy * (p.halfHeight + p.rail / 2),
+        ]);
+    for (const sx of [-1, 1])
+      for (const mark of [-1, 0, 1])
+        centres.push([
+          sx * (p.halfWidth + p.rail / 2),
+          (mark * 2 * p.halfHeight) / 4,
+        ]);
+    for (const [cx, cy] of centres) {
+      diamonds++;
+      expect(toneAt(sample, cx, cy)).toBeCloseTo(p.diamondTone, 6);
+      expect(out.height / p.relief).toBeCloseTo(p.diamondHeight, 6);
+      for (const [ux, uy] of [
+        [1, 0],
+        [0, 1],
+        [-1, 0],
+        [0, -1],
+      ]) {
+        expect(
+          toneAt(
+            sample,
+            cx + ux * (p.diamondRadius - 0.0004),
+            cy + uy * (p.diamondRadius - 0.0004),
+          ),
+        ).toBeCloseTo(p.diamondTone, 6);
+        expect(
+          toneAt(
+            sample,
+            cx + ux * (p.diamondRadius + 0.0004),
+            cy + uy * (p.diamondRadius + 0.0004),
+          ),
+        ).toBeCloseTo(p.railTone, 6);
+      }
+    }
+    expect(diamonds).toBe(18);
+    // And none at the middle of a long side (the side pocket) nor beyond the corner pockets.
+    expect(toneAt(sample, 0, p.halfHeight + p.rail / 2)).toBeCloseTo(
+      p.railTone,
+      6,
+    );
+    expect(
+      toneAt(sample, p.halfWidth + p.rail / 2, p.halfHeight / 2 + 0.07),
+    ).toBeCloseTo(p.railTone, 6);
+    // The head string: the width of a line across the cloth (not on the rail), clear of the balls.
+    for (const y of [-0.15, 0.17]) {
+      expect(toneAt(sample, headX, y)).toBeCloseTo(p.lineTone, 6);
+      expect(out.height / p.relief).toBeCloseTo(p.lineHeight, 6);
+      for (const sign of [1, -1]) {
+        expect(
+          toneAt(sample, headX + sign * (p.lineHalf - 0.0004), y),
+        ).toBeCloseTo(p.lineTone, 6);
+        expect(
+          toneAt(sample, headX + sign * (p.lineHalf + 0.0004), y),
+        ).toBeCloseTo(p.clothTone, 6);
+      }
+    }
+    expect(toneAt(sample, headX, p.halfHeight + 0.012)).toBeCloseTo(
+      p.railTone,
+      6,
+    );
+    expect(toneAt(sample, headX, -p.halfHeight - 0.012)).toBeCloseTo(
+      p.railTone,
+      6,
+    );
+    for (const [dx, dy] of [
+      [-outerX - 0.01, 0],
+      [outerX + 0.01, 0],
+      [0, -outerY - 0.01],
+      [0, outerY + 0.01],
+      [-0.49, -0.49],
+    ])
+      expect(paperOk(dx, dy)).toBe(true);
+  });
+
+  it('draws every ball a disc of its radius, a solid in its tone, a stripe white about the middle (the band) and in its tone at the ends, the cue ball white', () => {
+    for (const seed of [2, 3, 4]) {
+      const sample = createSurfaceSampler('poolrack', seed),
+        { side, numbers } = readRack(sample),
+        places = rackPlaces(side);
+      places.forEach((place, slot) => {
+        const number = numbers[slot],
+          tone = p.ballTones[number - 1],
+          stripe = number > 8;
+        expect(toneAt(sample, place.x, place.y)).toBeCloseTo(
+          stripe ? p.cueTone : tone,
+          6,
+        );
+        expect(out.height / p.relief).toBeCloseTo(p.ballHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        // The two ends of a stripe, and the band's width (the band is white up to a fraction of the radius from the middle).
+        expect(toneAt(sample, place.x, place.y - 0.8 * R)).toBeCloseTo(tone, 6);
+        expect(toneAt(sample, place.x, place.y + 0.8 * R)).toBeCloseTo(tone, 6);
+        expect(
+          toneAt(sample, place.x, place.y + (p.bandHalf - 0.03) * R),
+        ).toBeCloseTo(stripe ? p.cueTone : tone, 6);
+        expect(
+          toneAt(sample, place.x, place.y + (p.bandHalf + 0.03) * R),
+        ).toBeCloseTo(tone, 6);
+        expect(
+          toneAt(sample, place.x, place.y - (p.bandHalf - 0.03) * R),
+        ).toBeCloseTo(stripe ? p.cueTone : tone, 6);
+      });
+      // The ball's edge: along the middle line (the band for a stripe) the radius, inside the ball and outside, on the cloth. Only for balls with no ball touching there (the ends of the rows).
+      for (const slot of [0, 10, 14]) {
+        const place = places[slot],
+          number = numbers[slot],
+          tone = number > 8 ? p.cueTone : p.ballTones[number - 1];
+        for (const [ux, uy] of [side > 0 ? [-1, 0] : [1, 0]]) {
+          expect(
+            toneAt(
+              sample,
+              place.x + ux * (R - 0.0004),
+              place.y + uy * (R - 0.0004),
+            ),
+          ).toBeCloseTo(tone, 6);
+          expect(
+            toneAt(
+              sample,
+              place.x + ux * (R + 0.0004),
+              place.y + uy * (R + 0.0004),
+            ),
+          ).toBeCloseTo(p.clothTone, 6);
+        }
+      }
+      const cue = findCue(sample, side);
+      // The cue ball (its middle found within the scan's step): white, in all directions the radius, then the cloth.
+      for (const [ux, uy] of [
+        [1, 0],
+        [0, 1],
+        [-1, 0],
+        [0, -1],
+      ]) {
+        // Find the exact middle by walking out to the edge along each axis.
+        let inner = 0;
+        while (
+          same(
+            toneAt(
+              sample,
+              cue.x + ux * (inner + 0.00005),
+              cue.y + uy * (inner + 0.00005),
+            ),
+            p.cueTone,
+          ) &&
+          inner < 0.03
+        )
+          inner += 0.00005;
+        expect(inner).toBeGreaterThan(0.005);
+      }
+    }
+  });
+
+  it('softens the edge of the rail, of the cloth, of a pocket, of a diamond, of the head string and of a ball over edgeSoft', () => {
+    const sample = createSurfaceSampler('poolrack', 2),
+      { side, numbers } = readRack(sample),
+      quarter = 0.25 * p.edgeSoft,
+      headX = (-side * p.halfWidth) / 2;
+    close(
+      toneAt(sample, 0.07, -p.halfHeight - p.rail + quarter),
+      mix(p.paperTone, p.railTone, 0.75),
+    );
+    close(
+      toneAt(sample, 0.07, -p.halfHeight - p.rail - quarter),
+      mix(p.paperTone, p.railTone, 0.25),
+    );
+    close(
+      toneAt(sample, 0.07, -p.halfHeight + quarter),
+      mix(p.railTone, p.clothTone, 0.75),
+    );
+    close(
+      toneAt(sample, 0.07, -p.halfHeight - quarter),
+      mix(p.railTone, p.clothTone, 0.25),
+    );
+    // The pocket in a corner, towards the inside of the cloth along the diagonal.
+    for (const edge of [-quarter, quarter])
+      close(
+        toneAt(
+          sample,
+          -p.halfWidth + (p.pocketRadius + edge) * Math.SQRT1_2,
+          -p.halfHeight + (p.pocketRadius + edge) * Math.SQRT1_2,
+        ),
+        mix(p.clothTone, p.pocketTone, edge < 0 ? 0.75 : 0.25),
+      );
+    close(
+      toneAt(sample, 0, -p.halfHeight + p.sidePocketRadius + quarter),
+      mix(p.clothTone, p.pocketTone, 0.25),
+    );
+    close(
+      toneAt(sample, 0, -p.halfHeight + p.sidePocketRadius - quarter),
+      mix(p.clothTone, p.pocketTone, 0.75),
+    );
+    // A diamond and the head string.
+    const diamond = [0.1, -p.halfHeight - p.rail / 2];
+    close(
+      toneAt(sample, diamond[0] + p.diamondRadius - quarter, diamond[1]),
+      mix(p.railTone, p.diamondTone, 0.75),
+    );
+    close(
+      toneAt(sample, diamond[0] + p.diamondRadius + quarter, diamond[1]),
+      mix(p.railTone, p.diamondTone, 0.25),
+    );
+    close(
+      toneAt(sample, headX + p.lineHalf - quarter, 0.15),
+      mix(p.clothTone, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, headX + p.lineHalf + quarter, 0.15),
+      mix(p.clothTone, p.lineTone, 0.25),
+    );
+    // A ball at the point of the rack (the cloth beyond its point) and at a back corner: the cover is exact there.
+    const places = rackPlaces(side);
+    for (const slot of [0, 10, 14]) {
+      const number = numbers[slot],
+        tone = number > 8 ? p.cueTone : p.ballTones[number - 1],
+        direction = -side;
+      expect(
+        Math.abs(
+          toneAt(
+            sample,
+            places[slot].x + direction * (R - quarter),
+            places[slot].y,
+          ) - mix(slot === 0 ? p.clothTone : p.clothTone, tone, 0.75),
+        ),
+      ).toBeLessThan(0.008);
+      expect(
+        Math.abs(
+          toneAt(
+            sample,
+            places[slot].x + direction * (R + quarter),
+            places[slot].y,
+          ) - mix(p.clothTone, tone, 0.25),
+        ),
+      ).toBeLessThan(0.008);
+    }
+  });
+
+  it('fades the grain of the paper out over the edge of the rail, as much as the rail covers', () => {
+    const sample = createSurfaceSampler('poolrack', 2),
+      amount = smoothstep(0.25),
+      residuals: number[] = [];
+    for (let k = 0; k < 40; k++)
+      residuals.push(
+        toneAt(
+          sample,
+          -p.halfWidth + 0.02 + k * 0.019,
+          -p.halfHeight - p.rail - 0.25 * p.edgeSoft,
+        ) -
+          (p.paperTone + (p.railTone - p.paperTone) * amount),
+      );
+    const largest = Math.max(...residuals.map(Math.abs));
+    expect(largest).toBeGreaterThan(0.003);
+    expect(largest).toBeLessThanOrEqual(
+      0.5 * p.grainTone * (1 - amount) + 1e-9,
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('poolrack', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('poolrack', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, -0.48 + i * 0.0021, -0.49),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('poolrack', 0),
+      b = createSurfaceSampler('poolrack', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [x, y] of [
+        [t, 0.3501],
+        [0.2201, t],
+        [t, 0.5],
+      ]) {
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

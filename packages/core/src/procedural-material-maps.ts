@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'poolrack',
   'tablutboard',
   'arnoldcatmap',
   'ninemensmorris',
@@ -49044,6 +49045,155 @@ export function createSurfaceSampler(
                   shade) *
                 body;
               elevation += (p.pieceHeight - elevation) * body;
+            }
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
+      case 'poolrack': {
+        const p = proceduralMaterialPresets.poolrack,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0xdd001),
+          inverseSoft = 1 / p.edgeSoft,
+          norm = (x: number, y: number): number => Math.sqrt(x * x + y * y),
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // Which end the rack is at: the foot spot on the right (1) or on the left (-1).
+          side = hash(102, 1, seed ^ 0xdd002) < 0.5 ? 1 : -1,
+          footX = (side * p.halfWidth) / 2,
+          headX = -footX,
+          // The rack: five rows, the point on the foot spot, the rows going away from the head string; ball slots in order by row and place in it.
+          slots = 15,
+          balls = 16,
+          ballX = new Float64Array(balls),
+          ballY = new Float64Array(balls),
+          ballNumber = new Int8Array(balls),
+          step = Math.sqrt(3) * p.ballRadius;
+        let slot = 0;
+        for (let row = 0; row < 5; row++)
+          for (let place = 0; place <= row; place++) {
+            ballX[slot] = footX + side * row * step;
+            ballY[slot] = (place - row / 2) * 2 * p.ballRadius;
+            slot++;
+          }
+        // The numbers: the eight ball in the middle (the 5th slot of the third row: slot 4), a solid and a stripe in the back corners (slots 10 and 14, which first by chance), the rest shuffled.
+        const solids = [1, 2, 3, 4, 5, 6, 7],
+          stripes = [9, 10, 11, 12, 13, 14, 15],
+          pick = (list: number[], index: number): number =>
+            list.splice(
+              Math.floor(hash(index, 7, seed ^ 0xdd003) * list.length),
+              1,
+            )[0],
+          cornerSolid = pick(solids, 0),
+          cornerStripe = pick(stripes, 1),
+          solidFirst = hash(102, 2, seed ^ 0xdd004) < 0.5,
+          rest = [...solids, ...stripes];
+        ballNumber[4] = 8;
+        ballNumber[10] = solidFirst ? cornerSolid : cornerStripe;
+        ballNumber[14] = solidFirst ? cornerStripe : cornerSolid;
+        for (let index = rest.length - 1; index > 0; index--) {
+          const other = Math.floor(
+            hash(index, 8, seed ^ 0xdd005) * (index + 1),
+          );
+          [rest[index], rest[other]] = [rest[other], rest[index]];
+        }
+        let next = 0;
+        for (let index = 0; index < slots; index++)
+          if (ballNumber[index] === 0) ballNumber[index] = rest[next++];
+        // The cue ball (number 0 at the last place): behind the head string, anywhere on the cloth there.
+        ballX[slots] =
+          headX -
+          side *
+            (0.01 + hash(102, 3, seed ^ 0xdd006) * (p.halfWidth / 2 - 0.06));
+        ballY[slots] =
+          (hash(102, 4, seed ^ 0xdd007) * 2 - 1) * (p.halfHeight - 0.04);
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const dx = fu - 0.5,
+            dy = fv - 0.5,
+            railed = cover(
+              Math.min(
+                p.halfWidth + p.rail - Math.abs(dx),
+                p.halfHeight + p.rail - Math.abs(dy),
+              ),
+            );
+          if (railed > 0) {
+            shade += (p.railTone - shade) * railed;
+            elevation += (p.railHeight - elevation) * railed;
+            rough += (p.inkRoughness - rough) * railed;
+            mask = railed;
+            const cloth = cover(
+              Math.min(p.halfWidth - Math.abs(dx), p.halfHeight - Math.abs(dy)),
+            );
+            shade += (p.clothTone - shade) * cloth;
+            elevation += (p.clothHeight - elevation) * cloth;
+            // The pockets: a corner pocket on the nearest corner, the side pocket in the middle of the long side.
+            const corner = cover(
+                p.pocketRadius -
+                  norm(Math.abs(dx) - p.halfWidth, Math.abs(dy) - p.halfHeight),
+              ),
+              middle = cover(
+                p.sidePocketRadius - norm(dx, Math.abs(dy) - p.halfHeight),
+              ),
+              pocket = Math.max(corner, middle);
+            shade += (p.pocketTone - shade) * pocket;
+            elevation += (p.pocketHeight - elevation) * pocket;
+            // The diamonds on the rail: six along each long side (not at the side pocket), three along each end.
+            const alongX = (Math.abs(dx) * 8) / (2 * p.halfWidth),
+              alongY = (Math.abs(dy) * 4) / (2 * p.halfHeight);
+            // (the diamonds are small discs near the middle of the rail: no need to test where the rail is)
+            const longMark = Math.round(alongX),
+              endMark = Math.round(alongY);
+            let diamond = 0;
+            if (longMark >= 1 && longMark <= 3)
+              diamond = cover(
+                p.diamondRadius -
+                  norm(
+                    Math.abs(dx) - (longMark * 2 * p.halfWidth) / 8,
+                    Math.abs(dy) - p.halfHeight - p.rail / 2,
+                  ),
+              );
+            if (endMark <= 1)
+              diamond = Math.max(
+                diamond,
+                cover(
+                  p.diamondRadius -
+                    norm(
+                      Math.abs(dx) - p.halfWidth - p.rail / 2,
+                      Math.abs(dy) - (endMark * 2 * p.halfHeight) / 4,
+                    ),
+                ),
+              );
+            shade += (p.diamondTone - shade) * diamond;
+            elevation += (p.diamondHeight - elevation) * diamond;
+            // The head string (a line across the cloth only).
+            const mark = cover(p.lineHalf - Math.abs(dx - headX)) * cloth;
+            shade += (p.lineTone - shade) * mark;
+            elevation += (p.lineHeight - elevation) * mark;
+            // The balls: the cue ball and the fifteen of the rack, near the middle of the cloth or in the rack only.
+            for (let ball = 0; ball < balls; ball++) {
+              const body = cover(
+                p.ballRadius - norm(dx - ballX[ball], dy - ballY[ball]),
+              );
+              if (body <= 0) continue;
+              const number = ball === slots ? 0 : ballNumber[ball],
+                // A striped ball is white about its middle and coloured at its two ends, a solid is coloured throughout, the cue ball white.
+                bandy =
+                  number > 8 &&
+                  Math.abs(dy - ballY[ball]) < p.bandHalf * p.ballRadius,
+                tone =
+                  number === 0 || bandy ? p.cueTone : p.ballTones[number - 1];
+              shade += (tone - shade) * body;
+              elevation += (p.ballHeight - elevation) * body;
             }
           }
           color = clamp(
