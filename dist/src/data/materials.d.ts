@@ -16770,6 +16770,36 @@ export declare const proceduralMaterialPresets: Readonly<{
         lineHeight: 0.35;
         inkRoughness: 0.45;
     }>;
+    code128barcodes: Readonly<{
+        dark: readonly [14, 14, 18];
+        light: readonly [248, 246, 238];
+        roughness: 0.55;
+        relief: 0.0012;
+        rows: 5;
+        symbols: 6;
+        quietUnits: 10;
+        barHeight: 0.62;
+        edgeSoft: 0.0006;
+        widths: readonly string[];
+        surfaces: readonly (Readonly<{
+            paper: 0.95;
+            ink: 0.06;
+        }> | Readonly<{
+            paper: 0.72;
+            ink: 0.1;
+        }> | Readonly<{
+            paper: 0.85;
+            ink: 0.22;
+        }> | Readonly<{
+            paper: 0.6;
+            ink: 0.04;
+        }>)[];
+        toneShift: 0.04;
+        inkHeight: 0.55;
+        paperHeight: 0.3;
+        inkRoughness: 0.4;
+        paperRoughness: 0.72;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -23255,6 +23285,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    code128barcodes: 1;
     fencingpiste: 1;
     tabletennistable: 1;
     futsalcourt: 1;

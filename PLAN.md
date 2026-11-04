@@ -2493,6 +2493,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`code128barcodes`（Code 128條碼）使目前目錄1233→1234種，含plain的gallery為1235項。數排Code 128條碼（ISO/IEC 15417），每排由seed決定的內容：起始符（104是code B、105是code C）、六個符號（code B：值0到95，從空白到DEL的字元；code C：值0到99，每個符號兩位數字）、檢查符（起始符的值加上每個值乘以它的位置〔從1起〕，除以103取餘數）、停止符（符號106加上一個2模組的末條）與兩側各十個模組的空白區，所以每排的寬度都是121個模組。107個符號的寬度表（每個符號的六段條與空的寬度，共11個模組）取自維基百科Code 128條目的表（我讀了該表的wiki原始碼，用程式解析，並核對每一項的二進位圖樣與寬度一致；**不是ISO標準的原文**，條目的表與標準的一致性我無法核對）。條以單位方塊排在橫向（最窄的條或空是一個模組），高度barHeight，在每排的正中。seed選標籤紙的表面（紙與墨的色調，四種之一，再一起偏移不超過`toneShift`）並把條碼沿著圖或橫過圖放（兩種之一）。測試端有另外寫的解碼器，像讀碼器一樣讀每一排的模組：空白區、起始符、每個符號（查表，且在各自編碼的範圍內）、檢查符（重新計算）、停止符；整張圖在兩種放法中恰有一種能整張解出來。表的檢查：測試端另外寫了一份寬度表並要求與preset一致，每一項是六個1到4的數字、總和11、彼此不同；維基百科條目給的幾個值（符號33即code B的A是111323、符號0與1是212222與222122、起始符B與C是211214與211232、停止符是2331112）以及條目的範例（[Start C] [FNC1] 42 18 40 20 50 [Code A] 16的檢查符是92）。1000個seed涵蓋code B的全部96個值與code C的全部100個值、兩種code各約一半、四種表面與兩種放法大致各佔相同比例、色調偏移涵蓋整個範圍；每個模組都是紙或墨（含高度與粗糙度），條在每排中間的上下緣有柔化邊（edgeSoft，1e-6的緊容許值），模組之間的邊是硬的。Metallic與mortar為0。
+
+預設1 m nominal tile、0.0012 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

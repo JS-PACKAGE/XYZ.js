@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'code128barcodes',
   'fencingpiste',
   'tabletennistable',
   'futsalcourt',
@@ -51518,6 +51519,67 @@ export function createSurfaceSampler(
                 court,
           );
           roughness = clamp(p.inkRoughness);
+          occlusion = 1;
+        };
+      }
+      case 'code128barcodes': {
+        const p = proceduralMaterialPresets.code128barcodes,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(127, 1, seed ^ 0x270001) * p.surfaces.length)
+            ],
+          across = hash(127, 2, seed ^ 0x270002) < 0.5,
+          shift = (hash(127, 3, seed ^ 0x270003) * 2 - 1) * p.toneShift,
+          rows = p.rows,
+          // Start, the symbols, the check symbol (11 modules each) and the stop pattern (13), with the quiet zones.
+          units = 2 * p.quietUnits + 11 * (p.symbols + 2) + 13,
+          ink = new Uint8Array(rows * units);
+        for (let row = 0; row < rows; row++) {
+          // Code C (two digits a symbol, 0 to 99) or code B (a character a symbol, 0 to 95), by the seed.
+          const codeC = hash(row, 99, seed ^ 0x270004) < 0.5,
+            values: number[] = [codeC ? 105 : 104];
+          for (let i = 0; i < p.symbols; i++)
+            values.push(
+              Math.min(
+                codeC ? 99 : 95,
+                Math.floor(hash(row, i, seed ^ 0x270005) * (codeC ? 100 : 96)),
+              ),
+            );
+          let total = values[0];
+          for (let i = 1; i < values.length; i++) total += i * values[i];
+          values.push(total % 103, 106);
+          let at = p.quietUnits;
+          for (const value of values)
+            // The bars of each symbol are the first, third and fifth runs; the stop pattern has a final bar of 2 modules.
+            for (let run = 0; run < 6; run++) {
+              const width = Number(p.widths[value][run]);
+              if (run % 2 === 0)
+                ink.fill(1, row * units + at, row * units + at + width);
+              at += width;
+            }
+          ink.fill(1, row * units + at, row * units + at + 2);
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            along = across ? fv : fu,
+            gy = (across ? fu : fv) * rows,
+            row = Math.floor(gy),
+            unit = Math.floor(along * units),
+            bar =
+              ink[row * units + unit] === 1
+                ? cover((p.barHeight / 2 - Math.abs(gy - row - 0.5)) / rows)
+                : 0;
+          color = clamp(
+            surface.paper + shift + (surface.ink - surface.paper) * bar,
+          );
+          height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * bar);
+          roughness = clamp(
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * bar,
+          );
           occlusion = 1;
         };
       }

@@ -78402,3 +78402,318 @@ describe('fencingpiste: a fencing piste seen from above, with the dimensions of 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('code128barcodes: rows of Code 128 barcodes that decode, with the start symbol, the check symbol and the stop pattern right, laid along or across by the seed', () => {
+  const p = proceduralMaterialPresets.code128barcodes,
+    out = empty(),
+    units = 2 * p.quietUnits + 11 * (p.symbols + 2) + 13,
+    // The widths of the symbols 0 to 106 (the six runs of each; the stop pattern has a seventh, a bar of 2 modules), as in the table of the Wikipedia article on Code 128 (read for this), written out again here.
+    reference =
+      '212222 222122 222221 121223 121322 131222 122213 122312 132212 221213 221312 231212 112232 122132 122231 113222 123122 123221 223211 221132 221231 213212 223112 312131 311222 321122 321221 312212 322112 322211 212123 212321 232121 111323 131123 131321 112313 132113 132311 211313 231113 231311 112133 112331 132131 113123 113321 133121 313121 211331 231131 213113 213311 213131 311123 311321 331121 312113 312311 332111 314111 221411 431111 111224 111422 121124 121421 141122 141221 112214 112412 122114 122411 142112 142211 241211 221114 413111 241112 134111 111242 121142 121241 114212 124112 124211 411212 421112 421211 212141 214121 412121 111143 111341 131141 114113 114311 411113 411311 113141 114131 311141 411131 211412 211214 211232 233111'.split(
+        ' ',
+      );
+  const toneAt = (
+    sample: Sampler,
+    along: number,
+    gy: number,
+    across: boolean,
+  ): number => {
+    // A place along a row (0 to 1) and across the rows (0 to the number of rows) as a place on the picture.
+    sample(across ? gy / p.rows : along, across ? along : gy / p.rows, out);
+    return out.color;
+  };
+  type Row = { codeC: boolean; values: number[]; text: string };
+  // Decodes a row from the modules at its middle, as a reader would: the quiet zones, the start symbol, the symbols, the check symbol and the stop pattern; null where something does not fit.
+  const decodeRow = (
+    sample: Sampler,
+    row: number,
+    across: boolean,
+    dark: (tone: number) => boolean,
+  ): Row | null => {
+    const modules: boolean[] = [];
+    for (let unit = 0; unit < units; unit++)
+      modules.push(
+        dark(toneAt(sample, (unit + 0.5) / units, row + 0.5, across)),
+      );
+    for (let i = 0; i < p.quietUnits; i++)
+      if (modules[i] || modules[units - 1 - i]) return null;
+    const runs = (from: number, length: number): string => {
+      const result: number[] = [];
+      let count = 0;
+      for (let i = from; i < from + length; i++) {
+        if (i > from && modules[i] !== modules[i - 1]) {
+          result.push(count);
+          count = 0;
+        }
+        count++;
+      }
+      result.push(count);
+      return result.join('');
+    };
+    const values: number[] = [];
+    let at = p.quietUnits;
+    for (let symbol = 0; symbol < p.symbols + 2; symbol++, at += 11) {
+      if (!modules[at]) return null;
+      const value = reference.indexOf(runs(at, 11));
+      if (value < 0 || value > 105) return null;
+      values.push(value);
+    }
+    // The stop pattern: the symbol 106 and a bar of 2 modules, then the quiet zone.
+    if (!modules[at] || runs(at, 13) !== '2331112') return null;
+    const start = values[0];
+    if (start !== 104 && start !== 105) return null;
+    const data = values.slice(1, -1);
+    let total = start;
+    data.forEach((value, index) => (total += (index + 1) * value));
+    if (total % 103 !== values[values.length - 1]) return null;
+    if (data.some((value) => value > (start === 105 ? 99 : 95))) return null;
+    return {
+      codeC: start === 105,
+      values: data,
+      text: data
+        .map((value) =>
+          start === 105
+            ? String(value).padStart(2, '0')
+            : String.fromCharCode(32 + value),
+        )
+        .join(''),
+    };
+  };
+  type Decoded = {
+    across: boolean;
+    rows: Row[];
+    paper: number;
+    ink: number;
+  };
+  // Decodes all the rows both ways round (the one way that decodes is the way the barcodes lie), and reads the tones of the paper (in the quiet zone) and of the ink (in the first bar of the start symbol).
+  const decode = (sample: Sampler): Decoded => {
+    const found: Decoded[] = [];
+    for (const across of [false, true]) {
+      const paper = toneAt(sample, 0.5 / units, 0.5, across),
+        ink = toneAt(sample, (p.quietUnits + 0.5) / units, 0.5, across),
+        dark = (tone: number): boolean => tone < (paper + ink) / 2,
+        rows: Row[] = [];
+      for (let row = 0; row < p.rows; row++) {
+        const decoded = decodeRow(sample, row, across, dark);
+        if (decoded) rows.push(decoded);
+      }
+      if (rows.length === p.rows) found.push({ across, rows, paper, ink });
+    }
+    expect(found.length).toBe(1);
+    return found[0];
+  };
+  type Surface = Decoded & { surface: number; shift: number };
+  const readSurface = (sample: Sampler): Surface => {
+    const decoded = decode(sample),
+      options: Surface[] = [];
+    p.surfaces.forEach((surface, index) => {
+      const shift = decoded.paper - surface.paper;
+      if (
+        Math.abs(shift) <= p.toneShift + 1e-9 &&
+        Math.abs(decoded.ink - surface.ink - shift) < 1e-6
+      )
+        options.push({ ...decoded, surface: index, shift });
+    });
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+
+  it('has the table of the widths of Code 128 as in the article, with every symbol of 11 modules, and the check symbol of the example of the article', () => {
+    expect(p.widths.join(' ')).toBe(reference.join(' '));
+    expect(p.widths.length).toBe(107);
+    expect(new Set(p.widths).size).toBe(107);
+    for (const widths of p.widths) {
+      expect(widths).toMatch(/^[1-4]{6}$/);
+      expect(
+        [...widths].reduce((total, width) => total + Number(width), 0),
+      ).toBe(11);
+    }
+    // What the article gives: the symbol 33 (the character A in code B) is 111323; the symbols 0 and 1 are 212222 and 222122; the start symbols B and C are 211214 and 211232; the stop pattern is 2331112.
+    expect(p.widths[33]).toBe('111323');
+    expect(p.widths[0]).toBe('212222');
+    expect(p.widths[1]).toBe('222122');
+    expect(p.widths[104]).toBe('211214');
+    expect(p.widths[105]).toBe('211232');
+    expect(p.widths[106]).toBe('233111');
+    // The example of the article: [Start C] [FNC1] 42 18 40 20 50 [Code A] 16 has the check symbol 92.
+    const example = [105, 102, 42, 18, 40, 20, 50, 101, 16];
+    let total = example[0];
+    for (let i = 1; i < example.length; i++) total += i * example[i];
+    expect(total % 103).toBe(92);
+    expect(units).toBe(121);
+  });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws rows that decode to valid Code 128 (start, symbols in the range of their code, check symbol, stop), with the tones, the height and the roughness of the paper and the ink (seed %i)',
+    { timeout: 120000 },
+    (seed) => {
+      const sample = createSurfaceSampler('code128barcodes', seed),
+        { across, paper, ink, rows } = readSurface(sample);
+      expect(rows.length).toBe(p.rows);
+      // Every module of every row is the paper or the ink with the height and roughness of it; across the middle of each row the bars have the height barHeight and between the rows there is paper.
+      for (let row = 0; row < p.rows; row++)
+        for (let unit = 0; unit < units; unit++) {
+          const along = (unit + 0.5) / units,
+            tone = toneAt(sample, along, row + 0.5, across),
+            isInk = Math.abs(tone - ink) < 1e-9;
+          expect(isInk || Math.abs(tone - paper) < 1e-9).toBe(true);
+          expect(out.height / p.relief).toBeCloseTo(
+            isInk ? p.inkHeight : p.paperHeight,
+            6,
+          );
+          expect(out.roughness).toBeCloseTo(
+            isInk ? p.inkRoughness : p.paperRoughness,
+            6,
+          );
+          // Above and below the bar, and between the rows, the module is paper.
+          for (const gy of [
+            row + 0.5 - p.barHeight / 2 - 0.02,
+            row + 0.5 + p.barHeight / 2 + 0.02,
+            row + 0.01,
+            row + 0.99,
+          ]) {
+            expect(toneAt(sample, along, gy, across)).toBeCloseTo(paper, 9);
+            expect(out.height / p.relief).toBeCloseTo(p.paperHeight, 6);
+          }
+          if (isInk)
+            for (const gy of [
+              row + 0.5 - p.barHeight / 2 + 0.02,
+              row + 0.5 + p.barHeight / 2 - 0.02,
+            ])
+              expect(toneAt(sample, along, gy, across)).toBeCloseTo(ink, 9);
+        }
+    },
+  );
+
+  it('uses every surface, both ways round, both codes and every value of each code over 1000 seeds, about equally often, with the tones shifted over the whole range', () => {
+    const surfaces = new Map<number, number>(),
+      shifts: number[] = [],
+      valuesB = new Set<number>(),
+      valuesC = new Set<number>();
+    let acrossCount = 0,
+      codeCCount = 0,
+      rowCount = 0;
+    for (let seed = 0; seed < 1000; seed++) {
+      const { across, surface, shift, rows } = readSurface(
+        createSurfaceSampler('code128barcodes', seed * 7 + 1),
+      );
+      shifts.push(shift);
+      surfaces.set(surface, (surfaces.get(surface) ?? 0) + 1);
+      acrossCount += Number(across);
+      for (const row of rows) {
+        rowCount++;
+        codeCCount += Number(row.codeC);
+        for (const value of row.values)
+          (row.codeC ? valuesC : valuesB).add(value);
+      }
+    }
+    expect(surfaces.size).toBe(p.surfaces.length);
+    for (const count of surfaces.values())
+      expect(Math.abs(count - 1000 / p.surfaces.length)).toBeLessThan(50);
+    expect(Math.abs(acrossCount / 1000 - 0.5)).toBeLessThan(0.05);
+    expect(Math.abs(codeCCount / rowCount - 0.5)).toBeLessThan(0.03);
+    // Every value of code B (0 to 95) and of code C (0 to 99) turns up, and none outside them.
+    expect([...valuesB].sort((a, b) => a - b)).toEqual(
+      Array.from({ length: 96 }, (_, i) => i),
+    );
+    expect([...valuesC].sort((a, b) => a - b)).toEqual(
+      Array.from({ length: 100 }, (_, i) => i),
+    );
+    expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+    expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+    expect(
+      Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+    ).toBeLessThan(p.toneShift * 0.15);
+    for (let quarter = 0; quarter < 4; quarter++)
+      expect(
+        Math.abs(
+          shifts.filter(
+            (shift) =>
+              Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+          ).length - 250,
+        ),
+      ).toBeLessThan(50);
+  });
+
+  it('has hard edges between the modules and softened edges at the top and bottom of the bars over edgeSoft', () => {
+    const sample = createSurfaceSampler('code128barcodes', 2),
+      { across, paper, ink, rows } = readSurface(sample),
+      mix = (amount: number): number => {
+        const t = amount * amount * (3 - 2 * amount);
+        return ink + (paper - ink) * t;
+      },
+      quarter = 0.25 * p.edgeSoft * p.rows,
+      row = 0,
+      // The first bar of the start symbol is at the modules 10 and 11 (the start symbols begin with a bar of 2 modules).
+      along = (p.quietUnits + 0.5) / units,
+      top = row + 0.5 - p.barHeight / 2,
+      bottom = row + 0.5 + p.barHeight / 2;
+    expect(rows[row].values.length).toBe(p.symbols);
+    expect(
+      Math.abs(toneAt(sample, along, top + quarter, across) - mix(0.25)),
+    ).toBeLessThan(1e-6);
+    expect(
+      Math.abs(toneAt(sample, along, top - quarter, across) - mix(0.75)),
+    ).toBeLessThan(1e-6);
+    expect(
+      Math.abs(toneAt(sample, along, bottom - quarter, across) - mix(0.25)),
+    ).toBeLessThan(1e-6);
+    expect(
+      Math.abs(toneAt(sample, along, bottom + quarter, across) - mix(0.75)),
+    ).toBeLessThan(1e-6);
+    // Between the modules the edge is hard: the bar of two modules ends exactly at the boundary of the modules 11 and 12 (at the start symbols, the bar is followed by a space of one module).
+    const boundary = (p.quietUnits + 2) / units;
+    expect(toneAt(sample, boundary - 1e-7, row + 0.5, across)).toBeCloseTo(
+      ink,
+      9,
+    );
+    expect(toneAt(sample, boundary + 1e-7, row + 0.5, across)).toBeCloseTo(
+      paper,
+      9,
+    );
+    // The start of the first bar, after the quiet zone.
+    const first = p.quietUnits / units;
+    expect(toneAt(sample, first - 1e-7, row + 0.5, across)).toBeCloseTo(
+      paper,
+      9,
+    );
+    expect(toneAt(sample, first + 1e-7, row + 0.5, across)).toBeCloseTo(ink, 9);
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('code128barcodes', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('code128barcodes', 0),
+      b = createSurfaceSampler('code128barcodes', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});
