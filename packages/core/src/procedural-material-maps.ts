@@ -50825,6 +50825,170 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'newtonfractal': {
+        const p = proceduralMaterialPresets.newtonfractal,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant = Math.floor(
+            hash(0, 95, seed ^ p.seedSalt) * p.coefficients.length,
+          ),
+          coefficients = p.coefficients[variant],
+          degree = coefficients.length - 1,
+          order = p.orders[variant],
+          halfWidth = p.halfWidths[variant],
+          centreX = p.centreXs[variant],
+          centreY = p.centreYs[variant],
+          plot = 0.5 - p.margin,
+          inverseSoft = 1 / p.edgeSoft,
+          tolerance = p.tolerances[variant],
+          toleranceSquared = tolerance * tolerance,
+          logTolerance = Math.log(tolerance),
+          logOrder = Math.log(order),
+          rootRe: number[] = [],
+          rootIm: number[] = [];
+        // The roots by the Durand-Kerner iteration (the polynomials are monic), then sorted by argument, the root at -1 counted as pi, so that the tone of a root does not depend on rounding.
+        for (let i = 0; i < degree; i++) {
+          rootRe.push(0.4 * 0.9 ** i * Math.cos(1 + i * 1.7));
+          rootIm.push(0.9 * 0.9 ** i * Math.sin(1 + i * 1.7));
+        }
+        for (let pass = 0; pass < 200; pass++)
+          for (let i = 0; i < degree; i++) {
+            let fr = 1,
+              fi = 0;
+            for (let j = degree - 1; j >= 0; j--) {
+              const nr = fr * rootRe[i] - fi * rootIm[i] + coefficients[j];
+              fi = fr * rootIm[i] + fi * rootRe[i];
+              fr = nr;
+            }
+            let qr = 1,
+              qi = 0;
+            for (let j = 0; j < degree; j++) {
+              if (j === i) continue;
+              const dr = rootRe[i] - rootRe[j],
+                di = rootIm[i] - rootIm[j],
+                nr = qr * dr - qi * di;
+              qi = qr * di + qi * dr;
+              qr = nr;
+            }
+            const squared = Math.max(qr * qr + qi * qi, 1e-300);
+            rootRe[i] -= (fr * qr + fi * qi) / squared;
+            rootIm[i] -= (fi * qr - fr * qi) / squared;
+          }
+        const argument = (i: number): number => {
+            const angle = Math.atan2(rootIm[i], rootRe[i]);
+            return angle < -Math.PI + 1e-6 ? angle + TAU : angle;
+          },
+          ranked = Array.from({ length: degree }, (_, i) => i).sort(
+            (a, b) => argument(a) - argument(b),
+          ),
+          tones: number[] = [];
+        ranked.forEach((root, rank) => {
+          tones[root] =
+            p.toneLow + ((p.toneHigh - p.toneLow) * rank) / (degree - 1);
+        });
+        return () => {
+          const fu = fract(u),
+            fv = fract(v);
+          let zr = centreX + (halfWidth * (fu - 0.5)) / plot,
+            zi = centreY + (halfWidth * (0.5 - fv)) / plot,
+            count = -1,
+            residual = 1;
+          for (let i = 0; i < p.maxIterations; i++) {
+            // Horner's rule for f, f' and f'' at z.
+            let f0r = 0,
+              f0i = 0,
+              f1r = 0,
+              f1i = 0,
+              f2r = 0,
+              f2i = 0;
+            for (let j = degree; j >= 0; j--) {
+              const n2r = f2r * zr - f2i * zi + 2 * f1r,
+                n2i = f2r * zi + f2i * zr + 2 * f1i,
+                n1r = f1r * zr - f1i * zi + f0r,
+                n1i = f1r * zi + f1i * zr + f0i,
+                n0r = f0r * zr - f0i * zi + coefficients[j];
+              f0i = f0r * zi + f0i * zr;
+              f0r = n0r;
+              f1r = n1r;
+              f1i = n1i;
+              f2r = n2r;
+              f2i = n2i;
+            }
+            const squaredResidual = f0r * f0r + f0i * f0i;
+            if (squaredResidual < toleranceSquared) {
+              count = i;
+              residual = Math.sqrt(squaredResidual);
+              break;
+            }
+            let numeratorR = f0r,
+              numeratorI = f0i,
+              denominatorR = f1r,
+              denominatorI = f1i;
+            if (order === 3) {
+              // Halley's step is 2 f f' / (2 f'^2 - f f'').
+              numeratorR = 2 * (f0r * f1r - f0i * f1i);
+              numeratorI = 2 * (f0r * f1i + f0i * f1r);
+              denominatorR =
+                2 * (f1r * f1r - f1i * f1i) - (f0r * f2r - f0i * f2i);
+              denominatorI = 4 * f1r * f1i - (f0r * f2i + f0i * f2r);
+            }
+            const squared =
+              denominatorR * denominatorR + denominatorI * denominatorI;
+            if (squared < 1e-30) {
+              zr += 1e-6;
+              continue;
+            }
+            zr -=
+              (numeratorR * denominatorR + numeratorI * denominatorI) / squared;
+            zi -=
+              (numeratorI * denominatorR - numeratorR * denominatorI) / squared;
+            if (!(Math.abs(zr) < 1e6 && Math.abs(zi) < 1e6)) break;
+          }
+          let shade = 0,
+            tone = 0;
+          if (count >= 0) {
+            let nearest = 0,
+              best = Infinity;
+            for (let i = 0; i < degree; i++) {
+              const dr = zr - rootRe[i],
+                di = zi - rootIm[i],
+                d = dr * dr + di * di;
+              if (d < best) {
+                best = d;
+                nearest = i;
+              }
+            }
+            const continuous =
+              count +
+              Math.log(logTolerance / Math.log(Math.max(residual, 1e-300))) /
+                logOrder;
+            shade =
+              p.shadeFloor +
+              (1 - p.shadeFloor) * Math.exp(-Math.max(continuous, 0) / p.decay);
+            tone = tones[nearest];
+          }
+          const outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
+            outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
+            boxDistance =
+              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              Math.min(Math.max(outsideX, outsideY), 0),
+            edge = smooth(clamp(-boxDistance / p.fade)),
+            ink = clamp(edge * tone * shade),
+            mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * edge * shade + p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -59743,6 +59907,7 @@ export function createSurfaceSampler(
     kind === 'machcone' ||
     kind === 'hydrogenorbitals' ||
     kind === 'vortexstreet' ||
+    kind === 'newtonfractal' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

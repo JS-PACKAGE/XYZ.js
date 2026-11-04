@@ -1180,6 +1180,7 @@ try {
     'machcone',
     'hydrogenorbitals',
     'vortexstreet',
+    'newtonfractal',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

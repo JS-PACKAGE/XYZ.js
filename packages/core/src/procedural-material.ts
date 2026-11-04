@@ -1117,6 +1117,7 @@ export type ProceduralMaterialKind =
   | 'machcone'
   | 'hydrogenorbitals'
   | 'vortexstreet'
+  | 'newtonfractal'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2482,6 +2483,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'machcone',
   'hydrogenorbitals',
   'vortexstreet',
+  'newtonfractal',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

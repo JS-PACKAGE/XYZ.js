@@ -16963,6 +16963,35 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.08;
         gapOcclusion: 0.4;
     }>;
+    newtonfractal: Readonly<{
+        dark: readonly [14, 8, 30];
+        light: readonly [255, 170, 205];
+        roughness: 0.42;
+        relief: 0.0009;
+        seedSalt: 19735;
+        margin: 0.04;
+        fade: 0.012;
+        coefficients: readonly [readonly [-1, 0, 0, 1], readonly [-1, 0, 0, 0, 1], readonly [-1, 0, 0, 0, 0, 1], readonly [2, -2, 0, 1], readonly [-1, 0, 0, 1], readonly [-1, 0, 0, 0, 0, 1]];
+        orders: readonly [2, 2, 2, 2, 3, 2];
+        halfWidths: readonly [1.5, 1.5, 1.5, 2.4, 1.5, 0.4];
+        centreXs: readonly [0, 0, 0, 0, 0, 0.6];
+        centreYs: readonly [0, 0, 0, 0, 0, 0.5];
+        maxIterations: 64;
+        tolerances: readonly [0.000001, 0.000001, 0.000001, 0.000001, 0.0001, 0.000001];
+        decay: 7;
+        shadeFloor: 0.06;
+        toneLow: 0.22;
+        toneHigh: 1;
+        edgeSoft: 0.35;
+        grainCells: 128;
+        gapTone: 0.04;
+        toneFloor: 0.14;
+        toneSpan: 0.72;
+        grainTone: 0.03;
+        cellHeight: 0.8;
+        grainHeight: 0.02;
+        gapOcclusion: 0.4;
+    }>;
     vermiculation: Readonly<{
         dark: readonly [60, 48, 36];
         light: readonly [220, 204, 172];
@@ -18742,6 +18771,7 @@ export declare const proceduralTileMeters: Readonly<{
     machcone: 0.5;
     hydrogenorbitals: 0.5;
     vortexstreet: 0.5;
+    newtonfractal: 0.5;
     dominotiling: 0.5;
     vermiculation: 0.4;
     kikko: 0.3;

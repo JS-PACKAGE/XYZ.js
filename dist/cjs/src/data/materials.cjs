@@ -28368,6 +28368,120 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: .08,
 		gapOcclusion: .4
 	}),
+	newtonfractal: Object.freeze({
+		dark: [
+			14,
+			8,
+			30
+		],
+		light: [
+			255,
+			170,
+			205
+		],
+		roughness: .42,
+		relief: 9e-4,
+		seedSalt: 19735,
+		margin: .04,
+		fade: .012,
+		coefficients: [
+			[
+				-1,
+				0,
+				0,
+				1
+			],
+			[
+				-1,
+				0,
+				0,
+				0,
+				1
+			],
+			[
+				-1,
+				0,
+				0,
+				0,
+				0,
+				1
+			],
+			[
+				2,
+				-2,
+				0,
+				1
+			],
+			[
+				-1,
+				0,
+				0,
+				1
+			],
+			[
+				-1,
+				0,
+				0,
+				0,
+				0,
+				1
+			]
+		],
+		orders: [
+			2,
+			2,
+			2,
+			2,
+			3,
+			2
+		],
+		halfWidths: [
+			1.5,
+			1.5,
+			1.5,
+			2.4,
+			1.5,
+			.4
+		],
+		centreXs: [
+			0,
+			0,
+			0,
+			0,
+			0,
+			.6
+		],
+		centreYs: [
+			0,
+			0,
+			0,
+			0,
+			0,
+			.5
+		],
+		maxIterations: 64,
+		tolerances: [
+			1e-6,
+			1e-6,
+			1e-6,
+			1e-6,
+			1e-4,
+			1e-6
+		],
+		decay: 7,
+		shadeFloor: .06,
+		toneLow: .22,
+		toneHigh: 1,
+		edgeSoft: .35,
+		grainCells: 128,
+		gapTone: .04,
+		toneFloor: .14,
+		toneSpan: .72,
+		grainTone: .03,
+		cellHeight: .8,
+		grainHeight: .02,
+		gapOcclusion: .4
+	}),
 	vermiculation: Object.freeze({
 		dark: [
 			60,
@@ -30469,6 +30583,7 @@ var proceduralTileMeters = Object.freeze({
 	machcone: .5,
 	hydrogenorbitals: .5,
 	vortexstreet: .5,
+	newtonfractal: .5,
 	dominotiling: .5,
 	vermiculation: .4,
 	kikko: .3,

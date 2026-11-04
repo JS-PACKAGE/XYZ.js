@@ -1143,6 +1143,7 @@ const kinds: ProceduralMaterialKind[] = [
   'machcone',
   'hydrogenorbitals',
   'vortexstreet',
+  'newtonfractal',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -192958,6 +192959,396 @@ describe('Vortex street as the streamlines of two staggered rows of vortices', (
     expect(blue / (512 * 512)).toBeLessThan(32.5);
     expect(maxTilt).toBeGreaterThan(0.0255);
     expect(maxTilt).toBeLessThan(0.0265);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Newton fractal as the basins of the roots of a polynomial under Newton or Halley iteration', () => {
+  const p = proceduralMaterialPresets.newtonfractal;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const plot = 0.5 - p.margin;
+  /** The six variants as closed-form maps, written here with polar powers and rational functions (the sampler uses Horner's rule and the Durand-Kerner roots): z^n - 1 by Newton (n = 3, 4, 5), z^3 - 2 z + 2 by Newton, z^3 - 1 by Halley and z^5 - 1 by Newton again (zoomed in). */
+  const variants = [
+    { cubic: false, n: 3, halley: false },
+    { cubic: false, n: 4, halley: false },
+    { cubic: false, n: 5, halley: false },
+    { cubic: true, n: 3, halley: false },
+    { cubic: false, n: 3, halley: true },
+    { cubic: false, n: 5, halley: false },
+  ] as const;
+  const power = (re: number, im: number, n: number): [number, number] => {
+    const magnitude = Math.hypot(re, im) ** n,
+      angle = Math.atan2(im, re) * n;
+    return [magnitude * Math.cos(angle), magnitude * Math.sin(angle)];
+  };
+  const divide = (
+    ar: number,
+    ai: number,
+    br: number,
+    bi: number,
+  ): [number, number] => {
+    const d = br * br + bi * bi;
+    return [(ar * br + ai * bi) / d, (ai * br - ar * bi) / d];
+  };
+  /** The roots of the variant in order of argument (the root at -1 counted as pi); the real root of z^3 - 2 z + 2 is found by Cardano's formula. */
+  const rootsOf = (variant: number): [number, number][] => {
+    const { cubic, n } = variants[variant],
+      roots: [number, number][] = [];
+    if (cubic) {
+      const real =
+          Math.cbrt(-1 + Math.sqrt(19 / 27)) +
+          Math.cbrt(-1 - Math.sqrt(19 / 27)),
+        imaginary = Math.sqrt(3 * real * real - 8) / 2;
+      roots.push([real, 0], [-real / 2, imaginary], [-real / 2, -imaginary]);
+    } else
+      for (let k = 0; k < n; k++)
+        roots.push([
+          Math.cos((2 * Math.PI * k) / n),
+          Math.sin((2 * Math.PI * k) / n),
+        ]);
+    const argument = (root: [number, number]): number => {
+      const angle = Math.atan2(root[1], root[0]);
+      return angle < -Math.PI + 1e-6 ? angle + 2 * Math.PI : angle;
+    };
+    return roots.sort((a, b) => argument(a) - argument(b));
+  };
+  /** The shade and the tone of the point z of the variant as the preset defines them, from the iteration written in closed form here: shade 0 and tone 0 if it never reaches a root in 64 steps. */
+  const predict = (
+    variant: number,
+    re: number,
+    im: number,
+  ): { shade: number; tone: number } => {
+    const { cubic, n, halley } = variants[variant],
+      tolerance = p.tolerances[variant],
+      order = p.orders[variant];
+    let zr = re,
+      zi = im;
+    for (let count = 0; count < 64; count++) {
+      let residual: number, nextR: number, nextI: number;
+      if (cubic) {
+        const [cr, ci] = power(zr, zi, 3),
+          [sr, si] = power(zr, zi, 2);
+        residual = Math.hypot(cr - 2 * zr + 2, ci - 2 * zi);
+        [nextR, nextI] = divide(2 * cr - 2, 2 * ci, 3 * sr - 2, 3 * si);
+      } else {
+        const [pr, pi] = power(zr, zi, n);
+        residual = Math.hypot(pr - 1, pi);
+        if (halley) {
+          // z (n - 1) z^n + (n + 1)) / ((n + 1) z^n + (n - 1)), the Halley map of z^n - 1.
+          const [qr, qi] = divide(
+            (n - 1) * pr + (n + 1),
+            (n - 1) * pi,
+            (n + 1) * pr + (n - 1),
+            (n + 1) * pi,
+          );
+          nextR = zr * qr - zi * qi;
+          nextI = zr * qi + zi * qr;
+        } else {
+          const [qr, qi] = power(zr, zi, n - 1);
+          [nextR, nextI] = divide(
+            (n - 1) * pr + 1,
+            (n - 1) * pi,
+            n * qr,
+            n * qi,
+          );
+        }
+      }
+      if (residual < tolerance) {
+        const roots = rootsOf(variant);
+        let nearest = 0,
+          best = Infinity;
+        roots.forEach(([rr, ri], k) => {
+          const distance = (zr - rr) ** 2 + (zi - ri) ** 2;
+          if (distance < best) {
+            best = distance;
+            nearest = k;
+          }
+        });
+        const continuous =
+          count +
+          Math.log(Math.log(tolerance) / Math.log(Math.max(residual, 1e-300))) /
+            Math.log(order);
+        return {
+          shade:
+            p.shadeFloor +
+            (1 - p.shadeFloor) * Math.exp(-Math.max(continuous, 0) / p.decay),
+          tone:
+            p.toneLow +
+            ((p.toneHigh - p.toneLow) * nearest) / (roots.length - 1),
+        };
+      }
+      if (!(Math.abs(nextR) < 1e6 && Math.abs(nextI) < 1e6)) break;
+      zr = nextR;
+      zi = nextI;
+    }
+    return { shade: 0, tone: 0 };
+  };
+  /** The sample of the variant at the point z = (re, im) of its window (the heights are divided by the relief). */
+  const atPoint = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    variant: number,
+    re: number,
+    im: number,
+  ): SurfaceSample => {
+    sample(
+      0.5 + ((re - p.centreXs[variant]) * plot) / p.halfWidths[variant],
+      0.5 - ((im - p.centreYs[variant]) * plot) / p.halfWidths[variant],
+      out,
+    );
+    return { ...out, height: out.height / p.relief };
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('newtonfractal', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('newtonfractal', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0254);
+      expect(low).toBeLessThan(0.026);
+      expect(high).toBeGreaterThan(0.71);
+      expect(high).toBeLessThan(0.74);
+      expect(dark / 65536).toBeGreaterThan(0.059);
+      expect(dark / 65536).toBeLessThan(0.149);
+      expect(mean / 65536).toBeGreaterThan(0.225);
+      expect(mean / 65536).toBeLessThan(0.268);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.655);
+      expect(heightHigh).toBeLessThan(0.67);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (z^3 - 1, z^4 - 1, z^5 - 1, z^3 - 2 z + 2, Halley z^3 - 1 and the zoomed z^5 - 1) is 1, 2, 0, 13, 3 and 6; the table was found with a probe by which of the six closed-form models
+  // matches the heights of the seed (every one of 40 seeds matched its model at all of 150 points), and is written here, so it is not an independent check of the seed's choice.
+  const seeds = [1, 2, 0, 13, 3, 6];
+  it('draws the shade and the root tone that the closed-form iteration gives, for every variant', () => {
+    // The test iterates the maps written in closed form above and the sampler iterates Horner polynomials with Durand-Kerner roots; on 1000 points of each variant (inside the plot, on a golden-ratio sequence) the height is within 0.03 of
+    // cellHeight times the predicted shade (the grain is up to 0.02) and the colour within 0.02 of the colour that the preset formula gives for the predicted tone times shade (the grain is up to 0.015); all 1000 points of each variant matched
+    // in the probe (and 2000 points per variant), counting the 6, 18 and 7 points of the z^5 - 1, z^3 - 2 z + 2 and zoomed variants that do not reach a root in 64 steps. The tone formula is copied from the preset, so what is independent is the iteration, the basin and the count.
+    seeds.forEach((seed, variant) => {
+      const sample = createSurfaceSampler('newtonfractal', seed),
+        out = empty();
+      let matched = 0;
+      for (let i = 0; i < 1000; i++) {
+        const fu = 0.06 + 0.88 * ((i * 0.6180339887 + 0.17) % 1),
+          fv = 0.06 + 0.88 * ((i * 0.7548776662 + 0.3) % 1),
+          re =
+            p.centreXs[variant] + (p.halfWidths[variant] * (fu - 0.5)) / plot,
+          im =
+            p.centreYs[variant] + (p.halfWidths[variant] * (0.5 - fv)) / plot,
+          expected = predict(variant, re, im),
+          ink = expected.tone * expected.shade,
+          mask = Math.min(1, Math.max(0, ink / p.edgeSoft)),
+          colour =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask * mask * (3 - 2 * mask) +
+            p.toneSpan * ink;
+        sample(fu, fv, out);
+        if (
+          Math.abs(out.height / p.relief - p.cellHeight * expected.shade) <
+            0.03 &&
+          Math.abs(out.color - colour) < 0.02
+        )
+          matched++;
+      }
+      expect(matched).toBeGreaterThanOrEqual(995);
+    });
+  });
+  it('gives the basins of a variant the tones in the order of the arguments of their roots', () => {
+    // At 1.01 times each root the colour rises with the argument of the root (the root at -1 counted as pi): 0.228, 0.488, 0.722 for z^3 - 1; 0.207, 0.411, 0.563, 0.708 for z^4 - 1; 0.219, 0.376, 0.485, 0.601, 0.698 for z^5 - 1;
+    // 0.216, 0.484, 0.703 for z^3 - 2 z + 2 (the real root being the last) and 0.244, 0.548, 0.795 for the Halley variant in the probe; the roots come from the unit circle and Cardano's formula here, not from the sampler.
+    for (const variant of [0, 1, 2, 3, 4]) {
+      const sample = createSurfaceSampler('newtonfractal', seeds[variant]),
+        out = empty(),
+        colours = rootsOf(variant).map(
+          ([re, im]) =>
+            atPoint(sample, out, variant, re * 1.01, im * 1.01).color,
+        );
+      for (let k = 1; k < colours.length; k++)
+        expect(colours[k] - colours[k - 1]).toBeGreaterThan(0.03);
+    }
+  });
+  it('leaves the discs around the cycle 0, 1 of z^3 - 2 z + 2 without a root', () => {
+    // Newton's map of z^3 - 2 z + 2 sends 0 to 1 and 1 to 0 and its derivative vanishes at 0, so the cycle attracts the points near it and they never reach a root: on circles of radius 0.08 round 0 and 0.005 round 1 the height is only the grain
+    // (0.0177 at the most in the probe, which found the discs to reach radius 0.1 round 0 and 0.01 round 1; the grain is up to 0.02).
+    const sample = createSurfaceSampler('newtonfractal', seeds[3]),
+      out = empty();
+    for (const [centre, radius] of [
+      [0, 0.08],
+      [1, 0.005],
+    ])
+      for (let t = 0; t < 48; t++)
+        expect(
+          atPoint(
+            sample,
+            out,
+            3,
+            centre + radius * Math.cos((t * Math.PI) / 24),
+            radius * Math.sin((t * Math.PI) / 24),
+          ).height,
+        ).toBeLessThan(0.025);
+  });
+  it('is symmetric under the rotations and the mirror image of the roots of unity', () => {
+    // The roots of z^n - 1 and both maps are unchanged by z -> z exp(2 pi i / n) and by z -> conj(z) (the polynomials have real coefficients), so the number of steps, and with it the height, is the same at a point and its image: for the
+    // rotations of z^3 - 1, z^4 - 1, z^5 - 1 and the Halley variant and the mirror image of all five variants of the full window, on 1500 points the heights differ by under 0.025 (0.0174 to 0.0184 at the most in the probe, the grain).
+    for (const variant of [0, 1, 2, 3, 4]) {
+      const sample = createSurfaceSampler('newtonfractal', seeds[variant]),
+        out = empty(),
+        n = [3, 4, 5, 0, 3][variant];
+      for (let i = 0; i < 1500; i++) {
+        const re = -1 + 2 * ((i * 0.6180339887) % 1),
+          im = -1 + 2 * ((i * 0.7548776662 + 0.3) % 1),
+          height = atPoint(sample, out, variant, re, im).height;
+        expect(
+          Math.abs(atPoint(sample, out, variant, re, -im).height - height),
+        ).toBeLessThan(0.025);
+        if (n > 0) {
+          const c = Math.cos((2 * Math.PI) / n),
+            s = Math.sin((2 * Math.PI) / n);
+          expect(
+            Math.abs(
+              atPoint(sample, out, variant, re * c - im * s, re * s + im * c)
+                .height - height,
+            ),
+          ).toBeLessThan(0.025);
+        }
+      }
+    }
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 2 pick different variants (z^5 - 1 and z^3 - 1).
+    const first = litGrid(0),
+      second = litGrid(2);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.1209);
+    expect(different / first.length).toBeLessThan(0.1211);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('repeats every channel across signed UV periods and stays finite at the origin and at the roots', () => {
+    // The fractal is not C1 (the boundaries between basins are discontinuities at every scale), so unlike the other presets this one is not checked for smoothness: the probe's second-difference sweep found 26,546 to 65,302 records over 0.03 for each of the six variants.
+    // What is checked is that the pixel at the origin, where the derivative of z^n - 1 is zero, and every root give finite values in [0, 1], and that signed UV periods give the same values to 1e-6 (not to the 5e-10 of the smooth presets: rounding in u - 7 is amplified by the iteration near the boundaries, and the probe found up to 4.23e-8 on these 4096 points, 2.64e-14 to 6.41e-9 for the other five variants).
+    const a = empty(),
+      b = empty();
+    seeds.forEach((seed, variant) => {
+      const sample = createSurfaceSampler('newtonfractal', seed);
+      let drift = 0,
+        invalid = 0;
+      const points: [number, number][] = [[0, 0], ...rootsOf(variant)];
+      for (const [re, im] of points) {
+        const out = atPoint(sample, a, variant, re, im);
+        invalid += Number(
+          keys.some(
+            (key) =>
+              !Number.isFinite(out[key]) || out[key] < 0 || out[key] > 1.0001,
+          ),
+        );
+      }
+      for (let i = 0; i < 4096; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 7, v + 11, b);
+        for (const key of keys)
+          drift = Math.max(drift, Math.abs(a[key] - b[key]));
+      }
+      expect(invalid).toBe(0);
+      expect(drift).toBeLessThan(1e-6);
+    });
+  });
+  it('writes actual512 rose basin maps with raised cores and shaded boundaries', () => {
+    const maps = generateProceduralMaps('newtonfractal', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(67.9);
+    expect(red / (512 * 512)).toBeLessThan(68.9);
+    expect(green / (512 * 512)).toBeGreaterThan(44.1);
+    expect(green / (512 * 512)).toBeLessThan(45);
+    expect(blue / (512 * 512)).toBeGreaterThan(69);
+    expect(blue / (512 * 512)).toBeLessThan(70);
+    expect(maxTilt).toBeGreaterThan(0.0095);
+    expect(maxTilt).toBeLessThan(0.0105);
     expect(invalid).toBe(0);
   });
 });
