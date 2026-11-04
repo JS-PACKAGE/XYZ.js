@@ -1214,6 +1214,7 @@ try {
     'graphatlas',
     'rootedtrees',
     'dominoboards',
+    'latinsquares',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

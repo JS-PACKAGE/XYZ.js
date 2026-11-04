@@ -1177,6 +1177,7 @@ const kinds: ProceduralMaterialKind[] = [
   'graphatlas',
   'rootedtrees',
   'dominoboards',
+  'latinsquares',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -205637,6 +205638,393 @@ describe('Domino boards as every tiling of a board drawn once', () => {
     expect(blue / (512 * 512)).toBeLessThan(39);
     expect(maxTilt).toBeGreaterThan(0.0399);
     expect(maxTilt).toBeLessThan(0.0401);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Latin squares as every square of a kind drawn once', () => {
+  const p = proceduralMaterialPresets.latinsquares;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The layout of the panels of a variant (seed % 6): slots of 1 / cols by 1 / rows, each with the square (order by order cells) and the margin around it, drawn at one scale and centred in the slot. */
+  const geometry = (seed: number) => {
+    const variant = seed % p.orders.length,
+      order: number = p.orders[variant],
+      cols: number = p.cols[variant],
+      rows: number = p.rows[variant],
+      scale = Math.min(
+        1 / (cols * (order + 2 * p.margin)),
+        1 / (rows * (order + 2 * p.margin)),
+      );
+    return {
+      order,
+      kind: p.kinds[variant] as number,
+      cols,
+      rows,
+      scale,
+      originX: (1 / cols - scale * (order + 2 * p.margin)) / 2,
+      originY: (1 / rows - scale * (order + 2 * p.margin)) / 2,
+    };
+  };
+  type Geometry = ReturnType<typeof geometry>;
+  /** The square of every panel slot of a seed read back from the picture (null for an empty slot): the symbol of a cell comes from the height at its middle, (height / cellHeight - heightBase) / heightSwing times (order - 1). */
+  const readSquares = (seed: number): (number[] | null)[] => {
+    const g = geometry(seed),
+      sample = createSurfaceSampler('latinsquares', seed),
+      out = empty(),
+      squares: (number[] | null)[] = [];
+    for (let slot = 0; slot < g.cols * g.rows; slot++) {
+      const col = slot % g.cols,
+        row = Math.floor(slot / g.cols),
+        symbols: number[] = [];
+      let empty0 = false;
+      for (let j = 0; j < g.order && !empty0; j++)
+        for (let i = 0; i < g.order; i++) {
+          sample(
+            col / g.cols + g.originX + g.scale * (p.margin + i + 0.5),
+            row / g.rows + g.originY + g.scale * (p.margin + j + 0.5),
+            out,
+          );
+          if (out.height === 0) {
+            expect(symbols.length).toBe(0);
+            empty0 = true;
+            break;
+          }
+          const symbol =
+            ((out.height / p.relief / p.cellHeight - p.heightBase) /
+              p.heightSwing) *
+            (g.order - 1);
+          expect(Math.abs(symbol - Math.round(symbol))).toBeLessThan(1e-6);
+          symbols.push(Math.round(symbol));
+        }
+      squares.push(empty0 ? null : symbols);
+    }
+    return squares;
+  };
+  /** Whether a square (as its symbols row by row) is of the kind: a Latin square, and reduced, diagonal or a Sudoku square when the kind says so. */
+  const isOfKind = (g: Geometry, square: number[]): boolean => {
+    const n = g.order,
+      all = (cells: number[]) =>
+        new Set(cells).size === n && cells.every((c) => c >= 0 && c < n);
+    for (let k = 0; k < n; k++) {
+      if (!all(Array.from({ length: n }, (_, j) => square[k * n + j])))
+        return false;
+      if (!all(Array.from({ length: n }, (_, i) => square[i * n + k])))
+        return false;
+    }
+    if (g.kind === 1)
+      for (let k = 0; k < n; k++)
+        if (square[k] !== k || square[k * n] !== k) return false;
+    if (g.kind === 2) {
+      if (!all(Array.from({ length: n }, (_, k) => square[k * n + k])))
+        return false;
+      if (!all(Array.from({ length: n }, (_, k) => square[k * n + n - 1 - k])))
+        return false;
+    }
+    if (g.kind === 3)
+      for (let bi = 0; bi < n; bi += 2)
+        for (let bj = 0; bj < n; bj += 2)
+          if (
+            !all(
+              [0, 1, 2, 3].map(
+                (c) => square[(bi + (c >> 1)) * n + bj + (c & 1)],
+              ),
+            )
+          )
+            return false;
+    return true;
+  };
+  /** Every square of the kind written again here from rows: all the permutations as possible rows, and a square is rows that never repeat a symbol in a column (checked as the kind says afterwards). */
+  const allSquares = (g: Geometry): string[] => {
+    const n = g.order,
+      permutations: number[][] = [],
+      pick = (row: number[], used: boolean[]) => {
+        if (row.length === n) {
+          permutations.push(row.slice());
+          return;
+        }
+        for (let s = 0; s < n; s++)
+          if (!used[s]) {
+            used[s] = true;
+            row.push(s);
+            pick(row, used);
+            row.pop();
+            used[s] = false;
+          }
+      };
+    pick([], new Array<boolean>(n).fill(false));
+    const found: string[] = [],
+      rowsChosen: number[][] = [],
+      stack = (): void => {
+        if (rowsChosen.length === n) {
+          const square = rowsChosen.flat();
+          if (isOfKind(g, square)) found.push(square.join(''));
+          return;
+        }
+        for (const row of permutations)
+          if (
+            rowsChosen.every((other) =>
+              other.every((symbol, j) => symbol !== row[j]),
+            )
+          ) {
+            rowsChosen.push(row);
+            stack();
+            rowsChosen.pop();
+          }
+      };
+    stack();
+    return found;
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('latinsquares', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { high: 0.9645, lit: 0.19324, mean: 0.19324 }],
+      [1, { high: 0.9645, lit: 0.21497, mean: 0.27213 }],
+      [0xffffffff, { high: 0.9642, lit: 0.24255, mean: 0.25583 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('latinsquares', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0153);
+      expect(low).toBeLessThan(0.0156);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws every Latin square of the kind exactly once, read back from the picture and compared with a list built again here from rows', () => {
+    for (let seed = 0; seed < 12; seed++) {
+      const g = geometry(seed),
+        read = readSquares(seed),
+        drawn = read.filter((square): square is number[] => square !== null),
+        names = drawn.map((square) => square.join(''));
+      for (const square of drawn) expect(isOfKind(g, square)).toBe(true);
+      expect(new Set(names).size).toBe(drawn.length);
+      expect([...names].sort()).toEqual(allSquares(g).sort());
+      expect(read.slice(drawn.length).every((square) => square === null)).toBe(
+        true,
+      );
+    }
+    // The numbers: 12 Latin squares of order 3, 4 reduced and 48 diagonal ones of order 4, 56 reduced of order 5, 288 Sudoku squares of order 4 and 576 Latin squares of order 4.
+    const counts = [0, 1, 2, 3, 4, 5].map(
+      (seed) => readSquares(seed).filter((square) => square !== null).length,
+    );
+    expect(counts).toEqual([12, 4, 48, 56, 288, 576]);
+    // Every Latin square of order 4 comes from a reduced one by permuting the rows other than the first and all the columns: 4! 3! times the reduced ones.
+    expect(counts[5]).toBe(24 * 6 * counts[1]);
+  });
+  it('shuffles the panels by group without changing the set of squares', () => {
+    for (const seed of [0, 2, 3]) {
+      const names = (s: number) =>
+          readSquares(s).map((square) =>
+            square === null ? '-' : square.join(''),
+          ),
+        first = names(seed),
+        second = names(seed + 6),
+        third = names(seed + 12);
+      expect(first).not.toEqual(second);
+      expect(second).not.toEqual(third);
+      expect([...first].sort()).toEqual([...second].sort());
+      expect([...first].sort()).toEqual([...third].sort());
+    }
+  });
+  it('agrees with the ideal cells and gaps away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5]) {
+      const g = geometry(seed),
+        squares = readSquares(seed),
+        sample = createSurfaceSampler('latinsquares', seed),
+        out = empty(),
+        half = p.gapWidth / 2;
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          col = Math.min(g.cols - 1, Math.floor(u * g.cols)),
+          row = Math.min(g.rows - 1, Math.floor(v * g.rows)),
+          square = squares[row * g.cols + col],
+          x = (u - col / g.cols - g.originX) / g.scale - p.margin,
+          y = (v - row / g.rows - g.originY) / g.scale - p.margin,
+          i = Math.floor(x),
+          j = Math.floor(y);
+        let ink = 0,
+          level = 0,
+          near = false;
+        if (square !== null && i >= 0 && j >= 0 && i < g.order && j < g.order) {
+          const sides = [x - i, i + 1 - x, y - j, j + 1 - y];
+          if (
+            sides.some(
+              (distance) => distance > half && distance < half + p.edgeSoft,
+            )
+          )
+            near = true;
+          ink = sides.every((distance) => distance > half) ? 1 : 0;
+          level = square[j * g.order + i] / (g.order - 1);
+        }
+        if (near) continue;
+        compared++;
+        const tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.heightBase + p.heightSwing * level),
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(4600);
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeGreaterThan(0.3036);
+    expect(unlike(first, litGrid(1))).toBeLessThan(0.3038);
+    expect(unlike(first, litGrid(6))).toBeGreaterThan(0.1362);
+    expect(unlike(first, litGrid(6))).toBeLessThan(0.1363);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('latinsquares', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 rose Latin square maps on dark plum with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('latinsquares', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(90.8);
+    expect(red / (512 * 512)).toBeLessThan(91.7);
+    expect(green / (512 * 512)).toBeGreaterThan(53.1);
+    expect(green / (512 * 512)).toBeLessThan(54);
+    expect(blue / (512 * 512)).toBeGreaterThan(67.3);
+    expect(blue / (512 * 512)).toBeLessThan(68.2);
+    expect(maxTilt).toBeGreaterThan(0.0262);
+    expect(maxTilt).toBeLessThan(0.0263);
     expect(invalid).toBe(0);
   });
 });

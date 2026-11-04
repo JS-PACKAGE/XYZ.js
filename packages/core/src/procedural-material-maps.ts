@@ -54486,6 +54486,117 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'latinsquares': {
+        const p = proceduralMaterialPresets.latinsquares,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.orders.length,
+          group = Math.floor(unsigned / p.orders.length),
+          order: number = p.orders[variant],
+          kind: number = p.kinds[variant],
+          cols = p.cols[variant],
+          rows = p.rows[variant],
+          // Every Latin square of the kind, as the symbol of every cell, found cell after cell in the order of the rows, in a shuffled order.
+          panels = (() => {
+            const found: Uint8Array[] = [],
+              square = new Int8Array(order * order).fill(-1),
+              place = (cell: number): void => {
+                if (cell === order * order) {
+                  if (kind === 2) {
+                    const down = new Set<number>(),
+                      up = new Set<number>();
+                    for (let k = 0; k < order; k++) {
+                      down.add(square[k * order + k]);
+                      up.add(square[k * order + order - 1 - k]);
+                    }
+                    if (down.size !== order || up.size !== order) return;
+                  }
+                  found.push(Uint8Array.from(square));
+                  return;
+                }
+                const i = Math.floor(cell / order),
+                  j = cell % order;
+                for (let symbol = 0; symbol < order; symbol++) {
+                  // A reduced square has 0, 1, 2, ... along its first row and its first column.
+                  if (
+                    kind === 1 &&
+                    ((i === 0 && symbol !== j) || (j === 0 && symbol !== i))
+                  )
+                    continue;
+                  let free = true;
+                  for (let k = 0; k < j; k++)
+                    if (square[i * order + k] === symbol) free = false;
+                  for (let k = 0; k < i; k++)
+                    if (square[k * order + j] === symbol) free = false;
+                  // A Sudoku square of order 4 has every symbol once in each 2 by 2 box too.
+                  if (kind === 3)
+                    for (let a = i - (i % 2); a <= i; a++)
+                      for (let b = j - (j % 2); b < j - (j % 2) + 2; b++)
+                        if (
+                          a * order + b < cell &&
+                          square[a * order + b] === symbol
+                        )
+                          free = false;
+                  if (!free) continue;
+                  square[cell] = symbol;
+                  place(cell + 1);
+                  square[cell] = -1;
+                }
+              };
+            place(0);
+            for (let k = found.length - 1; k > 0; k--) {
+              const other = Math.floor(
+                hash(k, 311, group ^ p.seedSalt) * (k + 1),
+              );
+              [found[k], found[other]] = [found[other], found[k]];
+            }
+            return found;
+          })(),
+          scale = Math.min(
+            1 / (cols * (order + 2 * p.margin)),
+            1 / (rows * (order + 2 * p.margin)),
+          ),
+          originX = (1 / cols - scale * (order + 2 * p.margin)) / 2,
+          originY = (1 / rows - scale * (order + 2 * p.margin)) / 2,
+          halfGap = p.gapWidth / 2,
+          // 1 on the cell side of a gap, 0 at the edge itself, at the distance fromEdge in cells.
+          edge = (fromEdge: number): number =>
+            smooth(clamp((fromEdge - halfGap) / p.edgeSoft));
+        return () => {
+          const tileU = fract(u),
+            tileV = fract(v),
+            col = Math.min(cols - 1, Math.floor(tileU * cols)),
+            row = Math.min(rows - 1, Math.floor(tileV * rows)),
+            index = row * cols + col,
+            grain = grainField(u, v);
+          let mask = 0,
+            level = 0;
+          if (index < panels.length) {
+            const x = (tileU - col / cols - originX) / scale - p.margin,
+              y = (tileV - row / rows - originY) / scale - p.margin,
+              i = Math.floor(x),
+              j = Math.floor(y);
+            if (i >= 0 && j >= 0 && i < order && j < order) {
+              const fx = x - i,
+                fy = y - j;
+              mask = edge(fx) * edge(1 - fx) * edge(fy) * edge(1 - fy);
+              level = panels[index][j * order + i] / (order - 1);
+            }
+          }
+          const tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+          color =
+            p.toneGround * (1 - mask) +
+            tone * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -63438,6 +63549,7 @@ export function createSurfaceSampler(
     kind === 'graphatlas' ||
     kind === 'rootedtrees' ||
     kind === 'dominoboards' ||
+    kind === 'latinsquares' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
