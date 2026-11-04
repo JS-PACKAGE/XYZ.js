@@ -14154,3 +14154,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：7項（色調範圍、每棵生成樹恰畫一次與數量、組別只改順序、逐點比對、不同圖與組別與決定性、C1與UV週期、maps），`-t "Spanning trees as"`7項通過。變異檢查（做過20次）：取消圈偵測失敗5項；邊數少1失敗4項；洗牌範圍改失敗2項；group取整個seed失敗2項；變體選擇位移失敗6項；比例少算一倍失敗2項；垂直置中除以3失敗2項；樹邊判斷取反失敗4項；樹邊寬度加倍失敗4項；其他邊寬度加倍失敗4項；細邊畫在樹邊上失敗4項；頂點色調改失敗4項；頂點下方權重去掉失敗4項；free忽略頂點失敗2項；其他邊height改失敗4項；頂點半徑加倍失敗5項；occlusion公式取反失敗3項；地面色調不乘free失敗4項；線段投影分母改失敗6項；y座標少減原點失敗2項；最後一格當作空格失敗5項（共21個指令，其中1個只是列在清單、實際執行為20次；見下）。**20次全部被抓到**，沒有未抓到的。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Spanning trees as|spanningtrees|kinds|catalog|distinct|periodic"`定向測試**2592項通過／4599項未選**，輸出`GATES-OK`。
 - 未驗證：完整suite（最近一次在`a1485f62d`，不含spanningtrees，結果另記）、瀏覽器gallery（spanningtrees尚未檢查）、跨瀏覽器與跨GPU；不push。
+
+## 2026-11-04 完整測試與瀏覽器gallery複驗（至二元項鍊）
+
+- 範圍：在`a1485f62d`（新增二元項鍊之後）重跑完整測試，並在同一個commit跑一次瀏覽器gallery。這段不新增材質，只記錄實跑結果。完整測試範圍包含`projectiveplane`、`dyckpaths`、`youngdiagrams`與`necklaces`，不包含之後的`spanningtrees`（`fe79190e3`）。
+- 完整測試（工具實跑，乾淨的detached worktree）：**179個測試檔、11,112項全部通過**（2114 s；期間我同時跑著spanningtrees的probe、測試與預覽，所以耗時不是乾淨的量測；沒有逾時失敗）。前一次完整複驗在`9e9e8ad90`（11,080項）；11,080 → 11,112共32項，與我預期的增量projectiveplane 8項、dyckpaths 8項、youngdiagrams 8項、necklaces 8項（各自的專屬與沿用測試加kinds清單的測試）相符，但我沒有逐項核對各測試的數量。沒有在無負載下重跑。
+- 瀏覽器gallery（工具實跑，無頭Chrome，vite從乾淨worktree提供`/examples/pbr3d/`，每次開啟前先殺掉舊的Chrome並等約20秒）：在`a1485f62d`的working tree狀態，WebGPU分頁與`?renderer=webgl2`分頁各自讀到「1140 procedural material presets」、選單1141個選項，選取projectiveplane、dyckpaths、youngdiagrams、necklaces與plain都成功，entries都是空的，四個新kind的選項文字與標籤一致。限制：只涵蓋「可選取、讀數更新、無console錯誤」，沒有目視畫面或像素比對；跨瀏覽器、跨GPU行為沒有驗證。
+- 更正：前一筆`spanningtrees`紀錄的變異檢查段落最後一個括號（「共21個指令，其中1個只是列在清單、實際執行為20次；見下」）寫錯了：實際上列出並跑的是21次變異（取消圈偵測、邊數少1、洗牌範圍、group、變體選擇、比例、垂直置中、樹邊判斷取反、樹邊寬度、其他邊寬度、細邊畫在樹邊上、頂點色調、頂點下方權重、free忽略頂點、其他邊height、頂點半徑、occlusion、地面色調、線段投影分母、y座標、最後一格當空格），**21次全部被抓到**，沒有未抓到的，也沒有「只是列在清單」的項目；那段文字應讀作「做過21次，全部被抓到」。
+- 未驗證：`spanningtrees`尚未跑完整suite與gallery（只有定向測試與gates）；完整suite沒有在無負載下重跑；跨瀏覽器與跨GPU；不push。
