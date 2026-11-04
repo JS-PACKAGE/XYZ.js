@@ -1186,6 +1186,7 @@ try {
     'standardmap',
     'lyapunovfractal',
     'zetalandscape',
+    'fresneldiffraction',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

@@ -1149,6 +1149,7 @@ const kinds: ProceduralMaterialKind[] = [
   'standardmap',
   'lyapunovfractal',
   'zetalandscape',
+  'fresneldiffraction',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -194967,6 +194968,304 @@ describe('Zeta landscape as the phase and modulus bands of the Riemann zeta func
     expect(blue / (512 * 512)).toBeLessThan(141.9);
     expect(maxTilt).toBeGreaterThan(0.0252);
     expect(maxTilt).toBeLessThan(0.0253);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Fresnel diffraction as the near field behind a straight edge, slits and a strip', () => {
+  const p = proceduralMaterialPresets.fresneldiffraction;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const plot = 0.5 - p.margin;
+  /** The intensity at the point (x, z) of the plot, read back from the sampler: the height is cellHeight times the tone 1 - exp(-intensity / reference), which is inverted here (the grain is not in the height). */
+  const intensityAt = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    x: number,
+    z: number,
+  ): number => {
+    sample(
+      0.5 + (x * plot) / p.halfWidth,
+      p.margin +
+        ((1 - 2 * p.margin) * (z - p.zMinimum)) / (p.zMaximum - p.zMinimum),
+      out,
+    );
+    return -Math.log(1 - out.height / p.relief / p.cellHeight) * p.reference;
+  };
+  /** The Fresnel integrals C(v) and S(v) (the integrals of cos and sin of pi s^2 / 2 from 0 to v) by Simpson's rule with 100 steps per wavelength of the integrand at its end, and the limit 1/2 for the far end of the straight edge (which the sampler also takes beyond 1e5, and the limit is a closed form that the test does not derive). */
+  const fresnelBySimpson = (v: number): [number, number] => {
+    if (Math.abs(v) > 1e5) return [Math.sign(v) / 2, Math.sign(v) / 2];
+    const steps = 2 * Math.ceil(50 * v * v + 50),
+      h = v / steps;
+    let c = 0,
+      s = 0;
+    for (let k = 0; k <= steps; k++) {
+      const t = k * h,
+        phase = (Math.PI * t * t) / 2,
+        weight = k === 0 || k === steps ? 1 : k % 2 ? 4 : 2;
+      c += weight * Math.cos(phase);
+      s += weight * Math.sin(phase);
+    }
+    return [(c * h) / 3, (s * h) / 3];
+  };
+  /** The intensity of the variant at (x, z) from the Fresnel integrals: the amplitude is exp(-i pi / 4) / sqrt(2) times the sum over the open intervals of (C + i S)(v to) - (C + i S)(v from) with v = (x' - x) sqrt(2 / z), and 1 minus that for an opaque strip. */
+  const intensityOf = (variant: number, x: number, z: number): number => {
+    const scale = Math.sqrt(2 / z),
+      intervals = p.intervals[variant];
+    let re = 0,
+      im = 0;
+    for (let i = 0; i < intervals.length; i += 2) {
+      const [toC, toS] = fresnelBySimpson((intervals[i + 1] - x) * scale),
+        [fromC, fromS] = fresnelBySimpson((intervals[i] - x) * scale);
+      re += toC - fromC;
+      im += toS - fromS;
+    }
+    let amplitudeRe = (re + im) / 2,
+      amplitudeIm = (im - re) / 2;
+    if (p.strips[variant] === 1) {
+      amplitudeRe = 1 - amplitudeRe;
+      amplitudeIm = -amplitudeIm;
+    }
+    return amplitudeRe * amplitudeRe + amplitudeIm * amplitudeIm;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('fresneldiffraction', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('fresneldiffraction', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0258);
+      expect(low).toBeLessThan(0.0263);
+      expect(high).toBeGreaterThan(0.799);
+      expect(high).toBeLessThan(0.827);
+      expect(dark / 65536).toBeGreaterThan(0.374);
+      expect(dark / 65536).toBeLessThan(0.7945);
+      expect(mean / 65536).toBeGreaterThan(0.335);
+      expect(mean / 65536).toBeLessThan(0.568);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.718);
+      expect(heightHigh).toBeLessThan(0.751);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (the straight edge, the slits of half-width 0.8 and 1.6, the opaque strips of half-width 0.8 and 0.3, and the double slit) is 1, 14, 6, 7, 0 and 2; the table was found with a probe, by comparing the intensity of each of 40 seeds at 8 points with the six variants, and is written here, so it is not an independent check of the seed's choice.
+  const seeds = [1, 14, 6, 7, 0, 2];
+  it('agrees with the Fresnel integrals summed by Simpson, which the sampler does not use', () => {
+    // The sampler evaluates C and S by the power series (up to |v| of 1.5) and a continued fraction; the test integrates cos and sin of pi s^2 / 2 numerically. On 80 points of each variant (on a golden-ratio sequence inside the plot, z from 0.3) the sampler and the test differ by at most the tolerance 1e-6 (4.5e-14 to 1.2e-13 on 150 points in the probe).
+    seeds.forEach((seed, variant) => {
+      const sample = createSurfaceSampler('fresneldiffraction', seed),
+        out = empty();
+      let worst = 0;
+      for (let k = 0; k < 80; k++) {
+        const x = 3.4 * (2 * ((k * 0.6180339887 + 0.07) % 1) - 1),
+          z = 0.3 + 7.4 * ((k * 0.7548776662 + 0.21) % 1);
+        worst = Math.max(
+          worst,
+          Math.abs(intensityAt(sample, out, x, z) - intensityOf(variant, x, z)),
+        );
+      }
+      expect(worst).toBeLessThan(1e-6);
+    });
+  });
+  it('has a quarter of the free intensity at the shadow boundary of the straight edge and the first maximum of 1.3704 near v of 1.217', () => {
+    // At x = 0 the edge variant has C = S = 1/2 at one end and 0 at the other, so the intensity is 1/4 at every z (2.8e-17 at the most in the probe on 50 values of z). The first fringe maximum in the lit region is 1.3704 at v = x sqrt(2 / z) = 1.217 (a known value, from memory and not looked up; the probe found 1.37044 at v of 1.2169 to 1.2173 for z = 1, 2, 4 and 6).
+    const sample = createSurfaceSampler('fresneldiffraction', seeds[0]),
+      out = empty();
+    for (let k = 0; k < 40; k++) {
+      const z = 0.4 + (7.2 * k) / 39;
+      expect(Math.abs(intensityAt(sample, out, 0, z) - 0.25)).toBeLessThan(
+        1e-9,
+      );
+    }
+    for (const z of [2, 4]) {
+      let best = 0,
+        bestX = 0;
+      for (let x = 0.3; x < 3.8; x += 0.001) {
+        const intensity = intensityAt(sample, out, x, z);
+        if (intensity > best) {
+          best = intensity;
+          bestX = x;
+        }
+      }
+      expect(best).toBeGreaterThan(1.3703);
+      expect(best).toBeLessThan(1.3706);
+      expect(bestX * Math.sqrt(2 / z)).toBeGreaterThan(1.215);
+      expect(bestX * Math.sqrt(2 / z)).toBeLessThan(1.219);
+    }
+  });
+  it('keeps the edge pattern when x is doubled and z is multiplied by four, and mirrors the symmetric variants in x', () => {
+    // The pattern depends on x and z only through v = x sqrt(2 / z), so I(x, z) = I(2 x, 4 z) for the straight edge (3.6e-11 at the most in the probe on 400 points with z from 0.3 to 1.95, and the test uses the same range). The slits, the strips and the double slit are symmetric about x = 0, and the sampler's two sides agree to 2.1e-10 at the most in the probe on 200 points of each variant.
+    const edge = createSurfaceSampler('fresneldiffraction', seeds[0]),
+      out = empty();
+    for (let k = 0; k < 200; k++) {
+      const x = -1.9 + 3.8 * ((k * 0.6180339887 + 0.1) % 1),
+        z = 0.3 + 1.65 * ((k * 0.7548776662 + 0.3) % 1);
+      expect(
+        Math.abs(
+          intensityAt(edge, out, x, z) - intensityAt(edge, out, 2 * x, 4 * z),
+        ),
+      ).toBeLessThan(1e-9);
+    }
+    for (let variant = 1; variant < 6; variant++) {
+      const sample = createSurfaceSampler('fresneldiffraction', seeds[variant]);
+      for (let k = 0; k < 100; k++) {
+        const x = 3.5 * ((k * 0.6180339887 + 0.1) % 1),
+          z = 0.3 + 7.4 * ((k * 0.7548776662 + 0.3) % 1);
+        expect(
+          Math.abs(
+            intensityAt(sample, out, x, z) - intensityAt(sample, out, -x, z),
+          ),
+        ).toBeLessThan(1e-8);
+      }
+    }
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 1 pick different variants (the opaque strip of half-width 0.3 and the straight edge).
+    const first = litGrid(0),
+      second = litGrid(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.4438);
+    expect(different / first.length).toBeLessThan(0.4439);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('fresneldiffraction', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 pale violet fringe maps with raised bright bands and shaded gaps', () => {
+    const maps = generateProceduralMaps('fresneldiffraction', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(112.1);
+    expect(red / (512 * 512)).toBeLessThan(113.1);
+    expect(green / (512 * 512)).toBeGreaterThan(103.5);
+    expect(green / (512 * 512)).toBeLessThan(104.5);
+    expect(blue / (512 * 512)).toBeGreaterThan(142.2);
+    expect(blue / (512 * 512)).toBeLessThan(143.2);
+    expect(maxTilt).toBeGreaterThan(0.0055);
+    expect(maxTilt).toBeLessThan(0.0057);
     expect(invalid).toBe(0);
   });
 });

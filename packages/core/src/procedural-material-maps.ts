@@ -51318,6 +51318,149 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'fresneldiffraction': {
+        const p = proceduralMaterialPresets.fresneldiffraction,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant = Math.floor(
+            hash(0, 101, seed ^ p.seedSalt) * p.strips.length,
+          ),
+          intervals = p.intervals[variant],
+          strip = p.strips[variant] === 1,
+          plot = 0.5 - p.margin,
+          inverseSoft = 1 / p.edgeSoft,
+          quarterPi = Math.PI / 4,
+          // The Fresnel integrals C and S of v: the power series up to |v| of 1.5 and a continued fraction (the modified Lentz method) beyond; the result is written to fresnelValue.
+          fresnelValue = { c: 0, s: 0 },
+          fresnel = (value: number): void => {
+            const magnitude = Math.abs(value);
+            let c: number, s: number;
+            if (magnitude > 1e5) {
+              // The far end of the straight edge: C and S are at their limit 1/2 (the terms left out are under 4e-6).
+              c = 0.5;
+              s = 0.5;
+            } else if (magnitude <= 1.5) {
+              const half = Math.PI / 2,
+                fourth = half * half * magnitude ** 4;
+              let termC = magnitude,
+                termS = (half * magnitude ** 3) / 3;
+              c = termC;
+              s = termS;
+              for (let n = 0; n < 40; n++) {
+                termC *=
+                  (-fourth / ((2 * n + 1) * (2 * n + 2))) *
+                  ((4 * n + 1) / (4 * n + 5));
+                termS *=
+                  (-fourth / ((2 * n + 2) * (2 * n + 3))) *
+                  ((4 * n + 3) / (4 * n + 7));
+                c += termC;
+                s += termS;
+              }
+            } else {
+              // C + iS = (1 + i) / 2 * (1 - exp(i pi v^2 / 2) * (v - i v) * h), h being the continued fraction 1 / (1 - i pi v^2 + (-1 * 2) / (3 - i pi v^2 + (-3 * 4) / (5 - i pi v^2 + ...))).
+              const angle = Math.PI * magnitude * magnitude;
+              const bIm = -angle,
+                norm = 1 + angle * angle;
+              let bRe = 1,
+                dRe = 1 / norm,
+                dIm = angle / norm,
+                cRe = 1e300,
+                cIm = 0,
+                hRe = dRe,
+                hIm = dIm;
+              let odd = -1;
+              for (let k = 2; k < 200; k++) {
+                odd += 2;
+                const a = -odd * (odd + 1);
+                bRe += 4;
+                const xRe = a * dRe + bRe,
+                  xIm = a * dIm + bIm,
+                  xNorm = xRe * xRe + xIm * xIm;
+                dRe = xRe / xNorm;
+                dIm = -xIm / xNorm;
+                const cNorm = cRe * cRe + cIm * cIm;
+                cRe = bRe + (a * cRe) / cNorm;
+                cIm = bIm - (a * cIm) / cNorm;
+                const deltaRe = cRe * dRe - cIm * dIm,
+                  deltaIm = cRe * dIm + cIm * dRe,
+                  nextRe = hRe * deltaRe - hIm * deltaIm;
+                hIm = hRe * deltaIm + hIm * deltaRe;
+                hRe = nextRe;
+                if (Math.abs(deltaRe - 1) + Math.abs(deltaIm) < 1e-16) break;
+              }
+              const scaledRe = magnitude * (hRe + hIm),
+                scaledIm = magnitude * (hIm - hRe),
+                rotatedRe =
+                  Math.cos(angle / 2) * scaledRe -
+                  Math.sin(angle / 2) * scaledIm,
+                rotatedIm =
+                  Math.cos(angle / 2) * scaledIm +
+                  Math.sin(angle / 2) * scaledRe;
+              c = 0.5 * (1 - rotatedRe) - 0.5 * -rotatedIm;
+              s = 0.5 * (1 - rotatedRe) + 0.5 * -rotatedIm;
+            }
+            fresnelValue.c = value < 0 ? -c : c;
+            fresnelValue.s = value < 0 ? -s : s;
+          };
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            x = (p.halfWidth * (fu - 0.5)) / plot,
+            // Above the plot (in the margin, where the picture is faded out anyway) z would be zero or negative, so it is kept at zMinimum.
+            z = Math.max(
+              p.zMinimum,
+              p.zMinimum +
+                ((p.zMaximum - p.zMinimum) * (fv - p.margin)) /
+                  (1 - 2 * p.margin),
+            ),
+            scale = Math.sqrt(2 / z);
+          // The field behind the open intervals is exp(-i pi / 4) / sqrt(2) times the sum over them of the integral of exp(i pi s^2 / 2) from (from - x) scale to (to - x) scale.
+          let re = 0,
+            im = 0;
+          for (let i = 0; i < intervals.length; i += 2) {
+            fresnel((intervals[i] - x) * scale);
+            const fromC = fresnelValue.c,
+              fromS = fresnelValue.s;
+            fresnel((intervals[i + 1] - x) * scale);
+            re += fresnelValue.c - fromC;
+            im += fresnelValue.s - fromS;
+          }
+          const amplitudeRe =
+              (Math.cos(-quarterPi) * re - Math.sin(-quarterPi) * im) *
+              Math.SQRT1_2,
+            amplitudeIm =
+              (Math.sin(-quarterPi) * re + Math.cos(-quarterPi) * im) *
+              Math.SQRT1_2,
+            fieldRe = strip ? 1 - amplitudeRe : amplitudeRe,
+            fieldIm = strip ? -amplitudeIm : amplitudeIm,
+            outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
+            outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
+            boxDistance =
+              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              Math.min(Math.max(outsideX, outsideY), 0),
+            edge = smooth(clamp(-boxDistance / p.fade)),
+            ink = clamp(
+              edge *
+                (1 -
+                  Math.exp(
+                    -(fieldRe * fieldRe + fieldIm * fieldIm) / p.reference,
+                  )),
+            ),
+            mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * ink;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -60242,6 +60385,7 @@ export function createSurfaceSampler(
     kind === 'standardmap' ||
     kind === 'lyapunovfractal' ||
     kind === 'zetalandscape' ||
+    kind === 'fresneldiffraction' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

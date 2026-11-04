@@ -1123,6 +1123,7 @@ export type ProceduralMaterialKind =
   | 'standardmap'
   | 'lyapunovfractal'
   | 'zetalandscape'
+  | 'fresneldiffraction'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2494,6 +2495,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'standardmap',
   'lyapunovfractal',
   'zetalandscape',
+  'fresneldiffraction',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
