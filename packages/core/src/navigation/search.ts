@@ -87,15 +87,26 @@ export class NavigationSearch {
           otherScore = rightScore;
         }
       }
+      heap[index] = other;
+      scores[index] = otherScore;
+      slots[other] = index;
+      index = child;
+    }
+    // Push the hole to a leaf first, then place the replacement upward. Most
+    // replacements belong near the bottom, avoiding a comparison at every level.
+    while (index > 0) {
+      const above = (index - 1) >>> 1,
+        other = heap[above]!,
+        otherScore = scores[above]!;
       if (!(
-        otherScore < lastScore ||
-        (otherScore === lastScore && other < last)
+        lastScore < otherScore ||
+        (lastScore === otherScore && last < other)
       ))
         break;
       heap[index] = other;
       scores[index] = otherScore;
       slots[other] = index;
-      index = child;
+      index = above;
     }
     heap[index] = last;
     scores[index] = lastScore;
