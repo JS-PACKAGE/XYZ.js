@@ -15881,6 +15881,54 @@ export declare const proceduralMaterialPresets: Readonly<{
         lineHeight: 0.35;
         inkRoughness: 0.7;
     }>;
+    hockeyrink: Readonly<{
+        dark: readonly [18, 28, 38];
+        light: readonly [236, 242, 248];
+        roughness: 0.3;
+        relief: 0.004;
+        foot: 0.0042;
+        rinkLength: 200;
+        rinkWidth: 85;
+        cornerRadius: 28;
+        goalLine: 11;
+        blueLine: 75;
+        circleRadius: 15;
+        spotRadius: 1;
+        spotDistance: 20;
+        spotSide: 22;
+        neutralSpot: 5;
+        creaseRadius: 6;
+        creaseHalfWidth: 4;
+        boardWidth: 2;
+        thinLine: 0.5;
+        thickLine: 1.5;
+        surfaces: readonly (Readonly<{
+            ice: 0.86;
+            boards: 0.42;
+            ground: 0.2;
+        }> | Readonly<{
+            ice: 0.8;
+            boards: 0.5;
+            ground: 0.28;
+        }> | Readonly<{
+            ice: 0.9;
+            boards: 0.34;
+            ground: 0.14;
+        }> | Readonly<{
+            ice: 0.76;
+            boards: 0.56;
+            ground: 0.34;
+        }>)[];
+        toneShift: 0.04;
+        edgeSoft: 0.0006;
+        redTone: 0.55;
+        blueTone: 0.3;
+        groundHeight: 0.15;
+        boardHeight: 0.6;
+        iceHeight: 0.3;
+        lineHeight: 0.35;
+        inkRoughness: 0.35;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -22366,6 +22414,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    hockeyrink: 1;
     soccerpitch: 1;
     athleticstrack: 1;
     badmintoncourt: 1;

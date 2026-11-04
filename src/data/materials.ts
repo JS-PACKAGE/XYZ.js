@@ -17361,6 +17361,50 @@ export const proceduralMaterialPresets = Object.freeze({
     lineHeight: 0.35,
     inkRoughness: 0.7,
   }),
+  hockeyrink: Object.freeze({
+    dark: [18, 28, 38] as const,
+    light: [236, 242, 248] as const,
+    roughness: 0.3,
+    relief: 0.004,
+    // An ice hockey rink seen from above with the markings of the NHL rink, in feet (the length along one axis): 200 by 85 with corners of radius 28, the red centre line, the two blue lines (their edges
+    // towards the middle 75 from the end boards, 50 apart), the two goal lines 11 from the end boards, the blue centre circle of radius 15 and centre spot, the four end zone face-off circles of radius 15
+    // and spots 20 from the goal line and 22 each side of the middle, the four neutral zone spots 5 from the blue line and 22 each side, and the goal creases (an arc of radius 6 between two lines 4 from
+    // the middle that end on it, about 4.5 long); round it the boards and ground. The lines are 0.5 wide (the thin ones; 2 inches in the rules) and 1.5 (the blue lines and the centre line; 12 inches in the rules), so that they show in
+    // a tile, and the spots are 1 in radius. Red and blue are two tones. The seed picks the surface (the tones of the ice, the boards and the ground, all shifted together a little) and lays the rink along
+    // the picture or across it.
+    foot: 0.0042,
+    rinkLength: 200,
+    rinkWidth: 85,
+    cornerRadius: 28,
+    goalLine: 11,
+    blueLine: 75,
+    circleRadius: 15,
+    spotRadius: 1,
+    spotDistance: 20,
+    spotSide: 22,
+    neutralSpot: 5,
+    creaseRadius: 6,
+    creaseHalfWidth: 4,
+    boardWidth: 2,
+    thinLine: 0.5,
+    thickLine: 1.5,
+    surfaces: Object.freeze([
+      Object.freeze({ ice: 0.86, boards: 0.42, ground: 0.2 }),
+      Object.freeze({ ice: 0.8, boards: 0.5, ground: 0.28 }),
+      Object.freeze({ ice: 0.9, boards: 0.34, ground: 0.14 }),
+      Object.freeze({ ice: 0.76, boards: 0.56, ground: 0.34 }),
+    ]),
+    // How much the three tones may all be shifted together (from -toneShift to toneShift) by the seed: the wear of the ice.
+    toneShift: 0.04,
+    edgeSoft: 0.0006,
+    redTone: 0.55,
+    blueTone: 0.3,
+    groundHeight: 0.15,
+    boardHeight: 0.6,
+    iceHeight: 0.3,
+    lineHeight: 0.35,
+    inkRoughness: 0.35,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -23853,6 +23897,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  hockeyrink: 1,
   soccerpitch: 1,
   athleticstrack: 1,
   badmintoncourt: 1,

@@ -70106,3 +70106,672 @@ describe('soccerpitch: a football pitch seen from above with the markings of the
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('hockeyrink: an ice hockey rink seen from above with the markings of the NHL rink, laid along or across by the seed', () => {
+  const p = proceduralMaterialPresets.hockeyrink,
+    out = empty(),
+    ft = p.foot,
+    toneAt = (
+      sample: Sampler,
+      x: number,
+      y: number,
+      across: boolean,
+    ): number => {
+      // A place in feet from the middle of the rink (x along its length) as a place on the picture.
+      sample(0.5 + (across ? y : x) * ft, 0.5 + (across ? x : y) * ft, out);
+      return out.color;
+    };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    mix = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    // The probes are exact (the edges are straight or circular), so the tolerance is tiny.
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  // The facts of the rink, in feet (the NHL rules, as given by the NHL rule text on the web and by Wikipedia; they were not read in the NHL rulebook itself): 200 by 85 with corners of radius 28, goal lines 11 from
+  // the end boards, blue lines 75 from the end boards (their edges towards the middle, 50 apart), circles of radius 15, end zone spots 20 from the goal line and 22 each side of the middle, neutral zone spots
+  // 5 from the blue line and 22 each side, spots 2 across, crease arcs of radius 6 and crease lines 4 from the middle.
+  const rules = {
+      length: 200,
+      width: 85,
+      corner: 28,
+      goalLine: 11,
+      blue: 75,
+      circle: 15,
+      spotDistance: 20,
+      side: 22,
+      neutral: 5,
+      spot: 1,
+      crease: 6,
+      creaseHalf: 4,
+    },
+    halfL = rules.length / 2,
+    halfW = rules.width / 2,
+    goalX = halfL - rules.goalLine,
+    blueX = halfL - rules.blue,
+    spotX = goalX - rules.spotDistance,
+    neutralX = blueX - rules.neutral;
+  type Kind = 'ground' | 'boards' | 'ice' | 'red' | 'blue';
+  // The part of the picture a place is in, by the rules above and the widths in the preset (written separately from the sampler).
+  const classify = (x: number, y: number): Kind => {
+    const ax = Math.abs(x),
+      ay = Math.abs(y),
+      cornerX = halfL - rules.corner,
+      cornerY = halfW - rules.corner,
+      inside =
+        ax > cornerX && ay > cornerY
+          ? rules.corner - Math.hypot(ax - cornerX, ay - cornerY)
+          : Math.min(halfL - ax, halfW - ay);
+    if (inside < -p.boardWidth) return 'ground';
+    if (inside < 0) return 'boards';
+    const ring = (distance: number, radius: number): boolean =>
+        distance <= radius && distance >= radius - p.thinLine,
+      goalDistance = Math.hypot(ax - goalX, y),
+      endDistance = Math.hypot(ax - spotX, ay - rules.side);
+    // Red over blue.
+    if (
+      ax <= p.thickLine / 2 ||
+      Math.abs(ax - goalX) <= p.thinLine / 2 ||
+      ring(endDistance, rules.circle) ||
+      endDistance <= rules.spot ||
+      Math.hypot(ax - neutralX, ay - rules.side) <= rules.spot
+    )
+      return 'red';
+    if (
+      ax <= goalX &&
+      ((ring(goalDistance, rules.crease) && ay <= rules.creaseHalf) ||
+        (Math.abs(ay - rules.creaseHalf) <= p.thinLine / 2 &&
+          goalDistance <= rules.crease))
+    )
+      return 'red';
+    if (
+      (ax >= blueX && ax <= blueX + p.thickLine) ||
+      ring(Math.hypot(x, y), rules.circle) ||
+      Math.hypot(x, y) <= rules.spot / 2
+    )
+      return 'blue';
+    return 'ice';
+  };
+  type Surface = {
+    across: boolean;
+    surface: number;
+    shift: number;
+    tones: { ice: number; boards: number; ground: number };
+  };
+  const readSurface = (sample: Sampler): Surface => {
+    const options: Surface[] = [];
+    for (const across of [false, true]) {
+      const ice = toneAt(sample, 40, 10, across),
+        boards = toneAt(sample, 0, halfW + 1, across),
+        ground = toneAt(sample, 0, 60, across);
+      p.surfaces.forEach((surface, index) => {
+        const shift = ground - surface.ground;
+        if (
+          Math.abs(shift) <= p.toneShift + 1e-9 &&
+          Math.abs(ice - surface.ice - shift) < 1e-6 &&
+          Math.abs(boards - surface.boards - shift) < 1e-6
+        )
+          options.push({
+            across,
+            surface: index,
+            shift,
+            tones: { ice, boards, ground },
+          });
+      });
+    }
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+
+  it('has the rules of the rink in the preset', () => {
+    expect(p.rinkLength).toBe(rules.length);
+    expect(p.rinkWidth).toBe(rules.width);
+    expect(p.cornerRadius).toBe(rules.corner);
+    expect(p.goalLine).toBe(rules.goalLine);
+    expect(p.blueLine).toBe(rules.blue);
+    expect(p.circleRadius).toBe(rules.circle);
+    expect(p.spotDistance).toBe(rules.spotDistance);
+    expect(p.spotSide).toBe(rules.side);
+    expect(p.neutralSpot).toBe(rules.neutral);
+    expect(p.creaseRadius).toBe(rules.crease);
+    expect(p.creaseHalfWidth).toBe(rules.creaseHalf);
+    expect(p.spotRadius).toBe(rules.spot);
+  });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws every place of the picture as the rules and the widths say, with its tone, height and roughness, along the picture or across it (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('hockeyrink', seed),
+        { across, tones } = readSurface(sample),
+        expected: Record<Kind, { tone: number; height: number }> = {
+          ground: { tone: tones.ground, height: p.groundHeight },
+          boards: { tone: tones.boards, height: p.boardHeight },
+          ice: { tone: tones.ice, height: p.iceHeight },
+          red: { tone: p.redTone, height: p.lineHeight },
+          blue: { tone: p.blueTone, height: p.lineHeight },
+        },
+        counts: Record<Kind, number> = {
+          ground: 0,
+          boards: 0,
+          ice: 0,
+          red: 0,
+          blue: 0,
+        },
+        step = 0.31,
+        clear = 0.1;
+      // Every place of the rink and its surroundings: the places within 0.1 of a change in the picture are skipped (the softened edges are checked below, exactly).
+      for (let x = -108; x <= 108; x += step)
+        for (let y = -52; y <= 52; y += step) {
+          const kind = classify(x, y);
+          if (
+            [
+              [clear, 0],
+              [-clear, 0],
+              [0, clear],
+              [0, -clear],
+              [clear, clear],
+              [-clear, -clear],
+              [clear, -clear],
+              [-clear, clear],
+            ].some(([dx, dy]) => classify(x + dx, y + dy) !== kind)
+          )
+            continue;
+          counts[kind]++;
+          expect(toneAt(sample, x, y, across)).toBeCloseTo(
+            expected[kind].tone,
+            6,
+          );
+          expect(out.height / p.relief).toBeCloseTo(expected[kind].height, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        }
+      expect(counts.ground).toBeGreaterThan(10000);
+      expect(counts.boards).toBeGreaterThan(1000);
+      expect(counts.ice).toBeGreaterThan(100000);
+      expect(counts.red).toBeGreaterThan(2000);
+      expect(counts.blue).toBeGreaterThan(300);
+    },
+  );
+
+  it('uses every surface and both ways over 300 seeds, about equally often, with the tones shifted over the whole range', () => {
+    const surfaces = new Map<number, number>(),
+      shifts: number[] = [];
+    let acrossCount = 0;
+    for (let seed = 0; seed < 300; seed++) {
+      const { across, surface, shift } = readSurface(
+        createSurfaceSampler('hockeyrink', seed * 7 + 1),
+      );
+      shifts.push(shift);
+      surfaces.set(surface, (surfaces.get(surface) ?? 0) + 1);
+      acrossCount += Number(across);
+    }
+    expect(surfaces.size).toBe(p.surfaces.length);
+    for (const count of surfaces.values())
+      expect(Math.abs(count - 300 / p.surfaces.length)).toBeLessThan(25);
+    expect(Math.abs(acrossCount / 300 - 0.5)).toBeLessThan(0.1);
+    expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+    expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+    expect(
+      Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 300),
+    ).toBeLessThan(p.toneShift * 0.15);
+    for (let quarter = 0; quarter < 4; quarter++)
+      expect(
+        Math.abs(
+          shifts.filter(
+            (shift) =>
+              Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+          ).length - 75,
+        ),
+      ).toBeLessThan(25);
+  });
+
+  it('puts each edge of each marking where the rules put it: just inside it the marking, just outside it not (both ends, all four corners)', () => {
+    const delta = 0.0004 / ft,
+      round = (
+        cx: number,
+        cy: number,
+        distance: number,
+        degrees: number,
+      ): [number, number] => [
+        cx + distance * Math.cos((degrees * Math.PI) / 180),
+        cy + distance * Math.sin((degrees * Math.PI) / 180),
+      ];
+    for (const seed of [2, 5]) {
+      const sample = createSurfaceSampler('hockeyrink', seed),
+        { across, tones } = readSurface(sample),
+        is = (x: number, y: number, tone: number): boolean =>
+          Math.abs(toneAt(sample, x, y, across) - tone) < 1e-6;
+      // The centre line (red, 1.5 wide) and the blue lines (1.5 wide, their edge towards the middle 75 from the end boards).
+      expect(is(p.thickLine / 2 - delta, 30, p.redTone)).toBe(true);
+      expect(is(p.thickLine / 2 + delta, 30, p.redTone)).toBe(false);
+      expect(is(-p.thickLine / 2 + delta, 30, p.redTone)).toBe(true);
+      expect(is(-p.thickLine / 2 - delta, 30, p.redTone)).toBe(false);
+      for (const sx of [1, -1]) {
+        expect(is(sx * (blueX + delta), 30, p.blueTone)).toBe(true);
+        expect(is(sx * (blueX - delta), 30, p.blueTone)).toBe(false);
+        expect(is(sx * (blueX + p.thickLine - delta), 30, p.blueTone)).toBe(
+          true,
+        );
+        expect(is(sx * (blueX + p.thickLine + delta), 30, p.blueTone)).toBe(
+          false,
+        );
+        // The goal line (red, 0.5 wide, centred 11 from the end boards).
+        expect(is(sx * (goalX - p.thinLine / 2 + delta), 30, p.redTone)).toBe(
+          true,
+        );
+        expect(is(sx * (goalX - p.thinLine / 2 - delta), 30, p.redTone)).toBe(
+          false,
+        );
+        expect(is(sx * (goalX + p.thinLine / 2 - delta), 30, p.redTone)).toBe(
+          true,
+        );
+        expect(is(sx * (goalX + p.thinLine / 2 + delta), 30, p.redTone)).toBe(
+          false,
+        );
+        for (const sy of [1, -1]) {
+          // The end zone circle and spot, the neutral zone spot.
+          for (const degrees of [10, 80, 140, 200, 260, 320]) {
+            expect(
+              is(
+                ...round(
+                  sx * spotX,
+                  sy * rules.side,
+                  rules.circle - delta,
+                  degrees,
+                ),
+                p.redTone,
+              ),
+            ).toBe(true);
+            expect(
+              is(
+                ...round(
+                  sx * spotX,
+                  sy * rules.side,
+                  rules.circle + delta,
+                  degrees,
+                ),
+                p.redTone,
+              ),
+            ).toBe(false);
+            expect(
+              is(
+                ...round(
+                  sx * spotX,
+                  sy * rules.side,
+                  rules.circle - p.thinLine + delta,
+                  degrees,
+                ),
+                p.redTone,
+              ),
+            ).toBe(true);
+            expect(
+              is(
+                ...round(
+                  sx * spotX,
+                  sy * rules.side,
+                  rules.circle - p.thinLine - delta,
+                  degrees,
+                ),
+                p.redTone,
+              ),
+            ).toBe(false);
+            expect(
+              is(
+                ...round(
+                  sx * spotX,
+                  sy * rules.side,
+                  rules.spot - delta,
+                  degrees,
+                ),
+                p.redTone,
+              ),
+            ).toBe(true);
+            expect(
+              is(
+                ...round(
+                  sx * spotX,
+                  sy * rules.side,
+                  rules.spot + delta,
+                  degrees,
+                ),
+                p.redTone,
+              ),
+            ).toBe(false);
+            expect(
+              is(
+                ...round(
+                  sx * neutralX,
+                  sy * rules.side,
+                  rules.spot - delta,
+                  degrees,
+                ),
+                p.redTone,
+              ),
+            ).toBe(true);
+            expect(
+              is(
+                ...round(
+                  sx * neutralX,
+                  sy * rules.side,
+                  rules.spot + delta,
+                  degrees,
+                ),
+                p.redTone,
+              ),
+            ).toBe(false);
+          }
+        }
+        // The crease: the arc of radius 6 round the middle of the goal line on the side towards the middle of the rink, 0.5 wide inside, then the two lines 4 from the middle that end on the arc, and nothing behind the goal line.
+        for (const degrees of [-25, -10, 0, 10, 25]) {
+          const direction = (sx === 1 ? 180 : 0) + degrees;
+          expect(
+            is(
+              ...round(sx * goalX, 0, rules.crease - delta, direction),
+              p.redTone,
+            ),
+          ).toBe(true);
+          expect(
+            is(
+              ...round(sx * goalX, 0, rules.crease + delta, direction),
+              p.redTone,
+            ),
+          ).toBe(false);
+          expect(
+            is(
+              ...round(
+                sx * goalX,
+                0,
+                rules.crease - p.thinLine + delta,
+                direction,
+              ),
+              p.redTone,
+            ),
+          ).toBe(true);
+          expect(
+            is(
+              ...round(
+                sx * goalX,
+                0,
+                rules.crease - p.thinLine - delta,
+                direction,
+              ),
+              p.redTone,
+            ),
+          ).toBe(false);
+        }
+        for (const sy of [1, -1]) {
+          expect(
+            is(
+              sx * (goalX - 2),
+              sy * (rules.creaseHalf - p.thinLine / 2 + delta),
+              p.redTone,
+            ),
+          ).toBe(true);
+          expect(
+            is(
+              sx * (goalX - 2),
+              sy * (rules.creaseHalf - p.thinLine / 2 - delta),
+              p.redTone,
+            ),
+          ).toBe(false);
+          expect(
+            is(
+              sx * (goalX - 2),
+              sy * (rules.creaseHalf + p.thinLine / 2 - delta),
+              p.redTone,
+            ),
+          ).toBe(true);
+          expect(
+            is(
+              sx * (goalX - 2),
+              sy * (rules.creaseHalf + p.thinLine / 2 + delta),
+              p.redTone,
+            ),
+          ).toBe(false);
+          // The line ends on the arc: at the arc (5.8 from the middle) there is line, beyond it (6.2) none.
+          expect(
+            is(
+              sx * (goalX - Math.sqrt(5.8 ** 2 - rules.creaseHalf ** 2)),
+              sy * rules.creaseHalf,
+              p.redTone,
+            ),
+          ).toBe(true);
+          expect(
+            is(
+              sx * (goalX - Math.sqrt(6.2 ** 2 - rules.creaseHalf ** 2)),
+              sy * rules.creaseHalf,
+              p.redTone,
+            ),
+          ).toBe(false);
+          // Behind the goal line: no crease.
+          expect(is(sx * (goalX + 2), sy * rules.creaseHalf, p.redTone)).toBe(
+            false,
+          );
+          expect(is(sx * (goalX + 3), sy * 0.5, p.redTone)).toBe(false);
+        }
+      }
+      // The centre circle (blue, radius 15, 0.5 wide) and the centre spot (blue, radius 0.5), the red centre line over them.
+      for (const degrees of [25, 65, 115, 155, 205, 245, 295, 335]) {
+        expect(
+          is(...round(0, 0, rules.circle - delta, degrees), p.blueTone),
+        ).toBe(true);
+        expect(
+          is(...round(0, 0, rules.circle + delta, degrees), p.blueTone),
+        ).toBe(false);
+        expect(
+          is(
+            ...round(0, 0, rules.circle - p.thinLine + delta, degrees),
+            p.blueTone,
+          ),
+        ).toBe(true);
+        expect(
+          is(
+            ...round(0, 0, rules.circle - p.thinLine - delta, degrees),
+            p.blueTone,
+          ),
+        ).toBe(false);
+      }
+      expect(is(1.2 - delta, 0.5, p.redTone)).toBe(false);
+      expect(toneAt(sample, 0, 0, across)).toBeCloseTo(p.redTone, 6);
+      expect(is(0.9, 0, p.blueTone)).toBe(false);
+      // The rounded corners and the boards: the ice has the corner radius 28 round (cx, cy), and the boards are 2 wide beyond it; outside them the ground.
+      for (const sx of [1, -1])
+        for (const sy of [1, -1])
+          for (const degrees of [15, 45, 75]) {
+            const centre: [number, number] = [
+                sx * (halfL - rules.corner),
+                sy * (halfW - rules.corner),
+              ],
+              direction =
+                sx === 1
+                  ? sy === 1
+                    ? degrees
+                    : -degrees
+                  : sy === 1
+                    ? 180 - degrees
+                    : 180 + degrees;
+            expect(
+              toneAt(
+                sample,
+                ...round(centre[0], centre[1], rules.corner - delta, direction),
+                across,
+              ),
+            ).toBeCloseTo(tones.ice, 6);
+            expect(
+              toneAt(
+                sample,
+                ...round(centre[0], centre[1], rules.corner + delta, direction),
+                across,
+              ),
+            ).toBeCloseTo(tones.boards, 6);
+            expect(
+              toneAt(
+                sample,
+                ...round(
+                  centre[0],
+                  centre[1],
+                  rules.corner + p.boardWidth - delta,
+                  direction,
+                ),
+                across,
+              ),
+            ).toBeCloseTo(tones.boards, 6);
+            expect(
+              toneAt(
+                sample,
+                ...round(
+                  centre[0],
+                  centre[1],
+                  rules.corner + p.boardWidth + delta,
+                  direction,
+                ),
+                across,
+              ),
+            ).toBeCloseTo(tones.ground, 6);
+          }
+      // The straight boards.
+      expect(toneAt(sample, 30, halfW - delta, across)).toBeCloseTo(
+        tones.ice,
+        6,
+      );
+      expect(toneAt(sample, 30, halfW + delta, across)).toBeCloseTo(
+        tones.boards,
+        6,
+      );
+      expect(
+        toneAt(sample, halfL + p.boardWidth - delta, 10, across),
+      ).toBeCloseTo(tones.boards, 6);
+      expect(
+        toneAt(sample, halfL + p.boardWidth + delta, 10, across),
+      ).toBeCloseTo(tones.ground, 6);
+    }
+  });
+
+  it('softens the edge of the boards, of the ice, of a line, of a circle and of a spot over edgeSoft', () => {
+    const sample = createSurfaceSampler('hockeyrink', 2),
+      { across, tones } = readSurface(sample),
+      quarter = (0.25 * p.edgeSoft) / ft;
+    close(
+      toneAt(sample, 30, halfW + p.boardWidth - quarter, across),
+      mix(tones.ground, tones.boards, 0.75),
+    );
+    close(
+      toneAt(sample, 30, halfW + p.boardWidth + quarter, across),
+      mix(tones.ground, tones.boards, 0.25),
+    );
+    close(
+      toneAt(sample, halfL - quarter, 10, across),
+      mix(tones.boards, tones.ice, 0.75),
+    );
+    close(
+      toneAt(sample, halfL + quarter, 10, across),
+      mix(tones.boards, tones.ice, 0.25),
+    );
+    // The blue line and the red lines over the ice (both edges), and where they reach the boards.
+    close(
+      toneAt(sample, blueX + quarter, 30, across),
+      mix(tones.ice, p.blueTone, 0.75),
+    );
+    close(
+      toneAt(sample, blueX - quarter, 30, across),
+      mix(tones.ice, p.blueTone, 0.25),
+    );
+    close(
+      toneAt(sample, goalX - p.thinLine / 2 - quarter, 30, across),
+      mix(tones.ice, p.redTone, 0.25),
+    );
+    close(
+      toneAt(sample, goalX + p.thinLine / 2 - quarter, 30, across),
+      mix(tones.ice, p.redTone, 0.75),
+    );
+    close(
+      toneAt(sample, p.thickLine / 2 + quarter, 30, across),
+      mix(tones.ice, p.redTone, 0.25),
+    );
+    // The centre line and a blue line reach the side boards (the line has the edge of the ice there).
+    close(
+      toneAt(sample, 0, halfW - quarter, across),
+      mix(tones.boards, p.redTone, 0.75),
+    );
+    close(
+      toneAt(sample, 0, halfW + quarter, across),
+      mix(tones.boards, p.redTone, 0.25),
+    );
+    close(
+      toneAt(sample, blueX + p.thickLine / 2, halfW - quarter, across),
+      mix(tones.boards, p.blueTone, 0.75),
+    );
+    close(
+      toneAt(sample, blueX + p.thickLine / 2, halfW + quarter, across),
+      mix(tones.boards, p.blueTone, 0.25),
+    );
+    // The circles and spots.
+    close(
+      toneAt(sample, spotX + rules.circle + quarter, rules.side, across),
+      mix(tones.ice, p.redTone, 0.25),
+    );
+    close(
+      toneAt(sample, spotX + rules.circle - quarter, rules.side, across),
+      mix(tones.ice, p.redTone, 0.75),
+    );
+    close(
+      toneAt(sample, spotX + rules.spot + quarter, rules.side, across),
+      mix(tones.ice, p.redTone, 0.25),
+    );
+    close(
+      toneAt(sample, spotX + rules.spot - quarter, rules.side, across),
+      mix(tones.ice, p.redTone, 0.75),
+    );
+    close(
+      toneAt(sample, neutralX, rules.side + rules.spot + quarter, across),
+      mix(tones.ice, p.redTone, 0.25),
+    );
+    close(
+      toneAt(sample, rules.circle + quarter, 0, across),
+      mix(tones.ice, p.blueTone, 0.25),
+    );
+    close(
+      toneAt(sample, rules.circle - quarter, 0, across),
+      mix(tones.ice, p.blueTone, 0.75),
+    );
+    close(
+      toneAt(sample, rules.circle - p.thinLine - quarter, 0, across),
+      mix(tones.ice, p.blueTone, 0.25),
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('hockeyrink', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('hockeyrink', 0),
+      b = createSurfaceSampler('hockeyrink', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

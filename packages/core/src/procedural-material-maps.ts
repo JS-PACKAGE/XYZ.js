@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'hockeyrink',
   'soccerpitch',
   'athleticstrack',
   'badmintoncourt',
@@ -49795,6 +49796,101 @@ export function createSurfaceSampler(
               (p.lineHeight - p.pitchHeight) * lined -
               elevation) *
             pitch;
+          color = clamp(shade);
+          height = clamp(elevation);
+          roughness = clamp(p.inkRoughness);
+          occlusion = 1;
+        };
+      }
+      case 'hockeyrink': {
+        const p = proceduralMaterialPresets.hockeyrink,
+          inverseSoft = 1 / p.edgeSoft,
+          norm = (x: number, y: number): number => Math.sqrt(x * x + y * y),
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(108, 1, seed ^ 0x140001) * p.surfaces.length)
+            ],
+          across = hash(108, 2, seed ^ 0x140002) < 0.5,
+          shift = (hash(108, 3, seed ^ 0x140003) * 2 - 1) * p.toneShift,
+          halfLength = p.rinkLength / 2,
+          halfWidth = p.rinkWidth / 2,
+          cornerX = halfLength - p.cornerRadius,
+          cornerY = halfWidth - p.cornerRadius,
+          goalX = halfLength - p.goalLine,
+          blueX = halfLength - p.blueLine,
+          spotX = goalX - p.spotDistance,
+          neutralX = blueX - p.neutralSpot,
+          // A line of a width across the picture, centred on a distance, and a ring just inside a radius.
+          band = (distance: number, centre: number, width: number): number =>
+            cover((width / 2 - Math.abs(distance - centre)) * p.foot),
+          ring = (distance: number, radius: number): number =>
+            cover(
+              Math.min(distance - (radius - p.thinLine), radius - distance) *
+                p.foot,
+            );
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            // The place in feet from the middle of the rink (x along its length).
+            x = ((across ? fv : fu) - 0.5) / p.foot,
+            y = ((across ? fu : fv) - 0.5) / p.foot,
+            ax = Math.abs(x),
+            ay = Math.abs(y),
+            cx = ax - cornerX,
+            cy = ay - cornerY,
+            // How far inside the rink a place is: the rounded corners are circles round (cornerX, cornerY).
+            inside =
+              cx > 0 && cy > 0
+                ? p.cornerRadius - norm(cx, cy)
+                : Math.min(halfLength - ax, halfWidth - ay),
+            ice = cover(inside * p.foot),
+            boards = cover((inside + p.boardWidth) * p.foot);
+          // The red markings: the centre line, the goal lines, the end zone circles and spots, the neutral zone spots, the creases (an arc of radius 6 between lines 4 from the middle that end on it, all on the
+          // side of the goal line towards the middle of the rink); the blue: the blue lines, the centre circle and spot.
+          const fx = ax - spotX,
+            fy = ay - p.spotSide,
+            goalDistance = norm(ax - goalX, y),
+            towards = cover((goalX - ax) * p.foot),
+            crease = Math.max(
+              Math.min(
+                ring(goalDistance, p.creaseRadius),
+                cover((p.creaseHalfWidth - ay) * p.foot),
+                towards,
+              ),
+              Math.min(
+                band(ay, p.creaseHalfWidth, p.thinLine),
+                cover((p.creaseRadius - goalDistance) * p.foot),
+                towards,
+              ),
+            ),
+            red = Math.max(
+              band(x, 0, p.thickLine),
+              band(ax, goalX, p.thinLine),
+              ring(norm(fx, fy), p.circleRadius),
+              cover((p.spotRadius - norm(fx, fy)) * p.foot),
+              cover((p.spotRadius - norm(ax - neutralX, fy)) * p.foot),
+              crease,
+            ),
+            blue = Math.max(
+              band(ax, blueX + p.thickLine / 2, p.thickLine),
+              ring(norm(x, y), p.circleRadius),
+              cover((p.spotRadius / 2 - norm(x, y)) * p.foot),
+            ),
+            // The lines go through the boards (their cover is 1 there), so the edge of the rink is that of the ice, which the marked tone is painted over.
+            iceTone = surface.ice + shift,
+            blued = iceTone + (p.blueTone - iceTone) * blue,
+            marked = blued + (p.redTone - blued) * red,
+            lined = Math.max(red, blue);
+          let shade = surface.ground + shift,
+            elevation = p.groundHeight;
+          shade += (surface.boards + shift - shade) * boards;
+          elevation += (p.boardHeight - elevation) * boards;
+          shade += (marked - shade) * ice;
+          elevation +=
+            (p.iceHeight + (p.lineHeight - p.iceHeight) * lined - elevation) *
+            ice;
           color = clamp(shade);
           height = clamp(elevation);
           roughness = clamp(p.inkRoughness);
