@@ -61405,3 +61405,324 @@ describe('cycliccellular: four panels of a cyclic cellular automaton on a torus,
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('wireworldcircuit: four panels of a WireWorld circuit, the steps one after the other', () => {
+  const p = proceduralMaterialPresets.wireworldcircuit,
+    out = empty(),
+    panel = (p.extent - p.panelGap) / 2,
+    cell = panel / p.side,
+    left = 0.5 - p.extent / 2,
+    half = cell / 2 - p.gapHalf,
+    tones = [p.emptyTone, p.conductorTone, p.headTone, p.tailTone],
+    heights = [p.emptyHeight, p.conductorHeight, p.headHeight, p.tailHeight],
+    toneAt = (sample: Sampler, u: number, v: number): number => {
+      sample(u, v, out);
+      return out.color;
+    };
+  const centre = (
+    panelIndex: number,
+    column: number,
+    row: number,
+  ): [number, number] => [
+    left + (panelIndex % 2) * (panel + p.panelGap) + (column + 0.5) * cell,
+    left +
+      Math.floor(panelIndex / 2) * (panel + p.panelGap) +
+      (row + 0.5) * cell,
+  ];
+  const toGrid = (rows: readonly string[]): number[][] =>
+    rows.map((line) => [...line].map((letter) => '.#HT'.indexOf(letter)));
+  // One step of WireWorld (0 empty, 1 conductor, 2 head, 3 tail), the neighbours counted from a list of the eight offsets and cells off the field taken as empty.
+  const offsets = [-1, 0, 1]
+    .flatMap((dy) => [-1, 0, 1].map((dx) => [dy, dx]))
+    .filter(([dy, dx]) => dy !== 0 || dx !== 0);
+  const step = (grid: number[][]): number[][] =>
+    grid.map((line, row) =>
+      line.map((state, column) => {
+        if (state === 2) return 3;
+        if (state === 3) return 1;
+        if (state === 0) return 0;
+        const heads = offsets.filter(
+          ([dy, dx]) => grid[row + dy]?.[column + dx] === 2,
+        ).length;
+        return heads === 1 || heads === 2 ? 2 : 1;
+      }),
+    );
+  const readPanels = (
+    seed: number,
+  ): { sample: Sampler; states: number[][][]; matches: [number, number][] } => {
+    const sample = createSurfaceSampler('wireworldcircuit', seed),
+      states = [0, 1, 2, 3].map((index) =>
+        Array.from({ length: p.side }, (_, row) =>
+          Array.from({ length: p.side }, (_, column) => {
+            const tone = toneAt(sample, ...centre(index, column, row)),
+              state = tones.findIndex(
+                (candidate) => Math.abs(candidate - tone) < 1e-6,
+              );
+            expect(state).toBeGreaterThanOrEqual(0);
+            return state;
+          }),
+        ),
+      ),
+      matches: [number, number][] = [];
+    p.circuits.forEach((rows, circuit) =>
+      p.starts.forEach((start) => {
+        let grid = toGrid(rows);
+        for (let k = 0; k < start; k++) grid = step(grid);
+        if (JSON.stringify(grid) === JSON.stringify(states[0]))
+          matches.push([circuit, start]);
+      }),
+    );
+    return { sample, states, matches };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows a circuit at one of its starting steps and the three steps after it, each the step of the one before (seed %i)',
+    (seed) => {
+      const { states, matches } = readPanels(seed);
+      // The first panel is the circuit run from the picture in the preset to a starting step of the preset (one pair only), and each panel after it is the step of the one before.
+      expect(matches.length).toBe(1);
+      for (let k = 0; k < 3; k++)
+        expect(step(states[k])).toEqual(states[k + 1]);
+      // There are electrons in every panel, and the wires are the same.
+      const wires = (grid: number[][]): string =>
+        JSON.stringify(
+          grid.map((line) => line.map((state) => (state === 0 ? 0 : 1))),
+        );
+      for (const grid of states) {
+        expect(
+          grid.flat().filter((state) => state === 2).length,
+        ).toBeGreaterThan(0);
+        expect(wires(grid)).toBe(wires(states[0]));
+      }
+      expect(wires(states[0])).toBe(wires(toGrid(p.circuits[matches[0][0]])));
+    },
+  );
+
+  it('keeps the edge of the field empty in every circuit, and has conductors with each number of head neighbours from 0 to 4 in the circuits over the starting steps', () => {
+    const counts = new Set<number>();
+    for (const rows of p.circuits) {
+      expect(rows.length).toBe(p.side);
+      let grid = toGrid(rows);
+      for (const line of grid) expect(line.length).toBe(p.side);
+      for (let k = 0; k < p.side; k++)
+        for (const [row, column] of [
+          [0, k],
+          [p.side - 1, k],
+          [k, 0],
+          [k, p.side - 1],
+        ])
+          expect(grid[row][column]).toBe(0);
+      for (let t = 0; t <= Math.max(...p.starts) + 3; t++) {
+        grid.forEach((line, row) =>
+          line.forEach(
+            (state, column) =>
+              state === 1 &&
+              counts.add(
+                offsets.filter(
+                  ([dy, dx]) => grid[row + dy]?.[column + dx] === 2,
+                ).length,
+              ),
+          ),
+        );
+        grid = step(grid);
+      }
+    }
+    expect([...counts].sort()).toEqual([0, 1, 2, 3, 4]);
+  });
+
+  it('uses every circuit and every starting step, over 60 seeds, and many pairs of them', () => {
+    const circuits = new Set<number>(),
+      starts = new Set<number>(),
+      pairs = new Set<string>();
+    for (let seed = 0; seed < 60; seed++) {
+      const [[circuit, start]] = readPanels(seed * 5 + 2).matches;
+      circuits.add(circuit);
+      starts.add(start);
+      pairs.add(`${circuit}/${start}`);
+    }
+    expect(circuits.size).toBe(p.circuits.length);
+    expect([...starts].sort((a, b) => a - b)).toEqual(
+      [...p.starts].sort((a, b) => a - b),
+    );
+    expect(pairs.size).toBeGreaterThanOrEqual(9);
+  });
+
+  it('draws each state with its tone, height and roughness, as a square of its size, and nothing outside the panels', () => {
+    for (const seed of [1, 3, 5]) {
+      const { sample, states } = readPanels(seed),
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      for (let state = 0; state < 4; state++) {
+        let found: [number, number, number] | null = null;
+        for (let index = 0; index < 4 && !found; index++)
+          for (let row = 0; row < p.side && !found; row++)
+            for (let column = 0; column < p.side && !found; column++)
+              if (states[index][row][column] === state)
+                found = [index, column, row];
+        const [index, column, row] = found as [number, number, number],
+          [cx, cy] = centre(index, column, row);
+        expect(toneAt(sample, cx, cy)).toBeCloseTo(tones[state], 6);
+        expect(out.height / p.relief).toBeCloseTo(heights[state], 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          expect(
+            toneAt(
+              sample,
+              cx + dx * (half - 0.0004),
+              cy + dy * (half - 0.0004),
+            ),
+          ).toBeCloseTo(tones[state], 6);
+          expect(
+            toneAt(
+              sample,
+              cx + (half - 0.0004) * (dx + dy),
+              cy + (half - 0.0004) * (dx + dy),
+            ),
+          ).toBeCloseTo(tones[state], 6);
+          expect(
+            paperOk(cx + dx * (half + 0.0004), cy + dy * (half + 0.0004)),
+          ).toBe(true);
+          expect(out.height / p.relief).toBeCloseTo(p.paperHeight, 6);
+          expect(out.roughness).toBeCloseTo(p.paperRoughness, 6);
+        }
+      }
+      const near = p.gapHalf + 0.0006;
+      for (let index = 0; index < 4; index++) {
+        const x0 = left + (index % 2) * (panel + p.panelGap),
+          y0 = left + Math.floor(index / 2) * (panel + p.panelGap);
+        expect(toneAt(sample, x0 + near, y0 + near)).toBeCloseTo(
+          tones[states[index][0][0]],
+          6,
+        );
+        expect(
+          toneAt(sample, x0 + panel - near, y0 + panel - near),
+        ).toBeCloseTo(tones[states[index][p.side - 1][p.side - 1]], 6);
+        expect(toneAt(sample, x0 + panel - near, y0 + near)).toBeCloseTo(
+          tones[states[index][0][p.side - 1]],
+          6,
+        );
+        expect(toneAt(sample, x0 + near, y0 + panel - near)).toBeCloseTo(
+          tones[states[index][p.side - 1][0]],
+          6,
+        );
+      }
+      for (const [u, v] of [
+        [left + panel + p.panelGap / 2, left + panel / 2],
+        [left + panel / 2, left + panel + p.panelGap / 2],
+        [left - 0.004, 0.5],
+        [left + p.extent + 0.004, 0.5],
+        [0.5, left - 0.004],
+        [0.5, left + p.extent + 0.004],
+      ])
+        expect(paperOk(u, v)).toBe(true);
+    }
+  });
+
+  it('softens the edge of a cell over edgeSoft', () => {
+    const { sample, states } = readPanels(3),
+      smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      [cx, cy] = centre(2, 7, 11),
+      tone = tones[states[2][11][7]],
+      mixed = (amount: number): number =>
+        p.paperTone + (tone - p.paperTone) * smoothstep(amount);
+    for (const [dx, dy] of [
+      [1, 0],
+      [0, 1],
+      [-1, 0],
+      [0, -1],
+    ]) {
+      expect(
+        Math.abs(
+          toneAt(
+            sample,
+            cx + dx * (half - quarter),
+            cy + dy * (half - quarter),
+          ) - mixed(0.75),
+        ),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(
+          toneAt(
+            sample,
+            cx + dx * (half + quarter),
+            cy + dy * (half + quarter),
+          ) - mixed(0.25),
+        ),
+      ).toBeLessThan(0.03);
+    }
+  });
+
+  it('fades the grain of the paper out over the edge of a cell, as much as the cell covers', () => {
+    const { sample, states } = readPanels(3),
+      smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      amount = smoothstep(0.25),
+      residuals: number[] = [];
+    for (let column = 0; column < p.side; column++)
+      for (const t of [-0.8, -0.3, 0.3, 0.8]) {
+        const [cx, cy] = centre(0, column, 6),
+          tone = toneAt(sample, cx + t * half, cy - half - 0.25 * p.edgeSoft);
+        residuals.push(
+          tone -
+            (p.paperTone +
+              (tones[states[0][6][column]] - p.paperTone) * amount),
+        );
+      }
+    const largest = Math.max(...residuals.map(Math.abs));
+    expect(largest).toBeGreaterThan(0.003);
+    expect(largest).toBeLessThanOrEqual(
+      0.5 * p.grainTone * (1 - amount) + 1e-9,
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('wireworldcircuit', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('wireworldcircuit', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0013 + i * 0.0021, 0.01),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('wireworldcircuit', 0),
+      b = createSurfaceSampler('wireworldcircuit', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3501],
+        [0.2201, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

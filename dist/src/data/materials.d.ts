@@ -15129,6 +15129,33 @@ export declare const proceduralMaterialPresets: Readonly<{
         paperRoughness: 0.8;
         inkRoughness: 0.45;
     }>;
+    wireworldcircuit: Readonly<{
+        dark: readonly [20, 24, 44];
+        light: readonly [250, 232, 168];
+        roughness: 0.5;
+        relief: 0.004;
+        side: 22;
+        circuits: readonly (readonly string[])[];
+        starts: readonly number[];
+        extent: 0.94;
+        panelGap: 0.04;
+        gapHalf: 0.0008;
+        edgeSoft: 0.0006;
+        grainCells: 192;
+        paperTone: 0.97;
+        emptyTone: 0.08;
+        conductorTone: 0.55;
+        headTone: 0.95;
+        tailTone: 0.3;
+        emptyHeight: 0.25;
+        conductorHeight: 0.55;
+        headHeight: 0.85;
+        tailHeight: 0.4;
+        grainTone: 0.03;
+        paperHeight: 0.2;
+        paperRoughness: 0.8;
+        inkRoughness: 0.45;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -21614,6 +21641,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    wireworldcircuit: 1;
     cycliccellular: 1;
     beattypartition: 1;
     walshmatrix: 1;

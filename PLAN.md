@@ -2341,6 +2341,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`wireworldcircuit`（WireWorld電路）使目前目錄1195→1196種，含plain的gallery為1197項。WireWorld細胞自動機在22×22的場上：每格是空格、導線、電子頭或電子尾；每一步空格不變、頭變尾、尾變導線，導線在八個鄰格中恰好有一或兩個頭時變成頭，否則不變。場的邊緣一格永遠是空的，所以導線不會有場外的鄰格。seed從四個電路（單環、環加分支線、以連線相接的雙環、含較寬段落的環）中選一個，再從四個起始步數（0、7、13、22）中選一個；四個面板（兩列兩欄）顯示該起始步與之後連續三步，空格、導線、頭、尾各有色調與高度。這是作者設計的示意；測試端從畫面讀出四個面板每格的狀態，並用獨立的WireWorld實作（八個鄰格以位移表計算，場外視為空）驗證：第一個面板恰好等於「preset裡的電路圖跑到某一個起始步」（只有一組電路與起始步吻合），後面三個面板各為前一個的一步，每個面板都有電子頭而且導線配置與該電路相同；另外檢查每個電路的邊緣一格都是空的，且各電路在起始步內共出現過導線有0到4個頭鄰格的所有情形；60個seed中四個電路、四個起始步都被選到。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

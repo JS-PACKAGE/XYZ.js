@@ -46828,6 +46828,101 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'wireworldcircuit': {
+        const p = proceduralMaterialPresets.wireworldcircuit,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x60001),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          circuit =
+            p.circuits[
+              Math.floor(hash(89, 1, seed ^ 0x60002) * p.circuits.length)
+            ],
+          start =
+            p.starts[Math.floor(hash(89, 2, seed ^ 0x60003) * p.starts.length)],
+          panel = (p.extent - p.panelGap) / 2,
+          cell = panel / p.side,
+          left = 0.5 - p.extent / 2,
+          tones = [p.emptyTone, p.conductorTone, p.headTone, p.tailTone],
+          heights = [
+            p.emptyHeight,
+            p.conductorHeight,
+            p.headHeight,
+            p.tailHeight,
+          ],
+          // The states 0 empty, 1 conductor, 2 head, 3 tail, at the starting step and the three after it.
+          panels: Uint8Array[] = [];
+        let states = Uint8Array.from(
+          { length: p.side * p.side },
+          (_, index) =>
+            ({ '.': 0, '#': 1, H: 2, T: 3 })[
+              circuit[Math.floor(index / p.side)][index % p.side] as
+                '.' | '#' | 'H' | 'T'
+            ],
+        );
+        for (let step = 0; step < start + 4; step++) {
+          if (step >= start) panels.push(states);
+          const next = new Uint8Array(states.length);
+          for (let row = 0; row < p.side; row++)
+            for (let column = 0; column < p.side; column++) {
+              const own = states[row * p.side + column];
+              if (own === 2) next[row * p.side + column] = 3;
+              else if (own === 3) next[row * p.side + column] = 1;
+              else if (own === 1) {
+                // (A conductor is never on the edge of the field, so all its eight neighbours are in it.)
+                let heads = 0;
+                for (let dy = -1; dy <= 1; dy++)
+                  for (let dx = -1; dx <= 1; dx++) {
+                    const y = row + dy,
+                      x = column + dx;
+                    heads += Number(states[y * p.side + x] === 2);
+                  }
+                next[row * p.side + column] =
+                  heads === 1 || heads === 2 ? 2 : 1;
+              }
+            }
+          states = next;
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            pitch = panel + p.panelGap,
+            panelColumn = Math.floor((fu - left) / pitch),
+            panelRow = Math.floor((fv - left) / pitch);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          if (
+            panelColumn >= 0 &&
+            panelColumn < 2 &&
+            panelRow >= 0 &&
+            panelRow < 2
+          ) {
+            const column = Math.floor((fu - left - panelColumn * pitch) / cell),
+              row = Math.floor((fv - left - panelRow * pitch) / cell);
+            if (column >= 0 && column < p.side && row >= 0 && row < p.side) {
+              const x = fu - left - panelColumn * pitch - (column + 0.5) * cell,
+                y = fv - left - panelRow * pitch - (row + 0.5) * cell,
+                amount = cover(
+                  cell / 2 - p.gapHalf - Math.max(Math.abs(x), Math.abs(y)),
+                ),
+                state =
+                  panels[panelRow * 2 + panelColumn][row * p.side + column];
+              shade += (tones[state] - shade) * amount;
+              elevation += (heights[state] - elevation) * amount;
+              rough += (p.inkRoughness - rough) * amount;
+              mask = amount;
+            }
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -74357,6 +74452,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'wireworldcircuit' ||
     kind === 'cycliccellular' ||
     kind === 'beattypartition' ||
     kind === 'walshmatrix' ||
