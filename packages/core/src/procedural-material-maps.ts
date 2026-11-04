@@ -46161,6 +46161,79 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'eisensteinprimes': {
+        const p = proceduralMaterialPresets.eisensteinprimes,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x57001),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          size = p.size,
+          origin =
+            p.origins[
+              Math.floor(hash(80, 1, seed ^ 0x57002) * p.origins.length)
+            ],
+          // Whether a number a + b w is prime (norm a^2 - a b + b^2): the norm is a prime, or the number is a unit times a prime q of the integers with q = 2 (mod 3), whose
+          // norm is q^2.
+          isPrime = (n: number): boolean => {
+            if (n < 2) return false;
+            for (let d = 2; d * d <= n; d++) if (n % d === 0) return false;
+            return true;
+          },
+          classOf = (a: number, b: number): number => {
+            if (a === 0 && b === 0) return 2;
+            const norm = a * a - a * b + b * b;
+            if (isPrime(norm)) return 1;
+            // A norm q^2 with q a prime of the integers, q = 2 (mod 3), is the norm of just the six numbers q times a unit.
+            const q = Math.round(Math.sqrt(norm));
+            return q * q === norm && isPrime(q) && q % 3 === 2 ? 1 : 0;
+          },
+          // The class of every point, row by row (0 an ordinary number, 1 prime, 2 the origin).
+          classes = new Uint8Array(size * size);
+        for (let b = 0; b < size; b++)
+          for (let a = 0; a < size; a++)
+            classes[b * size + a] = classOf(a - origin[0], b - origin[1]);
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          // The nearest point: in this row of the lattice, along the row (a dot is smaller than half a row, so no dot of another row reaches here).
+          // The points of row r are at (a + r / 2 + 1 / 4) / size across and (r + 1 / 2) / size down.
+          const row = Math.min(size - 1, Math.max(0, Math.floor(fv * size))),
+            along = fu * size - row / 2 - 0.25,
+            nearest = Math.round(along),
+            best = Math.hypot(
+              (along - nearest) / size,
+              fv - (row + 0.5) / size,
+            ),
+            kind = classes[row * size + (((nearest % size) + size) % size)];
+          if (kind === 1)
+            paint(cover(p.primeRadius - best), p.primeTone, p.primeHeight);
+          else if (kind === 2) {
+            paint(
+              cover(p.ringHalf - Math.abs(best - p.ringRadius)),
+              p.ringTone,
+              p.ringHeight,
+            );
+            paint(cover(p.originRadius - best), p.originTone, p.originHeight);
+          } else paint(cover(p.plainRadius - best), p.plainTone, p.plainHeight);
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -73690,6 +73763,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'eisensteinprimes' ||
     kind === 'keplerorbit' ||
     kind === 'pythagoreanproof' ||
     kind === 'contributiongraph' ||

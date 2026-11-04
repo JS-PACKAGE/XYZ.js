@@ -58505,3 +58505,315 @@ describe('keplerorbit: an elliptical orbit with equal-area wedges swept in equal
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('eisensteinprimes: the triangular lattice of a + b w with the prime points as big dark dots', () => {
+  const p = proceduralMaterialPresets.eisensteinprimes,
+    size = p.size,
+    out = empty();
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  // Where the lattice point (A, B) is drawn: row B, each row half a step along from the one above, wrapped round.
+  const place = (a: number, b: number): [number, number] => [
+    ((((a + b / 2 + 0.25) / size) % 1) + 1) % 1,
+    (b + 0.5) / size,
+  ];
+
+  // Whether a + b w can be written as a product of two numbers of smaller norm (neither a unit), found by trying every possible factor: a + b w is divisible by c + d w exactly
+  // when (a + b w)(c + d w^2) -- the conjugate -- has both parts divisible by the norm c^2 - c d + d^2, the parts being (a c - a d + b d) and (b c - a d).
+  const isPrime = (a: number, b: number): boolean => {
+    const norm = a * a - a * b + b * b;
+    if (norm < 2) return false;
+    const limit = Math.floor(Math.sqrt(norm));
+    for (let c = -limit - 1; c <= limit + 1; c++)
+      for (let d = -limit - 1; d <= limit + 1; d++) {
+        const factor = c * c - c * d + d * d;
+        if (factor < 2 || factor * factor > norm) continue;
+        if (
+          (a * c - a * d + b * d) % factor === 0 &&
+          (b * c - a * d) % factor === 0
+        )
+          return false;
+      }
+    return true;
+  };
+
+  // Read the picture: the class of every lattice point from the tone at its middle: 1 a prime, 0 an ordinary number, 2 the origin.
+  const readLattice = (
+    seed: number,
+  ): { sample: Sampler; classes: number[][]; origin: [number, number] } => {
+    const sample = createSurfaceSampler('eisensteinprimes', seed),
+      classes: number[][] = [];
+    let origin: [number, number] = [-1, -1];
+    for (let b = 0; b < size; b++) {
+      classes.push([]);
+      for (let a = 0; a < size; a++) {
+        const [x, y] = place(a, b),
+          tone = toneAt(sample, x, y),
+          kind = [p.plainTone, p.primeTone, p.originTone].findIndex(
+            (expected) => Math.abs(tone - expected) < 1e-6,
+          );
+        expect(kind).toBeGreaterThanOrEqual(0);
+        classes[b].push(kind);
+        if (kind === 2) origin = [a, b];
+      }
+    }
+    return { sample, classes, origin };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows the origin once, and every other lattice point as a prime exactly when a + b w is an Eisenstein prime, the same primes under a sixth of a turn (seed %i)',
+    (seed) => {
+      const { classes, origin } = readLattice(seed);
+      expect(classes.flat().filter((kind) => kind === 2).length).toBe(1);
+      expect(
+        p.origins.some(
+          (candidate) =>
+            candidate[0] === origin[0] && candidate[1] === origin[1],
+        ),
+      ).toBe(true);
+      // Every point's class is that of the number it stands for (relative to the origin), found by trying factors.
+      for (let b = 0; b < size; b++)
+        for (let a = 0; a < size; a++) {
+          if (a === origin[0] && b === origin[1]) continue;
+          expect(classes[b][a] === 1).toBe(
+            isPrime(a - origin[0], b - origin[1]),
+          );
+        }
+      // And, from the picture alone: multiplying by w turns the lattice a sixth of a turn, (a, b) -> (-b, a - b), and by minus one half a turn; primes are taken to primes, whatever
+      // the points inside the picture's window.
+      let compared = 0;
+      for (let b = 0; b < size; b++)
+        for (let a = 0; a < size; a++) {
+          const x = a - origin[0],
+            y = b - origin[1];
+          for (const [nx, ny] of [
+            [-y, x - y],
+            [-x, -y],
+          ]) {
+            const ta = nx + origin[0],
+              tb = ny + origin[1];
+            if (
+              ta < 0 ||
+              ta >= size ||
+              tb < 0 ||
+              tb >= size ||
+              (x === 0 && y === 0)
+            )
+              continue;
+            expect(classes[tb][ta]).toBe(classes[b][a]);
+            compared++;
+          }
+        }
+      expect(compared).toBeGreaterThan(300);
+    },
+  );
+
+  it('puts the origin at each listed place, over 60 seeds, about equally often', () => {
+    const counts = new Map<string, number>();
+    for (let seed = 0; seed < 60; seed++) {
+      const { origin } = readLattice(seed * 29 + 1),
+        key = origin.join(',');
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    expect(counts.size).toBe(p.origins.length);
+    for (const count of counts.values()) {
+      expect(count).toBeGreaterThan(1);
+      expect(count).toBeLessThan(16);
+    }
+  });
+
+  it('draws the prime dots, the ordinary dots, the origin and its ring with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, classes, origin } = readLattice(seed),
+        paperOk = (x: number, y: number): boolean =>
+          Math.abs(toneAt(sample, x, y) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      let primes = 0,
+        plains = 0;
+      for (let b = 0; b < size; b++)
+        for (let a = 0; a < size; a++) {
+          const [x, y] = place(a, b),
+            kind = classes[b][a],
+            radius =
+              kind === 1
+                ? p.primeRadius
+                : kind === 0
+                  ? p.plainRadius
+                  : p.originRadius,
+            tone =
+              kind === 1
+                ? p.primeTone
+                : kind === 0
+                  ? p.plainTone
+                  : p.originTone,
+            level =
+              kind === 1
+                ? p.primeHeight
+                : kind === 0
+                  ? p.plainHeight
+                  : p.originHeight;
+          expect(toneAt(sample, x, y)).toBeCloseTo(tone, 6);
+          expect(out.height / p.relief).toBeCloseTo(level, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          // The size: tone right up to the radius, paper just beyond (towards the point to the right in the row, a step away).
+          // Several directions, as the dots of the next rows are at other angles; the picture is paper in between.
+          for (const angle of [
+            0,
+            Math.PI / 3,
+            Math.PI / 2,
+            (2 * Math.PI) / 3,
+            Math.PI,
+            (4 * Math.PI) / 3,
+            (3 * Math.PI) / 2,
+            (5 * Math.PI) / 3,
+          ]) {
+            const inside = radius - 0.0004,
+              outside = radius + 0.0004;
+            expect(
+              toneAt(
+                sample,
+                x + inside * Math.cos(angle),
+                y + inside * Math.sin(angle),
+              ),
+            ).toBeCloseTo(tone, 6);
+            if (kind !== 2)
+              expect(
+                paperOk(
+                  x + outside * Math.cos(angle),
+                  y + outside * Math.sin(angle),
+                ),
+              ).toBe(true);
+            else if (angle === 0) expect(paperOk(x + outside, y)).toBe(true);
+          }
+          primes += Number(kind === 1);
+          plains += Number(kind === 0);
+          // The origin's ring: its tone, height and thickness at the ring radius, in six directions.
+          if (kind === 2) {
+            expect(a).toBe(origin[0]);
+            for (const angle of [0.3, 1.4, 2.5, 3.6, 4.7, 5.8]) {
+              const at = (reach: number): [number, number] => [
+                x + reach * Math.cos(angle),
+                y + reach * Math.sin(angle),
+              ];
+              expect(toneAt(sample, ...at(p.ringRadius))).toBeCloseTo(
+                p.ringTone,
+                6,
+              );
+              expect(out.height / p.relief).toBeCloseTo(p.ringHeight, 6);
+              expect(
+                toneAt(sample, ...at(p.ringRadius + p.ringHalf - 0.0004)),
+              ).toBeCloseTo(p.ringTone, 6);
+              expect(
+                toneAt(sample, ...at(p.ringRadius - p.ringHalf + 0.0004)),
+              ).toBeCloseTo(p.ringTone, 6);
+              expect(paperOk(...at(p.ringRadius + p.ringHalf + 0.0004))).toBe(
+                true,
+              );
+              expect(paperOk(...at(p.ringRadius - p.ringHalf - 0.0004))).toBe(
+                true,
+              );
+            }
+          }
+        }
+      // The number of primes in the picture: a good share, not all and not few.
+      expect(primes).toBeGreaterThan(size * size * 0.2);
+      expect(plains).toBeGreaterThan(size * size * 0.4);
+    }
+  });
+
+  it('softens the edge of a dot and of the ring over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      const { sample, classes, origin } = readLattice(seed),
+        firstOf = (kind: number): [number, number] => {
+          const b = classes.findIndex((row) => row.includes(kind));
+          return [classes[b].indexOf(kind), b];
+        },
+        around = (kind: number, radius: number, tone: number): void => {
+          const [a, b] = firstOf(kind),
+            [x, y] = place(a, b);
+          close(
+            toneAt(sample, x + radius - quarter, y),
+            mix(p.paperTone, tone, 0.75),
+          );
+          close(
+            toneAt(sample, x + radius + quarter, y),
+            mix(p.paperTone, tone, 0.25),
+          );
+        };
+      around(1, p.primeRadius, p.primeTone);
+      around(0, p.plainRadius, p.plainTone);
+      around(2, p.originRadius, p.originTone);
+      // The ring's outer and inner edges over the paper.
+      const [x, y] = place(origin[0], origin[1]);
+      close(
+        toneAt(sample, x + p.ringRadius + p.ringHalf - quarter, y),
+        mix(p.paperTone, p.ringTone, 0.75),
+      );
+      close(
+        toneAt(sample, x + p.ringRadius + p.ringHalf + quarter, y),
+        mix(p.paperTone, p.ringTone, 0.25),
+      );
+      close(
+        toneAt(sample, x + p.ringRadius - p.ringHalf + quarter, y),
+        mix(p.paperTone, p.ringTone, 0.75),
+      );
+      close(
+        toneAt(sample, x + p.ringRadius - p.ringHalf - quarter, y),
+        mix(p.paperTone, p.ringTone, 0.25),
+      );
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('eisensteinprimes', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('eisensteinprimes', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.0051),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('eisensteinprimes', 0),
+      b = createSurfaceSampler('eisensteinprimes', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.4801],
+        [0.5201, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
