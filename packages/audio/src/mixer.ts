@@ -156,7 +156,10 @@ export class AudioMixer {
   }
   /** Borrowed analyser; its signals are local to this context, never a cross-context sum. */
   analyser(name: AudioBusName, contextIndex = 0): AnalyserNode | undefined {
-    return [...this.graphs.values()][contextIndex]?.buses[name].analyser;
+    let index = 0;
+    for (const graph of this.graphs.values())
+      if (index++ === contextIndex) return graph.buses[name].analyser;
+    return undefined;
   }
 
   setEffects(name: AudioBusName, input: readonly AudioEffect[]): void {
