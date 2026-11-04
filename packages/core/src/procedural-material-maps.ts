@@ -50736,6 +50736,95 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'vortexstreet': {
+        const p = proceduralMaterialPresets.vortexstreet,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          ratio =
+            p.ratios[
+              Math.floor(hash(0, 93, seed ^ p.seedSalt) * p.ratios.length)
+            ],
+          plot = 0.5 - p.margin,
+          inverseSoft = 1 / p.edgeSoft,
+          unit = plot / p.halfWidth,
+          lineSquared = p.lineHalf * p.lineHalf,
+          wave = TAU,
+          // The street moves at U = tanh(pi h) / 2 (a = 1, circulation 1); in its frame the vortices are at rest.
+          speed = Math.tanh(Math.PI * ratio) / 2,
+          upper = ratio / 2;
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            x = p.centreX + (p.halfWidth * (fu - 0.5)) / plot,
+            y = (p.halfWidth * (0.5 - fv)) / plot,
+            // The stream function of an infinite row of vortices of circulation g at (x0 + n, y0) is -(g / 4 pi) ln((cosh(2 pi (y - y0)) - cos(2 pi (x - x0))) / 2).
+            upperX = wave * x,
+            lowerX = wave * (x - 0.5),
+            upperY = wave * (y - upper),
+            lowerY = wave * (y + upper),
+            upperDenominator = Math.max(
+              Math.cosh(upperY) - Math.cos(upperX),
+              1e-300,
+            ),
+            lowerDenominator = Math.max(
+              Math.cosh(lowerY) - Math.cos(lowerX),
+              1e-300,
+            ),
+            stream =
+              (-Math.log(upperDenominator) + Math.log(lowerDenominator)) /
+                (4 * Math.PI) -
+              speed * y,
+            // The gradient of the stream function in the moving frame: d/dx and d/dy of the two logarithms and of -U y.
+            gradientX =
+              (-wave * Math.sin(upperX)) / upperDenominator / (4 * Math.PI) +
+              (wave * Math.sin(lowerX)) / lowerDenominator / (4 * Math.PI),
+            gradientY =
+              (-wave * Math.sinh(upperY)) / upperDenominator / (4 * Math.PI) +
+              (wave * Math.sinh(lowerY)) / lowerDenominator / (4 * Math.PI) -
+              speed,
+            level = stream / p.levelStep,
+            distance =
+              (Math.abs(level - Math.round(level)) * p.levelStep * unit) /
+              Math.max(Math.hypot(gradientX, gradientY), 1e-9),
+            kernel = clamp(1 - (distance * distance) / lineSquared),
+            reach = smooth(
+              clamp((p.levelLimit - Math.abs(stream)) / p.levelFade),
+            );
+          let ink = p.lineTone * kernel * kernel * reach;
+          for (let n = -2; n <= 2; n++)
+            for (const [vx, vy] of [
+              [n, upper],
+              [n + 0.5, -upper],
+            ]) {
+              const squared = (x - vx) * (x - vx) + (y - vy) * (y - vy),
+                dot = clamp(1 - squared / (p.dotRadius * p.dotRadius));
+              ink = Math.max(ink, p.dotTone * dot * dot);
+            }
+          const outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
+            outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
+            boxDistance =
+              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              Math.min(Math.max(outsideX, outsideY), 0);
+          ink = clamp(smooth(clamp(-boxDistance / p.fade)) * ink);
+          const mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(ink) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -59653,6 +59742,7 @@ export function createSurfaceSampler(
     kind === 'raindropoptics' ||
     kind === 'machcone' ||
     kind === 'hydrogenorbitals' ||
+    kind === 'vortexstreet' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

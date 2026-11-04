@@ -1142,6 +1142,7 @@ const kinds: ProceduralMaterialKind[] = [
   'raindropoptics',
   'machcone',
   'hydrogenorbitals',
+  'vortexstreet',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -192646,6 +192647,317 @@ describe('Hydrogen orbitals as the probability density of an electron in a plane
     expect(blue / (512 * 512)).toBeLessThan(18.1);
     expect(maxTilt).toBeGreaterThan(0.0018);
     expect(maxTilt).toBeLessThan(0.002);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Vortex street as the streamlines of two staggered rows of vortices', () => {
+  const p = proceduralMaterialPresets.vortexstreet;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const plot = 0.5 - p.margin;
+  /** The colour at the point (x, y) of the plot (a = 1, y up). */
+  const colourAtPoint = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    x: number,
+    y: number,
+  ): number => {
+    sample(
+      0.5 + ((x - p.centreX) / p.halfWidth) * plot,
+      0.5 - (y / p.halfWidth) * plot,
+      out,
+    );
+    return out.color;
+  };
+  const insidePlot = (x: number, y: number): boolean => {
+    const fu = 0.5 + ((x - p.centreX) / p.halfWidth) * plot,
+      fv = 0.5 - (y / p.halfWidth) * plot;
+    return fu >= 0.06 && fu <= 0.94 && fv >= 0.06 && fv <= 0.94;
+  };
+  /** The stream function of the vortices (circulation +1 at (n, h / 2) and -1 at (n + 1 / 2, -h / 2)) by the direct sum of 2 * rows + 1 vortices of each row, and the velocity component u = d psi / d y at the vortex (0, h / 2) from all the others. */
+  const rowSum = (
+    x: number,
+    y: number,
+    ratio: number,
+    rows: number,
+    skipSelf: boolean,
+  ): number => {
+    let sum = 0;
+    for (let n = -rows; n <= rows; n++) {
+      if (!(skipSelf && n === 0))
+        sum -= Math.log(Math.hypot(x - n, y - ratio / 2)) / (2 * Math.PI);
+      sum += Math.log(Math.hypot(x - n - 0.5, y + ratio / 2)) / (2 * Math.PI);
+    }
+    return sum;
+  };
+  /** The speed of the street: the velocity that the other vortices induce on the vortex (0, h / 2), found by a central difference of the direct sum. */
+  const streetSpeed = (ratio: number): number =>
+    (rowSum(0, ratio / 2 + 1e-4, ratio, 2000, true) -
+      rowSum(0, ratio / 2 - 1e-4, ratio, 2000, true)) /
+    2e-4;
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('vortexstreet', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('vortexstreet', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0254);
+      expect(low).toBeLessThan(0.0256);
+      expect(high).toBeGreaterThan(0.851);
+      expect(high).toBeLessThan(0.867);
+      expect(dark / 65536).toBeGreaterThan(0.0688);
+      expect(dark / 65536).toBeLessThan(0.0785);
+      expect(mean / 65536).toBeGreaterThan(0.0989);
+      expect(mean / 65536).toBeLessThan(0.104);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.832);
+      expect(heightHigh).toBeLessThan(0.862);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (the ratio h / a of the rows 0.281, 0.15, 0.2, 0.4, 0.55 and 0.7) is 2, 0, 1, 13, 3 and 6; the table was found with a probe from the distance between the bright dots of the two rows,
+  // which was within 0.001 of the ratio for every seed, and is written here, so it is not an independent check of the seed's choice.
+  const seeds = [2, 0, 1, 13, 3, 6];
+  it('draws the streamlines of the moving frame where a direct sum of vortices puts them', () => {
+    // The streamlines are the curves psi = n 0.03 of the stream function in the frame that moves with the street, psi - U y. The test sums 801 vortices of each row directly and finds U as the velocity that the others induce on a vortex
+    // (0.3539, 0.2196, 0.2784, 0.4250, 0.4693 and 0.4877 in the probe, against tanh(pi h) / 2 within 1e-4), scans eleven horizontal lines from x = -0.95 to 1.45 and finds where psi - U y crosses a multiple of 0.03 up to 0.7 (by linear
+    // interpolation and one secant step); at those points in the plot where the gradient is over 0.15 (the sum is truncated and is off by up to 6e-4) the colour is above 0.4 (0.529 at the lowest in the probe; 137 to 205 points per variant).
+    seeds.forEach((seed, index) => {
+      const ratio = p.ratios[index],
+        speed = streetSpeed(ratio),
+        sample = createSurfaceSampler('vortexstreet', seed),
+        out = empty(),
+        stream = (x: number, y: number): number =>
+          rowSum(x, y, ratio, 400, false) - speed * y;
+      let counted = 0;
+      for (const y of [
+        -1, -0.8, -0.55, -0.4, -0.25, 0, 0.25, 0.4, 0.55, 0.8, 1,
+      ]) {
+        let previous = stream(-0.95, y);
+        for (let x = -0.95 + 0.004; x <= 1.45; x += 0.004) {
+          const current = stream(x, y);
+          for (
+            let n = Math.ceil(Math.min(previous, current) / 0.03);
+            n <= Math.floor(Math.max(previous, current) / 0.03);
+            n++
+          ) {
+            if (Math.abs(n * 0.03) > 0.7) continue;
+            let root =
+              x -
+              0.004 +
+              (0.004 * (n * 0.03 - previous)) / (current - previous);
+            root -=
+              (stream(root, y) - n * 0.03) *
+              ((current - previous) / 0.004) ** -1;
+            const gradientX =
+                (stream(root + 1e-4, y) - stream(root - 1e-4, y)) / 2e-4,
+              gradientY =
+                (stream(root, y + 1e-4) - stream(root, y - 1e-4)) / 2e-4;
+            if (!insidePlot(root, y) || Math.hypot(gradientX, gradientY) < 0.15)
+              continue;
+            expect(colourAtPoint(sample, out, root, y)).toBeGreaterThan(0.4);
+            counted++;
+          }
+          previous = current;
+        }
+      }
+      expect(counted).toBeGreaterThan(100);
+    });
+  });
+  it('is periodic along x with the spacing of the vortices and has the glide symmetry of the street', () => {
+    // The street repeats every a = 1 along x, and the second row is the first one shifted by a / 2 along x and mirrored in y with the circulation reversed, so the streamlines (the multiples of the same step, positive and negative)
+    // map onto each other under (x, y) -> (x + 1 / 2, -y): on a 70 by 70 grid the colours at the points and at their images differ by under 0.05 (0.029 at the most in the probe, the grain; 3850 points per variant).
+    seeds.forEach((seed) => {
+      const sample = createSurfaceSampler('vortexstreet', seed),
+        out = empty();
+      let counted = 0;
+      for (let i = 0; i < 70; i++)
+        for (let j = 0; j < 70; j++) {
+          const x = -0.9 + (2.3 * (i + 0.37)) / 70,
+            y = -1.15 + (2.3 * (j + 0.61)) / 70;
+          if (!insidePlot(x, y)) continue;
+          const colour = colourAtPoint(sample, out, x, y);
+          if (insidePlot(x + 1, y))
+            expect(
+              Math.abs(colour - colourAtPoint(sample, out, x + 1, y)),
+            ).toBeLessThan(0.05);
+          if (insidePlot(x + 0.5, -y)) {
+            expect(
+              Math.abs(colour - colourAtPoint(sample, out, x + 0.5, -y)),
+            ).toBeLessThan(0.05);
+            counted++;
+          }
+        }
+      expect(counted).toBeGreaterThan(3000);
+    });
+  });
+  it('marks the vortices at the rows h / 2 above and below the axis', () => {
+    // The vortices are at (n, h / 2) and (n + 1 / 2, -h / 2) (h = 0.281 to 0.7 times a): the colour at each of the four in the plot (n from -1 to 1) is above 0.8 (0.850 at the lowest in the probe).
+    seeds.forEach((seed, index) => {
+      const ratio = p.ratios[index],
+        sample = createSurfaceSampler('vortexstreet', seed),
+        out = empty();
+      let counted = 0;
+      for (let n = -1; n <= 1; n++)
+        for (const [x, y] of [
+          [n, ratio / 2],
+          [n + 0.5, -ratio / 2],
+        ]) {
+          if (!insidePlot(x, y)) continue;
+          expect(colourAtPoint(sample, out, x, y)).toBeGreaterThan(0.8);
+          counted++;
+        }
+      expect(counted).toBe(4);
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 2 pick different ratios of the rows (0.15 and 0.281).
+    const first = litGrid(0),
+      second = litGrid(2);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.1294);
+    expect(different / first.length).toBeLessThan(0.1295);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('vortexstreet', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 sage street maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('vortexstreet', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(23.9);
+    expect(red / (512 * 512)).toBeLessThan(24.9);
+    expect(green / (512 * 512)).toBeGreaterThan(44.1);
+    expect(green / (512 * 512)).toBeLessThan(45.1);
+    expect(blue / (512 * 512)).toBeGreaterThan(31.5);
+    expect(blue / (512 * 512)).toBeLessThan(32.5);
+    expect(maxTilt).toBeGreaterThan(0.0255);
+    expect(maxTilt).toBeLessThan(0.0265);
     expect(invalid).toBe(0);
   });
 });

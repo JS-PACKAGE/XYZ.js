@@ -1179,6 +1179,7 @@ try {
     'raindropoptics',
     'machcone',
     'hydrogenorbitals',
+    'vortexstreet',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
