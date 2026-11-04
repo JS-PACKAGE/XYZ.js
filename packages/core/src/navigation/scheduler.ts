@@ -112,6 +112,10 @@ export class NavigationScheduler {
   private readonly followers = new Set<ScheduledNavigationFollower>();
   private cursor = 0;
   private readonly owners: (NavigationSearchOwner | undefined)[] = [];
+  private readonly queuedByOwner = new Map<
+    NavigationSearchOwner | undefined,
+    number
+  >();
   private disposed = false;
   readonly stats: NavigationSchedulerStats = {
     work: 0,
@@ -140,7 +144,7 @@ export class NavigationScheduler {
       throw new RangeError('Navigation scheduled work limit exceeded.');
     const work = new NavigationScheduledSearch(owner, create);
     this.queue.push({ work, kind: 'search', owner });
-    if (!this.owners.includes(owner)) this.owners.push(owner);
+    this.addQueuedOwner(owner);
     return work;
   }
   scheduleBake<T extends NavigationWork>(work: T): T {
@@ -151,7 +155,7 @@ export class NavigationScheduler {
     )
       throw new RangeError('Navigation scheduled work limit exceeded.');
     this.queue.push({ work, kind: 'bake', owner: undefined });
-    if (!this.owners.includes(undefined)) this.owners.push(undefined);
+    this.addQueuedOwner(undefined);
     return work;
   }
   addFollower(follower: ScheduledNavigationFollower): void {
@@ -203,8 +207,11 @@ export class NavigationScheduler {
         if (index >= 0) {
           const entry = this.queue.splice(index, 1)[0]!;
           const owner = this.owners.splice(lane, 1)[0];
-          if (this.queue.some((queued) => queued.owner === owner))
+          const remaining = this.queuedByOwner.get(owner)! - 1;
+          if (remaining > 0) {
+            this.queuedByOwner.set(owner, remaining);
             this.owners.push(owner);
+          } else this.queuedByOwner.delete(owner);
           stats.work++;
           if (entry.work.status !== 'pending') {
             this.record(entry.work.status);
@@ -256,6 +263,7 @@ export class NavigationScheduler {
     for (const entry of this.active) entry.work.cancel();
     this.queue.length = this.active.length = this.owners.length = 0;
     this.cursor = 0;
+    this.queuedByOwner.clear();
     for (const follower of this.followers) follower.stop();
     this.followers.clear();
     this.stats.queued = this.stats.active = 0;
@@ -269,6 +277,11 @@ export class NavigationScheduler {
     if (status === 'cancelled') this.stats.cancelled++;
     else if (status === 'invalidated') this.stats.invalidated++;
     else this.stats.completed++;
+  }
+  private addQueuedOwner(owner: NavigationSearchOwner | undefined): void {
+    const count = this.queuedByOwner.get(owner) ?? 0;
+    if (count === 0) this.owners.push(owner);
+    this.queuedByOwner.set(owner, count + 1);
   }
   private checkBudget(value: number): void {
     if (
