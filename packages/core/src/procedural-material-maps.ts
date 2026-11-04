@@ -55631,6 +55631,122 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'gridsplits': {
+        const p = proceduralMaterialPresets.gridsplits,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.widths.length,
+          group = Math.floor(unsigned / p.widths.length),
+          width: number = p.widths[variant],
+          height0: number = p.heights[variant],
+          size: number = p.sizes[variant],
+          cols = p.cols[variant],
+          rows = p.rows[variant],
+          cells = width * height0,
+          // The cells next to cell k (by an edge).
+          around = (k: number): number[] => {
+            const x = k % width,
+              y = Math.floor(k / width),
+              next: number[] = [];
+            if (x > 0) next.push(k - 1);
+            if (x < width - 1) next.push(k + 1);
+            if (y > 0) next.push(k - width);
+            if (y < height0 - 1) next.push(k + width);
+            return next;
+          },
+          // Whether the cells of the set (as bits) are in one piece.
+          joined = (set: number): boolean => {
+            const first = Math.log2(set & -set);
+            let seen = 1 << first;
+            const stack = [first];
+            while (stack.length > 0) {
+              for (const b of around(stack.pop() as number))
+                if ((set >> b) & 1 && !((seen >> b) & 1)) {
+                  seen |= 1 << b;
+                  stack.push(b);
+                }
+            }
+            return seen === set;
+          },
+          // Every split: the sets of size cells that hold cell 0, are in one piece, and leave the other cells in one piece, found by going through all the sets of the board that hold cell 0 (the first bit); each is kept as the region of every cell (0 for the region of cell 0).
+          panels = (() => {
+            const found: Uint8Array[] = [],
+              whole = 2 ** cells - 1;
+            for (let set = 1; set <= whole; set += 2) {
+              let bits = 0;
+              for (let rest = set; rest > 0; rest >>= 1) bits += rest & 1;
+              if (bits !== size || !joined(set) || !joined(whole ^ set))
+                continue;
+              const regions = new Uint8Array(cells);
+              for (let k = 0; k < cells; k++)
+                regions[k] = (set >> k) & 1 ? 0 : 1;
+              found.push(regions);
+            }
+            for (let k = found.length - 1; k > 0; k--) {
+              const other = Math.floor(
+                hash(k, 391, group ^ p.seedSalt) * (k + 1),
+              );
+              [found[k], found[other]] = [found[other], found[k]];
+            }
+            return found;
+          })(),
+          scale = Math.min(
+            1 / (cols * (width + 2 * p.margin)),
+            1 / (rows * (height0 + 2 * p.margin)),
+          ),
+          originX = (1 / cols - scale * (width + 2 * p.margin)) / 2,
+          originY = (1 / rows - scale * (height0 + 2 * p.margin)) / 2,
+          halfGap = p.gapWidth / 2,
+          // 1 on the cell side of a gap, 0 at the edge itself, at the distance fromEdge in cells.
+          edge = (fromEdge: number): number =>
+            smooth(clamp((fromEdge - halfGap) / p.edgeSoft));
+        return () => {
+          const tileU = fract(u),
+            tileV = fract(v),
+            col = Math.min(cols - 1, Math.floor(tileU * cols)),
+            row = Math.min(rows - 1, Math.floor(tileV * rows)),
+            index = row * cols + col,
+            grain = grainField(u, v);
+          let mask = 0,
+            region = 0;
+          if (index < panels.length) {
+            const x = (tileU - col / cols - originX) / scale - p.margin,
+              y = (tileV - row / rows - originY) / scale - p.margin,
+              i = Math.floor(x),
+              j = Math.floor(y);
+            if (i >= 0 && j >= 0 && i < width && j < height0) {
+              const regions = panels[index],
+                own = regions[j * width + i],
+                same = (a: number, b: number): boolean =>
+                  a >= 0 &&
+                  b >= 0 &&
+                  a < width &&
+                  b < height0 &&
+                  regions[b * width + a] === own,
+                fx = x - i,
+                fy = y - j;
+              // A side of a cell has a gap unless the cell across it is of the same region.
+              mask =
+                (same(i - 1, j) ? 1 : edge(fx)) *
+                (same(i + 1, j) ? 1 : edge(1 - fx)) *
+                (same(i, j - 1) ? 1 : edge(fy)) *
+                (same(i, j + 1) ? 1 : edge(1 - fy));
+              region = own;
+            }
+          }
+          color =
+            p.toneGap * (1 - mask) +
+            p.tones[region] * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * p.levels[region];
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -64592,6 +64708,7 @@ export function createSurfaceSampler(
     kind === 'alternatingsignmatrices' ||
     kind === 'stilllifes' ||
     kind === 'chorddiagrams' ||
+    kind === 'gridsplits' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

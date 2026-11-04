@@ -1186,6 +1186,7 @@ const kinds: ProceduralMaterialKind[] = [
   'alternatingsignmatrices',
   'stilllifes',
   'chorddiagrams',
+  'gridsplits',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -209257,6 +209258,385 @@ describe('Chord diagrams as every diagram of a kind drawn once', () => {
     expect(green / (512 * 512)).toBeLessThan(29);
     expect(blue / (512 * 512)).toBeGreaterThan(32.8);
     expect(blue / (512 * 512)).toBeLessThan(33.8);
+    expect(maxTilt).toBeGreaterThan(0.107);
+    expect(maxTilt).toBeLessThan(0.1071);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Grid splits as every split of a board drawn once', () => {
+  const p = proceduralMaterialPresets.gridsplits;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The layout of the panels of a variant (seed % 6): slots of 1 / cols by 1 / rows, each with the board (width by height cells, at its top left) and the margin around it, drawn at one scale and centred in the slot. */
+  const geometry = (seed: number) => {
+    const variant = seed % p.widths.length,
+      width: number = p.widths[variant],
+      height: number = p.heights[variant],
+      size: number = p.sizes[variant],
+      cols: number = p.cols[variant],
+      rows: number = p.rows[variant],
+      scale = Math.min(
+        1 / (cols * (width + 2 * p.margin)),
+        1 / (rows * (height + 2 * p.margin)),
+      );
+    return {
+      width,
+      height,
+      size,
+      cols,
+      rows,
+      scale,
+      originX: (1 / cols - scale * (width + 2 * p.margin)) / 2,
+      originY: (1 / rows - scale * (height + 2 * p.margin)) / 2,
+    };
+  };
+  type Geometry = ReturnType<typeof geometry>;
+  /** The cells next to a cell of the board by an edge. */
+  const neighbours = (g: Geometry, k: number): number[] => {
+    const x = k % g.width,
+      y = Math.floor(k / g.width);
+    return [
+      ...(x > 0 ? [k - 1] : []),
+      ...(x < g.width - 1 ? [k + 1] : []),
+      ...(y > 0 ? [k - g.width] : []),
+      ...(y < g.height - 1 ? [k + g.width] : []),
+    ];
+  };
+  /** The region of every cell of every panel slot of a seed read back from the picture (null for an empty slot), as a string of 0 (the region of the top left cell, the higher and brighter) and 1: the height at the middle of a cell must be that of one of the two regions, and nothing else. */
+  const readSplits = (seed: number): (string | null)[] => {
+    const g = geometry(seed),
+      sample = createSurfaceSampler('gridsplits', seed),
+      out = empty(),
+      splits: (string | null)[] = [];
+    for (let slot = 0; slot < g.cols * g.rows; slot++) {
+      const col = slot % g.cols,
+        row = Math.floor(slot / g.cols);
+      let text = '',
+        blank = 0;
+      for (let j = 0; j < g.height; j++)
+        for (let i = 0; i < g.width; i++) {
+          sample(
+            col / g.cols + g.originX + g.scale * (p.margin + i + 0.5),
+            row / g.rows + g.originY + g.scale * (p.margin + j + 0.5),
+            out,
+          );
+          const level = out.height / p.relief / p.cellHeight;
+          if (level === 0) {
+            blank++;
+            text += '-';
+          } else if (Math.abs(level - p.levels[0]) < 1e-9) text += '0';
+          else {
+            expect(level).toBeCloseTo(p.levels[1], 9);
+            text += '1';
+          }
+        }
+      // An empty slot shows the ground at every cell.
+      expect(blank === 0 || blank === g.width * g.height).toBe(true);
+      splits.push(blank > 0 ? null : text);
+    }
+    return splits;
+  };
+  /** Whether the cells with the given region (0 or 1) of a split are in one piece. */
+  const inOnePiece = (g: Geometry, text: string, region: string): boolean => {
+    const cells = [...text].flatMap((c, k) => (c === region ? [k] : [])),
+      seen = new Set([cells[0]]),
+      stack = [cells[0]];
+    while (stack.length > 0) {
+      for (const b of neighbours(g, stack.pop()!))
+        if (text[b] === region && !seen.has(b)) {
+          seen.add(b);
+          stack.push(b);
+        }
+    }
+    return seen.size === cells.length;
+  };
+  /** Every split by growing the connected sets of the wanted size from the top left cell, one neighbouring cell at a time, and keeping those whose other cells are in one piece. */
+  const splitCache = new Map<string, string[]>();
+  const allSplits = (g: Geometry): string[] => {
+    const cacheKey = `${g.width}x${g.height}x${g.size}`,
+      cached = splitCache.get(cacheKey);
+    if (cached !== undefined) return cached;
+    let sets = new Map<string, number[]>([['0', [0]]]);
+    for (let step = 1; step < g.size; step++) {
+      const next = new Map<string, number[]>();
+      for (const set of sets.values())
+        for (const k of set)
+          for (const b of neighbours(g, k))
+            if (!set.includes(b)) {
+              const grown = [...set, b].sort((a, c) => a - c);
+              next.set(grown.join(','), grown);
+            }
+      sets = next;
+    }
+    const found: string[] = [];
+    for (const set of sets.values()) {
+      const text = Array.from({ length: g.width * g.height }, (_, k) =>
+        set.includes(k) ? '0' : '1',
+      ).join('');
+      if (inOnePiece(g, text, '1')) found.push(text);
+    }
+    splitCache.set(cacheKey, found);
+    return found;
+  };
+  /** The grid of 256 by 256 colours above 0.2, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('gridsplits', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.2));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { high: 0.964, lit: 0.43466, mean: 0.32322 }],
+      [1, { high: 0.964, lit: 0.44753, mean: 0.32738 }],
+      [0xffffffff, { high: 0.964, lit: 0.48021, mean: 0.35283 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('gridsplits', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.2);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0152);
+      expect(low).toBeLessThan(0.0156);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws every split of the board into two pieces exactly once, read back from the picture and compared with the sets grown from the top left cell', () => {
+    for (let seed = 0; seed < 12; seed++) {
+      const g = geometry(seed),
+        read = readSplits(seed),
+        drawn = read.filter((text): text is string => text !== null);
+      for (const text of drawn) {
+        // The region of the top left cell is 0, has the size of the variant and is in one piece, and so is the other region.
+        expect(text[0]).toBe('0');
+        expect([...text].filter((c) => c === '0').length).toBe(g.size);
+        expect(inOnePiece(g, text, '0')).toBe(true);
+        expect(inOnePiece(g, text, '1')).toBe(true);
+      }
+      expect(new Set(drawn).size).toBe(drawn.length);
+      expect([...drawn].sort()).toEqual([...allSplits(g)].sort());
+      expect(read.slice(drawn.length).every((text) => text === null)).toBe(
+        true,
+      );
+    }
+    // The numbers: 19, 70, 85 and 245 splits of the boards of 4 by 3, 4 by 4, 6 by 3 and 5 by 4 cells into two halves, 42 of 4 by 4 into 6 and 10 cells and 36 of 5 by 3 into 7 and 8.
+    expect(
+      [0, 1, 2, 3, 4, 5].map(
+        (seed) => readSplits(seed).filter((text) => text !== null).length,
+      ),
+    ).toEqual([19, 70, 85, 245, 42, 36]);
+  });
+  it('shuffles the panels by group without changing the set of splits', () => {
+    for (const seed of [1, 3, 5]) {
+      const names = (s: number) => readSplits(s).map((text) => text ?? '-'),
+        first = names(seed),
+        second = names(seed + 6),
+        third = names(seed + 12);
+      expect(first).not.toEqual(second);
+      expect(second).not.toEqual(third);
+      expect([...first].sort()).toEqual([...second].sort());
+      expect([...first].sort()).toEqual([...third].sort());
+    }
+  });
+  it('agrees with the ideal cells and gaps away from the gap edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5]) {
+      const g = geometry(seed),
+        splits = readSplits(seed),
+        sample = createSurfaceSampler('gridsplits', seed),
+        out = empty(),
+        half = p.gapWidth / 2;
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          col = Math.min(g.cols - 1, Math.floor(u * g.cols)),
+          row = Math.min(g.rows - 1, Math.floor(v * g.rows)),
+          text = splits[row * g.cols + col],
+          x = (u - col / g.cols - g.originX) / g.scale - p.margin,
+          y = (v - row / g.rows - g.originY) / g.scale - p.margin,
+          i = Math.floor(x),
+          j = Math.floor(y);
+        let ink = 0,
+          region = 0,
+          near = false;
+        if (text !== null && i >= 0 && j >= 0 && i < g.width && j < g.height) {
+          const own = text[j * g.width + i],
+            same = (a: number, b: number) =>
+              a >= 0 &&
+              b >= 0 &&
+              a < g.width &&
+              b < g.height &&
+              text[b * g.width + a] === own,
+            // The distances to the four sides of the cell and whether a gap lies beyond each.
+            sides: [number, boolean][] = [
+              [x - i, !same(i - 1, j)],
+              [i + 1 - x, !same(i + 1, j)],
+              [y - j, !same(i, j - 1)],
+              [j + 1 - y, !same(i, j + 1)],
+            ];
+          let gap = false;
+          for (const [distance, open] of sides) {
+            if (!open) continue;
+            if (distance <= half) gap = true;
+            if (distance < half + p.edgeSoft) near = true;
+          }
+          ink = gap ? 0 : 1;
+          region = Number(own);
+        }
+        if (near) continue;
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief * p.cellHeight * ink * p.levels[region],
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGap * (1 - ink) + p.tones[region] * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(4600);
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeGreaterThan(0.5038);
+    expect(unlike(first, litGrid(1))).toBeLessThan(0.504);
+    expect(unlike(first, litGrid(6))).toBeGreaterThan(0.061);
+    expect(unlike(first, litGrid(6))).toBeLessThan(0.0612);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('gridsplits', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 green grid split maps on dark green with raised regions and shaded gaps', () => {
+    const maps = generateProceduralMaps('gridsplits', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(60.9);
+    expect(red / (512 * 512)).toBeLessThan(61.9);
+    expect(green / (512 * 512)).toBeGreaterThan(86.9);
+    expect(green / (512 * 512)).toBeLessThan(87.9);
+    expect(blue / (512 * 512)).toBeGreaterThan(59);
+    expect(blue / (512 * 512)).toBeLessThan(60);
     expect(maxTilt).toBeGreaterThan(0.107);
     expect(maxTilt).toBeLessThan(0.1071);
     expect(invalid).toBe(0);

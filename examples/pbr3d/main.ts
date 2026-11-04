@@ -1223,6 +1223,7 @@ try {
     'alternatingsignmatrices',
     'stilllifes',
     'chorddiagrams',
+    'gridsplits',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
