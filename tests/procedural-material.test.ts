@@ -1164,6 +1164,7 @@ const kinds: ProceduralMaterialKind[] = [
   'magicsquares',
   'costasambiguity',
   'projectiveplane',
+  'dyckpaths',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -200226,6 +200227,384 @@ describe('Projective plane as the incidence matrix of points and lines that meet
     expect(blue / (512 * 512)).toBeLessThan(52);
     expect(maxTilt).toBeGreaterThan(0.0684);
     expect(maxTilt).toBeLessThan(0.0685);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Dyck paths as every Dyck and Motzkin path of a length drawn once', () => {
+  const p = proceduralMaterialPresets.dyckpaths;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The geometry of the panels of a variant (seed % 6): the layout copied from the sampler's contract: panel slots of 1 / cols by 1 / rows, the picture drawn at one scale and centred in its slot with margin lattice units around the path. */
+  const geometry = (seed: number) => {
+    const variant = seed % p.lengths.length,
+      length = p.lengths[variant],
+      cols = p.cols[variant],
+      rows = p.rows[variant],
+      top = Math.floor(length / 2),
+      scale = Math.min(
+        1 / (cols * (length + 2 * p.margin)),
+        1 / (rows * (top + 2 * p.margin)),
+      );
+    return {
+      length,
+      cols,
+      rows,
+      top,
+      scale,
+      motzkin: p.kinds[variant] === 1,
+      originX: (1 / cols - scale * (length + 2 * p.margin)) / 2,
+      originY: (1 / rows - scale * (top + 2 * p.margin)) / 2,
+    };
+  };
+  /** The ink (the occlusion is 1 - gapOcclusion times (1 - ink)) at the lattice point (x, y) of the panel in a slot, and the tile position of it. */
+  const tilePoint = (
+    g: ReturnType<typeof geometry>,
+    slot: number,
+    x: number,
+    y: number,
+  ) => ({
+    u: (slot % g.cols) / g.cols + g.originX + g.scale * (p.margin + x),
+    v:
+      Math.floor(slot / g.cols) / g.rows +
+      g.originY +
+      g.scale * (p.margin + g.top - y),
+  });
+  const inkAt = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    g: ReturnType<typeof geometry>,
+    slot: number,
+    x: number,
+    y: number,
+  ): number => {
+    const { u, v } = tilePoint(g, slot, x, y);
+    sample(u, v, out);
+    return 1 - (1 - out.occlusion) / p.gapOcclusion;
+  };
+  /** The path of every panel slot read back from the picture, as the heights joined by commas (null for an empty slot): from the start (0, 0) every step must show exactly one of the segments up, level (Motzkin only) and down, which are told apart by their points a quarter of the way along. */
+  const readPaths = (seed: number): (string | null)[] => {
+    const g = geometry(seed),
+      sample = createSurfaceSampler('dyckpaths', seed),
+      out = empty(),
+      paths: (string | null)[] = [];
+    for (let slot = 0; slot < g.cols * g.rows; slot++) {
+      if (inkAt(sample, out, g, slot, 0, 0) < 0.5) {
+        paths.push(null);
+        continue;
+      }
+      let height = 0;
+      const heights = [0];
+      for (let step = 0; step < g.length; step++) {
+        const next: number[] = [];
+        if (inkAt(sample, out, g, slot, step + 0.25, height + 0.25) > 0.5)
+          next.push(height + 1);
+        if (g.motzkin && inkAt(sample, out, g, slot, step + 0.5, height) > 0.5)
+          next.push(height);
+        if (inkAt(sample, out, g, slot, step + 0.25, height - 0.25) > 0.5)
+          next.push(height - 1);
+        expect(next.length).toBe(1);
+        height = next[0];
+        heights.push(height);
+      }
+      paths.push(heights.join(','));
+    }
+    return paths;
+  };
+  /** Every Dyck path (or Motzkin path) of the length as heights joined by commas, written again here as a recursion over the steps. */
+  const allPaths = (length: number, motzkin: boolean): string[] => {
+    const found: string[] = [],
+      walk = (heights: number[]): void => {
+        const height = heights[heights.length - 1];
+        if (heights.length === length + 1) {
+          if (height === 0) found.push(heights.join(','));
+          return;
+        }
+        for (const move of motzkin ? [-1, 0, 1] : [-1, 1])
+          if (height + move >= 0) walk([...heights, height + move]);
+      };
+    walk([0]);
+    return found;
+  };
+  /** The Catalan number C(n) = binomial(2n, n) / (n + 1) and the Motzkin number from M(n) = ((2n + 1) M(n - 1) + (3n - 3) M(n - 2)) / (n + 2). */
+  const catalan = (n: number): number => {
+    let value = 1;
+    for (let k = 0; k < n; k++) value = (value * 2 * (2 * k + 1)) / (k + 2);
+    return value;
+  };
+  const motzkinNumber = (n: number): number => {
+    const numbers = [1, 1];
+    for (let k = 2; k <= n; k++)
+      numbers.push(
+        ((2 * k + 1) * numbers[k - 1] + (3 * k - 3) * numbers[k - 2]) / (k + 2),
+      );
+    return numbers[n];
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('dyckpaths', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('dyckpaths', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0153);
+      expect(low).toBeLessThan(0.0156);
+      expect(high).toBeGreaterThan(0.9635);
+      expect(high).toBeLessThan(0.9639);
+      expect(lit / 65536).toBeGreaterThan(0.0273);
+      expect(lit / 65536).toBeLessThan(0.0335);
+      expect(mean / 65536).toBeGreaterThan(0.0576);
+      expect(mean / 65536).toBeLessThan(0.0624);
+      expect(heightHigh).toBeGreaterThan(0.799);
+      expect(heightHigh).toBeLessThan(0.8001);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws every Dyck path of semilength 4, 5 and 6 and every Motzkin path of length 5, 6 and 7 exactly once, read back from the picture', () => {
+    for (let seed = 0; seed < 18; seed++) {
+      const g = geometry(seed),
+        read = readPaths(seed),
+        drawn = read.filter((path): path is string => path !== null),
+        wanted = allPaths(g.length, g.motzkin);
+      // The numbers of paths are the Catalan numbers 14, 42, 132 and the Motzkin numbers 21, 51, 127.
+      expect(wanted.length).toBe(
+        g.motzkin ? motzkinNumber(g.length) : catalan(g.length / 2),
+      );
+      expect(drawn.length).toBe(wanted.length);
+      expect(new Set(drawn).size).toBe(drawn.length);
+      expect([...drawn].sort()).toEqual([...wanted].sort());
+      // Every slot beyond the paths is empty and the filled slots come first.
+      expect(read.slice(drawn.length).every((path) => path === null)).toBe(
+        true,
+      );
+    }
+    expect([14, 42, 132, 21, 51, 127]).toEqual(
+      [0, 1, 2, 3, 4, 5].map(
+        (seed) => readPaths(seed).filter((path) => path !== null).length,
+      ),
+    );
+  });
+  it('shuffles the panels by group without changing the set of paths', () => {
+    const first = readPaths(0),
+      second = readPaths(6),
+      third = readPaths(12);
+    expect(first).not.toEqual(second);
+    expect(second).not.toEqual(third);
+    expect([...first].sort()).toEqual([...second].sort());
+    expect([...first].sort()).toEqual([...third].sort());
+  });
+  it('agrees with the ideal paths and dots of predicates away from their edges: ink, height, tone and occlusion', () => {
+    for (const seed of [0, 1, 2, 3, 4, 5]) {
+      const g = geometry(seed),
+        paths = readPaths(seed),
+        sample = createSurfaceSampler('dyckpaths', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          col = Math.min(g.cols - 1, Math.floor(u * g.cols)),
+          row = Math.min(g.rows - 1, Math.floor(v * g.rows)),
+          path = paths[row * g.cols + col];
+        let strokeInk = 0,
+          dotInk = 0,
+          near = false;
+        if (path !== null) {
+          const x = (u - col / g.cols - g.originX) / g.scale - p.margin,
+            y = g.top - ((v - row / g.rows - g.originY) / g.scale - p.margin),
+            heights = path.split(',').map(Number);
+          for (let step = 0; step < g.length; step++) {
+            const dy = heights[step + 1] - heights[step],
+              along = Math.max(
+                0,
+                Math.min(
+                  1,
+                  (x - step + dy * (y - heights[step])) / (1 + dy * dy),
+                ),
+              ),
+              distance = Math.hypot(
+                x - step - along,
+                y - heights[step] - dy * along,
+              );
+            if (Math.abs(distance - p.strokeHalf) <= p.edgeSoft / 2 + 1e-9)
+              near = true;
+            if (distance < p.strokeHalf) strokeInk = 1;
+          }
+          const nearX = Math.round(x),
+            nearY = Math.round(y),
+            reachable =
+              nearX >= 0 &&
+              nearX <= g.length &&
+              nearY >= 0 &&
+              nearY <= Math.min(nearX, g.length - nearX) &&
+              (g.motzkin || (nearX + nearY) % 2 === 0);
+          if (reachable) {
+            const distance = Math.hypot(x - nearX, y - nearY);
+            if (Math.abs(distance - p.dotRadius) <= p.edgeSoft / 2 + 1e-9)
+              near = true;
+            if (distance < p.dotRadius) dotInk = 1;
+          }
+        }
+        if (near) continue;
+        compared++;
+        const ink = 1 - (1 - strokeInk) * (1 - dotInk),
+          tone =
+            strokeInk * p.toneStroke + (1 - strokeInk) * dotInk * p.toneDot;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            (strokeInk + (1 - strokeInk) * dotInk * p.dotHeight),
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      expect(compared).toBeGreaterThan(5700);
+    }
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeGreaterThan(0.059);
+    expect(unlike(first, litGrid(1))).toBeLessThan(0.0591);
+    expect(unlike(first, litGrid(6))).toBeGreaterThan(0.0262);
+    expect(unlike(first, litGrid(6))).toBeLessThan(0.0263);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('dyckpaths', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 gold path maps on dark navy with raised lines and shaded ground', () => {
+    const maps = generateProceduralMaps('dyckpaths', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(21.7);
+    expect(red / (512 * 512)).toBeLessThan(22.7);
+    expect(green / (512 * 512)).toBeGreaterThan(24.9);
+    expect(green / (512 * 512)).toBeLessThan(25.9);
+    expect(blue / (512 * 512)).toBeGreaterThan(33.4);
+    expect(blue / (512 * 512)).toBeLessThan(34.4);
+    expect(maxTilt).toBeGreaterThan(0.107);
+    expect(maxTilt).toBeLessThan(0.1071);
     expect(invalid).toBe(0);
   });
 });

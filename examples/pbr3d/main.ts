@@ -1201,6 +1201,7 @@ try {
     'magicsquares',
     'costasambiguity',
     'projectiveplane',
+    'dyckpaths',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

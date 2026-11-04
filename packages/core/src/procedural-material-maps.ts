@@ -52840,6 +52840,115 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'dyckpaths': {
+        const p = proceduralMaterialPresets.dyckpaths,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.lengths.length,
+          group = Math.floor(unsigned / p.lengths.length),
+          length = p.lengths[variant],
+          motzkin = p.kinds[variant] === 1,
+          cols = p.cols[variant],
+          rows = p.rows[variant],
+          // The greatest height of a path of this length.
+          top = Math.floor(length / 2),
+          // The heights of every path (length + 1 of them from 0 to 0) in a shuffled order.
+          paths = (() => {
+            const found: number[][] = [],
+              walk = (heights: number[]): void => {
+                const step = heights.length - 1,
+                  height = heights[step];
+                // A path must be able to come back to 0 in the steps that are left.
+                if (height > length - step) return;
+                if (step === length) {
+                  if (height === 0) found.push(heights.slice());
+                  return;
+                }
+                for (const move of motzkin ? [1, 0, -1] : [1, -1])
+                  if (height + move >= 0) {
+                    heights.push(height + move);
+                    walk(heights);
+                    heights.pop();
+                  }
+              };
+            walk([0]);
+            for (let k = found.length - 1; k > 0; k--) {
+              const other = Math.floor(
+                hash(k, 181, group ^ p.seedSalt) * (k + 1),
+              );
+              [found[k], found[other]] = [found[other], found[k]];
+            }
+            return found;
+          })(),
+          // The scale (tile lengths per lattice unit): the panel, with its margin, fits its slot in both directions.
+          scale = Math.min(
+            1 / (cols * (length + 2 * p.margin)),
+            1 / (rows * (top + 2 * p.margin)),
+          ),
+          originX = (1 / cols - scale * (length + 2 * p.margin)) / 2,
+          originY = (1 / rows - scale * (top + 2 * p.margin)) / 2,
+          halfStroke = p.strokeHalf,
+          // 1 inside the distance half, 0 outside, 1/2 at half, smoothed over edgeSoft.
+          band = (distance: number, half: number): number =>
+            smooth(clamp((half - distance) / p.edgeSoft + 0.5));
+        return () => {
+          const tileU = fract(u),
+            tileV = fract(v),
+            col = Math.min(cols - 1, Math.floor(tileU * cols)),
+            row = Math.min(rows - 1, Math.floor(tileV * rows)),
+            index = row * cols + col,
+            grain = grainField(u, v);
+          let strokeInk = 0,
+            dotInk = 0;
+          if (index < paths.length) {
+            // Lattice coordinates of the point: x along the path from 0 to length, y the height from 0 up to top.
+            const x = (tileU - col / cols - originX) / scale - p.margin,
+              y = top - ((tileV - row / rows - originY) / scale - p.margin),
+              heights = paths[index];
+            let free = 1;
+            for (let step = 0; step < length; step++) {
+              // The distance from (x, y) to the segment from (step, heights[step]) to (step + 1, heights[step + 1]).
+              const dy = heights[step + 1] - heights[step],
+                along = Math.max(
+                  0,
+                  Math.min(
+                    1,
+                    (x - step + dy * (y - heights[step])) / (1 + dy * dy),
+                  ),
+                ),
+                distance = Math.hypot(
+                  x - step - along,
+                  y - heights[step] - dy * along,
+                );
+              free *= 1 - band(distance, halfStroke);
+            }
+            strokeInk = 1 - free;
+            // The dot of the nearest lattice point if a path can reach it.
+            const nearX = Math.round(x),
+              nearY = Math.round(y);
+            if (
+              nearX >= 0 &&
+              nearX <= length &&
+              nearY >= 0 &&
+              nearY <= Math.min(nearX, length - nearX) &&
+              (motzkin || (nearX + nearY) % 2 === 0)
+            )
+              dotInk = band(Math.hypot(x - nearX, y - nearY), p.dotRadius);
+          }
+          const ink = 1 - (1 - strokeInk) * (1 - dotInk),
+            tone =
+              strokeInk * p.toneStroke + (1 - strokeInk) * dotInk * p.toneDot;
+          color = p.toneGround * (1 - ink) + tone + p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * (strokeInk + (1 - strokeInk) * dotInk * p.dotHeight);
+          occlusion = 1 - p.gapOcclusion * (1 - ink);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -61779,6 +61888,7 @@ export function createSurfaceSampler(
     kind === 'magicsquares' ||
     kind === 'costasambiguity' ||
     kind === 'projectiveplane' ||
+    kind === 'dyckpaths' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
