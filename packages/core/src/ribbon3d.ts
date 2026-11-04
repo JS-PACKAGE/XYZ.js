@@ -160,6 +160,8 @@ export class Ribbon3D extends Mesh {
     }
     const vertices = this.geometry.vertices;
     const colors = this.geometry.colors!;
+    // Point timestamps increase, so active ages (and their curve segments) only decrease.
+    let key = this.curve.length - 1;
     for (let i = 0; i < this.maxPoints; i++) {
       const active = i < this.count;
       const point =
@@ -183,8 +185,9 @@ export class Ribbon3D extends Mesh {
             Math.max(0, (time - this.points[point + 3]) / this.lifetime),
           )
         : 1;
-      let key = 1;
-      while (key < this.curve.length - 1 && age > this.curve[key].age) key++;
+      if (active) {
+        while (key > 1 && age <= this.curve[key - 1].age) key--;
+      } else key = this.curve.length - 1;
       const a = this.curve[key - 1],
         b = this.curve[key];
       const t = (age - a.age) / (b.age - a.age);
