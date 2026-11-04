@@ -245,7 +245,7 @@ export class UIElement extends IsolatedGroup2D {
     this.arrangedHeight = this.limit(height, false);
     this.layoutDirty = false;
     this.arranged();
-    if (this.arrangeChildren() || this.children.length === 0) return;
+    if (this.arrangeChildren() || !this.existingChildren?.size) return;
     const innerWidth = Math.max(
       0,
       this.arrangedWidth - this.padding(1) - this.padding(3),
