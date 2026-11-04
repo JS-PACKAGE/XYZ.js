@@ -313,8 +313,8 @@ export class AssetLoader {
               throw new AssetError('Texture acquisition was cancelled.');
             const bytes = texture.width * texture.height * 4;
             let available = 0;
-            const candidates: [string, CachedTexture][] | undefined =
-              this.decodedBytes + bytes > this.decodedBudget ? [] : undefined;
+            let oldestKey: string | undefined;
+            let oldest: CachedTexture | undefined;
             for (const [key, candidate] of this.cache) {
               if (candidate.texture?.destroyed)
                 this.removeTexture(key, candidate);
@@ -324,7 +324,10 @@ export class AssetLoader {
                 !candidate.references
               ) {
                 available += candidate.bytes;
-                candidates?.push([key, candidate]);
+                if (!oldest || candidate.seen < oldest.seen) {
+                  oldestKey = key;
+                  oldest = candidate;
+                }
               }
             }
             if (this.decodedBytes + bytes - available > this.decodedBudget)
@@ -332,9 +335,22 @@ export class AssetLoader {
                 'Decoded texture budget is exhausted by borrowed resources.',
               );
             if (this.decodedBytes + bytes > this.decodedBudget) {
+              this.removeTexture(oldestKey!, oldest!);
+              oldest!.texture!.destroy();
+              this.evictions++;
+            }
+            if (this.decodedBytes + bytes > this.decodedBudget) {
+              const candidates: [string, CachedTexture][] = [];
+              for (const candidate of this.cache)
+                if (
+                  candidate[1].texture &&
+                  !candidate[1].pinned &&
+                  !candidate[1].references
+                )
+                  candidates.push(candidate);
               // Sort once when a large admission must reclaim many small textures.
-              candidates!.sort((a, b) => a[1].seen - b[1].seen);
-              for (const [key, candidate] of candidates!) {
+              candidates.sort((a, b) => a[1].seen - b[1].seen);
+              for (const [key, candidate] of candidates) {
                 if (this.decodedBytes + bytes <= this.decodedBudget) break;
                 this.removeTexture(key, candidate);
                 candidate.texture!.destroy();
