@@ -17535,6 +17535,49 @@ export declare const proceduralMaterialPresets: Readonly<{
         periodicHeight: 0.65;
         gapOcclusion: 0.45;
     }>;
+    spanningtrees: Readonly<{
+        dark: readonly [8, 16, 24];
+        light: readonly [170, 255, 190];
+        roughness: 0.4;
+        relief: 0.0012;
+        seedSalt: 24119;
+        graphs: readonly [{
+            readonly vertices: readonly [readonly [0, -1], readonly [0.866, 0.5], readonly [-0.866, 0.5], readonly [0, 0]];
+            readonly edges: readonly [readonly [0, 1], readonly [0, 2], readonly [0, 3], readonly [1, 2], readonly [1, 3], readonly [2, 3]];
+        }, {
+            readonly vertices: readonly [readonly [-1, 0], readonly [1, 0], readonly [0, -0.9], readonly [0, -0.3], readonly [0, 0.3], readonly [0, 0.9]];
+            readonly edges: readonly [readonly [0, 2], readonly [0, 3], readonly [0, 4], readonly [0, 5], readonly [1, 2], readonly [1, 3], readonly [1, 4], readonly [1, 5]];
+        }, {
+            readonly vertices: readonly [readonly [0, 0], readonly [0, -1], readonly [1, 0], readonly [0, 1], readonly [-1, 0]];
+            readonly edges: readonly [readonly [0, 1], readonly [0, 2], readonly [0, 3], readonly [0, 4], readonly [1, 2], readonly [2, 3], readonly [3, 4], readonly [4, 1]];
+        }, {
+            readonly vertices: readonly [readonly [-0.9, -0.7], readonly [0, -0.7], readonly [0.9, -0.7], readonly [-0.9, 0.7], readonly [0, 0.7], readonly [0.9, 0.7]];
+            readonly edges: readonly [readonly [0, 3], readonly [0, 4], readonly [0, 5], readonly [1, 3], readonly [1, 4], readonly [1, 5], readonly [2, 3], readonly [2, 4], readonly [2, 5]];
+        }, {
+            readonly vertices: readonly [readonly [0, 0], readonly [0, -1], readonly [0.951, -0.309], readonly [0.588, 0.809], readonly [-0.588, 0.809], readonly [-0.951, -0.309]];
+            readonly edges: readonly [readonly [0, 1], readonly [0, 2], readonly [0, 3], readonly [0, 4], readonly [0, 5], readonly [1, 2], readonly [2, 3], readonly [3, 4], readonly [4, 5], readonly [5, 1]];
+        }, {
+            readonly vertices: readonly [readonly [0, -1], readonly [0.951, -0.309], readonly [0.588, 0.809], readonly [-0.588, 0.809], readonly [-0.951, -0.309]];
+            readonly edges: readonly [readonly [0, 1], readonly [0, 2], readonly [0, 3], readonly [0, 4], readonly [1, 2], readonly [1, 3], readonly [1, 4], readonly [2, 3], readonly [2, 4], readonly [3, 4]];
+        }];
+        cols: readonly [4, 6, 7, 9, 11, 12];
+        rows: readonly [4, 6, 7, 9, 11, 11];
+        margin: 0.2;
+        treeHalf: 0.07;
+        otherHalf: 0.03;
+        dotRadius: 0.11;
+        edgeSoft: 0.05;
+        grainCells: 128;
+        toneGround: 0.03;
+        toneOther: 0.3;
+        toneDot: 0.65;
+        toneTree: 0.95;
+        grainTone: 0.03;
+        cellHeight: 0.8;
+        otherHeight: 0.3;
+        dotHeight: 0.6;
+        gapOcclusion: 0.45;
+    }>;
     vermiculation: Readonly<{
         dark: readonly [60, 48, 36];
         light: readonly [220, 204, 172];
@@ -19338,6 +19381,7 @@ export declare const proceduralTileMeters: Readonly<{
     dyckpaths: 0.5;
     youngdiagrams: 0.5;
     necklaces: 0.5;
+    spanningtrees: 0.5;
     dominotiling: 0.5;
     vermiculation: 0.4;
     kikko: 0.3;

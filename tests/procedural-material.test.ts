@@ -1167,6 +1167,7 @@ const kinds: ProceduralMaterialKind[] = [
   'dyckpaths',
   'youngdiagrams',
   'necklaces',
+  'spanningtrees',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -201361,6 +201362,407 @@ describe('Necklaces as every ring of beads drawn once', () => {
     expect(blue / (512 * 512)).toBeLessThan(49.1);
     expect(maxTilt).toBeGreaterThan(0.0536);
     expect(maxTilt).toBeLessThan(0.0537);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Spanning trees as every tree of a small graph drawn once', () => {
+  const p = proceduralMaterialPresets.spanningtrees;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The layout of the panels of a variant (seed % 6): slots of 1 / cols by 1 / rows, the unit square of the graph drawn at one scale and centred in its slot with the margin around it. */
+  const geometry = (seed: number) => {
+    const variant = seed % p.graphs.length,
+      graph = p.graphs[variant],
+      cols = p.cols[variant],
+      rows = p.rows[variant],
+      extent = 1 + p.margin,
+      scale = Math.min(1 / (cols * 2 * extent), 1 / (rows * 2 * extent));
+    return {
+      vertices: graph.vertices as readonly (readonly number[])[],
+      edges: graph.edges as readonly (readonly number[])[],
+      cols,
+      rows,
+      extent,
+      scale,
+      originX: (1 / cols - scale * 2 * extent) / 2,
+      originY: (1 / rows - scale * 2 * extent) / 2,
+    };
+  };
+  type Geometry = ReturnType<typeof geometry>;
+  /** The distance from the point (x, y) to the segment from a to b. */
+  const segmentDistance = (
+    x: number,
+    y: number,
+    a: readonly number[],
+    b: readonly number[],
+  ): number => {
+    const dx = b[0] - a[0],
+      dy = b[1] - a[1],
+      along = Math.max(
+        0,
+        Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / (dx * dx + dy * dy)),
+      );
+    return Math.hypot(x - a[0] - along * dx, y - a[1] - along * dy);
+  };
+  /** A point on every edge where it can be told from the other edges and the vertex dots (further from them than a thick edge, a dot and their smoothing): the middle if it is free, else the first free one of a few other places. */
+  const probePoints = (g: Geometry): number[][] =>
+    g.edges.map(([a, b], k) => {
+      for (const t of [0.5, 0.3, 0.7, 0.2, 0.8, 0.4, 0.6]) {
+        const x = g.vertices[a][0] + t * (g.vertices[b][0] - g.vertices[a][0]),
+          y = g.vertices[a][1] + t * (g.vertices[b][1] - g.vertices[a][1]);
+        const free =
+          g.edges.every(
+            ([c, d], j) =>
+              j === k ||
+              segmentDistance(x, y, g.vertices[c], g.vertices[d]) >
+                p.treeHalf + p.edgeSoft + 0.01,
+          ) &&
+          g.vertices.every(
+            (vertex) =>
+              Math.hypot(x - vertex[0], y - vertex[1]) >
+              p.dotRadius + p.edgeSoft + 0.01,
+          );
+        if (free) return [x, y];
+      }
+      throw new Error('no free point on an edge');
+    });
+  /** The tree of every panel slot of a seed read back from the picture, as a flag per edge (null for an empty slot): at a free point of each edge the ink is there for every edge of the graph and the height level is 1 for a tree edge and otherHeight for another edge. A slot is either all edges or none. */
+  const readTrees = (seed: number): (boolean[] | null)[] => {
+    const g = geometry(seed),
+      points = probePoints(g),
+      sample = createSurfaceSampler('spanningtrees', seed),
+      out = empty(),
+      trees: (boolean[] | null)[] = [];
+    for (let slot = 0; slot < g.cols * g.rows; slot++) {
+      const col = slot % g.cols,
+        row = Math.floor(slot / g.cols),
+        flags: boolean[] = [];
+      let present = 0;
+      for (const [x, y] of points) {
+        sample(
+          col / g.cols + g.originX + g.scale * (g.extent + x),
+          row / g.rows + g.originY + g.scale * (g.extent + y),
+          out,
+        );
+        if (1 - (1 - out.occlusion) / p.gapOcclusion < 0.5) {
+          flags.push(false);
+          continue;
+        }
+        present++;
+        flags.push(
+          out.height / p.relief / p.cellHeight > (1 + p.otherHeight) / 2,
+        );
+      }
+      if (present === 0) trees.push(null);
+      else {
+        expect(present).toBe(points.length);
+        trees.push(flags);
+      }
+    }
+    return trees;
+  };
+  /** Whether the chosen edges form a spanning tree: vertices - 1 of them that join no two vertices twice. */
+  const isSpanningTree = (g: Geometry, flags: boolean[]): boolean => {
+    const parent = g.vertices.map((_, k) => k),
+      find = (k: number): number =>
+        parent[k] === k ? k : (parent[k] = find(parent[k]));
+    let count = 0;
+    for (const [k, [a, b]] of g.edges.entries()) {
+      if (!flags[k]) continue;
+      count++;
+      if (find(a) === find(b)) return false;
+      parent[find(a)] = find(b);
+    }
+    return count === g.vertices.length - 1;
+  };
+  /** The number of spanning trees by Kirchhoff's matrix tree theorem: the determinant of the Laplacian with one row and column removed. */
+  const kirchhoff = (g: Geometry): number => {
+    const n = g.vertices.length,
+      laplacian = Array.from({ length: n }, () => new Array<number>(n).fill(0));
+    for (const [a, b] of g.edges) {
+      laplacian[a][a]++;
+      laplacian[b][b]++;
+      laplacian[a][b]--;
+      laplacian[b][a]--;
+    }
+    const m = laplacian.slice(1).map((row) => row.slice(1));
+    let det = 1;
+    for (let i = 0; i < m.length; i++) {
+      let pivot = i;
+      for (let r = i + 1; r < m.length; r++)
+        if (Math.abs(m[r][i]) > Math.abs(m[pivot][i])) pivot = r;
+      if (Math.abs(m[pivot][i]) < 1e-12) return 0;
+      if (pivot !== i) {
+        [m[pivot], m[i]] = [m[i], m[pivot]];
+        det = -det;
+      }
+      det *= m[i][i];
+      for (let r = i + 1; r < m.length; r++) {
+        const factor = m[r][i] / m[i][i];
+        for (let c = i; c < m.length; c++) m[r][c] -= factor * m[i][c];
+      }
+    }
+    return Math.round(det);
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('spanningtrees', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('spanningtrees', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0155);
+      expect(low).toBeLessThan(0.0157);
+      expect(high).toBeGreaterThan(0.9634);
+      expect(high).toBeLessThan(0.9643);
+      expect(lit / 65536).toBeGreaterThan(0.1098);
+      expect(lit / 65536).toBeLessThan(0.2028);
+      expect(mean / 65536).toBeGreaterThan(0.1324);
+      expect(mean / 65536).toBeLessThan(0.2234);
+      expect(heightHigh).toBeGreaterThan(0.799);
+      expect(heightHigh).toBeLessThan(0.8001);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws every spanning tree of K4, K(2,4), the wheels W4 and W5, K(3,3) and K5 exactly once, read back from the picture and counted by the matrix tree theorem', () => {
+    for (let seed = 0; seed < 12; seed++) {
+      const g = geometry(seed),
+        read = readTrees(seed),
+        drawn = read.filter((flags): flags is boolean[] => flags !== null),
+        keys = drawn.map((flags) => flags.map(Number).join(''));
+      // Every drawn edge set is a spanning tree and no two are alike.
+      for (const flags of drawn) expect(isSpanningTree(g, flags)).toBe(true);
+      expect(new Set(keys).size).toBe(drawn.length);
+      // The numbers of spanning trees are 16, 32, 45, 81, 121 and 125 (Cayley's formula for K4 and K5, 2^3 4^1 and 3^2 3^2 for the complete bipartite graphs).
+      expect(drawn.length).toBe(kirchhoff(g));
+      // Every choice of vertices - 1 edges that is a tree is drawn (written again here by trying all choices).
+      const wanted: string[] = [];
+      for (let mask = 0; mask < 1 << g.edges.length; mask++) {
+        const flags = g.edges.map((_, k) => ((mask >> k) & 1) === 1);
+        if (isSpanningTree(g, flags)) wanted.push(flags.map(Number).join(''));
+      }
+      expect([...keys].sort()).toEqual(wanted.sort());
+      expect(read.slice(drawn.length).every((flags) => flags === null)).toBe(
+        true,
+      );
+    }
+    expect([16, 32, 45, 81, 121, 125]).toEqual(
+      [0, 1, 2, 3, 4, 5].map(
+        (seed) => readTrees(seed).filter((flags) => flags !== null).length,
+      ),
+    );
+  });
+  it('shuffles the panels by group without changing the set of trees', () => {
+    const keys = (seed: number) =>
+        readTrees(seed).map((flags) =>
+          flags === null ? '-' : flags.map(Number).join(''),
+        ),
+      first = keys(0),
+      second = keys(6),
+      third = keys(12);
+    expect(first).not.toEqual(second);
+    expect(second).not.toEqual(third);
+    expect([...first].sort()).toEqual([...second].sort());
+    expect([...first].sort()).toEqual([...third].sort());
+  });
+  it('agrees with the ideal edges and dots of predicates away from their edges: ink, height, tone and occlusion', () => {
+    for (const seed of [0, 1, 2, 3, 4, 5]) {
+      const g = geometry(seed),
+        trees = readTrees(seed),
+        sample = createSurfaceSampler('spanningtrees', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          col = Math.min(g.cols - 1, Math.floor(u * g.cols)),
+          row = Math.min(g.rows - 1, Math.floor(v * g.rows)),
+          flags = trees[row * g.cols + col],
+          x = (u - col / g.cols - g.originX) / g.scale - g.extent,
+          y = (v - row / g.rows - g.originY) / g.scale - g.extent;
+        let tree = false,
+          other = false,
+          dot = false,
+          near = false;
+        if (flags !== null) {
+          g.edges.forEach(([a, b], e) => {
+            const distance = segmentDistance(
+                x,
+                y,
+                g.vertices[a],
+                g.vertices[b],
+              ),
+              half = flags[e] ? p.treeHalf : p.otherHalf;
+            if (Math.abs(distance - half) <= p.edgeSoft / 2 + 1e-9) near = true;
+            if (distance < half) {
+              if (flags[e]) tree = true;
+              else other = true;
+            }
+          });
+          for (const vertex of g.vertices) {
+            const distance = Math.hypot(x - vertex[0], y - vertex[1]);
+            if (Math.abs(distance - p.dotRadius) <= p.edgeSoft / 2 + 1e-9)
+              near = true;
+            if (distance < p.dotRadius) dot = true;
+          }
+        }
+        if (near) continue;
+        compared++;
+        // A dot is over the edges and a tree edge over the thin ones.
+        const ink = dot || tree || other ? 1 : 0,
+          tone = dot ? p.toneDot : tree ? p.toneTree : other ? p.toneOther : 0,
+          level = dot ? p.dotHeight : tree ? 1 : other ? p.otherHeight : 0;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(p.relief * p.cellHeight * level, 12);
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      expect(compared).toBeGreaterThan(4400);
+    }
+  });
+  it('draws a different view per graph and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeGreaterThan(0.2145);
+    expect(unlike(first, litGrid(1))).toBeLessThan(0.2146);
+    expect(unlike(first, litGrid(6))).toBeGreaterThan(0.0793);
+    expect(unlike(first, litGrid(6))).toBeLessThan(0.0794);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('spanningtrees', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 mint graph maps on dark teal with raised edges and shaded ground', () => {
+    const maps = generateProceduralMaps('spanningtrees', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(32.5);
+    expect(red / (512 * 512)).toBeLessThan(33.6);
+    expect(green / (512 * 512)).toBeGreaterThan(52.5);
+    expect(green / (512 * 512)).toBeLessThan(53.5);
+    expect(blue / (512 * 512)).toBeGreaterThan(49.2);
+    expect(blue / (512 * 512)).toBeLessThan(50.2);
+    expect(maxTilt).toBeGreaterThan(0.0964);
+    expect(maxTilt).toBeLessThan(0.0965);
     expect(invalid).toBe(0);
   });
 });

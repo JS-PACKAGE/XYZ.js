@@ -1204,6 +1204,7 @@ try {
     'dyckpaths',
     'youngdiagrams',
     'necklaces',
+    'spanningtrees',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

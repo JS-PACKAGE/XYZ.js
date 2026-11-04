@@ -30421,6 +30421,173 @@ var proceduralMaterialPresets = Object.freeze({
 		periodicHeight: .65,
 		gapOcclusion: .45
 	}),
+	spanningtrees: Object.freeze({
+		dark: [
+			8,
+			16,
+			24
+		],
+		light: [
+			170,
+			255,
+			190
+		],
+		roughness: .4,
+		relief: .0012,
+		seedSalt: 24119,
+		graphs: [
+			{
+				vertices: [
+					[0, -1],
+					[.866, .5],
+					[-.866, .5],
+					[0, 0]
+				],
+				edges: [
+					[0, 1],
+					[0, 2],
+					[0, 3],
+					[1, 2],
+					[1, 3],
+					[2, 3]
+				]
+			},
+			{
+				vertices: [
+					[-1, 0],
+					[1, 0],
+					[0, -.9],
+					[0, -.3],
+					[0, .3],
+					[0, .9]
+				],
+				edges: [
+					[0, 2],
+					[0, 3],
+					[0, 4],
+					[0, 5],
+					[1, 2],
+					[1, 3],
+					[1, 4],
+					[1, 5]
+				]
+			},
+			{
+				vertices: [
+					[0, 0],
+					[0, -1],
+					[1, 0],
+					[0, 1],
+					[-1, 0]
+				],
+				edges: [
+					[0, 1],
+					[0, 2],
+					[0, 3],
+					[0, 4],
+					[1, 2],
+					[2, 3],
+					[3, 4],
+					[4, 1]
+				]
+			},
+			{
+				vertices: [
+					[-.9, -.7],
+					[0, -.7],
+					[.9, -.7],
+					[-.9, .7],
+					[0, .7],
+					[.9, .7]
+				],
+				edges: [
+					[0, 3],
+					[0, 4],
+					[0, 5],
+					[1, 3],
+					[1, 4],
+					[1, 5],
+					[2, 3],
+					[2, 4],
+					[2, 5]
+				]
+			},
+			{
+				vertices: [
+					[0, 0],
+					[0, -1],
+					[.951, -.309],
+					[.588, .809],
+					[-.588, .809],
+					[-.951, -.309]
+				],
+				edges: [
+					[0, 1],
+					[0, 2],
+					[0, 3],
+					[0, 4],
+					[0, 5],
+					[1, 2],
+					[2, 3],
+					[3, 4],
+					[4, 5],
+					[5, 1]
+				]
+			},
+			{
+				vertices: [
+					[0, -1],
+					[.951, -.309],
+					[.588, .809],
+					[-.588, .809],
+					[-.951, -.309]
+				],
+				edges: [
+					[0, 1],
+					[0, 2],
+					[0, 3],
+					[0, 4],
+					[1, 2],
+					[1, 3],
+					[1, 4],
+					[2, 3],
+					[2, 4],
+					[3, 4]
+				]
+			}
+		],
+		cols: [
+			4,
+			6,
+			7,
+			9,
+			11,
+			12
+		],
+		rows: [
+			4,
+			6,
+			7,
+			9,
+			11,
+			11
+		],
+		margin: .2,
+		treeHalf: .07,
+		otherHalf: .03,
+		dotRadius: .11,
+		edgeSoft: .05,
+		grainCells: 128,
+		toneGround: .03,
+		toneOther: .3,
+		toneDot: .65,
+		toneTree: .95,
+		grainTone: .03,
+		cellHeight: .8,
+		otherHeight: .3,
+		dotHeight: .6,
+		gapOcclusion: .45
+	}),
 	vermiculation: Object.freeze({
 		dark: [
 			60,
@@ -32546,6 +32713,7 @@ var proceduralTileMeters = Object.freeze({
 	dyckpaths: .5,
 	youngdiagrams: .5,
 	necklaces: .5,
+	spanningtrees: .5,
 	dominotiling: .5,
 	vermiculation: .4,
 	kikko: .3,

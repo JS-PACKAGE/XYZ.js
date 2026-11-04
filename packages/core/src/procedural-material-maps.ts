@@ -53134,6 +53134,111 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'spanningtrees': {
+        const p = proceduralMaterialPresets.spanningtrees,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.graphs.length,
+          group = Math.floor(unsigned / p.graphs.length),
+          graph = p.graphs[variant],
+          vertices = graph.vertices as readonly (readonly number[])[],
+          edges = graph.edges as readonly (readonly number[])[],
+          cols = p.cols[variant],
+          rows = p.rows[variant],
+          // The edge sets of every spanning tree (as a flag per edge), in a shuffled order.
+          trees = (() => {
+            const found: boolean[][] = [];
+            for (let mask = 0; mask < 1 << edges.length; mask++) {
+              const chosen = edges.map((_, k) => ((mask >> k) & 1) === 1);
+              if (chosen.filter(Boolean).length !== vertices.length - 1)
+                continue;
+              // The edges form a tree when they join no two vertices twice (so there is no cycle, and with vertices - 1 of them the graph is connected).
+              const parent = vertices.map((_, k) => k),
+                find = (k: number): number =>
+                  parent[k] === k ? k : (parent[k] = find(parent[k]));
+              let acyclic = true;
+              edges.forEach(([a, b], k) => {
+                if (!chosen[k]) return;
+                if (find(a) === find(b)) acyclic = false;
+                else parent[find(a)] = find(b);
+              });
+              if (acyclic) found.push(chosen);
+            }
+            for (let k = found.length - 1; k > 0; k--) {
+              const other = Math.floor(
+                hash(k, 211, group ^ p.seedSalt) * (k + 1),
+              );
+              [found[k], found[other]] = [found[other], found[k]];
+            }
+            return found;
+          })(),
+          extent = 1 + p.margin,
+          scale = Math.min(1 / (cols * 2 * extent), 1 / (rows * 2 * extent)),
+          originX = (1 / cols - scale * 2 * extent) / 2,
+          originY = (1 / rows - scale * 2 * extent) / 2,
+          // 1 inside the distance half, 0 outside, 1/2 at half, smoothed over edgeSoft.
+          band = (distance: number, half: number): number =>
+            smooth(clamp((half - distance) / p.edgeSoft + 0.5));
+        return () => {
+          const tileU = fract(u),
+            tileV = fract(v),
+            col = Math.min(cols - 1, Math.floor(tileU * cols)),
+            row = Math.min(rows - 1, Math.floor(tileV * rows)),
+            index = row * cols + col,
+            grain = grainField(u, v);
+          let free = 1,
+            toneSum = 0,
+            heightSum = 0;
+          if (index < trees.length) {
+            // Coordinates in the unit square of the graph, x to the right and y downwards.
+            const x = (tileU - col / cols - originX) / scale - extent,
+              y = (tileV - row / rows - originY) / scale - extent,
+              chosen = trees[index];
+            // The edges first (the tree edges over the others), then the vertex dots over them.
+            let edgeFree = 1,
+              treeFree = 1;
+            edges.forEach(([a, b], k) => {
+              const [ax, ay] = vertices[a],
+                [bx, by] = vertices[b],
+                dx = bx - ax,
+                dy = by - ay,
+                along = Math.max(
+                  0,
+                  Math.min(
+                    1,
+                    ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy),
+                  ),
+                ),
+                distance = Math.hypot(x - ax - along * dx, y - ay - along * dy);
+              if (chosen[k]) treeFree *= 1 - band(distance, p.treeHalf);
+              else edgeFree *= 1 - band(distance, p.otherHalf);
+            });
+            const treeMask = 1 - treeFree,
+              otherMask = (1 - edgeFree) * treeFree;
+            let dotFree = 1;
+            for (const [vx, vy] of vertices)
+              dotFree *= 1 - band(Math.hypot(x - vx, y - vy), p.dotRadius);
+            const dotMask = 1 - dotFree,
+              under = 1 - dotMask;
+            toneSum =
+              dotMask * p.toneDot +
+              under * (treeMask * p.toneTree + otherMask * p.toneOther);
+            heightSum =
+              dotMask * p.dotHeight +
+              under * (treeMask + otherMask * p.otherHeight);
+            free = under * treeFree * edgeFree;
+          }
+          const ink = 1 - free;
+          color = p.toneGround * free + toneSum + p.grainTone * (grain - 0.5);
+          height = p.cellHeight * heightSum;
+          occlusion = 1 - p.gapOcclusion * (1 - ink);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -62076,6 +62181,7 @@ export function createSurfaceSampler(
     kind === 'dyckpaths' ||
     kind === 'youngdiagrams' ||
     kind === 'necklaces' ||
+    kind === 'spanningtrees' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
