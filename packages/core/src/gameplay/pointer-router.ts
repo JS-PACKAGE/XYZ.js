@@ -362,8 +362,14 @@ export class PointerRouter extends EventTarget {
     this.routing = true;
     try {
       this.targets.length = 0;
-      // Only sample picking reads the targets; idle frames skip the scan and sort.
-      if (pointer.samples.length) {
+      // Exit/cancellation samples never pick a target; idle frames also skip the sort.
+      let picking = false;
+      for (const sample of pointer.samples)
+        if (sample.kind !== 'leave' && sample.kind !== 'cancel') {
+          picking = true;
+          break;
+        }
+      if (picking) {
         for (const object of this.scene.objects)
           if (
             object instanceof GameObject &&
