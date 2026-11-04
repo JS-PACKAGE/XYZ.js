@@ -13893,3 +13893,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試（總功率守恆、半與四分之一塔爾博特長度、z = 0 處是光柵本身、與菲涅耳積分一致）加色調範圍、seed差異與決定性、C1與週期、maps共4項，再加kinds清單新條目，`-t`選中的9項皆通過。變異檢查（做過五次）：相位 2πn²z 改成 2πnz，該describe 8項中4項失敗（色調範圍、菲涅耳、seed差異、maps），**半與四分之一塔爾博特長度那一項仍通過**；c_n 的因子2去掉，6項失敗；c_n 中 sin(πnf) 乘1.1，5項失敗；色調曲線 1 − exp(−I) 換成 I/(1 + I)，6項失敗；x 整體平移0.01，只有菲涅耳與seed差異2項失敗（總功率與半、四分之一那兩項沒抓到）；五者皆已還原（`cmp`確認）。限制：seed對應的光柵不是獨立oracle；24個諧波的吉布斯漣漪是近似；菲涅耳比對寬鬆（0.16）且不含相位光柵；n² 的相位沒有被總功率與半、四分之一那兩項單獨釘住；只有6種圖；沒有查文獻，也沒有對照任何參考圖。型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Talbot carpet as|talbotcarpet|kinds|catalog|distinct|periodic"`定向測試**2550項通過／4452項未選**，輸出`GATES-OK`。
 - 未驗證：talbotcarpet尚未有完整suite與瀏覽器gallery的複驗紀錄（最近一次已記錄的完整suite與gallery見下一節：`64f4b8227`）；不push。
+
+## 2026-11-04 完整測試與瀏覽器gallery複驗（至牛頓分形）
+
+- 範圍：在`64f4b8227`（新增牛頓分形之後；之後的`talbotcarpet`不在此次複驗內）重跑完整測試與瀏覽器gallery。這段不新增材質，只記錄實跑結果。`hydrogenorbitals`（`5517bc2fd`）與`vortexstreet`（`679ba0749`）包含在這個範圍內。
+- 完整測試（工具實跑，乾淨的detached worktree）：**179個測試檔、10,922項全部通過**（1632 s，期間同時還跑著其他工作，所以耗時不是乾淨的量測）。前一次完整複驗在`722193039`（10,897項）；10,897 → 10,922共25項，與hydrogenorbitals 8項、vortexstreet 8項、newtonfractal 9項的定向測試選取數相符。
+- 瀏覽器gallery（工具實跑，無頭Chrome，vite從乾淨worktree提供`/examples/pbr3d/`）：在`64f4b8227`，WebGPU分頁與`?renderer=webgl2`分頁各自讀到「1117 procedural material presets」、選單1118個選項；各自選取newtonfractal、vortexstreet、hydrogenorbitals、machcone、raindropoptics，頁面讀數都更新（每個selection回傳true）；console錯誤項目兩個分頁都是空的（`errors()`的entries為空）；另外各自讀回newtonfractal與vortexstreet的選項文字，與`index.html`標籤一致。限制：只涵蓋「可選取、讀數更新、無console錯誤」，沒有目視畫面或像素比對；跨瀏覽器、跨GPU行為沒有驗證。我第一次與第二、三次呼叫時瀏覽器工具有逾時（30 s，與同時在跑完整測試的負載有關），之後加上重試才完成；第一次成功的那回合因為我誤把`errors()`物件當陣列讀`.length`而沒有拿到console錯誤的結果，所以另跑了一輪確認entries為空。
+- 未驗證：`talbotcarpet`尚未跑完整suite與瀏覽器gallery；跨瀏覽器與跨GPU；不push。
