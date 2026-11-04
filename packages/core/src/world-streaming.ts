@@ -424,11 +424,10 @@ export class WorldStreamingController extends EventTarget {
 
   /** Wait for admitted work, including non-cooperative cancelled loaders. Does not admit/publish work. */
   async settled(): Promise<void> {
-    await Promise.all(
-      [...this.records.values()].flatMap((record) =>
-        record.task ? [record.task] : [],
-      ),
-    );
+    const tasks: Promise<void>[] = [];
+    for (const record of this.records.values())
+      if (record.task) tasks.push(record.task);
+    await Promise.all(tasks);
   }
 
   destroy(): void {
