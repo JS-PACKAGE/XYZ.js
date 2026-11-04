@@ -2389,6 +2389,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`ninemensmorris`（九子棋盤）使目前目錄1205→1206種，含plain的gallery為1207項。木框內的九子棋盤：三個由內而外的正方形（半邊長為一、二、三個單位），四條連接內外正方形各邊中點的線（內正方形的中點連到外正方形同一邊的中點），24個點（各正方形的四個角與四個邊中點）都有小圓點；盤面處於佈子階段：seed決定盤上有幾顆子（從沒有到雙方共18顆），子放在哪些點（24點中不重複的任意點），顏色由先走的一方開始交替。這是作者設計的示意，沒有文字；測試端以另外寫的棋盤事實（三個正方形的角與邊中點共24點）檢查每個點的中心：有子就是白色或黑色，否則是點的色調；雙方子數各不超過9且相差不超過1、總數不超過18；300個seed涵蓋0到18的每個數目，平均約9，每個點被佔的比例接近一半的9/24，奇數顆時白方多的比例約一半；並逐項檢查框、棋盤與留白、三個正方形的四邊（色調、高度、寬度與兩側）、四條連線（色調、寬度、兩端以外與內正方形裡沒有線）、點與子的半徑與色調、框與留白區沒有線或子、各邊緣的柔化與框外為紙面。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

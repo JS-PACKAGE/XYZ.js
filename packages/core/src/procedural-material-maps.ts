@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'ninemensmorris',
   'carromboard',
   'shogiboard',
   'ludoboard',
@@ -48731,6 +48732,105 @@ export function createSurfaceSampler(
             );
             shade += (p.strikerTone - shade) * striker;
             elevation += (p.strikerHeight - elevation) * striker;
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
+      case 'ninemensmorris': {
+        const p = proceduralMaterialPresets.ninemensmorris,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0xaa001),
+          inverseSoft = 1 / p.edgeSoft,
+          norm = (x: number, y: number): number => Math.sqrt(x * x + y * y),
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          count = Math.floor(hash(99, 1, seed ^ 0xaa002) * (p.plies + 1)),
+          first = hash(99, 2, seed ^ 0xaa003) < 0.5 ? 0 : 1,
+          half = 3 * p.unit + p.margin,
+          // The 24 points: the corners and the middles of the sides of the three squares, in order round each square from its top left corner.
+          points = 24,
+          pointX = new Float64Array(points),
+          pointY = new Float64Array(points),
+          pointTone = new Float64Array(points).fill(-1),
+          order = Array.from({ length: points }, (_, index) => index),
+          steps = [
+            [-1, -1],
+            [0, -1],
+            [1, -1],
+            [1, 0],
+            [1, 1],
+            [0, 1],
+            [-1, 1],
+            [-1, 0],
+          ];
+        for (let square = 0; square < 3; square++)
+          steps.forEach(([sx, sy], index) => {
+            pointX[square * 8 + index] = sx * (square + 1) * p.unit;
+            pointY[square * 8 + index] = sy * (square + 1) * p.unit;
+          });
+        // The men go on distinct points picked one by one (a partial shuffle), alternately from the side that starts.
+        for (let man = 0; man < count; man++) {
+          const pick =
+            man + Math.floor(hash(man, 6, seed ^ 0xaa004) * (points - man));
+          [order[man], order[pick]] = [order[pick], order[man]];
+          pointTone[order[man]] = (man + first) % 2 ? p.blackTone : p.whiteTone;
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const dx = fu - 0.5,
+            dy = fv - 0.5,
+            outer = half + p.frame,
+            framed = cover(
+              Math.min(outer - Math.abs(dx), outer - Math.abs(dy)),
+            );
+          if (framed > 0) {
+            shade += (p.frameTone - shade) * framed;
+            elevation += (p.frameHeight - elevation) * framed;
+            rough += (p.inkRoughness - rough) * framed;
+            mask = framed;
+            const inside = cover(
+              Math.min(half - Math.abs(dx), half - Math.abs(dy)),
+            );
+            shade += (p.boardTone - shade) * inside;
+            elevation += (p.boardHeight - elevation) * inside;
+            // The three squares (the distance to a square is that of its larger coordinate), the four joins of the middles of the sides, and the points, the lines painted once where they meet.
+            const largest = Math.max(Math.abs(dx), Math.abs(dy)),
+              smallest = Math.min(Math.abs(dx), Math.abs(dy)),
+              pastEnd = Math.max(p.unit - largest, largest - 3 * p.unit, 0);
+            let line = cover(p.lineHalf - norm(smallest, pastEnd));
+            for (let square = 1; square <= 3; square++)
+              line = Math.max(
+                line,
+                cover(p.lineHalf - Math.abs(largest - square * p.unit)),
+              );
+            if (largest < 3 * p.unit + p.pieceRadius)
+              for (let point = 0; point < points; point++)
+                line = Math.max(
+                  line,
+                  cover(
+                    p.dotRadius - norm(dx - pointX[point], dy - pointY[point]),
+                  ),
+                );
+            shade += (p.lineTone - shade) * line;
+            elevation += (p.lineHeight - elevation) * line;
+            if (largest < 3 * p.unit + p.pieceRadius)
+              for (let point = 0; point < points; point++) {
+                if (pointTone[point] < 0) continue;
+                const man = cover(
+                  p.pieceRadius - norm(dx - pointX[point], dy - pointY[point]),
+                );
+                shade += (pointTone[point] - shade) * man;
+                elevation += (p.pieceHeight - elevation) * man;
+              }
           }
           color = clamp(
             shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),

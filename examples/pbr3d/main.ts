@@ -711,6 +711,7 @@ try {
     'dcbarreljackfaces',
     'stfiberadapterfaces',
     'to92packagefaces',
+    'ninemensmorris',
     'carromboard',
     'shogiboard',
     'ludoboard',

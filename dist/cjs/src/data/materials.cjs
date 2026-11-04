@@ -26760,6 +26760,43 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .8,
 		inkRoughness: .45
 	}),
+	ninemensmorris: Object.freeze({
+		dark: [
+			40,
+			28,
+			22
+		],
+		light: [
+			236,
+			218,
+			178
+		],
+		roughness: .5,
+		relief: .004,
+		unit: .115,
+		margin: .045,
+		frame: .03,
+		lineHalf: .0016,
+		dotRadius: .008,
+		pieceRadius: .032,
+		plies: 18,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		frameTone: .2,
+		boardTone: .66,
+		lineTone: .14,
+		whiteTone: .96,
+		blackTone: .05,
+		paperHeight: .2,
+		frameHeight: .6,
+		boardHeight: .35,
+		lineHeight: .3,
+		pieceHeight: .85,
+		grainTone: .03,
+		paperRoughness: .8,
+		inkRoughness: .45
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -35441,6 +35478,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	ninemensmorris: 1,
 	carromboard: 1,
 	shogiboard: 1,
 	ludoboard: 1,

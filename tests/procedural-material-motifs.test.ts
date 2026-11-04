@@ -66160,3 +66160,459 @@ describe('carromboard: a carrom board with pockets, base lines and the coins of 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('ninemensmorris: a nine men morris board with the men of the placing phase, as many and where the seed says', () => {
+  const p = proceduralMaterialPresets.ninemensmorris,
+    out = empty(),
+    u3 = 3 * p.unit,
+    half = u3 + p.margin,
+    outer = half + p.frame,
+    toneAt = (sample: Sampler, dx: number, dy: number): number => {
+      sample(0.5 + dx, 0.5 + dy, out);
+      return out.color;
+    };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    mix = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+  // The 24 points from the facts of the board: the eight points of the places a square has (its corners and the middles of its sides) for the three squares one, two and three units across the half.
+  type Point = { x: number; y: number };
+  const points: Point[] = [];
+  for (const size of [1, 2, 3])
+    for (const sx of [-1, 0, 1])
+      for (const sy of [-1, 0, 1])
+        if (sx !== 0 || sy !== 0)
+          points.push({ x: sx * size * p.unit, y: sy * size * p.unit });
+  type Read = { sample: Sampler; men: ('w' | 'b' | '.')[] };
+  // Read the men: the tone in the middle of each point is a man's, or the point's own (the tone of the lines).
+  const readMen = (seed: number): Read => {
+    const sample = createSurfaceSampler('ninemensmorris', seed),
+      men = points.map((point): 'w' | 'b' | '.' => {
+        const tone = toneAt(sample, point.x, point.y);
+        if (Math.abs(tone - p.whiteTone) < 1e-6) return 'w';
+        if (Math.abs(tone - p.blackTone) < 1e-6) return 'b';
+        expect(tone).toBeCloseTo(p.lineTone, 6);
+        return '.';
+      });
+    return { sample, men };
+  };
+  const findSeed = (wanted: (men: ('w' | 'b' | '.')[]) => boolean): Read => {
+    for (let seed = 0; seed < 4000; seed++) {
+      const read = readMen(seed);
+      if (wanted(read.men)) return read;
+    }
+    throw new Error('no seed');
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'puts the men of the placing phase on distinct points of the 24, as many of the two sides as turns of a game that goes from the first side give (seed %i)',
+    (seed) => {
+      const { men } = readMen(seed),
+        white = men.filter((man) => man === 'w').length,
+        black = men.filter((man) => man === 'b').length;
+      // At most nine men of a side, and the sides taking turns: the numbers differ by at most one.
+      expect(white).toBeLessThanOrEqual(9);
+      expect(black).toBeLessThanOrEqual(9);
+      expect(Math.abs(white - black)).toBeLessThanOrEqual(1);
+      expect(white + black).toBeLessThanOrEqual(p.plies);
+      expect(points.length).toBe(24);
+    },
+  );
+
+  it('puts every number of men from none to 18 on the board over 300 seeds, on any point, with either side first', () => {
+    const numbers = new Set<number>(),
+      occupied = new Array<number>(24).fill(0);
+    let total = 0,
+      oddWhite = 0,
+      odd = 0;
+    for (let seed = 0; seed < 300; seed++) {
+      const { men } = readMen(seed * 7 + 1),
+        white = men.filter((man) => man === 'w').length,
+        black = men.filter((man) => man === 'b').length;
+      numbers.add(white + black);
+      total += white + black;
+      men.forEach((man, index) => (occupied[index] += Number(man !== '.')));
+      if ((white + black) % 2 === 1) {
+        odd += 1;
+        oddWhite += Number(white > black);
+      }
+    }
+    expect(numbers.size).toBe(p.plies + 1);
+    expect(Math.abs(total / 300 - p.plies / 2)).toBeLessThan(1);
+    for (const count of occupied)
+      expect(Math.abs(count / 300 - p.plies / 2 / 24)).toBeLessThan(0.12);
+    expect(Math.abs(oddWhite / odd - 0.5)).toBeLessThan(0.13);
+  });
+
+  it('draws the frame, the board with its margin, the three squares, the four joins, the points and the men with their tones, heights, roughness and sizes', () => {
+    // A seed where the middles of the sides of the first and third squares are free (their joins can be seen to end).
+    const middles = points.flatMap((point, index) =>
+        (point.x === 0 || point.y === 0) &&
+        [1, 3].some(
+          (size) =>
+            Math.abs(
+              Math.max(Math.abs(point.x), Math.abs(point.y)) - size * p.unit,
+            ) < 1e-9,
+        )
+          ? [index]
+          : [],
+      ),
+      { sample, men } = findSeed((found) =>
+        middles.every((index) => found[index] === '.'),
+      ),
+      paperOk = (dx: number, dy: number): boolean =>
+        Math.abs(toneAt(sample, dx, dy) - p.paperTone) <=
+        p.grainTone / 2 + 1e-9;
+    expect(toneAt(sample, 0.2, -half - p.frame / 2)).toBeCloseTo(
+      p.frameTone,
+      6,
+    );
+    expect(out.height / p.relief).toBeCloseTo(p.frameHeight, 6);
+    expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+    for (const [dx, dy] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ]) {
+      expect(
+        toneAt(
+          sample,
+          dx * (outer - 0.0004) + dy * 0.2,
+          dy * (outer - 0.0004) + dx * 0.2,
+        ),
+      ).toBeCloseTo(p.frameTone, 6);
+      expect(
+        paperOk(
+          dx * (outer + 0.0004) + dy * 0.2,
+          dy * (outer + 0.0004) + dx * 0.2,
+        ),
+      ).toBe(true);
+      expect(out.height / p.relief).toBeCloseTo(p.paperHeight, 6);
+      expect(
+        toneAt(
+          sample,
+          dx * (half + 0.0004) + dy * 0.2,
+          dy * (half + 0.0004) + dx * 0.2,
+        ),
+      ).toBeCloseTo(p.frameTone, 6);
+      // The board's margin outside the outer square, beside the middle point (clear of its man).
+      expect(
+        toneAt(
+          sample,
+          dx * (u3 + p.margin / 2) + dy * 0.06,
+          dy * (u3 + p.margin / 2) + dx * 0.06,
+        ),
+      ).toBeCloseTo(p.boardTone, 6);
+      expect(out.height / p.relief).toBeCloseTo(p.boardHeight, 6);
+      expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+    }
+    // The sides of the three squares, half way between a middle and a corner (clear of the men): their tone, height and width, and the board on both sides.
+    for (const size of [1, 2, 3])
+      for (const along of [-0.5, 0.5])
+        for (const [nx, ny] of [
+          [0, -1],
+          [0, 1],
+          [-1, 0],
+          [1, 0],
+        ]) {
+          const base = [
+              nx * size * p.unit - ny * along * size * p.unit,
+              ny * size * p.unit + nx * along * size * p.unit,
+            ],
+            across = (distance: number): [number, number] => [
+              base[0] + nx * distance,
+              base[1] + ny * distance,
+            ];
+          expect(toneAt(sample, ...across(0))).toBeCloseTo(p.lineTone, 6);
+          expect(out.height / p.relief).toBeCloseTo(p.lineHeight, 6);
+          for (const sign of [1, -1]) {
+            expect(
+              toneAt(sample, ...across(sign * (p.lineHalf - 0.0004))),
+            ).toBeCloseTo(p.lineTone, 6);
+            expect(
+              toneAt(sample, ...across(sign * (p.lineHalf + 0.0004))),
+            ).toBeCloseTo(p.boardTone, 6);
+          }
+        }
+    // The four joins, between the first and the second square and between the second and the third, from the middle of a side to the middle of the same side: tone and width.
+    for (const [ux, uy] of [
+      [0, -1],
+      [0, 1],
+      [-1, 0],
+      [1, 0],
+    ])
+      for (const along of [1.5, 2.5]) {
+        const x = ux * along * p.unit,
+          y = uy * along * p.unit,
+          across = (distance: number): [number, number] => [
+            x - uy * distance,
+            y + ux * distance,
+          ];
+        expect(toneAt(sample, x, y)).toBeCloseTo(p.lineTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.lineHeight, 6);
+        for (const sign of [1, -1]) {
+          expect(
+            toneAt(sample, ...across(sign * (p.lineHalf - 0.0004))),
+          ).toBeCloseTo(p.lineTone, 6);
+          expect(
+            toneAt(sample, ...across(sign * (p.lineHalf + 0.0004))),
+          ).toBeCloseTo(p.boardTone, 6);
+        }
+      }
+    for (const [ux, uy] of [
+      [0, -1],
+      [0, 1],
+      [-1, 0],
+      [1, 0],
+    ]) {
+      // Not from the middle of the board to the first square (the lines of the points of the middles are those of their squares), nor out of the third.
+      expect(toneAt(sample, ux * 0.5 * p.unit, uy * 0.5 * p.unit)).toBeCloseTo(
+        p.boardTone,
+        6,
+      );
+      expect(toneAt(sample, ux * (u3 + 0.014), uy * (u3 + 0.014))).toBeCloseTo(
+        p.boardTone,
+        6,
+      );
+      // Just past the ends of the join (the points of the middles are dots of a smaller radius than this): the board.
+      expect(
+        toneAt(sample, ux * (u3 + 0.0095), uy * (u3 + 0.0095)),
+      ).toBeCloseTo(p.boardTone, 6);
+      expect(
+        toneAt(sample, ux * (p.unit - 0.0095), uy * (p.unit - 0.0095)),
+      ).toBeCloseTo(p.boardTone, 6);
+      // And just inside them, where the join is still the width of a line.
+      expect(
+        toneAt(sample, ux * (p.unit + 0.0115), uy * (p.unit + 0.0115)),
+      ).toBeCloseTo(p.lineTone, 6);
+      expect(
+        toneAt(sample, ux * (u3 - 0.0115), uy * (u3 - 0.0115)),
+      ).toBeCloseTo(p.lineTone, 6);
+    }
+    // The points without a man: a dot in the tone of the lines, with its radius; the points with a man: the man in its tone, height and radius (the lines are not seen through it).
+    men.forEach((man, index) => {
+      const { x, y } = points[index];
+      for (const [ux, uy] of [
+        [Math.SQRT1_2, Math.SQRT1_2],
+        [-Math.SQRT1_2, Math.SQRT1_2],
+        [Math.SQRT1_2, -Math.SQRT1_2],
+        [-Math.SQRT1_2, -Math.SQRT1_2],
+      ]) {
+        if (man === '.') {
+          expect(
+            toneAt(
+              sample,
+              x + ux * (p.dotRadius - 0.0004),
+              y + uy * (p.dotRadius - 0.0004),
+            ),
+          ).toBeCloseTo(p.lineTone, 6);
+          expect(
+            toneAt(
+              sample,
+              x + ux * (p.dotRadius + 0.0004),
+              y + uy * (p.dotRadius + 0.0004),
+            ),
+          ).toBeCloseTo(p.boardTone, 6);
+        } else {
+          const tone = man === 'w' ? p.whiteTone : p.blackTone;
+          expect(
+            toneAt(
+              sample,
+              x + ux * (p.pieceRadius - 0.0004),
+              y + uy * (p.pieceRadius - 0.0004),
+            ),
+          ).toBeCloseTo(tone, 6);
+          expect(
+            toneAt(
+              sample,
+              x + ux * (p.pieceRadius + 0.0004),
+              y + uy * (p.pieceRadius + 0.0004),
+            ),
+          ).toBeCloseTo(p.boardTone, 6);
+        }
+      }
+      expect(toneAt(sample, x, y)).toBeCloseTo(
+        man === '.' ? p.lineTone : man === 'w' ? p.whiteTone : p.blackTone,
+        6,
+      );
+      expect(out.height / p.relief).toBeCloseTo(
+        man === '.' ? p.lineHeight : p.pieceHeight,
+        6,
+      );
+      expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+    });
+    for (const [dx, dy] of [
+      [-outer - 0.01, 0],
+      [outer + 0.01, 0],
+      [0, -outer - 0.01],
+      [0, outer + 0.01],
+      [-0.49, -0.49],
+    ])
+      expect(paperOk(dx, dy)).toBe(true);
+  });
+
+  it('shows no line or man in the margin of the board or in the frame', () => {
+    for (const seed of [1, 2, 3, 4]) {
+      const sample = createSurfaceSampler('ninemensmorris', seed);
+      for (let k = 0; k < 400; k++) {
+        const t = ((k + 0.5) / 400 - 0.5) * 2 * (u3 + 0.03);
+        for (const [distance, expected] of [
+          [u3 + p.pieceRadius + 0.004, p.boardTone],
+          [half + p.frame * 0.5, p.frameTone],
+        ] as const)
+          for (const [dx, dy] of [
+            [t, -distance],
+            [t, distance],
+            [-distance, t],
+            [distance, t],
+          ])
+            expect(toneAt(sample, dx, dy)).toBeCloseTo(expected, 6);
+      }
+    }
+  });
+
+  it('softens the edge of the frame, of the board, of a line, of a join, of a dot and of a man over edgeSoft', () => {
+    const { sample, men } = findSeed(
+        (found) =>
+          found[0] === '.' &&
+          found[1] === '.' &&
+          found.filter((man) => man !== '.').length >= 3,
+      ),
+      quarter = 0.25 * p.edgeSoft;
+    close(
+      toneAt(sample, 0.2, -outer + quarter),
+      mix(p.paperTone, p.frameTone, 0.75),
+    );
+    close(
+      toneAt(sample, 0.2, -outer - quarter),
+      mix(p.paperTone, p.frameTone, 0.25),
+    );
+    close(
+      toneAt(sample, 0.2, -half + quarter),
+      mix(p.frameTone, p.boardTone, 0.75),
+    );
+    close(
+      toneAt(sample, 0.2, -half - quarter),
+      mix(p.frameTone, p.boardTone, 0.25),
+    );
+    // A side of the second square between two points, and a join between the second and third squares.
+    const side = 2 * p.unit;
+    close(
+      toneAt(sample, side * 0.5, -side + p.lineHalf - quarter),
+      mix(p.boardTone, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, side * 0.5, -side + p.lineHalf + quarter),
+      mix(p.boardTone, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, p.lineHalf - quarter, -2.5 * p.unit),
+      mix(p.boardTone, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, p.lineHalf + quarter, -2.5 * p.unit),
+      mix(p.boardTone, p.lineTone, 0.25),
+    );
+    // A dot of an empty point (the first one, a corner) and a man.
+    const dot = points[0];
+    close(
+      toneAt(
+        sample,
+        dot.x + (p.dotRadius - quarter) * Math.SQRT1_2,
+        dot.y + (p.dotRadius - quarter) * Math.SQRT1_2,
+      ),
+      mix(p.boardTone, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(
+        sample,
+        dot.x + (p.dotRadius + quarter) * Math.SQRT1_2,
+        dot.y + (p.dotRadius + quarter) * Math.SQRT1_2,
+      ),
+      mix(p.boardTone, p.lineTone, 0.25),
+    );
+    const index = men.findIndex((man) => man !== '.'),
+      man = points[index],
+      tone = men[index] === 'w' ? p.whiteTone : p.blackTone;
+    close(
+      toneAt(
+        sample,
+        man.x + (p.pieceRadius - quarter) * Math.SQRT1_2,
+        man.y + (p.pieceRadius - quarter) * Math.SQRT1_2,
+      ),
+      mix(p.boardTone, tone, 0.75),
+    );
+    close(
+      toneAt(
+        sample,
+        man.x + (p.pieceRadius + quarter) * Math.SQRT1_2,
+        man.y + (p.pieceRadius + quarter) * Math.SQRT1_2,
+      ),
+      mix(p.boardTone, tone, 0.25),
+    );
+  });
+
+  it('fades the grain of the paper out over the edge of the frame, as much as the frame covers', () => {
+    const sample = createSurfaceSampler('ninemensmorris', 2),
+      amount = smoothstep(0.25),
+      residuals: number[] = [];
+    for (let k = 0; k < 38; k++)
+      residuals.push(
+        toneAt(sample, -outer + 0.02 + k * 0.02, -outer - 0.25 * p.edgeSoft) -
+          (p.paperTone + (p.frameTone - p.paperTone) * amount),
+      );
+    const largest = Math.max(...residuals.map(Math.abs));
+    expect(largest).toBeGreaterThan(0.003);
+    expect(largest).toBeLessThanOrEqual(
+      0.5 * p.grainTone * (1 - amount) + 1e-9,
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('ninemensmorris', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('ninemensmorris', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, -0.48 + i * 0.0021, -0.49),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('ninemensmorris', 0),
+      b = createSurfaceSampler('ninemensmorris', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [x, y] of [
+        [t, 0.3501],
+        [0.2201, t],
+        [t, 0.5],
+      ]) {
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
