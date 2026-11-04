@@ -1194,6 +1194,7 @@ try {
     'contrastillusions',
     'randomdotstereogram',
     'sizeillusions',
+    'excitableautomata',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

@@ -1157,6 +1157,7 @@ const kinds: ProceduralMaterialKind[] = [
   'contrastillusions',
   'randomdotstereogram',
   'sizeillusions',
+  'excitableautomata',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -197957,6 +197958,296 @@ describe('Size illusions as the Ebbinghaus, Delboeuf and Kanizsa figures', () =>
     expect(blue / (512 * 512)).toBeLessThan(39.5);
     expect(maxTilt).toBeGreaterThan(0.014);
     expect(maxTilt).toBeLessThan(0.0141);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe("Excitable automata as Brian's Brain and Greenberg-Hastings snapshots", () => {
+  const p = proceduralMaterialPresets.excitableautomata;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const n = p.columns;
+  const offsets = [
+    [
+      [-1, -1],
+      [0, -1],
+      [1, -1],
+      [-1, 0],
+      [1, 0],
+      [-1, 1],
+      [0, 1],
+      [1, 1],
+    ],
+    [
+      [0, -1],
+      [-1, 0],
+      [1, 0],
+      [0, 1],
+    ],
+  ];
+  /** The states of the cells of a seed (0 resting, 1 excited, 2 refractory) read back from the picture at the centres of the cells: the height is cellHeight times 0.25 + 0.75 times the level, and the level is 0, 1 and 0.4 for the three states. */
+  const readGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('excitableautomata', seed),
+      out = empty(),
+      grid: number[] = [];
+    for (let j = 0; j < n; j++)
+      for (let i = 0; i < n; i++) {
+        sample((i + 0.5) / n, (j + 0.5) / n, out);
+        const read = out.height / p.relief / p.cellHeight;
+        grid.push(read < 0.4 ? 0 : read < 0.775 ? 2 : 1);
+      }
+    return grid;
+  };
+  /** One step of the rule on the torus, written again here from the definitions (a list of neighbour offsets). */
+  const advance = (grid: number[], rule: number): number[] =>
+    grid.map((state, k) => {
+      if (state === 1) return 2;
+      if (state === 2) return 0;
+      const i = k % n,
+        j = Math.floor(k / n);
+      let excited = 0;
+      for (const [di, dj] of offsets[rule])
+        excited += Number(
+          grid[((j + dj + n) % n) * n + ((i + di + n) % n)] === 1,
+        );
+      return rule === 0 ? Number(excited === 2) : Number(excited >= 1);
+    });
+  const count = (grid: number[], state: number): number =>
+    grid.filter((value) => value === state).length;
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('excitableautomata', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('excitableautomata', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0385);
+      expect(low).toBeLessThan(0.0389);
+      expect(high).toBeGreaterThan(0.9329);
+      expect(high).toBeLessThan(0.9341);
+      expect(dark / 65536).toBeGreaterThan(0.0292);
+      expect(dark / 65536).toBeLessThan(0.0339);
+      expect(mean / 65536).toBeGreaterThan(0.101);
+      expect(mean / 65536).toBeLessThan(0.1053);
+      expect(heightHigh).toBeGreaterThan(0.799);
+      expect(heightHigh).toBeLessThan(0.8001);
+      // The 256 by 256 grid never samples the middle of a gap, so the darkest occlusion is above the floor of the gaps.
+      expect(occlusionLow).toBeGreaterThan(0.732);
+      expect(occlusionLow).toBeLessThan(0.7322);
+    }
+  });
+  it('is one step of the rule from seed 0 to 1, 2 to 3 and 4 to 5 and keeps all three states', () => {
+    for (const [seed, rule] of [
+      [0, 0],
+      [2, 0],
+      [4, 1],
+    ]) {
+      const before = readGrid(seed),
+        after = readGrid(seed + 1);
+      expect(after).toEqual(advance(before, rule));
+      // A trivial grid would pass the check, so the grids must be alive and must move.
+      expect(count(before, 1)).toBeGreaterThan(150);
+      expect(count(before, 2)).toBeGreaterThan(150);
+      expect(before).not.toEqual(after);
+    }
+  });
+  it('counts the steps from the start: 60 steps take 40 to 100 and 41 to 101 in Brian\u2019s Brain', () => {
+    for (const [from, to] of [
+      [0, 2],
+      [1, 3],
+    ]) {
+      let grid = readGrid(from);
+      for (let step = 0; step < p.steps[to] - p.steps[from]; step++)
+        grid = advance(grid, 0);
+      expect(grid).toEqual(readGrid(to));
+    }
+  });
+  it('draws a different start per group of six seeds and one per variant', () => {
+    const first = litGrid(0),
+      other = litGrid(6),
+      variant = litGrid(4);
+    const unlike = (a: number[], b: number[]) => {
+      let different = 0;
+      for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+      return different / a.length;
+    };
+    expect(unlike(first, other)).toBeGreaterThan(0.0673);
+    expect(unlike(first, other)).toBeLessThan(0.0674);
+    expect(unlike(first, variant)).toBeGreaterThan(0.227);
+    expect(unlike(first, variant)).toBeLessThan(0.2271);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('draws cells with gaps: full ink and the tone of the state inside, no ink and the gap tone and shading in the gaps', () => {
+    const edge = p.gapWidth / 2 + p.edgeSoft;
+    for (const seed of [0, 3, 4]) {
+      const sample = createSurfaceSampler('excitableautomata', seed),
+        out = empty(),
+        grid = readGrid(seed);
+      let inside = 0,
+        gaps = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          x = u * n,
+          y = v * n,
+          fx = x - Math.floor(x),
+          fy = y - Math.floor(y),
+          nearX = 0.5 - Math.abs(fx - 0.5),
+          nearY = 0.5 - Math.abs(fy - 0.5),
+          state = grid[Math.floor(y) * n + Math.floor(x)],
+          level = state === 1 ? 1 : state === 2 ? 0.4 : 0;
+        sample(u, v, out);
+        if (nearX > edge && nearY > edge) {
+          inside++;
+          const cell = p.toneRest + (p.toneExcited - p.toneRest) * level;
+          expect(Math.abs(out.color - cell)).toBeLessThanOrEqual(
+            p.grainTone / 2 + 1e-9,
+          );
+          expect(out.height).toBeCloseTo(
+            p.relief * p.cellHeight * (0.25 + 0.75 * level),
+            12,
+          );
+          expect(out.occlusion).toBeCloseTo(1, 9);
+        } else if (nearX < p.gapWidth / 2 || nearY < p.gapWidth / 2) {
+          gaps++;
+          expect(Math.abs(out.color - p.toneGap)).toBeLessThanOrEqual(
+            p.grainTone / 2 + 1e-9,
+          );
+          expect(out.height).toBe(0);
+          expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion, 9);
+        }
+      }
+      expect(inside).toBeGreaterThan(2600);
+      expect(gaps).toBeGreaterThan(1500);
+    }
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('excitableautomata', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 navy-and-amber cell maps with raised cells and shaded gaps', () => {
+    const maps = generateProceduralMaps('excitableautomata', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(32.6);
+    expect(red / (512 * 512)).toBeLessThan(33.6);
+    expect(green / (512 * 512)).toBeGreaterThan(30.2);
+    expect(green / (512 * 512)).toBeLessThan(31.2);
+    expect(blue / (512 * 512)).toBeGreaterThan(33.3);
+    expect(blue / (512 * 512)).toBeLessThan(34.3);
+    expect(maxTilt).toBeGreaterThan(0.0517);
+    expect(maxTilt).toBeLessThan(0.0518);
     expect(invalid).toBe(0);
   });
 });

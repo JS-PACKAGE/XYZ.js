@@ -52174,6 +52174,95 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'excitableautomata': {
+        const p = proceduralMaterialPresets.excitableautomata,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.rules.length,
+          group = Math.floor(unsigned / p.rules.length),
+          rule = p.rules[variant],
+          size = p.columns,
+          states = (() => {
+            let current = new Uint8Array(size * size),
+              next = new Uint8Array(size * size);
+            // The random start of the group, the same for every variant of it.
+            for (let j = 0; j < size; j++)
+              for (let i = 0; i < size; i++) {
+                const draw = hash(i, j, group ^ p.seedSalt);
+                current[j * size + i] =
+                  draw < p.firing[rule]
+                    ? 1
+                    : draw < p.firing[rule] + p.refractory[rule]
+                      ? 2
+                      : 0;
+              }
+            for (let step = 0; step < p.steps[variant]; step++) {
+              for (let j = 0; j < size; j++)
+                for (let i = 0; i < size; i++) {
+                  const here = current[j * size + i];
+                  let after = 0;
+                  if (here === 1) after = 2;
+                  else if (here === 0) {
+                    let excited = 0;
+                    for (let dj = -1; dj <= 1; dj++)
+                      for (let di = -1; di <= 1; di++) {
+                        // Brian's Brain counts the 8 neighbours and Greenberg-Hastings the 4 nearest.
+                        if (
+                          (di === 0 && dj === 0) ||
+                          (rule === 1 && di !== 0 && dj !== 0)
+                        )
+                          continue;
+                        excited +=
+                          current[
+                            ((j + dj + size) % size) * size +
+                              ((i + di + size) % size)
+                          ] === 1
+                            ? 1
+                            : 0;
+                      }
+                    after =
+                      rule === 0
+                        ? excited === 2
+                          ? 1
+                          : 0
+                        : excited >= 1
+                          ? 1
+                          : 0;
+                  }
+                  next[j * size + i] = after;
+                }
+              [current, next] = [next, current];
+            }
+            return current;
+          })(),
+          // The mask of a cell in one direction: 1 inside, 0 at the gap (the position in the cell 0 to 1).
+          inside = (position: number): number =>
+            smooth(
+              clamp(
+                (0.5 - Math.abs(position - 0.5) - p.gapWidth / 2) / p.edgeSoft,
+              ),
+            );
+        return () => {
+          const x = fract(u) * size,
+            y = fract(v) * size,
+            i = Math.floor(x),
+            j = Math.floor(y),
+            mask = inside(x - i) * inside(y - j),
+            state = states[j * size + i],
+            level = state === 1 ? 1 : state === 2 ? 0.4 : 0,
+            cell = p.toneRest + (p.toneExcited - p.toneRest) * level,
+            grain = grainField(u, v);
+          color =
+            p.toneGap + (cell - p.toneGap) * mask + p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * (0.25 + 0.75 * level);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -61106,6 +61195,7 @@ export function createSurfaceSampler(
     kind === 'contrastillusions' ||
     kind === 'randomdotstereogram' ||
     kind === 'sizeillusions' ||
+    kind === 'excitableautomata' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
