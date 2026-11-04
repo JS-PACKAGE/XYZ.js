@@ -57,6 +57,7 @@ interface FixtureOptions {
   ctts?: boolean;
   extra?: Uint8Array;
   constant?: boolean;
+  timeScale?: number;
   record?: Uint8Array;
 }
 const fixture = (options: FixtureOptions = {}): Uint8Array => {
@@ -110,7 +111,11 @@ const fixture = (options: FixtureOptions = {}): Uint8Array => {
       box(
         'mdia',
         full('hdlr', u32(0), str(audio ? 'soun' : 'vide')),
-        full('mdhd', u32(0, 0, 1000, 400), new Uint8Array(4)),
+        full(
+          'mdhd',
+          u32(0, 0, options.timeScale ?? 1000, 400),
+          new Uint8Array(4),
+        ),
         box('minf', stbl),
       ),
     );
@@ -173,6 +178,16 @@ describe('bounded MP4 demux', () => {
     expect(
       demuxMP4(fixture({ ctts: true })).chunks.map((chunk) => chunk.timestamp),
     ).toEqual([100000, 100000, 200000]));
+  it('retains integer rounding at adjacent fractional-microsecond sample boundaries', () => {
+    const { chunks } = demuxMP4(fixture({ timeScale: 3000, ctts: true }));
+    expect(
+      chunks.map(({ timestamp, duration }) => [timestamp, duration]),
+    ).toEqual([
+      [33333, 33333],
+      [33333, 33333],
+      [66666, 66667],
+    ]);
+  });
   it.each([
     ['vp09', 'vp09.00.10.08'],
     ['av01', 'av01.0.04M.08'],

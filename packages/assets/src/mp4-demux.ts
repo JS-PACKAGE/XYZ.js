@@ -368,17 +368,23 @@ export function demuxMP4(
     if (ranges[i]!.offset < ranges[i - 1]!.end) invalid();
   if (typeof EncodedVideoChunk === 'undefined')
     unsupported('WebCodecs EncodedVideoChunk unavailable');
+  const timeScale = BigInt(scale);
   const micros = (ticks: bigint): number => {
-    const value = Number((ticks * 1_000_000n) / BigInt(scale));
+    const value = Number((ticks * 1_000_000n) / timeScale);
     if (!Number.isSafeInteger(value)) invalid();
     return value;
   };
   const chunks: EncodedVideoChunk[] = [];
   let time = 0n;
+  let microTime = 0;
   for (let i = 0; i < count; i++) {
     const delta = BigInt(durations[i]!);
-    const timestamp = micros(time + BigInt(compositions[i]!));
-    const duration = micros(time + delta) - micros(time);
+    const composition = compositions[i]!;
+    const timestamp =
+      composition === 0 ? microTime : micros(time + BigInt(composition));
+    const nextTime = time + delta;
+    const nextMicroTime = micros(nextTime);
+    const duration = nextMicroTime - microTime;
     if (duration < 1) invalid();
     const offset = sampleOffsets[i]!;
     chunks.push(
@@ -389,7 +395,8 @@ export function demuxMP4(
         data: bytes.subarray(offset, offset + sizes[i]!),
       }),
     );
-    time += delta;
+    time = nextTime;
+    microTime = nextMicroTime;
   }
   return { config, chunks };
 }
