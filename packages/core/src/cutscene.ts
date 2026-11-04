@@ -59,6 +59,7 @@ export class CutsceneDirector extends GameObject {
   private clock = 0;
   private passNumber = 0;
   private readonly fired = new Set<string>();
+  private nextCue = 0;
   private barrier: AbortController | undefined;
   private readonly cueLifetimes = new Map<string, AbortController>();
   private generation = 0;
@@ -182,9 +183,16 @@ export class CutsceneDirector extends GameObject {
           );
         const generation = this.generation;
         const target = Math.min(this.duration, this.clock + remaining);
-        const cue = this.cues.find(
-          (item) => item.at <= target && !this.fired.has(this.cueKey(item)),
-        );
+        let cue: CutsceneCue | undefined;
+        while (this.nextCue < this.cues.length) {
+          const candidate = this.cues[this.nextCue]!;
+          if (candidate.at > target) break;
+          if (!this.fired.has(this.cueKey(candidate))) {
+            cue = candidate;
+            break;
+          }
+          this.nextCue++;
+        }
         if (cue) {
           const elapsed = Math.max(0, cue.at - this.clock);
           this.clock = Math.max(this.clock, cue.at);
@@ -246,6 +254,7 @@ export class CutsceneDirector extends GameObject {
           for (const cue of this.cues)
             if (cue.repeat) this.fired.delete(this.cueKey(cue));
           this.passNumber++;
+          this.nextCue = 0;
           this.clock = 0;
           for (const track of this.tracks) track.action.reset();
           if (remaining === 0) break;
