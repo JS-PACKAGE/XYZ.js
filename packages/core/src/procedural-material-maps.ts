@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'curlingrink',
   'cricketground',
   'highwaylanes',
   'handballcourt',
@@ -50269,6 +50270,83 @@ export function createSurfaceSampler(
               p.groundHeight + (markedHeight - p.groundHeight) * outfield;
           color = clamp(shade + (p.stumpTone - shade) * stumps);
           height = clamp(elevation + (p.stumpHeight - elevation) * stumps);
+          roughness = clamp(p.inkRoughness);
+          occlusion = 1;
+        };
+      }
+      case 'curlingrink': {
+        const p = proceduralMaterialPresets.curlingrink,
+          inverseSoft = 1 / p.edgeSoft,
+          norm = (x: number, y: number): number => Math.sqrt(x * x + y * y),
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(113, 1, seed ^ 0x190001) * p.surfaces.length)
+            ],
+          across = hash(113, 2, seed ^ 0x190002) < 0.5,
+          shift = (hash(113, 3, seed ^ 0x190003) * 2 - 1) * p.toneShift,
+          halfSheet = p.sheetWidth / 2,
+          halfLength = p.sheetLength / 2,
+          teeY = p.teeDistance / 2,
+          thin = p.thinLine / 2,
+          // The back line has its outer edge 1.829 beyond the tee; the hog line its inside edge 6.401 from it.
+          backEdge = teeY + p.backLine,
+          hogInside = teeY - p.hogDistance,
+          hackY = teeY + p.hackDistance;
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            // The place in metres from the middle of the tile: across the sheets (the middle of a sheet) and along them.
+            a = ((across ? fv : fu) - 0.5) / p.metre,
+            along = ((across ? fu : fv) - 0.5) / p.metre,
+            // The place across the sheet it is on, from the middle of it, and the distance along the sheet from its middle (both ends alike).
+            x = a - p.sheetWidth * Math.round(a / p.sheetWidth),
+            ax = Math.abs(x),
+            y = Math.abs(along),
+            ice = cover((halfLength - y) * p.metre),
+            // The distance from the tee of the nearer end.
+            house = norm(x, y - teeY),
+            outer = cover((p.outerRadius - house) * p.metre),
+            middle = cover((p.middleRadius - house) * p.metre),
+            inner = cover((p.innerRadius - house) * p.metre),
+            button = cover((p.buttonRadius - house) * p.metre),
+            // The thin lines (dark): the centre line from hack to hack, the tee lines, the back lines (inside their outer edge), the hack lines and the side lines between the sheets (they end on the boards).
+            centre = Math.min(
+              cover((thin - ax) * p.metre),
+              cover((hackY - y) * p.metre),
+            ),
+            tee = cover((thin - Math.abs(y - teeY)) * p.metre),
+            back = cover(
+              Math.min(y - (backEdge - p.thinLine), backEdge - y) * p.metre,
+            ),
+            hack = Math.min(
+              cover((thin - Math.abs(y - hackY)) * p.metre),
+              cover((p.hackLength / 2 - ax) * p.metre),
+            ),
+            side = cover((thin - (halfSheet - ax)) * p.metre),
+            // The hog line: its inside edge 6.401 from the tee, 0.102 wide.
+            hog = cover(
+              Math.min(y - hogInside, hogInside + p.hogWidth - y) * p.metre,
+            );
+          // The side lines go on under the boards (their cover is 1 there), so the edge of the ice is the ice's own, which the shade is painted over.
+          const thinCover = Math.max(centre, tee, back, hack, side),
+            iceTone = surface.ice + shift;
+          let shade = iceTone;
+          shade += (p.blueTone - shade) * outer;
+          shade += (p.whiteTone - shade) * middle;
+          shade += (p.redTone - shade) * inner;
+          shade += (p.whiteTone - shade) * button;
+          shade += (p.hogTone - shade) * hog;
+          shade += (p.lineTone - shade) * thinCover;
+          let elevation = p.iceHeight;
+          elevation += (p.houseHeight - elevation) * outer;
+          elevation += (p.lineHeight - elevation) * Math.max(hog, thinCover);
+          shade =
+            surface.boards + shift + (shade - surface.boards - shift) * ice;
+          elevation = p.boardHeight + (elevation - p.boardHeight) * ice;
+          color = clamp(shade);
+          height = clamp(elevation);
           roughness = clamp(p.inkRoughness);
           occlusion = 1;
         };

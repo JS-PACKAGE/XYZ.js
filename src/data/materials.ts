@@ -17568,6 +17568,50 @@ export const proceduralMaterialPresets = Object.freeze({
     stumpHeight: 0.6,
     inkRoughness: 0.6,
   }),
+  curlingrink: Object.freeze({
+    dark: [20, 36, 66] as const,
+    light: [244, 248, 252] as const,
+    roughness: 0.25,
+    relief: 0.004,
+    // A row of curling sheets seen from above, in metres (the length of a sheet along one axis; the tile is 47.5 across, exactly ten sheets of 4.75 wide): each sheet 45.72 long between the back boards, the two
+    // tee lines 34.747 apart (each 17.3735 from the middle of the sheet), the house round each tee (circles of radius 1.829, 1.219 and 0.610 and the button of 0.152), the centre line (from hack to hack, 3.658 beyond each
+    // tee), the back lines (their outer edge 1.829 beyond the tee, touching the house), the hog lines (their inside edge 6.401 from the tee, 0.102 wide), the hack lines and the side lines between the sheets; the back
+    // boards beyond the ends. Thin lines are 0.1 wide (the rules give at most 0.013), so that they show in a tile. The two colours of the house are two tones. The seed picks the surface (the tones of the ice and
+    // the boards, and the house, all shifted together a little) and lays the sheets along the picture or across it.
+    metre: 1 / 47.5,
+    sheetWidth: 4.75,
+    sheetLength: 45.72,
+    teeDistance: 34.747,
+    outerRadius: 1.829,
+    middleRadius: 1.219,
+    innerRadius: 0.61,
+    buttonRadius: 0.152,
+    backLine: 1.829,
+    hackDistance: 3.658,
+    hackLength: 0.457,
+    hogDistance: 6.401,
+    hogWidth: 0.102,
+    thinLine: 0.1,
+    surfaces: Object.freeze([
+      Object.freeze({ ice: 0.86, boards: 0.3 }),
+      Object.freeze({ ice: 0.78, boards: 0.4 }),
+      Object.freeze({ ice: 0.92, boards: 0.22 }),
+      Object.freeze({ ice: 0.82, boards: 0.5 }),
+    ]),
+    // How much the tones may all be shifted together (from -toneShift to toneShift) by the seed: the wear of the ice.
+    toneShift: 0.04,
+    edgeSoft: 0.0004,
+    blueTone: 0.4,
+    whiteTone: 0.95,
+    redTone: 0.6,
+    lineTone: 0.12,
+    hogTone: 0.55,
+    boardHeight: 0.6,
+    iceHeight: 0.3,
+    houseHeight: 0.33,
+    lineHeight: 0.36,
+    inkRoughness: 0.3,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -24060,6 +24104,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  curlingrink: 1,
   cricketground: 1,
   highwaylanes: 1,
   handballcourt: 1,

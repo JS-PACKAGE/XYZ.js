@@ -72539,3 +72539,388 @@ describe('cricketground: a cricket ground seen from above with its pitch, crease
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('curlingrink: ten curling sheets side by side seen from above with the markings of the rules of curling, laid along or across by the seed', () => {
+  const p = proceduralMaterialPresets.curlingrink,
+    out = empty(),
+    m = p.metre,
+    toneAt = (
+      sample: Sampler,
+      a: number,
+      along: number,
+      across: boolean,
+    ): number => {
+      // A place in metres from the middle of the tile: across the sheets (a) and along them, as a place on the picture.
+      sample(
+        0.5 + (across ? along : a) * m,
+        0.5 + (across ? a : along) * m,
+        out,
+      );
+      return out.color;
+    };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    mix = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    // The probes are exact (the edges are straight or circular), so the tolerance is tiny.
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  // The facts of the sheet, in metres (the rules of curling of the World Curling Federation, as given by a web search that quotes them; not read in the rules themselves): 45.72 long and 4.75 wide, the tee lines 34.747
+  // apart, the house of three circles of radius 1.829 (12 feet across), 1.219 and 0.610 and the button of 0.152, the back line with its outer edge 1.829 beyond the tee, the hog line 6.401 from the tee to its inside edge
+  // and 0.102 wide, the centre line from hack to hack (3.658 beyond the tee), the hack line 0.457 long.
+  const rules = {
+      length: 45.72,
+      width: 4.75,
+      tee: 34.747,
+      outer: 1.829,
+      middle: 1.219,
+      inner: 0.61,
+      button: 0.152,
+      back: 1.829,
+      hog: 6.401,
+      hogWidth: 0.102,
+      hack: 3.658,
+      hackLength: 0.457,
+    },
+    halfLength = rules.length / 2,
+    teeY = rules.tee / 2,
+    backEdge = teeY + rules.back,
+    hogInside = teeY - rules.hog,
+    hackY = teeY + rules.hack;
+  type Kind = 'boards' | 'ice' | 'blue' | 'white' | 'red' | 'hog' | 'line';
+  // The part of the picture a place is in (across the sheets, along them), by the rules above and the widths in the preset (written separately from the sampler); the lines are over the house and the house over the ice.
+  const piece = (a: number, along: number): string => {
+    const x = a - rules.width * Math.round(a / rules.width),
+      ax = Math.abs(x),
+      y = Math.abs(along),
+      w = p.thinLine,
+      house = Math.hypot(x, y - teeY);
+    if (y > halfLength) return 'boards';
+    if (ax >= rules.width / 2 - w / 2) return 'line side';
+    if (ax <= w / 2 && y <= hackY) return 'line centre';
+    if (Math.abs(y - teeY) <= w / 2) return 'line tee';
+    if (y <= backEdge && y >= backEdge - w) return 'line back';
+    if (Math.abs(y - hackY) <= w / 2 && ax <= rules.hackLength / 2)
+      return 'line hack';
+    if (y >= hogInside && y <= hogInside + rules.hogWidth) return 'hog';
+    if (house <= rules.button) return 'white button';
+    if (house <= rules.inner) return 'red';
+    if (house <= rules.middle) return 'white middle';
+    if (house <= rules.outer) return 'blue';
+    return 'ice';
+  };
+  const classify = (a: number, along: number): Kind => {
+    const label = piece(a, along);
+    return label.startsWith('line')
+      ? 'line'
+      : label.startsWith('white')
+        ? 'white'
+        : (label as Kind);
+  };
+  type Surface = {
+    across: boolean;
+    surface: number;
+    shift: number;
+    tones: { ice: number; boards: number };
+  };
+  const readSurface = (sample: Sampler): Surface => {
+    const options: Surface[] = [];
+    for (const across of [false, true]) {
+      const ice = toneAt(sample, 1, 8, across),
+        boards = toneAt(sample, 1, 23.3, across);
+      p.surfaces.forEach((surface, index) => {
+        const shift = boards - surface.boards;
+        if (
+          Math.abs(shift) <= p.toneShift + 1e-9 &&
+          Math.abs(ice - surface.ice - shift) < 1e-6
+        )
+          options.push({
+            across,
+            surface: index,
+            shift,
+            tones: { ice, boards },
+          });
+      });
+    }
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+
+  it('has the rules of the sheet in the preset, ten sheets across the tile', () => {
+    expect(p.sheetWidth).toBe(rules.width);
+    expect(p.sheetLength).toBe(rules.length);
+    expect(p.teeDistance).toBe(rules.tee);
+    expect(p.outerRadius).toBe(rules.outer);
+    expect(p.middleRadius).toBe(rules.middle);
+    expect(p.innerRadius).toBe(rules.inner);
+    expect(p.buttonRadius).toBe(rules.button);
+    expect(p.backLine).toBe(rules.back);
+    expect(p.hackDistance).toBe(rules.hack);
+    expect(p.hackLength).toBe(rules.hackLength);
+    expect(p.hogDistance).toBe(rules.hog);
+    expect(p.hogWidth).toBe(rules.hogWidth);
+    expect(1 / p.metre).toBeCloseTo(10 * rules.width, 9);
+  });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws every place of the picture as the rules and the widths say, with its tone, height and roughness, along the picture or across it (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('curlingrink', seed),
+        { across, tones } = readSurface(sample),
+        expected: Record<Kind, { tone: number; height: number }> = {
+          boards: { tone: tones.boards, height: p.boardHeight },
+          ice: { tone: tones.ice, height: p.iceHeight },
+          blue: { tone: p.blueTone, height: p.houseHeight },
+          white: { tone: p.whiteTone, height: p.houseHeight },
+          red: { tone: p.redTone, height: p.houseHeight },
+          hog: { tone: p.hogTone, height: p.lineHeight },
+          line: { tone: p.lineTone, height: p.lineHeight },
+        },
+        counts: Record<Kind, number> = {
+          boards: 0,
+          ice: 0,
+          blue: 0,
+          white: 0,
+          red: 0,
+          hog: 0,
+          line: 0,
+        },
+        clear = 0.03;
+      // Every place of the tile (47.5 across, in steps of 0.09 across the sheets and 0.11 along them, over about 2 sheets and both ends, then the rest of the tile more coarsely): the places within 0.03 of a change in the picture are skipped
+      // (the softened edges are checked below, exactly).
+      const check = (a: number, along: number): void => {
+        const kind = classify(a, along);
+        if (
+          [
+            [clear, 0],
+            [-clear, 0],
+            [0, clear],
+            [0, -clear],
+            [clear, clear],
+            [-clear, -clear],
+            [clear, -clear],
+            [-clear, clear],
+          ].some(([dx, dy]) => piece(a + dx, along + dy) !== piece(a, along))
+        )
+          return;
+        counts[kind]++;
+        expect(toneAt(sample, a, along, across)).toBeCloseTo(
+          expected[kind].tone,
+          6,
+        );
+        expect(out.height / p.relief).toBeCloseTo(expected[kind].height, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+      };
+      for (let a = -5; a <= 5; a += 0.09)
+        for (let along = -23.7; along <= 23.7; along += 0.11) check(a, along);
+      for (let a = -23.7; a <= 23.7; a += 0.43)
+        for (let along = -23.7; along <= 23.7; along += 0.43) check(a, along);
+      expect(counts.boards).toBeGreaterThan(500);
+      expect(counts.ice).toBeGreaterThan(20000);
+      expect(counts.blue).toBeGreaterThan(500);
+      expect(counts.white).toBeGreaterThan(300);
+      expect(counts.red).toBeGreaterThan(200);
+      expect(counts.line).toBeGreaterThan(200);
+    },
+  );
+
+  it('uses every surface and both ways over 300 seeds, about equally often, with the tones shifted over the whole range', () => {
+    const surfaces = new Map<number, number>(),
+      shifts: number[] = [];
+    let acrossCount = 0;
+    for (let seed = 0; seed < 300; seed++) {
+      const { across, surface, shift } = readSurface(
+        createSurfaceSampler('curlingrink', seed * 7 + 1),
+      );
+      shifts.push(shift);
+      surfaces.set(surface, (surfaces.get(surface) ?? 0) + 1);
+      acrossCount += Number(across);
+    }
+    expect(surfaces.size).toBe(p.surfaces.length);
+    for (const count of surfaces.values())
+      expect(Math.abs(count - 300 / p.surfaces.length)).toBeLessThan(25);
+    expect(Math.abs(acrossCount / 300 - 0.5)).toBeLessThan(0.1);
+    expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+    expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+    expect(
+      Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 300),
+    ).toBeLessThan(p.toneShift * 0.15);
+    for (let quarter = 0; quarter < 4; quarter++)
+      expect(
+        Math.abs(
+          shifts.filter(
+            (shift) =>
+              Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+          ).length - 75,
+        ),
+      ).toBeLessThan(25);
+  });
+
+  it('puts each edge of each marking where the rules put it, on every sheet and at both ends', () => {
+    const w = p.thinLine,
+      delta = 0.0004 / m;
+    for (const seed of [2, 5]) {
+      const sample = createSurfaceSampler('curlingrink', seed),
+        { across, tones } = readSurface(sample),
+        tone = (a: number, along: number): number =>
+          toneAt(sample, a, along, across),
+        is = (a: number, along: number, expected: number): boolean =>
+          Math.abs(tone(a, along) - expected) < 1e-6;
+      for (const sheet of [0, 3, -4]) {
+        // Positions on the sheet: across from the middle of the sheet (x) and along from the middle (y, either end sy).
+        const centre = sheet * rules.width;
+        for (const sy of [1, -1]) {
+          const at = (x: number, along: number, expected: number): boolean =>
+            is(centre + x, sy * along, expected);
+          // The tee line (thin, centred on the tee), the back line (outer edge 1.829 beyond the tee, inside it), the hog line (inside edge 6.401 from the tee, 0.102 wide): at x = 1.5, clear of the house (its radius is 1.829).
+          expect(at(2.1, teeY - w / 2 + delta, p.lineTone)).toBe(true);
+          expect(at(2.1, teeY - w / 2 - delta, tones.ice)).toBe(true);
+          expect(at(2.1, teeY + w / 2 - delta, p.lineTone)).toBe(true);
+          expect(at(2.1, teeY + w / 2 + delta, tones.ice)).toBe(true);
+          expect(at(2.1, backEdge - delta, p.lineTone)).toBe(true);
+          expect(at(2.1, backEdge + delta, tones.ice)).toBe(true);
+          expect(at(2.1, backEdge - w + delta, p.lineTone)).toBe(true);
+          expect(at(2.1, backEdge - w - delta, tones.ice)).toBe(true);
+          expect(at(2.1, hogInside + delta, p.hogTone)).toBe(true);
+          // The hog line is raised like the other lines.
+          expect(at(2.1, hogInside + rules.hogWidth / 2, p.hogTone)).toBe(true);
+          expect(out.height / p.relief).toBeCloseTo(p.lineHeight, 6);
+          expect(at(2.1, hogInside - delta, tones.ice)).toBe(true);
+          expect(at(2.1, hogInside + rules.hogWidth - delta, p.hogTone)).toBe(
+            true,
+          );
+          expect(at(2.1, hogInside + rules.hogWidth + delta, tones.ice)).toBe(
+            true,
+          );
+          // The hack line (0.457 long across the centre line, centred 3.658 beyond the tee) and the end of the centre line (from hack to hack).
+          expect(at(0.2, hackY - w / 2 + delta, p.lineTone)).toBe(true);
+          expect(at(0.2, hackY + w / 2 + delta, tones.ice)).toBe(true);
+          expect(at(rules.hackLength / 2 - delta, hackY, p.lineTone)).toBe(
+            true,
+          );
+          expect(at(rules.hackLength / 2 + delta, hackY, tones.ice)).toBe(true);
+          expect(at(0, hackY - 0.5, p.lineTone)).toBe(true);
+          expect(at(0, hackY + 0.5, tones.ice)).toBe(true);
+          expect(at(0, hackY - 0.2, p.lineTone)).toBe(true);
+          expect(at(w / 2 - delta, 12, p.lineTone)).toBe(true);
+          expect(at(w / 2 + delta, 12, tones.ice)).toBe(true);
+          // The house round the tee: the circles of radius 1.829, 1.219 and 0.610 and the button 0.152, each edge, on a diagonal (clear of the lines).
+          for (const degrees of [45, 135]) {
+            const point = (radius: number): [number, number] => [
+              radius * Math.cos((degrees * Math.PI) / 180),
+              teeY + radius * Math.sin((degrees * Math.PI) / 180),
+            ];
+            for (const [radius, inside, outside] of [
+              [rules.outer, p.blueTone, tones.ice],
+              [rules.middle, p.whiteTone, p.blueTone],
+              [rules.inner, p.redTone, p.whiteTone],
+              [rules.button, p.whiteTone, p.redTone],
+            ] as [number, number, number][]) {
+              const [ix, iy] = point(radius - delta),
+                [ox, oy] = point(radius + delta);
+              expect(at(ix, iy, inside)).toBe(true);
+              expect(at(ox, oy, outside)).toBe(true);
+            }
+          }
+        }
+        // The side lines between the sheets (thin, centred on the line between two sheets), up to the boards, and the boards beyond the ends of the sheet.
+        for (const side of [1, -1]) {
+          expect(
+            is(
+              centre + side * (rules.width / 2 - w / 2 + delta),
+              8,
+              p.lineTone,
+            ),
+          ).toBe(true);
+          expect(
+            is(centre + side * (rules.width / 2 - w / 2 - delta), 8, tones.ice),
+          ).toBe(true);
+        }
+        expect(is(centre + 1, halfLength - delta, tones.ice)).toBe(true);
+        expect(is(centre + 1, halfLength + delta, tones.boards)).toBe(true);
+        expect(is(centre + rules.width / 2, halfLength - 0.5, p.lineTone)).toBe(
+          true,
+        );
+        expect(
+          is(centre + rules.width / 2, halfLength + 0.5, tones.boards),
+        ).toBe(true);
+      }
+    }
+  });
+
+  it('softens the edges of the ice, of the house, of a line and of the hog line over edgeSoft', () => {
+    const sample = createSurfaceSampler('curlingrink', 2),
+      { across, tones } = readSurface(sample),
+      quarter = (0.25 * p.edgeSoft) / m,
+      w = p.thinLine,
+      tone = (a: number, along: number): number =>
+        toneAt(sample, a, along, across);
+    close(tone(2.1, halfLength - quarter), mix(tones.boards, tones.ice, 0.75));
+    close(tone(2.1, halfLength + quarter), mix(tones.boards, tones.ice, 0.25));
+    // The edges of the house on the line across the middle of the sheet at the tee (the centre line is thin, the tee line is along it): on a diagonal.
+    const diagonal = (radius: number): [number, number] => [
+      radius * Math.SQRT1_2,
+      teeY + radius * Math.SQRT1_2,
+    ];
+    for (const [radius, inner, outer] of [
+      [rules.outer, p.blueTone, tones.ice],
+      [rules.middle, p.whiteTone, p.blueTone],
+      [rules.inner, p.redTone, p.whiteTone],
+      [rules.button, p.whiteTone, p.redTone],
+    ] as [number, number, number][]) {
+      close(tone(...diagonal(radius - quarter)), mix(outer, inner, 0.75));
+      close(tone(...diagonal(radius + quarter)), mix(outer, inner, 0.25));
+    }
+    // The thin lines over the ice: the tee line, the back line (outer edge), the side line over the boards, the hog line.
+    close(tone(2.1, teeY - w / 2 - quarter), mix(tones.ice, p.lineTone, 0.25));
+    close(tone(2.1, teeY - w / 2 + quarter), mix(tones.ice, p.lineTone, 0.75));
+    close(tone(2.1, backEdge + quarter), mix(tones.ice, p.lineTone, 0.25));
+    close(tone(2.1, backEdge - quarter), mix(tones.ice, p.lineTone, 0.75));
+    close(tone(2.1, hogInside - quarter), mix(tones.ice, p.hogTone, 0.25));
+    close(tone(2.1, hogInside + quarter), mix(tones.ice, p.hogTone, 0.75));
+    close(
+      tone(rules.width / 2, halfLength - quarter),
+      mix(tones.boards, p.lineTone, 0.75),
+    );
+    close(
+      tone(rules.width / 2, halfLength + quarter),
+      mix(tones.boards, p.lineTone, 0.25),
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('curlingrink', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('curlingrink', 0),
+      b = createSurfaceSampler('curlingrink', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});
