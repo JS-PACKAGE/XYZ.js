@@ -1184,6 +1184,7 @@ try {
     'talbotcarpet',
     'diffractioncatastrophes',
     'standardmap',
+    'lyapunovfractal',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

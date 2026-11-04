@@ -1147,6 +1147,7 @@ const kinds: ProceduralMaterialKind[] = [
   'talbotcarpet',
   'diffractioncatastrophes',
   'standardmap',
+  'lyapunovfractal',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -194261,6 +194262,270 @@ describe('Standard map as the finite-time Lyapunov exponent of the Chirikov map,
     expect(blue / (512 * 512)).toBeLessThan(116.2);
     expect(maxTilt).toBeGreaterThan(0.0339);
     expect(maxTilt).toBeLessThan(0.0341);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Lyapunov fractal as the Markus-Lyapunov exponent of the driven logistic map', () => {
+  const p = proceduralMaterialPresets.lyapunovfractal;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const plot = 0.5 - p.margin;
+  /** The tone (0 to 1) of the pixel at (u, v) read back from the sampler: the height is cellHeight times it. */
+  const inkAt = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    u: number,
+    v: number,
+  ): number => {
+    sample(u, v, out);
+    return out.height / p.relief / p.cellHeight;
+  };
+  /** The parameters (a, b) of the pixel (u, v) of the variant, and the pixel of the parameters. */
+  const parametersAt = (
+    variant: number,
+    u: number,
+    v: number,
+  ): [number, number] => [
+    p.aMinimums[variant] +
+      ((p.aMaximums[variant] - p.aMinimums[variant]) * (u - 0.5 + plot)) /
+        (2 * plot),
+    p.bMaximums[variant] -
+      ((p.bMaximums[variant] - p.bMinimums[variant]) * (v - 0.5 + plot)) /
+        (2 * plot),
+  ];
+  const pixelOf = (variant: number, a: number, b: number): [number, number] => [
+    0.5 -
+      plot +
+      (2 * plot * (a - p.aMinimums[variant])) /
+        (p.aMaximums[variant] - p.aMinimums[variant]),
+    0.5 -
+      plot +
+      (2 * plot * (p.bMaximums[variant] - b)) /
+        (p.bMaximums[variant] - p.bMinimums[variant]),
+  ];
+  /** The exponent of the variant at (a, b) by another way of writing the iteration: x' = r (x - x x), the derivative as |r - 2 r x|, and the logarithm taken of products of eight factors instead of one by one. */
+  const exponent = (variant: number, a: number, b: number): number => {
+    const sequence: string = p.sequences[variant];
+    let x = 0.5,
+      product = 1,
+      sum = 0,
+      counted = 0;
+    for (let step = 0; step < p.warmup + p.steps; step++) {
+      const rate = sequence.charAt(step % sequence.length) === 'A' ? a : b;
+      if (step >= p.warmup) {
+        product *= Math.max(Math.abs(rate - 2 * rate * x), 1e-12);
+        counted++;
+        if (counted % 8 === 0) {
+          sum += Math.log(product);
+          product = 1;
+        }
+      }
+      x = rate * (x - x * x);
+    }
+    return sum / p.steps;
+  };
+  /** The tone of the exponent, as the preset defines it. */
+  const toneOf = (lambda: number): number =>
+    Math.min(1, Math.max(0, -lambda / p.lambdaScale));
+  /** The exponent of the logistic map x -> r x (1 - x) with a = b = r: ln |2 - r| for the stable fixed point 1 - 1 / r (r between 1 and 3) and (1 / 2) ln |4 + 2 r - r^2| for the stable cycle of period 2 (r between 3 and 1 + sqrt(6)). */
+  const logisticExponent = (rate: number): number =>
+    rate < 3
+      ? Math.log(Math.abs(2 - rate))
+      : 0.5 * Math.log(Math.abs(4 + 2 * rate - rate * rate));
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('lyapunovfractal', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('lyapunovfractal', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0251);
+      expect(low).toBeLessThan(0.026);
+      expect(high).toBeGreaterThan(0.872);
+      expect(high).toBeLessThan(0.876);
+      expect(dark / 65536).toBeGreaterThan(0.084);
+      expect(dark / 65536).toBeLessThan(0.277);
+      expect(mean / 65536).toBeGreaterThan(0.193);
+      expect(mean / 65536).toBeLessThan(0.311);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.79);
+      expect(heightHigh).toBeLessThan(0.81);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (the sequences AB, AAB, ABB, AABAB, BBBBBBAAAAAA and AABB) is 8, 0, 15, 6, 16 and 1; the table was found with a probe by which variant's exponent matches the tones of the seed at thirty points,
+  // and is written here, so it is not an independent check of the seed's choice.
+  const seeds = [8, 0, 15, 6, 16, 1];
+  it('follows the exponent of another way of writing the iteration where the motion is regular', () => {
+    // The test iterates x' = r (x - x x) with the derivative as |r - 2 r x| and takes logarithms of products of eight factors, which rounds differently from the sampler; where the motion is regular the two agree, and where it is chaotic the rounding
+    // errors grow and the pixels cannot be compared one by one. On 2000 points of each variant the points with the exponent of the test below -0.05 (938 to 1445 of them) agree to within 0.005 in the tone, with at most 3 exceptions (none to two in the probe, which
+    // had a worst difference of 0.215 at a point near the edge of a regular region), and on the other points the mean tone is the same to within 0.002 (it is about 0.006 to 0.008 and the two differ by 1e-4 at the most in the probe).
+    seeds.forEach((seed, variant) => {
+      const sample = createSurfaceSampler('lyapunovfractal', seed),
+        out = empty();
+      let different = 0,
+        sampled = 0,
+        modelled = 0,
+        irregular = 0;
+      for (let k = 0; k < 2000; k++) {
+        const u = 0.06 + 0.88 * ((k * 0.6180339887 + 0.17) % 1),
+          v = 0.06 + 0.88 * ((k * 0.7548776662 + 0.3) % 1),
+          [a, b] = parametersAt(variant, u, v),
+          lambda = exponent(variant, a, b),
+          ink = inkAt(sample, out, u, v);
+        if (lambda < -0.05)
+          different += Number(Math.abs(ink - toneOf(lambda)) > 0.005);
+        else {
+          irregular++;
+          sampled += ink;
+          modelled += toneOf(lambda);
+        }
+      }
+      expect(different).toBeLessThanOrEqual(3);
+      expect(Math.abs(sampled - modelled) / irregular).toBeLessThan(0.002);
+    });
+  });
+  it('gives the exponent of the stable fixed point and cycle on the diagonal a = b', () => {
+    // On the diagonal the sequence does not matter and the map is the logistic map of the rate r = a = b: its stable fixed point 1 - 1 / r has the multiplier 2 - r (between 1 and 3) and its stable cycle of period 2 the multiplier 4 + 2 r - r^2 (just above 3),
+    // so the exponent is ln |2 - r| or (1 / 2) ln |4 + 2 r - r^2|; at r = 2.7, 2.8, 2.9, 3.1, 3.2, 3.3 and 3.4 the tones of the five variants whose window holds the diagonal agree with them to 1e-4 (3.4e-6 at the most in the probe), and in the chaos at
+    // r = 3.6, 3.7 and 3.9 the tone is 0 (the exponent is positive). The multipliers are my hand calculation.
+    for (const variant of [0, 1, 2, 3, 5]) {
+      const sample = createSurfaceSampler('lyapunovfractal', seeds[variant]),
+        out = empty();
+      for (const rate of [2.7, 2.8, 2.9, 3.1, 3.2, 3.3, 3.4]) {
+        const [u, v] = pixelOf(variant, rate, rate);
+        expect(
+          Math.abs(inkAt(sample, out, u, v) - toneOf(logisticExponent(rate))),
+        ).toBeLessThan(1e-4);
+      }
+      for (const rate of [3.6, 3.7, 3.9]) {
+        const [u, v] = pixelOf(variant, rate, rate);
+        expect(inkAt(sample, out, u, v)).toBeLessThan(1e-9);
+      }
+    }
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 8 pick different sequences (AAB and AB).
+    const first = litGrid(0),
+      second = litGrid(8);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.2145);
+    expect(different / first.length).toBeLessThan(0.2146);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('repeats every channel across signed UV periods', () => {
+    // The picture is not periodic (a margin of 0.04 and a window of parameters), but the sampler wraps u and v. It is not C1 (the exponent changes with a sudden jump where the motion changes its period or goes chaotic, and the second differences of the standard sweep were over the threshold at
+    // 1088, 1387, 1144, 2589, 1910 and 1731 records in the six variants of the probe), so what is checked is only that the values at (k / 1024, j / 1024), which are exact in binary, are the same at (u - 7, v + 11): a rounding in u - 7 would be amplified by the chaos.
+    const a = empty(),
+      b = empty();
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('lyapunovfractal', seed);
+      let drift = 0;
+      for (let k = 0; k < 64; k++)
+        for (let j = 0; j < 64; j++) {
+          const u = (k * 16 + 3) / 1024,
+            v = (j * 16 + 5) / 1024;
+          sample(u, v, a);
+          sample(u - 7, v + 11, b);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(a[key] - b[key]));
+        }
+      expect(drift).toBe(0);
+    }
+  });
+  it('writes actual512 amber swirl maps with raised regular regions and dark chaos', () => {
+    const maps = generateProceduralMaps('lyapunovfractal', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(91);
+    expect(red / (512 * 512)).toBeLessThan(92);
+    expect(green / (512 * 512)).toBeGreaterThan(71.4);
+    expect(green / (512 * 512)).toBeLessThan(72.4);
+    expect(blue / (512 * 512)).toBeGreaterThan(38.1);
+    expect(blue / (512 * 512)).toBeLessThan(39.1);
+    expect(maxTilt).toBeGreaterThan(0.0515);
+    expect(maxTilt).toBeLessThan(0.0519);
     expect(invalid).toBe(0);
   });
 });

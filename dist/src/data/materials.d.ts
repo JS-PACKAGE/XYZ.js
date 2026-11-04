@@ -17053,6 +17053,31 @@ export declare const proceduralMaterialPresets: Readonly<{
         cellHeight: 0.8;
         gapOcclusion: 0.4;
     }>;
+    lyapunovfractal: Readonly<{
+        dark: readonly [18, 8, 2];
+        light: readonly [255, 214, 120];
+        roughness: 0.36;
+        relief: 0.0008;
+        seedSalt: 12179;
+        margin: 0.04;
+        fade: 0.012;
+        sequences: readonly ["AB", "AAB", "ABB", "AABAB", "BBBBBBAAAAAA", "AABB"];
+        aMinimums: readonly [2, 2, 2, 2.6, 3.4, 2.5];
+        aMaximums: readonly [4, 4, 4, 4, 4, 4];
+        bMinimums: readonly [2, 2, 2, 2.6, 2.5, 2.5];
+        bMaximums: readonly [4, 4, 4, 4, 3.4, 4];
+        warmup: 60;
+        steps: 120;
+        lambdaScale: 1;
+        edgeSoft: 0.35;
+        grainCells: 128;
+        gapTone: 0.04;
+        toneFloor: 0.14;
+        toneSpan: 0.72;
+        grainTone: 0.03;
+        cellHeight: 0.8;
+        gapOcclusion: 0.4;
+    }>;
     vermiculation: Readonly<{
         dark: readonly [60, 48, 36];
         light: readonly [220, 204, 172];
@@ -18836,6 +18861,7 @@ export declare const proceduralTileMeters: Readonly<{
     talbotcarpet: 0.5;
     diffractioncatastrophes: 0.5;
     standardmap: 0.5;
+    lyapunovfractal: 0.5;
     dominotiling: 0.5;
     vermiculation: 0.4;
     kikko: 0.3;

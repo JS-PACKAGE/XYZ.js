@@ -51165,6 +51165,59 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'lyapunovfractal': {
+        const p = proceduralMaterialPresets.lyapunovfractal,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant = Math.floor(
+            hash(0, 99, seed ^ p.seedSalt) * p.sequences.length,
+          ),
+          sequence = p.sequences[variant],
+          letters = Array.from(sequence, (letter) => letter === 'A'),
+          aMinimum = p.aMinimums[variant],
+          bMaximum = p.bMaximums[variant],
+          aSpan = p.aMaximums[variant] - aMinimum,
+          bSpan = bMaximum - p.bMinimums[variant],
+          plot = 0.5 - p.margin,
+          inverseSoft = 1 / p.edgeSoft;
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            a = aMinimum + (aSpan * (fu - 0.5 + plot)) / (2 * plot),
+            b = bMaximum - (bSpan * (fv - 0.5 + plot)) / (2 * plot);
+          let state = 0.5,
+            sum = 0;
+          for (let step = 0; step < p.warmup + p.steps; step++) {
+            const rate = letters[step % letters.length] ? a : b;
+            if (step >= p.warmup)
+              sum += Math.log(
+                Math.max(Math.abs(rate * (1 - 2 * state)), 1e-12),
+              );
+            state = rate * state * (1 - state);
+          }
+          const lambda = sum / p.steps,
+            outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
+            outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
+            boxDistance =
+              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              Math.min(Math.max(outsideX, outsideY), 0),
+            edge = smooth(clamp(-boxDistance / p.fade)),
+            ink = clamp(edge * clamp(-lambda / p.lambdaScale)),
+            mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * ink;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -60087,6 +60140,7 @@ export function createSurfaceSampler(
     kind === 'talbotcarpet' ||
     kind === 'diffractioncatastrophes' ||
     kind === 'standardmap' ||
+    kind === 'lyapunovfractal' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
