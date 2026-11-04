@@ -1182,6 +1182,7 @@ const kinds: ProceduralMaterialKind[] = [
   'setpartitions',
   'compositions',
   'polyhexes',
+  'polysticks',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -207570,6 +207571,470 @@ describe('Polyhexes as every shape of n hexagons drawn once', () => {
     expect(blue / (512 * 512)).toBeLessThan(48.9);
     expect(maxTilt).toBeGreaterThan(0.0598);
     expect(maxTilt).toBeLessThan(0.0599);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Polysticks as every shape of n sticks drawn once', () => {
+  const p = proceduralMaterialPresets.polysticks;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The layout of the panels of a variant (seed % 6): slots of 1 / cols by 1 / rows, each with a box of size by size units (the shape at its top left) and the margin around it, drawn at one scale and centred in the slot. */
+  const geometry = (seed: number) => {
+    const variant = seed % p.sizes.length,
+      size: number = p.sizes[variant],
+      cols: number = p.cols[variant],
+      rows: number = p.rows[variant],
+      span = size + 2 * p.margin,
+      scale = Math.min(1 / (cols * span), 1 / (rows * span));
+    return {
+      size,
+      cols,
+      rows,
+      free: p.kinds[variant] === 0,
+      scale,
+      originX: (1 / cols - scale * span) / 2,
+      originY: (1 / rows - scale * span) / 2,
+    };
+  };
+  type Stick = number[];
+  /** The eight turns and flips as matrices (a, b, c, d): x becomes a x + b y and y becomes c x + d y. */
+  const matrices = [
+    [1, 0, 0, 1],
+    [0, -1, 1, 0],
+    [-1, 0, 0, -1],
+    [0, 1, -1, 0],
+    [1, 0, 0, -1],
+    [-1, 0, 0, 1],
+    [0, 1, 1, 0],
+    [0, -1, -1, 0],
+  ];
+  const turned = (sticks: Stick[], turn: number): Stick[] => {
+    const [a, b, c, d] = matrices[turn];
+    return sticks.map(([x1, y1, x2, y2]) => [
+      a * x1 + b * y1,
+      c * x1 + d * y1,
+      a * x2 + b * y2,
+      c * x2 + d * y2,
+    ]);
+  };
+  /** The sticks moved to the corner, each written with its lesser end first, and sorted, as one string. */
+  const shapeKey = (sticks: Stick[]): string => {
+    const minX = Math.min(...sticks.flatMap(([x1, , x2]) => [x1, x2])),
+      minY = Math.min(...sticks.flatMap(([, y1, , y2]) => [y1, y2]));
+    return sticks
+      .map(([x1, y1, x2, y2]) => {
+        const ends = [
+          `${x1 - minX},${y1 - minY}`,
+          `${x2 - minX},${y2 - minY}`,
+        ].sort();
+        return ends.join('-');
+      })
+      .sort()
+      .join(' ');
+  };
+  /** The same for the least of the eight turns and flips: a name of the free polystick. */
+  const freeKey = (sticks: Stick[]): string =>
+    matrices.map((_, turn) => shapeKey(turned(sticks, turn))).sort()[0];
+  /** How many of the eight turns and flips map the shape onto itself. */
+  const symmetries = (sticks: Stick[]): number =>
+    matrices.filter(
+      (_, turn) => shapeKey(turned(sticks, turn)) === shapeKey(sticks),
+    ).length;
+  /** Whether the sticks form one piece: two sticks are joined where they share an end. */
+  const connected = (sticks: Stick[]): boolean => {
+    const seen = new Set([0]),
+      stack = [0];
+    while (stack.length > 0) {
+      const a = stack.pop()!;
+      sticks.forEach((other, b) => {
+        const ends = [
+          `${sticks[a][0]},${sticks[a][1]}`,
+          `${sticks[a][2]},${sticks[a][3]}`,
+        ];
+        if (
+          !seen.has(b) &&
+          (ends.includes(`${other[0]},${other[1]}`) ||
+            ends.includes(`${other[2]},${other[3]}`))
+        ) {
+          seen.add(b);
+          stack.push(b);
+        }
+      });
+    }
+    return seen.size === sticks.length;
+  };
+  /** Every fixed polystick of n sticks (shapes that differ by moving them only) by going through all the sets of n sticks of the window of the lattice from 0 to n in both directions (a connected shape of n sticks spans at most n units each way) and keeping the connected ones. */
+  const shapeCache = new Map<number, Stick[][]>();
+  const fixedShapes = (n: number): Stick[][] => {
+    const cached = shapeCache.get(n);
+    if (cached !== undefined) return cached;
+    const window: Stick[] = [];
+    for (let y = 0; y <= n; y++)
+      for (let x = 0; x <= n; x++) {
+        if (x < n) window.push([x, y, x + 1, y]);
+        if (y < n) window.push([x, y, x, y + 1]);
+      }
+    const found = new Map<string, Stick[]>(),
+      chosen: Stick[] = [],
+      choose = (from: number): void => {
+        if (chosen.length === n) {
+          if (connected(chosen))
+            found.set(
+              shapeKey(chosen),
+              chosen.map((stick) => [...stick]),
+            );
+          return;
+        }
+        for (let k = from; k <= window.length - (n - chosen.length); k++) {
+          chosen.push(window[k]);
+          choose(k + 1);
+          chosen.pop();
+        }
+      };
+    choose(0);
+    const shapes = [...found.values()];
+    shapeCache.set(n, shapes);
+    return shapes;
+  };
+  type Panel = { sticks: Stick[]; levels: Set<number> };
+  /** The shape of every panel slot of a seed read back from the picture (null for an empty slot): a stick of the lattice is part of the shape where there is ink at its middle, and the height there gives its level. */
+  const readPanels = (seed: number): (Panel | null)[] => {
+    const g = geometry(seed),
+      sample = createSurfaceSampler('polysticks', seed),
+      out = empty(),
+      panels: (Panel | null)[] = [];
+    for (let slot = 0; slot < g.cols * g.rows; slot++) {
+      const col = slot % g.cols,
+        row = Math.floor(slot / g.cols),
+        sticks: Stick[] = [],
+        levels = new Set<number>();
+      for (let y = 0; y <= g.size; y++)
+        for (let x = 0; x <= g.size; x++)
+          for (const [dx, dy] of [
+            [1, 0],
+            [0, 1],
+          ]) {
+            if (x + dx > g.size || y + dy > g.size) continue;
+            sample(
+              col / g.cols + g.originX + g.scale * (p.margin + x + dx / 2),
+              row / g.rows + g.originY + g.scale * (p.margin + y + dy / 2),
+              out,
+            );
+            if (1 - (1 - out.occlusion) / p.gapOcclusion < 0.5) continue;
+            sticks.push([x, y, x + dx, y + dy]);
+            levels.add(
+              Math.round(
+                (3 * (out.height / p.relief / p.cellHeight - p.heightBase)) /
+                  p.heightSwing,
+              ),
+            );
+          }
+      panels.push(sticks.length === 0 ? null : { sticks, levels });
+    }
+    return panels;
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('polysticks', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    // The top of the tone and height depends on the variant (the symmetry orders that occur).
+    const expected = new Map([
+      [0, { high: 0.7785, lit: 0.01462, mean: 0.04199, height: 0.64 }],
+      [1, { high: 0.9629, lit: 0.01416, mean: 0.04731, height: 0.8 }],
+      [0xffffffff, { high: 0.777, lit: 0.01831, mean: 0.04763, height: 0.64 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('polysticks', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0153);
+      expect(low).toBeLessThan(0.0156);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(want.height, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws every free or fixed polystick of the size exactly once, read back from the picture and compared with all the connected sets of sticks of a window', () => {
+    for (let seed = 0; seed < 12; seed++) {
+      const g = geometry(seed),
+        read = readPanels(seed),
+        drawn = read.filter((panel): panel is Panel => panel !== null),
+        names = drawn.map(({ sticks }) =>
+          g.free ? freeKey(sticks) : shapeKey(sticks),
+        ),
+        wanted = fixedShapes(g.size).map((sticks) =>
+          g.free ? freeKey(sticks) : shapeKey(sticks),
+        );
+      for (const { sticks } of drawn) {
+        expect(sticks.length).toBe(g.size);
+        expect(connected(sticks)).toBe(true);
+      }
+      // No two panels show the same shape and none is missing.
+      expect(new Set(names).size).toBe(drawn.length);
+      expect([...new Set(wanted)].sort()).toEqual([...names].sort());
+      // The empty slots are the last ones.
+      expect(read.slice(drawn.length).every((panel) => panel === null)).toBe(
+        true,
+      );
+    }
+    // The numbers are 5, 16 and 55 free polysticks of 3, 4 and 5 sticks and 22, 88 and 372 fixed ones of 3, 4 and 5 sticks.
+    expect(
+      [0, 1, 2, 3, 4, 5].map(
+        (seed) => readPanels(seed).filter((panel) => panel !== null).length,
+      ),
+    ).toEqual([5, 16, 55, 22, 88, 372]);
+  }, 180000);
+  it('shows free polysticks turned or flipped and the symmetry level of every shape', () => {
+    for (let seed = 0; seed < 6; seed++) {
+      const g = geometry(seed),
+        drawn = readPanels(seed).filter(
+          (panel): panel is Panel => panel !== null,
+        );
+      // The level of a polystick is the logarithm to base 2 of the number of turns and flips that map it onto itself: 1, 2, 4 and 8 symmetries give the levels 0, 1, 2 and 3.
+      for (const { sticks, levels } of drawn)
+        expect([...levels]).toEqual([Math.log2(symmetries(sticks))]);
+      // Free polysticks are turned (and the shape stays in the corner of its box); fixed ones are drawn as they were grown, so some of the shapes are not in the first turn.
+      if (g.free)
+        expect(
+          drawn.some(({ sticks }) => shapeKey(sticks) !== freeKey(sticks)),
+        ).toBe(true);
+    }
+    // The levels that occur: the level 3 (all eight symmetries) only among the shapes of 4 sticks (the square and the plus), and 0, 1 and 2 in every variant.
+    const levels = (seed: number) =>
+      new Set(readPanels(seed).flatMap((panel) => [...(panel?.levels ?? [])]));
+    for (const [seed, want] of [
+      [0, [0, 1, 2]],
+      [1, [0, 1, 2, 3]],
+      [2, [0, 1, 2]],
+      [3, [0, 1, 2]],
+      [4, [0, 1, 2, 3]],
+      [5, [0, 1, 2]],
+    ] as [number, number[]][])
+      expect([...levels(seed)].sort()).toEqual(want);
+  });
+  it('shuffles the panels by group without changing the set of shapes', () => {
+    for (const seed of [0, 1, 4]) {
+      const names = (s: number) =>
+          readPanels(s).map((panel) =>
+            panel === null ? '-' : shapeKey(panel.sticks),
+          ),
+        first = names(seed),
+        second = names(seed + 6),
+        third = names(seed + 12);
+      expect(first).not.toEqual(second);
+      expect(second).not.toEqual(third);
+      // For free polysticks the turn changes with the group too, so compare the names of the classes there.
+      const classes = (s: number) =>
+        readPanels(s)
+          .filter((panel) => panel !== null)
+          .map((panel) => freeKey(panel.sticks))
+          .sort();
+      expect(classes(seed)).toEqual(classes(seed + 6));
+      expect(classes(seed)).toEqual(classes(seed + 12));
+    }
+  });
+  it('agrees with the ideal sticks away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5]) {
+      const g = geometry(seed),
+        panels = readPanels(seed),
+        sample = createSurfaceSampler('polysticks', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          col = Math.min(g.cols - 1, Math.floor(u * g.cols)),
+          row = Math.min(g.rows - 1, Math.floor(v * g.rows)),
+          panel = panels[row * g.cols + col],
+          x = (u - col / g.cols - g.originX) / g.scale - p.margin,
+          y = (v - row / g.rows - g.originY) / g.scale - p.margin;
+        let ink = 0,
+          level = 0,
+          near = false;
+        if (panel !== null) {
+          // The distance to the nearest stick (a segment).
+          let nearest = Infinity;
+          for (const [ax, ay, bx, by] of panel.sticks) {
+            const along = Math.max(
+              0,
+              Math.min(1, (x - ax) * (bx - ax) + (y - ay) * (by - ay)),
+            );
+            nearest = Math.min(
+              nearest,
+              Math.hypot(
+                x - ax - along * (bx - ax),
+                y - ay - along * (by - ay),
+              ),
+            );
+          }
+          // The ink is 1 within half the width less half the smoothing, 0 beyond half the width plus half the smoothing, and not compared in between.
+          if (Math.abs(nearest - p.lineHalf) < p.edgeSoft / 2) near = true;
+          ink = nearest < p.lineHalf ? 1 : 0;
+          level = Math.log2(symmetries(panel.sticks)) / 3;
+        }
+        if (near) continue;
+        compared++;
+        sample(u, v, out);
+        const tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.heightBase + p.heightSwing * level),
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(5700);
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeGreaterThan(0.0285);
+    expect(unlike(first, litGrid(1))).toBeLessThan(0.0286);
+    expect(unlike(first, litGrid(6))).toBeGreaterThan(0.0157);
+    expect(unlike(first, litGrid(6))).toBeLessThan(0.0158);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('polysticks', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 teal polystick maps on dark teal with raised sticks and shaded gaps', () => {
+    const maps = generateProceduralMaps('polysticks', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(7.6);
+    expect(red / (512 * 512)).toBeLessThan(8.5);
+    expect(green / (512 * 512)).toBeGreaterThan(29.2);
+    expect(green / (512 * 512)).toBeLessThan(30.1);
+    expect(blue / (512 * 512)).toBeGreaterThan(35.6);
+    expect(blue / (512 * 512)).toBeLessThan(36.6);
+    expect(maxTilt).toBeGreaterThan(0.1);
+    expect(maxTilt).toBeLessThan(0.1001);
     expect(invalid).toBe(0);
   });
 });

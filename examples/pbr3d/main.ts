@@ -1219,6 +1219,7 @@ try {
     'setpartitions',
     'compositions',
     'polyhexes',
+    'polysticks',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
