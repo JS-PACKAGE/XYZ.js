@@ -54,6 +54,12 @@ describe('Terrain3D CPU heightfield', () => {
     expect(normal.z).toBeCloseTo(-2 / Math.sqrt(6));
     expect(field.normalAt(3, 0)).toBeUndefined();
     expect(() => field.heightAt(NaN, 0)).toThrow(RangeError);
+    expect(() => field.normalAt(NaN, 0)).toThrow(
+      'Terrain coordinates must be finite.',
+    );
+    expect(() => field.normalAt(0, Infinity)).toThrow(
+      'Terrain coordinates must be finite.',
+    );
   });
   it('uses triangle rather than bilinear interpolation for a saddle', () => {
     const field = new Terrain3D({

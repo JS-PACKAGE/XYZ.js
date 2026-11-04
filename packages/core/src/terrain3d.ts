@@ -211,7 +211,13 @@ export class Terrain3D extends Group {
 
   /** Smooth finite-difference normal used by all LOD meshes, in terrain-local space. */
   normalAt(x: number, z: number, out = new Vector3()): Vector3 | undefined {
-    if (this.heightAt(x, z) === undefined) return undefined;
+    if (!Number.isFinite(x) || !Number.isFinite(z))
+      throw new RangeError('Terrain coordinates must be finite.');
+    const spanX = this.columns - 1,
+      spanZ = this.rows - 1;
+    const gx = (x / this.width + 0.5) * spanX,
+      gz = (z / this.depth + 0.5) * spanZ;
+    if (gx < 0 || gz < 0 || gx > spanX || gz > spanZ) return undefined;
     const dx = this.width / (this.columns - 1),
       dz = this.depth / (this.rows - 1);
     const left = Math.max(-this.width / 2, x - dx),
@@ -220,10 +226,6 @@ export class Terrain3D extends Group {
       front = Math.min(this.depth / 2, z + dz);
     // The point is inside the terrain and the taps are clamped to its rectangle, so each
     // tap lies inside the grid and needs neither the finiteness nor the bounds check.
-    const spanX = this.columns - 1,
-      spanZ = this.rows - 1;
-    const gx = (x / this.width + 0.5) * spanX,
-      gz = (z / this.depth + 0.5) * spanZ;
     const gridLeft = (left / this.width + 0.5) * spanX,
       gridRight = (right / this.width + 0.5) * spanX,
       gridBack = (back / this.depth + 0.5) * spanZ,
