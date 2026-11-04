@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'gridironfield',
   'squashcourt',
   'pickleballcourt',
   'volleyballcourt',
@@ -50727,6 +50728,93 @@ export function createSurfaceSampler(
             (p.courtHeight +
               (p.lineHeight - p.courtHeight) * marking -
               elevation) *
+            court;
+          color = clamp(shade);
+          height = clamp(elevation);
+          roughness = clamp(p.inkRoughness);
+          occlusion = 1;
+        };
+      }
+      case 'gridironfield': {
+        const p = proceduralMaterialPresets.gridironfield,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(118, 1, seed ^ 0x1e0001) * p.surfaces.length)
+            ],
+          across = hash(118, 2, seed ^ 0x1e0002) < 0.5,
+          shift = (hash(118, 3, seed ^ 0x1e0003) * 2 - 1) * p.toneShift,
+          halfField = p.fieldLength / 2,
+          halfLength = halfField + p.endZone,
+          halfWidth = p.fieldWidth / 2,
+          line = p.lineWidth,
+          lineCount = Math.round(halfField / p.lineSpacing),
+          hashCount = Math.round(halfField / p.yard),
+          // How far a place is inside the nearest of a row of marks (marks every step along the field, as many as are numbered out to count each way, each width long), in feet.
+          nearest = (
+            x: number,
+            step: number,
+            count: number,
+            width: number,
+          ): number =>
+            width / 2 -
+            Math.abs(
+              x -
+                Math.min(Math.max(Math.round(x / step), -count), count) * step,
+            );
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            // The place in feet from the middle of the field (x along its length).
+            x = ((across ? fv : fu) - 0.5) / p.foot,
+            y = ((across ? fu : fv) - 0.5) / p.foot,
+            ax = Math.abs(x),
+            ay = Math.abs(y),
+            margin = cover(
+              Math.min(
+                halfLength + p.endMargin - ax,
+                halfWidth + p.sideMargin - ay,
+              ) * p.foot,
+            ),
+            inside = Math.min(halfLength - ax, halfWidth - ay),
+            court = cover(inside * p.foot),
+            // The end zones, and the mowing stripes of every second 5 yards (the end zones go over the stripes beyond the goal lines): all of their edges are in the middle of a yard line, which hides them.
+            endzone = cover((ax - halfField) * p.foot),
+            phase = (x + halfField) % (2 * p.lineSpacing),
+            stripe = cover(
+              (phase >= p.lineSpacing
+                ? Math.min(phase - p.lineSpacing, 2 * p.lineSpacing - phase)
+                : -Math.min(phase, p.lineSpacing - phase)) * p.foot,
+            ),
+            // The lines: the outline, the yard lines (every 5 yards from goal line to goal line) and the hash marks (every yard, in two rows).
+            marking = Math.max(
+              cover(Math.min(inside, line - inside) * p.foot),
+              cover(nearest(x, p.lineSpacing, lineCount, line) * p.foot),
+              cover(
+                Math.min(
+                  nearest(x, p.yard, hashCount, p.hashWidth),
+                  p.hashLength / 2 - Math.abs(ay - p.hashSpacing / 2),
+                ) * p.foot,
+              ),
+            );
+          // Field or line over the margin, the line only where there is field (so that a line at the edge of the field has the edge of the field).
+          const lined = court > 0 ? Math.min(1, marking / court) : 0;
+          let fieldTone = surface.field + shift,
+            fieldHeight = p.fieldHeight;
+          fieldTone += (surface.stripe - surface.field) * stripe;
+          fieldHeight += (p.stripeHeight - fieldHeight) * stripe;
+          fieldTone += (surface.endzone - fieldTone + shift) * endzone;
+          fieldHeight += (p.endZoneHeight - fieldHeight) * endzone;
+          let shade = surface.ground + shift,
+            elevation = p.groundHeight;
+          shade += (surface.margin + shift - shade) * margin;
+          elevation += (p.marginHeight - elevation) * margin;
+          shade +=
+            (fieldTone + (p.lineTone - fieldTone) * lined - shade) * court;
+          elevation +=
+            (fieldHeight + (p.lineHeight - fieldHeight) * lined - elevation) *
             court;
           color = clamp(shade);
           height = clamp(elevation);

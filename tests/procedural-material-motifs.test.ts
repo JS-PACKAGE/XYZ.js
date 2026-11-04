@@ -74622,3 +74622,400 @@ describe('squashcourt: a squash court seen from above with the floor markings of
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('gridironfield: an American football field seen from above, with the yard lines and hash marks of the NFL, laid along or across by the seed', () => {
+  const p = proceduralMaterialPresets.gridironfield,
+    out = empty(),
+    ft = p.foot,
+    toneAt = (
+      sample: Sampler,
+      x: number,
+      y: number,
+      across: boolean,
+    ): number => {
+      // A place in feet from the middle of the field (x along its length) as a place on the picture.
+      sample(0.5 + (across ? y : x) * ft, 0.5 + (across ? x : y) * ft, out);
+      return out.color;
+    };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    mix = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    // The probes are exact (the edges are straight), so the tolerance is tiny.
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  // The facts of the field, in feet, as I remember them for the NFL field (no web search and no rulebook was read for this material): 100 yards between the goal lines and 10 yards of end zone beyond each, 160 across,
+  // a yard line every 5 yards, a hash mark every yard in two rows 70 feet 9 inches apart, lines 4 inches wide, hash marks 4 inches by 2 feet.
+  const rules = {
+      field: 300,
+      endZone: 30,
+      width: 160,
+      lineSpacing: 15,
+      yard: 3,
+      hashSpacing: 70 + 9 / 12,
+      line: 4 / 12,
+      hashLength: 2,
+    },
+    halfF = rules.field / 2,
+    halfL = halfF + rules.endZone,
+    halfW = rules.width / 2,
+    w = p.lineWidth,
+    hw = p.hashWidth,
+    hl = p.hashLength,
+    row = rules.hashSpacing / 2;
+  type Kind = 'ground' | 'margin' | 'field' | 'stripe' | 'endzone' | 'line';
+  const limited = (value: number, limit: number): number =>
+    Math.min(Math.max(value, -limit), limit);
+  // The piece of the picture a place is in (two pieces of line next to each other are two pieces).
+  const piece = (x: number, y: number): string => {
+    const ax = Math.abs(x),
+      ay = Math.abs(y),
+      yardLine = limited(
+        Math.round(x / rules.lineSpacing),
+        halfF / rules.lineSpacing,
+      ),
+      hash = limited(Math.round(x / rules.yard), halfF / rules.yard),
+      band = Math.floor((x + halfF) / rules.lineSpacing);
+    if (ax > halfL + p.endMargin || ay > halfW + p.sideMargin) return 'ground';
+    if (ax > halfL || ay > halfW) return 'margin';
+    if (ax >= halfL - w || ay >= halfW - w) return 'line outline';
+    if (Math.abs(x - yardLine * rules.lineSpacing) <= w / 2)
+      return `line yard ${yardLine}`;
+    if (
+      Math.abs(x - hash * rules.yard) <= hw / 2 &&
+      Math.abs(ay - row) <= hl / 2
+    )
+      return `line hash ${hash} ${Math.sign(y)}`;
+    if (ax > halfF) return 'endzone';
+    return band % 2 === 0 ? `field ${band}` : `stripe ${band}`;
+  };
+  const classify = (x: number, y: number): Kind => {
+    const label = piece(x, y);
+    return label.startsWith('line') ? 'line' : (label.split(' ')[0] as Kind);
+  };
+  type Surface = {
+    across: boolean;
+    surface: number;
+    shift: number;
+    tones: {
+      ground: number;
+      margin: number;
+      field: number;
+      stripe: number;
+      endzone: number;
+    };
+  };
+  const readSurface = (sample: Sampler): Surface => {
+    const options: Surface[] = [];
+    for (const across of [false, true]) {
+      const ground = toneAt(sample, 0, 120, across),
+        margin = toneAt(sample, 40, halfW + 5, across),
+        field = toneAt(sample, -142, 10, across),
+        stripe = toneAt(sample, -128, 10, across),
+        endzone = toneAt(sample, 165, 10, across);
+      p.surfaces.forEach((surface, index) => {
+        const shift = ground - surface.ground;
+        if (
+          Math.abs(shift) <= p.toneShift + 1e-9 &&
+          Math.abs(margin - surface.margin - shift) < 1e-6 &&
+          Math.abs(field - surface.field - shift) < 1e-6 &&
+          Math.abs(stripe - surface.stripe - shift) < 1e-6 &&
+          Math.abs(endzone - surface.endzone - shift) < 1e-6
+        )
+          options.push({
+            across,
+            surface: index,
+            shift,
+            tones: { ground, margin, field, stripe, endzone },
+          });
+      });
+    }
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+
+  it('has the rules of the field in the preset, the lines 4.5 times as wide as the rules and the hash marks 3 times as wide and twice as long', () => {
+    expect(p.fieldLength).toBe(rules.field);
+    expect(p.endZone).toBe(rules.endZone);
+    expect(p.fieldWidth).toBe(rules.width);
+    expect(p.lineSpacing).toBe(rules.lineSpacing);
+    expect(p.yard).toBe(rules.yard);
+    expect(p.hashSpacing).toBe(rules.hashSpacing);
+    expect(p.lineWidth).toBeCloseTo(4.5 * rules.line, 12);
+    expect(p.hashWidth).toBeCloseTo(3 * rules.line, 12);
+    expect(p.hashLength).toBe(2 * rules.hashLength);
+  });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws every place of the picture as the rules and the widths say, with its tone, height and roughness, along the picture or across it (seed %i)',
+    { timeout: 120000 },
+    (seed) => {
+      const sample = createSurfaceSampler('gridironfield', seed),
+        { across, tones } = readSurface(sample),
+        expected: Record<Kind, { tone: number; height: number }> = {
+          ground: { tone: tones.ground, height: p.groundHeight },
+          margin: { tone: tones.margin, height: p.marginHeight },
+          field: { tone: tones.field, height: p.fieldHeight },
+          stripe: { tone: tones.stripe, height: p.stripeHeight },
+          endzone: { tone: tones.endzone, height: p.endZoneHeight },
+          line: { tone: p.lineTone, height: p.lineHeight },
+        },
+        counts: Record<Kind, number> = {
+          ground: 0,
+          margin: 0,
+          field: 0,
+          stripe: 0,
+          endzone: 0,
+          line: 0,
+        },
+        step = 0.37,
+        clear = 0.1;
+      // Every place of the picture (the tile is 384 across; the places within 0.1 of a change in the picture are skipped: the softened edges are checked below, exactly).
+      for (let x = -192; x <= 192; x += step)
+        for (let y = -192; y <= 192; y += step) {
+          const kind = classify(x, y);
+          if (
+            [
+              [clear, 0],
+              [-clear, 0],
+              [0, clear],
+              [0, -clear],
+              [clear, clear],
+              [-clear, -clear],
+              [clear, -clear],
+              [-clear, clear],
+            ].some(([dx, dy]) => piece(x + dx, y + dy) !== piece(x, y))
+          )
+            continue;
+          counts[kind]++;
+          expect(toneAt(sample, x, y, across)).toBeCloseTo(
+            expected[kind].tone,
+            6,
+          );
+          expect(out.height / p.relief).toBeCloseTo(expected[kind].height, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        }
+      expect(counts.line).toBeGreaterThan(4000);
+      expect(counts.field).toBeGreaterThan(30000);
+      expect(counts.stripe).toBeGreaterThan(30000);
+      expect(counts.endzone).toBeGreaterThan(5000);
+      expect(counts.margin).toBeGreaterThan(5000);
+      expect(counts.ground).toBeGreaterThan(100000);
+    },
+  );
+
+  it('uses every surface and both ways over 1000 seeds, about equally often, with the tones shifted over the whole range', () => {
+    const surfaces = new Map<number, number>(),
+      shifts: number[] = [];
+    let acrossCount = 0;
+    for (let seed = 0; seed < 1000; seed++) {
+      const { across, surface, shift } = readSurface(
+        createSurfaceSampler('gridironfield', seed * 7 + 1),
+      );
+      shifts.push(shift);
+      surfaces.set(surface, (surfaces.get(surface) ?? 0) + 1);
+      acrossCount += Number(across);
+    }
+    expect(surfaces.size).toBe(p.surfaces.length);
+    for (const count of surfaces.values())
+      expect(Math.abs(count - 1000 / p.surfaces.length)).toBeLessThan(50);
+    expect(Math.abs(acrossCount / 1000 - 0.5)).toBeLessThan(0.05);
+    expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+    expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+    expect(
+      Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+    ).toBeLessThan(p.toneShift * 0.15);
+    for (let quarter = 0; quarter < 4; quarter++)
+      expect(
+        Math.abs(
+          shifts.filter(
+            (shift) =>
+              Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+          ).length - 250,
+        ),
+      ).toBeLessThan(50);
+  });
+
+  it('puts each edge of each marking where the rules put it: just inside it the line, just outside it not (both ends, both sides, both ways)', () => {
+    const delta = 0.0004 / ft,
+      acrosses = new Set<boolean>();
+    for (const seed of [1, 2, 3]) {
+      const sample = createSurfaceSampler('gridironfield', seed),
+        { across } = readSurface(sample),
+        isLine = (x: number, y: number): boolean =>
+          Math.abs(toneAt(sample, x, y, across) - p.lineTone) < 1e-6;
+      acrosses.add(across);
+      for (const sx of [1, -1])
+        for (const sy of [1, -1]) {
+          const at = (x: number, y: number): boolean => isLine(sx * x, sy * y);
+          // The sideline and the end line, both edges.
+          expect(at(40.5, halfW - w + delta)).toBe(true);
+          expect(at(40.5, halfW - w - delta)).toBe(false);
+          expect(at(40.5, halfW - delta)).toBe(true);
+          expect(at(40.5, halfW + delta)).toBe(false);
+          expect(at(halfL - w + delta, 20)).toBe(true);
+          expect(at(halfL - w - delta, 20)).toBe(false);
+          expect(at(halfL - delta, 20)).toBe(true);
+          expect(at(halfL + delta, 20)).toBe(false);
+          // The yard lines every 5 yards, both edges, across the whole field (the goal lines and the 50 yard line too), and none beyond the goal lines.
+          for (const index of [0, 1, 3, 4, 7, 9, 10]) {
+            const middle = index * rules.lineSpacing;
+            for (const y of [3, 20, 60, halfW - w - 0.5]) {
+              expect(at(middle + w / 2 - delta, y)).toBe(true);
+              expect(at(middle + w / 2 + delta, y)).toBe(false);
+              expect(at(middle - w / 2 + delta, y)).toBe(true);
+              expect(at(middle - w / 2 - delta, y)).toBe(false);
+            }
+          }
+          expect(at(11 * rules.lineSpacing, 20)).toBe(false);
+          expect(at(halfF + 15, 3)).toBe(false);
+          // The hash marks every yard (not on a yard line), in the two rows: both edges across and along, and none between the rows or beyond the goal lines.
+          for (const index of [1, 2, 7, 11, 28, 49]) {
+            const middle = index * rules.yard;
+            expect(at(middle + hw / 2 - delta, row)).toBe(true);
+            expect(at(middle + hw / 2 + delta, row)).toBe(false);
+            expect(at(middle - hw / 2 + delta, row)).toBe(true);
+            expect(at(middle - hw / 2 - delta, row)).toBe(false);
+            expect(at(middle, row + hl / 2 - delta)).toBe(true);
+            expect(at(middle, row + hl / 2 + delta)).toBe(false);
+            expect(at(middle, row - hl / 2 + delta)).toBe(true);
+            expect(at(middle, row - hl / 2 - delta)).toBe(false);
+            expect(at(middle, 10)).toBe(false);
+          }
+          expect(at(51 * rules.yard, row)).toBe(false);
+          expect(at(55 * rules.yard, row)).toBe(false);
+          // Nothing between the yard lines in the middle of the field.
+          expect(at(7.5, 20)).toBe(false);
+          expect(at(7.5, 0)).toBe(false);
+        }
+    }
+    expect(acrosses.size).toBe(2);
+  });
+
+  it('softens the edge of the margin, of the field, of the end zone, of a line, of a mowing stripe and of a hash mark over edgeSoft', () => {
+    const sample = createSurfaceSampler('gridironfield', 2),
+      { across, tones } = readSurface(sample),
+      quarter = (0.25 * p.edgeSoft) / ft;
+    close(
+      toneAt(sample, 40.5, halfW + p.sideMargin - quarter, across),
+      mix(tones.ground, tones.margin, 0.75),
+    );
+    close(
+      toneAt(sample, 40.5, halfW + p.sideMargin + quarter, across),
+      mix(tones.ground, tones.margin, 0.25),
+    );
+    close(
+      toneAt(sample, halfL + p.endMargin - quarter, 20, across),
+      mix(tones.ground, tones.margin, 0.75),
+    );
+    // The outline over the margin and over the field (band 12 of the stripes at 40.5 is a plain field) and the end zone.
+    close(
+      toneAt(sample, 40.5, halfW - quarter, across),
+      mix(tones.margin, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, 40.5, halfW + quarter, across),
+      mix(tones.margin, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, 40.5, halfW - w - quarter, across),
+      mix(tones.field, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, 40.5, halfW - w + quarter, across),
+      mix(tones.field, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, halfL - quarter, 20, across),
+      mix(tones.margin, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, halfL - w - quarter, 20, across),
+      mix(tones.endzone, p.lineTone, 0.25),
+    );
+    // The 50 yard line: the stripe on one side of it (band 9), the plain field on the other (band 10), each edge of it over its own tone; the stripes have their edges under it.
+    close(
+      toneAt(sample, w / 2 + quarter, 20, across),
+      mix(tones.field, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, w / 2 - quarter, 20, across),
+      mix(tones.field, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, -w / 2 - quarter, 20, across),
+      mix(tones.stripe, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, -w / 2 + quarter, 20, across),
+      mix(tones.stripe, p.lineTone, 0.75),
+    );
+    // The goal lines: the end zone outside, a stripe (band 19) inside; and the one at the other end (band 0 is a plain field inside).
+    close(
+      toneAt(sample, halfF + w / 2 + quarter, 20, across),
+      mix(tones.endzone, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, halfF - w / 2 - quarter, 20, across),
+      mix(tones.stripe, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, -halfF + w / 2 + quarter, 20, across),
+      mix(tones.field, p.lineTone, 0.25),
+    );
+    // A hash mark (the one at 1 yard, 3 feet): both sides and both ends, over the plain field of band 10.
+    const middle = rules.yard;
+    close(
+      toneAt(sample, middle + hw / 2 - quarter, row, across),
+      mix(tones.field, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, middle + hw / 2 + quarter, row, across),
+      mix(tones.field, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, middle, row + hl / 2 - quarter, across),
+      mix(tones.field, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, middle, row + hl / 2 + quarter, across),
+      mix(tones.field, p.lineTone, 0.25),
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('gridironfield', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('gridironfield', 0),
+      b = createSurfaceSampler('gridironfield', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

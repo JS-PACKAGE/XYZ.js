@@ -17765,6 +17765,71 @@ export const proceduralMaterialPresets = Object.freeze({
     lineHeight: 0.36,
     inkRoughness: 0.45,
   }),
+  gridironfield: Object.freeze({
+    dark: [24, 52, 26] as const,
+    light: [238, 242, 226] as const,
+    roughness: 0.85,
+    relief: 0.004,
+    // An American football field seen from above, in feet (the length of the field along one axis): the field 100 yards (300) between the goal lines and an end zone of 10 yards (30) beyond each, 160 wide, a
+    // yard line across the field every 5 yards, a hash mark at every yard (a short line parallel to the yard lines, in two rows 70 feet 9 inches apart, as in the NFL) and the goal lines; the field has a mowing
+    // stripe on every second 5 yards between the goal lines, a tone of its own in the end zones, and round it a margin (my choice, 10 all round) and the ground beyond. The lines are drawn about 4.5 times as
+    // wide as the rules (4 inches, here 1.5 feet) and the hash marks 3 times as wide and twice as long (4 inches by 2 feet, here 1 by 4), so that they show in a tile; lines are centred on their yards and
+    // the outline is inside the dimensions. There are no numbers, arrows or logos. The seed picks the surface (the tones of the ground, the margin, the field, the stripes and the end zones, all shifted
+    // together a little) and lays the field along the picture or across it.
+    foot: 0.0026041667,
+    fieldLength: 300,
+    endZone: 30,
+    fieldWidth: 160,
+    yard: 3,
+    lineSpacing: 15,
+    hashSpacing: 70.75,
+    endMargin: 10,
+    sideMargin: 10,
+    lineWidth: 1.5,
+    hashWidth: 1,
+    hashLength: 4,
+    surfaces: Object.freeze([
+      Object.freeze({
+        ground: 0.18,
+        margin: 0.3,
+        field: 0.44,
+        stripe: 0.5,
+        endzone: 0.62,
+      }),
+      Object.freeze({
+        ground: 0.22,
+        margin: 0.4,
+        field: 0.52,
+        stripe: 0.45,
+        endzone: 0.34,
+      }),
+      Object.freeze({
+        ground: 0.28,
+        margin: 0.56,
+        field: 0.36,
+        stripe: 0.42,
+        endzone: 0.5,
+      }),
+      Object.freeze({
+        ground: 0.12,
+        margin: 0.26,
+        field: 0.6,
+        stripe: 0.54,
+        endzone: 0.46,
+      }),
+    ]),
+    // How much the five tones may all be shifted together (from -toneShift to toneShift) by the seed: the wear of the turf.
+    toneShift: 0.04,
+    edgeSoft: 0.0004,
+    lineTone: 0.96,
+    groundHeight: 0.15,
+    marginHeight: 0.25,
+    fieldHeight: 0.3,
+    stripeHeight: 0.32,
+    endZoneHeight: 0.28,
+    lineHeight: 0.36,
+    inkRoughness: 0.5,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -24257,6 +24322,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  gridironfield: 1,
   squashcourt: 1,
   pickleballcourt: 1,
   volleyballcourt: 1,

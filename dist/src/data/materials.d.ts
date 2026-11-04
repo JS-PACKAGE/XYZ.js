@@ -16328,6 +16328,59 @@ export declare const proceduralMaterialPresets: Readonly<{
         lineHeight: 0.36;
         inkRoughness: 0.45;
     }>;
+    gridironfield: Readonly<{
+        dark: readonly [24, 52, 26];
+        light: readonly [238, 242, 226];
+        roughness: 0.85;
+        relief: 0.004;
+        foot: 0.0026041667;
+        fieldLength: 300;
+        endZone: 30;
+        fieldWidth: 160;
+        yard: 3;
+        lineSpacing: 15;
+        hashSpacing: 70.75;
+        endMargin: 10;
+        sideMargin: 10;
+        lineWidth: 1.5;
+        hashWidth: 1;
+        hashLength: 4;
+        surfaces: readonly (Readonly<{
+            ground: 0.18;
+            margin: 0.3;
+            field: 0.44;
+            stripe: 0.5;
+            endzone: 0.62;
+        }> | Readonly<{
+            ground: 0.22;
+            margin: 0.4;
+            field: 0.52;
+            stripe: 0.45;
+            endzone: 0.34;
+        }> | Readonly<{
+            ground: 0.28;
+            margin: 0.56;
+            field: 0.36;
+            stripe: 0.42;
+            endzone: 0.5;
+        }> | Readonly<{
+            ground: 0.12;
+            margin: 0.26;
+            field: 0.6;
+            stripe: 0.54;
+            endzone: 0.46;
+        }>)[];
+        toneShift: 0.04;
+        edgeSoft: 0.0004;
+        lineTone: 0.96;
+        groundHeight: 0.15;
+        marginHeight: 0.25;
+        fieldHeight: 0.3;
+        stripeHeight: 0.32;
+        endZoneHeight: 0.28;
+        lineHeight: 0.36;
+        inkRoughness: 0.5;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -22813,6 +22866,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    gridironfield: 1;
     squashcourt: 1;
     pickleballcourt: 1;
     volleyballcourt: 1;

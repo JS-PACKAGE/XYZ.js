@@ -28007,6 +28007,72 @@ var proceduralMaterialPresets = Object.freeze({
 		lineHeight: .36,
 		inkRoughness: .45
 	}),
+	gridironfield: Object.freeze({
+		dark: [
+			24,
+			52,
+			26
+		],
+		light: [
+			238,
+			242,
+			226
+		],
+		roughness: .85,
+		relief: .004,
+		foot: .0026041667,
+		fieldLength: 300,
+		endZone: 30,
+		fieldWidth: 160,
+		yard: 3,
+		lineSpacing: 15,
+		hashSpacing: 70.75,
+		endMargin: 10,
+		sideMargin: 10,
+		lineWidth: 1.5,
+		hashWidth: 1,
+		hashLength: 4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .18,
+				margin: .3,
+				field: .44,
+				stripe: .5,
+				endzone: .62
+			}),
+			Object.freeze({
+				ground: .22,
+				margin: .4,
+				field: .52,
+				stripe: .45,
+				endzone: .34
+			}),
+			Object.freeze({
+				ground: .28,
+				margin: .56,
+				field: .36,
+				stripe: .42,
+				endzone: .5
+			}),
+			Object.freeze({
+				ground: .12,
+				margin: .26,
+				field: .6,
+				stripe: .54,
+				endzone: .46
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 4e-4,
+		lineTone: .96,
+		groundHeight: .15,
+		marginHeight: .25,
+		fieldHeight: .3,
+		stripeHeight: .32,
+		endZoneHeight: .28,
+		lineHeight: .36,
+		inkRoughness: .5
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -36688,6 +36754,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	gridironfield: 1,
 	squashcourt: 1,
 	pickleballcourt: 1,
 	volleyballcourt: 1,
