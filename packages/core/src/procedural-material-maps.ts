@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'highwaylanes',
   'handballcourt',
   'basketballcourt',
   'hockeyrink',
@@ -50104,6 +50105,79 @@ export function createSurfaceSampler(
               (p.lineHeight - p.courtHeight) * lined -
               elevation) *
             court;
+          color = clamp(shade);
+          height = clamp(elevation);
+          roughness = clamp(p.inkRoughness);
+          occlusion = 1;
+        };
+      }
+      case 'highwaylanes': {
+        const p = proceduralMaterialPresets.highwaylanes,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(111, 1, seed ^ 0x170001) * p.surfaces.length)
+            ],
+          across = hash(111, 2, seed ^ 0x170002) < 0.5,
+          shift = (hash(111, 3, seed ^ 0x170003) * 2 - 1) * p.toneShift,
+          // The distance from the middle of the double line to the inside of the edge line (the width of the lanes of one direction), and to the edge of the shoulder.
+          roadHalf = p.laneWidth * p.lanesPerSide + p.lineWidth,
+          shoulderHalf = roadHalf + p.shoulder,
+          // The distance on the picture is in feet; a band of the given distances from the middle of the road, soft at its two edges.
+          band = (distance: number, from: number, to: number): number =>
+            cover(Math.min(distance - from, to - distance) * p.foot),
+          // The distance in feet inside a dash of the broken line, from the middle of a dash: dashes and gaps alternate along the road, a dash centred on the middle of the tile.
+          dashInside = (along: number): number => {
+            const cycle = p.dash + p.gap,
+              phase = (((along + p.dash / 2) % cycle) + cycle) % cycle;
+            return phase < p.dash
+              ? Math.min(phase, p.dash - phase)
+              : -Math.min(phase - p.dash, cycle - phase);
+          };
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            // The place in feet from the middle of the tile: across the road and along it.
+            offset = ((across ? fv : fu) - 0.5) / p.foot,
+            along = ((across ? fu : fv) - 0.5) / p.foot,
+            distance = Math.abs(offset),
+            shoulder = cover((shoulderHalf - distance) * p.foot),
+            road = cover((roadHalf - distance) * p.foot);
+          // The double yellow line in the middle (two lines a line wide with a space between), the broken lane lines between the lanes of each direction and the edge line on the inside of the edge of the road.
+          const half = p.yellowGap / 2;
+          let white = band(distance, roadHalf - p.lineWidth, roadHalf);
+          const yellow = band(distance, half, half + p.lineWidth);
+          for (let index = 1; index < p.lanesPerSide; index++) {
+            const middle = index * p.laneWidth;
+            white = Math.max(
+              white,
+              Math.min(
+                band(
+                  distance,
+                  middle - p.lineWidth / 2,
+                  middle + p.lineWidth / 2,
+                ),
+                cover(dashInside(along) * p.foot),
+              ),
+            );
+          }
+          // A line has the edge of the road where it is at it (the ratio of its cover to that of the road).
+          const whiteOn = road > 0 ? Math.min(1, white / road) : 0,
+            roadTone = surface.road + shift,
+            marked = roadTone + (p.whiteTone - roadTone) * whiteOn,
+            yellowed = marked + (p.yellowTone - marked) * yellow;
+          let shade = surface.roadside + shift,
+            elevation = p.roadsideHeight;
+          shade += (surface.shoulder + shift - shade) * shoulder;
+          elevation += (p.shoulderHeight - elevation) * shoulder;
+          shade += (yellowed - shade) * road;
+          elevation +=
+            (p.roadHeight +
+              (p.lineHeight - p.roadHeight) * Math.max(whiteOn, yellow) -
+              elevation) *
+            road;
           color = clamp(shade);
           height = clamp(elevation);
           roughness = clamp(p.inkRoughness);

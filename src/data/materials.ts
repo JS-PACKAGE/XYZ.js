@@ -17491,6 +17491,41 @@ export const proceduralMaterialPresets = Object.freeze({
     lineHeight: 0.35,
     inkRoughness: 0.45,
   }),
+  highwaylanes: Object.freeze({
+    dark: [20, 20, 24] as const,
+    light: [240, 238, 226] as const,
+    roughness: 0.8,
+    relief: 0.004,
+    // A four lane road seen from above with the pavement markings of the US manual of uniform traffic control devices, in feet (the length of the road along one axis; the tile is 120 feet each way, so
+    // that three cycles of the broken line fit in it exactly): two lanes of 12 each way measured from the middle of the double centre line to the middle of the broken lane line and from that to the inside
+    // of the edge line, the double yellow centre line (two lines with a space of 4 inches between them), the broken white lane line between the lanes of each direction (10 feet of line, 30 feet of gap,
+    // a cycle of 40) and a solid white edge line on each side; shoulders of 8 beyond the edge lines and the roadside beyond. Normal lines are 4 to 6 inches wide: here 6 inches. The seed picks the surface
+    // (the tones of the road, the shoulder and the roadside, all shifted together a little) and lays the road along the picture or across it.
+    foot: 1 / 120,
+    laneWidth: 12,
+    lanesPerSide: 2,
+    shoulder: 8,
+    lineWidth: 0.5,
+    yellowGap: 1 / 3,
+    dash: 10,
+    gap: 30,
+    surfaces: Object.freeze([
+      Object.freeze({ road: 0.2, shoulder: 0.32, roadside: 0.44 }),
+      Object.freeze({ road: 0.16, shoulder: 0.28, roadside: 0.26 }),
+      Object.freeze({ road: 0.24, shoulder: 0.38, roadside: 0.5 }),
+      Object.freeze({ road: 0.3, shoulder: 0.2, roadside: 0.38 }),
+    ]),
+    // How much the three tones may all be shifted together (from -toneShift to toneShift) by the seed: the wear of the pavement.
+    toneShift: 0.04,
+    edgeSoft: 0.0006,
+    whiteTone: 0.96,
+    yellowTone: 0.78,
+    roadsideHeight: 0.2,
+    shoulderHeight: 0.3,
+    roadHeight: 0.4,
+    lineHeight: 0.46,
+    inkRoughness: 0.55,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -23983,6 +24018,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  highwaylanes: 1,
   handballcourt: 1,
   basketballcourt: 1,
   hockeyrink: 1,

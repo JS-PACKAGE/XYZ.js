@@ -27611,6 +27611,59 @@ var proceduralMaterialPresets = Object.freeze({
 		lineHeight: .35,
 		inkRoughness: .45
 	}),
+	highwaylanes: Object.freeze({
+		dark: [
+			20,
+			20,
+			24
+		],
+		light: [
+			240,
+			238,
+			226
+		],
+		roughness: .8,
+		relief: .004,
+		foot: 1 / 120,
+		laneWidth: 12,
+		lanesPerSide: 2,
+		shoulder: 8,
+		lineWidth: .5,
+		yellowGap: 1 / 3,
+		dash: 10,
+		gap: 30,
+		surfaces: Object.freeze([
+			Object.freeze({
+				road: .2,
+				shoulder: .32,
+				roadside: .44
+			}),
+			Object.freeze({
+				road: .16,
+				shoulder: .28,
+				roadside: .26
+			}),
+			Object.freeze({
+				road: .24,
+				shoulder: .38,
+				roadside: .5
+			}),
+			Object.freeze({
+				road: .3,
+				shoulder: .2,
+				roadside: .38
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		whiteTone: .96,
+		yellowTone: .78,
+		roadsideHeight: .2,
+		shoulderHeight: .3,
+		roadHeight: .4,
+		lineHeight: .46,
+		inkRoughness: .55
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -36292,6 +36345,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	highwaylanes: 1,
 	handballcourt: 1,
 	basketballcourt: 1,
 	hockeyrink: 1,

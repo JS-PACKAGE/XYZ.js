@@ -71726,3 +71726,354 @@ describe('handballcourt: a handball court seen from above with the markings of t
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('highwaylanes: a four lane road seen from above with the pavement markings of the US manual, laid along or across by the seed', () => {
+  const p = proceduralMaterialPresets.highwaylanes,
+    out = empty(),
+    ft = p.foot,
+    toneAt = (
+      sample: Sampler,
+      offset: number,
+      along: number,
+      across: boolean,
+    ): number => {
+      // A place in feet from the middle of the tile: across the road (offset) and along it, as a place on the picture.
+      sample(
+        0.5 + (across ? along : offset) * ft,
+        0.5 + (across ? offset : along) * ft,
+        out,
+      );
+      return out.color;
+    };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    mix = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    // The probes are exact (the edges are straight), so the tolerance is tiny.
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  // The facts of the road, in feet (the US manual as given by a web search that quotes it, not read in the manual itself): lanes of 12 (from the middle of the double centre line to the middle of the broken lane line,
+  // and on to the inside of the edge line), normal lines 4 to 6 inches wide (here 6), a space of 4 inches between the two yellow lines, the broken line 10 feet of line and 30 of gap (a cycle of 40), shoulders of 8.
+  const rules = {
+      lane: 12,
+      lines: 0.5,
+      yellowGap: 4 / 12,
+      dash: 10,
+      gap: 30,
+      shoulder: 8,
+    },
+    roadHalf = 2 * rules.lane + rules.lines,
+    shoulderHalf = roadHalf + rules.shoulder;
+  type Kind = 'roadside' | 'shoulder' | 'road' | 'white' | 'yellow';
+  // The part of the picture a place is in, by the rules above (written separately from the sampler): the white lines are the edge lines and the dashes of the lane line.
+  const piece = (offset: number, along: number): string => {
+    const d = Math.abs(offset),
+      phase =
+        (((along + rules.dash / 2) % (rules.dash + rules.gap)) +
+          rules.dash +
+          rules.gap) %
+        (rules.dash + rules.gap);
+    if (d > shoulderHalf) return 'roadside';
+    if (d > roadHalf) return 'shoulder';
+    if (d >= rules.yellowGap / 2 && d <= rules.yellowGap / 2 + rules.lines)
+      return 'yellow';
+    if (d >= rules.lane * 2 && d <= roadHalf) return 'white edge';
+    if (Math.abs(d - rules.lane) <= rules.lines / 2 && phase < rules.dash)
+      return 'white dash';
+    return 'road';
+  };
+  const classify = (offset: number, along: number): Kind => {
+    const label = piece(offset, along);
+    return label.startsWith('white') ? 'white' : (label as Kind);
+  };
+  type Surface = {
+    across: boolean;
+    surface: number;
+    shift: number;
+    tones: { road: number; shoulder: number; roadside: number };
+  };
+  const readSurface = (sample: Sampler): Surface => {
+    const options: Surface[] = [];
+    for (const across of [false, true]) {
+      const road = toneAt(sample, 6, 20, across),
+        shoulder = toneAt(sample, 28, 20, across),
+        roadside = toneAt(sample, 45, 20, across);
+      p.surfaces.forEach((surface, index) => {
+        const shift = roadside - surface.roadside;
+        if (
+          Math.abs(shift) <= p.toneShift + 1e-9 &&
+          Math.abs(road - surface.road - shift) < 1e-6 &&
+          Math.abs(shoulder - surface.shoulder - shift) < 1e-6
+        )
+          options.push({
+            across,
+            surface: index,
+            shift,
+            tones: { road, shoulder, roadside },
+          });
+      });
+    }
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+
+  it('has the rules of the road in the preset: three cycles of the broken line fill the tile', () => {
+    expect(p.laneWidth).toBe(rules.lane);
+    expect(p.lanesPerSide).toBe(2);
+    expect(p.shoulder).toBe(rules.shoulder);
+    expect(p.lineWidth).toBe(rules.lines);
+    expect(p.yellowGap).toBeCloseTo(rules.yellowGap, 12);
+    expect(p.dash).toBe(rules.dash);
+    expect(p.gap).toBe(rules.gap);
+    expect(1 / p.foot).toBeCloseTo(3 * (rules.dash + rules.gap), 9);
+  });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws every place of the picture as the rules say, with its tone, height and roughness, along the picture or across it (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('highwaylanes', seed),
+        { across, tones } = readSurface(sample),
+        expected: Record<Kind, { tone: number; height: number }> = {
+          roadside: { tone: tones.roadside, height: p.roadsideHeight },
+          shoulder: { tone: tones.shoulder, height: p.shoulderHeight },
+          road: { tone: tones.road, height: p.roadHeight },
+          white: { tone: p.whiteTone, height: p.lineHeight },
+          yellow: { tone: p.yellowTone, height: p.lineHeight },
+        },
+        counts: Record<Kind, number> = {
+          roadside: 0,
+          shoulder: 0,
+          road: 0,
+          white: 0,
+          yellow: 0,
+        },
+        clear = 0.1;
+      // Every place of the tile (120 feet each way): across the road in steps of 0.07 and along it in steps of 0.93; the places within 0.1 of a change in the picture are skipped (the softened edges are checked below, exactly).
+      for (let offset = -59.9; offset <= 59.9; offset += 0.07)
+        for (let along = -59.9; along <= 59.9; along += 0.93) {
+          const kind = classify(offset, along);
+          if (
+            [
+              [clear, 0],
+              [-clear, 0],
+              [0, clear],
+              [0, -clear],
+              [clear, clear],
+              [-clear, -clear],
+              [clear, -clear],
+              [-clear, clear],
+            ].some(
+              ([dx, dy]) =>
+                piece(offset + dx, along + dy) !== piece(offset, along),
+            )
+          )
+            continue;
+          counts[kind]++;
+          expect(toneAt(sample, offset, along, across)).toBeCloseTo(
+            expected[kind].tone,
+            6,
+          );
+          expect(out.height / p.relief).toBeCloseTo(expected[kind].height, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        }
+      expect(counts.roadside).toBeGreaterThan(20000);
+      expect(counts.shoulder).toBeGreaterThan(3000);
+      expect(counts.road).toBeGreaterThan(50000);
+      expect(counts.white).toBeGreaterThan(1000);
+      expect(counts.yellow).toBeGreaterThan(500);
+    },
+  );
+
+  it('uses every surface and both ways over 300 seeds, about equally often, with the tones shifted over the whole range', () => {
+    const surfaces = new Map<number, number>(),
+      shifts: number[] = [];
+    let acrossCount = 0;
+    for (let seed = 0; seed < 300; seed++) {
+      const { across, surface, shift } = readSurface(
+        createSurfaceSampler('highwaylanes', seed * 7 + 1),
+      );
+      shifts.push(shift);
+      surfaces.set(surface, (surfaces.get(surface) ?? 0) + 1);
+      acrossCount += Number(across);
+    }
+    expect(surfaces.size).toBe(p.surfaces.length);
+    for (const count of surfaces.values())
+      expect(Math.abs(count - 300 / p.surfaces.length)).toBeLessThan(25);
+    expect(Math.abs(acrossCount / 300 - 0.5)).toBeLessThan(0.1);
+    expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+    expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+    expect(
+      Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 300),
+    ).toBeLessThan(p.toneShift * 0.15);
+    for (let quarter = 0; quarter < 4; quarter++)
+      expect(
+        Math.abs(
+          shifts.filter(
+            (shift) =>
+              Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+          ).length - 75,
+        ),
+      ).toBeLessThan(25);
+  });
+
+  it('puts each edge of each line where the rules put it, on both sides of the road and in every cycle of the broken line', () => {
+    const w = rules.lines,
+      delta = 0.0004 / ft;
+    for (const seed of [2, 5]) {
+      const sample = createSurfaceSampler('highwaylanes', seed),
+        { across, tones } = readSurface(sample),
+        tone = (offset: number, along: number): number =>
+          toneAt(sample, offset, along, across),
+        is = (offset: number, along: number, expected: number): boolean =>
+          Math.abs(tone(offset, along) - expected) < 1e-6;
+      for (const side of [1, -1]) {
+        // The double yellow line: two lines 0.5 wide with a space of 4 inches between them, at the middle; the road shows in the space and either side.
+        const gap = rules.yellowGap / 2;
+        for (const along of [3, 17, -23, 44]) {
+          expect(is(side * (gap - delta), along, tones.road)).toBe(true);
+          expect(is(side * (gap + delta), along, p.yellowTone)).toBe(true);
+          expect(is(side * (gap + w - delta), along, p.yellowTone)).toBe(true);
+          expect(is(side * (gap + w + delta), along, tones.road)).toBe(true);
+          // The edge line: 0.5 wide, its inside edge 24 from the middle of the double line, a solid line; the road inside it and the shoulder outside it; the shoulder 8 wide and then the roadside.
+          expect(is(side * (roadHalf - w - delta), along, tones.road)).toBe(
+            true,
+          );
+          expect(is(side * (roadHalf - w + delta), along, p.whiteTone)).toBe(
+            true,
+          );
+          expect(is(side * (roadHalf - delta), along, p.whiteTone)).toBe(true);
+          expect(is(side * (roadHalf + delta), along, tones.shoulder)).toBe(
+            true,
+          );
+          expect(is(side * (shoulderHalf - delta), along, tones.shoulder)).toBe(
+            true,
+          );
+          expect(is(side * (shoulderHalf + delta), along, tones.roadside)).toBe(
+            true,
+          );
+        }
+        // The broken lane line, 12 from the middle (its middle on that): in the middle of each dash the line (across its width: its edges), in the middle of each gap nothing; the ends of the dashes are 5 either side of the
+        // middle of the dash, which is at the middle of the tile and every 40 feet.
+        for (let cycle = -1; cycle <= 1; cycle++) {
+          const middle = cycle * (rules.dash + rules.gap);
+          expect(is(side * rules.lane, middle, p.whiteTone)).toBe(true);
+          expect(
+            is(side * (rules.lane - w / 2 + delta), middle + 1, p.whiteTone),
+          ).toBe(true);
+          expect(
+            is(side * (rules.lane - w / 2 - delta), middle + 1, tones.road),
+          ).toBe(true);
+          expect(
+            is(side * (rules.lane + w / 2 - delta), middle - 1, p.whiteTone),
+          ).toBe(true);
+          expect(
+            is(side * (rules.lane + w / 2 + delta), middle - 1, tones.road),
+          ).toBe(true);
+          expect(
+            is(side * rules.lane, middle + rules.dash / 2 - delta, p.whiteTone),
+          ).toBe(true);
+          expect(
+            is(side * rules.lane, middle + rules.dash / 2 + delta, tones.road),
+          ).toBe(true);
+          expect(
+            is(side * rules.lane, middle - rules.dash / 2 + delta, p.whiteTone),
+          ).toBe(true);
+          expect(
+            is(side * rules.lane, middle - rules.dash / 2 - delta, tones.road),
+          ).toBe(true);
+          expect(
+            is(
+              side * rules.lane,
+              middle + rules.dash / 2 + rules.gap / 2,
+              tones.road,
+            ),
+          ).toBe(true);
+        }
+        // No other lane line: the middle of each lane is the road.
+        for (const offset of [6, 18])
+          expect(is(side * offset, 0, tones.road)).toBe(true);
+      }
+    }
+  });
+
+  it('softens the edges of the roadside, the shoulder, the lines and the ends of a dash over edgeSoft', () => {
+    const sample = createSurfaceSampler('highwaylanes', 2),
+      { across, tones } = readSurface(sample),
+      quarter = (0.25 * p.edgeSoft) / ft,
+      w = rules.lines,
+      gap = rules.yellowGap / 2,
+      tone = (offset: number, along: number): number =>
+        toneAt(sample, offset, along, across);
+    close(
+      tone(shoulderHalf - quarter, 7),
+      mix(tones.roadside, tones.shoulder, 0.75),
+    );
+    close(
+      tone(shoulderHalf + quarter, 7),
+      mix(tones.roadside, tones.shoulder, 0.25),
+    );
+    // The edge line over the shoulder (its outer edge is the edge of the road: the line is as soft as the road there) and over the road.
+    close(tone(roadHalf - quarter, 7), mix(tones.shoulder, p.whiteTone, 0.75));
+    close(tone(roadHalf + quarter, 7), mix(tones.shoulder, p.whiteTone, 0.25));
+    close(tone(roadHalf - w - quarter, 7), mix(tones.road, p.whiteTone, 0.25));
+    close(tone(roadHalf - w + quarter, 7), mix(tones.road, p.whiteTone, 0.75));
+    // The yellow lines (both edges of each) and the space between them.
+    close(tone(gap - quarter, 7), mix(tones.road, p.yellowTone, 0.25));
+    close(tone(gap + quarter, 7), mix(tones.road, p.yellowTone, 0.75));
+    close(tone(gap + w - quarter, 7), mix(tones.road, p.yellowTone, 0.75));
+    close(tone(gap + w + quarter, 7), mix(tones.road, p.yellowTone, 0.25));
+    // The ends of a dash of the broken lane line, along the road.
+    close(
+      tone(rules.lane, rules.dash / 2 - quarter),
+      mix(tones.road, p.whiteTone, 0.75),
+    );
+    close(
+      tone(rules.lane, rules.dash / 2 + quarter),
+      mix(tones.road, p.whiteTone, 0.25),
+    );
+    close(
+      tone(rules.lane, -rules.dash / 2 + quarter),
+      mix(tones.road, p.whiteTone, 0.75),
+    );
+    close(
+      tone(rules.lane, -rules.dash / 2 - quarter),
+      mix(tones.road, p.whiteTone, 0.25),
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('highwaylanes', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('highwaylanes', 0),
+      b = createSurfaceSampler('highwaylanes', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

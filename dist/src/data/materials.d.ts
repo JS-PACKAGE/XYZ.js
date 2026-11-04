@@ -16023,6 +16023,46 @@ export declare const proceduralMaterialPresets: Readonly<{
         lineHeight: 0.35;
         inkRoughness: 0.45;
     }>;
+    highwaylanes: Readonly<{
+        dark: readonly [20, 20, 24];
+        light: readonly [240, 238, 226];
+        roughness: 0.8;
+        relief: 0.004;
+        foot: number;
+        laneWidth: 12;
+        lanesPerSide: 2;
+        shoulder: 8;
+        lineWidth: 0.5;
+        yellowGap: number;
+        dash: 10;
+        gap: 30;
+        surfaces: readonly (Readonly<{
+            road: 0.2;
+            shoulder: 0.32;
+            roadside: 0.44;
+        }> | Readonly<{
+            road: 0.16;
+            shoulder: 0.28;
+            roadside: 0.26;
+        }> | Readonly<{
+            road: 0.24;
+            shoulder: 0.38;
+            roadside: 0.5;
+        }> | Readonly<{
+            road: 0.3;
+            shoulder: 0.2;
+            roadside: 0.38;
+        }>)[];
+        toneShift: 0.04;
+        edgeSoft: 0.0006;
+        whiteTone: 0.96;
+        yellowTone: 0.78;
+        roadsideHeight: 0.2;
+        shoulderHeight: 0.3;
+        roadHeight: 0.4;
+        lineHeight: 0.46;
+        inkRoughness: 0.55;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -22508,6 +22548,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    highwaylanes: 1;
     handballcourt: 1;
     basketballcourt: 1;
     hockeyrink: 1;
