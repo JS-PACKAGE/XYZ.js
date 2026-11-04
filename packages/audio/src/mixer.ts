@@ -384,12 +384,15 @@ export class AudioMixer {
   private refreshDucking(): void {
     const now = this.currentTime;
     const boundaries = new Set<number>([now]);
-    for (const activity of this.activities) {
-      if (!activity.enabled) continue;
-      if (activity.start > now) boundaries.add(activity.start);
-      if (Number.isFinite(activity.end) && activity.end > now)
-        boundaries.add(activity.end);
-    }
+    // Without ducking rules every future boundary has the same unity target.
+    // Still process `now` so removing the last rule releases an existing duck.
+    if (this.rules.length)
+      for (const activity of this.activities) {
+        if (!activity.enabled) continue;
+        if (activity.start > now) boundaries.add(activity.start);
+        if (Number.isFinite(activity.end) && activity.end > now)
+          boundaries.add(activity.end);
+      }
     const times = [...boundaries].sort((a, b) => a - b);
     for (const graph of this.graphs.values()) {
       const contextNow =
