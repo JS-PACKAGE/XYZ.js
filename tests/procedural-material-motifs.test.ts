@@ -60811,3 +60811,272 @@ describe('walshmatrix: a Hadamard matrix of order 8, 16 or 32 as dark and light 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('beattypartition: the two Beatty sequences that share out the whole numbers, laid out in rows of a grid', () => {
+  const p = proceduralMaterialPresets.beattypartition,
+    out = empty(),
+    cell = p.extent / p.side,
+    left = 0.5 - p.extent / 2,
+    half = cell / 2 - p.gapHalf,
+    toneAt = (sample: Sampler, u: number, v: number): number => {
+      sample(u, v, out);
+      return out.color;
+    };
+  const centre = (column: number, row: number): [number, number] => [
+    left + (column + 0.5) * cell,
+    left + (row + 0.5) * cell,
+  ];
+  // The two sequences floor(k a) and floor(k b) for k = 1, 2, ... up to a limit, the place k of each number in its sequence: n -> k.
+  const sequences = (
+    alpha: number,
+    limit: number,
+  ): { first: Map<number, number>; second: Map<number, number> } => {
+    const beta = alpha / (alpha - 1),
+      first = new Map<number, number>(),
+      second = new Map<number, number>();
+    for (let k = 1; k * alpha <= limit; k++)
+      first.set(Math.floor(k * alpha), k);
+    for (let k = 1; k * beta <= limit; k++) second.set(Math.floor(k * beta), k);
+    return { first, second };
+  };
+  const stepOf = (
+    alpha: number,
+    offset: number,
+    index: number,
+    tables: ReturnType<typeof sequences>,
+  ): number => {
+    const n = offset + index,
+      inFirst = tables.first.get(n),
+      inSecond = tables.second.get(n);
+    // Beatty's theorem: one and only one of the two sequences has n.
+    expect((inFirst === undefined) !== (inSecond === undefined)).toBe(true);
+    return inFirst !== undefined ? inFirst % 3 : 3 + ((inSecond as number) % 3);
+  };
+  const readGrid = (
+    seed: number,
+  ): { sample: Sampler; steps: number[]; matches: [number, number][] } => {
+    const sample = createSurfaceSampler('beattypartition', seed),
+      steps: number[] = [];
+    for (let row = 0; row < p.side; row++)
+      for (let column = 0; column < p.side; column++) {
+        const tone = toneAt(sample, ...centre(column, row)),
+          step = p.tones.reduce(
+            (best, candidate, k) =>
+              Math.abs(candidate - tone) < Math.abs(p.tones[best] - tone)
+                ? k
+                : best,
+            0,
+          );
+        expect(tone).toBeCloseTo(p.tones[step], 6);
+        steps.push(step);
+      }
+    const matches: [number, number][] = [];
+    for (const alpha of p.alphas) {
+      const tables = sequences(
+        alpha,
+        p.offsets[p.offsets.length - 1] + p.side * p.side + 5,
+      );
+      for (const offset of p.offsets)
+        if (
+          steps.every(
+            (step, index) => step === stepOf(alpha, offset, index, tables),
+          )
+        )
+          matches.push([alpha, offset]);
+    }
+    return { sample, steps, matches };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shades each cell by which of the two Beatty sequences its number is in and by its place in that sequence modulo 3, counted along the rows from one of the offsets (seed %i)',
+    (seed) => {
+      const { steps, matches } = readGrid(seed);
+      // Exactly one pair of a and offset gives every cell.
+      expect(matches.length).toBe(1);
+      // Both sequences are there, each in all three steps, and the first (a above 1, b = a / (a - 1)) has the share 1 / a of the numbers.
+      for (let step = 0; step < p.tones.length; step++)
+        expect(steps.filter((s) => s === step).length).toBeGreaterThan(40);
+      const share = steps.filter((step) => step < 3).length / steps.length;
+      expect(Math.abs(share - 1 / matches[0][0])).toBeLessThan(0.03);
+    },
+  );
+
+  it('uses every a and every offset, over 60 seeds, and many pairs of them', () => {
+    const alphas = new Set<number>(),
+      offsets = new Set<number>(),
+      pairs = new Set<string>();
+    for (let seed = 0; seed < 60; seed++) {
+      const [[alpha, offset]] = readGrid(seed * 19 + 5).matches;
+      alphas.add(alpha);
+      offsets.add(offset);
+      pairs.add(`${alpha}/${offset}`);
+    }
+    expect([...alphas].sort()).toEqual([...p.alphas].sort());
+    expect([...offsets].sort((a, b) => a - b)).toEqual(
+      [...p.offsets].sort((a, b) => a - b),
+    );
+    expect(pairs.size).toBeGreaterThanOrEqual(10);
+  });
+
+  it('draws each cell with its tone, height and roughness, as a square of its size with a gap and nothing outside the grid', () => {
+    const { sample, steps } = readGrid(5),
+      paperOk = (u: number, v: number): boolean =>
+        Math.abs(toneAt(sample, u, v) - p.paperTone) <= p.grainTone / 2 + 1e-9;
+    for (let step = 0; step < p.tones.length; step++) {
+      const index = steps.indexOf(step),
+        [cx, cy] = centre(index % p.side, Math.floor(index / p.side));
+      expect(toneAt(sample, cx, cy)).toBeCloseTo(p.tones[step], 6);
+      expect(out.height / p.relief).toBeCloseTo(p.heights[step], 6);
+      expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+      for (const [dx, dy] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ]) {
+        expect(
+          toneAt(sample, cx + dx * (half - 0.0004), cy + dy * (half - 0.0004)),
+        ).toBeCloseTo(p.tones[step], 6);
+        expect(
+          toneAt(
+            sample,
+            cx + (half - 0.0004) * (dx + dy),
+            cy + (half - 0.0004) * (dx + dy),
+          ),
+        ).toBeCloseTo(p.tones[step], 6);
+        expect(
+          paperOk(cx + dx * (half + 0.0004), cy + dy * (half + 0.0004)),
+        ).toBe(true);
+        expect(out.height / p.relief).toBeCloseTo(p.paperHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.paperRoughness, 6);
+      }
+    }
+    const near = p.gapHalf + 0.0006,
+      far = left + p.extent - near;
+    expect(toneAt(sample, left + near, left + near)).toBeCloseTo(
+      p.tones[steps[0]],
+      6,
+    );
+    expect(toneAt(sample, far, far)).toBeCloseTo(
+      p.tones[steps[p.side * p.side - 1]],
+      6,
+    );
+    expect(toneAt(sample, far, left + near)).toBeCloseTo(
+      p.tones[steps[p.side - 1]],
+      6,
+    );
+    expect(toneAt(sample, left + near, far)).toBeCloseTo(
+      p.tones[steps[p.side * (p.side - 1)]],
+      6,
+    );
+    for (const [u, v] of [
+      [left - 0.004, 0.5],
+      [left + p.extent + 0.004, 0.5],
+      [0.5, left - 0.004],
+      [0.5, left + p.extent + 0.004],
+    ])
+      expect(paperOk(u, v)).toBe(true);
+  });
+
+  it('softens the edge of a cell over edgeSoft', () => {
+    const { sample, steps } = readGrid(5),
+      smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      [cx, cy] = centre(20, 30),
+      tone = p.tones[steps[30 * p.side + 20]],
+      mixed = (amount: number): number =>
+        p.paperTone + (tone - p.paperTone) * smoothstep(amount);
+    for (const [dx, dy] of [
+      [1, 0],
+      [0, 1],
+      [-1, 0],
+      [0, -1],
+    ]) {
+      expect(
+        Math.abs(
+          toneAt(
+            sample,
+            cx + dx * (half - quarter),
+            cy + dy * (half - quarter),
+          ) - mixed(0.75),
+        ),
+      ).toBeLessThan(0.03);
+      expect(
+        Math.abs(
+          toneAt(
+            sample,
+            cx + dx * (half + quarter),
+            cy + dy * (half + quarter),
+          ) - mixed(0.25),
+        ),
+      ).toBeLessThan(0.03);
+    }
+  });
+
+  it('fades the grain of the paper out over the edge of a cell, as much as the cell covers', () => {
+    const { sample, steps } = readGrid(5),
+      smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      amount = smoothstep(0.25),
+      residuals: number[] = [];
+    for (let column = 0; column < p.side; column++)
+      for (const t of [-0.8, -0.3, 0.3, 0.8]) {
+        const [cx, cy] = centre(column, 12),
+          tone = toneAt(sample, cx + t * half, cy - half - 0.25 * p.edgeSoft);
+        residuals.push(
+          tone -
+            (p.paperTone +
+              (p.tones[steps[12 * p.side + column]] - p.paperTone) * amount),
+        );
+      }
+    const largest = Math.max(...residuals.map(Math.abs));
+    expect(largest).toBeGreaterThan(0.003);
+    expect(largest).toBeLessThanOrEqual(
+      0.5 * p.grainTone * (1 - amount) + 1e-9,
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('beattypartition', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('beattypartition', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0013 + i * 0.0021, 0.01),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('beattypartition', 0),
+      b = createSurfaceSampler('beattypartition', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3501],
+        [0.2201, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

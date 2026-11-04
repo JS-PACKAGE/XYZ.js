@@ -46689,6 +46689,60 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'beattypartition': {
+        const p = proceduralMaterialPresets.beattypartition,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x5e001),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          alpha =
+            p.alphas[Math.floor(hash(87, 1, seed ^ 0x5e002) * p.alphas.length)],
+          offset =
+            p.offsets[
+              Math.floor(hash(87, 2, seed ^ 0x5e003) * p.offsets.length)
+            ],
+          // The other number of the pair: 1 / a + 1 / b = 1.
+          beta = alpha / (alpha - 1),
+          cell = p.extent / p.side,
+          left = 0.5 - p.extent / 2,
+          // The tone of each cell's n: the first sequence has the n for which the whole numbers below (n + 1) / a go up by one at n, and k, its place in its sequence, is the number of them.
+          steps = new Uint8Array(p.side * p.side);
+        for (let index = 0; index < steps.length; index++) {
+          const n = offset + index,
+            first = Math.floor((n + 1) / alpha) - Math.floor(n / alpha) === 1;
+          steps[index] = first
+            ? Math.floor((n + 1) / alpha) % 3
+            : 3 + (Math.floor((n + 1) / beta) % 3);
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            column = Math.floor((fu - left) / cell),
+            row = Math.floor((fv - left) / cell);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          if (column >= 0 && column < p.side && row >= 0 && row < p.side) {
+            const x = fu - left - (column + 0.5) * cell,
+              y = fv - left - (row + 0.5) * cell,
+              amount = cover(
+                cell / 2 - p.gapHalf - Math.max(Math.abs(x), Math.abs(y)),
+              ),
+              step = steps[row * p.side + column];
+            shade += (p.tones[step] - shade) * amount;
+            elevation += (p.heights[step] - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = amount;
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -74218,6 +74272,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'beattypartition' ||
     kind === 'walshmatrix' ||
     kind === 'paperfoldingruler' ||
     kind === 'rudinshapirogrid' ||

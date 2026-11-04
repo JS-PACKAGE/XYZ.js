@@ -16268,6 +16268,32 @@ export const proceduralMaterialPresets = Object.freeze({
     paperRoughness: 0.8,
     inkRoughness: 0.45,
   }),
+  beattypartition: Object.freeze({
+    dark: [30, 44, 66] as const,
+    light: [243, 238, 224] as const,
+    roughness: 0.55,
+    relief: 0.004,
+    // Beatty's theorem: for an irrational a above 1 and b = a / (a - 1) the numbers floor(k a) and floor(k b), k = 1, 2, 3 ..., share out the whole numbers 1, 2, 3 ... between them, each number
+    // in one and only one. The numbers are laid out in rows of a grid, side cells to a row, from n = offset (the seed picks it and a): a number of the first sequence is dark, of the second light, and
+    // the tone goes up in three steps with k, the place of the number in its sequence, modulo 3.
+    side: 47,
+    alphas: Object.freeze([
+      1.6180339887498949, 1.4142135623730951, 1.7320508075688772,
+      2.718281828459045,
+    ]),
+    offsets: Object.freeze([1, 100, 777, 2000]),
+    extent: 0.94,
+    gapHalf: 0.0012,
+    edgeSoft: 0.0006,
+    grainCells: 192,
+    paperTone: 0.97,
+    tones: Object.freeze([0.1, 0.22, 0.34, 0.62, 0.74, 0.86]),
+    heights: Object.freeze([0.85, 0.78, 0.71, 0.5, 0.43, 0.36]),
+    grainTone: 0.03,
+    paperHeight: 0.2,
+    paperRoughness: 0.8,
+    inkRoughness: 0.45,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -22760,6 +22786,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  beattypartition: 1,
   walshmatrix: 1,
   paperfoldingruler: 1,
   rudinshapirogrid: 1,
