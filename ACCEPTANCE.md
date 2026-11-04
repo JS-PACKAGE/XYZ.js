@@ -13962,3 +13962,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增3項專屬測試（與暴力聯集模型逐點對照〔6個變體各100點，容差1e-9，模型自己建鑲嵌與星點〕、八邊形邊中點旁四個弧的角度〔容差0.1°〕、四重旋轉與鏡射對稱〔容差1e-9〕）加沿用的色調範圍、seed差異與決定性、C1與UV週期、maps，共7項，`-t "Islamic stars as"`7項通過。變異檢查（做過12次）：星點公式cos(θ − π/n)改cos(θ + π/n)失敗7項；角平分線方向π/n改π/(n + 1)失敗5項；三角形法線加π改不加失敗1項（暴力對照）；snub square的正方形角度π/12改π/10失敗1項；三角形距離1/(2√3)改1/(3√3)失敗1項；桶範圍右邊界少加外半寬失敗6項；桶欄位的fu改fv失敗7項；週期−1改0（少了圖塊左邊以外的影像）失敗1項，**而且只有C1／UV週期測試抓到，暴力對照沒有**；帶的smooth去掉失敗4項；snub晶格常數(√3 + 1)/√2改/1.4失敗1項；snub第二個正方形角度−π/12改+π/12失敗1項；**沒抓到**的1項：三角形去重條件的`&&`改`||`，7項全數通過（我沒有調查原因，推測在這幾個鑲嵌中沒有任何兩個三角形共用同一座標，所以等價）。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Islamic stars as|islamicstars|kinds|catalog|distinct|periodic"`定向測試**2558項通過／4493項未選**，輸出`GATES-OK`。
 - 未驗證：lyapunovfractal、zetalandscape、fresneldiffraction與islamicstars尚未有完整suite的複驗紀錄（完整suite正在`3ab69faba`執行，結果另記）；islamicstars尚未做瀏覽器gallery檢查；不push。
+
+## 2026-11-04 完整測試與瀏覽器gallery複驗（至菲涅耳繞射）
+
+- 範圍：在`3ab69faba`（新增菲涅耳繞射之後）重跑完整測試，並在`3ab69faba`與`601b2d77b`（新增伊斯蘭星形圖樣之後）各跑一次瀏覽器gallery。這段不新增材質，只記錄實跑結果。`lyapunovfractal`（`b07f3705d`）、`zetalandscape`（`21638e28c`）與`fresneldiffraction`（`3ab69faba`）包含在完整測試範圍內；`islamicstars`（`601b2d77b`）不在完整測試範圍內。
+- 完整測試（工具實跑，乾淨的detached worktree）：**179個測試檔、10,972項全部通過**（1937 s，期間同時跑著gates、變異檢查與預覽，所以耗時不是乾淨的量測）。前一次完整複驗在`72f1223dd`（10,947項）；10,947 → 10,972共25項，我預期的增量是lyapunovfractal 7項、zetalandscape 10項、fresneldiffraction 8項（7項專屬測試加kinds清單的測試），加起來也是25，但我沒有逐項核對各測試的數量。
+- 瀏覽器gallery（工具實跑，無頭Chrome，vite從乾淨worktree提供`/examples/pbr3d/`）：在`3ab69faba`，WebGPU分頁與`?renderer=webgl2`分頁各自讀到「1123 procedural material presets」、選單1124個選項；各自選取fresneldiffraction、zetalandscape、lyapunovfractal與plain，頁面讀數都更新（每個selection回傳true）；console錯誤項目兩個分頁的entries都是空的；另外各自讀回fresneldiffraction的選項文字，與`index.html`標籤一致。在`601b2d77b`，兩個分頁各自讀到「1124 procedural material presets」、選單1125個選項，選取islamicstars、fresneldiffraction與plain都成功，entries都是空的，islamicstars的選項文字與標籤一致。限制：只涵蓋「可選取、讀數更新、無console錯誤」，沒有目視畫面或像素比對；跨瀏覽器、跨GPU行為沒有驗證。
+- 未驗證：`islamicstars`尚未跑完整suite（只有定向測試、gates與上述gallery）；跨瀏覽器與跨GPU；不push。
