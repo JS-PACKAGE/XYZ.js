@@ -521,10 +521,13 @@ export class BakedIrradianceVolume {
           const weight =
               (dx ? fx : 1 - fx) * (dy ? fy : 1 - fy) * (dz ? fz : 1 - fz),
             base = (((iz + dz) * ny + iy + dy) * nx + ix + dx) * terms * 3;
-          for (let k = 0; k < terms; k++)
-            for (let c = 0; c < 3; c++)
-              out[offset + k * 4 + c] +=
-                weight * this.coefficients[base + k * 3 + c];
+          for (let k = 0; k < terms; k++) {
+            const target = offset + k * 4;
+            const source = base + k * 3;
+            out[target] += weight * this.coefficients[source];
+            out[target + 1] += weight * this.coefficients[source + 1];
+            out[target + 2] += weight * this.coefficients[source + 2];
+          }
         }
     return true;
   }
