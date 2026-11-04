@@ -16584,6 +16584,58 @@ export declare const proceduralMaterialPresets: Readonly<{
         markHeight: 0.34;
         inkRoughness: 0.6;
     }>;
+    fieldhockeypitch: Readonly<{
+        dark: readonly [18, 60, 40];
+        light: readonly [238, 242, 232];
+        roughness: 0.7;
+        relief: 0.004;
+        metre: 0.00909091;
+        pitchLength: 91.4;
+        pitchWidth: 55;
+        goalWidth: 3.66;
+        twentyThree: 22.9;
+        circleRadius: 14.63;
+        brokenRadius: 19.63;
+        penaltyDistance: 6.4;
+        innerEnd: 3;
+        innerSide: 2;
+        outerEnd: 2;
+        outerSide: 1;
+        lineWidth: 0.45;
+        dash: 0.9;
+        gap: 3;
+        spotRadius: 0.3;
+        surfaces: readonly (Readonly<{
+            pitch: 0.46;
+            inner: 0.38;
+            outer: 0.58;
+            ground: 0.2;
+        }> | Readonly<{
+            pitch: 0.4;
+            inner: 0.52;
+            outer: 0.3;
+            ground: 0.58;
+        }> | Readonly<{
+            pitch: 0.56;
+            inner: 0.34;
+            outer: 0.44;
+            ground: 0.14;
+        }> | Readonly<{
+            pitch: 0.34;
+            inner: 0.46;
+            outer: 0.6;
+            ground: 0.28;
+        }>)[];
+        toneShift: 0.04;
+        edgeSoft: 0.0006;
+        lineTone: 0.96;
+        groundHeight: 0.15;
+        outerHeight: 0.22;
+        innerHeight: 0.26;
+        pitchHeight: 0.3;
+        lineHeight: 0.35;
+        inkRoughness: 0.5;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -23069,6 +23121,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    fieldhockeypitch: 1;
     runwaymarkings: 1;
     archerytarget: 1;
     snookertable: 1;

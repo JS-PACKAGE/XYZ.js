@@ -76689,3 +76689,532 @@ describe('runwaymarkings: the first 780 metres of a precision approach runway se
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('fieldhockeypitch: a field hockey pitch seen from above with the markings of the FIH rules and the run-offs of the FIH turf standards, laid along or across by the seed', () => {
+  const p = proceduralMaterialPresets.fieldhockeypitch,
+    out = empty(),
+    m = p.metre,
+    toneAt = (
+      sample: Sampler,
+      x: number,
+      y: number,
+      across: boolean,
+    ): number => {
+      // A place in metres from the middle of the pitch (x along its length) as a place on the picture.
+      sample(0.5 + (across ? y : x) * m, 0.5 + (across ? x : y) * m, out);
+      return out.color;
+    };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    mix = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    // The probes are exact (the edges are straight or circular), so the tolerance is tiny.
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  // The facts of the pitch, in metres. The run-offs are from the FIH Hockey Turf and Field Standards part 2 (version 2.2, which was read for this): the pitch 91.40 by 55.00, the preferred run-offs 3.0 and 2.0
+  // of turf with 2.0 and 1.0 outside them at the ends and the sides (101.4 by 61.0 in all). The markings are as a web search summary gave them for the FIH rules of hockey (the rules themselves were not read):
+  // lines 75 mm wide and part of the area they bound, the 23 metre lines with the far edge 22.90 from the outer edge of the back line, the striking circle (a straight of 3.66 at 14.63, two quarter circles of radius
+  // 14.63 about the goalposts), the broken line with its outer edge 5 outside the circle (dashes of 0.3 and gaps of 3, the first in the middle), the penalty spot 0.15 across with its centre 6.40 from the inner edge of
+  // the back line.
+  const rules = {
+      length: 91.4,
+      width: 55,
+      goal: 3.66,
+      twentyThree: 22.9,
+      circle: 14.63,
+      broken: 14.63 + 5,
+      penalty: 6.4,
+      inner: [3, 2],
+      outer: [2, 1],
+      line: 0.075,
+      dash: 0.3,
+      gap: 3,
+      spot: 0.15,
+    },
+    halfL = rules.length / 2,
+    halfW = rules.width / 2,
+    halfGoal = rules.goal / 2,
+    w = p.lineWidth,
+    cycle = p.dash + p.gap;
+  type Kind = 'ground' | 'outer' | 'inner' | 'pitch' | 'line';
+  // The piece of the picture a place is in (two pieces of line next to each other are two pieces).
+  const piece = (x: number, y: number): string => {
+    const ax = Math.abs(x),
+      ay = Math.abs(y),
+      back = halfL - ax,
+      post = Math.hypot(back, ay - halfGoal),
+      band = (distance: number): boolean =>
+        back <= distance && back >= distance - w,
+      ring = (radius: number): boolean => post <= radius && post >= radius - w,
+      along =
+        ay <= halfGoal
+          ? ay
+          : halfGoal + (rules.broken - w / 2) * Math.atan2(ay - halfGoal, back),
+      dashed =
+        Math.abs(along - Math.round(along / cycle) * cycle) <= p.dash / 2;
+    if (
+      ax > halfL + rules.inner[0] + rules.outer[0] ||
+      ay > halfW + rules.inner[1] + rules.outer[1]
+    )
+      return 'ground';
+    if (ax > halfL + rules.inner[0] || ay > halfW + rules.inner[1])
+      return 'outer';
+    if (ax > halfL || ay > halfW) return 'inner';
+    if (ax >= halfL - w || ay >= halfW - w) return 'line outline';
+    if (ax <= w / 2) return 'line centre';
+    if (band(rules.twentyThree)) return 'line 23';
+    if (Math.hypot(back - w - rules.penalty, y) <= p.spotRadius)
+      return 'line spot';
+    if (ay <= halfGoal && band(rules.circle)) return 'line circle';
+    if (ay >= halfGoal && ring(rules.circle)) return 'line circle';
+    if (dashed && ay <= halfGoal && band(rules.broken)) return 'line broken';
+    if (dashed && ay >= halfGoal && ring(rules.broken)) return 'line broken';
+    return 'pitch';
+  };
+  const classify = (x: number, y: number): Kind => {
+    const label = piece(x, y);
+    return label.startsWith('line') ? 'line' : (label as Kind);
+  };
+  type Surface = {
+    across: boolean;
+    surface: number;
+    shift: number;
+    tones: { pitch: number; inner: number; outer: number; ground: number };
+  };
+  const readSurface = (sample: Sampler): Surface => {
+    const options: Surface[] = [];
+    for (const across of [false, true]) {
+      const pitch = toneAt(sample, 30, 10, across),
+        inner = toneAt(sample, halfL + 1.5, 0, across),
+        outer = toneAt(sample, halfL + 4, 0, across),
+        ground = toneAt(sample, 54, 0, across);
+      p.surfaces.forEach((surface, index) => {
+        const shift = ground - surface.ground;
+        if (
+          Math.abs(shift) <= p.toneShift + 1e-9 &&
+          Math.abs(pitch - surface.pitch - shift) < 1e-6 &&
+          Math.abs(inner - surface.inner - shift) < 1e-6 &&
+          Math.abs(outer - surface.outer - shift) < 1e-6
+        )
+          options.push({
+            across,
+            surface: index,
+            shift,
+            tones: { pitch, inner, outer, ground },
+          });
+      });
+    }
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+
+  it('has the rules of the pitch in the preset, with the lines six times as wide as the rules, the dashes three times as long and the spot four times as wide', () => {
+    expect(p.pitchLength).toBe(rules.length);
+    expect(p.pitchWidth).toBe(rules.width);
+    expect(p.goalWidth).toBe(rules.goal);
+    expect(p.twentyThree).toBe(rules.twentyThree);
+    expect(p.circleRadius).toBe(rules.circle);
+    expect(p.brokenRadius).toBeCloseTo(rules.broken, 12);
+    expect(p.penaltyDistance).toBe(rules.penalty);
+    expect([p.innerEnd, p.innerSide]).toEqual(rules.inner);
+    expect([p.outerEnd, p.outerSide]).toEqual(rules.outer);
+    expect(p.lineWidth).toBeCloseTo(6 * rules.line, 12);
+    expect(p.dash).toBeCloseTo(3 * rules.dash, 12);
+    expect(p.gap).toBe(rules.gap);
+    expect(p.spotRadius).toBeCloseTo(4 * (rules.spot / 2), 12);
+    // The preferred run-offs make the field 101.4 by 61.0.
+    expect(rules.length + 2 * (rules.inner[0] + rules.outer[0])).toBeCloseTo(
+      101.4,
+      12,
+    );
+    expect(rules.width + 2 * (rules.inner[1] + rules.outer[1])).toBeCloseTo(
+      61,
+      12,
+    );
+  });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws every place of the picture as the rules and the widths say, with its tone, height and roughness, along the picture or across it (seed %i)',
+    { timeout: 120000 },
+    (seed) => {
+      const sample = createSurfaceSampler('fieldhockeypitch', seed),
+        { across, tones } = readSurface(sample),
+        expected: Record<Kind, { tone: number; height: number }> = {
+          ground: { tone: tones.ground, height: p.groundHeight },
+          outer: { tone: tones.outer, height: p.outerHeight },
+          inner: { tone: tones.inner, height: p.innerHeight },
+          pitch: { tone: tones.pitch, height: p.pitchHeight },
+          line: { tone: p.lineTone, height: p.lineHeight },
+        },
+        counts: Record<Kind, number> = {
+          ground: 0,
+          outer: 0,
+          inner: 0,
+          pitch: 0,
+          line: 0,
+        },
+        clear = 0.05,
+        check = (x: number, y: number): void => {
+          const kind = classify(x, y);
+          if (
+            [
+              [clear, 0],
+              [-clear, 0],
+              [0, clear],
+              [0, -clear],
+              [clear, clear],
+              [-clear, -clear],
+              [clear, -clear],
+              [-clear, clear],
+            ].some(([dx, dy]) => piece(x + dx, y + dy) !== piece(x, y))
+          )
+            return;
+          counts[kind]++;
+          expect(toneAt(sample, x, y, across)).toBeCloseTo(
+            expected[kind].tone,
+            6,
+          );
+          expect(out.height / p.relief).toBeCloseTo(expected[kind].height, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        };
+      // The whole tile (110 across) coarsely and the pitch with its run-offs finely.
+      for (let x = -54.9; x <= 54.9; x += 0.91)
+        for (let y = -54.9; y <= 54.9; y += 0.91) check(x, y);
+      for (let x = -52; x <= 52; x += 0.23)
+        for (let y = -32; y <= 32; y += 0.23) check(x, y);
+      expect(counts.line).toBeGreaterThan(3000);
+      expect(counts.pitch).toBeGreaterThan(40000);
+      expect(counts.inner).toBeGreaterThan(1500);
+      expect(counts.outer).toBeGreaterThan(1500);
+      expect(counts.ground).toBeGreaterThan(8000);
+    },
+  );
+
+  it('uses every surface and both ways over 1000 seeds, about equally often, with the tones shifted over the whole range', () => {
+    const surfaces = new Map<number, number>(),
+      shifts: number[] = [];
+    let acrossCount = 0;
+    for (let seed = 0; seed < 1000; seed++) {
+      const { across, surface, shift } = readSurface(
+        createSurfaceSampler('fieldhockeypitch', seed * 7 + 1),
+      );
+      shifts.push(shift);
+      surfaces.set(surface, (surfaces.get(surface) ?? 0) + 1);
+      acrossCount += Number(across);
+    }
+    expect(surfaces.size).toBe(p.surfaces.length);
+    for (const count of surfaces.values())
+      expect(Math.abs(count - 1000 / p.surfaces.length)).toBeLessThan(50);
+    expect(Math.abs(acrossCount / 1000 - 0.5)).toBeLessThan(0.05);
+    expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+    expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+    expect(
+      Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+    ).toBeLessThan(p.toneShift * 0.15);
+    for (let quarter = 0; quarter < 4; quarter++)
+      expect(
+        Math.abs(
+          shifts.filter(
+            (shift) =>
+              Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+          ).length - 250,
+        ),
+      ).toBeLessThan(50);
+  });
+
+  it('puts each edge of each marking where the rules put it: just inside it the line, just outside it not (both ends, both sides, both ways)', () => {
+    const delta = 0.0004 / m,
+      acrosses = new Set<boolean>();
+    for (const seed of [1, 2, 3]) {
+      const sample = createSurfaceSampler('fieldhockeypitch', seed),
+        { across, tones } = readSurface(sample),
+        isLine = (x: number, y: number): boolean =>
+          Math.abs(toneAt(sample, x, y, across) - p.lineTone) < 1e-6,
+        is = (x: number, y: number, tone: number): boolean =>
+          Math.abs(toneAt(sample, x, y, across) - tone) < 1e-6;
+      acrosses.add(across);
+      for (const sx of [1, -1])
+        for (const sy of [1, -1]) {
+          const at = (back: number, distance: number): boolean =>
+              isLine(sx * (halfL - back), sy * distance),
+            // A place round the goalpost on the side sy of the end sx, at a radius and an angle from the direction away from the back line.
+            round = (radius: number, degrees: number): [number, number] => [
+              sx * (halfL - radius * Math.cos((degrees * Math.PI) / 180)),
+              sy * (halfGoal + radius * Math.sin((degrees * Math.PI) / 180)),
+            ];
+          // The outline (the back line and the side line), both edges.
+          expect(at(w - delta, 10)).toBe(true);
+          expect(at(w + delta, 10)).toBe(false);
+          expect(at(delta, 10)).toBe(true);
+          expect(at(-delta, 10)).toBe(false);
+          expect(isLine(sx * 30, sy * (halfW - w + delta))).toBe(true);
+          expect(isLine(sx * 30, sy * (halfW - w - delta))).toBe(false);
+          expect(isLine(sx * 30, sy * (halfW - delta))).toBe(true);
+          expect(isLine(sx * 30, sy * (halfW + delta))).toBe(false);
+          // The 23 metre line, both edges, across the pitch.
+          for (const distance of [3, 12, 24]) {
+            expect(at(rules.twentyThree - delta, distance)).toBe(true);
+            expect(at(rules.twentyThree + delta, distance)).toBe(false);
+            expect(at(rules.twentyThree - w + delta, distance)).toBe(true);
+            expect(at(rules.twentyThree - w - delta, distance)).toBe(false);
+          }
+          // The striking circle: the straight, both edges; the quarter circles about the posts, both edges at four angles; where they meet (no gap).
+          expect(at(rules.circle - delta, 0.5)).toBe(true);
+          expect(at(rules.circle + delta, 0.5)).toBe(false);
+          expect(at(rules.circle - w + delta, 0.5)).toBe(true);
+          expect(at(rules.circle - w - delta, 0.5)).toBe(false);
+          for (const degrees of [10, 35, 60, 85]) {
+            expect(isLine(...round(rules.circle - delta, degrees))).toBe(true);
+            expect(isLine(...round(rules.circle + delta, degrees))).toBe(false);
+            expect(isLine(...round(rules.circle - w + delta, degrees))).toBe(
+              true,
+            );
+            expect(isLine(...round(rules.circle - w - delta, degrees))).toBe(
+              false,
+            );
+          }
+          for (const distance of [
+            halfGoal - 0.1,
+            halfGoal,
+            halfGoal + 0.1,
+            halfGoal + w,
+          ])
+            expect(at(rules.circle - w / 2, distance)).toBe(true);
+          // The broken line: dashes of 0.9 with gaps of 3, the first centred on the middle: both ends of each along the line (on the straight and on the arc, on the middle of the line's width), the middle of a dash and of a gap.
+          const radius = rules.broken - w / 2,
+            onLine = (along: number): boolean =>
+              along <= halfGoal
+                ? at(radius, along)
+                : isLine(
+                    ...round(
+                      radius,
+                      ((along - halfGoal) / radius) * (180 / Math.PI),
+                    ),
+                  );
+          for (let index = 0; index < 8; index++) {
+            const middleOfDash = index * cycle,
+              end = middleOfDash + p.dash / 2,
+              start = middleOfDash - p.dash / 2;
+            if (Math.abs(middleOfDash - halfGoal) > 0.5)
+              expect(onLine(middleOfDash)).toBe(true);
+            expect(onLine(middleOfDash + cycle / 2)).toBe(false);
+            // Just inside each end of the dash is on the line, just outside it is not.
+            if (Math.abs(end - halfGoal) > 0.2) {
+              expect(onLine(end - delta)).toBe(true);
+              expect(onLine(end + delta)).toBe(false);
+            }
+            if (start > 0 && Math.abs(start - halfGoal) > 0.2) {
+              expect(onLine(start + delta)).toBe(true);
+              expect(onLine(start - delta)).toBe(false);
+            }
+          }
+          // Across the broken line (both edges, in the middle of a dash on the straight and of the third dash on the arc).
+          expect(at(rules.broken - delta, 0)).toBe(true);
+          expect(at(rules.broken + delta, 0)).toBe(false);
+          expect(at(rules.broken - w + delta, 0)).toBe(true);
+          expect(at(rules.broken - w - delta, 0)).toBe(false);
+          const arcDegrees =
+            ((2 * cycle - halfGoal) / radius) * (180 / Math.PI);
+          expect(isLine(...round(rules.broken - delta, arcDegrees))).toBe(true);
+          expect(isLine(...round(rules.broken + delta, arcDegrees))).toBe(
+            false,
+          );
+          expect(isLine(...round(rules.broken - w + delta, arcDegrees))).toBe(
+            true,
+          );
+          expect(isLine(...round(rules.broken - w - delta, arcDegrees))).toBe(
+            false,
+          );
+          // The penalty spot (0.6 across here, the centre 6.40 from the inner edge of the back line), and nothing else in the middle of the circle.
+          const spotAt = halfL - w - rules.penalty;
+          expect(isLine(sx * (spotAt + p.spotRadius - delta), 0)).toBe(true);
+          expect(isLine(sx * (spotAt + p.spotRadius + delta), 0)).toBe(false);
+          expect(isLine(sx * (spotAt - p.spotRadius + delta), 0)).toBe(true);
+          expect(isLine(sx * (spotAt - p.spotRadius - delta), 0)).toBe(false);
+          expect(isLine(sx * spotAt, sy * (p.spotRadius - delta))).toBe(true);
+          expect(isLine(sx * spotAt, sy * (p.spotRadius + delta))).toBe(false);
+          expect(at(10, 5)).toBe(false);
+          // The run-offs and the ground: the edge of each.
+          expect(is(sx * (halfL + delta), 10, tones.inner)).toBe(true);
+          expect(
+            is(sx * (halfL + rules.inner[0] - delta), 10, tones.inner),
+          ).toBe(true);
+          expect(
+            is(sx * (halfL + rules.inner[0] + delta), 10, tones.outer),
+          ).toBe(true);
+          expect(
+            is(
+              sx * (halfL + rules.inner[0] + rules.outer[0] - delta),
+              10,
+              tones.outer,
+            ),
+          ).toBe(true);
+          expect(
+            is(
+              sx * (halfL + rules.inner[0] + rules.outer[0] + delta),
+              10,
+              tones.ground,
+            ),
+          ).toBe(true);
+          expect(
+            is(30, sy * (halfW + rules.inner[1] - delta), tones.inner),
+          ).toBe(true);
+          expect(
+            is(30, sy * (halfW + rules.inner[1] + delta), tones.outer),
+          ).toBe(true);
+          expect(
+            is(
+              30,
+              sy * (halfW + rules.inner[1] + rules.outer[1] + delta),
+              tones.ground,
+            ),
+          ).toBe(true);
+        }
+      // The centre line.
+      expect(isLine(w / 2 - delta, 10)).toBe(true);
+      expect(isLine(w / 2 + delta, 10)).toBe(false);
+      expect(isLine(-w / 2 + delta, 10)).toBe(true);
+      expect(isLine(-w / 2 - delta, 10)).toBe(false);
+    }
+    expect(acrosses.size).toBe(2);
+  });
+
+  it('softens the edge of the run-offs, of the pitch, of a line, of the spot and of the end of a dash over edgeSoft', () => {
+    const sample = createSurfaceSampler('fieldhockeypitch', 2),
+      { across, tones } = readSurface(sample),
+      quarter = (0.25 * p.edgeSoft) / m,
+      tone = (back: number, distance: number): number =>
+        toneAt(sample, halfL - back, distance, across);
+    // The ground, the outer run-off, the inner run-off, the pitch: the sides and the ends.
+    close(
+      toneAt(
+        sample,
+        30,
+        halfW + rules.inner[1] + rules.outer[1] - quarter,
+        across,
+      ),
+      mix(tones.ground, tones.outer, 0.75),
+    );
+    close(
+      toneAt(
+        sample,
+        30,
+        halfW + rules.inner[1] + rules.outer[1] + quarter,
+        across,
+      ),
+      mix(tones.ground, tones.outer, 0.25),
+    );
+    close(
+      toneAt(sample, 30, halfW + rules.inner[1] - quarter, across),
+      mix(tones.outer, tones.inner, 0.75),
+    );
+    close(
+      toneAt(sample, 30, halfW + rules.inner[1] + quarter, across),
+      mix(tones.outer, tones.inner, 0.25),
+    );
+    close(
+      tone(-rules.inner[0] - quarter, 10),
+      mix(tones.outer, tones.inner, 0.25),
+    );
+    close(
+      tone(-rules.inner[0] + quarter, 10),
+      mix(tones.outer, tones.inner, 0.75),
+    );
+    // The outline over the inner run-off (outer edge) and over the pitch (inner edge), and the centre line, the 23 metre line and the circle's straight.
+    close(tone(quarter, 10), mix(tones.inner, p.lineTone, 0.75));
+    close(tone(-quarter, 10), mix(tones.inner, p.lineTone, 0.25));
+    close(tone(w - quarter, 10), mix(tones.pitch, p.lineTone, 0.75));
+    close(tone(w + quarter, 10), mix(tones.pitch, p.lineTone, 0.25));
+    close(
+      toneAt(sample, w / 2 + quarter, 10, across),
+      mix(tones.pitch, p.lineTone, 0.25),
+    );
+    close(
+      tone(rules.twentyThree + quarter, 10),
+      mix(tones.pitch, p.lineTone, 0.25),
+    );
+    close(
+      tone(rules.twentyThree - w - quarter, 10),
+      mix(tones.pitch, p.lineTone, 0.25),
+    );
+    close(
+      tone(rules.circle + quarter, 0.5),
+      mix(tones.pitch, p.lineTone, 0.25),
+    );
+    close(
+      tone(rules.circle - w + quarter, 0.5),
+      mix(tones.pitch, p.lineTone, 0.75),
+    );
+    // The arc of the circle (a quarter circle about a post, at 45 degrees).
+    const arc = (radius: number): [number, number] => [
+      halfL - radius * Math.SQRT1_2,
+      halfGoal + radius * Math.SQRT1_2,
+    ];
+    close(
+      toneAt(sample, ...arc(rules.circle + quarter), across),
+      mix(tones.pitch, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, ...arc(rules.circle - quarter), across),
+      mix(tones.pitch, p.lineTone, 0.75),
+    );
+    // The end of a dash of the broken line, along the straight (the first dash ends 0.45 from the middle, the gap after it) and the dash edge across.
+    const radius = rules.broken - w / 2;
+    close(
+      tone(radius, p.dash / 2 - quarter),
+      mix(tones.pitch, p.lineTone, 0.75),
+    );
+    close(
+      tone(radius, p.dash / 2 + quarter),
+      mix(tones.pitch, p.lineTone, 0.25),
+    );
+    close(tone(rules.broken + quarter, 0), mix(tones.pitch, p.lineTone, 0.25));
+    close(tone(rules.broken - quarter, 0), mix(tones.pitch, p.lineTone, 0.75));
+    // The penalty spot.
+    const spotAt = halfL - w - rules.penalty;
+    close(
+      toneAt(sample, spotAt + p.spotRadius - quarter, 0, across),
+      mix(tones.pitch, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, spotAt + p.spotRadius + quarter, 0, across),
+      mix(tones.pitch, p.lineTone, 0.25),
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('fieldhockeypitch', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('fieldhockeypitch', 0),
+      b = createSurfaceSampler('fieldhockeypitch', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

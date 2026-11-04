@@ -18049,6 +18049,52 @@ export const proceduralMaterialPresets = Object.freeze({
     markHeight: 0.34,
     inkRoughness: 0.6,
   }),
+  fieldhockeypitch: Object.freeze({
+    dark: [18, 60, 40] as const,
+    light: [238, 242, 232] as const,
+    roughness: 0.7,
+    relief: 0.004,
+    // A field hockey pitch seen from above with the markings of the FIH rules and the run-offs of the FIH Hockey Turf and Field Standards, in metres (the length of the pitch along one axis): the pitch 91.40 by 55.00,
+    // the centre line, the two 23 metre lines (the far edge 22.90 from the outer edge of the back line), at each end the striking circle (a straight of 3.66, the width of the goal, with its far edge 14.63 from the outer
+    // edge of the back line, joined to the back line by two quarter circles of radius 14.63 about the two goalposts, which I put at the outer edge of the back line: the rules say the inside front base of the post),
+    // the broken line 5 outside the circle (dashes 0.3 long with gaps of 3, the first centred on the middle of the straight), the penalty spot (6.40 from the inner edge of the back line, 0.15 across); round the
+    // pitch the preferred run-offs, 3 at the ends and 2 at the sides of hockey turf and 2 and 1 outside them of another surface (101.4 by 61.0 in all), and the ground beyond. Distances are to the outer edge of a line and
+    // the lines are part of the area they bound. The lines are 0.45 wide (the rules give 0.075, six times), the dashes 0.9 long (three times) and the spot 0.6 across (four times), so that they show in a tile. The
+    // goals and the 16 yard marks outside the side lines are not drawn. The seed picks the surface (the tones of the pitch, the two run-offs and the ground, all shifted together a little) and lays the pitch along
+    // the picture or across it.
+    metre: 0.00909091,
+    pitchLength: 91.4,
+    pitchWidth: 55,
+    goalWidth: 3.66,
+    twentyThree: 22.9,
+    circleRadius: 14.63,
+    brokenRadius: 19.63,
+    penaltyDistance: 6.4,
+    innerEnd: 3,
+    innerSide: 2,
+    outerEnd: 2,
+    outerSide: 1,
+    lineWidth: 0.45,
+    dash: 0.9,
+    gap: 3,
+    spotRadius: 0.3,
+    surfaces: Object.freeze([
+      Object.freeze({ pitch: 0.46, inner: 0.38, outer: 0.58, ground: 0.2 }),
+      Object.freeze({ pitch: 0.4, inner: 0.52, outer: 0.3, ground: 0.58 }),
+      Object.freeze({ pitch: 0.56, inner: 0.34, outer: 0.44, ground: 0.14 }),
+      Object.freeze({ pitch: 0.34, inner: 0.46, outer: 0.6, ground: 0.28 }),
+    ]),
+    // How much the four tones may all be shifted together (from -toneShift to toneShift) by the seed: the wear of the turf.
+    toneShift: 0.04,
+    edgeSoft: 0.0006,
+    lineTone: 0.96,
+    groundHeight: 0.15,
+    outerHeight: 0.22,
+    innerHeight: 0.26,
+    pitchHeight: 0.3,
+    lineHeight: 0.35,
+    inkRoughness: 0.5,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -24541,6 +24587,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  fieldhockeypitch: 1,
   runwaymarkings: 1,
   archerytarget: 1,
   snookertable: 1,

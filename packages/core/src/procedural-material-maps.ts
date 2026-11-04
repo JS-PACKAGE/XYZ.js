@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'fieldhockeypitch',
   'runwaymarkings',
   'archerytarget',
   'snookertable',
@@ -51169,6 +51170,114 @@ export function createSurfaceSampler(
               (p.markHeight - p.runwayHeight) * marking -
               elevation) *
             runway;
+          color = clamp(shade);
+          height = clamp(elevation);
+          roughness = clamp(p.inkRoughness);
+          occlusion = 1;
+        };
+      }
+      case 'fieldhockeypitch': {
+        const p = proceduralMaterialPresets.fieldhockeypitch,
+          inverseSoft = 1 / p.edgeSoft,
+          norm = (x: number, y: number): number => Math.sqrt(x * x + y * y),
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(123, 1, seed ^ 0x230001) * p.surfaces.length)
+            ],
+          across = hash(123, 2, seed ^ 0x230002) < 0.5,
+          shift = (hash(123, 3, seed ^ 0x230003) * 2 - 1) * p.toneShift,
+          halfLength = p.pitchLength / 2,
+          halfWidth = p.pitchWidth / 2,
+          halfGoal = p.goalWidth / 2,
+          line = p.lineWidth,
+          cycle = p.dash + p.gap,
+          // A line across the pitch at a distance from the back line (to its far edge, the line inside it), and a ring about a goalpost, a line wide inside its radius.
+          band = (back: number, distance: number): number =>
+            cover(
+              Math.min(back - (distance - line), distance - back) * p.metre,
+            ),
+          ring = (distance: number, radius: number): number =>
+            cover(
+              Math.min(distance - (radius - line), radius - distance) * p.metre,
+            ),
+          // How far a place is inside the nearest dash of the broken line, as a distance along the line from the middle of its straight (a dash is centred on the middle, then gaps and dashes alternate).
+          dashInside = (along: number): number =>
+            p.dash / 2 - Math.abs(along - Math.round(along / cycle) * cycle);
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            // The place in metres from the middle of the pitch (x along its length).
+            x = ((across ? fv : fu) - 0.5) / p.metre,
+            y = ((across ? fu : fv) - 0.5) / p.metre,
+            ax = Math.abs(x),
+            ay = Math.abs(y),
+            outer = cover(
+              Math.min(
+                halfLength + p.innerEnd + p.outerEnd - ax,
+                halfWidth + p.innerSide + p.outerSide - ay,
+              ) * p.metre,
+            ),
+            inner = cover(
+              Math.min(
+                halfLength + p.innerEnd - ax,
+                halfWidth + p.innerSide - ay,
+              ) * p.metre,
+            ),
+            inside = Math.min(halfLength - ax, halfWidth - ay),
+            pitch = cover(inside * p.metre),
+            // The distance from the back line (its outer edge) of the nearer end, and from the nearer goalpost.
+            back = halfLength - ax,
+            post = norm(back, ay - halfGoal),
+            // The arcs are outside the posts and the straights between them; the straights go on by half a line width under the arcs, where they meet.
+            outside = cover((ay - halfGoal) * p.metre),
+            between = cover((halfGoal + line / 2 - ay) * p.metre),
+            circle = Math.max(
+              Math.min(band(back, p.circleRadius), between),
+              Math.min(ring(post, p.circleRadius), outside),
+            ),
+            // The broken line: where a place is along it from the middle of its straight (the straight, then the arc of the middle radius).
+            along =
+              ay <= halfGoal
+                ? ay
+                : halfGoal +
+                  (p.brokenRadius - line / 2) * Math.atan2(ay - halfGoal, back),
+            broken = Math.min(
+              Math.max(
+                Math.min(band(back, p.brokenRadius), between),
+                Math.min(ring(post, p.brokenRadius), outside),
+              ),
+              cover(dashInside(along) * p.metre),
+            ),
+            // The outline, the centre line, the 23 metre lines, the circles, the broken lines and the penalty spots.
+            marking = Math.max(
+              cover(Math.min(inside, line - inside) * p.metre),
+              cover((line / 2 - ax) * p.metre),
+              band(back, p.twentyThree),
+              circle,
+              broken,
+              cover(
+                (p.spotRadius - norm(back - line - p.penaltyDistance, y)) *
+                  p.metre,
+              ),
+            );
+          // Pitch or line over the run-offs, the line only where there is pitch (so that a line at the edge of the pitch has the edge of the pitch).
+          const lined = pitch > 0 ? Math.min(1, marking / pitch) : 0,
+            pitchTone = surface.pitch + shift;
+          let shade = surface.ground + shift,
+            elevation = p.groundHeight;
+          shade += (surface.outer + shift - shade) * outer;
+          elevation += (p.outerHeight - elevation) * outer;
+          shade += (surface.inner + shift - shade) * inner;
+          elevation += (p.innerHeight - elevation) * inner;
+          shade +=
+            (pitchTone + (p.lineTone - pitchTone) * lined - shade) * pitch;
+          elevation +=
+            (p.pitchHeight +
+              (p.lineHeight - p.pitchHeight) * lined -
+              elevation) *
+            pitch;
           color = clamp(shade);
           height = clamp(elevation);
           roughness = clamp(p.inkRoughness);
