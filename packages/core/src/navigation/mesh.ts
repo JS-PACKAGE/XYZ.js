@@ -837,7 +837,7 @@ export class NavigationMesh3D {
   }
   private region(index: number, radius: number): Region {
     const polygon = this.geometry[index]!;
-    if (radius === 0) return { vertices: polygon.surface.vertices };
+    if (radius === 0) return polygon.surface;
     // Topology is immutable, so a region depends only on the radius and the enabled
     // states, which bump `epoch`; every query and search used to clip it again.
     const cached = this.regions[index];
