@@ -167,16 +167,22 @@ export class KeyframeTrack {
         wb = Math.sin(t * angle) / sine;
       }
     }
-    for (let j = 0; j < size; j++) {
-      if (cubic && first !== second) {
-        const t2 = t * t,
-          t3 = t2 * t;
+    if (cubic && first !== second) {
+      const t2 = t * t,
+        t3 = t2 * t,
+        h00 = 2 * t3 - 3 * t2 + 1,
+        h10 = (t3 - 2 * t2 + t) * dt,
+        h01 = -2 * t3 + 3 * t2,
+        h11 = (t3 - t2) * dt;
+      for (let j = 0; j < size; j++)
         out[j] =
-          (2 * t3 - 3 * t2 + 1) * values[a + j] +
-          (t3 - 2 * t2 + t) * dt * values[a + size + j] +
-          (-2 * t3 + 3 * t2) * values[b + j] +
-          (t3 - t2) * dt * values[b - size + j];
-      } else out[j] = wa * values[a + j] + wb * sign * values[b + j];
+          h00 * values[a + j] +
+          h10 * values[a + size + j] +
+          h01 * values[b + j] +
+          h11 * values[b - size + j];
+    } else {
+      for (let j = 0; j < size; j++)
+        out[j] = wa * values[a + j] + wb * sign * values[b + j];
     }
     if (this.path === 'rotation') {
       const length = hypot4(out[0], out[1], out[2], out[3]);
