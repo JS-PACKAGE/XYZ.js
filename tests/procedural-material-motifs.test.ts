@@ -60489,3 +60489,325 @@ describe('paperfoldingruler: the ruler sequence as the shade of the cells of a g
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('walshmatrix: a Hadamard matrix of order 8, 16 or 32 as dark and light cells, its rows in the natural or the Walsh order', () => {
+  const p = proceduralMaterialPresets.walshmatrix,
+    out = empty(),
+    left = 0.5 - p.extent / 2,
+    toneAt = (sample: Sampler, u: number, v: number): number => {
+      sample(u, v, out);
+      return out.color;
+    };
+  const isSign = (tone: number): boolean =>
+    Math.abs(tone - p.plusTone) < 1e-6 || Math.abs(tone - p.minusTone) < 1e-6;
+  type Matrix = {
+    sample: Sampler;
+    order: number;
+    cell: number;
+    signs: number[][];
+  };
+  // Read the picture: the order is the smallest one whose cell middles all hold a sign tone (the middles of a finer grid also lie in the cells of a coarser picture, those of a coarser grid on the gaps of a finer one); the signs are +1 for the dark tone and -1 for the light.
+  const readMatrix = (seed: number): Matrix => {
+    const sample = createSurfaceSampler('walshmatrix', seed),
+      orders = p.sizes.filter((order) => {
+        const cell = p.extent / order;
+        for (let row = 0; row < order; row++)
+          for (let column = 0; column < order; column++)
+            if (
+              !isSign(
+                toneAt(
+                  sample,
+                  left + (column + 0.5) * cell,
+                  left + (row + 0.5) * cell,
+                ),
+              )
+            )
+              return false;
+        return true;
+      });
+    const order = Math.min(...orders),
+      cell = p.extent / order;
+    return {
+      sample,
+      order,
+      cell,
+      signs: Array.from({ length: order }, (_, row) =>
+        Array.from({ length: order }, (_, column) =>
+          Math.abs(
+            toneAt(
+              sample,
+              left + (column + 0.5) * cell,
+              left + (row + 0.5) * cell,
+            ) - p.plusTone,
+          ) < 1e-6
+            ? 1
+            : -1,
+        ),
+      ),
+    };
+  };
+  const onesIn = (bits: number): number =>
+    (bits.toString(2).match(/1/g) ?? []).length;
+  const changesIn = (row: number[]): number =>
+    row.filter((sign, k) => k > 0 && sign !== row[k - 1]).length;
+  const kinds = (
+    signs: number[][],
+  ): { natural: boolean; walsh: boolean; turned: boolean } => {
+    const turned = signs[0][0] === -1,
+      flip = turned ? -1 : 1;
+    return {
+      turned,
+      natural: signs.every((row, i) =>
+        row.every(
+          (sign, j) => sign * flip === (onesIn(i & j) % 2 === 0 ? 1 : -1),
+        ),
+      ),
+      walsh: signs.every((row, i) => changesIn(row) === i),
+    };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws a Hadamard matrix: every pair of rows and of columns is orthogonal, in the natural order or the Walsh order, with the signs turned or not (seed %i)',
+    (seed) => {
+      const { order, signs } = readMatrix(seed),
+        dot = (a: number[], b: number[]): number =>
+          a.reduce((sum, value, k) => sum + value * b[k], 0),
+        columns = signs[0].map((_, j) => signs.map((row) => row[j]));
+      for (let i = 0; i < order; i++)
+        for (let j = 0; j < order; j++) {
+          expect(dot(signs[i], signs[j])).toBe(i === j ? order : 0);
+          expect(dot(columns[i], columns[j])).toBe(i === j ? order : 0);
+        }
+      // Exactly one of the two orders (for order 8 and above they are never the same matrix).
+      const { natural, walsh } = kinds(signs);
+      expect(natural !== walsh).toBe(true);
+      // The first row has one sign only, and every other row has as many of each sign.
+      expect(new Set(signs[0]).size).toBe(1);
+      for (let i = 1; i < order; i++)
+        expect(signs[i].filter((sign) => sign === 1).length).toBe(order / 2);
+    },
+  );
+
+  it('uses every order, both row orders and both turns of the signs, over 150 seeds', () => {
+    const seen = new Set<string>();
+    for (let seed = 0; seed < 150; seed++) {
+      const { order, signs } = readMatrix(seed * 11 + 2),
+        { natural, turned } = kinds(signs);
+      seen.add(`${order}/${natural}/${turned}`);
+    }
+    expect(seen.size).toBe(p.sizes.length * 4);
+  });
+
+  it('picks the Walsh order and the turned signs about half the time each, over 400 seeds', () => {
+    let walsh = 0,
+      turned = 0;
+    const total = 400;
+    for (let seed = 0; seed < total; seed++) {
+      const kind = kinds(readMatrix(seed * 3 + 1).signs);
+      walsh += Number(kind.walsh);
+      turned += Number(kind.turned);
+    }
+    for (const count of [walsh, turned]) {
+      expect(count / total).toBeGreaterThan(0.4);
+      expect(count / total).toBeLessThan(0.6);
+    }
+  });
+
+  // One seed for each order.
+  const orderSeeds = (): number[] =>
+    p.sizes.map((order) => {
+      for (let seed = 0; seed < 200; seed++)
+        if (readMatrix(seed).order === order) return seed;
+      throw new Error('no seed');
+    });
+
+  it('draws each sign with its tone, height and roughness, as a square of its size with a gap and nothing outside the grid', () => {
+    for (const seed of orderSeeds()) {
+      const { sample, order, cell, signs } = readMatrix(seed),
+        half = cell / 2 - p.gapHalf,
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      for (const sign of [1, -1]) {
+        const flat = signs.flat().indexOf(sign),
+          column = flat % order,
+          row = Math.floor(flat / order),
+          cx = left + (column + 0.5) * cell,
+          cy = left + (row + 0.5) * cell,
+          tone = sign === 1 ? p.plusTone : p.minusTone;
+        expect(toneAt(sample, cx, cy)).toBeCloseTo(tone, 6);
+        expect(out.height / p.relief).toBeCloseTo(
+          sign === 1 ? p.plusHeight : p.minusHeight,
+          6,
+        );
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          expect(
+            toneAt(
+              sample,
+              cx + dx * (half - 0.0004),
+              cy + dy * (half - 0.0004),
+            ),
+          ).toBeCloseTo(tone, 6);
+          expect(
+            toneAt(
+              sample,
+              cx + (half - 0.0004) * (dx + dy),
+              cy + (half - 0.0004) * (dx + dy),
+            ),
+          ).toBeCloseTo(tone, 6);
+          expect(
+            paperOk(cx + dx * (half + 0.0004), cy + dy * (half + 0.0004)),
+          ).toBe(true);
+          expect(out.height / p.relief).toBeCloseTo(p.paperHeight, 6);
+          expect(out.roughness).toBeCloseTo(p.paperRoughness, 6);
+        }
+      }
+      // The matrix's corners and the paper around it.
+      const near = p.gapHalf + 0.0006,
+        far = left + p.extent - near;
+      expect(toneAt(sample, left + near, left + near)).toBeCloseTo(
+        signs[0][0] === 1 ? p.plusTone : p.minusTone,
+        6,
+      );
+      expect(toneAt(sample, far, far)).toBeCloseTo(
+        signs[order - 1][order - 1] === 1 ? p.plusTone : p.minusTone,
+        6,
+      );
+      expect(toneAt(sample, far, left + near)).toBeCloseTo(
+        signs[0][order - 1] === 1 ? p.plusTone : p.minusTone,
+        6,
+      );
+      expect(toneAt(sample, left + near, far)).toBeCloseTo(
+        signs[order - 1][0] === 1 ? p.plusTone : p.minusTone,
+        6,
+      );
+      for (const [u, v] of [
+        [left - 0.004, 0.5],
+        [left + p.extent + 0.004, 0.5],
+        [0.5, left - 0.004],
+        [0.5, left + p.extent + 0.004],
+      ])
+        expect(paperOk(u, v)).toBe(true);
+    }
+  });
+
+  it('softens the edge of a cell over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft;
+    for (const seed of orderSeeds()) {
+      const { sample, order, cell, signs } = readMatrix(seed),
+        half = cell / 2 - p.gapHalf,
+        column = order - 3,
+        row = 2,
+        tone = signs[row][column] === 1 ? p.plusTone : p.minusTone,
+        cx = left + (column + 0.5) * cell,
+        cy = left + (row + 0.5) * cell,
+        mixed = (amount: number): number =>
+          p.paperTone + (tone - p.paperTone) * smoothstep(amount);
+      for (const [dx, dy] of [
+        [1, 0],
+        [0, 1],
+        [-1, 0],
+        [0, -1],
+      ]) {
+        expect(
+          Math.abs(
+            toneAt(
+              sample,
+              cx + dx * (half - quarter),
+              cy + dy * (half - quarter),
+            ) - mixed(0.75),
+          ),
+        ).toBeLessThan(0.03);
+        expect(
+          Math.abs(
+            toneAt(
+              sample,
+              cx + dx * (half + quarter),
+              cy + dy * (half + quarter),
+            ) - mixed(0.25),
+          ),
+        ).toBeLessThan(0.03);
+      }
+    }
+  });
+
+  it('fades the grain of the paper out over the edge of a cell, as much as the cell covers', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      amount = smoothstep(0.25),
+      { sample, order, cell, signs } = readMatrix(orderSeeds()[1]),
+      half = cell / 2 - p.gapHalf,
+      residuals: number[] = [];
+    for (let column = 0; column < order; column++)
+      for (const t of [-0.8, -0.3, 0.3, 0.8]) {
+        const tone = toneAt(
+          sample,
+          left + (column + 0.5) * cell + t * half,
+          left + 5.5 * cell - half - 0.25 * p.edgeSoft,
+        );
+        residuals.push(
+          tone -
+            (p.paperTone +
+              ((signs[5][column] === 1 ? p.plusTone : p.minusTone) -
+                p.paperTone) *
+                amount),
+        );
+      }
+    const largest = Math.max(...residuals.map(Math.abs));
+    expect(largest).toBeGreaterThan(0.003);
+    expect(largest).toBeLessThanOrEqual(
+      0.5 * p.grainTone * (1 - amount) + 1e-9,
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('walshmatrix', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('walshmatrix', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0013 + i * 0.0021, 0.01),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('walshmatrix', 0),
+      b = createSurfaceSampler('walshmatrix', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3501],
+        [0.2201, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

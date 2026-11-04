@@ -46625,6 +46625,70 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'walshmatrix': {
+        const p = proceduralMaterialPresets.walshmatrix,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x5d001),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          order =
+            p.sizes[Math.floor(hash(86, 1, seed ^ 0x5d002) * p.sizes.length)],
+          walsh = hash(86, 2, seed ^ 0x5d003) < 0.5,
+          turned = hash(86, 3, seed ^ 0x5d004) < 0.5,
+          cell = p.extent / order,
+          left = 0.5 - p.extent / 2,
+          // The sign of each cell: 1 where the binary i AND j has an odd number of 1s (the sign -1), turned if the seed says so.
+          minus = new Uint8Array(order * order),
+          // The natural row that stands in each row: the same, or by the number of changes of sign along the natural rows.
+          rows = Array.from({ length: order }, (_, row) => row);
+        const parity = (bits: number): number => {
+          let count = 0;
+          for (let rest = bits; rest > 0; rest >>= 1) count += rest & 1;
+          return count & 1;
+        };
+        if (walsh) {
+          const changes = (row: number): number => {
+            let count = 0;
+            for (let column = 1; column < order; column++)
+              count += parity(row & column) ^ parity(row & (column - 1));
+            return count;
+          };
+          rows.sort((a, b) => changes(a) - changes(b));
+        }
+        for (let row = 0; row < order; row++)
+          for (let column = 0; column < order; column++)
+            minus[row * order + column] =
+              parity(rows[row] & column) ^ Number(turned);
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            column = Math.floor((fu - left) / cell),
+            row = Math.floor((fv - left) / cell);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          if (column >= 0 && column < order && row >= 0 && row < order) {
+            const x = fu - left - (column + 0.5) * cell,
+              y = fv - left - (row + 0.5) * cell,
+              amount = cover(
+                cell / 2 - p.gapHalf - Math.max(Math.abs(x), Math.abs(y)),
+              ),
+              negative = minus[row * order + column];
+            shade += ((negative ? p.minusTone : p.plusTone) - shade) * amount;
+            elevation +=
+              ((negative ? p.minusHeight : p.plusHeight) - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = amount;
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -74154,6 +74218,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'walshmatrix' ||
     kind === 'paperfoldingruler' ||
     kind === 'rudinshapirogrid' ||
     kind === 'baumsweetgrid' ||
