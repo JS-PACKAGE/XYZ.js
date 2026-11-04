@@ -134,8 +134,8 @@ var WorldStreamingController = class extends EventTarget {
 				this.ranked.length = 0;
 				for (let t of this.records.values()) {
 					t.activeWanted = t.residentWanted = !1;
-					let { min: n, max: r } = t.cell.bounds;
-					t.distance = require_hypot.hypot3(Math.max(n.x - e.x, 0, e.x - r.x), Math.max(n.y - e.y, 0, e.y - r.y), Math.max(n.z - e.z, 0, e.z - r.z)), (t.distance <= this.prefetchDistance || t.state === `active` && t.distance <= this.retireDistance) && this.ranked.push(t);
+					let { min: n, max: r } = t.cell.bounds, a = Math.max(n.x - e.x, 0, e.x - r.x), o = Math.max(n.y - e.y, 0, e.y - r.y), s = Math.max(n.z - e.z, 0, e.z - r.z), c = t.state === `active` ? this.retireDistance : this.prefetchDistance;
+					a > c || o > c || s > c || (t.distance = require_hypot.hypot3(a, o, s), (t.distance <= this.prefetchDistance || t.state === `active` && t.distance <= this.retireDistance) && this.ranked.push(t));
 				}
 				this.ranked.sort((e, t) => (t.cell.priority ?? 0) - (e.cell.priority ?? 0) || e.distance - t.distance || e.order - t.order);
 				let t = 0, n = 0;
@@ -166,7 +166,9 @@ var WorldStreamingController = class extends EventTarget {
 		}
 	}
 	async settled() {
-		await Promise.all([...this.records.values()].flatMap((e) => e.task ? [e.task] : []));
+		let e = [];
+		for (let t of this.records.values()) t.task && e.push(t.task);
+		await Promise.all(e);
 	}
 	destroy() {
 		this.disposed = !0, this.running = !1, this.processing || this.clear();

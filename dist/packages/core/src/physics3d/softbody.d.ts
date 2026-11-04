@@ -63,6 +63,7 @@ export declare class SoftBody3D {
     unpin(index: number): void;
     update(delta: number): void;
     private step;
+    private readonly collideParticles;
     private uploadMesh;
     destroy(): void;
 }

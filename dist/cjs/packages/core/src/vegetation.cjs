@@ -103,8 +103,9 @@ function scatterVegetation(s) {
 					count: r,
 					castShadow: s.castShadow,
 					receiveShadow: s.receiveShadow
-				});
-				for (let t = 0; t < r; t++) {
+				}), c = a[0];
+				if (c) o.matrices.set(c.matrices), o.version = c.version;
+				else for (let t = 0; t < r; t++) {
 					let r = (n + t) * 5, i = e.placements, a = i[r + 3], s = i[r + 4], c = Math.cos(a) * s, l = Math.sin(a) * s, u = D.elements;
 					u[0] = c, u[1] = 0, u[2] = -l, u[3] = 0, u[4] = 0, u[5] = s, u[6] = 0, u[7] = 0, u[8] = l, u[9] = 0, u[10] = c, u[11] = 0, u[12] = i[r], u[13] = i[r + 1], u[14] = i[r + 2], u[15] = 1, o.setMatrixAt(t, D);
 				}

@@ -51,11 +51,14 @@ var KeyframeTrack = class {
 		if (!Number.isFinite(e) || t.length !== this.size) throw RangeError(`Invalid animation sample time or output size.`);
 		let n = this.times, r = this.values, i = this.size, a = n.length - 1, s = this.cursor;
 		if (s < a && n[s + 1] <= e && s++, s > a || s > 0 && n[s] > e || s < a && n[s + 1] <= e) {
-			s = 0;
-			let t = a;
-			for (; s < t;) {
-				let r = Math.ceil((s + t) / 2);
-				n[r] <= e ? s = r : t = r - 1;
+			if (s > 0 && n[s] > e && n[s - 1] <= e) s--;
+			else {
+				s = 0;
+				let t = a;
+				for (; s < t;) {
+					let r = Math.ceil((s + t) / 2);
+					n[r] <= e ? s = r : t = r - 1;
+				}
 			}
 		}
 		this.cursor = s;
@@ -69,10 +72,10 @@ var KeyframeTrack = class {
 				h = Math.sin((1 - d) * t) / n, g = Math.sin(d * t) / n;
 			}
 		}
-		for (let e = 0; e < i; e++) if (f && c !== l) {
-			let n = d * d, a = n * d;
-			t[e] = (2 * a - 3 * n + 1) * r[p + e] + (a - 2 * n + d) * u * r[p + i + e] + (-2 * a + 3 * n) * r[m + e] + (a - n) * u * r[m - i + e];
-		} else t[e] = h * r[p + e] + g * _ * r[m + e];
+		if (f && c !== l) {
+			let e = d * d, n = e * d, a = 2 * n - 3 * e + 1, o = (n - 2 * e + d) * u, s = -2 * n + 3 * e, c = (n - e) * u;
+			for (let e = 0; e < i; e++) t[e] = a * r[p + e] + o * r[p + i + e] + s * r[m + e] + c * r[m - i + e];
+		} else for (let e = 0; e < i; e++) t[e] = h * r[p + e] + g * _ * r[m + e];
 		if (this.path === `rotation`) {
 			let e = require_hypot.hypot4(t[0], t[1], t[2], t[3]);
 			if (!e) throw RangeError(`Sampled animation quaternion is zero.`);

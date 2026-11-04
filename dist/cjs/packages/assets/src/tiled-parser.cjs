@@ -124,27 +124,37 @@ function parseTiledMap(t, n) {
 	let a = integer(r, `width`, `map`, +!i), o = integer(r, `height`, `map`, +!i), s = integer(r, `tilewidth`, `map`, 1), c = integer(r, `tileheight`, `map`, 1);
 	if (!i && a * o > require_tiled.tiledLimits.cells) throw new TiledError(`map`, `cell budget exceeded`);
 	if (n.length > require_tiled.tiledLimits.tilesets) throw new TiledError(`map.tilesets`, `invalid tileset count`);
-	let l = 0, u = 0;
+	let l = 0, u = 0, d = [];
 	for (let t of n) {
 		if (u += t.tileCount, u > require_tiled.tiledLimits.tiles) throw new TiledError(`map.tilesets`, `aggregate atlas frame budget exceeded`);
 		if (t.firstgid < l || t.firstgid < 1) throw new TiledError(`map.tilesets`, `overlapping or unsorted GID ranges`);
 		if (l = t.firstgid + t.tileCount, t.tileWidth !== s || t.tileHeight !== c) throw new TiledError(`map.tilesets`, `tile dimensions must match the map`);
+		d.length && d[d.length - 1] === t.firstgid ? d[d.length - 1] = l : d.push(t.firstgid, l);
 	}
-	let d = 0, f = 0, p = /* @__PURE__ */ new Set(), m = /* @__PURE__ */ new Set(), h = [], gids = (t, r, i) => {
-		if (!Number.isSafeInteger(r) || r <= 0 || (d += r) > require_tiled.tiledLimits.cells) throw new TiledError(i, `cell count/budget mismatch`);
-		let a = typeof t == `string` ? decodeTiledBase64(t, r, i) : array(t, i, require_tiled.tiledLimits.cells);
-		if (a.length !== r) throw new TiledError(i, `cell count/budget mismatch`);
-		return Object.freeze(a.map((e, t) => {
-			if (typeof e != `number` || !Number.isInteger(e) || e < 0 || e > 4294967295) throw new TiledError(`${i}[${t}]`, `expected uint32 GID`);
-			if (e & 268435456) throw new TiledError(i, `hexagonal rotation GID flag is unsupported`);
-			let r = e & 268435455;
-			if (!r && e || r && !n.some((e) => r >= e.firstgid && r < e.firstgid + e.tileCount)) throw new TiledError(i, `unresolved GID ${e}`);
+	let resolvesGid = (e) => {
+		let t = 0, n = (d.length >>> 1) - 1;
+		for (; t <= n;) {
+			let r = t + n >>> 1, i = r * 2;
+			if (e < d[i]) n = r - 1;
+			else if (e >= d[i + 1]) t = r + 1;
+			else return !0;
+		}
+		return !1;
+	}, f = 0, p = 0, m = /* @__PURE__ */ new Set(), h = /* @__PURE__ */ new Set(), g = [], gids = (t, n, r) => {
+		if (!Number.isSafeInteger(n) || n <= 0 || (f += n) > require_tiled.tiledLimits.cells) throw new TiledError(r, `cell count/budget mismatch`);
+		let i = typeof t == `string` ? decodeTiledBase64(t, n, r) : array(t, r, require_tiled.tiledLimits.cells);
+		if (i.length !== n) throw new TiledError(r, `cell count/budget mismatch`);
+		return Object.freeze(i.map((e, t) => {
+			if (typeof e != `number` || !Number.isInteger(e) || e < 0 || e > 4294967295) throw new TiledError(`${r}[${t}]`, `expected uint32 GID`);
+			if (e & 268435456) throw new TiledError(r, `hexagonal rotation GID flag is unsupported`);
+			let n = e & 268435455;
+			if (!n && e || n && !resolvesGid(n)) throw new TiledError(r, `unresolved GID ${e}`);
 			return e;
 		}));
 	}, visit = (t, n, r, l = 1, u = 1) => {
-		for (let [d, g] of array(t, n, require_tiled.tiledLimits.layers).entries()) {
-			let t = `${n}[${d}]`, _ = tiledRecord(g, t);
-			if (h.length >= require_tiled.tiledLimits.layers) throw new TiledError(t, `layer budget exceeded`);
+		for (let [d, f] of array(t, n, require_tiled.tiledLimits.layers).entries()) {
+			let t = `${n}[${d}]`, _ = tiledRecord(f, t);
+			if (g.length >= require_tiled.tiledLimits.layers) throw new TiledError(t, `layer budget exceeded`);
 			if (![
 				`tilelayer`,
 				`objectgroup`,
@@ -152,8 +162,8 @@ function parseTiledMap(t, n) {
 				`imagelayer`
 			].includes(String(_.type))) throw new TiledError(`${t}.type`, `unsupported layer ${String(_.type)}`);
 			let v = integer(_, `id`, t, 1);
-			if (p.has(v)) throw new TiledError(t, `duplicate layer ID`);
-			p.add(v);
+			if (m.has(v)) throw new TiledError(t, `duplicate layer ID`);
+			m.add(v);
 			let y = number(_, `opacity`, t, 1);
 			if (y < 0 || y > 1) throw new TiledError(t, `opacity must be in [0,1]`);
 			let b = l * number(_, `parallaxx`, t, 1), x = u * number(_, `parallaxy`, t, 1);
@@ -189,7 +199,7 @@ function parseTiledMap(t, n) {
 					S = gids(_.data, a * o, `${t}.data`);
 				}
 			} else if (_.type === `objectgroup`) for (let [n, r] of array(_.objects, `${t}.objects`, require_tiled.tiledLimits.objects).entries()) {
-				if (++f > require_tiled.tiledLimits.objects) throw new TiledError(t, `object budget exceeded`);
+				if (++p > require_tiled.tiledLimits.objects) throw new TiledError(t, `object budget exceeded`);
 				let i = `${t}.objects[${n}]`, a = tiledRecord(r, i);
 				unsupported(a, [
 					`gid`,
@@ -199,8 +209,8 @@ function parseTiledMap(t, n) {
 					`point`
 				], i);
 				let o = integer(a, `id`, i, 1);
-				if (m.has(o)) throw new TiledError(i, `duplicate object ID`);
-				m.add(o);
+				if (h.has(o)) throw new TiledError(i, `duplicate object ID`);
+				h.add(o);
 				let s = number(a, `width`, i, 0), c = number(a, `height`, i, 0), l = bool(a, `ellipse`, i, !1), u = a.polygon === void 0 ? void 0 : array(a.polygon, `${i}.polygon`, 32).map((e) => {
 					let t = tiledRecord(e, i);
 					return Object.freeze([number(t, `x`, i), number(t, `y`, i)]);
@@ -220,7 +230,7 @@ function parseTiledMap(t, n) {
 					properties: properties(a.properties, `${i}.properties`)
 				}));
 			}
-			_.type === `imagelayer` && unsupported(_, [`transparentcolor`], t), h.push(Object.freeze({
+			_.type === `imagelayer` && unsupported(_, [`transparentcolor`], t), g.push(Object.freeze({
 				id: v,
 				parentId: r,
 				name: text(_, `name`, t, ``),
@@ -252,7 +262,7 @@ function parseTiledMap(t, n) {
 		parallaxOriginX: number(r, `parallaxoriginx`, `map`, 0),
 		parallaxOriginY: number(r, `parallaxoriginy`, `map`, 0),
 		properties: properties(r.properties, `map.properties`),
-		layers: Object.freeze(h),
+		layers: Object.freeze(g),
 		tilesets: Object.freeze([...n])
 	});
 }

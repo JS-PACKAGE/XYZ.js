@@ -91,12 +91,12 @@ var Geometry = class Geometry {
 				if (Math.abs(E) <= 1e-20) continue;
 				let D = (u * T - p * C) / E, O = (d * T - m * C) / E, k = (f * T - h * C) / E, A = (p * S - u * w) / E, j = (m * S - d * w) / E, M = (h * S - f * w) / E, N = require_hypot.hypot3(D, O, k), P = require_hypot.hypot3(A, j, M);
 				if (N <= 1e-20 || P <= 1e-20) continue;
-				let F = s[l] - s[o], I = s[l + 1] - s[o + 1], L = s[l + 2] - s[o + 2], R = require_hypot.hypot3(u, d, f), z = require_hypot.hypot3(p, m, h), B = require_hypot.hypot3(F, I, L);
+				let F = s[l] - s[o], I = s[l + 1] - s[o + 1], L = s[l + 2] - s[o + 2], R = require_hypot.hypot3(u, d, f), z = require_hypot.hypot3(p, m, h), B = require_hypot.hypot3(F, I, L), V = D / N, H = O / N, U = k / N, W = A / P, G = j / P, K = M / P;
 				for (let e = 0; e < 3; e++) {
 					let r = e === 0 ? R * z : e === 1 ? B * R : z * B;
 					if (r <= 1e-20) continue;
 					let a = e === 0 ? u * p + d * m + f * h : e === 1 ? -(F * u + I * d + L * f) : p * F + m * I + h * L, o = Math.acos(Math.max(-1, Math.min(1, a / r))), s = c[i + e] * 3;
-					t[s] += D / N * o, t[s + 1] += O / N * o, t[s + 2] += k / N * o, n[s] += A / P * o, n[s + 1] += j / P * o, n[s + 2] += M / P * o;
+					t[s] += V * o, t[s + 1] += H * o, t[s + 2] += U * o, n[s] += W * o, n[s + 1] += G * o, n[s + 2] += K * o;
 				}
 			}
 			for (let r = 0; r < o; r++) {

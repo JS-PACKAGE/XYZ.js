@@ -25,6 +25,7 @@ var Vehicle3D = class {
 	brake = 0;
 	steering = 0;
 	disposed = !1;
+	delta = 0;
 	constructor(t, o) {
 		if (this.world = t, !t.has(o.chassis) || o.chassis.body?.type !== `dynamic`) throw Error(`Vehicle chassis must be a registered dynamic body.`);
 		if (!o.wheels.length || o.wheels.length > require_physics_profiles.physicsProfiles.vehicle.maxWheels) throw RangeError(`Invalid vehicle wheel count.`);
@@ -65,10 +66,13 @@ var Vehicle3D = class {
 		if (require_collider.positive3D(e, `delta`), this.disposed) throw Error(`Vehicle3D is destroyed.`);
 		let t = this.chassis.body;
 		if (!t || t.type !== `dynamic` || !this.world.has(this.chassis)) throw Error(`Vehicle chassis is no longer registered and dynamic.`);
-		let n = this.chassis.updateWorldMatrix(), i = n.elements;
-		this.down.set(-i[4], -i[5], -i[6]).normalize();
-		for (let r = 0; r < this.descriptors.length; r++) {
-			let a = this.descriptors[r], s = this.wheels[r];
+		this.delta = e, this.world.withPoseSnapshot(this.updateWheels);
+	}
+	updateWheels = () => {
+		let e = this.delta, t = this.chassis.body, n = this.chassis.updateWorldMatrix(), r = n.elements;
+		this.down.set(-r[4], -r[5], -r[6]).normalize();
+		for (let i = 0; i < this.descriptors.length; i++) {
+			let a = this.descriptors[i], s = this.wheels[i];
 			n.transformPoint(a.position, this.origin);
 			let c = a.restLength + a.travel, l = this.world.raycast(this.origin, this.down, c + a.radius, { ignore: this.chassis });
 			if (s.grounded = !!l, s.suspensionForce = 0, s.suspensionLength = l ? Math.max(0, l.distance - a.radius) : c, s.center.copy(this.down).scale(s.suspensionLength).add(this.origin), !l) continue;
@@ -76,13 +80,13 @@ var Vehicle3D = class {
 			let u = Math.min(this.maxForce, Math.max(0, a.spring * (a.restLength - s.suspensionLength) + a.damping * this.velocity.dot(this.down)));
 			s.suspensionForce = u;
 			let d = a.steer ? this.steering : 0, f = Math.sin(d), p = Math.cos(d);
-			this.forward.set(i[0] * f + i[8] * p, i[1] * f + i[9] * p, i[2] * f + i[10] * p);
+			this.forward.set(r[0] * f + r[8] * p, r[1] * f + r[9] * p, r[2] * f + r[10] * p);
 			let m = this.forward.dot(l.normal);
 			this.forward.x -= l.normal.x * m, this.forward.y -= l.normal.y * m, this.forward.z -= l.normal.z * m, this.forward.normalize(), this.lateral.copy(l.normal).cross(this.forward).normalize();
 			let h = this.velocity.dot(this.forward), g = this.velocity.dot(this.lateral), _ = Math.min(this.brakeForce * this.brake * e / this.wheels.length, Math.abs(h) * t.mass / this.wheels.length), v = (a.drive ? this.driveForce * this.throttle * e / this.drivenCount : 0) - Math.sign(h) * _, y = -g * t.mass / this.wheels.length * Math.min(1, this.lateralGrip * e), b = u * a.friction * e, x = require_hypot.hypot2(v, y);
 			x > b && x > 0 && (v *= b / x, y *= b / x), this.impulse.set(-this.down.x * u * e + this.forward.x * v + this.lateral.x * y, -this.down.y * u * e + this.forward.y * v + this.lateral.y * y, -this.down.z * u * e + this.forward.z * v + this.lateral.z * y), t.applyImpulse(this.impulse, l.point), l.object.body?.type === `dynamic` && (this.impulse.scale(-1), l.object.body.applyImpulse(this.impulse, l.point)), s.rotation += h * e / a.radius;
 		}
-	}
+	};
 	destroy() {
 		this.disposed = !0;
 	}

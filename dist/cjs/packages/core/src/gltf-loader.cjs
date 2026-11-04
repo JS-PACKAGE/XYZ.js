@@ -155,6 +155,22 @@ function allFinite(e) {
 	for (let t = 0; t < e.length; t++) if (!Number.isFinite(e[t])) return !1;
 	return !0;
 }
+function stridedAccessor(e, t, n, r, i) {
+	if (r === 3) for (let r = 0, a = 0, o = 0; r < n; r++, a += i, o += 3) t[o] = e[a], t[o + 1] = e[a + 1], t[o + 2] = e[a + 2];
+	else if (r === 2) for (let r = 0, a = 0, o = 0; r < n; r++, a += i, o += 2) t[o] = e[a], t[o + 1] = e[a + 1];
+	else if (r === 4) for (let r = 0, a = 0, o = 0; r < n; r++, a += i, o += 4) t[o] = e[a], t[o + 1] = e[a + 1], t[o + 2] = e[a + 2], t[o + 3] = e[a + 3];
+	else for (let a = 0; a < n; a++) for (let n = 0; n < r; n++) t[a * r + n] = e[a * i + n];
+}
+function normalizedAccessor(e, t, n, r, i, a) {
+	let o = a === 5120 ? 127 : a === 5121 ? 255 : a === 5122 ? 32767 : 65535, s = a === 5120 || a === 5122;
+	if (i === r) {
+		if (s) for (let n = 0; n < t.length; n++) t[n] = Math.max(-1, e[n] / o);
+		else for (let n = 0; n < t.length; n++) t[n] = e[n] / o;
+	} else for (let a = 0; a < n; a++) for (let n = 0; n < r; n++) {
+		let c = e[a * i + n] / o;
+		t[a * r + n] = s ? Math.max(-1, c) : c;
+	}
+}
 function utf8Size(e, t) {
 	let n = 0;
 	for (let r = 0; r < e.length; r++) {
@@ -310,8 +326,10 @@ var GLTFLoader = class {
 					let r = d ? void 0 : O[o];
 					if (r && !f && A) {
 						let e = n / s, i = new r(t.buffer, t.offset + _, (u - 1) * e + l);
-						if (e === l) g.set(i);
-						else for (let t = 0; t < u; t++) for (let n = 0; n < l; n++) g[t * l + n] = i[t * e + n];
+						e === l ? g.set(i) : stridedAccessor(i, g, u, l, e);
+					} else if (d && !f && A) {
+						let e = n / s, r = O[o];
+						normalizedAccessor(new r(t.buffer, t.offset + _, (u - 1) * e + l), g, u, l, e, o);
 					} else {
 						let e = new DataView(t.buffer, t.offset, t.length);
 						for (let t = 0; t < u; t++) for (let r = 0; r < l; r++) g[t * l + r] = scalar(e, _ + t * n + componentOffset(r), o, d);

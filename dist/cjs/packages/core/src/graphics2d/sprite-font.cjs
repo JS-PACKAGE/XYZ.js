@@ -85,7 +85,9 @@ var SpriteFont = class {
 		return t;
 	}
 	getKerning(e, t) {
-		return e === void 0 ? 0 : this.kernings.get(this.metrics[e].id * a + this.metrics[t].id) ?? 0;
+		if (e === void 0) return 0;
+		let n = this.metrics[e].id, r = this.metrics[t].id;
+		return this.kernings.size === 0 ? 0 : this.kernings.get(n * a + r) ?? 0;
 	}
 	assertAvailable() {
 		if (this.asset?.destroyed || this.pages.some((e) => e.destroyed)) throw new require_texture.AssetError(`Cannot use destroyed bitmap font pages.`);
@@ -111,17 +113,19 @@ var SpriteText = class extends require_group2d.Group2D {
 	get text() {
 		return this.content;
 	}
-	measure(e) {
-		let t = 0, n = 0, r, i;
-		for (let a of e) {
-			let e = this.font.getGlyphIndex(a), o = this.font.getGlyph(e);
-			i !== void 0 && (t += this.letterSpacing + this.font.getKerning(i, e)), r ??= e, n = t + (this.font.sheet ? o.width : o.advance), t += o.advance, i = e;
+	measure(e, t) {
+		let n = 0, r = 0, i, a;
+		for (let o of e) {
+			let e = this.font.getGlyphIndex(o);
+			t?.push(e);
+			let s = this.font.getGlyph(e);
+			a !== void 0 && (n += this.letterSpacing + this.font.getKerning(a, e)), i ??= e, r = n + (this.font.sheet ? s.width : s.advance), n += s.advance, a = e;
 		}
 		return {
-			width: n,
-			advance: t,
-			first: r,
-			last: i
+			width: r,
+			advance: n,
+			first: i,
+			last: a
 		};
 	}
 	lines(e) {
@@ -161,23 +165,23 @@ var SpriteText = class extends require_group2d.Group2D {
 ` && ++i > require_graphics2d.graphics2dLimits.glyphs) throw RangeError(`SpriteText exceeds its glyph budget.`);
 		let a = this.lines(n), o = [];
 		for (let e = 0; e < a.length; e++) {
-			let n = a[e], r = this.measure(n).width, i = this.align === `center` ? -r / 2 : this.align === `right` ? -r : 0, s = 0, c, l = e * (this.font.lineHeight + this.lineSpacing);
-			if (!Number.isFinite(l) || Math.abs(l) > require_graphics2d.graphics2dLimits.dimension) throw RangeError(`SpriteText layout exceeds its dimension budget.`);
-			for (let e of n) {
-				let n = this.font.getGlyphIndex(e), r = this.font.getGlyph(n);
-				c !== void 0 && (s += this.letterSpacing + this.font.getKerning(c, n));
-				let a = i + s + r.xoffset, u = l + r.yoffset;
+			let n = a[e], r = [], i = this.measure(n, r).width, s = this.align === `center` ? -i / 2 : this.align === `right` ? -i : 0, c = 0, l, u = e * (this.font.lineHeight + this.lineSpacing);
+			if (!Number.isFinite(u) || Math.abs(u) > require_graphics2d.graphics2dLimits.dimension) throw RangeError(`SpriteText layout exceeds its dimension budget.`);
+			for (let e of r) {
+				let n = this.font.getGlyph(e);
+				l !== void 0 && (c += this.letterSpacing + this.font.getKerning(l, e));
+				let r = s + c + n.xoffset, i = u + n.yoffset;
 				if (![
-					a,
-					u,
-					a + r.width,
-					u + r.source.height
+					r,
+					i,
+					r + n.width,
+					i + n.source.height
 				].every((e) => Number.isFinite(e) && Math.abs(e) <= require_graphics2d.graphics2dLimits.dimension)) throw RangeError(`SpriteText layout exceeds its dimension budget.`);
-				r.source.width && r.source.height && o.push({
-					index: n,
-					x: a,
-					y: u
-				}), s += r.advance, c = n;
+				n.source.width && n.source.height && o.push({
+					index: e,
+					x: r,
+					y: i
+				}), c += n.advance, l = e;
 			}
 		}
 		let s = [];

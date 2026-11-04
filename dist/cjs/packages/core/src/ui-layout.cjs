@@ -133,9 +133,10 @@ var UIElement = class UIElement extends require_isolated_group.IsolatedGroup2D {
 		size(e), size(t), this.measure(), this.arrange(typeof this.spec.width == `number` ? this.spec.width : e, typeof this.spec.height == `number` ? this.spec.height : t);
 	}
 	arrange(e, t) {
-		if (this.arrangedWidth = this.limit(e, !0), this.arrangedHeight = this.limit(t, !1), this.layoutDirty = !1, this.arranged(), this.arrangeChildren()) return;
+		if (this.arrangedWidth = this.limit(e, !0), this.arrangedHeight = this.limit(t, !1), this.layoutDirty = !1, this.arranged(), this.arrangeChildren() || !this.existingChildren?.size) return;
 		let n = Math.max(0, this.arrangedWidth - this.padding(1) - this.padding(3)), r = Math.max(0, this.arrangedHeight - this.padding(0) - this.padding(2)), i = this.spec.direction ?? `column`, a = i === `row`, o = i === `overlay`, s = a ? n : r, c = a ? r : n, l = [];
 		for (let e of this.children) e instanceof UIElement && e.visible && !e.destroyed && l.push(e);
+		if (l.length === 0) return;
 		let u = l.map((e) => e.natural(a)), d = s - Math.max(0, l.length - 1) * (this.spec.gap ?? 0), f = /* @__PURE__ */ new Set();
 		for (let e = 0; e < l.length; e++) l[e].dimension(a) === `fill` ? f.add(e) : d -= u[e];
 		for (; f.size;) {

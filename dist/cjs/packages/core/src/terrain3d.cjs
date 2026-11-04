@@ -87,9 +87,11 @@ var Terrain3D = class extends require_group.Group {
 		return i + a <= 1 ? o + (s - o) * i + (c - o) * a : l + (c - l) * (1 - i) + (s - l) * (1 - a);
 	}
 	normalAt(e, n, r = new require_math3d.Vector3()) {
-		if (this.heightAt(e, n) === void 0) return;
-		let i = this.width / (this.columns - 1), a = this.depth / (this.rows - 1), o = Math.max(-this.width / 2, e - i), s = Math.min(this.width / 2, e + i), c = Math.max(-this.depth / 2, n - a), l = Math.min(this.depth / 2, n + a), u = this.columns - 1, d = this.rows - 1, f = (e / this.width + .5) * u, p = (n / this.depth + .5) * d, m = (o / this.width + .5) * u, h = (s / this.width + .5) * u, g = (c / this.depth + .5) * d, _ = (l / this.depth + .5) * d;
-		return r.set(-(this.interpolate(h, p) - this.interpolate(m, p)) / (s - o), 1, -(this.interpolate(f, _) - this.interpolate(f, g)) / (l - c)).normalize();
+		if (!Number.isFinite(e) || !Number.isFinite(n)) throw RangeError(`Terrain coordinates must be finite.`);
+		let i = this.columns - 1, a = this.rows - 1, o = (e / this.width + .5) * i, s = (n / this.depth + .5) * a;
+		if (o < 0 || s < 0 || o > i || s > a) return;
+		let c = this.width / (this.columns - 1), l = this.depth / (this.rows - 1), u = Math.max(-this.width / 2, e - c), d = Math.min(this.width / 2, e + c), f = Math.max(-this.depth / 2, n - l), p = Math.min(this.depth / 2, n + l), m = (u / this.width + .5) * i, h = (d / this.width + .5) * i, g = (f / this.depth + .5) * a, _ = (p / this.depth + .5) * a;
+		return r.set(-(this.interpolate(h, s) - this.interpolate(m, s)) / (d - u), 1, -(this.interpolate(o, _) - this.interpolate(o, g)) / (p - f)).normalize();
 	}
 	raycast(e, t, n = 1 / 0) {
 		return this.picker.origin.set(e.x, e.y, e.z), this.picker.direction.set(t.x, t.y, t.z), this.picker.far = n, this.picker.intersectObjects([this], !0, this.hits)[0];

@@ -301,12 +301,15 @@ function encode(e) {
 	});
 }
 function revisionOf(e) {
-	let t = 0;
+	let t = 0, n;
 	if (e[0] !== null && (t = Number(e[0]), !Number.isSafeInteger(t) || t < 0)) throw new StorageError(`invalid`, `Save revision marker is corrupt.`);
 	if (e[1] !== null) try {
-		t = Math.max(t, decode(e[1]).revision);
+		n = decode(e[1]), t = Math.max(t, n.revision);
 	} catch {}
-	return t;
+	return {
+		revision: t,
+		primary: n
+	};
 }
 var r = /* @__PURE__ */ new WeakMap();
 function ordered(e, t) {
@@ -363,15 +366,15 @@ var SaveManager = class {
 		return ordered(this.storage, async () => {
 			let t = await this.mutate(i, (t) => {
 				this.assertActive(r.signal);
-				let i = revisionOf(t);
+				let { revision: i, primary: o } = revisionOf(t);
 				this.expected(e, r, i);
-				let o = t[2];
+				let s = t[2];
 				if (t[1] !== null) {
-					let e = decode(t[1]);
+					let e = o ?? decode(t[1]);
 					if (e.version > this.schema.version) throw new StorageError(`invalid`, `Cannot overwrite a future save version.`);
-					e.version === this.schema.version && this.validateSchema(e.data), o = t[1];
+					e.version === this.schema.version && this.validateSchema(e.data), s = t[1];
 				}
-				let s = {
+				let c = {
 					version: this.schema.version,
 					revision: i + 1,
 					data: JSON.parse(a),
@@ -379,35 +382,34 @@ var SaveManager = class {
 						savedAt: (/* @__PURE__ */ new Date()).toISOString(),
 						playTime: n
 					}
-				}, c = encode(s);
+				}, l = encode(c);
 				return {
 					values: [
-						String(s.revision),
-						c,
-						o ?? c,
+						String(c.revision),
+						l,
+						s ?? l,
 						t[3]
 					],
-					result: s
+					result: c
 				};
 			}, r.signal);
 			return this.revisions.set(e, t.revision), t;
 		});
 	}
 	async migrate(e, n) {
-		let r = decode(e);
-		if (r.version > this.schema.version) throw new StorageError(`invalid`, `Save version is newer than this schema.`);
-		for (; r.version < this.schema.version;) {
-			if (this.assertActive(n), !this.schema.migrate) throw new StorageError(`invalid`, `Missing migration from version ${r.version}.`);
-			let e = n ? AbortSignal.any([n, this.lifetime.signal]) : this.lifetime.signal;
-			r.data = await require_subscribe_load.subscribeLoad(Promise.resolve(this.schema.migrate(r.version, r.data)), e), this.assertActive(n), assertJsonValue(r.data), r.version++;
+		if (e.version > this.schema.version) throw new StorageError(`invalid`, `Save version is newer than this schema.`);
+		for (; e.version < this.schema.version;) {
+			if (this.assertActive(n), !this.schema.migrate) throw new StorageError(`invalid`, `Missing migration from version ${e.version}.`);
+			let r = n ? AbortSignal.any([n, this.lifetime.signal]) : this.lifetime.signal;
+			e.data = await require_subscribe_load.subscribeLoad(Promise.resolve(this.schema.migrate(e.version, e.data)), r), this.assertActive(n), assertJsonValue(e.data), e.version++;
 		}
-		return this.validateSchema(r.data), r;
+		return this.validateSchema(e.data), e;
 	}
 	observedRevision(e) {
 		return this.assertActive(), this.revisions.get(e);
 	}
 	async decodeImport(e, t = {}) {
-		return this.assertActive(t.signal), checkSize(e), this.migrate(e, t.signal);
+		return this.assertActive(t.signal), checkSize(e), this.migrate(decode(e), t.signal);
 	}
 	async export(e, t = {}) {
 		let n = await this.load(e, t);
@@ -425,25 +427,25 @@ var SaveManager = class {
 				result: e
 			}), t.signal);
 			this.assertActive(t.signal);
-			let i = revisionOf(r), a = r[1];
-			if (a === null) return this.revisions.set(e, i), { status: `missing` };
+			let { revision: i, primary: a } = revisionOf(r), o = r[1];
+			if (o === null) return this.revisions.set(e, i), { status: `missing` };
 			try {
-				let n = await this.migrate(a, t.signal);
+				let n = await this.migrate(a ?? decode(o), t.signal);
 				return this.assertActive(t.signal), this.revisions.set(e, i), {
 					status: `loaded`,
 					record: n
 				};
 			} catch (n) {
 				this.assertActive(t.signal);
-				let o = new StorageError(`invalid`, `Save is corrupt or incompatible; original payload was preserved.`, { cause: n });
+				let a = new StorageError(`invalid`, `Save is corrupt or incompatible; original payload was preserved.`, { cause: n });
 				if (t.recovery && r[2] !== null) try {
-					let n = await this.migrate(r[2], t.signal);
+					let n = await this.migrate(decode(r[2]), t.signal);
 					return this.assertActive(t.signal), this.revisions.set(e, i), {
 						status: `loaded`,
 						record: n,
 						recovery: {
-							raw: a,
-							error: o
+							raw: o,
+							error: a
 						}
 					};
 				} catch {
@@ -451,8 +453,8 @@ var SaveManager = class {
 				}
 				return {
 					status: `corrupt`,
-					raw: a,
-					error: o
+					raw: o,
+					error: a
 				};
 			}
 		});
@@ -466,9 +468,9 @@ var SaveManager = class {
 				result: e
 			}), t.signal);
 			if (r[1] === null || r[2] === null) throw new StorageError(`invalid`, `Recovery requires a primary and valid backup.`);
-			let i = await this.migrate(r[2], t.signal), a = await this.mutate(n, (n) => {
+			let i = await this.migrate(decode(r[2]), t.signal), a = await this.mutate(n, (n) => {
 				if (this.assertActive(t.signal), n.some((e, t) => e !== r[t])) throw new StorageError(`stale`, `Save changed while recovery was preparing.`);
-				let a = revisionOf(n);
+				let { revision: a } = revisionOf(n);
 				this.expected(e, t, a), i.revision = a + 1, i.metadata.savedAt = (/* @__PURE__ */ new Date()).toISOString();
 				let o = n[3] === null ? [] : parseStoredJson(n[3]);
 				if (!Array.isArray(o) || o.some((e) => typeof e != `string`)) throw new StorageError(`invalid`, `Damaged-payload archive is corrupt; it was preserved.`);
@@ -502,7 +504,7 @@ var SaveManager = class {
 		await ordered(this.storage, async () => {
 			let r = await this.mutate(n, (n) => {
 				this.assertActive(t.signal);
-				let r = revisionOf(n);
+				let { revision: r } = revisionOf(n);
 				return this.expected(e, t, r), {
 					values: [
 						String(r + 1),

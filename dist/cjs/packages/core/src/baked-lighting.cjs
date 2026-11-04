@@ -266,7 +266,10 @@ var BakedIrradianceVolume = class {
 		let [a, o, s] = this.resolution, c = (e - this.min[0]) / (this.max[0] - this.min[0]) * (a - 1), l = (t - this.min[1]) / (this.max[1] - this.min[1]) * (o - 1), u = (n - this.min[2]) / (this.max[2] - this.min[2]) * (s - 1), d = Math.min(a - 2, Math.floor(c)), f = Math.min(o - 2, Math.floor(l)), p = Math.min(s - 2, Math.floor(u)), m = c - d, h = l - f, g = u - p, _ = this.order === 1 ? 4 : 9;
 		for (let e = 0; e < 2; e++) for (let t = 0; t < 2; t++) for (let n = 0; n < 2; n++) {
 			let s = (n ? m : 1 - m) * (t ? h : 1 - h) * (e ? g : 1 - g), c = (((p + e) * o + f + t) * a + d + n) * _ * 3;
-			for (let e = 0; e < _; e++) for (let t = 0; t < 3; t++) r[i + e * 4 + t] += s * this.coefficients[c + e * 3 + t];
+			for (let e = 0; e < _; e++) {
+				let t = i + e * 4, n = c + e * 3;
+				r[t] += s * this.coefficients[n], r[t + 1] += s * this.coefficients[n + 1], r[t + 2] += s * this.coefficients[n + 2];
+			}
 		}
 		return !0;
 	}

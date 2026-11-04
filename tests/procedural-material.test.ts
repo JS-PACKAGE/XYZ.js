@@ -1188,6 +1188,7 @@ const kinds: ProceduralMaterialKind[] = [
   'chorddiagrams',
   'gridsplits',
   'hamiltonpaths',
+  'lowdiscrepancy',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -210059,6 +210060,382 @@ describe('Hamiltonian paths as every path of a grid drawn once', () => {
     expect(blue / (512 * 512)).toBeLessThan(23);
     expect(maxTilt).toBeGreaterThan(0.0622);
     expect(maxTilt).toBeLessThan(0.0623);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Low-discrepancy points as the first points of a sequence drawn once', () => {
+  const p = proceduralMaterialPresets.lowdiscrepancy;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The radical inverse of i in a base, by writing i in that base as text, turning it round and reading it as the digits after the point. */
+  const radicalInverse = (i: number, base: number): number =>
+    [...i.toString(base)]
+      .reverse()
+      .reduce(
+        (sum, digit, place) =>
+          sum + parseInt(digit, base) / base ** (place + 1),
+        0,
+      );
+  /** The real root of x^3 = x + 1 (the plastic number), by Newton's method. */
+  const plasticNumber = (): number => {
+    let x = 1.5;
+    for (let k = 0; k < 30; k++) x -= (x ** 3 - x - 1) / (3 * x ** 2 - 1);
+    return x;
+  };
+  /** The points of a variant for a group of the seed, from the definitions (the shift of the group as a fraction of the golden ratio and of the plastic number's second coordinate). */
+  const expectedPoints = (seed: number): [number, number][] => {
+    const variant = seed % p.counts.length,
+      group = Math.floor(seed / p.counts.length),
+      count: number = p.counts[variant],
+      kind: number = p.kinds[variant],
+      rho = plasticNumber(),
+      fibonacci = [1, 1];
+    while (fibonacci[fibonacci.length - 1] < count)
+      fibonacci.push(
+        fibonacci[fibonacci.length - 1] + fibonacci[fibonacci.length - 2],
+      );
+    const before = fibonacci[fibonacci.length - 2];
+    return Array.from({ length: count }, (_, i): [number, number] => {
+      const [x, y] =
+        kind === 0
+          ? [
+              radicalInverse(i, p.first[variant]),
+              radicalInverse(i, p.second[variant]),
+            ]
+          : kind === 1
+            ? [i / count, radicalInverse(i, p.second[variant])]
+            : kind === 2
+              ? [i / count, ((i * before) % count) / count]
+              : [(i / rho) % 1, (i / rho ** 2) % 1];
+      return [
+        (x + group * 0.6180339887498949) % 1,
+        (y + group * 0.7548776662466927) % 1,
+      ];
+    });
+  };
+  /** The distance on the torus from a point to the nearest of the given points, and the index of that one. */
+  const nearest = (
+    points: [number, number][],
+    x: number,
+    y: number,
+  ): [number, number] => {
+    let best = Infinity,
+      index = -1;
+    points.forEach(([px, py], i) => {
+      const dx = Math.min(Math.abs(x - px), 1 - Math.abs(x - px)),
+        dy = Math.min(Math.abs(y - py), 1 - Math.abs(y - py)),
+        distance = Math.hypot(dx, dy);
+      if (distance < best) {
+        best = distance;
+        index = i;
+      }
+    });
+    return [best, index];
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('lowdiscrepancy', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { high: 0.9572, lit: 0.05594, mean: 0.0837 }],
+      [1, { high: 0.9615, lit: 0.00879, mean: 0.03856 }],
+      [0xffffffff, { high: 0.9557, lit: 0.05728, mean: 0.08371 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('lowdiscrepancy', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0152);
+      expect(low).toBeLessThan(0.0157);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws exactly the points of the sequence, in order, for the groups 0, 1 and 3, read back at the points and everywhere else on a grid', () => {
+    for (const seed of [
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 18, 19, 20, 21, 22, 23,
+    ]) {
+      const variant = seed % p.counts.length,
+        count: number = p.counts[variant],
+        radius: number = p.radius[variant],
+        points = expectedPoints(seed),
+        sample = createSurfaceSampler('lowdiscrepancy', seed),
+        out = empty();
+      // The points are far enough apart for every dot to have a clear place of its own.
+      let closest = Infinity;
+      points.forEach(([x, y], i) => {
+        for (let j = i + 1; j < count; j++) {
+          const dx = Math.min(
+              Math.abs(x - points[j][0]),
+              1 - Math.abs(x - points[j][0]),
+            ),
+            dy = Math.min(
+              Math.abs(y - points[j][1]),
+              1 - Math.abs(y - points[j][1]),
+            );
+          closest = Math.min(closest, Math.hypot(dx, dy));
+        }
+      });
+      expect(closest).toBeGreaterThan(2 * radius + p.edgeSoft);
+      // At the middle of every dot there is ink, and the height gives its index in the sequence.
+      points.forEach(([x, y], i) => {
+        sample(x, y, out);
+        expect(out.height / p.relief / p.cellHeight).toBeCloseTo(
+          p.heightBase + (p.heightSwing * i) / (count - 1),
+          9,
+        );
+      });
+      // Everywhere else of a grid of 128 by 128 places: ink (and a height above 0) inside a dot, none outside every dot, the places in the smoothing not compared.
+      for (let gy = 0; gy < 128; gy++)
+        for (let gx = 0; gx < 128; gx++) {
+          const x = (gx + 0.37) / 128,
+            y = (gy + 0.61) / 128,
+            [distance] = nearest(points, x, y);
+          if (Math.abs(distance - radius) < p.edgeSoft) continue;
+          sample(x, y, out);
+          expect(out.height > 0).toBe(distance < radius);
+        }
+    }
+  });
+  it('shows the sequences the way their definitions give them, one expected property each', () => {
+    // The Halton points of the bases 2 and 3 for 144 = 16 times 9 points: every box of 1/16 by 1/9 holds exactly one point (the unshifted group), and the Hammersley points of 64 = 2^6 hold exactly one in every box of 2^-a by 2^-(6 - a) for a from 0 to 6 (the 1e-9 keeps a point that is on the edge of a box, up to rounding, in the box it belongs to).
+    const halton = expectedPoints(0),
+      boxes = new Map<string, number>();
+    for (const [x, y] of halton) {
+      const key = `${Math.floor(x * 16 + 1e-9)},${Math.floor(y * 9 + 1e-9)}`;
+      boxes.set(key, (boxes.get(key) ?? 0) + 1);
+    }
+    expect(boxes.size).toBe(144);
+    expect([...boxes.values()].every((n) => n === 1)).toBe(true);
+    const hammersley = expectedPoints(1);
+    for (let a = 0; a <= 6; a++) {
+      const held = new Set(
+        hammersley.map(
+          ([x, y]) =>
+            `${Math.floor(x * 2 ** a + 1e-9)},${Math.floor(y * 2 ** (6 - a) + 1e-9)}`,
+        ),
+      );
+      expect(held.size).toBe(64);
+    }
+    // The Fibonacci lattice of 144 points is a lattice: the differences of the points are points of it (the point i + j is the point i plus the point j on the torus).
+    const lattice = expectedPoints(2);
+    for (const [i, j] of [
+      [3, 5],
+      [10, 77],
+      [100, 143],
+    ]) {
+      const sum = [
+          (lattice[i][0] + lattice[j][0]) % 1,
+          (lattice[i][1] + lattice[j][1]) % 1,
+        ],
+        found = lattice[(i + j) % 144];
+      expect(Math.abs(sum[0] - found[0])).toBeLessThan(1e-9);
+      expect(Math.abs(sum[1] - found[1])).toBeLessThan(1e-9);
+    }
+  });
+  it('shifts the whole set on the torus by group without changing its shape', () => {
+    // The groups 0 and 1 of a variant are the same set of points moved by the same vector.
+    for (const variant of [0, 1, 4]) {
+      const base = expectedPoints(variant),
+        moved = expectedPoints(variant + 6),
+        sample = createSurfaceSampler('lowdiscrepancy', variant + 6),
+        out = empty();
+      moved.forEach(([x, y], i) => {
+        expect(((x - base[i][0] + 1) % 1) - 0.6180339887498949).toBeCloseTo(
+          0,
+          9,
+        );
+        expect(((y - base[i][1] + 1) % 1) - 0.7548776662466927).toBeCloseTo(
+          0,
+          9,
+        );
+        sample(x, y, out);
+        expect(out.height / p.relief / p.cellHeight).toBeCloseTo(
+          p.heightBase + (p.heightSwing * i) / (p.counts[variant] - 1),
+          9,
+        );
+      });
+    }
+  });
+  it('agrees with the ideal dots away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5]) {
+      const variant = seed % p.counts.length,
+        radius: number = p.radius[variant],
+        points = expectedPoints(seed),
+        sample = createSurfaceSampler('lowdiscrepancy', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          [distance, index] = nearest(points, u, v);
+        // The ink is 1 within the radius less half the smoothing, 0 beyond the radius plus half of it, and not compared in between.
+        if (Math.abs(distance - radius) < p.edgeSoft / 2) continue;
+        const ink = distance < radius ? 1 : 0,
+          fraction = ink === 1 ? index / (points.length - 1) : 0;
+        compared++;
+        sample(u, v, out);
+        const tone = p.toneMin + (p.toneMax - p.toneMin) * fraction;
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.heightBase + p.heightSwing * fraction),
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(5500);
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeGreaterThan(0.064);
+    expect(unlike(first, litGrid(1))).toBeLessThan(0.0641);
+    expect(unlike(first, litGrid(6))).toBeGreaterThan(0.1069);
+    expect(unlike(first, litGrid(6))).toBeLessThan(0.107);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('lowdiscrepancy', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 cream point-set maps on dark navy with raised dots and shaded ground', () => {
+    const maps = generateProceduralMaps('lowdiscrepancy', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(15.2);
+    expect(red / (512 * 512)).toBeLessThan(16.2);
+    expect(green / (512 * 512)).toBeGreaterThan(18.3);
+    expect(green / (512 * 512)).toBeLessThan(19.3);
+    expect(blue / (512 * 512)).toBeGreaterThan(29.2);
+    expect(blue / (512 * 512)).toBeLessThan(30.2);
+    expect(maxTilt).toBeGreaterThan(0.0831);
+    expect(maxTilt).toBeLessThan(0.0833);
     expect(invalid).toBe(0);
   });
 });

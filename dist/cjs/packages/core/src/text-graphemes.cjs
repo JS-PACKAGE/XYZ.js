@@ -1,12 +1,16 @@
 //#region dist/packages/core/src/text-graphemes.js
-function graphemeBoundaries(e, t) {
+var e;
+var t;
+function graphemeBoundaries(n, r) {
 	if (typeof Intl.Segmenter != `function`) throw Error(`Intl.Segmenter is required for Unicode grapheme layout.`);
-	let n = [0];
-	for (let r of new Intl.Segmenter(t || void 0, { granularity: `grapheme` }).segment(e)) {
-		let e = r.index + r.segment.length;
-		e !== n[n.length - 1] && n.push(e);
+	let i = r || void 0;
+	(!e || i !== t) && (e = new Intl.Segmenter(i, { granularity: `grapheme` }), t = i);
+	let a = [0];
+	for (let t of e.segment(n)) {
+		let e = t.index + t.segment.length;
+		e !== a[a.length - 1] && a.push(e);
 	}
-	return Object.freeze(n);
+	return Object.freeze(a);
 }
 function snapGrapheme(e, t, n = `downstream`) {
 	if (!Number.isInteger(t) || e.length === 0) throw RangeError(`Invalid text offset or grapheme boundaries.`);

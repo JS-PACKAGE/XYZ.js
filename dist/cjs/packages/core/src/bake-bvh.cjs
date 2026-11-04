@@ -103,11 +103,13 @@ var BakeBVH = class {
 				let e = (a[t] - u) / p, r = (a[t + 3] - u) / p;
 				n = Math.max(n, Math.min(e, r)), S = Math.min(S, Math.max(e, r));
 			}
+			if (S < n) continue;
 			if (_) (d < a[t + 1] || d > a[t + 4]) && (S = -1);
 			else {
 				let e = (a[t + 1] - d) / m, r = (a[t + 4] - d) / m;
 				n = Math.max(n, Math.min(e, r)), S = Math.min(S, Math.max(e, r));
 			}
+			if (S < n) continue;
 			if (v) (f < a[t + 2] || f > a[t + 5]) && (S = -1);
 			else {
 				let e = (a[t + 2] - f) / h, r = (a[t + 5] - f) / h;

@@ -174,7 +174,7 @@ var AudioMixer = class {
 	}
 	refreshDucking() {
 		let t = this.currentTime, n = /* @__PURE__ */ new Set([t]);
-		for (let e of this.activities) e.enabled && (e.start > t && n.add(e.start), Number.isFinite(e.end) && e.end > t && n.add(e.end));
+		if (this.rules.length) for (let e of this.activities) e.enabled && (e.start > t && n.add(e.start), Number.isFinite(e.end) && e.end > t && n.add(e.end));
 		let r = [...n].sort((e, t) => e - t);
 		for (let n of this.graphs.values()) {
 			let i = (n.context === this.primary ? t : n.context.currentTime) + require_audio.audioDefaults.controlLead;

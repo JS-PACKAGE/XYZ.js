@@ -1225,6 +1225,7 @@ try {
     'chorddiagrams',
     'gridsplits',
     'hamiltonpaths',
+    'lowdiscrepancy',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

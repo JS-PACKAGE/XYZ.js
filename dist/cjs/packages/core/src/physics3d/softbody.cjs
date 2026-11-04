@@ -95,6 +95,10 @@ var SoftBody3D = class {
 			let t = this.particles[e.a], n = this.particles[e.b], r = this.difference.copy(n.position).subtract(t.position), i = r.length(), a = t.pinned ? 0 : 1 / t.mass, o = n.pinned ? 0 : 1 / n.mass;
 			i <= e.restLength * this.stretch || a + o === 0 || (r.scale((i - e.restLength * this.stretch) / i / (a + o)), t.position.x += r.x * a, t.position.y += r.y * a, t.position.z += r.z * a, n.position.x -= r.x * o, n.position.y -= r.y * o, n.position.z -= r.z * o);
 		}
+		this.world.withPoseSnapshot(this.collideParticles);
+	}
+	collideParticles = () => {
+		let e = this.fixedDelta;
 		for (let t = 0; t < this.particles.length; t++) {
 			let n = this.particles[t];
 			if (n.pinned) continue;
@@ -110,7 +114,7 @@ var SoftBody3D = class {
 			}
 			require_collider.vector3D(n.position, `integrated position`), require_collider.vector3D(n.velocity, `integrated velocity`);
 		}
-	}
+	};
 	uploadMesh() {
 		if (!this.mesh || !this.mapping) return;
 		let e = this.mesh.geometry, t = e.vertices;

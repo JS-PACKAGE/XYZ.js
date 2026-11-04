@@ -55930,6 +55930,113 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'lowdiscrepancy': {
+        const p = proceduralMaterialPresets.lowdiscrepancy,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.counts.length,
+          group = Math.floor(unsigned / p.counts.length),
+          count: number = p.counts[variant],
+          kind: number = p.kinds[variant],
+          radius: number = p.radius[variant],
+          // The radical inverse of i in a base: its digits written backwards after the point.
+          inverse = (i: number, base: number): number => {
+            let value = 0,
+              scale = 1 / base,
+              rest = i;
+            while (rest > 0) {
+              value += (rest % base) * scale;
+              rest = Math.floor(rest / base);
+              scale /= base;
+            }
+            return value;
+          },
+          plastic = (() => {
+            let rho = 1.3;
+            for (let k = 0; k < 60; k++) rho = Math.cbrt(rho + 1);
+            return rho;
+          })(),
+          fibonacciBefore = (() => {
+            let a = 1,
+              b = 1;
+            while (b < count) [a, b] = [b, a + b];
+            return a;
+          })(),
+          // The shift of the group on the torus: zero for the group 0.
+          shiftX = (group * 0.6180339887498949) % 1,
+          shiftY = (group * 0.7548776662466927) % 1,
+          xs = new Float64Array(count),
+          ys = new Float64Array(count),
+          grid = 24,
+          cellStart = new Int32Array(grid * grid + 1),
+          cellItems = new Int32Array(count);
+        for (let i = 0; i < count; i++) {
+          let x: number, y: number;
+          if (kind === 0) {
+            x = inverse(i, p.first[variant]);
+            y = inverse(i, p.second[variant]);
+          } else if (kind === 1) {
+            x = i / count;
+            y = inverse(i, p.second[variant]);
+          } else if (kind === 2) {
+            x = i / count;
+            y = ((i * fibonacciBefore) % count) / count;
+          } else {
+            x = (i / plastic) % 1;
+            y = (i / (plastic * plastic)) % 1;
+          }
+          xs[i] = (x + shiftX) % 1;
+          ys[i] = (y + shiftY) % 1;
+        }
+        // The points by the cell of the grid they are in (a counting sort), so a pixel looks only at the cells next to it.
+        const cellOf = (x: number, y: number): number =>
+          Math.min(grid - 1, Math.floor(y * grid)) * grid +
+          Math.min(grid - 1, Math.floor(x * grid));
+        for (let i = 0; i < count; i++) cellStart[cellOf(xs[i], ys[i]) + 1]++;
+        for (let c = 0; c < grid * grid; c++) cellStart[c + 1] += cellStart[c];
+        const filled = cellStart.slice(0, grid * grid);
+        for (let i = 0; i < count; i++)
+          cellItems[filled[cellOf(xs[i], ys[i])]++] = i;
+        return () => {
+          const x = fract(u),
+            y = fract(v),
+            cx = Math.min(grid - 1, Math.floor(x * grid)),
+            cy = Math.min(grid - 1, Math.floor(y * grid)),
+            grain = grainField(u, v);
+          let ink = 0,
+            fraction = 0;
+          for (let dy = -1; dy <= 1; dy++)
+            for (let dx = -1; dx <= 1; dx++) {
+              const cell =
+                ((cy + dy + grid) % grid) * grid + ((cx + dx + grid) % grid);
+              for (let k = cellStart[cell]; k < cellStart[cell + 1]; k++) {
+                const i = cellItems[k];
+                let ax = Math.abs(x - xs[i]),
+                  ay = Math.abs(y - ys[i]);
+                ax = Math.min(ax, 1 - ax);
+                ay = Math.min(ay, 1 - ay);
+                const mask = smooth(
+                  clamp((radius - Math.hypot(ax, ay)) / p.edgeSoft + 0.5),
+                );
+                if (mask > ink) {
+                  ink = mask;
+                  fraction = i / (count - 1);
+                }
+              }
+            }
+          const tone = p.toneMin + (p.toneMax - p.toneMin) * fraction;
+          color =
+            p.toneGround * (1 - ink) + tone * ink + p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight * ink * (p.heightBase + p.heightSwing * fraction);
+          occlusion = 1 - p.gapOcclusion * (1 - ink);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -64896,6 +65003,7 @@ export function createSurfaceSampler(
     kind === 'chorddiagrams' ||
     kind === 'gridsplits' ||
     kind === 'hamiltonpaths' ||
+    kind === 'lowdiscrepancy' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

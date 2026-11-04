@@ -37,13 +37,17 @@ var NavigationSearch = class {
 		if (i === 0) return r;
 		let a = e[i], o = t[i], s = 0;
 		for (; s * 2 + 1 < i;) {
-			let r = s * 2 + 1, c = e[r], l = t[r];
+			let r = s * 2 + 1, a = e[r], o = t[r];
 			if (r + 1 < i) {
 				let n = e[r + 1], i = t[r + 1];
-				(i < l || i === l && n < c) && (r++, c = n, l = i);
+				(i < o || i === o && n < a) && (r++, a = n, o = i);
 			}
-			if (!(l < o || l === o && c < a)) break;
-			e[s] = c, t[s] = l, n[c] = s, s = r;
+			e[s] = a, t[s] = o, n[a] = s, s = r;
+		}
+		for (; s > 0;) {
+			let r = s - 1 >>> 1, i = e[r], c = t[r];
+			if (!(o < c || o === c && a < i)) break;
+			e[s] = i, t[s] = c, n[i] = s, s = r;
 		}
 		return e[s] = a, t[s] = o, n[a] = s, r;
 	}

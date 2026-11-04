@@ -53,9 +53,11 @@ export declare class Vehicle3D {
     private brake;
     private steering;
     private disposed;
+    private delta;
     constructor(world: PhysicsWorld3D, options: VehicleOptions3D);
     setControls(throttle: number, brake?: number, steering?: number): void;
     private speed;
     update(dt: number): void;
+    private readonly updateWheels;
     destroy(): void;
 }

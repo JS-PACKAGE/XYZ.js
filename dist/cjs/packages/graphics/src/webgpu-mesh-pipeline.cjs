@@ -1991,7 +1991,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 		let d = 336, f = this.device.queue, p;
 		if (t.probeRevision === this.probeBlendRevision) {
 			let e = i + require_rendering.nativeMaterial3DLimits.uniformFloats, { uniform: n, bits: o, sent: s } = t;
-			p = a ? uploadChangedSpan(f, n, o, s, 0, 48) + uploadChangedSpan(f, n, o, s, e, e + 3) + (l ? uploadChangedSpan(f, n, o, s, Q, Q + 40) : 0) : uploadChangedSpan(f, n, o, s, 0, 76) + uploadChangedSpan(f, n, o, s, d, r.length);
+			p = a ? uploadChangedSpan(f, n, o, s, 0, 16) + uploadChangedSpan(f, n, o, s, 34, 35) + uploadChangedSpan(f, n, o, s, 47, 48) + uploadChangedSpan(f, n, o, s, e, e + 3) + (l ? uploadChangedSpan(f, n, o, s, Q, Q + 40) : 0) : uploadChangedSpan(f, n, o, s, 0, 76) + uploadChangedSpan(f, n, o, s, d, r.length);
 		} else r.set(this.probeBlend, 76), p = uploadChangedSpan(f, t.uniform, t.bits, t.sent, 0, r.length), t.probeRevision = this.probeBlendRevision;
 		p && this.stats.upload(p);
 	}
