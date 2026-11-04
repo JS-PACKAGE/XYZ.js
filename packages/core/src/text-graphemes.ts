@@ -1,5 +1,8 @@
 export type TextCaretAffinity = 'upstream' | 'downstream';
 
+let segmenter: Intl.Segmenter | undefined;
+let segmenterLocale: string | undefined;
+
 /** Native selection offsets stay UTF-16; only visual navigation snaps to clusters. */
 export function graphemeBoundaries(
   text: string,
@@ -7,10 +10,15 @@ export function graphemeBoundaries(
 ): readonly number[] {
   if (typeof Intl.Segmenter !== 'function')
     throw new Error('Intl.Segmenter is required for Unicode grapheme layout.');
+  const requestedLocale = locale || undefined;
+  if (!segmenter || requestedLocale !== segmenterLocale) {
+    segmenter = new Intl.Segmenter(requestedLocale, {
+      granularity: 'grapheme',
+    });
+    segmenterLocale = requestedLocale;
+  }
   const result = [0];
-  for (const segment of new Intl.Segmenter(locale || undefined, {
-    granularity: 'grapheme',
-  }).segment(text)) {
+  for (const segment of segmenter.segment(text)) {
     const end = segment.index + segment.segment.length;
     if (end !== result[result.length - 1]) result.push(end);
   }

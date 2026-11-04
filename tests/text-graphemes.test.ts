@@ -31,3 +31,19 @@ it('clamps visual offsets without changing valid native UTF-16 boundaries', () =
   expect(snapGrapheme(graphemeBoundaries(''), 2)).toBe(0);
   expect(() => snapGrapheme(boundaries, NaN)).toThrow(RangeError);
 });
+
+it('preserves segmentation and invalid-locale errors across locale changes', () => {
+  const text = '遊戲 e\u0301 👨‍👩‍👧‍👦 क्ष';
+  for (const locale of ['zh-TW', 'zh-TW', 'hi', '', 'en', 'en']) {
+    const expected = [0];
+    for (const segment of new Intl.Segmenter(locale || undefined, {
+      granularity: 'grapheme',
+    }).segment(text))
+      expected.push(segment.index + segment.segment.length);
+    expect(graphemeBoundaries(text, locale)).toEqual(expected);
+    expect(() => graphemeBoundaries(text, 'invalid_locale')).toThrow(
+      RangeError,
+    );
+    expect(graphemeBoundaries(text, locale)).toEqual(expected);
+  }
+});
