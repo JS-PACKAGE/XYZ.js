@@ -13961,3 +13961,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 突變檢查：43個突變（方向／表面／偏移、各個尺寸、虛線的相位與週期、軸互換、雙黃線與白線的位置與寬度、車道線迴圈、比例處理、各個色調／高度的交換）全數確認套用，42個被抓到；存活1個（虛線的相位判斷`phase < dash`放寬20％）：等價（在放寬的範圍內，兩個分支給出相同的距離）。沒有留下非等價的存活突變。
 - 實測：`tests/procedural-material-motifs.test.ts`三千六百二十項（本材質十四項）全過，`tsc`、eslint通過。`tests/procedural-material.test.ts`以`-t "highwaylanes|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。效能：512單次取樣約45到58 ms（Bun單次量測，非效能認證）。
 - 真實dev server的pbr3d頁（WebGPU）選取`highwaylanes`：嚴格斷言的檢查（option為1219個、status含「1218 procedural material presets」、含該kind、`tab.errors()`為空、下拉選單選到的值為該kind）第一次嘗試即符合；實看512預覽圖（seed 3、9，兩者都是橫向的道路）：深灰色的路面上中央的雙黃線、每個方向兩條車道間的白色短虛線、兩側的白色邊線，外側較淺的路肩與路旁；每塊磚四個重複。25球的gallery畫面中球面是不太容易辨認的深灰色。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：板球場（cricketground）
+
+- 目錄1218→1219，含plain的gallery為1220項。從正上方看的板球場，依MCC規則與ICC比賽條件的尺寸（公尺）畫出22碼投球區、投球線與柱門、擊球線、回球線、30碼內圈、邊界繩與地面；seed選四種表面之一（色調再一起偏移不超過`toneShift`）與方向；Metallic／mortar為0，預設tile 1 m、0.004 UV-relative relief、metallic factor 0。作者設計的示意，沒有文字、割草條紋與草皮方塊；邊界繩半徑68公尺是我自定的；線寬0.25公尺（規則5公分，五倍）。尺寸來自一次網路搜尋的摘要（與我原本的記憶一致，沒有直接讀規則原文）；回球線的長度起點是我的解讀。仍在獨立worktree分支`materials/more-textures`作業。
+- 完整套件：在`git archive`乾淨匯出的`441d48add`（目錄1218種，含冰球場、籃球場、手球場與四線道公路）上跑`tests/procedural-material.test.ts`與`tests/procedural-material-motifs.test.ts`：**9462項通過、0失敗**（約1093秒；這段時間我沒有同時跑其他重的工作）。本材質只跑定向測試。
+- 這次先查了目錄（沒有板球相關的種類）。開發中發現的測試端問題：(1) `readSurface`第一版用的三個探針點在沿著畫面與橫過畫面兩種方向下剛好都落在同種區域（投球區上的點在轉置後也在投球區內），兩種方向的選項都符合而得到兩個結果，改成把投球區的探針取在離中心6公尺處（轉置後在投球區之外）。(2) 擊球線的邊緣探針我第一次把「後緣」與「線所在的一側」寫反（後緣在靠近三柱門的一側，線從後緣往中間延伸），期望值錯；(3) 投球線在離中線1.32公尺處與回球線的內緣相接，所以投球線沒有可單獨檢查的端點，刪掉那個探針；(4) 整張圖比對中柱門與線的數量門檻抓太高，已調低。這四個都是測試端的錯，不是取樣器的問題。
+- 突變檢查：50個突變（方向／表面／偏移、各個尺寸、軸互換、各條線的位置與寬度與長度、內圈的直線段、邊界繩、柱門、比例處理、各個色調／高度的交換）全數確認套用，全數被抓到；沒有存活的突變。
+- 實測：`tests/procedural-material-motifs.test.ts`三千六百三十四項（本材質十四項）全過，`tsc`、eslint通過。`tests/procedural-material.test.ts`以`-t "cricketground|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。效能：512單次取樣約53到75 ms（Bun單次量測，非效能認證）。
+- 真實dev server的pbr3d頁（WebGPU）選取`cricketground`：嚴格斷言的檢查（option為1220個、status含「1219 procedural material presets」、含該kind、`tab.errors()`為空、下拉選單選到的值為該kind）第一次嘗試即符合；實看512預覽圖（seed 3、9）：圓形的外場被邊界繩圍著，中央是細長的投球區與兩端的擊球線與柱門，外面一圈圓角矩形的30碼內圈；線在512預覽下只有一個像素左右，很細；每塊磚四個重複；25球的gallery畫面中球面是不太容易辨認的綠色。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

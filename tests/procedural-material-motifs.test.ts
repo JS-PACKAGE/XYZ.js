@@ -72077,3 +72077,465 @@ describe('highwaylanes: a four lane road seen from above with the pavement marki
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('cricketground: a cricket ground seen from above with its pitch, creases, wickets, fielding circle and boundary rope, laid along or across by the seed', () => {
+  const p = proceduralMaterialPresets.cricketground,
+    out = empty(),
+    m = p.metre,
+    toneAt = (
+      sample: Sampler,
+      x: number,
+      y: number,
+      across: boolean,
+    ): number => {
+      // A place in metres from the middle of the pitch (x along it) as a place on the picture.
+      sample(0.5 + (across ? y : x) * m, 0.5 + (across ? x : y) * m, out);
+      return out.color;
+    };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    mix = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    // The probes are exact (the edges are straight or circular), so the tolerance is tiny.
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  // The facts of the ground, in metres (the MCC laws and the ICC playing conditions, as given by a web search that quotes them; they were not read in the laws themselves): the pitch 22 yards between the bowling creases and
+  // 10 feet wide, the bowling crease 8 feet 8 inches with the stumps (9 inches across) on it, the popping crease 4 feet in front of it and marked 6 feet each side of the middle, the return creases 4 feet 4 inches from the
+  // middle and 8 feet long from the popping crease backwards, the fielding circle 30 yards round the middle stumps (two semicircles joined by straight lines); distances to the back edge of a line.
+  const rules = {
+      length: 20.12,
+      width: 3.05,
+      bowling: 2.64,
+      stump: 0.23,
+      popping: 1.22,
+      poppingHalf: 1.83,
+      returnHalf: 1.32,
+      returnLength: 2.44,
+      circle: 27.432,
+    },
+    halfL = rules.length / 2,
+    halfW = rules.width / 2,
+    poppingX = halfL - rules.popping,
+    returnEnd = poppingX + rules.returnLength;
+  type Kind = 'ground' | 'outfield' | 'pitch' | 'line' | 'stump';
+  // The part of the picture a place is in, by the rules above and the widths in the preset (written separately from the sampler).
+  const piece = (x: number, y: number): string => {
+    const ax = Math.abs(x),
+      ay = Math.abs(y),
+      w = p.lineWidth,
+      r = Math.hypot(x, y),
+      fielding = Math.hypot(Math.max(ax - halfL, 0), y);
+    if (r > p.ropeRadius) return 'ground';
+    if (Math.abs(ax - halfL) <= p.stumpDepth / 2 && ay <= rules.stump / 2)
+      return 'stump';
+    if (r >= p.ropeRadius - w) return 'line rope';
+    if (fielding <= rules.circle && fielding >= rules.circle - w)
+      return 'line fielding';
+    if (ax >= poppingX - w && ax <= poppingX && ay <= rules.poppingHalf)
+      return 'line popping';
+    if (
+      ay >= rules.returnHalf &&
+      ay <= rules.returnHalf + w &&
+      ax >= poppingX - w &&
+      ax <= returnEnd
+    )
+      return 'line return';
+    if (ax >= halfL - w && ax <= halfL && ay <= rules.bowling / 2)
+      return 'line bowling';
+    return ax <= halfL && ay <= halfW ? 'pitch' : 'outfield';
+  };
+  const classify = (x: number, y: number): Kind => {
+    const label = piece(x, y);
+    return label.startsWith('line') ? 'line' : (label as Kind);
+  };
+  type Surface = {
+    across: boolean;
+    surface: number;
+    shift: number;
+    tones: { outfield: number; pitch: number; ground: number };
+  };
+  const readSurface = (sample: Sampler): Surface => {
+    const options: Surface[] = [];
+    for (const across of [false, true]) {
+      const outfield = toneAt(sample, 30, 20, across),
+        pitch = toneAt(sample, 6, 0.6, across),
+        ground = toneAt(sample, 80, 0, across);
+      p.surfaces.forEach((surface, index) => {
+        const shift = ground - surface.ground;
+        if (
+          Math.abs(shift) <= p.toneShift + 1e-9 &&
+          Math.abs(outfield - surface.outfield - shift) < 1e-6 &&
+          Math.abs(pitch - surface.pitch - shift) < 1e-6
+        )
+          options.push({
+            across,
+            surface: index,
+            shift,
+            tones: { outfield, pitch, ground },
+          });
+      });
+    }
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+
+  it('has the rules of the ground in the preset', () => {
+    expect(p.pitchLength).toBe(rules.length);
+    expect(p.pitchWidth).toBe(rules.width);
+    expect(p.bowlingCrease).toBe(rules.bowling);
+    expect(p.stumpWidth).toBe(rules.stump);
+    expect(p.poppingDistance).toBe(rules.popping);
+    expect(p.poppingHalf).toBe(rules.poppingHalf);
+    expect(p.returnHalf).toBe(rules.returnHalf);
+    expect(p.returnLength).toBe(rules.returnLength);
+    expect(p.circleRadius).toBe(rules.circle);
+  });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws every place of the picture as the rules and the widths say, with its tone, height and roughness, along the picture or across it (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('cricketground', seed),
+        { across, tones } = readSurface(sample),
+        expected: Record<Kind, { tone: number; height: number }> = {
+          ground: { tone: tones.ground, height: p.groundHeight },
+          outfield: { tone: tones.outfield, height: p.outfieldHeight },
+          pitch: { tone: tones.pitch, height: p.pitchHeight },
+          line: { tone: p.lineTone, height: p.lineHeight },
+          stump: { tone: p.stumpTone, height: p.stumpHeight },
+        },
+        counts: Record<Kind, number> = {
+          ground: 0,
+          outfield: 0,
+          pitch: 0,
+          line: 0,
+          stump: 0,
+        },
+        clear = 0.05,
+        check = (x: number, y: number): void => {
+          const kind = classify(x, y);
+          if (
+            [
+              [clear, 0],
+              [-clear, 0],
+              [0, clear],
+              [0, -clear],
+              [clear, clear],
+              [-clear, -clear],
+              [clear, -clear],
+              [-clear, clear],
+            ].some(([dx, dy]) => piece(x + dx, y + dy) !== piece(x, y))
+          )
+            return;
+          counts[kind]++;
+          expect(toneAt(sample, x, y, across)).toBeCloseTo(
+            expected[kind].tone,
+            6,
+          );
+          expect(out.height / p.relief).toBeCloseTo(expected[kind].height, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        };
+      // The pitch and its creases and wickets, finely (0.05 apart over 28 by 12 metres), and the whole tile (166 metres across) in steps of 0.37.
+      for (let x = -14; x <= 14; x += 0.05)
+        for (let y = -6; y <= 6; y += 0.05) check(x, y);
+      for (let x = -83; x <= 83; x += 0.37)
+        for (let y = -83; y <= 83; y += 0.37) check(x, y);
+      expect(counts.stump).toBeGreaterThan(10);
+      expect(counts.line).toBeGreaterThan(1500);
+      expect(counts.pitch).toBeGreaterThan(3000);
+      expect(counts.outfield).toBeGreaterThan(80000);
+      expect(counts.ground).toBeGreaterThan(30000);
+    },
+  );
+
+  it('uses every surface and both ways over 300 seeds, about equally often, with the tones shifted over the whole range', () => {
+    const surfaces = new Map<number, number>(),
+      shifts: number[] = [];
+    let acrossCount = 0;
+    for (let seed = 0; seed < 300; seed++) {
+      const { across, surface, shift } = readSurface(
+        createSurfaceSampler('cricketground', seed * 7 + 1),
+      );
+      shifts.push(shift);
+      surfaces.set(surface, (surfaces.get(surface) ?? 0) + 1);
+      acrossCount += Number(across);
+    }
+    expect(surfaces.size).toBe(p.surfaces.length);
+    for (const count of surfaces.values())
+      expect(Math.abs(count - 300 / p.surfaces.length)).toBeLessThan(25);
+    expect(Math.abs(acrossCount / 300 - 0.5)).toBeLessThan(0.1);
+    expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+    expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+    expect(
+      Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 300),
+    ).toBeLessThan(p.toneShift * 0.15);
+    for (let quarter = 0; quarter < 4; quarter++)
+      expect(
+        Math.abs(
+          shifts.filter(
+            (shift) =>
+              Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+          ).length - 75,
+        ),
+      ).toBeLessThan(25);
+  });
+
+  it('puts each edge of each marking where the rules put it: just inside it the line, just outside it not (both ends of the pitch, both sides)', () => {
+    const w = p.lineWidth,
+      delta = 0.0004 / m,
+      // A place round a centre at a distance and an angle.
+      round = (
+        cx: number,
+        cy: number,
+        distance: number,
+        degrees: number,
+      ): [number, number] => [
+        cx + distance * Math.cos((degrees * Math.PI) / 180),
+        cy + distance * Math.sin((degrees * Math.PI) / 180),
+      ];
+    for (const seed of [2, 5]) {
+      const sample = createSurfaceSampler('cricketground', seed),
+        { across } = readSurface(sample),
+        isLine = (x: number, y: number): boolean =>
+          Math.abs(toneAt(sample, x, y, across) - p.lineTone) < 1e-6;
+      for (const sx of [1, -1])
+        for (const sy of [1, -1]) {
+          // A place at a distance from the middle of the pitch along it (towards the end sx) and across it.
+          const at = (along: number, side: number): boolean =>
+            isLine(sx * along, sy * side);
+          // The bowling crease: its back edge at the end of the pitch, 0.25 in front of it, 8 feet 8 inches long (1.32 either side).
+          expect(at(halfL - delta, 0.5)).toBe(true);
+          expect(at(halfL + delta, 0.5)).toBe(false);
+          expect(at(halfL - w + delta, 0.5)).toBe(true);
+          expect(at(halfL - w - delta, 0.5)).toBe(false);
+          // (The bowling crease ends where the return crease begins, 4 feet 4 inches from the middle, so there is no end to see.)
+          expect(at(halfL - 0.1, rules.bowling / 2 - delta)).toBe(true);
+          expect(at(halfL - 0.1, rules.bowling / 2 + delta)).toBe(true);
+          // The popping crease: 4 feet in front of it (back edge), marked 6 feet each side (it goes beyond the side of the pitch).
+          expect(at(poppingX - delta, 0.5)).toBe(true);
+          expect(at(poppingX - w + delta, 0.5)).toBe(true);
+          expect(at(poppingX - w - delta, 0.5)).toBe(false);
+          expect(at(poppingX + delta, 0.5)).toBe(false);
+          expect(at(poppingX - 0.1, rules.poppingHalf - delta)).toBe(true);
+          expect(at(poppingX - 0.1, rules.poppingHalf + delta)).toBe(false);
+          // The return creases: their inside edges 4 feet 4 inches from the middle, from the popping crease backwards 8 feet.
+          expect(at(10.8, rules.returnHalf + delta)).toBe(true);
+          expect(at(10.8, rules.returnHalf - delta)).toBe(false);
+          expect(at(10.8, rules.returnHalf + w - delta)).toBe(true);
+          expect(at(10.8, rules.returnHalf + w + delta)).toBe(false);
+          expect(at(returnEnd - delta, rules.returnHalf + 0.1)).toBe(true);
+          expect(at(returnEnd + delta, rules.returnHalf + 0.1)).toBe(false);
+          // The fielding circle: two semicircles of 30 yards round the middle stumps (the straight lines along the pitch at that distance from it).
+          for (const degrees of [0, 30, 60, 85]) {
+            // round the stumps at the end sx on the side sy
+            const centre: [number, number] = [sx * halfL, 0],
+              direction = sx === 1 ? sy * degrees : 180 - sy * degrees;
+            expect(
+              isLine(
+                ...round(centre[0], centre[1], rules.circle - delta, direction),
+              ),
+            ).toBe(true);
+            expect(
+              isLine(
+                ...round(centre[0], centre[1], rules.circle + delta, direction),
+              ),
+            ).toBe(false);
+            expect(
+              isLine(
+                ...round(
+                  centre[0],
+                  centre[1],
+                  rules.circle - w + delta,
+                  direction,
+                ),
+              ),
+            ).toBe(true);
+            expect(
+              isLine(
+                ...round(
+                  centre[0],
+                  centre[1],
+                  rules.circle - w - delta,
+                  direction,
+                ),
+              ),
+            ).toBe(false);
+          }
+          expect(at(3, rules.circle - delta)).toBe(true);
+          expect(at(3, rules.circle + delta)).toBe(false);
+          expect(at(3, rules.circle - w + delta)).toBe(true);
+          expect(at(3, rules.circle - w - delta)).toBe(false);
+          // The wicket: the stumps 9 inches across on the bowling crease (in the middle of the end), over the line.
+          expect(
+            Math.abs(
+              toneAt(
+                sample,
+                sx * halfL,
+                sy * (rules.stump / 2 - delta),
+                across,
+              ) - p.stumpTone,
+            ) < 1e-6,
+          ).toBe(true);
+          expect(
+            Math.abs(
+              toneAt(
+                sample,
+                sx * halfL,
+                sy * (rules.stump / 2 + delta),
+                across,
+              ) - p.stumpTone,
+            ) < 1e-6,
+          ).toBe(false);
+          expect(
+            Math.abs(
+              toneAt(
+                sample,
+                sx * (halfL + p.stumpDepth / 2 - delta),
+                0,
+                across,
+              ) - p.stumpTone,
+            ) < 1e-6,
+          ).toBe(true);
+          expect(
+            Math.abs(
+              toneAt(
+                sample,
+                sx * (halfL + p.stumpDepth / 2 + delta),
+                0,
+                across,
+              ) - p.stumpTone,
+            ) < 1e-6,
+          ).toBe(false);
+        }
+      // The boundary rope: a line 0.25 wide inside the radius 68 round the middle.
+      for (const degrees of [10, 50, 95, 140, 185, 230, 275, 320]) {
+        expect(isLine(...round(0, 0, p.ropeRadius - delta, degrees))).toBe(
+          true,
+        );
+        expect(isLine(...round(0, 0, p.ropeRadius + delta, degrees))).toBe(
+          false,
+        );
+        expect(isLine(...round(0, 0, p.ropeRadius - w + delta, degrees))).toBe(
+          true,
+        );
+        expect(isLine(...round(0, 0, p.ropeRadius - w - delta, degrees))).toBe(
+          false,
+        );
+      }
+    }
+  });
+
+  it('softens the edge of the outfield, the pitch, the lines and the wicket over edgeSoft', () => {
+    const sample = createSurfaceSampler('cricketground', 2),
+      { across, tones } = readSurface(sample),
+      quarter = (0.25 * p.edgeSoft) / m,
+      w = p.lineWidth;
+    // The outer edge of the rope over the ground (the rope has the edge of the outfield) and its inner edge over the outfield.
+    close(
+      toneAt(sample, p.ropeRadius - quarter, 0, across),
+      mix(tones.ground, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, p.ropeRadius + quarter, 0, across),
+      mix(tones.ground, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, p.ropeRadius - w - quarter, 0, across),
+      mix(tones.outfield, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, p.ropeRadius - w + quarter, 0, across),
+      mix(tones.outfield, p.lineTone, 0.75),
+    );
+    // The pitch over the outfield (the side of the pitch), and the end of the pitch where the bowling crease is (it has the edge of the pitch).
+    close(
+      toneAt(sample, 0, halfW - quarter, across),
+      mix(tones.outfield, tones.pitch, 0.75),
+    );
+    close(
+      toneAt(sample, 0, halfW + quarter, across),
+      mix(tones.outfield, tones.pitch, 0.25),
+    );
+    close(
+      toneAt(sample, halfL - quarter, 0.8, across),
+      mix(tones.outfield, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, halfL + quarter, 0.8, across),
+      mix(tones.outfield, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, halfL - w - quarter, 0.8, across),
+      mix(tones.pitch, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, halfL - w + quarter, 0.8, across),
+      mix(tones.pitch, p.lineTone, 0.75),
+    );
+    // The popping crease (both edges) over the pitch, and the fielding circle over the outfield.
+    close(
+      toneAt(sample, poppingX + quarter, 0.5, across),
+      mix(tones.pitch, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, poppingX - quarter, 0.5, across),
+      mix(tones.pitch, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, poppingX - w - quarter, 0.5, across),
+      mix(tones.pitch, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, 3, rules.circle + quarter, across),
+      mix(tones.outfield, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, 3, rules.circle - quarter, across),
+      mix(tones.outfield, p.lineTone, 0.75),
+    );
+    // The stumps over the bowling crease (their side edge, where the line is under them).
+    close(
+      toneAt(sample, halfL - 0.05, rules.stump / 2 - quarter, across),
+      mix(p.lineTone, p.stumpTone, 0.75),
+    );
+    close(
+      toneAt(sample, halfL - 0.05, rules.stump / 2 + quarter, across),
+      mix(p.lineTone, p.stumpTone, 0.25),
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('cricketground', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('cricketground', 0),
+      b = createSurfaceSampler('cricketground', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

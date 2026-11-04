@@ -16063,6 +16063,52 @@ export declare const proceduralMaterialPresets: Readonly<{
         lineHeight: 0.46;
         inkRoughness: 0.55;
     }>;
+    cricketground: Readonly<{
+        dark: readonly [18, 40, 18];
+        light: readonly [236, 238, 218];
+        roughness: 0.85;
+        relief: 0.004;
+        metre: 0.006;
+        pitchLength: 20.12;
+        pitchWidth: 3.05;
+        bowlingCrease: 2.64;
+        stumpWidth: 0.23;
+        stumpDepth: 0.3;
+        poppingDistance: 1.22;
+        poppingHalf: 1.83;
+        returnHalf: 1.32;
+        returnLength: 2.44;
+        circleRadius: 27.432;
+        ropeRadius: 68;
+        lineWidth: 0.25;
+        surfaces: readonly (Readonly<{
+            outfield: 0.34;
+            pitch: 0.6;
+            ground: 0.18;
+        }> | Readonly<{
+            outfield: 0.28;
+            pitch: 0.52;
+            ground: 0.4;
+        }> | Readonly<{
+            outfield: 0.4;
+            pitch: 0.68;
+            ground: 0.22;
+        }> | Readonly<{
+            outfield: 0.24;
+            pitch: 0.46;
+            ground: 0.34;
+        }>)[];
+        toneShift: 0.04;
+        edgeSoft: 0.0003;
+        lineTone: 0.96;
+        stumpTone: 0.1;
+        groundHeight: 0.15;
+        outfieldHeight: 0.25;
+        pitchHeight: 0.32;
+        lineHeight: 0.38;
+        stumpHeight: 0.6;
+        inkRoughness: 0.6;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -22548,6 +22594,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    cricketground: 1;
     highwaylanes: 1;
     handballcourt: 1;
     basketballcourt: 1;

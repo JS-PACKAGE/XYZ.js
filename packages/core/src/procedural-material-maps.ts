@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'cricketground',
   'highwaylanes',
   'handballcourt',
   'basketballcourt',
@@ -50180,6 +50181,94 @@ export function createSurfaceSampler(
             road;
           color = clamp(shade);
           height = clamp(elevation);
+          roughness = clamp(p.inkRoughness);
+          occlusion = 1;
+        };
+      }
+      case 'cricketground': {
+        const p = proceduralMaterialPresets.cricketground,
+          inverseSoft = 1 / p.edgeSoft,
+          norm = (x: number, y: number): number => Math.sqrt(x * x + y * y),
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(112, 1, seed ^ 0x180001) * p.surfaces.length)
+            ],
+          across = hash(112, 2, seed ^ 0x180002) < 0.5,
+          shift = (hash(112, 3, seed ^ 0x180003) * 2 - 1) * p.toneShift,
+          halfLength = p.pitchLength / 2,
+          halfWidth = p.pitchWidth / 2,
+          line = p.lineWidth,
+          // The back edge of the popping crease and the distance to the end of the return creases, from the middle of the pitch.
+          poppingX = halfLength - p.poppingDistance,
+          returnEnd = poppingX + p.returnLength,
+          // A line across the pitch with its back edge at a distance from the middle (the line is in front of it, towards the middle), and a ring inside a radius.
+          cross = (x: number, backEdge: number): number =>
+            cover(Math.min(x - (backEdge - line), backEdge - x) * p.metre),
+          ring = (distance: number, radius: number): number =>
+            cover(
+              Math.min(distance - (radius - line), radius - distance) * p.metre,
+            );
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            // The place in metres from the middle of the pitch (x along it).
+            x = ((across ? fv : fu) - 0.5) / p.metre,
+            y = ((across ? fu : fv) - 0.5) / p.metre,
+            ax = Math.abs(x),
+            ay = Math.abs(y),
+            radius = norm(x, y),
+            outfield = cover((p.ropeRadius - radius) * p.metre),
+            pitch = cover(Math.min(halfLength - ax, halfWidth - ay) * p.metre),
+            // The bowling crease (8 feet 8 inches, its back edge at the end of the pitch, in the pitch), the popping crease (marked 6 feet each side), the return creases (their inside edges 4 feet 4 inches from the
+            // middle, from the front of the popping crease to 8 feet behind it), the fielding circle (round the line between the middle stumps) and the boundary rope.
+            bowling = Math.min(
+              cross(ax, halfLength),
+              cover((p.bowlingCrease / 2 - ay) * p.metre),
+            ),
+            popping = Math.min(
+              cross(ax, poppingX),
+              cover((p.poppingHalf - ay) * p.metre),
+            ),
+            returns = Math.min(
+              cover(
+                Math.min(ay - p.returnHalf, p.returnHalf + line - ay) * p.metre,
+              ),
+              cover(Math.min(ax - (poppingX - line), returnEnd - ax) * p.metre),
+            ),
+            fielding = ring(
+              norm(Math.max(ax - halfLength, 0), y),
+              p.circleRadius,
+            ),
+            rope = ring(radius, p.ropeRadius),
+            stumps = Math.min(
+              cover((p.stumpDepth / 2 - Math.abs(ax - halfLength)) * p.metre),
+              cover((p.stumpWidth / 2 - ay) * p.metre),
+            );
+          // The bowling crease has the end of the pitch where it reaches it, the rope the edge of the outfield (the ratio of the cover of the line to that of the area); the other lines go over what is under them.
+          const bowlingOn = pitch > 0 ? Math.min(1, bowling / pitch) : 0,
+            ropeOn = outfield > 0 ? Math.min(1, rope / outfield) : 0,
+            others = Math.max(popping, returns, fielding),
+            outfieldTone = surface.outfield + shift,
+            pitchTone = surface.pitch + shift,
+            pitchInner = pitchTone + (p.lineTone - pitchTone) * bowlingOn,
+            inner = outfieldTone + (pitchInner - outfieldTone) * pitch,
+            lined = Math.max(others, ropeOn),
+            marked = inner + (p.lineTone - inner) * lined,
+            pitchHeight =
+              p.pitchHeight + (p.lineHeight - p.pitchHeight) * bowlingOn,
+            innerHeight =
+              p.outfieldHeight + (pitchHeight - p.outfieldHeight) * pitch,
+            markedHeight = innerHeight + (p.lineHeight - innerHeight) * lined,
+            shade =
+              surface.ground +
+              shift +
+              (marked - surface.ground - shift) * outfield,
+            elevation =
+              p.groundHeight + (markedHeight - p.groundHeight) * outfield;
+          color = clamp(shade + (p.stumpTone - shade) * stumps);
+          height = clamp(elevation + (p.stumpHeight - elevation) * stumps);
           roughness = clamp(p.inkRoughness);
           occlusion = 1;
         };

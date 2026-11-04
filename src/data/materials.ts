@@ -17526,6 +17526,48 @@ export const proceduralMaterialPresets = Object.freeze({
     lineHeight: 0.46,
     inkRoughness: 0.55,
   }),
+  cricketground: Object.freeze({
+    dark: [18, 40, 18] as const,
+    light: [236, 238, 218] as const,
+    roughness: 0.85,
+    relief: 0.004,
+    // A cricket ground seen from above, in metres (the pitch along one axis): the pitch 22 yards (20.12) long between the bowling creases and 10 feet (3.05) wide, the bowling crease 8 feet 8 inches (2.64) with
+    // the wicket (stumps 9 inches across) on it, the popping crease 4 feet (1.22) in front of it, marked 6 feet (1.83) each side of the middle, the return creases 4 feet 4 inches (1.32) from the middle,
+    // 8 feet (2.44) long from the popping crease backwards, the 30 yard (27.43) fielding circle of limited-overs cricket (two semicircles round the middle stumps joined by straight lines), the boundary
+    // rope round the outfield, and the ground beyond. Distances to creases are to the back edge of the line; the lines are part of the area they bound. The boundary (68) is one of the many sizes of
+    // grounds; the lines are 0.25 wide (the rules 5 centimetres, five times) and the wicket 0.3 deep so that they show in a tile. The seed picks the surface (the tones of the outfield, the pitch and
+    // the ground, all shifted together a little) and lays the pitch along the picture or across it.
+    metre: 0.006,
+    pitchLength: 20.12,
+    pitchWidth: 3.05,
+    bowlingCrease: 2.64,
+    stumpWidth: 0.23,
+    stumpDepth: 0.3,
+    poppingDistance: 1.22,
+    poppingHalf: 1.83,
+    returnHalf: 1.32,
+    returnLength: 2.44,
+    circleRadius: 27.432,
+    ropeRadius: 68,
+    lineWidth: 0.25,
+    surfaces: Object.freeze([
+      Object.freeze({ outfield: 0.34, pitch: 0.6, ground: 0.18 }),
+      Object.freeze({ outfield: 0.28, pitch: 0.52, ground: 0.4 }),
+      Object.freeze({ outfield: 0.4, pitch: 0.68, ground: 0.22 }),
+      Object.freeze({ outfield: 0.24, pitch: 0.46, ground: 0.34 }),
+    ]),
+    // How much the three tones may all be shifted together (from -toneShift to toneShift) by the seed: the wear of the grass.
+    toneShift: 0.04,
+    edgeSoft: 0.0003,
+    lineTone: 0.96,
+    stumpTone: 0.1,
+    groundHeight: 0.15,
+    outfieldHeight: 0.25,
+    pitchHeight: 0.32,
+    lineHeight: 0.38,
+    stumpHeight: 0.6,
+    inkRoughness: 0.6,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -24018,6 +24060,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  cricketground: 1,
   highwaylanes: 1,
   handballcourt: 1,
   basketballcourt: 1,

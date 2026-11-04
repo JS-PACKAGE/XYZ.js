@@ -27664,6 +27664,65 @@ var proceduralMaterialPresets = Object.freeze({
 		lineHeight: .46,
 		inkRoughness: .55
 	}),
+	cricketground: Object.freeze({
+		dark: [
+			18,
+			40,
+			18
+		],
+		light: [
+			236,
+			238,
+			218
+		],
+		roughness: .85,
+		relief: .004,
+		metre: .006,
+		pitchLength: 20.12,
+		pitchWidth: 3.05,
+		bowlingCrease: 2.64,
+		stumpWidth: .23,
+		stumpDepth: .3,
+		poppingDistance: 1.22,
+		poppingHalf: 1.83,
+		returnHalf: 1.32,
+		returnLength: 2.44,
+		circleRadius: 27.432,
+		ropeRadius: 68,
+		lineWidth: .25,
+		surfaces: Object.freeze([
+			Object.freeze({
+				outfield: .34,
+				pitch: .6,
+				ground: .18
+			}),
+			Object.freeze({
+				outfield: .28,
+				pitch: .52,
+				ground: .4
+			}),
+			Object.freeze({
+				outfield: .4,
+				pitch: .68,
+				ground: .22
+			}),
+			Object.freeze({
+				outfield: .24,
+				pitch: .46,
+				ground: .34
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 3e-4,
+		lineTone: .96,
+		stumpTone: .1,
+		groundHeight: .15,
+		outfieldHeight: .25,
+		pitchHeight: .32,
+		lineHeight: .38,
+		stumpHeight: .6,
+		inkRoughness: .6
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -36345,6 +36404,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	cricketground: 1,
 	highwaylanes: 1,
 	handballcourt: 1,
 	basketballcourt: 1,
