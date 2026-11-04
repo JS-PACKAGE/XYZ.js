@@ -1114,6 +1114,7 @@ export type ProceduralMaterialKind =
   | 'jacobielliptic'
   | 'hofstadterbutterfly'
   | 'raindropoptics'
+  | 'machcone'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2476,6 +2477,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'jacobielliptic',
   'hofstadterbutterfly',
   'raindropoptics',
+  'machcone',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

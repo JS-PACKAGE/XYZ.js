@@ -1177,6 +1177,7 @@ try {
     'jacobielliptic',
     'hofstadterbutterfly',
     'raindropoptics',
+    'machcone',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

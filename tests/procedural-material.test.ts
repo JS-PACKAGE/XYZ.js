@@ -1140,6 +1140,7 @@ const kinds: ProceduralMaterialKind[] = [
   'jacobielliptic',
   'hofstadterbutterfly',
   'raindropoptics',
+  'machcone',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -191948,6 +191949,331 @@ describe('Raindrop optics as the rays through a droplet and the rainbow angle', 
     expect(blue / (512 * 512)).toBeLessThan(42);
     expect(maxTilt).toBeGreaterThan(0.0513);
     expect(maxTilt).toBeLessThan(0.0524);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Mach cone as the wavefronts of a moving source', () => {
+  const p = proceduralMaterialPresets.machcone;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The colour at the point (x, y) of the plot, in the units of its width (the source is at the origin, at 0.68 of the width, and y is up). */
+  const colourAtPoint = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    x: number,
+    y: number,
+  ): number => {
+    sample(
+      p.margin + (p.sourceAt + x / p.span) * (1 - 2 * p.margin),
+      p.margin + (0.5 - y / p.span) * (1 - 2 * p.margin),
+      out,
+    );
+    return out.color;
+  };
+  const insidePlot = (x: number, y: number): boolean => {
+    const fu = p.margin + (p.sourceAt + x / p.span) * (1 - 2 * p.margin),
+      fv = p.margin + (0.5 - y / p.span) * (1 - 2 * p.margin);
+    return fu >= 0.06 && fu <= 0.94 && fv >= 0.06 && fv <= 0.94;
+  };
+  /** The local maxima of the colour above 0.3 along the axis (y = 0) from x = -2.7 to 1.2 in steps of 0.001. */
+  const axisCrests = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+  ): number[] => {
+    const peaks: number[] = [];
+    let previous = 0,
+      current = colourAtPoint(sample, out, -2.7, 0);
+    for (let x = -2.7; x <= 1.2; x += 0.001) {
+      const next = colourAtPoint(sample, out, x + 0.001, 0);
+      if (current > 0.3 && current >= previous && current > next) peaks.push(x);
+      previous = current;
+      current = next;
+    }
+    return peaks;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('machcone', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('machcone', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0255);
+      expect(low).toBeLessThan(0.0257);
+      expect(high).toBeGreaterThan(0.817);
+      expect(high).toBeLessThan(0.843);
+      expect(dark / 65536).toBeGreaterThan(0.049);
+      expect(dark / 65536).toBeLessThan(0.067);
+      expect(mean / 65536).toBeGreaterThan(0.094);
+      expect(mean / 65536).toBeLessThan(0.1163);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.804);
+      expect(heightHigh).toBeLessThan(0.818);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (the Mach number 0, 0.5, 0.8, 1, 1.5 and 2.5) is 3, 2, 0, 5, 1 and 8; the table was found with a probe by the correlation of the lit pixels with the crests found in the probe
+  // from the roots of the quadratic for the time since emission (the smallest margin to the second best being 0.797 before the fade of crowded crests was added and 0.755 after) and is written here, so it is not an independent check
+  // of the seed's choice.
+  const seeds = [3, 2, 0, 5, 1, 8];
+  it('puts the crests on the circles of the pulses emitted k periods ago', () => {
+    // The pulse emitted k periods (a distance of period c) ago is on the circle of radius k period round the point M k period behind the source (c = 1, the source moving at M). On those circles, every 0.05 rad, for k from 1 to 14, the
+    // points in the plot are lit (colour above 0.3; 0.378 at the lowest in the probe, for 298 to 929 points per variant), except where the crests crowd (where the distance between the circle k and k + 1, period (1 - M cos psi), is under 0.06,
+    // as beside the source at M = 1) and, for M above 1, near where the circles touch the Mach cone (where the discriminant is under 0.15 of x^2 + y^2).
+    seeds.forEach((seed, index) => {
+      const [mach, period] = p.variants[index],
+        sample = createSurfaceSampler('machcone', seed),
+        out = empty();
+      let counted = 0;
+      for (let k = 1; k <= 14; k++)
+        for (let angle = 0; angle < 2 * Math.PI; angle += 0.05) {
+          const x = -mach * k * period + k * period * Math.cos(angle),
+            y = k * period * Math.sin(angle);
+          if (
+            !insidePlot(x, y) ||
+            Math.abs(1 - mach * Math.cos(angle)) * period < 0.06
+          )
+            continue;
+          if (
+            mach > 1 &&
+            (x * x - (mach * mach - 1) * y * y) / (x * x + y * y) < 0.15
+          )
+            continue;
+          expect(colourAtPoint(sample, out, x, y)).toBeGreaterThan(0.3);
+          counted++;
+        }
+      expect(counted).toBeGreaterThan(250);
+    });
+  });
+  it('has the Doppler spacing of the crests on the track below the speed of the waves', () => {
+    // On the track the crests ahead of the source are (1 - M) periods apart and those behind it (1 + M) periods apart (the Doppler shift). For M = 0, 0.5 and 0.8 the mean distance between the crests (maxima of the colour above 0.3
+    // along the axis, left out within 0.05 of the source) is within 0.01 of that: 0.0018, 0.0040 and 0.0055 at the worst behind (9, 6 and 5 crests) and 0.0003 at the worst ahead (4, 8 and 18 crests) in the probe.
+    for (const index of [0, 1, 2]) {
+      const [mach, period] = p.variants[index],
+        sample = createSurfaceSampler('machcone', seeds[index]),
+        out = empty(),
+        peaks = axisCrests(sample, out),
+        behind = peaks.filter((x) => x < -0.05),
+        ahead = peaks.filter((x) => x > 0.05);
+      expect(behind.length).toBeGreaterThanOrEqual(5);
+      expect(ahead.length).toBeGreaterThanOrEqual(4);
+      expect(
+        Math.abs(
+          (behind[behind.length - 1] - behind[0]) / (behind.length - 1) -
+            (1 + mach) * period,
+        ),
+      ).toBeLessThan(0.01);
+      expect(
+        Math.abs(
+          (ahead[ahead.length - 1] - ahead[0]) / (ahead.length - 1) -
+            (1 - mach) * period,
+        ),
+      ).toBeLessThan(0.01);
+    }
+  });
+  it('stops at the Mach cone, whose half angle has sine 1 / M, and leaves the region ahead of a faster source empty', () => {
+    // Above the speed of the waves the wake is the cone behind the source with tan(half angle) = 1 / sqrt(M^2 - 1) (sin = 1 / M): along the rays at 0.9 and 0.95 of that slope the greatest colour is above 0.6 (0.801 at the lowest in the probe for
+    // M = 1.5 and 2.5), along those at 1.03, 1.06 and 1.1 times it it is under 0.1 (0.055 at the highest, the grain), and for M of 1 and more the points ahead of the source (x from 0.1 to 1.2, 2090 points per variant) are under 0.1 too (0.055).
+    for (const index of [3, 4, 5]) {
+      const [mach] = p.variants[index],
+        sample = createSurfaceSampler('machcone', seeds[index]),
+        out = empty();
+      if (mach > 1) {
+        const slope = 1 / Math.sqrt(mach * mach - 1),
+          rayMaximum = (fraction: number): number => {
+            let highest = 0;
+            for (let r = 0.3; r <= 3.5; r += 0.002)
+              if (insidePlot(-r, fraction * slope * r))
+                highest = Math.max(
+                  highest,
+                  colourAtPoint(sample, out, -r, fraction * slope * r),
+                );
+            return highest;
+          };
+        for (const fraction of [0.9, 0.95])
+          expect(rayMaximum(fraction)).toBeGreaterThan(0.6);
+        for (const fraction of [1.03, 1.06, 1.1])
+          expect(rayMaximum(fraction)).toBeLessThan(0.1);
+      }
+      let counted = 0;
+      for (let x = 0.1; x <= 1.2; x += 0.02)
+        for (let y = -1.9; y <= 1.9; y += 0.1) {
+          if (!insidePlot(x, y)) continue;
+          expect(colourAtPoint(sample, out, x, y)).toBeLessThan(0.1);
+          counted++;
+        }
+      expect(counted).toBeGreaterThan(1500);
+    }
+  });
+  it('is mirror symmetric about the track', () => {
+    // The pattern is the same on both sides of the track, so the colour at (x, y) and (x, -y) differs by under 0.05 (0.0282 at the most in the probe, the grain; 3822 pairs per variant).
+    seeds.forEach((seed) => {
+      const sample = createSurfaceSampler('machcone', seed),
+        out = empty();
+      let pairs = 0;
+      for (let i = 0; i < 100; i++)
+        for (let j = 0; j < 40; j++) {
+          const x = -2.7 + (3.9 * (i + 0.37)) / 100,
+            y = 0.02 + (1.96 * (j + 0.61)) / 40;
+          if (!insidePlot(x, y) || !insidePlot(x, -y)) continue;
+          expect(
+            Math.abs(
+              colourAtPoint(sample, out, x, y) -
+                colourAtPoint(sample, out, x, -y),
+            ),
+          ).toBeLessThan(0.05);
+          pairs++;
+        }
+      expect(pairs).toBeGreaterThan(3000);
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 2 pick different speeds (Mach 0.8 and 0.5).
+    const first = litGrid(0),
+      second = litGrid(2);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.1319);
+    expect(different / first.length).toBeLessThan(0.1321);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('machcone', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 lime wave maps with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('machcone', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(34.3);
+    expect(red / (512 * 512)).toBeLessThan(35.4);
+    expect(green / (512 * 512)).toBeGreaterThan(38.5);
+    expect(green / (512 * 512)).toBeLessThan(39.6);
+    expect(blue / (512 * 512)).toBeGreaterThan(16.6);
+    expect(blue / (512 * 512)).toBeLessThan(17.7);
+    expect(maxTilt).toBeGreaterThan(0.0439);
+    expect(maxTilt).toBeLessThan(0.045);
     expect(invalid).toBe(0);
   });
 });

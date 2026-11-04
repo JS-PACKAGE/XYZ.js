@@ -50555,6 +50555,80 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'machcone': {
+        const p = proceduralMaterialPresets.machcone,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          [mach, period] =
+            p.variants[
+              Math.floor(hash(0, 91, seed ^ p.seedSalt) * p.variants.length)
+            ],
+          inverseSoft = 1 / p.edgeSoft,
+          quadratic = mach * mach - 1;
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            tu = (fu - p.margin) / (1 - 2 * p.margin),
+            tv = (fv - p.margin) / (1 - 2 * p.margin),
+            x = p.span * (tu - p.sourceAt),
+            y = p.span * (0.5 - tv),
+            squared = x * x + y * y,
+            // The pulse emitted s ago reaches (x, y) when the source's old place (-M s, 0) is s away: (M^2 - 1) s^2 + 2 M x s + x^2 + y^2 = 0, whose roots are s = (x^2 + y^2) / (-M x -+ sqrt(x^2 - (M^2 - 1) y^2)).
+            discriminant = x * x - quadratic * y * y;
+          let ink = 0;
+          if (discriminant >= 0 && squared > 1e-12) {
+            const root = Math.sqrt(discriminant),
+              // The wake of a source faster than the waves is the cone where the discriminant is not negative; it fades out across the edge.
+              taper =
+                mach > 1
+                  ? smooth(clamp(discriminant / squared / p.coneSoft))
+                  : 1;
+            let ridges = 0;
+            for (const denominator of [-mach * x - root, -mach * x + root]) {
+              if (denominator <= 1e-12) continue;
+              const time = squared / denominator,
+                ridge =
+                  ((1 + Math.cos((TAU * time) / period)) / 2) ** p.crestPower,
+                // The crests are period / |grad s| apart in space (|grad s| = hypot(M s + x, y) / sqrt(discriminant)): where they come closer than crestSpacingOff (the dense lines beside the source at the Mach number 1) they fade out, to avoid the moire.
+                spacing = (period * root) / Math.hypot(mach * time + x, y),
+                crowding = smooth(
+                  clamp(
+                    (spacing - p.crestSpacingOff) /
+                      (p.crestSpacingFull - p.crestSpacingOff),
+                  ),
+                ),
+                weight = Math.exp(-time / p.decayLength) * crowding;
+              ridges = 1 - (1 - ridges) * (1 - weight * ridge);
+            }
+            ink = taper * ridges;
+          }
+          const source = clamp(1 - squared / (p.sourceRadius * p.sourceRadius));
+          ink = Math.max(ink, source * source);
+          const outsideX = Math.max(p.margin - fu, fu - (1 - p.margin)),
+            outsideY = Math.max(p.margin - fv, fv - (1 - p.margin)),
+            boxDistance =
+              Math.hypot(Math.max(outsideX, 0), Math.max(outsideY, 0)) +
+              Math.min(Math.max(outsideX, outsideY), 0);
+          ink = clamp(smooth(clamp(-boxDistance / p.fade)) * ink);
+          const mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+              clamp(ink) *
+              (1 - p.toneHeight + p.toneHeight * ink) +
+            p.grainHeight * grain;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -59470,6 +59544,7 @@ export function createSurfaceSampler(
     kind === 'jacobielliptic' ||
     kind === 'hofstadterbutterfly' ||
     kind === 'raindropoptics' ||
+    kind === 'machcone' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
