@@ -198,6 +198,7 @@ export class BakeBVH {
         lo = Math.max(lo, Math.min(a, c));
         hi = Math.min(hi, Math.max(a, c));
       }
+      if (hi < lo) continue;
       if (flat1) {
         if (o1 < bounds[b + 1] || o1 > bounds[b + 4]) hi = -1;
       } else {
@@ -206,6 +207,7 @@ export class BakeBVH {
         lo = Math.max(lo, Math.min(a, c));
         hi = Math.min(hi, Math.max(a, c));
       }
+      if (hi < lo) continue;
       if (flat2) {
         if (o2 < bounds[b + 2] || o2 > bounds[b + 5]) hi = -1;
       } else {
