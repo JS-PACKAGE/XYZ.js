@@ -472,20 +472,31 @@ export class GameObject extends SceneObject {
       (this.bounds ??= { x: 0, y: 0, width: 0, height: 0 }),
     );
     const matrix = this.updateWorldMatrix().elements;
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = -Infinity,
-      maxY = -Infinity;
-    for (let corner = 0; corner < 4; corner++) {
-      const x = bounds.x + (corner & 1 ? bounds.width : 0);
-      const y = bounds.y + (corner & 2 ? bounds.height : 0);
-      const px = matrix[0] * x + matrix[3] * y + matrix[6];
-      const py = matrix[1] * x + matrix[4] * y + matrix[7];
-      minX = Math.min(minX, px);
-      minY = Math.min(minY, py);
-      maxX = Math.max(maxX, px);
-      maxY = Math.max(maxY, py);
-    }
+    // Preserve the corner expressions and their order while sharing the affine products.
+    const x0 = bounds.x + 0,
+      x1 = bounds.x + bounds.width,
+      y0 = bounds.y + 0,
+      y1 = bounds.y + bounds.height;
+    const ax0 = matrix[0] * x0,
+      ax1 = matrix[0] * x1,
+      cy0 = matrix[3] * y0,
+      cy1 = matrix[3] * y1,
+      bx0 = matrix[1] * x0,
+      bx1 = matrix[1] * x1,
+      dy0 = matrix[4] * y0,
+      dy1 = matrix[4] * y1;
+    const px0 = ax0 + cy0 + matrix[6],
+      px1 = ax1 + cy0 + matrix[6],
+      px2 = ax0 + cy1 + matrix[6],
+      px3 = ax1 + cy1 + matrix[6],
+      py0 = bx0 + dy0 + matrix[7],
+      py1 = bx1 + dy0 + matrix[7],
+      py2 = bx0 + dy1 + matrix[7],
+      py3 = bx1 + dy1 + matrix[7];
+    const minX = Math.min(px0, px1, px2, px3),
+      minY = Math.min(py0, py1, py2, py3),
+      maxX = Math.max(px0, px1, px2, px3),
+      maxY = Math.max(py0, py1, py2, py3);
     out.x = minX;
     out.y = minY;
     out.width = maxX - minX;
