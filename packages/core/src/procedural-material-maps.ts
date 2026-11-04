@@ -54597,6 +54597,100 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'booleanfunctions': {
+        const p = proceduralMaterialPresets.booleanfunctions,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.variables.length,
+          group = Math.floor(unsigned / p.variables.length),
+          variables: number = p.variables[variant],
+          kind: number = p.kinds[variant],
+          width: number = p.widths[variant],
+          height0: number = p.heights[variant],
+          cols = p.cols[variant],
+          rows = p.rows[variant],
+          inputs = 1 << variables,
+          // Every function of the kind as its truth table (the value for every one of the inputs), found input after input: a monotone function takes a value that is at least that of every input it has one bit less than, and a self-dual one takes at the inputs that are the opposites of each other opposite values.
+          panels = (() => {
+            const found: Uint8Array[] = [],
+              table = new Uint8Array(inputs),
+              fill = (input: number): void => {
+                if (input === inputs) {
+                  found.push(table.slice());
+                  return;
+                }
+                for (let value = 0; value <= 1; value++) {
+                  if (kind === 1) {
+                    let ok = true;
+                    for (let bit = 0; bit < variables; bit++)
+                      if (
+                        (input >> bit) & 1 &&
+                        table[input & ~(1 << bit)] > value
+                      )
+                        ok = false;
+                    if (!ok) continue;
+                  }
+                  if (kind === 2) {
+                    const opposite = input ^ (inputs - 1);
+                    if (opposite < input && table[opposite] === value) continue;
+                  }
+                  table[input] = value;
+                  fill(input + 1);
+                }
+              };
+            fill(0);
+            for (let k = found.length - 1; k > 0; k--) {
+              const other = Math.floor(
+                hash(k, 321, group ^ p.seedSalt) * (k + 1),
+              );
+              [found[k], found[other]] = [found[other], found[k]];
+            }
+            return found;
+          })(),
+          scale = Math.min(
+            1 / (cols * (width + 2 * p.margin)),
+            1 / (rows * (height0 + 2 * p.margin)),
+          ),
+          originX = (1 / cols - scale * (width + 2 * p.margin)) / 2,
+          originY = (1 / rows - scale * (height0 + 2 * p.margin)) / 2,
+          halfGap = p.gapWidth / 2,
+          // 1 on the cell side of a gap, 0 at the edge itself, at the distance fromEdge in cells.
+          edge = (fromEdge: number): number =>
+            smooth(clamp((fromEdge - halfGap) / p.edgeSoft));
+        return () => {
+          const tileU = fract(u),
+            tileV = fract(v),
+            col = Math.min(cols - 1, Math.floor(tileU * cols)),
+            row = Math.min(rows - 1, Math.floor(tileV * rows)),
+            index = row * cols + col,
+            grain = grainField(u, v);
+          let mask = 0,
+            lit = 0;
+          if (index < panels.length) {
+            const x = (tileU - col / cols - originX) / scale - p.margin,
+              y = (tileV - row / rows - originY) / scale - p.margin,
+              i = Math.floor(x),
+              j = Math.floor(y);
+            if (i >= 0 && j >= 0 && i < width && j < height0) {
+              const fx = x - i,
+                fy = y - j;
+              mask = edge(fx) * edge(1 - fx) * edge(fy) * edge(1 - fy);
+              lit = panels[index][j * width + i];
+            }
+          }
+          color =
+            p.toneGround * (1 - mask) +
+            p.tones[lit] * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * p.levels[lit];
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -63550,6 +63644,7 @@ export function createSurfaceSampler(
     kind === 'rootedtrees' ||
     kind === 'dominoboards' ||
     kind === 'latinsquares' ||
+    kind === 'booleanfunctions' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

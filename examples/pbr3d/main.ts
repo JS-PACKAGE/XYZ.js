@@ -1215,6 +1215,7 @@ try {
     'rootedtrees',
     'dominoboards',
     'latinsquares',
+    'booleanfunctions',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

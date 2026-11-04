@@ -1178,6 +1178,7 @@ const kinds: ProceduralMaterialKind[] = [
   'rootedtrees',
   'dominoboards',
   'latinsquares',
+  'booleanfunctions',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -206025,6 +206026,348 @@ describe('Latin squares as every square of a kind drawn once', () => {
     expect(blue / (512 * 512)).toBeLessThan(68.2);
     expect(maxTilt).toBeGreaterThan(0.0262);
     expect(maxTilt).toBeLessThan(0.0263);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Boolean functions as every truth table of a kind drawn once', () => {
+  const p = proceduralMaterialPresets.booleanfunctions;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The layout of the panels of a variant (seed % 6): slots of 1 / cols by 1 / rows, each with the truth table (width by height cells, at its top left) and the margin around it, drawn at one scale and centred in the slot. */
+  const geometry = (seed: number) => {
+    const variant = seed % p.variables.length,
+      width: number = p.widths[variant],
+      height: number = p.heights[variant],
+      cols: number = p.cols[variant],
+      rows: number = p.rows[variant],
+      scale = Math.min(
+        1 / (cols * (width + 2 * p.margin)),
+        1 / (rows * (height + 2 * p.margin)),
+      );
+    return {
+      variables: p.variables[variant] as number,
+      kind: p.kinds[variant] as number,
+      width,
+      height,
+      cols,
+      rows,
+      scale,
+      originX: (1 / cols - scale * (width + 2 * p.margin)) / 2,
+      originY: (1 / rows - scale * (height + 2 * p.margin)) / 2,
+    };
+  };
+  type Geometry = ReturnType<typeof geometry>;
+  /** The truth table of every panel slot of a seed read back from the picture (null for an empty slot): the value of the cell k is 1 where the height at its middle is that of a lit cell and 0 where it is that of an unlit one. */
+  const readFunctions = (seed: number): number[][] | null[] => {
+    const g = geometry(seed),
+      sample = createSurfaceSampler('booleanfunctions', seed),
+      out = empty(),
+      tables: (number[] | null)[] = [];
+    for (let slot = 0; slot < g.cols * g.rows; slot++) {
+      const col = slot % g.cols,
+        row = Math.floor(slot / g.cols),
+        bits: number[] = [];
+      let blank = 0;
+      for (let j = 0; j < g.height; j++)
+        for (let i = 0; i < g.width; i++) {
+          sample(
+            col / g.cols + g.originX + g.scale * (p.margin + i + 0.5),
+            row / g.rows + g.originY + g.scale * (p.margin + j + 0.5),
+            out,
+          );
+          const level = out.height / p.relief / p.cellHeight;
+          // An empty slot shows the ground at every cell.
+          if (level === 0) {
+            blank++;
+            continue;
+          }
+          const lit = Math.abs(level - p.levels[1]) < 1e-9;
+          expect(lit || Math.abs(level - p.levels[0]) < 1e-9).toBe(true);
+          bits.push(Number(lit));
+        }
+      expect(blank === 0 || blank === g.width * g.height).toBe(true);
+      tables.push(blank > 0 ? null : bits);
+    }
+    return tables as number[][] | null[];
+  };
+  /** Whether a function (its table, the value for the input k at the place k) is of the kind, from the definitions: monotone when no input with more bits set gives less, self-dual when the opposite inputs give opposite values. */
+  const isOfKind = (g: Geometry, table: number[]): boolean => {
+    const inputs = 1 << g.variables;
+    if (g.kind === 1)
+      for (let x = 0; x < inputs; x++)
+        for (let y = 0; y < inputs; y++)
+          if ((x & y) === x && table[x] > table[y]) return false;
+    if (g.kind === 2)
+      for (let x = 0; x < inputs; x++)
+        if (table[inputs - 1 - x] !== 1 - table[x]) return false;
+    return true;
+  };
+  /** Every function of the kind by going through all the 2^(2^n) tables and testing each. */
+  const allFunctions = (g: Geometry): string[] => {
+    const inputs = 1 << g.variables,
+      found: string[] = [];
+    for (let code = 0; code < 2 ** inputs; code++) {
+      const table = Array.from(
+        { length: inputs },
+        (_, k) => Math.floor(code / 2 ** k) % 2,
+      );
+      if (isOfKind(g, table)) found.push(table.join(''));
+    }
+    return found;
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('booleanfunctions', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { high: 0.9642, lit: 0.12378, mean: 0.16891 }],
+      [1, { high: 0.9635, lit: 0.0733, mean: 0.11133 }],
+      [0xffffffff, { high: 0.9641, lit: 0.11719, mean: 0.15484 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('booleanfunctions', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0152);
+      expect(low).toBeLessThan(0.0156);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws every Boolean function of the kind exactly once, read back from the picture and compared with all the tables tested by the definitions', () => {
+    for (let seed = 0; seed < 12; seed++) {
+      const g = geometry(seed),
+        read = readFunctions(seed),
+        drawn = (read as (number[] | null)[]).filter(
+          (table): table is number[] => table !== null,
+        ),
+        names = drawn.map((table) => table.join(''));
+      for (const table of drawn) expect(isOfKind(g, table)).toBe(true);
+      expect(new Set(names).size).toBe(drawn.length);
+      expect([...names].sort()).toEqual(allFunctions(g).sort());
+      expect(
+        (read as (number[] | null)[])
+          .slice(drawn.length)
+          .every((table) => table === null),
+      ).toBe(true);
+    }
+    // The numbers: 16 functions of 2 variables and 256 of 3, 20 monotone of 3 variables and 168 of 4 (the Dedekind numbers), 16 self-dual of 3 variables and 256 of 4 (2 to the power 2^(n - 1)).
+    expect(
+      [0, 1, 2, 3, 4, 5].map(
+        (seed) =>
+          (readFunctions(seed) as (number[] | null)[]).filter(
+            (table) => table !== null,
+          ).length,
+      ),
+    ).toEqual([16, 20, 16, 256, 168, 256]);
+  });
+  it('shuffles the panels by group without changing the set of functions', () => {
+    for (const seed of [1, 2, 4]) {
+      const names = (s: number) =>
+          (readFunctions(s) as (number[] | null)[]).map((table) =>
+            table === null ? '-' : table.join(''),
+          ),
+        first = names(seed),
+        second = names(seed + 6),
+        third = names(seed + 12);
+      expect(first).not.toEqual(second);
+      expect(second).not.toEqual(third);
+      expect([...first].sort()).toEqual([...second].sort());
+      expect([...first].sort()).toEqual([...third].sort());
+    }
+  });
+  it('agrees with the ideal cells and gaps away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5]) {
+      const g = geometry(seed),
+        tables = readFunctions(seed) as (number[] | null)[],
+        sample = createSurfaceSampler('booleanfunctions', seed),
+        out = empty(),
+        half = p.gapWidth / 2;
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          col = Math.min(g.cols - 1, Math.floor(u * g.cols)),
+          row = Math.min(g.rows - 1, Math.floor(v * g.rows)),
+          table = tables[row * g.cols + col],
+          x = (u - col / g.cols - g.originX) / g.scale - p.margin,
+          y = (v - row / g.rows - g.originY) / g.scale - p.margin,
+          i = Math.floor(x),
+          j = Math.floor(y);
+        let ink = 0,
+          lit = 0,
+          near = false;
+        if (table !== null && i >= 0 && j >= 0 && i < g.width && j < g.height) {
+          const sides = [x - i, i + 1 - x, y - j, j + 1 - y];
+          if (
+            sides.some(
+              (distance) => distance > half && distance < half + p.edgeSoft,
+            )
+          )
+            near = true;
+          ink = sides.every((distance) => distance > half) ? 1 : 0;
+          lit = table[j * g.width + i];
+        }
+        if (near) continue;
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief * p.cellHeight * ink * p.levels[lit],
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + p.tones[lit] * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(4400);
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeGreaterThan(0.1733);
+    expect(unlike(first, litGrid(1))).toBeLessThan(0.1734);
+    expect(unlike(first, litGrid(6))).toBeGreaterThan(0.1239);
+    expect(unlike(first, litGrid(6))).toBeLessThan(0.124);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('booleanfunctions', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 mint truth table maps on dark green with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('booleanfunctions', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(21);
+    expect(red / (512 * 512)).toBeLessThan(21.8);
+    expect(green / (512 * 512)).toBeGreaterThan(50.7);
+    expect(green / (512 * 512)).toBeLessThan(51.6);
+    expect(blue / (512 * 512)).toBeGreaterThan(41.1);
+    expect(blue / (512 * 512)).toBeLessThan(42);
+    expect(maxTilt).toBeGreaterThan(0.0616);
+    expect(maxTilt).toBeLessThan(0.0618);
     expect(invalid).toBe(0);
   });
 });

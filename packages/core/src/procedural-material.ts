@@ -1152,6 +1152,7 @@ export type ProceduralMaterialKind =
   | 'rootedtrees'
   | 'dominoboards'
   | 'latinsquares'
+  | 'booleanfunctions'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2552,6 +2553,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'rootedtrees',
   'dominoboards',
   'latinsquares',
+  'booleanfunctions',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
