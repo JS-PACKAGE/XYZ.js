@@ -1175,6 +1175,7 @@ const kinds: ProceduralMaterialKind[] = [
   'polygondissections',
   'standardtableaux',
   'graphatlas',
+  'rootedtrees',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -204807,6 +204808,428 @@ describe('Graph atlas as every graph of a kind drawn once', () => {
     expect(green / (512 * 512)).toBeLessThan(25.7);
     expect(blue / (512 * 512)).toBeGreaterThan(43.9);
     expect(blue / (512 * 512)).toBeLessThan(44.8);
+    expect(maxTilt).toBeGreaterThan(0.107);
+    expect(maxTilt).toBeLessThan(0.1071);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Rooted trees as every tree of n nodes drawn once', () => {
+  const p = proceduralMaterialPresets.rootedtrees;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The layout of the panels of a variant (seed % 6): slots of 1 / cols by 1 / rows, each with the box of (size - 2) by (size - 1) units (the tree at its top left) and the margin around it, drawn at one scale and centred in the slot. */
+  const geometry = (seed: number) => {
+    const variant = seed % p.sizes.length,
+      size: number = p.sizes[variant],
+      cols: number = p.cols[variant],
+      rows: number = p.rows[variant],
+      width = size - 2,
+      height = size - 1,
+      scale = Math.min(
+        1 / (cols * (width + 2 * p.margin)),
+        1 / (rows * (height + 2 * p.margin)),
+      );
+    return {
+      size,
+      limit: p.maxChildren[variant] as number,
+      cols,
+      rows,
+      width,
+      height,
+      scale,
+      originX: (1 / cols - scale * (width + 2 * p.margin)) / 2,
+      originY: (1 / rows - scale * (height + 2 * p.margin)) / 2,
+    };
+  };
+  type Geometry = ReturnType<typeof geometry>;
+  type Tree = { name: string; children: Tree[] };
+  /** The name of a rooted tree that is the same for every renaming: the names of its subtrees, sorted and put in brackets. */
+  const nameOf = (children: string[]): string =>
+    `(${[...children].sort().join('')})`;
+  /** The tree of every panel slot of a seed read back from the picture (null for an empty slot): the nodes are the lattice points whose dot is seen (the height of a dot is above the middle between a line and a dot), and for each node the half line below it, the bar and the half lines above the children are read at the middles of their unit pieces; the children of a node are the nodes that hang from its bar. */
+  const readTrees = (seed: number): (Tree | null)[] => {
+    const g = geometry(seed),
+      sample = createSurfaceSampler('rootedtrees', seed),
+      out = empty(),
+      trees: (Tree | null)[] = [];
+    for (let slot = 0; slot < g.cols * g.rows; slot++) {
+      const col = slot % g.cols,
+        row = Math.floor(slot / g.cols),
+        heightAt = (x: number, y: number): number => {
+          sample(
+            col / g.cols + g.originX + g.scale * (p.margin + x),
+            row / g.rows + g.originY + g.scale * (p.margin + y),
+            out,
+          );
+          return out.height / p.relief / p.cellHeight;
+        },
+        // A line piece is there when the height at its middle is the height of a line.
+        lineAt = (x: number, y: number): boolean => {
+          const height = heightAt(x, y);
+          expect(height === 0 || Math.abs(height - p.lineHeight) < 1e-9).toBe(
+            true,
+          );
+          return height > 0;
+        },
+        dots = new Map<string, number>();
+      for (let d = 0; d <= g.height; d++)
+        for (let x = 0; x <= g.width; x++) {
+          const height = heightAt(x, d);
+          if (height > (p.lineHeight + p.dotBase) / 2)
+            dots.set(
+              `${x},${d}`,
+              Math.round(((height - p.dotBase) / p.dotSwing) * (g.size - 1)),
+            );
+        }
+      if (!dots.has('0,0')) {
+        expect(dots.size).toBe(0);
+        trees.push(null);
+        continue;
+      }
+      const build = (x: number, d: number): Tree => {
+        const kids: Tree[] = [];
+        // The half line below the node, then the bar to the right as far as it goes.
+        if (lineAt(x, d + 0.25)) {
+          let end = x;
+          while (end < g.width && lineAt(end + 0.5, d + 0.5)) end++;
+          for (let child = x; child <= end; child++)
+            if (lineAt(child, d + 0.75) && dots.has(`${child},${d + 1}`))
+              kids.push(build(child, d + 1));
+        }
+        // The dot of a node says how many children it has.
+        expect(kids.length).toBe(dots.get(`${x},${d}`));
+        return { name: nameOf(kids.map((kid) => kid.name)), children: kids };
+      };
+      const root = build(0, 0),
+        count = (tree: Tree): number =>
+          1 + tree.children.reduce((sum, kid) => sum + count(kid), 0);
+      expect(count(root)).toBe(dots.size);
+      trees.push(root);
+    }
+    return trees;
+  };
+  /** Every rooted tree of n nodes up to renaming, found by trying all lists of parents (the node k has a parent of a smaller number) and taking the distinct names. */
+  const classesOf = (g: Geometry): string[] => {
+    const names = new Set<string>(),
+      parents: number[] = [0];
+    const visit = (k: number): void => {
+      if (k === g.size) {
+        const kids: number[][] = Array.from({ length: g.size }, () => []);
+        for (let node = 1; node < g.size; node++)
+          kids[parents[node]].push(node);
+        if (g.limit > 0 && kids.some((list) => list.length > g.limit)) return;
+        const name = (node: number): string =>
+          nameOf(kids[node].map((kid) => name(kid)));
+        names.add(name(0));
+        return;
+      }
+      for (let parent = 0; parent < k; parent++) {
+        parents[k] = parent;
+        visit(k + 1);
+      }
+    };
+    visit(1);
+    return [...names];
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('rootedtrees', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { high: 0.9633, lit: 0.01143, mean: 0.04725 }],
+      [1, { high: 0.9546, lit: 0.01134, mean: 0.04634 }],
+      [0xffffffff, { high: 0.9403, lit: 0.00674, mean: 0.0402 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('rootedtrees', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0152);
+      expect(low).toBeLessThan(0.0157);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws every rooted tree of the size exactly once, read back from the picture and compared with the classes found again here from lists of parents', () => {
+    for (let seed = 0; seed < 12; seed++) {
+      const g = geometry(seed),
+        read = readTrees(seed),
+        drawn = read.filter((tree): tree is Tree => tree !== null),
+        names = drawn.map((tree) => tree.name),
+        wanted = classesOf(g);
+      expect(new Set(names).size).toBe(drawn.length);
+      expect([...names].sort()).toEqual([...wanted].sort());
+      expect(read.slice(drawn.length).every((tree) => tree === null)).toBe(
+        true,
+      );
+    }
+    // The numbers: 9, 20, 48 and 115 trees of 5, 6, 7 and 8 nodes, and 46 and 98 of 8 and 9 nodes with at most two children to a node.
+    expect(
+      [0, 1, 2, 3, 4, 5].map(
+        (seed) => readTrees(seed).filter((tree) => tree !== null).length,
+      ),
+    ).toEqual([9, 20, 48, 115, 46, 98]);
+  });
+  it('shuffles the panels by group without changing the set of trees', () => {
+    for (const seed of [0, 1, 4]) {
+      const names = (s: number) =>
+          readTrees(s).map((tree) => (tree === null ? '-' : tree.name)),
+        first = names(seed),
+        second = names(seed + 6),
+        third = names(seed + 12);
+      expect(first).not.toEqual(second);
+      expect(second).not.toEqual(third);
+      expect([...first].sort()).toEqual([...second].sort());
+      expect([...first].sort()).toEqual([...third].sort());
+    }
+  });
+  it('agrees with the ideal lines and dots away from their borders: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5]) {
+      const g = geometry(seed),
+        sample = createSurfaceSampler('rootedtrees', seed),
+        out = empty();
+      // The tree of every slot is read again from the picture as pieces: the dots (with their numbers of children) and the unit pieces of line.
+      const slots: ({
+        dots: number[][];
+        pieces: number[][];
+      } | null)[] = [];
+      for (let slot = 0; slot < g.cols * g.rows; slot++) {
+        const col = slot % g.cols,
+          row = Math.floor(slot / g.cols),
+          heightAt = (x: number, y: number): number => {
+            sample(
+              col / g.cols + g.originX + g.scale * (p.margin + x),
+              row / g.rows + g.originY + g.scale * (p.margin + y),
+              out,
+            );
+            return out.height / p.relief / p.cellHeight;
+          },
+          dots: number[][] = [],
+          pieces: number[][] = [];
+        for (let d = 0; d <= g.height; d++)
+          for (let x = 0; x <= g.width; x++) {
+            const height = heightAt(x, d);
+            if (height > (p.lineHeight + p.dotBase) / 2)
+              dots.push([
+                x,
+                d,
+                Math.round(((height - p.dotBase) / p.dotSwing) * (g.size - 1)),
+              ]);
+            if (d < g.height) {
+              if (heightAt(x, d + 0.25) > 0) pieces.push([x, d, x, d + 0.5]);
+              if (heightAt(x, d + 0.75) > 0)
+                pieces.push([x, d + 0.5, x, d + 1]);
+              if (x < g.width && heightAt(x + 0.5, d + 0.5) > 0)
+                pieces.push([x, d + 0.5, x + 1, d + 0.5]);
+            }
+          }
+        slots.push(dots.length === 0 ? null : { dots, pieces });
+      }
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          col = Math.min(g.cols - 1, Math.floor(u * g.cols)),
+          row = Math.min(g.rows - 1, Math.floor(v * g.rows)),
+          slotData = slots[row * g.cols + col],
+          x = (u - col / g.cols - g.originX) / g.scale - p.margin,
+          y = (v - row / g.rows - g.originY) / g.scale - p.margin;
+        let dot: number[] | null = null,
+          line = false,
+          near = false;
+        if (slotData !== null) {
+          for (const [nx, ny, children] of slotData.dots) {
+            const distance = Math.hypot(x - nx, y - ny);
+            if (Math.abs(distance - p.dotRadius) <= p.edgeSoft / 2 + 1e-9)
+              near = true;
+            if (distance < p.dotRadius) dot = [nx, ny, children];
+          }
+          for (const [ax, ay, bx, by] of slotData.pieces) {
+            const dx = bx - ax,
+              dy = by - ay,
+              along = Math.max(
+                0,
+                Math.min(
+                  1,
+                  ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy),
+                ),
+              ),
+              distance = Math.hypot(x - ax - along * dx, y - ay - along * dy);
+            if (Math.abs(distance - p.lineHalf) <= p.edgeSoft / 2 + 1e-9)
+              near = true;
+            if (distance < p.lineHalf) line = true;
+          }
+        }
+        if (near) continue;
+        compared++;
+        // A dot is over the lines.
+        const fraction = dot === null ? 0 : dot[2] / (g.size - 1),
+          ink = dot !== null || line ? 1 : 0,
+          tone =
+            dot !== null
+              ? p.dotToneMin + (p.dotToneMax - p.dotToneMin) * fraction
+              : line
+                ? p.toneLine
+                : 0,
+          level =
+            dot !== null
+              ? p.dotBase + p.dotSwing * fraction
+              : line
+                ? p.lineHeight
+                : 0;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(p.relief * p.cellHeight * level, 12);
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(5700);
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeGreaterThan(0.0226);
+    expect(unlike(first, litGrid(1))).toBeLessThan(0.0228);
+    expect(unlike(first, litGrid(6))).toBeGreaterThan(0.0189);
+    expect(unlike(first, litGrid(6))).toBeLessThan(0.019);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('rootedtrees', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 lime tree maps on dark green with raised lines and dots', () => {
+    const maps = generateProceduralMaps('rootedtrees', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(18);
+    expect(red / (512 * 512)).toBeLessThan(18.8);
+    expect(green / (512 * 512)).toBeGreaterThan(34.4);
+    expect(green / (512 * 512)).toBeLessThan(35.3);
+    expect(blue / (512 * 512)).toBeGreaterThan(19.4);
+    expect(blue / (512 * 512)).toBeLessThan(20.3);
     expect(maxTilt).toBeGreaterThan(0.107);
     expect(maxTilt).toBeLessThan(0.1071);
     expect(invalid).toBe(0);

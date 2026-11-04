@@ -54229,6 +54229,168 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'rootedtrees': {
+        const p = proceduralMaterialPresets.rootedtrees,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.sizes.length,
+          group = Math.floor(unsigned / p.sizes.length),
+          size: number = p.sizes[variant],
+          limit: number = p.maxChildren[variant],
+          cols = p.cols[variant],
+          rows = p.rows[variant],
+          // Every rooted tree up to renaming of every size to size, by size: a tree is the list of its subtrees, and the subtrees of a tree are taken in the order of their size and then of their place in the list of that size, never going back, so that no tree is made twice.
+          bySize = (() => {
+            const lists: { children: number[][] }[][] = [
+              [],
+              [{ children: [] }],
+            ];
+            type Entry = { size: number; index: number };
+            for (let n = 2; n <= size; n++) {
+              const found: { children: number[][] }[] = [],
+                chosen: Entry[] = [],
+                choose = (left: number, minSize: number, minIndex: number) => {
+                  if (left === 0) {
+                    if (limit === 0 || chosen.length <= limit)
+                      found.push({
+                        children: chosen.map(({ size: s, index }) => [
+                          s,
+                          index,
+                        ]),
+                      });
+                    return;
+                  }
+                  for (let s = minSize; s <= left; s++)
+                    for (
+                      let i = s === minSize ? minIndex : 0;
+                      i < lists[s].length;
+                      i++
+                    ) {
+                      chosen.push({ size: s, index: i });
+                      choose(left - s, s, i);
+                      chosen.pop();
+                    }
+                };
+              choose(n - 1, 1, 0);
+              lists[n] = found;
+            }
+            return lists;
+          })(),
+          // The drawing of every tree of size nodes: its nodes as [x, depth, number of children] and its line segments, the leaves one unit apart from left to right and a node above its first child, the children hanging from a bar half a unit below the node.
+          panels = (() => {
+            const trees = bySize[size].slice();
+            for (let k = trees.length - 1; k > 0; k--) {
+              const other = Math.floor(
+                hash(k, 291, group ^ p.seedSalt) * (k + 1),
+              );
+              [trees[k], trees[other]] = [trees[other], trees[k]];
+            }
+            return trees.map((tree) => {
+              const nodes: number[][] = [],
+                segments: number[][] = [];
+              let leaf = 0;
+              const lay = (
+                node: { children: number[][] },
+                depth: number,
+              ): number => {
+                if (node.children.length === 0) {
+                  nodes.push([leaf, depth, 0]);
+                  return leaf++;
+                }
+                const xs = node.children.map(([s, i]) =>
+                    lay(bySize[s][i], depth + 1),
+                  ),
+                  x = xs[0];
+                nodes.push([x, depth, node.children.length]);
+                segments.push([x, depth, x, depth + 0.5]);
+                if (xs.length > 1)
+                  segments.push([
+                    xs[0],
+                    depth + 0.5,
+                    xs[xs.length - 1],
+                    depth + 0.5,
+                  ]);
+                for (const child of xs)
+                  segments.push([child, depth + 0.5, child, depth + 1]);
+                return x;
+              };
+              lay(tree, 0);
+              return { nodes, segments };
+            });
+          })(),
+          width = size - 2,
+          height0 = size - 1,
+          scale = Math.min(
+            1 / (cols * (width + 2 * p.margin)),
+            1 / (rows * (height0 + 2 * p.margin)),
+          ),
+          originX = (1 / cols - scale * (width + 2 * p.margin)) / 2,
+          originY = (1 / rows - scale * (height0 + 2 * p.margin)) / 2,
+          // 1 inside the distance half, 0 outside, 1/2 at half, smoothed over edgeSoft.
+          band = (distance: number, half: number): number =>
+            smooth(clamp((half - distance) / p.edgeSoft + 0.5));
+        return () => {
+          const tileU = fract(u),
+            tileV = fract(v),
+            col = Math.min(cols - 1, Math.floor(tileU * cols)),
+            row = Math.min(rows - 1, Math.floor(tileV * rows)),
+            index = row * cols + col,
+            grain = grainField(u, v);
+          let free = 1,
+            toneSum = 0,
+            heightSum = 0;
+          if (index < panels.length) {
+            const x = (tileU - col / cols - originX) / scale - p.margin,
+              y = (tileV - row / rows - originY) / scale - p.margin,
+              { nodes, segments } = panels[index];
+            // The lines below, then the dots over them.
+            let lineFree = 1;
+            for (const [ax, ay, bx, by] of segments) {
+              const dx = bx - ax,
+                dy = by - ay,
+                along = Math.max(
+                  0,
+                  Math.min(
+                    1,
+                    ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy),
+                  ),
+                );
+              lineFree *=
+                1 -
+                band(
+                  Math.hypot(x - ax - along * dx, y - ay - along * dy),
+                  p.lineHalf,
+                );
+            }
+            let dotFree = 1,
+              dotTone = 0,
+              dotHeight = 0;
+            for (const [nx, ny, children] of nodes) {
+              const mask = band(Math.hypot(x - nx, y - ny), p.dotRadius);
+              if (mask === 0) continue;
+              const fraction = children / (size - 1);
+              dotFree *= 1 - mask;
+              dotTone +=
+                mask *
+                (p.dotToneMin + (p.dotToneMax - p.dotToneMin) * fraction);
+              dotHeight += mask * (p.dotBase + p.dotSwing * fraction);
+            }
+            const lineMask = 1 - lineFree;
+            toneSum = dotTone + dotFree * lineMask * p.toneLine;
+            heightSum = dotHeight + dotFree * lineMask * p.lineHeight;
+            free = dotFree * lineFree;
+          }
+          const ink = 1 - free;
+          color = p.toneGround * free + toneSum + p.grainTone * (grain - 0.5);
+          height = p.cellHeight * heightSum;
+          occlusion = 1 - p.gapOcclusion * (1 - ink);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -63179,6 +63341,7 @@ export function createSurfaceSampler(
     kind === 'polygondissections' ||
     kind === 'standardtableaux' ||
     kind === 'graphatlas' ||
+    kind === 'rootedtrees' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

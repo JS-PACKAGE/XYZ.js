@@ -1212,6 +1212,7 @@ try {
     'polygondissections',
     'standardtableaux',
     'graphatlas',
+    'rootedtrees',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
