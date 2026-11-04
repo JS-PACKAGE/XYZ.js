@@ -42,6 +42,8 @@ interface TileSlot {
   /** Culling cell holding this slot (see `cullCells`) and its position there. */
   cell?: TileSlot[];
   cellAt: number;
+  /** Avoids looking up the same cell again when only the viewport moves. */
+  cellKey: number;
 }
 /** Tiles per culling cell side: a viewport spans a handful of cells, a cell many tiles. */
 const cullCellTiles = 8;
@@ -224,6 +226,7 @@ export class TileMap extends Group2D {
       tile: previous,
       insertion: -1,
       cellAt: -1,
+      cellKey: NaN,
     };
     const oldSprite = slot.sprite;
     const oldOwner = slot.colliderOwner;
@@ -630,19 +633,22 @@ export class TileMap extends Group2D {
       Math.floor(x / (this.tileWidth * cullCellTiles)),
       Math.floor(y / (this.tileHeight * cullCellTiles)),
     );
-    let cell = this.cullCells.get(key);
-    if (slot.cell !== cell || !cell) {
-      const previous = slot.cell;
-      if (previous) {
-        // Swap-remove; the moved slot takes this one's position.
-        const moved = previous[previous.length - 1]!;
-        previous[slot.cellAt] = moved;
-        moved.cellAt = slot.cellAt;
-        previous.pop();
+    if (slot.cellKey !== key) {
+      let cell = this.cullCells.get(key);
+      if (slot.cell !== cell || !cell) {
+        const previous = slot.cell;
+        if (previous) {
+          // Swap-remove; the moved slot takes this one's position.
+          const moved = previous[previous.length - 1]!;
+          previous[slot.cellAt] = moved;
+          moved.cellAt = slot.cellAt;
+          previous.pop();
+        }
+        if (!cell) this.cullCells.set(key, (cell = []));
+        slot.cell = cell;
+        slot.cellAt = cell.push(slot) - 1;
       }
-      if (!cell) this.cullCells.set(key, (cell = []));
-      slot.cell = cell;
-      slot.cellAt = cell.push(slot) - 1;
+      slot.cellKey = key;
     }
     // Sprite.visible is honored by rendering/picking themselves; leaving it out keeps
     // skipped unchanged-viewport passes exact when a tile sprite is shown again.
