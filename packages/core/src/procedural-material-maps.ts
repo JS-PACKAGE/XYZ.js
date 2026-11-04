@@ -145,14 +145,22 @@ function grayScott(
           v[i] = 0.5;
         }
     }
+  // Wrapped neighbour columns and the summed decay rate are loop invariants.
+  const lefts = new Int32Array(size),
+    rights = new Int32Array(size),
+    feedKill = feed + kill;
+  for (let x = 0; x < size; x++) {
+    lefts[x] = (x + size - 1) % size;
+    rights[x] = (x + 1) % size;
+  }
   for (let step = 0; step < steps; step++) {
     for (let y = 0; y < size; y++) {
       const above = ((y + size - 1) % size) * size,
         row = y * size,
         below = ((y + 1) % size) * size;
       for (let x = 0; x < size; x++) {
-        const left = (x + size - 1) % size,
-          right = (x + 1) % size,
+        const left = lefts[x],
+          right = rights[x],
           i = row + x,
           cu = u[i],
           cv = v[i],
@@ -176,11 +184,15 @@ function grayScott(
               v[row + right] -
               4 * cv) +
           reaction -
-          (feed + kill) * cv;
+          feedKill * cv;
       }
     }
-    [u, nextU] = [nextU, u];
-    [v, nextV] = [nextV, v];
+    const swapU = u,
+      swapV = v;
+    u = nextU;
+    v = nextV;
+    nextU = swapU;
+    nextV = swapV;
   }
   let low = Infinity,
     high = -Infinity;
