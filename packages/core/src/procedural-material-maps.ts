@@ -40048,14 +40048,20 @@ export function createSurfaceSampler(
             alive[y * size + x] = Number(
               hash(x, y, seed ^ (p.seedSalt + 1)) < p.density,
             );
+        const lefts = new Int32Array(size),
+          rights = new Int32Array(size);
+        for (let x = 0; x < size; x++) {
+          lefts[x] = (x + size - 1) % size;
+          rights[x] = (x + 1) % size;
+        }
         for (let generation = 0; generation < p.generations; generation++) {
           for (let y = 0; y < size; y++) {
             const above = ((y + size - 1) % size) * size,
               row = y * size,
               below = ((y + 1) % size) * size;
             for (let x = 0; x < size; x++) {
-              const left = (x + size - 1) % size,
-                right = (x + 1) % size,
+              const left = lefts[x],
+                right = rights[x],
                 neighbours =
                   alive[above + left] +
                   alive[above + x] +
@@ -40065,9 +40071,10 @@ export function createSurfaceSampler(
                   alive[below + left] +
                   alive[below + x] +
                   alive[below + right];
-              next[row + x] = Number(
-                neighbours === 3 || (neighbours === 2 && alive[row + x] === 1),
-              );
+              next[row + x] =
+                neighbours === 3 || (neighbours === 2 && alive[row + x] === 1)
+                  ? 1
+                  : 0;
             }
           }
           [alive, next] = [next, alive];
