@@ -18357,6 +18357,29 @@ export const proceduralMaterialPresets = Object.freeze({
     heightSwing: 0.4,
     gapOcclusion: 0.45,
   }),
+  trominotiling: Object.freeze({
+    dark: [12, 18, 30] as const,
+    light: [250, 222, 150] as const,
+    roughness: 0.4,
+    relief: 0.0012,
+    seedSalt: 0x4c17,
+    // The classic tiling of a 2^k by 2^k board that lacks one cell with L-shaped trominoes (three cells in an L): the central cells of the three quadrants that do not hold the missing cell form an L and every quadrant is then tiled the same way with its own missing cell (the missing cell of the quadrants without it is the central cell the L has just covered). The seed is split in two: seed % 6 picks the variant and floor(seed / 6) the missing cell and the tones, so seeds 0 to 5 are the six variants of one group. sizes[variant] is the number of cells of the side of the tile; holeCentre[variant] 1 puts the missing cell in one of the four central cells, 0 anywhere.
+    sizes: [8, 16, 32, 8, 16, 32] as const,
+    holeCentre: [0, 0, 0, 1, 1, 1] as const,
+    // Two cells of different trominoes (or the missing cell) are parted by a gap of gapWidth (a fraction of a cell), smoothed over edgeSoft (a fraction of a cell); cells of one tromino join without a seam. The tone of a tromino runs from toneMin to toneMax by a hash.
+    gapWidth: 0.12,
+    edgeSoft: 0.08,
+    grainCells: 128,
+    toneGround: 0.04,
+    toneMin: 0.3,
+    toneMax: 0.95,
+    grainTone: 0.03,
+    cellHeight: 0.8,
+    // The height of a tromino is cellHeight times (heightBase + heightSwing times its hash level from 0 to 1).
+    heightBase: 0.5,
+    heightSwing: 0.5,
+    gapOcclusion: 0.45,
+  }),
   vermiculation: Object.freeze({
     dark: [60, 48, 36] as const,
     light: [220, 204, 172] as const,
@@ -20154,6 +20177,7 @@ export const proceduralTileMeters = Object.freeze({
   excitableautomata: 0.5,
   wireworldcircuits: 0.5,
   celticinterlace: 0.5,
+  trominotiling: 0.5,
   dominotiling: 0.5,
   vermiculation: 0.4,
   kikko: 0.3,

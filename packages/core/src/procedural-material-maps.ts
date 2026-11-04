@@ -52462,6 +52462,128 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'trominotiling': {
+        const p = proceduralMaterialPresets.trominotiling,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          // The seed is split in two: seed % 6 picks the variant and floor(seed / 6) the missing cell and the tones.
+          unsigned = seed >>> 0,
+          variant = unsigned % p.sizes.length,
+          group = Math.floor(unsigned / p.sizes.length),
+          size = p.sizes[variant],
+          // The tromino of every cell (-1 for the missing cell), numbered in the order of the recursion.
+          pieces = (() => {
+            const ids = new Int32Array(size * size).fill(-1),
+              hole = p.holeCentre[variant]
+                ? [
+                    size / 2 -
+                      1 +
+                      (hash(0, 142, group ^ p.seedSalt) < 0.5 ? 0 : 1),
+                    size / 2 -
+                      1 +
+                      (hash(1, 142, group ^ p.seedSalt) < 0.5 ? 0 : 1),
+                  ]
+                : [
+                    Math.floor(hash(0, 142, group ^ p.seedSalt) * size),
+                    Math.floor(hash(1, 142, group ^ p.seedSalt) * size),
+                  ];
+            let next = 0;
+            const place = (
+              x0: number,
+              y0: number,
+              side: number,
+              holeX: number,
+              holeY: number,
+            ): void => {
+              if (side === 2) {
+                const id = next++;
+                for (let dy = 0; dy < 2; dy++)
+                  for (let dx = 0; dx < 2; dx++)
+                    if (x0 + dx !== holeX || y0 + dy !== holeY)
+                      ids[(y0 + dy) * size + x0 + dx] = id;
+                return;
+              }
+              const half = side / 2,
+                middleX = x0 + half,
+                middleY = y0 + half,
+                // The quadrants 0 to 3 are north-west, north-east, south-west, south-east and the cell of each next to the middle is the centre of the board.
+                centres = [
+                  [middleX - 1, middleY - 1],
+                  [middleX, middleY - 1],
+                  [middleX - 1, middleY],
+                  [middleX, middleY],
+                ],
+                holeQuadrant =
+                  (holeY >= middleY ? 2 : 0) + (holeX >= middleX ? 1 : 0),
+                id = next++;
+              centres.forEach(([cx, cy], quadrant) => {
+                if (quadrant !== holeQuadrant) ids[cy * size + cx] = id;
+              });
+              for (let quadrant = 0; quadrant < 4; quadrant++) {
+                const [cx, cy] =
+                  quadrant === holeQuadrant
+                    ? [holeX, holeY]
+                    : centres[quadrant];
+                place(
+                  x0 + (quadrant & 1) * half,
+                  y0 + (quadrant >> 1) * half,
+                  half,
+                  cx,
+                  cy,
+                );
+              }
+            };
+            place(0, 0, size, hole[0], hole[1]);
+            return ids;
+          })(),
+          levels = (() => {
+            const found = new Map<number, number>();
+            for (const id of pieces)
+              if (id >= 0 && !found.has(id))
+                found.set(id, hash(id, 143, group ^ p.seedSalt));
+            return found;
+          })(),
+          halfGap = p.gapWidth / 2,
+          // 1 on the cell side of a gap of one cell edge, 0 at the edge itself, at the distance fromEdge in cells.
+          edge = (fromEdge: number): number =>
+            smooth(clamp((fromEdge - halfGap) / p.edgeSoft));
+        return () => {
+          const x = fract(u) * size,
+            y = fract(v) * size,
+            i = Math.floor(x),
+            j = Math.floor(y),
+            fx = x - i,
+            fy = y - j,
+            id = pieces[j * size + i],
+            grain = grainField(u, v);
+          let mask = 0,
+            level = 0;
+          if (id >= 0) {
+            level = levels.get(id) as number;
+            // A side of the cell has a gap when the cell across it is of another tromino (the torus wraps).
+            const left = pieces[j * size + ((i + size - 1) % size)] !== id,
+              right = pieces[j * size + ((i + 1) % size)] !== id,
+              above = pieces[((j + size - 1) % size) * size + i] !== id,
+              below = pieces[((j + 1) % size) * size + i] !== id;
+            mask =
+              (left ? edge(fx) : 1) *
+              (right ? edge(1 - fx) : 1) *
+              (above ? edge(fy) : 1) *
+              (below ? edge(1 - fy) : 1);
+          }
+          const tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+          color =
+            p.toneGround +
+            (tone - p.toneGround) * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -61397,6 +61519,7 @@ export function createSurfaceSampler(
     kind === 'excitableautomata' ||
     kind === 'wireworldcircuits' ||
     kind === 'celticinterlace' ||
+    kind === 'trominotiling' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

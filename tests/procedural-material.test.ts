@@ -1160,6 +1160,7 @@ const kinds: ProceduralMaterialKind[] = [
   'excitableautomata',
   'wireworldcircuits',
   'celticinterlace',
+  'trominotiling',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -198934,6 +198935,372 @@ describe('Celtic interlace as strands that go over and under on a lattice of cro
     expect(blue / (512 * 512)).toBeLessThan(43.5);
     expect(maxTilt).toBeGreaterThan(0.0572);
     expect(maxTilt).toBeLessThan(0.0573);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Tromino tiling as a board with one cell missing tiled by L-shaped trominoes', () => {
+  const p = proceduralMaterialPresets.trominotiling;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The number of cells on the side of the tile of a seed: seed % 6 picks the variant. */
+  const sizeOf = (seed: number): number => p.sizes[seed % p.sizes.length];
+  /** The ink (the mask of the cell) of the point (x, y) in cells, read back from the sampler: the occlusion is 1 - gapOcclusion times (1 - ink). */
+  const inkAt = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    n: number,
+    x: number,
+    y: number,
+  ): number => {
+    sample(x / n, y / n, out);
+    return 1 - (1 - out.occlusion) / p.gapOcclusion;
+  };
+  /** The tiling of a seed read back from the picture: the missing cell (the one without ink at its middle), the joins between edge-neighbouring cells (ink at the middle of the shared edge), and the trominoes as the groups of joined cells (a label per cell, -1 for the missing cell), plus the joins found along the edges of the tile. */
+  const readTiling = (seed: number) => {
+    const n = sizeOf(seed),
+      sample = createSurfaceSampler('trominotiling', seed),
+      out = empty(),
+      parent = Array.from({ length: n * n }, (_, k) => k),
+      find = (k: number): number =>
+        parent[k] === k ? k : (parent[k] = find(parent[k]));
+    let hole = -1;
+    for (let j = 0; j < n; j++)
+      for (let i = 0; i < n; i++)
+        if (inkAt(sample, out, n, i + 0.5, j + 0.5) < 0.5) {
+          expect(hole).toBe(-1);
+          hole = j * n + i;
+        }
+    for (let j = 0; j < n; j++)
+      for (let i = 0; i < n; i++) {
+        const cell = j * n + i;
+        if (cell === hole) continue;
+        if (
+          i + 1 < n &&
+          cell + 1 !== hole &&
+          inkAt(sample, out, n, i + 1, j + 0.5) > 0.5
+        )
+          parent[find(cell)] = find(cell + 1);
+        if (
+          j + 1 < n &&
+          cell + n !== hole &&
+          inkAt(sample, out, n, i + 0.5, j + 1) > 0.5
+        )
+          parent[find(cell)] = find(cell + n);
+      }
+    // Joins across the edges of the tile (the torus wraps) must not exist.
+    let wrapped = 0;
+    for (let k = 0; k < n; k++)
+      wrapped +=
+        Number(inkAt(sample, out, n, 0, k + 0.5) > 0.5) +
+        Number(inkAt(sample, out, n, k + 0.5, 0) > 0.5);
+    const labels = Array.from({ length: n * n }, (_, k) =>
+      k === hole ? -1 : find(k),
+    );
+    return { n, hole, labels, wrapped };
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('trominotiling', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('trominotiling', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0256);
+      expect(low).toBeLessThan(0.0258);
+      expect(high).toBeGreaterThan(0.924);
+      expect(high).toBeLessThan(0.9546);
+      expect(lit / 65536).toBeGreaterThan(0.4418);
+      expect(lit / 65536).toBeLessThan(0.5707);
+      expect(mean / 65536).toBeGreaterThan(0.4339);
+      expect(mean / 65536).toBeLessThan(0.4884);
+      expect(heightHigh).toBeGreaterThan(0.7756);
+      expect(heightHigh).toBeLessThan(0.7942);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('tiles the board with one missing cell by L-shaped trominoes, read back from the joins of the picture', () => {
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]) {
+      const { n, hole, labels, wrapped } = readTiling(seed);
+      expect(hole).toBeGreaterThanOrEqual(0);
+      expect(wrapped).toBe(0);
+      const groups = new Map<number, number[]>();
+      labels.forEach((label, cell) => {
+        if (label >= 0) groups.set(label, [...(groups.get(label) ?? []), cell]);
+      });
+      expect(groups.size).toBe((n * n - 1) / 3);
+      for (const cells of groups.values()) {
+        // Three cells that are joined and fit in a 2 by 2 square form an L.
+        expect(cells.length).toBe(3);
+        const columns = cells.map((cell) => cell % n),
+          rows = cells.map((cell) => Math.floor(cell / n));
+        expect(Math.max(...columns) - Math.min(...columns)).toBe(1);
+        expect(Math.max(...rows) - Math.min(...rows)).toBe(1);
+      }
+      // The variants 3 to 5 put the missing cell in one of the four central cells.
+      if (seed % 6 >= 3) {
+        expect(Math.abs((hole % n) - (n / 2 - 0.5))).toBe(0.5);
+        expect(Math.abs(Math.floor(hole / n) - (n / 2 - 0.5))).toBe(0.5);
+      }
+    }
+    // Different groups of six seeds miss different cells.
+    expect(
+      new Set([0, 6, 12, 18, 24, 30].map((seed) => readTiling(seed).hole)).size,
+    ).toBeGreaterThan(4);
+  });
+  it('tones and raises the cells of one tromino alike and the neighbouring trominoes differently', () => {
+    for (const seed of [0, 1, 2, 7]) {
+      const { n, hole, labels } = readTiling(seed),
+        sample = createSurfaceSampler('trominotiling', seed),
+        out = empty(),
+        heights: number[] = [],
+        colors: number[] = [];
+      for (let j = 0; j < n; j++)
+        for (let i = 0; i < n; i++) {
+          sample((i + 0.5) / n, (j + 0.5) / n, out);
+          heights.push(out.height);
+          colors.push(out.color);
+        }
+      let equalAcross = 0;
+      for (let k = 0; k < n * n; k++) {
+        if (k === hole) continue;
+        for (const other of [
+          (k + 1) % n === 0 ? k + 1 - n : k + 1,
+          (k + n) % (n * n),
+        ]) {
+          if (other === hole) continue;
+          if (labels[k] === labels[other]) {
+            expect(Math.abs(heights[k] - heights[other])).toBeLessThan(1e-12);
+            expect(Math.abs(colors[k] - colors[other])).toBeLessThanOrEqual(
+              p.grainTone + 1e-9,
+            );
+          } else
+            equalAcross += Number(Math.abs(heights[k] - heights[other]) < 1e-9);
+        }
+      }
+      expect(equalAcross).toBe(0);
+    }
+    // The levels of the 341 trominoes of the 32 by 32 variant run over almost the whole range 0 to 1.
+    const { n, hole } = readTiling(2),
+      sample = createSurfaceSampler('trominotiling', 2),
+      out = empty(),
+      levels: number[] = [];
+    for (let k = 0; k < n * n; k++) {
+      if (k === hole) continue;
+      sample(((k % n) + 0.5) / n, (Math.floor(k / n) + 0.5) / n, out);
+      levels.push(
+        (out.height / p.relief / p.cellHeight - p.heightBase) / p.heightSwing,
+      );
+    }
+    expect(Math.min(...levels)).toBeLessThan(0.02);
+    expect(Math.max(...levels)).toBeGreaterThan(0.99);
+  });
+  it('agrees with the ideal cells of predicates away from the gaps: ink, height, tone and occlusion', () => {
+    const half = p.gapWidth / 2;
+    for (const seed of [0, 1, 2, 3, 4, 5]) {
+      const { n, hole, labels } = readTiling(seed),
+        sample = createSurfaceSampler('trominotiling', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const x = ((k * 0.61803398875) % 1) * n,
+          y = ((k * 0.41421356237) % 1) * n,
+          i = Math.floor(x),
+          j = Math.floor(y),
+          cell = j * n + i,
+          fx = x - i,
+          fy = y - j;
+        // The distance in cells to each side of the cell where the cell across holds another tromino.
+        const sides = [
+          [fx, labels[j * n + ((i + n - 1) % n)]],
+          [1 - fx, labels[j * n + ((i + 1) % n)]],
+          [fy, labels[((j + n - 1) % n) * n + i]],
+          [1 - fy, labels[((j + 1) % n) * n + i]],
+        ].filter(([, label]) => label !== labels[cell]);
+        if (
+          cell === hole
+            ? false
+            : sides.some(
+                ([d]) => d > half - 1e-9 && d < half + p.edgeSoft + 1e-9,
+              )
+        )
+          continue;
+        compared++;
+        const ink =
+          cell === hole
+            ? 0
+            : sides.every(([d]) => d >= half + p.edgeSoft)
+              ? 1
+              : 0;
+        sample(x / n, y / n, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        if (cell === hole) {
+          expect(out.height).toBe(0);
+          expect(Math.abs(out.color - p.toneGround)).toBeLessThanOrEqual(
+            p.grainTone / 2 + 1e-9,
+          );
+          continue;
+        }
+        // The level of the tromino read from the height at the middle of the cell.
+        sample((i + 0.5) / n, (j + 0.5) / n, out);
+        const level =
+          (out.height / p.relief / p.cellHeight - p.heightBase) / p.heightSwing;
+        sample(x / n, y / n, out);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.heightBase + p.heightSwing * level),
+          12,
+        );
+        const tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+        expect(
+          Math.abs(out.color - (p.toneGround + (tone - p.toneGround) * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      expect(compared).toBeGreaterThan(4800);
+    }
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeGreaterThan(0.4069);
+    expect(unlike(first, litGrid(1))).toBeLessThan(0.407);
+    expect(unlike(first, litGrid(6))).toBeGreaterThan(0.2876);
+    expect(unlike(first, litGrid(6))).toBeLessThan(0.2877);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('trominotiling', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 gold tromino maps with raised pieces and shaded gaps', () => {
+    const maps = generateProceduralMaps('trominotiling', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(118.1);
+    expect(red / (512 * 512)).toBeLessThan(119.1);
+    expect(green / (512 * 512)).toBeGreaterThan(108.9);
+    expect(green / (512 * 512)).toBeLessThan(109.9);
+    expect(blue / (512 * 512)).toBeGreaterThan(83.2);
+    expect(blue / (512 * 512)).toBeLessThan(84.2);
+    expect(maxTilt).toBeGreaterThan(0.107);
+    expect(maxTilt).toBeLessThan(0.1071);
     expect(invalid).toBe(0);
   });
 });

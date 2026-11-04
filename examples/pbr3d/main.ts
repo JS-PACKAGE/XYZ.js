@@ -1197,6 +1197,7 @@ try {
     'excitableautomata',
     'wireworldcircuits',
     'celticinterlace',
+    'trominotiling',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
