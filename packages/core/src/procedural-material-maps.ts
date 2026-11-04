@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'chessopening',
   'xiangqiboard',
   'cribbageboard',
   'monopolyboard',
@@ -48207,6 +48208,105 @@ export function createSurfaceSampler(
                   disc;
                 elevation += (p.pieceHeight - elevation) * disc;
               }
+            }
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
+      case 'chessopening': {
+        const p = proceduralMaterialPresets.chessopening,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x66001),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          opening =
+            p.openings[
+              Math.floor(hash(96, 1, seed ^ 0x66002) * p.openings.length)
+            ],
+          turned = hash(96, 2, seed ^ 0x66003) < 0.5,
+          last = p.side - 1,
+          half = (p.side * p.cell) / 2,
+          left = 0.5 - half,
+          // The position by rank from the first (0) and file from a (0): white capitals, black small letters.
+          position = [
+            [...'RNBQKBNR'],
+            [...'PPPPPPPP'],
+            ...Array.from({ length: 4 }, () => new Array<string>(8).fill('.')),
+            [...'pppppppp'],
+            [...'rnbqkbnr'],
+          ],
+          // The tone of the piece on each square as seen (-1 for none): white from 0, black from 6, then the kind.
+          pieceAt = new Int8Array(p.side * p.side).fill(-1);
+        for (const move of opening) {
+          const from = [move.charCodeAt(0) - 97, move.charCodeAt(1) - 49],
+            to = [move.charCodeAt(2) - 97, move.charCodeAt(3) - 49];
+          position[to[1]][to[0]] = position[from[1]][from[0]];
+          position[from[1]][from[0]] = '.';
+        }
+        for (let rank = 0; rank <= last; rank++)
+          for (let file = 0; file <= last; file++) {
+            const letter = position[rank][file];
+            if (letter === '.') continue;
+            // Seen with white at the bottom the first rank is the bottom row; turned, the picture is turned half way round.
+            const column = turned ? last - file : file,
+              row = turned ? rank : last - rank;
+            pieceAt[row * p.side + column] =
+              (letter === letter.toUpperCase() ? 0 : 6) +
+              'PNBRQK'.indexOf(letter.toUpperCase());
+          }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const outer = half + p.frame,
+            framed = cover(
+              Math.min(outer - Math.abs(fu - 0.5), outer - Math.abs(fv - 0.5)),
+            );
+          if (framed > 0) {
+            shade += (p.frameTone - shade) * framed;
+            elevation += (p.frameHeight - elevation) * framed;
+            rough += (p.inkRoughness - rough) * framed;
+            mask = framed;
+            // The nearest square (over the frame the board's edge softening reaches past the first and last squares).
+            const column = Math.min(
+                last,
+                Math.max(0, Math.floor((fu - left) / p.cell)),
+              ),
+              row = Math.min(
+                last,
+                Math.max(0, Math.floor((fv - left) / p.cell)),
+              ),
+              // The square's own cover from the edge of the board, so the squares meet without a gap.
+              inside = cover(
+                Math.min(half - Math.abs(fu - 0.5), half - Math.abs(fv - 0.5)),
+              ),
+              // The squares alternate, the corner at the bottom left dark (the first rank's, or turned the eighth's, as the board is turned half way round).
+              dark = (column + row) % 2 === 1;
+            shade +=
+              ((dark ? p.darkSquareTone : p.lightSquareTone) - shade) * inside;
+            elevation += (p.squareHeight - elevation) * inside;
+            const piece = pieceAt[row * p.side + column];
+            if (piece >= 0) {
+              const disc = cover(
+                p.pieceRadius -
+                  Math.hypot(
+                    fu - left - (column + 0.5) * p.cell,
+                    fv - left - (row + 0.5) * p.cell,
+                  ),
+              );
+              shade +=
+                ((piece < 6 ? p.whiteTones[piece] : p.blackTones[piece - 6]) -
+                  shade) *
+                disc;
+              elevation += (p.pieceHeight - elevation) * disc;
             }
           }
           color = clamp(

@@ -15416,6 +15416,32 @@ export declare const proceduralMaterialPresets: Readonly<{
         paperRoughness: 0.8;
         inkRoughness: 0.45;
     }>;
+    chessopening: Readonly<{
+        dark: readonly [34, 38, 52];
+        light: readonly [236, 226, 200];
+        roughness: 0.5;
+        relief: 0.004;
+        openings: readonly (readonly string[])[];
+        side: 8;
+        cell: 0.1;
+        frame: 0.03;
+        pieceRadius: 0.036;
+        edgeSoft: 0.0006;
+        grainCells: 192;
+        paperTone: 0.97;
+        frameTone: 0.16;
+        darkSquareTone: 0.28;
+        lightSquareTone: 0.44;
+        blackTones: readonly number[];
+        whiteTones: readonly number[];
+        paperHeight: 0.2;
+        frameHeight: 0.6;
+        squareHeight: 0.4;
+        pieceHeight: 0.85;
+        grainTone: 0.03;
+        paperRoughness: 0.8;
+        inkRoughness: 0.45;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -21901,6 +21927,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    chessopening: 1;
     xiangqiboard: 1;
     cribbageboard: 1;
     monopolyboard: 1;

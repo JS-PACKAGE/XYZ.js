@@ -63873,3 +63873,473 @@ describe('xiangqiboard: the xiangqi board with its river and palaces and the pie
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('chessopening: a chess board with the pieces of an opening, white at the bottom or the top by the seed', () => {
+  const p = proceduralMaterialPresets.chessopening,
+    out = empty(),
+    half = (p.side * p.cell) / 2,
+    left = 0.5 - half,
+    toneAt = (sample: Sampler, u: number, v: number): number => {
+      sample(u, v, out);
+      return out.color;
+    };
+  const isTone = (tone: number, wanted: number): boolean =>
+    Math.abs(tone - wanted) < 1e-6;
+  const centre = (column: number, row: number): [number, number] => [
+    left + (column + 0.5) * p.cell,
+    left + (row + 0.5) * p.cell,
+  ];
+  const kinds = 'PNBRQK';
+  // The first position, from the facts of the game: the back rank (rook, knight, bishop, queen, king, bishop, knight, rook) with the pawns before it; white capitals on ranks 1 and 2, black small letters on 8 and 7.
+  const firstPosition = (): string[][] => {
+    const grid = Array.from({ length: 8 }, () =>
+      new Array<string>(8).fill('.'),
+    );
+    [...'RNBQKBNR'].forEach((letter, file) => {
+      grid[0][file] = letter;
+      grid[7][file] = letter.toLowerCase();
+      grid[1][file] = 'P';
+      grid[6][file] = 'p';
+    });
+    return grid;
+  };
+  // Is a move legal by the rules of its piece (no castling, en passant or promotion in these openings) on the position before it, for the side that has the move.
+  const legal = (grid: string[][], move: string, white: boolean): boolean => {
+    const [ff, fr, tf, tr] = [
+        move.charCodeAt(0) - 97,
+        move.charCodeAt(1) - 49,
+        move.charCodeAt(2) - 97,
+        move.charCodeAt(3) - 49,
+      ],
+      piece = grid[fr][ff],
+      target = grid[tr][tf],
+      dx = tf - ff,
+      dy = tr - fr;
+    if (piece === '.' || (piece === piece.toUpperCase()) !== white)
+      return false;
+    if (target !== '.' && (target === target.toUpperCase()) === white)
+      return false;
+    const clear = (): boolean => {
+      for (let k = 1; k < Math.max(Math.abs(dx), Math.abs(dy)); k++)
+        if (grid[fr + Math.sign(dy) * k][ff + Math.sign(dx) * k] !== '.')
+          return false;
+      return true;
+    };
+    const forward = white ? 1 : -1;
+    switch (piece.toUpperCase()) {
+      case 'P':
+        if (dx === 0 && dy === forward) return target === '.';
+        if (dx === 0 && dy === 2 * forward)
+          return (
+            target === '.' &&
+            grid[fr + forward][ff] === '.' &&
+            fr === (white ? 1 : 6)
+          );
+        return Math.abs(dx) === 1 && dy === forward && target !== '.';
+      case 'N':
+        return (
+          (Math.abs(dx) === 1 && Math.abs(dy) === 2) ||
+          (Math.abs(dx) === 2 && Math.abs(dy) === 1)
+        );
+      case 'B':
+        return Math.abs(dx) === Math.abs(dy) && clear();
+      case 'R':
+        return (dx === 0 || dy === 0) && clear();
+      case 'Q':
+        return (
+          (Math.abs(dx) === Math.abs(dy) || dx === 0 || dy === 0) && clear()
+        );
+      default:
+        return Math.max(Math.abs(dx), Math.abs(dy)) === 1;
+    }
+  };
+  const openingPosition = (index: number): string[][] => {
+    const grid = firstPosition();
+    p.openings[index].forEach((move, ply) => {
+      expect(legal(grid, move, ply % 2 === 0)).toBe(true);
+      grid[move.charCodeAt(3) - 49][move.charCodeAt(2) - 97] =
+        grid[move.charCodeAt(1) - 49][move.charCodeAt(0) - 97];
+      grid[move.charCodeAt(1) - 49][move.charCodeAt(0) - 97] = '.';
+    });
+    return grid;
+  };
+  type Picture = { sample: Sampler; grid: string[][]; squares: boolean[][] };
+  // Read the picture as seen (the top row first): the piece on each square from the tone of its middle, and whether the square is dark from its corner.
+  const readPicture = (seed: number): Picture => {
+    const sample = createSurfaceSampler('chessopening', seed),
+      grid = Array.from({ length: 8 }, () => new Array<string>(8).fill('.')),
+      squares = Array.from({ length: 8 }, () =>
+        new Array<boolean>(8).fill(false),
+      );
+    for (let row = 0; row < 8; row++)
+      for (let column = 0; column < 8; column++) {
+        const [cx, cy] = centre(column, row),
+          corner = toneAt(sample, cx + p.cell * 0.45, cy + p.cell * 0.45),
+          tone = toneAt(sample, cx, cy),
+          white = p.whiteTones.findIndex((candidate) =>
+            isTone(candidate, tone),
+          ),
+          black = p.blackTones.findIndex((candidate) =>
+            isTone(candidate, tone),
+          );
+        squares[row][column] = isTone(corner, p.darkSquareTone);
+        expect(squares[row][column] || isTone(corner, p.lightSquareTone)).toBe(
+          true,
+        );
+        if (white >= 0) grid[row][column] = kinds[white];
+        else if (black >= 0) grid[row][column] = kinds[black].toLowerCase();
+        else
+          expect(
+            isTone(
+              tone,
+              squares[row][column] ? p.darkSquareTone : p.lightSquareTone,
+            ),
+          ).toBe(true);
+      }
+    return { sample, grid, squares };
+  };
+  // As seen with white at the bottom: the first rank is the bottom row; turned, the picture is turned half way round.
+  const seen = (position: string[][], turned: boolean): string[][] =>
+    Array.from({ length: 8 }, (_, row) =>
+      Array.from({ length: 8 }, (_, column) =>
+        turned ? position[row][7 - column] : position[7 - row][column],
+      ),
+    );
+  const matches = (grid: string[][]): [number, boolean][] => {
+    const found: [number, boolean][] = [];
+    p.openings.forEach((_, index) => {
+      const position = openingPosition(index);
+      for (const turned of [false, true])
+        if (JSON.stringify(seen(position, turned)) === JSON.stringify(grid))
+          found.push([index, turned]);
+    });
+    return found;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws the 64 squares alternately dark and light and the pieces of one of the openings of the preset, white at the bottom or the top (seed %i)',
+    (seed) => {
+      const { grid, squares } = readPicture(seed);
+      // The squares alternate; the corner at the bottom left is dark whichever side is up, and the one at the bottom right is light.
+      squares.forEach((line, row) =>
+        line.forEach((dark, column) =>
+          expect(dark).toBe((column + (7 - row)) % 2 === 0),
+        ),
+      );
+      expect(squares[7][0]).toBe(true);
+      expect(squares[7][7]).toBe(false);
+      // The position is one of the openings of the preset, every move of which is legal (white first), upright or turned: one match only.
+      expect(matches(grid).length).toBe(1);
+      // Pieces left of each kind: never more than at the start, the kings always, and the pieces of one side are of its own tones (checked by reading them back).
+      const count = (letter: string): number =>
+        grid.flat().filter((cell) => cell === letter).length;
+      for (const [letter, most] of [
+        ['p', 8],
+        ['n', 2],
+        ['b', 2],
+        ['r', 2],
+        ['q', 1],
+        ['k', 1],
+      ] as const) {
+        expect(count(letter)).toBeLessThanOrEqual(most);
+        expect(count(letter.toUpperCase())).toBeLessThanOrEqual(most);
+      }
+      expect(count('k')).toBe(1);
+      expect(count('K')).toBe(1);
+    },
+  );
+
+  it('uses every opening and both sides up, over 60 seeds', () => {
+    const openings = new Set<number>(),
+      sides = new Set<boolean>(),
+      pairs = new Set<string>();
+    for (let seed = 0; seed < 60; seed++) {
+      for (const [opening, turned] of matches(readPicture(seed * 3 + 1).grid)) {
+        openings.add(opening);
+        sides.add(turned);
+        pairs.add(`${opening}/${turned}`);
+      }
+    }
+    expect(openings.size).toBe(p.openings.length);
+    expect(sides.size).toBe(2);
+    expect(pairs.size).toBeGreaterThanOrEqual(10);
+  });
+
+  it('puts white at the top about half the time and every opening about equally often, over 300 seeds', () => {
+    let turned = 0;
+    const openings = new Map<number, number>();
+    for (let seed = 0; seed < 300; seed++) {
+      const [[opening, up]] = matches(readPicture(seed * 7 + 1).grid);
+      turned += Number(up);
+      openings.set(opening, (openings.get(opening) ?? 0) + 1);
+    }
+    expect(turned / 300).toBeGreaterThan(0.4);
+    expect(turned / 300).toBeLessThan(0.6);
+    for (const count of openings.values())
+      expect(Math.abs(count - 300 / p.openings.length)).toBeLessThan(25);
+  });
+
+  it('draws the frame, the squares and a piece of each side and kind with their tones, heights, roughness and sizes, and nothing outside the frame', () => {
+    const { sample, grid, squares } = readPicture(2),
+      paperOk = (u: number, v: number): boolean =>
+        Math.abs(toneAt(sample, u, v) - p.paperTone) <= p.grainTone / 2 + 1e-9,
+      outer = half + p.frame;
+    // The frame: its tone, height and roughness, and its width (inside the outer edge, and the board's first square inside the inner edge).
+    expect(toneAt(sample, 0.5, 0.5 - half - p.frame / 2)).toBeCloseTo(
+      p.frameTone,
+      6,
+    );
+    expect(out.height / p.relief).toBeCloseTo(p.frameHeight, 6);
+    expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+    for (const [dx, dy] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ]) {
+      expect(
+        isTone(
+          toneAt(
+            sample,
+            0.5 + dx * (outer - 0.0004) + dy * 0.013,
+            0.5 + dy * (outer - 0.0004) + dx * 0.013,
+          ),
+          p.frameTone,
+        ),
+      ).toBe(true);
+      expect(
+        paperOk(
+          0.5 + dx * (outer + 0.0004) + dy * 0.013,
+          0.5 + dy * (outer + 0.0004) + dx * 0.013,
+        ),
+      ).toBe(true);
+      expect(out.height / p.relief).toBeCloseTo(p.paperHeight, 6);
+      expect(
+        isTone(
+          toneAt(
+            sample,
+            0.5 + dx * (half + 0.0004) + dy * 0.013,
+            0.5 + dy * (half + 0.0004) + dx * 0.013,
+          ),
+          p.frameTone,
+        ),
+      ).toBe(true);
+    }
+    // An empty dark square and an empty light square: tone, height, roughness, and the first row and column's squares up to the frame.
+    for (const dark of [true, false]) {
+      let found: [number, number] | null = null;
+      for (let row = 0; row < 8 && !found; row++)
+        for (let column = 0; column < 8 && !found; column++)
+          if (squares[row][column] === dark && grid[row][column] === '.')
+            found = [column, row];
+      const [cx, cy] = centre(...(found as [number, number])),
+        tone = dark ? p.darkSquareTone : p.lightSquareTone;
+      expect(toneAt(sample, cx, cy)).toBeCloseTo(tone, 6);
+      expect(out.height / p.relief).toBeCloseTo(p.squareHeight, 6);
+      expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+      for (const [dx, dy] of [
+        [1, 1],
+        [-1, 1],
+        [1, -1],
+        [-1, -1],
+      ])
+        expect(
+          toneAt(
+            sample,
+            cx + dx * (p.cell / 2 - 0.0004),
+            cy + dy * (p.cell / 2 - 0.0004),
+          ),
+        ).toBeCloseTo(tone, 6);
+    }
+    expect(toneAt(sample, left + 0.0004, left + 0.0004)).toBeCloseTo(
+      squares[0][0] ? p.darkSquareTone : p.lightSquareTone,
+      6,
+    );
+    expect(
+      toneAt(sample, left + 8 * p.cell - 0.0004, left + 8 * p.cell - 0.0004),
+    ).toBeCloseTo(squares[7][7] ? p.darkSquareTone : p.lightSquareTone, 6);
+    // A piece of each side and kind (the ones left on the board): tone, height, roughness, radius in six directions.
+    for (const [tones, upper] of [
+      [p.whiteTones, true],
+      [p.blackTones, false],
+    ] as const)
+      tones.forEach((tone, kind) => {
+        const letter = upper ? kinds[kind] : kinds[kind].toLowerCase();
+        let found: [number, number] | null = null;
+        for (let row = 0; row < 8 && !found; row++)
+          for (let column = 0; column < 8 && !found; column++)
+            if (grid[row][column] === letter) found = [column, row];
+        const [cx, cy] = centre(...(found as [number, number])),
+          under = squares[(found as [number, number])[1]][
+            (found as [number, number])[0]
+          ]
+            ? p.darkSquareTone
+            : p.lightSquareTone;
+        expect(toneAt(sample, cx, cy)).toBeCloseTo(tone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.pieceHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+          [Math.SQRT1_2, Math.SQRT1_2],
+          [-Math.SQRT1_2, -Math.SQRT1_2],
+        ]) {
+          expect(
+            toneAt(
+              sample,
+              cx + dx * (p.pieceRadius - 0.0004),
+              cy + dy * (p.pieceRadius - 0.0004),
+            ),
+          ).toBeCloseTo(tone, 6);
+          expect(
+            toneAt(
+              sample,
+              cx + dx * (p.pieceRadius + 0.0004),
+              cy + dy * (p.pieceRadius + 0.0004),
+            ),
+          ).toBeCloseTo(under, 6);
+        }
+      });
+    for (const [u, v] of [
+      [0.5 - outer - 0.01, 0.5],
+      [0.5 + outer + 0.01, 0.5],
+      [0.5, 0.5 - outer - 0.01],
+      [0.5, 0.5 + outer + 0.01],
+      [0.01, 0.01],
+    ])
+      expect(paperOk(u, v)).toBe(true);
+  });
+
+  it('softens the edge of the frame, of the board and of a piece over edgeSoft', () => {
+    const { sample, grid, squares } = readPicture(2),
+      smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03),
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      outer = half + p.frame;
+    // The frame's outer edge over the paper, and the board's edge over the frame (along the middle of the top edge).
+    close(
+      toneAt(sample, 0.5 + 0.013, 0.5 - outer + quarter),
+      mix(p.paperTone, p.frameTone, 0.75),
+    );
+    close(
+      toneAt(sample, 0.5 + 0.013, 0.5 - outer - quarter),
+      mix(p.paperTone, p.frameTone, 0.25),
+    );
+    const row0 = squares[0][4] ? p.darkSquareTone : p.lightSquareTone;
+    close(
+      toneAt(sample, 0.5 + 0.013, 0.5 - half + quarter),
+      mix(p.frameTone, row0, 0.75),
+    );
+    close(
+      toneAt(sample, 0.5 + 0.013, 0.5 - half - quarter),
+      mix(p.frameTone, row0, 0.25),
+    );
+    // A piece's edge over its square.
+    let found: [number, number] | null = null;
+    for (let row = 0; row < 8 && !found; row++)
+      for (let column = 0; column < 8 && !found; column++)
+        if (grid[row][column] === 'N' || grid[row][column] === 'n')
+          found = [column, row];
+    const [column, row] = found as [number, number],
+      [cx, cy] = centre(column, row),
+      letter = grid[row][column],
+      tone = (letter === 'N' ? p.whiteTones : p.blackTones)[1],
+      under = squares[row][column] ? p.darkSquareTone : p.lightSquareTone;
+    for (const [dx, dy] of [
+      [1, 0],
+      [0, 1],
+      [-1, 0],
+      [0, -1],
+    ]) {
+      close(
+        toneAt(
+          sample,
+          cx + dx * (p.pieceRadius - quarter),
+          cy + dy * (p.pieceRadius - quarter),
+        ),
+        mix(under, tone, 0.75),
+      );
+      close(
+        toneAt(
+          sample,
+          cx + dx * (p.pieceRadius + quarter),
+          cy + dy * (p.pieceRadius + quarter),
+        ),
+        mix(under, tone, 0.25),
+      );
+    }
+  });
+
+  it('fades the grain of the paper out over the edge of the frame, as much as the frame covers', () => {
+    const { sample } = readPicture(2),
+      smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      amount = smoothstep(0.25),
+      outer = half + p.frame,
+      residuals: number[] = [];
+    for (let k = 0; k < 40; k++)
+      residuals.push(
+        toneAt(
+          sample,
+          0.5 - outer + 0.02 + k * 0.021,
+          0.5 - outer - 0.25 * p.edgeSoft,
+        ) -
+          (p.paperTone + (p.frameTone - p.paperTone) * amount),
+      );
+    const largest = Math.max(...residuals.map(Math.abs));
+    expect(largest).toBeGreaterThan(0.003);
+    expect(largest).toBeLessThanOrEqual(
+      0.5 * p.grainTone * (1 - amount) + 1e-9,
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('chessopening', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('chessopening', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.01),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('chessopening', 0),
+      b = createSurfaceSampler('chessopening', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3501],
+        [0.2201, t],
+        [t, centre(0, 0)[1]],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
