@@ -176,6 +176,55 @@ describe('World entity and component CRUD', () => {
     world.destroy();
   });
 
+  it('preserves registrations published by reentrant initialization', () => {
+    const world = new World();
+    const calls: string[] = [];
+    let initializing = false;
+    const system: System = {
+      initialize: () => {
+        if (initializing) return;
+        initializing = true;
+        world.addSystem(system);
+      },
+      update: () => calls.push('update'),
+      destroy: () => calls.push('destroy'),
+    };
+    world.addSystem(system);
+    world.update(0);
+    expect(calls).toEqual(['update', 'update']);
+    expect(world.removeSystem(system)).toBe(true);
+    expect(() => world.addSystem(system)).toThrow('already registered');
+    expect(world.removeSystem(system)).toBe(true);
+    expect(world.removeSystem(system)).toBe(false);
+    world.addSystem(system);
+    world.destroy();
+    expect(calls).toEqual([
+      'update',
+      'update',
+      'destroy',
+      'destroy',
+      'destroy',
+    ]);
+  });
+
+  it('allows destroy callbacks to register the removed system again', () => {
+    const world = new World();
+    let readd = true;
+    let updates = 0;
+    const system: System = {
+      update: () => updates++,
+      destroy: () => {
+        if (readd) world.addSystem(system);
+      },
+    };
+    world.addSystem(system);
+    world.removeSystem(system);
+    world.update(0);
+    expect(updates).toBe(1);
+    readd = false;
+    world.destroy();
+  });
+
   it('releases partially initialized systems and rejects duplicate registrations', () => {
     const world = new World();
     const calls: string[] = [];

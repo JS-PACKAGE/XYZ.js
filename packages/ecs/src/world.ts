@@ -21,6 +21,9 @@ export class World {
     Map<Entity, unknown>
   >();
   private readonly systems: SystemEntry[] = [];
+  // Initialization can reenter addSystem before the outer registration is published.
+  // Counts preserve those duplicate entries while keeping ordinary duplicate checks O(1).
+  private readonly systemCounts = new Map<System, number>();
   private updating = false;
   private systemsNeedCompaction = false;
   private disposed = false;
@@ -128,7 +131,7 @@ export class World {
 
   addSystem(system: System): void {
     this.assertAlive();
-    if (this.systems.some((entry) => entry.active && entry.system === system)) {
+    if (this.systemCounts.has(system)) {
       throw new Error('System is already registered.');
     }
     try {
@@ -146,6 +149,7 @@ export class World {
       throw error;
     }
     this.systems.push({ system, active: true });
+    this.systemCounts.set(system, (this.systemCounts.get(system) ?? 0) + 1);
   }
 
   removeSystem(system: System): boolean {
@@ -155,6 +159,9 @@ export class World {
     );
     if (!entry) return false;
     entry.active = false;
+    const remaining = this.systemCounts.get(system)! - 1;
+    if (remaining) this.systemCounts.set(system, remaining);
+    else this.systemCounts.delete(system);
     this.systemsNeedCompaction = true;
     if (!this.updating) this.compactSystems();
     system.destroy?.(this);
@@ -192,6 +199,7 @@ export class World {
       }
     }
     this.systems.length = 0;
+    this.systemCounts.clear();
     this.components.clear();
     this.entities.clear();
     if (errors.length)
