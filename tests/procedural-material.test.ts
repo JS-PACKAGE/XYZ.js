@@ -1155,6 +1155,7 @@ const kinds: ProceduralMaterialKind[] = [
   'opticalillusions',
   'lineillusions',
   'contrastillusions',
+  'randomdotstereogram',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -197233,6 +197234,321 @@ describe('Contrast illusions as the White, Cornsweet and checker shadow figures'
     expect(blue / (512 * 512)).toBeLessThan(119.2);
     expect(maxTilt).toBeGreaterThan(0.0085);
     expect(maxTilt).toBeLessThan(0.0086);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Random-dot stereogram as a shape hidden in the disparity of two dot fields', () => {
+  const p = proceduralMaterialPresets.randomdotstereogram;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const columns = p.columns,
+    rows = p.rows;
+  /** The disparity in cells that the variant puts at the cell (i, j) of the right field, written here with its own predicates (the middle of the field is (columns / 2, rows / 2) in cells). */
+  const disparityOf = (variant: number, i: number, j: number): number => {
+    const x = i + 0.5 - columns / 2,
+      y = j + 0.5 - rows / 2,
+      radius = Math.sqrt(x * x + y * y);
+    switch (variant) {
+      case 0:
+        return radius < 11 ? 2 : 0;
+      case 1:
+        return Math.abs(x) < 10 && Math.abs(y) < 10 ? -2 : 0;
+      case 2:
+        return radius > 6 && radius < 12 ? 1 : 0;
+      case 3:
+        return Math.abs(x) + Math.abs(y) < 13 ? 2 : 0;
+      case 4:
+        return Math.round(x / 7);
+      default: {
+        const first = Math.hypot(i + 0.5 - 8, j + 0.5 - 20),
+          second = Math.hypot(i + 0.5 - 24, j + 0.5 - 44);
+        return first < 6 ? 2 : second < 6 ? -2 : 0;
+      }
+    }
+  };
+  /** The dots of the two fields as 0 and 1, read at the middle of every cell: the height there is cellHeight if the cell holds a dot (the round bump is 1 at its middle) and 0 if it does not. */
+  const readFields = (
+    seed: number,
+  ): { left: number[][]; right: number[][] } => {
+    const sample = createSurfaceSampler('randomdotstereogram', seed),
+      out = empty(),
+      left: number[][] = [],
+      right: number[][] = [];
+    for (let j = 0; j < rows; j++) {
+      left.push([]);
+      right.push([]);
+      for (let i = 0; i < columns; i++) {
+        sample((i + 0.5) / (2 * columns), (j + 0.5) / rows, out);
+        left[j].push(out.height / p.relief / p.cellHeight > 0.5 ? 1 : 0);
+        sample(0.5 + (i + 0.5) / (2 * columns), (j + 0.5) / rows, out);
+        right[j].push(out.height / p.relief / p.cellHeight > 0.5 ? 1 : 0);
+      }
+    }
+    return { left, right };
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('randomdotstereogram', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('randomdotstereogram', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0455);
+      expect(low).toBeLessThan(0.0458);
+      expect(high).toBeGreaterThan(0.7169);
+      expect(high).toBeLessThan(0.7173);
+      expect(dark / 65536).toBeGreaterThan(0.1226);
+      expect(dark / 65536).toBeLessThan(0.1251);
+      expect(mean / 65536).toBeGreaterThan(0.1679);
+      expect(mean / 65536).toBeLessThan(0.1701);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.611);
+      expect(heightHigh).toBeLessThan(0.614);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (the disc, the square, the ring, the diamond, the ramp and the two discs) is 0, 6, 4, 3, 7 and 2; the table was found with a probe, by checking for each of 40 seeds which variant's disparity makes the right field exactly the shifted left field (that was true for one variant for every seed, and for the others it held in at most 0.98 of the cells), and is written here, so it is not an independent check of the seed's choice.
+  const seeds = [0, 6, 4, 3, 7, 2];
+  it('makes the right field the left field shifted by the disparity of the hidden shape in every cell', () => {
+    // The test reads the dot of every cell of both fields (2048 cells each) and uses its own predicates for the shape of the variant: every dot of the right field is the dot of the left cell i + d of its row, the column wrapping round the half (exactly, in all the cells of the 6 variants in the probe).
+    seeds.forEach((seed, variant) => {
+      const { left, right } = readFields(seed);
+      for (let j = 0; j < rows; j++)
+        for (let i = 0; i < columns; i++) {
+          const d = disparityOf(variant, i, j);
+          expect(right[j][i]).toBe(
+            left[j][(((i + d) % columns) + columns) % columns],
+          );
+        }
+    });
+  });
+  it('shows the hidden shape to a stereo match that knows nothing about it', () => {
+    // For a cell whose 5-cell window along the row has one disparity in the test's predicates, the shifts from -3 to 3 at which the 5 dots of the right field equal those of the left field always include the disparity (a window of 5 binary dots also matches by chance at other shifts), and where the disparity is not 0 the shift 0 does not match in at least 90% of the cells (0.959 to 0.995 for the 6 variants in the probe), so the shape really is displaced against the surround and a viewer matching the two fields finds it.
+    seeds.forEach((seed, variant) => {
+      const { left, right } = readFields(seed);
+      let shifted = 0,
+        zeroFails = 0;
+      for (let j = 0; j < rows; j++)
+        for (let i = 2; i < columns - 2; i++) {
+          const d = disparityOf(variant, i, j);
+          let uniform = true;
+          for (let q = -2; q <= 2; q++)
+            if (disparityOf(variant, i + q, j) !== d) uniform = false;
+          if (!uniform) continue;
+          const matches: number[] = [];
+          for (let s = -3; s <= 3; s++) {
+            let equal = true;
+            for (let q = -2; q <= 2; q++)
+              if (
+                right[j][i + q] !==
+                left[j][(((i + q + s) % columns) + columns) % columns]
+              )
+                equal = false;
+            if (equal) matches.push(s);
+          }
+          expect(matches).toContain(d);
+          if (d !== 0) {
+            shifted++;
+            zeroFails += Number(!matches.includes(0));
+          }
+        }
+      expect(shifted).toBeGreaterThan(100);
+      expect(zeroFails / shifted).toBeGreaterThan(0.9);
+    });
+  });
+  it('has dots of the density with no pattern along rows or columns and round bumps (1 - (2 d)^2)^2', () => {
+    // The left field has the dot density within 0.05 of 0.5 (0.480 to 0.508 for the 6 first seeds in the probe, a standard deviation being 0.011 on 2048 cells) and the lag-1 correlation of its dots along the rows and down the columns under 0.1 in size (0.04 at the most in the probe; a standard deviation is 0.022); along a row through the middle of a dot the ink at the offsets 0, 0.1, 0.25 and 0.4 of a cell is (1 - (2 offset)^2)^2, that is 1, 0.9216, 0.5625 and 0.1296 (equal to 6 digits in the probe).
+    seeds.forEach((seed) => {
+      const { left } = readFields(seed),
+        flat = left.flat(),
+        mean = flat.reduce((a, b) => a + b, 0) / flat.length;
+      expect(Math.abs(mean - p.density)).toBeLessThan(0.05);
+      let rowsSum = 0,
+        columnsSum = 0,
+        variance = 0;
+      for (let j = 0; j < rows; j++)
+        for (let i = 0; i < columns; i++) {
+          rowsSum += (left[j][i] - mean) * (left[j][(i + 1) % columns] - mean);
+          columnsSum += (left[j][i] - mean) * (left[(j + 1) % rows][i] - mean);
+          variance += (left[j][i] - mean) ** 2;
+        }
+      expect(Math.abs(rowsSum / variance)).toBeLessThan(0.1);
+      expect(Math.abs(columnsSum / variance)).toBeLessThan(0.1);
+    });
+    const sample = createSurfaceSampler('randomdotstereogram', seeds[0]),
+      out = empty(),
+      { left } = readFields(seeds[0]),
+      row = left.findIndex((cells) => cells.includes(1)),
+      column = left[row].indexOf(1),
+      cellWidth = 1 / (2 * columns);
+    for (const offset of [0, 0.1, 0.25, 0.4]) {
+      sample(
+        (column + 0.5) / (2 * columns) + offset * cellWidth,
+        (row + 0.5) / rows,
+        out,
+      );
+      expect(
+        Math.abs(
+          out.height / p.relief / p.cellHeight - (1 - (2 * offset) ** 2) ** 2,
+        ),
+      ).toBeLessThan(1e-9);
+      // The tone is toneDark + (toneLight - toneDark) * ink within half the grain, and the occlusion 1 - gapOcclusion (1 - ink).
+      const ink = (1 - (2 * offset) ** 2) ** 2;
+      expect(
+        Math.abs(out.color - (p.toneDark + (p.toneLight - p.toneDark) * ink)),
+      ).toBeLessThan(p.grainTone / 2 + 1e-6);
+      expect(
+        Math.abs(out.occlusion - (1 - p.gapOcclusion * (1 - ink))),
+      ).toBeLessThan(1e-9);
+    }
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 6 are different dot fields (and different hidden shapes).
+    const first = litGrid(0),
+      second = litGrid(6);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.1256);
+    expect(different / first.length).toBeLessThan(0.1257);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('randomdotstereogram', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 pale dot maps on near-black with raised round dots and shaded gaps', () => {
+    const maps = generateProceduralMaps('randomdotstereogram', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(44.7);
+    expect(red / (512 * 512)).toBeLessThan(45.7);
+    expect(green / (512 * 512)).toBeGreaterThan(45.4);
+    expect(green / (512 * 512)).toBeLessThan(46.4);
+    expect(blue / (512 * 512)).toBeGreaterThan(49.4);
+    expect(blue / (512 * 512)).toBeLessThan(50.4);
+    expect(maxTilt).toBeGreaterThan(0.0135);
+    expect(maxTilt).toBeLessThan(0.0137);
     expect(invalid).toBe(0);
   });
 });

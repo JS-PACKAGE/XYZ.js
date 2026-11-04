@@ -1129,6 +1129,7 @@ export type ProceduralMaterialKind =
   | 'opticalillusions'
   | 'lineillusions'
   | 'contrastillusions'
+  | 'randomdotstereogram'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2506,6 +2507,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'opticalillusions',
   'lineillusions',
   'contrastillusions',
+  'randomdotstereogram',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

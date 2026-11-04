@@ -52061,6 +52061,65 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'randomdotstereogram': {
+        const p = proceduralMaterialPresets.randomdotstereogram,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant = Math.floor(
+            hash(0, 107, seed ^ p.seedSalt) * p.shapes.length,
+          ),
+          shape = p.shapes[variant],
+          columns = p.columns,
+          // Whether the cell (i, j) of the left field holds a dot (the column wraps round the half).
+          dot = (i: number, j: number): number =>
+            hash(((i % columns) + columns) % columns, j, seed ^ p.seedSalt) <
+            p.density
+              ? 1
+              : 0,
+          // The disparity in cells at the cell (i, j) of the right field, from the middle of the half.
+          disparity = (i: number, j: number): number => {
+            const x = i + 0.5 - columns / 2,
+              y = j + 0.5 - p.rows / 2;
+            if (shape === 0) return Math.hypot(x, y) < 11 ? 2 : 0;
+            if (shape === 1)
+              return Math.abs(x) < 10 && Math.abs(y) < 10 ? -2 : 0;
+            if (shape === 2) {
+              const radius = Math.hypot(x, y);
+              return radius > 6 && radius < 12 ? 1 : 0;
+            }
+            if (shape === 3) return Math.abs(x) + Math.abs(y) < 13 ? 2 : 0;
+            if (shape === 4) return Math.round(x / 7);
+            if (Math.hypot(i + 0.5 - 8, j + 0.5 - 20) < 6) return 2;
+            return Math.hypot(i + 0.5 - 24, j + 0.5 - 44) < 6 ? -2 : 0;
+          };
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            right = fu >= 0.5,
+            across = (right ? fu - 0.5 : fu) * 2 * columns,
+            down = fv * p.rows,
+            i = Math.floor(across),
+            j = Math.floor(down),
+            dx = across - i - 0.5,
+            dy = down - j - 0.5,
+            // The squared distance from the middle of the cell in units of half a cell: the dot is the round bump (1 - r^2)^2 that is 0 with a zero slope on the circle inscribed in the cell.
+            radius2 = 4 * (dx * dx + dy * dy),
+            held = right ? dot(i + disparity(i, j), j) : dot(i, j),
+            bump = radius2 < 1 ? (1 - radius2) * (1 - radius2) : 0,
+            value = held * bump,
+            grain = grainField(u, v);
+          color =
+            p.toneDark +
+            (p.toneLight - p.toneDark) * value +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * value;
+          occlusion = 1 - p.gapOcclusion * (1 - value);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -60991,6 +61050,7 @@ export function createSurfaceSampler(
     kind === 'opticalillusions' ||
     kind === 'lineillusions' ||
     kind === 'contrastillusions' ||
+    kind === 'randomdotstereogram' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

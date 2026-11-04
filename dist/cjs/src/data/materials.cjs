@@ -29445,6 +29445,38 @@ var proceduralMaterialPresets = Object.freeze({
 		cellHeight: .8,
 		gapOcclusion: .4
 	}),
+	randomdotstereogram: Object.freeze({
+		dark: [
+			8,
+			8,
+			12
+		],
+		light: [
+			232,
+			236,
+			240
+		],
+		roughness: .5,
+		relief: 8e-4,
+		seedSalt: 23831,
+		shapes: [
+			0,
+			1,
+			2,
+			3,
+			4,
+			5
+		],
+		columns: 32,
+		rows: 64,
+		density: .5,
+		grainCells: 128,
+		toneDark: .06,
+		toneLight: .9,
+		grainTone: .03,
+		cellHeight: .8,
+		gapOcclusion: .4
+	}),
 	vermiculation: Object.freeze({
 		dark: [
 			60,
@@ -31558,6 +31590,7 @@ var proceduralTileMeters = Object.freeze({
 	opticalillusions: .5,
 	lineillusions: .5,
 	contrastillusions: .5,
+	randomdotstereogram: .5,
 	dominotiling: .5,
 	vermiculation: .4,
 	kikko: .3,
