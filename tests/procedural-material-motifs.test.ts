@@ -74256,3 +74256,369 @@ describe('pickleballcourt: a pickleball court seen from above with the markings 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('squashcourt: a squash court seen from above with the floor markings of the World Squash Federation, laid along or across by the seed', () => {
+  const p = proceduralMaterialPresets.squashcourt,
+    out = empty(),
+    m = p.metre,
+    toneAt = (
+      sample: Sampler,
+      x: number,
+      y: number,
+      across: boolean,
+    ): number => {
+      // A place in metres from the middle of the court (x along its length, towards the back wall) as a place on the picture.
+      sample(0.5 + (across ? y : x) * m, 0.5 + (across ? x : y) * m, out);
+      return out.color;
+    };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    mix = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    // The probes are exact (the edges are straight), so the tolerance is tiny.
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  // The facts of the court, in metres (the WSF court specifications, as given by a web search whose summary quotes them; they were not read in the specifications themselves): 9.75 by 6.4, the short line with its front
+  // edge 5.44 from the front wall (and 4.26 from the back wall to its back edge, 0.05 wide), the half-court line from the short line to the back wall (centred), and two service boxes behind the short line against the
+  // side walls, 1.6 by 1.6 clear.
+  const rules = {
+      length: 9.75,
+      width: 6.4,
+      shortFront: 5.44,
+      shortBackToWall: 4.26,
+      line: 0.05,
+      box: 1.6,
+    },
+    halfL = rules.length / 2,
+    halfW = rules.width / 2,
+    w = p.lineWidth,
+    wallT = p.wallThickness,
+    shortBack = rules.shortFront + w,
+    boxBack = shortBack + rules.box + w;
+  type Kind = 'ground' | 'wall' | 'court' | 'line';
+  // The piece of the picture a place is in (two pieces of line next to each other are two pieces): the distance from the front wall and from the nearer side wall.
+  const piece = (x: number, y: number): string => {
+    const front = x + halfL,
+      ay = Math.abs(y),
+      side = halfW - ay;
+    if (front < -wallT || front > rules.length + wallT || ay > halfW + wallT)
+      return 'ground';
+    if (front < 0 || front > rules.length || ay > halfW) return 'wall';
+    if (front >= rules.shortFront && front <= shortBack) return 'line short';
+    if (front > shortBack && ay <= w / 2) return 'line half';
+    if (front >= boxBack - w && front <= boxBack && side <= rules.box + w)
+      return 'line box front';
+    if (
+      side >= rules.box &&
+      side <= rules.box + w &&
+      front > shortBack &&
+      front < boxBack - w
+    )
+      return 'line box side';
+    return 'court';
+  };
+  const classify = (x: number, y: number): Kind => {
+    const label = piece(x, y);
+    return label.startsWith('line') ? 'line' : (label as Kind);
+  };
+  type Surface = {
+    across: boolean;
+    surface: number;
+    shift: number;
+    tones: { court: number; wall: number; ground: number };
+  };
+  const readSurface = (sample: Sampler): Surface => {
+    const options: Surface[] = [];
+    for (const across of [false, true]) {
+      const court = toneAt(sample, -2.875, 1, across),
+        wall = toneAt(sample, -halfL - wallT / 2, 0, across),
+        ground = toneAt(sample, 0, 5.5, across);
+      p.surfaces.forEach((surface, index) => {
+        const shift = ground - surface.ground;
+        if (
+          Math.abs(shift) <= p.toneShift + 1e-9 &&
+          Math.abs(court - surface.court - shift) < 1e-6 &&
+          Math.abs(wall - surface.wall - shift) < 1e-6
+        )
+          options.push({
+            across,
+            surface: index,
+            shift,
+            tones: { court, wall, ground },
+          });
+      });
+    }
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+
+  it('has the rules of the court in the preset, with the lines twice as wide as the rules', () => {
+    expect(p.courtLength).toBe(rules.length);
+    expect(p.courtWidth).toBe(rules.width);
+    expect(p.shortLine).toBe(rules.shortFront);
+    expect(p.boxSize).toBe(rules.box);
+    expect(p.lineWidth).toBeCloseTo(2 * rules.line, 12);
+    // The back edge of the short line is 4.26 from the back wall in the rules (with the lines at the rules' width), and 4.21 at this width.
+    expect(rules.length - rules.shortFront - rules.line).toBeCloseTo(
+      rules.shortBackToWall,
+      12,
+    );
+  });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws every place of the picture as the rules and the widths say, with its tone, height and roughness, along the picture or across it (seed %i)',
+    { timeout: 120000 },
+    (seed) => {
+      const sample = createSurfaceSampler('squashcourt', seed),
+        { across, tones } = readSurface(sample),
+        expected: Record<Kind, { tone: number; height: number }> = {
+          ground: { tone: tones.ground, height: p.groundHeight },
+          wall: { tone: tones.wall, height: p.wallHeight },
+          court: { tone: tones.court, height: p.courtHeight },
+          line: { tone: p.lineTone, height: p.lineHeight },
+        },
+        counts: Record<Kind, number> = {
+          ground: 0,
+          wall: 0,
+          court: 0,
+          line: 0,
+        },
+        step = 0.03,
+        clear = 0.01;
+      // Every place of the picture (the tile is 12 across; the places within 0.01 of a change in the picture are skipped: the softened edges are checked below, exactly).
+      for (let x = -6; x <= 6; x += step)
+        for (let y = -6; y <= 6; y += step) {
+          const kind = classify(x, y);
+          if (
+            [
+              [clear, 0],
+              [-clear, 0],
+              [0, clear],
+              [0, -clear],
+              [clear, clear],
+              [-clear, -clear],
+              [clear, -clear],
+              [-clear, clear],
+            ].some(([dx, dy]) => piece(x + dx, y + dy) !== piece(x, y))
+          )
+            continue;
+          counts[kind]++;
+          expect(toneAt(sample, x, y, across)).toBeCloseTo(
+            expected[kind].tone,
+            6,
+          );
+          expect(out.height / p.relief).toBeCloseTo(expected[kind].height, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        }
+      expect(counts.line).toBeGreaterThan(1000);
+      expect(counts.court).toBeGreaterThan(20000);
+      expect(counts.wall).toBeGreaterThan(1000);
+      expect(counts.ground).toBeGreaterThan(8000);
+    },
+  );
+
+  it('uses every surface and both ways over 1000 seeds, about equally often, with the tones shifted over the whole range', () => {
+    const surfaces = new Map<number, number>(),
+      shifts: number[] = [];
+    let acrossCount = 0;
+    for (let seed = 0; seed < 1000; seed++) {
+      const { across, surface, shift } = readSurface(
+        createSurfaceSampler('squashcourt', seed * 7 + 1),
+      );
+      shifts.push(shift);
+      surfaces.set(surface, (surfaces.get(surface) ?? 0) + 1);
+      acrossCount += Number(across);
+    }
+    expect(surfaces.size).toBe(p.surfaces.length);
+    for (const count of surfaces.values())
+      expect(Math.abs(count - 1000 / p.surfaces.length)).toBeLessThan(50);
+    expect(Math.abs(acrossCount / 1000 - 0.5)).toBeLessThan(0.05);
+    expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+    expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+    expect(
+      Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+    ).toBeLessThan(p.toneShift * 0.15);
+    for (let quarter = 0; quarter < 4; quarter++)
+      expect(
+        Math.abs(
+          shifts.filter(
+            (shift) =>
+              Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+          ).length - 250,
+        ),
+      ).toBeLessThan(50);
+  });
+
+  it('puts each edge of each marking where the rules put it: just inside it the line, just outside it not (both sides, both ways)', () => {
+    const delta = 0.0004 / m,
+      acrosses = new Set<boolean>();
+    for (const seed of [1, 2, 3]) {
+      const sample = createSurfaceSampler('squashcourt', seed),
+        { across } = readSurface(sample),
+        isLine = (x: number, y: number): boolean =>
+          Math.abs(toneAt(sample, x, y, across) - p.lineTone) < 1e-6;
+      acrosses.add(across);
+      for (const sy of [1, -1]) {
+        // A place at a distance from the front wall and from the side wall on the side sy (a negative distance from the side wall is in the wall).
+        const at = (front: number, side: number): boolean =>
+          isLine(front - halfL, sy * (halfW - side));
+        // The short line, both edges, across the court (also next to the walls and the middle).
+        for (const side of [0.02, 0.3, 1, 1.65, 2.5, 3.1, halfW]) {
+          expect(at(rules.shortFront - delta, side)).toBe(false);
+          expect(at(rules.shortFront + delta, side)).toBe(true);
+          expect(at(shortBack - delta, side)).toBe(true);
+        }
+        for (const side of [0.3, 1, 2.5, 3.1]) {
+          expect(at(shortBack + delta, side)).toBe(false);
+        }
+        expect(at(rules.shortFront + 0.05, -0.1)).toBe(false);
+        // The half-court line, both edges, from the short line (no gap) to the back wall, and none in front of the short line.
+        expect(at(7, halfW - w / 2 + delta)).toBe(true);
+        expect(at(7, halfW - w / 2 - delta)).toBe(false);
+        expect(at(shortBack + delta, halfW)).toBe(true);
+        expect(at(shortBack + 0.05, halfW)).toBe(true);
+        expect(at(rules.length - delta, halfW)).toBe(true);
+        expect(at(rules.shortFront - 0.1, halfW)).toBe(false);
+        expect(at(2, halfW)).toBe(false);
+        // The service box: the line in front of its back (1.6 behind the short line), both edges, and its end at the line 1.6 from the side wall; nothing behind it.
+        for (const side of [0.02, 0.5, 1.2]) {
+          expect(at(boxBack - w - delta, side)).toBe(false);
+          expect(at(boxBack - w + delta, side)).toBe(true);
+          expect(at(boxBack - delta, side)).toBe(true);
+          expect(at(boxBack + delta, side)).toBe(false);
+        }
+        expect(at(boxBack - w / 2, rules.box + w - delta)).toBe(true);
+        expect(at(boxBack - w / 2, rules.box + w + delta)).toBe(false);
+        // The line 1.6 from the side wall, both edges, from the short line to the back line of the box (no gap at either end).
+        expect(at(6.3, rules.box - delta)).toBe(false);
+        expect(at(6.3, rules.box + delta)).toBe(true);
+        expect(at(6.3, rules.box + w - delta)).toBe(true);
+        expect(at(6.3, rules.box + w + delta)).toBe(false);
+        expect(at(shortBack + delta, rules.box + w / 2)).toBe(true);
+        expect(at(boxBack - w / 2, rules.box + w / 2)).toBe(true);
+        expect(at(boxBack + delta, rules.box + w / 2)).toBe(false);
+        // No other line: in front of the short line, nor behind the boxes beside the middle.
+        expect(at(3, rules.box + w / 2)).toBe(false);
+        expect(at(8.5, 1)).toBe(false);
+        expect(at(8.5, 2.5)).toBe(false);
+      }
+      // The short line is across all of the court: its ends are the court's edges (the middle of the court is on it too).
+      expect(isLine(shortBack - halfL - w / 2, 0)).toBe(true);
+    }
+    expect(acrosses.size).toBe(2);
+  });
+
+  it('softens the edge of the walls, of the court, of a line and of the end of a line over edgeSoft', () => {
+    const sample = createSurfaceSampler('squashcourt', 2),
+      { across, tones } = readSurface(sample),
+      quarter = (0.25 * p.edgeSoft) / m,
+      // A place at a distance from the front wall and from the side wall (on the side of positive y), as a place of the picture.
+      tone = (front: number, side: number): number =>
+        toneAt(sample, front - halfL, halfW - side, across);
+    close(
+      toneAt(sample, halfL + wallT - quarter, 0, across),
+      mix(tones.ground, tones.wall, 0.75),
+    );
+    close(
+      toneAt(sample, halfL + wallT + quarter, 0, across),
+      mix(tones.ground, tones.wall, 0.25),
+    );
+    close(
+      toneAt(sample, -halfL - wallT + quarter, 0, across),
+      mix(tones.ground, tones.wall, 0.75),
+    );
+    close(
+      toneAt(sample, 0, halfW + wallT - quarter, across),
+      mix(tones.ground, tones.wall, 0.75),
+    );
+    close(
+      toneAt(sample, 0, halfW + wallT + quarter, across),
+      mix(tones.ground, tones.wall, 0.25),
+    );
+    // The walls round the court (at a place without a line).
+    close(tone(2, quarter), mix(tones.wall, tones.court, 0.75));
+    close(tone(2, -quarter), mix(tones.wall, tones.court, 0.25));
+    close(tone(quarter, 2), mix(tones.wall, tones.court, 0.75));
+    close(tone(-quarter, 2), mix(tones.wall, tones.court, 0.25));
+    // The short line over the court (both edges) and where it ends at the wall.
+    close(
+      tone(rules.shortFront - quarter, 1),
+      mix(tones.court, p.lineTone, 0.25),
+    );
+    close(
+      tone(rules.shortFront + quarter, 1),
+      mix(tones.court, p.lineTone, 0.75),
+    );
+    close(tone(shortBack - quarter, 1), mix(tones.court, p.lineTone, 0.75));
+    close(tone(shortBack + quarter, 1), mix(tones.court, p.lineTone, 0.25));
+    close(
+      tone(rules.shortFront + 0.05, quarter),
+      mix(tones.wall, p.lineTone, 0.75),
+    );
+    close(
+      tone(rules.shortFront + 0.05, -quarter),
+      mix(tones.wall, p.lineTone, 0.25),
+    );
+    // The half-court line, and the two lines of a service box with the end of the one at the other.
+    close(tone(7, halfW - w / 2 + quarter), mix(tones.court, p.lineTone, 0.75));
+    close(tone(7, halfW - w / 2 - quarter), mix(tones.court, p.lineTone, 0.25));
+    close(tone(boxBack - w - quarter, 1), mix(tones.court, p.lineTone, 0.25));
+    close(tone(boxBack - w + quarter, 1), mix(tones.court, p.lineTone, 0.75));
+    close(tone(boxBack - quarter, 1), mix(tones.court, p.lineTone, 0.75));
+    close(tone(boxBack + quarter, 1), mix(tones.court, p.lineTone, 0.25));
+    close(
+      tone(boxBack - w / 2, rules.box + w - quarter),
+      mix(tones.court, p.lineTone, 0.75),
+    );
+    close(
+      tone(boxBack - w / 2, rules.box + w + quarter),
+      mix(tones.court, p.lineTone, 0.25),
+    );
+    close(tone(6.3, rules.box - quarter), mix(tones.court, p.lineTone, 0.25));
+    close(tone(6.3, rules.box + quarter), mix(tones.court, p.lineTone, 0.75));
+    close(
+      tone(6.3, rules.box + w - quarter),
+      mix(tones.court, p.lineTone, 0.75),
+    );
+    close(
+      tone(6.3, rules.box + w + quarter),
+      mix(tones.court, p.lineTone, 0.25),
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('squashcourt', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('squashcourt', 0),
+      b = createSurfaceSampler('squashcourt', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

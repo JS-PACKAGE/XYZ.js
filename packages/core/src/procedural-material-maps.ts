@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'squashcourt',
   'pickleballcourt',
   'volleyballcourt',
   'baseballdiamond',
@@ -50650,6 +50651,82 @@ export function createSurfaceSampler(
             (courtTone + (p.lineTone - courtTone) * lined - shade) * court;
           elevation +=
             (courtHeight + (p.lineHeight - courtHeight) * lined - elevation) *
+            court;
+          color = clamp(shade);
+          height = clamp(elevation);
+          roughness = clamp(p.inkRoughness);
+          occlusion = 1;
+        };
+      }
+      case 'squashcourt': {
+        const p = proceduralMaterialPresets.squashcourt,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(117, 1, seed ^ 0x1d0001) * p.surfaces.length)
+            ],
+          across = hash(117, 2, seed ^ 0x1d0002) < 0.5,
+          shift = (hash(117, 3, seed ^ 0x1d0003) * 2 - 1) * p.toneShift,
+          halfLength = p.courtLength / 2,
+          halfWidth = p.courtWidth / 2,
+          line = p.lineWidth,
+          // Where the short line ends (its back edge), and the back edge of the line of a box (the box is clear for boxSize behind the short line and beside the wall).
+          shortBack = p.shortLine + line,
+          boxBack = shortBack + p.boxSize + line,
+          boxSide = p.boxSize + line;
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            // The place in metres from the middle of the court (x along its length), as the distance from the front wall and from the nearer side wall.
+            x = ((across ? fv : fu) - 0.5) / p.metre,
+            y = ((across ? fu : fv) - 0.5) / p.metre,
+            front = x + halfLength,
+            ay = Math.abs(y),
+            side = halfWidth - ay,
+            wall = cover(
+              Math.min(
+                halfLength + p.wallThickness - Math.abs(x),
+                halfWidth + p.wallThickness - ay,
+              ) * p.metre,
+            ),
+            court = cover(Math.min(halfLength - Math.abs(x), side) * p.metre),
+            // The lines: the short line across the court, the half-court line from the middle of the short line to the back wall, and the two lines of a box (each ending under the line it meets).
+            marking = Math.max(
+              cover(Math.min(front - p.shortLine, shortBack - front) * p.metre),
+              cover(
+                Math.min(line / 2 - ay, front - (p.shortLine + line / 2)) *
+                  p.metre,
+              ),
+              cover(
+                Math.min(
+                  front - (boxBack - line),
+                  boxBack - front,
+                  boxSide - side,
+                ) * p.metre,
+              ),
+              cover(
+                Math.min(
+                  side - p.boxSize,
+                  boxSide - side,
+                  front - (p.shortLine + line / 2),
+                  boxBack - front,
+                ) * p.metre,
+              ),
+            );
+          // Court or line over the walls (the lines go on over the edge of the court, so that a line at the edge of the court has the edge of the court).
+          const courtTone = surface.court + shift;
+          let shade = surface.ground + shift,
+            elevation = p.groundHeight;
+          shade += (surface.wall + shift - shade) * wall;
+          elevation += (p.wallHeight - elevation) * wall;
+          shade +=
+            (courtTone + (p.lineTone - courtTone) * marking - shade) * court;
+          elevation +=
+            (p.courtHeight +
+              (p.lineHeight - p.courtHeight) * marking -
+              elevation) *
             court;
           color = clamp(shade);
           height = clamp(elevation);

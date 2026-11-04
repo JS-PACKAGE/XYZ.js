@@ -17732,6 +17732,39 @@ export const proceduralMaterialPresets = Object.freeze({
     lineHeight: 0.36,
     inkRoughness: 0.45,
   }),
+  squashcourt: Object.freeze({
+    dark: [70, 36, 18] as const,
+    light: [244, 230, 206] as const,
+    roughness: 0.4,
+    relief: 0.004,
+    // A squash court (singles) seen from above with the floor markings of the World Squash Federation, in metres (the length of the court along one axis, the front wall at one end): the court 9.75 by 6.4, the
+    // short line (its front edge 5.44 from the front wall), the half-court line from the short line to the back wall (centred), and in each back corner a service box (1.6 by 1.6 clear: bounded by the side wall, the
+    // short line, a line 1.6 behind the short line and a line 1.6 from the side wall); round the court the walls (seen from above, a strip 0.3 wide; the thickness is my choice) and the ground beyond. The short
+    // line is measured to its front edge and a box is clear inside its lines. The lines are 0.1 wide (the rules give 0.05, two times) so that they show in a tile. The seed picks the surface (the tones of the floor, the walls and
+    // the ground, all shifted together a little) and lays the court along the picture or across it.
+    metre: 0.083333,
+    courtLength: 9.75,
+    courtWidth: 6.4,
+    shortLine: 5.44,
+    boxSize: 1.6,
+    wallThickness: 0.3,
+    lineWidth: 0.1,
+    surfaces: Object.freeze([
+      Object.freeze({ court: 0.5, wall: 0.36, ground: 0.2 }),
+      Object.freeze({ court: 0.42, wall: 0.56, ground: 0.26 }),
+      Object.freeze({ court: 0.58, wall: 0.3, ground: 0.14 }),
+      Object.freeze({ court: 0.36, wall: 0.46, ground: 0.3 }),
+    ]),
+    // How much the three tones may all be shifted together (from -toneShift to toneShift) by the seed: the wear of the floor.
+    toneShift: 0.04,
+    edgeSoft: 0.0006,
+    lineTone: 0.96,
+    groundHeight: 0.15,
+    wallHeight: 0.6,
+    courtHeight: 0.3,
+    lineHeight: 0.36,
+    inkRoughness: 0.45,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -24224,6 +24257,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  squashcourt: 1,
   pickleballcourt: 1,
   volleyballcourt: 1,
   baseballdiamond: 1,
