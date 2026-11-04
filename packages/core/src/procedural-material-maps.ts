@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'carromboard',
   'shogiboard',
   'ludoboard',
   'chessopening',
@@ -48613,6 +48614,123 @@ export function createSurfaceSampler(
               shade += (p.pieceTones[kind] - shade) * body;
               elevation += (p.pieceHeight - elevation) * body;
             }
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
+      case 'carromboard': {
+        const p = proceduralMaterialPresets.carromboard,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x99001),
+          inverseSoft = 1 / p.edgeSoft,
+          norm = (x: number, y: number): number => Math.sqrt(x * x + y * y),
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          turn = hash(98, 1, seed ^ 0x99002) < 0.5 ? 0 : Math.PI / 6,
+          swap = hash(98, 2, seed ^ 0x99003) < 0.5 ? 0 : 1,
+          strikerSide = Math.floor(hash(98, 3, seed ^ 0x99004) * 4),
+          strikerAlong = (hash(98, 4, seed ^ 0x99005) * 2 - 1) * p.baseReach,
+          strikerDepth = (p.baseDepths[0] + p.baseDepths[1]) / 2,
+          // The striker's middle: on the left side at the depth, turned a quarter at a time for the others.
+          strikerAngle = (strikerSide * Math.PI) / 2,
+          strikerX =
+            -(p.half - strikerDepth) * Math.cos(strikerAngle) -
+            strikerAlong * Math.sin(strikerAngle),
+          strikerY =
+            -(p.half - strikerDepth) * Math.sin(strikerAngle) +
+            strikerAlong * Math.cos(strikerAngle),
+          // The coins: the queen, six around it, twelve outside (the hexagonal packing of discs of the coin radius), as sites with a tone each, or none for a coin that is not there.
+          sites = 19,
+          siteX = new Float64Array(sites),
+          siteY = new Float64Array(sites),
+          siteTone = new Float64Array(sites).fill(-1),
+          reach = 4 * p.coinRadius + p.coinRadius + p.edgeSoft;
+        siteTone[0] = p.queenTone;
+        for (let k = 0; k < 6; k++) {
+          const angle = turn + (k * Math.PI) / 3;
+          siteX[1 + k] = 2 * p.coinRadius * Math.cos(angle);
+          siteY[1 + k] = 2 * p.coinRadius * Math.sin(angle);
+          siteTone[1 + k] = (k + swap) % 2 ? p.blackTone : p.whiteTone;
+        }
+        for (let i = 0; i < 12; i++) {
+          const angle = turn + (i * Math.PI) / 6,
+            radius =
+              i % 2 === 0 ? 4 * p.coinRadius : 2 * Math.sqrt(3) * p.coinRadius;
+          siteX[7 + i] = radius * Math.cos(angle);
+          siteY[7 + i] = radius * Math.sin(angle);
+          siteTone[7 + i] = (i + swap) % 2 ? p.blackTone : p.whiteTone;
+        }
+        for (let site = 1; site < sites; site++)
+          if (hash(site, 5, seed ^ 0x99006) >= p.fill) siteTone[site] = -1;
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const dx = fu - 0.5,
+            dy = fv - 0.5,
+            outer = p.half + p.frame,
+            framed = cover(
+              Math.min(outer - Math.abs(dx), outer - Math.abs(dy)),
+            );
+          if (framed > 0) {
+            shade += (p.frameTone - shade) * framed;
+            elevation += (p.frameHeight - elevation) * framed;
+            rough += (p.inkRoughness - rough) * framed;
+            mask = framed;
+            const inside = cover(
+              Math.min(p.half - Math.abs(dx), p.half - Math.abs(dy)),
+            );
+            shade += (p.surfaceTone - shade) * inside;
+            elevation += (p.surfaceHeight - elevation) * inside;
+            // The pocket of the nearest corner.
+            const pocket = cover(
+              p.pocketRadius -
+                norm(
+                  Math.abs(dx) - p.pocketCentre,
+                  Math.abs(dy) - p.pocketCentre,
+                ),
+            );
+            shade += (p.pocketTone - shade) * pocket;
+            elevation += (p.pocketHeight - elevation) * pocket;
+            // The rings of the centre, and the base line of the nearest side (two lines with round ends), the lines painted once where they meet.
+            const distance = norm(dx, dy);
+            let line = 0;
+            for (const radius of p.ringRadii)
+              line = Math.max(
+                line,
+                cover(p.lineHalf - Math.abs(distance - radius)),
+              );
+            const along = Math.abs(dx) > Math.abs(dy) ? dy : dx,
+              depth = p.half - Math.max(Math.abs(dx), Math.abs(dy)),
+              pastEnd = Math.max(Math.abs(along) - p.baseReach, 0);
+            for (const lineDepth of p.baseDepths)
+              line = Math.max(
+                line,
+                cover(p.lineHalf - norm(pastEnd, depth - lineDepth)),
+              );
+            shade += (p.lineTone - shade) * line;
+            elevation += (p.lineHeight - elevation) * line;
+            if (distance < reach)
+              for (let site = 0; site < sites; site++) {
+                if (siteTone[site] < 0) continue;
+                const disc = cover(
+                  p.coinRadius - norm(dx - siteX[site], dy - siteY[site]),
+                );
+                shade += (siteTone[site] - shade) * disc;
+                elevation += (p.coinHeight - elevation) * disc;
+              }
+            const striker = cover(
+              p.strikerRadius - norm(dx - strikerX, dy - strikerY),
+            );
+            shade += (p.strikerTone - shade) * striker;
+            elevation += (p.strikerHeight - elevation) * striker;
           }
           color = clamp(
             shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),

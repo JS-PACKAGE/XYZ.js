@@ -65572,3 +65572,591 @@ describe('shogiboard: a shogi board with the pieces of an opening, the first sid
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('carromboard: a carrom board with pockets, base lines and the coins of the first position, turned and swapped by the seed', () => {
+  const p = proceduralMaterialPresets.carromboard,
+    out = empty(),
+    outer = p.half + p.frame,
+    toneAt = (sample: Sampler, dx: number, dy: number): number => {
+      sample(0.5 + dx, 0.5 + dy, out);
+      return out.color;
+    };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    mix = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(0.03),
+    coinTones = [p.whiteTone, p.blackTone, p.queenTone],
+    isCoin = (tone: number): boolean =>
+      coinTones.some((candidate) => Math.abs(candidate - tone) < 1e-6),
+    r = p.coinRadius;
+  // The 19 places of the coins, from the facts of the hexagonal packing of discs of equal size: the queen in the middle, six touching it (two radii away, a sixth of a turn apart), twelve touching those:
+  // six straight out behind them (four radii away) and six between, in the gaps (two root three radii away), all going round a twelfth of a turn apart. The colours alternate round each ring.
+  type Place = { x: number; y: number; colour: number };
+  const places = (turn: number, swap: number): Place[] => {
+    const found: Place[] = [{ x: 0, y: 0, colour: 2 }];
+    for (let k = 0; k < 6; k++)
+      found.push({
+        x: 2 * r * Math.cos(turn + (k * Math.PI) / 3),
+        y: 2 * r * Math.sin(turn + (k * Math.PI) / 3),
+        colour: (k + swap) % 2,
+      });
+    for (let i = 0; i < 12; i++) {
+      const radius = i % 2 === 0 ? 4 * r : 2 * Math.sqrt(3) * r;
+      found.push({
+        x: radius * Math.cos(turn + (i * Math.PI) / 6),
+        y: radius * Math.sin(turn + (i * Math.PI) / 6),
+        colour: (i + swap) % 2,
+      });
+    }
+    return found;
+  };
+  const colourTone = (colour: number): number =>
+    [p.whiteTone, p.blackTone, p.queenTone][colour];
+  // Read the coins: which of the four ways to turn and swap fits the coins seen at the places, and which places have a coin.
+  const readCoins = (
+    sample: Sampler,
+  ): { turn: number; swap: number; present: boolean[] } => {
+    const fits: { turn: number; swap: number; present: boolean[] }[] = [];
+    for (const turn of [0, Math.PI / 6])
+      for (const swap of [0, 1]) {
+        const present = places(turn, swap).map((place) =>
+            isCoin(toneAt(sample, place.x, place.y)),
+          ),
+          fit = places(turn, swap).every(
+            (place, index) =>
+              !present[index] ||
+              Math.abs(
+                toneAt(sample, place.x, place.y) - colourTone(place.colour),
+              ) < 1e-6,
+          );
+        if (fit) fits.push({ turn, swap, present });
+      }
+    // A wrong way finds coins at only a few of its places (where they happen to fall on a coin of the right lattice of the same colour): the right one has the most, and fewer wrong ones fit.
+    fits.sort(
+      (x, y) =>
+        y.present.filter(Boolean).length - x.present.filter(Boolean).length,
+    );
+    expect(fits[0].present.filter(Boolean).length).toBeGreaterThan(7);
+    expect(
+      fits.length === 1 ||
+        fits[1].present.filter(Boolean).length <
+          fits[0].present.filter(Boolean).length,
+    ).toBe(true);
+    return fits[0];
+  };
+  // Where the striker is: the side (0 left, then a quarter turn clockwise each) and the distance along the base line from the middle, found at the middle depth of the two lines.
+  const sideToPoint = (
+    side: number,
+    along: number,
+    depth: number,
+  ): [number, number] => {
+    const x = -(p.half - depth),
+      y = along,
+      angle = (side * Math.PI) / 2;
+    return [
+      x * Math.cos(angle) - y * Math.sin(angle),
+      x * Math.sin(angle) + y * Math.cos(angle),
+    ];
+  };
+  const middleDepth = (p.baseDepths[0] + p.baseDepths[1]) / 2;
+  const readStriker = (sample: Sampler): { side: number; along: number } => {
+    const found: { side: number; along: number }[] = [];
+    for (let side = 0; side < 4; side++) {
+      let total = 0,
+        count = 0;
+      for (let k = 0; k <= 960; k++) {
+        const along =
+            -p.baseReach - 0.06 + (k * (2 * p.baseReach + 0.12)) / 960,
+          [dx, dy] = sideToPoint(side, along, middleDepth);
+        if (Math.abs(toneAt(sample, dx, dy) - p.strikerTone) < 1e-6) {
+          total += along;
+          count++;
+        }
+      }
+      if (count > 0) found.push({ side, along: total / count });
+    }
+    expect(found.length).toBe(1);
+    return found[0];
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws the coins of the first position on the hexagonal packing around the queen, in alternating colours, and nothing like a coin elsewhere (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('carromboard', seed),
+        { turn, swap, present } = readCoins(sample),
+        sites = places(turn, swap);
+      // The queen is always there.
+      expect(present[0]).toBe(true);
+      // Coins touch their neighbours: distances between places of the lattice are two radii for the neighbours.
+      let touching = 0;
+      for (let a = 0; a < 19; a++)
+        for (let b = a + 1; b < 19; b++)
+          touching += Number(
+            Math.abs(
+              Math.hypot(sites[a].x - sites[b].x, sites[a].y - sites[b].y) -
+                2 * r,
+            ) < 1e-9,
+          );
+      expect(touching).toBe(42);
+      // Nine of each colour at the start.
+      expect(sites.filter((site) => site.colour === 0).length).toBe(9);
+      expect(sites.filter((site) => site.colour === 1).length).toBe(9);
+      // Over a grid of the middle of the board: a coin tone only where a coin is (within its radius), and the coin's tone in the middle of every coin place of those present, five places across each.
+      let stray = 0;
+      for (let iy = -70; iy <= 70; iy++)
+        for (let ix = -70; ix <= 70; ix++) {
+          const dx = ix * 0.0021 + 0.00031,
+            dy = iy * 0.0021 + 0.00017,
+            nearest = Math.min(
+              ...sites
+                .filter((_, index) => present[index])
+                .map((site) => Math.hypot(dx - site.x, dy - site.y)),
+            );
+          if (nearest > r + 0.001)
+            stray += Number(isCoin(toneAt(sample, dx, dy)));
+          if (nearest < r - 0.001)
+            stray += Number(!isCoin(toneAt(sample, dx, dy)));
+        }
+      expect(stray).toBe(0);
+    },
+  );
+
+  it('turns the lattice by a twelfth of a turn or not, swaps the colours, drops coins by chance and puts the striker anywhere on the four base lines, over 300 seeds', () => {
+    const turns = new Set<number>();
+    let swaps = 0,
+      turned = 0,
+      coins = 0,
+      lowest = Infinity,
+      highest = -Infinity;
+    const sides = [0, 0, 0, 0];
+    for (let seed = 0; seed < 300; seed++) {
+      const sample = createSurfaceSampler('carromboard', seed * 7 + 1),
+        { turn, swap, present } = readCoins(sample),
+        { side, along } = readStriker(sample);
+      turns.add(turn);
+      turned += Number(turn > 0);
+      swaps += swap;
+      coins += present.slice(1).filter(Boolean).length;
+      sides[side] += 1;
+      lowest = Math.min(lowest, along);
+      highest = Math.max(highest, along);
+    }
+    expect(turns.size).toBe(2);
+    expect(Math.abs(turned / 300 - 0.5)).toBeLessThan(0.1);
+    expect(Math.abs(swaps / 300 - 0.5)).toBeLessThan(0.1);
+    expect(Math.abs(coins / (300 * 18) - p.fill)).toBeLessThan(0.02);
+    for (const count of sides) expect(Math.abs(count - 75)).toBeLessThan(25);
+    // The striker goes the whole length of the base line.
+    expect(lowest).toBeLessThan(-p.baseReach + 0.03);
+    expect(highest).toBeGreaterThan(p.baseReach - 0.03);
+    expect(lowest).toBeGreaterThanOrEqual(-p.baseReach - 0.002);
+    expect(highest).toBeLessThanOrEqual(p.baseReach + 0.002);
+  });
+
+  it('draws the frame, the surface, the pockets, the rings and the base lines with their tones, heights, roughness and sizes, the same on all four sides', () => {
+    const sample = createSurfaceSampler('carromboard', 2),
+      paperOk = (dx: number, dy: number): boolean =>
+        Math.abs(toneAt(sample, dx, dy) - p.paperTone) <=
+        p.grainTone / 2 + 1e-9,
+      { side: strikerSide, along: strikerAlong } = readStriker(sample);
+    expect(toneAt(sample, 0, -p.half - p.frame / 2)).toBeCloseTo(
+      p.frameTone,
+      6,
+    );
+    expect(out.height / p.relief).toBeCloseTo(p.frameHeight, 6);
+    expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+    for (const [dx, dy] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ]) {
+      expect(
+        toneAt(
+          sample,
+          dx * (outer - 0.0004) + dy * 0.2,
+          dy * (outer - 0.0004) + dx * 0.2,
+        ),
+      ).toBeCloseTo(p.frameTone, 6);
+      expect(
+        paperOk(
+          dx * (outer + 0.0004) + dy * 0.2,
+          dy * (outer + 0.0004) + dx * 0.2,
+        ),
+      ).toBe(true);
+      expect(out.height / p.relief).toBeCloseTo(p.paperHeight, 6);
+      expect(
+        toneAt(
+          sample,
+          dx * (p.half + 0.0004) + dy * 0.2,
+          dy * (p.half + 0.0004) + dx * 0.2,
+        ),
+      ).toBeCloseTo(p.frameTone, 6);
+      expect(
+        toneAt(
+          sample,
+          dx * (p.half - 0.0004) + dy * 0.2,
+          dy * (p.half - 0.0004) + dx * 0.2,
+        ),
+      ).toBeCloseTo(p.surfaceTone, 6);
+      expect(out.height / p.relief).toBeCloseTo(p.surfaceHeight, 6);
+      expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+    }
+    // The four pockets: tone, height, radius.
+    for (const sx of [-1, 1])
+      for (const sy of [-1, 1]) {
+        const cx = sx * p.pocketCentre,
+          cy = sy * p.pocketCentre;
+        expect(toneAt(sample, cx, cy)).toBeCloseTo(p.pocketTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.pocketHeight, 6);
+        for (const [ux, uy] of [
+          [1, 0],
+          [0, 1],
+          [-1, 0],
+          [0, -1],
+          [Math.SQRT1_2, Math.SQRT1_2],
+        ]) {
+          expect(
+            toneAt(
+              sample,
+              cx + ux * (p.pocketRadius - 0.0004),
+              cy + uy * (p.pocketRadius - 0.0004),
+            ),
+          ).toBeCloseTo(p.pocketTone, 6);
+          expect(
+            toneAt(
+              sample,
+              cx + ux * (p.pocketRadius + 0.0004),
+              cy + uy * (p.pocketRadius + 0.0004),
+            ),
+          ).toBeCloseTo(p.surfaceTone, 6);
+        }
+      }
+    // The two rings of the centre circle: along four directions between the coins' reach (the rings are not covered there).
+    for (const radius of p.ringRadii)
+      for (const angle of [0.1, 1.2, 2.4, 3.5, 4.7, 5.9]) {
+        const probe = (distance: number): number =>
+          toneAt(
+            sample,
+            distance * Math.cos(angle),
+            distance * Math.sin(angle),
+          );
+        if (radius < 0.12) continue;
+        expect(probe(radius)).toBeCloseTo(p.lineTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.lineHeight, 6);
+        expect(probe(radius + p.lineHalf - 0.0004)).toBeCloseTo(p.lineTone, 6);
+        expect(probe(radius - p.lineHalf + 0.0004)).toBeCloseTo(p.lineTone, 6);
+        expect(probe(radius + p.lineHalf + 0.0004)).toBeCloseTo(
+          p.surfaceTone,
+          6,
+        );
+        expect(probe(radius - p.lineHalf - 0.0004)).toBeCloseTo(
+          p.surfaceTone,
+          6,
+        );
+      }
+    // The base lines on all four sides: both lines (tone, height, width), the rounded ends, and the surface between and beyond them (away from the striker).
+    for (let side = 0; side < 4; side++) {
+      const near = (along: number): boolean =>
+        side === strikerSide &&
+        Math.abs(along - strikerAlong) < p.strikerRadius + 0.01;
+      for (const along of [-0.15, 0, 0.15]) {
+        if (near(along)) continue;
+        for (const depth of p.baseDepths) {
+          const [dx, dy] = sideToPoint(side, along, depth);
+          expect(toneAt(sample, dx, dy)).toBeCloseTo(p.lineTone, 6);
+          expect(out.height / p.relief).toBeCloseTo(p.lineHeight, 6);
+          for (const sign of [1, -1]) {
+            expect(
+              toneAt(
+                sample,
+                ...sideToPoint(
+                  side,
+                  along,
+                  depth + sign * (p.lineHalf - 0.0004),
+                ),
+              ),
+            ).toBeCloseTo(p.lineTone, 6);
+            expect(
+              toneAt(
+                sample,
+                ...sideToPoint(
+                  side,
+                  along,
+                  depth + sign * (p.lineHalf + 0.0004),
+                ),
+              ),
+            ).toBeCloseTo(p.surfaceTone, 6);
+          }
+        }
+        expect(
+          toneAt(sample, ...sideToPoint(side, along, middleDepth)),
+        ).toBeCloseTo(p.surfaceTone, 6);
+      }
+      for (const sign of [1, -1]) {
+        if (near(sign * p.baseReach)) continue;
+        for (const depth of p.baseDepths) {
+          expect(
+            toneAt(
+              sample,
+              ...sideToPoint(
+                side,
+                sign * (p.baseReach + p.lineHalf - 0.0004),
+                depth,
+              ),
+            ),
+          ).toBeCloseTo(p.lineTone, 6);
+          expect(
+            toneAt(
+              sample,
+              ...sideToPoint(
+                side,
+                sign * (p.baseReach + p.lineHalf + 0.0004),
+                depth,
+              ),
+            ),
+          ).toBeCloseTo(p.surfaceTone, 6);
+          // The end is round: along the diagonal of the end the line is as wide as elsewhere.
+          const edge = p.lineHalf * Math.SQRT1_2;
+          expect(
+            toneAt(
+              sample,
+              ...sideToPoint(
+                side,
+                sign * (p.baseReach + edge - 0.0004),
+                depth + edge - 0.0004,
+              ),
+            ),
+          ).toBeCloseTo(p.lineTone, 6);
+          expect(
+            toneAt(
+              sample,
+              ...sideToPoint(
+                side,
+                sign * (p.baseReach + edge + 0.0006),
+                depth + edge + 0.0006,
+              ),
+            ),
+          ).toBeCloseTo(p.surfaceTone, 6);
+        }
+      }
+    }
+    // The coins and the striker: the tone, height and roughness; the queen's size in six directions.
+    expect(toneAt(sample, 0, 0)).toBeCloseTo(p.queenTone, 6);
+    expect(out.height / p.relief).toBeCloseTo(p.coinHeight, 6);
+    expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+    for (const angle of [0.3, 1.5, 2.6, 3.7, 4.9, 6.1]) {
+      expect(
+        toneAt(
+          sample,
+          (r - 0.0004) * Math.cos(angle),
+          (r - 0.0004) * Math.sin(angle),
+        ),
+      ).toBeCloseTo(p.queenTone, 6);
+    }
+    const [sx, sy] = sideToPoint(strikerSide, strikerAlong, middleDepth);
+    expect(toneAt(sample, sx, sy)).toBeCloseTo(p.strikerTone, 6);
+    expect(out.height / p.relief).toBeCloseTo(p.strikerHeight, 6);
+    for (const angle of [0.3, 1.5, 2.6, 3.7, 4.9, 6.1]) {
+      expect(
+        toneAt(
+          sample,
+          sx + (p.strikerRadius - 0.0004) * Math.cos(angle),
+          sy + (p.strikerRadius - 0.0004) * Math.sin(angle),
+        ),
+      ).toBeCloseTo(p.strikerTone, 6);
+      expect(
+        toneAt(
+          sample,
+          sx + (p.strikerRadius + 0.0004) * Math.cos(angle),
+          sy + (p.strikerRadius + 0.0004) * Math.sin(angle),
+        ),
+      ).not.toBeCloseTo(p.strikerTone, 2);
+    }
+    for (const [dx, dy] of [
+      [-outer - 0.01, 0],
+      [outer + 0.01, 0],
+      [0, -outer - 0.01],
+      [0, outer + 0.01],
+      [-0.49, -0.49],
+    ])
+      expect(paperOk(dx, dy)).toBe(true);
+  });
+
+  it('softens the edge of the frame, of the surface, of a pocket, of a ring, of a line, of a coin and of the striker over edgeSoft', () => {
+    const sample = createSurfaceSampler('carromboard', 2),
+      quarter = 0.25 * p.edgeSoft,
+      { side, along } = readStriker(sample);
+    close(
+      toneAt(sample, 0.2, -outer + quarter),
+      mix(p.paperTone, p.frameTone, 0.75),
+    );
+    close(
+      toneAt(sample, 0.2, -outer - quarter),
+      mix(p.paperTone, p.frameTone, 0.25),
+    );
+    close(
+      toneAt(sample, 0.2, -p.half + quarter),
+      mix(p.frameTone, p.surfaceTone, 0.75),
+    );
+    close(
+      toneAt(sample, 0.2, -p.half - quarter),
+      mix(p.frameTone, p.surfaceTone, 0.25),
+    );
+    close(
+      toneAt(
+        sample,
+        -p.pocketCentre + p.pocketRadius - quarter,
+        -p.pocketCentre,
+      ),
+      mix(p.surfaceTone, p.pocketTone, 0.75),
+    );
+    close(
+      toneAt(
+        sample,
+        -p.pocketCentre + p.pocketRadius + quarter,
+        -p.pocketCentre,
+      ),
+      mix(p.surfaceTone, p.pocketTone, 0.25),
+    );
+    close(
+      toneAt(sample, p.ringRadii[0] + p.lineHalf - quarter, 0),
+      mix(p.surfaceTone, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, p.ringRadii[0] + p.lineHalf + quarter, 0),
+      mix(p.surfaceTone, p.lineTone, 0.25),
+    );
+    // A base line (on a side the striker is not on) and its end.
+    const lineSide = (side + 1) % 4,
+      depth = p.baseDepths[0];
+    close(
+      toneAt(sample, ...sideToPoint(lineSide, 0, depth + p.lineHalf - quarter)),
+      mix(p.surfaceTone, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, ...sideToPoint(lineSide, 0, depth + p.lineHalf + quarter)),
+      mix(p.surfaceTone, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(
+        sample,
+        ...sideToPoint(lineSide, p.baseReach + p.lineHalf - quarter, depth),
+      ),
+      mix(p.surfaceTone, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(
+        sample,
+        ...sideToPoint(lineSide, p.baseReach + p.lineHalf + quarter, depth),
+      ),
+      mix(p.surfaceTone, p.lineTone, 0.25),
+    );
+    // The queen's rim (in a gap between the coins around it) and the striker's (along its base line, between the two lines).
+    const { turn } = readCoins(sample),
+      gap = turn + Math.PI / 6;
+    close(
+      toneAt(
+        sample,
+        (r - quarter) * Math.cos(gap),
+        (r - quarter) * Math.sin(gap),
+      ),
+      mix(p.surfaceTone, p.queenTone, 0.75),
+    );
+    close(
+      toneAt(
+        sample,
+        (r + quarter) * Math.cos(gap),
+        (r + quarter) * Math.sin(gap),
+      ),
+      mix(p.surfaceTone, p.queenTone, 0.25),
+    );
+    for (const sign of [1, -1]) {
+      close(
+        toneAt(
+          sample,
+          ...sideToPoint(
+            side,
+            along + sign * (p.strikerRadius - quarter),
+            middleDepth,
+          ),
+        ),
+        mix(p.surfaceTone, p.strikerTone, 0.75),
+      );
+      close(
+        toneAt(
+          sample,
+          ...sideToPoint(
+            side,
+            along + sign * (p.strikerRadius + quarter),
+            middleDepth,
+          ),
+        ),
+        mix(p.surfaceTone, p.strikerTone, 0.25),
+      );
+    }
+  });
+
+  it('fades the grain of the paper out over the edge of the frame, as much as the frame covers', () => {
+    const sample = createSurfaceSampler('carromboard', 2),
+      amount = smoothstep(0.25),
+      residuals: number[] = [];
+    for (let k = 0; k < 40; k++)
+      residuals.push(
+        toneAt(sample, -outer + 0.02 + k * 0.02, -outer - 0.25 * p.edgeSoft) -
+          (p.paperTone + (p.frameTone - p.paperTone) * amount),
+      );
+    const largest = Math.max(...residuals.map(Math.abs));
+    expect(largest).toBeGreaterThan(0.003);
+    expect(largest).toBeLessThanOrEqual(
+      0.5 * p.grainTone * (1 - amount) + 1e-9,
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('carromboard', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('carromboard', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, -0.48 + i * 0.0021, -0.49),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('carromboard', 0),
+      b = createSurfaceSampler('carromboard', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3501],
+        [0.2201, t],
+        [t, 0.5],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
