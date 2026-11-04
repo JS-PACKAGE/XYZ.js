@@ -260,6 +260,7 @@ export class SpriteText extends Group2D {
         lines.push(paragraph);
         continue;
       }
+      const measurements = new Map<string, TextMeasurement>();
       let line = '',
         advance = 0,
         last: number | undefined;
@@ -278,7 +279,11 @@ export class SpriteText extends Group2D {
         line += token;
       };
       for (const token of paragraph.match(/\S+|\s+/gu) ?? []) {
-        const metrics = this.measure(token);
+        let metrics = measurements.get(token);
+        if (metrics === undefined) {
+          metrics = this.measure(token);
+          measurements.set(token, metrics);
+        }
         const boundary =
           last !== undefined && metrics.first !== undefined
             ? this.letterSpacing + this.font.getKerning(last, metrics.first)
