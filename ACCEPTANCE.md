@@ -14194,3 +14194,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：8項（色調範圍、每個排列恰畫一次與數量、Mahonian分布、組別只改順序、逐點比對、不同變體與組別與決定性、C1與UV週期、maps），`-t "Permutations as"`8項通過。變異檢查（執行了28次，另有1個因為組合爆炸而沒有執行）：27次被抓到，1次未被抓到且為等價變異：originX除以3（所有變體的欄數都不小於列數，所以水平方向沒有多餘空間，originX恆為0，與youngdiagrams的情形相同）。被抓到的包括：231判斷的比較方向（1項失敗）、對合與錯排的判斷（各2項）、循環長度起始值（1項）、循環長度比較（1項）、逆序數方向（4項）、層級分母（6項與6項）、洗牌範圍（3項）、回溯時不還原已用的列（6項）、盒子寬度（7項）、緣平滑起點（4項與2項）、盒底少一邊（4項）、範圍判斷少一格（7項）、轉置（2項）、填色格少一邊（4項）、層級固定為1（5項）、小點半徑加倍（3項）、ink忽略小點（2項）、盒底色調（4項）、盒底height忽略(1 − ink)（5項）、小點height（4項）、填色色調（4項）、occlusion取反（1項）、最後一格當空格（5項）、小點色調（3項）、填色height忽略層級（4項）。沒有執行的那個是「已用過的列就跳過」改成永不跳過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Permutations as|permutations|kinds|catalog|distinct|periodic"`定向測試**2599項通過／4620項未選**，輸出`GATES-OK`。
 - 未驗證：完整suite（最近一次在`710bc29c7`，不含permutations）、瀏覽器gallery（permutations尚未檢查）、跨瀏覽器與跨GPU；不push。
+
+## 2026-11-04 完整測試與瀏覽器gallery複驗（至自迴避行走與排列）
+
+- 範圍：在`710bc29c7`（新增自迴避行走之後）重跑完整測試，並在`8c6b34ef0`（新增排列之後）跑一次瀏覽器gallery。這段不新增材質，只記錄實跑結果。完整測試範圍包含`spanningtrees`、`polyominoes`與`selfavoidingwalks`，不包含之後的`permutations`。
+- 完整測試（工具實跑，乾淨的detached worktree）：**179個測試檔、11,139項全部通過**（2147 s；期間我同時跑著permutations的probe、測試、預覽與變異檢查，所以耗時不是乾淨的量測；沒有逾時失敗）。前一次完整複驗在`a1485f62d`（11,112項）；11,112 → 11,139共27項，與我預期的增量spanningtrees 7項、polyominoes 8項、selfavoidingwalks 9項（共24項）加上三個kind各一項的kinds清單測試（3項）相符，但我沒有逐項核對各測試的數量。沒有在無負載下重跑。
+- 瀏覽器gallery（工具實跑，無頭Chrome，vite從worktree提供`/examples/pbr3d/`）：WebGPU分頁與`?renderer=webgl2`分頁各自讀到「1144 procedural material presets」、選單1145個選項，選取spanningtrees、polyominoes、selfavoidingwalks與permutations都成功（讀數更新），`errors().entries`都是空的。**過程中並不順利**：前幾次開啟分頁時，多次出現「Browser open timed out after 30000ms」或「Tab was killed: Browser tab worker recovery failed」（WebGPU與webgl2都有），其中一次WebGPU的選單讀到1145個選項但讀數為null、後續選取時分頁被殺；我換成較長的open逾時（150秒）與`domcontentloaded`後，WebGPU分頁在第4次嘗試通過、webgl2分頁在較長逾時的第1次嘗試通過；我沒有診斷這些逾時與分頁被殺的原因（先前的紀錄中也出現過類似的不穩定，而機器同時有其他負載），也沒有證據顯示與這些材質的程式有關，但也沒有排除。這次沒有重新檢查四個新kind的選項標籤文字（前幾次的標籤讀取剛好都失敗了）。限制：只涵蓋「可選取、讀數更新、無console錯誤」，沒有目視畫面或像素比對；跨瀏覽器、跨GPU行為沒有驗證。
+- 其他紀錄：做permutations的第一次變異檢查時，我用了過於寬鬆的`pkill -f vitest`，這可能殺掉了不是我啟動的vitest行程；這已記在permutations的紀錄裡，這裡再列一次以免遺漏。
+- 未驗證：`permutations`尚未跑完整suite（只有定向測試與gates）；完整suite沒有在無負載下重跑；跨瀏覽器與跨GPU；不push。
