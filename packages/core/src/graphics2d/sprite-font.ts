@@ -234,13 +234,14 @@ export class SpriteText extends Group2D {
     return this.content;
   }
 
-  private measure(text: string): TextMeasurement {
+  private measure(text: string, indices?: number[]): TextMeasurement {
     let advance = 0,
       width = 0,
       first: number | undefined,
       last: number | undefined;
     for (const character of text) {
       const index = this.font.getGlyphIndex(character);
+      indices?.push(index);
       const glyph = this.font.getGlyph(index);
       if (last !== undefined)
         advance += this.letterSpacing + this.font.getKerning(last, index);
@@ -322,7 +323,8 @@ export class SpriteText extends Group2D {
     const layouts: { index: number; x: number; y: number }[] = [];
     for (let row = 0; row < lines.length; row++) {
       const line = lines[row]!;
-      const width = this.measure(line).width;
+      const indices: number[] = [];
+      const width = this.measure(line, indices).width;
       const offset =
         this.align === 'center'
           ? -width / 2
@@ -337,8 +339,7 @@ export class SpriteText extends Group2D {
         Math.abs(baseline) > graphics2dLimits.dimension
       )
         throw new RangeError('SpriteText layout exceeds its dimension budget.');
-      for (const character of line) {
-        const index = this.font.getGlyphIndex(character);
+      for (const index of indices) {
         const glyph = this.font.getGlyph(index);
         if (previous !== undefined)
           pen += this.letterSpacing + this.font.getKerning(previous, index);
