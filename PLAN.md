@@ -2309,6 +2309,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`catalantriangulations`（卡特蘭三角剖分）使目前目錄1187→1188種，含plain的gallery為1189項。把凸多邊形用互不相交的對角線切成三角形的所有方法：五邊形5種、六邊形14種、七邊形42種（卡特蘭數），每一種畫在格子中的一格（五邊形用6格中的5格、六邊形用15格中的14格，七邊形剛好42格）。每個多邊形的邊是較粗的深線、對角線較細較淺、每個頂點一個圓點、多邊形內部淺灰填色；seed決定是哪種多邊形、各種剖分的排列順序（五邊形與六邊形還有哪一格空著）。這是作者設計的示意；測試端從畫面讀出多邊形的種類（三種版面中頂點圓點色調對得上的那一種）與每一格有哪些對角線（沿弦在三個位置都是對角線色調才算，避免剛好穿過弦的另一條對角線誤判），並以完全不同的方法（試遍所有大小為n−3的對角線子集、檢查互不相交）窮舉出所有剖分，驗證畫面上的剖分恰好就是這些、每一種出現一次、數量等於卡特蘭數C(n−2)（由公式C(2m,m)/(m+1)算出）、每一種恰有n−3條互不相交的對角線，且空格是紙面。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

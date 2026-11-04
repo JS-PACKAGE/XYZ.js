@@ -58817,3 +58817,507 @@ describe('eisensteinprimes: the triangular lattice of a + b w with the prime poi
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('catalantriangulations: every way to cut a convex polygon into triangles with diagonals that do not cross, one in each cell', () => {
+  const p = proceduralMaterialPresets.catalantriangulations,
+    out = empty();
+  type Point = [number, number];
+  type Layout = {
+    sides: number;
+    columns: number;
+    rows: number;
+    cell: number;
+    left: number;
+    top: number;
+    radius: number;
+  };
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+  const layoutOf = (choice: number): Layout => {
+    const columns = p.columns[choice],
+      rows = p.rows[choice],
+      cell = Math.min(p.extent / columns, p.extent / rows);
+    return {
+      sides: p.sides[choice],
+      columns,
+      rows,
+      cell,
+      left: 0.5 - (columns * cell) / 2,
+      top: 0.5 - (rows * cell) / 2,
+      radius: cell / 2 - p.margin,
+    };
+  };
+  const centreOf = (layout: Layout, column: number, row: number): Point => [
+    layout.left + (column + 0.5) * layout.cell,
+    layout.top + (row + 0.5) * layout.cell,
+  ];
+  // A polygon's corners in a cell, the first straight up, going clockwise on the screen.
+  const cornersOf = (layout: Layout, column: number, row: number): Point[] => {
+    const [cx, cy] = centreOf(layout, column, row);
+    return Array.from({ length: layout.sides }, (_, i): Point => [
+      cx +
+        layout.radius *
+          Math.cos(-Math.PI / 2 + (i * Math.PI * 2) / layout.sides),
+      cy +
+        layout.radius *
+          Math.sin(-Math.PI / 2 + (i * Math.PI * 2) / layout.sides),
+    ]);
+  };
+  // Catalan numbers by the formula C(2m, m) / (m + 1).
+  const catalan = (m: number): number => {
+    let value = 1;
+    for (let i = 0; i < m; i++) value = (value * (2 * (2 * i + 1))) / (i + 2);
+    return Math.round(value);
+  };
+  // Every set of n - 3 diagonals of an n-gon that do not cross, by trying all sets of that size (a different way from the sampler's recursion). A diagonal joins corners a < b, not
+  // neighbours (b - a >= 2 and not (a = 0 and b = n - 1)); two cross when one has a corner strictly between the other's and the other has one outside.
+  const crossing = (d: Point, e: Point): boolean =>
+    (d[0] < e[0] && e[0] < d[1] && d[1] < e[1]) ||
+    (e[0] < d[0] && d[0] < e[1] && e[1] < d[1]);
+  const allTriangulations = (n: number): Set<string> => {
+    const diagonals: Point[] = [];
+    for (let a = 0; a < n; a++)
+      for (let b = a + 2; b < n; b++)
+        if (!(a === 0 && b === n - 1)) diagonals.push([a, b]);
+    const found = new Set<string>(),
+      pick = (start: number, chosen: Point[]): void => {
+        if (chosen.length === n - 3) {
+          found.add(chosen.map((d) => d.join('-')).join(' '));
+          return;
+        }
+        for (let i = start; i < diagonals.length; i++)
+          if (chosen.every((d) => !crossing(d, diagonals[i])))
+            pick(i + 1, [...chosen, diagonals[i]]);
+      };
+    pick(0, []);
+    return found;
+  };
+
+  // Read the picture: which of the three layouts it is (the one whose polygons' corners have the corner dots' tone in some cell), and in each cell whether it holds a polygon and
+  // which diagonals it has (a diagonal is there when the tone is the diagonal's at three places along the chord; a crossing line would only be at one).
+  const readCells = (
+    seed: number,
+  ): {
+    sample: Sampler;
+    layout: Layout;
+    cells: ({ column: number; row: number; diagonals: string } | null)[];
+  } => {
+    const sample = createSurfaceSampler('catalantriangulations', seed),
+      scores = p.sides.map((_, choice) => {
+        const layout = layoutOf(choice);
+        let score = 0;
+        for (let row = 0; row < layout.rows; row++)
+          for (let column = 0; column < layout.columns; column++)
+            score += cornersOf(layout, column, row).filter(
+              ([x, y]) => Math.abs(toneAt(sample, x, y) - p.dotTone) < 1e-6,
+            ).length;
+        return score;
+      }),
+      layout = layoutOf(scores.indexOf(Math.max(...scores))),
+      cells: ({ column: number; row: number; diagonals: string } | null)[] = [];
+    for (let row = 0; row < layout.rows; row++)
+      for (let column = 0; column < layout.columns; column++) {
+        const corners = cornersOf(layout, column, row);
+        if (
+          corners.every(
+            ([x, y]) => Math.abs(toneAt(sample, x, y) - p.dotTone) > 1e-6,
+          )
+        ) {
+          cells.push(null);
+          continue;
+        }
+        const present: string[] = [];
+        for (let a = 0; a < layout.sides; a++)
+          for (let b = a + 2; b < layout.sides; b++) {
+            if (a === 0 && b === layout.sides - 1) continue;
+            const ink = [0.3, 0.5, 0.7].every(
+              (t) =>
+                Math.abs(
+                  toneAt(
+                    sample,
+                    corners[a][0] + (corners[b][0] - corners[a][0]) * t,
+                    corners[a][1] + (corners[b][1] - corners[a][1]) * t,
+                  ) - p.diagonalTone,
+                ) < 1e-6,
+            );
+            if (ink) present.push(`${a}-${b}`);
+          }
+        cells.push({ column, row, diagonals: present.join(' ') });
+      }
+    return { sample, layout, cells };
+  };
+
+  // One seed for each of the polygons (found by reading which layout the picture has), so that the pentagon, the hexagon and the heptagon are all drawn in the checks below.
+  const polygonSeeds = (): number[] =>
+    p.sides.map((sides) => {
+      for (let seed = 0; seed < 200; seed++)
+        if (readCells(seed).layout.sides === sides) return seed;
+      throw new Error('no seed');
+    });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws every way to triangulate the polygon once, each with sides - 3 diagonals that do not cross, and the empty cells empty (seed %i)',
+    (seed) => {
+      const { sample, layout, cells } = readCells(seed),
+        filled = cells.filter(
+          (cell): cell is { column: number; row: number; diagonals: string } =>
+            cell !== null,
+        ),
+        n = layout.sides;
+      // As many ways as the Catalan number of n - 2, all different, each with n - 3 diagonals that do not cross, and so triangulations: exactly the ones found by trying all sets.
+      expect(filled.length).toBe(catalan(n - 2));
+      expect(new Set(filled.map((cell) => cell.diagonals)).size).toBe(
+        filled.length,
+      );
+      for (const cell of filled) {
+        const diagonals = cell.diagonals
+          .split(' ')
+          .map((d): Point => d.split('-').map(Number) as Point);
+        expect(diagonals.length).toBe(n - 3);
+        for (let i = 0; i < diagonals.length; i++)
+          for (let j = i + 1; j < diagonals.length; j++)
+            expect(crossing(diagonals[i], diagonals[j])).toBe(false);
+      }
+      expect(new Set(filled.map((cell) => cell.diagonals))).toEqual(
+        allTriangulations(n),
+      );
+      // The empty cells hold nothing at all: paper at the middle and at a corner's place.
+      cells.forEach((cell, index) => {
+        if (cell !== null) return;
+        const column = index % layout.columns,
+          row = Math.floor(index / layout.columns),
+          [cx, cy] = centreOf(layout, column, row);
+        expect(
+          Math.abs(toneAt(sample, cx, cy) - p.paperTone),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+        expect(
+          Math.abs(toneAt(sample, cx, cy - layout.radius) - p.paperTone),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      });
+    },
+  );
+
+  it('uses every polygon, lays the ways out in different orders, and leaves different cells empty, over 60 seeds', () => {
+    const polygons = new Set<number>(),
+      firsts = new Set<string>(),
+      emptyCells = new Set<number>();
+    for (let seed = 0; seed < 60; seed++) {
+      const { layout, cells } = readCells(seed * 17 + 2);
+      polygons.add(layout.sides);
+      const first = cells.find((cell) => cell !== null);
+      if (layout.sides === 7)
+        firsts.add((first as { diagonals: string }).diagonals);
+      cells.forEach((cell, index) => {
+        if (cell === null && layout.sides === 6) emptyCells.add(index);
+      });
+    }
+    expect([...polygons].sort()).toEqual([...p.sides]);
+    expect(firsts.size).toBeGreaterThan(3);
+    expect(emptyCells.size).toBeGreaterThan(3);
+  });
+
+  it('draws the polygon fills, sides, diagonals and corner dots with their tones, heights, roughness and sizes', () => {
+    for (const seed of polygonSeeds()) {
+      const { sample, layout, cells } = readCells(seed),
+        paperOk = (x: number, y: number): boolean =>
+          Math.abs(toneAt(sample, x, y) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9;
+      cells.forEach((cell) => {
+        if (cell === null) return;
+        const corners = cornersOf(layout, cell.column, cell.row),
+          [cx, cy] = centreOf(layout, cell.column, cell.row),
+          n = layout.sides,
+          diagonals = cell.diagonals
+            .split(' ')
+            .map((d): Point => d.split('-').map(Number) as Point);
+        // Fill: near the middle (a place away from every diagonal: the middle of a triangle's corner by the polygon's side, found by trying the middles of the sides moved in).
+        for (let i = 0; i < n; i++) {
+          const a = corners[i],
+            b = corners[(i + 1) % n],
+            mx = (a[0] + b[0]) / 2,
+            my = (a[1] + b[1]) / 2,
+            length = Math.hypot(b[0] - a[0], b[1] - a[1]),
+            // The side's outward normal (clockwise on the screen: outward is to the left of a to b).
+            nx = (b[1] - a[1]) / length,
+            ny = -(b[0] - a[0]) / length;
+          expect(toneAt(sample, mx, my)).toBeCloseTo(p.edgeTone, 6);
+          expect(out.height / p.relief).toBeCloseTo(p.edgeHeight, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          expect(
+            toneAt(
+              sample,
+              mx + nx * (p.edgeHalf - 0.0004),
+              my + ny * (p.edgeHalf - 0.0004),
+            ),
+          ).toBeCloseTo(p.edgeTone, 6);
+          expect(
+            toneAt(
+              sample,
+              mx - nx * (p.edgeHalf - 0.0004),
+              my - ny * (p.edgeHalf - 0.0004),
+            ),
+          ).toBeCloseTo(p.edgeTone, 6);
+          expect(
+            paperOk(
+              mx + nx * (p.edgeHalf + 0.0004),
+              my + ny * (p.edgeHalf + 0.0004),
+            ),
+          ).toBe(true);
+          // Inside the side: the fill (unless a diagonal is within a few thousandths there).
+          const near = diagonals.some(([da, db]) => {
+            const ax = corners[da][0],
+              ay = corners[da][1],
+              dx = corners[db][0] - ax,
+              dy = corners[db][1] - ay,
+              t = Math.min(
+                1,
+                Math.max(
+                  0,
+                  ((mx - nx * 0.004 - ax) * dx + (my - ny * 0.004 - ay) * dy) /
+                    (dx * dx + dy * dy),
+                ),
+              );
+            return (
+              Math.hypot(
+                mx - nx * 0.004 - (ax + t * dx),
+                my - ny * 0.004 - (ay + t * dy),
+              ) < 0.004
+            );
+          });
+          if (!near) {
+            expect(
+              toneAt(
+                sample,
+                mx - nx * (p.edgeHalf + 0.0004),
+                my - ny * (p.edgeHalf + 0.0004),
+              ),
+            ).toBeCloseTo(p.fillTone, 6);
+            expect(out.height / p.relief).toBeCloseTo(p.fillHeight, 6);
+          }
+        }
+        // Each diagonal: tone, height and thickness at the middle of the chord, across it, the fill beyond (where no other line is near: the polygon's triangles are big enough).
+        for (const [da, db] of diagonals) {
+          const a = corners[da],
+            b = corners[db],
+            length = Math.hypot(b[0] - a[0], b[1] - a[1]),
+            nx = -(b[1] - a[1]) / length,
+            ny = (b[0] - a[0]) / length,
+            mx = (a[0] + b[0]) / 2,
+            my = (a[1] + b[1]) / 2,
+            clear = diagonals.every(
+              ([oa, ob]) =>
+                (oa === da && ob === db) ||
+                Math.hypot(
+                  mx - (corners[oa][0] + corners[ob][0]) / 2,
+                  my - (corners[oa][1] + corners[ob][1]) / 2,
+                ) > 0.01,
+            );
+          expect(toneAt(sample, mx, my)).toBeCloseTo(p.diagonalTone, 6);
+          expect(out.height / p.relief).toBeCloseTo(p.diagonalHeight, 6);
+          if (!clear) continue;
+          expect(
+            toneAt(
+              sample,
+              mx + nx * (p.diagonalHalf - 0.0004),
+              my + ny * (p.diagonalHalf - 0.0004),
+            ),
+          ).toBeCloseTo(p.diagonalTone, 6);
+          expect(
+            toneAt(
+              sample,
+              mx - nx * (p.diagonalHalf - 0.0004),
+              my - ny * (p.diagonalHalf - 0.0004),
+            ),
+          ).toBeCloseTo(p.diagonalTone, 6);
+          expect(
+            toneAt(
+              sample,
+              mx + nx * (p.diagonalHalf + 0.0004),
+              my + ny * (p.diagonalHalf + 0.0004),
+            ),
+          ).toBeCloseTo(p.fillTone, 6);
+          expect(
+            toneAt(
+              sample,
+              mx - nx * (p.diagonalHalf + 0.0004),
+              my - ny * (p.diagonalHalf + 0.0004),
+            ),
+          ).toBeCloseTo(p.fillTone, 6);
+        }
+        // The corner dots: tone, height and radius, going outwards from the polygon's middle.
+        for (const [x, y] of corners) {
+          expect(toneAt(sample, x, y)).toBeCloseTo(p.dotTone, 6);
+          expect(out.height / p.relief).toBeCloseTo(p.dotHeight, 6);
+          const length = Math.hypot(x - cx, y - cy),
+            ox = (x - cx) / length,
+            oy = (y - cy) / length;
+          expect(
+            toneAt(
+              sample,
+              x + ox * (p.dotRadius - 0.0004),
+              y + oy * (p.dotRadius - 0.0004),
+            ),
+          ).toBeCloseTo(p.dotTone, 6);
+          expect(
+            paperOk(
+              x + ox * (p.dotRadius + 0.0004),
+              y + oy * (p.dotRadius + 0.0004),
+            ),
+          ).toBe(true);
+        }
+      });
+    }
+  });
+
+  it('softens the edge of a side, a diagonal and a corner dot over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of polygonSeeds()) {
+      const { sample, layout, cells } = readCells(seed),
+        cell = cells.find((candidate) => candidate !== null) as {
+          column: number;
+          row: number;
+          diagonals: string;
+        },
+        corners = cornersOf(layout, cell.column, cell.row),
+        [cx, cy] = centreOf(layout, cell.column, cell.row),
+        // A side's middle and its outward normal.
+        a = corners[1],
+        b = corners[2],
+        length = Math.hypot(b[0] - a[0], b[1] - a[1]),
+        nx = (b[1] - a[1]) / length,
+        ny = -(b[0] - a[0]) / length,
+        mx = (a[0] + b[0]) / 2,
+        my = (a[1] + b[1]) / 2;
+      // The side's outer edge over the paper, and its inner edge over the fill.
+      close(
+        toneAt(
+          sample,
+          mx + nx * (p.edgeHalf - quarter),
+          my + ny * (p.edgeHalf - quarter),
+        ),
+        mix(p.paperTone, p.edgeTone, 0.75),
+      );
+      close(
+        toneAt(
+          sample,
+          mx + nx * (p.edgeHalf + quarter),
+          my + ny * (p.edgeHalf + quarter),
+        ),
+        mix(p.paperTone, p.edgeTone, 0.25),
+      );
+      close(
+        toneAt(
+          sample,
+          mx - nx * (p.edgeHalf - quarter),
+          my - ny * (p.edgeHalf - quarter),
+        ),
+        mix(p.fillTone, p.edgeTone, 0.75),
+      );
+      close(
+        toneAt(
+          sample,
+          mx - nx * (p.edgeHalf + quarter),
+          my - ny * (p.edgeHalf + quarter),
+        ),
+        mix(p.fillTone, p.edgeTone, 0.25),
+      );
+      // A diagonal's edge over the fill (the first one of the cell).
+      const [da, db] = cell.diagonals.split(' ')[0].split('-').map(Number),
+        dx = corners[db][0] - corners[da][0],
+        dy = corners[db][1] - corners[da][1],
+        dlength = Math.hypot(dx, dy),
+        px = -dy / dlength,
+        py = dx / dlength,
+        qx = (corners[da][0] + corners[db][0]) / 2,
+        qy = (corners[da][1] + corners[db][1]) / 2;
+      close(
+        toneAt(
+          sample,
+          qx + px * (p.diagonalHalf - quarter),
+          qy + py * (p.diagonalHalf - quarter),
+        ),
+        mix(p.fillTone, p.diagonalTone, 0.75),
+      );
+      close(
+        toneAt(
+          sample,
+          qx + px * (p.diagonalHalf + quarter),
+          qy + py * (p.diagonalHalf + quarter),
+        ),
+        mix(p.fillTone, p.diagonalTone, 0.25),
+      );
+      // A corner dot's outer edge over the paper, going outwards from the middle.
+      const [x, y] = corners[0],
+        ox = (x - cx) / Math.hypot(x - cx, y - cy),
+        oy = (y - cy) / Math.hypot(x - cx, y - cy);
+      close(
+        toneAt(
+          sample,
+          x + ox * (p.dotRadius - quarter),
+          y + oy * (p.dotRadius - quarter),
+        ),
+        mix(p.paperTone, p.dotTone, 0.75),
+      );
+      close(
+        toneAt(
+          sample,
+          x + ox * (p.dotRadius + quarter),
+          y + oy * (p.dotRadius + quarter),
+        ),
+        mix(p.paperTone, p.dotTone, 0.25),
+      );
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('catalantriangulations', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('catalantriangulations', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.01),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('catalantriangulations', 0),
+      b = createSurfaceSampler('catalantriangulations', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3501],
+        [0.2201, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

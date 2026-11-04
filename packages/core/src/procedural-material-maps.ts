@@ -46234,6 +46234,120 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'catalantriangulations': {
+        const p = proceduralMaterialPresets.catalantriangulations,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x58001),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          choice = Math.floor(hash(81, 1, seed ^ 0x58002) * p.sides.length),
+          sides = p.sides[choice],
+          columns = p.columns[choice],
+          rows = p.rows[choice],
+          // (The columns always limit the size: the grids are wider than tall.)
+          cell = p.extent / columns,
+          left = 0.5 - (columns * cell) / 2,
+          top = 0.5 - (rows * cell) / 2,
+          radius = cell / 2 - p.margin,
+          // The ways to cut the polygon with corners i to j (counting round) into triangles: choose the corner k of the triangle on the side from i to j, then cut the two
+          // polygons that are left. The segments (i, k) and (k, j) are listed whether they are diagonals or sides of the big polygon: a side is drawn under its outline.
+          cuts = (i: number, j: number): [number, number][][] => {
+            if (j - i < 2) return [[]];
+            const ways: [number, number][][] = [];
+            for (let k = i + 1; k < j; k++)
+              for (const first of cuts(i, k))
+                for (const second of cuts(k, j))
+                  ways.push([...first, ...second, [i, k], [k, j]]);
+            return ways;
+          },
+          triangulations = cuts(0, sides - 1),
+          // Which way each cell holds (the cells are given out to the ways in the order of a number from the seed, so the ways are laid out in a shuffled order and, for the
+          // pentagon and the hexagon, the unused cells are in places the seed picks); -1 for an empty cell.
+          holds = new Int16Array(columns * rows).fill(-1),
+          corners = Array.from({ length: sides }, (_, index) => {
+            const angle = -Math.PI / 2 + (index * TAU) / sides;
+            return [radius * Math.cos(angle), radius * Math.sin(angle)];
+          });
+        Array.from({ length: columns * rows }, (_, index) => index)
+          .sort(
+            (a, b) =>
+              hash(81, 2, seed ^ (0x58003 + a * 131)) -
+              hash(81, 2, seed ^ (0x58003 + b * 131)),
+          )
+          .slice(0, triangulations.length)
+          .forEach((cellIndex, way) => (holds[cellIndex] = way));
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          const column = Math.floor((fu - left) / cell),
+            row = Math.floor((fv - top) / cell);
+          const way =
+            column >= 0 && column < columns && row >= 0 && row < rows
+              ? holds[row * columns + column]
+              : -1;
+          const x = fu - left - (column + 0.5) * cell,
+            y = fv - top - (row + 0.5) * cell;
+          // (Within a little more than the polygon's radius of its middle: everything is drawn there: the dots at the corners reach just beyond the radius.)
+          if (way >= 0 && x * x + y * y < (radius + 0.01) * (radius + 0.01)) {
+            // The distance from here to the segment between two corners.
+            const segment = (a: number[], b: number[]): number => {
+              const dx = b[0] - a[0],
+                dy = b[1] - a[1],
+                t = clamp(
+                  ((x - a[0]) * dx + (y - a[1]) * dy) / (dx * dx + dy * dy),
+                );
+              return Math.hypot(x - (a[0] + t * dx), y - (a[1] + t * dy));
+            };
+            // The polygon: its inside (the smallest distance in from a side), then its sides, the diagonals and the corners.
+            let inside = Infinity,
+              edges = 0,
+              dots = 0;
+            for (let i = 0; i < sides; i++) {
+              const a = corners[i],
+                b = corners[(i + 1) % sides],
+                length = Math.hypot(b[0] - a[0], b[1] - a[1]);
+              // The inward distance from the side a to b (the polygon runs clockwise on the screen, so inside is to the right of a to b).
+              inside = Math.min(
+                inside,
+                ((b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0])) /
+                  length,
+              );
+              edges = Math.max(edges, cover(p.edgeHalf - segment(a, b)));
+              dots = Math.max(
+                dots,
+                cover(p.dotRadius - Math.hypot(x - a[0], y - a[1])),
+              );
+            }
+            let diagonals = 0;
+            for (const [i, j] of triangulations[way])
+              diagonals = Math.max(
+                diagonals,
+                cover(p.diagonalHalf - segment(corners[i], corners[j])),
+              );
+            paint(cover(inside), p.fillTone, p.fillHeight);
+            paint(diagonals, p.diagonalTone, p.diagonalHeight);
+            paint(edges, p.edgeTone, p.edgeHeight);
+            paint(dots, p.dotTone, p.dotHeight);
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -73763,6 +73877,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'catalantriangulations' ||
     kind === 'eisensteinprimes' ||
     kind === 'keplerorbit' ||
     kind === 'pythagoreanproof' ||
