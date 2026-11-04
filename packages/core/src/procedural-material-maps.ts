@@ -50989,6 +50989,42 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'talbotcarpet': {
+        const p = proceduralMaterialPresets.talbotcarpet,
+          variant = Math.floor(
+            hash(0, 96, seed ^ p.seedSalt) * p.duties.length,
+          ),
+          duty = p.duties[variant],
+          // The grating is t = scale * (1 in the slits) + offset: 1 and 0 for the amplitude gratings, 2 and -1 for the pi-phase gratings.
+          scale = p.phaseGratings[variant] ? 2 : 1,
+          offset = p.phaseGratings[variant] ? -1 : 0,
+          inverseSoft = 1 / p.edgeSoft,
+          coefficients: number[] = [scale * duty + offset];
+        for (let n = 1; n <= p.harmonics; n++)
+          coefficients.push(
+            (scale * Math.sin(Math.PI * n * duty)) / (Math.PI * n),
+          );
+        return () => {
+          // The field behind the grating is the sum over the harmonics n of c_n exp(2 pi i n x) exp(-2 pi i n^2 z), with x in periods and z in Talbot lengths; the coefficients are real and even, so it is the sum of 2 c_n cos(2 pi n x) exp(-2 pi i n^2 z).
+          const x = p.periods * fract(u),
+            z = fract(v);
+          let re = coefficients[0],
+            im = 0;
+          for (let n = 1; n <= p.harmonics; n++) {
+            const amplitude = 2 * coefficients[n] * Math.cos(TAU * n * x),
+              phase = TAU * n * n * z;
+            re += amplitude * Math.cos(phase);
+            im -= amplitude * Math.sin(phase);
+          }
+          const ink = 1 - Math.exp(-(re * re + im * im) / p.reference),
+            mask = smooth(clamp(ink * inverseSoft));
+          color =
+            p.gapTone + (p.toneFloor - p.gapTone) * mask + p.toneSpan * ink;
+          height = p.cellHeight * ink;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -59908,6 +59944,7 @@ export function createSurfaceSampler(
     kind === 'hydrogenorbitals' ||
     kind === 'vortexstreet' ||
     kind === 'newtonfractal' ||
+    kind === 'talbotcarpet' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

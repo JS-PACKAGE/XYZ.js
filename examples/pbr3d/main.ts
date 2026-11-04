@@ -1181,6 +1181,7 @@ try {
     'hydrogenorbitals',
     'vortexstreet',
     'newtonfractal',
+    'talbotcarpet',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

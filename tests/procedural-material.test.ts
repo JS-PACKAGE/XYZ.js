@@ -1144,6 +1144,7 @@ const kinds: ProceduralMaterialKind[] = [
   'hydrogenorbitals',
   'vortexstreet',
   'newtonfractal',
+  'talbotcarpet',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -193349,6 +193350,329 @@ describe('Newton fractal as the basins of the roots of a polynomial under Newton
     expect(blue / (512 * 512)).toBeLessThan(70);
     expect(maxTilt).toBeGreaterThan(0.0095);
     expect(maxTilt).toBeLessThan(0.0105);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Talbot carpet as the near-field intensity behind a grating, repeating every Talbot length', () => {
+  const p = proceduralMaterialPresets.talbotcarpet;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The intensity at x (in periods of the grating, any real number) and z (in Talbot lengths) read back from the sampler: the height is cellHeight times the tone 1 - exp(-intensity / reference), which is inverted here. */
+  const intensityAt = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    x: number,
+    z: number,
+  ): number => {
+    sample((((x / p.periods) % 1) + 1) % 1, z, out);
+    return -Math.log(1 - out.height / p.relief / p.cellHeight) * p.reference;
+  };
+  const colourAtPoint = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    x: number,
+    z: number,
+  ): number => {
+    sample((((x / p.periods) % 1) + 1) % 1, z, out);
+    return out.color;
+  };
+  /** The intensity of a thin grating of the open fraction `duty` at the distance z (in Talbot lengths 2 d^2 / lambda) by the Fresnel integral over 121 slits, in the space domain (Simpson's rule), instead of the harmonics used by the sampler; an amplitude grating only. */
+  const fresnelIntensity = (x: number, z: number, duty: number): number => {
+    let re = 0,
+      im = 0;
+    for (let m = -60; m <= 60; m++) {
+      const a = m - duty / 2,
+        b = m + duty / 2,
+        far = Math.max(Math.abs(a - x), Math.abs(b - x)),
+        steps =
+          2 *
+          Math.max(
+            8,
+            Math.ceil(
+              (b - a) / ((0.4 * z) / (Math.PI * Math.max(far, 0.5))) / 2,
+            ),
+          ),
+        h = (b - a) / steps;
+      let sr = 0,
+        si = 0;
+      for (let i = 0; i <= steps; i++) {
+        const xp = a + i * h,
+          weight = i === 0 || i === steps ? 1 : i % 2 ? 4 : 2,
+          phase = (Math.PI * (x - xp) * (x - xp)) / (2 * z);
+        sr += weight * Math.cos(phase);
+        si += weight * Math.sin(phase);
+      }
+      re += (sr * h) / 3;
+      im += (si * h) / 3;
+    }
+    // times exp(-i pi / 4) / sqrt(2 z), which makes the field of the free space 1.
+    const c = Math.SQRT1_2,
+      ur = ((re + im) * c) / Math.sqrt(2 * z),
+      ui = ((im - re) * c) / Math.sqrt(2 * z);
+    return ur * ur + ui * ui;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('talbotcarpet', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('talbotcarpet', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0399);
+      expect(low).toBeLessThan(0.0403);
+      expect(high).toBeGreaterThan(0.7);
+      expect(high).toBeLessThan(0.78);
+      expect(dark / 65536).toBeGreaterThan(0.006);
+      expect(dark / 65536).toBeLessThan(0.28);
+      expect(mean / 65536).toBeGreaterThan(0.165);
+      expect(mean / 65536).toBeLessThan(0.363);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.62);
+      expect(heightHigh).toBeLessThan(0.71);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (amplitude gratings of the open fraction 0.5, 0.25, 0.15 and 0.35, then pi-phase gratings of 0.5 and 0.25) is 4, 6, 0, 1, 3 and 5; the table was found with a probe by which of the six series
+  // matches the intensities of the seed best, and is written here, so it is not an independent check of the seed's choice.
+  const seeds = [4, 6, 0, 1, 3, 5];
+  const duties = [0.5, 0.25, 0.15, 0.35, 0.5, 0.25];
+  it('keeps the total power of the grating at every depth', () => {
+    // The intensity averaged over one period is the power that the grating transmits, whatever the depth z: the open fraction for an amplitude grating and 1 for a pi-phase grating. The harmonics above 24 are missing, which takes 0.0040 to 0.0042
+    // (amplitude) or 0.0169 (phase) off, the same at all depths (0.4958 and 0.9831 for the open fraction 0.5 in the probe, at z = 0.07, 0.31, 0.5 and 0.77); 128 samples per period are exact for these harmonics.
+    seeds.forEach((seed, variant) => {
+      const sample = createSurfaceSampler('talbotcarpet', seed),
+        out = empty(),
+        power = variant >= 4 ? 1 : duties[variant];
+      for (const z of [0.07, 0.31, 0.5, 0.77]) {
+        let mean = 0;
+        for (let k = 0; k < 128; k++)
+          mean += intensityAt(sample, out, (k + 0.25) / 128, z) / 128;
+        expect(power - mean).toBeGreaterThan(0.003);
+        expect(power - mean).toBeLessThan(variant >= 4 ? 0.02 : 0.0055);
+      }
+    });
+  });
+  it('repeats the intensity shifted by half a period at half a Talbot length and doubles its frequency at a quarter', () => {
+    // The phase of the harmonic n is 2 pi n^2 z, so at z = 1/2 it is pi n^2, a sign (-1)^n that shifts the pattern by half a period: the intensity at (x, 1/2) is the one at (x + 1/2, 0); at z = 1/4 the even harmonics are unchanged and the odd ones are turned by -i,
+    // which makes the intensity the same at x and x + 1/2. Both hold to 1e-9 in intensity and in colour for all six variants on 200 values of x (7e-14 at the most in the probe).
+    seeds.forEach((seed) => {
+      const sample = createSurfaceSampler('talbotcarpet', seed),
+        out = empty();
+      for (let k = 0; k < 200; k++) {
+        const x = ((k * 0.6180339887) % 1) * p.periods;
+        expect(
+          Math.abs(
+            intensityAt(sample, out, x, 0.5) -
+              intensityAt(sample, out, x + 0.5, 0),
+          ),
+        ).toBeLessThan(1e-9);
+        expect(
+          Math.abs(
+            colourAtPoint(sample, out, x, 0.5) -
+              colourAtPoint(sample, out, x + 0.5, 0),
+          ),
+        ).toBeLessThan(1e-9);
+        expect(
+          Math.abs(
+            intensityAt(sample, out, x, 0.25) -
+              intensityAt(sample, out, x + 0.5, 0.25),
+          ),
+        ).toBeLessThan(1e-9);
+        expect(
+          Math.abs(
+            colourAtPoint(sample, out, x, 0.25) -
+              colourAtPoint(sample, out, x + 0.5, 0.25),
+          ),
+        ).toBeLessThan(1e-9);
+      }
+    });
+  });
+  it('shows the grating itself at z = 0', () => {
+    // At the top the intensity is that of the grating: for an amplitude grating about 1 in the middle of a slit (0.937 to 1.010 in the probe, the Gibbs ripple of 24 harmonics) and 0 in the middle of the gap between slits (under 0.001);
+    // for a pi-phase grating the intensity is about 1 everywhere (0.877 to 0.978 at the middle of a slit and of a gap; the edges, where the transmission passes through 0, are not looked at).
+    seeds.forEach((seed, variant) => {
+      const sample = createSurfaceSampler('talbotcarpet', seed),
+        out = empty(),
+        slit = intensityAt(sample, out, 0, 0),
+        gap = intensityAt(sample, out, 0.5, 0);
+      if (variant < 4) {
+        expect(slit).toBeGreaterThan(0.9);
+        expect(slit).toBeLessThan(1.1);
+        expect(gap).toBeLessThan(0.005);
+      } else {
+        expect(slit).toBeGreaterThan(0.8);
+        expect(slit).toBeLessThan(1.1);
+        expect(gap).toBeGreaterThan(0.8);
+        expect(gap).toBeLessThan(1.1);
+      }
+    });
+  });
+  it('agrees with the Fresnel integral of the slits in the space domain for the amplitude gratings', () => {
+    // The sampler sums 24 harmonics (the frequency domain); this test adds up the Fresnel integrals of 121 slits (the space domain, Simpson's rule). They differ by the harmonics above 24 and by the slits beyond 60 periods, 0.082, 0.113, 0.132 and 0.079 at the most
+    // for the open fractions 0.5, 0.25, 0.15 and 0.35 on z = 0.1, 0.3, 0.5, 0.7, 0.9 and eight values of x in the probe; the bound 0.16 is loose, but a wrong Talbot length or a wrong sign of the phase gives differences of order 1.
+    for (let variant = 0; variant < 4; variant++) {
+      const sample = createSurfaceSampler('talbotcarpet', seeds[variant]),
+        out = empty();
+      let worst = 0;
+      for (const z of [0.1, 0.3, 0.5, 0.7, 0.9])
+        for (const x of [0.05, 0.21, 0.37, 0.5, 0.64, 0.83, 1.2, 2.3])
+          worst = Math.max(
+            worst,
+            Math.abs(
+              intensityAt(sample, out, x, z) -
+                fresnelIntensity(x, z, duties[variant]),
+            ),
+          );
+      expect(worst).toBeLessThan(0.16);
+    }
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 2 pick different gratings (amplitude gratings of the open fractions 0.15 and 0.35).
+    const first = litGrid(0),
+      second = litGrid(2);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.1193);
+    expect(different / first.length).toBeLessThan(0.1195);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('talbotcarpet', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 amber carpet maps with raised bright bands and shaded gaps', () => {
+    const maps = generateProceduralMaps('talbotcarpet', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(104.5);
+    expect(red / (512 * 512)).toBeLessThan(105.5);
+    expect(green / (512 * 512)).toBeGreaterThan(77);
+    expect(green / (512 * 512)).toBeLessThan(78);
+    expect(blue / (512 * 512)).toBeGreaterThan(40.6);
+    expect(blue / (512 * 512)).toBeLessThan(41.6);
+    expect(maxTilt).toBeGreaterThan(0.0033);
+    expect(maxTilt).toBeLessThan(0.0034);
     expect(invalid).toBe(0);
   });
 });

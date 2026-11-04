@@ -28482,6 +28482,46 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: .02,
 		gapOcclusion: .4
 	}),
+	talbotcarpet: Object.freeze({
+		dark: [
+			20,
+			8,
+			2
+		],
+		light: [
+			255,
+			200,
+			110
+		],
+		roughness: .36,
+		relief: 7e-4,
+		seedSalt: 23102,
+		periods: 3,
+		harmonics: 24,
+		duties: [
+			.5,
+			.25,
+			.15,
+			.35,
+			.5,
+			.25
+		],
+		phaseGratings: [
+			0,
+			0,
+			0,
+			0,
+			1,
+			1
+		],
+		reference: 1,
+		edgeSoft: .35,
+		gapTone: .04,
+		toneFloor: .14,
+		toneSpan: .72,
+		cellHeight: .8,
+		gapOcclusion: .4
+	}),
 	vermiculation: Object.freeze({
 		dark: [
 			60,
@@ -30584,6 +30624,7 @@ var proceduralTileMeters = Object.freeze({
 	hydrogenorbitals: .5,
 	vortexstreet: .5,
 	newtonfractal: .5,
+	talbotcarpet: .5,
 	dominotiling: .5,
 	vermiculation: .4,
 	kikko: .3,

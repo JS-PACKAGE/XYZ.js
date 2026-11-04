@@ -17774,6 +17774,27 @@ export const proceduralMaterialPresets = Object.freeze({
     grainHeight: 0.02,
     gapOcclusion: 0.4,
   }),
+  talbotcarpet: Object.freeze({
+    dark: [20, 8, 2] as const,
+    light: [255, 200, 110] as const,
+    roughness: 0.36,
+    relief: 0.0007,
+    seedSalt: 0x5a3e,
+    // The Talbot carpet of a grating of period 1: the tile is exactly one Talbot length 2 d^2 / lambda high (z is the fraction of it, going down) and `periods` periods wide, and it repeats because the phase 2 pi n^2 z of every harmonic n is a multiple of 2 pi at z = 1.
+    periods: 3,
+    harmonics: 24,
+    // The open fraction of the slits of the six variants and whether the grating is a pi-phase grating (+1 in the slits, -1 between them) instead of an amplitude grating (1 in the slits, 0 between them).
+    duties: [0.5, 0.25, 0.15, 0.35, 0.5, 0.25] as const,
+    phaseGratings: [0, 0, 0, 0, 1, 1] as const,
+    // The tone is 1 - exp(-intensity / reference), the intensity being 1 in an open slit of a thin amplitude grating.
+    reference: 1,
+    edgeSoft: 0.35,
+    gapTone: 0.04,
+    toneFloor: 0.14,
+    toneSpan: 0.72,
+    cellHeight: 0.8,
+    gapOcclusion: 0.4,
+  }),
   vermiculation: Object.freeze({
     dark: [60, 48, 36] as const,
     light: [220, 204, 172] as const,
@@ -19555,6 +19576,7 @@ export const proceduralTileMeters = Object.freeze({
   hydrogenorbitals: 0.5,
   vortexstreet: 0.5,
   newtonfractal: 0.5,
+  talbotcarpet: 0.5,
   dominotiling: 0.5,
   vermiculation: 0.4,
   kikko: 0.3,

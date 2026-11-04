@@ -16992,6 +16992,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.02;
         gapOcclusion: 0.4;
     }>;
+    talbotcarpet: Readonly<{
+        dark: readonly [20, 8, 2];
+        light: readonly [255, 200, 110];
+        roughness: 0.36;
+        relief: 0.0007;
+        seedSalt: 23102;
+        periods: 3;
+        harmonics: 24;
+        duties: readonly [0.5, 0.25, 0.15, 0.35, 0.5, 0.25];
+        phaseGratings: readonly [0, 0, 0, 0, 1, 1];
+        reference: 1;
+        edgeSoft: 0.35;
+        gapTone: 0.04;
+        toneFloor: 0.14;
+        toneSpan: 0.72;
+        cellHeight: 0.8;
+        gapOcclusion: 0.4;
+    }>;
     vermiculation: Readonly<{
         dark: readonly [60, 48, 36];
         light: readonly [220, 204, 172];
@@ -18772,6 +18790,7 @@ export declare const proceduralTileMeters: Readonly<{
     hydrogenorbitals: 0.5;
     vortexstreet: 0.5;
     newtonfractal: 0.5;
+    talbotcarpet: 0.5;
     dominotiling: 0.5;
     vermiculation: 0.4;
     kikko: 0.3;
