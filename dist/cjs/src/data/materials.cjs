@@ -26353,6 +26353,102 @@ var proceduralMaterialPresets = Object.freeze({
 		holeRoughness: .9,
 		pegRoughness: .3
 	}),
+	xiangqiboard: Object.freeze({
+		dark: [
+			40,
+			28,
+			22
+		],
+		light: [
+			236,
+			208,
+			156
+		],
+		roughness: .5,
+		relief: .004,
+		pieces: Object.freeze([
+			`rheagaehr`,
+			`.........`,
+			`.c.....c.`,
+			`s.s.s.s.s`,
+			`.........`,
+			`.........`,
+			`S.S.S.S.S`,
+			`.C.....C.`,
+			`.........`,
+			`RHEAGAEHR`
+		]),
+		openings: Object.freeze([
+			Object.freeze([]),
+			Object.freeze([Object.freeze({
+				from: [7, 7],
+				to: [4, 7]
+			})]),
+			Object.freeze([Object.freeze({
+				from: [1, 9],
+				to: [2, 7]
+			})]),
+			Object.freeze([Object.freeze({
+				from: [7, 7],
+				to: [4, 7]
+			}), Object.freeze({
+				from: [7, 0],
+				to: [6, 2]
+			})]),
+			Object.freeze([Object.freeze({
+				from: [2, 9],
+				to: [4, 7]
+			}), Object.freeze({
+				from: [1, 0],
+				to: [2, 2]
+			})]),
+			Object.freeze([Object.freeze({
+				from: [4, 6],
+				to: [4, 5]
+			}), Object.freeze({
+				from: [4, 3],
+				to: [4, 4]
+			})])
+		]),
+		columns: 9,
+		rows: 10,
+		pitch: .085,
+		boardMargin: .045,
+		lineHalf: .0014,
+		pieceRadius: .034,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		boardTone: .74,
+		riverTone: .66,
+		lineTone: .32,
+		blackTones: Object.freeze([
+			.04,
+			.07,
+			.1,
+			.13,
+			.16,
+			.19,
+			.22
+		]),
+		redTones: Object.freeze([
+			.8,
+			.83,
+			.86,
+			.89,
+			.92,
+			.95,
+			.98
+		]),
+		paperHeight: .2,
+		boardHeight: .4,
+		riverHeight: .35,
+		lineHeight: .5,
+		pieceHeight: .85,
+		grainTone: .03,
+		paperRoughness: .8,
+		inkRoughness: .45
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -35034,6 +35130,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	xiangqiboard: 1,
 	cribbageboard: 1,
 	monopolyboard: 1,
 	scrabbleboard: 1,

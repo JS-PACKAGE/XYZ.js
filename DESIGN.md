@@ -2369,6 +2369,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`xiangqiboard`（象棋棋盤）使目前目錄1200→1201種，含plain的gallery為1202項。中國象棋的棋盤：9條直線、10條橫線在90個交叉點相交，棋子站在交叉點上；楚河漢界（第五與第六條橫線之間）使內側的七條直線斷開、只有最外兩條直線貫穿；兩個九宮各有兩條對角線；棋子是圓盤，色調依陣營（黑在上、紅在下，黑深紅淺）與種類（將、士、象、馬、車、炮、兵）分開。seed從六個開局（初始局面，或紅方先走的一到兩步，加上黑方的回應）中選一個，並決定哪一方在上。這是作者設計的示意，沒有文字；測試端沿棋盤小步長掃描線條，驗證橫線10條（位置依交叉點間距）、直線在上下半部各9條且河上只有2條、九宮的四條對角線、每個交叉點上的棋子由色調讀出，並以獨立寫在測試裡的規則驗證：每方16子（將1、士2、象2、馬2、車2、炮2、兵5），盤面恰好等於「初始局面（由遊戲事實獨立列出：後排、炮在第三線、兵在第四線）套用preset開局的每一步」之一（上下旋轉或不旋轉，只有一種吻合），開局的每一步都合規則（先紅後黑，馬不蹩腿、象不塞眼不過河、炮與車沿直線通行無阻、兵直進一步），300個seed中紅方朝上約一半、各開局出現次數相近。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

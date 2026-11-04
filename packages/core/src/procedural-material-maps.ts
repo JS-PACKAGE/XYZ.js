@@ -47235,6 +47235,143 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'xiangqiboard': {
+        const p = proceduralMaterialPresets.xiangqiboard,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x65001),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          opening =
+            p.openings[
+              Math.floor(hash(95, 1, seed ^ 0x65002) * p.openings.length)
+            ],
+          turned = hash(95, 2, seed ^ 0x65003) < 0.5,
+          lastColumn = p.columns - 1,
+          lastRow = p.rows - 1,
+          left = 0.5 - (lastColumn * p.pitch) / 2,
+          top = 0.5 - (lastRow * p.pitch) / 2,
+          boardHalfX = (lastColumn * p.pitch) / 2 + p.boardMargin,
+          boardHalfY = (lastRow * p.pitch) / 2 + p.boardMargin,
+          // The lines, as the points they join (column, row, column, row): every line across, the two outer columns, the inner columns in two halves with the river between, the palaces' diagonals.
+          lines: [number, number, number, number][] = [],
+          // The tone of the piece on each point (-1 for none): black from 0, red from 7, then the kind.
+          pieceAt = new Int8Array(p.columns * p.rows).fill(-1),
+          board = p.pieces.map((row) => [...row]);
+        for (let row = 0; row <= lastRow; row++)
+          lines.push([0, row, lastColumn, row]);
+        for (let column = 0; column <= lastColumn; column++) {
+          if (column === 0 || column === lastColumn)
+            lines.push([column, 0, column, lastRow]);
+          else lines.push([column, 0, column, 4], [column, 5, column, lastRow]);
+        }
+        lines.push([3, 0, 5, 2], [5, 0, 3, 2], [3, 7, 5, 9], [5, 7, 3, 9]);
+        // The lines in the plane of the picture, and how far a line reaches from its middle.
+        const segments = lines.map(
+            ([ax, ay, bx, by]): [number, number, number, number] => [
+              left + ax * p.pitch,
+              top + ay * p.pitch,
+              left + bx * p.pitch,
+              top + by * p.pitch,
+            ],
+          ),
+          reach = p.lineHalf + p.edgeSoft;
+        for (const { from, to } of opening) {
+          board[to[1]][to[0]] = board[from[1]][from[0]];
+          board[from[1]][from[0]] = '.';
+        }
+        for (let row = 0; row <= lastRow; row++)
+          for (let column = 0; column <= lastColumn; column++) {
+            const letter = board[row][column];
+            if (letter === '.') continue;
+            const placeColumn = turned ? lastColumn - column : column,
+              placeRow = turned ? lastRow - row : row;
+            pieceAt[placeRow * p.columns + placeColumn] =
+              (letter === letter.toUpperCase() ? 7 : 0) +
+              'GAEHRCS'.indexOf(letter.toUpperCase());
+          }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const inBoard = cover(
+            Math.min(
+              boardHalfX - Math.abs(fu - 0.5),
+              boardHalfY - Math.abs(fv - 0.5),
+            ),
+          );
+          if (inBoard > 0) {
+            shade += (p.boardTone - shade) * inBoard;
+            elevation += (p.boardHeight - elevation) * inBoard;
+            rough += (p.inkRoughness - rough) * inBoard;
+            mask = inBoard;
+            // The river: the strip between the 5th and the 6th line of points. Its edges are under the lines (the two outer columns and the two lines across), which are wider than the
+            // softening, so it needs none.
+            if (
+              Math.abs(fv - top - 4.5 * p.pitch) < p.pitch / 2 &&
+              Math.abs(fu - 0.5) < (p.pitch * lastColumn) / 2
+            ) {
+              shade += p.riverTone - shade;
+              elevation += p.riverHeight - elevation;
+            }
+            // The lines: the nearest point of each, all of them as one thing (the largest cover).
+            // (Everything from here on lies well inside the board, whose margin is wider than any line or piece reaches, so none of it needs the board's own cover.)
+            let line = 0;
+            for (const [x0, y0, x1, y1] of segments) {
+              // Far from the line's box (by more than the line's reach): nothing to add.
+              if (
+                fu < Math.min(x0, x1) - reach ||
+                fu > Math.max(x0, x1) + reach ||
+                fv < Math.min(y0, y1) - reach ||
+                fv > Math.max(y0, y1) + reach
+              )
+                continue;
+              const dx = x1 - x0,
+                dy = y1 - y0,
+                along = clamp(
+                  ((fu - x0) * dx + (fv - y0) * dy) / (dx * dx + dy * dy),
+                ),
+                near = Math.hypot(fu - x0 - dx * along, fv - y0 - dy * along);
+              line = Math.max(line, cover(p.lineHalf - near));
+            }
+            shade += (p.lineTone - shade) * line;
+            elevation += (p.lineHeight - elevation) * line;
+            // The piece on the point nearest, if any.
+            const column = Math.round((fu - left) / p.pitch),
+              row = Math.round((fv - top) / p.pitch);
+            if (
+              column >= 0 &&
+              column <= lastColumn &&
+              row >= 0 &&
+              row <= lastRow
+            ) {
+              const piece = pieceAt[row * p.columns + column];
+              if (piece >= 0) {
+                const disc = cover(
+                  p.pieceRadius -
+                    Math.hypot(
+                      fu - left - column * p.pitch,
+                      fv - top - row * p.pitch,
+                    ),
+                );
+                shade +=
+                  ((piece < 7 ? p.blackTones[piece] : p.redTones[piece - 7]) -
+                    shade) *
+                  disc;
+                elevation += (p.pieceHeight - elevation) * disc;
+              }
+            }
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -74764,6 +74901,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'xiangqiboard' ||
     kind === 'cribbageboard' ||
     kind === 'monopolyboard' ||
     kind === 'scrabbleboard' ||

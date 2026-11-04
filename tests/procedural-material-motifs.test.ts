@@ -63326,3 +63326,550 @@ describe('cribbageboard: a cribbage board of three lanes of 120 holes in groups 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('xiangqiboard: the xiangqi board with its river and palaces and the pieces of an opening, a side turned up by the seed', () => {
+  const p = proceduralMaterialPresets.xiangqiboard,
+    out = empty(),
+    left = 0.5 - (8 * p.pitch) / 2,
+    top = 0.5 - (9 * p.pitch) / 2,
+    toneAt = (sample: Sampler, u: number, v: number): number => {
+      sample(u, v, out);
+      return out.color;
+    };
+  const point = (column: number, row: number): [number, number] => [
+    left + column * p.pitch,
+    top + row * p.pitch,
+  ];
+  const isTone = (tone: number, wanted: number): boolean =>
+    Math.abs(tone - wanted) < 1e-6;
+  const kinds = 'GAEHRCS';
+  // The first position, from the facts of the game: the back rank, the cannons on the third line, the soldiers on the fourth; black above in small letters and red below in capitals.
+  const firstPosition = (): string[][] => {
+    const grid = Array.from({ length: 10 }, () =>
+      new Array<string>(9).fill('.'),
+    );
+    [...'RHEAGAEHR'].forEach((letter, column) => {
+      grid[9][column] = letter;
+      grid[0][column] = letter.toLowerCase();
+    });
+    for (const column of [1, 7]) {
+      grid[7][column] = 'C';
+      grid[2][column] = 'c';
+    }
+    for (const column of [0, 2, 4, 6, 8]) {
+      grid[6][column] = 'S';
+      grid[3][column] = 's';
+    }
+    return grid;
+  };
+  // Is a move of one piece legal by the rules of its kind (one move, no capture in these openings), on the position before it: the kinds that these openings use.
+  const legal = (
+    grid: string[][],
+    from: readonly number[],
+    to: readonly number[],
+  ): boolean => {
+    const [fc, fr] = from,
+      [tc, tr] = to,
+      letter = grid[fr][fc],
+      red = letter === letter.toUpperCase(),
+      dc = tc - fc,
+      dr = tr - fr;
+    if (grid[tr][tc] !== '.') return false;
+    const between = (): string[] => {
+      const cells: string[] = [];
+      for (let k = 1; k < Math.max(Math.abs(dc), Math.abs(dr)); k++)
+        cells.push(grid[fr + Math.sign(dr) * k][fc + Math.sign(dc) * k]);
+      return cells;
+    };
+    switch (letter.toUpperCase()) {
+      case 'R':
+      case 'C':
+        // Straight along a line over empty points (a cannon needs a screen only to capture).
+        return (
+          (dc === 0 || dr === 0) && between().every((cell) => cell === '.')
+        );
+      case 'H':
+        // One point straight and one diagonal, the point straight next to it (the leg) empty.
+        return (
+          (Math.abs(dc) === 2 &&
+            Math.abs(dr) === 1 &&
+            grid[fr][fc + dc / 2] === '.') ||
+          (Math.abs(dr) === 2 &&
+            Math.abs(dc) === 1 &&
+            grid[fr + dr / 2][fc] === '.')
+        );
+      case 'E':
+        // Two points diagonally over an empty eye, and not over the river (red on the lower half, black on the upper).
+        return (
+          Math.abs(dc) === 2 &&
+          Math.abs(dr) === 2 &&
+          grid[fr + dr / 2][fc + dc / 2] === '.' &&
+          (red ? tr >= 5 : tr <= 4)
+        );
+      case 'S':
+        // One point forward (red up the board, black down), straight.
+        return dc === 0 && dr === (red ? -1 : 1);
+      default:
+        return false;
+    }
+  };
+  type Board = { sample: Sampler; grid: string[][] };
+  // Read the 90 points: the tone of each is the piece standing there (side and kind) or none.
+  const readBoard = (seed: number): Board => {
+    const sample = createSurfaceSampler('xiangqiboard', seed),
+      grid = Array.from({ length: 10 }, () => new Array<string>(9).fill('.'));
+    for (let row = 0; row < 10; row++)
+      for (let column = 0; column < 9; column++) {
+        const tone = toneAt(sample, ...point(column, row)),
+          black = p.blackTones.findIndex((candidate) =>
+            isTone(candidate, tone),
+          ),
+          red = p.redTones.findIndex((candidate) => isTone(candidate, tone));
+        if (black >= 0) grid[row][column] = kinds[black].toLowerCase();
+        else if (red >= 0) grid[row][column] = kinds[red];
+        else expect(isTone(tone, p.lineTone)).toBe(true);
+      }
+    return { sample, grid };
+  };
+  const turn = (grid: string[][]): string[][] =>
+    grid.map((_, row) => grid[9 - row].slice().reverse());
+  // The openings of the preset applied to the first position, each with every move checked to be legal on the position before it (red moves first, the sides take turns).
+  const openingPosition = (index: number): string[][] => {
+    const grid = firstPosition();
+    p.openings[index].forEach((move, ply) => {
+      const letter = grid[move.from[1]][move.from[0]];
+      expect(letter === letter.toUpperCase()).toBe(ply % 2 === 0);
+      expect(legal(grid, move.from, move.to)).toBe(true);
+      grid[move.to[1]][move.to[0]] = letter;
+      grid[move.from[1]][move.from[0]] = '.';
+    });
+    return grid;
+  };
+  const matches = (grid: string[][]): [number, boolean][] => {
+    const found: [number, boolean][] = [];
+    p.openings.forEach((_, index) => {
+      const expected = openingPosition(index);
+      if (JSON.stringify(expected) === JSON.stringify(grid))
+        found.push([index, false]);
+      if (JSON.stringify(turn(expected)) === JSON.stringify(grid))
+        found.push([index, true]);
+    });
+    return found;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws the 10 lines across, the 9 down with the river, the palaces and 32 pieces of an opening of the preset (seed %i)',
+    (seed) => {
+      const { sample, grid } = readBoard(seed),
+        mid = (c: number, r: number): [number, number] =>
+          point(c + 0.5, r + 0.5);
+      // The lines found by walking along the board between the points: 10 across (down the middle of the board's width between two points),
+      const across: number[] = [];
+      let busy = false;
+      for (let v = top - 0.04; v < top + 9 * p.pitch + 0.04; v += 0.0003) {
+        const line = isTone(toneAt(sample, point(0.5, 0)[0], v), p.lineTone);
+        if (line && !busy) across.push(v);
+        busy = line;
+      }
+      expect(across.length).toBe(10);
+      across.forEach((v, row) =>
+        expect(Math.abs(v + 0.0006 - (top + row * p.pitch))).toBeLessThan(
+          0.0008,
+        ),
+      );
+      // 9 down the upper half and the lower half, only the two outer ones through the river.
+      const down = (row: number): number => {
+        const count: number[] = [];
+        let was = false;
+        for (let u = left - 0.04; u < left + 8 * p.pitch + 0.04; u += 0.0003) {
+          const line = isTone(toneAt(sample, u, mid(0, row)[1]), p.lineTone);
+          if (line && !was) count.push(u);
+          was = line;
+        }
+        return count.length;
+      };
+      for (const row of [2, 3, 5, 6]) expect(down(row)).toBe(9);
+      // In the palaces' rows two diagonals cross the middle of the row as well.
+      for (const row of [0, 1, 7, 8]) expect(down(row)).toBe(11);
+      expect(down(4)).toBe(2);
+      // The palaces: both diagonals of each, through the middles of the four squares of the palace (and not through the squares beside it, or off the diagonals).
+      for (const top of [0, 7])
+        for (const [c, r] of [
+          [3.5, top + 0.5],
+          [4.5, top + 0.5],
+          [3.5, top + 1.5],
+          [4.5, top + 1.5],
+        ])
+          expect(isTone(toneAt(sample, ...point(c, r)), p.lineTone)).toBe(true);
+      for (const top of [0, 7])
+        for (const [c, r] of [
+          [3.7, top + 0.5],
+          [4.3, top + 0.5],
+          [2.5, top + 0.5],
+          [5.5, top + 1.5],
+          [4.5, top + 0.3],
+        ])
+          expect(isTone(toneAt(sample, ...point(c, r)), p.boardTone)).toBe(
+            true,
+          );
+      // 16 pieces to each side: 1 general, 2 advisors, 2 elephants, 2 horses, 2 chariots, 2 cannons, 5 soldiers.
+      const count = (letter: string): number =>
+        grid.flat().filter((cell) => cell === letter).length;
+      for (const [letter, number] of [
+        ['g', 1],
+        ['a', 2],
+        ['e', 2],
+        ['h', 2],
+        ['r', 2],
+        ['c', 2],
+        ['s', 5],
+      ] as const) {
+        expect(count(letter)).toBe(number);
+        expect(count(letter.toUpperCase())).toBe(number);
+      }
+      // The position is one of the openings, upright or turned, and one only.
+      expect(matches(grid).length).toBe(1);
+    },
+  );
+
+  it('uses every opening and both sides up, over 60 seeds', () => {
+    const openings = new Set<number>(),
+      sides = new Set<boolean>(),
+      pairs = new Set<string>();
+    for (let seed = 0; seed < 60; seed++) {
+      const found = matches(readBoard(seed * 3 + 1).grid);
+      for (const [opening, turned] of found) {
+        openings.add(opening);
+        sides.add(turned);
+        pairs.add(`${opening}/${turned}`);
+      }
+    }
+    expect(openings.size).toBe(p.openings.length);
+    expect(sides.size).toBe(2);
+    expect(pairs.size).toBeGreaterThanOrEqual(10);
+  });
+
+  it('puts the red side up about half the time and every opening about equally often, over 300 seeds', () => {
+    let turned = 0;
+    const openings = new Map<number, number>();
+    for (let seed = 0; seed < 300; seed++) {
+      const [[opening, up]] = matches(readBoard(seed * 7 + 1).grid);
+      turned += Number(up);
+      openings.set(opening, (openings.get(opening) ?? 0) + 1);
+    }
+    expect(turned / 300).toBeGreaterThan(0.4);
+    expect(turned / 300).toBeLessThan(0.6);
+    for (const count of openings.values())
+      expect(Math.abs(count - 300 / p.openings.length)).toBeLessThan(25);
+  });
+
+  it('draws the board, the river, a line and a piece of each side and kind with their tones, heights, roughness and sizes', () => {
+    const { sample, grid } = readBoard(3),
+      paperOk = (u: number, v: number): boolean =>
+        Math.abs(toneAt(sample, u, v) - p.paperTone) <= p.grainTone / 2 + 1e-9,
+      boardHalfX = 4 * p.pitch + p.boardMargin,
+      boardHalfY = 4.5 * p.pitch + p.boardMargin;
+    // The board: its tone, height and roughness, and its edges (inside by 0.0004, outside by 0.0004 as paper) all round and at the corners.
+    expect(toneAt(sample, ...point(4.5, 3.5))).toBeCloseTo(p.boardTone, 6);
+    expect(out.height / p.relief).toBeCloseTo(p.boardHeight, 6);
+    expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+    for (const [dx, dy] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ]) {
+      const reachX = dx * boardHalfX,
+        reachY = dy * boardHalfY;
+      // On a stretch of board edge without lines or pieces (between two points).
+      const x = dy !== 0 ? 0.5 + p.pitch * 0.5 : 0.5 + reachX,
+        y = dx !== 0 ? 0.5 + p.pitch * 0.5 : 0.5 + reachY;
+      expect(
+        isTone(toneAt(sample, x - dx * 0.0004, y - dy * 0.0004), p.boardTone),
+      ).toBe(true);
+      expect(paperOk(x + dx * 0.0004, y + dy * 0.0004)).toBe(true);
+      expect(out.height / p.relief).toBeCloseTo(p.paperHeight, 6);
+    }
+    // The river: the strip between the 5th and 6th line of points, from the first to the last column (its edges are under the lines): its tone and height just inside the lines, board beyond them.
+    const riverY = top + 4.5 * p.pitch,
+      inner = p.pitch / 2 - p.lineHalf - 0.0006,
+      beyond = p.pitch / 2 + p.lineHalf + 0.0006;
+    expect(toneAt(sample, ...point(4.5, 4.5))).toBeCloseTo(p.riverTone, 6);
+    expect(out.height / p.relief).toBeCloseTo(p.riverHeight, 6);
+    expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+    for (const sign of [-1, 1]) {
+      expect(
+        toneAt(
+          sample,
+          ...(point(4.5, 4.5).map((value, k) =>
+            k === 1 ? value + sign * inner : value,
+          ) as [number, number]),
+        ),
+      ).toBeCloseTo(p.riverTone, 6);
+      expect(
+        toneAt(
+          sample,
+          ...(point(4.5, 4.5).map((value, k) =>
+            k === 1 ? value + sign * beyond : value,
+          ) as [number, number]),
+        ),
+      ).toBeCloseTo(p.boardTone, 6);
+    }
+    expect(toneAt(sample, left + p.lineHalf + 0.0006, riverY)).toBeCloseTo(
+      p.riverTone,
+      6,
+    );
+    expect(
+      toneAt(sample, left + 8 * p.pitch - p.lineHalf - 0.0006, riverY),
+    ).toBeCloseTo(p.riverTone, 6);
+    expect(toneAt(sample, left - p.lineHalf - 0.0006, riverY)).toBeCloseTo(
+      p.boardTone,
+      6,
+    );
+    expect(
+      toneAt(sample, left + 8 * p.pitch + p.lineHalf + 0.0006, riverY),
+    ).toBeCloseTo(p.boardTone, 6);
+    // A line across (between two columns, at the first row) and one down (between two rows, in the first column): tone, height, half width, board beside it.
+    const [hx, hy] = [left + 1.5 * p.pitch, top + 2 * p.pitch],
+      [vx, vy] = [left + 2 * p.pitch, top + 1.5 * p.pitch];
+    expect(toneAt(sample, hx, hy)).toBeCloseTo(p.lineTone, 6);
+    expect(out.height / p.relief).toBeCloseTo(p.lineHeight, 6);
+    expect(toneAt(sample, hx, hy + p.lineHalf - 0.0004)).toBeCloseTo(
+      p.lineTone,
+      6,
+    );
+    expect(toneAt(sample, hx, hy - p.lineHalf + 0.0004)).toBeCloseTo(
+      p.lineTone,
+      6,
+    );
+    expect(toneAt(sample, hx, hy + p.lineHalf + 0.0004)).toBeCloseTo(
+      p.boardTone,
+      6,
+    );
+    expect(toneAt(sample, hx, hy - p.lineHalf - 0.0004)).toBeCloseTo(
+      p.boardTone,
+      6,
+    );
+    expect(toneAt(sample, vx, vy)).toBeCloseTo(p.lineTone, 6);
+    expect(toneAt(sample, vx + p.lineHalf - 0.0004, vy)).toBeCloseTo(
+      p.lineTone,
+      6,
+    );
+    expect(toneAt(sample, vx - p.lineHalf + 0.0004, vy)).toBeCloseTo(
+      p.lineTone,
+      6,
+    );
+    expect(toneAt(sample, vx + p.lineHalf + 0.0004, vy)).toBeCloseTo(
+      p.boardTone,
+      6,
+    );
+    expect(toneAt(sample, vx - p.lineHalf - 0.0004, vy)).toBeCloseTo(
+      p.boardTone,
+      6,
+    );
+    // The lines reach the outer points and no further: along the second line across (no pieces on it) the last column's line is the end, and beyond it, and beyond the first column's, there is board only.
+    expect(
+      toneAt(sample, left + 8 * p.pitch - 0.01, top + p.pitch),
+    ).toBeCloseTo(p.lineTone, 6);
+    expect(
+      toneAt(
+        sample,
+        left + 8 * p.pitch + p.lineHalf + 0.0004,
+        top + p.pitch + p.lineHalf - 0.0004,
+      ),
+    ).toBeCloseTo(p.boardTone, 6);
+    expect(
+      toneAt(
+        sample,
+        left - p.lineHalf - 0.0004,
+        top + p.pitch + p.lineHalf - 0.0004,
+      ),
+    ).toBeCloseTo(p.boardTone, 6);
+    // A piece of each side and kind: tone, height, roughness, radius (in the four ways and a diagonal) with the board's tone beyond it.
+    for (const [side, tones] of [
+      ['black', p.blackTones],
+      ['red', p.redTones],
+    ] as const)
+      tones.forEach((tone, kind) => {
+        const letter =
+          side === 'black' ? kinds[kind].toLowerCase() : kinds[kind];
+        let found: [number, number] | null = null;
+        for (let row = 0; row < 10 && !found; row++)
+          for (let column = 0; column < 9 && !found; column++)
+            if (grid[row][column] === letter) found = [column, row];
+        const [cx, cy] = point(...(found as [number, number]));
+        expect(toneAt(sample, cx, cy)).toBeCloseTo(tone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.pieceHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+          [Math.SQRT1_2, Math.SQRT1_2],
+          [-Math.SQRT1_2, Math.SQRT1_2],
+        ]) {
+          expect(
+            toneAt(
+              sample,
+              cx + dx * (p.pieceRadius - 0.0004),
+              cy + dy * (p.pieceRadius - 0.0004),
+            ),
+          ).toBeCloseTo(tone, 6);
+          expect(
+            isTone(
+              toneAt(
+                sample,
+                cx + dx * (p.pieceRadius + 0.0004),
+                cy + dy * (p.pieceRadius + 0.0004),
+              ),
+              tone,
+            ),
+          ).toBe(false);
+        }
+      });
+    for (const [u, v] of [
+      [0.5 - boardHalfX - 0.01, 0.5],
+      [0.5 + boardHalfX + 0.01, 0.5],
+      [0.5, 0.5 - boardHalfY - 0.01],
+      [0.5, 0.5 + boardHalfY + 0.01],
+      [0.01, 0.01],
+    ])
+      expect(paperOk(u, v)).toBe(true);
+  });
+
+  it('softens the edge of the board, of the river, of a line and of a piece over edgeSoft', () => {
+    const { sample, grid } = readBoard(3),
+      smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03),
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      boardHalfY = 4.5 * p.pitch + p.boardMargin,
+      x = 0.5 + p.pitch * 0.5,
+      [hx, hy] = [left + 1.5 * p.pitch, top + 2 * p.pitch];
+    close(
+      toneAt(sample, x, 0.5 + boardHalfY - quarter),
+      mix(p.paperTone, p.boardTone, 0.75),
+    );
+    close(
+      toneAt(sample, x, 0.5 + boardHalfY + quarter),
+      mix(p.paperTone, p.boardTone, 0.25),
+    );
+
+    close(
+      toneAt(sample, hx, hy + p.lineHalf - quarter),
+      mix(p.boardTone, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, hx, hy + p.lineHalf + quarter),
+      mix(p.boardTone, p.lineTone, 0.25),
+    );
+    let found: [number, number] | null = null;
+    for (let row = 0; row < 10 && !found; row++)
+      for (let column = 0; column < 9 && !found; column++)
+        if (grid[row][column] === 'R') found = [column, row];
+    const [cx, cy] = point(...(found as [number, number])),
+      tone = p.redTones[kinds.indexOf('R')],
+      under = isTone(
+        toneAt(sample, cx + p.pieceRadius + 0.004, cy + 0.02),
+        p.boardTone,
+      )
+        ? p.boardTone
+        : toneAt(sample, cx + p.pieceRadius + 0.004, cy + 0.02);
+    for (const [dx, dy] of [
+      [1, 0],
+      [0, 1],
+    ]) {
+      const base = toneAt(
+        sample,
+        cx + dx * (p.pieceRadius + 0.004),
+        cy + dy * (p.pieceRadius + 0.004),
+      );
+      close(
+        toneAt(
+          sample,
+          cx + dx * (p.pieceRadius - quarter),
+          cy + dy * (p.pieceRadius - quarter),
+        ),
+        mix(base, tone, 0.75),
+      );
+      close(
+        toneAt(
+          sample,
+          cx + dx * (p.pieceRadius + quarter),
+          cy + dy * (p.pieceRadius + quarter),
+        ),
+        mix(base, tone, 0.25),
+      );
+    }
+    expect(under).toBeGreaterThan(0);
+  });
+
+  it('fades the grain of the paper out over the edge of the board, as much as the board covers', () => {
+    const { sample } = readBoard(3),
+      smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      amount = smoothstep(0.25),
+      boardHalfY = 4.5 * p.pitch + p.boardMargin,
+      residuals: number[] = [];
+    for (let k = 0; k < 40; k++) {
+      const x = 0.5 - 3.9 * p.pitch + k * 0.0173 * p.pitch * 5;
+      residuals.push(
+        toneAt(sample, x, 0.5 - boardHalfY - 0.25 * p.edgeSoft) -
+          (p.paperTone + (p.boardTone - p.paperTone) * amount),
+      );
+    }
+    const largest = Math.max(...residuals.map(Math.abs));
+    expect(largest).toBeGreaterThan(0.003);
+    expect(largest).toBeLessThanOrEqual(
+      0.5 * p.grainTone * (1 - amount) + 1e-9,
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('xiangqiboard', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('xiangqiboard', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.01),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('xiangqiboard', 0),
+      b = createSurfaceSampler('xiangqiboard', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3501],
+        [0.2201, t],
+        [t, 0.5 - 4.5 * p.pitch],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
