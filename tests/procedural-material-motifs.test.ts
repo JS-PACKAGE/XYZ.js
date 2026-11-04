@@ -73921,3 +73921,338 @@ describe('volleyballcourt: an indoor volleyball court seen from above with the m
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('pickleballcourt: a pickleball court seen from above with the markings of the USA Pickleball rules, laid along or across by the seed', () => {
+  const p = proceduralMaterialPresets.pickleballcourt,
+    out = empty(),
+    ft = p.foot,
+    toneAt = (
+      sample: Sampler,
+      x: number,
+      y: number,
+      across: boolean,
+    ): number => {
+      // A place in feet from the middle of the court (x along its length) as a place on the picture.
+      sample(0.5 + (across ? y : x) * ft, 0.5 + (across ? x : y) * ft, out);
+      return out.color;
+    };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    mix = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    // The probes are exact (the edges are straight), so the tolerance is tiny.
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  // The facts of the court, in feet (the USA Pickleball rules, as given by a web search whose summary quotes the rulebook; they were not read in the rulebook itself): 20 by 44, the non-volley zone 7 from the net with its
+  // line part of it, the centre line from the kitchen line to the baseline, the recommended playing area 30 by 60, lines 2 inches wide, distances to the outer edge of a line.
+  const rules = {
+      length: 44,
+      width: 20,
+      kitchen: 7,
+      area: [60, 30],
+      line: 2 / 12,
+    },
+    halfL = rules.length / 2,
+    halfW = rules.width / 2,
+    k = rules.kitchen,
+    w = p.lineWidth;
+  type Kind = 'ground' | 'margin' | 'court' | 'kitchen' | 'line';
+  // The piece of the picture a place is in (two pieces of line next to each other are two pieces).
+  const piece = (x: number, y: number): string => {
+    const ax = Math.abs(x),
+      ay = Math.abs(y);
+    if (ax > halfL + p.endMargin || ay > halfW + p.sideMargin) return 'ground';
+    if (ax > halfL || ay > halfW) return 'margin';
+    if (ax >= halfL - w || ay >= halfW - w) return 'line outline';
+    if (ax >= k - w && ax <= k) return 'line kitchen';
+    if (ay <= w / 2 && ax > k) return 'line centre';
+    return ax < k - w ? 'kitchen' : 'court';
+  };
+  const classify = (x: number, y: number): Kind => {
+    const label = piece(x, y);
+    return label.startsWith('line') ? 'line' : (label as Kind);
+  };
+  type Surface = {
+    across: boolean;
+    surface: number;
+    shift: number;
+    tones: { kitchen: number; court: number; margin: number; ground: number };
+  };
+  const readSurface = (sample: Sampler): Surface => {
+    const options: Surface[] = [];
+    for (const across of [false, true]) {
+      const kitchen = toneAt(sample, 3, 6, across),
+        court = toneAt(sample, 14, 4, across),
+        margin = toneAt(sample, halfL + 3, 0, across),
+        ground = toneAt(sample, 0, 20, across);
+      p.surfaces.forEach((surface, index) => {
+        const shift = ground - surface.ground;
+        if (
+          Math.abs(shift) <= p.toneShift + 1e-9 &&
+          Math.abs(kitchen - surface.kitchen - shift) < 1e-6 &&
+          Math.abs(court - surface.court - shift) < 1e-6 &&
+          Math.abs(margin - surface.margin - shift) < 1e-6
+        )
+          options.push({
+            across,
+            surface: index,
+            shift,
+            tones: { kitchen, court, margin, ground },
+          });
+      });
+    }
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+
+  it('has the rules of the court in the preset, with the lines three times as wide as the rules', () => {
+    expect(p.courtLength).toBe(rules.length);
+    expect(p.courtWidth).toBe(rules.width);
+    expect(p.kitchenDistance).toBe(rules.kitchen);
+    expect(p.lineWidth).toBeCloseTo(3 * rules.line, 12);
+    // The playing area round the court is the recommended 30 by 60.
+    expect(2 * (halfL + p.endMargin)).toBe(rules.area[0]);
+    expect(2 * (halfW + p.sideMargin)).toBe(rules.area[1]);
+  });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws every place of the picture as the rules and the widths say, with its tone, height and roughness, along the picture or across it (seed %i)',
+    { timeout: 120000 },
+    (seed) => {
+      const sample = createSurfaceSampler('pickleballcourt', seed),
+        { across, tones } = readSurface(sample),
+        expected: Record<Kind, { tone: number; height: number }> = {
+          ground: { tone: tones.ground, height: p.groundHeight },
+          margin: { tone: tones.margin, height: p.marginHeight },
+          court: { tone: tones.court, height: p.courtHeight },
+          kitchen: { tone: tones.kitchen, height: p.kitchenHeight },
+          line: { tone: p.lineTone, height: p.lineHeight },
+        },
+        counts: Record<Kind, number> = {
+          ground: 0,
+          margin: 0,
+          court: 0,
+          kitchen: 0,
+          line: 0,
+        },
+        step = 0.15,
+        clear = 0.03;
+      // Every place of the picture (the tile is 64 across; the places within 0.03 of a change in the picture are skipped: the softened edges are checked below, exactly).
+      for (let x = -32; x <= 32; x += step)
+        for (let y = -32; y <= 32; y += step) {
+          const kind = classify(x, y);
+          if (
+            [
+              [clear, 0],
+              [-clear, 0],
+              [0, clear],
+              [0, -clear],
+              [clear, clear],
+              [-clear, -clear],
+              [clear, -clear],
+              [-clear, clear],
+            ].some(([dx, dy]) => piece(x + dx, y + dy) !== piece(x, y))
+          )
+            continue;
+          counts[kind]++;
+          expect(toneAt(sample, x, y, across)).toBeCloseTo(
+            expected[kind].tone,
+            6,
+          );
+          expect(out.height / p.relief).toBeCloseTo(expected[kind].height, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        }
+      expect(counts.line).toBeGreaterThan(1500);
+      expect(counts.kitchen).toBeGreaterThan(6000);
+      expect(counts.court).toBeGreaterThan(15000);
+      expect(counts.margin).toBeGreaterThan(20000);
+      expect(counts.ground).toBeGreaterThan(50000);
+    },
+  );
+
+  it('uses every surface and both ways over 300 seeds, about equally often, with the tones shifted over the whole range', () => {
+    const surfaces = new Map<number, number>(),
+      shifts: number[] = [];
+    let acrossCount = 0;
+    for (let seed = 0; seed < 300; seed++) {
+      const { across, surface, shift } = readSurface(
+        createSurfaceSampler('pickleballcourt', seed * 7 + 1),
+      );
+      shifts.push(shift);
+      surfaces.set(surface, (surfaces.get(surface) ?? 0) + 1);
+      acrossCount += Number(across);
+    }
+    expect(surfaces.size).toBe(p.surfaces.length);
+    for (const count of surfaces.values())
+      expect(Math.abs(count - 300 / p.surfaces.length)).toBeLessThan(25);
+    expect(Math.abs(acrossCount / 300 - 0.5)).toBeLessThan(0.07);
+    expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+    expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+    expect(
+      Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 300),
+    ).toBeLessThan(p.toneShift * 0.15);
+    for (let quarter = 0; quarter < 4; quarter++)
+      expect(
+        Math.abs(
+          shifts.filter(
+            (shift) =>
+              Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+          ).length - 75,
+        ),
+      ).toBeLessThan(25);
+  });
+
+  it('puts each edge of each marking where the rules put it: just inside it the line, just outside it not (both ends, both sides, both ways)', () => {
+    const delta = 0.0004 / ft,
+      acrosses = new Set<boolean>();
+    for (const seed of [2, 3]) {
+      const sample = createSurfaceSampler('pickleballcourt', seed),
+        { across } = readSurface(sample),
+        isLine = (x: number, y: number): boolean =>
+          Math.abs(toneAt(sample, x, y, across) - p.lineTone) < 1e-6;
+      acrosses.add(across);
+      for (const sx of [1, -1])
+        for (const sy of [1, -1]) {
+          const at = (x: number, y: number): boolean => isLine(sx * x, sy * y);
+          // The sideline and the baseline, both edges.
+          expect(at(12, halfW - w + delta)).toBe(true);
+          expect(at(12, halfW - w - delta)).toBe(false);
+          expect(at(12, halfW - delta)).toBe(true);
+          expect(at(12, halfW + delta)).toBe(false);
+          expect(at(halfL - w + delta, 4)).toBe(true);
+          expect(at(halfL - w - delta, 4)).toBe(false);
+          expect(at(halfL - delta, 4)).toBe(true);
+          expect(at(halfL + delta, 4)).toBe(false);
+          // The kitchen line (7 from the net to its outer edge, part of the kitchen), both edges, and where it meets the sidelines.
+          expect(at(k - delta, 4)).toBe(true);
+          expect(at(k + delta, 4)).toBe(false);
+          expect(at(k - w + delta, 4)).toBe(true);
+          expect(at(k - w - delta, 4)).toBe(false);
+          expect(at(k - w / 2, halfW - w / 2)).toBe(true);
+          expect(at(k - w / 2, halfW - delta)).toBe(true);
+          expect(at(k - w / 2, halfW + delta)).toBe(false);
+          // The centre line, both edges, from the kitchen line to the baseline (no gap at either end), and none in the kitchen nor across the net.
+          expect(at(20, w / 2 - delta)).toBe(true);
+          expect(at(20, w / 2 + delta)).toBe(false);
+          expect(at(k + delta, 0)).toBe(true);
+          expect(at(k + 0.1, 0)).toBe(true);
+          expect(at(halfL - w - 0.1, 0)).toBe(true);
+          expect(at(halfL - w / 2, 0)).toBe(true);
+          expect(at(k - w - 0.1, 0)).toBe(false);
+          expect(at(3, 0)).toBe(false);
+          expect(at(0, 0)).toBe(false);
+          expect(at(0, 4)).toBe(false);
+        }
+    }
+    expect(acrosses.size).toBe(2);
+  });
+
+  it('softens the edge of the playing area, of the court and of a line over edgeSoft, and the kitchen has no edge of its own under the lines', () => {
+    const sample = createSurfaceSampler('pickleballcourt', 2),
+      { across, tones } = readSurface(sample),
+      quarter = (0.25 * p.edgeSoft) / ft;
+    close(
+      toneAt(sample, 5, halfW + p.sideMargin - quarter, across),
+      mix(tones.ground, tones.margin, 0.75),
+    );
+    close(
+      toneAt(sample, 5, halfW + p.sideMargin + quarter, across),
+      mix(tones.ground, tones.margin, 0.25),
+    );
+    close(
+      toneAt(sample, halfL + p.endMargin - quarter, 3, across),
+      mix(tones.ground, tones.margin, 0.75),
+    );
+    // The outer edge of the sideline and of the baseline over the playing area, the inner edge over the court and over the kitchen.
+    close(
+      toneAt(sample, 12, halfW - quarter, across),
+      mix(tones.margin, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, 12, halfW + quarter, across),
+      mix(tones.margin, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, halfL - quarter, 4, across),
+      mix(tones.margin, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, 12, halfW - w - quarter, across),
+      mix(tones.court, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, 12, halfW - w + quarter, across),
+      mix(tones.court, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, 3, halfW - w - quarter, across),
+      mix(tones.kitchen, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, 3, halfW - w + quarter, across),
+      mix(tones.kitchen, p.lineTone, 0.75),
+    );
+    // The kitchen line: the outer edge over the court and the inner edge over the kitchen.
+    close(
+      toneAt(sample, k + quarter, 4, across),
+      mix(tones.court, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, k - quarter, 4, across),
+      mix(tones.court, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, k - w - quarter, 4, across),
+      mix(tones.kitchen, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, k - w + quarter, 4, across),
+      mix(tones.kitchen, p.lineTone, 0.75),
+    );
+    // The centre line over the court.
+    close(
+      toneAt(sample, 20, w / 2 + quarter, across),
+      mix(tones.court, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, 20, w / 2 - quarter, across),
+      mix(tones.court, p.lineTone, 0.75),
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('pickleballcourt', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('pickleballcourt', 0),
+      b = createSurfaceSampler('pickleballcourt', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

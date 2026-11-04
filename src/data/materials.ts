@@ -17698,6 +17698,40 @@ export const proceduralMaterialPresets = Object.freeze({
     lineHeight: 0.35,
     inkRoughness: 0.45,
   }),
+  pickleballcourt: Object.freeze({
+    dark: [26, 58, 40] as const,
+    light: [236, 240, 230] as const,
+    roughness: 0.55,
+    relief: 0.004,
+    // A pickleball court seen from above with the markings of the USA Pickleball rules, in feet (the length of the court along one axis): the court 20 by 44, the net across the middle (not drawn: it is not a
+    // marking), the non-volley zone (the kitchen) 7 from the net on each side, with its line the kitchen line (part of the kitchen), and the centre line from the kitchen line to the baseline on each side;
+    // round the court the recommended playing area of 30 by 60 (5 at the sides, 8 at the ends), and the ground beyond. Distances are to the outer edge of a line and the lines are part of the area they bound. The
+    // lines are 0.5 wide (the rules give 2 inches, three times) so that they show in a tile. The seed picks the surface (the tones of the kitchen, the rest of the court, the playing area round it and the
+    // ground, all shifted together a little) and lays the court along the picture or across it.
+    foot: 0.015625,
+    courtLength: 44,
+    courtWidth: 20,
+    kitchenDistance: 7,
+    endMargin: 8,
+    sideMargin: 5,
+    lineWidth: 0.5,
+    surfaces: Object.freeze([
+      Object.freeze({ kitchen: 0.62, court: 0.44, margin: 0.3, ground: 0.18 }),
+      Object.freeze({ kitchen: 0.34, court: 0.52, margin: 0.4, ground: 0.22 }),
+      Object.freeze({ kitchen: 0.5, court: 0.36, margin: 0.56, ground: 0.28 }),
+      Object.freeze({ kitchen: 0.46, court: 0.6, margin: 0.26, ground: 0.12 }),
+    ]),
+    // How much the four tones may all be shifted together (from -toneShift to toneShift) by the seed: the wear of the surface.
+    toneShift: 0.04,
+    edgeSoft: 0.0006,
+    lineTone: 0.96,
+    groundHeight: 0.15,
+    marginHeight: 0.25,
+    courtHeight: 0.3,
+    kitchenHeight: 0.32,
+    lineHeight: 0.36,
+    inkRoughness: 0.45,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -24190,6 +24224,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  pickleballcourt: 1,
   volleyballcourt: 1,
   baseballdiamond: 1,
   curlingrink: 1,

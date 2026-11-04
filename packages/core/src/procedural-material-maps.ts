@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'pickleballcourt',
   'volleyballcourt',
   'baseballdiamond',
   'curlingrink',
@@ -50581,6 +50582,75 @@ export function createSurfaceSampler(
             court;
           shade += (p.lineTone - shade) * outside;
           elevation += (p.lineHeight - elevation) * outside;
+          color = clamp(shade);
+          height = clamp(elevation);
+          roughness = clamp(p.inkRoughness);
+          occlusion = 1;
+        };
+      }
+      case 'pickleballcourt': {
+        const p = proceduralMaterialPresets.pickleballcourt,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(116, 1, seed ^ 0x1c0001) * p.surfaces.length)
+            ],
+          across = hash(116, 2, seed ^ 0x1c0002) < 0.5,
+          shift = (hash(116, 3, seed ^ 0x1c0003) * 2 - 1) * p.toneShift,
+          halfLength = p.courtLength / 2,
+          halfWidth = p.courtWidth / 2,
+          line = p.lineWidth;
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            // The place in feet from the middle of the court (x along its length, the net across the middle).
+            x = ((across ? fv : fu) - 0.5) / p.foot,
+            y = ((across ? fu : fv) - 0.5) / p.foot,
+            ax = Math.abs(x),
+            ay = Math.abs(y),
+            margin = cover(
+              Math.min(
+                halfLength + p.endMargin - ax,
+                halfWidth + p.sideMargin - ay,
+              ) * p.foot,
+            ),
+            inside = Math.min(halfLength - ax, halfWidth - ay),
+            court = cover(inside * p.foot),
+            // The kitchen goes to the middle of its line, which hides its edge (so that no edge of it is drawn twice); beside it there is the sideline, and beyond that no court.
+            kitchen = cover((p.kitchenDistance - line / 2 - ax) * p.foot),
+            // The lines: the outline of the court, the kitchen lines and the centre line, which starts in the middle of the kitchen line.
+            marking = Math.max(
+              cover(Math.min(inside, line - inside) * p.foot),
+              cover(
+                Math.min(
+                  ax - (p.kitchenDistance - line),
+                  p.kitchenDistance - ax,
+                ) * p.foot,
+              ),
+              cover(
+                Math.min(line / 2 - ay, ax - (p.kitchenDistance - line / 2)) *
+                  p.foot,
+              ),
+            );
+          // Court or line over the playing area, the line only where there is court (so that a line at the edge of the court has the edge of the court).
+          const lined = court > 0 ? Math.min(1, marking / court) : 0,
+            courtTone =
+              surface.court +
+              shift +
+              (surface.kitchen - surface.court) * kitchen,
+            courtHeight =
+              p.courtHeight + (p.kitchenHeight - p.courtHeight) * kitchen;
+          let shade = surface.ground + shift,
+            elevation = p.groundHeight;
+          shade += (surface.margin + shift - shade) * margin;
+          elevation += (p.marginHeight - elevation) * margin;
+          shade +=
+            (courtTone + (p.lineTone - courtTone) * lined - shade) * court;
+          elevation +=
+            (courtHeight + (p.lineHeight - courtHeight) * lined - elevation) *
+            court;
           color = clamp(shade);
           height = clamp(elevation);
           roughness = clamp(p.inkRoughness);

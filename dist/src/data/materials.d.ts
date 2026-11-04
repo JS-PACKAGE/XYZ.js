@@ -16247,6 +16247,49 @@ export declare const proceduralMaterialPresets: Readonly<{
         lineHeight: 0.35;
         inkRoughness: 0.45;
     }>;
+    pickleballcourt: Readonly<{
+        dark: readonly [26, 58, 40];
+        light: readonly [236, 240, 230];
+        roughness: 0.55;
+        relief: 0.004;
+        foot: 0.015625;
+        courtLength: 44;
+        courtWidth: 20;
+        kitchenDistance: 7;
+        endMargin: 8;
+        sideMargin: 5;
+        lineWidth: 0.5;
+        surfaces: readonly (Readonly<{
+            kitchen: 0.62;
+            court: 0.44;
+            margin: 0.3;
+            ground: 0.18;
+        }> | Readonly<{
+            kitchen: 0.34;
+            court: 0.52;
+            margin: 0.4;
+            ground: 0.22;
+        }> | Readonly<{
+            kitchen: 0.5;
+            court: 0.36;
+            margin: 0.56;
+            ground: 0.28;
+        }> | Readonly<{
+            kitchen: 0.46;
+            court: 0.6;
+            margin: 0.26;
+            ground: 0.12;
+        }>)[];
+        toneShift: 0.04;
+        edgeSoft: 0.0006;
+        lineTone: 0.96;
+        groundHeight: 0.15;
+        marginHeight: 0.25;
+        courtHeight: 0.3;
+        kitchenHeight: 0.32;
+        lineHeight: 0.36;
+        inkRoughness: 0.45;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -22732,6 +22775,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    pickleballcourt: 1;
     volleyballcourt: 1;
     baseballdiamond: 1;
     curlingrink: 1;
