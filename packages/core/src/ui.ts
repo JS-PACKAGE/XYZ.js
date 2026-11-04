@@ -620,6 +620,23 @@ export class UIFocusManager {
       if (this.eligible(node)) out.push(node);
     for (const child of node.children) this.collect(child, out);
   }
+  private first(node: GameObject): Focusable | undefined {
+    if (
+      (node instanceof UIButton ||
+        node instanceof UICheckbox ||
+        node instanceof UISlider ||
+        node instanceof UITextInput) &&
+      this.eligible(node)
+    )
+      return node;
+    const children = node.existingChildren;
+    if (children)
+      for (const child of children) {
+        const found = this.first(child);
+        if (found) return found;
+      }
+    return undefined;
+  }
   focus(node: Focusable | undefined): boolean {
     if (node && (!node.layoutWidth || !node.layoutHeight)) this.root.reflow();
     if (node && !this.eligible(node)) return false;
@@ -671,12 +688,13 @@ export class UIFocusManager {
   }
   /** Focus traversal within one retained row, including nested controls. */
   focusWithin(container: UIElement, direction: number): boolean {
-    const nodes: Focusable[] = [];
-    this.collect(container, nodes);
-    return (
-      nodes.length > 0 &&
-      this.focus(nodes[direction < 0 ? nodes.length - 1 : 0])
-    );
+    if (direction < 0) {
+      const nodes: Focusable[] = [];
+      this.collect(container, nodes);
+      return nodes.length > 0 && this.focus(nodes[nodes.length - 1]);
+    }
+    const node = this.first(container);
+    return node !== undefined && this.focus(node);
   }
   /** @internal Allows virtual rows to preserve ordinary intra-row traversal. */
   hasAdjacentWithin(
