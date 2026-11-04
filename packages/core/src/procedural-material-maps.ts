@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'isopapersizes',
   'code128barcodes',
   'fencingpiste',
   'tabletennistable',
@@ -51579,6 +51580,85 @@ export function createSurfaceSampler(
           height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * bar);
           roughness = clamp(
             p.paperRoughness + (p.inkRoughness - p.paperRoughness) * bar,
+          );
+          occlusion = 1;
+        };
+      }
+      case 'isopapersizes': {
+        const p = proceduralMaterialPresets.isopapersizes,
+          inverseSoft = 1 / p.edgeSoft,
+          metre = 1 / p.tileSize,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(128, 1, seed ^ 0x280001) * p.surfaces.length)
+            ],
+          swap = hash(128, 2, seed ^ 0x280002) < 0.5,
+          flipX = hash(128, 3, seed ^ 0x280003) < 0.5,
+          flipY = hash(128, 4, seed ^ 0x280004) < 0.5,
+          shift = (hash(128, 5, seed ^ 0x280005) * 2 - 1) * p.toneShift,
+          line = p.lineWidth,
+          // The sizes of A0 to A10 along x and along y: A0 stands, A1 lies, and so on; A(n+1) has the long side the short side of An and the short side half the long side of An, rounded down.
+          widths: number[] = [],
+          heights: number[] = [];
+        let short: number = p.shortSide,
+          long: number = p.longSide;
+        for (let n = 0; n <= p.levels; n++) {
+          widths.push(n % 2 === 0 ? short : long);
+          heights.push(n % 2 === 0 ? long : short);
+          [short, long] = [Math.floor(long / 2), short];
+        }
+        const left = -p.shortSide / 2,
+          bottom = -p.longSide / 2;
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            ax = (swap ? fv : fu) - 0.5,
+            ay = (swap ? fu : fv) - 0.5,
+            // The place in millimetres from the middle of A0.
+            x = (flipX ? -ax : ax) / metre,
+            y = (flipY ? -ay : ay) / metre;
+          let paper = surface.first + shift,
+            outline = 0,
+            outer = 0;
+          for (let n = 0; n <= p.levels; n++) {
+            // How far inside the sheet An the place is: the sheets all have their corner at the lower left of A0.
+            const inside = Math.min(
+              x - left,
+              left + widths[n] - x,
+              y - bottom,
+              bottom + heights[n] - y,
+            );
+            if (n === 0) outer = cover(inside * metre);
+            else
+              paper +=
+                (surface.first +
+                  (surface.last - surface.first) * (n / p.levels) +
+                  shift -
+                  paper) *
+                cover(inside * metre);
+            outline = Math.max(
+              outline,
+              cover(Math.min(inside, line - inside) * metre),
+            );
+          }
+          // The outline has the edge of A0 where it is at the edge of A0.
+          const lined = outer > 0 ? Math.min(1, outline / outer) : 0,
+            inner = paper + (p.lineTone - paper) * lined;
+          color = clamp(
+            surface.ground + shift + (inner - surface.ground - shift) * outer,
+          );
+          height = clamp(
+            p.groundHeight +
+              (p.paperHeight +
+                (p.lineHeight - p.paperHeight) * lined -
+                p.groundHeight) *
+                outer,
+          );
+          roughness = clamp(
+            p.paperRoughness +
+              (p.inkRoughness - p.paperRoughness) * lined * outer,
           );
           occlusion = 1;
         };

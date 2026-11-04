@@ -28609,6 +28609,55 @@ var proceduralMaterialPresets = Object.freeze({
 		inkRoughness: .4,
 		paperRoughness: .72
 	}),
+	isopapersizes: Object.freeze({
+		dark: [
+			30,
+			36,
+			54
+		],
+		light: [
+			244,
+			242,
+			232
+		],
+		roughness: .6,
+		relief: .003,
+		tileSize: 1400,
+		shortSide: 841,
+		longSide: 1189,
+		levels: 10,
+		lineWidth: 4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .3,
+				first: .92,
+				last: .55
+			}),
+			Object.freeze({
+				ground: .85,
+				first: .6,
+				last: .25
+			}),
+			Object.freeze({
+				ground: .15,
+				first: .5,
+				last: .9
+			}),
+			Object.freeze({
+				ground: .5,
+				first: .88,
+				last: .3
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		lineTone: .04,
+		groundHeight: .15,
+		paperHeight: .3,
+		lineHeight: .4,
+		inkRoughness: .45,
+		paperRoughness: .7
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -37290,6 +37339,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	isopapersizes: 1,
 	code128barcodes: 1,
 	fencingpiste: 1,
 	tabletennistable: 1,

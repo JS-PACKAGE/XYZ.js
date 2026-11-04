@@ -78717,3 +78717,317 @@ describe('code128barcodes: rows of Code 128 barcodes that decode, with the start
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('isopapersizes: the A series of ISO 216 as the classic nested diagram, with each size half of the one before, laid in one of eight ways by the seed', () => {
+  const p = proceduralMaterialPresets.isopapersizes,
+    out = empty(),
+    metre = 1 / p.tileSize,
+    w = p.lineWidth;
+  type Way = { swap: boolean; flipX: boolean; flipY: boolean };
+  const toneAt = (sample: Sampler, x: number, y: number, way: Way): number => {
+    // A place in millimetres from the middle of A0, in the diagram as it is drawn before it is turned and mirrored, as a place on the picture.
+    const ax = (way.flipX ? -x : x) * metre,
+      ay = (way.flipY ? -y : y) * metre;
+    sample(0.5 + (way.swap ? ay : ax), 0.5 + (way.swap ? ax : ay), out);
+    return out.color;
+  };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    blend = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  // The sizes of the A series as the standard gives them (short side, long side, in millimetres): A0 of 841 by 1189, A4 of 210 by 297, A5 of 148 by 210 are in the article on ISO 216 (read for this), the rest are written out
+  // from the rule of that article, which is checked below against the preset: the long side of A(n+1) is the short side of An, and the short side is half the long side of An rounded down.
+  const sizes = [
+      [841, 1189],
+      [594, 841],
+      [420, 594],
+      [297, 420],
+      [210, 297],
+      [148, 210],
+      [105, 148],
+      [74, 105],
+      [52, 74],
+      [37, 52],
+      [26, 37],
+    ],
+    // Along x and along y in the diagram: A0 stands, A1 lies, A2 stands and so on, all with their corner at the lower left of A0.
+    widths = sizes.map(([short, long], n) => (n % 2 === 0 ? short : long)),
+    heights = sizes.map(([short, long], n) => (n % 2 === 0 ? long : short)),
+    left = -sizes[0][0] / 2,
+    bottom = -sizes[0][1] / 2;
+  // How far inside the sheet n a place is (negative outside).
+  const inside = (n: number, x: number, y: number): number =>
+    Math.min(
+      x - left,
+      left + widths[n] - x,
+      y - bottom,
+      bottom + heights[n] - y,
+    );
+  // The piece of the picture a place is in: the ground, the paper of a level (the deepest sheet it is in), or a line (inside the edge of any sheet, up to the line width).
+  const piece = (x: number, y: number): string => {
+    let level = -1;
+    for (let n = 0; n < sizes.length; n++) {
+      const d = inside(n, x, y);
+      if (d >= 0 && d <= w) return 'line';
+      if (d > w) level = n;
+    }
+    return level < 0 ? 'ground' : `paper ${level}`;
+  };
+  type Surface = {
+    way: Way;
+    surface: number;
+    shift: number;
+    tones: { ground: number; first: number; last: number };
+  };
+  const ways: Way[] = [];
+  for (const swap of [false, true])
+    for (const flipX of [false, true])
+      for (const flipY of [false, true]) ways.push({ swap, flipX, flipY });
+  const readSurface = (sample: Sampler): Surface => {
+    const options: Surface[] = [];
+    for (const way of ways) {
+      const ground = toneAt(sample, 650, 650, way),
+        first = toneAt(sample, 0, 300, way),
+        last = toneAt(sample, left + 13, bottom + 18, way);
+      p.surfaces.forEach((surface, index) => {
+        const shift = ground - surface.ground;
+        if (
+          Math.abs(shift) <= p.toneShift + 1e-9 &&
+          Math.abs(first - surface.first - shift) < 1e-6 &&
+          Math.abs(last - surface.last - shift) < 1e-6
+        )
+          options.push({
+            way,
+            surface: index,
+            shift,
+            tones: { ground, first, last },
+          });
+      });
+    }
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+
+  it('has the sizes of the A series by the rule of ISO 216 in the preset, each half the one before, of the aspect ratio of the square root of 2, and the sheets inside A0 inside the tile', () => {
+    let short: number = p.shortSide,
+      long: number = p.longSide;
+    for (let n = 0; n <= p.levels; n++) {
+      expect([short, long]).toEqual(sizes[n]);
+      // The aspect ratio is the square root of 2 within the rounding to millimetres, and the area is about half that of the sheet before.
+      expect(Math.abs(long / short - Math.SQRT2)).toBeLessThan(0.02);
+      if (n > 0)
+        expect(
+          Math.abs((short * long) / (sizes[n - 1][0] * sizes[n - 1][1]) - 0.5),
+        ).toBeLessThan(0.02);
+      [short, long] = [Math.floor(long / 2), short];
+    }
+    expect(p.levels).toBe(sizes.length - 1);
+    expect(p.longSide).toBeLessThan(p.tileSize);
+    // Each sheet lies inside the one before.
+    for (let n = 1; n < sizes.length; n++) {
+      expect(widths[n]).toBeLessThanOrEqual(widths[n - 1]);
+      expect(heights[n]).toBeLessThanOrEqual(heights[n - 1]);
+    }
+  });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws every place of the picture as the sizes and the line width say, with its tone, height and roughness, in the way the seed lays the diagram (seed %i)',
+    { timeout: 120000 },
+    (seed) => {
+      const sample = createSurfaceSampler('isopapersizes', seed),
+        { way, tones } = readSurface(sample),
+        paperTone = (level: number): number =>
+          tones.first + ((tones.last - tones.first) * level) / p.levels,
+        counts = new Map<string, number>(),
+        step = 2.7,
+        clear = 0.6;
+      // Every place of the picture (the tile is 1400 across; the places within 0.6 of a change in the picture are skipped: the softened edges are checked below, exactly).
+      for (let x = -699; x <= 699; x += step)
+        for (let y = -699; y <= 699; y += step) {
+          const label = piece(x, y);
+          if (
+            [
+              [clear, 0],
+              [-clear, 0],
+              [0, clear],
+              [0, -clear],
+              [clear, clear],
+              [-clear, -clear],
+              [clear, -clear],
+              [-clear, clear],
+            ].some(([dx, dy]) => piece(x + dx, y + dy) !== label)
+          )
+            continue;
+          counts.set(label, (counts.get(label) ?? 0) + 1);
+          const tone = toneAt(sample, x, y, way);
+          if (label === 'ground') {
+            expect(tone).toBeCloseTo(tones.ground, 6);
+            expect(out.height / p.relief).toBeCloseTo(p.groundHeight, 6);
+            expect(out.roughness).toBeCloseTo(p.paperRoughness, 6);
+          } else if (label === 'line') {
+            expect(tone).toBeCloseTo(p.lineTone, 6);
+            expect(out.height / p.relief).toBeCloseTo(p.lineHeight, 6);
+            expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+          } else {
+            expect(tone).toBeCloseTo(paperTone(Number(label.slice(6))), 6);
+            expect(out.height / p.relief).toBeCloseTo(p.paperHeight, 6);
+            expect(out.roughness).toBeCloseTo(p.paperRoughness, 6);
+          }
+        }
+      // Every level has paper to see, and the ground and the lines are seen.
+      for (let n = 0; n < sizes.length; n++)
+        expect(counts.get(`paper ${n}`) ?? 0).toBeGreaterThan(n < 10 ? 10 : 3);
+      expect(counts.get('ground') ?? 0).toBeGreaterThan(50000);
+      expect(counts.get('line') ?? 0).toBeGreaterThan(1500);
+    },
+  );
+
+  it('uses every surface and all eight ways of laying the diagram over 1000 seeds, about equally often, with the tones shifted over the whole range', () => {
+    const surfaces = new Map<number, number>(),
+      shifts: number[] = [],
+      each = [0, 0, 0],
+      combos = new Set<string>();
+    for (let seed = 0; seed < 1000; seed++) {
+      const { way, surface, shift } = readSurface(
+        createSurfaceSampler('isopapersizes', seed * 7 + 1),
+      );
+      shifts.push(shift);
+      surfaces.set(surface, (surfaces.get(surface) ?? 0) + 1);
+      each[0] += Number(way.swap);
+      each[1] += Number(way.flipX);
+      each[2] += Number(way.flipY);
+      combos.add(`${way.swap} ${way.flipX} ${way.flipY}`);
+    }
+    expect(surfaces.size).toBe(p.surfaces.length);
+    for (const count of surfaces.values())
+      expect(Math.abs(count - 1000 / p.surfaces.length)).toBeLessThan(50);
+    for (const count of each)
+      expect(Math.abs(count / 1000 - 0.5)).toBeLessThan(0.05);
+    expect(combos.size).toBe(8);
+    expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+    expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+    expect(
+      Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+    ).toBeLessThan(p.toneShift * 0.15);
+    for (let quarter = 0; quarter < 4; quarter++)
+      expect(
+        Math.abs(
+          shifts.filter(
+            (shift) =>
+              Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+          ).length - 250,
+        ),
+      ).toBeLessThan(50);
+  });
+
+  it('puts the edge and the inner edge of the outline of every sheet where the sizes put them: just inside and just outside by 0.0004 of a tile, exactly, at three places along every side, in all eight ways', () => {
+    const delta = 0.0004 * p.tileSize,
+      seen = new Set<string>();
+    let lines = 0,
+      others = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('isopapersizes', seed),
+        { way } = readSurface(sample),
+        isLine = (x: number, y: number): boolean =>
+          Math.abs(toneAt(sample, x, y, way) - p.lineTone) < 1e-6;
+      seen.add(`${way.swap} ${way.flipX} ${way.flipY}`);
+      for (let n = 0; n < sizes.length; n++)
+        // (places along the sides that are not at the edge of another sheet, such as the middle of the long side of A1, which is the edge of A3)
+        for (const fraction of [0.137, 0.389, 0.733]) {
+          const x = left + widths[n] * fraction,
+            y = bottom + heights[n] * fraction;
+          // A place at a distance d inside each side of the sheet n: across the left and right sides and the bottom and top, as (x, y).
+          for (const d of [-delta, delta, w - delta, w + delta]) {
+            const places: [number, number][] = [
+              [left + d, y],
+              [left + widths[n] - d, y],
+              [x, bottom + d],
+              [x, bottom + heights[n] - d],
+            ];
+            for (const [px, py] of places) {
+              const expected = piece(px, py) === 'line';
+              expect(isLine(px, py)).toBe(expected);
+              if (expected) lines++;
+              else others++;
+            }
+          }
+        }
+    }
+    // The probes are not all of one kind (some are lines, some are not), and every way of laying the diagram was seen.
+    expect(lines).toBeGreaterThan(1000);
+    expect(others).toBeGreaterThan(1000);
+    expect(seen.size).toBe(8);
+  });
+
+  it('softens the edge of A0, the inner edge of its outline and the edge of A1 over edgeSoft', () => {
+    const sample = createSurfaceSampler('isopapersizes', 2),
+      { way, tones } = readSurface(sample),
+      quarter = (0.25 * p.edgeSoft) / metre,
+      tone = (x: number, y: number): number => toneAt(sample, x, y, way),
+      level = (n: number): number =>
+        tones.first + ((tones.last - tones.first) * n) / p.levels,
+      // The edge of A1 at the top (y = bottom + 594), over the part of A0 that has no sheet of a deeper level, at x = 200.
+      top = bottom + heights[1];
+    // The left edge of A0 (over the ground), at y = 300 where only A0 is: the outline has the edge of A0.
+    close(tone(left - quarter, 300), blend(tones.ground, p.lineTone, 0.25));
+    // The height and the roughness are blended in the same way at that edge (ground and ink; paper and ink).
+    expect(out.height / p.relief).toBeCloseTo(
+      blend(p.groundHeight, p.lineHeight, 0.25),
+      6,
+    );
+    expect(out.roughness).toBeCloseTo(
+      blend(p.paperRoughness, p.inkRoughness, 0.25),
+      6,
+    );
+    close(tone(left + quarter, 300), blend(tones.ground, p.lineTone, 0.75));
+    // The inner edge of the outline of A0 (over the paper of A0).
+    close(tone(left + w + quarter, 300), blend(level(0), p.lineTone, 0.25));
+    close(tone(left + w - quarter, 300), blend(level(0), p.lineTone, 0.75));
+    // The edge of A1: the paper of A1 and the outline of A1 both start there, so over the paper of A0 the paper of A1 is blended in by the amount and the outline over it by the same amount.
+    for (const [offset, amount] of [
+      [quarter, 0.25],
+      [-quarter, 0.75],
+    ] as const) {
+      const paper = blend(level(0), level(1), amount);
+      close(tone(200, top + offset), blend(paper, p.lineTone, amount));
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('isopapersizes', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('isopapersizes', 0),
+      b = createSurfaceSampler('isopapersizes', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

@@ -18355,6 +18355,38 @@ export const proceduralMaterialPresets = Object.freeze({
     inkRoughness: 0.4,
     paperRoughness: 0.72,
   }),
+  isopapersizes: Object.freeze({
+    dark: [30, 36, 54] as const,
+    light: [244, 242, 232] as const,
+    roughness: 0.6,
+    relief: 0.003,
+    // The A series of paper sizes of ISO 216 as in the classic diagram, in millimetres (the tile is tileSize across, with the sheet A0 of 841 by 1189 in the middle): each size A(n+1) is the half of An cut across the
+    // middle of its long side, the new measure rounded down to a millimetre (the article on ISO 216, read for this, gives that rule, the aspect ratio of the square root of 2, A0 of 1 square metre rounded to the nearest
+    // millimetre, A4 of 210 by 297 and A5 of 148 by 210); the long side of A(n+1) is the short side of An. The sheets A1 to A10 all lie in the corner of A0 that the seed picks, so they nest in the way of the diagram: A1
+    // is a half of A0, A2 a half of A1, and so on down to A10 (26 by 37). Each level has a tone of its own, the tones being steps of one ramp from the tone of A0 to the tone of A10, and every sheet has an outline of
+    // lineWidth inside its edge (the outlines are drawn 4 millimetres wide, so that A10 shows in a tile); round A0 is the ground. The seed picks the surface (the tones of the ground, of A0 and of A10, the tones of
+    // the levels in between being steps of the ramp, all shifted together a little) and lays the diagram in one of the eight ways (turned and mirrored).
+    tileSize: 1400,
+    shortSide: 841,
+    longSide: 1189,
+    levels: 10,
+    lineWidth: 4,
+    surfaces: Object.freeze([
+      Object.freeze({ ground: 0.3, first: 0.92, last: 0.55 }),
+      Object.freeze({ ground: 0.85, first: 0.6, last: 0.25 }),
+      Object.freeze({ ground: 0.15, first: 0.5, last: 0.9 }),
+      Object.freeze({ ground: 0.5, first: 0.88, last: 0.3 }),
+    ]),
+    // How much the tones may all be shifted together (from -toneShift to toneShift) by the seed: the age of the paper.
+    toneShift: 0.04,
+    edgeSoft: 0.0006,
+    lineTone: 0.04,
+    groundHeight: 0.15,
+    paperHeight: 0.3,
+    lineHeight: 0.4,
+    inkRoughness: 0.45,
+    paperRoughness: 0.7,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -24847,6 +24879,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  isopapersizes: 1,
   code128barcodes: 1,
   fencingpiste: 1,
   tabletennistable: 1,
