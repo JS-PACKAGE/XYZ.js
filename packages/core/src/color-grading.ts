@@ -77,22 +77,36 @@ export class ColorLUT3D {
     if (!Number.isInteger(size) || size < 16 || size > 64)
       throw new RangeError('LUT size must be an integer in 16..64.');
     const values = new Float32Array(size ** 3 * 3);
+    // Presets transform each channel independently; round once as in the RGB lattice.
+    const channels = new Float32Array(size * 3);
+    for (let i = 0; i < size; i++) {
+      let red = i / (size - 1);
+      let green = red;
+      let blue = red;
+      if (kind === 'warm') {
+        red = Math.min(1, red * 1.08);
+        blue *= 0.9;
+      }
+      if (kind === 'cool') {
+        blue = Math.min(1, blue * 1.08);
+        red *= 0.9;
+      }
+      if (kind === 'cinematic') {
+        red = Math.max(0, Math.min(1, (red - 0.5) * 1.12 + 0.5));
+        green = red;
+        blue = red;
+      }
+      channels[i * 3] = red;
+      channels[i * 3 + 1] = green;
+      channels[i * 3 + 2] = blue;
+    }
     for (let b = 0; b < size; b++)
       for (let g = 0; g < size; g++)
         for (let r = 0; r < size; r++) {
-          const rgb = [r / (size - 1), g / (size - 1), b / (size - 1)];
-          if (kind === 'warm') {
-            rgb[0] = Math.min(1, rgb[0]! * 1.08);
-            rgb[2] = rgb[2]! * 0.9;
-          }
-          if (kind === 'cool') {
-            rgb[2] = Math.min(1, rgb[2]! * 1.08);
-            rgb[0] = rgb[0]! * 0.9;
-          }
-          if (kind === 'cinematic')
-            for (let c = 0; c < 3; c++)
-              rgb[c] = Math.max(0, Math.min(1, (rgb[c]! - 0.5) * 1.12 + 0.5));
-          values.set(rgb, ((b * size + g) * size + r) * 3);
+          const offset = ((b * size + g) * size + r) * 3;
+          values[offset] = channels[r * 3]!;
+          values[offset + 1] = channels[g * 3 + 1]!;
+          values[offset + 2] = channels[b * 3 + 2]!;
         }
     return new ColorLUT3D(size, values);
   }
