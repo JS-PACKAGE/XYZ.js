@@ -53803,6 +53803,143 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'polygondissections': {
+        const p = proceduralMaterialPresets.polygondissections,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.sides.length,
+          group = Math.floor(unsigned / p.sides.length),
+          sides: number = p.sides[variant],
+          cols = p.cols[variant],
+          rows = p.rows[variant],
+          // The vertices of the regular polygon, the first at the top, going clockwise on the screen (y downwards).
+          corners = Array.from({ length: sides }, (_, k) => [
+            Math.cos(-Math.PI / 2 + (2 * Math.PI * k) / sides),
+            Math.sin(-Math.PI / 2 + (2 * Math.PI * k) / sides),
+          ]),
+          // The diagonals i < j that are not sides in the order of i, then j, and whether the later one crosses the earlier one: the ends alternate round the polygon (the earlier one never starts after the later one, so a < c is the only order to test).
+          diagonals: number[][] = [],
+          crosses = (first: number[], second: number[]): boolean => {
+            const [a, b] = first,
+              [c, d] = second;
+            return a < c && c < b && b < d;
+          },
+          // Every set of diagonals that do not cross (all of the triangulation size when kinds is 0), found by choosing diagonal after diagonal.
+          sets = (() => {
+            for (let i = 0; i < sides; i++)
+              for (let j = i + 2; j < sides; j++)
+                if (!(i === 0 && j === sides - 1)) diagonals.push([i, j]);
+            const found: number[][][] = [],
+              chosen: number[][] = [],
+              choose = (from: number): void => {
+                if (from === diagonals.length) {
+                  if (p.kinds[variant] === 1 || chosen.length === sides - 3)
+                    found.push(chosen.slice());
+                  return;
+                }
+                if (!chosen.some((other) => crosses(other, diagonals[from]))) {
+                  chosen.push(diagonals[from]);
+                  choose(from + 1);
+                  chosen.pop();
+                }
+                choose(from + 1);
+              };
+            choose(0);
+            for (let k = found.length - 1; k > 0; k--) {
+              const other = Math.floor(
+                hash(k, 261, group ^ p.seedSalt) * (k + 1),
+              );
+              [found[k], found[other]] = [found[other], found[k]];
+            }
+            return found;
+          })(),
+          // The pieces of every set: the polygon is cut by one diagonal after the other, each cut splitting the piece that has both its ends into two (a piece is its vertex numbers in order).
+          panels = sets.map((set) => {
+            let pieces: number[][] = [
+              Array.from({ length: sides }, (_, k) => k),
+            ];
+            for (const [i, j] of set) {
+              const index = pieces.findIndex(
+                (piece) => piece.includes(i) && piece.includes(j),
+              );
+              const piece = pieces[index];
+              pieces = [
+                ...pieces.slice(0, index),
+                piece.filter((v) => v >= i && v <= j),
+                piece.filter((v) => v <= i || v >= j),
+                ...pieces.slice(index + 1),
+              ];
+            }
+            return pieces;
+          }),
+          // The sign that makes the distance to a side of the polygon positive inside.
+          orient = Math.sign(
+            (corners[1][0] - corners[0][0]) * (corners[2][1] - corners[1][1]) -
+              (corners[1][1] - corners[0][1]) * (corners[2][0] - corners[1][0]),
+          ),
+          extent = 1 + p.margin,
+          scale = Math.min(1 / (cols * 2 * extent), 1 / (rows * 2 * extent)),
+          originX = (1 / cols - scale * 2 * extent) / 2,
+          originY = (1 / rows - scale * 2 * extent) / 2,
+          halfGap = p.gapWidth / 2,
+          // 1 on the tile side of a gap, 0 at the edge itself, at the distance fromEdge.
+          edge = (fromEdge: number): number =>
+            smooth(clamp((fromEdge - halfGap) / p.edgeSoft));
+        return () => {
+          const tileU = fract(u),
+            tileV = fract(v),
+            col = Math.min(cols - 1, Math.floor(tileU * cols)),
+            row = Math.min(rows - 1, Math.floor(tileV * rows)),
+            index = row * cols + col,
+            grain = grainField(u, v);
+          let mask = 0,
+            level = 0;
+          if (index < panels.length) {
+            // Coordinates in units of the radius, x to the right and y downwards.
+            const x = (tileU - col / cols - originX) / scale - extent,
+              y = (tileV - row / rows - originY) / scale - extent;
+            for (const piece of panels[index]) {
+              let inside = true,
+                pieceMask = 1,
+                boundary = 0;
+              for (let k = 0; k < piece.length; k++) {
+                const [ax, ay] = corners[piece[k]],
+                  [bx, by] = corners[piece[(k + 1) % piece.length]],
+                  // Distance from the side to the point, positive on the inside of the polygon.
+                  distance =
+                    (orient * ((bx - ax) * (y - ay) - (by - ay) * (x - ax))) /
+                    Math.hypot(bx - ax, by - ay);
+                if (distance < 0) {
+                  inside = false;
+                  break;
+                }
+                pieceMask *= edge(distance);
+                // A side of the piece is a side of the polygon when its two ends are neighbours round the polygon.
+                const gap = Math.abs(piece[(k + 1) % piece.length] - piece[k]);
+                boundary += Number(gap === 1 || gap === sides - 1);
+              }
+              // The pieces do not overlap, so the first one that has the point is the one to draw.
+              if (inside) {
+                mask = pieceMask;
+                level = boundary / piece.length;
+                break;
+              }
+            }
+          }
+          const tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+          color =
+            p.toneGround * (1 - mask) +
+            tone * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -62750,6 +62887,7 @@ export function createSurfaceSampler(
     kind === 'selfavoidingwalks' ||
     kind === 'permutations' ||
     kind === 'lozengetilings' ||
+    kind === 'polygondissections' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

@@ -1172,6 +1172,7 @@ const kinds: ProceduralMaterialKind[] = [
   'selfavoidingwalks',
   'permutations',
   'lozengetilings',
+  'polygondissections',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -203498,6 +203499,466 @@ describe('Lozenge tilings as every tiling of a hexagon drawn once', () => {
     expect(blue / (512 * 512)).toBeLessThan(73.5);
     expect(maxTilt).toBeGreaterThan(0.1);
     expect(maxTilt).toBeLessThan(0.1001);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Polygon dissections as every cut of a polygon drawn once', () => {
+  const p = proceduralMaterialPresets.polygondissections;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The layout of the panels of a variant (seed % 6): slots of 1 / cols by 1 / rows, the polygon with the radius 1 drawn at one scale and centred in its slot with the margin around it. */
+  const geometry = (seed: number) => {
+    const variant = seed % p.sides.length,
+      sides: number = p.sides[variant],
+      cols: number = p.cols[variant],
+      rows: number = p.rows[variant],
+      extent = 1 + p.margin,
+      scale = Math.min(1 / (cols * 2 * extent), 1 / (rows * 2 * extent)),
+      angle = (k: number) => -Math.PI / 2 + (2 * Math.PI * k) / sides;
+    return {
+      sides,
+      kind: p.kinds[variant] as number,
+      cols,
+      rows,
+      extent,
+      scale,
+      originX: (1 / cols - scale * 2 * extent) / 2,
+      originY: (1 / rows - scale * 2 * extent) / 2,
+      corners: Array.from({ length: sides }, (_, k) => [
+        Math.cos(angle(k)),
+        Math.sin(angle(k)),
+      ]),
+    };
+  };
+  type Geometry = ReturnType<typeof geometry>;
+  /** The diagonals i < j of the polygon (the pairs that are not neighbours). */
+  const diagonalsOf = (g: Geometry): number[][] => {
+    const found: number[][] = [];
+    for (let i = 0; i < g.sides; i++)
+      for (let j = i + 2; j < g.sides; j++)
+        if (!(i === 0 && j === g.sides - 1)) found.push([i, j]);
+    return found;
+  };
+  /** Which side of the line through a and b the point (x, y) is on (the sign of the cross product). */
+  const sideOf = (a: number[], b: number[], x: number, y: number): number =>
+    (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]);
+  /** Whether two diagonals cross inside the polygon, from the positions of their ends (they cross when the ends of each are on different sides of the other). */
+  const cross = (g: Geometry, first: number[], second: number[]): boolean => {
+    const [a, b] = first.map((k) => g.corners[k]),
+      [c, d] = second.map((k) => g.corners[k]),
+      shared = first.some((k) => second.includes(k));
+    return (
+      !shared &&
+      sideOf(a, b, c[0], c[1]) * sideOf(a, b, d[0], d[1]) < 0 &&
+      sideOf(c, d, a[0], a[1]) * sideOf(c, d, b[0], b[1]) < 0
+    );
+  };
+  /** The distance from the point (x, y) to the segment from a to b. */
+  const segmentDistance = (
+    x: number,
+    y: number,
+    a: number[],
+    b: number[],
+  ): number => {
+    const dx = b[0] - a[0],
+      dy = b[1] - a[1],
+      along = Math.max(
+        0,
+        Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / (dx * dx + dy * dy)),
+      );
+    return Math.hypot(x - a[0] - along * dx, y - a[1] - along * dy);
+  };
+  /** A point on a diagonal where it can be told from the other diagonals and the sides of the polygon (further from all of them than half the gap, so that no gap of another diagonal is there): the middle if it is free, else the first free one of a few other places along it. A diagonal that is not cut shows a piece there, and a diagonal that is cut shows the gap (the ground). */
+  const probeOf = (g: Geometry, [i, j]: number[]): number[] => {
+    const others: number[][][] = [];
+    for (const [c, d] of diagonalsOf(g))
+      if (c !== i || d !== j) others.push([g.corners[c], g.corners[d]]);
+    for (let k = 0; k < g.sides; k++)
+      others.push([g.corners[k], g.corners[(k + 1) % g.sides]]);
+    for (const t of Array.from(
+      { length: 18 },
+      (_, k) => 0.5 + (k % 2 === 0 ? 1 : -1) * 0.025 * Math.ceil((k + 1) / 2),
+    )) {
+      const x = g.corners[i][0] + t * (g.corners[j][0] - g.corners[i][0]),
+        y = g.corners[i][1] + t * (g.corners[j][1] - g.corners[i][1]);
+      if (
+        others.every(
+          ([c, d]) => segmentDistance(x, y, c, d) > p.gapWidth / 2 + 0.01,
+        )
+      )
+        return [x, y];
+    }
+    throw new Error('no free point on a diagonal');
+  };
+  /** The set of diagonals of every panel slot of a seed read back from the picture (null for an empty slot): at the probe point of a diagonal the ground is seen (height 0, in the gap) where the diagonal is cut and a piece is seen where it is not; an empty slot shows the ground at every probe point. */
+  const readCuts = (seed: number): (string[] | null)[] => {
+    const g = geometry(seed),
+      diagonals = diagonalsOf(g),
+      sample = createSurfaceSampler('polygondissections', seed),
+      out = empty(),
+      cuts: (string[] | null)[] = [];
+    for (let slot = 0; slot < g.cols * g.rows; slot++) {
+      const col = slot % g.cols,
+        row = Math.floor(slot / g.cols),
+        present: string[] = [];
+      for (const diagonal of diagonals) {
+        const [x, y] = probeOf(g, diagonal);
+        sample(
+          col / g.cols + g.originX + g.scale * (g.extent + x),
+          row / g.rows + g.originY + g.scale * (g.extent + y),
+          out,
+        );
+        if (out.height === 0) present.push(diagonal.join('-'));
+      }
+      cuts.push(present.length === diagonals.length ? null : present);
+    }
+    return cuts;
+  };
+  /** Every set of diagonals that do not cross, by trying all subsets of the diagonals and testing every pair with the positions of the ends (of the triangulation size when the kind is 0). */
+  const allCuts = (g: Geometry): string[][] => {
+    const diagonals = diagonalsOf(g),
+      found: string[][] = [];
+    for (let mask = 0; mask < 1 << diagonals.length; mask++) {
+      const chosen = diagonals.filter((_, k) => (mask >> k) & 1);
+      if (g.kind === 0 && chosen.length !== g.sides - 3) continue;
+      if (
+        chosen.some((a, k) => chosen.slice(k + 1).some((b) => cross(g, a, b)))
+      )
+        continue;
+      found.push(chosen.map((diagonal) => diagonal.join('-')));
+    }
+    return found;
+  };
+  const binomial = (n: number, k: number): number => {
+    let value = 1;
+    for (let i = 1; i <= k; i++) value = (value * (n - k + i)) / i;
+    return Math.round(value);
+  };
+  /** The number of ways to cut a polygon of n sides by k diagonals that do not cross: C(n - 3, k) C(n + k - 1, k) / (k + 1). */
+  const withDiagonals = (n: number, k: number): number =>
+    Math.round((binomial(n - 3, k) * binomial(n + k - 1, k)) / (k + 1));
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('polygondissections', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { high: 0.7634, lit: 0.24954, mean: 0.19611, height: 0.64 }],
+      [1, { high: 0.7638, lit: 0.20949, mean: 0.18029, height: 0.64 }],
+      [0xffffffff, { high: 0.9631, lit: 0.23344, mean: 0.20383, height: 0.8 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('polygondissections', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0152);
+      expect(low).toBeLessThan(0.0158);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(want.height, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws every triangulation or dissection exactly once, read back from the picture and compared with a list of all non-crossing sets of diagonals written again here', () => {
+    for (let seed = 0; seed < 12; seed++) {
+      const g = geometry(seed),
+        read = readCuts(seed),
+        drawn = read.filter((cut): cut is string[] => cut !== null),
+        names = drawn.map((cut) => cut.join(' ')),
+        wanted = allCuts(g).map((cut) => cut.join(' '));
+      expect(new Set(names).size).toBe(drawn.length);
+      expect([...names].sort()).toEqual([...wanted].sort());
+      expect(read.slice(drawn.length).every((cut) => cut === null)).toBe(true);
+      // The count by the numbers of cuts with k diagonals: only the triangulations (k = n - 3), or all k.
+      let total = 0;
+      for (let k = g.kind === 0 ? g.sides - 3 : 0; k <= g.sides - 3; k++)
+        total += withDiagonals(g.sides, k);
+      expect(drawn.length).toBe(total);
+      // A triangulation has at least two ears: a vertex whose two neighbours are joined by a diagonal.
+      if (g.kind === 0)
+        for (const cut of drawn) {
+          let ears = 0;
+          for (let k = 0; k < g.sides; k++) {
+            const around = [
+              (k + g.sides - 1) % g.sides,
+              (k + 1) % g.sides,
+            ].sort((a, b) => a - b);
+            ears += Number(cut.includes(around.join('-')));
+          }
+          expect(ears).toBeGreaterThanOrEqual(2);
+        }
+    }
+    // The numbers: 14, 42 and 132 triangulations (Catalan) and 11, 45 and 197 dissections.
+    expect(
+      [0, 1, 2, 3, 4, 5].map(
+        (seed) => readCuts(seed).filter((cut) => cut !== null).length,
+      ),
+    ).toEqual([14, 42, 132, 11, 45, 197]);
+  });
+  it('shuffles the panels by group without changing the set of cuts', () => {
+    for (const seed of [0, 1, 4]) {
+      const names = (s: number) =>
+          readCuts(s).map((cut) => (cut === null ? '-' : cut.join(' '))),
+        first = names(seed),
+        second = names(seed + 6),
+        third = names(seed + 12);
+      expect(first).not.toEqual(second);
+      expect(second).not.toEqual(third);
+      expect([...first].sort()).toEqual([...second].sort());
+      expect([...first].sort()).toEqual([...third].sort());
+    }
+  });
+  it('agrees with the ideal pieces and gaps away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5]) {
+      const g = geometry(seed),
+        diagonals = diagonalsOf(g),
+        cuts = readCuts(seed),
+        sample = createSurfaceSampler('polygondissections', seed),
+        out = empty(),
+        half = p.gapWidth / 2;
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          col = Math.min(g.cols - 1, Math.floor(u * g.cols)),
+          row = Math.min(g.rows - 1, Math.floor(v * g.rows)),
+          cut = cuts[row * g.cols + col],
+          x = (u - col / g.cols - g.originX) / g.scale - g.extent,
+          y = (v - row / g.rows - g.originY) / g.scale - g.extent;
+        let ink = 0,
+          level = 0,
+          near = false;
+        if (cut !== null) {
+          // The pieces are told by the vertices that no cut separates from the point: a vertex is of the piece of the point when it is an end of every cut or on the same side of it.
+          const chosen = diagonals.filter((diagonal) =>
+              cut.includes(diagonal.join('-')),
+            ),
+            orient = Math.sign(
+              sideOf(
+                g.corners[0],
+                g.corners[1],
+                g.corners[2][0],
+                g.corners[2][1],
+              ),
+            );
+          const inside = g.corners.every(
+            (a, i) =>
+              orient * sideOf(a, g.corners[(i + 1) % g.sides], x, y) >= 0,
+          );
+          if (inside) {
+            const members = g.corners
+              .map((corner, index) => ({ corner, index }))
+              .filter(({ corner, index }) =>
+                chosen.every(([i, j]) => {
+                  if (index === i || index === j) return true;
+                  const a = g.corners[i],
+                    b = g.corners[j];
+                  return (
+                    Math.sign(sideOf(a, b, corner[0], corner[1])) ===
+                    Math.sign(sideOf(a, b, x, y))
+                  );
+                }),
+              );
+            // The distance from each side of the piece to the point, positive inside.
+            const distances = members.map(({ corner }, i) => {
+              const next = members[(i + 1) % members.length].corner;
+              return (
+                (orient * sideOf(corner, next, x, y)) /
+                Math.hypot(next[0] - corner[0], next[1] - corner[1])
+              );
+            });
+            if (
+              distances.some(
+                (distance) =>
+                  distance > half && distance < half + p.edgeSoft + 1e-6,
+              ) ||
+              distances.some((distance) => Math.abs(distance - half) < 1e-6)
+            )
+              near = true;
+            ink = distances.every((distance) => distance > half) ? 1 : 0;
+            // The fraction of the sides of the piece that are sides of the polygon: neighbouring vertices round the polygon.
+            const boundary = members.filter(({ index }, i) => {
+              const gap = Math.abs(
+                members[(i + 1) % members.length].index - index,
+              );
+              return gap === 1 || gap === g.sides - 1;
+            }).length;
+            level = boundary / members.length;
+          } else if (
+            g.corners.some(
+              (a, i) =>
+                Math.abs(
+                  (orient * sideOf(a, g.corners[(i + 1) % g.sides], x, y)) /
+                    Math.hypot(
+                      g.corners[(i + 1) % g.sides][0] - a[0],
+                      g.corners[(i + 1) % g.sides][1] - a[1],
+                    ),
+                ) < 1e-6,
+            )
+          )
+            near = true;
+        }
+        if (near) continue;
+        compared++;
+        const tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.heightBase + p.heightSwing * level),
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(4900);
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeGreaterThan(0.358);
+    expect(unlike(first, litGrid(1))).toBeLessThan(0.359);
+    expect(unlike(first, litGrid(6))).toBeGreaterThan(0.161);
+    expect(unlike(first, litGrid(6))).toBeLessThan(0.1615);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('polygondissections', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 amber polygon maps on dark maroon with raised pieces and shaded gaps', () => {
+    const maps = generateProceduralMaps('polygondissections', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(70);
+    expect(red / (512 * 512)).toBeLessThan(71);
+    expect(green / (512 * 512)).toBeGreaterThan(44.6);
+    expect(green / (512 * 512)).toBeLessThan(45.6);
+    expect(blue / (512 * 512)).toBeGreaterThan(34.4);
+    expect(blue / (512 * 512)).toBeLessThan(35.4);
+    expect(maxTilt).toBeGreaterThan(0.0708);
+    expect(maxTilt).toBeLessThan(0.071);
     expect(invalid).toBe(0);
   });
 });

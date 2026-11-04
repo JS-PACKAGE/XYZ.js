@@ -1209,6 +1209,7 @@ try {
     'selfavoidingwalks',
     'permutations',
     'lozengetilings',
+    'polygondissections',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
