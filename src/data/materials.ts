@@ -18148,6 +18148,40 @@ export const proceduralMaterialPresets = Object.freeze({
     lineHeight: 0.35,
     inkRoughness: 0.45,
   }),
+  tabletennistable: Object.freeze({
+    dark: [20, 52, 96] as const,
+    light: [238, 238, 232] as const,
+    roughness: 0.45,
+    relief: 0.004,
+    // A table tennis table with its net seen from above, with the dimensions of the Laws of Table Tennis (ITTF Statutes 2026, section 2.1 and 2.2, read for this, in metres): the playing surface 2.74 long and
+    // 1.525 wide, uniformly dark and matt, with a white side line along each long edge, a white end line along each short edge and a white centre line along the length (for doubles, 3 mm wide), the net across the
+    // middle (parallel to the end lines), the ends of which are 0.1525 beyond the side lines (the outside limits of the posts); the floor round the table (the table is in the middle of a tile 4 across). The side
+    // and end lines are 0.02 in the rules and 0.08 here, the centre line 0.003 in the rules and 0.012 here (four times as wide, so that they show in a tile); the width of the net (0.04) is my choice, and it is drawn
+    // with the tone of the lines (the white tape on its top) and the height of the net (0.1525 above the table in the rules, a height of its own here). The legs, the frame, the posts and the ball are not drawn. The
+    // seed picks the surface (the tones of the floor and the table, all shifted together a little) and lays the table along the picture or across it.
+    metre: 0.25,
+    tableLength: 2.74,
+    tableWidth: 1.525,
+    lineWidth: 0.08,
+    centreWidth: 0.012,
+    netWidth: 0.04,
+    netReach: 0.1525,
+    surfaces: Object.freeze([
+      Object.freeze({ floor: 0.45, table: 0.16 }),
+      Object.freeze({ floor: 0.3, table: 0.22 }),
+      Object.freeze({ floor: 0.55, table: 0.12 }),
+      Object.freeze({ floor: 0.2, table: 0.1 }),
+    ]),
+    // How much the two tones may be shifted together (from -toneShift to toneShift) by the seed: the wear of the floor and the table.
+    toneShift: 0.04,
+    edgeSoft: 0.0006,
+    lineTone: 0.96,
+    floorHeight: 0.15,
+    tableHeight: 0.3,
+    lineHeight: 0.35,
+    netHeight: 0.9,
+    inkRoughness: 0.45,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -24640,6 +24674,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  tabletennistable: 1,
   futsalcourt: 1,
   fieldhockeypitch: 1,
   runwaymarkings: 1,

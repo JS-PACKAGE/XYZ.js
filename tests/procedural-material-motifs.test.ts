@@ -77786,3 +77786,295 @@ describe('futsalcourt: a futsal court seen from above with the markings of the F
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('tabletennistable: a table tennis table with its net seen from above, with the dimensions of the Laws of Table Tennis, laid along or across by the seed', () => {
+  const p = proceduralMaterialPresets.tabletennistable,
+    out = empty(),
+    m = p.metre,
+    toneAt = (
+      sample: Sampler,
+      x: number,
+      y: number,
+      across: boolean,
+    ): number => {
+      // A place in metres from the middle of the table (x along its length) as a place on the picture.
+      sample(0.5 + (across ? y : x) * m, 0.5 + (across ? x : y) * m, out);
+      return out.color;
+    };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    mix = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    // The probes are exact (the edges are straight), so the tolerance is tiny.
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  // The facts of the table, in metres (the Laws of Table Tennis, ITTF Statutes 2026, sections 2.1 and 2.2, which were read for this): the playing surface 2.74 by 1.525, a side line and an end line 2 cm wide
+  // along the edges, the centre line 3 mm wide along the length, the net across the middle with its outside limits 15.25 cm beyond the side lines.
+  const rules = {
+      length: 2.74,
+      width: 1.525,
+      line: 0.02,
+      centre: 0.003,
+      reach: 0.1525,
+    },
+    halfL = rules.length / 2,
+    halfW = rules.width / 2,
+    w = p.lineWidth,
+    four = 4;
+  type Kind = 'floor' | 'table' | 'line' | 'net';
+  // The piece of the picture a place is in.
+  const classify = (x: number, y: number): Kind => {
+    const ax = Math.abs(x),
+      ay = Math.abs(y);
+    if (ax <= p.netWidth / 2 && ay <= halfW + rules.reach) return 'net';
+    if (ax > halfL || ay > halfW) return 'floor';
+    if (ax >= halfL - w || ay >= halfW - w || ay <= p.centreWidth / 2)
+      return 'line';
+    return 'table';
+  };
+  type Surface = {
+    across: boolean;
+    surface: number;
+    shift: number;
+    tones: { floor: number; table: number };
+  };
+  const readSurface = (sample: Sampler): Surface => {
+    const options: Surface[] = [];
+    for (const across of [false, true]) {
+      const floor = toneAt(sample, 1.7, 1.5, across),
+        table = toneAt(sample, 1.2, 0.3, across);
+      p.surfaces.forEach((surface, index) => {
+        const shift = floor - surface.floor;
+        if (
+          Math.abs(shift) <= p.toneShift + 1e-9 &&
+          Math.abs(table - surface.table - shift) < 1e-6
+        )
+          options.push({
+            across,
+            surface: index,
+            shift,
+            tones: { floor, table },
+          });
+      });
+    }
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+
+  it('has the dimensions of the table in the preset, with the lines four times as wide as in the rules and the net reaching beyond the side lines', () => {
+    expect(p.tableLength).toBe(rules.length);
+    expect(p.tableWidth).toBe(rules.width);
+    expect(p.netReach).toBe(rules.reach);
+    expect(p.lineWidth).toBeCloseTo(four * rules.line, 12);
+    expect(p.centreWidth).toBeCloseTo(four * rules.centre, 12);
+    // The table and the net are inside the tile (4 across), with floor round the table.
+    expect(rules.length * m).toBeLessThan(1);
+    expect((halfW + rules.reach) * 2 * m).toBeLessThan(1);
+  });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws every place of the picture as the rules and the widths say, with its tone, height and roughness, both ways round (seed %i)',
+    { timeout: 120000 },
+    (seed) => {
+      const sample = createSurfaceSampler('tabletennistable', seed),
+        { across, tones } = readSurface(sample),
+        expected: Record<Kind, { tone: number; height: number }> = {
+          floor: { tone: tones.floor, height: p.floorHeight },
+          table: { tone: tones.table, height: p.tableHeight },
+          line: { tone: p.lineTone, height: p.lineHeight },
+          net: { tone: p.lineTone, height: p.netHeight },
+        },
+        counts: Record<Kind, number> = { floor: 0, table: 0, line: 0, net: 0 },
+        step = 0.0173,
+        clear = 0.0015;
+      // Every place of the picture (the tile is 4 across; the places within 0.0015 of a change in the picture are skipped: the softened edges are checked below, exactly).
+      for (let x = -1.99; x <= 1.99; x += step)
+        for (let y = -1.99; y <= 1.99; y += step) {
+          const kind = classify(x, y);
+          if (
+            [
+              [clear, 0],
+              [-clear, 0],
+              [0, clear],
+              [0, -clear],
+              [clear, clear],
+              [-clear, -clear],
+              [clear, -clear],
+              [-clear, clear],
+            ].some(([dx, dy]) => classify(x + dx, y + dy) !== kind)
+          )
+            continue;
+          counts[kind]++;
+          expect(toneAt(sample, x, y, across)).toBeCloseTo(
+            expected[kind].tone,
+            6,
+          );
+          expect(out.height / p.relief).toBeCloseTo(expected[kind].height, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        }
+      expect(counts.floor).toBeGreaterThan(30000);
+      expect(counts.table).toBeGreaterThan(8000);
+      expect(counts.line).toBeGreaterThan(500);
+      expect(counts.net).toBeGreaterThan(30);
+    },
+  );
+
+  it('uses every surface and both ways round over 1000 seeds, about equally often, with the tones shifted over the whole range', () => {
+    const surfaces = new Map<number, number>(),
+      shifts: number[] = [];
+    let acrossCount = 0;
+    for (let seed = 0; seed < 1000; seed++) {
+      const { across, surface, shift } = readSurface(
+        createSurfaceSampler('tabletennistable', seed * 7 + 1),
+      );
+      shifts.push(shift);
+      surfaces.set(surface, (surfaces.get(surface) ?? 0) + 1);
+      acrossCount += Number(across);
+    }
+    expect(surfaces.size).toBe(p.surfaces.length);
+    for (const count of surfaces.values())
+      expect(Math.abs(count - 1000 / p.surfaces.length)).toBeLessThan(50);
+    expect(Math.abs(acrossCount / 1000 - 0.5)).toBeLessThan(0.05);
+    expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+    expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+    expect(
+      Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+    ).toBeLessThan(p.toneShift * 0.15);
+    for (let quarter = 0; quarter < 4; quarter++)
+      expect(
+        Math.abs(
+          shifts.filter(
+            (shift) =>
+              Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+          ).length - 250,
+        ),
+      ).toBeLessThan(50);
+  });
+
+  it('puts each edge of each line and of the net where the rules put it: just inside it the line, just outside it not (every side, both ways round)', () => {
+    const delta = 0.0004 / m,
+      ways = new Set<boolean>();
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 7]) {
+      const sample = createSurfaceSampler('tabletennistable', seed),
+        { across } = readSurface(sample),
+        isLine = (x: number, y: number): boolean =>
+          Math.abs(toneAt(sample, x, y, across) - p.lineTone) < 1e-6;
+      ways.add(across);
+      for (const sx of [1, -1])
+        for (const sy of [1, -1]) {
+          // The side lines (both edges) and the end lines (both edges), at two places along each.
+          for (const along of [0.4, 1.1]) {
+            expect(isLine(sx * along, sy * (halfW - delta))).toBe(true);
+            expect(isLine(sx * along, sy * (halfW + delta))).toBe(false);
+            expect(isLine(sx * along, sy * (halfW - w + delta))).toBe(true);
+            expect(isLine(sx * along, sy * (halfW - w - delta))).toBe(false);
+          }
+          for (const across2 of [0.2, 0.5]) {
+            expect(isLine(sx * (halfL - delta), sy * across2)).toBe(true);
+            expect(isLine(sx * (halfL + delta), sy * across2)).toBe(false);
+            expect(isLine(sx * (halfL - w + delta), sy * across2)).toBe(true);
+            expect(isLine(sx * (halfL - w - delta), sy * across2)).toBe(false);
+          }
+          // The centre line, both edges, on both sides of the net.
+          expect(isLine(sx * 0.6, (sy * p.centreWidth) / 2 - sy * delta)).toBe(
+            true,
+          );
+          expect(isLine(sx * 0.6, (sy * p.centreWidth) / 2 + sy * delta)).toBe(
+            false,
+          );
+          // The net: both long edges over the table, its ends beyond the side lines (over the floor), and just outside them.
+          expect(isLine(sx * (p.netWidth / 2 - delta), sy * 0.3)).toBe(true);
+          expect(isLine(sx * (p.netWidth / 2 + delta), sy * 0.3)).toBe(false);
+          expect(
+            isLine(sx * (p.netWidth / 2 - delta), sy * (halfW + 0.1)),
+          ).toBe(true);
+          expect(
+            isLine(sx * (p.netWidth / 2 + delta), sy * (halfW + 0.1)),
+          ).toBe(false);
+          expect(isLine(sx * 0.01, sy * (halfW + rules.reach - delta))).toBe(
+            true,
+          );
+          expect(isLine(sx * 0.01, sy * (halfW + rules.reach + delta))).toBe(
+            false,
+          );
+        }
+    }
+    expect(ways.size).toBe(2);
+  });
+
+  it('softens the edge of the table, of a line, of the centre line and of the net over edgeSoft', () => {
+    const sample = createSurfaceSampler('tabletennistable', 2),
+      { across, tones } = readSurface(sample),
+      quarter = (0.25 * p.edgeSoft) / m,
+      tone = (x: number, y: number): number => toneAt(sample, x, y, across);
+    // The side line: its outer edge is the edge of the table (over the floor) and its inner edge is over the table; likewise the end line.
+    close(tone(0.8, halfW + quarter), mix(tones.floor, p.lineTone, 0.25));
+    close(tone(0.8, halfW - quarter), mix(tones.floor, p.lineTone, 0.75));
+    close(tone(0.8, halfW - w + quarter), mix(tones.table, p.lineTone, 0.75));
+    close(tone(0.8, halfW - w - quarter), mix(tones.table, p.lineTone, 0.25));
+    close(tone(halfL + quarter, 0.4), mix(tones.floor, p.lineTone, 0.25));
+    close(tone(halfL - w - quarter, 0.4), mix(tones.table, p.lineTone, 0.25));
+    // The centre line over the table.
+    close(
+      tone(0.8, p.centreWidth / 2 + quarter),
+      mix(tones.table, p.lineTone, 0.25),
+    );
+    close(
+      tone(0.8, p.centreWidth / 2 - quarter),
+      mix(tones.table, p.lineTone, 0.75),
+    );
+    // The net over the table and over the floor (its end).
+    close(
+      tone(p.netWidth / 2 + quarter, 0.3),
+      mix(tones.table, p.lineTone, 0.25),
+    );
+    close(
+      tone(p.netWidth / 2 - quarter, 0.3),
+      mix(tones.table, p.lineTone, 0.75),
+    );
+    close(
+      tone(0.01, halfW + rules.reach + quarter),
+      mix(tones.floor, p.lineTone, 0.25),
+    );
+    close(
+      tone(0.01, halfW + rules.reach - quarter),
+      mix(tones.floor, p.lineTone, 0.75),
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('tabletennistable', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('tabletennistable', 0),
+      b = createSurfaceSampler('tabletennistable', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

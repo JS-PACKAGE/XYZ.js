@@ -2493,6 +2493,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`tabletennistable`（桌球桌）使目前目錄1231→1232種，含plain的gallery為1233項。從正上方看的桌球桌與球網，依桌球競賽規則（ITTF章程2026年版第2.1與2.2節；我讀了規則原文，取自一個英國桌球協會網站轉錄的條文）的尺寸，單位是公尺（貼圖4公尺見方，桌置中）：比賽面長2.74、寬1.525，一致的深色、霧面；沿每條長邊的白邊線、沿每條短邊的白端線（規則寬2公分）、沿長度的白中線（雙打用，規則寬3公釐）；橫過中間、平行於端線的球網，兩端超出邊線0.1525（立柱的外緣）；桌子周圍是地板。邊線與端線寬0.08（規則的四倍）、中線寬0.012（四倍），這樣在貼圖中才看得見；球網的寬度0.04是我自定的，畫成線的色調（球網頂端的白色網帶）與自己的高度（規則中球網高出桌面0.1525，這裡是球網自己的高度值）。沒有畫桌腳、桌框、立柱與球。seed選一種表面（地板與桌面的色調，四種之一，再一起偏移不超過`toneShift`）並把桌子沿著圖或橫過圖放（兩種之一）。這是作者設計的示意，結構很簡單；測試端以另外寫的規則尺寸（含「preset的數值等於這些尺寸，線寬四倍」的斷言）逐項檢查：整張圖（4公尺見方，每隔0.0173公尺）的每一個位置（避開離任何邊0.0015公尺以內），由另外寫的分類函式（地板／桌面／線／球網）給出色調與高度，與取樣器逐一相同（兩種放法）；邊線與端線的兩緣、中線的兩緣、球網的長邊與兩端（包括超出邊線、在地板上的部分），在兩側各0.0004個貼圖單位處精確在內或在外；色調偏移一致且1000個seed涵蓋整個範圍，四種表面與兩種放法大致各佔相同比例；各邊緣的柔化（1e-4的緊容許值）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

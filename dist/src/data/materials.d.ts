@@ -16693,6 +16693,40 @@ export declare const proceduralMaterialPresets: Readonly<{
         lineHeight: 0.35;
         inkRoughness: 0.45;
     }>;
+    tabletennistable: Readonly<{
+        dark: readonly [20, 52, 96];
+        light: readonly [238, 238, 232];
+        roughness: 0.45;
+        relief: 0.004;
+        metre: 0.25;
+        tableLength: 2.74;
+        tableWidth: 1.525;
+        lineWidth: 0.08;
+        centreWidth: 0.012;
+        netWidth: 0.04;
+        netReach: 0.1525;
+        surfaces: readonly (Readonly<{
+            floor: 0.45;
+            table: 0.16;
+        }> | Readonly<{
+            floor: 0.3;
+            table: 0.22;
+        }> | Readonly<{
+            floor: 0.55;
+            table: 0.12;
+        }> | Readonly<{
+            floor: 0.2;
+            table: 0.1;
+        }>)[];
+        toneShift: 0.04;
+        edgeSoft: 0.0006;
+        lineTone: 0.96;
+        floorHeight: 0.15;
+        tableHeight: 0.3;
+        lineHeight: 0.35;
+        netHeight: 0.9;
+        inkRoughness: 0.45;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -23178,6 +23212,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    tabletennistable: 1;
     futsalcourt: 1;
     fieldhockeypitch: 1;
     runwaymarkings: 1;

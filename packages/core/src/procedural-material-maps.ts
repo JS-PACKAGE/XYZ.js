@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'tabletennistable',
   'futsalcourt',
   'fieldhockeypitch',
   'runwaymarkings',
@@ -51398,6 +51399,57 @@ export function createSurfaceSampler(
             court;
           shade += (p.lineTone - shade) * outer;
           elevation += (p.lineHeight - elevation) * outer;
+          color = clamp(shade);
+          height = clamp(elevation);
+          roughness = clamp(p.inkRoughness);
+          occlusion = 1;
+        };
+      }
+      case 'tabletennistable': {
+        const p = proceduralMaterialPresets.tabletennistable,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(125, 1, seed ^ 0x250001) * p.surfaces.length)
+            ],
+          across = hash(125, 2, seed ^ 0x250002) < 0.5,
+          shift = (hash(125, 3, seed ^ 0x250003) * 2 - 1) * p.toneShift,
+          halfLength = p.tableLength / 2,
+          halfWidth = p.tableWidth / 2,
+          line = p.lineWidth;
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            // The place in metres from the middle of the table (x along its length).
+            ax = Math.abs(((across ? fv : fu) - 0.5) / p.metre),
+            ay = Math.abs(((across ? fu : fv) - 0.5) / p.metre),
+            inside = Math.min(halfLength - ax, halfWidth - ay),
+            court = cover(inside * p.metre),
+            // The side and end lines, and the centre line along the length; where a line is at the edge of the table the edge of the table is its edge.
+            marking = Math.max(
+              cover(Math.min(inside, line - inside) * p.metre),
+              cover((p.centreWidth / 2 - ay) * p.metre),
+            ),
+            lined = court > 0 ? Math.min(1, marking / court) : 0,
+            // The net across the middle, with its ends beyond the side lines.
+            net = cover(
+              Math.min(p.netWidth / 2 - ax, halfWidth + p.netReach - ay) *
+                p.metre,
+            ),
+            tableTone = surface.table + shift;
+          let shade = surface.floor + shift,
+            elevation = p.floorHeight;
+          shade +=
+            (tableTone + (p.lineTone - tableTone) * lined - shade) * court;
+          elevation +=
+            (p.tableHeight +
+              (p.lineHeight - p.tableHeight) * lined -
+              elevation) *
+            court;
+          shade += (p.lineTone - shade) * net;
+          elevation += (p.netHeight - elevation) * net;
           color = clamp(shade);
           height = clamp(elevation);
           roughness = clamp(p.inkRoughness);
