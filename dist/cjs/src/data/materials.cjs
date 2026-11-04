@@ -26856,6 +26856,103 @@ var proceduralMaterialPresets = Object.freeze({
 		]),
 		inkRoughness: .5
 	}),
+	tablutboard: Object.freeze({
+		dark: [
+			34,
+			26,
+			20
+		],
+		light: [
+			236,
+			220,
+			182
+		],
+		roughness: .5,
+		relief: .004,
+		openings: Object.freeze([
+			Object.freeze([
+				`d1d3`,
+				`e4d4`,
+				`f9f7`,
+				`e5e4`
+			]),
+			Object.freeze([
+				`a4a2`,
+				`d5d4`,
+				`i6i8`,
+				`f5f4`,
+				`a2c2`
+			]),
+			Object.freeze([
+				`e2g2`,
+				`e3f3`,
+				`e8c8`,
+				`e7d7`,
+				`g2g3`,
+				`d7d8`
+			]),
+			Object.freeze([
+				`a6c6`,
+				`c5c3`,
+				`i4g4`,
+				`g5g6`,
+				`c6c4`,
+				`e4d4`
+			]),
+			Object.freeze([
+				`f1f3`,
+				`e6d6`,
+				`d9d7`,
+				`e5e6`,
+				`f3h3`
+			]),
+			Object.freeze([
+				`h5h7`,
+				`f5f6`,
+				`b5b3`,
+				`d5d6`,
+				`h7h8`,
+				`g5g7`
+			]),
+			Object.freeze([
+				`d1b1`,
+				`g5g4`,
+				`d9b9`,
+				`c5c6`,
+				`b1b2`,
+				`e6f6`
+			]),
+			Object.freeze([`i4i2`, `e7f7`])
+		]),
+		side: 9,
+		cell: .09,
+		margin: .012,
+		frame: .025,
+		lineHalf: 7e-4,
+		pieceRadius: .032,
+		kingRadius: .037,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		frameTone: .16,
+		boardTone: .58,
+		campTone: .46,
+		markTone: .3,
+		lineTone: .12,
+		attackerTone: .06,
+		defenderTone: .94,
+		kingTone: .76,
+		paperHeight: .2,
+		frameHeight: .6,
+		boardHeight: .4,
+		campHeight: .35,
+		markHeight: .25,
+		lineHeight: .3,
+		pieceHeight: .85,
+		grainTone: .03,
+		paperRoughness: .8,
+		inkRoughness: .45
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -35537,6 +35634,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	tablutboard: 1,
 	arnoldcatmap: 1,
 	ninemensmorris: 1,
 	carromboard: 1,

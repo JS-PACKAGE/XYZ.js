@@ -70,7 +70,7 @@ function buildPeriodicVoronoiPlanes(e, t, n, r, i) {
 	}
 	return o;
 }
-var r = new Set(`flutedwood.subwaytiles.canewebbing.rammedearth.copperpatina.birdseyemaple.breezeblock.basketweavepavers.ripstop.octagondot.truchettiles.standingseam.damascus.windmillpavers.castiron.porphyry.linen.chippedenamel.perforatedleather.pigskinleather.argyle.chevronparquet.ginkgoleaf.pressedtin.sashiko.ashlar.gabion.gingham.mossypavers.bamboocrosscut.moire.oakleaf.rhombille.fossillimestone.seigaihatiles.tuftedleather.louveredmetal.herringbonebrick.shibori.scallopedslate.saltpan.dogbonepavers.palmendgrain.asanoha.lotusseedpod.crowncaps.cofferedconcrete.woodworm.calcadawaves.ikat.slottedwood.hollyleaf.englishbond.rebar.starfruit.diamondrustication.bargello.saffiano.cocoamat.suminagashi.vermiculite.cairotiles.guilloche.seaurchintest.crystallineglaze.shirring.sunburstveneer.rakedgravel.flintwall.frenchknots.artichoke.splitlockwashers.flemishbond.satinweave.lotusroot.cardboardedge.hexnuts.capnuts.flangenuts.orbicularjasper.acornbarnacles.circularpavers.snowflaketiles.sawblades.pistachios.polkadotfabric.cucumberslices.monsteraleaf.crossstitch.staranise.logcabinparquet.countersunkmetal.trilobitefossil.eyeletcotton.dendriticagate.ravioli.rollerchain.mapleleaf.smocking.quatrefoiltile.okraslice.eggcarton.greekkey.seedbeads.chainstitch.wingnuts.pomegranateslice.pawprinttiles.dovetailjoint.starsocketbolts.sanddollar.brogueleather.clovebuds.starcrosstiles.maplesamara.lenoweave.circlips.eclips.tuliptiles.gingerslice.fivebarplate.cinnamonswirl.wheatears.scalemail.trihexagonaltiles.burlwood.slottedmetal.peppercorns.castellatednuts.farfalle.cardamompods.brickarches.knottednet.fiddleheads.cowrieshells.cotterpins.seedstitch.garterstitch.mangosteenslice.pickettiles.squarewashers.eucalyptusleaf.twillweave.pinstripewool.chrysanthemumstone.snowflakeobsidian.sewingsnaps.lathplaster.ceramiccapacitors.fennelseeds.rj45femalefaces.rcafemalefaces.f05opticalfaces.minidin4femalefaces.dcbarreljackfaces.stfiberadapterfaces.mudcloth.to92packagefaces.arnoldcatmap.ninemensmorris.carromboard.shogiboard.ludoboard.chessopening.xiangqiboard.cribbageboard.monopolyboard.scrabbleboard.duccirows.wireworldcircuit.cycliccellular.beattypartition.walshmatrix.paperfoldingruler.rudinshapirogrid.baumsweetgrid.binarynecklaces.catalantriangulations.eisensteinprimes.keplerorbit.pythagoreanproof.contributiongraph.arbelos.eulerlinetriangle.astroidladder.slopegraph.kolakoskisequence.crcdivision.lfsrstates.fareysequence.unionfindmerges.linearprobing.bloomfilter.gamblersruin.nimgame.wordlefeedback.funnelchart.lrucachetrace.knapsacktable.bfswavefront.bresenhamlines.mergesortruns.radixsortpasses.paretochart.vernierscale.kmpfailure.dijkstragrid.binarysearchsteps.quicksortsteps.ganttschedule.lorenzcurve.zordercurve.histogrambins.sankeyflows.bodeplots.huffmancodes.hashchains.editdistance.nearesttour.karnaughmap.bsttreeorder.kdtreesplits.spanningtree.ecdfplot.intervalpartition.waterfallchart.chorddiagrams.qamconstellation.countertimings.hofstadterq.semaphorefigures.fenwicktree.jacobisymbols.vicsekfractal.segmenttree.rankchevrons.windbarbs.compassrose.smithchart.mahjongdots.qrcodemodules.gaugedials.flagpatterns.intelhexrecords.equalizerbars.worleycells.errordiffusion.tetrominoes.candlestickcharts.paleygraphmatrix.superformulacells.tsquarefractal.marchingsquares.wangtiles.htreefractal.lsystemplant.quadtreecells.countingrods.braiddiagram.youngtableaux.euclidsquares.voronoicells.cliffordattractor.peanocurve.bitwisetable.golombrulers.henonattractor.digitalroottable.thuemorsegrid.recamanarcs.happynumberchains.lookandsayrows.kaprekarsteps.roundrobintable.roulettewheel.circleoffifths.periodictablecells.josephuscircle.gaussianprimes.timestablecircles.divisorcountbars.cobwebplots.sierpinskipascal.sacksspiral.dyckpaths.figuratenumbers.pythagoreantriples.hexdumprows.pairingtables.ferrersdiagrams.zeckendorfrows.cycloidcusps.sternbrocottree.projectilearcs.isbn10checks.runlengthrows.graphcoloring.bubblesortpasses.binaryheaptree.dicesumbars.substitutionwords.stemandleaf.boxplots.sorobanabacus.numberwords.dipolefieldlines.mobiusgrid.fordcircles.vectorfieldarrows.wordsquares.caesarcipher.baseconversion.primefactors.modularpowers.burningship.logisticbifurcation.bitwiselogic.gcdtable.percolationclusters.abeliansandpile.binaryaddition.roundingmodes.bellcurvebands.ieee754floats.vennregions.bezierconstruction.luhnnumbers.twosourceripples.cassiniovals.rosecurves.conicsections.cantorsetrows.mandelbrotbands.newtonbasins.kochsnowflake.matrixproducts.signedencodings.romannumerals.cayleytables.hammingcodewords.collatzsequences.delaunaytriangles.convexhullpoints.pascaltrianglenumbers.fouriersquarewaves.truthtablelogic.barchartbars.regressionscatter.piechartwedges.analogclocks.treemaprects.moonphases.multiplicationtable.draughtsposition.colormapregions.chinesecheckersboard.euclideanrhythms.hidatochain.mancalaboard.rushhourjam.numberlinkpaths.kenkencages.takuzugrid.akarilights.hitorishading.shikakurects.tentsandtrees.nurikabeislands.futoshikigrid.fillominoregions.stringartcurves.masyupearls.slitherlinkloop.hashibridges.kakuropuzzle.hexresourceboard.bowlingscoresheet.dewbeads.goboards.othelloboard.binaryclock.pianoroll.skyscraperpuzzles.knockoutbracket.primesieve.sortingnetworks.mayansums.latinsquares.hanoitowers.eightqueens.cantordust.dragoncurve.pascalmodulo.gameoflife.oghaminscription.kaleidoscope.slidingpuzzle.magicsquares.wordsearchgrid.mastermindboard.elementaryautomata.bluenoisemask.fibonaccisquares.doubleslitfringes.sundialplate.ledgersheet.louvershutter.chesterfieldtufting.polargraphpaper.tallymarks.quasicrystalwaves.tictactoegames.dartboardsectors.featherbarbs.amidakuji.code39barcodes.graycodediscs.knightstour.scrambledcubenet.weavingdraft.lightsoutboard.nonogrampuzzle.juliacells.spirographrosettes.sliderulescale.xylophonebars.pegsolitaire.bingocard.connectfourboard.ramennoodles.jigsawpuzzle.backgammonboard.zoneplates.lissajousgrid.mondriancomposition.hilbertcurve.battleshipgrid.tetrisstack.minesweeperboard.flipdotdisplay.crosswordgrid.fretboard.calendarpage.measuringtape.sudokugrid.sheetmusic.ecgpaper.datamatrixcodes.frostpolygons.sandripples.morsetape.ean13barcodes.kilimflatweave.tumblingblocks.azulejotiles.moirefringes.cinderblockwall.dicefaces.needlepoint.mandalaflower.kiwislices.hazardstripes.radarscope.digitalcamo.topographiccontours.garnetschist.celticplait.atomicboomerang.lawnstripes.asphaltshingle.expandedpolystyrene.octopussuckers.ammonitestone.amberresin.patchworkquilt.bayerdither.turingpattern.to220packagefaces.ftypefemalefaces.usbcfemalefaces.iecc6inlets.iecc8inlets.din5femalefaces.xlrfemalefaces.bncfemalefaces.iecc14inlets.dsubsocketfaces.topadjusttrimmers.crownprobetips.piezodiaphragms.castellatedboards.qfnlandpads.bgasolderballs.ballbearingfaces.baseballleather.toothbrushheads.bowtieinlay.redcabbagecut.slottedturners.triglidesliders.popcorn.dualinlinechips.tortoiseshellacetate.cathedralquilt.matelasse.silknoil.buckwheathulls.rutilatedquartz.peppermintcanes.rubbergrommets.chioggiabeetcuts.flatflexcables.celerycuts.tactileswitches.paisleybrocade.siliconepastrybrushes.graphicgranite.brasspadlocks.carrotcuts.bluepushpins.oatflakes.grosgrainribbons.azuritemalachite.openendspanners.lentilseeds.blueprintpaper.horsechestnutleaf.binderclips.charoite.chenilleyarn.ceramicfuses.hazelnutshells.yagasuricloth.balloonwhisks.orthocerasstone.rickracktrim.toroidalinductors.pennerigate.lepidolitemica.brassjinglebells.nutmeghalves.coaxialcablecuts.shippocloth.driedtamarindpods.conicalsampletubes.botryoidalcopper.pencilshavings.papayacuts.sewingthimbles.boullebrassinlay.diamondpanelparquet.dendriticfrost.bullionknots.orecchiette.solderlessbreadboard.kyaniteblades.wulfenite.staurolite.papertape.ulamspiral.sevensegment.perfectmaze.rule30.embossedbraille.ean13label.soroban.deltoidaltrihexagonaltiles.snubtrihexagonaltiles.floretpentagonaltiles.prismaticpentagonaltiles.apollonianmosaic.ichinghexagrams.pythagorastree.pentominotiles.langtonsant.vogelspiral.gosperinlay.pallasite.cuttlebone.watermelontourmaline.leafstomata.chitonshells.radiolariandiscs.diatomvalves.moorecurve.sierpinskicarpet.chladnifigure.kisrhombilletiles.truncatedtrihexagonaltiles.elongatedtriangulartiles.rhombitrihexagonaltiles.snubsquaretiles.starfish.fishscaleshingles.waffleweave.halite.calcite.azurite.celestine.barite.dowelpins.clevispins.gibheadkeys.woodruffkeys.parallelkeys.internaltoothwashers.driedchillies.utilityknifeblades.windmillparquet.bismuthhoppers.splitvanillapods.seamrippers.flakedarrowheads.dandelionseeds.shojipaperlattice.nyloncableties.weavingshuttles.tailorstapes.woodenclothespins.cinnamonbarkcoils.compactcassettefaces.kintsugiceramic.pleatedfilterpapers.splitcedarshakes.swavepavers.mushroomslices.insulatedringlugs.bananaslices.rosemarysprigs.pencilsharpeners.scissors.serpentinesprings.impellerfaces.chipresistors.memorycardbacks.gnocchi.rectangularsocketfaces.saffronthreads.fishhooks.violinfholes.palmiers.barbedwire.oxfordweave.lacewood.papyrus.larimar.paperbark.horseshoes.durianpeel.flystitch.abaloneshells.gyroidinfill.cloisonne.rambutanskin.rackgears.grosgrain.faille.bedfordcord.poplin.whipcord.gabardine.oilspotglaze.persimmonslice.kitkattiles.brakediscs.mulberrypaper.howlite.sodalite.ottoman.shackles.watercaltrops.fluorite.vanadinite.pyromorphite.redberyl.cavansite.wenge.parchment.cavalrytwill.screwhooks.nigellaseeds.phyllite.shantung.hempcrete.utilityblades.chrysocolla.hemimorphite.smithsonite.sichuanpepperhusks.huckaback.anorthosite.cubebberries.seraphinite.hexsocketheads.squaresocketheads.trianglesocketheads.twopinscrewheads.amazonite.mungbeans.blackeyedpeas.adzukibeans.anigre.makore.larvikite.squareholewashers.tigerwood.blackpalm.snakewood.safflowerseeds.thulite.unakite.eudialyte.lignumvitae.iroko.purpleheart.yellowheart.bloodwood.thomsonite.dalmatianstone.basswood.nickelsilver.hopsack.monkscloth.lyocell.sateen.surah.serge.habotai.batiste.ramie.tabwashers.sphericalwashers.wavewashers.cupwashers.pietersite.bronzite.castorbeans.europeanbeech.whiteoak.whiteash.kingwood.braziliantulipwood.macassarebony.zebrawood.bocote.datepits.sapele.chambray.ticking.cottondrill.nephrite.diorite.carawayseeds.springpinends.rhyolite.tonkabeans.pentalobescrewheads.tripointscrewheads.padauk.cottonflannel.pinolith.septarian.ooliticlimestone.ogeetiles.bittermelonskin.cocobolo.doubleedgerazorblades.chiastolite.dimity.juniperberries.gabbro.turnbuckles.rhodochrosite.bluelaceagate.bayleaf.pumpkinseeds.spurgears.diamondcheckertiles.appleslice.paperclips.rclips.linchpins.ivyleaf.ribknit.pillowtiles.coffeerings.cashews.hinges.coins.righttriangletiles.cherryblossom.punchcard.braidedcord.crossbeddedsandstone.grommetcanvas.fishscaletiles.hexkeys.driedfigslice.creamcrackers.doorkeys.dodecagontiles.ballchain.succulentrosettes.foldingfans.togglebuttons.greenpeapods.beltbuckles.hextruchettiles.scoredmango.waxseals.cottonbolls.carabiners.pencilends.corrugatedplasticedge.haircombs.blackberries.musselshells.safetypins.poppyseedpods.leatherbookspines.matchsticks.porcelaininsulators.dominoes.woodenspoons.chessrooks.threadspools.bellpepperslices.sharkteeth.grinderburrs.spaltedwood.canlids.crinoidossicles.pythagoreantiles.dinnerforks.mudtiretracks.tangramtiles.batterypositivecaps.passionfruitslice.screwterminalblocks.dragonfruitflesh.speakercones.septarianstone.axialresistors.tomatoslices`.split(`.`));
+var r = new Set(`flutedwood.subwaytiles.canewebbing.rammedearth.copperpatina.birdseyemaple.breezeblock.basketweavepavers.ripstop.octagondot.truchettiles.standingseam.damascus.windmillpavers.castiron.porphyry.linen.chippedenamel.perforatedleather.pigskinleather.argyle.chevronparquet.ginkgoleaf.pressedtin.sashiko.ashlar.gabion.gingham.mossypavers.bamboocrosscut.moire.oakleaf.rhombille.fossillimestone.seigaihatiles.tuftedleather.louveredmetal.herringbonebrick.shibori.scallopedslate.saltpan.dogbonepavers.palmendgrain.asanoha.lotusseedpod.crowncaps.cofferedconcrete.woodworm.calcadawaves.ikat.slottedwood.hollyleaf.englishbond.rebar.starfruit.diamondrustication.bargello.saffiano.cocoamat.suminagashi.vermiculite.cairotiles.guilloche.seaurchintest.crystallineglaze.shirring.sunburstveneer.rakedgravel.flintwall.frenchknots.artichoke.splitlockwashers.flemishbond.satinweave.lotusroot.cardboardedge.hexnuts.capnuts.flangenuts.orbicularjasper.acornbarnacles.circularpavers.snowflaketiles.sawblades.pistachios.polkadotfabric.cucumberslices.monsteraleaf.crossstitch.staranise.logcabinparquet.countersunkmetal.trilobitefossil.eyeletcotton.dendriticagate.ravioli.rollerchain.mapleleaf.smocking.quatrefoiltile.okraslice.eggcarton.greekkey.seedbeads.chainstitch.wingnuts.pomegranateslice.pawprinttiles.dovetailjoint.starsocketbolts.sanddollar.brogueleather.clovebuds.starcrosstiles.maplesamara.lenoweave.circlips.eclips.tuliptiles.gingerslice.fivebarplate.cinnamonswirl.wheatears.scalemail.trihexagonaltiles.burlwood.slottedmetal.peppercorns.castellatednuts.farfalle.cardamompods.brickarches.knottednet.fiddleheads.cowrieshells.cotterpins.seedstitch.garterstitch.mangosteenslice.pickettiles.squarewashers.eucalyptusleaf.twillweave.pinstripewool.chrysanthemumstone.snowflakeobsidian.sewingsnaps.lathplaster.ceramiccapacitors.fennelseeds.rj45femalefaces.rcafemalefaces.f05opticalfaces.minidin4femalefaces.dcbarreljackfaces.stfiberadapterfaces.mudcloth.to92packagefaces.tablutboard.arnoldcatmap.ninemensmorris.carromboard.shogiboard.ludoboard.chessopening.xiangqiboard.cribbageboard.monopolyboard.scrabbleboard.duccirows.wireworldcircuit.cycliccellular.beattypartition.walshmatrix.paperfoldingruler.rudinshapirogrid.baumsweetgrid.binarynecklaces.catalantriangulations.eisensteinprimes.keplerorbit.pythagoreanproof.contributiongraph.arbelos.eulerlinetriangle.astroidladder.slopegraph.kolakoskisequence.crcdivision.lfsrstates.fareysequence.unionfindmerges.linearprobing.bloomfilter.gamblersruin.nimgame.wordlefeedback.funnelchart.lrucachetrace.knapsacktable.bfswavefront.bresenhamlines.mergesortruns.radixsortpasses.paretochart.vernierscale.kmpfailure.dijkstragrid.binarysearchsteps.quicksortsteps.ganttschedule.lorenzcurve.zordercurve.histogrambins.sankeyflows.bodeplots.huffmancodes.hashchains.editdistance.nearesttour.karnaughmap.bsttreeorder.kdtreesplits.spanningtree.ecdfplot.intervalpartition.waterfallchart.chorddiagrams.qamconstellation.countertimings.hofstadterq.semaphorefigures.fenwicktree.jacobisymbols.vicsekfractal.segmenttree.rankchevrons.windbarbs.compassrose.smithchart.mahjongdots.qrcodemodules.gaugedials.flagpatterns.intelhexrecords.equalizerbars.worleycells.errordiffusion.tetrominoes.candlestickcharts.paleygraphmatrix.superformulacells.tsquarefractal.marchingsquares.wangtiles.htreefractal.lsystemplant.quadtreecells.countingrods.braiddiagram.youngtableaux.euclidsquares.voronoicells.cliffordattractor.peanocurve.bitwisetable.golombrulers.henonattractor.digitalroottable.thuemorsegrid.recamanarcs.happynumberchains.lookandsayrows.kaprekarsteps.roundrobintable.roulettewheel.circleoffifths.periodictablecells.josephuscircle.gaussianprimes.timestablecircles.divisorcountbars.cobwebplots.sierpinskipascal.sacksspiral.dyckpaths.figuratenumbers.pythagoreantriples.hexdumprows.pairingtables.ferrersdiagrams.zeckendorfrows.cycloidcusps.sternbrocottree.projectilearcs.isbn10checks.runlengthrows.graphcoloring.bubblesortpasses.binaryheaptree.dicesumbars.substitutionwords.stemandleaf.boxplots.sorobanabacus.numberwords.dipolefieldlines.mobiusgrid.fordcircles.vectorfieldarrows.wordsquares.caesarcipher.baseconversion.primefactors.modularpowers.burningship.logisticbifurcation.bitwiselogic.gcdtable.percolationclusters.abeliansandpile.binaryaddition.roundingmodes.bellcurvebands.ieee754floats.vennregions.bezierconstruction.luhnnumbers.twosourceripples.cassiniovals.rosecurves.conicsections.cantorsetrows.mandelbrotbands.newtonbasins.kochsnowflake.matrixproducts.signedencodings.romannumerals.cayleytables.hammingcodewords.collatzsequences.delaunaytriangles.convexhullpoints.pascaltrianglenumbers.fouriersquarewaves.truthtablelogic.barchartbars.regressionscatter.piechartwedges.analogclocks.treemaprects.moonphases.multiplicationtable.draughtsposition.colormapregions.chinesecheckersboard.euclideanrhythms.hidatochain.mancalaboard.rushhourjam.numberlinkpaths.kenkencages.takuzugrid.akarilights.hitorishading.shikakurects.tentsandtrees.nurikabeislands.futoshikigrid.fillominoregions.stringartcurves.masyupearls.slitherlinkloop.hashibridges.kakuropuzzle.hexresourceboard.bowlingscoresheet.dewbeads.goboards.othelloboard.binaryclock.pianoroll.skyscraperpuzzles.knockoutbracket.primesieve.sortingnetworks.mayansums.latinsquares.hanoitowers.eightqueens.cantordust.dragoncurve.pascalmodulo.gameoflife.oghaminscription.kaleidoscope.slidingpuzzle.magicsquares.wordsearchgrid.mastermindboard.elementaryautomata.bluenoisemask.fibonaccisquares.doubleslitfringes.sundialplate.ledgersheet.louvershutter.chesterfieldtufting.polargraphpaper.tallymarks.quasicrystalwaves.tictactoegames.dartboardsectors.featherbarbs.amidakuji.code39barcodes.graycodediscs.knightstour.scrambledcubenet.weavingdraft.lightsoutboard.nonogrampuzzle.juliacells.spirographrosettes.sliderulescale.xylophonebars.pegsolitaire.bingocard.connectfourboard.ramennoodles.jigsawpuzzle.backgammonboard.zoneplates.lissajousgrid.mondriancomposition.hilbertcurve.battleshipgrid.tetrisstack.minesweeperboard.flipdotdisplay.crosswordgrid.fretboard.calendarpage.measuringtape.sudokugrid.sheetmusic.ecgpaper.datamatrixcodes.frostpolygons.sandripples.morsetape.ean13barcodes.kilimflatweave.tumblingblocks.azulejotiles.moirefringes.cinderblockwall.dicefaces.needlepoint.mandalaflower.kiwislices.hazardstripes.radarscope.digitalcamo.topographiccontours.garnetschist.celticplait.atomicboomerang.lawnstripes.asphaltshingle.expandedpolystyrene.octopussuckers.ammonitestone.amberresin.patchworkquilt.bayerdither.turingpattern.to220packagefaces.ftypefemalefaces.usbcfemalefaces.iecc6inlets.iecc8inlets.din5femalefaces.xlrfemalefaces.bncfemalefaces.iecc14inlets.dsubsocketfaces.topadjusttrimmers.crownprobetips.piezodiaphragms.castellatedboards.qfnlandpads.bgasolderballs.ballbearingfaces.baseballleather.toothbrushheads.bowtieinlay.redcabbagecut.slottedturners.triglidesliders.popcorn.dualinlinechips.tortoiseshellacetate.cathedralquilt.matelasse.silknoil.buckwheathulls.rutilatedquartz.peppermintcanes.rubbergrommets.chioggiabeetcuts.flatflexcables.celerycuts.tactileswitches.paisleybrocade.siliconepastrybrushes.graphicgranite.brasspadlocks.carrotcuts.bluepushpins.oatflakes.grosgrainribbons.azuritemalachite.openendspanners.lentilseeds.blueprintpaper.horsechestnutleaf.binderclips.charoite.chenilleyarn.ceramicfuses.hazelnutshells.yagasuricloth.balloonwhisks.orthocerasstone.rickracktrim.toroidalinductors.pennerigate.lepidolitemica.brassjinglebells.nutmeghalves.coaxialcablecuts.shippocloth.driedtamarindpods.conicalsampletubes.botryoidalcopper.pencilshavings.papayacuts.sewingthimbles.boullebrassinlay.diamondpanelparquet.dendriticfrost.bullionknots.orecchiette.solderlessbreadboard.kyaniteblades.wulfenite.staurolite.papertape.ulamspiral.sevensegment.perfectmaze.rule30.embossedbraille.ean13label.soroban.deltoidaltrihexagonaltiles.snubtrihexagonaltiles.floretpentagonaltiles.prismaticpentagonaltiles.apollonianmosaic.ichinghexagrams.pythagorastree.pentominotiles.langtonsant.vogelspiral.gosperinlay.pallasite.cuttlebone.watermelontourmaline.leafstomata.chitonshells.radiolariandiscs.diatomvalves.moorecurve.sierpinskicarpet.chladnifigure.kisrhombilletiles.truncatedtrihexagonaltiles.elongatedtriangulartiles.rhombitrihexagonaltiles.snubsquaretiles.starfish.fishscaleshingles.waffleweave.halite.calcite.azurite.celestine.barite.dowelpins.clevispins.gibheadkeys.woodruffkeys.parallelkeys.internaltoothwashers.driedchillies.utilityknifeblades.windmillparquet.bismuthhoppers.splitvanillapods.seamrippers.flakedarrowheads.dandelionseeds.shojipaperlattice.nyloncableties.weavingshuttles.tailorstapes.woodenclothespins.cinnamonbarkcoils.compactcassettefaces.kintsugiceramic.pleatedfilterpapers.splitcedarshakes.swavepavers.mushroomslices.insulatedringlugs.bananaslices.rosemarysprigs.pencilsharpeners.scissors.serpentinesprings.impellerfaces.chipresistors.memorycardbacks.gnocchi.rectangularsocketfaces.saffronthreads.fishhooks.violinfholes.palmiers.barbedwire.oxfordweave.lacewood.papyrus.larimar.paperbark.horseshoes.durianpeel.flystitch.abaloneshells.gyroidinfill.cloisonne.rambutanskin.rackgears.grosgrain.faille.bedfordcord.poplin.whipcord.gabardine.oilspotglaze.persimmonslice.kitkattiles.brakediscs.mulberrypaper.howlite.sodalite.ottoman.shackles.watercaltrops.fluorite.vanadinite.pyromorphite.redberyl.cavansite.wenge.parchment.cavalrytwill.screwhooks.nigellaseeds.phyllite.shantung.hempcrete.utilityblades.chrysocolla.hemimorphite.smithsonite.sichuanpepperhusks.huckaback.anorthosite.cubebberries.seraphinite.hexsocketheads.squaresocketheads.trianglesocketheads.twopinscrewheads.amazonite.mungbeans.blackeyedpeas.adzukibeans.anigre.makore.larvikite.squareholewashers.tigerwood.blackpalm.snakewood.safflowerseeds.thulite.unakite.eudialyte.lignumvitae.iroko.purpleheart.yellowheart.bloodwood.thomsonite.dalmatianstone.basswood.nickelsilver.hopsack.monkscloth.lyocell.sateen.surah.serge.habotai.batiste.ramie.tabwashers.sphericalwashers.wavewashers.cupwashers.pietersite.bronzite.castorbeans.europeanbeech.whiteoak.whiteash.kingwood.braziliantulipwood.macassarebony.zebrawood.bocote.datepits.sapele.chambray.ticking.cottondrill.nephrite.diorite.carawayseeds.springpinends.rhyolite.tonkabeans.pentalobescrewheads.tripointscrewheads.padauk.cottonflannel.pinolith.septarian.ooliticlimestone.ogeetiles.bittermelonskin.cocobolo.doubleedgerazorblades.chiastolite.dimity.juniperberries.gabbro.turnbuckles.rhodochrosite.bluelaceagate.bayleaf.pumpkinseeds.spurgears.diamondcheckertiles.appleslice.paperclips.rclips.linchpins.ivyleaf.ribknit.pillowtiles.coffeerings.cashews.hinges.coins.righttriangletiles.cherryblossom.punchcard.braidedcord.crossbeddedsandstone.grommetcanvas.fishscaletiles.hexkeys.driedfigslice.creamcrackers.doorkeys.dodecagontiles.ballchain.succulentrosettes.foldingfans.togglebuttons.greenpeapods.beltbuckles.hextruchettiles.scoredmango.waxseals.cottonbolls.carabiners.pencilends.corrugatedplasticedge.haircombs.blackberries.musselshells.safetypins.poppyseedpods.leatherbookspines.matchsticks.porcelaininsulators.dominoes.woodenspoons.chessrooks.threadspools.bellpepperslices.sharkteeth.grinderburrs.spaltedwood.canlids.crinoidossicles.pythagoreantiles.dinnerforks.mudtiretracks.tangramtiles.batterypositivecaps.passionfruitslice.screwterminalblocks.dragonfruitflesh.speakercones.septarianstone.axialresistors.tomatoslices`.split(`.`));
 function createSurfaceSampler(t, i) {
 	let a = require_materials.proceduralMaterialPresets[t], o = hash(0, 0, i) * n, s = t === `encaustictiles` ? .12 * Math.sin(o) : 0, c = Math.cos(s), l = Math.sin(s), u = t === `tactilepaving` || t === `roadmarking` || t === `draincover`, d = u ? cachedNoise(96, 96, i ^ 10865) : null, f = t === `mushroomgills` || t === `morel` || t === `bracketfungus`, p = f ? cachedNoise(80, 80, i ^ 27961) : null, m = t === `pineapple` || t === `strawberry` || t === `lychee`, h = m ? cachedNoise(96, 96, i ^ 24923) : null, g = t === `strawberry` ? require_materials.proceduralMaterialPresets.strawberry.columns : t === `lychee` ? require_materials.proceduralMaterialPresets.lychee.columns : require_materials.proceduralMaterialPresets.pineapple.cells, _ = t === `strawberry` ? require_materials.proceduralMaterialPresets.strawberry.rows : t === `lychee` ? require_materials.proceduralMaterialPresets.lychee.rows : g, v = t === `strawberry` ? 4 : t === `lychee` ? 8 : 1, y = m ? new Float64Array(g * _ * v) : null;
 	if (y) for (let n = 0; n < _; n++) for (let r = 0; r < g; r++) {
@@ -111,33 +111,33 @@ function createSurfaceSampler(t, i) {
 		let t = e * 4;
 		z[t] = (e + .2 + .6 * hash(0, e, i ^ 6057)) / 9, z[t + 1] = .006 + .005 * hash(0, e, i ^ 27059), z[t + 2] = n * hash(0, e, i ^ 16855), z[t + 3] = .7 + .3 * hash(0, e, i ^ 21425);
 	}
-	let ee = t === `rosepetal` || t === `lilypetal` || t === `fritillarypetal`, te = t === `rosepetal` || t === `fritillarypetal` ? cachedNoise(4, 4, i ^ 10201) : null, ne = ee ? cachedNoise(48, 48, i ^ 25521) : null, re = t === `rosepetal` ? 48 : 9, B = t === `rosepetal` ? 48 : 7, V = t === `rosepetal` || t === `lilypetal` ? new Float64Array(re * B * 8) : null;
-	if (V) for (let e = 0; e < B; e++) for (let n = 0; n < re; n++) {
-		let r = (e * re + n) * 8, a = t === `rosepetal`, o = a ? .3 : .15, s = a ? .4 : .7, c = (a ? 1 : .22) * (hash(n, e, i ^ 22979) - .5);
-		V[r] = o + s * hash(n, e, i ^ 12711), V[r + 1] = o + s * hash(n, e, i ^ 18409), V[r + 2] = Math.cos(c), V[r + 3] = Math.sin(c), V[r + 4] = 1 / (a ? .38 + .07 * hash(n, e, i ^ 27923) : .13), V[r + 5] = 1 / (a ? .38 + .07 * hash(n, e, i ^ 6999) : .43), V[r + 6] = !a && hash(n, e, i ^ 11159) < .24 ? 0 : .65 + .35 * hash(n, e, i ^ 29097), V[r + 7] = a ? 0 : .5 * (hash(n, e, i ^ 14805) - .5);
+	let ee = t === `rosepetal` || t === `lilypetal` || t === `fritillarypetal`, te = t === `rosepetal` || t === `fritillarypetal` ? cachedNoise(4, 4, i ^ 10201) : null, ne = ee ? cachedNoise(48, 48, i ^ 25521) : null, B = t === `rosepetal` ? 48 : 9, V = t === `rosepetal` ? 48 : 7, H = t === `rosepetal` || t === `lilypetal` ? new Float64Array(B * V * 8) : null;
+	if (H) for (let e = 0; e < V; e++) for (let n = 0; n < B; n++) {
+		let r = (e * B + n) * 8, a = t === `rosepetal`, o = a ? .3 : .15, s = a ? .4 : .7, c = (a ? 1 : .22) * (hash(n, e, i ^ 22979) - .5);
+		H[r] = o + s * hash(n, e, i ^ 12711), H[r + 1] = o + s * hash(n, e, i ^ 18409), H[r + 2] = Math.cos(c), H[r + 3] = Math.sin(c), H[r + 4] = 1 / (a ? .38 + .07 * hash(n, e, i ^ 27923) : .13), H[r + 5] = 1 / (a ? .38 + .07 * hash(n, e, i ^ 6999) : .43), H[r + 6] = !a && hash(n, e, i ^ 11159) < .24 ? 0 : .65 + .35 * hash(n, e, i ^ 29097), H[r + 7] = a ? 0 : .5 * (hash(n, e, i ^ 14805) - .5);
 	}
-	let H = t === `cantaloupe` || t === `dragonfruit` || t === `kiwiskin`, ie = H ? cachedNoise(64, 64, i ^ 17895) : null, ae = t === `cantaloupe` ? cachedNoise(4, 4, i ^ 29091) : null, oe = t === `cantaloupe` ? /* @__PURE__ */ new Float64Array(1274) : null;
-	if (oe) for (let e = 0; e < 7; e++) for (let t = 0; t < 7; t++) {
+	let U = t === `cantaloupe` || t === `dragonfruit` || t === `kiwiskin`, re = U ? cachedNoise(64, 64, i ^ 17895) : null, ie = t === `cantaloupe` ? cachedNoise(4, 4, i ^ 29091) : null, ae = t === `cantaloupe` ? /* @__PURE__ */ new Float64Array(1274) : null;
+	if (ae) for (let e = 0; e < 7; e++) for (let t = 0; t < 7; t++) {
 		let n = (e * 7 + t) * 26, r = .25 + .5 * hash(t, e, i ^ 12977), a = .25 + .5 * hash(t, e, i ^ 26585);
-		oe[n] = r, oe[n + 1] = a;
+		ae[n] = r, ae[n + 1] = a;
 		let o = n + 2;
 		for (let n = -1; n <= 1; n++) for (let s = -1; s <= 1; s++) {
 			if (s === 0 && n === 0) continue;
 			let c = (t + s + 7) % 7, l = (e + n + 7) % 7, u = s + .25 + .5 * hash(c, l, i ^ 12977) - r, d = n + .25 + .5 * hash(c, l, i ^ 26585) - a, f = 1 / Math.sqrt(u * u + d * d);
-			oe[o++] = u * f, oe[o++] = d * f, oe[o++] = .5 / f;
+			ae[o++] = u * f, ae[o++] = d * f, ae[o++] = .5 / f;
 		}
 	}
-	let U = t === `dragonfruit` ? /* @__PURE__ */ new Float64Array(120) : null;
-	if (U) for (let e = 0; e < 6; e++) for (let t = 0; t < 4; t++) {
+	let W = t === `dragonfruit` ? /* @__PURE__ */ new Float64Array(120) : null;
+	if (W) for (let e = 0; e < 6; e++) for (let t = 0; t < 4; t++) {
 		let n = (e * 4 + t) * 5, r = .24 * (hash(t, e, i ^ 21417) - .5);
-		U[n] = .25 + e % 2 * .5 + .12 * (hash(t, e, i ^ 15473) - .5), U[n + 1] = .5 + .12 * (hash(t, e, i ^ 27923) - .5), U[n + 2] = Math.cos(r), U[n + 3] = Math.sin(r), U[n + 4] = .85 + .15 * hash(t, e, i ^ 10727);
+		W[n] = .25 + e % 2 * .5 + .12 * (hash(t, e, i ^ 15473) - .5), W[n + 1] = .5 + .12 * (hash(t, e, i ^ 27923) - .5), W[n + 2] = Math.cos(r), W[n + 3] = Math.sin(r), W[n + 4] = .85 + .15 * hash(t, e, i ^ 10727);
 	}
-	let se = t === `kiwiskin` ? /* @__PURE__ */ new Float64Array(6480) : null;
-	if (se) for (let e = 0; e < 36; e++) for (let t = 0; t < 36; t++) {
+	let oe = t === `kiwiskin` ? /* @__PURE__ */ new Float64Array(6480) : null;
+	if (oe) for (let e = 0; e < 36; e++) for (let t = 0; t < 36; t++) {
 		let r = (e * 36 + t) * 5, a = n * hash(t, e, i ^ 12179);
-		se[r] = .3 + .4 * hash(t, e, i ^ 17335), se[r + 1] = .3 + .4 * hash(t, e, i ^ 27217), se[r + 2] = Math.cos(a), se[r + 3] = Math.sin(a), se[r + 4] = .75 + .25 * hash(t, e, i ^ 6611);
+		oe[r] = .3 + .4 * hash(t, e, i ^ 17335), oe[r + 1] = .3 + .4 * hash(t, e, i ^ 27217), oe[r + 2] = Math.cos(a), oe[r + 3] = Math.sin(a), oe[r + 4] = .75 + .25 * hash(t, e, i ^ 6611);
 	}
-	let ce = t === `zebrafur` || t === `leopardfur` || t === `giraffefur` || t === `tigerfur` || t === `cowhide`, W = ce ? cachedNoise(5, 7, i ^ 29369) : null, le = ce ? cachedNoise(96, 64, i ^ 19475) : null, ue = t === `cowhide` ? require_materials.proceduralMaterialPresets.cowhide : null, de = ue ? cachedNoise(ue.patchColumns, ue.patchRows, i ^ 70161) : null, fe = ue ? 1 / (ue.patchHigh - ue.patchLow) : 0, pe = ce ? /* @__PURE__ */ new Float64Array(5120) : null;
+	let se = t === `zebrafur` || t === `leopardfur` || t === `giraffefur` || t === `tigerfur` || t === `cowhide`, ce = se ? cachedNoise(5, 7, i ^ 29369) : null, le = se ? cachedNoise(96, 64, i ^ 19475) : null, ue = t === `cowhide` ? require_materials.proceduralMaterialPresets.cowhide : null, de = ue ? cachedNoise(ue.patchColumns, ue.patchRows, i ^ 70161) : null, fe = ue ? 1 / (ue.patchHigh - ue.patchLow) : 0, pe = se ? /* @__PURE__ */ new Float64Array(5120) : null;
 	if (pe) for (let e = 0; e < 32; e++) for (let t = 0; t < 40; t++) {
 		let n = (e * 40 + t) * 4, r = Math.PI / 2 + .65 * (hash(t, e, i ^ 5949) - .5);
 		pe[n] = .3 + .4 * hash(t, e, i ^ 21409), pe[n + 1] = .3 + .4 * hash(t, e, i ^ 27433), pe[n + 2] = Math.cos(r), pe[n + 3] = Math.sin(r);
@@ -710,8 +710,8 @@ function createSurfaceSampler(t, i) {
 				return () => {
 					let e = G * t.cells, n = K * t.cells, i = (Math.floor(n) * t.cells + Math.floor(e)) * 4, g = fract(e) - r[i + 2], _ = fract(n) - r[i + 3], v = g * r[i] + _ * r[i + 1], y = _ * r[i] - g * r[i + 1], b = Math.abs(v), x = Math.hypot(v, Math.min(0, y - t.arcY)) - t.bowRadius, S = Math.max(0, y - t.pinY), C = x * x + S * S, w = smooth(clamp((o - C) * s)), T = smooth(clamp(1 - C / o)), E = Math.max(0, b - t.pinHalf), D = y - t.pinY, O = E * E + D * D, k = smooth(clamp((c - O) * l)), A = b - t.bowRadius, j = A * A + D * D, M = smooth(clamp((u - j) * d)), N = v - t.headX, P = N * N * f + D * D * p, F = v - t.holeX, I = y - t.holeY, R = smooth(clamp((F * F + I * I - m) * h)), z = smooth(clamp((1 - P) / .25)) * R, ee = w + M + k + z;
 					if (J = .06, Y = .035, X = .94, Z = .4, ee === 0) return;
-					let te = 1 - (1 - w) * (1 - M) * (1 - k) * (1 - z), ne = (w * (.47 + .12 * T) + M * .59 + k * .66 + z * .68) / ee, re = a(G, K);
-					J += te * (.72 + .04 * re + .025 * T - J), Y += te * (ne + .002 * re - Y), X += te * (t.roughness + .035 * re - .035 * T - X), Z += te * (.97 - Z), $ = te;
+					let te = 1 - (1 - w) * (1 - M) * (1 - k) * (1 - z), ne = (w * (.47 + .12 * T) + M * .59 + k * .66 + z * .68) / ee, B = a(G, K);
+					J += te * (.72 + .04 * B + .025 * T - J), Y += te * (ne + .002 * B - Y), X += te * (t.roughness + .035 * B - .035 * T - X), Z += te * (.97 - Z), $ = te;
 				};
 			}
 			case `sodalite`: {
@@ -1485,40 +1485,40 @@ function createSurfaceSampler(t, i) {
 			case `grosgrain`:
 			case `faille`:
 			case `poplin`: {
-				let n = t === `cottondrill`, r = require_materials.proceduralMaterialPresets.cottondrill, a = t === `ticking`, o = require_materials.proceduralMaterialPresets.ticking, s = t === `hopsack` || t === `monkscloth`, c = t === `monkscloth` ? require_materials.proceduralMaterialPresets.monkscloth : require_materials.proceduralMaterialPresets.hopsack, l = t === `whipcord` || t === `lyocell` || t === `surah` || t === `serge` || t === `sateen`, u = t === `whipcord` ? require_materials.proceduralMaterialPresets.whipcord : t === `sateen` ? require_materials.proceduralMaterialPresets.sateen : t === `serge` ? require_materials.proceduralMaterialPresets.serge : t === `surah` ? require_materials.proceduralMaterialPresets.surah : require_materials.proceduralMaterialPresets.lyocell, d = t === `habotai` || t === `ramie` || t === `batiste`, f = t === `habotai` ? require_materials.proceduralMaterialPresets.habotai : t === `batiste` ? require_materials.proceduralMaterialPresets.batiste : require_materials.proceduralMaterialPresets.ramie, p = t === `gabardine`, m = t === `cavalrytwill`, h = p || m, g = t === `ottoman`, _ = t === `faille`, v = t === `shantung`, y = t === `huckaback` || l || s || a || n, b = t === `chambray`, x = t === `cottonflannel`, S = require_materials.proceduralMaterialPresets.cottonflannel, C = 1 - S.napCoverage, w = n ? r.yarnTone : s ? c.yarnTone : l ? u.yarnTone : d ? f.yarnTone : b ? .18 : x ? S.yarnTone : .82, T = a ? o.groundTone : d || l || s || n ? w : b ? .92 : x ? S.yarnTone : .63, E = require_materials.proceduralMaterialPresets.shantung, D = n ? r : a ? o : s ? c : l ? u : require_materials.proceduralMaterialPresets.huckaback, O = D.draft.length, k = require_materials.proceduralMaterialPresets[t], A = require_materials.proceduralMaterialPresets.cavalrytwill.draft, j = h || y || b || x || d, M = t === `whipcord` ? require_materials.proceduralMaterialPresets.whipcord.warpBase : j ? .34 : .3, N = t === `whipcord` ? require_materials.proceduralMaterialPresets.whipcord.weftBase : g ? .52 : j ? .34 : .44, P = t === `grosgrain` ? require_materials.proceduralMaterialPresets.grosgrain.weftCrown : _ ? require_materials.proceduralMaterialPresets.faille.weftCrown : g ? .1 : j ? .04 : .07, F = g ? require_materials.proceduralMaterialPresets.ottoman.pairOffset : 0, I = x ? cachedNoise(S.brushCells, S.brushCells, i ^ 116759) : void 0, L = x ? cachedNoise(S.napColumns, S.napRows, i ^ 116761) : void 0, R = cachedNoise(128, 128, i ^ 104209), z = 1 / (k.warpRadius * k.warpRadius), ee = 1 / (k.weftRadius * k.weftRadius), te = 1 / (1 - k.warpCore * k.warpCore * z), ne = 1 / (1 - k.weftCore * k.weftCore * ee), re = 1 / k.liftShoulder, B = y ? new Float64Array(O * O * 6) : void 0, V = v ? new Float64Array(k.weftThreads * E.slubs * 3) : void 0;
-				if (B) for (let e = 0; e < O; e++) for (let t = 0; t < O; t++) {
+				let n = t === `cottondrill`, r = require_materials.proceduralMaterialPresets.cottondrill, a = t === `ticking`, o = require_materials.proceduralMaterialPresets.ticking, s = t === `hopsack` || t === `monkscloth`, c = t === `monkscloth` ? require_materials.proceduralMaterialPresets.monkscloth : require_materials.proceduralMaterialPresets.hopsack, l = t === `whipcord` || t === `lyocell` || t === `surah` || t === `serge` || t === `sateen`, u = t === `whipcord` ? require_materials.proceduralMaterialPresets.whipcord : t === `sateen` ? require_materials.proceduralMaterialPresets.sateen : t === `serge` ? require_materials.proceduralMaterialPresets.serge : t === `surah` ? require_materials.proceduralMaterialPresets.surah : require_materials.proceduralMaterialPresets.lyocell, d = t === `habotai` || t === `ramie` || t === `batiste`, f = t === `habotai` ? require_materials.proceduralMaterialPresets.habotai : t === `batiste` ? require_materials.proceduralMaterialPresets.batiste : require_materials.proceduralMaterialPresets.ramie, p = t === `gabardine`, m = t === `cavalrytwill`, h = p || m, g = t === `ottoman`, _ = t === `faille`, v = t === `shantung`, y = t === `huckaback` || l || s || a || n, b = t === `chambray`, x = t === `cottonflannel`, S = require_materials.proceduralMaterialPresets.cottonflannel, C = 1 - S.napCoverage, w = n ? r.yarnTone : s ? c.yarnTone : l ? u.yarnTone : d ? f.yarnTone : b ? .18 : x ? S.yarnTone : .82, T = a ? o.groundTone : d || l || s || n ? w : b ? .92 : x ? S.yarnTone : .63, E = require_materials.proceduralMaterialPresets.shantung, D = n ? r : a ? o : s ? c : l ? u : require_materials.proceduralMaterialPresets.huckaback, O = D.draft.length, k = require_materials.proceduralMaterialPresets[t], A = require_materials.proceduralMaterialPresets.cavalrytwill.draft, j = h || y || b || x || d, M = t === `whipcord` ? require_materials.proceduralMaterialPresets.whipcord.warpBase : j ? .34 : .3, N = t === `whipcord` ? require_materials.proceduralMaterialPresets.whipcord.weftBase : g ? .52 : j ? .34 : .44, P = t === `grosgrain` ? require_materials.proceduralMaterialPresets.grosgrain.weftCrown : _ ? require_materials.proceduralMaterialPresets.faille.weftCrown : g ? .1 : j ? .04 : .07, F = g ? require_materials.proceduralMaterialPresets.ottoman.pairOffset : 0, I = x ? cachedNoise(S.brushCells, S.brushCells, i ^ 116759) : void 0, L = x ? cachedNoise(S.napColumns, S.napRows, i ^ 116761) : void 0, R = cachedNoise(128, 128, i ^ 104209), z = 1 / (k.warpRadius * k.warpRadius), ee = 1 / (k.weftRadius * k.weftRadius), te = 1 / (1 - k.warpCore * k.warpCore * z), ne = 1 / (1 - k.weftCore * k.weftCore * ee), B = 1 / k.liftShoulder, V = y ? new Float64Array(O * O * 6) : void 0, H = v ? new Float64Array(k.weftThreads * E.slubs * 3) : void 0;
+				if (V) for (let e = 0; e < O; e++) for (let t = 0; t < O; t++) {
 					let n = D.draft[e] >>> t & 1, r = (e * O + t) * 6;
 					for (let i = 0; i < 2; i++) {
 						let a = 0, o = 0;
 						for (; a < O - 1 && (D.draft[i === 0 ? (e - a - 1 + O) % O : e] >>> (i === 0 ? t : (t - a - 1 + O) % O) & 1) === n;) a++;
 						for (; o < O - 1 - a && (D.draft[i === 0 ? (e + o + 1) % O : e] >>> (i === 0 ? t : (t + o + 1) % O) & 1) === n;) o++;
 						let s = r + i * 3, c = (a + o) * .5 + (i === 0 ? k.weftLiftHalf : k.warpLiftHalf), l = Math.max(0, c - k.liftShoulder), u = c * c;
-						B[s] = (o - a) * .5, B[s + 1] = u, B[s + 2] = 1 / (u - l * l);
+						V[s] = (o - a) * .5, V[s + 1] = u, V[s + 2] = 1 / (u - l * l);
 					}
 				}
-				if (V) for (let e = 0; e < k.weftThreads; e++) for (let t = 0; t < E.slubs; t++) {
+				if (H) for (let e = 0; e < k.weftThreads; e++) for (let t = 0; t < E.slubs; t++) {
 					let n = (e * E.slubs + t) * 3, r = E.slubHalfMinimum + E.slubHalfVariation * hash(t, e, i ^ 111635);
-					V[n] = (t + .5) / E.slubs + E.slubJitter * (2 * hash(t, e, i ^ 111633) - 1), V[n + 1] = 1 / (r * r), V[n + 2] = .35 + .65 * hash(t, e, i ^ 111637);
+					H[n] = (t + .5) / E.slubs + E.slubJitter * (2 * hash(t, e, i ^ 111633) - 1), H[n + 1] = 1 / (r * r), H[n + 2] = .35 + .65 * hash(t, e, i ^ 111637);
 				}
 				return () => {
 					let e = G * k.warpThreads, t = K * k.weftThreads, n = Math.floor(e), r = Math.floor(t), i = fract(e) - .5, s = fract(t) - .5 + (r & 1 ? F : -F), c = 0, l = ee, u = ne;
-					if (V) {
+					if (H) {
 						let e = 1;
 						for (let t = 0; t < E.slubs; t++) {
-							let n = (r * E.slubs + t) * 3, i = G - V[n], a = i - Math.floor(i + .5);
-							e *= 1 - V[n + 2] * smooth(clamp(1 - a * a * V[n + 1]));
+							let n = (r * E.slubs + t) * 3, i = G - H[n], a = i - Math.floor(i + .5);
+							e *= 1 - H[n + 2] * smooth(clamp(1 - a * a * H[n + 1]));
 						}
 						c = 1 - e;
 						let t = k.weftRadius + E.slubRadius * c, n = k.weftCore + E.slubCore * c;
 						l = 1 / (t * t), u = 1 / (1 - n * n * l);
 					}
-					let d = i * i * z, f = s * s * l, h = smooth(clamp((1 - d) * te)), _ = smooth(clamp((1 - f) * u)), v = y ? !!(D.draft[r % O] >>> n % O & 1) : m ? A[(n - r + k.warpThreads) % A.length] : p ? (n - r + k.warpThreads) % 3 < 2 : !(n + (g ? Math.floor(r / 2) : r) & 1), b = v ? h : h * (1 - _), j = v ? _ * (1 - h) : _, H = b + j;
-					if (J = .06, Y = .025, X = .96, Z = .45, H === 0 && !x) return;
-					let ie = v ? 1 : -1, ae = B ? (r % O * O + n % O) * 6 : 0, oe = smooth(clamp(B ? (B[ae + 4] - (i - B[ae + 3]) ** 2) * B[ae + 5] : (k.warpLiftHalf - Math.abs(i)) * re)), U = smooth(clamp(B ? (B[ae + 1] - (s - B[ae]) ** 2) * B[ae + 2] : (k.weftLiftHalf - Math.abs(s)) * re)), se = smooth(clamp(1 - d)), ce = smooth(clamp(1 - f)), W = fract(G * k.warpFibers) - .5, le = fract(K * k.weftFibers) - .5, ue = smooth(clamp(1 - 4 * W * W)), de = smooth(clamp(1 - 4 * le * le)), fe = (1 - h) * (1 - _), pe = R(G, K), me = a ? o.groundTone - o.dyeDepth * o.stripeDraft[Math.floor(n / o.stripeYarns) % o.stripeDraft.length] : w;
-					if (J = fe * J + b * (me + .025 * pe + .025 * ue) + j * (T + .025 * pe + .025 * de - .06 * c), Y = fe * Y + b * (M + ie * k.lift * U + .04 * se + .003 * pe + .003 * ue) + j * (N - ie * k.lift * oe + P * ce + .003 * pe + .003 * de + E.slubHeight * c), I && L) {
+					let d = i * i * z, f = s * s * l, h = smooth(clamp((1 - d) * te)), _ = smooth(clamp((1 - f) * u)), v = y ? !!(D.draft[r % O] >>> n % O & 1) : m ? A[(n - r + k.warpThreads) % A.length] : p ? (n - r + k.warpThreads) % 3 < 2 : !(n + (g ? Math.floor(r / 2) : r) & 1), b = v ? h : h * (1 - _), j = v ? _ * (1 - h) : _, U = b + j;
+					if (J = .06, Y = .025, X = .96, Z = .45, U === 0 && !x) return;
+					let re = v ? 1 : -1, ie = V ? (r % O * O + n % O) * 6 : 0, ae = smooth(clamp(V ? (V[ie + 4] - (i - V[ie + 3]) ** 2) * V[ie + 5] : (k.warpLiftHalf - Math.abs(i)) * B)), W = smooth(clamp(V ? (V[ie + 1] - (s - V[ie]) ** 2) * V[ie + 2] : (k.weftLiftHalf - Math.abs(s)) * B)), oe = smooth(clamp(1 - d)), se = smooth(clamp(1 - f)), ce = fract(G * k.warpFibers) - .5, le = fract(K * k.weftFibers) - .5, ue = smooth(clamp(1 - 4 * ce * ce)), de = smooth(clamp(1 - 4 * le * le)), fe = (1 - h) * (1 - _), pe = R(G, K), me = a ? o.groundTone - o.dyeDepth * o.stripeDraft[Math.floor(n / o.stripeYarns) % o.stripeDraft.length] : w;
+					if (J = fe * J + b * (me + .025 * pe + .025 * ue) + j * (T + .025 * pe + .025 * de - .06 * c), Y = fe * Y + b * (M + re * k.lift * W + .04 * oe + .003 * pe + .003 * ue) + j * (N - re * k.lift * ae + P * se + .003 * pe + .003 * de + E.slubHeight * c), I && L) {
 						let e = I(G, K), t = e - .5, n = L(G + S.napWarpU * t, K + S.napWarpV * t);
-						J = C * J + S.napCoverage * (S.napColor + S.cloudColor * e + S.fiberColor * n), Y = S.napBase + S.napHeight * n + S.napCloudHeight * e + S.buriedWeaveHeight * Y, X = S.roughness + S.napRoughnessVariation * (n - .5) + S.grainRoughnessVariation * (pe - .5), Z = S.occlusion + S.occlusionWeave * H;
-					} else X = fe * X + b * (k.roughness + .03 * pe - .02 * ue) + j * (k.roughness + .03 * pe - .02 * de), Z += .54 * H;
+						J = C * J + S.napCoverage * (S.napColor + S.cloudColor * e + S.fiberColor * n), Y = S.napBase + S.napHeight * n + S.napCloudHeight * e + S.buriedWeaveHeight * Y, X = S.roughness + S.napRoughnessVariation * (n - .5) + S.grainRoughnessVariation * (pe - .5), Z = S.occlusion + S.occlusionWeave * U;
+					} else X = fe * X + b * (k.roughness + .03 * pe - .02 * ue) + j * (k.roughness + .03 * pe - .02 * de), Z += .54 * U;
 				};
 			}
 			case `bedfordcord`: {
@@ -1785,8 +1785,8 @@ function createSurfaceSampler(t, i) {
 						let e = (z - t.spiralInnerQ) * g - Math.atan2(R, L) / n - t.spiralPhase, r = e - Math.floor(e + .5);
 						te = smooth(clamp((_ - r * r) * v)) * smooth(clamp((z - t.spiralInnerQ) * m)) * smooth(clamp((t.spiralOuterQ - z) * h));
 					}
-					let ne = a(G, K), re = r[w + 5];
-					J += I * (.84 + .035 * re + .025 * ne - .2 * te - .12 * ee - J), Y += I * (.6 + .003 * ne - .06 * te - .045 * ee - Y), X += I * (t.roughness + .025 * ne - .13 * te + .06 * ee - X), Z += I * (.99 - .04 * te - .03 * ee - Z);
+					let ne = a(G, K), B = r[w + 5];
+					J += I * (.84 + .035 * B + .025 * ne - .2 * te - .12 * ee - J), Y += I * (.6 + .003 * ne - .06 * te - .045 * ee - Y), X += I * (t.roughness + .025 * ne - .13 * te + .06 * ee - X), Z += I * (.99 - .04 * te - .03 * ee - Z);
 				};
 			}
 			case `violinfholes`: {
@@ -1819,10 +1819,10 @@ function createSurfaceSampler(t, i) {
 					if (E * E + D * D >= x) return;
 					let O = D - t.eyeY, k = E + t.bendRadius, A = k * k + O * O, j = smooth(clamp((h - A) * g));
 					if (j === 1) return;
-					let M = smooth(clamp((p - A) * m)), N = Math.max(0, t.shankTop - D, D - t.bendY), P = smooth(clamp((d - k * k - N * N) * f)), F = D - t.bendY, I = E * E + F * F, L = smooth(clamp((I - o) * c)) * smooth(clamp((s - I) * l)) * smooth(clamp((F + t.joinOverlap) * u)), R = E - t.bendRadius, z = (D - t.pointTop) * _, ee = smooth(clamp((z + R) * v)) * smooth(clamp((z - R) * v)) * smooth(clamp((t.bendY + t.joinOverlap - D) * y)), te = D - t.barbY, ne = R * t.barbAxisX + te * t.barbAxisY, re = -R * t.barbAxisY + te * t.barbAxisX, B = t.barbHalfWidth * (1 - ne * b), V = smooth(clamp((B + re) * v)) * smooth(clamp((B - re) * v)) * smooth(clamp(ne * y)), H = (1 - (1 - M) * (1 - P) * (1 - L) * (1 - ee) * (1 - V)) * (1 - j);
-					if ($ = H, Q = 1 - H, H === 0) return;
-					let ie = a(G, K), ae = r[C + 5];
-					J += H * (.9 + .025 * ae + .025 * ie - J), Y += H * (.6 + .003 * ie - Y), X += H * (t.roughness + .025 * ie - X), Z += H * (.99 - Z);
+					let M = smooth(clamp((p - A) * m)), N = Math.max(0, t.shankTop - D, D - t.bendY), P = smooth(clamp((d - k * k - N * N) * f)), F = D - t.bendY, I = E * E + F * F, L = smooth(clamp((I - o) * c)) * smooth(clamp((s - I) * l)) * smooth(clamp((F + t.joinOverlap) * u)), R = E - t.bendRadius, z = (D - t.pointTop) * _, ee = smooth(clamp((z + R) * v)) * smooth(clamp((z - R) * v)) * smooth(clamp((t.bendY + t.joinOverlap - D) * y)), te = D - t.barbY, ne = R * t.barbAxisX + te * t.barbAxisY, B = -R * t.barbAxisY + te * t.barbAxisX, V = t.barbHalfWidth * (1 - ne * b), H = smooth(clamp((V + B) * v)) * smooth(clamp((V - B) * v)) * smooth(clamp(ne * y)), U = (1 - (1 - M) * (1 - P) * (1 - L) * (1 - ee) * (1 - H)) * (1 - j);
+					if ($ = U, Q = 1 - U, U === 0) return;
+					let re = a(G, K), ie = r[C + 5];
+					J += U * (.9 + .025 * ie + .025 * re - J), Y += U * (.6 + .003 * re - Y), X += U * (t.roughness + .025 * re - X), Z += U * (.99 - Z);
 				};
 			}
 			case `saffronthreads`: {
@@ -2237,7 +2237,7 @@ function createSurfaceSampler(t, i) {
 				return () => {
 					let e = G * t.cells, n = K * t.cells, i = (Math.floor(n) * t.cells + Math.floor(e)) * 6, E = fract(e) - .5 - r[i + 2], D = fract(n) - .5 - r[i + 3], O = (E * r[i] + D * r[i + 1]) * r[i + 4], k = (D * r[i] - E * r[i + 1]) * r[i + 4], A = o(G, K);
 					if (J = .04 + .015 * A, Y = .025 + .002 * A, X = .95, Z = .3, $ = 0, Q = 1, Math.abs(O) > t.bodyStraightX + t.bodyRadius || Math.abs(k) > t.bodyStraightY + t.bodyRadius) return;
-					let j = Math.max(0, Math.abs(O) - t.bodyStraightX), M = Math.max(0, Math.abs(k) - t.bodyStraightY), N = smooth(clamp((s - j * j - M * M) * c)), P = Math.abs(O) - t.reelOffset, F = P * P + k * k, I = smooth(clamp((l - F) * u)), L = k - t.headY, R = smooth(clamp((t.headHalfX - Math.abs(O)) * w)) * smooth(clamp((t.headHalfY - Math.abs(L)) * w)), z = Math.abs(O) - t.guideOffset, ee = smooth(clamp((S - z * z - L * L) * C)), te = N * (1 - I) * (1 - R) * (1 - ee), ne = Math.max(0, Math.abs(O) - t.labelStraightX), re = Math.max(0, Math.abs(k - t.labelY) - t.labelStraightY), B = smooth(clamp((b - ne * ne - re * re) * x)), V = smooth(clamp((t.tapeHalfX - Math.abs(O)) * T)) * smooth(clamp((t.tapeHalfY - Math.abs(L)) * T)), H = 0;
+					let j = Math.max(0, Math.abs(O) - t.bodyStraightX), M = Math.max(0, Math.abs(k) - t.bodyStraightY), N = smooth(clamp((s - j * j - M * M) * c)), P = Math.abs(O) - t.reelOffset, F = P * P + k * k, I = smooth(clamp((l - F) * u)), L = k - t.headY, R = smooth(clamp((t.headHalfX - Math.abs(O)) * w)) * smooth(clamp((t.headHalfY - Math.abs(L)) * w)), z = Math.abs(O) - t.guideOffset, ee = smooth(clamp((S - z * z - L * L) * C)), te = N * (1 - I) * (1 - R) * (1 - ee), ne = Math.max(0, Math.abs(O) - t.labelStraightX), B = Math.max(0, Math.abs(k - t.labelY) - t.labelStraightY), V = smooth(clamp((b - ne * ne - B * B) * x)), H = smooth(clamp((t.tapeHalfX - Math.abs(O)) * T)) * smooth(clamp((t.tapeHalfY - Math.abs(L)) * T)), U = 0;
 					if (F < d) {
 						let e = smooth(clamp((d - F) * f)) * (1 - smooth(clamp((p - F) * m))), n = 0;
 						if (e !== 1 && F > _ && F < v) {
@@ -2246,11 +2246,11 @@ function createSurfaceSampler(t, i) {
 							let r = a[e * 2], i = a[e * 2 + 1], o = Math.max(t.spokeStart, Math.min(t.spokeEnd, P * r + k * i)), s = P - r * o, c = k - i * o;
 							n = smooth(clamp((h - s * s - c * c) * g));
 						}
-						H = 1 - (1 - e) * (1 - n);
+						U = 1 - (1 - e) * (1 - n);
 					}
-					if (Q = (1 - te) * (1 - H) * (1 - B) * (1 - V), Q === 1) return;
-					let ie = r[i + 5];
-					te !== 0 && B !== 1 && (J += te * (.06 + .02 * ie + .02 * A - J), Y += te * (.6 + .004 * A - Y), X += te * (t.roughness + .03 * A - X), Z += te * (.99 - Z)), H !== 0 && (J += H * (.68 + .05 * ie + .025 * A - J), Y += H * (.44 + .003 * A - Y), X += H * (.5 + .03 * A - X), Z += H * (.98 - Z)), V !== 0 && (J += V * (.25 + .03 * A - J), Y += V * (.25 + .003 * A - Y), X += V * (.68 + .025 * A - X), Z += V * (.98 - Z)), B !== 0 && (J += B * (.94 + .025 * A - J), Y += B * (.64 + .003 * A - Y), X += B * (.88 + .025 * A - X), Z += B * (.99 - Z));
+					if (Q = (1 - te) * (1 - U) * (1 - V) * (1 - H), Q === 1) return;
+					let re = r[i + 5];
+					te !== 0 && V !== 1 && (J += te * (.06 + .02 * re + .02 * A - J), Y += te * (.6 + .004 * A - Y), X += te * (t.roughness + .03 * A - X), Z += te * (.99 - Z)), U !== 0 && (J += U * (.68 + .05 * re + .025 * A - J), Y += U * (.44 + .003 * A - Y), X += U * (.5 + .03 * A - X), Z += U * (.98 - Z)), H !== 0 && (J += H * (.25 + .03 * A - J), Y += H * (.25 + .003 * A - Y), X += H * (.68 + .025 * A - X), Z += H * (.98 - Z)), V !== 0 && (J += V * (.94 + .025 * A - J), Y += V * (.64 + .003 * A - Y), X += V * (.88 + .025 * A - X), Z += V * (.99 - Z));
 				};
 			}
 			case `cinnamonbarkcoils`: {
@@ -3772,106 +3772,106 @@ function createSurfaceSampler(t, i) {
 				};
 			}
 			case `rj45femalefaces`: {
-				let t = require_materials.proceduralMaterialPresets.rj45femalefaces, r = new Float64Array(t.cells * t.cells * 4), a = cachedNoise(96, 96, i ^ 141313), o = t.halfWidth - t.outerCorner, s = t.halfHeight - t.outerCorner, c = t.outerCorner * t.outerCorner, l = t.outerCorner - t.outerBevel, u = 1 / (c - l * l), d = t.linerHalfWidth - t.linerCorner, f = t.linerHalfHeight - t.linerCorner, p = t.linerCorner * t.linerCorner, m = t.linerCorner - t.linerBevel, h = 1 / (p - m * m), g = t.mouthHalfWidth - t.mouthCorner, _ = t.mouthHalfHeight - t.mouthCorner, v = t.mouthCorner * t.mouthCorner, y = t.mouthCorner - t.mouthBevel, b = 1 / (v - y * y), x = t.keyHalfWidth - t.keyCorner, S = t.keyHalfHeight - t.keyCorner, C = t.keyCorner * t.keyCorner, w = t.keyCorner - t.keyBevel, T = 1 / (C - w * w), E = t.pinHalfWidth - t.pinCorner, D = t.pinHalfHeight - t.pinCorner, O = t.pinCorner * t.pinCorner, k = t.pinCorner - t.pinBevel, A = 1 / (O - k * k), j = 1 / t.pitch, M = -(t.contacts - 1) * t.pitch * .5, N = -M + t.pinHalfWidth, P = t.shellTone - t.backingTone, F = t.shellHeight - t.backingHeight, I = t.roughness - t.backingRoughness, L = t.shellAO - t.backingAO, R = t.plasticTone - t.shellTone, z = t.linerHeight - t.shellHeight, ee = t.linerRoughness - t.roughness, te = t.linerAO - t.shellAO, ne = t.wellHeight - t.linerHeight, re = t.wellRoughness - t.linerRoughness, B = t.wellAO - t.linerAO, V = t.pinTone - t.plasticTone, H = t.pinHeight - t.wellHeight, ie = t.pinRoughness - t.wellRoughness, ae = t.pinAO - t.wellAO;
+				let t = require_materials.proceduralMaterialPresets.rj45femalefaces, r = new Float64Array(t.cells * t.cells * 4), a = cachedNoise(96, 96, i ^ 141313), o = t.halfWidth - t.outerCorner, s = t.halfHeight - t.outerCorner, c = t.outerCorner * t.outerCorner, l = t.outerCorner - t.outerBevel, u = 1 / (c - l * l), d = t.linerHalfWidth - t.linerCorner, f = t.linerHalfHeight - t.linerCorner, p = t.linerCorner * t.linerCorner, m = t.linerCorner - t.linerBevel, h = 1 / (p - m * m), g = t.mouthHalfWidth - t.mouthCorner, _ = t.mouthHalfHeight - t.mouthCorner, v = t.mouthCorner * t.mouthCorner, y = t.mouthCorner - t.mouthBevel, b = 1 / (v - y * y), x = t.keyHalfWidth - t.keyCorner, S = t.keyHalfHeight - t.keyCorner, C = t.keyCorner * t.keyCorner, w = t.keyCorner - t.keyBevel, T = 1 / (C - w * w), E = t.pinHalfWidth - t.pinCorner, D = t.pinHalfHeight - t.pinCorner, O = t.pinCorner * t.pinCorner, k = t.pinCorner - t.pinBevel, A = 1 / (O - k * k), j = 1 / t.pitch, M = -(t.contacts - 1) * t.pitch * .5, N = -M + t.pinHalfWidth, P = t.shellTone - t.backingTone, F = t.shellHeight - t.backingHeight, I = t.roughness - t.backingRoughness, L = t.shellAO - t.backingAO, R = t.plasticTone - t.shellTone, z = t.linerHeight - t.shellHeight, ee = t.linerRoughness - t.roughness, te = t.linerAO - t.shellAO, ne = t.wellHeight - t.linerHeight, B = t.wellRoughness - t.linerRoughness, V = t.wellAO - t.linerAO, H = t.pinTone - t.plasticTone, U = t.pinHeight - t.wellHeight, re = t.pinRoughness - t.wellRoughness, ie = t.pinAO - t.wellAO;
 				for (let e = 0; e < t.cells; e++) for (let a = 0; a < t.cells; a++) {
 					let o = (e * t.cells + a) * 4, s = t.minScale + (t.maxScale - t.minScale) * hash(a, e, i ^ 141315), c = n * hash(a, e, i ^ 141317);
 					r[o] = .5 + t.jitter * (2 * hash(a, e, i ^ 141319) - 1), r[o + 1] = .5 + t.jitter * (2 * hash(a, e, i ^ 141321) - 1), r[o + 2] = Math.cos(c) / s, r[o + 3] = Math.sin(c) / s;
 				}
 				return () => {
 					J = t.backingTone, Y = t.backingHeight, X = t.backingRoughness, Z = t.backingAO, $ = 0;
-					let e = G * t.cells, n = K * t.cells, i = Math.floor(e), l = Math.floor(n), m = (l * t.cells + i) * 4, y = e - i - r[m], w = n - l - r[m + 1], k = y * r[m + 2] + w * r[m + 3], oe = w * r[m + 2] - y * r[m + 3], U = Math.abs(k), se = Math.abs(oe);
-					if (U >= t.halfWidth || se >= t.halfHeight) return;
-					let ce = Math.max(0, U - o), W = Math.max(0, se - s), le = smooth(clamp((c - ce * ce - W * W) * u));
+					let e = G * t.cells, n = K * t.cells, i = Math.floor(e), l = Math.floor(n), m = (l * t.cells + i) * 4, y = e - i - r[m], w = n - l - r[m + 1], k = y * r[m + 2] + w * r[m + 3], ae = w * r[m + 2] - y * r[m + 3], W = Math.abs(k), oe = Math.abs(ae);
+					if (W >= t.halfWidth || oe >= t.halfHeight) return;
+					let se = Math.max(0, W - o), ce = Math.max(0, oe - s), le = smooth(clamp((c - se * se - ce * ce) * u));
 					if (le === 0) return;
 					let ue = a(G, K);
-					if (J += le * (P + t.grainTone * ue), Y += le * (F + t.grainHeight * ue), X += le * (I + t.grainRoughness * ue), Z += le * L - t.edgeAO * le * (1 - le), $ = le, U >= t.linerHalfWidth || se >= t.linerHalfHeight) return;
-					let de = Math.max(0, U - d), fe = Math.max(0, se - f), pe = smooth(clamp((p - de * de - fe * fe) * h));
+					if (J += le * (P + t.grainTone * ue), Y += le * (F + t.grainHeight * ue), X += le * (I + t.grainRoughness * ue), Z += le * L - t.edgeAO * le * (1 - le), $ = le, W >= t.linerHalfWidth || oe >= t.linerHalfHeight) return;
+					let de = Math.max(0, W - d), fe = Math.max(0, oe - f), pe = smooth(clamp((p - de * de - fe * fe) * h));
 					if (pe === 0) return;
 					J += pe * R, Y += pe * z, X += pe * ee, Z += pe * te - t.edgeAO * pe * (1 - pe), $ -= pe;
-					let me = 0, he = 0, ge = Math.abs(oe - t.mouthY), _e = Math.abs(oe - t.keyY);
-					if (U < t.mouthHalfWidth && ge < t.mouthHalfHeight) {
-						let e = Math.max(0, U - g), t = Math.max(0, ge - _);
+					let me = 0, he = 0, ge = Math.abs(ae - t.mouthY), _e = Math.abs(ae - t.keyY);
+					if (W < t.mouthHalfWidth && ge < t.mouthHalfHeight) {
+						let e = Math.max(0, W - g), t = Math.max(0, ge - _);
 						me = smooth(clamp((v - e * e - t * t) * b));
 					}
-					if (U < t.keyHalfWidth && _e < t.keyHalfHeight) {
-						let e = Math.max(0, U - x), t = Math.max(0, _e - S);
+					if (W < t.keyHalfWidth && _e < t.keyHalfHeight) {
+						let e = Math.max(0, W - x), t = Math.max(0, _e - S);
 						he = smooth(clamp((C - e * e - t * t) * T));
 					}
 					let ve = me + he - me * he;
 					if (ve === 0) return;
-					Y += ve * ne, X += ve * re, Z += ve * B - t.edgeAO * ve * (1 - ve);
-					let ye = Math.abs(oe - t.contactY);
-					if (ye >= t.pinHalfHeight || U >= N) return;
+					Y += ve * ne, X += ve * B, Z += ve * V - t.edgeAO * ve * (1 - ve);
+					let ye = Math.abs(ae - t.contactY);
+					if (ye >= t.pinHalfHeight || W >= N) return;
 					let be = Math.round((k - M) * j);
 					if (be < 0 || be >= t.contacts) return;
 					let xe = Math.max(0, Math.abs(k - M - be * t.pitch) - E), Se = Math.max(0, ye - D), Ce = smooth(clamp((O - xe * xe - Se * Se) * A));
-					Ce !== 0 && (J += Ce * V, Y += Ce * H, X += Ce * ie, Z += Ce * ae - t.edgeAO * Ce * (1 - Ce), $ = Ce);
+					Ce !== 0 && (J += Ce * H, Y += Ce * U, X += Ce * re, Z += Ce * ie - t.edgeAO * Ce * (1 - Ce), $ = Ce);
 				};
 			}
 			case `rcafemalefaces`: {
-				let t = require_materials.proceduralMaterialPresets.rcafemalefaces, r = new Float64Array(t.cells * t.cells * 4), a = cachedNoise(96, 96, i ^ 141825), o = t.gasketRadius * t.gasketRadius, s = t.gasketRadius - t.gasketBevel, c = 1 / (o - s * s), l = t.shoulderRadius * t.shoulderRadius, u = t.shoulderRadius - t.shoulderBevel, d = 1 / (l - u * u), f = t.insulatorRadius * t.insulatorRadius, p = t.insulatorRadius - t.insulatorBevel, m = 1 / (f - p * p), h = t.boreRadius * t.boreRadius, g = t.boreRadius - t.boreBevel, _ = 1 / (h - g * g), v = t.contactRadius * t.contactRadius, y = t.contactRadius - t.contactBevel, b = 1 / (v - y * y), x = t.holeRadius * t.holeRadius, S = t.holeRadius - t.holeBevel, C = 1 / (x - S * S), w = 1 / t.barrelBevel, T = Math.sqrt(3) / 2, E = t.gasketTone - t.backingTone, D = t.gasketHeight - t.backingHeight, O = t.gasketRoughness - t.backingRoughness, k = t.gasketAO - t.backingAO, A = t.metalTone - t.gasketTone, j = t.shoulderHeight - t.gasketHeight, M = t.shoulderRoughness - t.gasketRoughness, N = t.shoulderAO - t.gasketAO, P = t.barrelHeight - t.shoulderHeight, F = t.roughness - t.shoulderRoughness, I = t.barrelAO - t.shoulderAO, L = t.insulatorTone - t.metalTone, R = t.insulatorHeight - t.barrelHeight, z = t.insulatorRoughness - t.roughness, ee = t.insulatorAO - t.barrelAO, te = t.boreTone - t.insulatorTone, ne = t.boreHeight - t.insulatorHeight, re = t.boreRoughness - t.insulatorRoughness, B = t.boreAO - t.insulatorAO, V = t.contactTone - t.boreTone, H = t.contactHeight - t.boreHeight, ie = t.contactRoughness - t.boreRoughness, ae = t.contactAO - t.boreAO, oe = t.holeTone - t.contactTone, U = t.holeHeight - t.contactHeight, se = t.holeRoughness - t.contactRoughness, ce = t.holeAO - t.contactAO;
+				let t = require_materials.proceduralMaterialPresets.rcafemalefaces, r = new Float64Array(t.cells * t.cells * 4), a = cachedNoise(96, 96, i ^ 141825), o = t.gasketRadius * t.gasketRadius, s = t.gasketRadius - t.gasketBevel, c = 1 / (o - s * s), l = t.shoulderRadius * t.shoulderRadius, u = t.shoulderRadius - t.shoulderBevel, d = 1 / (l - u * u), f = t.insulatorRadius * t.insulatorRadius, p = t.insulatorRadius - t.insulatorBevel, m = 1 / (f - p * p), h = t.boreRadius * t.boreRadius, g = t.boreRadius - t.boreBevel, _ = 1 / (h - g * g), v = t.contactRadius * t.contactRadius, y = t.contactRadius - t.contactBevel, b = 1 / (v - y * y), x = t.holeRadius * t.holeRadius, S = t.holeRadius - t.holeBevel, C = 1 / (x - S * S), w = 1 / t.barrelBevel, T = Math.sqrt(3) / 2, E = t.gasketTone - t.backingTone, D = t.gasketHeight - t.backingHeight, O = t.gasketRoughness - t.backingRoughness, k = t.gasketAO - t.backingAO, A = t.metalTone - t.gasketTone, j = t.shoulderHeight - t.gasketHeight, M = t.shoulderRoughness - t.gasketRoughness, N = t.shoulderAO - t.gasketAO, P = t.barrelHeight - t.shoulderHeight, F = t.roughness - t.shoulderRoughness, I = t.barrelAO - t.shoulderAO, L = t.insulatorTone - t.metalTone, R = t.insulatorHeight - t.barrelHeight, z = t.insulatorRoughness - t.roughness, ee = t.insulatorAO - t.barrelAO, te = t.boreTone - t.insulatorTone, ne = t.boreHeight - t.insulatorHeight, B = t.boreRoughness - t.insulatorRoughness, V = t.boreAO - t.insulatorAO, H = t.contactTone - t.boreTone, U = t.contactHeight - t.boreHeight, re = t.contactRoughness - t.boreRoughness, ie = t.contactAO - t.boreAO, ae = t.holeTone - t.contactTone, W = t.holeHeight - t.contactHeight, oe = t.holeRoughness - t.contactRoughness, se = t.holeAO - t.contactAO;
 				for (let e = 0; e < t.cells; e++) for (let a = 0; a < t.cells; a++) {
 					let o = (e * t.cells + a) * 4, s = t.minScale + (t.maxScale - t.minScale) * hash(a, e, i ^ 141827), c = n * hash(a, e, i ^ 141829);
 					r[o] = .5 + t.jitter * (2 * hash(a, e, i ^ 141831) - 1), r[o + 1] = .5 + t.jitter * (2 * hash(a, e, i ^ 141833) - 1), r[o + 2] = Math.cos(c) / s, r[o + 3] = Math.sin(c) / s;
 				}
 				return () => {
 					J = t.backingTone, Y = t.backingHeight, X = t.backingRoughness, Z = t.backingAO, $ = 0;
-					let e = G * t.cells, n = K * t.cells, i = Math.floor(e), s = Math.floor(n), u = (s * t.cells + i) * 4, p = e - i - r[u], g = n - s - r[u + 1], y = p * r[u + 2] + g * r[u + 3], S = g * r[u + 2] - p * r[u + 3], W = y * y + S * S;
-					if (W >= o) return;
-					let le = smooth(clamp((o - W) * c)), ue = a(G, K);
+					let e = G * t.cells, n = K * t.cells, i = Math.floor(e), s = Math.floor(n), u = (s * t.cells + i) * 4, p = e - i - r[u], g = n - s - r[u + 1], y = p * r[u + 2] + g * r[u + 3], S = g * r[u + 2] - p * r[u + 3], ce = y * y + S * S;
+					if (ce >= o) return;
+					let le = smooth(clamp((o - ce) * c)), ue = a(G, K);
 					J += le * (E + t.grainTone * ue), Y += le * (D + t.grainHeight * ue), X += le * (O + t.grainRoughness * ue), Z += le * k - t.edgeAO * le * (1 - le);
-					let de = smooth(clamp((l - W) * d));
+					let de = smooth(clamp((l - ce) * d));
 					if (de === 0) return;
 					J += de * A, Y += de * j, X += de * M, Z += de * N - t.edgeAO * de * (1 - de), $ = de;
 					let fe = .5 * y, pe = T * S, me = smooth(clamp((t.barrelInradius - Math.abs(y)) * w)) * smooth(clamp((t.barrelInradius - Math.abs(fe + pe)) * w)) * smooth(clamp((t.barrelInradius - Math.abs(fe - pe)) * w));
 					if (me === 0) return;
 					Y += me * P, X += me * F, Z += me * I - t.edgeAO * me * (1 - me);
-					let he = smooth(clamp((f - W) * m));
+					let he = smooth(clamp((f - ce) * m));
 					if (he === 0) return;
 					J += he * L, Y += he * R, X += he * z, Z += he * ee - t.edgeAO * he * (1 - he), $ -= he;
-					let ge = smooth(clamp((h - W) * _));
+					let ge = smooth(clamp((h - ce) * _));
 					if (ge === 0) return;
-					J += ge * te, Y += ge * ne, X += ge * re, Z += ge * B - t.edgeAO * ge * (1 - ge);
-					let _e = smooth(clamp((v - W) * b));
+					J += ge * te, Y += ge * ne, X += ge * B, Z += ge * V - t.edgeAO * ge * (1 - ge);
+					let _e = smooth(clamp((v - ce) * b));
 					if (_e === 0) return;
-					J += _e * V, Y += _e * H, X += _e * ie, Z += _e * ae - t.edgeAO * _e * (1 - _e), $ += _e;
-					let ve = smooth(clamp((x - W) * C));
-					ve !== 0 && (J += ve * oe, Y += ve * U, X += ve * se, Z += ve * ce - t.edgeAO * ve * (1 - ve), $ -= ve);
+					J += _e * H, Y += _e * U, X += _e * re, Z += _e * ie - t.edgeAO * _e * (1 - _e), $ += _e;
+					let ve = smooth(clamp((x - ce) * C));
+					ve !== 0 && (J += ve * ae, Y += ve * W, X += ve * oe, Z += ve * se - t.edgeAO * ve * (1 - ve), $ -= ve);
 				};
 			}
 			case `f05opticalfaces`: {
-				let t = require_materials.proceduralMaterialPresets.f05opticalfaces, r = new Float64Array(t.cells * t.cells * 4), a = cachedNoise(96, 96, i ^ 142081), o = t.bodyHalfWidth - t.bodyCorner, s = t.bodyHalfHeight - t.bodyCorner, c = t.bodyCorner * t.bodyCorner, l = t.bodyCorner - t.bodyBevel, u = 1 / (c - l * l), d = t.grooveHalfWidth - t.grooveCorner, f = t.grooveHalfHeight - t.grooveCorner, p = t.grooveCorner * t.grooveCorner, m = t.grooveCorner - t.grooveBevel, h = 1 / (p - m * m), g = t.earRadius * t.earRadius, _ = t.earRadius - t.earBevel, v = 1 / (g - _ * _), y = t.boreRadius * t.boreRadius, b = t.boreRadius - t.boreBevel, x = 1 / (y - b * b), S = 1 / t.collarBevel, C = 1 / t.mouthBevel, w = Math.max(t.collarHalfWidth, t.earX + t.earRadius), T = Math.max(t.collarHalfHeight, t.earRadius), E = t.polymerTone - t.backingTone, D = t.bodyHeight - t.backingHeight, O = t.roughness - t.backingRoughness, k = t.bodyAO - t.backingAO, A = t.collarHeight - t.bodyHeight, j = t.collarRoughness - t.roughness, M = t.collarAO - t.bodyAO, N = t.grooveTone - t.polymerTone, P = t.grooveHeight - t.bodyHeight, F = t.grooveRoughness - t.roughness, I = t.grooveAO - t.bodyAO, L = t.wellTone - t.polymerTone, R = t.wellHeight - t.collarHeight, z = t.wellRoughness - t.collarRoughness, ee = t.wellAO - t.collarAO, te = t.boreTone - t.wellTone, ne = t.boreHeight - t.wellHeight, re = t.boreRoughness - t.wellRoughness, B = t.boreAO - t.wellAO;
+				let t = require_materials.proceduralMaterialPresets.f05opticalfaces, r = new Float64Array(t.cells * t.cells * 4), a = cachedNoise(96, 96, i ^ 142081), o = t.bodyHalfWidth - t.bodyCorner, s = t.bodyHalfHeight - t.bodyCorner, c = t.bodyCorner * t.bodyCorner, l = t.bodyCorner - t.bodyBevel, u = 1 / (c - l * l), d = t.grooveHalfWidth - t.grooveCorner, f = t.grooveHalfHeight - t.grooveCorner, p = t.grooveCorner * t.grooveCorner, m = t.grooveCorner - t.grooveBevel, h = 1 / (p - m * m), g = t.earRadius * t.earRadius, _ = t.earRadius - t.earBevel, v = 1 / (g - _ * _), y = t.boreRadius * t.boreRadius, b = t.boreRadius - t.boreBevel, x = 1 / (y - b * b), S = 1 / t.collarBevel, C = 1 / t.mouthBevel, w = Math.max(t.collarHalfWidth, t.earX + t.earRadius), T = Math.max(t.collarHalfHeight, t.earRadius), E = t.polymerTone - t.backingTone, D = t.bodyHeight - t.backingHeight, O = t.roughness - t.backingRoughness, k = t.bodyAO - t.backingAO, A = t.collarHeight - t.bodyHeight, j = t.collarRoughness - t.roughness, M = t.collarAO - t.bodyAO, N = t.grooveTone - t.polymerTone, P = t.grooveHeight - t.bodyHeight, F = t.grooveRoughness - t.roughness, I = t.grooveAO - t.bodyAO, L = t.wellTone - t.polymerTone, R = t.wellHeight - t.collarHeight, z = t.wellRoughness - t.collarRoughness, ee = t.wellAO - t.collarAO, te = t.boreTone - t.wellTone, ne = t.boreHeight - t.wellHeight, B = t.boreRoughness - t.wellRoughness, V = t.boreAO - t.wellAO;
 				for (let e = 0; e < t.cells; e++) for (let a = 0; a < t.cells; a++) {
 					let o = (e * t.cells + a) * 4, s = t.minScale + (t.maxScale - t.minScale) * hash(a, e, i ^ 142083), c = n * hash(a, e, i ^ 142085);
 					r[o] = .5 + t.jitter * (2 * hash(a, e, i ^ 142087) - 1), r[o + 1] = .5 + t.jitter * (2 * hash(a, e, i ^ 142089) - 1), r[o + 2] = Math.cos(c) / s, r[o + 3] = Math.sin(c) / s;
 				}
 				return () => {
 					J = t.backingTone, Y = t.backingHeight, X = t.backingRoughness, Z = t.backingAO, $ = 0;
-					let e = G * t.cells, n = K * t.cells, i = Math.floor(e), l = Math.floor(n), m = (l * t.cells + i) * 4, _ = e - i - r[m], b = n - l - r[m + 1], V = _ * r[m + 2] + b * r[m + 3], H = b * r[m + 2] - _ * r[m + 3], ie = Math.abs(V), ae = Math.abs(H);
-					if (ie >= t.bodyHalfWidth || ae >= t.bodyHalfHeight) return;
-					let oe = Math.max(0, ie - o), U = Math.max(0, ae - s), se = smooth(clamp((c - oe * oe - U * U) * u));
-					if (se === 0) return;
-					let ce = a(G, K);
-					J += se * (E + t.grainTone * ce), Y += se * (D + t.grainHeight * ce), X += se * (O + t.grainRoughness * ce), Z += se * k - t.edgeAO * se * (1 - se);
-					let W = Math.abs(ie - t.grooveX);
-					if (W < t.grooveHalfWidth && ae < t.grooveHalfHeight) {
-						let e = Math.max(0, W - d), n = Math.max(0, ae - f), r = smooth(clamp((p - e * e - n * n) * h));
+					let e = G * t.cells, n = K * t.cells, i = Math.floor(e), l = Math.floor(n), m = (l * t.cells + i) * 4, _ = e - i - r[m], b = n - l - r[m + 1], H = _ * r[m + 2] + b * r[m + 3], U = b * r[m + 2] - _ * r[m + 3], re = Math.abs(H), ie = Math.abs(U);
+					if (re >= t.bodyHalfWidth || ie >= t.bodyHalfHeight) return;
+					let ae = Math.max(0, re - o), W = Math.max(0, ie - s), oe = smooth(clamp((c - ae * ae - W * W) * u));
+					if (oe === 0) return;
+					let se = a(G, K);
+					J += oe * (E + t.grainTone * se), Y += oe * (D + t.grainHeight * se), X += oe * (O + t.grainRoughness * se), Z += oe * k - t.edgeAO * oe * (1 - oe);
+					let ce = Math.abs(re - t.grooveX);
+					if (ce < t.grooveHalfWidth && ie < t.grooveHalfHeight) {
+						let e = Math.max(0, ce - d), n = Math.max(0, ie - f), r = smooth(clamp((p - e * e - n * n) * h));
 						J += r * N, Y += r * P, X += r * F, Z += r * I - t.edgeAO * r * (1 - r);
 					}
-					if (ie >= w || ae >= T) return;
-					let le = ie < t.collarHalfWidth && ae < t.collarHalfHeight ? smooth(clamp((t.collarHalfWidth - ie) * S)) * smooth(clamp((t.collarHalfHeight - ae) * S)) * smooth(clamp((t.collarCut - ie + H) * S)) : 0, ue = ie - t.earX, de = ue * ue, fe = H * H, pe = de + fe < g ? smooth(clamp((g - de - fe) * v)) : 0, me = le + pe - le * pe;
-					if (me === 0 || (Y += me * A, X += me * j, Z += me * M - t.edgeAO * me * (1 - me), ie >= t.mouthHalfWidth || ae >= t.mouthHalfHeight)) return;
-					let he = smooth(clamp((t.mouthHalfWidth - ie) * C)) * smooth(clamp((t.mouthHalfHeight - ae) * C)) * smooth(clamp((t.mouthCut - ie + H) * C));
+					if (re >= w || ie >= T) return;
+					let le = re < t.collarHalfWidth && ie < t.collarHalfHeight ? smooth(clamp((t.collarHalfWidth - re) * S)) * smooth(clamp((t.collarHalfHeight - ie) * S)) * smooth(clamp((t.collarCut - re + U) * S)) : 0, ue = re - t.earX, de = ue * ue, fe = U * U, pe = de + fe < g ? smooth(clamp((g - de - fe) * v)) : 0, me = le + pe - le * pe;
+					if (me === 0 || (Y += me * A, X += me * j, Z += me * M - t.edgeAO * me * (1 - me), re >= t.mouthHalfWidth || ie >= t.mouthHalfHeight)) return;
+					let he = smooth(clamp((t.mouthHalfWidth - re) * C)) * smooth(clamp((t.mouthHalfHeight - ie) * C)) * smooth(clamp((t.mouthCut - re + U) * C));
 					if (he === 0) return;
 					J += he * L, Y += he * R, X += he * z, Z += he * ee - t.edgeAO * he * (1 - he);
-					let ge = V * V;
+					let ge = H * H;
 					if (ge + fe >= y) return;
 					let _e = smooth(clamp((y - ge - fe) * x));
-					J += _e * te, Y += _e * ne, X += _e * re, Z += _e * B - t.edgeAO * _e * (1 - _e);
+					J += _e * te, Y += _e * ne, X += _e * B, Z += _e * V - t.edgeAO * _e * (1 - _e);
 				};
 			}
 			case `minidin4femalefaces`: {
-				let t = require_materials.proceduralMaterialPresets.minidin4femalefaces, r = new Float64Array(t.cells * t.cells * 4), a = cachedNoise(96, 96, i ^ 142337), o = t.bodyHalfWidth - t.bodyCorner, s = t.bodyHalfHeight - t.bodyCorner, c = t.bodyCorner * t.bodyCorner, l = t.bodyCorner - t.bodyBevel, u = 1 / (c - l * l), d = t.notchHalfWidth - t.notchCorner, f = t.notchHalfHeight - t.notchCorner, p = t.notchCorner * t.notchCorner, m = t.notchCorner - t.notchBevel, h = 1 / (p - m * m), g = t.leadHalfWidth - t.leadCorner, _ = t.leadHalfHeight - t.leadCorner, v = t.leadCorner * t.leadCorner, y = t.leadCorner - t.leadBevel, b = 1 / (v - y * y), x = t.keyHalfWidth - t.keyCorner, S = t.keyHalfHeight - t.keyCorner, C = t.keyCorner * t.keyCorner, w = t.keyCorner - t.keyBevel, T = 1 / (C - w * w), E = t.bezelRadius * t.bezelRadius, D = t.bezelRadius - t.bezelBevel, O = 1 / (E - D * D), k = t.earthRadius * t.earthRadius, A = t.earthRadius - t.earthBevel, j = 1 / (k - A * A), M = t.cavityRadius * t.cavityRadius, N = t.cavityRadius - t.cavityBevel, P = 1 / (M - N * N), F = t.insertRadius * t.insertRadius, I = t.insertRadius - t.insertBevel, L = 1 / (F - I * I), R = t.upperSlotHalfWidth - t.slotCorner, z = t.upperSlotHalfHeight - t.slotCorner, ee = t.lowerSlotHalfWidth - t.slotCorner, te = t.lowerSlotHalfHeight - t.slotCorner, ne = t.slotCorner * t.slotCorner, re = t.slotCorner - t.slotBevel, B = 1 / (ne - re * re), V = 1 / t.stepBevel, H = (t.upperSocketY + t.lowerSocketY) * .5, ie = t.bodyTone - t.backingTone, ae = t.bodyHeight - t.backingHeight, oe = t.roughness - t.backingRoughness, U = t.bodyAO - t.backingAO, se = t.bezelTone - t.bodyTone, ce = t.bezelHeight - t.bodyHeight, W = t.bezelRoughness - t.roughness, le = t.bezelAO - t.bodyAO, ue = t.earthTone - t.bezelTone, de = t.earthHeight - t.bezelHeight, fe = t.earthRoughness - t.bezelRoughness, pe = t.earthAO - t.bezelAO, me = t.cavityTone - t.earthTone, he = t.cavityHeight - t.earthHeight, ge = t.cavityRoughness - t.earthRoughness, _e = t.cavityAO - t.earthAO, ve = t.insertTone - t.cavityTone, ye = t.insertHeight - t.cavityHeight, be = t.insertRoughness - t.cavityRoughness, xe = t.insertAO - t.cavityAO, Se = t.leadTone - t.insertTone, Ce = t.leadHeight - t.insertHeight, we = t.leadRoughness - t.insertRoughness, Te = t.leadAO - t.insertAO, Ee = t.slotTone - t.leadTone, De = t.slotHeight - t.leadHeight, Oe = t.slotRoughness - t.leadRoughness, ke = t.slotAO - t.leadAO, Ae = t.keyTone - t.insertTone, je = t.keyHeight - t.insertHeight, Me = t.keyRoughness - t.insertRoughness, Ne = t.keyAO - t.insertAO;
+				let t = require_materials.proceduralMaterialPresets.minidin4femalefaces, r = new Float64Array(t.cells * t.cells * 4), a = cachedNoise(96, 96, i ^ 142337), o = t.bodyHalfWidth - t.bodyCorner, s = t.bodyHalfHeight - t.bodyCorner, c = t.bodyCorner * t.bodyCorner, l = t.bodyCorner - t.bodyBevel, u = 1 / (c - l * l), d = t.notchHalfWidth - t.notchCorner, f = t.notchHalfHeight - t.notchCorner, p = t.notchCorner * t.notchCorner, m = t.notchCorner - t.notchBevel, h = 1 / (p - m * m), g = t.leadHalfWidth - t.leadCorner, _ = t.leadHalfHeight - t.leadCorner, v = t.leadCorner * t.leadCorner, y = t.leadCorner - t.leadBevel, b = 1 / (v - y * y), x = t.keyHalfWidth - t.keyCorner, S = t.keyHalfHeight - t.keyCorner, C = t.keyCorner * t.keyCorner, w = t.keyCorner - t.keyBevel, T = 1 / (C - w * w), E = t.bezelRadius * t.bezelRadius, D = t.bezelRadius - t.bezelBevel, O = 1 / (E - D * D), k = t.earthRadius * t.earthRadius, A = t.earthRadius - t.earthBevel, j = 1 / (k - A * A), M = t.cavityRadius * t.cavityRadius, N = t.cavityRadius - t.cavityBevel, P = 1 / (M - N * N), F = t.insertRadius * t.insertRadius, I = t.insertRadius - t.insertBevel, L = 1 / (F - I * I), R = t.upperSlotHalfWidth - t.slotCorner, z = t.upperSlotHalfHeight - t.slotCorner, ee = t.lowerSlotHalfWidth - t.slotCorner, te = t.lowerSlotHalfHeight - t.slotCorner, ne = t.slotCorner * t.slotCorner, B = t.slotCorner - t.slotBevel, V = 1 / (ne - B * B), H = 1 / t.stepBevel, U = (t.upperSocketY + t.lowerSocketY) * .5, re = t.bodyTone - t.backingTone, ie = t.bodyHeight - t.backingHeight, ae = t.roughness - t.backingRoughness, W = t.bodyAO - t.backingAO, oe = t.bezelTone - t.bodyTone, se = t.bezelHeight - t.bodyHeight, ce = t.bezelRoughness - t.roughness, le = t.bezelAO - t.bodyAO, ue = t.earthTone - t.bezelTone, de = t.earthHeight - t.bezelHeight, fe = t.earthRoughness - t.bezelRoughness, pe = t.earthAO - t.bezelAO, me = t.cavityTone - t.earthTone, he = t.cavityHeight - t.earthHeight, ge = t.cavityRoughness - t.earthRoughness, _e = t.cavityAO - t.earthAO, ve = t.insertTone - t.cavityTone, ye = t.insertHeight - t.cavityHeight, be = t.insertRoughness - t.cavityRoughness, xe = t.insertAO - t.cavityAO, Se = t.leadTone - t.insertTone, Ce = t.leadHeight - t.insertHeight, we = t.leadRoughness - t.insertRoughness, Te = t.leadAO - t.insertAO, Ee = t.slotTone - t.leadTone, De = t.slotHeight - t.leadHeight, Oe = t.slotRoughness - t.leadRoughness, ke = t.slotAO - t.leadAO, Ae = t.keyTone - t.insertTone, je = t.keyHeight - t.insertHeight, Me = t.keyRoughness - t.insertRoughness, Ne = t.keyAO - t.insertAO;
 				for (let e = 0; e < t.cells; e++) for (let a = 0; a < t.cells; a++) {
 					let o = (e * t.cells + a) * 4, s = t.minScale + (t.maxScale - t.minScale) * hash(a, e, i ^ 142339), c = n * hash(a, e, i ^ 142341);
 					r[o] = .5 + t.jitter * (2 * hash(a, e, i ^ 142343) - 1), r[o + 1] = .5 + t.jitter * (2 * hash(a, e, i ^ 142345) - 1), r[o + 2] = Math.cos(c) / s, r[o + 3] = Math.sin(c) / s;
@@ -3880,14 +3880,14 @@ function createSurfaceSampler(t, i) {
 					J = t.backingTone, Y = t.backingHeight, X = t.backingRoughness, Z = t.backingAO, $ = 0;
 					let e = G * t.cells, n = K * t.cells, i = Math.floor(e), l = Math.floor(n), m = (l * t.cells + i) * 4, y = e - i - r[m], w = n - l - r[m + 1], D = y * r[m + 2] + w * r[m + 3], A = w * r[m + 2] - y * r[m + 3], N = Math.abs(D), I = Math.abs(A);
 					if (N >= t.bodyHalfWidth || I >= t.bodyHalfHeight) return;
-					let re = Math.max(0, N - o), Pe = Math.max(0, I - s), Fe = smooth(clamp((c - re * re - Pe * Pe) * u));
+					let B = Math.max(0, N - o), Pe = Math.max(0, I - s), Fe = smooth(clamp((c - B * B - Pe * Pe) * u));
 					if (Fe === 0) return;
 					let Ie = a(G, K);
-					J += Fe * (ie + t.grainTone * Ie), Y += Fe * (ae + t.grainHeight * Ie), X += Fe * (oe + t.grainRoughness * Ie), Z += Fe * U - t.edgeAO * Fe * (1 - Fe);
+					J += Fe * (re + t.grainTone * Ie), Y += Fe * (ie + t.grainHeight * Ie), X += Fe * (ae + t.grainRoughness * Ie), Z += Fe * W - t.edgeAO * Fe * (1 - Fe);
 					let Le = A - t.faceY, Re = D * D, ze = Le * Le, Be = Re + ze;
 					if (Be >= E) return;
 					let Ve = smooth(clamp((E - Re - ze) * O));
-					if (J += Ve * se, Y += Ve * ce, X += Ve * W, Z += Ve * le - t.edgeAO * Ve * (1 - Ve), Be >= k) return;
+					if (J += Ve * oe, Y += Ve * se, X += Ve * ce, Z += Ve * le - t.edgeAO * Ve * (1 - Ve), Be >= k) return;
 					let He = smooth(clamp((k - Re - ze) * j));
 					if (J += He * ue, Y += He * de, X += He * fe, Z += He * pe - t.edgeAO * He * (1 - He), $ = He, Be >= M) return;
 					let Ue = smooth(clamp((M - Re - ze) * P));
@@ -3897,7 +3897,7 @@ function createSurfaceSampler(t, i) {
 						let e = Math.max(0, N - d), t = Math.max(0, Ge - f);
 						We = smooth(clamp((p - e * e - t * t) * h));
 					}
-					let Ke = smooth(clamp((N - t.stepX) * V)) * smooth(clamp((Le - t.stepY) * V)), qe = smooth(clamp((F - Re - ze) * L)) * (1 - We) * (1 - Ke);
+					let Ke = smooth(clamp((N - t.stepX) * H)) * smooth(clamp((Le - t.stepY) * H)), qe = smooth(clamp((F - Re - ze) * L)) * (1 - We) * (1 - Ke);
 					if (qe === 0) return;
 					J += qe * ve, Y += qe * ye, X += qe * be, Z += qe * xe - t.edgeAO * qe * (1 - qe);
 					let Je = Math.abs(Le - t.keyY);
@@ -3905,19 +3905,19 @@ function createSurfaceSampler(t, i) {
 						let e = Math.max(0, N - x), n = Math.max(0, Je - S), r = smooth(clamp((C - e * e - n * n) * T));
 						J += r * Ae, Y += r * je, X += r * Me, Z += r * Ne - t.edgeAO * r * (1 - r);
 					}
-					let Ye = Le < H, Xe = Math.abs(N - (Ye ? t.upperSocketX : t.lowerSocketX)), Ze = Math.abs(Le - (Ye ? t.upperSocketY : t.lowerSocketY));
+					let Ye = Le < U, Xe = Math.abs(N - (Ye ? t.upperSocketX : t.lowerSocketX)), Ze = Math.abs(Le - (Ye ? t.upperSocketY : t.lowerSocketY));
 					if (Xe >= t.leadHalfWidth || Ze >= t.leadHalfHeight) return;
 					let Qe = Math.max(0, Xe - g), $e = Math.max(0, Ze - _), et = smooth(clamp((v - Qe * Qe - $e * $e) * b));
 					if (et === 0) return;
 					J += et * Se, Y += et * Ce, X += et * we, Z += et * Te - t.edgeAO * et * (1 - et);
 					let tt = Ye ? t.upperSlotHalfWidth : t.lowerSlotHalfWidth, nt = Ye ? t.upperSlotHalfHeight : t.lowerSlotHalfHeight;
 					if (Xe >= tt || Ze >= nt) return;
-					let rt = Math.max(0, Xe - (Ye ? R : ee)), it = Math.max(0, Ze - (Ye ? z : te)), ot = smooth(clamp((ne - rt * rt - it * it) * B));
+					let rt = Math.max(0, Xe - (Ye ? R : ee)), it = Math.max(0, Ze - (Ye ? z : te)), ot = smooth(clamp((ne - rt * rt - it * it) * V));
 					J += ot * Ee, Y += ot * De, X += ot * Oe, Z += ot * ke - t.edgeAO * ot * (1 - ot);
 				};
 			}
 			case `stfiberadapterfaces`: {
-				let t = require_materials.proceduralMaterialPresets.stfiberadapterfaces, r = new Float64Array(t.cells * t.cells * 4), a = cachedNoise(t.grainCells, t.grainCells, i ^ 142849), o = Math.sqrt(3) * .5, s = t.nutInradius / o, c = t.maxScale * s, l = 1 / t.nutBevel, u = t.collarRadius * t.collarRadius, d = t.collarRadius - t.collarBevel, f = 1 / (u - d * d), p = t.barrelRadius * t.barrelRadius, m = t.barrelRadius - t.barrelBevel, h = 1 / (p - m * m), g = t.cavityRadius * t.cavityRadius, _ = t.cavityRadius - t.cavityBevel, v = 1 / (g - _ * _), y = t.keyHalfWidth * t.keyHalfWidth, b = t.keyHalfHeight * t.keyHalfHeight, x = t.keyHalfWidth - t.keyBevelX, S = t.keyHalfHeight - t.keyBevelY, C = 1 / (y - x * x), w = 1 / (b - S * S), T = t.studHalfWidth * t.studHalfWidth, E = t.studHalfHeight * t.studHalfHeight, D = t.studHalfWidth - t.studBevelX, O = t.studHalfHeight - t.studBevelY, k = 1 / (T - D * D), A = 1 / (E - O * O), j = t.nutTone - t.backingTone, M = t.nutHeight - t.backingHeight, N = t.roughness - t.backingRoughness, P = t.nutAO - t.backingAO, F = t.collarTone - t.nutTone, I = t.collarHeight - t.nutHeight, L = t.collarRoughness - t.roughness, R = t.collarAO - t.nutAO, z = t.studTone - t.collarTone, ee = t.studHeight - t.collarHeight, te = t.studRoughness - t.collarRoughness, ne = t.studAO - t.collarAO, re = t.lipTone - t.collarTone, B = t.lipHeight - t.collarHeight, V = t.lipRoughness - t.collarRoughness, H = t.lipAO - t.collarAO, ie = t.boreTone - t.collarTone, ae = t.boreHeight - t.collarHeight, oe = t.boreRoughness - t.collarRoughness, U = t.boreAO - t.collarAO;
+				let t = require_materials.proceduralMaterialPresets.stfiberadapterfaces, r = new Float64Array(t.cells * t.cells * 4), a = cachedNoise(t.grainCells, t.grainCells, i ^ 142849), o = Math.sqrt(3) * .5, s = t.nutInradius / o, c = t.maxScale * s, l = 1 / t.nutBevel, u = t.collarRadius * t.collarRadius, d = t.collarRadius - t.collarBevel, f = 1 / (u - d * d), p = t.barrelRadius * t.barrelRadius, m = t.barrelRadius - t.barrelBevel, h = 1 / (p - m * m), g = t.cavityRadius * t.cavityRadius, _ = t.cavityRadius - t.cavityBevel, v = 1 / (g - _ * _), y = t.keyHalfWidth * t.keyHalfWidth, b = t.keyHalfHeight * t.keyHalfHeight, x = t.keyHalfWidth - t.keyBevelX, S = t.keyHalfHeight - t.keyBevelY, C = 1 / (y - x * x), w = 1 / (b - S * S), T = t.studHalfWidth * t.studHalfWidth, E = t.studHalfHeight * t.studHalfHeight, D = t.studHalfWidth - t.studBevelX, O = t.studHalfHeight - t.studBevelY, k = 1 / (T - D * D), A = 1 / (E - O * O), j = t.nutTone - t.backingTone, M = t.nutHeight - t.backingHeight, N = t.roughness - t.backingRoughness, P = t.nutAO - t.backingAO, F = t.collarTone - t.nutTone, I = t.collarHeight - t.nutHeight, L = t.collarRoughness - t.roughness, R = t.collarAO - t.nutAO, z = t.studTone - t.collarTone, ee = t.studHeight - t.collarHeight, te = t.studRoughness - t.collarRoughness, ne = t.studAO - t.collarAO, B = t.lipTone - t.collarTone, V = t.lipHeight - t.collarHeight, H = t.lipRoughness - t.collarRoughness, U = t.lipAO - t.collarAO, re = t.boreTone - t.collarTone, ie = t.boreHeight - t.collarHeight, ae = t.boreRoughness - t.collarRoughness, W = t.boreAO - t.collarAO;
 				for (let e = 0; e < t.cells; e++) for (let a = 0; a < t.cells; a++) {
 					let o = (e * t.cells + a) * 4, s = t.minScale + (t.maxScale - t.minScale) * hash(a, e, i ^ 142851), c = n * t.rotationTurns * (2 * hash(a, e, i ^ 142853) - 1);
 					r[o] = .5 + t.jitter * (2 * hash(a, e, i ^ 142855) - 1), r[o + 1] = .5 + t.jitter * (2 * hash(a, e, i ^ 142857) - 1), r[o + 2] = Math.cos(c) / s, r[o + 3] = Math.sin(c) / s;
@@ -3926,9 +3926,9 @@ function createSurfaceSampler(t, i) {
 					J = t.backingTone, Y = t.backingHeight, X = t.backingRoughness, Z = t.backingAO, $ = 0;
 					let e = fract(G) * t.cells, n = fract(K) * t.cells, i = Math.floor(e), s = Math.floor(n), d = (s * t.cells + i) * 4, m = e - i - r[d], _ = n - s - r[d + 1];
 					if (Math.abs(m) >= c || Math.abs(_) >= c) return;
-					let x = m * r[d + 2] + _ * r[d + 3], S = _ * r[d + 2] - m * r[d + 3], D = Math.abs(x), O = Math.abs(S), se = x * .5 + S * o, ce = x * .5 - S * o, W = smooth(clamp((t.nutInradius - x) * l)) * smooth(clamp((t.nutInradius + x) * l)) * smooth(clamp((t.nutInradius - se) * l)) * smooth(clamp((t.nutInradius + se) * l)) * smooth(clamp((t.nutInradius - ce) * l)) * smooth(clamp((t.nutInradius + ce) * l));
-					if (W === 0) return;
-					J += W * j, Y += W * M, X += W * N, Z += W * P, $ = W;
+					let x = m * r[d + 2] + _ * r[d + 3], S = _ * r[d + 2] - m * r[d + 3], D = Math.abs(x), O = Math.abs(S), oe = x * .5 + S * o, se = x * .5 - S * o, ce = smooth(clamp((t.nutInradius - x) * l)) * smooth(clamp((t.nutInradius + x) * l)) * smooth(clamp((t.nutInradius - oe) * l)) * smooth(clamp((t.nutInradius + oe) * l)) * smooth(clamp((t.nutInradius - se) * l)) * smooth(clamp((t.nutInradius + se) * l));
+					if (ce === 0) return;
+					J += ce * j, Y += ce * M, X += ce * N, Z += ce * P, $ = ce;
 					let le = x * x, ue = S * S, de = le + ue;
 					if (de < u) {
 						let e = smooth(clamp((u - de) * f));
@@ -3936,9 +3936,9 @@ function createSurfaceSampler(t, i) {
 						let n = D - t.studX, r = 0;
 						if (Math.abs(n) < t.studHalfWidth && O < t.studHalfHeight && (r = smooth(clamp((T - n * n) * k)) * smooth(clamp((E - ue) * A)), J += r * z, Y += r * ee, X += r * te, Z += r * ne), de < p) {
 							let e = S - t.keyCenterY, n = D < t.keyHalfWidth && Math.abs(e) < t.keyHalfHeight ? smooth(clamp((y - le) * C)) * smooth(clamp((b - e * e) * w)) : 0, i = smooth(clamp((p - de) * h)) * (1 - n);
-							if (J += i * (re - r * z), Y += i * (B - r * ee), X += i * (V - r * te), Z += i * (H - r * ne), de < g) {
+							if (J += i * (B - r * z), Y += i * (V - r * ee), X += i * (H - r * te), Z += i * (U - r * ne), de < g) {
 								let e = smooth(clamp((g - de) * v));
-								J += e * (ie - i * re), Y += e * (ae - i * B), X += e * (oe - i * V), Z += e * (U - i * H), $ = W * (1 - e);
+								J += e * (re - i * B), Y += e * (ie - i * V), X += e * (ae - i * H), Z += e * (W - i * U), $ = ce * (1 - e);
 							}
 						}
 					}
@@ -14030,6 +14030,36 @@ function createSurfaceSampler(t, i) {
 					J = clamp(t.tones[o]), Y = clamp(t.heights[o]), X = clamp(t.inkRoughness), Z = 1;
 				};
 			}
+			case `tablutboard`: {
+				let t = require_materials.proceduralMaterialPresets.tablutboard, n = cachedNoise(t.grainCells, t.grainCells, i ^ 835585), r = 1 / t.edgeSoft, norm = (e, t) => Math.sqrt(e * e + t * t), cover = (e) => smooth(clamp(e * r + .5)), a = t.openings[Math.floor(hash(101, 1, i ^ 835586) * t.openings.length)], o = Math.floor(hash(101, 2, i ^ 835587) * 4), s = t.side - 1, c = t.side * t.cell / 2, l = c + t.margin, u = .5 - c, d = t.lineHalf / t.cell, f = Array.from({ length: t.side }, () => Array(t.side).fill(`.`)), place = (e, t) => {
+					for (let n of e.split(` `)) f[Number(n[1]) - 1][n.charCodeAt(0) - 97] = t;
+				};
+				place(`d1 e1 f1 e2 d9 e9 f9 e8 a4 a5 a6 b5 i4 i5 i6 h5`, `A`), place(`e3 e4 e6 e7 c5 d5 f5 g5`, `D`), place(`e5`, `K`);
+				for (let e of a) f[Number(e[3]) - 1][e.charCodeAt(2) - 97] = f[Number(e[1]) - 1][e.charCodeAt(0) - 97], f[Number(e[1]) - 1][e.charCodeAt(0) - 97] = `.`;
+				let p = new Uint8Array(t.side * t.side), m = new Uint8Array(t.side * t.side);
+				for (let e = 0; e <= s; e++) for (let n = 0; n <= s; n++) {
+					let r = n, i = s - e;
+					for (let e = 0; e < o; e++) [r, i] = [s - i, r];
+					let a = i * t.side + r, c = (n === 0 || n === s) && (e === 0 || e === s), l = n === 4 && e === 4, u = n >= 3 && n <= 5 && (e === 0 || e === s) || n === 4 && (e === 1 || e === s - 1) || e >= 3 && e <= 5 && (n === 0 || n === s) || e === 4 && (n === 1 || n === s - 1);
+					p[a] = c || l ? 2 : +!!u, m[a] = ` ADK`.indexOf(f[e][n] === `.` ? ` ` : f[e][n]);
+				}
+				return () => {
+					let e = G - Math.floor(G), r = K - Math.floor(K), i = t.paperTone, a = t.paperHeight, o = t.paperRoughness, c = 0, f = l + t.frame, h = cover(Math.min(f - Math.abs(e - .5), f - Math.abs(r - .5)));
+					if (h > 0) {
+						i += (t.frameTone - i) * h, a += (t.frameHeight - a) * h, o += (t.inkRoughness - o) * h, c = h;
+						let n = (e - u) / t.cell, f = (r - u) / t.cell, g = Math.min(s, Math.max(0, Math.floor(n))), _ = Math.min(s, Math.max(0, Math.floor(f))), v = cover(Math.min(l - Math.abs(e - .5), l - Math.abs(r - .5))), y = p[_ * t.side + g];
+						i += ((y === 2 ? t.markTone : y === 1 ? t.campTone : t.boardTone) - i) * v, a += ((y === 2 ? t.markHeight : y === 1 ? t.campHeight : t.boardHeight) - a) * v;
+						let b = Math.round(n), x = Math.round(f), S = 0;
+						f >= -d && f <= t.side + d && (S = cover(t.lineHalf - Math.abs(n - b) * t.cell)), n >= -d && n <= t.side + d && (S = Math.max(S, cover(t.lineHalf - Math.abs(f - x) * t.cell))), i += (t.lineTone - i) * S, a += (t.lineHeight - a) * S;
+						let C = m[_ * t.side + g];
+						if (C > 0) {
+							let e = C === 3 ? t.kingRadius : t.pieceRadius, r = cover(e - norm((n - g - .5) * t.cell, (f - _ - .5) * t.cell));
+							i += ((C === 1 ? t.attackerTone : C === 2 ? t.defenderTone : t.kingTone) - i) * r, a += (t.pieceHeight - a) * r;
+						}
+					}
+					J = clamp(i + t.grainTone * (n(G, K) - .5) * (1 - c)), Y = clamp(a), X = clamp(o), Z = 1;
+				};
+			}
 			case `to92packagefaces`: {
 				let t = require_materials.proceduralMaterialPresets.to92packagefaces, r = new Float64Array(t.cells * t.cells * 4), a = cachedNoise(t.grainCells, t.grainCells, i ^ 143617), o = t.leadCount - 1, s = -o * t.leadPitch * .5, c = -s + Math.max(t.leadRootHalfWidth, t.leadHalfWidth), l = Math.abs(t.bodyCenterY) + t.bodyHalfHeight, u = Math.abs(t.leadCenterY) + t.leadHalfHeight, d = t.maxScale * Math.sqrt(Math.max(t.bodyHalfWidth * t.bodyHalfWidth + l * l, c * c + u * u)), f = 1 / (t.bodyHalfWidth * t.bodyHalfWidth), p = 1 / t.bodyHalfHeight, m = 1 / t.bodyRoundBevel, h = 1 / t.bodyBevel, g = 1 / t.leadPitch, _ = 1 / t.leadShoulderBlend, v = 1 / t.leadBevelX, y = 1 / t.leadBevelY, b = t.leadHalfWidth - t.leadRootHalfWidth, x = t.leadTone - t.backingTone, S = t.leadHeight - t.backingHeight, C = t.leadRoughness - t.backingRoughness, w = t.leadAO - t.backingAO, T = t.bodyTone - t.backingTone, E = t.bodyHeight - t.backingHeight, D = t.roughness - t.backingRoughness, O = t.bodyAO - t.backingAO;
 				for (let e = 0; e < t.cells; e++) for (let a = 0; a < t.cells; a++) {
@@ -14056,8 +14086,8 @@ function createSurfaceSampler(t, i) {
 					J = t.backingTone, Y = t.backingHeight, X = t.backingRoughness, Z = t.backingAO, $ = 0;
 					let e = fract(G) * t.cells, n = fract(K) * t.cells, i = Math.floor(e), c = Math.floor(n), l = (c * t.cells + i) * 4, u = e - i - r[l], d = n - c - r[l + 1];
 					if (Math.abs(u) >= f || Math.abs(d) >= f) return;
-					let T = u * r[l + 2] + d * r[l + 3], re = d * r[l + 2] - u * r[l + 3], B = Math.abs(T), V = smooth(clamp((t.tabHalfWidth - B) * p)) * smooth(clamp((t.tabHalfHeight - Math.abs(re - t.tabCenterY)) * p)) * smooth(clamp((re - m + h * (g - B)) * _)), H = smooth(clamp((t.bodyHalfWidth - B) * v)) * smooth(clamp((t.bodyHalfHeight - Math.abs(re - t.bodyCenterY)) * v)), ie = Math.max(0, Math.min(o, Math.floor((T - s) * y + .5))), ae = T - (s + ie * t.leadPitch), oe = smooth(clamp((re - t.leadShoulderEndY) * b)), se = smooth(clamp((t.leadRootHalfWidth + C * oe - Math.abs(ae)) * x)) * smooth(clamp((t.leadHalfHeight - Math.abs(re - t.leadCenterY)) * S)), ce = re - t.holeCenterY, W = smooth(clamp((w - T * T - ce * ce) * E)), le = 1 - H;
-					if (J += (V * D + se * j) * le + H * F + W * z, Y += (V * O + se * M) * le + H * I + W * ee, X += (V * k + se * N) * le + H * L + W * te, Z += (V * A + se * P) * le + H * R + W * ne, $ = (V + se) * le - W, $ === 0) return;
+					let T = u * r[l + 2] + d * r[l + 3], B = d * r[l + 2] - u * r[l + 3], V = Math.abs(T), H = smooth(clamp((t.tabHalfWidth - V) * p)) * smooth(clamp((t.tabHalfHeight - Math.abs(B - t.tabCenterY)) * p)) * smooth(clamp((B - m + h * (g - V)) * _)), U = smooth(clamp((t.bodyHalfWidth - V) * v)) * smooth(clamp((t.bodyHalfHeight - Math.abs(B - t.bodyCenterY)) * v)), re = Math.max(0, Math.min(o, Math.floor((T - s) * y + .5))), ie = T - (s + re * t.leadPitch), ae = smooth(clamp((B - t.leadShoulderEndY) * b)), oe = smooth(clamp((t.leadRootHalfWidth + C * ae - Math.abs(ie)) * x)) * smooth(clamp((t.leadHalfHeight - Math.abs(B - t.leadCenterY)) * S)), se = B - t.holeCenterY, ce = smooth(clamp((w - T * T - se * se) * E)), le = 1 - U;
+					if (J += (H * D + oe * j) * le + U * F + ce * z, Y += (H * O + oe * M) * le + U * I + ce * ee, X += (H * k + oe * N) * le + U * L + ce * te, Z += (H * A + oe * P) * le + U * R + ce * ne, $ = (H + oe) * le - ce, $ === 0) return;
 					let ue = a(G, K) * $;
 					J += t.grainTone * ue, Y += t.grainHeight * ue, X += t.grainRoughness * ue;
 				};
@@ -14072,26 +14102,26 @@ function createSurfaceSampler(t, i) {
 					J = t.backingTone, Y = t.backingHeight, X = t.backingRoughness, Z = t.backingAO, $ = 0;
 					let e = fract(G) * t.cells, n = fract(K) * t.cells, i = Math.floor(e), s = Math.floor(n), d = (s * t.cells + i) * 4, m = e - i - r[d], _ = n - s - r[d + 1];
 					if (Math.abs(m) >= c || Math.abs(_) >= c) return;
-					let b = m * r[d + 2] + _ * r[d + 3], ne = _ * r[d + 2] - m * r[d + 3], re = b * .5 + ne * o, B = b * .5 - ne * o, V = smooth(clamp((t.nutInradius - b) * l)) * smooth(clamp((t.nutInradius + b) * l)) * smooth(clamp((t.nutInradius - re) * l)) * smooth(clamp((t.nutInradius + re) * l)) * smooth(clamp((t.nutInradius - B) * l)) * smooth(clamp((t.nutInradius + B) * l));
-					if (V === 0) return;
-					J += V * S, Y += V * C, X += V * w, Z += V * T, $ = V;
-					let H = b * b + ne * ne;
-					if (H < u) {
-						let e = smooth(clamp((u - H) * f));
-						if (J += e * E, Y += e * D, X += e * O, Z += e * k, H < p) {
-							let e = smooth(clamp((p - H) * h));
-							if (J += e * A, Y += e * j, X += e * M, Z += e * N, H < g) {
-								let e = smooth(clamp((g - H) * v));
-								if (J += e * P, Y += e * F, X += e * I, Z += e * L, $ = V * (1 - e), H < y) {
-									let e = smooth(clamp((y - H) * x));
+					let b = m * r[d + 2] + _ * r[d + 3], ne = _ * r[d + 2] - m * r[d + 3], B = b * .5 + ne * o, V = b * .5 - ne * o, H = smooth(clamp((t.nutInradius - b) * l)) * smooth(clamp((t.nutInradius + b) * l)) * smooth(clamp((t.nutInradius - B) * l)) * smooth(clamp((t.nutInradius + B) * l)) * smooth(clamp((t.nutInradius - V) * l)) * smooth(clamp((t.nutInradius + V) * l));
+					if (H === 0) return;
+					J += H * S, Y += H * C, X += H * w, Z += H * T, $ = H;
+					let U = b * b + ne * ne;
+					if (U < u) {
+						let e = smooth(clamp((u - U) * f));
+						if (J += e * E, Y += e * D, X += e * O, Z += e * k, U < p) {
+							let e = smooth(clamp((p - U) * h));
+							if (J += e * A, Y += e * j, X += e * M, Z += e * N, U < g) {
+								let e = smooth(clamp((g - U) * v));
+								if (J += e * P, Y += e * F, X += e * I, Z += e * L, $ = H * (1 - e), U < y) {
+									let e = smooth(clamp((y - U) * x));
 									J += e * R, Y += e * z, X += e * ee, Z += e * te;
 								}
 							}
 						}
 					}
 					if ($ === 0) return;
-					let ie = a(G, K) * $;
-					J += t.grainTone * ie, Y += t.grainHeight * ie, X += t.grainRoughness * ie;
+					let re = a(G, K) * $;
+					J += t.grainTone * re, Y += t.grainHeight * re, X += t.grainRoughness * re;
 				};
 			}
 			case `dcbarreljackfaces`: {
@@ -14106,50 +14136,50 @@ function createSurfaceSampler(t, i) {
 					if (Math.abs(g) >= o || Math.abs(b) >= o) return;
 					let x = g * r[p + 2] + b * r[p + 3], ee = b * r[p + 2] - g * r[p + 3], te = Math.abs(x), ne = Math.abs(ee);
 					if (te >= t.bodyHalfWidth || ne >= t.bodyHalfHeight) return;
-					let re = Math.max(0, te - s), B = Math.max(0, ne - c), V = smooth(clamp((l - re * re - B * B) * d));
-					if (V === 0) return;
-					J += V * w, Y += V * T, X += V * E, Z += V * D - t.edgeAO * V * (1 - V);
-					let H = ee - t.boreCenterY, ie = x * x, ae = ie + H * H, oe = ae < f ? smooth(clamp((f - ae) * m)) : 0, U = oe < 1 ? a(G, K) * V * (1 - oe) : 0;
-					if (J += oe * O + t.grainTone * U, Y += oe * k + t.grainHeight * U, X += oe * A + t.grainRoughness * U, Z += oe * j - t.edgeAO * oe * (1 - oe), oe === 0) return;
-					if (ae < h) {
-						let e = smooth(clamp((h - ae) * _));
+					let B = Math.max(0, te - s), V = Math.max(0, ne - c), H = smooth(clamp((l - B * B - V * V) * d));
+					if (H === 0) return;
+					J += H * w, Y += H * T, X += H * E, Z += H * D - t.edgeAO * H * (1 - H);
+					let U = ee - t.boreCenterY, re = x * x, ie = re + U * U, ae = ie < f ? smooth(clamp((f - ie) * m)) : 0, W = ae < 1 ? a(G, K) * H * (1 - ae) : 0;
+					if (J += ae * O + t.grainTone * W, Y += ae * k + t.grainHeight * W, X += ae * A + t.grainRoughness * W, Z += ae * j - t.edgeAO * ae * (1 - ae), ae === 0) return;
+					if (ie < h) {
+						let e = smooth(clamp((h - ie) * _));
 						J += e * M, Y += e * N, X += e * P, Z += e * F - t.edgeAO * e * (1 - e), $ = e;
 						return;
 					}
-					let se = H - t.springCenterY;
-					if (te >= t.springHalfWidth || Math.abs(se) >= t.springHalfHeight) return;
-					let ce = oe * smooth(clamp((v - ie) * S)) * smooth(clamp((y - se * se) * C));
-					J += ce * I, Y += ce * L, X += ce * R, Z += ce * z - t.edgeAO * ce * (1 - ce), $ = ce;
+					let oe = U - t.springCenterY;
+					if (te >= t.springHalfWidth || Math.abs(oe) >= t.springHalfHeight) return;
+					let se = ae * smooth(clamp((v - re) * S)) * smooth(clamp((y - oe * oe) * C));
+					J += se * I, Y += se * L, X += se * R, Z += se * z - t.edgeAO * se * (1 - se), $ = se;
 				};
 			}
 			case `usbcfemalefaces`: {
-				let t = require_materials.proceduralMaterialPresets.usbcfemalefaces, r = new Float64Array(t.cells * t.cells * 4), a = cachedNoise(96, 96, i ^ 141057), o = t.halfWidth - t.outerCorner, s = t.halfHeight - t.outerCorner, c = t.outerCorner * t.outerCorner, l = t.outerCorner - t.outerBevel, u = 1 / (c - l * l), d = t.mouthHalfWidth - t.mouthCorner, f = t.mouthHalfHeight - t.mouthCorner, p = t.mouthCorner * t.mouthCorner, m = t.mouthCorner - t.mouthBevel, h = 1 / (p - m * m), g = t.tongueHalfWidth - t.tongueCorner, _ = t.tongueHalfHeight - t.tongueCorner, v = t.tongueCorner * t.tongueCorner, y = t.tongueCorner - t.tongueBevel, b = 1 / (v - y * y), x = t.pinHalfWidth - t.pinCorner, S = t.pinHalfHeight - t.pinCorner, C = t.pinCorner * t.pinCorner, w = t.pinCorner - t.pinBevel, T = 1 / (C - w * w), E = 1 / t.pitch, D = -(t.contacts - 1) * t.pitch * .5, O = -D + t.pinHalfWidth, k = t.shellTone - t.backingTone, A = t.shellHeight - t.backingHeight, j = t.roughness - t.backingRoughness, M = t.shellAO - t.backingAO, N = t.plasticTone - t.shellTone, P = t.wellHeight - t.shellHeight, F = t.wellRoughness - t.roughness, I = t.wellAO - t.shellAO, L = t.tongueHeight - t.wellHeight, R = t.tongueRoughness - t.wellRoughness, z = t.tongueAO - t.wellAO, ee = t.pinTone - t.plasticTone, te = t.pinHeight - t.tongueHeight, ne = t.pinRoughness - t.tongueRoughness, re = t.pinAO - t.tongueAO;
+				let t = require_materials.proceduralMaterialPresets.usbcfemalefaces, r = new Float64Array(t.cells * t.cells * 4), a = cachedNoise(96, 96, i ^ 141057), o = t.halfWidth - t.outerCorner, s = t.halfHeight - t.outerCorner, c = t.outerCorner * t.outerCorner, l = t.outerCorner - t.outerBevel, u = 1 / (c - l * l), d = t.mouthHalfWidth - t.mouthCorner, f = t.mouthHalfHeight - t.mouthCorner, p = t.mouthCorner * t.mouthCorner, m = t.mouthCorner - t.mouthBevel, h = 1 / (p - m * m), g = t.tongueHalfWidth - t.tongueCorner, _ = t.tongueHalfHeight - t.tongueCorner, v = t.tongueCorner * t.tongueCorner, y = t.tongueCorner - t.tongueBevel, b = 1 / (v - y * y), x = t.pinHalfWidth - t.pinCorner, S = t.pinHalfHeight - t.pinCorner, C = t.pinCorner * t.pinCorner, w = t.pinCorner - t.pinBevel, T = 1 / (C - w * w), E = 1 / t.pitch, D = -(t.contacts - 1) * t.pitch * .5, O = -D + t.pinHalfWidth, k = t.shellTone - t.backingTone, A = t.shellHeight - t.backingHeight, j = t.roughness - t.backingRoughness, M = t.shellAO - t.backingAO, N = t.plasticTone - t.shellTone, P = t.wellHeight - t.shellHeight, F = t.wellRoughness - t.roughness, I = t.wellAO - t.shellAO, L = t.tongueHeight - t.wellHeight, R = t.tongueRoughness - t.wellRoughness, z = t.tongueAO - t.wellAO, ee = t.pinTone - t.plasticTone, te = t.pinHeight - t.tongueHeight, ne = t.pinRoughness - t.tongueRoughness, B = t.pinAO - t.tongueAO;
 				for (let e = 0; e < t.cells; e++) for (let a = 0; a < t.cells; a++) {
 					let o = (e * t.cells + a) * 4, s = t.minScale + (t.maxScale - t.minScale) * hash(a, e, i ^ 141059), c = n * hash(a, e, i ^ 141061);
 					r[o] = .5 + t.jitter * (2 * hash(a, e, i ^ 141063) - 1), r[o + 1] = .5 + t.jitter * (2 * hash(a, e, i ^ 141065) - 1), r[o + 2] = Math.cos(c) / s, r[o + 3] = Math.sin(c) / s;
 				}
 				return () => {
 					J = t.backingTone, Y = t.backingHeight, X = t.backingRoughness, Z = t.backingAO, $ = 0;
-					let e = G * t.cells, n = K * t.cells, i = Math.floor(e), l = Math.floor(n), m = (l * t.cells + i) * 4, y = e - i - r[m], w = n - l - r[m + 1], B = y * r[m + 2] + w * r[m + 3], V = w * r[m + 2] - y * r[m + 3], H = Math.abs(B), ie = Math.abs(V);
-					if (H >= t.halfWidth || ie >= t.halfHeight) return;
-					let ae = Math.max(0, H - o), oe = Math.max(0, ie - s), U = smooth(clamp((c - ae * ae - oe * oe) * u));
-					if (U === 0) return;
-					let se = a(G, K);
-					if (J += U * (k + t.grainTone * se), Y += U * (A + t.grainHeight * se), X += U * (j + t.grainRoughness * se), Z += U * M - t.edgeAO * U * (1 - U), $ = U, H >= t.mouthHalfWidth || ie >= t.mouthHalfHeight) return;
-					let ce = Math.max(0, H - d), W = Math.max(0, ie - f), le = smooth(clamp((p - ce * ce - W * W) * h));
+					let e = G * t.cells, n = K * t.cells, i = Math.floor(e), l = Math.floor(n), m = (l * t.cells + i) * 4, y = e - i - r[m], w = n - l - r[m + 1], V = y * r[m + 2] + w * r[m + 3], H = w * r[m + 2] - y * r[m + 3], U = Math.abs(V), re = Math.abs(H);
+					if (U >= t.halfWidth || re >= t.halfHeight) return;
+					let ie = Math.max(0, U - o), ae = Math.max(0, re - s), W = smooth(clamp((c - ie * ie - ae * ae) * u));
+					if (W === 0) return;
+					let oe = a(G, K);
+					if (J += W * (k + t.grainTone * oe), Y += W * (A + t.grainHeight * oe), X += W * (j + t.grainRoughness * oe), Z += W * M - t.edgeAO * W * (1 - W), $ = W, U >= t.mouthHalfWidth || re >= t.mouthHalfHeight) return;
+					let se = Math.max(0, U - d), ce = Math.max(0, re - f), le = smooth(clamp((p - se * se - ce * ce) * h));
 					if (le === 0) return;
 					J += le * N, Y += le * P, X += le * F, Z += le * I - t.edgeAO * le * (1 - le), $ -= le;
-					let ue = V - t.tongueY;
-					if (H >= t.tongueHalfWidth || Math.abs(ue) >= t.tongueHalfHeight) return;
-					let de = Math.max(0, H - g), fe = Math.max(0, Math.abs(ue) - _), pe = smooth(clamp((v - de * de - fe * fe) * b));
+					let ue = H - t.tongueY;
+					if (U >= t.tongueHalfWidth || Math.abs(ue) >= t.tongueHalfHeight) return;
+					let de = Math.max(0, U - g), fe = Math.max(0, Math.abs(ue) - _), pe = smooth(clamp((v - de * de - fe * fe) * b));
 					if (pe === 0) return;
 					Y += pe * L, X += pe * R, Z += pe * z - t.edgeAO * pe * (1 - pe);
 					let me = Math.abs(ue) - t.rowY;
-					if (Math.abs(me) >= t.pinHalfHeight || H >= O) return;
-					let he = Math.round((B - D) * E);
+					if (Math.abs(me) >= t.pinHalfHeight || U >= O) return;
+					let he = Math.round((V - D) * E);
 					if (he < 0 || he >= t.contacts) return;
-					let ge = Math.max(0, Math.abs(B - D - he * t.pitch) - x), _e = Math.max(0, Math.abs(me) - S), ve = smooth(clamp((C - ge * ge - _e * _e) * T));
-					ve !== 0 && (J += ve * ee, Y += ve * te, X += ve * ne, Z += ve * re - t.edgeAO * ve * (1 - ve), $ = ve);
+					let ge = Math.max(0, Math.abs(V - D - he * t.pitch) - x), _e = Math.max(0, Math.abs(me) - S), ve = smooth(clamp((C - ge * ge - _e * _e) * T));
+					ve !== 0 && (J += ve * ee, Y += ve * te, X += ve * ne, Z += ve * B - t.edgeAO * ve * (1 - ve), $ = ve);
 				};
 			}
 			case `iecc6inlets`: {
@@ -14160,25 +14190,25 @@ function createSurfaceSampler(t, i) {
 				}
 				return () => {
 					J = t.backingTone, Y = t.backingHeight, X = t.backingRoughness, Z = t.backingAO, $ = 0;
-					let e = G * t.cells, n = K * t.cells, i = Math.floor(e), l = Math.floor(n), m = (l * t.cells + i) * 4, _ = e - i - r[m], C = n - l - r[m + 1], ne = _ * r[m + 2] + C * r[m + 3], re = C * r[m + 2] - _ * r[m + 3], B = Math.abs(ne), V = Math.abs(re);
-					if (B >= t.halfWidth || V >= t.halfHeight) return;
-					let H = Math.max(0, B - o), ie = Math.max(0, V - s), ae = smooth(clamp((c - H * H - ie * ie) * u));
-					if (ae === 0) return;
-					let oe = a(G, K);
-					J += ae * (T + t.grainTone * oe), Y += ae * (E + t.grainHeight * oe), X += ae * (D + t.grainRoughness * oe), Z += ae * O - t.edgeAO * ae * (1 - ae);
-					let U = B - t.mountX, se = re * re, ce = U * U + se;
-					if (ce < d) {
-						let e = smooth(clamp((d - ce) * p));
-						if (ce >= f) {
+					let e = G * t.cells, n = K * t.cells, i = Math.floor(e), l = Math.floor(n), m = (l * t.cells + i) * 4, _ = e - i - r[m], C = n - l - r[m + 1], ne = _ * r[m + 2] + C * r[m + 3], B = C * r[m + 2] - _ * r[m + 3], V = Math.abs(ne), H = Math.abs(B);
+					if (V >= t.halfWidth || H >= t.halfHeight) return;
+					let U = Math.max(0, V - o), re = Math.max(0, H - s), ie = smooth(clamp((c - U * U - re * re) * u));
+					if (ie === 0) return;
+					let ae = a(G, K);
+					J += ie * (T + t.grainTone * ae), Y += ie * (E + t.grainHeight * ae), X += ie * (D + t.grainRoughness * ae), Z += ie * O - t.edgeAO * ie * (1 - ie);
+					let W = V - t.mountX, oe = B * B, se = W * W + oe;
+					if (se < d) {
+						let e = smooth(clamp((d - se) * p));
+						if (se >= f) {
 							Y += e * k, X += e * A, Z += e * j - t.edgeAO * (e * (1 - e));
 							return;
 						}
-						let n = smooth(clamp((f - ce) * h));
+						let n = smooth(clamp((f - se) * h));
 						Y += e * k + n * M, X += e * A + n * N, Z += e * j + n * P - t.edgeAO * (e * (1 - e) + n * (1 - n));
 						return;
 					}
-					if (B >= y || re <= b || re >= x) return;
-					let W = B - t.pinX, le = re - t.upperY, ue = re - t.lowerY, de = ne * ne + le * le, fe = W * W + ue * ue, pe = Math.min(de, fe);
+					if (V >= y || B <= b || B >= x) return;
+					let ce = V - t.pinX, le = B - t.upperY, ue = B - t.lowerY, de = ne * ne + le * le, fe = ce * ce + ue * ue, pe = Math.min(de, fe);
 					if (pe >= g) return;
 					let me = de < g ? smooth(clamp((g - de) * v)) : 0, he = fe < g ? smooth(clamp((g - fe) * v)) : 0, ge = me + (1 - me) * he;
 					if (Y += ge * F, X += ge * I, Z += ge * L - t.edgeAO * ge * (1 - ge), pe >= S) return;
@@ -14196,23 +14226,23 @@ function createSurfaceSampler(t, i) {
 					J = t.backingTone, Y = t.backingHeight, X = t.backingRoughness, Z = t.backingAO, $ = 0;
 					let e = G * t.cells, n = K * t.cells, i = Math.floor(e), l = Math.floor(n), f = (l * t.cells + i) * 4, h = e - i - r[f], y = n - l - r[f + 1], C = h * r[f + 2] + y * r[f + 3], z = y * r[f + 2] - h * r[f + 3], ee = Math.abs(C), te = Math.abs(z);
 					if (ee >= t.halfWidth || te >= t.halfHeight) return;
-					let ne = Math.max(0, ee - o), re = Math.max(0, te - s), B = smooth(clamp((c - ne * ne - re * re) * u));
-					if (B === 0) return;
-					let V = a(G, K);
-					J += B * (T + t.grainTone * V), Y += B * (E + t.grainHeight * V), X += B * (D + t.grainRoughness * V), Z += B * O - t.edgeAO * B * (1 - B);
-					let H = ee - t.pinX, ie = Math.max(0, H), ae = z * z, oe = ie * ie + ae;
-					if (oe >= d) return;
-					let U = smooth(clamp((d - oe) * p));
-					if (Y += U * k, X += U * A, Z += U * j - t.edgeAO * U * (1 - U), oe >= m) return;
-					let se = te + _, ce = (1 - (te > t.waistTipY ? smooth(clamp((se * se - x * C * C - v) * b)) : 0)) * smooth(clamp((m - oe) * g));
-					if (ce === 0) return;
-					Y += ce * M, X += ce * N, Z += ce * P - t.edgeAO * ce * (1 - ce);
-					let W = smooth(clamp((S - H * H - ae) * w));
-					W !== 0 && (J += W * F, Y += W * I, X += W * L, Z += W * R - t.edgeAO * W * (1 - W), $ = W);
+					let ne = Math.max(0, ee - o), B = Math.max(0, te - s), V = smooth(clamp((c - ne * ne - B * B) * u));
+					if (V === 0) return;
+					let H = a(G, K);
+					J += V * (T + t.grainTone * H), Y += V * (E + t.grainHeight * H), X += V * (D + t.grainRoughness * H), Z += V * O - t.edgeAO * V * (1 - V);
+					let U = ee - t.pinX, re = Math.max(0, U), ie = z * z, ae = re * re + ie;
+					if (ae >= d) return;
+					let W = smooth(clamp((d - ae) * p));
+					if (Y += W * k, X += W * A, Z += W * j - t.edgeAO * W * (1 - W), ae >= m) return;
+					let oe = te + _, se = (1 - (te > t.waistTipY ? smooth(clamp((oe * oe - x * C * C - v) * b)) : 0)) * smooth(clamp((m - ae) * g));
+					if (se === 0) return;
+					Y += se * M, X += se * N, Z += se * P - t.edgeAO * se * (1 - se);
+					let ce = smooth(clamp((S - U * U - ie) * w));
+					ce !== 0 && (J += ce * F, Y += ce * I, X += ce * L, Z += ce * R - t.edgeAO * ce * (1 - ce), $ = ce);
 				};
 			}
 			case `din5femalefaces`: {
-				let t = require_materials.proceduralMaterialPresets.din5femalefaces, r = new Float64Array(t.cells * t.cells * 4), a = cachedNoise(96, 96, i ^ 140289), o = t.halfWidth - t.bodyCorner, s = t.halfHeight - t.bodyCorner, c = t.bodyCorner * t.bodyCorner, l = t.bodyCorner - t.bodyBevel, u = 1 / (c - l * l), d = t.mountRadius * t.mountRadius, f = t.mountRadius - t.mountBevel, p = 1 / (d - f * f), m = (t.upperMountY + t.lowerMountY) * .5, h = t.rimRadius * t.rimRadius, g = t.rimRadius - t.rimBevel, _ = 1 / (h - g * g), v = t.cavityRadius * t.cavityRadius, y = t.cavityRadius - t.cavityBevel, b = 1 / (v - y * y), x = t.insertRadius * t.insertRadius, S = t.insertRadius - t.insertBevel, C = 1 / (x - S * S), w = t.keyHalfWidth - t.keyCorner, T = t.keyHalfHeight - t.keyCorner, E = t.keyCorner * t.keyCorner, D = t.keyCorner - t.keyBevel, O = 1 / (E - D * D), k = t.webHalfWidth - t.webCorner, A = t.webHalfHeight - t.webCorner, j = t.webCorner * t.webCorner, M = t.webCorner - t.webBevel, N = 1 / (j - M * M), P = Math.cos(n * t.upperDegrees / 360), F = Math.sin(n * t.upperDegrees / 360), I = Math.cos(n * t.lowerDegrees / 360), L = Math.sin(n * t.lowerDegrees / 360), R = t.slotHalfWidth - t.slotCorner, z = t.slotHalfHeight - t.slotCorner, ee = t.slotCorner * t.slotCorner, te = t.slotCorner - t.slotBevel, ne = 1 / (ee - te * te), re = t.bulgeRadius * t.bulgeRadius, B = t.bulgeRadius - t.bulgeBevel, V = 1 / (re - B * B), H = Math.max(t.slotHalfWidth, t.bulgeRadius), ie = Math.max(t.slotHalfHeight, t.bulgeRadius), ae = Math.hypot(t.rowSlope, 1), oe = t.slotCorner * ae, U = t.bulgeRadius * ae, se = Math.max(U, R * Math.abs(-t.rowSlope * P - F) + z * Math.abs(-t.rowSlope * F + P) + oe), ce = Math.max(U, R * Math.abs(-t.rowSlope * I - L) + z * Math.abs(-t.rowSlope * L + I) + oe), W = Math.max(U, R * Math.abs(I + t.rowSlope * L) + z * Math.abs(L - t.rowSlope * I) + oe), le = Math.max(U, R + z * t.rowSlope + oe), ue = .5 * (t.upperSocketY - t.rowSlope * t.upperSocketX + se + t.lowerSocketY - t.rowSlope * t.lowerSocketX - ce), de = .5 * (-t.rowSlope * t.bottomSocketY + le + t.lowerSocketX - t.rowSlope * t.lowerSocketY - W), fe = t.bodyTone - t.backingTone, pe = t.bodyHeight - t.backingHeight, me = t.roughness - t.backingRoughness, he = t.bodyAO - t.backingAO, ge = t.rimHeight - t.bodyHeight, _e = t.rimRoughness - t.roughness, ve = t.rimAO - t.bodyAO, ye = t.cavityHeight - t.rimHeight, be = t.cavityRoughness - t.rimRoughness, xe = t.cavityAO - t.rimAO, Se = t.insertHeight - t.cavityHeight, Ce = t.insertRoughness - t.cavityRoughness, we = t.insertAO - t.cavityAO, Te = t.floorTone - t.bodyTone, Ee = t.floorHeight - t.insertHeight, De = t.floorRoughness - t.insertRoughness, Oe = t.floorAO - t.insertAO;
+				let t = require_materials.proceduralMaterialPresets.din5femalefaces, r = new Float64Array(t.cells * t.cells * 4), a = cachedNoise(96, 96, i ^ 140289), o = t.halfWidth - t.bodyCorner, s = t.halfHeight - t.bodyCorner, c = t.bodyCorner * t.bodyCorner, l = t.bodyCorner - t.bodyBevel, u = 1 / (c - l * l), d = t.mountRadius * t.mountRadius, f = t.mountRadius - t.mountBevel, p = 1 / (d - f * f), m = (t.upperMountY + t.lowerMountY) * .5, h = t.rimRadius * t.rimRadius, g = t.rimRadius - t.rimBevel, _ = 1 / (h - g * g), v = t.cavityRadius * t.cavityRadius, y = t.cavityRadius - t.cavityBevel, b = 1 / (v - y * y), x = t.insertRadius * t.insertRadius, S = t.insertRadius - t.insertBevel, C = 1 / (x - S * S), w = t.keyHalfWidth - t.keyCorner, T = t.keyHalfHeight - t.keyCorner, E = t.keyCorner * t.keyCorner, D = t.keyCorner - t.keyBevel, O = 1 / (E - D * D), k = t.webHalfWidth - t.webCorner, A = t.webHalfHeight - t.webCorner, j = t.webCorner * t.webCorner, M = t.webCorner - t.webBevel, N = 1 / (j - M * M), P = Math.cos(n * t.upperDegrees / 360), F = Math.sin(n * t.upperDegrees / 360), I = Math.cos(n * t.lowerDegrees / 360), L = Math.sin(n * t.lowerDegrees / 360), R = t.slotHalfWidth - t.slotCorner, z = t.slotHalfHeight - t.slotCorner, ee = t.slotCorner * t.slotCorner, te = t.slotCorner - t.slotBevel, ne = 1 / (ee - te * te), B = t.bulgeRadius * t.bulgeRadius, V = t.bulgeRadius - t.bulgeBevel, H = 1 / (B - V * V), U = Math.max(t.slotHalfWidth, t.bulgeRadius), re = Math.max(t.slotHalfHeight, t.bulgeRadius), ie = Math.hypot(t.rowSlope, 1), ae = t.slotCorner * ie, W = t.bulgeRadius * ie, oe = Math.max(W, R * Math.abs(-t.rowSlope * P - F) + z * Math.abs(-t.rowSlope * F + P) + ae), se = Math.max(W, R * Math.abs(-t.rowSlope * I - L) + z * Math.abs(-t.rowSlope * L + I) + ae), ce = Math.max(W, R * Math.abs(I + t.rowSlope * L) + z * Math.abs(L - t.rowSlope * I) + ae), le = Math.max(W, R + z * t.rowSlope + ae), ue = .5 * (t.upperSocketY - t.rowSlope * t.upperSocketX + oe + t.lowerSocketY - t.rowSlope * t.lowerSocketX - se), de = .5 * (-t.rowSlope * t.bottomSocketY + le + t.lowerSocketX - t.rowSlope * t.lowerSocketY - ce), fe = t.bodyTone - t.backingTone, pe = t.bodyHeight - t.backingHeight, me = t.roughness - t.backingRoughness, he = t.bodyAO - t.backingAO, ge = t.rimHeight - t.bodyHeight, _e = t.rimRoughness - t.roughness, ve = t.rimAO - t.bodyAO, ye = t.cavityHeight - t.rimHeight, be = t.cavityRoughness - t.rimRoughness, xe = t.cavityAO - t.rimAO, Se = t.insertHeight - t.cavityHeight, Ce = t.insertRoughness - t.cavityRoughness, we = t.insertAO - t.cavityAO, Te = t.floorTone - t.bodyTone, Ee = t.floorHeight - t.insertHeight, De = t.floorRoughness - t.insertRoughness, Oe = t.floorAO - t.insertAO;
 				for (let e = 0; e < t.cells; e++) for (let a = 0; a < t.cells; a++) {
 					let o = (e * t.cells + a) * 4, s = t.minScale + (t.maxScale - t.minScale) * hash(a, e, i ^ 140291), c = n * hash(a, e, i ^ 140293);
 					r[o] = .5 + t.jitter * (2 * hash(a, e, i ^ 140295) - 1), r[o + 1] = .5 + t.jitter * (2 * hash(a, e, i ^ 140297) - 1), r[o + 2] = Math.cos(c) / s, r[o + 3] = Math.sin(c) / s;
@@ -14221,10 +14251,10 @@ function createSurfaceSampler(t, i) {
 					J = t.backingTone, Y = t.backingHeight, X = t.backingRoughness, Z = t.backingAO, $ = 0;
 					let e = G * t.cells, n = K * t.cells, i = Math.floor(e), l = Math.floor(n), f = (l * t.cells + i) * 4, g = e - i - r[f], y = n - l - r[f + 1], S = g * r[f + 2] + y * r[f + 3], D = y * r[f + 2] - g * r[f + 3], M = Math.abs(S), te = Math.abs(D);
 					if (M >= t.halfWidth || te >= t.halfHeight) return;
-					let B = Math.max(0, M - o), ae = Math.max(0, te - s), oe = D < m, U = oe ? M : Math.abs(M - t.mountX), se = D - (oe ? t.upperMountY : t.lowerMountY), ce = (1 - smooth(clamp((d - U * U - se * se) * p))) * smooth(clamp((c - B * B - ae * ae) * u));
-					if (ce === 0) return;
-					let W = a(G, K);
-					J += ce * (fe + t.grainTone * W), Y += ce * (pe + t.grainHeight * W), X += ce * (me + t.grainRoughness * W), Z += ce * he - t.edgeAO * ce * (1 - ce);
+					let V = Math.max(0, M - o), ie = Math.max(0, te - s), ae = D < m, W = ae ? M : Math.abs(M - t.mountX), oe = D - (ae ? t.upperMountY : t.lowerMountY), se = (1 - smooth(clamp((d - W * W - oe * oe) * p))) * smooth(clamp((c - V * V - ie * ie) * u));
+					if (se === 0) return;
+					let ce = a(G, K);
+					J += se * (fe + t.grainTone * ce), Y += se * (pe + t.grainHeight * ce), X += se * (me + t.grainRoughness * ce), Z += se * he - t.edgeAO * se * (1 - se);
 					let le = D - t.faceY, ke = S * S + le * le;
 					if (ke >= h) return;
 					let Ae = smooth(clamp((h - ke) * _));
@@ -14245,13 +14275,13 @@ function createSurfaceSampler(t, i) {
 					if (Le === 0) return;
 					Y += Le * Se, X += Le * Ce, Z += Le * we - t.edgeAO * Le * (1 - Le);
 					let Re = M - t.rowSlope * le < de, ze = !Re && le - t.rowSlope * M < ue, Be = Re ? M : M - (ze ? t.upperSocketX : t.lowerSocketX), Ve = le - (Re ? t.bottomSocketY : ze ? t.upperSocketY : t.lowerSocketY), He = Re ? 1 : ze ? P : I, Ue = Re ? 0 : ze ? F : L, We = Be * He - Ve * Ue, Ge = Be * Ue + Ve * He, Ke = Math.abs(We), qe = Math.abs(Ge);
-					if (Ke >= H || qe >= ie) return;
-					let Je = Math.max(0, Ke - R), Ye = Math.max(0, qe - z), Xe = Ke < t.slotHalfWidth && qe < t.slotHalfHeight ? smooth(clamp((ee - Je * Je - Ye * Ye) * ne)) : 0, Ze = smooth(clamp((re - We * We - Ge * Ge) * V)), Qe = Xe + Ze - Xe * Ze;
+					if (Ke >= U || qe >= re) return;
+					let Je = Math.max(0, Ke - R), Ye = Math.max(0, qe - z), Xe = Ke < t.slotHalfWidth && qe < t.slotHalfHeight ? smooth(clamp((ee - Je * Je - Ye * Ye) * ne)) : 0, Ze = smooth(clamp((B - We * We - Ge * Ge) * H)), Qe = Xe + Ze - Xe * Ze;
 					Qe !== 0 && (J += Qe * Te, Y += Qe * Ee, X += Qe * De, Z += Qe * Oe - t.edgeAO * Qe * (1 - Qe));
 				};
 			}
 			case `xlrfemalefaces`: {
-				let t = require_materials.proceduralMaterialPresets.xlrfemalefaces, r = new Float64Array(t.cells * t.cells * 4), a = cachedNoise(96, 96, i ^ 140033), o = t.halfWidth - t.bodyCorner, s = t.halfHeight - t.bodyCorner, c = t.bodyCorner * t.bodyCorner, l = t.bodyCorner - t.bodyBevel, u = 1 / (c - l * l), d = t.mountRadius * t.mountRadius, f = t.mountRadius - t.mountBevel, p = 1 / (d - f * f), m = t.rimRadius * t.rimRadius, h = t.rimRadius - t.rimBevel, g = 1 / (m - h * h), _ = t.cavityRadius * t.cavityRadius, v = t.cavityRadius - t.cavityBevel, y = 1 / (_ - v * v), b = t.faceRadius * t.faceRadius, x = t.faceRadius - t.faceBevel, S = 1 / (b - x * x), C = t.collarRadius * t.collarRadius, w = t.collarRadius - t.collarBevel, T = 1 / (C - w * w), E = t.collarInnerRadius * t.collarInnerRadius, D = t.collarInnerRadius - t.collarInnerBevel, O = D * D, k = 1 / (E - O), A = 1 / t.gapSideBevel, j = t.keyHalfWidth - t.keyCorner, M = t.keyHalfHeight - t.keyCorner, N = t.keyCorner * t.keyCorner, P = t.keyCorner - t.keyBevel, F = 1 / (N - P * P), I = t.latchHalfWidth - t.latchCorner, L = t.latchHalfHeight - t.latchCorner, R = t.latchCorner * t.latchCorner, z = t.latchCorner - t.latchBevel, ee = 1 / (R - z * z), te = t.socketRadius * t.socketRadius, ne = t.socketRadius - t.socketBevel, re = 1 / (te - ne * ne), B = (t.upperY + t.lowerY) * .5, V = t.metalTone - t.backingTone, H = t.bodyHeight - t.backingHeight, ie = t.roughness - t.backingRoughness, ae = t.bodyAO - t.backingAO, oe = t.rimHeight - t.bodyHeight, U = t.rimRoughness - t.roughness, se = t.rimAO - t.bodyAO, ce = t.cavityTone - t.metalTone, W = t.cavityHeight - t.rimHeight, le = t.cavityRoughness - t.rimRoughness, ue = t.cavityAO - t.rimAO, de = t.faceTone - t.cavityTone, fe = t.faceHeight - t.cavityHeight, pe = t.faceRoughness - t.cavityRoughness, me = t.faceAO - t.cavityAO, he = t.metalTone - t.cavityTone, ge = t.collarHeight - t.cavityHeight, _e = t.collarRoughness - t.cavityRoughness, ve = t.collarAO - t.cavityAO, ye = t.metalTone - t.faceTone, be = t.keyHeight - t.faceHeight, xe = t.keyRoughness - t.faceRoughness, Se = t.keyAO - t.faceAO, Ce = t.latchHeight - t.bodyHeight, we = t.latchRoughness - t.roughness, Te = t.latchAO - t.bodyAO, Ee = t.socketTone - t.faceTone, De = t.socketHeight - t.faceHeight, Oe = t.socketRoughness - t.faceRoughness, ke = t.socketAO - t.faceAO;
+				let t = require_materials.proceduralMaterialPresets.xlrfemalefaces, r = new Float64Array(t.cells * t.cells * 4), a = cachedNoise(96, 96, i ^ 140033), o = t.halfWidth - t.bodyCorner, s = t.halfHeight - t.bodyCorner, c = t.bodyCorner * t.bodyCorner, l = t.bodyCorner - t.bodyBevel, u = 1 / (c - l * l), d = t.mountRadius * t.mountRadius, f = t.mountRadius - t.mountBevel, p = 1 / (d - f * f), m = t.rimRadius * t.rimRadius, h = t.rimRadius - t.rimBevel, g = 1 / (m - h * h), _ = t.cavityRadius * t.cavityRadius, v = t.cavityRadius - t.cavityBevel, y = 1 / (_ - v * v), b = t.faceRadius * t.faceRadius, x = t.faceRadius - t.faceBevel, S = 1 / (b - x * x), C = t.collarRadius * t.collarRadius, w = t.collarRadius - t.collarBevel, T = 1 / (C - w * w), E = t.collarInnerRadius * t.collarInnerRadius, D = t.collarInnerRadius - t.collarInnerBevel, O = D * D, k = 1 / (E - O), A = 1 / t.gapSideBevel, j = t.keyHalfWidth - t.keyCorner, M = t.keyHalfHeight - t.keyCorner, N = t.keyCorner * t.keyCorner, P = t.keyCorner - t.keyBevel, F = 1 / (N - P * P), I = t.latchHalfWidth - t.latchCorner, L = t.latchHalfHeight - t.latchCorner, R = t.latchCorner * t.latchCorner, z = t.latchCorner - t.latchBevel, ee = 1 / (R - z * z), te = t.socketRadius * t.socketRadius, ne = t.socketRadius - t.socketBevel, B = 1 / (te - ne * ne), V = (t.upperY + t.lowerY) * .5, H = t.metalTone - t.backingTone, U = t.bodyHeight - t.backingHeight, re = t.roughness - t.backingRoughness, ie = t.bodyAO - t.backingAO, ae = t.rimHeight - t.bodyHeight, W = t.rimRoughness - t.roughness, oe = t.rimAO - t.bodyAO, se = t.cavityTone - t.metalTone, ce = t.cavityHeight - t.rimHeight, le = t.cavityRoughness - t.rimRoughness, ue = t.cavityAO - t.rimAO, de = t.faceTone - t.cavityTone, fe = t.faceHeight - t.cavityHeight, pe = t.faceRoughness - t.cavityRoughness, me = t.faceAO - t.cavityAO, he = t.metalTone - t.cavityTone, ge = t.collarHeight - t.cavityHeight, _e = t.collarRoughness - t.cavityRoughness, ve = t.collarAO - t.cavityAO, ye = t.metalTone - t.faceTone, be = t.keyHeight - t.faceHeight, xe = t.keyRoughness - t.faceRoughness, Se = t.keyAO - t.faceAO, Ce = t.latchHeight - t.bodyHeight, we = t.latchRoughness - t.roughness, Te = t.latchAO - t.bodyAO, Ee = t.socketTone - t.faceTone, De = t.socketHeight - t.faceHeight, Oe = t.socketRoughness - t.faceRoughness, ke = t.socketAO - t.faceAO;
 				for (let e = 0; e < t.cells; e++) for (let a = 0; a < t.cells; a++) {
 					let o = (e * t.cells + a) * 4, s = t.minScale + (t.maxScale - t.minScale) * hash(a, e, i ^ 140035), c = n * hash(a, e, i ^ 140037);
 					r[o] = .5 + t.jitter * (2 * hash(a, e, i ^ 140039) - 1), r[o + 1] = .5 + t.jitter * (2 * hash(a, e, i ^ 140041) - 1), r[o + 2] = Math.cos(c) / s, r[o + 3] = Math.sin(c) / s;
@@ -14263,7 +14293,7 @@ function createSurfaceSampler(t, i) {
 					let z = Math.max(0, D - o), ne = Math.max(0, P - s), Ae = x - (w < 0 ? -t.mountX : t.mountX), je = w - (w < 0 ? -t.mountY : t.mountY), Me = (1 - smooth(clamp((d - Ae * Ae - je * je) * p))) * smooth(clamp((c - z * z - ne * ne) * u));
 					if (Me === 0) return;
 					let Ne = a(G, K);
-					J += Me * (V + t.grainTone * Ne), Y += Me * (H + t.grainHeight * Ne), X += Me * (ie + t.grainRoughness * Ne), Z += Me * ae - t.edgeAO * Me * (1 - Me), $ = Me;
+					J += Me * (H + t.grainTone * Ne), Y += Me * (U + t.grainHeight * Ne), X += Me * (re + t.grainRoughness * Ne), Z += Me * ie - t.edgeAO * Me * (1 - Me), $ = Me;
 					let Pe = Math.abs(w - t.latchY);
 					if (D < t.latchHalfWidth && Pe < t.latchHalfHeight) {
 						let e = Math.max(0, D - I), n = Math.max(0, Pe - L), r = smooth(clamp((R - e * e - n * n) * ee));
@@ -14272,9 +14302,9 @@ function createSurfaceSampler(t, i) {
 					let Fe = w - t.faceY, Ie = x * x + Fe * Fe;
 					if (Ie >= m) return;
 					let Le = smooth(clamp((m - Ie) * g));
-					Y += Le * oe, X += Le * U, Z += Le * se - t.edgeAO * Le * (1 - Le);
+					Y += Le * ae, X += Le * W, Z += Le * oe - t.edgeAO * Le * (1 - Le);
 					let Re = smooth(clamp((_ - Ie) * y));
-					if (Re === 0 || (J += Re * ce, Y += Re * W, X += Re * le, Z += Re * ue - t.edgeAO * Re * (1 - Re), $ -= Re, Ie >= C)) return;
+					if (Re === 0 || (J += Re * se, Y += Re * ce, X += Re * le, Z += Re * ue - t.edgeAO * Re * (1 - Re), $ -= Re, Ie >= C)) return;
 					let ze = Ie < b ? smooth(clamp((b - Ie) * S)) : 0, Be = Ie <= O ? 0 : (smooth(clamp((C - Ie) * T)) - smooth(clamp((E - Ie) * k))) * (1 - (Fe < 0 ? smooth(clamp((t.gapHalfWidth - D) * A)) : 0));
 					if (J += ze * de, Y += ze * fe, X += ze * pe, Z += ze * me - t.edgeAO * ze * (1 - ze), Be > 0 && (J += Be * (he - ze * de), Y += Be * (ge - ze * fe), X += Be * (_e - ze * pe), Z += Be * (ve - ze * me + t.edgeAO * ze * (1 - ze)) - t.edgeAO * Be * (1 - Be), $ += Be), ze === 0) return;
 					let Ve = Math.abs(Fe - t.keyY);
@@ -14285,14 +14315,14 @@ function createSurfaceSampler(t, i) {
 							return;
 						}
 					}
-					let He = Fe < B, Ue = He ? Math.abs(D - t.socketX) : D, We = Math.abs(Fe - (He ? t.upperY : t.lowerY));
+					let He = Fe < V, Ue = He ? Math.abs(D - t.socketX) : D, We = Math.abs(Fe - (He ? t.upperY : t.lowerY));
 					if (Ue >= t.socketRadius || We >= t.socketRadius) return;
-					let Ge = smooth(clamp((te - Ue * Ue - We * We) * re));
+					let Ge = smooth(clamp((te - Ue * Ue - We * We) * B));
 					Ge !== 0 && (J += Ge * Ee, Y += Ge * De, X += Ge * Oe, Z += Ge * ke - t.edgeAO * Ge * (1 - Ge));
 				};
 			}
 			case `bncfemalefaces`: {
-				let t = require_materials.proceduralMaterialPresets.bncfemalefaces, r = new Float64Array(t.cells * t.cells * 4), a = cachedNoise(96, 96, i ^ 139777), o = t.flangeRadius * t.flangeRadius, s = t.flangeRadius - t.flangeBevel, c = 1 / (o - s * s), l = t.bodyRadius * t.bodyRadius, u = t.bodyRadius - t.bodyBevel, d = 1 / (l - u * u), f = t.studHalfWidth - t.studCorner, p = t.studHalfHeight - t.studCorner, m = t.studCorner * t.studCorner, h = t.studCorner - t.studBevel, g = 1 / (m - h * h), _ = t.cavityRadius * t.cavityRadius, v = t.cavityRadius - t.cavityBevel, y = 1 / (_ - v * v), b = t.insulatorRadius * t.insulatorRadius, x = t.insulatorRadius - t.insulatorBevel, S = 1 / (b - x * x), C = t.contactRadius * t.contactRadius, w = t.contactRadius - t.contactBevel, T = 1 / (C - w * w), E = t.holeRadius * t.holeRadius, D = t.holeRadius - t.holeBevel, O = 1 / (E - D * D), k = t.metalTone - t.backingTone, A = t.flangeHeight - t.backingHeight, j = t.flangeRoughness - t.backingRoughness, M = t.flangeAO - t.backingAO, N = t.bodyHeight - t.flangeHeight, P = t.roughness - t.flangeRoughness, F = t.bodyAO - t.flangeAO, I = t.studHeight - t.flangeHeight, L = t.studRoughness - t.flangeRoughness, R = t.studAO - t.flangeAO, z = t.cavityHeight - t.bodyHeight, ee = t.cavityRoughness - t.roughness, te = t.cavityAO - t.bodyAO, ne = t.insulatorTone - t.metalTone, re = t.insulatorHeight - t.cavityHeight, B = t.insulatorRoughness - t.cavityRoughness, V = t.insulatorAO - t.cavityAO, H = t.contactTone - t.insulatorTone, ie = t.contactHeight - t.insulatorHeight, ae = t.contactRoughness - t.insulatorRoughness, oe = t.contactAO - t.insulatorAO, U = t.holeTone - t.contactTone, se = t.holeHeight - t.contactHeight, ce = t.holeRoughness - t.contactRoughness, W = t.holeAO - t.contactAO;
+				let t = require_materials.proceduralMaterialPresets.bncfemalefaces, r = new Float64Array(t.cells * t.cells * 4), a = cachedNoise(96, 96, i ^ 139777), o = t.flangeRadius * t.flangeRadius, s = t.flangeRadius - t.flangeBevel, c = 1 / (o - s * s), l = t.bodyRadius * t.bodyRadius, u = t.bodyRadius - t.bodyBevel, d = 1 / (l - u * u), f = t.studHalfWidth - t.studCorner, p = t.studHalfHeight - t.studCorner, m = t.studCorner * t.studCorner, h = t.studCorner - t.studBevel, g = 1 / (m - h * h), _ = t.cavityRadius * t.cavityRadius, v = t.cavityRadius - t.cavityBevel, y = 1 / (_ - v * v), b = t.insulatorRadius * t.insulatorRadius, x = t.insulatorRadius - t.insulatorBevel, S = 1 / (b - x * x), C = t.contactRadius * t.contactRadius, w = t.contactRadius - t.contactBevel, T = 1 / (C - w * w), E = t.holeRadius * t.holeRadius, D = t.holeRadius - t.holeBevel, O = 1 / (E - D * D), k = t.metalTone - t.backingTone, A = t.flangeHeight - t.backingHeight, j = t.flangeRoughness - t.backingRoughness, M = t.flangeAO - t.backingAO, N = t.bodyHeight - t.flangeHeight, P = t.roughness - t.flangeRoughness, F = t.bodyAO - t.flangeAO, I = t.studHeight - t.flangeHeight, L = t.studRoughness - t.flangeRoughness, R = t.studAO - t.flangeAO, z = t.cavityHeight - t.bodyHeight, ee = t.cavityRoughness - t.roughness, te = t.cavityAO - t.bodyAO, ne = t.insulatorTone - t.metalTone, B = t.insulatorHeight - t.cavityHeight, V = t.insulatorRoughness - t.cavityRoughness, H = t.insulatorAO - t.cavityAO, U = t.contactTone - t.insulatorTone, re = t.contactHeight - t.insulatorHeight, ie = t.contactRoughness - t.insulatorRoughness, ae = t.contactAO - t.insulatorAO, W = t.holeTone - t.contactTone, oe = t.holeHeight - t.contactHeight, se = t.holeRoughness - t.contactRoughness, ce = t.holeAO - t.contactAO;
 				for (let e = 0; e < t.cells; e++) for (let a = 0; a < t.cells; a++) {
 					let o = (e * t.cells + a) * 4, s = t.minScale + (t.maxScale - t.minScale) * hash(a, e, i ^ 139779), c = n * hash(a, e, i ^ 139781);
 					r[o] = .5 + t.jitter * (2 * hash(a, e, i ^ 139783) - 1), r[o + 1] = .5 + t.jitter * (2 * hash(a, e, i ^ 139785) - 1), r[o + 2] = Math.cos(c) / s, r[o + 3] = Math.sin(c) / s;
@@ -14316,12 +14346,12 @@ function createSurfaceSampler(t, i) {
 					Y += _e * z, X += _e * ee, Z += _e * te - t.edgeAO * _e * (1 - _e);
 					let ve = smooth(clamp((b - D) * S));
 					if (ve === 0) return;
-					J += ve * ne, Y += ve * re, X += ve * B, Z += ve * V - t.edgeAO * ve * (1 - ve), $ -= ve;
+					J += ve * ne, Y += ve * B, X += ve * V, Z += ve * H - t.edgeAO * ve * (1 - ve), $ -= ve;
 					let ye = smooth(clamp((C - D) * T));
 					if (ye === 0) return;
-					J += ye * H, Y += ye * ie, X += ye * ae, Z += ye * oe - t.edgeAO * ye * (1 - ye), $ += ye;
+					J += ye * U, Y += ye * re, X += ye * ie, Z += ye * ae - t.edgeAO * ye * (1 - ye), $ += ye;
 					let be = smooth(clamp((E - D) * O));
-					be !== 0 && (J += be * U, Y += be * se, X += be * ce, Z += be * W - t.edgeAO * be * (1 - be), $ -= be);
+					be !== 0 && (J += be * W, Y += be * oe, X += be * se, Z += be * ce - t.edgeAO * be * (1 - be), $ -= be);
 				};
 			}
 			case `iecc14inlets`: {
@@ -14332,48 +14362,48 @@ function createSurfaceSampler(t, i) {
 				}
 				return () => {
 					J = t.backingTone, Y = t.backingHeight, X = t.backingRoughness, Z = t.backingAO, $ = 0;
-					let e = G * t.cells, n = K * t.cells, i = Math.floor(e), l = Math.floor(n), m = (l * t.cells + i) * 4, x = e - i - r[m], I = n - l - r[m + 1], L = x * r[m + 2] + I * r[m + 3], R = I * r[m + 2] - x * r[m + 3], z = Math.abs(L), ee = Math.abs(R), te = Math.max(0, z - o), ne = Math.max(0, ee - s), re = smooth(clamp((c - te * te - ne * ne) * u));
+					let e = G * t.cells, n = K * t.cells, i = Math.floor(e), l = Math.floor(n), m = (l * t.cells + i) * 4, x = e - i - r[m], I = n - l - r[m + 1], L = x * r[m + 2] + I * r[m + 3], R = I * r[m + 2] - x * r[m + 3], z = Math.abs(L), ee = Math.abs(R), te = Math.max(0, z - o), ne = Math.max(0, ee - s), B = smooth(clamp((c - te * te - ne * ne) * u));
+					if (B === 0) return;
+					let V = a(G, K);
+					J += B * (w + t.grainTone * V), Y += B * (T + t.grainHeight * V), X += B * (E + t.grainRoughness * V), Z += B * D - t.bodyContactAO * B * (1 - B);
+					let H = Math.max(0, z - d), U = Math.max(0, ee - f), re = smooth(clamp((p - H * H - U * U) * h)) * smooth(clamp((g - z + R) * _));
 					if (re === 0) return;
-					let B = a(G, K);
-					J += re * (w + t.grainTone * B), Y += re * (T + t.grainHeight * B), X += re * (E + t.grainRoughness * B), Z += re * D - t.bodyContactAO * re * (1 - re);
-					let V = Math.max(0, z - d), H = Math.max(0, ee - f), ie = smooth(clamp((p - V * V - H * H) * h)) * smooth(clamp((g - z + R) * _));
-					if (ie === 0) return;
-					J += ie * O, Y += ie * k, X += ie * A, Z += ie * j - t.mouthContactAO * ie * (1 - ie);
-					let ae = R < C, oe = ae ? z : Math.abs(z - t.pinX), U = Math.abs(R - (ae ? t.topY : t.bottomY));
-					if (oe >= t.pinHalfWidth || U >= t.pinHalfHeight) return;
-					let se = Math.max(0, oe - v), ce = Math.max(0, U - y), W = smooth(clamp((b - se * se - ce * ce) * S));
-					W !== 0 && (J += W * M, Y += W * N, X += W * P, Z += W * F - t.pinContactAO * W * (1 - W), $ = W);
+					J += re * O, Y += re * k, X += re * A, Z += re * j - t.mouthContactAO * re * (1 - re);
+					let ie = R < C, ae = ie ? z : Math.abs(z - t.pinX), W = Math.abs(R - (ie ? t.topY : t.bottomY));
+					if (ae >= t.pinHalfWidth || W >= t.pinHalfHeight) return;
+					let oe = Math.max(0, ae - v), se = Math.max(0, W - y), ce = smooth(clamp((b - oe * oe - se * se) * S));
+					ce !== 0 && (J += ce * M, Y += ce * N, X += ce * P, Z += ce * F - t.pinContactAO * ce * (1 - ce), $ = ce);
 				};
 			}
 			case `dsubsocketfaces`: {
-				let t = require_materials.proceduralMaterialPresets.dsubsocketfaces, r = new Float64Array(t.cells * t.cells * 4), a = cachedNoise(96, 96, i ^ 139265), o = t.halfWidth - t.plateCorner, s = t.halfHeight - t.plateCorner, c = t.plateCorner * t.plateCorner, l = t.plateCorner - t.plateBevel, u = 1 / (c - l * l), d = 1 / t.shellBevel, f = 1 / t.faceBevel, p = 1 / t.pitch, m = (t.topSockets - 1) * .5, h = (t.bottomSockets - 1) * .5, g = t.socketRadius * t.socketRadius, _ = t.socketRadius - t.socketBevel, v = 1 / (g - _ * _), y = t.mountCollarRadius * t.mountCollarRadius, b = t.mountCollarRadius - t.mountCollarBevel, x = 1 / (y - b * b), S = t.mountRadius * t.mountRadius, C = t.mountRadius - t.mountBevel, w = 1 / (S - C * C), T = t.mountX - t.mountCollarRadius, E = t.plateTone - t.backingTone, D = t.plateHeight - t.backingHeight, O = t.roughness - t.backingRoughness, k = t.plateAO - t.backingAO, A = t.shellTone - t.plateTone, j = t.shellHeight - t.plateHeight, M = t.shellRoughness - t.roughness, N = t.shellAO - t.plateAO, P = t.faceTone - t.shellTone, F = t.faceHeight - t.shellHeight, I = t.faceRoughness - t.shellRoughness, L = t.faceAO - t.shellAO, R = t.socketTone - t.faceTone, z = t.socketHeight - t.faceHeight, ee = t.socketRoughness - t.faceRoughness, te = t.socketAO - t.faceAO, ne = t.collarTone - t.plateTone, re = t.collarHeight - t.plateHeight, B = t.collarRoughness - t.roughness, V = t.collarAO - t.plateAO, H = t.mountTone - t.collarTone, ie = t.mountHeight - t.collarHeight, ae = t.mountRoughness - t.collarRoughness, oe = t.mountAO - t.collarAO;
+				let t = require_materials.proceduralMaterialPresets.dsubsocketfaces, r = new Float64Array(t.cells * t.cells * 4), a = cachedNoise(96, 96, i ^ 139265), o = t.halfWidth - t.plateCorner, s = t.halfHeight - t.plateCorner, c = t.plateCorner * t.plateCorner, l = t.plateCorner - t.plateBevel, u = 1 / (c - l * l), d = 1 / t.shellBevel, f = 1 / t.faceBevel, p = 1 / t.pitch, m = (t.topSockets - 1) * .5, h = (t.bottomSockets - 1) * .5, g = t.socketRadius * t.socketRadius, _ = t.socketRadius - t.socketBevel, v = 1 / (g - _ * _), y = t.mountCollarRadius * t.mountCollarRadius, b = t.mountCollarRadius - t.mountCollarBevel, x = 1 / (y - b * b), S = t.mountRadius * t.mountRadius, C = t.mountRadius - t.mountBevel, w = 1 / (S - C * C), T = t.mountX - t.mountCollarRadius, E = t.plateTone - t.backingTone, D = t.plateHeight - t.backingHeight, O = t.roughness - t.backingRoughness, k = t.plateAO - t.backingAO, A = t.shellTone - t.plateTone, j = t.shellHeight - t.plateHeight, M = t.shellRoughness - t.roughness, N = t.shellAO - t.plateAO, P = t.faceTone - t.shellTone, F = t.faceHeight - t.shellHeight, I = t.faceRoughness - t.shellRoughness, L = t.faceAO - t.shellAO, R = t.socketTone - t.faceTone, z = t.socketHeight - t.faceHeight, ee = t.socketRoughness - t.faceRoughness, te = t.socketAO - t.faceAO, ne = t.collarTone - t.plateTone, B = t.collarHeight - t.plateHeight, V = t.collarRoughness - t.roughness, H = t.collarAO - t.plateAO, U = t.mountTone - t.collarTone, re = t.mountHeight - t.collarHeight, ie = t.mountRoughness - t.collarRoughness, ae = t.mountAO - t.collarAO;
 				for (let e = 0; e < t.cells; e++) for (let a = 0; a < t.cells; a++) {
 					let o = (e * t.cells + a) * 4, s = t.minScale + (t.maxScale - t.minScale) * hash(a, e, i ^ 139267), c = n * hash(a, e, i ^ 139269);
 					r[o] = .5 + t.jitter * (2 * hash(a, e, i ^ 139271) - 1), r[o + 1] = .5 + t.jitter * (2 * hash(a, e, i ^ 139273) - 1), r[o + 2] = Math.cos(c) / s, r[o + 3] = Math.sin(c) / s;
 				}
 				return () => {
 					J = t.backingTone, Y = t.backingHeight, X = t.backingRoughness, Z = t.backingAO, $ = 0;
-					let e = G * t.cells, n = K * t.cells, i = Math.floor(e), l = Math.floor(n), _ = (l * t.cells + i) * 4, b = e - i - r[_], C = n - l - r[_ + 1], U = b * r[_ + 2] + C * r[_ + 3], se = C * r[_ + 2] - b * r[_ + 3], ce = Math.abs(U), W = Math.abs(se), le = Math.max(0, ce - o), ue = Math.max(0, W - s), de = smooth(clamp((c - le * le - ue * ue) * u));
+					let e = G * t.cells, n = K * t.cells, i = Math.floor(e), l = Math.floor(n), _ = (l * t.cells + i) * 4, b = e - i - r[_], C = n - l - r[_ + 1], W = b * r[_ + 2] + C * r[_ + 3], oe = C * r[_ + 2] - b * r[_ + 3], se = Math.abs(W), ce = Math.abs(oe), le = Math.max(0, se - o), ue = Math.max(0, ce - s), de = smooth(clamp((c - le * le - ue * ue) * u));
 					if (de === 0) return;
 					let fe = a(G, K);
-					if (J += de * (E + t.grainTone * fe), Y += de * (D + t.grainHeight * fe), X += de * (O + t.grainRoughness * fe), Z += de * k - t.plateContactAO * de * (1 - de), $ = de, ce > T) {
-						let e = ce - t.mountX, n = e * e + se * se;
+					if (J += de * (E + t.grainTone * fe), Y += de * (D + t.grainHeight * fe), X += de * (O + t.grainRoughness * fe), Z += de * k - t.plateContactAO * de * (1 - de), $ = de, se > T) {
+						let e = se - t.mountX, n = e * e + oe * oe;
 						if (n < y) {
 							let e = smooth(clamp((y - n) * x)), t = smooth(clamp((S - n) * w));
-							J += e * ne + t * H, Y += e * re + t * ie, X += e * B + t * ae, Z += e * V + t * oe, $ -= t;
+							J += e * ne + t * U, Y += e * B + t * re, X += e * V + t * ie, Z += e * H + t * ae, $ -= t;
 						}
 					}
-					let pe = smooth(clamp((t.shellHalfHeight - W) * d)) * smooth(clamp((t.shellHalfWidth - t.taper * se - ce) * d));
+					let pe = smooth(clamp((t.shellHalfHeight - ce) * d)) * smooth(clamp((t.shellHalfWidth - t.taper * oe - se) * d));
 					if (pe === 0) return;
 					J += pe * A, Y += pe * j, X += pe * M, Z += pe * N - t.shellContactAO * pe * (1 - pe);
-					let me = smooth(clamp((t.faceHalfHeight - W) * f)) * smooth(clamp((t.faceHalfWidth - t.taper * se - ce) * f));
+					let me = smooth(clamp((t.faceHalfHeight - ce) * f)) * smooth(clamp((t.faceHalfWidth - t.taper * oe - se) * f));
 					if (me === 0) return;
 					J += me * P, Y += me * F, X += me * I, Z += me * L - t.faceContactAO * me * (1 - me), $ -= me;
-					let he = W - t.rowY;
+					let he = ce - t.rowY;
 					if (Math.abs(he) < t.socketRadius) {
-						let e = se < 0, n = e ? t.topSockets : t.bottomSockets, r = e ? m : h, i = Math.floor(U * p + r + .5);
+						let e = oe < 0, n = e ? t.topSockets : t.bottomSockets, r = e ? m : h, i = Math.floor(W * p + r + .5);
 						if (i >= 0 && i < n) {
-							let e = U - (i - r) * t.pitch, n = smooth(clamp((g - e * e - he * he) * v));
+							let e = W - (i - r) * t.pitch, n = smooth(clamp((g - e * e - he * he) * v));
 							J += n * R, Y += n * z, X += n * ee, Z += n * te;
 						}
 					}
@@ -19192,9 +19222,9 @@ function createSurfaceSampler(t, i) {
 			};
 			case `rosepetal`:
 			case `lilypetal`: return () => {
-				let e = t === `rosepetal`, r = e ? te(G, K) : 0, i = ne(G, K), a = Math.sin(n * (3 * G + .22 * Math.sin(n * K + o))), s = e ? 0 : Math.sin(n * (32 * G + .16 * Math.sin(n * 2 * K + o))), c = re * G, l = B * K, u = Math.floor(c), d = Math.floor(l), f = 0;
+				let e = t === `rosepetal`, r = e ? te(G, K) : 0, i = ne(G, K), a = Math.sin(n * (3 * G + .22 * Math.sin(n * K + o))), s = e ? 0 : Math.sin(n * (32 * G + .16 * Math.sin(n * 2 * K + o))), c = B * G, l = V * K, u = Math.floor(c), d = Math.floor(l), f = 0;
 				for (let t = -1; t <= 1; t++) for (let n = -1; n <= 1; n++) {
-					let r = u + n, i = d + t, a = ((i + B) % B * re + (r + re) % re) * 8, o = c - r - V[a], s = l - i - V[a + 1], p = (o * V[a + 2] + s * V[a + 3]) * V[a + 4], m = (s * V[a + 2] - o * V[a + 3]) * V[a + 5], g = clamp(1 - (e ? p * p + m * m : p * p * (1 + V[a + 7] * Math.sin(3 * m)) + m * m)), _ = g * g * g * V[a + 6];
+					let r = u + n, i = d + t, a = ((i + V) % V * B + (r + B) % B) * 8, o = c - r - H[a], s = l - i - H[a + 1], p = (o * H[a + 2] + s * H[a + 3]) * H[a + 4], m = (s * H[a + 2] - o * H[a + 3]) * H[a + 5], g = clamp(1 - (e ? p * p + m * m : p * p * (1 + H[a + 7] * Math.sin(3 * m)) + m * m)), _ = g * g * g * H[a + 6];
 					f += e ? _ : (1 - f) * _;
 				}
 				e ? (J = .48 + .16 * a + .08 * r, Y = .3 + .1 * a + .055 * f, X += .025 * f + .02 * (i - .5), Z = .98) : (J = .94 - .82 * f, Y = .3 + .025 * a + .012 * s, X += .025 * f + .012 * (i - .5), Z = .99);
@@ -19204,11 +19234,11 @@ function createSurfaceSampler(t, i) {
 				J = .12 + .8 * a, Y = .3 + .014 * s + .02 * Math.sin(n * (2 * G + .1 * Math.sin(n * K + o))), X += .014 * (t - .5), Z = .99;
 			};
 			case `cantaloupe`: return () => {
-				let e = ae(G, K), t = 7 * G + .38 * Math.sin(n * 3 * K + o), r = 7 * K + .34 * Math.sin(n * 2 * G - o), i = Math.floor(t), a = Math.floor(r), s = ie(G, K), c = 0;
+				let e = ie(G, K), t = 7 * G + .38 * Math.sin(n * 3 * K + o), r = 7 * K + .34 * Math.sin(n * 2 * G - o), i = Math.floor(t), a = Math.floor(r), s = re(G, K), c = 0;
 				for (let e = -1; e <= 1; e++) for (let n = -1; n <= 1; n++) {
-					let o = i + n, s = a + e, l = ((s + 7) % 7 * 7 + (o + 7) % 7) * 26, u = t - o - oe[l], d = r - s - oe[l + 1], f = smooth(clamp((1.21 - u * u) * 5)) * smooth(clamp((1.21 - d * d) * 5));
+					let o = i + n, s = a + e, l = ((s + 7) % 7 * 7 + (o + 7) % 7) * 26, u = t - o - ae[l], d = r - s - ae[l + 1], f = smooth(clamp((1.21 - u * u) * 5)) * smooth(clamp((1.21 - d * d) * 5));
 					for (let e = 0; e < 8; e++) {
-						let t = l + 2 + e * 3, n = oe[t + 2] - u * oe[t] - d * oe[t + 1];
+						let t = l + 2 + e * 3, n = ae[t + 2] - u * ae[t] - d * ae[t + 1];
 						f *= smooth(clamp((n - .035) * 6));
 					}
 					c += f;
@@ -19217,18 +19247,18 @@ function createSurfaceSampler(t, i) {
 				J = .14 + .12 * e + l * (.66 + .06 * s), Y = .12 + .012 * s + l * (.5 + .06 * s), X += .1 * l - .03 * c, Z = .9 + .1 * l;
 			};
 			case `dragonfruit`: return () => {
-				let e = 4 * G, t = 6 * K, n = Math.floor(e), r = Math.floor(t), i = ie(G, K), a = 0, o = 0, s = 0, c = 0;
+				let e = 4 * G, t = 6 * K, n = Math.floor(e), r = Math.floor(t), i = re(G, K), a = 0, o = 0, s = 0, c = 0;
 				for (let i = -1; i <= 1; i++) for (let l = -1; l <= 1; l++) {
-					let u = n + l, d = r + i, f = ((d + 6) % 6 * 4 + (u + 4) % 4) * 5, p = e - u - U[f], m = t - d - U[f + 1], h = (p * U[f + 2] - m * U[f + 3]) * 2.941176470588235, g = (m * U[f + 2] + p * U[f + 3]) * 1.4285714285714286, _ = h * h * (1 + .65 * g + .2 * g * g) + g * g, v = smooth(clamp(1 - _)), y = smooth(clamp((1 - _) * 5)), b = smooth(clamp((g - .05) * 2.5)), x = v * smooth(clamp((g + .35) * 1.5)), S = (y - v) * (1 - b);
-					a += v, o += (1 - o) * y * b * U[f + 4], s += x, c += S;
+					let u = n + l, d = r + i, f = ((d + 6) % 6 * 4 + (u + 4) % 4) * 5, p = e - u - W[f], m = t - d - W[f + 1], h = (p * W[f + 2] - m * W[f + 3]) * 2.941176470588235, g = (m * W[f + 2] + p * W[f + 3]) * 1.4285714285714286, _ = h * h * (1 + .65 * g + .2 * g * g) + g * g, v = smooth(clamp(1 - _)), y = smooth(clamp((1 - _) * 5)), b = smooth(clamp((g - .05) * 2.5)), x = v * smooth(clamp((g + .35) * 1.5)), S = (y - v) * (1 - b);
+					a += v, o += (1 - o) * y * b * W[f + 4], s += x, c += S;
 				}
 				J = .045 + .025 * i + .86 * o, Y = .16 + .008 * i + .11 * a + .48 * s - .07 * c, X += .1 * o + .04 * c, Z = 1 - .19 * c;
 			};
 			case `kiwiskin`: return () => {
-				let e = 36 * G, t = 36 * K, n = Math.floor(e), r = Math.floor(t), i = ie(G, K), a = 0, o = 0;
+				let e = 36 * G, t = 36 * K, n = Math.floor(e), r = Math.floor(t), i = re(G, K), a = 0, o = 0;
 				for (let i = -1; i <= 1; i++) for (let s = -1; s <= 1; s++) {
-					let c = n + s, l = r + i, u = ((l + 36) % 36 * 36 + (c + 36) % 36) * 5, d = e - c - se[u], f = t - l - se[u + 1], p = d * se[u + 2] + f * se[u + 3], m = f * se[u + 2] - d * se[u + 3], h = smooth(clamp(1 - p * p * 5.408328826392645 - m * m * 177.77777777777777)), g = p + .43, _ = smooth(clamp(1 - (g * g + m * m) * 69.44444444444444));
-					a += (1 - a) * h * se[u + 4], o += (1 - o) * _;
+					let c = n + s, l = r + i, u = ((l + 36) % 36 * 36 + (c + 36) % 36) * 5, d = e - c - oe[u], f = t - l - oe[u + 1], p = d * oe[u + 2] + f * oe[u + 3], m = f * oe[u + 2] - d * oe[u + 3], h = smooth(clamp(1 - p * p * 5.408328826392645 - m * m * 177.77777777777777)), g = p + .43, _ = smooth(clamp(1 - (g * g + m * m) * 69.44444444444444));
+					a += (1 - a) * h * oe[u + 4], o += (1 - o) * _;
 				}
 				J = .34 + .13 * i + .38 * a - .19 * o, Y = .15 + .016 * i + .23 * a - .085 * o, X += .055 * a - .025 * o, Z = 1 - .23 * o;
 			};
@@ -19303,7 +19333,7 @@ function createSurfaceSampler(t, i) {
 			case `giraffefur`:
 			case `tigerfur`:
 			case `cowhide`: return () => {
-				let r = W(G, K), i = le(G, K), a = G * 40, s = K * 32, c = Math.floor(a), l = Math.floor(s), u = 0;
+				let r = ce(G, K), i = le(G, K), a = G * 40, s = K * 32, c = Math.floor(a), l = Math.floor(s), u = 0;
 				for (let e = -1; e <= 1; e++) for (let t = -1; t <= 1; t++) {
 					let n = c + t, r = l + e, i = ((r + 32) % 32 * 40 + (n + 40) % 40) * 4, o = a - n - pe[i], d = s - r - pe[i + 1], f = (o * pe[i + 2] + d * pe[i + 3]) / .58, p = (d * pe[i + 2] - o * pe[i + 3]) / .13, m = smooth(clamp(1 - f * f - p * p));
 					u += (1 - u) * m;
@@ -19312,7 +19342,7 @@ function createSurfaceSampler(t, i) {
 					let t = require_materials.proceduralMaterialPresets.cowhide;
 					J = .04 + .92 * smooth(clamp(((1 - t.warpMix) * de(G, K) + t.warpMix * r - t.patchLow) * fe));
 				} else if (t === `tigerfur`) {
-					let e = me, t = K * e.rows, n = Math.floor(t), a = W(G, (n + .5) / e.rows), o = e.warp * (2 * a - 1), s = e.bandWidth + e.bandVariation * a, c = fract(t) - .5 - o, l = 1 - smooth(clamp((s * s - c * c) * ge));
+					let e = me, t = K * e.rows, n = Math.floor(t), a = ce(G, (n + .5) / e.rows), o = e.warp * (2 * a - 1), s = e.bandWidth + e.bandVariation * a, c = fract(t) - .5 - o, l = 1 - smooth(clamp((s * s - c * c) * ge));
 					if (l > 0) {
 						let t = (fract(G * e.forks + he[n * 2]) - .5) * _e;
 						if (Math.abs(t) < 1) {
@@ -21056,7 +21086,7 @@ function createSurfaceSampler(t, i) {
 			};
 		}
 		throw Error(`Procedural material ${t} has no sampler case in createSurfaceSampler.`);
-	}, cn = pick(), ln = !(rt || lt || ft || _t || xt || Dt || Mt || It || Bt || ce || Kt || Xt || H || ee || j || E || u || f || m || r.has(t)), un = i ^ 2747636419, dn = i ^ 2135587861;
+	}, cn = pick(), ln = !(rt || lt || ft || _t || xt || Dt || Mt || It || Bt || se || Kt || Xt || U || ee || j || E || u || f || m || r.has(t)), un = i ^ 2747636419, dn = i ^ 2135587861;
 	return (e, t, n) => {
 		G = fract(e), K = fract(t), an = nn ? noise(G, K, 4, 4, i) : 0, q = ln ? noise(G, K, 32, 32, un) : 0, on = rn ? noise(G, K, 64, 64, dn) : 0, J = an, Y = an, X = a.roughness, Z = 1, Q = 0, $ = sn, cn(), n.color = J, n.height = Y * a.relief, n.roughness = clamp(X), n.occlusion = Z, n.mortar = Q, n.metallic = $;
 	};

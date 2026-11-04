@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'tablutboard',
   'arnoldcatmap',
   'ninemensmorris',
   'carromboard',
@@ -48909,6 +48910,147 @@ export function createSurfaceSampler(
           color = clamp(p.tones[value]);
           height = clamp(p.heights[value]);
           roughness = clamp(p.inkRoughness);
+          occlusion = 1;
+        };
+      }
+      case 'tablutboard': {
+        const p = proceduralMaterialPresets.tablutboard,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0xcc001),
+          inverseSoft = 1 / p.edgeSoft,
+          norm = (x: number, y: number): number => Math.sqrt(x * x + y * y),
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          opening =
+            p.openings[
+              Math.floor(hash(101, 1, seed ^ 0xcc002) * p.openings.length)
+            ],
+          quarters = Math.floor(hash(101, 2, seed ^ 0xcc003) * 4),
+          last = p.side - 1,
+          grid = (p.side * p.cell) / 2,
+          half = grid + p.margin,
+          left = 0.5 - grid,
+          lineReach = p.lineHalf / p.cell,
+          // The position by rank from the first (0, at the bottom) and file from a: attackers A, defenders D, the king K.
+          position = Array.from({ length: p.side }, () =>
+            new Array<string>(p.side).fill('.'),
+          ),
+          place = (squares: string, letter: string): void => {
+            for (const square of squares.split(' '))
+              position[Number(square[1]) - 1][square.charCodeAt(0) - 97] =
+                letter;
+          };
+        place('d1 e1 f1 e2 d9 e9 f9 e8 a4 a5 a6 b5 i4 i5 i6 h5', 'A');
+        place('e3 e4 e6 e7 c5 d5 f5 g5', 'D');
+        place('e5', 'K');
+        for (const move of opening) {
+          position[Number(move[3]) - 1][move.charCodeAt(2) - 97] =
+            position[Number(move[1]) - 1][move.charCodeAt(0) - 97];
+          position[Number(move[1]) - 1][move.charCodeAt(0) - 97] = '.';
+        }
+        // The kind of each square as seen (the board turned a number of quarter turns, the first rank at the bottom when none): 0 plain, 1 a camp, 2 the throne or a corner; and the piece on it.
+        const squareKind = new Uint8Array(p.side * p.side),
+          pieceAt = new Uint8Array(p.side * p.side);
+        for (let rank = 0; rank <= last; rank++)
+          for (let file = 0; file <= last; file++) {
+            let column = file,
+              row = last - rank;
+            for (let turn = 0; turn < quarters; turn++)
+              [column, row] = [last - row, column];
+            const index = row * p.side + column,
+              corner =
+                (file === 0 || file === last) && (rank === 0 || rank === last),
+              throne = file === 4 && rank === 4,
+              // The camps: three squares along the edge in the middle of the side and the one before the middle of them.
+              camp =
+                (file >= 3 && file <= 5 && (rank === 0 || rank === last)) ||
+                (file === 4 && (rank === 1 || rank === last - 1)) ||
+                (rank >= 3 && rank <= 5 && (file === 0 || file === last)) ||
+                (rank === 4 && (file === 1 || file === last - 1));
+            squareKind[index] = corner || throne ? 2 : camp ? 1 : 0;
+            pieceAt[index] = ' ADK'.indexOf(
+              position[rank][file] === '.' ? ' ' : position[rank][file],
+            );
+          }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const outer = half + p.frame,
+            framed = cover(
+              Math.min(outer - Math.abs(fu - 0.5), outer - Math.abs(fv - 0.5)),
+            );
+          if (framed > 0) {
+            shade += (p.frameTone - shade) * framed;
+            elevation += (p.frameHeight - elevation) * framed;
+            rough += (p.inkRoughness - rough) * framed;
+            mask = framed;
+            const boardU = (fu - left) / p.cell,
+              boardV = (fv - left) / p.cell,
+              column = Math.min(last, Math.max(0, Math.floor(boardU))),
+              row = Math.min(last, Math.max(0, Math.floor(boardV))),
+              inside = cover(
+                Math.min(half - Math.abs(fu - 0.5), half - Math.abs(fv - 0.5)),
+              ),
+              kind = squareKind[row * p.side + column];
+            shade +=
+              ((kind === 2
+                ? p.markTone
+                : kind === 1
+                  ? p.campTone
+                  : p.boardTone) -
+                shade) *
+              inside;
+            elevation +=
+              ((kind === 2
+                ? p.markHeight
+                : kind === 1
+                  ? p.campHeight
+                  : p.boardHeight) -
+                elevation) *
+              inside;
+            // The lines between the squares (ten each way), the crossings painted once.
+            const lineColumn = Math.round(boardU),
+              lineRow = Math.round(boardV);
+            let line = 0;
+            if (boardV >= -lineReach && boardV <= p.side + lineReach)
+              line = cover(p.lineHalf - Math.abs(boardU - lineColumn) * p.cell);
+            if (boardU >= -lineReach && boardU <= p.side + lineReach)
+              line = Math.max(
+                line,
+                cover(p.lineHalf - Math.abs(boardV - lineRow) * p.cell),
+              );
+            shade += (p.lineTone - shade) * line;
+            elevation += (p.lineHeight - elevation) * line;
+            // The piece of the square (a disc; the king's a little larger).
+            const piece = pieceAt[row * p.side + column];
+            if (piece > 0) {
+              const radius = piece === 3 ? p.kingRadius : p.pieceRadius,
+                body = cover(
+                  radius -
+                    norm(
+                      (boardU - column - 0.5) * p.cell,
+                      (boardV - row - 0.5) * p.cell,
+                    ),
+                );
+              shade +=
+                ((piece === 1
+                  ? p.attackerTone
+                  : piece === 2
+                    ? p.defenderTone
+                    : p.kingTone) -
+                  shade) *
+                body;
+              elevation += (p.pieceHeight - elevation) * body;
+            }
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
           occlusion = 1;
         };
       }
