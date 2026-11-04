@@ -1136,6 +1136,7 @@ export type ProceduralMaterialKind =
   | 'celticinterlace'
   | 'trominotiling'
   | 'magicsquares'
+  | 'costasambiguity'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2520,6 +2521,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'celticinterlace',
   'trominotiling',
   'magicsquares',
+  'costasambiguity',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

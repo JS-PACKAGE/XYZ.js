@@ -52694,6 +52694,78 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'costasambiguity': {
+        const p = proceduralMaterialPresets.costasambiguity,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.primes.length,
+          group = Math.floor(unsigned / p.primes.length),
+          prime = p.primes[variant],
+          marks = prime - 1,
+          span = 2 * marks - 1,
+          // The number of pairs of marks of every displacement (the column is dx + marks - 1, the row dy + marks - 1).
+          counts = (() => {
+            // The primitive roots of the prime (the elements whose powers run through all of 1 to prime - 1).
+            const roots: number[] = [];
+            for (let g = 2; g < prime; g++) {
+              let power = 1,
+                order = 0;
+              do {
+                power = (power * g) % prime;
+                order++;
+              } while (power !== 1);
+              if (order === marks) roots.push(g);
+            }
+            const root =
+                roots[
+                  Math.floor(hash(0, 161, group ^ p.seedSalt) * roots.length)
+                ],
+              shift = Math.floor(hash(1, 161, group ^ p.seedSalt) * marks),
+              values: number[] = [];
+            let power = 1;
+            for (let k = 0; k < shift; k++) power = (power * root) % prime;
+            for (let i = 0; i < marks; i++) {
+              values.push(power - 1);
+              power = (power * root) % prime;
+            }
+            const table = new Int16Array(span * span);
+            for (let i = 0; i < marks; i++)
+              for (let j = 0; j < marks; j++)
+                table[
+                  (values[j] - values[i] + marks - 1) * span +
+                    (j - i + marks - 1)
+                ]++;
+            return table;
+          })(),
+          levelOf = (count: number): number => Math.min(count, 3) / 3;
+        return () => {
+          const x = fract(u) * span,
+            y = fract(v) * span,
+            i = Math.floor(x),
+            j = Math.floor(y),
+            count = counts[j * span + i],
+            level = levelOf(count),
+            grain = grainField(u, v);
+          let mask = 0;
+          if (count > 0) {
+            const radius = p.dotMin + (p.dotMax - p.dotMin) * level,
+              distance = Math.hypot(x - i - 0.5, y - j - 0.5);
+            mask = smooth(clamp((radius - distance) / p.edgeSoft + 0.5));
+          }
+          const tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+          color =
+            p.toneGround +
+            (tone - p.toneGround) * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -61631,6 +61703,7 @@ export function createSurfaceSampler(
     kind === 'celticinterlace' ||
     kind === 'trominotiling' ||
     kind === 'magicsquares' ||
+    kind === 'costasambiguity' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

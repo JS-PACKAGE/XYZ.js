@@ -1162,6 +1162,7 @@ const kinds: ProceduralMaterialKind[] = [
   'celticinterlace',
   'trominotiling',
   'magicsquares',
+  'costasambiguity',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -199621,6 +199622,339 @@ describe('Magic squares as numbers whose rows, columns and diagonals have one su
     expect(blue / (512 * 512)).toBeLessThan(70.2);
     expect(maxTilt).toBeGreaterThan(0.0149);
     expect(maxTilt).toBeLessThan(0.015);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Costas ambiguity as the thumbtack function of a Welch Costas array', () => {
+  const p = proceduralMaterialPresets.costasambiguity;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The number of marks of the array of a seed: the prime is primes[seed % 6] and the array has prime - 1 marks. */
+  const marksOf = (seed: number): number =>
+    p.primes[seed % p.primes.length] - 1;
+  /** The count class of every displacement (dx, dy), read back from the picture at the middle of the cell: 0 for an empty cell, else 1, 2 or 3 from the height (cellHeight times heightBase + heightSwing times the level, the level being count / 3 up to 1). The column is dx + marks - 1 and the row dy + marks - 1. */
+  const readCounts = (seed: number) => {
+    const marks = marksOf(seed),
+      span = 2 * marks - 1,
+      sample = createSurfaceSampler('costasambiguity', seed),
+      out = empty(),
+      counts: number[] = [];
+    for (let j = 0; j < span; j++)
+      for (let i = 0; i < span; i++) {
+        sample((i + 0.5) / span, (j + 0.5) / span, out);
+        if (1 - (1 - out.occlusion) / p.gapOcclusion < 0.5) {
+          counts.push(0);
+          continue;
+        }
+        const exact =
+          3 *
+          ((out.height / p.relief / p.cellHeight - p.heightBase) /
+            p.heightSwing);
+        expect(Math.abs(exact - Math.round(exact))).toBeLessThan(1e-6);
+        counts.push(Math.round(exact));
+      }
+    return { marks, span, counts };
+  };
+  /** A permutation of 0 to marks - 1 whose displacement vectors are exactly those of the cells with count 1, found by a depth-first search over the values placed one by one (every vector must be a cell of the picture and none may repeat). */
+  const findArray = (
+    marks: number,
+    span: number,
+    counts: number[],
+  ): number[] | null => {
+    const array: number[] = new Array(marks).fill(-1),
+      usedValue: boolean[] = new Array(marks).fill(false),
+      usedVector = new Set<number>(),
+      place = (i: number): boolean => {
+        if (i === marks) return true;
+        for (let value = 0; value < marks; value++) {
+          if (usedValue[value]) continue;
+          const added: number[] = [];
+          let fits = true;
+          for (let j = 0; j < i; j++) {
+            const dx = i - j,
+              dy = value - array[j],
+              key = dx * 1000 + dy;
+            if (
+              counts[(dy + marks - 1) * span + dx + marks - 1] !== 1 ||
+              usedVector.has(key)
+            ) {
+              fits = false;
+              break;
+            }
+            added.push(key);
+            usedVector.add(key);
+          }
+          if (fits) {
+            array[i] = value;
+            usedValue[value] = true;
+            if (place(i + 1)) return true;
+            usedValue[value] = false;
+          }
+          for (const key of added) usedVector.delete(key);
+        }
+        return false;
+      };
+    return place(0) ? array : null;
+  };
+  /** Whether array[i] + 1 = g^(i + shift) mod prime for some g and shift (a Welch array). */
+  const isWelch = (array: number[], prime: number): boolean => {
+    const marks = prime - 1;
+    for (let g = 2; g < prime; g++)
+      for (let shift = 0; shift < marks; shift++) {
+        let power = 1;
+        for (let k = 0; k < shift; k++) power = (power * g) % prime;
+        let fits = true;
+        for (let i = 0; i < marks && fits; i++) {
+          fits = array[i] === power - 1;
+          power = (power * g) % prime;
+        }
+        if (fits) return true;
+      }
+    return false;
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('costasambiguity', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('costasambiguity', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0152);
+      expect(low).toBeLessThan(0.0157);
+      expect(high).toBeGreaterThan(0.9588);
+      expect(high).toBeLessThan(0.9632);
+      expect(lit / 65536).toBeGreaterThan(0.0529);
+      expect(lit / 65536).toBeLessThan(0.0544);
+      expect(mean / 65536).toBeGreaterThan(0.0645);
+      expect(mean / 65536).toBeLessThan(0.0658);
+      expect(heightHigh).toBeGreaterThan(0.799);
+      expect(heightHigh).toBeLessThan(0.8001);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('shows the thumbtack ambiguity function of a Costas array: n at the middle and every other displacement at most once', () => {
+    for (let seed = 0; seed < 18; seed++) {
+      const { marks, span, counts } = readCounts(seed),
+        middle = (marks - 1) * span + (marks - 1);
+      // The middle cell holds the highest count class (the n coincidences of the displacement 0), no other cell does, and no cell has a count class 2.
+      expect(counts[middle]).toBe(3);
+      expect(counts.filter((count) => count === 3).length).toBe(1);
+      expect(counts.filter((count) => count === 2).length).toBe(0);
+      expect(counts.filter((count) => count === 1).length).toBe(
+        marks * (marks - 1),
+      );
+      for (let k = 0; k < counts.length; k++)
+        expect(counts[k]).toBe(counts[counts.length - 1 - k]);
+      // For a displacement dx there are marks - |dx| pairs of marks and all have other dy; the same for every dy.
+      for (let d = -(marks - 1); d <= marks - 1; d++) {
+        if (d === 0) continue;
+        let inColumn = 0,
+          inRow = 0;
+        for (let k = 0; k < span; k++) {
+          inColumn += Number(counts[k * span + d + marks - 1] === 1);
+          inRow += Number(counts[(d + marks - 1) * span + k] === 1);
+        }
+        expect(inColumn).toBe(marks - Math.abs(d));
+        expect(inRow).toBe(marks - Math.abs(d));
+      }
+    }
+  });
+  it('is the ambiguity function of a Welch array of the prime: a permutation found from the picture is f(i) = g^(i + shift) mod p - 1', () => {
+    for (let seed = 0; seed < 18; seed++) {
+      const { marks, span, counts } = readCounts(seed),
+        array = findArray(marks, span, counts);
+      expect(array).not.toBeNull();
+      expect([...(array as number[])].sort((a, b) => a - b)).toEqual(
+        Array.from({ length: marks }, (_, k) => k),
+      );
+      expect(isWelch(array as number[], marks + 1)).toBe(true);
+    }
+    // Without one of the displacements (dx > 0) there are fewer vectors than pairs of marks and the search must fail.
+    const { marks, span, counts } = readCounts(0),
+      removed = counts.findIndex(
+        (count, k) => count === 1 && (k % span) - (marks - 1) > 0,
+      );
+    expect(removed).toBeGreaterThanOrEqual(0);
+    counts[removed] = 0;
+    expect(findArray(marks, span, counts)).toBeNull();
+  });
+  it('agrees with the ideal dots of predicates away from their edges: ink, height, tone and occlusion', () => {
+    for (const seed of [0, 1, 2, 3, 4, 5]) {
+      const { span, counts } = readCounts(seed),
+        sample = createSurfaceSampler('costasambiguity', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const x = ((k * 0.61803398875) % 1) * span,
+          y = ((k * 0.41421356237) % 1) * span,
+          i = Math.floor(x),
+          j = Math.floor(y),
+          level = counts[j * span + i] / 3,
+          radius = p.dotMin + (p.dotMax - p.dotMin) * level,
+          distance = Math.hypot(x - i - 0.5, y - j - 0.5);
+        // Away from the smoothed edge of the dot (it runs from radius - edgeSoft / 2 to radius + edgeSoft / 2).
+        if (level > 0 && Math.abs(distance - radius) <= p.edgeSoft / 2 + 1e-9)
+          continue;
+        compared++;
+        const ink = level > 0 && distance < radius ? 1 : 0,
+          tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+        sample(x / span, y / span, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.heightBase + p.heightSwing * level),
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround + (tone - p.toneGround) * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      expect(compared).toBeGreaterThan(5700);
+    }
+  });
+  it('draws a different view per prime and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeGreaterThan(0.098);
+    expect(unlike(first, litGrid(1))).toBeLessThan(0.0981);
+    expect(unlike(first, litGrid(6))).toBeGreaterThan(0.0381);
+    expect(unlike(first, litGrid(6))).toBeLessThan(0.0382);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('costasambiguity', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 amber dot maps on dark navy with raised dots and shaded ground', () => {
+    const maps = generateProceduralMaps('costasambiguity', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(23.6);
+    expect(red / (512 * 512)).toBeLessThan(24.6);
+    expect(green / (512 * 512)).toBeGreaterThan(23.5);
+    expect(green / (512 * 512)).toBeLessThan(24.5);
+    expect(blue / (512 * 512)).toBeGreaterThan(31.6);
+    expect(blue / (512 * 512)).toBeLessThan(32.6);
+    expect(maxTilt).toBeGreaterThan(0.0865);
+    expect(maxTilt).toBeLessThan(0.0866);
     expect(invalid).toBe(0);
   });
 });

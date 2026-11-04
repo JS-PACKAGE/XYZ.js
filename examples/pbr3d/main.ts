@@ -1199,6 +1199,7 @@ try {
     'celticinterlace',
     'trominotiling',
     'magicsquares',
+    'costasambiguity',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
