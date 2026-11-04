@@ -78,16 +78,22 @@ function sandpileIdentity(size: number): Uint8Array {
       heights[i] -= 4 * toppled;
       const x = i % size,
         y = (i - x) / size;
-      for (const [exists, neighbour] of [
-        [x > 0, i - 1],
-        [x < size - 1, i + 1],
-        [y > 0, i - size],
-        [y < size - 1, i + size],
-      ] as const)
-        if (exists) {
-          heights[neighbour] += toppled;
-          if (heights[neighbour] >= 4) pending.push(neighbour);
-        }
+      if (x > 0) {
+        heights[i - 1] += toppled;
+        if (heights[i - 1] >= 4) pending.push(i - 1);
+      }
+      if (x < size - 1) {
+        heights[i + 1] += toppled;
+        if (heights[i + 1] >= 4) pending.push(i + 1);
+      }
+      if (y > 0) {
+        heights[i - size] += toppled;
+        if (heights[i - size] >= 4) pending.push(i - size);
+      }
+      if (y < size - 1) {
+        heights[i + size] += toppled;
+        if (heights[i + size] >= 4) pending.push(i + size);
+      }
     }
   };
   const full = new Int32Array(size * size).fill(6);
