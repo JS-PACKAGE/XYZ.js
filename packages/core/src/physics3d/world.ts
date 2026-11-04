@@ -421,7 +421,12 @@ export class PhysicsWorld3D {
     return joint;
   }
   removeJoint(joint: Joint3D): boolean {
-    const index = this.constraints.indexOf(joint);
+    // Reverse teardown (including collider unregister) removes the newest joint first.
+    const tail = this.constraints.length - 1;
+    const index =
+      tail >= 0 && this.constraints[tail] === joint
+        ? tail
+        : this.constraints.indexOf(joint);
     if (index < 0) return false;
     this.constraints.splice(index, 1);
     for (let side = 0; side < 2; side++) {
@@ -429,7 +434,8 @@ export class PhysicsWorld3D {
       if (!object) continue;
       const links = this.jointLinks.get(object);
       if (!links) continue;
-      const slot = links.indexOf(joint);
+      const last = links.length - 1;
+      const slot = links[last] === joint ? last : links.indexOf(joint);
       if (slot >= 0) links.splice(slot, 1);
       if (links.length === 0) this.jointLinks.delete(object);
     }
