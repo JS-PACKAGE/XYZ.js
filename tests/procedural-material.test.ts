@@ -1184,6 +1184,7 @@ const kinds: ProceduralMaterialKind[] = [
   'polyhexes',
   'polysticks',
   'alternatingsignmatrices',
+  'stilllifes',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -208422,6 +208423,389 @@ describe('Alternating sign matrices as every matrix of a kind drawn once', () =>
     expect(blue / (512 * 512)).toBeLessThan(14.1);
     expect(maxTilt).toBeGreaterThan(0.0865);
     expect(maxTilt).toBeLessThan(0.0866);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Still lifes as every still life of a box drawn once', () => {
+  const p = proceduralMaterialPresets.stilllifes;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The layout of the panels of a variant (seed % 6): slots of 1 / cols by 1 / rows, each with the box (width by height cells, at its top left) and the margin around it, drawn at one scale and centred in the slot. */
+  const geometry = (seed: number) => {
+    const variant = seed % p.widths.length,
+      width: number = p.widths[variant],
+      height: number = p.heights[variant],
+      cols: number = p.cols[variant],
+      rows: number = p.rows[variant],
+      scale = Math.min(
+        1 / (cols * (width + 2 * p.margin)),
+        1 / (rows * (height + 2 * p.margin)),
+      );
+    return {
+      width,
+      height,
+      kind: p.kinds[variant] as number,
+      cols,
+      rows,
+      scale,
+      originX: (1 / cols - scale * (width + 2 * p.margin)) / 2,
+      originY: (1 / rows - scale * (height + 2 * p.margin)) / 2,
+    };
+  };
+  type Geometry = ReturnType<typeof geometry>;
+  type Cell = [number, number];
+  const around: Cell[] = [
+    [-1, -1],
+    [0, -1],
+    [1, -1],
+    [-1, 0],
+    [1, 0],
+    [-1, 1],
+    [0, 1],
+    [1, 1],
+  ];
+  /** How many of the 8 neighbours of a cell are live cells of the pattern. */
+  const liveNeighbours = (cells: Cell[], [x, y]: Cell): number =>
+    around.filter(([dx, dy]) =>
+      cells.some(([a, b]) => a === x + dx && b === y + dy),
+    ).length;
+  /** The live cells of every panel slot of a seed read back from the picture (null for an empty slot): a cell is live where the height at its middle is not 0, and the height must be that of its number of live neighbours (2 or 3). */
+  const readPatterns = (seed: number): (Cell[] | null)[] => {
+    const g = geometry(seed),
+      sample = createSurfaceSampler('stilllifes', seed),
+      out = empty(),
+      patterns: (Cell[] | null)[] = [];
+    for (let slot = 0; slot < g.cols * g.rows; slot++) {
+      const col = slot % g.cols,
+        row = Math.floor(slot / g.cols),
+        cells: Cell[] = [],
+        levels: number[] = [];
+      for (let j = 0; j < g.height; j++)
+        for (let i = 0; i < g.width; i++) {
+          sample(
+            col / g.cols + g.originX + g.scale * (p.margin + i + 0.5),
+            row / g.rows + g.originY + g.scale * (p.margin + j + 0.5),
+            out,
+          );
+          const level = out.height / p.relief / p.cellHeight;
+          if (level === 0) continue;
+          cells.push([i, j]);
+          levels.push(level);
+        }
+      patterns.push(cells.length === 0 ? null : cells);
+      if (cells.length > 0)
+        cells.forEach((cell, k) =>
+          expect(levels[k]).toBeCloseTo(
+            p.levels[liveNeighbours(cells, cell) - 2],
+            9,
+          ),
+        );
+    }
+    return patterns;
+  };
+  /** Whether a pattern is a still life, from the rules: with a sparse set of live cells, the next generation (a cell with exactly 3 live neighbours is live, and so is a live cell with 2) is the same set. */
+  const isStill = (cells: Cell[]): boolean => {
+    const counts = new Map<string, number>();
+    for (const [x, y] of cells)
+      for (const [dx, dy] of around) {
+        const name = `${x + dx},${y + dy}`;
+        counts.set(name, (counts.get(name) ?? 0) + 1);
+      }
+    const alive = new Set(cells.map(([x, y]) => `${x},${y}`)),
+      next = new Set<string>();
+    for (const [name, count] of counts)
+      if (count === 3 || (count === 2 && alive.has(name))) next.add(name);
+    return (
+      next.size === alive.size && [...alive].every((name) => next.has(name))
+    );
+  };
+  const joined = (cells: Cell[]): boolean => {
+    const seen = new Set([0]),
+      stack = [0];
+    while (stack.length > 0) {
+      const a = stack.pop()!;
+      cells.forEach(([x, y], b) => {
+        if (
+          !seen.has(b) &&
+          Math.abs(x - cells[a][0]) <= 1 &&
+          Math.abs(y - cells[a][1]) <= 1
+        ) {
+          seen.add(b);
+          stack.push(b);
+        }
+      });
+    }
+    return seen.size === cells.length;
+  };
+  const patternName = (cells: Cell[]): string =>
+    cells
+      .map(([x, y]) => `${x},${y}`)
+      .sort()
+      .join(' ');
+  /** Every still life of the kind in the box by going through all the 2^(width times height) patterns and testing each by the rules. */
+  const allStillLifes = (g: Geometry): string[] => {
+    const found: string[] = [];
+    for (let pattern = 1; pattern < 2 ** (g.width * g.height); pattern++) {
+      const cells: Cell[] = [];
+      for (let k = 0; k < g.width * g.height; k++)
+        if (Math.floor(pattern / 2 ** k) % 2 === 1)
+          cells.push([k % g.width, Math.floor(k / g.width)]);
+      if (isStill(cells) && (g.kind === 0 || joined(cells)))
+        found.push(patternName(cells));
+    }
+    return found;
+  };
+  /** The grid of 256 by 256 colours above 0.2, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('stilllifes', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.2));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { high: 0.9637, lit: 0.1183, mean: 0.11724 }],
+      [1, { high: 0.9634, lit: 0.13234, mean: 0.11848 }],
+      [0xffffffff, { high: 0.9646, lit: 0.12503, mean: 0.11193 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('stilllifes', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.2);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0153);
+      expect(low).toBeLessThan(0.0158);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws every still life of the kind in the box exactly once, read back from the picture and compared with all the patterns tested by the rules', () => {
+    for (let seed = 0; seed < 12; seed++) {
+      const g = geometry(seed),
+        read = readPatterns(seed),
+        drawn = read.filter((cells): cells is Cell[] => cells !== null),
+        names = drawn.map(patternName);
+      for (const cells of drawn) {
+        expect(isStill(cells)).toBe(true);
+        if (g.kind === 1) expect(joined(cells)).toBe(true);
+      }
+      expect(new Set(names).size).toBe(drawn.length);
+      expect([...names].sort()).toEqual(allStillLifes(g).sort());
+      expect(read.slice(drawn.length).every((cells) => cells === null)).toBe(
+        true,
+      );
+    }
+    // The numbers: 11, 27, 82 and 91 still lifes with at least one live cell in boxes of 3 by 3, 3 by 4, 4 by 4 and 6 by 3, of which 74 in 4 by 4 and 69 in 6 by 3 have their live cells joined.
+    expect(
+      [0, 1, 2, 3, 4, 5].map(
+        (seed) => readPatterns(seed).filter((cells) => cells !== null).length,
+      ),
+    ).toEqual([11, 27, 82, 74, 91, 69]);
+  });
+  it('shuffles the panels by group without changing the set of patterns', () => {
+    for (const seed of [1, 2, 4]) {
+      const names = (s: number) =>
+          readPatterns(s).map((cells) =>
+            cells === null ? '-' : patternName(cells),
+          ),
+        first = names(seed),
+        second = names(seed + 6),
+        third = names(seed + 12);
+      expect(first).not.toEqual(second);
+      expect(second).not.toEqual(third);
+      expect([...first].sort()).toEqual([...second].sort());
+      expect([...first].sort()).toEqual([...third].sort());
+    }
+  });
+  it('agrees with the ideal tiles and gaps away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5]) {
+      const g = geometry(seed),
+        patterns = readPatterns(seed),
+        sample = createSurfaceSampler('stilllifes', seed),
+        out = empty(),
+        half = p.gapWidth / 2;
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          col = Math.min(g.cols - 1, Math.floor(u * g.cols)),
+          row = Math.min(g.rows - 1, Math.floor(v * g.rows)),
+          cells = patterns[row * g.cols + col],
+          x = (u - col / g.cols - g.originX) / g.scale - p.margin,
+          y = (v - row / g.rows - g.originY) / g.scale - p.margin,
+          i = Math.floor(x),
+          j = Math.floor(y);
+        let ink = 0,
+          level = 1,
+          near = false;
+        if (cells !== null && cells.some(([a, b]) => a === i && b === j)) {
+          const sides = [x - i, i + 1 - x, y - j, j + 1 - y];
+          if (
+            sides.some(
+              (distance) => distance > half && distance < half + p.edgeSoft,
+            )
+          )
+            near = true;
+          ink = sides.every((distance) => distance > half) ? 1 : 0;
+          level = liveNeighbours(cells, [i, j]) - 2;
+        }
+        if (near) continue;
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief * p.cellHeight * ink * p.levels[level],
+          12,
+        );
+        expect(
+          Math.abs(
+            out.color - (p.toneGround * (1 - ink) + p.tones[level] * ink),
+          ),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(5300);
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeGreaterThan(0.2112);
+    expect(unlike(first, litGrid(1))).toBeLessThan(0.2113);
+    expect(unlike(first, litGrid(6))).toBeGreaterThan(0.0688);
+    expect(unlike(first, litGrid(6))).toBeLessThan(0.0689);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('stilllifes', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 blue still life maps on dark navy with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('stilllifes', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(19);
+    expect(red / (512 * 512)).toBeLessThan(20);
+    expect(green / (512 * 512)).toBeGreaterThan(35.5);
+    expect(green / (512 * 512)).toBeLessThan(36.5);
+    expect(blue / (512 * 512)).toBeGreaterThan(54.4);
+    expect(blue / (512 * 512)).toBeLessThan(55.4);
+    expect(maxTilt).toBeGreaterThan(0.0616);
+    expect(maxTilt).toBeLessThan(0.0617);
     expect(invalid).toBe(0);
   });
 });

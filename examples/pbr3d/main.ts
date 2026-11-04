@@ -1221,6 +1221,7 @@ try {
     'polyhexes',
     'polysticks',
     'alternatingsignmatrices',
+    'stilllifes',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

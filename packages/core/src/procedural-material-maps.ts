@@ -55342,6 +55342,139 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'stilllifes': {
+        const p = proceduralMaterialPresets.stilllifes,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.widths.length,
+          group = Math.floor(unsigned / p.widths.length),
+          width: number = p.widths[variant],
+          height0: number = p.heights[variant],
+          kind: number = p.kinds[variant],
+          cols = p.cols[variant],
+          rows = p.rows[variant],
+          // Every still life in the box, found by going through all the patterns of the box: with a ring of dead cells around it, a pattern is one when no cell of the ring or the box changes under the rules; each is kept as the number of live neighbours of every live cell (0 for a dead one), and for kind 1 only if its live cells are all joined.
+          panels = (() => {
+            const found: Uint8Array[] = [],
+              pitch = width + 2,
+              grid = new Uint8Array(pitch * (height0 + 2)),
+              counts = new Uint8Array(grid.length),
+              cells = width * height0;
+            for (let pattern = 1; pattern < 2 ** cells; pattern++) {
+              grid.fill(0);
+              for (let k = 0; k < cells; k++)
+                if ((pattern >> k) & 1)
+                  grid[(Math.floor(k / width) + 1) * pitch + (k % width) + 1] =
+                    1;
+              let still = true;
+              for (let y = 0; y < height0 + 2 && still; y++)
+                for (let x = 0; x < pitch; x++) {
+                  let near = 0;
+                  for (let dy = -1; dy <= 1; dy++)
+                    for (let dx = -1; dx <= 1; dx++)
+                      if (
+                        (dx !== 0 || dy !== 0) &&
+                        x + dx >= 0 &&
+                        x + dx < pitch &&
+                        y + dy >= 0 &&
+                        y + dy < height0 + 2
+                      )
+                        near += grid[(y + dy) * pitch + x + dx];
+                  counts[y * pitch + x] = near;
+                  if (
+                    grid[y * pitch + x] === 1
+                      ? near !== 2 && near !== 3
+                      : near === 3
+                  ) {
+                    still = false;
+                    break;
+                  }
+                }
+              if (!still) continue;
+              if (kind === 1) {
+                const alive: number[] = [];
+                for (let k = 0; k < grid.length; k++)
+                  if (grid[k] === 1) alive.push(k);
+                const seen = new Set([alive[0]]),
+                  stack = [alive[0]];
+                while (stack.length > 0) {
+                  const a = stack.pop() as number;
+                  for (const b of alive)
+                    if (
+                      !seen.has(b) &&
+                      Math.abs((a % pitch) - (b % pitch)) <= 1 &&
+                      Math.abs(Math.floor(a / pitch) - Math.floor(b / pitch)) <=
+                        1
+                    ) {
+                      seen.add(b);
+                      stack.push(b);
+                    }
+                }
+                if (seen.size !== alive.length) continue;
+              }
+              const panel = new Uint8Array(cells);
+              for (let k = 0; k < cells; k++) {
+                const at =
+                  (Math.floor(k / width) + 1) * pitch + (k % width) + 1;
+                if (grid[at] === 1) panel[k] = counts[at] - 1;
+              }
+              found.push(panel);
+            }
+            for (let k = found.length - 1; k > 0; k--) {
+              const other = Math.floor(
+                hash(k, 371, group ^ p.seedSalt) * (k + 1),
+              );
+              [found[k], found[other]] = [found[other], found[k]];
+            }
+            return found;
+          })(),
+          scale = Math.min(
+            1 / (cols * (width + 2 * p.margin)),
+            1 / (rows * (height0 + 2 * p.margin)),
+          ),
+          originX = (1 / cols - scale * (width + 2 * p.margin)) / 2,
+          originY = (1 / rows - scale * (height0 + 2 * p.margin)) / 2,
+          halfGap = p.gapWidth / 2,
+          // 1 on the cell side of a gap, 0 at the edge itself, at the distance fromEdge in cells.
+          edge = (fromEdge: number): number =>
+            smooth(clamp((fromEdge - halfGap) / p.edgeSoft));
+        return () => {
+          const tileU = fract(u),
+            tileV = fract(v),
+            col = Math.min(cols - 1, Math.floor(tileU * cols)),
+            row = Math.min(rows - 1, Math.floor(tileV * rows)),
+            index = row * cols + col,
+            grain = grainField(u, v);
+          let mask = 0,
+            level = 1;
+          if (index < panels.length) {
+            const x = (tileU - col / cols - originX) / scale - p.margin,
+              y = (tileV - row / rows - originY) / scale - p.margin,
+              i = Math.floor(x),
+              j = Math.floor(y);
+            if (i >= 0 && j >= 0 && i < width && j < height0) {
+              const stored = panels[index][j * width + i];
+              if (stored !== 0) {
+                const fx = x - i,
+                  fy = y - j;
+                mask = edge(fx) * edge(1 - fx) * edge(fy) * edge(1 - fy);
+                level = stored - 1;
+              }
+            }
+          }
+          color =
+            p.toneGround * (1 - mask) +
+            p.tones[level] * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * p.levels[level];
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -64301,6 +64434,7 @@ export function createSurfaceSampler(
     kind === 'polyhexes' ||
     kind === 'polysticks' ||
     kind === 'alternatingsignmatrices' ||
+    kind === 'stilllifes' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
