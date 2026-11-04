@@ -1152,6 +1152,7 @@ const kinds: ProceduralMaterialKind[] = [
   'fresneldiffraction',
   'islamicstars',
   'gerstnerocean',
+  'opticalillusions',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -195962,6 +195963,342 @@ describe('Gerstner ocean as trochoidal waves with foam where the surface folds',
     expect(blue / (512 * 512)).toBeLessThan(95.6);
     expect(maxTilt).toBeGreaterThan(0.0366);
     expect(maxTilt).toBeLessThan(0.0368);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Optical illusions as the cafe wall, Hermann and scintillating grids', () => {
+  const p = proceduralMaterialPresets.opticalillusions;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const tone = (value: number): number =>
+    p.toneDark + (p.toneLight - p.toneDark) * value;
+  /** The ideal pattern of the variant at the point (x, y) of the tile by plain predicates, without any smoothing: its value (0 dark, 1 light) and the distance to the nearest edge in pitches (row pitches or cell widths, as 1 / counts of the tile). */
+  const ideal = (
+    variant: number,
+    x: number,
+    y: number,
+  ): { value: number; distance: number } => {
+    const count = p.counts[variant],
+      width = p.widths[variant],
+      ground = p.groundValues[variant];
+    if (p.styles[variant] === 0) {
+      const row = Math.floor(y * count),
+        inRow = y * count - row,
+        edge = Math.min(inRow, 1 - inRow);
+      if (edge < width / 2)
+        return { value: ground, distance: width / 2 - edge };
+      const along = x * count - row * p.offsets[variant],
+        square = Math.floor(along),
+        fraction = along - square;
+      return {
+        value: ((square % 2) + 2) % 2 === 0 ? 0 : 1,
+        distance: Math.min(Math.min(fraction, 1 - fraction), edge - width / 2),
+      };
+    }
+    const cellX = x * count - Math.floor(x * count),
+      cellY = y * count - Math.floor(y * count),
+      marginX = 0.5 - Math.abs(cellX - 0.5) - width / 2,
+      marginY = 0.5 - Math.abs(cellY - 0.5) - width / 2;
+    let value = marginX > 0 && marginY > 0 ? 0 : ground,
+      distance = Math.min(Math.abs(marginX), Math.abs(marginY));
+    if (p.styles[variant] === 2) {
+      const fromCrossing = Math.hypot(
+        cellX - Math.round(cellX),
+        cellY - Math.round(cellY),
+      );
+      if (fromCrossing < p.discRadius) value = 1;
+      distance = Math.min(distance, Math.abs(fromCrossing - p.discRadius));
+    }
+    return { value, distance };
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('opticalillusions', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('opticalillusions', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0453);
+      expect(low).toBeLessThan(0.046);
+      expect(high).toBeGreaterThan(0.9139);
+      expect(high).toBeLessThan(0.9144);
+      expect(dark / 65536).toBeGreaterThan(0.2343);
+      expect(dark / 65536).toBeLessThan(0.4688);
+      expect(mean / 65536).toBeGreaterThan(0.2502);
+      expect(mean / 65536).toBeLessThan(0.4802);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.799);
+      expect(heightHigh).toBeLessThan(0.8001);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (the café walls with the shifts 1/2, 1/4 and 3/4 of a square, the Hermann grids with the lanes 0.2 and 0.12, and the scintillating grid) is 4, 1, 7, 2, 0 and 6; the table was found with a probe, by comparing the tone of each of 40 seeds at up to 24 points away from the edges with the six variants, and is written here, so it is not an independent check of the seed's choice.
+  const seeds = [4, 1, 7, 2, 0, 6];
+  it('agrees with the ideal pattern of plain predicates everywhere away from the edges', () => {
+    // The sampler smooths the edges over softness pitches on each side; at 300 points of each variant (on a golden-ratio sequence) that are farther than twice that from every edge of the ideal pattern, the tone is that of the ideal value to within half the grain (0.01477 at the most in the probe, grainTone / 2 being 0.015), and most of the points are far enough from the edges.
+    seeds.forEach((seed, variant) => {
+      const sample = createSurfaceSampler('opticalillusions', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 300; k++) {
+        const x = (k * 0.6180339887 + 0.07) % 1,
+          y = (k * 0.7548776662 + 0.21) % 1,
+          pattern = ideal(variant, x, y);
+        if (pattern.distance < 2 * p.softness) continue;
+        compared++;
+        sample(x, y, out);
+        expect(
+          Math.abs(out.occlusion - (1 - p.gapOcclusion * (1 - pattern.value))),
+        ).toBeLessThan(1e-9);
+        expect(Math.abs(out.color - tone(pattern.value))).toBeLessThan(
+          p.grainTone / 2 + 1e-6,
+        );
+      }
+      expect(compared).toBeGreaterThan(150);
+    });
+  });
+  it('puts the edges of the squares of the café wall at the shift of their row and keeps the mortar lines straight', () => {
+    // Along the middle of each of the rows the tone crosses the middle of dark and light once at every edge between squares, alternately up and down, and the edges are at (whole number + row × shift) square widths (0.00048 at the most from there in the probe on 8 rows of each variant, the scan having 4096 steps and the tolerance being 0.002); along the line between two rows the tone is that of the mortar everywhere, within half the grain, so the lines are straight and level although the rows look sloped.
+    for (let variant = 0; variant < 3; variant++) {
+      const sample = createSurfaceSampler('opticalillusions', seeds[variant]),
+        out = empty(),
+        count = p.counts[variant],
+        middle = (p.toneDark + p.toneLight) / 2,
+        steps = 4096;
+      for (let row = 0; row < count; row++) {
+        const crossings: number[] = [],
+          directions: number[] = [];
+        let before = Number.NaN;
+        for (let k = 0; k <= steps; k++) {
+          sample(k / steps, (row + 0.5) / count, out);
+          const level = out.color - middle;
+          if (before * level < 0) {
+            crossings.push((k - 1) / steps + before / (before - level) / steps);
+            directions.push(Math.sign(level));
+          }
+          before = level;
+        }
+        expect(crossings.length).toBe(count);
+        for (let k = 0; k < crossings.length; k++) {
+          const position = crossings[k] * count - row * p.offsets[variant];
+          expect(Math.abs(position - Math.round(position))).toBeLessThan(0.002);
+          if (k > 0) expect(directions[k]).toBe(-directions[k - 1]);
+        }
+        for (let k = 0; k < 100; k++) {
+          sample((k * 0.6180339887) % 1, row / count, out);
+          expect(
+            Math.abs(out.color - tone(p.groundValues[variant])),
+          ).toBeLessThan(p.grainTone / 2 + 1e-6);
+        }
+      }
+    }
+  });
+  it('puts the lanes of the grids in the borders of the cells with the width of the preset', () => {
+    // Along the middle of the first row of cells the tone is above the level half way between the dark squares and the lanes only in the lanes, whose centres are at whole numbers of cell widths and whose width is widths / counts of the tile (the lanes on the border of the tile are cut in two and are left out; 1.5e-4 at the most in the probe, the scan having 8192 steps, and 4e-4 is the tolerance).
+    for (let variant = 3; variant < 6; variant++) {
+      const sample = createSurfaceSampler('opticalillusions', seeds[variant]),
+        out = empty(),
+        count = p.counts[variant],
+        level = tone(p.groundValues[variant] / 2),
+        steps = 8192;
+      let start = -1,
+        lanes = 0;
+      for (let k = 0; k <= steps; k++) {
+        sample(k / steps, 0.5 / count, out);
+        const above = out.color > level;
+        if (above && start < 0) start = k / steps;
+        if (!above && start >= 0) {
+          const end = k / steps;
+          if (start > 0) {
+            lanes++;
+            expect(
+              Math.abs(end - start - p.widths[variant] / count),
+            ).toBeLessThan(4e-4);
+            expect(
+              Math.abs(
+                ((start + end) / 2) * count -
+                  Math.round(((start + end) / 2) * count),
+              ) / count,
+            ).toBeLessThan(4e-4);
+          }
+          start = -1;
+        }
+      }
+      expect(lanes).toBe(count - 1);
+    }
+  });
+  it('has the mean value of the ideal pattern, which is 1 - (1 - width)^2 for the Hermann grids', () => {
+    // The mean of the value (the height without the grain, over cellHeight) over a grid of 1021 by 1021 points (a prime number so that the points do not line up with the cells) is that of the ideal pattern to 0.003 (0.0013 at the most in the probe), and for the Hermann grids it is the area of the lanes 1 - (1 - width)^2 to 0.001 (0.36000 and 0.22560 in the probe, the closed forms being 0.36 and 0.2256); the café walls have 0.5 whatever the shift and the mortar, since half of every row is dark and half light.
+    const size = 1021;
+    seeds.forEach((seed, variant) => {
+      const sample = createSurfaceSampler('opticalillusions', seed),
+        out = empty();
+      let observed = 0,
+        expected = 0;
+      for (let j = 0; j < size; j++)
+        for (let i = 0; i < size; i++) {
+          sample((i + 0.5) / size, (j + 0.5) / size, out);
+          observed += out.height / p.relief / p.cellHeight;
+          expected += ideal(variant, (i + 0.5) / size, (j + 0.5) / size).value;
+        }
+      observed /= size * size;
+      expected /= size * size;
+      expect(Math.abs(observed - expected)).toBeLessThan(0.003);
+      if (p.styles[variant] === 0)
+        expect(Math.abs(observed - 0.5)).toBeLessThan(1e-3);
+      if (p.styles[variant] === 1)
+        expect(
+          Math.abs(observed - (1 - (1 - p.widths[variant]) ** 2)),
+        ).toBeLessThan(1e-3);
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 1 pick different variants (the Hermann grid with lanes 0.12 and the cafe wall with the shift 1/4).
+    const first = litGrid(0),
+      second = litGrid(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.5312);
+    expect(different / first.length).toBeLessThan(0.5313);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('opticalillusions', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 black and cream illusion maps with raised light areas and shaded mortar', () => {
+    const maps = generateProceduralMaps('opticalillusions', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(119.9);
+    expect(red / (512 * 512)).toBeLessThan(120.9);
+    expect(green / (512 * 512)).toBeGreaterThan(119);
+    expect(green / (512 * 512)).toBeLessThan(120);
+    expect(blue / (512 * 512)).toBeGreaterThan(116.2);
+    expect(blue / (512 * 512)).toBeLessThan(117.2);
+    expect(maxTilt).toBeGreaterThan(0.0167);
+    expect(maxTilt).toBeLessThan(0.0168);
     expect(invalid).toBe(0);
   });
 });

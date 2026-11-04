@@ -51710,6 +51710,79 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'opticalillusions': {
+        const p = proceduralMaterialPresets.opticalillusions,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant = Math.floor(
+            hash(0, 104, seed ^ p.seedSalt) * p.styles.length,
+          ),
+          style = p.styles[variant],
+          count = p.counts[variant],
+          offset = p.offsets[variant],
+          width = p.widths[variant],
+          ground = p.groundValues[variant];
+        return () => {
+          const fu = fract(u),
+            fv = fract(v);
+          let value: number;
+          if (style === 0) {
+            // The café wall: the row, the distance from the row's edge in row pitches, and the position along the row in square widths (shifted by offset per row; the shift changes where the mortar hides it).
+            const row = Math.floor(fv * count),
+              inRow = fv * count - row,
+              edgeDistance = Math.min(inRow, 1 - inRow),
+              tileWeight = smooth(
+                clamp((edgeDistance - width / 2) / p.softness),
+              ),
+              along = fu * count - row * offset,
+              phase = (along - 2 * Math.floor(along / 2)) / 2,
+              // The signed distance to the nearest edge of the squares in square widths, positive on the light ones.
+              signed =
+                2 *
+                (phase < 0.5
+                  ? -Math.min(phase, 0.5 - phase)
+                  : Math.min(phase - 0.5, 1 - phase)),
+              tile = smooth(clamp(0.5 + signed / (2 * p.softness)));
+            value = ground + (tile - ground) * tileWeight;
+          } else {
+            // The grid: a dark square in the middle of every cell, whose mask is the product of two one-dimensional masks (so the corners are round and the edges C1).
+            const cellX = fu * count - Math.floor(fu * count),
+              cellY = fv * count - Math.floor(fv * count),
+              inside = 0.5 - Math.abs(cellX - 0.5) - width / 2,
+              insideY = 0.5 - Math.abs(cellY - 0.5) - width / 2,
+              square =
+                smooth(clamp(0.5 + inside / (2 * p.softness))) *
+                smooth(clamp(0.5 + insideY / (2 * p.softness)));
+            value = ground * (1 - square);
+            if (style === 2) {
+              // The disc on the crossing of the lanes, at the corner of the cell.
+              const disc = smooth(
+                clamp(
+                  0.5 +
+                    (p.discRadius -
+                      Math.hypot(
+                        cellX - Math.round(cellX),
+                        cellY - Math.round(cellY),
+                      )) /
+                      (2 * p.softness),
+                ),
+              );
+              value += (1 - value) * disc;
+            }
+          }
+          const grain = grainField(u, v);
+          color =
+            p.toneDark +
+            (p.toneLight - p.toneDark) * value +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * value;
+          occlusion = 1 - p.gapOcclusion * (1 - value);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -60637,6 +60710,7 @@ export function createSurfaceSampler(
     kind === 'fresneldiffraction' ||
     kind === 'islamicstars' ||
     kind === 'gerstnerocean' ||
+    kind === 'opticalillusions' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

@@ -1189,6 +1189,7 @@ try {
     'fresneldiffraction',
     'islamicstars',
     'gerstnerocean',
+    'opticalillusions',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
