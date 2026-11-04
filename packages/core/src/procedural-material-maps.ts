@@ -52949,6 +52949,90 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'youngdiagrams': {
+        const p = proceduralMaterialPresets.youngdiagrams,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.sizes.length,
+          group = Math.floor(unsigned / p.sizes.length),
+          size = p.sizes[variant],
+          cols = p.cols[variant],
+          rows = p.rows[variant],
+          // Every partition of size (rows of the diagram, weakly decreasing) with its conjugate (the lengths of the columns), in a shuffled order.
+          diagrams = (() => {
+            const found: { parts: number[]; conjugate: number[] }[] = [],
+              grow = (parts: number[], left: number, most: number): void => {
+                if (left === 0) {
+                  const conjugate: number[] = [];
+                  for (let column = 0; column < parts[0]; column++)
+                    conjugate.push(
+                      parts.filter((part) => part > column).length,
+                    );
+                  found.push({ parts: parts.slice(), conjugate });
+                  return;
+                }
+                for (let part = Math.min(left, most); part >= 1; part--) {
+                  parts.push(part);
+                  grow(parts, left - part, part);
+                  parts.pop();
+                }
+              };
+            grow([], size, size);
+            for (let k = found.length - 1; k > 0; k--) {
+              const other = Math.floor(
+                hash(k, 191, group ^ p.seedSalt) * (k + 1),
+              );
+              [found[k], found[other]] = [found[other], found[k]];
+            }
+            return found;
+          })(),
+          scale = Math.min(
+            1 / (cols * (size + 2 * p.margin)),
+            1 / (rows * (size + 2 * p.margin)),
+          ),
+          originX = (1 / cols - scale * (size + 2 * p.margin)) / 2,
+          originY = (1 / rows - scale * (size + 2 * p.margin)) / 2,
+          halfGap = p.gapWidth / 2,
+          // 1 inside the cell, 0 at its edge: the distance fromEdge in cells.
+          edge = (fromEdge: number): number =>
+            smooth(clamp((fromEdge - halfGap) / p.edgeSoft));
+        return () => {
+          const tileU = fract(u),
+            tileV = fract(v),
+            col = Math.min(cols - 1, Math.floor(tileU * cols)),
+            row = Math.min(rows - 1, Math.floor(tileV * rows)),
+            index = row * cols + col,
+            grain = grainField(u, v);
+          let mask = 0,
+            level = 0;
+          if (index < diagrams.length) {
+            // Cell coordinates: x to the right and y downwards from the top left corner of the diagram.
+            const x = (tileU - col / cols - originX) / scale - p.margin,
+              y = (tileV - row / rows - originY) / scale - p.margin,
+              i = Math.floor(x),
+              j = Math.floor(y),
+              { parts, conjugate } = diagrams[index];
+            if (i >= 0 && j >= 0 && j < parts.length && i < parts[j]) {
+              // The hook length: the cell, the cells to its right and the cells below it.
+              const hook = parts[j] - i + conjugate[i] - j - 1,
+                fx = x - i,
+                fy = y - j;
+              mask = edge(fx) * edge(1 - fx) * edge(fy) * edge(1 - fy);
+              level = (hook - 1) / (size - 1);
+            }
+          }
+          const tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+          color =
+            p.toneGap + (tone - p.toneGap) * mask + p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -61889,6 +61973,7 @@ export function createSurfaceSampler(
     kind === 'costasambiguity' ||
     kind === 'projectiveplane' ||
     kind === 'dyckpaths' ||
+    kind === 'youngdiagrams' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

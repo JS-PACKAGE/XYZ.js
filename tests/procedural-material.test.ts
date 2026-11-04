@@ -1165,6 +1165,7 @@ const kinds: ProceduralMaterialKind[] = [
   'costasambiguity',
   'projectiveplane',
   'dyckpaths',
+  'youngdiagrams',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -200605,6 +200606,368 @@ describe('Dyck paths as every Dyck and Motzkin path of a length drawn once', () 
     expect(blue / (512 * 512)).toBeLessThan(34.4);
     expect(maxTilt).toBeGreaterThan(0.107);
     expect(maxTilt).toBeLessThan(0.1071);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Young diagrams as every partition drawn with its hook lengths', () => {
+  const p = proceduralMaterialPresets.youngdiagrams;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The layout of the panels of a variant (seed % 6): slots of 1 / cols by 1 / rows, the picture drawn at one scale and centred in its slot with margin cells around the diagram. */
+  const geometry = (seed: number) => {
+    const variant = seed % p.sizes.length,
+      size = p.sizes[variant],
+      cols = p.cols[variant],
+      rows = p.rows[variant],
+      scale = Math.min(
+        1 / (cols * (size + 2 * p.margin)),
+        1 / (rows * (size + 2 * p.margin)),
+      );
+    return {
+      size,
+      cols,
+      rows,
+      scale,
+      originX: (1 / cols - scale * (size + 2 * p.margin)) / 2,
+      originY: (1 / rows - scale * (size + 2 * p.margin)) / 2,
+    };
+  };
+  /** Every diagram of a seed read back from the picture, in slot order (null for an empty slot): for each row the hook lengths of its cells, from the height at the middle of the cell (the height is cellHeight times heightBase + heightSwing times (hook - 1) / (size - 1)); a cell is there when the ink at its middle is above 0.5 (the occlusion is 1 - gapOcclusion times (1 - ink)). */
+  const readDiagrams = (seed: number): number[][][] | null[] => {
+    const g = geometry(seed),
+      sample = createSurfaceSampler('youngdiagrams', seed),
+      out = empty(),
+      diagrams: (number[][] | null)[] = [];
+    for (let slot = 0; slot < g.cols * g.rows; slot++) {
+      const col = slot % g.cols,
+        row = Math.floor(slot / g.cols),
+        hookAt = (i: number, j: number): number => {
+          sample(
+            col / g.cols + g.originX + g.scale * (p.margin + i + 0.5),
+            row / g.rows + g.originY + g.scale * (p.margin + j + 0.5),
+            out,
+          );
+          if (1 - (1 - out.occlusion) / p.gapOcclusion < 0.5) return 0;
+          const exact =
+            ((out.height / p.relief / p.cellHeight - p.heightBase) /
+              p.heightSwing) *
+              (g.size - 1) +
+            1;
+          expect(Math.abs(exact - Math.round(exact))).toBeLessThan(1e-6);
+          return Math.round(exact);
+        },
+        hooks: number[][] = [];
+      for (let j = 0; j < g.size; j++) {
+        const rowHooks: number[] = [];
+        for (let i = 0; i < g.size; i++) {
+          const hook = hookAt(i, j);
+          // The cells of a row are joined from the left and no cell hangs below an empty row.
+          if (hook === 0) {
+            for (let k = i + 1; k < g.size; k++) expect(hookAt(k, j)).toBe(0);
+            break;
+          }
+          rowHooks.push(hook);
+        }
+        if (rowHooks.length === 0) {
+          for (let k = j + 1; k < g.size; k++)
+            for (let i = 0; i < g.size; i++) expect(hookAt(i, k)).toBe(0);
+          break;
+        }
+        hooks.push(rowHooks);
+      }
+      diagrams.push(hooks.length > 0 ? hooks : null);
+    }
+    return diagrams as number[][][] | null[];
+  };
+  /** Every partition of n into weakly decreasing parts, written again here. */
+  const allPartitions = (n: number): number[][] => {
+    const found: number[][] = [],
+      grow = (parts: number[], left: number, most: number): void => {
+        if (left === 0) {
+          found.push(parts.slice());
+          return;
+        }
+        for (let part = Math.min(left, most); part >= 1; part--)
+          grow([...parts, part], left - part, part);
+      };
+    grow([], n, n);
+    return found;
+  };
+  /** The hook lengths of every cell of a partition (parts[j] - i + number of parts longer than i - j - 1), written again here. */
+  const hookLengths = (parts: number[]): number[][] =>
+    parts.map((length, j) =>
+      Array.from({ length }, (_, i) => {
+        let below = 0;
+        for (const part of parts) if (part > i) below++;
+        return length - i + below - j - 1;
+      }),
+    );
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('youngdiagrams', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('youngdiagrams', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0152);
+      expect(low).toBeLessThan(0.0156);
+      expect(high).toBeGreaterThan(0.9613);
+      expect(high).toBeLessThan(0.962);
+      expect(lit / 65536).toBeGreaterThan(0.0105);
+      expect(lit / 65536).toBeLessThan(0.0185);
+      expect(mean / 65536).toBeGreaterThan(0.0458);
+      expect(mean / 65536).toBeLessThan(0.0518);
+      expect(heightHigh).toBeGreaterThan(0.799);
+      expect(heightHigh).toBeLessThan(0.8001);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws every partition of 6 to 11 as a Young diagram exactly once with the right hook lengths, read back from the picture', () => {
+    const factorial = (n: number): number =>
+      n <= 1 ? 1 : n * factorial(n - 1);
+    for (let seed = 0; seed < 12; seed++) {
+      const { size } = geometry(seed),
+        read = readDiagrams(seed),
+        drawn = read.filter((hooks): hooks is number[][] => hooks !== null),
+        wanted = allPartitions(size);
+      // The numbers of partitions p(6) to p(11) are 11, 15, 22, 30, 42 and 56.
+      expect(drawn.length).toBe(wanted.length);
+      expect(
+        new Set(drawn.map((hooks) => hooks.map((row) => row.length).join(',')))
+          .size,
+      ).toBe(drawn.length);
+      expect(
+        drawn.map((hooks) => hooks.map((row) => row.length).join(',')).sort(),
+      ).toEqual(wanted.map((parts) => parts.join(',')).sort());
+      // The hook lengths of every diagram are those of its shape, and the filled slots come first.
+      let sum = 0;
+      for (const hooks of drawn) {
+        const parts = hooks.map((row) => row.length);
+        expect(hooks).toEqual(hookLengths(parts));
+        // The hook length formula: the number of standard Young tableaux is size! / (product of the hook lengths).
+        const tableaux =
+          factorial(size) / hooks.flat().reduce((a, b) => a * b, 1);
+        expect(Number.isInteger(tableaux)).toBe(true);
+        sum += tableaux * tableaux;
+      }
+      // The sum of the squares of those numbers over all partitions is size! (the Robinson-Schensted correspondence).
+      expect(sum).toBe(factorial(size));
+      expect(read.slice(drawn.length).every((hooks) => hooks === null)).toBe(
+        true,
+      );
+    }
+    expect([11, 15, 22, 30, 42, 56]).toEqual(
+      [0, 1, 2, 3, 4, 5].map(
+        (seed) => readDiagrams(seed).filter((hooks) => hooks !== null).length,
+      ),
+    );
+  });
+  it('shuffles the panels by group without changing the set of diagrams', () => {
+    const shapes = (seed: number) =>
+        readDiagrams(seed).map((hooks) =>
+          hooks === null ? '-' : hooks.map((row) => row.length).join(','),
+        ),
+      first = shapes(0),
+      second = shapes(6),
+      third = shapes(12);
+    expect(first).not.toEqual(second);
+    expect(second).not.toEqual(third);
+    expect([...first].sort()).toEqual([...second].sort());
+    expect([...first].sort()).toEqual([...third].sort());
+  });
+  it('agrees with the ideal cells of predicates away from the gaps: ink, height, tone and occlusion', () => {
+    const half = p.gapWidth / 2;
+    for (const seed of [0, 1, 2, 3, 4, 5]) {
+      const g = geometry(seed),
+        diagrams = readDiagrams(seed),
+        sample = createSurfaceSampler('youngdiagrams', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          col = Math.min(g.cols - 1, Math.floor(u * g.cols)),
+          row = Math.min(g.rows - 1, Math.floor(v * g.rows)),
+          hooks = diagrams[row * g.cols + col],
+          x = (u - col / g.cols - g.originX) / g.scale - p.margin,
+          y = (v - row / g.rows - g.originY) / g.scale - p.margin,
+          i = Math.floor(x),
+          j = Math.floor(y),
+          inside =
+            hooks !== null &&
+            i >= 0 &&
+            j >= 0 &&
+            j < hooks.length &&
+            i < hooks[j].length,
+          distances = [x - i, i + 1 - x, y - j, j + 1 - y];
+        // Away from the smoothed edges of the gaps (they run from half to half + edgeSoft from the edge of the cell).
+        if (
+          inside &&
+          distances.some((d) => d > half - 1e-9 && d < half + p.edgeSoft + 1e-9)
+        )
+          continue;
+        compared++;
+        const ink =
+            inside && distances.every((d) => d >= half + p.edgeSoft) ? 1 : 0,
+          level = inside ? (hooks[j][i] - 1) / (g.size - 1) : 0,
+          tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.heightBase + p.heightSwing * level),
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGap + (tone - p.toneGap) * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      expect(compared).toBeGreaterThan(5780);
+    }
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeGreaterThan(0.0295);
+    expect(unlike(first, litGrid(1))).toBeLessThan(0.0296);
+    expect(unlike(first, litGrid(6))).toBeGreaterThan(0.0128);
+    expect(unlike(first, litGrid(6))).toBeLessThan(0.0129);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('youngdiagrams', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 amber cell maps on dark indigo with raised cells and shaded gaps', () => {
+    const maps = generateProceduralMaps('youngdiagrams', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(22.3);
+    expect(red / (512 * 512)).toBeLessThan(23.3);
+    expect(green / (512 * 512)).toBeGreaterThan(20.8);
+    expect(green / (512 * 512)).toBeLessThan(21.8);
+    expect(blue / (512 * 512)).toBeGreaterThan(34.2);
+    expect(blue / (512 * 512)).toBeLessThan(35.2);
+    expect(maxTilt).toBeGreaterThan(0.0799);
+    expect(maxTilt).toBeLessThan(0.0801);
     expect(invalid).toBe(0);
   });
 });

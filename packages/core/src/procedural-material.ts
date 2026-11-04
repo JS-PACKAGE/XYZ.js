@@ -1139,6 +1139,7 @@ export type ProceduralMaterialKind =
   | 'costasambiguity'
   | 'projectiveplane'
   | 'dyckpaths'
+  | 'youngdiagrams'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2526,6 +2527,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'costasambiguity',
   'projectiveplane',
   'dyckpaths',
+  'youngdiagrams',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

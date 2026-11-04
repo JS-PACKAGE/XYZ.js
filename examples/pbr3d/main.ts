@@ -1202,6 +1202,7 @@ try {
     'costasambiguity',
     'projectiveplane',
     'dyckpaths',
+    'youngdiagrams',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
