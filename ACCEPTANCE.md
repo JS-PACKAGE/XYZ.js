@@ -8228,6 +8228,7 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 修正後七項定向（含borrowed-map consumer）通過，完整179檔／7261項測試通過（924.39s）。本功能build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與distribution（367 exports）皆實際通過；依功能獨立commit、不push。
 - 補齊清單後，當次定向重跑 **7項通過**（六項cloisonne field／maps回歸與公開API借用／釋放契約，6.14s）。完整suite先前單項失敗如上保留，不將定向通過記成完整suite重跑通過；當次build、typecheck、lint、format:check、API compatibility與distribution皆成功。
 - 當次再次實跑WebGPU與WebGL2的682種正式gallery並選中cloisonne、擷取mesh畫面，頁面errors空；Worker／cache／direct的512²五maps SHA256一致，cache一筆5242880 bytes／hit1 miss1、獨立textures與destroy／pool.destroy／cache.clear成功。既有681種64² seed7四maps與HEAD逐位元組一致，九份Markdown相對連結無缺失。未擴大跨瀏覽器或效能認證；本次部分gallery tab於工具呼叫間被關閉，不能追加宣稱其cleanup驗證。
+- 修正清單後第二輪完整suite重跑 **179檔／7261項全部通過（934.91s）**；前述首次失敗與定向重跑保留為歷程。完整品質gate與實際gallery／shipped API證據均已取得，依功能提交、不push。
 - 最終補記：上方「不將定向通過記成完整suite重跑通過」與部分tab限制保留為較早／其他驗證批次紀錄；本次實際命令已另完成七項定向（8.42s）及完整179檔／7261項測試（924.39s），不是以定向結果推估。前述頁面／cleanup errors空僅適用於本次同一工具呼叫內完成goto about:blank並讀取errors的兩個gallery批次，不擴張至上方受限制批次。
 
 ## 2026-10-26 程序材質：彎曲漸尖紅毛丹果皮（rambutanskin）
