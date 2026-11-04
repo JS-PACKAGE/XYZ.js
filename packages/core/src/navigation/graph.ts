@@ -305,7 +305,18 @@ export class NavigationGraph3D {
       target = this.indices.get(to);
     if (source === undefined || target === undefined)
       throw new RangeError('Unknown navigation endpoint.');
-    return this.edges[source]!.find((edge) => edge.to === target)?.connection;
+    // Constructor and rebakes sort adjacency by target node, including directed edges.
+    const edges = this.edges[source]!;
+    let low = 0,
+      high = edges.length - 1;
+    while (low <= high) {
+      const middle = (low + high) >>> 1;
+      const edge = edges[middle]!;
+      if (edge.to < target) low = middle + 1;
+      else if (edge.to > target) high = middle - 1;
+      else return edge.connection;
+    }
+    return undefined;
   }
 
   setConnection(
