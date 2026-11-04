@@ -69199,3 +69199,381 @@ describe('badmintoncourt: a badminton court seen from above with the markings of
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('athleticstrack: a 400 metre athletics track seen from above with eight lanes, laid along or across by the seed', () => {
+  const p = proceduralMaterialPresets.athleticstrack,
+    out = empty(),
+    m = p.metre,
+    toneAt = (
+      sample: Sampler,
+      x: number,
+      y: number,
+      across: boolean,
+    ): number => {
+      // A place in metres from the middle of the track (x along the straights) as a place on the picture.
+      sample(0.5 + (across ? y : x) * m, 0.5 + (across ? x : y) * m, out);
+      return out.color;
+    };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    mix = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    // The probes are exact (the edges are straight or circular), so the tolerance is tiny: a softening 10 percent too wide moves the tone by about 0.003.
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  // The facts of the track, in metres: the inside edge of the first lane at radius 36.5, eight lanes of 1.22, the length of 400 along the line 0.3 outside the first lane, straights of 84.39.
+  const rules = {
+      inner: 36.5,
+      lane: 1.22,
+      lanes: 8,
+      length: 400,
+      measured: 0.3,
+    },
+    straight = 84.39,
+    outer = rules.inner + rules.lanes * rules.lane,
+    // The place on the track from its centre line: at the angle round the end of the straight (the half circle at the right end), at a distance from the line down the middle.
+    onBend = (
+      distance: number,
+      degrees: number,
+      side: 1 | -1 = 1,
+    ): [number, number] => [
+      side * (straight / 2 + distance * Math.cos((degrees * Math.PI) / 180)),
+      distance * Math.sin((degrees * Math.PI) / 180),
+    ];
+  type Surface = {
+    across: boolean;
+    surface: number;
+    shift: number;
+    tones: { track: number; infield: number; margin: number; ground: number };
+  };
+  const readSurface = (sample: Sampler): Surface => {
+    const options: Surface[] = [];
+    for (const across of [false, true]) {
+      const infield = toneAt(sample, 0, 0, across),
+        track = toneAt(sample, 0, rules.inner + 0.36, across),
+        margin = toneAt(sample, 0, -(outer + 1.2), across),
+        ground = toneAt(sample, 0, 80, across);
+      p.surfaces.forEach((surface, index) => {
+        const shift = ground - surface.ground;
+        if (
+          Math.abs(shift) <= p.toneShift + 1e-9 &&
+          Math.abs(infield - surface.infield - shift) < 1e-6 &&
+          Math.abs(track - surface.track - shift) < 1e-6 &&
+          Math.abs(margin - surface.margin - shift) < 1e-6
+        )
+          options.push({
+            across,
+            surface: index,
+            shift,
+            tones: { track, infield, margin, ground },
+          });
+      });
+    }
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+
+  it('has the facts of the track in the preset: 400 metres along the line 0.3 outside the first lane', () => {
+    expect(p.innerRadius).toBe(rules.inner);
+    expect(p.laneWidth).toBe(rules.lane);
+    expect(p.lanes).toBe(rules.lanes);
+    expect(
+      Math.abs(
+        2 * p.straight +
+          2 * Math.PI * (p.innerRadius + rules.measured) -
+          rules.length,
+      ),
+    ).toBeLessThan(0.01);
+    expect(p.straight).toBe(straight);
+  });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws the infield, the lanes, the margin and the ground of a surface of the preset, along the picture or across it (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('athleticstrack', seed),
+        { across, tones } = readSurface(sample);
+      // Clear places in the middle of each lane (the line is on the outer 0.5 of it), on the straights at the top and bottom and on the bends at both ends.
+      for (let lane = 1; lane <= rules.lanes; lane++) {
+        const d = rules.inner + (lane - 1) * rules.lane + 0.36;
+        for (const [x, y] of [
+          [0, d],
+          [-17, -d],
+          [...onBend(d, 20)],
+          [...onBend(d, -75)],
+          [...onBend(d, 35, -1)],
+          [...onBend(d, -50, -1)],
+        ] as [number, number][]) {
+          expect(toneAt(sample, x, y, across)).toBeCloseTo(tones.track, 6);
+          expect(out.height / p.relief).toBeCloseTo(p.trackHeight, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        }
+      }
+      for (const [x, y] of [
+        [0, 0],
+        [30, 10],
+        [-30, -20],
+        [50, 3],
+        [-60, -3],
+        [42, 35],
+      ]) {
+        expect(toneAt(sample, x, y, across)).toBeCloseTo(tones.infield, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.infieldHeight, 6);
+      }
+      for (const [x, y] of [
+        [0, outer + 1.2],
+        [0, -(outer + 1.2)],
+        [...onBend(outer + 1.2, 40)],
+        [...onBend(outer + 1.2, -50, -1)],
+      ] as [number, number][]) {
+        expect(toneAt(sample, x, y, across)).toBeCloseTo(tones.margin, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.marginHeight, 6);
+      }
+      for (const [x, y] of [
+        [0, 80],
+        [0, -90],
+        [98, 0],
+        [-98, 20],
+        [95, 60],
+        [-85, -70],
+      ]) {
+        expect(toneAt(sample, x, y, across)).toBeCloseTo(tones.ground, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.groundHeight, 6);
+      }
+    },
+  );
+
+  it('uses every surface and both ways over 300 seeds, about equally often, with the tones shifted over the whole range', () => {
+    const surfaces = new Map<number, number>(),
+      shifts: number[] = [];
+    let acrossCount = 0;
+    for (let seed = 0; seed < 300; seed++) {
+      const { across, surface, shift } = readSurface(
+        createSurfaceSampler('athleticstrack', seed * 7 + 1),
+      );
+      shifts.push(shift);
+      surfaces.set(surface, (surfaces.get(surface) ?? 0) + 1);
+      acrossCount += Number(across);
+    }
+    expect(surfaces.size).toBe(p.surfaces.length);
+    for (const count of surfaces.values())
+      expect(Math.abs(count - 300 / p.surfaces.length)).toBeLessThan(25);
+    expect(Math.abs(acrossCount / 300 - 0.5)).toBeLessThan(0.1);
+    expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+    expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+    expect(
+      Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 300),
+    ).toBeLessThan(p.toneShift * 0.15);
+    for (let quarter = 0; quarter < 4; quarter++)
+      expect(
+        Math.abs(
+          shifts.filter(
+            (shift) =>
+              Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+          ).length - 75,
+        ),
+      ).toBeLessThan(25);
+  });
+
+  it('draws the line on the outer side of each lane and the kerb line inside the first, 0.5 wide, on the straights and the bends, with their tone and height', () => {
+    const w = p.lineWidth,
+      delta = 0.0004 / m,
+      places: [number, number, 1 | -1, number][] = [
+        [0, 0, 1, 0],
+        [-20, 0, 1, 0],
+        [0, 0, 1, 25],
+        [0, 0, 1, -60],
+        [0, 0, -1, 35],
+        [0, 0, -1, -70],
+      ];
+    for (const seed of [2, 5]) {
+      const sample = createSurfaceSampler('athleticstrack', seed),
+        { across, tones } = readSurface(sample);
+      // The line j (the kerb line is j = 0, a line inside the infield edge of the first lane): the distances from the line down the middle at which it begins and ends.
+      for (let j = 0; j <= rules.lanes; j++) {
+        const edge = rules.inner + j * rules.lane,
+          near = edge - w,
+          far = edge;
+        // On the straights (top, bottom) and on the bends: at a distance d from the line down the middle.
+        const at = (d: number, which: number): [number, number] => {
+          if (which === 0) return [-20, d];
+          if (which === 1) return [20, -d];
+          if (which === 2) return onBend(d, 25);
+          if (which === 3) return onBend(d, -60);
+          if (which === 4) return onBend(d, 35, -1);
+          return onBend(d, -70, -1);
+        };
+        for (let which = 0; which < 6; which++) {
+          const [mx, my] = at((near + far) / 2, which),
+            [ix, iy] = at(near + delta, which),
+            [jx, jy] = at(far - delta, which),
+            [ox, oy] = at(near - delta, which),
+            [px, py] = at(far + delta, which);
+          expect(toneAt(sample, mx, my, across)).toBeCloseTo(p.lineTone, 6);
+          expect(out.height / p.relief).toBeCloseTo(p.lineHeight, 6);
+          expect(toneAt(sample, ix, iy, across)).toBeCloseTo(p.lineTone, 6);
+          expect(toneAt(sample, jx, jy, across)).toBeCloseTo(p.lineTone, 6);
+          // Just inside the line (towards the infield) is the infield for the kerb line and a lane otherwise; just outside it is a lane (or the margin beyond the last lane).
+          expect(toneAt(sample, ox, oy, across)).toBeCloseTo(
+            j === 0 ? tones.infield : tones.track,
+            6,
+          );
+          expect(toneAt(sample, px, py, across)).toBeCloseTo(
+            j === rules.lanes ? tones.margin : tones.track,
+            6,
+          );
+        }
+      }
+      // There is no other line: between two lines the lane is clear (for each lane, on the bends and straights, several places), and the lines are 0.5 wide not more.
+      for (let lane = 1; lane <= rules.lanes; lane++)
+        for (const t of [0.15, 0.5, 0.85]) {
+          const d =
+            rules.inner + (lane - 1) * rules.lane + t * (rules.lane - w);
+          for (const [x, y, side, degrees] of places) {
+            const [px, py] =
+              degrees === 0 ? [x, y === 0 ? d : y] : onBend(d, degrees, side);
+            expect(toneAt(sample, px, py, across)).toBeCloseTo(tones.track, 6);
+          }
+        }
+    }
+  });
+
+  it('draws the finish line across the lanes at the end of the straight at the bottom of the picture, only there', () => {
+    const sample = createSurfaceSampler('athleticstrack', 3),
+      { across, tones } = readSurface(sample),
+      w = p.lineWidth,
+      delta = 0.0004 / m;
+    for (const y of [-37.0, -38.1, -39.2, -40.6, -41.9, -43.1, -44.2, -45.3]) {
+      // The finish line at the end of the straight (its far edge on the first of the bend, 0.5 wide); the lane lines are crossed so the places are chosen at the clear parts of the lanes.
+      const d = Math.abs(y);
+      let line = 0;
+      for (let j = 1; j <= rules.lanes; j++)
+        line += Number(
+          d > rules.inner + j * rules.lane - w - 0.02 &&
+            d < rules.inner + j * rules.lane + 0.02,
+        );
+      if (line > 0) continue;
+      expect(toneAt(sample, straight / 2 - w / 2, y, across)).toBeCloseTo(
+        p.lineTone,
+        6,
+      );
+      expect(out.height / p.relief).toBeCloseTo(p.lineHeight, 6);
+      expect(toneAt(sample, straight / 2 - w + delta, y, across)).toBeCloseTo(
+        p.lineTone,
+        6,
+      );
+      expect(toneAt(sample, straight / 2 - delta, y, across)).toBeCloseTo(
+        p.lineTone,
+        6,
+      );
+      expect(toneAt(sample, straight / 2 - w - 0.6, y, across)).toBeCloseTo(
+        tones.track,
+        6,
+      );
+      expect(toneAt(sample, straight / 2 + 0.6, y, across)).toBeCloseTo(
+        tones.track,
+        6,
+      );
+      // Not on the straight at the top, nor at the other end of the bottom.
+      expect(toneAt(sample, straight / 2 - w / 2, -y, across)).toBeCloseTo(
+        tones.track,
+        6,
+      );
+      expect(toneAt(sample, -straight / 2 + w / 2, y, across)).toBeCloseTo(
+        tones.track,
+        6,
+      );
+    }
+    // It reaches from the kerb to the last line and no further: the infield and the margin each side of it.
+    expect(
+      toneAt(sample, straight / 2 - w / 2, -(rules.inner - w - 0.4), across),
+    ).toBeCloseTo(tones.infield, 6);
+    expect(
+      toneAt(sample, straight / 2 - w / 2, -(outer + 0.5), across),
+    ).toBeCloseTo(tones.margin, 6);
+  });
+
+  it('softens the edges of the margin, of the outer line and of the kerb line and of the finish line over edgeSoft', () => {
+    const sample = createSurfaceSampler('athleticstrack', 2),
+      { across, tones } = readSurface(sample),
+      quarter = (0.25 * p.edgeSoft) / m,
+      w = p.lineWidth;
+    for (const which of [0, 1]) {
+      const at = (d: number): [number, number] =>
+        which === 0 ? [-20, -d] : onBend(d, 35);
+      const marginRadius = outer + p.margin;
+      let [x, y] = at(marginRadius - quarter);
+      close(
+        toneAt(sample, x, y, across),
+        mix(tones.ground, tones.margin, 0.75),
+      );
+      [x, y] = at(marginRadius + quarter);
+      close(
+        toneAt(sample, x, y, across),
+        mix(tones.ground, tones.margin, 0.25),
+      );
+      // The outer edge of the last line over the margin, the inner edge of it over its lane.
+      [x, y] = at(outer - quarter);
+      close(toneAt(sample, x, y, across), mix(tones.margin, p.lineTone, 0.75));
+      [x, y] = at(outer + quarter);
+      close(toneAt(sample, x, y, across), mix(tones.margin, p.lineTone, 0.25));
+      [x, y] = at(outer - w + quarter);
+      close(toneAt(sample, x, y, across), mix(tones.track, p.lineTone, 0.75));
+      [x, y] = at(outer - w - quarter);
+      close(toneAt(sample, x, y, across), mix(tones.track, p.lineTone, 0.25));
+      // The kerb line: its inner edge over the infield, its outer edge over the first lane.
+      [x, y] = at(rules.inner - w + quarter);
+      close(toneAt(sample, x, y, across), mix(tones.infield, p.lineTone, 0.75));
+      [x, y] = at(rules.inner - w - quarter);
+      close(toneAt(sample, x, y, across), mix(tones.infield, p.lineTone, 0.25));
+      [x, y] = at(rules.inner + quarter);
+      close(toneAt(sample, x, y, across), mix(tones.track, p.lineTone, 0.25));
+      [x, y] = at(rules.inner - quarter);
+      close(toneAt(sample, x, y, across), mix(tones.track, p.lineTone, 0.75));
+    }
+    // The ends of the finish line (its edge on the straight side over the lane, and on the bend side).
+    close(
+      toneAt(sample, straight / 2 - w + quarter, -38.1, across),
+      mix(tones.track, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, straight / 2 - w - quarter, -38.1, across),
+      mix(tones.track, p.lineTone, 0.25),
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('athleticstrack', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('athleticstrack', 0),
+      b = createSurfaceSampler('athleticstrack', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

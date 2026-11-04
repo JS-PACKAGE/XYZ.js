@@ -17290,6 +17290,39 @@ export const proceduralMaterialPresets = Object.freeze({
     postHeight: 0.9,
     inkRoughness: 0.45,
   }),
+  athleticstrack: Object.freeze({
+    dark: [30, 22, 20] as const,
+    light: [240, 236, 226] as const,
+    roughness: 0.6,
+    relief: 0.004,
+    // A 400 metre athletics track seen from above, in metres: two straights of 84.39 joined by two half circles, the inside edge of the first lane at radius 36.5 (so that the length along 0.3 outside it is 400:
+    // 2 x 84.39 + 2 pi x 36.8), eight lanes of 1.22 each with a line on the outer side of each lane and a kerb line inside the first, the finish line across the lanes at the end of the straight at the bottom of the
+    // picture, an infield inside, a margin of 2.4 round the outer line and ground beyond. The lines are 0.5 wide, ten times the 0.05 of the rules, so that they show in a tile. The seed picks the surface (the
+    // tones of the track, the infield, the margin and the ground, all shifted together a little) and lays the track along the picture or across it.
+    metre: 0.0049,
+    straight: 84.39,
+    innerRadius: 36.5,
+    laneWidth: 1.22,
+    lanes: 8,
+    margin: 2.4,
+    lineWidth: 0.5,
+    surfaces: Object.freeze([
+      Object.freeze({ track: 0.5, infield: 0.34, margin: 0.28, ground: 0.18 }),
+      Object.freeze({ track: 0.44, infield: 0.3, margin: 0.36, ground: 0.2 }),
+      Object.freeze({ track: 0.38, infield: 0.42, margin: 0.3, ground: 0.14 }),
+      Object.freeze({ track: 0.56, infield: 0.28, margin: 0.4, ground: 0.24 }),
+    ]),
+    // How much the tones may all be shifted together (from -toneShift to toneShift) by the seed: the wear of the track.
+    toneShift: 0.04,
+    edgeSoft: 0.0006,
+    lineTone: 0.96,
+    groundHeight: 0.15,
+    marginHeight: 0.25,
+    infieldHeight: 0.2,
+    trackHeight: 0.3,
+    lineHeight: 0.35,
+    inkRoughness: 0.5,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -23782,6 +23815,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  athleticstrack: 1,
   badmintoncourt: 1,
   tenniscourt: 1,
   playingcardpips: 1,

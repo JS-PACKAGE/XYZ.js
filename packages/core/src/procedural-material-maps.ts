@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'athleticstrack',
   'badmintoncourt',
   'tenniscourt',
   'playingcardpips',
@@ -49602,6 +49603,85 @@ export function createSurfaceSampler(
           elevation += (p.netHeight - elevation) * net;
           shade += (p.postTone - shade) * posts;
           elevation += (p.postHeight - elevation) * posts;
+          color = clamp(shade);
+          height = clamp(elevation);
+          roughness = clamp(p.inkRoughness);
+          occlusion = 1;
+        };
+      }
+      case 'athleticstrack': {
+        const p = proceduralMaterialPresets.athleticstrack,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(106, 1, seed ^ 0x120001) * p.surfaces.length)
+            ],
+          across = hash(106, 2, seed ^ 0x120002) < 0.5,
+          shift = (hash(106, 3, seed ^ 0x120003) * 2 - 1) * p.toneShift,
+          halfStraight = p.straight / 2,
+          outerRadius = p.innerRadius + p.lanes * p.laneWidth,
+          marginRadius = outerRadius + p.margin,
+          halfLine = p.lineWidth / 2;
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            // The place in metres from the middle of the track (x along the straights).
+            x = ((across ? fv : fu) - 0.5) / p.metre,
+            y = ((across ? fu : fv) - 0.5) / p.metre,
+            beyond = Math.abs(x) - halfStraight,
+            // The distance to the line down the middle of the track, which the lanes go round.
+            d = beyond < 0 ? Math.abs(y) : Math.sqrt(beyond * beyond + y * y),
+            margin = cover((marginRadius - d) * p.metre),
+            inside = cover((outerRadius - d) * p.metre),
+            infield = cover((p.innerRadius - d) * p.metre);
+          // The lines: the kerb line inside the first lane (its outer edge is the edge of the infield) and the line on the outer side of each lane (its edge on the lane), painted once.
+          const kerb = cover((d - (p.innerRadius - p.lineWidth)) * p.metre);
+          let lane = 0;
+          for (let index = 1; index <= p.lanes; index++) {
+            const edge = p.innerRadius + index * p.laneWidth;
+            lane = Math.max(
+              lane,
+              cover(Math.min(d - (edge - p.lineWidth), edge - d) * p.metre),
+            );
+          }
+          // The finish line across the lanes at the end of the straight at the bottom of the picture.
+          const finish = cover(
+            Math.min(
+              halfLine - Math.abs(x - (halfStraight - halfLine)),
+              (outerRadius - p.innerRadius) / 2 -
+                Math.abs(y + (p.innerRadius + outerRadius) / 2),
+            ) * p.metre,
+          );
+          lane = Math.max(lane, finish);
+          // A line on the outer edge of the lanes has the edge of the area (the ratio of its cover to that of the area), so that it does not blur it; the kerb line needs no ratio, its outer edge is that of the infield, over which it is painted.
+          const lanedTrack = inside > 0 ? Math.min(1, lane / inside) : 0,
+            trackTone = surface.track + shift,
+            infieldTone = surface.infield + shift,
+            // The lanes and the infield make one area (the infield over the lanes), over the margin and the ground.
+            laneShade = trackTone + (p.lineTone - trackTone) * lanedTrack,
+            infieldShade = infieldTone + (p.lineTone - infieldTone) * kerb,
+            laneElevation =
+              p.trackHeight + (p.lineHeight - p.trackHeight) * lanedTrack,
+            infieldElevation =
+              p.infieldHeight + (p.lineHeight - p.infieldHeight) * kerb,
+            outerShade =
+              surface.ground +
+              shift +
+              (surface.margin - surface.ground) * margin,
+            outerElevation =
+              p.groundHeight + (p.marginHeight - p.groundHeight) * margin,
+            shade =
+              outerShade +
+              (laneShade + (infieldShade - laneShade) * infield - outerShade) *
+                inside,
+            elevation =
+              outerElevation +
+              (laneElevation +
+                (infieldElevation - laneElevation) * infield -
+                outerElevation) *
+                inside;
           color = clamp(shade);
           height = clamp(elevation);
           roughness = clamp(p.inkRoughness);

@@ -2409,6 +2409,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`athleticstrack`（田徑場跑道）使目前目錄1212→1213種，含plain的gallery為1214項。從正上方看的400公尺標準跑道（與既有、只畫線條的`runningtrack`不同，這是整座跑道的平面圖）：兩條84.39公尺的直道接兩個半圓，第一道內緣半徑36.5公尺（在其外0.3公尺的量測線上長度剛好400公尺：2×84.39＋2π×36.8），八條各1.22公尺寬的跑道，每道外側有一條分道線，第一道內側有一條內緣線，直道末端（畫面下方那條）橫跨各道的終點線，內側是場地（infield），外圍2.4公尺的邊緣與其外的地面。分道線寬0.5公尺，是規則（0.05公尺）的十倍，才能在一塊貼圖中看得見。seed選一種表面（跑道、場地、邊緣與地面的色調，四種之一，再一起偏移不超過`toneShift`）並決定跑道沿著畫面或橫過畫面。這是作者設計的示意，沒有文字、起跑線與接力區；測試端以另外寫的規則尺寸（含「preset的數值使400公尺成立」的斷言）逐項檢查：八條跑道在直道與兩端彎道的色調／高度／粗糙度，場地、邊緣與地面，色調偏移一致，九條線（內緣線與八條分道線）在直道與彎道各位置的寬度（兩側各0.0004公尺）與色調／高度，兩條線之間的跑道乾淨，終點線只在畫面下方的直道末端、越過各道而不入場地與邊緣，300個seed中四種表面與兩種方向各約相同，以及各邊緣的柔化（以1e-4的緊容許值檢查）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
