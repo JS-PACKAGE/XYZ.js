@@ -90,6 +90,27 @@ describe('finite Tiled import', () => {
     bad.layers[0].data[0] = 7;
     expect(() => parseTiledMap(bad, [ts])).toThrow('unresolved GID');
   });
+  it('resolves flipped GIDs across sorted atlas ranges without filling gaps', () => {
+    const tilesets = Array.from({ length: 64 }, (_, index) =>
+      parseTiledTileset(set, 1 + index * 16),
+    );
+    const input = globalThis.structuredClone(map);
+    const data = input.layers[0].data;
+    for (const [index, tileset] of tilesets.entries()) {
+      for (const base of [
+        tileset.firstgid,
+        tileset.firstgid + tileset.tileCount - 1,
+      ]) {
+        const gid = (base | ((index % 8) << 29)) >>> 0;
+        data[0] = gid;
+        expect(parseTiledMap(input, tilesets).layers[0].data[0]).toBe(gid);
+      }
+      data[0] = tileset.firstgid + tileset.tileCount;
+      expect(() => parseTiledMap(input, tilesets)).toThrow(
+        `unresolved GID ${data[0]}`,
+      );
+    }
+  });
   it('reclaims a decoded bitmap that arrives after cancellation', async () => {
     const originalFetch = globalThis.fetch,
       originalDecode = globalThis.createImageBitmap;

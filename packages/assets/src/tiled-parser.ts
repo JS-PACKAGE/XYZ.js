@@ -285,6 +285,19 @@ export function parseTiledMap(
         'tile dimensions must match the map',
       );
   }
+  // Ranges were checked in ascending, non-overlapping order above.
+  const resolvesGid = (gid: number): boolean => {
+    let low = 0,
+      high = tilesets.length - 1;
+    while (low <= high) {
+      const middle = (low + high) >>> 1;
+      const tileset = tilesets[middle]!;
+      if (gid < tileset.firstgid) high = middle - 1;
+      else if (gid >= tileset.firstgid + tileset.tileCount) low = middle + 1;
+      else return true;
+    }
+    return false;
+  };
   let cells = 0,
     objects = 0;
   const ids = new Set<number>(),
@@ -322,13 +335,7 @@ export function parseTiledMap(
             'hexagonal rotation GID flag is unsupported',
           );
         const base = gid & 0x0fffffff;
-        if (
-          (!base && gid) ||
-          (base &&
-            !tilesets.some(
-              (t) => base >= t.firstgid && base < t.firstgid + t.tileCount,
-            ))
-        )
+        if ((!base && gid) || (base && !resolvesGid(base)))
           throw new TiledError(path, `unresolved GID ${gid}`);
         return gid;
       }),
