@@ -67,6 +67,47 @@ describe('bounded weighted navigation', () => {
     ).toBe(false);
   });
 
+  it('keeps weighted routes exact when the last cheapest cell is removed and restored', () => {
+    const grid = new NavigationGrid2D({ columns: 3, rows: 2 });
+    const start = { column: 0, row: 0 };
+    const goal = { column: 2, row: 0 };
+    grid.setCells([
+      { column: 0, row: 0, cost: 2 },
+      { column: 1, row: 0, cost: 4 },
+      { column: 2, row: 0, cost: 2 },
+      { column: 0, row: 1, cost: 0.25 },
+      { column: 1, row: 1, cost: 0.25 },
+      { column: 2, row: 1, cost: 0.25 },
+    ]);
+    expect(grid.findPath(start, goal).cost).toBe(2.75);
+    grid.setCells([
+      { column: 0, row: 1, walkable: false },
+      { column: 1, row: 1, cost: 3 },
+      { column: 2, row: 1, cost: 3 },
+    ]);
+    expect(grid.findPath(start, goal).cost).toBe(6);
+    grid.setCells([
+      { column: 0, row: 1, walkable: true },
+      { column: 1, row: 1, cost: 0.25 },
+      { column: 2, row: 1, cost: 0.25 },
+    ]);
+    expect(grid.findPath(start, goal).cost).toBe(2.75);
+    grid.setCells(
+      Array.from({ length: 6 }, (_, index) => ({
+        column: index % 3,
+        row: Math.floor(index / 3),
+        walkable: false,
+      })),
+    );
+    expect(grid.findPath(start, goal).status).toBe('unreachable');
+    grid.setCells([
+      { ...start, walkable: true },
+      { column: 1, row: 0, walkable: true, cost: 0.125 },
+      { ...goal, walkable: true },
+    ]);
+    expect(grid.findPath(start, goal).cost).toBe(2.125);
+  });
+
   it('enforces diagonal corner rules, finite bounds and blocked endpoints', () => {
     const grid = new NavigationGrid2D({ columns: 2, rows: 2 });
     const start = { column: 0, row: 0 };

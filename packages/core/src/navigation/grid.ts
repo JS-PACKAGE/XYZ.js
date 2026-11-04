@@ -48,6 +48,7 @@ export class NavigationGrid2D {
   private readonly searches: NavigationSearchPool<NavigationGridPath2D>;
   private readonly paths = new WeakSet<NavigationGridPath2D>();
   private minimumCost = 1;
+  private minimumCostCount: number;
   private currentRevision = 0;
   private disposed = false;
 
@@ -69,6 +70,7 @@ export class NavigationGrid2D {
     this.costs = new Float64Array(columns * rows).fill(1);
     this.clearance = new Float64Array(columns * rows).fill(Infinity);
     this.searches = new NavigationSearchPool(columns * rows);
+    this.minimumCostCount = columns * rows;
   }
 
   get revision(): number {
@@ -167,6 +169,15 @@ export class NavigationGrid2D {
         this.clearance[index] !== candidate.clearance
       ) {
         changed = true;
+        if (this.walkable[index] && this.costs[index] === this.minimumCost)
+          this.minimumCostCount--;
+        if (candidate.walkable) {
+          if (candidate.cost < this.minimumCost) {
+            this.minimumCost = candidate.cost;
+            this.minimumCostCount = 1;
+          } else if (candidate.cost === this.minimumCost)
+            this.minimumCostCount++;
+        }
         this.walkable[index] = candidate.walkable ? 1 : 0;
         this.costs[index] = candidate.cost;
         this.clearance[index] = candidate.clearance;
@@ -175,12 +186,20 @@ export class NavigationGrid2D {
     if (!changed) return;
     this.currentRevision++;
     this.searches.invalidate();
-    this.minimumCost = Infinity;
-    for (let index = 0; index < this.costs.length; index++) {
-      if (this.walkable[index])
-        this.minimumCost = Math.min(this.minimumCost, this.costs[index]!);
+    // Only losing the last minimum-cost cell requires a full scan. Ordinary
+    // obstacle edits and cost changes otherwise retain the exact A* heuristic.
+    if (this.minimumCostCount === 0) {
+      this.minimumCost = Infinity;
+      for (let index = 0; index < this.costs.length; index++) {
+        if (!this.walkable[index]) continue;
+        const cost = this.costs[index]!;
+        if (cost < this.minimumCost) {
+          this.minimumCost = cost;
+          this.minimumCostCount = 1;
+        } else if (cost === this.minimumCost) this.minimumCostCount++;
+      }
+      if (this.minimumCost === Infinity) this.minimumCost = 0;
     }
-    if (this.minimumCost === Infinity) this.minimumCost = 0;
   }
 
   /** A snapshot remains immutable but is stale after any effective cell edit. */
