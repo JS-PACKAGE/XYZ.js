@@ -405,12 +405,17 @@ export class Text2D extends Sprite {
       }
       pushLine(line.trimEnd());
     }
-    const widths = lines.map((line, index) => {
+    // The font and paragraph direction stay unchanged through bounds calculation.
+    // Keep each native measurement for both alignment and glyph overhangs.
+    const lineMetrics = lines.map((line, index) => {
       context.direction = directions[index]!;
-      return context.measureText(line).width;
+      return context.measureText(line);
     });
-    const layoutWidth = style.wrapWidth ?? Math.max(0, ...widths);
-    const offsets = widths.map((width, index) => {
+    let layoutWidth = style.wrapWidth ?? 0;
+    if (style.wrapWidth === undefined)
+      for (const metrics of lineMetrics)
+        layoutWidth = Math.max(layoutWidth, metrics.width);
+    const offsets = lineMetrics.map(({ width }, index) => {
       const right =
         style.align === 'right' ||
         (style.align === 'start' && directions[index] === 'rtl') ||
@@ -426,8 +431,7 @@ export class Text2D extends Sprite {
       top = -style.fontSize,
       bottom = (lines.length - 1) * style.lineHeight + style.fontSize * 0.25;
     for (let i = 0; i < lines.length; i++) {
-      context.direction = directions[i]!;
-      const metrics = context.measureText(lines[i]!);
+      const metrics = lineMetrics[i]!;
       left = Math.min(left, offsets[i]! - metrics.actualBoundingBoxLeft);
       right = Math.max(
         right,
@@ -498,7 +502,7 @@ export class Text2D extends Sprite {
           direction: directions[i]!,
           x,
           baseline: y,
-          width: widths[i]!,
+          width: lineMetrics[i]!.width,
         }),
       );
       if (style.stroke && style.stroke.width)
