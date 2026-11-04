@@ -60197,3 +60197,295 @@ describe('rudinshapirogrid: the Rudin-Shapiro sequence in rows of a grid, each c
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('paperfoldingruler: the ruler sequence as the shade of the cells of a grid and the paper-folding sequence as a smaller square in them', () => {
+  const p = proceduralMaterialPresets.paperfoldingruler,
+    out = empty(),
+    cell = p.extent / p.side,
+    left = 0.5 - p.extent / 2,
+    half = cell / 2 - p.gapHalf,
+    inner = half * p.innerShare,
+    last = p.tones.length - 1,
+    toneAt = (sample: Sampler, u: number, v: number): number => {
+      sample(u, v, out);
+      return out.color;
+    };
+  // For n > 0: how many times 2 divides it (at most the last shade, by the trailing zeros of the binary string) and the paper-folding bit (the odd part of n leaves 1 over 4).
+  const stepOf = (n: number): number =>
+    Math.min((n.toString(2).match(/0*$/) as RegExpMatchArray)[0].length, last);
+  const foldOf = (n: number): number =>
+    parseInt(n.toString(2).replace(/0+$/, ''), 2) % 4 === 1 ? 1 : 0;
+  const centre = (column: number, row: number): [number, number] => [
+    left + (column + 0.5) * cell,
+    left + (row + 0.5) * cell,
+  ];
+  const nearest = (values: readonly number[], tone: number): number =>
+    values.reduce(
+      (best, candidate, k) =>
+        Math.abs(candidate - tone) < Math.abs(values[best] - tone) ? k : best,
+      0,
+    );
+  // The shade (by the tone at the cell's ring outside the smaller square) and the folding bit (the tone at its middle is the smaller square's).
+  const readCell = (
+    sample: Sampler,
+    column: number,
+    row: number,
+  ): { step: number; fold: number } => {
+    const [cx, cy] = centre(column, row),
+      ring = toneAt(sample, cx + 0.8 * half, cy),
+      step = nearest(p.tones, ring),
+      middle = toneAt(sample, cx, cy);
+    expect(ring).toBeCloseTo(p.tones[step], 6);
+    expect(
+      Math.abs(middle - p.tones[step]) < 1e-6 ||
+        Math.abs(middle - p.innerTones[step]) < 1e-6,
+    ).toBe(true);
+    return { step, fold: Math.abs(middle - p.innerTones[step]) < 1e-6 ? 1 : 0 };
+  };
+  const readGrid = (
+    seed: number,
+  ): {
+    sample: Sampler;
+    cells: { step: number; fold: number }[];
+    offsets: number[];
+  } => {
+    const sample = createSurfaceSampler('paperfoldingruler', seed),
+      cells: { step: number; fold: number }[] = [];
+    for (let row = 0; row < p.side; row++)
+      for (let column = 0; column < p.side; column++)
+        cells.push(readCell(sample, column, row));
+    return {
+      sample,
+      cells,
+      offsets: p.offsets.filter((offset) =>
+        cells.every(
+          (c, index) =>
+            c.step === stepOf(offset + index) &&
+            c.fold === foldOf(offset + index),
+        ),
+      ),
+    };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shades each cell by how many times 2 divides its number and puts a smaller square in it for the paper-folding bit 1, counted along the rows from one of the offsets (seed %i)',
+    (seed) => {
+      const { cells, offsets } = readGrid(seed);
+      // Exactly one of the offsets gives every cell; every shade occurs with and without the smaller square.
+      expect(offsets.length).toBe(1);
+      for (let step = 0; step <= last; step++)
+        for (const fold of [0, 1])
+          expect(
+            cells.filter((c) => c.step === step && c.fold === fold).length,
+          ).toBeGreaterThan(5);
+    },
+  );
+
+  it('uses every offset, over 60 seeds', () => {
+    const used = new Set<number>();
+    for (let seed = 0; seed < 60; seed++)
+      used.add(readGrid(seed * 17 + 3).offsets[0]);
+    expect([...used].sort((a, b) => a - b)).toEqual(
+      [...p.offsets].sort((a, b) => a - b),
+    );
+  });
+
+  it('draws each cell and its smaller square with their tones, heights, roughness and sizes, and nothing outside the grid', () => {
+    const { sample, cells } = readGrid(5),
+      paperOk = (u: number, v: number): boolean =>
+        Math.abs(toneAt(sample, u, v) - p.paperTone) <= p.grainTone / 2 + 1e-9;
+    for (let step = 0; step <= last; step++)
+      for (const fold of [0, 1]) {
+        const index = cells.findIndex(
+            (c) => c.step === step && c.fold === fold,
+          ),
+          [cx, cy] = centre(index % p.side, Math.floor(index / p.side)),
+          middle = fold ? p.innerTones[step] : p.tones[step];
+        expect(toneAt(sample, cx, cy)).toBeCloseTo(middle, 6);
+        expect(out.height / p.relief).toBeCloseTo(
+          p.heights[step] + (fold ? p.innerLift : 0),
+          6,
+        );
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          // The cell: its tone just inside the edge (also at the corner), paper in the gap.
+          expect(
+            toneAt(
+              sample,
+              cx + dx * (half - 0.0004),
+              cy + dy * (half - 0.0004),
+            ),
+          ).toBeCloseTo(p.tones[step], 6);
+          expect(out.height / p.relief).toBeCloseTo(p.heights[step], 6);
+          expect(
+            toneAt(
+              sample,
+              cx + (half - 0.0004) * (dx + dy),
+              cy + (half - 0.0004) * (dx + dy),
+            ),
+          ).toBeCloseTo(p.tones[step], 6);
+          expect(
+            paperOk(cx + dx * (half + 0.0004), cy + dy * (half + 0.0004)),
+          ).toBe(true);
+          expect(out.roughness).toBeCloseTo(p.paperRoughness, 6);
+          // The smaller square: only when the bit is 1.
+          expect(
+            toneAt(
+              sample,
+              cx + dx * (inner - 0.0004),
+              cy + dy * (inner - 0.0004),
+            ),
+          ).toBeCloseTo(middle, 6);
+          expect(
+            toneAt(
+              sample,
+              cx + (inner - 0.0004) * (dx + dy),
+              cy + (inner - 0.0004) * (dx + dy),
+            ),
+          ).toBeCloseTo(middle, 6);
+          expect(
+            toneAt(
+              sample,
+              cx + dx * (inner + 0.0004),
+              cy + dy * (inner + 0.0004),
+            ),
+          ).toBeCloseTo(p.tones[step], 6);
+        }
+      }
+    expect(
+      toneAt(sample, left + p.gapHalf + 0.0006, left + p.gapHalf + 0.0006),
+    ).toBeCloseTo(p.tones[cells[0].step], 6);
+    const lastEdge = left + p.extent - p.gapHalf - 0.0006;
+    expect(toneAt(sample, lastEdge, lastEdge)).toBeCloseTo(
+      p.tones[cells[p.side * p.side - 1].step],
+      6,
+    );
+    for (const [u, v] of [
+      [left - 0.004, 0.5],
+      [left + p.extent + 0.004, 0.5],
+      [0.5, left - 0.004],
+      [0.5, left + p.extent + 0.004],
+    ])
+      expect(paperOk(u, v)).toBe(true);
+  });
+
+  it('softens the edge of a cell and of its smaller square over edgeSoft', () => {
+    const { sample, cells } = readGrid(5),
+      smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03),
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      index = cells.findIndex(
+        (c, i) => i > 400 && c.fold === 1 && c.step === 1,
+      ),
+      { step } = cells[index],
+      [cx, cy] = centre(index % p.side, Math.floor(index / p.side));
+    for (const [dx, dy] of [
+      [1, 0],
+      [0, 1],
+      [-1, 0],
+      [0, -1],
+    ]) {
+      close(
+        toneAt(sample, cx + dx * (half - quarter), cy + dy * (half - quarter)),
+        mix(p.paperTone, p.tones[step], 0.75),
+      );
+      close(
+        toneAt(sample, cx + dx * (half + quarter), cy + dy * (half + quarter)),
+        mix(p.paperTone, p.tones[step], 0.25),
+      );
+      close(
+        toneAt(
+          sample,
+          cx + dx * (inner - quarter),
+          cy + dy * (inner - quarter),
+        ),
+        mix(p.tones[step], p.innerTones[step], 0.75),
+      );
+      close(
+        toneAt(
+          sample,
+          cx + dx * (inner + quarter),
+          cy + dy * (inner + quarter),
+        ),
+        mix(p.tones[step], p.innerTones[step], 0.25),
+      );
+    }
+  });
+
+  it('fades the grain of the paper out over the edge of a cell, as much as the cell covers', () => {
+    const { sample, cells } = readGrid(5),
+      smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      amount = smoothstep(0.25),
+      residuals: number[] = [];
+    for (let column = 0; column < p.side; column++)
+      for (const t of [-0.8, -0.3, 0.3, 0.8]) {
+        const [cx, cy] = centre(column, 12),
+          tone = toneAt(sample, cx + t * half, cy - half - quarter);
+        residuals.push(
+          tone -
+            (p.paperTone +
+              (p.tones[cells[12 * p.side + column].step] - p.paperTone) *
+                amount),
+        );
+      }
+    const largest = Math.max(...residuals.map(Math.abs));
+    expect(largest).toBeGreaterThan(0.003);
+    expect(largest).toBeLessThanOrEqual(
+      0.5 * p.grainTone * (1 - amount) + 1e-9,
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('paperfoldingruler', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('paperfoldingruler', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0013 + i * 0.0021, 0.01),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('paperfoldingruler', 0),
+      b = createSurfaceSampler('paperfoldingruler', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3501],
+        [0.2201, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

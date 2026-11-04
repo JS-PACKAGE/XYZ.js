@@ -2325,6 +2325,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`paperfoldingruler`（折紙尺數列方格）使目前目錄1191→1192種，含plain的gallery為1193項。把n依列排在61×61方格中（每列61格，從seed選的起點offset開始往下數；列長取質數61，因為取2的次方時每一列都一樣，只剩直條紋），畫兩個數列：尺數列（n能被2整除幾次，0到4次與5次以上，共六階）決定方格的色調與高度（整除次數越多越深）；正規折紙數列（n去掉所有2的因子後的奇數部分除以4餘1時為1，餘3時為0）只在值為1的格子裡畫一個較小的方塊，色調另有六階。八個起點offset之間彼此畫面不同。這是作者設計的示意；測試端從畫面讀出每一格的階（方格外圈的色調）與小方塊（中心色調是否為小方塊色），並用獨立的二進位字串（尾端0的個數；去掉尾端0之後以4除的餘數）算出，驗證畫面恰好和八個offset中的一個吻合（只有一個吻合）、六階各有有無小方塊的格子、每個offset在60個seed中都被選到。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

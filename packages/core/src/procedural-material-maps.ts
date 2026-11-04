@@ -46565,6 +46565,66 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'paperfoldingruler': {
+        const p = proceduralMaterialPresets.paperfoldingruler,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x5c001),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          offset =
+            p.offsets[
+              Math.floor(hash(85, 1, seed ^ 0x5c002) * p.offsets.length)
+            ],
+          cell = p.extent / p.side,
+          left = 0.5 - p.extent / 2,
+          half = cell / 2 - p.gapHalf,
+          last = p.tones.length - 1,
+          // For each cell's n: how many times 2 divides it (at most the last shade), and the folding bit.
+          divides = new Uint8Array(p.side * p.side),
+          folds = new Uint8Array(p.side * p.side);
+        for (let index = 0; index < divides.length; index++) {
+          let odd = offset + index,
+            times = 0;
+          while (!(odd & 1)) {
+            odd >>= 1;
+            times++;
+          }
+          divides[index] = Math.min(times, last);
+          folds[index] = (odd & 3) === 1 ? 1 : 0;
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            column = Math.floor((fu - left) / cell),
+            row = Math.floor((fv - left) / cell);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          if (column >= 0 && column < p.side && row >= 0 && row < p.side) {
+            const x = fu - left - (column + 0.5) * cell,
+              y = fv - left - (row + 0.5) * cell,
+              reach = Math.max(Math.abs(x), Math.abs(y)),
+              step = divides[row * p.side + column],
+              amount = cover(half - reach);
+            shade += (p.tones[step] - shade) * amount;
+            elevation += (p.heights[step] - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = amount;
+            if (folds[row * p.side + column]) {
+              const inner = cover(half * p.innerShare - reach);
+              shade += (p.innerTones[step] - shade) * inner;
+              elevation += (p.heights[step] + p.innerLift - elevation) * inner;
+            }
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -74094,6 +74154,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'paperfoldingruler' ||
     kind === 'rudinshapirogrid' ||
     kind === 'baumsweetgrid' ||
     kind === 'binarynecklaces' ||
