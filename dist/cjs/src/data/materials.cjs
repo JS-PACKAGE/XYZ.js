@@ -26797,6 +26797,65 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .8,
 		inkRoughness: .45
 	}),
+	arnoldcatmap: Object.freeze({
+		dark: [
+			18,
+			20,
+			30
+		],
+		light: [
+			236,
+			232,
+			214
+		],
+		roughness: .5,
+		relief: .004,
+		sizes: Object.freeze([
+			32,
+			40,
+			48,
+			60,
+			64
+		]),
+		glyph: Object.freeze([
+			Object.freeze([
+				.22,
+				.15,
+				.38,
+				.85
+			]),
+			Object.freeze([
+				.22,
+				.15,
+				.78,
+				.3
+			]),
+			Object.freeze([
+				.22,
+				.46,
+				.64,
+				.6
+			])
+		]),
+		rings: Object.freeze([
+			.22,
+			.34,
+			.44
+		]),
+		tones: Object.freeze([
+			.06,
+			.34,
+			.62,
+			.92
+		]),
+		heights: Object.freeze([
+			.15,
+			.35,
+			.55,
+			.75
+		]),
+		inkRoughness: .5
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -35478,6 +35537,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	arnoldcatmap: 1,
 	ninemensmorris: 1,
 	carromboard: 1,
 	shogiboard: 1,

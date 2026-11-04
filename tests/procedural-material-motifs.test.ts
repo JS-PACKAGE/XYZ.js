@@ -66616,3 +66616,261 @@ describe('ninemensmorris: a nine men morris board with the men of the placing ph
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('arnoldcatmap: a picture scrambled by the cat map of Arnold, as many times as the seed says', () => {
+  const p = proceduralMaterialPresets.arnoldcatmap,
+    out = empty();
+  type Result = { tone: number; height: number; roughness: number };
+  const read = (sample: Sampler, u: number, v: number): Result => {
+    sample(u, v, out);
+    return {
+      tone: out.color,
+      height: out.height / p.relief,
+      roughness: out.roughness,
+    };
+  };
+  // The pictures on the unit square, from the facts of the preset (rectangles of the letter F, rings, quarters) as values from 0 to 3 for the cell of size n at (x, y).
+  const pictureValue = (
+    picture: number,
+    n: number,
+    x: number,
+    y: number,
+  ): number => {
+    const tx = (x + 0.5) / n,
+      ty = (y + 0.5) / n;
+    if (picture === 0)
+      return p.glyph.some(
+        ([x0, y0, x1, y1]) => tx >= x0 && tx < x1 && ty >= y0 && ty < y1,
+      )
+        ? 3
+        : 0;
+    if (picture === 1) {
+      const radius = Math.sqrt((tx - 0.5) ** 2 + (ty - 0.5) ** 2);
+      return [p.rings[0], p.rings[1], p.rings[2]].findIndex(
+        (limit) => radius < limit,
+      ) === -1
+        ? 0
+        : 3 -
+            [p.rings[0], p.rings[1], p.rings[2]].findIndex(
+              (limit) => radius < limit,
+            );
+    }
+    return Number(tx >= 0.5) + 2 * Number(ty >= 0.5);
+  };
+  // The cat map written as the matrix [[2, 1], [1, 1]] acting on (x, y) (the cell (x, y) goes to (2x + y, x + y)), applied to the whole picture k times by moving the values: so the picture after the
+  // k times has at (a, b) the value that was at the cell the map k times takes to (a, b).
+  const step = (grid: number[][]): number[][] => {
+    const n = grid.length,
+      next = Array.from({ length: n }, () => new Array<number>(n).fill(-1));
+    for (let y = 0; y < n; y++)
+      for (let x = 0; x < n; x++)
+        next[(x + y) % n][(2 * x + y) % n] = grid[y][x];
+    return next;
+  };
+  const startPicture = (picture: number, n: number): number[][] =>
+    Array.from({ length: n }, (_, y) =>
+      Array.from({ length: n }, (_, x) => pictureValue(picture, n, x, y)),
+    );
+  const scrambled = (picture: number, n: number, times: number): number[][] => {
+    let grid = startPicture(picture, n);
+    for (let time = 0; time < times; time++) grid = step(grid);
+    return grid;
+  };
+  // Read the picture of a seed: the smallest size of the preset whose cells are each of one tone (the four corners of a cell inside it as the middle), and the value of each cell.
+  const readPicture = (
+    seed: number,
+  ): { n: number; grid: number[][]; sample: Sampler } => {
+    const sample = createSurfaceSampler('arnoldcatmap', seed);
+    for (const n of [...p.sizes].sort((a, b) => a - b)) {
+      const grid: number[][] = [];
+      let consistent = true;
+      for (let y = 0; y < n && consistent; y++) {
+        const row: number[] = [];
+        for (let x = 0; x < n && consistent; x++) {
+          const middle = read(sample, (x + 0.5) / n, (y + 0.5) / n).tone;
+          for (const [fx, fy] of [
+            [0.1, 0.1],
+            [0.9, 0.1],
+            [0.1, 0.9],
+            [0.9, 0.9],
+          ])
+            if (read(sample, (x + fx) / n, (y + fy) / n).tone !== middle)
+              consistent = false;
+          row.push(p.tones.findIndex((tone) => Math.abs(tone - middle) < 1e-6));
+        }
+        grid.push(row);
+      }
+      if (consistent) return { n, grid, sample };
+    }
+    throw new Error('no size');
+  };
+  // Which (picture, times) make the picture of the seed: the times up to the number of times after which the map is the identity on this size.
+  const periodOf = (n: number): number => {
+    let times = 1;
+    const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+    for (let cell = 0; cell < n * n; cell++) {
+      const x0 = cell % n,
+        y0 = (cell - x0) / n;
+      let x = x0,
+        y = y0,
+        steps = 0;
+      do {
+        [x, y] = [(2 * x + y) % n, (x + y) % n];
+        steps++;
+      } while (x !== x0 || y !== y0);
+      times = (times / gcd(times, steps)) * steps;
+    }
+    return times;
+  };
+  const fits = (picture: {
+    n: number;
+    grid: number[][];
+  }): [number, number][] => {
+    const found: [number, number][] = [],
+      period = periodOf(picture.n);
+    for (let which = 0; which < 3; which++) {
+      let model = startPicture(which, picture.n);
+      for (let times = 0; times < period; times++) {
+        if (
+          model.every((row, y) =>
+            row.every((value, x) => value === picture.grid[y][x]),
+          )
+        )
+          found.push([which, times]);
+        model = step(model);
+      }
+    }
+    return found;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws one of the three pictures scrambled by the cat map a number of times below the period, cell by cell, in the tones of the values (seed %i)',
+    (seed) => {
+      const picture = readPicture(seed),
+        found = fits(picture);
+      expect(p.sizes).toContain(picture.n);
+      expect(found.length).toBeGreaterThanOrEqual(1);
+      // Every cell is flat (its four corners and its middle are one tone) and the tone, height and roughness go with the value of the cell.
+      for (let y = 0; y < picture.n; y++)
+        for (let x = 0; x < picture.n; x++) {
+          const value = picture.grid[y][x],
+            here = read(
+              picture.sample,
+              (x + 0.5) / picture.n,
+              (y + 0.5) / picture.n,
+            );
+          expect(value).toBeGreaterThanOrEqual(0);
+          expect(here.tone).toBeCloseTo(p.tones[value], 6);
+          expect(here.height).toBeCloseTo(p.heights[value], 6);
+          expect(here.roughness).toBeCloseTo(p.inkRoughness, 6);
+        }
+    },
+  );
+
+  it('has the facts of the cat map in the model: it moves cells one to one, and the picture is back after the period (24, 30, 12, 60 and 48 for the sizes)', () => {
+    const periods = p.sizes.map((n) => periodOf(n));
+    expect(periods).toEqual([24, 30, 12, 60, 48]);
+    for (const n of [32, 48]) {
+      const image = scrambled(0, n, 0),
+        again = scrambled(0, n, periodOf(n));
+      expect(again).toEqual(image);
+      const one = scrambled(0, n, 1);
+      expect(one.flat().filter((value) => value === 3).length).toBe(
+        image.flat().filter((value) => value === 3).length,
+      );
+    }
+  });
+
+  it(
+    'uses every size, every picture and many numbers of times over 300 seeds, up to the period',
+    { timeout: 120000 },
+    () => {
+      const sizes = new Map<number, number>(),
+        pictures = new Map<number, number>(),
+        most = new Map<number, number>();
+      for (let seed = 0; seed < 300; seed++) {
+        const picture = readPicture(seed * 7 + 1),
+          found = fits(picture);
+        expect(found.length).toBeGreaterThanOrEqual(1);
+        sizes.set(picture.n, (sizes.get(picture.n) ?? 0) + 1);
+        for (const [which, times] of found) {
+          pictures.set(which, (pictures.get(which) ?? 0) + 1 / found.length);
+          most.set(picture.n, Math.max(most.get(picture.n) ?? 0, times));
+        }
+      }
+      expect(sizes.size).toBe(p.sizes.length);
+      for (const count of sizes.values())
+        expect(Math.abs(count - 60)).toBeLessThan(25);
+      expect(pictures.size).toBe(3);
+      for (const count of pictures.values())
+        expect(Math.abs(count - 100)).toBeLessThan(30);
+      // The numbers of times go well past the small ones for the larger periods.
+      expect(most.get(60) ?? 0).toBeGreaterThan(30);
+      expect(most.get(64) ?? 0).toBeGreaterThan(24);
+      expect(most.get(32) ?? 0).toBeGreaterThan(14);
+      // The smallest period (12) is reached up to the number before it: the last number of times is used, and none of them is past it.
+      expect(most.get(48)).toBe(11);
+      for (const n of p.sizes)
+        expect(most.get(n) ?? 0).toBeLessThan(periodOf(n));
+    },
+  );
+
+  it('has hard edges between cells of different values, with no soft edge', () => {
+    const picture = readPicture(11);
+    let steps = 0;
+    for (let y = 0; y < picture.n; y++)
+      for (let x = 0; x + 1 < picture.n; x++)
+        if (picture.grid[y][x] !== picture.grid[y][x + 1]) {
+          steps += 1;
+          const edge = (x + 1) / picture.n;
+          expect(
+            read(picture.sample, edge - 0.00005, (y + 0.5) / picture.n).tone,
+          ).toBeCloseTo(p.tones[picture.grid[y][x]], 6);
+          expect(
+            read(picture.sample, edge + 0.00005, (y + 0.5) / picture.n).tone,
+          ).toBeCloseTo(p.tones[picture.grid[y][x + 1]], 6);
+        }
+    expect(steps).toBeGreaterThan(50);
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('arnoldcatmap', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('arnoldcatmap', 0),
+      b = createSurfaceSampler('arnoldcatmap', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [x, y] of [
+        [t, 0.3501],
+        [0.2201, t],
+        [t, 0.5],
+      ]) {
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

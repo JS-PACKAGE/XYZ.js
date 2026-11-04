@@ -2385,6 +2385,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`arnoldcatmap`（阿諾德貓映射）使目前目錄1206→1207種，含plain的gallery為1208項。由方格組成的圖：一張只有四個色階的小圖（字母F的矩形、同心圓環、或四個象限），經過阿諾德貓映射（把格子 (x, y) 搬到 (2x + y, x + y)，兩個座標都對格數取餘）若干次之後的樣子；seed選格數（32、40、48、60、64）、選哪張圖，並決定映射的次數（從0次到「所有格子都回到原位」的週期少一次）。次數少時圖被拉成斜向的條紋，次數多時變成雜訊，仍可由逆映射還原。這是作者設計的示意，沒有文字，沒有框與紙面，每個格子是一個平坦的方塊，格子之間是硬邊；測試端以另外寫的貓映射（用矩陣 [[2,1],[1,1]]，在測試裡直接搬動格子的值）從三張圖與0到週期少一次的每個次數找出吻合的組合；週期由測試自己數出的格子循環的最小公倍數，檢查為24、30、12、60、48，且經過一個週期後圖完全回到原樣；300個seed涵蓋每個格數與每張圖，次數可到各自週期少一，格子的色調、高度與粗糙度符合它的值，格子之間是硬邊（兩側0.00005處就是各自的值）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

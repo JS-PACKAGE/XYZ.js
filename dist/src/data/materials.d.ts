@@ -15570,6 +15570,18 @@ export declare const proceduralMaterialPresets: Readonly<{
         paperRoughness: 0.8;
         inkRoughness: 0.45;
     }>;
+    arnoldcatmap: Readonly<{
+        dark: readonly [18, 20, 30];
+        light: readonly [236, 232, 214];
+        roughness: 0.5;
+        relief: 0.004;
+        sizes: readonly number[];
+        glyph: readonly (readonly number[])[];
+        rings: readonly number[];
+        tones: readonly number[];
+        heights: readonly number[];
+        inkRoughness: 0.5;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -22055,6 +22067,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    arnoldcatmap: 1;
     ninemensmorris: 1;
     carromboard: 1;
     shogiboard: 1;

@@ -16924,6 +16924,26 @@ export const proceduralMaterialPresets = Object.freeze({
     paperRoughness: 0.8,
     inkRoughness: 0.45,
   }),
+  arnoldcatmap: Object.freeze({
+    dark: [18, 20, 30] as const,
+    light: [236, 232, 214] as const,
+    roughness: 0.5,
+    relief: 0.004,
+    // A picture of cells made by the cat map of Arnold: a picture of a few tones is stretched by the map taking the cell (x, y) to (2x + y, x + y) with both reduced by the size, applied as many
+    // times as the seed says (from none to one short of the number of times after which every cell is back where it started). The picture is one of three, given on the unit square: the letter F
+    // (the rectangles, in tone 3 on tone 0), rings round the middle (the radii of the rings for the tones 3, 2 and 1 inside them), or the four quarters (their tones going round).
+    sizes: Object.freeze([32, 40, 48, 60, 64]),
+    glyph: Object.freeze([
+      Object.freeze([0.22, 0.15, 0.38, 0.85]),
+      Object.freeze([0.22, 0.15, 0.78, 0.3]),
+      Object.freeze([0.22, 0.46, 0.64, 0.6]),
+    ]),
+    rings: Object.freeze([0.22, 0.34, 0.44]),
+    // The tones, heights and the one roughness of the four values of a cell.
+    tones: Object.freeze([0.06, 0.34, 0.62, 0.92]),
+    heights: Object.freeze([0.15, 0.35, 0.55, 0.75]),
+    inkRoughness: 0.5,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -23416,6 +23436,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  arnoldcatmap: 1,
   ninemensmorris: 1,
   carromboard: 1,
   shogiboard: 1,

@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'arnoldcatmap',
   'ninemensmorris',
   'carromboard',
   'shogiboard',
@@ -48837,6 +48838,77 @@ export function createSurfaceSampler(
           );
           height = clamp(elevation);
           roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
+      case 'arnoldcatmap': {
+        const p = proceduralMaterialPresets.arnoldcatmap,
+          size =
+            p.sizes[Math.floor(hash(100, 1, seed ^ 0xbb001) * p.sizes.length)],
+          picture = Math.floor(hash(100, 2, seed ^ 0xbb002) * 3),
+          cells = size * size,
+          // The picture on the cells, from the middle of each cell on the unit square.
+          values = new Uint8Array(cells);
+        for (let y = 0; y < size; y++)
+          for (let x = 0; x < size; x++) {
+            const tx = (x + 0.5) / size,
+              ty = (y + 0.5) / size;
+            let value = 0;
+            if (picture === 0) {
+              for (const [x0, y0, x1, y1] of p.glyph)
+                if (tx >= x0 && tx < x1 && ty >= y0 && ty < y1) value = 3;
+            } else if (picture === 1) {
+              const radius = Math.hypot(tx - 0.5, ty - 0.5);
+              value =
+                radius < p.rings[0]
+                  ? 3
+                  : radius < p.rings[1]
+                    ? 2
+                    : radius < p.rings[2]
+                      ? 1
+                      : 0;
+            } else value = (tx < 0.5 ? 0 : 1) + (ty < 0.5 ? 0 : 2);
+            values[y * size + x] = value;
+          }
+        // Where the cell (x, y) goes under the map, and after how many times everything is back (the smallest number of times that is the identity).
+        const target = (cell: number): number => {
+            const x = cell % size,
+              y = (cell - x) / size;
+            return ((x + y) % size) * size + ((2 * x + y) % size);
+          },
+          gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b)),
+          // The number of times after which every cell is back: the least common multiple of the lengths of the cycles of the map.
+          identityAfter = (): number => {
+            let times = 1;
+            for (let cell = 0; cell < cells; cell++) {
+              let at = target(cell),
+                steps = 1;
+              while (at !== cell) {
+                at = target(at);
+                steps++;
+              }
+              times = (times / gcd(times, steps)) * steps;
+            }
+            return times;
+          },
+          period = identityAfter(),
+          iterations = Math.floor(hash(100, 3, seed ^ 0xbb003) * period);
+        let current = values;
+        for (let time = 0; time < iterations; time++) {
+          const next = new Uint8Array(cells);
+          for (let cell = 0; cell < cells; cell++)
+            next[target(cell)] = current[cell];
+          current = next;
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            x = Math.min(size - 1, Math.floor(fu * size)),
+            y = Math.min(size - 1, Math.floor(fv * size)),
+            value = current[y * size + x];
+          color = clamp(p.tones[value]);
+          height = clamp(p.heights[value]);
+          roughness = clamp(p.inkRoughness);
           occlusion = 1;
         };
       }
