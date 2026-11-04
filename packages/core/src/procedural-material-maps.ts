@@ -41431,12 +41431,7 @@ export function createSurfaceSampler(
             p.grainCells,
             p.grainCells,
             seed ^ (p.seedSalt + 1),
-          ),
-          touches = (x: number, y: number): boolean =>
-            occupied[y * p.size + ((x + 1) % p.size)] === 1 ||
-            occupied[y * p.size + ((x + p.size - 1) % p.size)] === 1 ||
-            occupied[((y + 1) % p.size) * p.size + x] === 1 ||
-            occupied[((y + p.size - 1) % p.size) * p.size + x] === 1;
+          );
         // Diffusion-limited aggregation on a size x size torus: the cell at the centre is the
         // first member; every further particle starts on a random free cell, takes
         // random steps to one of its four neighbours (wrapping around the torus) and sticks
@@ -41447,35 +41442,40 @@ export function createSurfaceSampler(
         occupied[centre] = 1;
         marks[centre] = 1;
         tones[centre] = 1;
+        const size = p.size,
+          last = size - 1,
+          maxSteps = p.maxSteps,
+          startSeedX = seed ^ p.seedSalt,
+          startSeedY = seed ^ (p.seedSalt + 2),
+          walkSeed = seed ^ (p.seedSalt + 3);
+        // Wraps use `>=` and `=== 0` so a coordinate of exactly size (a hash of 1) still maps
+        // as `% size` did.
         for (let particle = 1; particle < p.particles; particle++)
           for (let attempt = 0, stuck = false; !stuck; attempt++) {
-            let x = Math.floor(
-                hash(particle, attempt, seed ^ p.seedSalt) * p.size,
-              ),
-              y = Math.floor(
-                hash(particle, attempt, seed ^ (p.seedSalt + 2)) * p.size,
-              );
-            if (occupied[y * p.size + x]) continue;
-            for (let step = 0; step < p.maxSteps; step++) {
-              if (touches(x, y)) {
-                const cell = y * p.size + x;
+            let x = Math.floor(hash(particle, attempt, startSeedX) * size),
+              y = Math.floor(hash(particle, attempt, startSeedY) * size);
+            if (occupied[y * size + x]) continue;
+            const walkKey = particle * 65537 + attempt;
+            for (let step = 0; step < maxSteps; step++) {
+              const row = y * size;
+              if (
+                occupied[row + (x >= last ? x + 1 - size : x + 1)] === 1 ||
+                occupied[row + (x === 0 ? last : x - 1)] === 1 ||
+                occupied[(y >= last ? y + 1 - size : y + 1) * size + x] === 1 ||
+                occupied[(y === 0 ? last : y - 1) * size + x] === 1
+              ) {
+                const cell = row + x;
                 occupied[cell] = 1;
                 marks[cell] = 1;
                 tones[cell] = 1 - particle / p.particles;
                 stuck = true;
                 break;
               }
-              const direction = Math.floor(
-                hash(
-                  particle * 65537 + attempt,
-                  step,
-                  seed ^ (p.seedSalt + 3),
-                ) * 4,
-              );
-              if (direction === 0) x = (x + 1) % p.size;
-              else if (direction === 1) x = (x + p.size - 1) % p.size;
-              else if (direction === 2) y = (y + 1) % p.size;
-              else y = (y + p.size - 1) % p.size;
+              const direction = Math.floor(hash(walkKey, step, walkSeed) * 4);
+              if (direction === 0) x = x >= last ? x + 1 - size : x + 1;
+              else if (direction === 1) x = x === 0 ? last : x - 1;
+              else if (direction === 2) y = y >= last ? y + 1 - size : y + 1;
+              else y = y === 0 ? last : y - 1;
             }
           }
         const pattern = latticeField(marks, p.size, p.size),
