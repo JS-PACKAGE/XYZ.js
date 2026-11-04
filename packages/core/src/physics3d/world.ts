@@ -541,11 +541,13 @@ export class PhysicsWorld3D {
   unregister(object: Object3D): void {
     const entry = this.entries.get(object);
     if (!entry) return;
-    for (let i = this.constraints.length - 1; i >= 0; i--) {
-      const joint = this.constraints[i];
-      if (joint.bodyA === object || joint.bodyB === object)
-        this.removeJoint(joint);
-    }
+    // Most colliders have no constraints; unrelated joints cannot be invalidated.
+    if (this.jointLinks.has(object))
+      for (let i = this.constraints.length - 1; i >= 0; i--) {
+        const joint = this.constraints[i];
+        if (joint.bodyA === object || joint.bodyB === object)
+          this.removeJoint(joint);
+      }
     this.entries.delete(object);
     ++this.membership;
     entry.registered = false;
