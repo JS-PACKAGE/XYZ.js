@@ -14031,3 +14031,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增3項專屬測試（與判斷式理想圖形逐點對照，含occlusion〔每變體500點中夠遠者，容差grain的一半與1e-9，至少350點可比〕；從畫面量中央圓盤寬度與包圍圓盤、圓環的大小；Kanizsa吃豆人的缺口角度、朝向與錯覺圖形邊上沒有墨水）加沿用的色調範圍、seed差異與決定性、C1與UV週期、maps，共7項，`-t "Size illusions as"`7項通過。變異檢查（做過10次）：圓盤半徑加0.01失敗6項；環半寬加倍失敗2項；半角取180而非360失敗3項；角度折回錯誤失敗4項；嘴巴邊距離的符號失敗3項；嘴巴外遮罩取反失敗4項；吃豆人遮罩反向失敗4項；嘴巴方向單位錯誤失敗4項；變體選擇的hash常數改失敗5項；occlusion公式改失敗1項。**10次全部被抓到**，沒有未抓到的。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Size illusions as|sizeillusions|kinds|catalog|distinct|periodic"`定向測試**2570項通過／4532項未選**，輸出`GATES-OK`。
 - 未驗證：lineillusions、contrastillusions、randomdotstereogram與sizeillusions尚未有完整suite的複驗紀錄（完整suite正在`be1be08f5`執行，結果另記，那個範圍包含前三個但不含sizeillusions）；sizeillusions尚未做瀏覽器gallery檢查；不push。
+
+## 2026-11-04 完整測試與瀏覽器gallery複驗（至隨機點立體圖）
+
+- 範圍：在`be1be08f5`（新增隨機點立體圖之後）重跑完整測試，並在`be1be08f5`與`3162599e8`（新增尺寸錯覺圖樣之後）各跑一次瀏覽器gallery。這段不新增材質，只記錄實跑結果。`lineillusions`（`09d2b225c`）、`contrastillusions`（`b10d21058`）與`randomdotstereogram`（`be1be08f5`）包含在完整測試範圍內；`sizeillusions`（`3162599e8`）不在完整測試範圍內。
+- 補記一個疏漏：新增`sizeillusions`時我漏跑了`/tmp/absent.sh`對ebbinghaus、delboeuf、kanizsa的存在性檢查（ACCEPTANCE的那一條也如實寫了「沒有另外跑」），事後補跑結果是ebbinghaus 0／2、delboeuf 0／2、kanizsa 0／2、titchener 0／0、pacman 0／0（kind數0，README提及的2處就是這個kind自己的英文與日文條目），所以並沒有重複。
+- 完整測試（工具實跑，乾淨的detached worktree）：**179個測試檔、11,023項全部通過**（1844 s，期間同時跑著gates、變異檢查與預覽，所以耗時不是乾淨的量測）。前一次完整複驗在`3336cb1e5`（10,997項）；10,997 → 11,023共26項，與我預期的增量lineillusions 10項、contrastillusions 8項、randomdotstereogram 8項（各自的專屬與沿用測試加kinds清單的測試）相符，但我沒有逐項核對各測試的數量。
+- 瀏覽器gallery（工具實跑，無頭Chrome，vite從乾淨worktree提供`/examples/pbr3d/`，每次開啟前先殺掉舊的Chrome並等約20秒）：在`be1be08f5`，WebGPU分頁與`?renderer=webgl2`分頁各自讀到「1129 procedural material presets」、選單1130個選項，選取randomdotstereogram、contrastillusions與plain都成功，entries都是空的，randomdotstereogram的選項文字與標籤一致；在`3162599e8`，兩個分頁各自讀到「1130 procedural material presets」、選單1131個選項，選取sizeillusions、randomdotstereogram與plain都成功，entries都是空的，sizeillusions的選項文字與標籤一致。限制：只涵蓋「可選取、讀數更新、無console錯誤」，沒有目視畫面或像素比對；跨瀏覽器、跨GPU行為沒有驗證。
+- 未驗證：`sizeillusions`尚未跑完整suite（只有定向測試、gates與上述gallery）；跨瀏覽器與跨GPU；不push。
