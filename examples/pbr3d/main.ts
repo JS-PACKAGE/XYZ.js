@@ -1206,6 +1206,7 @@ try {
     'necklaces',
     'spanningtrees',
     'polyominoes',
+    'selfavoidingwalks',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

@@ -53390,6 +53390,149 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'selfavoidingwalks': {
+        const p = proceduralMaterialPresets.selfavoidingwalks,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.lengths.length,
+          group = Math.floor(unsigned / p.lengths.length),
+          length: number = p.lengths[variant],
+          cols = p.cols[variant],
+          rows = p.rows[variant],
+          // Every walk of length steps that starts to the east (a step to the east, north, west or south is the vertex moved by one), as its vertices from the start, found by trying the steps one after the other.
+          walks = (() => {
+            const found: number[][][] = [],
+              path: number[][] = [[0, 0]],
+              visited = new Set(['0,0']),
+              steps = [
+                [1, 0],
+                [0, 1],
+                [-1, 0],
+                [0, -1],
+              ],
+              grow = (): void => {
+                if (path.length === length + 1) {
+                  // A reduced walk has its first step that is not east going down the page (y increasing; its mirror image goes up).
+                  const turn = path.findIndex(([, y], k) => k > 0 && y !== 0);
+                  if (p.reduced[variant] === 0 || turn < 0 || path[turn][1] > 0)
+                    found.push(path.map(([x, y]) => [x, y]));
+                  return;
+                }
+                const [x, y] = path[path.length - 1];
+                for (const [dx, dy] of steps) {
+                  const next = `${x + dx},${y + dy}`;
+                  if (path.length === 1 && (dx !== 1 || dy !== 0)) continue;
+                  if (visited.has(next)) continue;
+                  visited.add(next);
+                  path.push([x + dx, y + dy]);
+                  grow();
+                  path.pop();
+                  visited.delete(next);
+                }
+              };
+            grow();
+            for (let k = found.length - 1; k > 0; k--) {
+              const other = Math.floor(
+                hash(k, 231, group ^ p.seedSalt) * (k + 1),
+              );
+              [found[k], found[other]] = [found[other], found[k]];
+            }
+            // Moved so that the least x and least y are 0; the level is the squared distance between the start and the end over the squared length.
+            return found.map((vertices) => {
+              const minX = Math.min(...vertices.map(([x]) => x)),
+                minY = Math.min(...vertices.map(([, y]) => y)),
+                moved = vertices.map(([x, y]) => [x - minX, y - minY]),
+                end = moved[length],
+                start = moved[0];
+              return {
+                vertices: moved,
+                level:
+                  ((end[0] - start[0]) ** 2 + (end[1] - start[1]) ** 2) /
+                  (length * length),
+              };
+            });
+          })(),
+          span = length + 2 * p.margin,
+          scale = Math.min(1 / (cols * span), 1 / (rows * span)),
+          originX = (1 / cols - scale * span) / 2,
+          originY = (1 / rows - scale * span) / 2,
+          // 1 inside the distance half, 0 outside, 1/2 at half, smoothed over edgeSoft.
+          band = (distance: number, half: number): number =>
+            smooth(clamp((half - distance) / p.edgeSoft + 0.5));
+        return () => {
+          const tileU = fract(u),
+            tileV = fract(v),
+            col = Math.min(cols - 1, Math.floor(tileU * cols)),
+            row = Math.min(rows - 1, Math.floor(tileV * rows)),
+            index = row * cols + col,
+            grain = grainField(u, v);
+          let free = 1,
+            toneSum = 0,
+            heightSum = 0;
+          if (index < walks.length) {
+            // Lattice units from the first vertex of the box, x to the right and y downwards.
+            const x = (tileU - col / cols - originX) / scale - p.margin,
+              y = (tileV - row / rows - originY) / scale - p.margin,
+              { vertices, level } = walks[index];
+            // The walk: its edges (each a capsule with round ends, so the corners are round).
+            let pathFree = 1;
+            for (let k = 0; k < length; k++) {
+              const [ax, ay] = vertices[k],
+                [bx, by] = vertices[k + 1],
+                dx = bx - ax,
+                dy = by - ay,
+                along = Math.max(
+                  0,
+                  Math.min(
+                    1,
+                    ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy),
+                  ),
+                );
+              pathFree *=
+                1 -
+                band(
+                  Math.hypot(x - ax - along * dx, y - ay - along * dy),
+                  p.pathHalf,
+                );
+            }
+            const pathMask = 1 - pathFree,
+              startMask = band(
+                Math.hypot(x - vertices[0][0], y - vertices[0][1]),
+                p.startRadius,
+              ),
+              // The faint grid: a dot on the lattice vertex nearest to the point, inside the box.
+              nearX = Math.round(x),
+              nearY = Math.round(y),
+              latticeMask =
+                nearX >= 0 && nearY >= 0 && nearX <= length && nearY <= length
+                  ? band(Math.hypot(x - nearX, y - nearY), p.dotRadius)
+                  : 0,
+              under = 1 - startMask,
+              latticeOnly = (1 - pathMask) * latticeMask;
+            toneSum =
+              startMask * p.toneStart +
+              under *
+                (pathMask *
+                  (p.tonePathMin + (p.tonePathMax - p.tonePathMin) * level) +
+                  latticeOnly * p.toneLattice);
+            heightSum =
+              startMask * p.startHeight +
+              under *
+                (pathMask * (p.pathBase + p.pathSwing * level) +
+                  latticeOnly * p.latticeHeight);
+            free = under * (1 - pathMask) * (1 - latticeMask);
+          }
+          const ink = 1 - free;
+          color = p.toneGround * free + toneSum + p.grainTone * (grain - 0.5);
+          height = p.cellHeight * heightSum;
+          occlusion = 1 - p.gapOcclusion * (1 - ink);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -62334,6 +62477,7 @@ export function createSurfaceSampler(
     kind === 'necklaces' ||
     kind === 'spanningtrees' ||
     kind === 'polyominoes' ||
+    kind === 'selfavoidingwalks' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

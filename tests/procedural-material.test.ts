@@ -1169,6 +1169,7 @@ const kinds: ProceduralMaterialKind[] = [
   'necklaces',
   'spanningtrees',
   'polyominoes',
+  'selfavoidingwalks',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -202189,6 +202190,464 @@ describe('Polyominoes as every shape of n cells drawn once', () => {
     expect(blue / (512 * 512)).toBeLessThan(38.8);
     expect(maxTilt).toBeGreaterThan(0.0627);
     expect(maxTilt).toBeLessThan(0.0628);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Self-avoiding walks as every walk of n steps drawn once', () => {
+  const p = proceduralMaterialPresets.selfavoidingwalks;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The layout of the panels of a variant (seed % 6): slots of 1 / cols by 1 / rows, each with a box of length by length lattice units (the walk moved to its corner) and the margin around it, drawn at one scale and centred in the slot. */
+  const geometry = (seed: number) => {
+    const variant = seed % p.lengths.length,
+      length: number = p.lengths[variant],
+      cols: number = p.cols[variant],
+      rows: number = p.rows[variant],
+      span = length + 2 * p.margin,
+      scale = Math.min(1 / (cols * span), 1 / (rows * span));
+    return {
+      length,
+      cols,
+      rows,
+      reduced: p.reduced[variant] === 1,
+      scale,
+      originX: (1 / cols - scale * span) / 2,
+      originY: (1 / rows - scale * span) / 2,
+    };
+  };
+  type Walk = {
+    steps: string;
+    vertices: number[][];
+    levels: number[];
+  };
+  /** The walk of every panel slot of a seed read back from the picture (null for an empty slot): the start is the lattice vertex where the height is at the start level, an edge of the lattice is part of the walk where the ink is at its middle, and the walk is followed from the start. Steps are R (right), L (left), D (down the page) and U (up). The levels are the squared end distance that every edge of the walk gives by its height. */
+  const readWalks = (seed: number): (Walk | null)[] => {
+    const g = geometry(seed),
+      sample = createSurfaceSampler('selfavoidingwalks', seed),
+      out = empty(),
+      walks: (Walk | null)[] = [];
+    for (let slot = 0; slot < g.cols * g.rows; slot++) {
+      const col = slot % g.cols,
+        row = Math.floor(slot / g.cols),
+        at = (x: number, y: number) => {
+          sample(
+            col / g.cols + g.originX + g.scale * (p.margin + x),
+            row / g.rows + g.originY + g.scale * (p.margin + y),
+            out,
+          );
+          return {
+            ink: 1 - (1 - out.occlusion) / p.gapOcclusion > 0.5,
+            height: out.height / p.relief / p.cellHeight,
+          };
+        },
+        neighbours = new Map<string, string[]>(),
+        heights: number[] = [];
+      let start: number[] | null = null;
+      for (let j = 0; j <= g.length; j++)
+        for (let i = 0; i <= g.length; i++) {
+          if (at(i, j).height > (p.startHeight + p.pathBase + p.pathSwing) / 2)
+            start = [i, j];
+          for (const [x, y, di, dj] of [
+            [i + 0.5, j, 1, 0],
+            [i, j + 0.5, 0, 1],
+          ]) {
+            if (i + di > g.length || j + dj > g.length) continue;
+            const edge = at(x, y);
+            if (!edge.ink) continue;
+            heights.push(edge.height);
+            const from = `${i},${j}`,
+              to = `${i + di},${j + dj}`;
+            neighbours.set(from, [...(neighbours.get(from) ?? []), to]);
+            neighbours.set(to, [...(neighbours.get(to) ?? []), from]);
+          }
+        }
+      if (start === null) {
+        expect(heights.length).toBe(0);
+        walks.push(null);
+        continue;
+      }
+      // The edges are exactly the steps of one walk: no vertex has three edges and the walk from the start uses all of them.
+      expect(heights.length).toBe(g.length);
+      let at2 = `${start[0]},${start[1]}`,
+        before = '',
+        steps = '';
+      const vertices = [start];
+      for (let k = 0; k < g.length; k++) {
+        const next = neighbours.get(at2)!.filter((name) => name !== before);
+        expect(next.length).toBe(1);
+        const [x, y] = at2.split(',').map(Number),
+          [nx, ny] = next[0].split(',').map(Number);
+        steps += nx > x ? 'R' : nx < x ? 'L' : ny > y ? 'D' : 'U';
+        vertices.push([nx, ny]);
+        before = at2;
+        at2 = next[0];
+      }
+      const last = vertices[g.length],
+        squared = (last[0] - start[0]) ** 2 + (last[1] - start[1]) ** 2;
+      walks.push({
+        steps,
+        vertices,
+        levels: heights.map(
+          (height) =>
+            ((height - p.pathBase) / p.pathSwing) * g.length * g.length -
+            squared,
+        ),
+      });
+    }
+    return walks;
+  };
+  /** Every self-avoiding walk of n steps that starts to the right, written again here with a recursion that keeps the visited points in a set. */
+  const allWalks = (n: number): string[] => {
+    const found: string[] = [],
+      visited = new Set(['0,0']),
+      go = (x: number, y: number, steps: string) => {
+        if (steps.length === n) {
+          found.push(steps);
+          return;
+        }
+        for (const [letter, dx, dy] of [
+          ['R', 1, 0],
+          ['D', 0, 1],
+          ['L', -1, 0],
+          ['U', 0, -1],
+        ] as const) {
+          const name = `${x + dx},${y + dy}`;
+          if ((steps === '' && letter !== 'R') || visited.has(name)) continue;
+          visited.add(name);
+          go(x + dx, y + dy, steps + letter);
+          visited.delete(name);
+        }
+      };
+    go(0, 0, '');
+    return found;
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('selfavoidingwalks', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { lit: 0.04373, mean: 0.06503, high: 0.9943 }],
+      [1, { lit: 0.02945, mean: 0.05506, high: 0.9929 }],
+      [0xffffffff, { lit: 0.03447, mean: 0.05841, high: 0.9931 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('selfavoidingwalks', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0153);
+      expect(low).toBeLessThan(0.0156);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws every self-avoiding walk of the length that starts to the right exactly once, read back from the picture and compared with a list written again here', () => {
+    for (let seed = 0; seed < 12; seed++) {
+      const g = geometry(seed),
+        read = readWalks(seed),
+        drawn = read.filter((walk): walk is Walk => walk !== null),
+        steps = drawn.map((walk) => walk.steps),
+        // A reduced variant keeps the walks whose first step that is not R is a D (the mirror images with a U instead are left out).
+        wanted = allWalks(g.length).filter(
+          (walk) => !g.reduced || /^R*(D.*)?$/.test(walk),
+        );
+      expect(new Set(steps).size).toBe(drawn.length);
+      expect([...steps].sort()).toEqual([...wanted].sort());
+      expect(read.slice(drawn.length).every((walk) => walk === null)).toBe(
+        true,
+      );
+      // The walk is moved to the corner of its box: its least x and least y are 0.
+      for (const { vertices } of drawn) {
+        expect(Math.min(...vertices.map(([x]) => x))).toBe(0);
+        expect(Math.min(...vertices.map(([, y]) => y))).toBe(0);
+        expect(new Set(vertices.map(([x, y]) => `${x},${y}`)).size).toBe(
+          g.length + 1,
+        );
+      }
+    }
+    // The numbers of the walks: 25, 71 and 195 for 4, 5 and 6 steps; the reduced ones 36, 98 and 272 for 5, 6 and 7 steps.
+    expect(
+      [0, 1, 2, 3, 4, 5].map(
+        (seed) => readWalks(seed).filter((walk) => walk !== null).length,
+      ),
+    ).toEqual([25, 71, 195, 36, 98, 272]);
+  });
+  it('pairs the mirror images: a reduced count is half the full count plus the straight walk', () => {
+    const count = (seed: number) =>
+      readWalks(seed).filter((walk) => walk !== null).length;
+    // The walks of the full variants turn up or down first as often (and the straight walk goes neither way); a reduced variant is one of each mirror pair and the straight walk: (c - 1) / 2 + 1.
+    for (const [full, reduced, length] of [
+      [1, 3, 5],
+      [2, 4, 6],
+    ]) {
+      const firstTurn = readWalks(full)
+        .filter((walk): walk is Walk => walk !== null)
+        .map((walk) => walk.steps.replace(/^R*/, '')[0] ?? '');
+      expect(firstTurn.filter((turn) => turn === 'U').length).toBe(
+        firstTurn.filter((turn) => turn === 'D').length,
+      );
+      expect(firstTurn.filter((turn) => turn === '').length).toBe(1);
+      expect(count(reduced)).toBe((count(full) - 1) / 2 + 1);
+      expect(geometry(full).length).toBe(length);
+    }
+  });
+  it('gives every edge of a walk the level of the squared distance between its start and its end', () => {
+    for (let seed = 0; seed < 6; seed++)
+      for (const walk of readWalks(seed))
+        if (walk !== null)
+          for (const error of walk.levels)
+            expect(Math.abs(error)).toBeLessThan(1e-9);
+  });
+  it('shuffles the panels by group without changing the set of walks', () => {
+    for (const seed of [0, 1, 4]) {
+      const names = (s: number) =>
+          readWalks(s).map((walk) => (walk === null ? '-' : walk.steps)),
+        first = names(seed),
+        second = names(seed + 6),
+        third = names(seed + 12);
+      expect(first).not.toEqual(second);
+      expect(second).not.toEqual(third);
+      expect([...first].sort()).toEqual([...second].sort());
+      expect([...first].sort()).toEqual([...third].sort());
+    }
+  });
+  it('agrees with the ideal walk, start and dots of the grid away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5]) {
+      const g = geometry(seed),
+        walks = readWalks(seed),
+        sample = createSurfaceSampler('selfavoidingwalks', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          col = Math.min(g.cols - 1, Math.floor(u * g.cols)),
+          row = Math.min(g.rows - 1, Math.floor(v * g.rows)),
+          walk = walks[row * g.cols + col],
+          x = (u - col / g.cols - g.originX) / g.scale - p.margin,
+          y = (v - row / g.rows - g.originY) / g.scale - p.margin,
+          nearX = Math.round(x),
+          nearY = Math.round(y);
+        let start = false,
+          path = false,
+          lattice = false,
+          near = false,
+          level = 0;
+        const close = (distance: number, radius: number) => {
+          if (Math.abs(distance - radius) <= p.edgeSoft / 2 + 1e-9) near = true;
+          return distance < radius;
+        };
+        if (walk !== null) {
+          const { vertices } = walk,
+            last = vertices[g.length];
+          level =
+            ((last[0] - vertices[0][0]) ** 2 +
+              (last[1] - vertices[0][1]) ** 2) /
+            (g.length * g.length);
+          start = close(
+            Math.hypot(x - vertices[0][0], y - vertices[0][1]),
+            p.startRadius,
+          );
+          for (let e = 0; e < g.length; e++) {
+            const [ax, ay] = vertices[e],
+              [bx, by] = vertices[e + 1],
+              dx = bx - ax,
+              dy = by - ay,
+              along = Math.max(
+                0,
+                Math.min(
+                  1,
+                  ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy),
+                ),
+              );
+            if (
+              close(
+                Math.hypot(x - ax - along * dx, y - ay - along * dy),
+                p.pathHalf,
+              )
+            )
+              path = true;
+          }
+          if (
+            nearX >= 0 &&
+            nearY >= 0 &&
+            nearX <= g.length &&
+            nearY <= g.length
+          )
+            lattice = close(Math.hypot(x - nearX, y - nearY), p.dotRadius);
+        }
+        if (near) continue;
+        compared++;
+        // The start is over the walk and the walk over the dots of the grid.
+        const ink = start || path || lattice ? 1 : 0,
+          tone = start
+            ? p.toneStart
+            : path
+              ? p.tonePathMin + (p.tonePathMax - p.tonePathMin) * level
+              : lattice
+                ? p.toneLattice
+                : 0,
+          height = start
+            ? p.startHeight
+            : path
+              ? p.pathBase + p.pathSwing * level
+              : lattice
+                ? p.latticeHeight
+                : 0;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(p.relief * p.cellHeight * height, 12);
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(5600);
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeGreaterThan(0.0705);
+    expect(unlike(first, litGrid(1))).toBeLessThan(0.0707);
+    expect(unlike(first, litGrid(6))).toBeGreaterThan(0.0587);
+    expect(unlike(first, litGrid(6))).toBeLessThan(0.0589);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('selfavoidingwalks', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 pink walk maps on dark violet with raised lines and shaded ground', () => {
+    const maps = generateProceduralMaps('selfavoidingwalks', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(26.6);
+    expect(red / (512 * 512)).toBeLessThan(27.7);
+    expect(green / (512 * 512)).toBeGreaterThan(16.4);
+    expect(green / (512 * 512)).toBeLessThan(17.3);
+    expect(blue / (512 * 512)).toBeGreaterThan(37.7);
+    expect(blue / (512 * 512)).toBeLessThan(38.7);
+    expect(maxTilt).toBeGreaterThan(0.107);
+    expect(maxTilt).toBeLessThan(0.1071);
     expect(invalid).toBe(0);
   });
 });
