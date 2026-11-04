@@ -562,8 +562,12 @@ function encode(record: SaveRecord): string {
   const payload = JSON.stringify(record);
   return JSON.stringify({ payload, checksum: checksum(payload) });
 }
-function revisionOf(values: readonly (string | null)[]): number {
+function revisionOf(values: readonly (string | null)[]): {
+  revision: number;
+  primary?: SaveRecord;
+} {
   let revision = 0;
+  let primary: SaveRecord | undefined;
   if (values[0] !== null) {
     revision = Number(values[0]);
     if (!Number.isSafeInteger(revision) || revision < 0)
@@ -571,12 +575,13 @@ function revisionOf(values: readonly (string | null)[]): number {
   }
   if (values[1] !== null) {
     try {
-      revision = Math.max(revision, decode(values[1]!).revision);
+      primary = decode(values[1]!);
+      revision = Math.max(revision, primary.revision);
     } catch {
       /* The independent revision marker survives primary corruption. */
     }
   }
-  return revision;
+  return { revision, primary };
 }
 const storageQueues = new WeakMap<SaveStorage, Promise<void>>();
 function ordered<T>(
@@ -702,11 +707,11 @@ export class SaveManager {
         keys,
         (values) => {
           this.assertActive(options.signal);
-          const revision = revisionOf(values);
+          const { revision, primary } = revisionOf(values);
           this.expected(slot, options, revision);
           let backup = values[2]!;
           if (values[1] !== null) {
-            const previous = decode(values[1]!); // Do not silently overwrite corrupt payloads.
+            const previous = primary ?? decode(values[1]!); // Preserve corrupt-payload rejection.
             if (previous.version > this.schema.version)
               throw new StorageError(
                 'invalid',
@@ -735,10 +740,9 @@ export class SaveManager {
     });
   }
   private async migrate(
-    raw: string,
+    record: SaveRecord,
     signal?: AbortSignal,
   ): Promise<SaveRecord> {
-    const record = decode(raw);
     if (record.version > this.schema.version)
       throw new StorageError(
         'invalid',
@@ -777,7 +781,7 @@ export class SaveManager {
   ): Promise<SaveRecord> {
     this.assertActive(options.signal);
     checkSize(raw);
-    return this.migrate(raw, options.signal);
+    return this.migrate(decode(raw), options.signal);
   }
 
   /** Export a detached, validated envelope; revision remains informational on import. */
@@ -803,14 +807,17 @@ export class SaveManager {
         options.signal,
       );
       this.assertActive(options.signal);
-      const revision = revisionOf(values);
+      const { revision, primary } = revisionOf(values);
       const raw = values[1]!;
       if (raw === null) {
         this.revisions.set(slot, revision);
         return { status: 'missing' };
       }
       try {
-        const record = await this.migrate(raw, options.signal);
+        const record = await this.migrate(
+          primary ?? decode(raw),
+          options.signal,
+        );
         this.assertActive(options.signal);
         this.revisions.set(slot, revision);
         return { status: 'loaded', record };
@@ -823,7 +830,10 @@ export class SaveManager {
         );
         if (options.recovery && values[2] !== null) {
           try {
-            const record = await this.migrate(values[2]!, options.signal);
+            const record = await this.migrate(
+              decode(values[2]!),
+              options.signal,
+            );
             this.assertActive(options.signal);
             this.revisions.set(slot, revision);
             return { status: 'loaded', record, recovery: { raw, error } };
@@ -853,7 +863,7 @@ export class SaveManager {
           'invalid',
           'Recovery requires a primary and valid backup.',
         );
-      const recovered = await this.migrate(before[2]!, options.signal);
+      const recovered = await this.migrate(decode(before[2]!), options.signal);
       const record = await this.mutate(
         keys,
         (current) => {
@@ -863,7 +873,7 @@ export class SaveManager {
               'stale',
               'Save changed while recovery was preparing.',
             );
-          const revision = revisionOf(current);
+          const { revision } = revisionOf(current);
           this.expected(slot, options, revision);
           recovered.revision = revision + 1;
           recovered.metadata.savedAt = new Date().toISOString();
@@ -920,7 +930,7 @@ export class SaveManager {
         keys,
         (values) => {
           this.assertActive(options.signal);
-          const current = revisionOf(values);
+          const { revision: current } = revisionOf(values);
           this.expected(slot, options, current);
           return {
             values: [String(current + 1), null, null, values[3]!],
