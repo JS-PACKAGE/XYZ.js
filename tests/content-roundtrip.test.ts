@@ -2,6 +2,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import { Texture } from '../packages/assets/src/index.js';
 import {
   buildContentScene,
+  parseContentScene,
   rebuildContentScene,
   type ContentSceneDefinition,
 } from '../packages/core/src/content.js';
@@ -127,6 +128,49 @@ function createRegistry(created: SceneObject[] = []) {
 const options = { value: 0 };
 
 describe('factory-authored content snapshots', () => {
+  it('resolves live prefab aliases and rejects removed aliases in large removal ledgers', () => {
+    const registry = createRegistry();
+    const children = Object.fromEntries(
+      Array.from({ length: 4000 }, (_, index) => [
+        `alias${index}`,
+        `child${index}`,
+      ]),
+    );
+    const removedChildren = Object.keys(children).slice(1);
+    const root = {
+      id: 'root',
+      kind: 'group',
+      options,
+      children,
+      removedChildren,
+    };
+    const dependent = {
+      id: 'dependent',
+      kind: 'group',
+      options,
+      parent: 'child0',
+    };
+    const parsed = parseContentScene(registry, {
+      version: 1,
+      nodes: [dependent, root],
+    });
+    expect(parsed.nodes[1].removedChildren).toEqual(removedChildren);
+    expect(parsed.nodes[0].parent).toBe('child0');
+    for (const parent of ['child1', 'child3999'])
+      expect(() =>
+        parseContentScene(registry, {
+          version: 1,
+          nodes: [{ ...dependent, parent }, root],
+        }),
+      ).toThrow(`Missing content parent or reference: ${parent}.`);
+    expect(() =>
+      parseContentScene(registry, {
+        version: 1,
+        nodes: [{ ...root, removedChildren: ['alias1', 'alias1'] }],
+      }),
+    ).toThrow('Removed prefab children require unique declared aliases.');
+  });
+
   it('rebuilds mixed dimensional hierarchies, named nested prefab members and cross-dimensional references from JSON', async () => {
     const registry = createRegistry();
     const definition = {

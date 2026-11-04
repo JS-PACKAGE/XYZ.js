@@ -502,8 +502,11 @@ function contentOrder<Definitions extends FactoryDefinitions>(
       reserved.add(id);
     }
     owners.set(node.id, node.id);
+    const removedChildren = node.removedChildren?.length
+      ? new Set(node.removedChildren)
+      : undefined;
     for (const [alias, id] of Object.entries(node.children ?? {}))
-      if (!node.removedChildren?.includes(alias)) owners.set(id, node.id);
+      if (!removedChildren?.has(alias)) owners.set(id, node.id);
     byId.set(node.id, node);
     dependents.set(node.id, []);
   }
@@ -829,8 +832,11 @@ export async function rebuildContentScene<
   const ids = new Set<string>();
   for (const node of definition.nodes) {
     ids.add(node.id);
+    const removedChildren = node.removedChildren?.length
+      ? new Set(node.removedChildren)
+      : undefined;
     for (const [alias, id] of Object.entries(node.children ?? {}))
-      if (!node.removedChildren?.includes(alias)) ids.add(id);
+      if (!removedChildren?.has(alias)) ids.add(id);
   }
   const parents = JSON.parse(JSON.stringify(value.parents)) as Record<
     string,
@@ -997,6 +1003,9 @@ async function createContentNode<Definitions extends FactoryDefinitions>(
     named.add(member);
   }
   const removed = new Set<SceneObject>();
+  const removedChildren = entry.removedChildren?.length
+    ? new Set(entry.removedChildren)
+    : undefined;
   for (const alias of entry.removedChildren ?? []) {
     const pending = [children[alias]];
     for (let index = 0; index < pending.length; index++) {
@@ -1005,7 +1014,7 @@ async function createContentNode<Definitions extends FactoryDefinitions>(
     }
   }
   for (const [alias, member] of Object.entries(children))
-    if (removed.has(member) && !entry.removedChildren?.includes(alias))
+    if (removed.has(member) && !removedChildren?.has(alias))
       throw new Error(
         'Removed prefab subtrees must mark all descendant aliases.',
       );
