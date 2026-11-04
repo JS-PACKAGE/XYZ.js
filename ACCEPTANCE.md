@@ -13834,3 +13834,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增4項專屬測試（每條光線沿折射與反射定律的路徑、彩虹光線最亮且在彩虹角方向、對太陽軸鏡射對稱、一次反射時背向太陽側為空）加色調範圍、seed差異與決定性、C1與週期、maps共4項，再加kinds清單新條目，`-t`選中的9項皆通過。變異檢查（做過三次）：折射率比 1/n 改成 1/(1.03n)，該describe 8項中4項失敗；掃描最小偏向的比較改成找最大，4項失敗；拿掉 −b 側的彩虹光線，4項失敗；三者皆已還原（`cmp`確認）。限制：seed對應的水滴是探針量出再寫入，不是獨立oracle；色調（入射、水滴內、輪廓）與射線均勻程度沒測；背向太陽側為空只對 k = 1 測；光線強度、全反射、同時存在的其他路徑沒有模擬也沒有測；沒有查文獻；未對照任何參考圖。型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Raindrop optics as|raindropoptics|kinds|catalog|distinct|periodic"`定向測試**2540項通過／4419項未選**，輸出`GATES-OK`。
 - 未驗證：raindropoptics未跑完整suite與瀏覽器gallery（`d4b362d90`的完整suite正在另一個worktree執行，瀏覽器gallery在`d4b362d90`已通過但尚未記錄；結果出來前不算數）；不push。
+
+## 2026-11-04 完整測試與瀏覽器gallery複驗（至霍夫施塔特蝴蝶）
+
+- 範圍：在`d4b362d90`（新增霍夫施塔特蝴蝶之後；之後的`raindropoptics`不在此次複驗內）重跑完整測試與瀏覽器gallery。這段不新增材質，只記錄實跑結果。
+- 完整測試（工具實跑，乾淨的detached worktree）：**179個測試檔、10,879項全部通過**（1818 s，同時還跑著其他工作，所以耗時不是乾淨的量測）。前一次完整複驗在`3e05d65f4`（10,863項）；10,863 → 10,879共16項，與jacobielliptic 8項、hofstadterbutterfly 8項的定向測試選取數相符（各含kinds條目）。
+- 瀏覽器gallery（工具實跑，無頭Chrome，vite從乾淨worktree提供`/examples/pbr3d/`）：在`d4b362d90`，WebGPU分頁與`?renderer=webgl2`分頁各自讀到「1112 procedural material presets」、選單1113個選項；各自選取jacobielliptic、hofstadterbutterfly、kelvinwake、arnoldtongues、powderdiffraction，頁面讀數都更新（每個selection回傳true）；console錯誤項目兩個分頁都是0；讀回兩個新材質的選項文字與`index.html`標籤一致。限制：只涵蓋「可選取、讀數更新、無console錯誤」，沒有目視畫面或像素比對；跨瀏覽器、跨GPU行為沒有驗證。
+- 未驗證：`raindropoptics`（`e36285605`）尚未跑完整suite與瀏覽器gallery；跨瀏覽器與跨GPU；不push。
