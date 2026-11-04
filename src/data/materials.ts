@@ -16451,6 +16451,30 @@ export const proceduralMaterialPresets = Object.freeze({
     paperRoughness: 0.8,
     inkRoughness: 0.45,
   }),
+  duccirows: Object.freeze({
+    dark: [28, 20, 60] as const,
+    light: [244, 236, 214] as const,
+    roughness: 0.55,
+    relief: 0.004,
+    // The Ducci iteration on a ring of n whole numbers: each number becomes the difference, without its sign, between itself and the next one round the ring, (a, b, c ... z) -> (|a - b|, |b - c| ... |z - a|).
+    // Each row of the picture is one iteration of the row above it, n rows of n cells (n picked by the seed from sizes); the first row is random whole numbers from 0 to maxValue (from the seed).
+    // A big number is dark; the tone goes with the square root of the number over maxValue, so that the small numbers, most of them after a few rows, still show.
+    maxValue: 99,
+    sizes: Object.freeze([23, 29, 31, 37]),
+    extent: 0.94,
+    gapHalf: 0.0012,
+    edgeSoft: 0.0006,
+    grainCells: 192,
+    paperTone: 0.97,
+    lightTone: 0.9,
+    darkTone: 0.08,
+    lightHeight: 0.35,
+    darkHeight: 0.85,
+    grainTone: 0.03,
+    paperHeight: 0.2,
+    paperRoughness: 0.8,
+    inkRoughness: 0.45,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -22943,6 +22967,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  duccirows: 1,
   wireworldcircuit: 1,
   cycliccellular: 1,
   beattypartition: 1,

@@ -46923,6 +46923,63 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'duccirows': {
+        const p = proceduralMaterialPresets.duccirows,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x61001),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          size =
+            p.sizes[Math.floor(hash(90, 1, seed ^ 0x61002) * p.sizes.length)],
+          cell = p.extent / size,
+          left = 0.5 - p.extent / 2,
+          // The numbers of each row: the first at random, each after it the differences round the ring.
+          numbers = new Uint8Array(size * size);
+        for (let column = 0; column < size; column++)
+          numbers[column] = Math.floor(
+            hash(90, 2, seed ^ (0x61003 + column * 131)) * (p.maxValue + 1),
+          );
+        for (let row = 1; row < size; row++)
+          for (let column = 0; column < size; column++)
+            numbers[row * size + column] = Math.abs(
+              numbers[(row - 1) * size + column] -
+                numbers[(row - 1) * size + ((column + 1) % size)],
+            );
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            column = Math.floor((fu - left) / cell),
+            row = Math.floor((fv - left) / cell);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          if (column >= 0 && column < size && row >= 0 && row < size) {
+            const x = fu - left - (column + 0.5) * cell,
+              y = fv - left - (row + 0.5) * cell,
+              amount = cover(
+                cell / 2 - p.gapHalf - Math.max(Math.abs(x), Math.abs(y)),
+              ),
+              level = Math.sqrt(numbers[row * size + column] / p.maxValue);
+            shade +=
+              (p.lightTone + (p.darkTone - p.lightTone) * level - shade) *
+              amount;
+            elevation +=
+              (p.lightHeight +
+                (p.darkHeight - p.lightHeight) * level -
+                elevation) *
+              amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = amount;
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -74452,6 +74509,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'duccirows' ||
     kind === 'wireworldcircuit' ||
     kind === 'cycliccellular' ||
     kind === 'beattypartition' ||

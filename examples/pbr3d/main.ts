@@ -711,6 +711,7 @@ try {
     'dcbarreljackfaces',
     'stfiberadapterfaces',
     'to92packagefaces',
+    'duccirows',
     'wireworldcircuit',
     'cycliccellular',
     'beattypartition',

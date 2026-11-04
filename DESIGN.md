@@ -2353,6 +2353,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`duccirows`（杜奇迭代列）使目前目錄1196→1197種，含plain的gallery為1198項。環上n個整數的Ducci迭代：每個數變成它與環上下一個數的差的絕對值，(a, b, c … z) → (|a−b|, |b−c| … |z−a|)。畫面的每一列是上一列的一次迭代，共n列n欄（n由seed從23、29、31、37中選）；第一列是seed決定的0到99的隨機整數；數越大越深，色調與高度依數除以最大值的平方根（所以多數列後多半偏小的數仍看得見）。這是作者設計的示意；測試端從畫面讀出每格的數（取各階數方格中心唯一全部落在整數色調上的尺寸，色調對照99個整數），並獨立驗證：每一列恰好是上一列環狀差的絕對值、最大值不會增加、第一列分布在整個範圍（不是少數幾個值）、60個seed中四種尺寸都被選到、各seed的第一列都不同、第一列的數平均接近最大值的一半、0到99的每個整數都曾出現在第一列、第一列的頭尾兩格也隨seed變化。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

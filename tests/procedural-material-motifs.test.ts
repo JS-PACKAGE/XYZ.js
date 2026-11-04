@@ -61726,3 +61726,312 @@ describe('wireworldcircuit: four panels of a WireWorld circuit, the steps one af
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('duccirows: the Ducci iteration on a ring of whole numbers, each row the differences of the row above, as a square of cells', () => {
+  const p = proceduralMaterialPresets.duccirows,
+    out = empty(),
+    left = 0.5 - p.extent / 2,
+    toneAt = (sample: Sampler, u: number, v: number): number => {
+      sample(u, v, out);
+      return out.color;
+    };
+  // The tone and height of a whole number: from the light end to the dark by the square root of the number over its largest.
+  const level = (value: number): number => Math.sqrt(value / p.maxValue);
+  const toneOf = (value: number): number =>
+    p.lightTone + (p.darkTone - p.lightTone) * level(value);
+  const heightOf = (value: number): number =>
+    p.lightHeight + (p.darkHeight - p.lightHeight) * level(value);
+  const values = Array.from({ length: p.maxValue + 1 }, (_, value) => value);
+  type Grid = {
+    sample: Sampler;
+    size: number;
+    cell: number;
+    numbers: number[][];
+  };
+  // Read the picture: the size is the one whose cell middles all hold the tone of a whole number; the number of a cell is the one whose tone it is.
+  const readGrid = (seed: number): Grid => {
+    const sample = createSurfaceSampler('duccirows', seed),
+      sizes = p.sizes.filter((size) => {
+        const cell = p.extent / size;
+        for (let row = 0; row < size; row++)
+          for (let column = 0; column < size; column++)
+            if (
+              !values.some(
+                (value) =>
+                  Math.abs(
+                    toneOf(value) -
+                      toneAt(
+                        sample,
+                        left + (column + 0.5) * cell,
+                        left + (row + 0.5) * cell,
+                      ),
+                  ) < 1e-6,
+              )
+            )
+              return false;
+        return true;
+      });
+    expect(sizes.length).toBe(1);
+    const size = sizes[0],
+      cell = p.extent / size;
+    return {
+      sample,
+      size,
+      cell,
+      numbers: Array.from({ length: size }, (_, row) =>
+        Array.from({ length: size }, (_, column) => {
+          const tone = toneAt(
+            sample,
+            left + (column + 0.5) * cell,
+            left + (row + 0.5) * cell,
+          );
+          return values.find(
+            (value) => Math.abs(toneOf(value) - tone) < 1e-6,
+          ) as number;
+        }),
+      ),
+    };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows rows that are each the differences round the ring of the row above, from a first row of random whole numbers (seed %i)',
+    (seed) => {
+      const { size, numbers } = readGrid(seed);
+      for (let row = 1; row < size; row++)
+        expect(numbers[row]).toEqual(
+          numbers[row - 1].map((value, column) =>
+            Math.abs(value - numbers[row - 1][(column + 1) % size]),
+          ),
+        );
+      // The first row: whole numbers up to the largest, many different of them; no row has a number above the one in the row before (the largest never grows).
+      expect(Math.max(...numbers[0])).toBeLessThanOrEqual(p.maxValue);
+      expect(new Set(numbers[0]).size).toBeGreaterThan(size / 2);
+      for (let row = 1; row < size; row++)
+        expect(Math.max(...numbers[row])).toBeLessThanOrEqual(
+          Math.max(...numbers[row - 1]),
+        );
+      // The first row is spread over the whole range, not a few values.
+      expect(Math.max(...numbers[0])).toBeGreaterThan(p.maxValue * 0.7);
+      expect(Math.min(...numbers[0])).toBeLessThan(p.maxValue * 0.3);
+    },
+  );
+
+  it('uses every size and different first rows, over 60 seeds', () => {
+    const sizes = new Set<number>(),
+      firsts = new Set<string>(),
+      allValues = new Set<number>(),
+      ends = [new Set<number>(), new Set<number>()];
+    let total = 0,
+      count = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const { size, numbers } = readGrid(seed * 3 + 1);
+      sizes.add(size);
+      firsts.add(numbers[0].join(','));
+      ends[0].add(numbers[0][0]);
+      ends[1].add(numbers[0][size - 1]);
+      for (const value of numbers[0]) {
+        allValues.add(value);
+        total += value;
+        count++;
+      }
+    }
+    expect([...sizes].sort((a, b) => a - b)).toEqual([...p.sizes]);
+    expect(firsts.size).toBe(60);
+    // The first and the last number of the first row vary from seed to seed like the others.
+    expect(ends[0].size).toBeGreaterThan(30);
+    expect(ends[1].size).toBeGreaterThan(30);
+    // Every whole number from 0 to the largest turns up in a first row.
+    expect(allValues.size).toBe(p.maxValue + 1);
+    // The numbers of the first rows are spread evenly from 0 to the largest (mean near half of it).
+    expect(Math.abs(total / count - p.maxValue / 2)).toBeLessThan(
+      p.maxValue * 0.05,
+    );
+  });
+
+  // One seed for each size.
+  const sizeSeeds = (): number[] =>
+    p.sizes.map((size) => {
+      for (let seed = 0; seed < 200; seed++)
+        if (readGrid(seed).size === size) return seed;
+      throw new Error('no seed');
+    });
+
+  it('draws each number with its tone, height and roughness, as a square of its size with a gap and nothing outside the grid', () => {
+    for (const seed of sizeSeeds()) {
+      const { sample, size, cell, numbers } = readGrid(seed),
+        half = cell / 2 - p.gapHalf,
+        paperOk = (u: number, v: number): boolean =>
+          Math.abs(toneAt(sample, u, v) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9,
+        flat = numbers.flat();
+      for (const value of [Math.min(...flat), Math.max(...flat)]) {
+        const index = flat.indexOf(value),
+          cx = left + ((index % size) + 0.5) * cell,
+          cy = left + (Math.floor(index / size) + 0.5) * cell;
+        expect(toneAt(sample, cx, cy)).toBeCloseTo(toneOf(value), 6);
+        expect(out.height / p.relief).toBeCloseTo(heightOf(value), 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          expect(
+            toneAt(
+              sample,
+              cx + dx * (half - 0.0004),
+              cy + dy * (half - 0.0004),
+            ),
+          ).toBeCloseTo(toneOf(value), 6);
+          expect(
+            toneAt(
+              sample,
+              cx + (half - 0.0004) * (dx + dy),
+              cy + (half - 0.0004) * (dx + dy),
+            ),
+          ).toBeCloseTo(toneOf(value), 6);
+          expect(
+            paperOk(cx + dx * (half + 0.0004), cy + dy * (half + 0.0004)),
+          ).toBe(true);
+          expect(out.height / p.relief).toBeCloseTo(p.paperHeight, 6);
+          expect(out.roughness).toBeCloseTo(p.paperRoughness, 6);
+        }
+      }
+      const near = p.gapHalf + 0.0006,
+        far = left + p.extent - near;
+      expect(toneAt(sample, left + near, left + near)).toBeCloseTo(
+        toneOf(numbers[0][0]),
+        6,
+      );
+      expect(toneAt(sample, far, far)).toBeCloseTo(
+        toneOf(numbers[size - 1][size - 1]),
+        6,
+      );
+      expect(toneAt(sample, far, left + near)).toBeCloseTo(
+        toneOf(numbers[0][size - 1]),
+        6,
+      );
+      expect(toneAt(sample, left + near, far)).toBeCloseTo(
+        toneOf(numbers[size - 1][0]),
+        6,
+      );
+      for (const [u, v] of [
+        [left - 0.004, 0.5],
+        [left + p.extent + 0.004, 0.5],
+        [0.5, left - 0.004],
+        [0.5, left + p.extent + 0.004],
+      ])
+        expect(paperOk(u, v)).toBe(true);
+    }
+  });
+
+  it('softens the edge of a cell over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft;
+    for (const seed of sizeSeeds()) {
+      const { sample, cell, numbers } = readGrid(seed),
+        half = cell / 2 - p.gapHalf,
+        tone = toneOf(numbers[2][4]),
+        cx = left + 4.5 * cell,
+        cy = left + 2.5 * cell,
+        mixed = (amount: number): number =>
+          p.paperTone + (tone - p.paperTone) * smoothstep(amount);
+      for (const [dx, dy] of [
+        [1, 0],
+        [0, 1],
+        [-1, 0],
+        [0, -1],
+      ]) {
+        expect(
+          Math.abs(
+            toneAt(
+              sample,
+              cx + dx * (half - quarter),
+              cy + dy * (half - quarter),
+            ) - mixed(0.75),
+          ),
+        ).toBeLessThan(0.03);
+        expect(
+          Math.abs(
+            toneAt(
+              sample,
+              cx + dx * (half + quarter),
+              cy + dy * (half + quarter),
+            ) - mixed(0.25),
+          ),
+        ).toBeLessThan(0.03);
+      }
+    }
+  });
+
+  it('fades the grain of the paper out over the edge of a cell, as much as the cell covers', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      amount = smoothstep(0.25),
+      { sample, size, cell, numbers } = readGrid(sizeSeeds()[1]),
+      half = cell / 2 - p.gapHalf,
+      residuals: number[] = [];
+    for (let column = 0; column < size; column++)
+      for (const t of [-0.8, -0.3, 0.3, 0.8]) {
+        const tone = toneAt(
+          sample,
+          left + (column + 0.5) * cell + t * half,
+          left + 5.5 * cell - half - 0.25 * p.edgeSoft,
+        );
+        residuals.push(
+          tone -
+            (p.paperTone + (toneOf(numbers[5][column]) - p.paperTone) * amount),
+        );
+      }
+    const largest = Math.max(...residuals.map(Math.abs));
+    expect(largest).toBeGreaterThan(0.003);
+    expect(largest).toBeLessThanOrEqual(
+      0.5 * p.grainTone * (1 - amount) + 1e-9,
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('duccirows', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('duccirows', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0013 + i * 0.0021, 0.01),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('duccirows', 0),
+      b = createSurfaceSampler('duccirows', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3501],
+        [0.2201, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
