@@ -266,6 +266,7 @@ export function parseTiledMap(
     throw new TiledError('map.tilesets', 'invalid tileset count');
   let end = 0,
     frames = 0;
+  const gidRanges: number[] = [];
   for (const ts of tilesets) {
     frames += ts.tileCount;
     if (frames > tiledLimits.tiles)
@@ -284,16 +285,20 @@ export function parseTiledMap(
         'map.tilesets',
         'tile dimensions must match the map',
       );
+    // Adjacent atlases form one valid interval; only gaps matter to GID validation.
+    if (gidRanges.length && gidRanges[gidRanges.length - 1] === ts.firstgid)
+      gidRanges[gidRanges.length - 1] = end;
+    else gidRanges.push(ts.firstgid, end);
   }
   // Ranges were checked in ascending, non-overlapping order above.
   const resolvesGid = (gid: number): boolean => {
     let low = 0,
-      high = tilesets.length - 1;
+      high = (gidRanges.length >>> 1) - 1;
     while (low <= high) {
       const middle = (low + high) >>> 1;
-      const tileset = tilesets[middle]!;
-      if (gid < tileset.firstgid) high = middle - 1;
-      else if (gid >= tileset.firstgid + tileset.tileCount) low = middle + 1;
+      const offset = middle * 2;
+      if (gid < gidRanges[offset]!) high = middle - 1;
+      else if (gid >= gidRanges[offset + 1]!) low = middle + 1;
       else return true;
     }
     return false;

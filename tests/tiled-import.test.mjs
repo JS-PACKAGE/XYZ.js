@@ -111,6 +111,23 @@ describe('finite Tiled import', () => {
       );
     }
   });
+  it('validates adjacent atlas runs without accepting the following gap', () => {
+    const tilesets = [1, 3, 9].map((gid) => parseTiledTileset(set, gid));
+    const data = [1, 2, 3, 4, 9, (10 | 0x80000000) >>> 0];
+    const input = {
+      ...map,
+      width: data.length,
+      height: 1,
+      layers: [
+        { id: 1, type: 'tilelayer', width: data.length, height: 1, data },
+      ],
+    };
+    expect(parseTiledMap(input, tilesets).layers[0].data).toEqual(data);
+    data[4] = 5;
+    expect(() => parseTiledMap(input, tilesets)).toThrow('unresolved GID 5');
+    data[4] = 8;
+    expect(() => parseTiledMap(input, tilesets)).toThrow('unresolved GID 8');
+  });
   it('reclaims a decoded bitmap that arrives after cancellation', async () => {
     const originalFetch = globalThis.fetch,
       originalDecode = globalThis.createImageBitmap;
