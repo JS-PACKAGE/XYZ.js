@@ -2349,6 +2349,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`scrabbleboard`（Scrabble字母遊戲棋盤）使目前目錄1197→1198種，含plain的gallery為1199項。15×15的棋盤（旋轉或翻轉後外觀相同）：普通格、雙倍字母（24格）、三倍字母（12格）、雙倍單字（17格，含中央）、三倍單字（8格），各有色調與高度，並擺著一局進行中的遊戲：三種版面（各含五到七個交叉的單字，第一個單字經過中央格）之一的單字以字母磚擺出，磚的色調與高度依字母的分數（1、2、3、4、5、8、10共七階）。seed決定使用哪個版面，以及八種旋轉／翻轉方式之一。這是作者設計的示意；測試端從畫面讀出每格的特殊格種類（讀磚邊緣與格邊緣之間的棋盤色）與磚的分數階，並以獨立的知識驗證：特殊格數量為遊戲規則的8、17、12、24（共61），整張棋盤對轉置與兩個方向的翻轉都對稱，中央是雙倍單字，磚恰好吻合一個版面的一種旋轉／翻轉方式，並且每個磚的分數階等於以遊戲標準字母分數（獨立列在測試中，不取自preset）計算的結果；150個seed中三個版面、八種擺法都出現，且至少二十種組合。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

@@ -15177,6 +15177,156 @@ export declare const proceduralMaterialPresets: Readonly<{
         paperRoughness: 0.8;
         inkRoughness: 0.45;
     }>;
+    scrabbleboard: Readonly<{
+        dark: readonly [18, 52, 40];
+        light: readonly [246, 236, 206];
+        roughness: 0.5;
+        relief: 0.004;
+        squares: readonly string[];
+        layouts: readonly (readonly (Readonly<{
+            word: "QUARTZ";
+            x: 4;
+            y: 7;
+            across: true;
+        }> | Readonly<{
+            word: "ZEBRA";
+            x: 9;
+            y: 7;
+            across: false;
+        }> | Readonly<{
+            word: "QUIET";
+            x: 4;
+            y: 7;
+            across: false;
+        }> | Readonly<{
+            word: "BOX";
+            x: 9;
+            y: 9;
+            across: true;
+        }> | Readonly<{
+            word: "AXE";
+            x: 11;
+            y: 8;
+            across: false;
+        }> | Readonly<{
+            word: "TOY";
+            x: 4;
+            y: 11;
+            across: true;
+        }> | Readonly<{
+            word: "RAW";
+            x: 7;
+            y: 7;
+            across: false;
+        }>)[] | readonly (Readonly<{
+            word: "JAZZY";
+            x: 3;
+            y: 7;
+            across: true;
+        }> | Readonly<{
+            word: "YAK";
+            x: 7;
+            y: 7;
+            across: false;
+        }> | Readonly<{
+            word: "FIZZ";
+            x: 5;
+            y: 4;
+            across: false;
+        }> | Readonly<{
+            word: "JOWL";
+            x: 3;
+            y: 7;
+            across: false;
+        }> | Readonly<{
+            word: "WAX";
+            x: 3;
+            y: 9;
+            across: true;
+        }> | Readonly<{
+            word: "KEY";
+            x: 7;
+            y: 9;
+            across: true;
+        }>)[] | readonly (Readonly<{
+            word: "OXYGEN";
+            x: 5;
+            y: 7;
+            across: true;
+        }> | Readonly<{
+            word: "EXPO";
+            x: 6;
+            y: 6;
+            across: false;
+        }> | Readonly<{
+            word: "GIVE";
+            x: 8;
+            y: 7;
+            across: false;
+        }> | Readonly<{
+            word: "VOW";
+            x: 8;
+            y: 9;
+            across: true;
+        }> | Readonly<{
+            word: "WHEY";
+            x: 10;
+            y: 9;
+            across: false;
+        }>)[])[];
+        points: Readonly<{
+            A: 1;
+            B: 3;
+            C: 3;
+            D: 2;
+            E: 1;
+            F: 4;
+            G: 2;
+            H: 4;
+            I: 1;
+            J: 8;
+            K: 5;
+            L: 1;
+            M: 3;
+            N: 1;
+            O: 1;
+            P: 3;
+            Q: 10;
+            R: 1;
+            S: 1;
+            T: 1;
+            U: 1;
+            V: 4;
+            W: 4;
+            X: 8;
+            Y: 4;
+            Z: 10;
+        }>;
+        pointSteps: readonly number[];
+        tileTones: readonly number[];
+        tileHeights: readonly number[];
+        side: 15;
+        extent: 0.94;
+        gapHalf: 0.0012;
+        tileInset: 0.004;
+        edgeSoft: 0.0006;
+        grainCells: 192;
+        paperTone: 0.97;
+        plainTone: 0.3;
+        doubleLetterTone: 0.44;
+        tripleLetterTone: 0.56;
+        doubleWordTone: 0.18;
+        tripleWordTone: 0.08;
+        plainHeight: 0.3;
+        doubleLetterHeight: 0.34;
+        tripleLetterHeight: 0.38;
+        doubleWordHeight: 0.26;
+        tripleWordHeight: 0.22;
+        grainTone: 0.03;
+        paperHeight: 0.2;
+        paperRoughness: 0.8;
+        inkRoughness: 0.45;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -21662,6 +21812,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    scrabbleboard: 1;
     duccirows: 1;
     wireworldcircuit: 1;
     cycliccellular: 1;

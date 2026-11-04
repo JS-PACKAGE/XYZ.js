@@ -26012,6 +26012,229 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .8,
 		inkRoughness: .45
 	}),
+	scrabbleboard: Object.freeze({
+		dark: [
+			18,
+			52,
+			40
+		],
+		light: [
+			246,
+			236,
+			206
+		],
+		roughness: .5,
+		relief: .004,
+		squares: Object.freeze([
+			`T..d...T...d..T`,
+			`.D...t...t...D.`,
+			`..D...d.d...D..`,
+			`d..D...d...D..d`,
+			`....D.....D....`,
+			`.t...t...t...t.`,
+			`..d...d.d...d..`,
+			`T..d...D...d..T`,
+			`..d...d.d...d..`,
+			`.t...t...t...t.`,
+			`....D.....D....`,
+			`d..D...d...D..d`,
+			`..D...d.d...D..`,
+			`.D...t...t...D.`,
+			`T..d...T...d..T`
+		]),
+		layouts: Object.freeze([
+			Object.freeze([
+				Object.freeze({
+					word: `QUARTZ`,
+					x: 4,
+					y: 7,
+					across: !0
+				}),
+				Object.freeze({
+					word: `ZEBRA`,
+					x: 9,
+					y: 7,
+					across: !1
+				}),
+				Object.freeze({
+					word: `QUIET`,
+					x: 4,
+					y: 7,
+					across: !1
+				}),
+				Object.freeze({
+					word: `BOX`,
+					x: 9,
+					y: 9,
+					across: !0
+				}),
+				Object.freeze({
+					word: `AXE`,
+					x: 11,
+					y: 8,
+					across: !1
+				}),
+				Object.freeze({
+					word: `TOY`,
+					x: 4,
+					y: 11,
+					across: !0
+				}),
+				Object.freeze({
+					word: `RAW`,
+					x: 7,
+					y: 7,
+					across: !1
+				})
+			]),
+			Object.freeze([
+				Object.freeze({
+					word: `JAZZY`,
+					x: 3,
+					y: 7,
+					across: !0
+				}),
+				Object.freeze({
+					word: `YAK`,
+					x: 7,
+					y: 7,
+					across: !1
+				}),
+				Object.freeze({
+					word: `FIZZ`,
+					x: 5,
+					y: 4,
+					across: !1
+				}),
+				Object.freeze({
+					word: `JOWL`,
+					x: 3,
+					y: 7,
+					across: !1
+				}),
+				Object.freeze({
+					word: `WAX`,
+					x: 3,
+					y: 9,
+					across: !0
+				}),
+				Object.freeze({
+					word: `KEY`,
+					x: 7,
+					y: 9,
+					across: !0
+				})
+			]),
+			Object.freeze([
+				Object.freeze({
+					word: `OXYGEN`,
+					x: 5,
+					y: 7,
+					across: !0
+				}),
+				Object.freeze({
+					word: `EXPO`,
+					x: 6,
+					y: 6,
+					across: !1
+				}),
+				Object.freeze({
+					word: `GIVE`,
+					x: 8,
+					y: 7,
+					across: !1
+				}),
+				Object.freeze({
+					word: `VOW`,
+					x: 8,
+					y: 9,
+					across: !0
+				}),
+				Object.freeze({
+					word: `WHEY`,
+					x: 10,
+					y: 9,
+					across: !1
+				})
+			])
+		]),
+		points: Object.freeze({
+			A: 1,
+			B: 3,
+			C: 3,
+			D: 2,
+			E: 1,
+			F: 4,
+			G: 2,
+			H: 4,
+			I: 1,
+			J: 8,
+			K: 5,
+			L: 1,
+			M: 3,
+			N: 1,
+			O: 1,
+			P: 3,
+			Q: 10,
+			R: 1,
+			S: 1,
+			T: 1,
+			U: 1,
+			V: 4,
+			W: 4,
+			X: 8,
+			Y: 4,
+			Z: 10
+		}),
+		pointSteps: Object.freeze([
+			1,
+			2,
+			3,
+			4,
+			5,
+			8,
+			10
+		]),
+		tileTones: Object.freeze([
+			.74,
+			.78,
+			.82,
+			.86,
+			.9,
+			.94,
+			.98
+		]),
+		tileHeights: Object.freeze([
+			.72,
+			.76,
+			.8,
+			.84,
+			.88,
+			.92,
+			.96
+		]),
+		side: 15,
+		extent: .94,
+		gapHalf: .0012,
+		tileInset: .004,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		plainTone: .3,
+		doubleLetterTone: .44,
+		tripleLetterTone: .56,
+		doubleWordTone: .18,
+		tripleWordTone: .08,
+		plainHeight: .3,
+		doubleLetterHeight: .34,
+		tripleLetterHeight: .38,
+		doubleWordHeight: .26,
+		tripleWordHeight: .22,
+		grainTone: .03,
+		paperHeight: .2,
+		paperRoughness: .8,
+		inkRoughness: .45
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -34693,6 +34916,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	scrabbleboard: 1,
 	duccirows: 1,
 	wireworldcircuit: 1,
 	cycliccellular: 1,

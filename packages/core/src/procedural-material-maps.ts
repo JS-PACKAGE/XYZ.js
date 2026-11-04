@@ -46980,6 +46980,82 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'scrabbleboard': {
+        const p = proceduralMaterialPresets.scrabbleboard,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x62001),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          layout =
+            p.layouts[
+              Math.floor(hash(91, 1, seed ^ 0x62002) * p.layouts.length)
+            ],
+          way = Math.floor(hash(91, 2, seed ^ 0x62003) * 8),
+          cell = p.extent / p.side,
+          left = 0.5 - p.extent / 2,
+          last = p.side - 1,
+          premium = { '.': 0, d: 1, t: 2, D: 3, T: 4 },
+          squareTones = [
+            p.plainTone,
+            p.doubleLetterTone,
+            p.tripleLetterTone,
+            p.doubleWordTone,
+            p.tripleWordTone,
+          ],
+          squareHeights = [
+            p.plainHeight,
+            p.doubleLetterHeight,
+            p.tripleLetterHeight,
+            p.doubleWordHeight,
+            p.tripleWordHeight,
+          ],
+          // The step of the points of the tile on each square, -1 where there is none, the board turned a quarter turn (way & 3) times after being flipped (way & 4).
+          tiles = new Int8Array(p.side * p.side).fill(-1);
+        for (const { word, x, y, across } of layout)
+          for (let k = 0; k < word.length; k++) {
+            let column = x + (across ? k : 0),
+              row = y + (across ? 0 : k);
+            if (way & 4) column = last - column;
+            for (let turn = 0; turn < (way & 3); turn++)
+              [column, row] = [last - row, column];
+            tiles[row * p.side + column] = p.pointSteps.indexOf(
+              p.points[word[k] as keyof typeof p.points],
+            );
+          }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            column = Math.floor((fu - left) / cell),
+            row = Math.floor((fv - left) / cell);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          if (column >= 0 && column < p.side && row >= 0 && row < p.side) {
+            const x = fu - left - (column + 0.5) * cell,
+              y = fv - left - (row + 0.5) * cell,
+              reach = Math.max(Math.abs(x), Math.abs(y)),
+              kind = premium[p.squares[row][column] as keyof typeof premium],
+              amount = cover(cell / 2 - p.gapHalf - reach),
+              tile = tiles[row * p.side + column];
+            shade += (squareTones[kind] - shade) * amount;
+            elevation += (squareHeights[kind] - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = amount;
+            if (tile >= 0) {
+              const top = cover(cell / 2 - p.gapHalf - p.tileInset - reach);
+              shade += (p.tileTones[tile] - shade) * top;
+              elevation += (p.tileHeights[tile] - elevation) * top;
+            }
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -74509,6 +74585,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'scrabbleboard' ||
     kind === 'duccirows' ||
     kind === 'wireworldcircuit' ||
     kind === 'cycliccellular' ||

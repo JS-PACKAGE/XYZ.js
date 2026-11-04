@@ -62035,3 +62035,369 @@ describe('duccirows: the Ducci iteration on a ring of whole numbers, each row th
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('scrabbleboard: the Scrabble board with a game in progress, turned or flipped by the seed', () => {
+  const p = proceduralMaterialPresets.scrabbleboard,
+    out = empty(),
+    cell = p.extent / p.side,
+    left = 0.5 - p.extent / 2,
+    half = cell / 2 - p.gapHalf,
+    tileHalf = half - p.tileInset,
+    toneAt = (sample: Sampler, u: number, v: number): number => {
+      sample(u, v, out);
+      return out.color;
+    };
+  const squareTones = [
+      p.plainTone,
+      p.doubleLetterTone,
+      p.tripleLetterTone,
+      p.doubleWordTone,
+      p.tripleWordTone,
+    ],
+    squareHeights = [
+      p.plainHeight,
+      p.doubleLetterHeight,
+      p.tripleLetterHeight,
+      p.doubleWordHeight,
+      p.tripleWordHeight,
+    ];
+  // The points of the letters of the English game, as known from the game and not from the preset.
+  const points: Record<string, number> = {};
+  for (const [value, letters] of [
+    [1, 'AEILNORSTU'],
+    [2, 'DG'],
+    [3, 'BCMP'],
+    [4, 'FHVWY'],
+    [5, 'K'],
+    [8, 'JX'],
+    [10, 'QZ'],
+  ] as const)
+    for (const letter of letters) points[letter] = value;
+  const centre = (column: number, row: number): [number, number] => [
+    left + (column + 0.5) * cell,
+    left + (row + 0.5) * cell,
+  ];
+  const nearest = (values: readonly number[], tone: number): number =>
+    values.reduce(
+      (best, candidate, k) =>
+        Math.abs(candidate - tone) < Math.abs(values[best] - tone) ? k : best,
+      0,
+    );
+  // The step of the premium of a square (read on the ring of board between the edge of a tile and the edge of the square) and of its tile (-1 for none).
+  const readBoard = (
+    seed: number,
+  ): { sample: Sampler; squares: number[][]; tiles: number[][] } => {
+    const sample = createSurfaceSampler('scrabbleboard', seed),
+      squares: number[][] = [],
+      tiles: number[][] = [];
+    for (let row = 0; row < p.side; row++) {
+      squares.push([]);
+      tiles.push([]);
+      for (let column = 0; column < p.side; column++) {
+        const [cx, cy] = centre(column, row),
+          ring = toneAt(sample, cx + (half - p.tileInset / 2), cy),
+          kind = nearest(squareTones, ring),
+          middle = toneAt(sample, cx, cy),
+          tile = p.tileTones.findIndex(
+            (tone) => Math.abs(tone - middle) < 1e-6,
+          );
+        expect(ring).toBeCloseTo(squareTones[kind], 6);
+        // Either the middle is the board's own tone or the tone of a tile.
+        if (tile < 0) expect(middle).toBeCloseTo(squareTones[kind], 6);
+        squares[row].push(kind);
+        tiles[row].push(tile);
+      }
+    }
+    return { sample, squares, tiles };
+  };
+  // The tiles of a layout turned or flipped: way & 4 flips left to right, way & 3 quarter turns clockwise, by the offsets from the middle square.
+  const layoutTiles = (layoutIndex: number, way: number): number[][] => {
+    const grid = Array.from({ length: p.side }, () =>
+      new Array<number>(p.side).fill(-1),
+    );
+    for (const { word, x, y, across } of p.layouts[layoutIndex])
+      [...word].forEach((letter, k) => {
+        let dx = x + (across ? k : 0) - 7,
+          dy = y + (across ? 0 : k) - 7;
+        if (way & 4) dx = -dx;
+        for (let turn = 0; turn < (way & 3); turn++) [dx, dy] = [-dy, dx];
+        grid[dy + 7][dx + 7] = p.pointSteps.indexOf(points[letter]);
+      });
+    return grid;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws the board with its premium squares and tiles of the points of the letters of one layout turned or flipped (seed %i)',
+    (seed) => {
+      const { squares, tiles } = readBoard(seed),
+        all = squares.flat();
+      // The premium squares of the game: 8 triple word, 17 double word (with the middle), 12 triple letter, 24 double letter, the same turned or flipped.
+      expect(
+        [0, 1, 2, 3, 4].map(
+          (kind) => all.filter((value) => value === kind).length,
+        ),
+      ).toEqual([225 - 61, 24, 12, 17, 8]);
+      expect(squares[7][7]).toBe(3);
+      for (let row = 0; row < p.side; row++)
+        for (let column = 0; column < p.side; column++) {
+          const kind = squares[row][column];
+          expect(squares[column][row]).toBe(kind);
+          expect(squares[row][14 - column]).toBe(kind);
+          expect(squares[14 - row][column]).toBe(kind);
+        }
+      // The tiles are those of exactly one layout in exactly one way, with the points of their letters.
+      const matches: [number, number][] = [];
+      p.layouts.forEach((_, layout) => {
+        for (let way = 0; way < 8; way++)
+          if (
+            JSON.stringify(layoutTiles(layout, way)) === JSON.stringify(tiles)
+          )
+            matches.push([layout, way]);
+      });
+      expect(matches.length).toBe(1);
+    },
+  );
+
+  it('uses every layout and every way to turn or flip, over 150 seeds, and most pairs of them', () => {
+    const layouts = new Set<number>(),
+      ways = new Set<number>(),
+      pairs = new Set<string>();
+    for (let seed = 0; seed < 150; seed++) {
+      const { tiles } = readBoard(seed * 3 + 1);
+      for (let layout = 0; layout < p.layouts.length; layout++)
+        for (let way = 0; way < 8; way++)
+          if (
+            JSON.stringify(layoutTiles(layout, way)) === JSON.stringify(tiles)
+          ) {
+            layouts.add(layout);
+            ways.add(way);
+            pairs.add(`${layout}/${way}`);
+          }
+    }
+    expect(layouts.size).toBe(p.layouts.length);
+    expect(ways.size).toBe(8);
+    expect(pairs.size).toBeGreaterThanOrEqual(20);
+  });
+
+  it('draws each premium square and each tile with its tone, height and roughness, as squares of their sizes, and nothing outside the board', () => {
+    const { sample, squares, tiles } = readBoard(1),
+      paperOk = (u: number, v: number): boolean =>
+        Math.abs(toneAt(sample, u, v) - p.paperTone) <= p.grainTone / 2 + 1e-9;
+    // Each premium on a square without a tile: the tone, height and roughness of the board, the square's size (corners too) and the paper in the gap.
+    for (let kind = 0; kind < 5; kind++) {
+      let found: [number, number] | null = null;
+      for (let row = 0; row < p.side && !found; row++)
+        for (let column = 0; column < p.side && !found; column++)
+          if (squares[row][column] === kind && tiles[row][column] < 0)
+            found = [column, row];
+      const [cx, cy] = centre(...(found as [number, number]));
+      expect(toneAt(sample, cx, cy)).toBeCloseTo(squareTones[kind], 6);
+      expect(out.height / p.relief).toBeCloseTo(squareHeights[kind], 6);
+      expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+      for (const [dx, dy] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ]) {
+        expect(
+          toneAt(sample, cx + dx * (half - 0.0004), cy + dy * (half - 0.0004)),
+        ).toBeCloseTo(squareTones[kind], 6);
+        expect(
+          toneAt(
+            sample,
+            cx + (half - 0.0004) * (dx + dy),
+            cy + (half - 0.0004) * (dx + dy),
+          ),
+        ).toBeCloseTo(squareTones[kind], 6);
+        expect(
+          paperOk(cx + dx * (half + 0.0004), cy + dy * (half + 0.0004)),
+        ).toBe(true);
+        expect(out.height / p.relief).toBeCloseTo(p.paperHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.paperRoughness, 6);
+      }
+    }
+    // Each step of points on a tile (the layout has tiles of every step but one: they are found by the points).
+    const seen = new Set<number>();
+    for (let row = 0; row < p.side; row++)
+      for (let column = 0; column < p.side; column++) {
+        const step = tiles[row][column];
+        if (step < 0 || seen.has(step)) continue;
+        seen.add(step);
+        const [cx, cy] = centre(column, row),
+          kind = squares[row][column];
+        expect(toneAt(sample, cx, cy)).toBeCloseTo(p.tileTones[step], 6);
+        expect(out.height / p.relief).toBeCloseTo(p.tileHeights[step], 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          // The tile's size: its tone just inside its edge (and its corner), the board's just outside.
+          expect(
+            toneAt(
+              sample,
+              cx + dx * (tileHalf - 0.0004),
+              cy + dy * (tileHalf - 0.0004),
+            ),
+          ).toBeCloseTo(p.tileTones[step], 6);
+          expect(
+            toneAt(
+              sample,
+              cx + (tileHalf - 0.0004) * (dx + dy),
+              cy + (tileHalf - 0.0004) * (dx + dy),
+            ),
+          ).toBeCloseTo(p.tileTones[step], 6);
+          expect(
+            toneAt(
+              sample,
+              cx + dx * (tileHalf + 0.0004),
+              cy + dy * (tileHalf + 0.0004),
+            ),
+          ).toBeCloseTo(squareTones[kind], 6);
+          expect(out.height / p.relief).toBeCloseTo(squareHeights[kind], 6);
+        }
+      }
+    expect(seen.size).toBeGreaterThanOrEqual(5);
+    const near = p.gapHalf + 0.0006,
+      far = left + p.extent - near;
+    expect(toneAt(sample, left + near, left + near)).toBeCloseTo(
+      squareTones[squares[0][0]],
+      6,
+    );
+    expect(toneAt(sample, far, far)).toBeCloseTo(
+      squareTones[squares[14][14]],
+      6,
+    );
+    for (const [u, v] of [
+      [left - 0.004, 0.5],
+      [left + p.extent + 0.004, 0.5],
+      [0.5, left - 0.004],
+      [0.5, left + p.extent + 0.004],
+    ])
+      expect(paperOk(u, v)).toBe(true);
+  });
+
+  it('softens the edge of a square and of a tile over edgeSoft', () => {
+    const { sample, squares, tiles } = readBoard(1),
+      smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03),
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      [cx, cy] = centre(3, 3),
+      kind = squares[3][3];
+    expect(tiles[3][3]).toBe(-1);
+    for (const [dx, dy] of [
+      [1, 0],
+      [0, 1],
+      [-1, 0],
+      [0, -1],
+    ]) {
+      close(
+        toneAt(sample, cx + dx * (half - quarter), cy + dy * (half - quarter)),
+        mix(p.paperTone, squareTones[kind], 0.75),
+      );
+      close(
+        toneAt(sample, cx + dx * (half + quarter), cy + dy * (half + quarter)),
+        mix(p.paperTone, squareTones[kind], 0.25),
+      );
+    }
+    const [tx, ty] = centre(7, 7),
+      step = tiles[7][7],
+      boardKind = squares[7][7];
+    expect(step).toBeGreaterThanOrEqual(0);
+    for (const [dx, dy] of [
+      [1, 0],
+      [0, 1],
+      [-1, 0],
+      [0, -1],
+    ]) {
+      close(
+        toneAt(
+          sample,
+          tx + dx * (tileHalf - quarter),
+          ty + dy * (tileHalf - quarter),
+        ),
+        mix(squareTones[boardKind], p.tileTones[step], 0.75),
+      );
+      close(
+        toneAt(
+          sample,
+          tx + dx * (tileHalf + quarter),
+          ty + dy * (tileHalf + quarter),
+        ),
+        mix(squareTones[boardKind], p.tileTones[step], 0.25),
+      );
+    }
+  });
+
+  it('fades the grain of the paper out over the edge of a square, as much as the square covers', () => {
+    const { sample, squares } = readBoard(1),
+      smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      amount = smoothstep(0.25),
+      residuals: number[] = [];
+    for (let column = 0; column < p.side; column++)
+      for (const t of [-0.8, -0.3, 0.3, 0.8]) {
+        const [cx, cy] = centre(column, 2);
+        residuals.push(
+          toneAt(sample, cx + t * half, cy - half - 0.25 * p.edgeSoft) -
+            (p.paperTone +
+              (squareTones[squares[2][column]] - p.paperTone) * amount),
+        );
+      }
+    const largest = Math.max(...residuals.map(Math.abs));
+    expect(largest).toBeGreaterThan(0.003);
+    expect(largest).toBeLessThanOrEqual(
+      0.5 * p.grainTone * (1 - amount) + 1e-9,
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('scrabbleboard', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('scrabbleboard', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0013 + i * 0.0021, 0.01),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('scrabbleboard', 0),
+      b = createSurfaceSampler('scrabbleboard', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3501],
+        [0.2201, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
