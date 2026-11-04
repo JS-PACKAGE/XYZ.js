@@ -29306,6 +29306,80 @@ var proceduralMaterialPresets = Object.freeze({
 		cellHeight: .8,
 		gapOcclusion: .4
 	}),
+	lineillusions: Object.freeze({
+		dark: [
+			8,
+			10,
+			14
+		],
+		light: [
+			236,
+			232,
+			216
+		],
+		roughness: .5,
+		relief: 8e-4,
+		seedSalt: 31251,
+		shapes: [
+			0,
+			0,
+			1,
+			2,
+			3,
+			4
+		],
+		angles: [
+			60,
+			35,
+			0,
+			30,
+			0,
+			0
+		],
+		counts: [
+			6,
+			6,
+			4,
+			6,
+			24,
+			0
+		],
+		tickHalfLength: .035,
+		rayCount: 20,
+		emptyRadius: .03,
+		rayRadius: .105,
+		shaftFrom: .2,
+		shaftTo: .8,
+		finLength: .07,
+		heringInner: .02,
+		heringOuter: .47,
+		heringLineOffset: .1,
+		heringLineHalfWidth: .47,
+		ponzoLines: [[
+			.18,
+			.04,
+			.42,
+			.96
+		], [
+			.82,
+			.04,
+			.58,
+			.96
+		]],
+		ponzoBars: [.3, .72],
+		ponzoBarHalfLength: .1,
+		innerHalfWidth: .004,
+		outerHalfWidth: .009,
+		buckets: 32,
+		edgeSoft: .35,
+		grainCells: 128,
+		gapTone: .04,
+		toneFloor: .14,
+		toneSpan: .72,
+		grainTone: .03,
+		cellHeight: .8,
+		gapOcclusion: .4
+	}),
 	vermiculation: Object.freeze({
 		dark: [
 			60,
@@ -31417,6 +31491,7 @@ var proceduralTileMeters = Object.freeze({
 	islamicstars: .5,
 	gerstnerocean: .5,
 	opticalillusions: .5,
+	lineillusions: .5,
 	dominotiling: .5,
 	vermiculation: .4,
 	kikko: .3,

@@ -1153,6 +1153,7 @@ const kinds: ProceduralMaterialKind[] = [
   'islamicstars',
   'gerstnerocean',
   'opticalillusions',
+  'lineillusions',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -196299,6 +196300,513 @@ describe('Optical illusions as the cafe wall, Hermann and scintillating grids', 
     expect(blue / (512 * 512)).toBeLessThan(117.2);
     expect(maxTilt).toBeGreaterThan(0.0167);
     expect(maxTilt).toBeLessThan(0.0168);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Line illusions as the Zollner, Ehrenstein, Muller-Lyer, Hering and Ponzo figures', () => {
+  const p = proceduralMaterialPresets.lineillusions;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The segments [ax, ay, bx, by] of the variant, generated here and not by the sampler: the shapes are the Zöllner lines (long vertical lines with 12 ticks each at the angle, the tilt alternating from line to line), the Ehrenstein rays round the points of a lattice, the Müller-Lyer shafts with their fins (even rows arrowheads, odd rows tails), the Hering rays and two horizontal lines, and the Ponzo lines and bars. */
+  const segmentsOf = (variant: number): number[][] => {
+    const shape = p.shapes[variant],
+      count = p.counts[variant],
+      angle = (p.angles[variant] * Math.PI) / 180,
+      segments: number[][] = [];
+    if (shape === 0) {
+      for (let i = 0; i < count; i++) {
+        const x = (i + 0.5) / count,
+          tilt = i % 2 ? -1 : 1;
+        segments.push([x, -0.1, x, 1.1]);
+        for (let j = 0; j < 12; j++) {
+          const y = (j + 0.5) / 12,
+            dx = tilt * p.tickHalfLength * Math.sin(angle),
+            dy = p.tickHalfLength * Math.cos(angle);
+          segments.push([x - dx, y - dy, x + dx, y + dy]);
+        }
+      }
+    } else if (shape === 1) {
+      for (let i = 0; i < count; i++)
+        for (let j = 0; j < count; j++)
+          for (let k = 0; k < p.rayCount; k++) {
+            const turn = (k / p.rayCount) * 2 * Math.PI,
+              x = (i + 0.5) / count,
+              y = (j + 0.5) / count;
+            segments.push([
+              x + Math.cos(turn) * p.emptyRadius,
+              y + Math.sin(turn) * p.emptyRadius,
+              x + Math.cos(turn) * p.rayRadius,
+              y + Math.sin(turn) * p.rayRadius,
+            ]);
+          }
+    } else if (shape === 2) {
+      for (let row = 0; row < count; row++) {
+        const y = (row + 0.5) / count;
+        segments.push([p.shaftFrom, y, p.shaftTo, y]);
+        for (const [end, inwards] of [
+          [p.shaftFrom, 1],
+          [p.shaftTo, -1],
+        ])
+          for (const side of [-1, 1])
+            segments.push([
+              end,
+              y,
+              end +
+                (row % 2 === 0 ? inwards : -inwards) *
+                  p.finLength *
+                  Math.cos(angle),
+              y + side * p.finLength * Math.sin(angle),
+            ]);
+      }
+    } else if (shape === 3) {
+      for (let k = 0; k < count; k++) {
+        const turn = (k / count) * 2 * Math.PI;
+        segments.push([
+          0.5 + Math.cos(turn) * p.heringInner,
+          0.5 + Math.sin(turn) * p.heringInner,
+          0.5 + Math.cos(turn) * p.heringOuter,
+          0.5 + Math.sin(turn) * p.heringOuter,
+        ]);
+      }
+      for (const side of [-1, 1])
+        segments.push([
+          0.5 - p.heringLineHalfWidth,
+          0.5 + side * p.heringLineOffset,
+          0.5 + p.heringLineHalfWidth,
+          0.5 + side * p.heringLineOffset,
+        ]);
+    } else {
+      for (const line of p.ponzoLines)
+        segments.push([line[0], line[1], line[2], line[3]]);
+      for (const y of p.ponzoBars)
+        segments.push([
+          0.5 - p.ponzoBarHalfLength,
+          y,
+          0.5 + p.ponzoBarHalfLength,
+          y,
+        ]);
+    }
+    return segments;
+  };
+  /** The union of the straps of all segments by brute force, 1 minus the product of 1 - smoothstep((outer^2 - d^2) / (outer^2 - inner^2)). */
+  const strapInk = (segments: number[][], x: number, y: number): number => {
+    const inner2 = p.innerHalfWidth ** 2,
+      outer2 = p.outerHalfWidth ** 2;
+    let free = 1;
+    for (const [ax, ay, bx, by] of segments) {
+      const dx = bx - ax,
+        dy = by - ay,
+        along = Math.min(
+          1,
+          Math.max(0, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy)),
+        ),
+        ex = x - ax - along * dx,
+        ey = y - ay - along * dy,
+        distance2 = ex * ex + ey * ey;
+      if (distance2 < outer2) {
+        const t = Math.min(1, (outer2 - distance2) / (outer2 - inner2));
+        free *= 1 - t * t * (3 - 2 * t);
+      }
+    }
+    return 1 - free;
+  };
+  /** The strap ink at the point (x, y) of the tile, read back from the sampler: the height is cellHeight times the ink (the grain is not in the height). */
+  const inkAt = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    x: number,
+    y: number,
+  ): number => {
+    sample(x, y, out);
+    return out.height / p.relief / p.cellHeight;
+  };
+  /** The centres in degrees of the arcs of a ring of the given radius round (cx, cy), where the ink is above the threshold, from the angle 0 (along +x, with y downward in the tile) in 3600 steps; an arc that spans the angle 0 is joined. */
+  const ringArcs = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    cx: number,
+    cy: number,
+    radius: number,
+    threshold: number,
+  ): number[] => {
+    const steps = 3600,
+      on: boolean[] = [];
+    for (let k = 0; k < steps; k++) {
+      const turn = (2 * Math.PI * k) / steps;
+      on.push(
+        inkAt(
+          sample,
+          out,
+          cx + radius * Math.cos(turn),
+          cy + radius * Math.sin(turn),
+        ) > threshold,
+      );
+    }
+    const first = on.indexOf(false),
+      centres: number[] = [];
+    if (first < 0) return centres;
+    let start = -1;
+    for (let k = 0; k < steps; k++) {
+      const active = on[(first + k) % steps];
+      if (active && start < 0) start = k;
+      if (!active && start >= 0) {
+        centres.push((((first + (start + k - 1) / 2) * 360) / steps) % 360);
+        start = -1;
+      }
+    }
+    if (start >= 0)
+      centres.push((((first + (start + steps - 1) / 2) * 360) / steps) % 360);
+    return centres.sort((a, b) => a - b);
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('lineillusions', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('lineillusions', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0254);
+      expect(low).toBeLessThan(0.0257);
+      expect(high).toBeGreaterThan(0.8737);
+      expect(high).toBeLessThan(0.8743);
+      expect(dark / 65536).toBeGreaterThan(0.1373);
+      expect(dark / 65536).toBeLessThan(0.1453);
+      expect(mean / 65536).toBeGreaterThan(0.156);
+      expect(mean / 65536).toBeLessThan(0.1629);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.799);
+      expect(heightHigh).toBeLessThan(0.8001);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (the Zöllner lines with ticks at 60 and 35 degrees, the Ehrenstein lattice, the Müller-Lyer rows, the Hering rays and the Ponzo lines) is 3, 0, 2, 7, 4 and 11; the table was found with a probe, by comparing the ink of each of 40 seeds at 400 points with the six variants, and is written here, so it is not an independent check of the seed's choice.
+  const seeds = [3, 0, 2, 7, 4, 11];
+  it('agrees with a brute-force union of straps from segments generated in the test', () => {
+    // The test builds the segments of every shape itself (with a different order of the loops and its own trigonometry) and takes the union of the straps over every segment, where the sampler sorts them into buckets. On 200 points of each variant (on a golden-ratio sequence) the ink differs by at most the tolerance 1e-9 (1.2e-13 at the most on 3000 points in the probe).
+    seeds.forEach((seed, variant) => {
+      const sample = createSurfaceSampler('lineillusions', seed),
+        out = empty(),
+        segments = segmentsOf(variant);
+      let worst = 0;
+      for (let k = 0; k < 200; k++) {
+        const x = (k * 0.6180339887 + 0.07) % 1,
+          y = (k * 0.7548776662 + 0.21) % 1;
+        const ink = strapInk(segments, x, y),
+          soft = Math.min(1, ink / p.edgeSoft);
+        worst = Math.max(worst, Math.abs(inkAt(sample, out, x, y) - ink));
+        // The occlusion is 1 - gapOcclusion (1 - mask), the mask being the smoothstep of ink / edgeSoft.
+        expect(
+          Math.abs(
+            out.occlusion -
+              (1 - p.gapOcclusion * (1 - soft * soft * (3 - 2 * soft))),
+          ),
+        ).toBeLessThan(1e-9);
+      }
+      expect(worst).toBeLessThan(1e-9);
+    });
+  });
+  it('draws the Zöllner lines parallel and upright with ticks at the angle that turns over from line to line', () => {
+    // Along y = 0, which no tick reaches, the ink is above 0.99 in 6 stretches centred at (i + 0.5) / 6 (4e-5 at the most in the probe on a scan of 8192 steps; 3e-4 is the tolerance), so the lines are all upright and equally spaced. Round the crossing of the tick in the row 3 with line 1 and line 2 (a ring of radius 0.02) there are 4 arcs of ink above 0.99, at 90 and 270 degrees (the line) and at the angle atan2(cos theta, tilt sin theta) and its opposite (the tick), tilt being +1 for the even lines and -1 for the odd ones (the probe found them within 0.15 degrees, the two arcs of the 35 degree variant being close enough to run into each other a little; 0.3 degrees is the tolerance).
+    for (let variant = 0; variant < 2; variant++) {
+      const sample = createSurfaceSampler('lineillusions', seeds[variant]),
+        out = empty(),
+        count = p.counts[variant],
+        steps = 8192,
+        centres: number[] = [];
+      let start = -1;
+      for (let k = 0; k <= steps; k++) {
+        const on = inkAt(sample, out, k / steps, 0) > 0.99;
+        if (on && start < 0) start = k;
+        if (!on && start >= 0) {
+          centres.push((start + k - 1) / 2 / steps);
+          start = -1;
+        }
+      }
+      expect(centres.length).toBe(count);
+      centres.forEach((centre, i) =>
+        expect(Math.abs(centre - (i + 0.5) / count)).toBeLessThan(3e-4),
+      );
+      for (const line of [1, 2]) {
+        const theta = (p.angles[variant] * Math.PI) / 180,
+          tilt = line % 2 === 0 ? 1 : -1,
+          tick =
+            ((Math.atan2(Math.cos(theta), tilt * Math.sin(theta)) * 180) /
+              Math.PI +
+              360) %
+            360,
+          expected = [90, 270, tick, (tick + 180) % 360].sort((a, b) => a - b),
+          arcs = ringArcs(
+            sample,
+            out,
+            (line + 0.5) / count,
+            3.5 / 12,
+            0.02,
+            0.99,
+          );
+        expect(arcs.length).toBe(4);
+        arcs.forEach((arc, index) =>
+          expect(Math.abs(arc - expected[index])).toBeLessThan(0.3),
+        );
+      }
+    }
+  });
+  it('leaves the middle of every Ehrenstein point empty and puts the rays at equal angles', () => {
+    // Round the point (1.5 / 4, 1.5 / 4) of the lattice the ink is 0 on a ring of radius 0.015, inside the empty radius (the probe found 0), and on a ring of radius 0.067 the arcs of ink above 0.99 are 20 and centred at multiples of 18 degrees (the probe found them exactly there, the step being 0.1 degree; 0.2 degrees is the tolerance).
+    const sample = createSurfaceSampler('lineillusions', seeds[2]),
+      out = empty();
+    for (let k = 0; k < 360; k++) {
+      const turn = (2 * Math.PI * k) / 360;
+      expect(
+        inkAt(
+          sample,
+          out,
+          0.375 + 0.015 * Math.cos(turn),
+          0.375 + 0.015 * Math.sin(turn),
+        ),
+      ).toBeLessThan(1e-9);
+    }
+    const arcs = ringArcs(sample, out, 0.375, 0.375, 0.067, 0.99);
+    expect(arcs.length).toBe(20);
+    arcs.forEach((arc, index) =>
+      expect(Math.abs(arc - index * 18)).toBeLessThan(0.2),
+    );
+  });
+  it('gives the Müller-Lyer shafts one length whatever their fins, with the fins turned as arrowheads and tails', () => {
+    // In every row the ink is 0 just beyond both ends of the shaft (0.02 from them) and above 0.99 just inside them and in the middle, so the shafts are of one length; the fins, whose midpoints the test computes from the fin length and angle, are present where the even rows (arrowheads, back over the shaft) and the odd rows (tails, away from it) should have them, and the ink is 0 at the same places mirrored (the probe found exactly 1 and 0).
+    const sample = createSurfaceSampler('lineillusions', seeds[3]),
+      out = empty(),
+      count = p.counts[3],
+      angle = (p.angles[3] * Math.PI) / 180,
+      along = (p.finLength * Math.cos(angle)) / 2,
+      across = (p.finLength * Math.sin(angle)) / 2;
+    for (let row = 0; row < count; row++) {
+      const y = (row + 0.5) / count,
+        arrow = row % 2 === 0;
+      expect(inkAt(sample, out, p.shaftFrom - 0.02, y)).toBeLessThan(1e-9);
+      expect(inkAt(sample, out, p.shaftTo + 0.02, y)).toBeLessThan(1e-9);
+      for (const x of [p.shaftFrom + 0.02, p.shaftTo - 0.02, 0.5])
+        expect(inkAt(sample, out, x, y)).toBeGreaterThan(0.99);
+      for (const side of [-1, 1]) {
+        const dy = side * across;
+        expect(
+          inkAt(sample, out, p.shaftFrom + (arrow ? along : -along), y + dy),
+        ).toBeGreaterThan(0.99);
+        expect(
+          inkAt(sample, out, p.shaftTo + (arrow ? -along : along), y + dy),
+        ).toBeGreaterThan(0.99);
+        expect(
+          inkAt(sample, out, p.shaftFrom + (arrow ? -along : along), y + dy),
+        ).toBeLessThan(1e-9);
+        expect(
+          inkAt(sample, out, p.shaftTo + (arrow ? along : -along), y + dy),
+        ).toBeLessThan(1e-9);
+      }
+    }
+  });
+  it('draws the Hering lines straight and level across the rays, and the Ponzo bars equal and the lines straight', () => {
+    // The ink along y = 0.4 and y = 0.6 is above 0.99 at 100 places from x = 0.05 to 0.95, the rays crossing them notwithstanding; on a ring of radius 0.09 (inside the lines) the arcs of ink above 0.99 are 24 at multiples of 15 degrees (0.2 degrees is the tolerance). In the Ponzo variant the stretch above 0.5 that holds x = 0.5 is the bar, and the two bars (y = 0.3 and 0.72, where the gaps between the lines are 0.50 and 0.29 wide) have the same length 2 × 0.1 + 2 × sqrt((inner^2 + outer^2) / 2) = 0.21394 to 3e-4 (the probe found 0.2140 for both) and the same middle 0.5; the left line is found at x = 0.18 + 0.24 (y - 0.04) / 0.92 to 3e-4 at 60 heights away from the bars (3.6e-5 at the most in the probe).
+    const hering = createSurfaceSampler('lineillusions', seeds[4]),
+      out = empty();
+    for (let k = 0; k < 100; k++) {
+      const x = 0.05 + (0.9 * k) / 99;
+      expect(inkAt(hering, out, x, 0.4)).toBeGreaterThan(0.99);
+      expect(inkAt(hering, out, x, 0.6)).toBeGreaterThan(0.99);
+    }
+    const arcs = ringArcs(hering, out, 0.5, 0.5, 0.09, 0.99);
+    expect(arcs.length).toBe(24);
+    arcs.forEach((arc, index) =>
+      expect(Math.abs(arc - index * 15)).toBeLessThan(0.2),
+    );
+    const ponzo = createSurfaceSampler('lineillusions', seeds[5]),
+      steps = 8192,
+      expectedLength =
+        2 * p.ponzoBarHalfLength +
+        2 * Math.sqrt((p.innerHalfWidth ** 2 + p.outerHalfWidth ** 2) / 2);
+    for (const y of p.ponzoBars) {
+      let start = -1,
+        found = false;
+      for (let k = 0; k <= steps; k++) {
+        const on = inkAt(ponzo, out, k / steps, y) > 0.5;
+        if (on && start < 0) start = k / steps;
+        if (!on && start >= 0) {
+          if (start < 0.5 && k / steps > 0.5) {
+            found = true;
+            expect(Math.abs(k / steps - start - expectedLength)).toBeLessThan(
+              3e-4,
+            );
+            expect(Math.abs((k / steps + start) / 2 - 0.5)).toBeLessThan(3e-4);
+          }
+          start = -1;
+        }
+      }
+      expect(found).toBe(true);
+    }
+    for (let k = 0; k < 60; k++) {
+      const y =
+          [0.1, 0.25, 0.4, 0.65, 0.8, 0.9][k % 6] + 0.001 * Math.floor(k / 6),
+        centres: number[] = [];
+      let start = -1;
+      for (let q = 0; q <= steps / 2; q++) {
+        const on = inkAt(ponzo, out, q / steps, y) > 0.99;
+        if (on && start < 0) start = q;
+        if (!on && start >= 0) {
+          centres.push((start + q - 1) / 2 / steps);
+          start = -1;
+        }
+      }
+      expect(centres.length).toBe(1);
+      expect(
+        Math.abs(centres[0] - (0.18 + (0.24 * (y - 0.04)) / 0.92)),
+      ).toBeLessThan(3e-4);
+    }
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 2 pick different variants (the Zollner lines with ticks at 35 degrees and the Ehrenstein lattice).
+    const first = litGrid(0),
+      second = litGrid(2);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.4178);
+    expect(different / first.length).toBeLessThan(0.4179);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('lineillusions', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 ivory line maps on near-black with raised straps and shaded gaps', () => {
+    const maps = generateProceduralMaps('lineillusions', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(30.4);
+    expect(red / (512 * 512)).toBeLessThan(31.4);
+    expect(green / (512 * 512)).toBeGreaterThan(31.8);
+    expect(green / (512 * 512)).toBeLessThan(32.8);
+    expect(blue / (512 * 512)).toBeGreaterThan(33.8);
+    expect(blue / (512 * 512)).toBeLessThan(34.8);
+    expect(maxTilt).toBeGreaterThan(0.0492);
+    expect(maxTilt).toBeLessThan(0.0493);
     expect(invalid).toBe(0);
   });
 });

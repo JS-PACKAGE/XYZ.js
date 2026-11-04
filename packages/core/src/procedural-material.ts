@@ -1127,6 +1127,7 @@ export type ProceduralMaterialKind =
   | 'islamicstars'
   | 'gerstnerocean'
   | 'opticalillusions'
+  | 'lineillusions'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2502,6 +2503,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'islamicstars',
   'gerstnerocean',
   'opticalillusions',
+  'lineillusions',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

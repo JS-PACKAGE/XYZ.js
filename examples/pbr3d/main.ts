@@ -1190,6 +1190,7 @@ try {
     'islamicstars',
     'gerstnerocean',
     'opticalillusions',
+    'lineillusions',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

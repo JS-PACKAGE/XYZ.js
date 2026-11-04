@@ -51783,6 +51783,165 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'lineillusions': {
+        const p = proceduralMaterialPresets.lineillusions,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant = Math.floor(
+            hash(0, 105, seed ^ p.seedSalt) * p.shapes.length,
+          ),
+          shape = p.shapes[variant],
+          count = p.counts[variant],
+          angle = (p.angles[variant] * Math.PI) / 180,
+          inverseSoft = 1 / p.edgeSoft,
+          inner2 = p.innerHalfWidth * p.innerHalfWidth,
+          outer2 = p.outerHalfWidth * p.outerHalfWidth,
+          // The segments [ax, ay, bx, by] of the variant in tile lengths.
+          segments: number[][] = [];
+        if (shape === 0) {
+          // The Zöllner illusion: long vertical lines (longer than the tile, so that they are continuous across its border) and, 12 times along each, a tick at the angle to it whose tilt alternates from one line to the next.
+          for (let i = 0; i < count; i++) {
+            const x = (i + 0.5) / count,
+              tilt = i % 2 === 0 ? 1 : -1;
+            segments.push([x, -0.1, x, 1.1]);
+            for (let j = 0; j < 12; j++) {
+              const y = (j + 0.5) / 12,
+                dx = tilt * Math.sin(angle) * p.tickHalfLength,
+                dy = Math.cos(angle) * p.tickHalfLength;
+              segments.push([x - dx, y - dy, x + dx, y + dy]);
+            }
+          }
+        } else if (shape === 1) {
+          // The Ehrenstein illusion: rays round each point of the lattice that begin at emptyRadius.
+          for (let i = 0; i < count; i++)
+            for (let j = 0; j < count; j++)
+              for (let k = 0; k < p.rayCount; k++) {
+                const x = (i + 0.5) / count,
+                  y = (j + 0.5) / count,
+                  ray = (2 * Math.PI * k) / p.rayCount;
+                segments.push([
+                  x + p.emptyRadius * Math.cos(ray),
+                  y + p.emptyRadius * Math.sin(ray),
+                  x + p.rayRadius * Math.cos(ray),
+                  y + p.rayRadius * Math.sin(ray),
+                ]);
+              }
+        } else if (shape === 2) {
+          // The Müller-Lyer illusion: shafts of one length, with the fins of the even rows turned back over the shaft (arrowheads) and those of the odd rows turned away from it (tails).
+          for (let row = 0; row < count; row++) {
+            const y = (row + 0.5) / count,
+              along = Math.cos(angle) * p.finLength,
+              across = Math.sin(angle) * p.finLength,
+              turn = row % 2 === 0 ? 1 : -1;
+            segments.push([p.shaftFrom, y, p.shaftTo, y]);
+            for (const side of [-1, 1])
+              for (const end of [p.shaftFrom, p.shaftTo]) {
+                // The fin leaves the end of the shaft: back over the shaft for an arrowhead, away from it for a tail.
+                const direction = (end === p.shaftFrom ? 1 : -1) * turn;
+                segments.push([
+                  end,
+                  y,
+                  end + direction * along,
+                  y + side * across,
+                ]);
+              }
+          }
+        } else if (shape === 3) {
+          // The Hering illusion: rays from the middle and two straight horizontal lines across them.
+          for (let k = 0; k < count; k++) {
+            const ray = (2 * Math.PI * k) / count;
+            segments.push([
+              0.5 + p.heringInner * Math.cos(ray),
+              0.5 + p.heringInner * Math.sin(ray),
+              0.5 + p.heringOuter * Math.cos(ray),
+              0.5 + p.heringOuter * Math.sin(ray),
+            ]);
+          }
+          for (const side of [-1, 1])
+            segments.push([
+              0.5 - p.heringLineHalfWidth,
+              0.5 + side * p.heringLineOffset,
+              0.5 + p.heringLineHalfWidth,
+              0.5 + side * p.heringLineOffset,
+            ]);
+        } else {
+          // The Ponzo illusion: two converging lines and two bars of one length across the gap between them.
+          for (const line of p.ponzoLines) segments.push([...line]);
+          for (const y of p.ponzoBars)
+            segments.push([
+              0.5 - p.ponzoBarHalfLength,
+              y,
+              0.5 + p.ponzoBarHalfLength,
+              y,
+            ]);
+        }
+        // Each segment is put into the buckets of a grid that its strap touches.
+        const bucketSegments: number[][][] = Array.from(
+            { length: p.buckets * p.buckets },
+            () => [],
+          ),
+          reach = p.outerHalfWidth;
+        for (const segment of segments) {
+          const [ax, ay, bx, by] = segment,
+            x0 = Math.max(
+              0,
+              Math.floor((Math.min(ax, bx) - reach) * p.buckets),
+            ),
+            x1 = Math.min(
+              p.buckets - 1,
+              Math.floor((Math.max(ax, bx) + reach) * p.buckets),
+            ),
+            y0 = Math.max(
+              0,
+              Math.floor((Math.min(ay, by) - reach) * p.buckets),
+            ),
+            y1 = Math.min(
+              p.buckets - 1,
+              Math.floor((Math.max(ay, by) + reach) * p.buckets),
+            );
+          for (let row = y0; row <= y1; row++)
+            for (let column = x0; column <= x1; column++)
+              bucketSegments[row * p.buckets + column].push(segment);
+        }
+        return () => {
+          const x = fract(u),
+            y = fract(v),
+            bucket =
+              bucketSegments[
+                Math.min(p.buckets - 1, Math.floor(y * p.buckets)) * p.buckets +
+                  Math.min(p.buckets - 1, Math.floor(x * p.buckets))
+              ];
+          // The union of the straps as 1 minus the product of 1 - strap (every strap is C1 in the position, as it depends on the squared distance).
+          let free = 1;
+          for (const [ax, ay, bx, by] of bucket) {
+            const dx = bx - ax,
+              dy = by - ay,
+              along = clamp(
+                ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy),
+              ),
+              ex = x - ax - along * dx,
+              ey = y - ay - along * dy,
+              distance2 = ex * ex + ey * ey;
+            if (distance2 < outer2)
+              free *=
+                1 - smooth(clamp((outer2 - distance2) / (outer2 - inner2)));
+          }
+          const ink = 1 - free,
+            mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * ink;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -60711,6 +60870,7 @@ export function createSurfaceSampler(
     kind === 'islamicstars' ||
     kind === 'gerstnerocean' ||
     kind === 'opticalillusions' ||
+    kind === 'lineillusions' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
