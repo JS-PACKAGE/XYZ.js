@@ -53033,6 +53033,107 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'necklaces': {
+        const p = proceduralMaterialPresets.necklaces,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.lengths.length,
+          group = Math.floor(unsigned / p.lengths.length),
+          length = p.lengths[variant],
+          cols = p.cols[variant],
+          rows = p.rows[variant],
+          // Every necklace as its least rotation (a string of 0 and 1 read from the top bead clockwise), whether it is a Lyndon necklace (not periodic), and a random turn of its ring; in a shuffled order.
+          necklaces = (() => {
+            const found: { beads: number[]; lyndon: boolean }[] = [];
+            for (let code = 0; code < 1 << length; code++) {
+              const beads = Array.from(
+                { length },
+                (_, k) => (code >> (length - 1 - k)) & 1,
+              );
+              // Keep the string only when no rotation of it is smaller (then it is the least rotation of its necklace).
+              let least = true,
+                period: number = length;
+              for (let turn = 1; turn < length; turn++) {
+                let order = 0;
+                for (let k = 0; k < length && order === 0; k++)
+                  order = beads[(k + turn) % length] - beads[k];
+                if (order < 0) least = false;
+                if (order === 0 && period === length) period = turn;
+              }
+              if (least) found.push({ beads, lyndon: period === length });
+            }
+            for (let k = found.length - 1; k > 0; k--) {
+              const other = Math.floor(
+                hash(k, 201, group ^ p.seedSalt) * (k + 1),
+              );
+              [found[k], found[other]] = [found[other], found[k]];
+            }
+            // The ring of a panel is turned by a random number of beads.
+            return found.map(({ beads, lyndon }, k) => {
+              const turn = Math.floor(
+                hash(k, 202, group ^ p.seedSalt) * length,
+              );
+              return {
+                beads: beads.map((_, bead) => beads[(bead + turn) % length]),
+                lyndon,
+              };
+            });
+          })(),
+          extent = 1 + p.filledRadius + p.margin,
+          scale = Math.min(1 / (cols * 2 * extent), 1 / (rows * 2 * extent)),
+          originX = (1 / cols - scale * 2 * extent) / 2,
+          originY = (1 / rows - scale * 2 * extent) / 2,
+          // 1 inside the distance radius, 0 outside, 1/2 at radius, smoothed over edgeSoft.
+          band = (distance: number, radius: number): number =>
+            smooth(clamp((radius - distance) / p.edgeSoft + 0.5));
+        return () => {
+          const tileU = fract(u),
+            tileV = fract(v),
+            col = Math.min(cols - 1, Math.floor(tileU * cols)),
+            row = Math.min(rows - 1, Math.floor(tileV * rows)),
+            index = row * cols + col,
+            grain = grainField(u, v);
+          let free = 1,
+            toneSum = 0,
+            heightSum = 0;
+          if (index < necklaces.length) {
+            // Lattice coordinates from the middle of the ring, x to the right and y downwards.
+            const x = (tileU - col / cols - originX) / scale - extent,
+              y = (tileV - row / rows - originY) / scale - extent,
+              { beads, lyndon } = necklaces[index];
+            for (let bead = 0; bead < length; bead++) {
+              const angle = -Math.PI / 2 + (2 * Math.PI * bead) / length,
+                mask = band(
+                  Math.hypot(x - Math.cos(angle), y - Math.sin(angle)),
+                  beads[bead] ? p.filledRadius : p.emptyRadius,
+                ),
+                tone = beads[bead]
+                  ? lyndon
+                    ? p.toneFilled
+                    : p.toneFilledPeriodic
+                  : p.toneEmpty,
+                level = beads[bead]
+                  ? lyndon
+                    ? 1
+                    : p.periodicHeight
+                  : p.emptyHeight;
+              // The beads never overlap, so each adds its own tone and height where it is.
+              toneSum += mask * tone;
+              heightSum += mask * level;
+              free *= 1 - mask;
+            }
+          }
+          const ink = 1 - free;
+          color = p.toneGround * free + toneSum + p.grainTone * (grain - 0.5);
+          height = p.cellHeight * heightSum;
+          occlusion = 1 - p.gapOcclusion * (1 - ink);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -61974,6 +62075,7 @@ export function createSurfaceSampler(
     kind === 'projectiveplane' ||
     kind === 'dyckpaths' ||
     kind === 'youngdiagrams' ||
+    kind === 'necklaces' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

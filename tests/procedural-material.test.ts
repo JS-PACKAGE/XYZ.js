@@ -1166,6 +1166,7 @@ const kinds: ProceduralMaterialKind[] = [
   'projectiveplane',
   'dyckpaths',
   'youngdiagrams',
+  'necklaces',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -200968,6 +200969,398 @@ describe('Young diagrams as every partition drawn with its hook lengths', () => 
     expect(blue / (512 * 512)).toBeLessThan(35.2);
     expect(maxTilt).toBeGreaterThan(0.0799);
     expect(maxTilt).toBeLessThan(0.0801);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Necklaces as every ring of beads drawn once', () => {
+  const p = proceduralMaterialPresets.necklaces;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The layout of the panels of a variant (seed % 6): slots of 1 / cols by 1 / rows, the ring of radius 1 drawn at one scale and centred in its slot with the bead radius and margin around it. */
+  const geometry = (seed: number) => {
+    const variant = seed % p.lengths.length,
+      length = p.lengths[variant],
+      cols = p.cols[variant],
+      rows = p.rows[variant],
+      extent = 1 + p.filledRadius + p.margin,
+      scale = Math.min(1 / (cols * 2 * extent), 1 / (rows * 2 * extent));
+    return {
+      length,
+      cols,
+      rows,
+      extent,
+      scale,
+      originX: (1 / cols - scale * 2 * extent) / 2,
+      originY: (1 / rows - scale * 2 * extent) / 2,
+    };
+  };
+  /** The position (in lattice units from the middle of the ring) of bead k of n: the first at the top and the others clockwise. */
+  const beadAt = (k: number, n: number) => ({
+    x: Math.cos(-Math.PI / 2 + (2 * Math.PI * k) / n),
+    y: Math.sin(-Math.PI / 2 + (2 * Math.PI * k) / n),
+  });
+  /** Every necklace of a seed read back from the picture, in slot order (null for an empty slot): the beads from the top clockwise (1 filled, 0 empty, read from the height level at the middle of the bead, the empty bead being lower than the filled ones) and, for a necklace with a filled bead, whether the filled beads are at the Lyndon height (1) and not at the lower height of a periodic necklace. A bead is there when the ink at its middle is above 0.5 (the occlusion is 1 - gapOcclusion times (1 - ink)). */
+  const readNecklaces = (seed: number) => {
+    const g = geometry(seed),
+      sample = createSurfaceSampler('necklaces', seed),
+      out = empty(),
+      necklaces: ({ beads: number[]; lyndonHeight: boolean | null } | null)[] =
+        [];
+    for (let slot = 0; slot < g.cols * g.rows; slot++) {
+      const col = slot % g.cols,
+        row = Math.floor(slot / g.cols),
+        beads: number[] = [],
+        levels = new Set<number>();
+      let present = 0;
+      for (let k = 0; k < g.length; k++) {
+        const { x, y } = beadAt(k, g.length);
+        sample(
+          col / g.cols + g.originX + g.scale * (g.extent + x),
+          row / g.rows + g.originY + g.scale * (g.extent + y),
+          out,
+        );
+        if (1 - (1 - out.occlusion) / p.gapOcclusion < 0.5) {
+          beads.push(-1);
+          continue;
+        }
+        present++;
+        const level = out.height / p.relief / p.cellHeight;
+        beads.push(level > (p.emptyHeight + p.periodicHeight) / 2 ? 1 : 0);
+        if (beads[k] === 1) levels.add(Math.round(level * 1e6));
+      }
+      if (present === 0) {
+        necklaces.push(null);
+        continue;
+      }
+      // A slot is either all beads or none.
+      expect(present).toBe(g.length);
+      expect(levels.size).toBeLessThanOrEqual(1);
+      necklaces.push({
+        beads,
+        lyndonHeight: levels.size === 0 ? null : [...levels][0] === 1e6,
+      });
+    }
+    return necklaces;
+  };
+  /** The least rotation of a ring of beads as a string, and whether turning the ring by fewer beads than its length can give the same ring (periodic), written again here. */
+  const leastRotation = (beads: number[]): string => {
+    let least = '';
+    for (let turn = 0; turn < beads.length; turn++) {
+      const rotated = beads
+        .map((_, k) => beads[(k + turn) % beads.length])
+        .join('');
+      if (least === '' || rotated < least) least = rotated;
+    }
+    return least;
+  };
+  const isPeriodic = (beads: number[]): boolean => {
+    for (let turn = 1; turn < beads.length; turn++)
+      if (beads.every((bead, k) => bead === beads[(k + turn) % beads.length]))
+        return true;
+    return false;
+  };
+  /** The number of binary necklaces of length n, (1 / n) times the sum over the divisors d of n of phi(d) 2^(n / d), and of Lyndon necklaces (not periodic), (1 / n) times the sum of mobius(d) 2^(n / d). */
+  const divisors = (n: number): number[] =>
+    [...Array(n).keys()].map((k) => k + 1).filter((d) => n % d === 0);
+  const totient = (n: number): number => {
+    let count = 0;
+    for (let k = 1; k <= n; k++) {
+      let a = n,
+        b = k;
+      while (b) [a, b] = [b, a % b];
+      count += Number(a === 1);
+    }
+    return count;
+  };
+  const mobius = (n: number): number => {
+    let result = 1,
+      rest = n;
+    for (let prime = 2; prime <= rest; prime++) {
+      if (rest % prime !== 0) continue;
+      rest /= prime;
+      if (rest % prime === 0) return 0;
+      result = -result;
+    }
+    return result;
+  };
+  const necklaceCount = (n: number): number =>
+    divisors(n).reduce((sum, d) => sum + totient(d) * 2 ** (n / d), 0) / n;
+  const lyndonCount = (n: number): number =>
+    divisors(n).reduce((sum, d) => sum + mobius(d) * 2 ** (n / d), 0) / n;
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('necklaces', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('necklaces', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0155);
+      expect(low).toBeLessThan(0.0156);
+      expect(high).toBeGreaterThan(0.9632);
+      expect(high).toBeLessThan(0.9641);
+      expect(lit / 65536).toBeGreaterThan(0.0509);
+      expect(lit / 65536).toBeLessThan(0.0919);
+      expect(mean / 65536).toBeGreaterThan(0.0763);
+      expect(mean / 65536).toBeLessThan(0.1161);
+      expect(heightHigh).toBeGreaterThan(0.799);
+      expect(heightHigh).toBeLessThan(0.8001);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws every binary necklace of length 5 to 10 exactly once, as rings turned at random, with the Lyndon necklaces brighter, read back from the picture', () => {
+    for (let seed = 0; seed < 12; seed++) {
+      const { length } = geometry(seed),
+        read = readNecklaces(seed),
+        drawn = read.filter((necklace) => necklace !== null) as {
+          beads: number[];
+          lyndonHeight: boolean | null;
+        }[],
+        keys = drawn.map((necklace) => leastRotation(necklace.beads)),
+        wanted = new Set<string>();
+      for (let code = 0; code < 1 << length; code++)
+        wanted.add(
+          leastRotation(
+            Array.from({ length }, (_, k) => (code >> (length - 1 - k)) & 1),
+          ),
+        );
+      // The numbers of necklaces are 8, 14, 20, 36, 60 and 108 and of Lyndon necklaces 6, 9, 18, 30, 56 and 99.
+      expect(wanted.size).toBe(necklaceCount(length));
+      expect(drawn.length).toBe(wanted.size);
+      expect(new Set(keys).size).toBe(drawn.length);
+      expect([...keys].sort()).toEqual([...wanted].sort());
+      let lyndon = 0;
+      for (const { beads, lyndonHeight } of drawn) {
+        lyndon += Number(!isPeriodic(beads));
+        // The filled beads show whether the necklace is Lyndon (the necklace without a filled bead has none to show).
+        if (lyndonHeight !== null)
+          expect(lyndonHeight).toBe(!isPeriodic(beads));
+      }
+      expect(lyndon).toBe(lyndonCount(length));
+      expect(
+        read.slice(drawn.length).every((necklace) => necklace === null),
+      ).toBe(true);
+    }
+    expect([8, 14, 20, 36, 60, 108]).toEqual(
+      [0, 1, 2, 3, 4, 5].map(
+        (seed) => readNecklaces(seed).filter((n) => n !== null).length,
+      ),
+    );
+    expect([6, 9, 18, 30, 56, 99]).toEqual(
+      [5, 6, 7, 8, 9, 10].map(lyndonCount),
+    );
+  });
+  it('turns the rings at random: most are not drawn from their least rotation and the groups differ in order and turns but not in the necklaces', () => {
+    const notLeast = (seed: number) =>
+        readNecklaces(seed).filter(
+          (necklace) =>
+            necklace !== null &&
+            necklace.beads.join('') !== leastRotation(necklace.beads),
+        ).length,
+      keys = (seed: number) =>
+        readNecklaces(seed).map((necklace) =>
+          necklace === null ? '-' : leastRotation(necklace.beads),
+        );
+    // Measured: 5 of 8, 30 of 36 and 97 of 108 rings are turned away from their least rotation.
+    expect([0, 3, 5].map(notLeast)).toEqual([5, 30, 97]);
+    const first = keys(0),
+      second = keys(6),
+      third = keys(12);
+    expect(first).not.toEqual(second);
+    expect(second).not.toEqual(third);
+    expect([...first].sort()).toEqual([...second].sort());
+    expect([...first].sort()).toEqual([...third].sort());
+  });
+  it('agrees with the ideal beads of predicates away from their edges: ink, height, tone and occlusion', () => {
+    for (const seed of [0, 1, 2, 3, 4, 5]) {
+      const g = geometry(seed),
+        necklaces = readNecklaces(seed),
+        sample = createSurfaceSampler('necklaces', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          col = Math.min(g.cols - 1, Math.floor(u * g.cols)),
+          row = Math.min(g.rows - 1, Math.floor(v * g.rows)),
+          necklace = necklaces[row * g.cols + col],
+          x = (u - col / g.cols - g.originX) / g.scale - g.extent,
+          y = (v - row / g.rows - g.originY) / g.scale - g.extent;
+        let free = 1,
+          toneSum = 0,
+          heightSum = 0,
+          near = false;
+        if (necklace !== null) {
+          // A necklace with no filled bead shows no Lyndon height, and the least height of the empty beads does not depend on it.
+          const lyndon = !isPeriodic(necklace.beads);
+          necklace.beads.forEach((bead, index) => {
+            const { x: bx, y: by } = beadAt(index, g.length),
+              radius = bead ? p.filledRadius : p.emptyRadius,
+              distance = Math.hypot(x - bx, y - by);
+            if (Math.abs(distance - radius) <= p.edgeSoft / 2 + 1e-9)
+              near = true;
+            if (distance >= radius) return;
+            free *= 0;
+            toneSum += bead
+              ? lyndon
+                ? p.toneFilled
+                : p.toneFilledPeriodic
+              : p.toneEmpty;
+            heightSum += bead ? (lyndon ? 1 : p.periodicHeight) : p.emptyHeight;
+          });
+        }
+        if (near) continue;
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * free, 9);
+        expect(out.height).toBeCloseTo(p.relief * p.cellHeight * heightSum, 12);
+        expect(
+          Math.abs(out.color - (p.toneGround * free + toneSum)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      expect(compared).toBeGreaterThan(5500);
+    }
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeGreaterThan(0.1082);
+    expect(unlike(first, litGrid(1))).toBeLessThan(0.1083);
+    expect(unlike(first, litGrid(6))).toBeGreaterThan(0.0314);
+    expect(unlike(first, litGrid(6))).toBeLessThan(0.0315);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('necklaces', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 pale blue bead maps on dark indigo with raised beads and shaded ground', () => {
+    const maps = generateProceduralMaps('necklaces', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(26.2);
+    expect(red / (512 * 512)).toBeLessThan(27.2);
+    expect(green / (512 * 512)).toBeGreaterThan(28.1);
+    expect(green / (512 * 512)).toBeLessThan(29.1);
+    expect(blue / (512 * 512)).toBeGreaterThan(48.1);
+    expect(blue / (512 * 512)).toBeLessThan(49.1);
+    expect(maxTilt).toBeGreaterThan(0.0536);
+    expect(maxTilt).toBeLessThan(0.0537);
     expect(invalid).toBe(0);
   });
 });

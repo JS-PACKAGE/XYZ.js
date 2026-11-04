@@ -1140,6 +1140,7 @@ export type ProceduralMaterialKind =
   | 'projectiveplane'
   | 'dyckpaths'
   | 'youngdiagrams'
+  | 'necklaces'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2528,6 +2529,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'projectiveplane',
   'dyckpaths',
   'youngdiagrams',
+  'necklaces',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

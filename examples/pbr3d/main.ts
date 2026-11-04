@@ -1203,6 +1203,7 @@ try {
     'projectiveplane',
     'dyckpaths',
     'youngdiagrams',
+    'necklaces',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
