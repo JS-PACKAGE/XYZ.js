@@ -257,7 +257,13 @@ export class BrowserTextLayout {
   ): TextCaretPosition {
     if (this.disposed) throw new Error('Cannot query destroyed text layout.');
     const boundary = snapGrapheme(this.boundaries, index, affinity);
-    const position = this.boundaries.indexOf(boundary);
+    let position = 0,
+      high = this.boundaries.length - 1;
+    while (position < high) {
+      const middle = (position + high) >>> 1;
+      if (this.boundaries[middle]! < boundary) position = middle + 1;
+      else high = middle;
+    }
     const next = this.clusters[position],
       previous = this.clusters[position - 1];
     const chosen =
