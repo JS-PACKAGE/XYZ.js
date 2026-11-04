@@ -225,6 +225,12 @@ export class SoftBody3D {
         b.position.y -= n.y * ib;
         b.position.z -= n.z * ib;
       }
+    // Particle positions do not move rigid colliders; share their pose refresh
+    // across all sweeps rather than rescanning the rigid world per particle.
+    this.world.withPoseSnapshot(this.collideParticles);
+  }
+  private readonly collideParticles = (): void => {
+    const dt = this.fixedDelta;
     for (let i = 0; i < this.particles.length; i++) {
       const p = this.particles[i]!;
       if (p.pinned) continue;
@@ -266,7 +272,7 @@ export class SoftBody3D {
       vector3D(p.position, 'integrated position');
       vector3D(p.velocity, 'integrated velocity');
     }
-  }
+  };
   private uploadMesh(): void {
     if (!this.mesh || !this.mapping) return;
     const g = this.mesh.geometry,
