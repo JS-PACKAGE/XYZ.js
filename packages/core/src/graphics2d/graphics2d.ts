@@ -347,34 +347,30 @@ export class Graphics2D extends Sprite {
     if (this.destroyed)
       throw new AssetError('Cannot update destroyed Graphics2D.');
     const snapshot = snapshotInstructions(instructions);
-    rasterBounds(snapshot, this.requestedResolution);
+    const bounds = rasterBounds(snapshot, this.requestedResolution);
     this.requestedInstructions = snapshot;
-    this.refresh();
+    this.refresh(bounds);
   }
   async setResolution(resolution: number): Promise<void> {
     if (this.destroyed)
       throw new AssetError('Cannot update destroyed Graphics2D.');
-    rasterBounds(this.requestedInstructions, resolution);
+    const bounds = rasterBounds(this.requestedInstructions, resolution);
     this.requestedResolution = resolution;
-    this.refresh();
+    this.refresh(bounds);
   }
   /** Rasterizes synchronously, so no later request can supersede one in flight. */
-  private refresh(): void {
+  private refresh(bounds: Readonly<Rect2D>): void {
     const instructions = this.requestedInstructions,
       resolution = this.requestedResolution;
     let raster: Raster2D;
     try {
-      raster = Graphics2D.rasterize(
-        instructions,
-        resolution,
-        rasterBounds(instructions, resolution),
-      );
+      raster = Graphics2D.rasterize(instructions, resolution, bounds);
     } catch (error) {
       this.requestedInstructions = this.displayedInstructions;
       this.requestedResolution = this.displayedResolution;
       throw error;
     }
-    const { canvas, bounds } = raster;
+    const { canvas } = raster;
     // The owned texture takes the drawn canvas as its surface; an externally substituted
     // texture remains borrowed and is replaced by it. rasterBounds already validated the view
     // resolution.
