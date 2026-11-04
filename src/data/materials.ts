@@ -17448,6 +17448,49 @@ export const proceduralMaterialPresets = Object.freeze({
     lineHeight: 0.35,
     inkRoughness: 0.4,
   }),
+  handballcourt: Object.freeze({
+    dark: [20, 40, 70] as const,
+    light: [236, 238, 232] as const,
+    roughness: 0.4,
+    relief: 0.004,
+    // A handball court seen from above with the markings of the IHF rules, in metres (the length along one axis): the court 40 by 20, the centre line, the throw-off circle of 4 across, and at each end the
+    // goal (3 wide) and its goal line, the goal area line (a straight of 3 at 6 from the goal line joined to the goal line by two quarter circles of radius 6 round the inner rear corners of the goalposts), the
+    // free-throw line (the same at 9, dashed), the 7 metre line (1 long) and the 4 metre line; round it a clear zone of 2 behind the goal lines and 1 at the sides, and ground beyond. Distances are to the outer
+    // edge of a line and the lines are part of the area they bound. The lines are 0.2 wide (the rules give 0.05), the goal line between the posts 0.32 (0.08), the dashes and gaps 0.6 (0.15) and the 4 metre
+    // line 0.6 long (0.15), all four times the rules, so that they show in a tile. The seed picks the surface (the tones of the court, the clear zone and the ground, all shifted together a little) and lays
+    // the court along the picture or across it.
+    metre: 0.0204,
+    courtLength: 40,
+    courtWidth: 20,
+    goalWidth: 3,
+    goalAreaRadius: 6,
+    freeThrowRadius: 9,
+    penaltyDistance: 7,
+    penaltyLength: 1,
+    keeperDistance: 4,
+    keeperLength: 0.6,
+    circleRadius: 2,
+    endMargin: 2,
+    sideMargin: 1,
+    lineWidth: 0.2,
+    goalLineWidth: 0.32,
+    dash: 0.6,
+    surfaces: Object.freeze([
+      Object.freeze({ court: 0.5, margin: 0.36, ground: 0.2 }),
+      Object.freeze({ court: 0.42, margin: 0.56, ground: 0.26 }),
+      Object.freeze({ court: 0.58, margin: 0.3, ground: 0.14 }),
+      Object.freeze({ court: 0.36, margin: 0.46, ground: 0.3 }),
+    ]),
+    // How much the three tones may all be shifted together (from -toneShift to toneShift) by the seed: the wear of the floor.
+    toneShift: 0.04,
+    edgeSoft: 0.0006,
+    lineTone: 0.96,
+    groundHeight: 0.15,
+    marginHeight: 0.25,
+    courtHeight: 0.3,
+    lineHeight: 0.35,
+    inkRoughness: 0.45,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -23940,6 +23983,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  handballcourt: 1,
   basketballcourt: 1,
   hockeyrink: 1,
   soccerpitch: 1,

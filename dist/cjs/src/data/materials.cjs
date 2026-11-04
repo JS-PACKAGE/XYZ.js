@@ -27551,6 +27551,66 @@ var proceduralMaterialPresets = Object.freeze({
 		lineHeight: .35,
 		inkRoughness: .4
 	}),
+	handballcourt: Object.freeze({
+		dark: [
+			20,
+			40,
+			70
+		],
+		light: [
+			236,
+			238,
+			232
+		],
+		roughness: .4,
+		relief: .004,
+		metre: .0204,
+		courtLength: 40,
+		courtWidth: 20,
+		goalWidth: 3,
+		goalAreaRadius: 6,
+		freeThrowRadius: 9,
+		penaltyDistance: 7,
+		penaltyLength: 1,
+		keeperDistance: 4,
+		keeperLength: .6,
+		circleRadius: 2,
+		endMargin: 2,
+		sideMargin: 1,
+		lineWidth: .2,
+		goalLineWidth: .32,
+		dash: .6,
+		surfaces: Object.freeze([
+			Object.freeze({
+				court: .5,
+				margin: .36,
+				ground: .2
+			}),
+			Object.freeze({
+				court: .42,
+				margin: .56,
+				ground: .26
+			}),
+			Object.freeze({
+				court: .58,
+				margin: .3,
+				ground: .14
+			}),
+			Object.freeze({
+				court: .36,
+				margin: .46,
+				ground: .3
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		lineTone: .96,
+		groundHeight: .15,
+		marginHeight: .25,
+		courtHeight: .3,
+		lineHeight: .35,
+		inkRoughness: .45
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -36232,6 +36292,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	handballcourt: 1,
 	basketballcourt: 1,
 	hockeyrink: 1,
 	soccerpitch: 1,

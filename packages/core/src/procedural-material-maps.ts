@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'handballcourt',
   'basketballcourt',
   'hockeyrink',
   'soccerpitch',
@@ -49973,6 +49974,120 @@ export function createSurfaceSampler(
             Math.min(
               ring(rimDistance, p.threeRadius),
               cover((cornerMiddle - ay) * p.foot),
+            ),
+          );
+          // Court or line over the margin, the line only where there is court (so that a line at the edge of the court has the edge of the court).
+          const lined = court > 0 ? Math.min(1, marking / court) : 0,
+            courtTone = surface.court + shift;
+          let shade = surface.ground + shift,
+            elevation = p.groundHeight;
+          shade += (surface.margin + shift - shade) * margin;
+          elevation += (p.marginHeight - elevation) * margin;
+          shade +=
+            (courtTone + (p.lineTone - courtTone) * lined - shade) * court;
+          elevation +=
+            (p.courtHeight +
+              (p.lineHeight - p.courtHeight) * lined -
+              elevation) *
+            court;
+          color = clamp(shade);
+          height = clamp(elevation);
+          roughness = clamp(p.inkRoughness);
+          occlusion = 1;
+        };
+      }
+      case 'handballcourt': {
+        const p = proceduralMaterialPresets.handballcourt,
+          inverseSoft = 1 / p.edgeSoft,
+          norm = (x: number, y: number): number => Math.sqrt(x * x + y * y),
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(110, 1, seed ^ 0x160001) * p.surfaces.length)
+            ],
+          across = hash(110, 2, seed ^ 0x160002) < 0.5,
+          shift = (hash(110, 3, seed ^ 0x160003) * 2 - 1) * p.toneShift,
+          halfLength = p.courtLength / 2,
+          halfWidth = p.courtWidth / 2,
+          halfGoal = p.goalWidth / 2,
+          line = p.lineWidth,
+          // A line across the court at a distance from the goal line (to its outer edge, the line inside it), and a ring round a point, a line wide inside its radius.
+          band = (depth: number, distance: number): number =>
+            cover(
+              Math.min(depth - (distance - line), distance - depth) * p.metre,
+            ),
+          ring = (distance: number, radius: number): number =>
+            cover(
+              Math.min(distance - (radius - line), radius - distance) * p.metre,
+            ),
+          // Whether a place is in a dash of the free-throw line, as a distance in metres inside it along the line from the middle of the line out (a dash is centred on the middle, then gaps and dashes alternate).
+          dashInside = (along: number): number => {
+            const phase = (along + p.dash / 2) % (2 * p.dash);
+            return phase < p.dash
+              ? Math.min(phase, p.dash - phase)
+              : -Math.min(phase - p.dash, 2 * p.dash - phase);
+          };
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            // The place in metres from the middle of the court (x along its length).
+            x = ((across ? fv : fu) - 0.5) / p.metre,
+            y = ((across ? fu : fv) - 0.5) / p.metre,
+            ax = Math.abs(x),
+            ay = Math.abs(y),
+            margin = cover(
+              Math.min(
+                halfLength + p.endMargin - ax,
+                halfWidth + p.sideMargin - ay,
+              ) * p.metre,
+            ),
+            inside = Math.min(halfLength - ax, halfWidth - ay),
+            court = cover(inside * p.metre),
+            // The distance from the goal line (its rear edge) of the nearer goal, and from the inner rear corner of the nearer goalpost.
+            depth = halfLength - ax,
+            postDistance = norm(depth, ay - halfGoal),
+            // The arcs are outside the posts and the straights between them; the straights go on by half a line width under the arcs, where they meet. (The arcs round the posts also go beyond the goal line, but there
+            // is no court there.)
+            outside = cover((ay - halfGoal) * p.metre),
+            between = cover((halfGoal + line / 2 - ay) * p.metre),
+            goalArea = Math.max(
+              Math.min(band(depth, p.goalAreaRadius), between),
+              Math.min(ring(postDistance, p.goalAreaRadius), outside),
+            ),
+            // The free-throw line: where a place is along it from the middle (the straight, then the arc of the middle radius).
+            along =
+              ay <= halfGoal
+                ? ay
+                : halfGoal +
+                  (p.freeThrowRadius - line / 2) *
+                    Math.atan2(ay - halfGoal, depth),
+            freeThrow = Math.min(
+              Math.max(
+                Math.min(band(depth, p.freeThrowRadius), between),
+                Math.min(ring(postDistance, p.freeThrowRadius), outside),
+              ),
+              cover(dashInside(along) * p.metre),
+              court,
+            );
+          // The outline of the court, the centre line and the throw-off circle, the goal line between the posts, the goal area line, the free-throw line, the 7 metre and 4 metre lines: each painted once.
+          const marking = Math.max(
+            cover(Math.min(inside, line - inside) * p.metre),
+            cover((line / 2 - ax) * p.metre),
+            ring(norm(x, y), p.circleRadius),
+            Math.min(
+              cover(Math.min(depth, p.goalLineWidth - depth) * p.metre),
+              cover((halfGoal - ay) * p.metre),
+            ),
+            goalArea,
+            freeThrow,
+            Math.min(
+              band(depth, p.penaltyDistance),
+              cover((p.penaltyLength / 2 - ay) * p.metre),
+            ),
+            Math.min(
+              band(depth, p.keeperDistance),
+              cover((p.keeperLength / 2 - ay) * p.metre),
             ),
           );
           // Court or line over the margin, the line only where there is court (so that a line at the edge of the court has the edge of the court).
