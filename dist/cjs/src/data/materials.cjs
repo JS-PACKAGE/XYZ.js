@@ -26604,6 +26604,116 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .8,
 		inkRoughness: .45
 	}),
+	shogiboard: Object.freeze({
+		dark: [
+			52,
+			36,
+			24
+		],
+		light: [
+			240,
+			218,
+			168
+		],
+		roughness: .55,
+		relief: .004,
+		openings: Object.freeze([
+			Object.freeze([`7g7f`]),
+			Object.freeze([
+				`7g7f`,
+				`3c3d`,
+				`2g2f`,
+				`4c4d`,
+				`2f2e`,
+				`8b4b`
+			]),
+			Object.freeze([
+				`2g2f`,
+				`8c8d`,
+				`2f2e`,
+				`8d8e`,
+				`6i7h`,
+				`3c3d`
+			]),
+			Object.freeze([
+				`7g7f`,
+				`3c3d`,
+				`8h2b`,
+				`3a2b`,
+				`7i7h`,
+				`8b7b`
+			]),
+			Object.freeze([
+				`2g2f`,
+				`8c8d`,
+				`2f2e`,
+				`8d8e`,
+				`2e2d`,
+				`2c2d`,
+				`2h2d`
+			]),
+			Object.freeze([
+				`7g7f`,
+				`3c3d`,
+				`8i7g`,
+				`2b3c`,
+				`3g3f`
+			]),
+			Object.freeze([
+				`9g9f`,
+				`1c1d`,
+				`9f9e`,
+				`1d1e`,
+				`9i9f`,
+				`8c8d`
+			]),
+			Object.freeze([
+				`7g7f`,
+				`3c3d`,
+				`3i4h`,
+				`8c8d`,
+				`6i7h`,
+				`7c7d`
+			])
+		]),
+		side: 9,
+		cell: .09,
+		margin: .012,
+		frame: .02,
+		lineHalf: 6e-4,
+		starRadius: .0045,
+		outline: Object.freeze([
+			Object.freeze([0, -.42]),
+			Object.freeze([.28, -.22]),
+			Object.freeze([.36, .4]),
+			Object.freeze([-.36, .4]),
+			Object.freeze([-.28, -.22])
+		]),
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		frameTone: .16,
+		boardTone: .5,
+		lineTone: .12,
+		pieceTones: Object.freeze([
+			.7,
+			.76,
+			.82,
+			.88,
+			.94,
+			.3,
+			.22,
+			.14
+		]),
+		paperHeight: .2,
+		frameHeight: .6,
+		boardHeight: .4,
+		lineHeight: .3,
+		pieceHeight: .85,
+		grainTone: .03,
+		paperRoughness: .8,
+		inkRoughness: .45
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -35285,6 +35395,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	shogiboard: 1,
 	ludoboard: 1,
 	chessopening: 1,
 	xiangqiboard: 1,

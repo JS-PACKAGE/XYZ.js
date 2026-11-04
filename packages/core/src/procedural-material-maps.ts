@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'shogiboard',
   'ludoboard',
   'chessopening',
   'xiangqiboard',
@@ -48465,6 +48466,152 @@ export function createSurfaceSampler(
                 shade += (p.tokenTone - shade) * token;
                 elevation += (p.tokenHeight - elevation) * token;
               }
+            }
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
+      case 'shogiboard': {
+        const p = proceduralMaterialPresets.shogiboard,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x88001),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          opening =
+            p.openings[
+              Math.floor(hash(97, 1, seed ^ 0x88002) * p.openings.length)
+            ],
+          turned = hash(97, 2, seed ^ 0x88003) < 0.5,
+          last = p.side - 1,
+          grid = (p.side * p.cell) / 2,
+          half = grid + p.margin,
+          left = 0.5 - grid,
+          lineReach = p.lineHalf / p.cell,
+          // The position by rank from a (the top, the second side's) and by column from the left (file 9): the first side in capitals.
+          position = [
+            [...'lnsgkgsnl'],
+            [...'.r.....b.'],
+            [...'ppppppppp'],
+            ...Array.from({ length: 3 }, () => new Array<string>(9).fill('.')),
+            [...'PPPPPPPPP'],
+            [...'.B.....R.'],
+            [...'LNSGKGSNL'],
+          ],
+          // The kind of the piece on each square as seen (-1 for none), and whether it points up.
+          pieceAt = new Int8Array(p.side * p.side).fill(-1),
+          pointsUp = new Uint8Array(p.side * p.side),
+          // The sides of the outline as lines: the unit normal pointing inside and the offset, so that the inside distance of a point is normal . point - offset.
+          sides = new Float64Array(p.outline.length * 3);
+        const centre = [0, 0];
+        for (const [x, y] of p.outline) {
+          centre[0] += x / p.outline.length;
+          centre[1] += y / p.outline.length;
+        }
+        p.outline.forEach(([ax, ay], index) => {
+          const [bx, by] = p.outline[(index + 1) % p.outline.length],
+            length = Math.hypot(bx - ax, by - ay);
+          let nx = -(by - ay) / length,
+            ny = (bx - ax) / length;
+          if (nx * (centre[0] - ax) + ny * (centre[1] - ay) < 0) {
+            nx = -nx;
+            ny = -ny;
+          }
+          sides[index * 3] = nx;
+          sides[index * 3 + 1] = ny;
+          sides[index * 3 + 2] = nx * ax + ny * ay;
+        });
+        for (const move of opening) {
+          const fromColumn = 9 - Number(move[0]),
+            fromRow = move.charCodeAt(1) - 97,
+            toColumn = 9 - Number(move[2]),
+            toRow = move.charCodeAt(3) - 97;
+          position[toRow][toColumn] = position[fromRow][fromColumn];
+          position[fromRow][fromColumn] = '.';
+        }
+        for (let rank = 0; rank <= last; rank++)
+          for (let file = 0; file <= last; file++) {
+            const letter = position[rank][file];
+            if (letter === '.') continue;
+            // Turned, the picture goes half way round with its pieces: the first side's point down.
+            const column = turned ? last - file : file,
+              row = turned ? last - rank : rank,
+              first = letter === letter.toUpperCase();
+            pieceAt[row * p.side + column] = 'plnsgbrk'.indexOf(
+              letter.toLowerCase(),
+            );
+            pointsUp[row * p.side + column] = Number(first !== turned);
+          }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const outer = half + p.frame,
+            framed = cover(
+              Math.min(outer - Math.abs(fu - 0.5), outer - Math.abs(fv - 0.5)),
+            );
+          if (framed > 0) {
+            shade += (p.frameTone - shade) * framed;
+            elevation += (p.frameHeight - elevation) * framed;
+            rough += (p.inkRoughness - rough) * framed;
+            mask = framed;
+            const boardU = (fu - left) / p.cell,
+              boardV = (fv - left) / p.cell,
+              inside = cover(
+                Math.min(half - Math.abs(fu - 0.5), half - Math.abs(fv - 0.5)),
+              );
+            shade += (p.boardTone - shade) * inside;
+            elevation += (p.boardHeight - elevation) * inside;
+            // The lines of the grid between the squares (ten each way, the frame ends less than half a square from the outer ones) and the four star points; the crossings painted once.
+            const lineColumn = Math.round(boardU),
+              lineRow = Math.round(boardV);
+            let line = 0;
+            if (boardV >= -lineReach && boardV <= p.side + lineReach)
+              line = cover(p.lineHalf - Math.abs(boardU - lineColumn) * p.cell);
+            if (boardU >= -lineReach && boardU <= p.side + lineReach)
+              line = Math.max(
+                line,
+                cover(p.lineHalf - Math.abs(boardV - lineRow) * p.cell),
+              );
+            if (
+              (lineColumn === 3 || lineColumn === 6) &&
+              (lineRow === 3 || lineRow === 6)
+            )
+              line = Math.max(
+                line,
+                cover(
+                  p.starRadius -
+                    Math.hypot(boardU - lineColumn, boardV - lineRow) * p.cell,
+                ),
+              );
+            shade += (p.lineTone - shade) * line;
+            elevation += (p.lineHeight - elevation) * line;
+            // The piece of the nearest square (the pieces stay within their squares).
+            const column = Math.min(last, Math.max(0, Math.floor(boardU))),
+              row = Math.min(last, Math.max(0, Math.floor(boardV))),
+              kind = pieceAt[row * p.side + column];
+            if (kind >= 0) {
+              const sign = pointsUp[row * p.side + column] ? 1 : -1,
+                dx = (boardU - column - 0.5) * sign,
+                dy = (boardV - row - 0.5) * sign;
+              let reach = Infinity;
+              for (let index = 0; index < p.outline.length; index++)
+                reach = Math.min(
+                  reach,
+                  sides[index * 3] * dx +
+                    sides[index * 3 + 1] * dy -
+                    sides[index * 3 + 2],
+                );
+              const body = cover(reach * p.cell);
+              shade += (p.pieceTones[kind] - shade) * body;
+              elevation += (p.pieceHeight - elevation) * body;
             }
           }
           color = clamp(

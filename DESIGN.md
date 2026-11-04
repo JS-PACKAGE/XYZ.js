@@ -2381,6 +2381,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`shogiboard`（將棋盤）使目前目錄1203→1204種，含plain的gallery為1205項。9×9格的將棋盤（含外框、棋盤邊緣的留白、十條縱橫線與四個星位），擺著一個開局（八個之一，以先手為準的走法清單）進行數手之後的局面；棋子是朝向對方的五角形，色調依種類（歩、香、桂、銀、金、角、飛、玉）分開，先手與後手只以朝向區別。seed選開局，並決定先手在下或在上（整個畫面轉半圈，棋子跟著轉）。這是作者設計的示意，沒有文字；測試端從畫面讀出每格的棋子（中心色調）與朝向（底部與頂部角落的兩個位置），並以獨立寫在測試裡的將棋規則重播每個開局（先手先走；歩前進一格、香直進、桂前進兩格橫一格、銀與金的走法、角走斜線、飛走直線、玉一格；不含升變與打入）驗證：盤面恰好等於「初始局面（由遊戲事實獨立列出）套用某個開局」的上下或轉半圈之一（只有一種吻合），每種棋子的數量不超過初始、雙方各一玉，300個seed中先手在下與在上各約一半、各開局出現次數相近，並逐項檢查十條線的色調／寬度／兩側、線端在外圈線內結束、四個星位、五角形每一邊內外0.0004處的色調、柔化（框、棋盤邊緣、線、星位、棋子每邊）、框與留白區沒有棋子、框外為紙面。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
