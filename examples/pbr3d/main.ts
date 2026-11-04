@@ -1210,6 +1210,7 @@ try {
     'permutations',
     'lozengetilings',
     'polygondissections',
+    'standardtableaux',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

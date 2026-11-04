@@ -53940,6 +53940,97 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'standardtableaux': {
+        const p = proceduralMaterialPresets.standardtableaux,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.shapes.length,
+          group = Math.floor(unsigned / p.shapes.length),
+          shape = p.shapes[variant] as readonly number[],
+          cols = p.cols[variant],
+          rows = p.rows[variant],
+          width = shape[0],
+          height0 = shape.length,
+          total = shape.reduce((sum, length) => sum + length, 0),
+          // Every standard Young tableau of the shape, as the number in every cell of a grid of width by height0 (0 outside the diagram), found by writing 1 to n one after the other into a cell that can be added to the diagram written so far: the first free place of a row, if the row above is longer; the cells that are not written again are overwritten by the next number, so they need no clearing; in a shuffled order.
+          panels = (() => {
+            const found: Uint8Array[] = [],
+              grid = new Uint8Array(width * height0),
+              lengths = new Array<number>(height0).fill(0),
+              write = (number: number): void => {
+                if (number > total) {
+                  found.push(grid.slice());
+                  return;
+                }
+                for (let row = 0; row < height0; row++) {
+                  if (
+                    lengths[row] === shape[row] ||
+                    (row > 0 && lengths[row - 1] === lengths[row])
+                  )
+                    continue;
+                  grid[row * width + lengths[row]] = number;
+                  lengths[row]++;
+                  write(number + 1);
+                  lengths[row]--;
+                }
+              };
+            write(1);
+            for (let k = found.length - 1; k > 0; k--) {
+              const other = Math.floor(
+                hash(k, 271, group ^ p.seedSalt) * (k + 1),
+              );
+              [found[k], found[other]] = [found[other], found[k]];
+            }
+            return found;
+          })(),
+          scale = Math.min(
+            1 / (cols * (width + 2 * p.margin)),
+            1 / (rows * (height0 + 2 * p.margin)),
+          ),
+          originX = (1 / cols - scale * (width + 2 * p.margin)) / 2,
+          originY = (1 / rows - scale * (height0 + 2 * p.margin)) / 2,
+          halfGap = p.gapWidth / 2,
+          // 1 on the cell side of a gap, 0 at the edge itself, at the distance fromEdge in cells.
+          edge = (fromEdge: number): number =>
+            smooth(clamp((fromEdge - halfGap) / p.edgeSoft));
+        return () => {
+          const tileU = fract(u),
+            tileV = fract(v),
+            col = Math.min(cols - 1, Math.floor(tileU * cols)),
+            row = Math.min(rows - 1, Math.floor(tileV * rows)),
+            index = row * cols + col,
+            grain = grainField(u, v);
+          let mask = 0,
+            level = 0;
+          if (index < panels.length) {
+            const x = (tileU - col / cols - originX) / scale - p.margin,
+              y = (tileV - row / rows - originY) / scale - p.margin,
+              i = Math.floor(x),
+              j = Math.floor(y);
+            if (i >= 0 && j >= 0 && i < width && j < height0) {
+              const number = panels[index][j * width + i];
+              if (number > 0) {
+                const fx = x - i,
+                  fy = y - j;
+                mask = edge(fx) * edge(1 - fx) * edge(fy) * edge(1 - fy);
+                level = (number - 1) / (total - 1);
+              }
+            }
+          }
+          const tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+          color =
+            p.toneGround * (1 - mask) +
+            tone * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -62888,6 +62979,7 @@ export function createSurfaceSampler(
     kind === 'permutations' ||
     kind === 'lozengetilings' ||
     kind === 'polygondissections' ||
+    kind === 'standardtableaux' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

@@ -1173,6 +1173,7 @@ const kinds: ProceduralMaterialKind[] = [
   'permutations',
   'lozengetilings',
   'polygondissections',
+  'standardtableaux',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -203959,6 +203960,378 @@ describe('Polygon dissections as every cut of a polygon drawn once', () => {
     expect(blue / (512 * 512)).toBeLessThan(35.4);
     expect(maxTilt).toBeGreaterThan(0.0708);
     expect(maxTilt).toBeLessThan(0.071);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Standard tableaux as every filling of a shape drawn once', () => {
+  const p = proceduralMaterialPresets.standardtableaux;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The layout of the panels of a variant (seed % 6): slots of 1 / cols by 1 / rows, each with the box of the diagram (width by height cells, at its top left) and the margin around it, drawn at one scale and centred in the slot. */
+  const geometry = (seed: number) => {
+    const variant = seed % p.shapes.length,
+      shape = p.shapes[variant] as readonly number[],
+      cols: number = p.cols[variant],
+      rows: number = p.rows[variant],
+      width = shape[0],
+      height = shape.length,
+      scale = Math.min(
+        1 / (cols * (width + 2 * p.margin)),
+        1 / (rows * (height + 2 * p.margin)),
+      );
+    return {
+      shape,
+      width,
+      height,
+      total: shape.reduce((sum, length) => sum + length, 0),
+      cols,
+      rows,
+      scale,
+      originX: (1 / cols - scale * (width + 2 * p.margin)) / 2,
+      originY: (1 / rows - scale * (height + 2 * p.margin)) / 2,
+    };
+  };
+  type Geometry = ReturnType<typeof geometry>;
+  /** The tableau of every panel slot of a seed read back from the picture (null for an empty slot): the rows of numbers, where a cell is in the diagram when its height is above 0 and its number comes from the height. */
+  const readTableaux = (seed: number): (number[][] | null)[] => {
+    const g = geometry(seed),
+      sample = createSurfaceSampler('standardtableaux', seed),
+      out = empty(),
+      tableaux: (number[][] | null)[] = [];
+    for (let slot = 0; slot < g.cols * g.rows; slot++) {
+      const col = slot % g.cols,
+        row = Math.floor(slot / g.cols),
+        rowsRead: number[][] = [];
+      let cells = 0;
+      for (let j = 0; j < g.height; j++) {
+        rowsRead.push([]);
+        for (let i = 0; i < g.width; i++) {
+          sample(
+            col / g.cols + g.originX + g.scale * (p.margin + i + 0.5),
+            row / g.rows + g.originY + g.scale * (p.margin + j + 0.5),
+            out,
+          );
+          const level =
+            (out.height / p.relief / p.cellHeight - p.heightBase) /
+            p.heightSwing;
+          if (out.height === 0) continue;
+          // The number of the cell from its level (number - 1) / (n - 1), exact to rounding.
+          const number = 1 + level * (g.total - 1);
+          expect(Math.abs(number - Math.round(number))).toBeLessThan(1e-6);
+          rowsRead[j].push(Math.round(number));
+          cells++;
+        }
+      }
+      tableaux.push(cells === 0 ? null : rowsRead);
+    }
+    return tableaux;
+  };
+  /** The tableau as one string. */
+  const nameOf = (rowsRead: number[][]): string =>
+    rowsRead.map((row) => row.join(',')).join('/');
+  /** Every standard tableau of the shape written again here the other way round: n goes into a corner of the diagram (a row that is longer than the next one), and the rest is a tableau of the smaller diagram. */
+  const tableauxOf = (shape: readonly number[]): number[][][] => {
+    const total = shape.reduce((sum, length) => sum + length, 0);
+    if (total === 0) return [shape.map(() => [])];
+    const found: number[][][] = [];
+    for (let row = 0; row < shape.length; row++) {
+      if (
+        shape[row] === 0 ||
+        (row + 1 < shape.length && shape[row + 1] === shape[row])
+      )
+        continue;
+      const smaller = shape.map((length, k) =>
+        k === row ? length - 1 : length,
+      );
+      for (const tableau of tableauxOf(smaller))
+        found.push(
+          tableau.map((cells, k) => (k === row ? [...cells, total] : cells)),
+        );
+    }
+    return found;
+  };
+  /** The number of standard tableaux by the hook length formula: n! over the product of the hook lengths. */
+  const hookCount = (g: Geometry): number => {
+    let hooks = 1,
+      factorial = 1;
+    for (let k = 2; k <= g.total; k++) factorial *= k;
+    g.shape.forEach((length, row) => {
+      for (let column = 0; column < length; column++) {
+        const below =
+          g.shape.filter((other) => other > column).length - row - 1;
+        hooks *= length - column - 1 + below + 1;
+      }
+    });
+    return factorial / hooks;
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('standardtableaux', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { high: 0.9635, lit: 0.11652, mean: 0.14152 }],
+      [1, { high: 0.963, lit: 0.12238, mean: 0.14617 }],
+      [0xffffffff, { high: 0.9634, lit: 0.11301, mean: 0.13589 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('standardtableaux', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0152);
+      expect(low).toBeLessThan(0.0157);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws every standard tableau of the shape exactly once, read back from the picture and compared with a list written again here', () => {
+    for (let seed = 0; seed < 12; seed++) {
+      const g = geometry(seed),
+        read = readTableaux(seed),
+        drawn = read.filter(
+          (tableau): tableau is number[][] => tableau !== null,
+        ),
+        names = drawn.map(nameOf),
+        wanted = tableauxOf(g.shape).map(nameOf);
+      for (const tableau of drawn) {
+        // The diagram of the shape, the numbers 1 to n once each and increasing along every row and down every column.
+        expect(tableau.map((row) => row.length)).toEqual([...g.shape]);
+        expect(tableau.flat().sort((a, b) => a - b)).toEqual(
+          Array.from({ length: g.total }, (_, k) => k + 1),
+        );
+        tableau.forEach((row, r) =>
+          row.forEach((number, c) => {
+            if (c > 0) expect(number).toBeGreaterThan(row[c - 1]);
+            if (r > 0) expect(number).toBeGreaterThan(tableau[r - 1][c]);
+          }),
+        );
+      }
+      expect(new Set(names).size).toBe(drawn.length);
+      expect([...names].sort()).toEqual([...wanted].sort());
+      expect(drawn.length).toBe(hookCount(g));
+      expect(
+        read.slice(drawn.length).every((tableau) => tableau === null),
+      ).toBe(true);
+    }
+    // The numbers: 16, 28, 42, 70, 168 and 252.
+    expect(
+      [0, 1, 2, 3, 4, 5].map(
+        (seed) =>
+          readTableaux(seed).filter((tableau) => tableau !== null).length,
+      ),
+    ).toEqual([16, 28, 42, 70, 168, 252]);
+  });
+  it('shuffles the panels by group without changing the set of tableaux', () => {
+    for (const seed of [0, 1, 4]) {
+      const names = (s: number) =>
+          readTableaux(s).map((tableau) =>
+            tableau === null ? '-' : nameOf(tableau),
+          ),
+        first = names(seed),
+        second = names(seed + 6),
+        third = names(seed + 12);
+      expect(first).not.toEqual(second);
+      expect(second).not.toEqual(third);
+      expect([...first].sort()).toEqual([...second].sort());
+      expect([...first].sort()).toEqual([...third].sort());
+    }
+  });
+  it('agrees with the ideal cells and gaps away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5]) {
+      const g = geometry(seed),
+        tableaux = readTableaux(seed),
+        sample = createSurfaceSampler('standardtableaux', seed),
+        out = empty(),
+        half = p.gapWidth / 2;
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          col = Math.min(g.cols - 1, Math.floor(u * g.cols)),
+          row = Math.min(g.rows - 1, Math.floor(v * g.rows)),
+          tableau = tableaux[row * g.cols + col],
+          x = (u - col / g.cols - g.originX) / g.scale - p.margin,
+          y = (v - row / g.rows - g.originY) / g.scale - p.margin,
+          i = Math.floor(x),
+          j = Math.floor(y);
+        let ink = 0,
+          level = 0,
+          near = false;
+        const number = tableau?.[j]?.[i];
+        if (number !== undefined) {
+          const sides = [x - i, i + 1 - x, y - j, j + 1 - y];
+          if (
+            sides.some(
+              (distance) => distance > half && distance < half + p.edgeSoft,
+            )
+          )
+            near = true;
+          ink = sides.every((distance) => distance > half) ? 1 : 0;
+          level = (number - 1) / (g.total - 1);
+        }
+        if (near) continue;
+        compared++;
+        const tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.heightBase + p.heightSwing * level),
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(4800);
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeGreaterThan(0.1999);
+    expect(unlike(first, litGrid(1))).toBeLessThan(0.2001);
+    expect(unlike(first, litGrid(6))).toBeGreaterThan(0.0395);
+    expect(unlike(first, litGrid(6))).toBeLessThan(0.0397);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('standardtableaux', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 mint tableau maps on dark green with raised cells and shaded gaps', () => {
+    const maps = generateProceduralMaps('standardtableaux', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(33);
+    expect(red / (512 * 512)).toBeLessThan(33.8);
+    expect(green / (512 * 512)).toBeGreaterThan(53.8);
+    expect(green / (512 * 512)).toBeLessThan(54.8);
+    expect(blue / (512 * 512)).toBeGreaterThan(44.8);
+    expect(blue / (512 * 512)).toBeLessThan(45.8);
+    expect(maxTilt).toBeGreaterThan(0.0616);
+    expect(maxTilt).toBeLessThan(0.0618);
     expect(invalid).toBe(0);
   });
 });
