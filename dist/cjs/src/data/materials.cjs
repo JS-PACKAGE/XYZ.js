@@ -27844,6 +27844,62 @@ var proceduralMaterialPresets = Object.freeze({
 		chalkHeight: .4,
 		inkRoughness: .7
 	}),
+	volleyballcourt: Object.freeze({
+		dark: [
+			58,
+			30,
+			14
+		],
+		light: [
+			246,
+			232,
+			204
+		],
+		roughness: .4,
+		relief: .004,
+		metre: .03125,
+		courtLength: 18,
+		courtWidth: 9,
+		attackDistance: 3,
+		endMargin: 6.5,
+		sideMargin: 5,
+		lineWidth: .15,
+		dash: .3,
+		gap: .4,
+		dashCount: 5,
+		markGap: .4,
+		markLength: .3,
+		surfaces: Object.freeze([
+			Object.freeze({
+				court: .5,
+				margin: .36,
+				ground: .2
+			}),
+			Object.freeze({
+				court: .42,
+				margin: .56,
+				ground: .26
+			}),
+			Object.freeze({
+				court: .58,
+				margin: .3,
+				ground: .14
+			}),
+			Object.freeze({
+				court: .36,
+				margin: .46,
+				ground: .3
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		lineTone: .96,
+		groundHeight: .15,
+		marginHeight: .25,
+		courtHeight: .3,
+		lineHeight: .35,
+		inkRoughness: .45
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -36525,6 +36581,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	volleyballcourt: 1,
 	baseballdiamond: 1,
 	curlingrink: 1,
 	cricketground: 1,

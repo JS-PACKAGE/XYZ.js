@@ -17659,6 +17659,45 @@ export const proceduralMaterialPresets = Object.freeze({
     chalkHeight: 0.4,
     inkRoughness: 0.7,
   }),
+  volleyballcourt: Object.freeze({
+    dark: [58, 30, 14] as const,
+    light: [246, 232, 204] as const,
+    roughness: 0.4,
+    relief: 0.004,
+    // An indoor volleyball court seen from above with the markings of the FIVB rules, in metres (the length along one axis): the court 18 by 9, the centre line under the net, the two attack lines (the rear edge of
+    // each 3 from the middle of the centre line), the five short lines that continue each attack line beyond the sidelines (15 long, 20 apart, the first 20 from the sideline: 1.75 in all), and at each end the
+    // two short marks (15 long) 20 behind the end line, which continue the sidelines and bound the service zone of 9; round the court a free zone of 6.5 behind the end lines and 5 beside the sidelines (the rules
+    // ask for at least 3; the larger sizes are those of world competitions as I remember them), and the floor beyond it. Distances are to the outer edge of a line and the lines are part of the area they bound.
+    // The lines are 0.15 wide (the rules give 0.05) and the dashes, the gaps and the marks 0.3, 0.4 and 0.3 long (0.15, 0.2, 0.15), three and two times the rules, so that they show in a tile. The seed picks the
+    // surface (the tones of the court, the free zone and the floor beyond, all shifted together a little) and lays the court along the picture or across it.
+    metre: 0.03125,
+    courtLength: 18,
+    courtWidth: 9,
+    attackDistance: 3,
+    endMargin: 6.5,
+    sideMargin: 5,
+    lineWidth: 0.15,
+    dash: 0.3,
+    gap: 0.4,
+    dashCount: 5,
+    markGap: 0.4,
+    markLength: 0.3,
+    surfaces: Object.freeze([
+      Object.freeze({ court: 0.5, margin: 0.36, ground: 0.2 }),
+      Object.freeze({ court: 0.42, margin: 0.56, ground: 0.26 }),
+      Object.freeze({ court: 0.58, margin: 0.3, ground: 0.14 }),
+      Object.freeze({ court: 0.36, margin: 0.46, ground: 0.3 }),
+    ]),
+    // How much the three tones may all be shifted together (from -toneShift to toneShift) by the seed: the wear of the floor.
+    toneShift: 0.04,
+    edgeSoft: 0.0006,
+    lineTone: 0.96,
+    groundHeight: 0.15,
+    marginHeight: 0.25,
+    courtHeight: 0.3,
+    lineHeight: 0.35,
+    inkRoughness: 0.45,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -24151,6 +24190,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  volleyballcourt: 1,
   baseballdiamond: 1,
   curlingrink: 1,
   cricketground: 1,

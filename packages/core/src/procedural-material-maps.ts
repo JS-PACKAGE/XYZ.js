@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'volleyballcourt',
   'baseballdiamond',
   'curlingrink',
   'cricketground',
@@ -50497,6 +50498,89 @@ export function createSurfaceSampler(
           elevation += (p.dirtHeight - elevation) * circles;
           shade += (p.chalkTone - shade) * chalk;
           elevation += (p.chalkHeight - elevation) * chalk;
+          color = clamp(shade);
+          height = clamp(elevation);
+          roughness = clamp(p.inkRoughness);
+          occlusion = 1;
+        };
+      }
+      case 'volleyballcourt': {
+        const p = proceduralMaterialPresets.volleyballcourt,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(115, 1, seed ^ 0x1b0001) * p.surfaces.length)
+            ],
+          across = hash(115, 2, seed ^ 0x1b0002) < 0.5,
+          shift = (hash(115, 3, seed ^ 0x1b0003) * 2 - 1) * p.toneShift,
+          halfLength = p.courtLength / 2,
+          halfWidth = p.courtWidth / 2,
+          line = p.lineWidth,
+          cycle = p.dash + p.gap,
+          // A band across a distance (from the one edge to the other), soft at both edges.
+          band = (distance: number, from: number, to: number): number =>
+            cover(Math.min(distance - from, to - distance) * p.metre),
+          // How far a place beyond the sideline is inside the nearest of the short lines that continue an attack line, in metres: they begin after a gap of the sideline, then dashes and gaps alternate, dashCount in all.
+          dashInside = (beyond: number): number => {
+            const along = beyond - p.gap,
+              nearest = Math.min(
+                Math.max(Math.round((along - p.dash / 2) / cycle), 0),
+                p.dashCount - 1,
+              );
+            return (
+              p.dash / 2 - Math.abs(along - (nearest * cycle + p.dash / 2))
+            );
+          };
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            // The place in metres from the middle of the court (x along its length).
+            x = ((across ? fv : fu) - 0.5) / p.metre,
+            y = ((across ? fu : fv) - 0.5) / p.metre,
+            ax = Math.abs(x),
+            ay = Math.abs(y),
+            margin = cover(
+              Math.min(
+                halfLength + p.endMargin - ax,
+                halfWidth + p.sideMargin - ay,
+              ) * p.metre,
+            ),
+            inside = Math.min(halfLength - ax, halfWidth - ay),
+            court = cover(inside * p.metre),
+            attack = band(ax, p.attackDistance - line, p.attackDistance),
+            // The lines on the court: its outline, the centre line and the attack lines.
+            marking = Math.max(
+              cover(Math.min(inside, line - inside) * p.metre),
+              cover((line / 2 - ax) * p.metre),
+              attack,
+            ),
+            // The lines in the free zone: the short lines that continue the attack lines, and the marks behind the end lines that continue the sidelines.
+            outside = Math.max(
+              Math.min(attack, cover(dashInside(ay - halfWidth) * p.metre)),
+              Math.min(
+                cover((ax - halfLength - p.markGap) * p.metre),
+                cover((halfLength + p.markGap + p.markLength - ax) * p.metre),
+                band(ay, halfWidth - line, halfWidth),
+              ),
+            );
+          // Court or line over the free zone, the line only where there is court (so that a line at the edge of the court has the edge of the court); the lines of the free zone over all.
+          const lined = court > 0 ? Math.min(1, marking / court) : 0,
+            courtTone = surface.court + shift;
+          let shade = surface.ground + shift,
+            elevation = p.groundHeight;
+          shade += (surface.margin + shift - shade) * margin;
+          elevation += (p.marginHeight - elevation) * margin;
+          shade +=
+            (courtTone + (p.lineTone - courtTone) * lined - shade) * court;
+          elevation +=
+            (p.courtHeight +
+              (p.lineHeight - p.courtHeight) * lined -
+              elevation) *
+            court;
+          shade += (p.lineTone - shade) * outside;
+          elevation += (p.lineHeight - elevation) * outside;
           color = clamp(shade);
           height = clamp(elevation);
           roughness = clamp(p.inkRoughness);
