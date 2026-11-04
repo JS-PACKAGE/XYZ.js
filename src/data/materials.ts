@@ -18095,6 +18095,59 @@ export const proceduralMaterialPresets = Object.freeze({
     lineHeight: 0.35,
     inkRoughness: 0.5,
   }),
+  futsalcourt: Object.freeze({
+    dark: [24, 46, 92] as const,
+    light: [240, 238, 228] as const,
+    roughness: 0.4,
+    relief: 0.004,
+    // A futsal court seen from above with the markings of the FIFA Futsal Laws of the Game 2021/22 (law 1, read for this), in metres (the length of the court along one axis): the court 40 by 20, the halfway line,
+    // the centre mark and the circle of radius 3, at each end the penalty area (two quarter circles of radius 6 about the outside of the goalposts, which are 3.16 apart outside, joined by a straight of 3.16
+    // whose outer edge is 6 from the goal line), the penalty mark 6 and the second penalty mark 10 from the goal line (the centres of the marks to its back edge), the two marks 5 either side of the 10 metre
+    // mark, the line of 40 centimetres 5 from the 10 metre mark (its edge nearer the goal line 5 from the goal line), the corner arcs, and outside the court the marks 5 from the corners (0.05 beyond the goal
+    // line) and, on one touchline, the lines that mark the substitution zones (the zone 5 long, the lines 5 and 10 from the halfway line, half of each line on the pitch and half off it); round the court a surround of 3 (my choice)
+    // and the ground beyond. Distances are to the outer edge of a line and the lines are part of the area they bound. The lines are 0.32 wide (the rules give 0.08, four times) and everything else that is small
+    // is four times the rules too (the centre mark and the penalty marks of radius 0.24, the marks beside the 10 metre mark of radius 0.16, the corner arc of radius 1, the marks of 1.6 long, the substitution
+    // lines of 3.2), so that they show in a tile. The penalty areas have a tone of their own (the rules do not say: it is common), with its edge in the middle of the lines of the penalty area, which hides it. The
+    // technical areas and the goals are not drawn. The seed picks the surface (the tones of the court, the penalty areas, the surround and the ground, all shifted together a little), which touchline has the
+    // substitution zones, and lays the court along the picture or across it.
+    metre: 0.0208333,
+    courtLength: 40,
+    courtWidth: 20,
+    centreRadius: 3,
+    centreMark: 0.24,
+    penaltyStraight: 3.16,
+    areaRadius: 6,
+    penaltyDistance: 6,
+    secondDistance: 10,
+    markRadius: 0.24,
+    retreatRadius: 0.16,
+    retreatOffset: 5,
+    fiveLength: 1.6,
+    cornerRadius: 1,
+    cornerMarkDistance: 5,
+    cornerMarkGap: 0.2,
+    cornerMarkLength: 1.6,
+    substitutionStart: 5,
+    substitutionZone: 5,
+    substitutionLength: 3.2,
+    margin: 3,
+    lineWidth: 0.32,
+    surfaces: Object.freeze([
+      Object.freeze({ court: 0.5, area: 0.38, margin: 0.3, ground: 0.18 }),
+      Object.freeze({ court: 0.42, area: 0.56, margin: 0.34, ground: 0.24 }),
+      Object.freeze({ court: 0.6, area: 0.44, margin: 0.26, ground: 0.12 }),
+      Object.freeze({ court: 0.36, area: 0.5, margin: 0.46, ground: 0.28 }),
+    ]),
+    // How much the four tones may all be shifted together (from -toneShift to toneShift) by the seed: the wear of the floor.
+    toneShift: 0.04,
+    edgeSoft: 0.0006,
+    lineTone: 0.96,
+    groundHeight: 0.15,
+    marginHeight: 0.25,
+    courtHeight: 0.3,
+    lineHeight: 0.35,
+    inkRoughness: 0.45,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -24587,6 +24640,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  futsalcourt: 1,
   fieldhockeypitch: 1,
   runwaymarkings: 1,
   archerytarget: 1,

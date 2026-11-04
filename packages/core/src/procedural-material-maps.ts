@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'futsalcourt',
   'fieldhockeypitch',
   'runwaymarkings',
   'archerytarget',
@@ -51278,6 +51279,125 @@ export function createSurfaceSampler(
               (p.lineHeight - p.pitchHeight) * lined -
               elevation) *
             pitch;
+          color = clamp(shade);
+          height = clamp(elevation);
+          roughness = clamp(p.inkRoughness);
+          occlusion = 1;
+        };
+      }
+      case 'futsalcourt': {
+        const p = proceduralMaterialPresets.futsalcourt,
+          inverseSoft = 1 / p.edgeSoft,
+          norm = (x: number, y: number): number => Math.sqrt(x * x + y * y),
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(124, 1, seed ^ 0x240001) * p.surfaces.length)
+            ],
+          across = hash(124, 2, seed ^ 0x240002) < 0.5,
+          shift = (hash(124, 3, seed ^ 0x240003) * 2 - 1) * p.toneShift,
+          bench = hash(124, 4, seed ^ 0x240004) < 0.5 ? 1 : -1,
+          halfLength = p.courtLength / 2,
+          halfWidth = p.courtWidth / 2,
+          halfStraight = p.penaltyStraight / 2,
+          line = p.lineWidth,
+          // A line across the court at a distance from the goal line (to its outer edge, the line inside it), a ring about a place, a line wide inside its radius, and a disc.
+          band = (depth: number, distance: number): number =>
+            cover(
+              Math.min(depth - (distance - line), distance - depth) * p.metre,
+            ),
+          ring = (distance: number, radius: number): number =>
+            cover(
+              Math.min(distance - (radius - line), radius - distance) * p.metre,
+            ),
+          disc = (distance: number, radius: number): number =>
+            cover((radius - distance) * p.metre);
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            // The place in metres from the middle of the court (x along its length, y towards the touchline with the substitution zones).
+            x = ((across ? fv : fu) - 0.5) / p.metre,
+            y = (((across ? fu : fv) - 0.5) / p.metre) * bench,
+            ax = Math.abs(x),
+            ay = Math.abs(y),
+            margin = cover(
+              Math.min(halfLength + p.margin - ax, halfWidth + p.margin - ay) *
+                p.metre,
+            ),
+            inside = Math.min(halfLength - ax, halfWidth - ay),
+            court = cover(inside * p.metre),
+            // The distance from the goal line (its outer edge) of the nearer end, and from the outside of the nearer goalpost.
+            depth = halfLength - ax,
+            post = norm(depth, ay - halfStraight),
+            // The penalty area has its edge in the middle of its line, which hides it.
+            area = cover(
+              (p.areaRadius - line / 2 - (ay <= halfStraight ? depth : post)) *
+                p.metre,
+            ),
+            // The arcs of the penalty area are outside the posts and the straight between them; the straight goes on by half a line width under the arcs, where they meet.
+            outside = cover((ay - halfStraight) * p.metre),
+            between = cover((halfStraight + line / 2 - ay) * p.metre),
+            // The outline, the halfway line, the centre circle and mark, the penalty area, the penalty marks, the marks beside the 10 metre mark, the line 5 from it and the corner arcs.
+            marking = Math.max(
+              cover(Math.min(inside, line - inside) * p.metre),
+              cover((line / 2 - ax) * p.metre),
+              ring(norm(x, y), p.centreRadius),
+              disc(norm(x, y), p.centreMark),
+              Math.min(band(depth, p.areaRadius), between),
+              Math.min(ring(post, p.areaRadius), outside),
+              disc(norm(depth - p.penaltyDistance, y), p.markRadius),
+              disc(norm(depth - p.secondDistance, y), p.markRadius),
+              disc(
+                norm(depth - p.secondDistance, ay - p.retreatOffset),
+                p.retreatRadius,
+              ),
+              cover(
+                Math.min(
+                  depth - (p.secondDistance - p.retreatOffset),
+                  p.secondDistance - p.retreatOffset + line - depth,
+                  p.fiveLength / 2 - ay,
+                ) * p.metre,
+              ),
+              ring(norm(ax - halfLength, ay - halfWidth), p.cornerRadius),
+            ),
+            // Outside the court: the marks beside the goal line, 5 from the corners and 0.2 beyond the goal line, and the lines of the substitution zones across the touchline (5 and 10 from the halfway line).
+            substitution =
+              ax < p.substitutionStart + (p.substitutionZone + line) / 2
+                ? p.substitutionStart
+                : p.substitutionStart + p.substitutionZone,
+            outer = Math.max(
+              cover(
+                Math.min(
+                  ax - halfLength - p.cornerMarkGap,
+                  halfLength + p.cornerMarkGap + p.cornerMarkLength - ax,
+                  line / 2 - Math.abs(ay - (halfWidth - p.cornerMarkDistance)),
+                ) * p.metre,
+              ),
+              cover(
+                Math.min(
+                  line / 2 - Math.abs(ax - substitution - line / 2),
+                  p.substitutionLength / 2 - Math.abs(y - halfWidth),
+                ) * p.metre,
+              ),
+            );
+          // Court or line over the surround, the line only where there is court (so that a line at the edge of the court has the edge of the court); the lines outside the court over all.
+          const lined = court > 0 ? Math.min(1, marking / court) : 0,
+            courtTone =
+              surface.court + shift + (surface.area - surface.court) * area;
+          let shade = surface.ground + shift,
+            elevation = p.groundHeight;
+          shade += (surface.margin + shift - shade) * margin;
+          elevation += (p.marginHeight - elevation) * margin;
+          shade +=
+            (courtTone + (p.lineTone - courtTone) * lined - shade) * court;
+          elevation +=
+            (p.courtHeight +
+              (p.lineHeight - p.courtHeight) * lined -
+              elevation) *
+            court;
+          shade += (p.lineTone - shade) * outer;
+          elevation += (p.lineHeight - elevation) * outer;
           color = clamp(shade);
           height = clamp(elevation);
           roughness = clamp(p.inkRoughness);

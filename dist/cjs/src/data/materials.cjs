@@ -28393,6 +28393,76 @@ var proceduralMaterialPresets = Object.freeze({
 		lineHeight: .35,
 		inkRoughness: .5
 	}),
+	futsalcourt: Object.freeze({
+		dark: [
+			24,
+			46,
+			92
+		],
+		light: [
+			240,
+			238,
+			228
+		],
+		roughness: .4,
+		relief: .004,
+		metre: .0208333,
+		courtLength: 40,
+		courtWidth: 20,
+		centreRadius: 3,
+		centreMark: .24,
+		penaltyStraight: 3.16,
+		areaRadius: 6,
+		penaltyDistance: 6,
+		secondDistance: 10,
+		markRadius: .24,
+		retreatRadius: .16,
+		retreatOffset: 5,
+		fiveLength: 1.6,
+		cornerRadius: 1,
+		cornerMarkDistance: 5,
+		cornerMarkGap: .2,
+		cornerMarkLength: 1.6,
+		substitutionStart: 5,
+		substitutionZone: 5,
+		substitutionLength: 3.2,
+		margin: 3,
+		lineWidth: .32,
+		surfaces: Object.freeze([
+			Object.freeze({
+				court: .5,
+				area: .38,
+				margin: .3,
+				ground: .18
+			}),
+			Object.freeze({
+				court: .42,
+				area: .56,
+				margin: .34,
+				ground: .24
+			}),
+			Object.freeze({
+				court: .6,
+				area: .44,
+				margin: .26,
+				ground: .12
+			}),
+			Object.freeze({
+				court: .36,
+				area: .5,
+				margin: .46,
+				ground: .28
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		lineTone: .96,
+		groundHeight: .15,
+		marginHeight: .25,
+		courtHeight: .3,
+		lineHeight: .35,
+		inkRoughness: .45
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -37074,6 +37144,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	futsalcourt: 1,
 	fieldhockeypitch: 1,
 	runwaymarkings: 1,
 	archerytarget: 1,

@@ -77218,3 +77218,571 @@ describe('fieldhockeypitch: a field hockey pitch seen from above with the markin
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('futsalcourt: a futsal court seen from above with the markings of the FIFA Futsal Laws of the Game, laid along or across by the seed with the substitution zones on either touchline', () => {
+  const p = proceduralMaterialPresets.futsalcourt,
+    out = empty(),
+    m = p.metre,
+    toneAt = (
+      sample: Sampler,
+      x: number,
+      y: number,
+      across: boolean,
+      bench: number,
+    ): number => {
+      // A place in metres from the middle of the court (x along its length, y towards the touchline with the substitution zones) as a place on the picture.
+      const side = bench * y;
+      sample(0.5 + (across ? side : x) * m, 0.5 + (across ? x : side) * m, out);
+      return out.color;
+    };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    mix = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    // The probes are exact (the edges are straight or circular), so the tolerance is tiny.
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  // The facts of the court, in metres (the FIFA Futsal Laws of the Game 2021/22, law 1, which were read for this): 40 by 20 (within the 38 to 42 by 20 to 25 of international matches), lines 8 cm wide and part
+  // of the area they bound; the centre mark of radius 6 cm and the circle of radius 3; the penalty area (quarter circles of radius 6 about the outside of the goalposts, joined by a line of 3.16); the penalty mark
+  // 6 and the 10 m mark 10 from the back edge of the goal line (radius 6 cm), the marks 5 to the left and right of the 10 m mark (radius 4 cm), the mark of 8 by 40 cm in the penalty area with its edge nearer the goal
+  // line 5 from the 10 m mark; the corner arc of radius 25 cm; the marks outside the pitch 5 from each corner arc, a gap of 5 cm from the goal line (8 by 40 cm); the substitution zones 5 from the halfway line and
+  // 5 long, each end marked by a line of 80 cm (40 on the pitch and 40 off it).
+  const rules = {
+      length: 40,
+      width: 20,
+      circle: 3,
+      straight: 3.16,
+      area: 6,
+      penalty: 6,
+      second: 10,
+      retreat: 5,
+      line: 0.08,
+      mark: 0.06,
+      retreatMark: 0.04,
+      five: 0.4,
+      corner: 0.25,
+      cornerMark: [5, 0.05, 0.4],
+      sub: [5, 5, 0.8],
+    },
+    halfL = rules.length / 2,
+    halfW = rules.width / 2,
+    halfPost = rules.straight / 2,
+    w = p.lineWidth,
+    four = 4;
+  type Kind = 'ground' | 'margin' | 'court' | 'area' | 'line';
+  // The piece of the picture a place is in (two pieces of line next to each other are two pieces); the substitution zones are on the touchline at positive y.
+  const piece = (x: number, y: number): string => {
+    const ax = Math.abs(x),
+      ay = Math.abs(y),
+      depth = halfL - ax,
+      post = Math.hypot(depth, ay - halfPost),
+      band = (distance: number): boolean =>
+        depth <= distance && depth >= distance - w,
+      ring = (distance: number, radius: number): boolean =>
+        distance <= radius && distance >= radius - w;
+    if (
+      ax - halfL >= p.cornerMarkGap &&
+      ax - halfL <= p.cornerMarkGap + p.cornerMarkLength &&
+      Math.abs(ay - (halfW - rules.cornerMark[0])) <= w / 2
+    )
+      return 'line corner mark';
+    for (const start of [rules.sub[0], rules.sub[0] + rules.sub[1]])
+      if (
+        ax >= start &&
+        ax <= start + w &&
+        y >= 0 &&
+        Math.abs(y - halfW) <= p.substitutionLength / 2
+      )
+        return `line substitution ${start}`;
+    if (ax > halfL + p.margin || ay > halfW + p.margin) return 'ground';
+    if (ax > halfL || ay > halfW) return 'margin';
+    if (ax >= halfL - w || ay >= halfW - w) return 'line outline';
+    if (ax <= w / 2) return 'line halfway';
+    if (ring(Math.hypot(x, y), rules.circle)) return 'line circle';
+    if (Math.hypot(x, y) <= p.centreMark) return 'line centre mark';
+    if (ay <= halfPost && band(rules.area)) return 'line area';
+    if (ay >= halfPost && ring(post, rules.area)) return 'line area';
+    if (Math.hypot(depth - rules.penalty, y) <= p.markRadius)
+      return 'line penalty mark';
+    if (Math.hypot(depth - rules.second, y) <= p.markRadius)
+      return 'line second mark';
+    if (Math.hypot(depth - rules.second, ay - rules.retreat) <= p.retreatRadius)
+      return `line retreat mark ${Math.sign(y)}`;
+    if (
+      depth >= rules.second - rules.retreat &&
+      depth <= rules.second - rules.retreat + w &&
+      ay <= p.fiveLength / 2
+    )
+      return 'line five';
+    if (ring(Math.hypot(ax - halfL, ay - halfW), p.cornerRadius))
+      return 'line corner arc';
+    const inArea =
+      ay <= halfPost ? depth <= rules.area - w / 2 : post <= rules.area - w / 2;
+    return inArea ? 'area' : 'court';
+  };
+  const classify = (x: number, y: number): Kind => {
+    const label = piece(x, y);
+    return label.startsWith('line') ? 'line' : (label as Kind);
+  };
+  type Surface = {
+    across: boolean;
+    bench: number;
+    surface: number;
+    shift: number;
+    tones: { court: number; area: number; margin: number; ground: number };
+  };
+  const readSurface = (sample: Sampler): Surface => {
+    const options: Surface[] = [];
+    for (const across of [false, true])
+      for (const bench of [1, -1]) {
+        const tone = (x: number, y: number): number =>
+            toneAt(sample, x, y, across, bench),
+          court = tone(8, 3),
+          area = tone(halfL - 3, 0),
+          margin = tone(halfL + 1.5, 0),
+          ground = tone(0, 14),
+          mark = tone(rules.sub[0] + w / 2, halfW);
+        p.surfaces.forEach((surface, index) => {
+          const shift = ground - surface.ground;
+          if (
+            Math.abs(shift) <= p.toneShift + 1e-9 &&
+            Math.abs(court - surface.court - shift) < 1e-6 &&
+            Math.abs(area - surface.area - shift) < 1e-6 &&
+            Math.abs(margin - surface.margin - shift) < 1e-6 &&
+            Math.abs(mark - p.lineTone) < 1e-6
+          )
+            options.push({
+              across,
+              bench,
+              surface: index,
+              shift,
+              tones: { court, area, margin, ground },
+            });
+        });
+      }
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+
+  it('has the rules of the court in the preset, with the lines and everything small four times as large as the rules', () => {
+    expect(p.courtLength).toBe(rules.length);
+    expect(p.courtWidth).toBe(rules.width);
+    expect(p.centreRadius).toBe(rules.circle);
+    expect(p.penaltyStraight).toBe(rules.straight);
+    expect(p.areaRadius).toBe(rules.area);
+    expect(p.penaltyDistance).toBe(rules.penalty);
+    expect(p.secondDistance).toBe(rules.second);
+    expect(p.retreatOffset).toBe(rules.retreat);
+    expect(p.cornerMarkDistance).toBe(rules.cornerMark[0]);
+    expect([p.substitutionStart, p.substitutionZone]).toEqual([
+      rules.sub[0],
+      rules.sub[1],
+    ]);
+    expect(p.lineWidth).toBeCloseTo(four * rules.line, 12);
+    expect(p.centreMark).toBeCloseTo(four * rules.mark, 12);
+    expect(p.markRadius).toBeCloseTo(four * rules.mark, 12);
+    expect(p.retreatRadius).toBeCloseTo(four * rules.retreatMark, 12);
+    expect(p.fiveLength).toBeCloseTo(four * rules.five, 12);
+    expect(p.cornerRadius).toBeCloseTo(four * rules.corner, 12);
+    expect(p.cornerMarkGap).toBeCloseTo(four * rules.cornerMark[1], 12);
+    expect(p.cornerMarkLength).toBeCloseTo(four * rules.cornerMark[2], 12);
+    expect(p.substitutionLength).toBeCloseTo(four * rules.sub[2], 12);
+    // The marks outside the court are in the surround, and the court is within the limits of international matches.
+    expect(p.cornerMarkGap + p.cornerMarkLength).toBeLessThan(p.margin);
+    expect(rules.length).toBeGreaterThanOrEqual(38);
+    expect(rules.length).toBeLessThanOrEqual(42);
+    expect(rules.width).toBeGreaterThanOrEqual(20);
+    expect(rules.width).toBeLessThanOrEqual(25);
+  });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws every place of the picture as the rules and the widths say, with its tone, height and roughness, in the four ways the court can lie (seed %i)',
+    { timeout: 120000 },
+    (seed) => {
+      const sample = createSurfaceSampler('futsalcourt', seed),
+        { across, bench, tones } = readSurface(sample),
+        expected: Record<Kind, { tone: number; height: number }> = {
+          ground: { tone: tones.ground, height: p.groundHeight },
+          margin: { tone: tones.margin, height: p.marginHeight },
+          court: { tone: tones.court, height: p.courtHeight },
+          area: { tone: tones.area, height: p.courtHeight },
+          line: { tone: p.lineTone, height: p.lineHeight },
+        },
+        counts: Record<Kind, number> = {
+          ground: 0,
+          margin: 0,
+          court: 0,
+          area: 0,
+          line: 0,
+        },
+        step = 0.09,
+        clear = 0.02;
+      // Every place of the picture (the tile is 48 across; the places within 0.02 of a change in the picture are skipped: the softened edges are checked below, exactly).
+      for (let x = -23.95; x <= 23.95; x += step)
+        for (let y = -23.95; y <= 23.95; y += step) {
+          const kind = classify(x, y);
+          if (
+            [
+              [clear, 0],
+              [-clear, 0],
+              [0, clear],
+              [0, -clear],
+              [clear, clear],
+              [-clear, -clear],
+              [clear, -clear],
+              [-clear, clear],
+            ].some(([dx, dy]) => piece(x + dx, y + dy) !== piece(x, y))
+          )
+            continue;
+          counts[kind]++;
+          expect(toneAt(sample, x, y, across, bench)).toBeCloseTo(
+            expected[kind].tone,
+            6,
+          );
+          expect(out.height / p.relief).toBeCloseTo(expected[kind].height, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        }
+      expect(counts.line).toBeGreaterThan(2500);
+      expect(counts.court).toBeGreaterThan(40000);
+      expect(counts.area).toBeGreaterThan(2000);
+      expect(counts.margin).toBeGreaterThan(8000);
+      expect(counts.ground).toBeGreaterThan(8000);
+    },
+  );
+
+  it('uses every surface, both ways and both touchlines over 1000 seeds, about equally often, with the tones shifted over the whole range', () => {
+    const surfaces = new Map<number, number>(),
+      shifts: number[] = [];
+    let acrossCount = 0,
+      benchCount = 0;
+    for (let seed = 0; seed < 1000; seed++) {
+      const { across, bench, surface, shift } = readSurface(
+        createSurfaceSampler('futsalcourt', seed * 7 + 1),
+      );
+      shifts.push(shift);
+      surfaces.set(surface, (surfaces.get(surface) ?? 0) + 1);
+      acrossCount += Number(across);
+      benchCount += Number(bench === 1);
+    }
+    expect(surfaces.size).toBe(p.surfaces.length);
+    for (const count of surfaces.values())
+      expect(Math.abs(count - 1000 / p.surfaces.length)).toBeLessThan(50);
+    expect(Math.abs(acrossCount / 1000 - 0.5)).toBeLessThan(0.05);
+    expect(Math.abs(benchCount / 1000 - 0.5)).toBeLessThan(0.05);
+    expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+    expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+    expect(
+      Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+    ).toBeLessThan(p.toneShift * 0.15);
+    for (let quarter = 0; quarter < 4; quarter++)
+      expect(
+        Math.abs(
+          shifts.filter(
+            (shift) =>
+              Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+          ).length - 250,
+        ),
+      ).toBeLessThan(50);
+  });
+
+  it('puts each edge of each marking where the rules put it: just inside it the line, just outside it not (both ends, both sides, every way the court can lie)', () => {
+    const delta = 0.0004 / m,
+      ways = new Set<string>();
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 7]) {
+      const sample = createSurfaceSampler('futsalcourt', seed),
+        { across, bench } = readSurface(sample),
+        isLine = (x: number, y: number): boolean =>
+          Math.abs(toneAt(sample, x, y, across, bench) - p.lineTone) < 1e-6;
+      ways.add(`${across} ${bench}`);
+      for (const sx of [1, -1])
+        for (const sy of [1, -1]) {
+          const at = (depth: number, distance: number): boolean =>
+              isLine(sx * (halfL - depth), sy * distance),
+            // A place round the outside of the goalpost on the side sy of the end sx, at a radius and an angle from the direction away from the goal line.
+            round = (radius: number, degrees: number): [number, number] => [
+              sx * (halfL - radius * Math.cos((degrees * Math.PI) / 180)),
+              sy * (halfPost + radius * Math.sin((degrees * Math.PI) / 180)),
+            ],
+            // A place round the corner at a radius and an angle, inside the court.
+            corner = (radius: number, degrees: number): [number, number] => [
+              sx * (halfL - radius * Math.cos((degrees * Math.PI) / 180)),
+              sy * (halfW - radius * Math.sin((degrees * Math.PI) / 180)),
+            ];
+          // The outline (the goal line and the touchline), both edges.
+          expect(at(w - delta, 4)).toBe(true);
+          expect(at(w + delta, 4)).toBe(false);
+          expect(at(delta, 4)).toBe(true);
+          expect(isLine(sx * 12, sy * (halfW - w + delta))).toBe(true);
+          expect(isLine(sx * 12, sy * (halfW - w - delta))).toBe(false);
+          // The penalty area: the straight and the arcs about the posts, both edges (the arcs at four angles), and where they meet.
+          for (const distance of [0.5, 1.2]) {
+            expect(at(rules.area - delta, distance)).toBe(true);
+            expect(at(rules.area + delta, distance)).toBe(false);
+            expect(at(rules.area - w + delta, distance)).toBe(true);
+            expect(at(rules.area - w - delta, distance)).toBe(false);
+          }
+          for (const degrees of [10, 35, 60, 85]) {
+            expect(isLine(...round(rules.area - delta, degrees))).toBe(true);
+            expect(isLine(...round(rules.area + delta, degrees))).toBe(false);
+            expect(isLine(...round(rules.area - w + delta, degrees))).toBe(
+              true,
+            );
+            expect(isLine(...round(rules.area - w - delta, degrees))).toBe(
+              false,
+            );
+          }
+          for (const distance of [
+            halfPost - 0.1,
+            halfPost,
+            halfPost + 0.1,
+            halfPost + w,
+          ])
+            expect(at(rules.area - w / 2, distance)).toBe(true);
+          // The penalty mark (on the line of the penalty area: the outer half is to be seen), the 10 m mark, the marks beside it: both edges of each.
+          expect(at(rules.penalty + p.markRadius - delta, 0)).toBe(true);
+          expect(at(rules.penalty + p.markRadius + delta, 0)).toBe(false);
+          for (const [offset, radius] of [
+            [0, p.markRadius],
+            [rules.retreat, p.retreatRadius],
+          ] as const)
+            for (const degrees of [0, 60, 120, 180, 240, 300]) {
+              const point = (r: number): boolean =>
+                at(
+                  rules.second + r * Math.cos((degrees * Math.PI) / 180),
+                  offset + r * Math.sin((degrees * Math.PI) / 180),
+                );
+              expect(point(radius - delta)).toBe(true);
+              expect(point(radius + delta)).toBe(false);
+            }
+          // The mark in the penalty area: 40 cm long (1.6 here) across and a line wide, its edge nearer the goal line 5 from the goal line.
+          expect(at(rules.second - rules.retreat - delta, 0.4)).toBe(false);
+          expect(at(rules.second - rules.retreat + delta, 0.4)).toBe(true);
+          expect(at(rules.second - rules.retreat + w - delta, 0.4)).toBe(true);
+          expect(at(rules.second - rules.retreat + w + delta, 0.4)).toBe(false);
+          expect(
+            at(rules.second - rules.retreat + w / 2, p.fiveLength / 2 - delta),
+          ).toBe(true);
+          expect(
+            at(rules.second - rules.retreat + w / 2, p.fiveLength / 2 + delta),
+          ).toBe(false);
+          // The corner arc, both edges at three angles.
+          for (const degrees of [30, 45, 60]) {
+            expect(isLine(...corner(p.cornerRadius - delta, degrees))).toBe(
+              true,
+            );
+            expect(isLine(...corner(p.cornerRadius + delta, degrees))).toBe(
+              false,
+            );
+            expect(isLine(...corner(p.cornerRadius - w + delta, degrees))).toBe(
+              true,
+            );
+            expect(isLine(...corner(p.cornerRadius - w - delta, degrees))).toBe(
+              false,
+            );
+          }
+          // The marks outside the court, 5 from the corner and 0.2 beyond the goal line (1.6 long, a line wide): both ends and both sides.
+          const markY = halfW - rules.cornerMark[0];
+          expect(at(-p.cornerMarkGap + delta, markY)).toBe(false);
+          expect(at(-p.cornerMarkGap - delta, markY)).toBe(true);
+          expect(at(-p.cornerMarkGap - p.cornerMarkLength + delta, markY)).toBe(
+            true,
+          );
+          expect(at(-p.cornerMarkGap - p.cornerMarkLength - delta, markY)).toBe(
+            false,
+          );
+          expect(at(-1, markY + w / 2 - delta)).toBe(true);
+          expect(at(-1, markY + w / 2 + delta)).toBe(false);
+          expect(at(-1, markY - w / 2 + delta)).toBe(true);
+          expect(at(-1, markY - w / 2 - delta)).toBe(false);
+        }
+      // The halfway line, the centre mark and the circle.
+      expect(isLine(w / 2 - delta, 3)).toBe(true);
+      expect(isLine(w / 2 + delta, 3)).toBe(false);
+      expect(isLine(-w / 2 + delta, 3)).toBe(true);
+      expect(isLine(-w / 2 - delta, 3)).toBe(false);
+      for (const degrees of [25, 65, 115, 155, 205, 245, 295, 335]) {
+        const point = (radius: number): [number, number] => [
+          radius * Math.cos((degrees * Math.PI) / 180),
+          radius * Math.sin((degrees * Math.PI) / 180),
+        ];
+        expect(isLine(...point(rules.circle - delta))).toBe(true);
+        expect(isLine(...point(rules.circle + delta))).toBe(false);
+        expect(isLine(...point(rules.circle - w + delta))).toBe(true);
+        expect(isLine(...point(rules.circle - w - delta))).toBe(false);
+      }
+      // The centre mark (radius 0.24 here), at angles that are off the halfway line.
+      for (const degrees of [10, 30, 150, 170, 190, 210, 330, 350]) {
+        const point = (radius: number): [number, number] => [
+          radius * Math.cos((degrees * Math.PI) / 180),
+          radius * Math.sin((degrees * Math.PI) / 180),
+        ];
+        expect(isLine(...point(p.centreMark - delta))).toBe(true);
+        expect(isLine(...point(p.centreMark + delta))).toBe(false);
+      }
+      // The lines of the substitution zones on the touchline with the benches (positive y here), half of each on the pitch: both edges and both ends; none on the other touchline.
+      for (const sx of [1, -1])
+        for (const start of [5, 10]) {
+          const at = (x: number, y: number): boolean => isLine(sx * x, y);
+          expect(at(start - delta, halfW)).toBe(false);
+          expect(at(start + delta, halfW)).toBe(true);
+          expect(at(start + w - delta, halfW)).toBe(true);
+          expect(at(start + w + delta, halfW)).toBe(false);
+          expect(
+            at(start + w / 2, halfW - p.substitutionLength / 2 + delta),
+          ).toBe(true);
+          expect(
+            at(start + w / 2, halfW - p.substitutionLength / 2 - delta),
+          ).toBe(false);
+          expect(
+            at(start + w / 2, halfW + p.substitutionLength / 2 - delta),
+          ).toBe(true);
+          expect(
+            at(start + w / 2, halfW + p.substitutionLength / 2 + delta),
+          ).toBe(false);
+          expect(at(start + w / 2, -halfW - 1)).toBe(false);
+          expect(at(start + w / 2, -halfW + 1)).toBe(false);
+        }
+      expect(isLine(7.5, halfW)).toBe(false);
+    }
+    expect(ways.size).toBe(4);
+  });
+
+  it('softens the edge of the surround, of the court, of a line, of a mark and of a penalty area over edgeSoft', () => {
+    const sample = createSurfaceSampler('futsalcourt', 2),
+      { across, bench, tones } = readSurface(sample),
+      quarter = (0.25 * p.edgeSoft) / m,
+      tone = (x: number, y: number): number =>
+        toneAt(sample, x, y, across, bench),
+      // A place at a distance from the goal line (the outer edge) of the end at positive x.
+      toneAtDepth = (depth: number, y: number): number =>
+        tone(halfL - depth, y),
+      markY = halfW - rules.cornerMark[0];
+    close(
+      tone(12, halfW + p.margin - quarter),
+      mix(tones.ground, tones.margin, 0.75),
+    );
+    close(
+      tone(12, halfW + p.margin + quarter),
+      mix(tones.ground, tones.margin, 0.25),
+    );
+    close(
+      tone(halfL + p.margin - quarter, 4),
+      mix(tones.ground, tones.margin, 0.75),
+    );
+    // The outline over the surround and over the court (on the touchline without the substitution zones), the halfway line, and the circle over the court.
+    close(tone(12, -halfW + quarter), mix(tones.margin, p.lineTone, 0.75));
+    close(tone(12, -halfW - quarter), mix(tones.margin, p.lineTone, 0.25));
+    close(tone(12, -halfW + w + quarter), mix(tones.court, p.lineTone, 0.25));
+    close(tone(12, -halfW + w - quarter), mix(tones.court, p.lineTone, 0.75));
+    close(tone(w / 2 + quarter, 7), mix(tones.court, p.lineTone, 0.25));
+    close(tone(rules.circle + quarter, 0), mix(tones.court, p.lineTone, 0.25));
+    close(tone(rules.circle - quarter, 0), mix(tones.court, p.lineTone, 0.75));
+    // The penalty area: the area has its edge in the middle of the line, so the outer half of the line is over the court and the inner half over the area.
+    close(
+      toneAtDepth(rules.area + quarter, 0.5),
+      mix(tones.court, p.lineTone, 0.25),
+    );
+    close(
+      toneAtDepth(rules.area - quarter, 0.5),
+      mix(tones.court, p.lineTone, 0.75),
+    );
+    close(
+      toneAtDepth(rules.area - w + quarter, 0.5),
+      mix(tones.area, p.lineTone, 0.75),
+    );
+    close(
+      toneAtDepth(rules.area - w - quarter, 0.5),
+      mix(tones.area, p.lineTone, 0.25),
+    );
+    // The 10 m mark, the corner arc (45 degrees) and the line in the penalty area.
+    close(
+      toneAtDepth(rules.second + p.markRadius - quarter, 0),
+      mix(tones.court, p.lineTone, 0.75),
+    );
+    close(
+      toneAtDepth(rules.second + p.markRadius + quarter, 0),
+      mix(tones.court, p.lineTone, 0.25),
+    );
+    const corner = (radius: number): [number, number] => [
+      halfL - radius * Math.SQRT1_2,
+      halfW - radius * Math.SQRT1_2,
+    ];
+    close(
+      tone(...corner(p.cornerRadius - quarter)),
+      mix(tones.court, p.lineTone, 0.75),
+    );
+    close(
+      tone(...corner(p.cornerRadius + quarter)),
+      mix(tones.court, p.lineTone, 0.25),
+    );
+    close(
+      toneAtDepth(rules.second - rules.retreat + quarter, 0.3),
+      mix(tones.area, p.lineTone, 0.75),
+    );
+    close(
+      toneAtDepth(rules.second - rules.retreat - quarter, 0.3),
+      mix(tones.area, p.lineTone, 0.25),
+    );
+    // A mark outside the court beside the goal line (over the surround), and a line of the substitution zones across the touchline (the part outside the court).
+    close(
+      tone(halfL + p.cornerMarkGap - quarter, markY),
+      mix(tones.margin, p.lineTone, 0.25),
+    );
+    close(
+      tone(halfL + p.cornerMarkGap + quarter, markY),
+      mix(tones.margin, p.lineTone, 0.75),
+    );
+    close(
+      tone(rules.sub[0] - quarter, halfW + 1),
+      mix(tones.margin, p.lineTone, 0.25),
+    );
+    close(
+      tone(rules.sub[0] + quarter, halfW + 1),
+      mix(tones.margin, p.lineTone, 0.75),
+    );
+    close(
+      tone(rules.sub[0] + w / 2, halfW + p.substitutionLength / 2 - quarter),
+      mix(tones.margin, p.lineTone, 0.75),
+    );
+    close(
+      tone(rules.sub[0] + w / 2, halfW + p.substitutionLength / 2 + quarter),
+      mix(tones.margin, p.lineTone, 0.25),
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('futsalcourt', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('futsalcourt', 0),
+      b = createSurfaceSampler('futsalcourt', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

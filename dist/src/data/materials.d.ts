@@ -16636,6 +16636,63 @@ export declare const proceduralMaterialPresets: Readonly<{
         lineHeight: 0.35;
         inkRoughness: 0.5;
     }>;
+    futsalcourt: Readonly<{
+        dark: readonly [24, 46, 92];
+        light: readonly [240, 238, 228];
+        roughness: 0.4;
+        relief: 0.004;
+        metre: 0.0208333;
+        courtLength: 40;
+        courtWidth: 20;
+        centreRadius: 3;
+        centreMark: 0.24;
+        penaltyStraight: 3.16;
+        areaRadius: 6;
+        penaltyDistance: 6;
+        secondDistance: 10;
+        markRadius: 0.24;
+        retreatRadius: 0.16;
+        retreatOffset: 5;
+        fiveLength: 1.6;
+        cornerRadius: 1;
+        cornerMarkDistance: 5;
+        cornerMarkGap: 0.2;
+        cornerMarkLength: 1.6;
+        substitutionStart: 5;
+        substitutionZone: 5;
+        substitutionLength: 3.2;
+        margin: 3;
+        lineWidth: 0.32;
+        surfaces: readonly (Readonly<{
+            court: 0.5;
+            area: 0.38;
+            margin: 0.3;
+            ground: 0.18;
+        }> | Readonly<{
+            court: 0.42;
+            area: 0.56;
+            margin: 0.34;
+            ground: 0.24;
+        }> | Readonly<{
+            court: 0.6;
+            area: 0.44;
+            margin: 0.26;
+            ground: 0.12;
+        }> | Readonly<{
+            court: 0.36;
+            area: 0.5;
+            margin: 0.46;
+            ground: 0.28;
+        }>)[];
+        toneShift: 0.04;
+        edgeSoft: 0.0006;
+        lineTone: 0.96;
+        groundHeight: 0.15;
+        marginHeight: 0.25;
+        courtHeight: 0.3;
+        lineHeight: 0.35;
+        inkRoughness: 0.45;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -23121,6 +23178,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    futsalcourt: 1;
     fieldhockeypitch: 1;
     runwaymarkings: 1;
     archerytarget: 1;
