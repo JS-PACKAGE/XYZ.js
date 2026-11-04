@@ -76192,3 +76192,500 @@ describe('archerytarget: a World Archery target face of 122 across with its ten 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('runwaymarkings: the first 780 metres of a precision approach runway seen from above with the markings of ICAO Annex 14, laid along or across by the seed with either end as the threshold', () => {
+  const p = proceduralMaterialPresets.runwaymarkings,
+    out = empty(),
+    m = p.metre,
+    middle = p.tileLength / 2 - p.startOffset,
+    toneAt = (
+      sample: Sampler,
+      along: number,
+      side: number,
+      across: boolean,
+      mirrored: boolean,
+    ): number => {
+      // A place in metres along the runway from the threshold and across it from the centre line, as a place on the picture.
+      const lengthwise = (mirrored ? -1 : 1) * (along - middle) * m;
+      sample(
+        0.5 + (across ? side * m : lengthwise),
+        0.5 + (across ? lengthwise : side * m),
+        out,
+      );
+      return out.color;
+    };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    mix = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    // The probes are exact (the edges are straight), so the tolerance is tiny.
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  // The facts of the markings, in metres (ICAO Annex 14 as given by a web search whose summary quotes it; they were not read in the Annex itself): threshold stripes from 6 after the threshold, 30 long, 1.8 wide with gaps
+  // of 1.8, twelve on a runway 45 wide; centre line stripes of 30 with gaps of 20; aiming point bars 45 to 60 long and 6 to 10 wide, 400 after the threshold on a runway of 2400 or more, their inner sides 18 to 22.5
+  // apart; touchdown zone bars at least 22.5 long and 3 wide, in pairs every 150 from 150, six pairs, with the inner sides as far apart as the aiming point bars, a pair coincident with or within 50 of the aiming point
+  // marking left out; side stripes 0.9 wide on a runway 30 or more wide, with their outer edge on the edge of the runway; the stripes of the centre line 0.9 wide for category II and III.
+  const rules = {
+      width: 45,
+      thresholdStart: 6,
+      thresholdLength: 30,
+      stripes: 12,
+      stripeWidth: 1.8,
+      stripeGap: 1.8,
+      centre: [30, 20],
+      aiming: [400, 60, 6],
+      spacing: 18,
+      touchdown: [150, 150, 22.5, 3],
+      pairs: 6,
+      clear: 50,
+      lines: 0.9,
+    },
+    halfW = rules.width / 2,
+    w = p.sideStripeWidth,
+    pitch = rules.stripeWidth + rules.stripeGap,
+    stripeAt = (k: number): number => (k - (rules.stripes - 1) / 2) * pitch,
+    barStarts = Array.from(
+      { length: rules.pairs },
+      (_, k) => rules.touchdown[0] + k * rules.touchdown[1],
+    ).filter((start) => Math.abs(start - rules.aiming[0]) > rules.clear),
+    centreStart = p.centreStart;
+  type Kind = 'ground' | 'shoulder' | 'runway' | 'mark';
+  // The piece of the picture a place is in (two pieces of marking next to each other are two pieces): along the runway from the threshold, and across it from the centre line.
+  const piece = (along: number, side: number): string => {
+    const wide = Math.abs(side),
+      sign = Math.sign(side);
+    if (along < 0 || wide > halfW + p.shoulder) return 'ground';
+    if (wide > halfW) return 'shoulder';
+    if (wide >= halfW - w) return `mark side ${sign}`;
+    const stripe = Math.min(
+      Math.max(Math.round(side / pitch + (rules.stripes - 1) / 2), 0),
+      rules.stripes - 1,
+    );
+    if (
+      along >= rules.thresholdStart &&
+      along <= rules.thresholdStart + rules.thresholdLength &&
+      Math.abs(side - stripeAt(stripe)) <= rules.stripeWidth / 2
+    )
+      return `mark threshold ${stripe}`;
+    const cycle = rules.centre[0] + rules.centre[1],
+      centre = Math.max(
+        Math.round((along - centreStart - rules.centre[0] / 2) / cycle),
+        0,
+      ),
+      from = centreStart + centre * cycle;
+    if (
+      along >= from &&
+      along <= from + rules.centre[0] &&
+      wide <= p.centreWidth / 2
+    )
+      return `mark centre ${centre}`;
+    if (
+      along >= rules.aiming[0] &&
+      along <= rules.aiming[0] + rules.aiming[1] &&
+      wide >= rules.spacing / 2 &&
+      wide <= rules.spacing / 2 + rules.aiming[2]
+    )
+      return `mark aiming ${sign}`;
+    for (const start of barStarts)
+      if (
+        along >= start &&
+        along <= start + rules.touchdown[2] &&
+        wide >= rules.spacing / 2 &&
+        wide <= rules.spacing / 2 + rules.touchdown[3]
+      )
+        return `mark touchdown ${start} ${sign}`;
+    return 'runway';
+  };
+  const classify = (along: number, side: number): Kind => {
+    const label = piece(along, side);
+    return label.startsWith('mark') ? 'mark' : (label as Kind);
+  };
+  type Surface = {
+    across: boolean;
+    mirrored: boolean;
+    surface: number;
+    shift: number;
+    tones: { ground: number; shoulder: number; runway: number };
+  };
+  const readSurface = (sample: Sampler): Surface => {
+    const options: Surface[] = [];
+    for (const across of [false, true])
+      for (const mirrored of [false, true]) {
+        const tone = (along: number, side: number): number =>
+            toneAt(sample, along, side, across, mirrored),
+          runway = tone(200, 5),
+          shoulder = tone(200, 26),
+          ground = tone(200, 50),
+          before = tone(-20, 0),
+          mark = tone(20, stripeAt(6));
+        p.surfaces.forEach((surface, index) => {
+          const shift = ground - surface.ground;
+          if (
+            Math.abs(shift) <= p.toneShift + 1e-9 &&
+            Math.abs(before - ground) < 1e-9 &&
+            Math.abs(runway - surface.runway - shift) < 1e-6 &&
+            Math.abs(shoulder - surface.shoulder - shift) < 1e-6 &&
+            Math.abs(mark - p.markTone) < 1e-6
+          )
+            options.push({
+              across,
+              mirrored,
+              surface: index,
+              shift,
+              tones: { ground, shoulder, runway },
+            });
+        });
+      }
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+
+  it('has the rules of the markings in the preset, the centre line and the side stripes twice as wide as the rules', () => {
+    expect(p.runwayWidth).toBe(rules.width);
+    expect(p.thresholdStart).toBe(rules.thresholdStart);
+    expect(p.thresholdLength).toBe(rules.thresholdLength);
+    expect(p.thresholdStripes).toBe(rules.stripes);
+    expect(p.thresholdStripeWidth).toBe(rules.stripeWidth);
+    expect(p.thresholdGap).toBe(rules.stripeGap);
+    expect([p.centreStripe, p.centreGap]).toEqual(rules.centre);
+    expect([p.aimingStart, p.aimingLength, p.aimingWidth]).toEqual(
+      rules.aiming,
+    );
+    expect(p.markSpacing).toBe(rules.spacing);
+    expect([
+      p.touchdownFirst,
+      p.touchdownSpacing,
+      p.touchdownLength,
+      p.touchdownWidth,
+    ]).toEqual(rules.touchdown);
+    expect(p.touchdownPairs).toBe(rules.pairs);
+    expect(p.touchdownClear).toBe(rules.clear);
+    expect(p.centreWidth).toBeCloseTo(2 * rules.lines, 12);
+    expect(p.sideStripeWidth).toBeCloseTo(2 * rules.lines, 12);
+    // The spacing is within the 18 to 22.5 of the rules, the bars within their lengths and widths, and the markings fit inside the runway.
+    expect(p.markSpacing / 2 + p.aimingWidth).toBeLessThan(halfW - w);
+    expect(
+      stripeAt(rules.stripes - 1) + rules.stripeWidth / 2,
+    ).toBeLessThanOrEqual(halfW - w + 1e-9);
+    // The tile shows up to the pair at 750 (the one at 900 is beyond it) and the pair at 450 is the one left out.
+    expect(barStarts).toEqual([150, 300, 600, 750, 900]);
+    expect(p.tileLength - p.startOffset).toBeGreaterThan(
+      750 + rules.touchdown[2],
+    );
+  });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws every place of the picture as the rules and the widths say, with its tone, height and roughness, in the four ways the runway can lie (seed %i)',
+    { timeout: 120000 },
+    (seed) => {
+      const sample = createSurfaceSampler('runwaymarkings', seed),
+        { across, mirrored, tones } = readSurface(sample),
+        expected: Record<Kind, { tone: number; height: number }> = {
+          ground: { tone: tones.ground, height: p.groundHeight },
+          shoulder: { tone: tones.shoulder, height: p.shoulderHeight },
+          runway: { tone: tones.runway, height: p.runwayHeight },
+          mark: { tone: p.markTone, height: p.markHeight },
+        },
+        counts: Record<Kind, number> = {
+          ground: 0,
+          shoulder: 0,
+          runway: 0,
+          mark: 0,
+        },
+        clear = 0.3,
+        check = (along: number, side: number): void => {
+          const kind = classify(along, side);
+          if (
+            [
+              [clear, 0],
+              [-clear, 0],
+              [0, clear],
+              [0, -clear],
+              [clear, clear],
+              [-clear, -clear],
+              [clear, -clear],
+              [-clear, clear],
+            ].some(
+              ([dx, dy]) => piece(along + dx, side + dy) !== piece(along, side),
+            )
+          )
+            return;
+          counts[kind]++;
+          expect(
+            toneAt(sample, along, side, across, mirrored),
+            `${along} ${side} ${piece(along, side)}`,
+          ).toBeCloseTo(expected[kind].tone, 6);
+          expect(out.height / p.relief).toBeCloseTo(expected[kind].height, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        };
+      // The whole tile (820 across; not its very edge, which is the edge of the next tile) coarsely, and the runway with its shoulders finely.
+      for (let along = -39.9; along <= 779.9; along += 3.7)
+        for (let side = -410; side <= 410; side += 3.7) check(along, side);
+      for (let along = -39.9; along <= 779.9; along += 0.6)
+        for (let side = -32; side <= 32; side += 0.6) check(along, side);
+      expect(counts.mark).toBeGreaterThan(2000);
+      expect(counts.runway).toBeGreaterThan(50000);
+      expect(counts.shoulder).toBeGreaterThan(5000);
+      expect(counts.ground).toBeGreaterThan(40000);
+    },
+  );
+
+  it('uses every surface, both ways and both threshold ends over 1000 seeds, about equally often, with the tones shifted over the whole range', () => {
+    const surfaces = new Map<number, number>(),
+      shifts: number[] = [];
+    let acrossCount = 0,
+      mirroredCount = 0;
+    for (let seed = 0; seed < 1000; seed++) {
+      const { across, mirrored, surface, shift } = readSurface(
+        createSurfaceSampler('runwaymarkings', seed * 7 + 1),
+      );
+      shifts.push(shift);
+      surfaces.set(surface, (surfaces.get(surface) ?? 0) + 1);
+      acrossCount += Number(across);
+      mirroredCount += Number(mirrored);
+    }
+    expect(surfaces.size).toBe(p.surfaces.length);
+    for (const count of surfaces.values())
+      expect(Math.abs(count - 1000 / p.surfaces.length)).toBeLessThan(50);
+    expect(Math.abs(acrossCount / 1000 - 0.5)).toBeLessThan(0.05);
+    expect(Math.abs(mirroredCount / 1000 - 0.5)).toBeLessThan(0.05);
+    expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+    expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+    expect(
+      Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+    ).toBeLessThan(p.toneShift * 0.15);
+    for (let quarter = 0; quarter < 4; quarter++)
+      expect(
+        Math.abs(
+          shifts.filter(
+            (shift) =>
+              Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+          ).length - 250,
+        ),
+      ).toBeLessThan(50);
+  });
+
+  it('puts each edge of each marking where the rules put it: just inside it the marking, just outside it not (every way the runway can lie)', () => {
+    const delta = 0.0004 / m,
+      ways = new Set<string>();
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]) {
+      const sample = createSurfaceSampler('runwaymarkings', seed),
+        { across, mirrored, tones } = readSurface(sample),
+        is = (along: number, side: number, tone: number): boolean =>
+          Math.abs(toneAt(sample, along, side, across, mirrored) - tone) < 1e-6;
+      ways.add(`${across} ${mirrored}`);
+      for (const sy of [1, -1]) {
+        const at = (along: number, side: number): boolean =>
+          is(along, sy * side, p.markTone);
+        // The runway, the shoulder and the ground round them: both edges of each (the runway starts at the threshold).
+        expect(is(200, sy * (halfW + delta), tones.shoulder)).toBe(true);
+        expect(is(200, sy * (halfW + p.shoulder - delta), tones.shoulder)).toBe(
+          true,
+        );
+        expect(is(200, sy * (halfW + p.shoulder + delta), tones.ground)).toBe(
+          true,
+        );
+        expect(is(delta, sy * 10, tones.runway)).toBe(true);
+        expect(is(-delta, sy * 10, tones.ground)).toBe(true);
+        expect(is(delta, sy * 26, tones.shoulder)).toBe(true);
+        expect(is(-delta, sy * 26, tones.ground)).toBe(true);
+        // The side stripe, both edges, from the threshold on (the outer edge on the edge of the runway).
+        for (const along of [3, 100, 450, 700]) {
+          expect(at(along, halfW - delta)).toBe(true);
+          expect(at(along, halfW + delta)).toBe(false);
+          expect(at(along, halfW - w + delta)).toBe(true);
+          if (along > 40) expect(at(along, halfW - w - delta)).toBe(false);
+        }
+        expect(at(delta, halfW - w / 2)).toBe(true);
+        expect(at(-delta, halfW - w / 2)).toBe(false);
+        // The threshold stripes: the twelve, each with both ends and both sides, and gaps between them.
+        for (let k = 0; k < rules.stripes; k++) {
+          const middleOfStripe = stripeAt(k);
+          const stripeSide = (offset: number): number =>
+            sy * (middleOfStripe + offset);
+          const probe = (along: number, offset: number): boolean =>
+            is(along, stripeSide(offset), p.markTone);
+          expect(probe(rules.thresholdStart - delta, 0)).toBe(false);
+          expect(probe(rules.thresholdStart + delta, 0)).toBe(true);
+          expect(
+            probe(rules.thresholdStart + rules.thresholdLength - delta, 0),
+          ).toBe(true);
+          expect(
+            probe(rules.thresholdStart + rules.thresholdLength + delta, 0),
+          ).toBe(false);
+          // Across the stripe, on the side of the centre line (the gap) and on the other (the gap, but the outer edge of the last on each side meets the side stripe).
+          const toCentre = Math.sign(-middleOfStripe) || 1;
+          expect(probe(20, toCentre * (rules.stripeWidth / 2 - delta))).toBe(
+            true,
+          );
+          expect(probe(20, toCentre * (rules.stripeWidth / 2 + delta))).toBe(
+            false,
+          );
+          if (Math.abs(middleOfStripe) < 19)
+            expect(probe(20, -toCentre * (rules.stripeWidth / 2 + delta))).toBe(
+              false,
+            );
+        }
+        // The centre line: stripes of 30 with gaps of 20, the first from 80 on: both ends and both sides of four of them, the gaps between, and nothing before the first.
+        for (let j = 0; j < 4; j++) {
+          const from = centreStart + j * 50;
+          expect(at(from - delta, 0)).toBe(false);
+          expect(at(from + delta, 0)).toBe(true);
+          expect(at(from + 30 - delta, 0)).toBe(true);
+          expect(at(from + 30 + delta, 0)).toBe(false);
+          expect(at(from + 15, p.centreWidth / 2 - delta)).toBe(true);
+          expect(at(from + 15, p.centreWidth / 2 + delta)).toBe(false);
+          expect(at(from + 40, 0)).toBe(false);
+        }
+        expect(at(centreStart - 20, 0)).toBe(false);
+        // The aiming point bars (60 long and 6 wide, the inner side 9 from the centre line): both ends and both sides.
+        const [aimStart, aimLength, aimWidth] = rules.aiming;
+        for (const side of [10, 12, 14]) {
+          expect(at(aimStart - delta, side)).toBe(false);
+          expect(at(aimStart + delta, side)).toBe(true);
+          expect(at(aimStart + aimLength - delta, side)).toBe(true);
+          expect(at(aimStart + aimLength + delta, side)).toBe(false);
+        }
+        expect(at(430, rules.spacing / 2 - delta)).toBe(false);
+        expect(at(430, rules.spacing / 2 + delta)).toBe(true);
+        expect(at(430, rules.spacing / 2 + aimWidth - delta)).toBe(true);
+        expect(at(430, rules.spacing / 2 + aimWidth + delta)).toBe(false);
+        // The touchdown zone bars (22.5 long and 3 wide, the inner side 9 from the centre line) at 150, 300, 600 and 750: both ends and both sides; none at 450 (within 50 of the aiming point marking).
+        for (const start of [150, 300, 600, 750]) {
+          const [, , length, width] = rules.touchdown;
+          for (const side of [9.5, 10.5, 11.5]) {
+            expect(at(start - delta, side)).toBe(false);
+            expect(at(start + delta, side)).toBe(true);
+            expect(at(start + length - delta, side)).toBe(true);
+            expect(at(start + length + delta, side)).toBe(false);
+          }
+          expect(at(start + 10, rules.spacing / 2 - delta)).toBe(false);
+          expect(at(start + 10, rules.spacing / 2 + delta)).toBe(true);
+          expect(at(start + 10, rules.spacing / 2 + width - delta)).toBe(true);
+          expect(at(start + 10, rules.spacing / 2 + width + delta)).toBe(false);
+        }
+        // The pair at 450 would reach 472.5: beyond the aiming point bars (which end at 460) there is nothing.
+        for (const along of [461, 465, 470])
+          expect(at(along, 10.5)).toBe(false);
+        expect(at(455, 14)).toBe(true);
+      }
+    }
+    expect(ways.size).toBe(4);
+  });
+
+  it('softens the edge of the shoulder, of the runway and of a marking over edgeSoft', () => {
+    const sample = createSurfaceSampler('runwaymarkings', 2),
+      { across, mirrored, tones } = readSurface(sample),
+      quarter = (0.25 * p.edgeSoft) / m,
+      tone = (along: number, side: number): number =>
+        toneAt(sample, along, side, across, mirrored);
+    // The ground, the shoulder and the runway (a place without any marking), and where the runway starts.
+    close(
+      tone(200, halfW + p.shoulder - quarter),
+      mix(tones.ground, tones.shoulder, 0.75),
+    );
+    close(
+      tone(200, halfW + p.shoulder + quarter),
+      mix(tones.ground, tones.shoulder, 0.25),
+    );
+    close(tone(quarter, 10), mix(tones.ground, tones.runway, 0.75));
+    close(tone(-quarter, 10), mix(tones.ground, tones.runway, 0.25));
+    close(tone(quarter, 26), mix(tones.ground, tones.shoulder, 0.75));
+    // The side stripe: the outer edge on the edge of the runway, over the shoulder; the inner edge over the runway.
+    close(tone(200, halfW - quarter), mix(tones.shoulder, p.markTone, 0.75));
+    close(tone(200, halfW + quarter), mix(tones.shoulder, p.markTone, 0.25));
+    close(tone(200, halfW - w - quarter), mix(tones.runway, p.markTone, 0.25));
+    close(tone(200, halfW - w + quarter), mix(tones.runway, p.markTone, 0.75));
+    // Where the side stripe starts, at the threshold: the runway has its edge there and the stripe is all there is.
+    close(tone(quarter, halfW - w + 0.3), mix(tones.ground, p.markTone, 0.75));
+    close(tone(-quarter, halfW - w + 0.3), mix(tones.ground, p.markTone, 0.25));
+    // A threshold stripe (the 7th from the left, which is 1.8 from the centre line): both ends and both sides.
+    const middleOfStripe = stripeAt(6);
+    close(
+      tone(rules.thresholdStart - quarter, middleOfStripe),
+      mix(tones.runway, p.markTone, 0.25),
+    );
+    close(
+      tone(rules.thresholdStart + quarter, middleOfStripe),
+      mix(tones.runway, p.markTone, 0.75),
+    );
+    close(
+      tone(
+        rules.thresholdStart + rules.thresholdLength - quarter,
+        middleOfStripe,
+      ),
+      mix(tones.runway, p.markTone, 0.75),
+    );
+    close(
+      tone(20, middleOfStripe + rules.stripeWidth / 2 + quarter),
+      mix(tones.runway, p.markTone, 0.25),
+    );
+    close(
+      tone(20, middleOfStripe + rules.stripeWidth / 2 - quarter),
+      mix(tones.runway, p.markTone, 0.75),
+    );
+    // A stripe of the centre line, an aiming point bar and a touchdown zone bar.
+    close(tone(centreStart - quarter, 0), mix(tones.runway, p.markTone, 0.25));
+    close(tone(centreStart + quarter, 0), mix(tones.runway, p.markTone, 0.75));
+    close(
+      tone(centreStart + 15, p.centreWidth / 2 + quarter),
+      mix(tones.runway, p.markTone, 0.25),
+    );
+    close(
+      tone(rules.aiming[0] - quarter, 12),
+      mix(tones.runway, p.markTone, 0.25),
+    );
+    close(
+      tone(rules.aiming[0] + quarter, 12),
+      mix(tones.runway, p.markTone, 0.75),
+    );
+    close(
+      tone(430, rules.spacing / 2 + quarter),
+      mix(tones.runway, p.markTone, 0.75),
+    );
+    close(
+      tone(150 + 22.5 - quarter, 10.5),
+      mix(tones.runway, p.markTone, 0.75),
+    );
+    close(
+      tone(150 + 22.5 + quarter, 10.5),
+      mix(tones.runway, p.markTone, 0.25),
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('runwaymarkings', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('runwaymarkings', 0),
+      b = createSurfaceSampler('runwaymarkings', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

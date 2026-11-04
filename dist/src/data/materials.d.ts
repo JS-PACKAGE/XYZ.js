@@ -16528,6 +16528,62 @@ export declare const proceduralMaterialPresets: Readonly<{
         lineHeight: 0.4;
         inkRoughness: 0.55;
     }>;
+    runwaymarkings: Readonly<{
+        dark: readonly [26, 28, 30];
+        light: readonly [238, 238, 232];
+        roughness: 0.85;
+        relief: 0.004;
+        metre: 0.0012195122;
+        tileLength: 820;
+        startOffset: 40;
+        runwayWidth: 45;
+        shoulder: 7.5;
+        thresholdStart: 6;
+        thresholdLength: 30;
+        thresholdStripes: 12;
+        thresholdStripeWidth: 1.8;
+        thresholdGap: 1.8;
+        centreStripe: 30;
+        centreGap: 20;
+        centreWidth: 1.8;
+        centreStart: 80;
+        aimingStart: 400;
+        aimingLength: 60;
+        aimingWidth: 6;
+        markSpacing: 18;
+        touchdownFirst: 150;
+        touchdownSpacing: 150;
+        touchdownLength: 22.5;
+        touchdownWidth: 3;
+        touchdownPairs: 6;
+        touchdownClear: 50;
+        sideStripeWidth: 1.8;
+        surfaces: readonly (Readonly<{
+            runway: 0.18;
+            shoulder: 0.34;
+            ground: 0.5;
+        }> | Readonly<{
+            runway: 0.26;
+            shoulder: 0.44;
+            ground: 0.34;
+        }> | Readonly<{
+            runway: 0.12;
+            shoulder: 0.28;
+            ground: 0.42;
+        }> | Readonly<{
+            runway: 0.3;
+            shoulder: 0.4;
+            ground: 0.56;
+        }>)[];
+        toneShift: 0.04;
+        edgeSoft: 0.0006;
+        markTone: 0.95;
+        groundHeight: 0.15;
+        shoulderHeight: 0.25;
+        runwayHeight: 0.3;
+        markHeight: 0.34;
+        inkRoughness: 0.6;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -23013,6 +23069,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    runwaymarkings: 1;
     archerytarget: 1;
     snookertable: 1;
     netballcourt: 1;

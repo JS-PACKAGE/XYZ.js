@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'runwaymarkings',
   'archerytarget',
   'snookertable',
   'netballcourt',
@@ -51048,6 +51049,126 @@ export function createSurfaceSampler(
           elevation += (p.lineHeight - elevation) * dark;
           shade += (p.paleLineTone - shade) * pale;
           elevation += (p.lineHeight - elevation) * pale;
+          color = clamp(shade);
+          height = clamp(elevation);
+          roughness = clamp(p.inkRoughness);
+          occlusion = 1;
+        };
+      }
+      case 'runwaymarkings': {
+        const p = proceduralMaterialPresets.runwaymarkings,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(122, 1, seed ^ 0x220001) * p.surfaces.length)
+            ],
+          across = hash(122, 2, seed ^ 0x220002) < 0.5,
+          shift = (hash(122, 3, seed ^ 0x220003) * 2 - 1) * p.toneShift,
+          mirrored = hash(122, 4, seed ^ 0x220004) < 0.5,
+          halfRunway = p.runwayWidth / 2,
+          // The place of the middle of the tile along the runway from the threshold.
+          middle = p.tileLength / 2 - p.startOffset,
+          centreCycle = p.centreStripe + p.centreGap,
+          stripePitch = p.thresholdStripeWidth + p.thresholdGap,
+          lastStripe = p.thresholdStripes - 1,
+          // How far a place along the runway is inside a bar of a length from a start, and across the runway inside a bar of a width from an inner distance.
+          within = (along: number, start: number, length: number): number =>
+            Math.min(along - start, start + length - along),
+          beside = (side: number, inner: number, width: number): number =>
+            Math.min(side - inner, inner + width - side);
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            // The place in metres along the runway from its threshold, and across it from the centre line.
+            lengthwise = (across ? fv : fu) - 0.5,
+            along = (mirrored ? -lengthwise : lengthwise) / p.metre + middle,
+            side = ((across ? fu : fv) - 0.5) / p.metre,
+            wide = Math.abs(side),
+            // The shoulder is the strip beside the runway, from the middle of the side stripe (which hides its edge) out: inside the runway it has no edge, so the runway starts from the ground as it is.
+            shoulder = cover(
+              Math.min(
+                along,
+                halfRunway + p.shoulder - wide,
+                wide - (halfRunway - p.sideStripeWidth / 2),
+              ) * p.metre,
+            ),
+            runway = cover(Math.min(along, halfRunway - wide) * p.metre),
+            // The nearest threshold stripe, centre line stripe and touchdown zone bar (the pair that is too near the aiming point marking is left out).
+            stripe = Math.min(
+              Math.max(Math.round(side / stripePitch + lastStripe / 2), 0),
+              lastStripe,
+            ),
+            centre = Math.max(
+              Math.round(
+                (along - p.centreStart - p.centreStripe / 2) / centreCycle,
+              ),
+              0,
+            ),
+            bar = Math.min(
+              Math.max(
+                Math.round(
+                  (along - p.touchdownFirst - p.touchdownLength / 2) /
+                    p.touchdownSpacing,
+                ),
+                0,
+              ),
+              p.touchdownPairs - 1,
+            ),
+            barStart = p.touchdownFirst + bar * p.touchdownSpacing,
+            // The markings: they go on over the edge of the runway where that is their edge (the side stripes), so that they have the edge of the runway there.
+            marking = Math.max(
+              Math.min(
+                cover(
+                  within(along, p.thresholdStart, p.thresholdLength) * p.metre,
+                ),
+                cover(
+                  (p.thresholdStripeWidth / 2 -
+                    Math.abs(side - (stripe - lastStripe / 2) * stripePitch)) *
+                    p.metre,
+                ),
+              ),
+              cover(
+                Math.min(
+                  p.centreStripe / 2 -
+                    Math.abs(
+                      along -
+                        (p.centreStart +
+                          centre * centreCycle +
+                          p.centreStripe / 2),
+                    ),
+                  p.centreWidth / 2 - wide,
+                ) * p.metre,
+              ),
+              cover(
+                Math.min(
+                  within(along, p.aimingStart, p.aimingLength),
+                  beside(wide, p.markSpacing / 2, p.aimingWidth),
+                ) * p.metre,
+              ),
+              Math.abs(barStart - p.aimingStart) <= p.touchdownClear
+                ? 0
+                : cover(
+                    Math.min(
+                      within(along, barStart, p.touchdownLength),
+                      beside(wide, p.markSpacing / 2, p.touchdownWidth),
+                    ) * p.metre,
+                  ),
+              cover((wide - (halfRunway - p.sideStripeWidth)) * p.metre),
+            ),
+            runwayTone = surface.runway + shift;
+          let shade = surface.ground + shift,
+            elevation = p.groundHeight;
+          shade += (surface.shoulder + shift - shade) * shoulder;
+          elevation += (p.shoulderHeight - elevation) * shoulder;
+          shade +=
+            (runwayTone + (p.markTone - runwayTone) * marking - shade) * runway;
+          elevation +=
+            (p.runwayHeight +
+              (p.markHeight - p.runwayHeight) * marking -
+              elevation) *
+            runway;
           color = clamp(shade);
           height = clamp(elevation);
           roughness = clamp(p.inkRoughness);

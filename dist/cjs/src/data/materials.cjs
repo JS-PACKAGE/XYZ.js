@@ -28259,6 +28259,75 @@ var proceduralMaterialPresets = Object.freeze({
 		lineHeight: .4,
 		inkRoughness: .55
 	}),
+	runwaymarkings: Object.freeze({
+		dark: [
+			26,
+			28,
+			30
+		],
+		light: [
+			238,
+			238,
+			232
+		],
+		roughness: .85,
+		relief: .004,
+		metre: .0012195122,
+		tileLength: 820,
+		startOffset: 40,
+		runwayWidth: 45,
+		shoulder: 7.5,
+		thresholdStart: 6,
+		thresholdLength: 30,
+		thresholdStripes: 12,
+		thresholdStripeWidth: 1.8,
+		thresholdGap: 1.8,
+		centreStripe: 30,
+		centreGap: 20,
+		centreWidth: 1.8,
+		centreStart: 80,
+		aimingStart: 400,
+		aimingLength: 60,
+		aimingWidth: 6,
+		markSpacing: 18,
+		touchdownFirst: 150,
+		touchdownSpacing: 150,
+		touchdownLength: 22.5,
+		touchdownWidth: 3,
+		touchdownPairs: 6,
+		touchdownClear: 50,
+		sideStripeWidth: 1.8,
+		surfaces: Object.freeze([
+			Object.freeze({
+				runway: .18,
+				shoulder: .34,
+				ground: .5
+			}),
+			Object.freeze({
+				runway: .26,
+				shoulder: .44,
+				ground: .34
+			}),
+			Object.freeze({
+				runway: .12,
+				shoulder: .28,
+				ground: .42
+			}),
+			Object.freeze({
+				runway: .3,
+				shoulder: .4,
+				ground: .56
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		markTone: .95,
+		groundHeight: .15,
+		shoulderHeight: .25,
+		runwayHeight: .3,
+		markHeight: .34,
+		inkRoughness: .6
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -36940,6 +37009,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	runwaymarkings: 1,
 	archerytarget: 1,
 	snookertable: 1,
 	netballcourt: 1,
