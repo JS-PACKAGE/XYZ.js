@@ -1171,6 +1171,7 @@ const kinds: ProceduralMaterialKind[] = [
   'polyominoes',
   'selfavoidingwalks',
   'permutations',
+  'lozengetilings',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -203061,6 +203062,442 @@ describe('Permutations as every permutation of a kind drawn once', () => {
     expect(blue / (512 * 512)).toBeLessThan(57.4);
     expect(maxTilt).toBeGreaterThan(0.1034);
     expect(maxTilt).toBeLessThan(0.1036);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Lozenge tilings as every tiling of a hexagon drawn once', () => {
+  const p = proceduralMaterialPresets.lozengetilings;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const root = Math.sqrt(3) / 2,
+    // The screen vectors of one step along i, j and k (y downwards).
+    axisI = [root, 0.5],
+    axisJ = [-root, 0.5],
+    axisK = [0, -1];
+  /** The screen position of the lattice point (i, j, k). */
+  const place = (i: number, j: number, k: number): number[] => [
+    i * axisI[0] + j * axisJ[0] + k * axisK[0],
+    i * axisI[1] + j * axisJ[1] + k * axisK[1],
+  ];
+  /** The layout of the panels of a variant (seed % 6): slots of 1 / cols by 1 / rows, each with the hexagon of the box a by b by c centred in a square of side span. */
+  const geometry = (seed: number) => {
+    const variant = seed % p.boxes.length,
+      [a, b, c] = p.boxes[variant] as readonly number[],
+      cols: number = p.cols[variant],
+      rows: number = p.rows[variant],
+      span = Math.max((a + b) * root, c + (a + b) / 2) + 2 * p.margin,
+      scale = Math.min(1 / (cols * span), 1 / (rows * span));
+    return {
+      a,
+      b,
+      c,
+      cols,
+      rows,
+      span,
+      scale,
+      originX: (1 / cols - scale * span) / 2,
+      originY: (1 / rows - scale * span) / 2,
+      centreX: ((a - b) * root) / 2,
+      centreY: (a + b) / 4 - c / 2,
+    };
+  };
+  type Geometry = ReturnType<typeof geometry>;
+  /** The tile coordinates of the three kinds: the vectors that span a top, a right and a left face. */
+  const spans = [
+    [axisI, axisJ],
+    [axisJ, axisK],
+    [axisI, axisK],
+  ];
+  const keyOf = ([x, y]: number[]) => `${x.toFixed(3)},${y.toFixed(3)}`;
+  /** The centre of the face of a kind whose corner nearest to the origin is the lattice point (i, j, k). */
+  const centreOf = (kind: number, i: number, j: number, k: number) => {
+    const [px, py] = place(i, j, k),
+      [[ux, uy], [vx, vy]] = spans[kind];
+    return [px + (ux + vx) / 2, py + (uy + vy) / 2];
+  };
+  type Tiles = [Set<string>, Set<string>, Set<string>];
+  /** The three sets of the centres of the top, right and left lozenges of a panel slot read back from the picture, or null for an empty slot: at every possible centre the height says which kind of face is seen there (and the tone and the covering have to agree). */
+  const readTiles = (seed: number): (Tiles | null)[] => {
+    const g = geometry(seed),
+      sample = createSurfaceSampler('lozengetilings', seed),
+      out = empty(),
+      tiles: (Tiles | null)[] = [];
+    const candidates: [number, number[]][] = [];
+    for (let i = 0; i < g.a; i++)
+      for (let j = 0; j < g.b; j++)
+        for (let z = 0; z <= g.c; z++)
+          candidates.push([0, centreOf(0, i, j, z)]);
+    for (let i = 0; i <= g.a; i++)
+      for (let j = 0; j < g.b; j++)
+        for (let k = 0; k < g.c; k++)
+          candidates.push([1, centreOf(1, i, j, k)]);
+    for (let i = 0; i < g.a; i++)
+      for (let j = 0; j <= g.b; j++)
+        for (let k = 0; k < g.c; k++)
+          candidates.push([2, centreOf(2, i, j, k)]);
+    for (let slot = 0; slot < g.cols * g.rows; slot++) {
+      const col = slot % g.cols,
+        row = Math.floor(slot / g.cols),
+        found: Tiles = [new Set(), new Set(), new Set()];
+      for (const [, [x, y]] of candidates) {
+        sample(
+          col / g.cols + g.originX + g.scale * (g.span / 2 + x - g.centreX),
+          row / g.rows + g.originY + g.scale * (g.span / 2 + y - g.centreY),
+          out,
+        );
+        // The kind seen at this point: the one whose height is nearest.
+        const height = out.height / p.relief / p.cellHeight,
+          seen = [0, 1, 2].reduce((best, kind) =>
+            Math.abs(height - p.heights[kind]) <
+            Math.abs(height - p.heights[best])
+              ? kind
+              : best,
+          );
+        // The centre of a lozenge that is not in the tiling is the middle of the edge between two other lozenges, in the gap, where the ground is seen; at the centre of a lozenge of the tiling the face is seen.
+        if (height === 0) continue;
+        expect(Math.abs(height - p.heights[seen])).toBeLessThan(1e-6);
+        expect(out.occlusion).toBeCloseTo(1, 9);
+        found[seen].add(keyOf([x, y]));
+      }
+      tiles.push(
+        found[0].size + found[1].size + found[2].size === 0 ? null : found,
+      );
+    }
+    return tiles;
+  };
+  /** The sets of the lozenge centres of the plane partition with the heights h (row i, column j) found as the faces between a cube (or the floor and the walls) and an empty place: every such face is seen. */
+  const oracleTiles = (g: Geometry, h: number[][]): Tiles => {
+    const full = (i: number, j: number, k: number): boolean => {
+      if (i >= g.a || j >= g.b || k >= g.c) return false;
+      if (i < 0 || j < 0 || k < 0) return true;
+      return k < h[i][j];
+    };
+    const found: Tiles = [new Set(), new Set(), new Set()];
+    for (let i = 0; i < g.a; i++)
+      for (let j = 0; j < g.b; j++)
+        for (let z = 0; z <= g.c; z++)
+          if (full(i, j, z - 1) && !full(i, j, z))
+            found[0].add(keyOf(centreOf(0, i, j, z)));
+    for (let i = 0; i <= g.a; i++)
+      for (let j = 0; j < g.b; j++)
+        for (let k = 0; k < g.c; k++)
+          if (full(i - 1, j, k) && !full(i, j, k))
+            found[1].add(keyOf(centreOf(1, i, j, k)));
+    for (let i = 0; i < g.a; i++)
+      for (let j = 0; j <= g.b; j++)
+        for (let k = 0; k < g.c; k++)
+          if (full(i, j - 1, k) && !full(i, j, k))
+            found[2].add(keyOf(centreOf(2, i, j, k)));
+    return found;
+  };
+  const signature = (tiles: Tiles): string =>
+    tiles.map((set) => [...set].sort().join(';')).join('|');
+  /** Every plane partition of the box by trying all matrices of entries 0 to c and keeping those that do not increase along a row or a column. */
+  const planePartitions = (g: Geometry): number[][][] => {
+    const cells = g.a * g.b,
+      found: number[][][] = [];
+    for (let code = 0; code < (g.c + 1) ** cells; code++) {
+      const h: number[][] = [];
+      for (let i = 0; i < g.a; i++) {
+        h.push([]);
+        for (let j = 0; j < g.b; j++)
+          h[i].push(Math.floor(code / (g.c + 1) ** (i * g.b + j)) % (g.c + 1));
+      }
+      let valid = true;
+      for (let i = 0; i < g.a; i++)
+        for (let j = 0; j < g.b; j++) {
+          if (i > 0 && h[i][j] > h[i - 1][j]) valid = false;
+          if (j > 0 && h[i][j] > h[i][j - 1]) valid = false;
+        }
+      if (valid) found.push(h);
+    }
+    return found;
+  };
+  /** MacMahon's formula for the number of plane partitions in the box: the product of (i + j + k - 1) / (i + j + k - 2) over the box. */
+  const macMahon = (g: Geometry): number => {
+    let value = 1;
+    for (let i = 1; i <= g.a; i++)
+      for (let j = 1; j <= g.b; j++)
+        for (let k = 1; k <= g.c; k++)
+          value *= (i + j + k - 1) / (i + j + k - 2);
+    return Math.round(value);
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('lozengetilings', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { high: 0.9637, lit: 0.10704, mean: 0.11925 }],
+      [1, { high: 0.9638, lit: 0.16968, mean: 0.19133 }],
+      [0xffffffff, { high: 0.9634, lit: 0.13565, mean: 0.15903 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('lozengetilings', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0155);
+      expect(low).toBeLessThan(0.0159);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws every lozenge tiling of the hexagon exactly once, read back from the picture and compared with the faces of the plane partitions listed again here', () => {
+    for (let seed = 0; seed < 12; seed++) {
+      const g = geometry(seed),
+        read = readTiles(seed),
+        drawn = read.filter((tiles): tiles is Tiles => tiles !== null),
+        names = drawn.map(signature),
+        wanted = planePartitions(g).map((h) => signature(oracleTiles(g, h)));
+      // The numbers of lozenges of the three kinds are a b, b c and a c in every tiling.
+      for (const tiles of drawn)
+        expect(tiles.map((set) => set.size)).toEqual([
+          g.a * g.b,
+          g.b * g.c,
+          g.a * g.c,
+        ]);
+      expect(new Set(names).size).toBe(drawn.length);
+      expect([...names].sort()).toEqual([...wanted].sort());
+      expect(drawn.length).toBe(macMahon(g));
+      expect(read.slice(drawn.length).every((tiles) => tiles === null)).toBe(
+        true,
+      );
+    }
+    // The numbers of tilings: 10, 20, 50, 105, 175 and 35.
+    expect(
+      [0, 1, 2, 3, 4, 5].map(
+        (seed) => readTiles(seed).filter((tiles) => tiles !== null).length,
+      ),
+    ).toEqual([10, 20, 50, 105, 175, 35]);
+  });
+  it('shuffles the panels by group without changing the set of tilings', () => {
+    for (const seed of [0, 1, 4]) {
+      const names = (s: number) =>
+          readTiles(s).map((tiles) =>
+            tiles === null ? '-' : signature(tiles),
+          ),
+        first = names(seed),
+        second = names(seed + 6),
+        third = names(seed + 12);
+      expect(first).not.toEqual(second);
+      expect(second).not.toEqual(third);
+      expect([...first].sort()).toEqual([...second].sort());
+      expect([...first].sort()).toEqual([...third].sort());
+    }
+  });
+  it('agrees with the ideal lozenges and gaps away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5]) {
+      const g = geometry(seed),
+        tiles = readTiles(seed),
+        sample = createSurfaceSampler('lozengetilings', seed),
+        out = empty(),
+        half = p.gapWidth / 2;
+      // The inverse of the matrix of the two vectors that span each kind of face.
+      const inverses = spans.map(([[px, py], [qx, qy]]) => {
+        const det = px * qy - qx * py;
+        return [qy / det, -qx / det, -py / det, px / det];
+      });
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          col = Math.min(g.cols - 1, Math.floor(u * g.cols)),
+          row = Math.min(g.rows - 1, Math.floor(v * g.rows)),
+          panel = tiles[row * g.cols + col],
+          x = (u - col / g.cols - g.originX) / g.scale - g.span / 2 + g.centreX,
+          y = (v - row / g.rows - g.originY) / g.scale - g.span / 2 + g.centreY;
+        let kind = 0,
+          covered = false,
+          near = false,
+          inside = false;
+        if (panel !== null)
+          for (let tileKind = 0; tileKind < 3; tileKind++)
+            for (const name of panel[tileKind]) {
+              const [cx, cy] = name.split(',').map(Number),
+                [[px, py], [qx, qy]] = spans[tileKind],
+                // Coordinates in the face: s along the first vector and t along the second.
+                [m00, m01, m10, m11] = inverses[tileKind],
+                dx = x - (cx - (px + qx) / 2),
+                dy = y - (cy - (py + qy) / 2),
+                s = m00 * dx + m01 * dy,
+                t = m10 * dx + m11 * dy;
+              if (s < 0 || s > 1 || t < 0 || t > 1) continue;
+              covered = true;
+              kind = tileKind;
+              // The sides are 120 degrees apart, so a distance across the face is the coordinate times the root of three over two.
+              const sides = [s, 1 - s, t, 1 - t].map((side) => side * root);
+              if (
+                sides.some(
+                  (distance) =>
+                    distance > half && distance < half + p.edgeSoft + 1e-6,
+                ) ||
+                sides.some((distance) => Math.abs(distance - half) < 1e-6)
+              )
+                near = true;
+              inside = sides.every((distance) => distance > half);
+            }
+        if (near) continue;
+        compared++;
+        const ink = covered && inside ? 1 : 0;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief * p.cellHeight * ink * p.heights[kind],
+          12,
+        );
+        expect(
+          Math.abs(
+            out.color - (p.toneGround * (1 - ink) + p.tones[kind] * ink),
+          ),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(5300);
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeGreaterThan(0.245);
+    expect(unlike(first, litGrid(1))).toBeLessThan(0.246);
+    expect(unlike(first, litGrid(6))).toBeGreaterThan(0.067);
+    expect(unlike(first, litGrid(6))).toBeLessThan(0.0674);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('lozengetilings', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 cyan lozenge maps on dark teal with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('lozengetilings', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(29);
+    expect(red / (512 * 512)).toBeLessThan(29.8);
+    expect(green / (512 * 512)).toBeGreaterThan(61.4);
+    expect(green / (512 * 512)).toBeLessThan(62.2);
+    expect(blue / (512 * 512)).toBeGreaterThan(72.6);
+    expect(blue / (512 * 512)).toBeLessThan(73.5);
+    expect(maxTilt).toBeGreaterThan(0.1);
+    expect(maxTilt).toBeLessThan(0.1001);
     expect(invalid).toBe(0);
   });
 });

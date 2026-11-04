@@ -1208,6 +1208,7 @@ try {
     'polyominoes',
     'selfavoidingwalks',
     'permutations',
+    'lozengetilings',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

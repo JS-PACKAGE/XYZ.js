@@ -1145,6 +1145,7 @@ export type ProceduralMaterialKind =
   | 'polyominoes'
   | 'selfavoidingwalks'
   | 'permutations'
+  | 'lozengetilings'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2538,6 +2539,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'polyominoes',
   'selfavoidingwalks',
   'permutations',
+  'lozengetilings',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

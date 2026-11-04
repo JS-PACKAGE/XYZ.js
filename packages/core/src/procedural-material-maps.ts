@@ -53659,6 +53659,150 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'lozengetilings': {
+        const p = proceduralMaterialPresets.lozengetilings,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.boxes.length,
+          group = Math.floor(unsigned / p.boxes.length),
+          [a, b, c] = p.boxes[variant] as readonly number[],
+          cols = p.cols[variant],
+          rows = p.rows[variant],
+          root = Math.sqrt(3) / 2,
+          // The screen vectors of one step along i, j and k (y downwards): the cubes are seen along the diagonal, i and j come towards the viewer to the right and left, k goes up.
+          axes = [
+            [root, 0.5],
+            [-root, 0.5],
+            [0, -1],
+          ],
+          // The three kinds of face: the top face is spanned by the steps along i and j, the right face (towards +i) by j and k, the left face (towards +j) by i and k, with the origin at the corner of the cube nearest to the origin of the face.
+          spans = [
+            [0, 1],
+            [1, 2],
+            [0, 2],
+          ],
+          // Every plane partition of the box (rows i by columns j, each at most the entry before it in the row and in the column, at most c), found cell by cell, and its faces: the cubes (i, j, k) with k below the height give their three faces and the floor and the two walls behind the stack give the faces at the depth below them, as [kind, origin x, origin y, depth] for the painter.
+          panels = (() => {
+            const found: number[][] = [],
+              heights: number[] = [],
+              place = (cell: number): void => {
+                if (cell === a * b) {
+                  found.push(heights.slice());
+                  return;
+                }
+                const i = Math.floor(cell / b),
+                  j = cell % b;
+                let most = c;
+                if (i > 0) most = Math.min(most, heights[cell - b]);
+                if (j > 0) most = Math.min(most, heights[cell - 1]);
+                for (let height = 0; height <= most; height++) {
+                  heights[cell] = height;
+                  place(cell + 1);
+                }
+              },
+              at = (i: number, j: number, k: number): number[] => [
+                i * axes[0][0] + j * axes[1][0] + k * axes[2][0],
+                i * axes[0][1] + j * axes[1][1] + k * axes[2][1],
+              ];
+            place(0);
+            for (let k = found.length - 1; k > 0; k--) {
+              const other = Math.floor(
+                hash(k, 251, group ^ p.seedSalt) * (k + 1),
+              );
+              [found[k], found[other]] = [found[other], found[k]];
+            }
+            return found.map((stack) => {
+              const faces: number[][] = [];
+              for (let i = 0; i < a; i++)
+                for (let j = 0; j < b; j++) {
+                  // The floor under the stack.
+                  faces.push([0, ...at(i, j, 0), i + j - 1]);
+                  for (let k = 0; k < stack[i * b + j]; k++) {
+                    const depth = i + j + k;
+                    faces.push([0, ...at(i, j, k + 1), depth]);
+                    faces.push([1, ...at(i + 1, j, k), depth]);
+                    faces.push([2, ...at(i, j + 1, k), depth]);
+                  }
+                }
+              // The walls: the faces towards +i at i = 0 and towards +j at j = 0.
+              for (let j = 0; j < b; j++)
+                for (let k = 0; k < c; k++)
+                  faces.push([1, ...at(0, j, k), j + k - 1]);
+              for (let i = 0; i < a; i++)
+                for (let k = 0; k < c; k++)
+                  faces.push([2, ...at(i, 0, k), i + k - 1]);
+              return faces;
+            });
+          })(),
+          // The inverse of the matrix of the two steps of every kind of face, to find the coordinates s and t of a point in the face.
+          inverses = spans.map(([first, second]) => {
+            const [px, py] = axes[first],
+              [qx, qy] = axes[second],
+              det = px * qy - qx * py;
+            return [qy / det, -qx / det, -py / det, px / det];
+          }),
+          // The box seen on the screen is (a + b) root wide and c + (a + b) / 2 high; it is centred in the square slot of side span.
+          width = (a + b) * root,
+          height0 = c + (a + b) / 2,
+          span = Math.max(width, height0) + 2 * p.margin,
+          scale = Math.min(1 / (cols * span), 1 / (rows * span)),
+          originX = (1 / cols - scale * span) / 2,
+          originY = (1 / rows - scale * span) / 2,
+          centreX = ((a - b) * root) / 2,
+          centreY = (a + b) / 4 - c / 2,
+          halfGap = p.gapWidth / 2,
+          // 1 on the tile side of a gap, 0 at the edge itself, at the distance fromEdge in lattice units.
+          edge = (fromEdge: number): number =>
+            smooth(clamp((fromEdge - halfGap) / p.edgeSoft));
+        return () => {
+          const tileU = fract(u),
+            tileV = fract(v),
+            col = Math.min(cols - 1, Math.floor(tileU * cols)),
+            row = Math.min(rows - 1, Math.floor(tileV * rows)),
+            index = row * cols + col,
+            grain = grainField(u, v);
+          let mask = 0,
+            kind = 0;
+          if (index < panels.length) {
+            const x =
+                (tileU - col / cols - originX) / scale - span / 2 + centreX,
+              y = (tileV - row / rows - originY) / scale - span / 2 + centreY;
+            // The painter: the face that covers the point with the greatest depth is the one that is seen.
+            let best = -Infinity,
+              s = 0,
+              t = 0;
+            for (const [faceKind, ox, oy, depth] of panels[index]) {
+              if (depth <= best) continue;
+              const [m00, m01, m10, m11] = inverses[faceKind],
+                fs = m00 * (x - ox) + m01 * (y - oy),
+                ft = m10 * (x - ox) + m11 * (y - oy);
+              if (fs < 0 || fs > 1 || ft < 0 || ft > 1) continue;
+              best = depth;
+              kind = faceKind;
+              s = fs;
+              t = ft;
+            }
+            if (best > -Infinity)
+              // The sides of a face are 120 degrees apart, so a distance across the face is its coordinate times the root of three over two.
+              mask =
+                edge(s * root) *
+                edge((1 - s) * root) *
+                edge(t * root) *
+                edge((1 - t) * root);
+          }
+          color =
+            p.toneGround * (1 - mask) +
+            p.tones[kind] * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * p.heights[kind];
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -62605,6 +62749,7 @@ export function createSurfaceSampler(
     kind === 'polyominoes' ||
     kind === 'selfavoidingwalks' ||
     kind === 'permutations' ||
+    kind === 'lozengetilings' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
