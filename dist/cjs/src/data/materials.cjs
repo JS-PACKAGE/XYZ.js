@@ -26235,6 +26235,78 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .8,
 		inkRoughness: .45
 	}),
+	monopolyboard: Object.freeze({
+		dark: [
+			24,
+			56,
+			44
+		],
+		light: [
+			244,
+			236,
+			208
+		],
+		roughness: .5,
+		relief: .004,
+		spaces: `G1H1XR2C22J3U33R4H44P5C55R66U6W77H7RC8X8`,
+		side: 11,
+		extent: .94,
+		gapHalf: .0012,
+		bandShare: .28,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		centreTone: .8,
+		streetTone: .92,
+		spaceTones: Object.freeze([
+			.06,
+			.14,
+			.22,
+			.3,
+			.38,
+			.46,
+			.54,
+			.62,
+			.7
+		]),
+		bandTones: Object.freeze([
+			.12,
+			.2,
+			.28,
+			.36,
+			.44,
+			.52,
+			.6,
+			.68
+		]),
+		centreHeight: .3,
+		streetHeight: .5,
+		spaceHeights: Object.freeze([
+			.8,
+			.7,
+			.4,
+			.6,
+			.75,
+			.65,
+			.55,
+			.45,
+			.85
+		]),
+		bandHeights: Object.freeze([
+			.62,
+			.64,
+			.66,
+			.68,
+			.7,
+			.72,
+			.74,
+			.76
+		]),
+		grainTone: .03,
+		paperHeight: .2,
+		paperRoughness: .8,
+		inkRoughness: .45
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -34916,6 +34988,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	monopolyboard: 1,
 	scrabbleboard: 1,
 	duccirows: 1,
 	wireworldcircuit: 1,

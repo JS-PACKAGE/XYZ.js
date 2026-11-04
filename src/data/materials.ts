@@ -16579,6 +16579,40 @@ export const proceduralMaterialPresets = Object.freeze({
     paperRoughness: 0.8,
     inkRoughness: 0.45,
   }),
+  monopolyboard: Object.freeze({
+    dark: [24, 56, 44] as const,
+    light: [244, 236, 208] as const,
+    roughness: 0.5,
+    relief: 0.004,
+    // The Monopoly board as a ring of 40 spaces round an 11 by 11 square, from GO at the bottom right corner to the left along the bottom, up the left side, to the right along the top and down the right
+    // side. spaces: G go, J jail, P free parking, W go to jail, R railroad, U utility, C chance, H community chest, X tax, 1 to 8 the street of the colour group 1 to 8 (brown, light blue, pink, orange,
+    // red, yellow, green, dark blue). A street has a band of its group's tone along its inner side. The seed picks one of the eight ways to turn or flip the board.
+    spaces: 'G1H1XR2C22J3U33R4H44P5C55R66U6W77H7RC8X8',
+    side: 11,
+    extent: 0.94,
+    gapHalf: 0.0012,
+    bandShare: 0.28,
+    edgeSoft: 0.0006,
+    grainCells: 192,
+    paperTone: 0.97,
+    centreTone: 0.8,
+    streetTone: 0.92,
+    // The tone of a space by its letter, in the order G J P W R U C H X, and the bands of the groups 1 to 8.
+    spaceTones: Object.freeze([
+      0.06, 0.14, 0.22, 0.3, 0.38, 0.46, 0.54, 0.62, 0.7,
+    ]),
+    bandTones: Object.freeze([0.12, 0.2, 0.28, 0.36, 0.44, 0.52, 0.6, 0.68]),
+    centreHeight: 0.3,
+    streetHeight: 0.5,
+    spaceHeights: Object.freeze([
+      0.8, 0.7, 0.4, 0.6, 0.75, 0.65, 0.55, 0.45, 0.85,
+    ]),
+    bandHeights: Object.freeze([0.62, 0.64, 0.66, 0.68, 0.7, 0.72, 0.74, 0.76]),
+    grainTone: 0.03,
+    paperHeight: 0.2,
+    paperRoughness: 0.8,
+    inkRoughness: 0.45,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -23071,6 +23105,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  monopolyboard: 1,
   scrabbleboard: 1,
   duccirows: 1,
   wireworldcircuit: 1,

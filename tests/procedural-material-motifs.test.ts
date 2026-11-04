@@ -62401,3 +62401,466 @@ describe('scrabbleboard: the Scrabble board with a game in progress, turned or f
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('monopolyboard: the Monopoly board, a ring of 40 spaces round a middle square, turned or flipped by the seed', () => {
+  const p = proceduralMaterialPresets.monopolyboard,
+    out = empty(),
+    cell = p.extent / p.side,
+    left = 0.5 - p.extent / 2,
+    half = cell / 2 - p.gapHalf,
+    bandStart = half - cell * p.bandShare,
+    toneAt = (sample: Sampler, u: number, v: number): number => {
+      sample(u, v, out);
+      return out.color;
+    };
+  const letters = 'GJPWRUCHX';
+  const centre = (column: number, row: number): [number, number] => [
+    left + (column + 0.5) * cell,
+    left + (row + 0.5) * cell,
+  ];
+  // The facts of the board, as known from the game (and not from the preset): the space of every place from GO round the board.
+  const expected = (() => {
+    const spaces: string[] = new Array<string>(40).fill('');
+    for (const [index, letter] of [
+      [0, 'G'],
+      [10, 'J'],
+      [20, 'P'],
+      [30, 'W'],
+    ] as const)
+      spaces[index] = letter;
+    for (const [letter, indices] of [
+      ['R', [5, 15, 25, 35]],
+      ['U', [12, 28]],
+      ['C', [7, 22, 36]],
+      ['H', [2, 17, 33]],
+      ['X', [4, 38]],
+      ['1', [1, 3]],
+      ['2', [6, 8, 9]],
+      ['3', [11, 13, 14]],
+      ['4', [16, 18, 19]],
+      ['5', [21, 23, 24]],
+      ['6', [26, 27, 29]],
+      ['7', [31, 32, 34]],
+      ['8', [37, 39]],
+    ] as const)
+      for (const index of indices) spaces[index] = letter;
+    return spaces;
+  })();
+  type Square = {
+    column: number;
+    row: number;
+    letter: string;
+    dx: number;
+    dy: number;
+  };
+  const ring: [number, number][] = [];
+  for (let row = 0; row < p.side; row++)
+    for (let column = 0; column < p.side; column++)
+      if (
+        row === 0 ||
+        row === p.side - 1 ||
+        column === 0 ||
+        column === p.side - 1
+      )
+        ring.push([column, row]);
+  // Read the squares of the ring: the letter of a space by the tone of its middle (a street has its own), and for a street the group and the way to the middle of the board by the band.
+  const readSquares = (
+    seed: number,
+  ): { sample: Sampler; squares: Map<string, Square> } => {
+    const sample = createSurfaceSampler('monopolyboard', seed),
+      squares = new Map<string, Square>();
+    for (const [column, row] of ring) {
+      const [cx, cy] = centre(column, row),
+        middle = toneAt(sample, cx, cy),
+        kind = p.spaceTones.findIndex((tone) => Math.abs(tone - middle) < 1e-6);
+      if (kind >= 0) {
+        squares.set(`${column},${row}`, {
+          column,
+          row,
+          letter: letters[kind],
+          dx: 0,
+          dy: 0,
+        });
+        continue;
+      }
+      expect(middle).toBeCloseTo(p.streetTone, 6);
+      const bands = [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ]
+        .map(([dx, dy]) => ({
+          dx,
+          dy,
+          group: p.bandTones.findIndex(
+            (tone) =>
+              Math.abs(
+                tone -
+                  toneAt(
+                    sample,
+                    cx + dx * (bandStart + half) * 0.5,
+                    cy + dy * (bandStart + half) * 0.5,
+                  ),
+              ) < 1e-6,
+          ),
+        }))
+        .filter((band) => band.group >= 0);
+      expect(bands.length).toBe(1);
+      squares.set(`${column},${row}`, {
+        column,
+        row,
+        letter: String(bands[0].group + 1),
+        dx: bands[0].dx,
+        dy: bands[0].dy,
+      });
+    }
+    return { sample, squares };
+  };
+  // The ring from GO onwards, in the direction that goes to the first street (the first of the group 1) next, as letters.
+  const walk = (squares: Map<string, Square>): Square[] => {
+    const start = [...squares.values()].find(
+        (square) => square.letter === 'G',
+      ) as Square,
+      neighbours = ring
+        .filter(
+          ([column, row]) =>
+            Math.abs(column - start.column) + Math.abs(row - start.row) === 1,
+        )
+        .map(([column, row]) => squares.get(`${column},${row}`) as Square),
+      first = neighbours.find((square) => square.letter === '1') as Square,
+      path = [start, first];
+    while (path.length < 40) {
+      const here = path[path.length - 1],
+        before = path[path.length - 2],
+        next = ring
+          .filter(
+            ([column, row]) =>
+              Math.abs(column - here.column) + Math.abs(row - here.row) === 1,
+          )
+          .map(([column, row]) => squares.get(`${column},${row}`) as Square)
+          .find((square) => square !== before) as Square;
+      path.push(next);
+    }
+    return path;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws the 40 spaces of the board in their places round the ring, the bands of the streets towards the middle (seed %i)',
+    (seed) => {
+      const { squares } = readSquares(seed),
+        path = walk(squares);
+      expect(squares.size).toBe(4 * (p.side - 1));
+      // The ring from GO, one square after another, is the spaces of the game in their places (and the whole ring is walked once).
+      expect(path.map((square) => square.letter)).toEqual(expected);
+      expect(new Set(path).size).toBe(40);
+      // The counts: 22 streets in groups of 2, 3, 3, 3, 3, 3, 3, 2, 4 railroads, 2 utilities, 3 chance, 3 community chest, 2 taxes and the 4 corners.
+      for (const [letter, count] of [
+        ['G', 1],
+        ['J', 1],
+        ['P', 1],
+        ['W', 1],
+        ['R', 4],
+        ['U', 2],
+        ['C', 3],
+        ['H', 3],
+        ['X', 2],
+        ['1', 2],
+        ['2', 3],
+        ['3', 3],
+        ['4', 3],
+        ['5', 3],
+        ['6', 3],
+        ['7', 3],
+        ['8', 2],
+      ] as const)
+        expect(path.filter((square) => square.letter === letter).length).toBe(
+          count,
+        );
+      // The band of a street is on the side of the middle of the board: the way to it is the one that goes towards the middle of the board.
+      for (const square of path.filter(
+        (s) => s.letter >= '1' && s.letter <= '8',
+      )) {
+        const towardX = Math.sign(5 - square.column),
+          towardY = Math.sign(5 - square.row);
+        expect(square.dx !== 0 ? square.dx : 0).toBe(
+          square.dx !== 0 ? towardX : 0,
+        );
+        expect(square.dy !== 0 ? square.dy : 0).toBe(
+          square.dy !== 0 ? towardY : 0,
+        );
+      }
+      // The corners are the four corners, and GO is a corner.
+      const corners = ['G', 'J', 'P', 'W'].map(
+        (letter) =>
+          [...squares.values()].find(
+            (square) => square.letter === letter,
+          ) as Square,
+      );
+      for (const corner of corners) {
+        expect([0, p.side - 1]).toContain(corner.column);
+        expect([0, p.side - 1]).toContain(corner.row);
+      }
+    },
+  );
+
+  it('turns and flips the board in all eight ways, over 60 seeds', () => {
+    // A way is told by where GO is and which neighbour of it is the first street (an eight-way fingerprint of the turn or flip).
+    const ways = new Set<string>();
+    for (let seed = 0; seed < 60; seed++) {
+      const { squares } = readSquares(seed * 3 + 1),
+        path = walk(squares);
+      ways.add(
+        `${path[0].column},${path[0].row}>${path[1].column},${path[1].row}`,
+      );
+    }
+    expect(ways.size).toBe(8);
+  });
+
+  it('draws each kind of space and the bands of the streets with their tones, heights and roughness, as squares of their sizes, and nothing outside the board', () => {
+    const { sample, squares } = readSquares(1),
+      path = walk(squares),
+      paperOk = (u: number, v: number): boolean =>
+        Math.abs(toneAt(sample, u, v) - p.paperTone) <= p.grainTone / 2 + 1e-9,
+      edges = [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ];
+    for (const [kind, letter] of [...letters].entries()) {
+      const square = path.find((s) => s.letter === letter) as Square,
+        [cx, cy] = centre(square.column, square.row);
+      expect(toneAt(sample, cx, cy)).toBeCloseTo(p.spaceTones[kind], 6);
+      expect(out.height / p.relief).toBeCloseTo(p.spaceHeights[kind], 6);
+      expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+      for (const [dx, dy] of edges) {
+        expect(
+          toneAt(sample, cx + dx * (half - 0.0004), cy + dy * (half - 0.0004)),
+        ).toBeCloseTo(p.spaceTones[kind], 6);
+        expect(
+          toneAt(
+            sample,
+            cx + (half - 0.0004) * (dx + dy),
+            cy + (half - 0.0004) * (dx + dy),
+          ),
+        ).toBeCloseTo(p.spaceTones[kind], 6);
+        expect(
+          paperOk(cx + dx * (half + 0.0004), cy + dy * (half + 0.0004)),
+        ).toBe(true);
+        expect(out.height / p.relief).toBeCloseTo(p.paperHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.paperRoughness, 6);
+      }
+    }
+    // A street of each group: its own tone and height, the band's tone and height from the band's inner edge to the cell edge, and the width of the band.
+    for (let group = 0; group < 8; group++) {
+      const square = path.find((s) => s.letter === String(group + 1)) as Square,
+        [cx, cy] = centre(square.column, square.row),
+        across = { dx: square.dy, dy: square.dx };
+      expect(toneAt(sample, cx, cy)).toBeCloseTo(p.streetTone, 6);
+      expect(out.height / p.relief).toBeCloseTo(p.streetHeight, 6);
+      for (const side of [-1, 0, 1]) {
+        const x0 = cx + across.dx * side * 0.6 * half,
+          y0 = cy + across.dy * side * 0.6 * half;
+        expect(
+          toneAt(
+            sample,
+            x0 + square.dx * (bandStart + 0.0004),
+            y0 + square.dy * (bandStart + 0.0004),
+          ),
+        ).toBeCloseTo(p.bandTones[group], 6);
+        expect(out.height / p.relief).toBeCloseTo(p.bandHeights[group], 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        expect(
+          toneAt(
+            sample,
+            x0 + square.dx * (half - 0.0004),
+            y0 + square.dy * (half - 0.0004),
+          ),
+        ).toBeCloseTo(p.bandTones[group], 6);
+        expect(
+          toneAt(
+            sample,
+            x0 + square.dx * (bandStart - 0.0004),
+            y0 + square.dy * (bandStart - 0.0004),
+          ),
+        ).toBeCloseTo(p.streetTone, 6);
+      }
+      // The band is on the inner side only: the outer side of the street is the street's own tone.
+      expect(
+        toneAt(
+          sample,
+          cx - square.dx * (half - 0.0004),
+          cy - square.dy * (half - 0.0004),
+        ),
+      ).toBeCloseTo(p.streetTone, 6);
+    }
+    // The middle of the board: the square of the 9 by 9 squares inside the ring, with its tone and height, its edge and the gap to the ring.
+    const [bx, by] = [0.5, 0.5],
+      inside = (p.side - 2) * cell * 0.5 - p.gapHalf;
+    expect(toneAt(sample, bx, by)).toBeCloseTo(p.centreTone, 6);
+    expect(out.height / p.relief).toBeCloseTo(p.centreHeight, 6);
+    expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+    for (const [dx, dy] of edges) {
+      expect(
+        toneAt(
+          sample,
+          bx + dx * (inside - 0.0004),
+          by + dy * (inside - 0.0004),
+        ),
+      ).toBeCloseTo(p.centreTone, 6);
+      expect(
+        toneAt(
+          sample,
+          bx + (inside - 0.0004) * (dx + dy),
+          by + (inside - 0.0004) * (dx + dy),
+        ),
+      ).toBeCloseTo(p.centreTone, 6);
+      expect(
+        paperOk(bx + dx * (inside + 0.0004), by + dy * (inside + 0.0004)),
+      ).toBe(true);
+    }
+    for (const [u, v] of [
+      [left - 0.004, 0.5],
+      [left + p.extent + 0.004, 0.5],
+      [0.5, left - 0.004],
+      [0.5, left + p.extent + 0.004],
+    ])
+      expect(paperOk(u, v)).toBe(true);
+  });
+
+  it('softens the edge of a space, of a band and of the middle square over edgeSoft', () => {
+    const { sample, squares } = readSquares(1),
+      path = walk(squares),
+      smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03),
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      corner = path.find((s) => s.letter === 'J') as Square,
+      [cx, cy] = centre(corner.column, corner.row),
+      street = path.find((s) => s.letter === '4') as Square,
+      [sx, sy] = centre(street.column, street.row);
+    // The space's outer edge on the side away from its neighbours (the corner's two sides on the paper).
+    const out1 = corner.column === 0 ? -1 : 1,
+      out2 = corner.row === 0 ? -1 : 1;
+    close(
+      toneAt(sample, cx + out1 * (half - quarter), cy),
+      mix(p.paperTone, p.spaceTones[1], 0.75),
+    );
+    close(
+      toneAt(sample, cx + out1 * (half + quarter), cy),
+      mix(p.paperTone, p.spaceTones[1], 0.25),
+    );
+    close(
+      toneAt(sample, cx, cy + out2 * (half - quarter)),
+      mix(p.paperTone, p.spaceTones[1], 0.75),
+    );
+    close(
+      toneAt(sample, cx, cy + out2 * (half + quarter)),
+      mix(p.paperTone, p.spaceTones[1], 0.25),
+    );
+    // The inner edge of the band over the street.
+    close(
+      toneAt(
+        sample,
+        sx + street.dy * 0.01 + street.dx * (bandStart + quarter),
+        sy + street.dx * 0.01 + street.dy * (bandStart + quarter),
+      ),
+      mix(p.streetTone, p.bandTones[3], 0.75),
+    );
+    close(
+      toneAt(
+        sample,
+        sx + street.dy * 0.01 + street.dx * (bandStart - quarter),
+        sy + street.dx * 0.01 + street.dy * (bandStart - quarter),
+      ),
+      mix(p.streetTone, p.bandTones[3], 0.25),
+    );
+    // The edge of the middle square over the paper... (its gap to the ring is 2 gaps wide, so both sides are the ring's and the middle's own edges).
+    const inside = (p.side - 2) * cell * 0.5 - p.gapHalf;
+    close(
+      toneAt(sample, 0.5 + inside - quarter, 0.5),
+      mix(p.paperTone, p.centreTone, 0.75),
+    );
+    close(
+      toneAt(sample, 0.5 + inside + quarter, 0.5),
+      mix(p.paperTone, p.centreTone, 0.25),
+    );
+  });
+
+  it('fades the grain of the paper out over the edge of a space, as much as the space covers', () => {
+    const { sample, squares } = readSquares(1),
+      smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      amount = smoothstep(0.25),
+      residuals: number[] = [];
+    // Along the outer edge of the ring's bottom row (or the top row, whichever the board has the corners on): the outer side of the squares that are not streets with a band on that side.
+    for (const [column, row] of ring.filter(
+      ([c, r]) => r === 0 && c > 0 && c < p.side - 1,
+    )) {
+      const square = squares.get(`${column},${row}`) as Square,
+        [cx, cy] = centre(column, row),
+        tone =
+          square.letter >= '1' && square.letter <= '8'
+            ? p.streetTone
+            : p.spaceTones[letters.indexOf(square.letter)];
+      for (const t of [-0.8, -0.3, 0.3, 0.8])
+        residuals.push(
+          toneAt(sample, cx + t * half, cy - half - 0.25 * p.edgeSoft) -
+            (p.paperTone + (tone - p.paperTone) * amount),
+        );
+    }
+    expect(residuals.length).toBe(36);
+    const largest = Math.max(...residuals.map(Math.abs));
+    expect(largest).toBeGreaterThan(0.003);
+    expect(largest).toBeLessThanOrEqual(
+      0.5 * p.grainTone * (1 - amount) + 1e-9,
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('monopolyboard', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('monopolyboard', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0013 + i * 0.0021, 0.01),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('monopolyboard', 0),
+      b = createSurfaceSampler('monopolyboard', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3501],
+        [0.2201, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

@@ -47056,6 +47056,102 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'monopolyboard': {
+        const p = proceduralMaterialPresets.monopolyboard,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x63001),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          way = Math.floor(hash(92, 1, seed ^ 0x63002) * 8),
+          cell = p.extent / p.side,
+          left = 0.5 - p.extent / 2,
+          last = p.side - 1,
+          half = cell / 2 - p.gapHalf,
+          bandStart = half - cell * p.bandShare,
+          // For each square of the ring: its space (-1 elsewhere) and the way to the middle of the board, after the turn or flip.
+          spaceAt = new Int8Array(p.side * p.side).fill(-1),
+          towardX = new Int8Array(p.side * p.side),
+          towardY = new Int8Array(p.side * p.side);
+        for (let index = 0; index < p.spaces.length; index++) {
+          // The square and inward way before the turn: GO bottom right, then to the left along the bottom, up the left side, along the top and down the right side.
+          const side = Math.floor(index / last),
+            along = index % last;
+          let column = [last - along, 0, along, last][side],
+            row = [last, last - along, 0, along][side],
+            dx = [0, 1, 0, -1][side],
+            dy = [-1, 0, 1, 0][side];
+          if (way & 4) {
+            column = last - column;
+            dx = -dx;
+          }
+          for (let turn = 0; turn < (way & 3); turn++) {
+            [column, row] = [last - row, column];
+            [dx, dy] = [-dy, dx];
+          }
+          spaceAt[row * p.side + column] = index;
+          towardX[row * p.side + column] = dx;
+          towardY[row * p.side + column] = dy;
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            column = Math.floor((fu - left) / cell),
+            row = Math.floor((fv - left) / cell);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          if (column >= 0 && column < p.side && row >= 0 && row < p.side) {
+            const x = fu - left - (column + 0.5) * cell,
+              y = fv - left - (row + 0.5) * cell,
+              space = spaceAt[row * p.side + column];
+            let amount: number,
+              tone: number = p.centreTone,
+              level: number = p.centreHeight;
+            if (space < 0) {
+              // The middle of the board, one square of the 9 by 9 squares inside the ring.
+              const cx = fu - 0.5,
+                cy = fv - 0.5;
+              amount = cover(
+                cell * (p.side - 2) * 0.5 -
+                  p.gapHalf -
+                  Math.max(Math.abs(cx), Math.abs(cy)),
+              );
+            } else {
+              const letter = p.spaces[space],
+                kind = 'GJPWRUCHX'.indexOf(letter);
+              amount = cover(half - Math.max(Math.abs(x), Math.abs(y)));
+              if (kind >= 0) {
+                tone = p.spaceTones[kind];
+                level = p.spaceHeights[kind];
+              } else {
+                // A street: the colour of its band along the inner side, over the street's own tone.
+                const group = Number(letter) - 1,
+                  band = cover(
+                    x * towardX[row * p.side + column] +
+                      y * towardY[row * p.side + column] -
+                      bandStart,
+                  );
+                tone =
+                  p.streetTone + (p.bandTones[group] - p.streetTone) * band;
+                level =
+                  p.streetHeight +
+                  (p.bandHeights[group] - p.streetHeight) * band;
+              }
+            }
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = amount;
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -74585,6 +74681,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'monopolyboard' ||
     kind === 'scrabbleboard' ||
     kind === 'duccirows' ||
     kind === 'wireworldcircuit' ||
