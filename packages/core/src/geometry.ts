@@ -244,6 +244,12 @@ export class Geometry {
         const ab = hypot3(ex, ey, ez),
           ac = hypot3(fx, fy, fz),
           bc = hypot3(gx, gy, gz);
+        const ntx = tx / tl,
+          nty = ty / tl,
+          ntz = tz / tl,
+          nbx = bx / bl,
+          nby = by / bl,
+          nbz = bz / bl;
         for (let corner = 0; corner < 3; corner++) {
           const lengths =
             corner === 0 ? ab * ac : corner === 1 ? bc * ab : ac * bc;
@@ -256,12 +262,12 @@ export class Geometry {
                 : fx * gx + fy * gy + fz * gz;
           const angle = Math.acos(Math.max(-1, Math.min(1, dot / lengths)));
           const o = copiedIndices[triangle + corner] * 3;
-          accumulated[o] += (tx / tl) * angle;
-          accumulated[o + 1] += (ty / tl) * angle;
-          accumulated[o + 2] += (tz / tl) * angle;
-          bitangents[o] += (bx / bl) * angle;
-          bitangents[o + 1] += (by / bl) * angle;
-          bitangents[o + 2] += (bz / bl) * angle;
+          accumulated[o] += ntx * angle;
+          accumulated[o + 1] += nty * angle;
+          accumulated[o + 2] += ntz * angle;
+          bitangents[o] += nbx * angle;
+          bitangents[o + 1] += nby * angle;
+          bitangents[o + 2] += nbz * angle;
         }
       }
       for (let i = 0; i < count; i++) {
