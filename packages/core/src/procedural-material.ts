@@ -1155,6 +1155,7 @@ export type ProceduralMaterialKind =
   | 'booleanfunctions'
   | 'setpartitions'
   | 'compositions'
+  | 'polyhexes'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2558,6 +2559,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'booleanfunctions',
   'setpartitions',
   'compositions',
+  'polyhexes',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

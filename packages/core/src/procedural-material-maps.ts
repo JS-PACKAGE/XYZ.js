@@ -54894,6 +54894,182 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'polyhexes': {
+        const p = proceduralMaterialPresets.polyhexes,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.sizes.length,
+          group = Math.floor(unsigned / p.sizes.length),
+          size = p.sizes[variant],
+          free = p.kinds[variant] === 0,
+          cols = p.cols[variant],
+          rows = p.rows[variant],
+          // The cell (q, r) of the lattice has its centre at x = q + r / 2 and y = r times rise, so a row (r) is shifted by half a unit from the one above it; the six neighbours of a cell are given in the order of the angles 0, 60, ..., 300 degrees as seen on the screen (y down), and the radius of a hexagon is top.
+          rise = Math.sqrt(3) / 2,
+          top = 1 / Math.sqrt(3),
+          neighbours = [
+            [1, 0],
+            [0, 1],
+            [-1, 1],
+            [-1, 0],
+            [0, -1],
+            [1, -1],
+          ],
+          // The twelve turns and flips of the cells (q, r): turn % 6 turns by 60 degrees each, and from 6 on the cells are mirrored too.
+          transform = (cells: number[][], turn: number): number[][] =>
+            cells.map(([q, r]) => {
+              let a = q,
+                b = r;
+              for (let k = 0; k < turn % 6; k++) [a, b] = [-b, a + b];
+              if (turn >= 6) [a, b] = [b, a];
+              return [a, b];
+            }),
+          // The shape moved so that its least q and least r are 0, with its cells sorted.
+          normalize = (cells: number[][]): number[][] => {
+            const minQ = Math.min(...cells.map(([q]) => q)),
+              minR = Math.min(...cells.map(([, r]) => r));
+            return cells
+              .map(([q, r]) => [q - minQ, r - minR])
+              .sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+          },
+          key = (cells: number[][]): string =>
+            cells.map(([q, r]) => `${q},${r}`).join(';'),
+          // Every polyhex of size cells (free: one shape of each class of turns and flips; fixed: each shape moved to the corner) grown cell by cell, with the number of the twelve turns and flips that map it onto itself.
+          shapes = (() => {
+            let current = new Map<string, number[][]>([['0,0', [[0, 0]]]]);
+            const classOf = (cells: number[][]): string =>
+              free
+                ? [...Array(12).keys()]
+                    .map((turn) => key(normalize(transform(cells, turn))))
+                    .sort()[0]
+                : key(normalize(cells));
+            for (let step = 1; step < size; step++) {
+              const next = new Map<string, number[][]>();
+              for (const cells of current.values()) {
+                const taken = new Set(cells.map(([q, r]) => `${q},${r}`));
+                for (const [q, r] of cells)
+                  for (const [dq, dr] of neighbours) {
+                    if (taken.has(`${q + dq},${r + dr}`)) continue;
+                    const grown = normalize([...cells, [q + dq, r + dr]]),
+                      name = classOf(grown);
+                    if (!next.has(name)) next.set(name, grown);
+                  }
+              }
+              current = next;
+            }
+            return [...current.values()].map((cells) => {
+              const own = key(normalize(cells));
+              let stabilizer = 0;
+              for (let turn = 0; turn < 12; turn++)
+                if (key(normalize(transform(cells, turn))) === own)
+                  stabilizer++;
+              return { cells, stabilizer };
+            });
+          })(),
+          // The panels: shuffled, and for free polyhexes turned by one of the twelve turns and flips; as a grid of size rows by size columns (the column of a cell is q + floor(r / 2) less the least of them) with the shape at the top left.
+          panels = (() => {
+            const order = shapes.slice();
+            for (let k = order.length - 1; k > 0; k--) {
+              const other = Math.floor(
+                hash(k, 341, group ^ p.seedSalt) * (k + 1),
+              );
+              [order[k], order[other]] = [order[other], order[k]];
+            }
+            return order.map(({ cells, stabilizer }, k) => {
+              const placed = normalize(
+                  free
+                    ? transform(
+                        cells,
+                        Math.floor(hash(k, 342, group ^ p.seedSalt) * 12),
+                      )
+                    : cells,
+                ),
+                shift = Math.min(...placed.map(([q, r]) => q + (r >> 1))),
+                grid = new Uint8Array(size * size);
+              for (const [q, r] of placed)
+                grid[r * size + (q + (r >> 1) - shift)] = 1;
+              return {
+                grid,
+                shift,
+                level: [1, 2, 3, 4, 6, 12].indexOf(stabilizer) / 5,
+              };
+            });
+          })(),
+          width = size + 0.5,
+          height0 = (size - 1) * rise + 2 * top,
+          scale = Math.min(
+            1 / (cols * (width + 2 * p.margin)),
+            1 / (rows * (height0 + 2 * p.margin)),
+          ),
+          originX = (1 / cols - scale * (width + 2 * p.margin)) / 2,
+          originY = (1 / rows - scale * (height0 + 2 * p.margin)) / 2,
+          halfGap = p.gapWidth / 2,
+          // 1 on the cell side of a gap, 0 at the edge itself, at the distance fromEdge in units.
+          edge = (fromEdge: number): number =>
+            smooth(clamp((fromEdge - halfGap) / p.edgeSoft));
+        return () => {
+          const tileU = fract(u),
+            tileV = fract(v),
+            col = Math.min(cols - 1, Math.floor(tileU * cols)),
+            row = Math.min(rows - 1, Math.floor(tileV * rows)),
+            index = row * cols + col,
+            grain = grainField(u, v);
+          let mask = 0,
+            level = 0;
+          if (index < panels.length) {
+            const x = (tileU - col / cols - originX) / scale - p.margin,
+              y = (tileV - row / rows - originY) / scale - p.margin,
+              { grid, shift } = panels[index],
+              has = (q: number, r: number): boolean => {
+                const c = q + (r >> 1) - shift;
+                return (
+                  r >= 0 &&
+                  r < size &&
+                  c >= 0 &&
+                  c < size &&
+                  grid[r * size + c] === 1
+                );
+              },
+              // The cell the point is in: the lattice position rounded to the nearest cell in cube coordinates.
+              rf = (y - top) / rise,
+              qf = x - 0.5 + shift - rf / 2,
+              yf = -qf - rf;
+            let q = Math.round(qf),
+              r = Math.round(rf);
+            const s = Math.round(yf),
+              dq = Math.abs(q - qf),
+              dr = Math.abs(r - rf),
+              ds = Math.abs(s - yf);
+            if (dq > dr && dq > ds) q = -s - r;
+            else if (dr > ds) r = -q - s;
+            if (has(q, r)) {
+              const dx = x - (q + r / 2 - shift + 0.5),
+                dy = y - (r * rise + top);
+              mask = 1;
+              for (let k = 0; k < 6; k++) {
+                const [nq, nr] = neighbours[k];
+                if (has(q + nq, r + nr)) continue;
+                // The distance to the side towards neighbour k: half the unit less the distance along its direction.
+                const angle = (k * Math.PI) / 3;
+                mask *= edge(
+                  0.5 - (dx * Math.cos(angle) + dy * Math.sin(angle)),
+                );
+              }
+              level = panels[index].level;
+            }
+          }
+          const tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+          color =
+            p.toneGap + (tone - p.toneGap) * mask + p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -63850,6 +64026,7 @@ export function createSurfaceSampler(
     kind === 'booleanfunctions' ||
     kind === 'setpartitions' ||
     kind === 'compositions' ||
+    kind === 'polyhexes' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

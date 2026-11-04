@@ -1218,6 +1218,7 @@ try {
     'booleanfunctions',
     'setpartitions',
     'compositions',
+    'polyhexes',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
