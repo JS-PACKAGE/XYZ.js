@@ -1146,6 +1146,7 @@ const kinds: ProceduralMaterialKind[] = [
   'newtonfractal',
   'talbotcarpet',
   'diffractioncatastrophes',
+  'standardmap',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -193975,6 +193976,291 @@ describe('Diffraction catastrophes as the Pearcey cusp and the butterfly with th
     expect(blue / (512 * 512)).toBeLessThan(92.9);
     expect(maxTilt).toBeGreaterThan(0.0018);
     expect(maxTilt).toBeLessThan(0.002);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Standard map as the finite-time Lyapunov exponent of the Chirikov map, islands in a chaotic sea', () => {
+  const p = proceduralMaterialPresets.standardmap;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const TAU = 2 * Math.PI;
+  /** The tone (0 to 1) of the pixel at (u, v) read back from the sampler: the height is cellHeight times it. */
+  const inkAt = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    u: number,
+    v: number,
+  ): number => {
+    sample(u, v, out);
+    return out.height / p.relief / p.cellHeight;
+  };
+  /** The exponent of one variant at the initial condition (x, q) (q = p, in radians) by forward-mode automatic differentiation of the steps (dual numbers carrying the two partial derivatives, instead of the Jacobian rows of the sampler): ln of the largest singular value of J over the number of steps, the singular value from the eigenvalues of J^T J. */
+  const exponent = (variant: number, x0: number, q0: number): number => {
+    type Dual = [number, number, number];
+    let x: Dual = [x0, 1, 0],
+      q: Dual = [q0, 0, 1];
+    for (let step = 0; step < p.steps; step++) {
+      q = [
+        q[0] + p.kicks[variant] * Math.sin(x[0]),
+        q[1] + p.kicks[variant] * Math.cos(x[0]) * x[1],
+        q[2] + p.kicks[variant] * Math.cos(x[0]) * x[2],
+      ];
+      x = [x[0] + q[0], x[1] + q[1], x[2] + q[2]];
+      x[0] -= TAU * Math.floor(x[0] / TAU);
+    }
+    const m11 = x[1] * x[1] + q[1] * q[1],
+      m22 = x[2] * x[2] + q[2] * q[2],
+      m12 = x[1] * x[2] + q[1] * q[2],
+      half = (m11 + m22) / 2,
+      largest =
+        half + Math.sqrt(Math.max(half * half - (m11 * m22 - m12 * m12), 0));
+    return Math.log(largest) / (2 * p.steps);
+  };
+  /** The tone of the exponent for the variant, as the preset defines it. */
+  const toneOf = (variant: number, lambda: number): number =>
+    Math.min(
+      1,
+      Math.max(
+        0,
+        (lambda - p.lambdaLows[variant]) /
+          (p.lambdaHighs[variant] - p.lambdaLows[variant]),
+      ),
+    );
+  /** The exponent of the product of the 40 Jacobians [[1 + K, 1], [K, 1]] (the hyperbolic fixed point at the origin) or [[1 - K, 1], [-K, 1]] (the elliptic one at x = pi), by repeated matrix products. */
+  const fixedPointExponent = (kick: number, hyperbolic: boolean): number => {
+    const sign = hyperbolic ? 1 : -1;
+    let a = 1,
+      b = 0,
+      c = 0,
+      d = 1;
+    for (let step = 0; step < p.steps; step++) {
+      const na = (1 + sign * kick) * a + c,
+        nb = (1 + sign * kick) * b + d,
+        nc = sign * kick * a + c,
+        nd = sign * kick * b + d;
+      [a, b, c, d] = [na, nb, nc, nd];
+    }
+    const frobenius = a * a + b * b + c * c + d * d;
+    return (
+      Math.log((frobenius + Math.sqrt(frobenius * frobenius - 4)) / 2) /
+      (2 * p.steps)
+    );
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('standardmap', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('standardmap', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.025);
+      expect(low).toBeLessThan(0.026);
+      expect(high).toBeGreaterThan(0.871);
+      expect(high).toBeLessThan(0.876);
+      expect(dark / 65536).toBeGreaterThan(0.23);
+      expect(dark / 65536).toBeLessThan(0.751);
+      expect(mean / 65536).toBeGreaterThan(0.3);
+      expect(mean / 65536).toBeLessThan(0.548);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.79);
+      expect(heightHigh).toBeLessThan(0.81);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (the kicks K = 0.6, 0.9716, 1.2, 1.6, 2.4 and 3.6) is 10, 4, 6, 13, 11 and 0; the table was found with a probe by which variant's automatic-differentiation exponent matches the tones of the seed at ten points,
+  // and is written here, so it is not an independent check of the seed's choice.
+  const seeds = [10, 4, 6, 13, 11, 0];
+  it('follows the exponent that automatic differentiation of the map gives, up to the chaos', () => {
+    // The sampler multiplies the Jacobian rows of the steps and the test carries dual numbers through the same steps, so the two round differently; the map amplifies a rounding error by e^(lambda * 40) (a factor 1e17 for K = 3.6), so the points of the
+    // first five variants (K up to 2.4) are compared one by one on 800 points (the tone within 0.01 at all 3000 points of each in the probe; at most 5 allowed here), and for K = 3.6 only the mean tone over 2000 points is compared (0.5873 against 0.5875
+    // in the probe, within 1e-3 allowed) and at least 85% of the points to within 0.01 (about 91% in the probe).
+    seeds.forEach((seed, variant) => {
+      const sample = createSurfaceSampler('standardmap', seed),
+        out = empty(),
+        count = variant < 5 ? 800 : 2000;
+      let different = 0,
+        meanSampler = 0,
+        meanModel = 0;
+      for (let k = 0; k < count; k++) {
+        const u = (k * 0.6180339887 + 0.11) % 1,
+          v = (k * 0.7548776662 + 0.23) % 1,
+          ink = inkAt(sample, out, u, v),
+          model = toneOf(
+            variant,
+            exponent(variant, TAU * u, TAU * v - Math.PI),
+          );
+        different += Number(Math.abs(ink - model) > 0.01);
+        meanSampler += ink / count;
+        meanModel += model / count;
+      }
+      if (variant < 5) expect(different).toBeLessThanOrEqual(5);
+      else {
+        expect(Math.abs(meanSampler - meanModel)).toBeLessThan(1e-3);
+        expect(different / count).toBeLessThan(0.15);
+      }
+    });
+  });
+  it('is bright at the hyperbolic fixed point and dark at the elliptic one', () => {
+    // The origin (x = 0, p = 0) is a fixed point whose Jacobian [[1 + K, 1], [K, 1]] has a trace above 2, so the exponent of the 40 steps is about ln of its larger eigenvalue (0.757 to 1.692, above the top of the range of every variant,
+    // which is 0.2 to 1.1) and the tone is 1; the point x = pi, p = 0 is a fixed point with the Jacobian [[1 - K, 1], [-K, 1]] of trace 2 - K between -2 and 2, so the exponent is only 0.005 to 0.037 and the tone is 0. The exponents come
+    // from matrix products written in the test, the tones from the preset ranges; the pixels are exactly at (u, v) = (0, 1/2) and (1/2, 1/2).
+    seeds.forEach((seed, variant) => {
+      const sample = createSurfaceSampler('standardmap', seed),
+        out = empty(),
+        kick = p.kicks[variant];
+      expect(inkAt(sample, out, 0, 0.5)).toBeCloseTo(
+        toneOf(variant, fixedPointExponent(kick, true)),
+        6,
+      );
+      expect(inkAt(sample, out, 0.5, 0.5)).toBeCloseTo(
+        toneOf(variant, fixedPointExponent(kick, false)),
+        6,
+      );
+      expect(toneOf(variant, fixedPointExponent(kick, true))).toBe(1);
+      expect(toneOf(variant, fixedPointExponent(kick, false))).toBe(0);
+    });
+  });
+  it('is the same at (x, p) and (-x, -p) for the variants below the strongly chaotic one', () => {
+    // The standard map is reversible under (x, p) -> (-x, -p), so the exponent is the same at a point and its image, which is the pixel at (1 - u, 1 - v); at least 99% of 1000 points of each of the variants of K up to 2.4 agree to within 0.01 (all of
+    // them for the first four in the probe and all but one of 1500 for K = 2.4; K = 3.6 is left out, where 26% of the points differ by rounding errors that the chaos amplifies).
+    for (let variant = 0; variant < 5; variant++) {
+      const sample = createSurfaceSampler('standardmap', seeds[variant]),
+        out = empty();
+      let different = 0;
+      for (let k = 0; k < 1000; k++) {
+        const u = (k * 0.6180339887 + 0.07) % 1,
+          v = (k * 0.7548776662 + 0.19) % 1;
+        different += Number(
+          Math.abs(
+            inkAt(sample, out, u, v) - inkAt(sample, out, 1 - u, 1 - v),
+          ) > 0.01,
+        );
+      }
+      expect(different).toBeLessThanOrEqual(10);
+    }
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 4 pick different kicks (3.6 and 0.9716).
+    const first = litGrid(0),
+      second = litGrid(4);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.6968);
+    expect(different / first.length).toBeLessThan(0.6969);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('repeats every channel across signed UV periods', () => {
+    // The map is on a torus (x and p both repeat every 2 pi), so the picture is a seamless tile. It is not C1 (the exponent over 40 steps changes by e^(lambda * 40) times a shift, so the second differences of the standard sweep were over the threshold at
+    // 499, 9469, 29784, 55449, 69818 and 76924 records in the six variants of the probe), so what is checked is only that the values at (k / 1024, j / 1024), which are exact in binary, are the same at (u - 7, v + 11): a rounding in u - 7 would be amplified by the chaos.
+    const a = empty(),
+      b = empty();
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('standardmap', seed);
+      let drift = 0;
+      for (let k = 0; k < 64; k++)
+        for (let j = 0; j < 64; j++) {
+          const u = (k * 16 + 3) / 1024,
+            v = (j * 16 + 5) / 1024;
+          sample(u, v, a);
+          sample(u - 7, v + 11, b);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(a[key] - b[key]));
+        }
+      expect(drift).toBe(0);
+    }
+  });
+  it('writes actual512 jade marble maps with raised chaotic bands and dark islands', () => {
+    const maps = generateProceduralMaps('standardmap', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(83.3);
+    expect(red / (512 * 512)).toBeLessThan(84.3);
+    expect(green / (512 * 512)).toBeGreaterThan(146.2);
+    expect(green / (512 * 512)).toBeLessThan(147.2);
+    expect(blue / (512 * 512)).toBeGreaterThan(115.2);
+    expect(blue / (512 * 512)).toBeLessThan(116.2);
+    expect(maxTilt).toBeGreaterThan(0.0339);
+    expect(maxTilt).toBeLessThan(0.0341);
     expect(invalid).toBe(0);
   });
 });

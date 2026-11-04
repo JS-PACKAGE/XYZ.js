@@ -51113,6 +51113,58 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'standardmap': {
+        const p = proceduralMaterialPresets.standardmap,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant = Math.floor(hash(0, 98, seed ^ p.seedSalt) * p.kicks.length),
+          kick = p.kicks[variant],
+          lambdaLow = p.lambdaLows[variant],
+          inverseSoft = 1 / p.edgeSoft,
+          inverseSpan = 1 / (p.lambdaHighs[variant] - lambdaLow);
+        return () => {
+          let x = TAU * fract(u),
+            q = TAU * fract(v) - Math.PI,
+            // The Jacobian of the steps so far, d(x, q) / d(x0, q0), row by row.
+            a = 1,
+            b = 0,
+            c = 0,
+            d = 1;
+          for (let step = 0; step < p.steps; step++) {
+            const slope = kick * Math.cos(x),
+              nextA = (1 + slope) * a + c,
+              nextB = (1 + slope) * b + d;
+            c = slope * a + c;
+            d = slope * b + d;
+            a = nextA;
+            b = nextB;
+            q += kick * Math.sin(x);
+            x += q;
+            x -= TAU * Math.floor(x / TAU);
+            q -= TAU * Math.floor(q / TAU + 0.5);
+          }
+          // The determinant is 1, so the squared largest singular value s satisfies s + 1 / s = a^2 + b^2 + c^2 + d^2.
+          const frobenius = a * a + b * b + c * c + d * d,
+            singular =
+              (frobenius + Math.sqrt(Math.max(frobenius * frobenius - 4, 0))) /
+              2,
+            lambda = Math.log(singular) / (2 * p.steps),
+            ink = clamp((lambda - lambdaLow) * inverseSpan),
+            mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * ink;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -60034,6 +60086,7 @@ export function createSurfaceSampler(
     kind === 'newtonfractal' ||
     kind === 'talbotcarpet' ||
     kind === 'diffractioncatastrophes' ||
+    kind === 'standardmap' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

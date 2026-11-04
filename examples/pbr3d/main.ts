@@ -1183,6 +1183,7 @@ try {
     'newtonfractal',
     'talbotcarpet',
     'diffractioncatastrophes',
+    'standardmap',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
