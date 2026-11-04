@@ -46511,6 +46511,60 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'rudinshapirogrid': {
+        const p = proceduralMaterialPresets.rudinshapirogrid,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x5b001),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          offset =
+            p.offsets[
+              Math.floor(hash(84, 1, seed ^ 0x5b002) * p.offsets.length)
+            ],
+          cell = p.extent / p.side,
+          left = 0.5 - p.extent / 2,
+          // The number of times 11 occurs (overlapping) in the binary form of each cell's n, counted along the rows from the offset (past the last shade, only its parity).
+          pairs = new Uint8Array(p.side * p.side),
+          last = p.tones.length - 1;
+        for (let index = 0; index < pairs.length; index++) {
+          let both = (offset + index) & ((offset + index) >> 1),
+            count = 0;
+          while (both > 0) {
+            count += both & 1;
+            both >>= 1;
+          }
+          // Past the last shade the numbers go on by their parity, so that even and odd stay light and dark.
+          pairs[index] = count > last ? last - ((count - last) & 1) : count;
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            column = Math.floor((fu - left) / cell),
+            row = Math.floor((fv - left) / cell);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          if (column >= 0 && column < p.side && row >= 0 && row < p.side) {
+            const x = fu - left - (column + 0.5) * cell,
+              y = fv - left - (row + 0.5) * cell,
+              amount = cover(
+                cell / 2 - p.gapHalf - Math.max(Math.abs(x), Math.abs(y)),
+              ),
+              count = pairs[row * p.side + column];
+            shade += (p.tones[count] - shade) * amount;
+            elevation += (p.heights[count] - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = amount;
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -74040,6 +74094,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'rudinshapirogrid' ||
     kind === 'baumsweetgrid' ||
     kind === 'binarynecklaces' ||
     kind === 'catalantriangulations' ||

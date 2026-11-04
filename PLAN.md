@@ -2321,6 +2321,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`rudinshapirogrid`（魯丁－夏皮羅方格）使目前目錄1190→1191種，含plain的gallery為1192項。Rudin-Shapiro數列r(n)=(−1)的「n的二進位中11出現（可重疊）次數」次方。本材質把n依列排在64×64方格中（每列64格，從seed選的起點offset開始往下數），每格依11出現的次數（0到5，超過5時只保留奇偶）塗六階色調與高度：次數為偶數（r=1）塗淺色系、奇數（r=−1）塗深色系，所以數列的正負一眼可見，次數再細分深淺。八個起點offset之間彼此畫面不同。這是作者設計的示意；測試端從畫面讀出每一格的階，並用獨立的二進位字串（以正規表示式數出重疊的11）算出每格的階，驗證畫面恰好和八個offset中的一個吻合（只有一個吻合）、六階都出現、每格的奇偶等於以r(2k)=r(k)、r(2k+1)=(−1)^k r(k)遞迴算出的數列值，以及每個offset在60個seed中都被選到。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

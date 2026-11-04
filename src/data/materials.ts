@@ -16197,6 +16197,30 @@ export const proceduralMaterialPresets = Object.freeze({
     paperRoughness: 0.8,
     inkRoughness: 0.45,
   }),
+  rudinshapirogrid: Object.freeze({
+    dark: [58, 32, 40] as const,
+    light: [244, 238, 224] as const,
+    roughness: 0.55,
+    relief: 0.004,
+    // The Rudin-Shapiro sequence r(n) = (-1) to the number of times 11 occurs in the binary form of n (overlapping): the number of 11s, 0 to 5 or more, is laid out in rows of a
+    // grid, side cells to a row, from n = offset (the seed picks the offset; none is a multiple of the row length). The tone and height of a cell go by that number, the even numbers
+    // (r = 1) light and the odd (r = -1) dark, so the sign of the sequence shows at once and the number refines it.
+    side: 64,
+    offsets: Object.freeze([
+      1234, 5000, 7777, 30001, 150001, 600001, 3001, 12345,
+    ]),
+    extent: 0.94,
+    gapHalf: 0.0012,
+    edgeSoft: 0.0006,
+    grainCells: 192,
+    paperTone: 0.97,
+    tones: Object.freeze([0.9, 0.12, 0.74, 0.28, 0.58, 0.42]),
+    heights: Object.freeze([0.3, 0.85, 0.42, 0.74, 0.54, 0.64]),
+    grainTone: 0.03,
+    paperHeight: 0.2,
+    paperRoughness: 0.8,
+    inkRoughness: 0.45,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -22689,6 +22713,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  rudinshapirogrid: 1,
   baumsweetgrid: 1,
   binarynecklaces: 1,
   catalantriangulations: 1,
