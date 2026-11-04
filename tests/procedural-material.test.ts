@@ -1174,6 +1174,7 @@ const kinds: ProceduralMaterialKind[] = [
   'lozengetilings',
   'polygondissections',
   'standardtableaux',
+  'graphatlas',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -204332,6 +204333,482 @@ describe('Standard tableaux as every filling of a shape drawn once', () => {
     expect(blue / (512 * 512)).toBeLessThan(45.8);
     expect(maxTilt).toBeGreaterThan(0.0616);
     expect(maxTilt).toBeLessThan(0.0618);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Graph atlas as every graph of a kind drawn once', () => {
+  const p = proceduralMaterialPresets.graphatlas;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The layout of the panels of a variant (seed % 6): slots of 1 / cols by 1 / rows, the polygon with the radius 1 drawn at one scale and centred in its slot with the margin around it. */
+  const geometry = (seed: number) => {
+    const variant = seed % p.vertices.length,
+      count: number = p.vertices[variant],
+      cols: number = p.cols[variant],
+      rows: number = p.rows[variant],
+      extent = 1 + p.margin,
+      scale = Math.min(1 / (cols * 2 * extent), 1 / (rows * 2 * extent));
+    return {
+      count,
+      kind: p.kinds[variant] as number,
+      edgesWanted: p.edges[variant] as number,
+      cols,
+      rows,
+      extent,
+      scale,
+      originX: (1 / cols - scale * 2 * extent) / 2,
+      originY: (1 / rows - scale * 2 * extent) / 2,
+      corners: Array.from({ length: count }, (_, k) => [
+        Math.cos(-Math.PI / 2 + (2 * Math.PI * k) / count),
+        Math.sin(-Math.PI / 2 + (2 * Math.PI * k) / count),
+      ]),
+    };
+  };
+  type Geometry = ReturnType<typeof geometry>;
+  /** The distance from the point (x, y) to the segment from a to b. */
+  const segmentDistance = (
+    x: number,
+    y: number,
+    a: number[],
+    b: number[],
+  ): number => {
+    const dx = b[0] - a[0],
+      dy = b[1] - a[1],
+      along = Math.max(
+        0,
+        Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / (dx * dx + dy * dy)),
+      );
+    return Math.hypot(x - a[0] - along * dx, y - a[1] - along * dy);
+  };
+  /** All pairs i < j in the order i, then j. */
+  const pairsOf = (count: number): number[][] => {
+    const found: number[][] = [];
+    for (let i = 0; i < count; i++)
+      for (let j = i + 1; j < count; j++) found.push([i, j]);
+    return found;
+  };
+  /** A point on the segment between two vertices where it can be told from the other segments and the dots: further from all of them than the half width of an edge (or the radius of a dot) and half the smoothing, plus 0.01. */
+  const probeOf = (g: Geometry, [i, j]: number[]): number[] => {
+    const others = pairsOf(g.count).filter(([a, b]) => a !== i || b !== j);
+    for (const t of Array.from(
+      { length: 18 },
+      (_, k) => 0.5 + (k % 2 === 0 ? 1 : -1) * 0.025 * Math.ceil((k + 1) / 2),
+    )) {
+      const x = g.corners[i][0] + t * (g.corners[j][0] - g.corners[i][0]),
+        y = g.corners[i][1] + t * (g.corners[j][1] - g.corners[i][1]);
+      if (
+        others.every(
+          ([a, b]) =>
+            segmentDistance(x, y, g.corners[a], g.corners[b]) >
+            p.edgeHalf + p.edgeSoft / 2 + 0.01,
+        ) &&
+        g.corners.every(
+          (corner) =>
+            Math.hypot(x - corner[0], y - corner[1]) >
+            p.dotRadius + p.edgeSoft / 2 + 0.01,
+        )
+      )
+        return [x, y];
+    }
+    throw new Error('no free point on a segment');
+  };
+  type Graph = { edges: number[][]; degrees: number[] };
+  /** The graph of every panel slot of a seed read back from the picture (null for an empty slot): at the probe point of a pair the height is above 0 where the edge is, and the height of the dot at a vertex gives its degree. */
+  const readGraphs = (seed: number): (Graph | null)[] => {
+    const g = geometry(seed),
+      sample = createSurfaceSampler('graphatlas', seed),
+      out = empty(),
+      pairs = pairsOf(g.count),
+      probes = pairs.map((pair) => probeOf(g, pair)),
+      graphs: (Graph | null)[] = [];
+    for (let slot = 0; slot < g.cols * g.rows; slot++) {
+      const col = slot % g.cols,
+        row = Math.floor(slot / g.cols),
+        at = ([x, y]: number[]) => {
+          sample(
+            col / g.cols + g.originX + g.scale * (g.extent + x),
+            row / g.rows + g.originY + g.scale * (g.extent + y),
+            out,
+          );
+          return out.height / p.relief / p.cellHeight;
+        },
+        degrees = g.corners.map((corner) => {
+          const level = (at(corner) - p.dotBase) / p.dotSwing;
+          return at(corner) === 0 ? -1 : Math.round(level * (g.count - 1));
+        });
+      if (degrees[0] === -1) {
+        graphs.push(null);
+        continue;
+      }
+      const edges = pairs.filter((_, k) => {
+        const height = at(probes[k]);
+        // The height at a point of an edge is that of an edge, or 0 where there is none.
+        expect(height === 0 || Math.abs(height - p.edgeHeight) < 1e-9).toBe(
+          true,
+        );
+        return height > 0;
+      });
+      graphs.push({ edges, degrees });
+    }
+    return graphs;
+  };
+  /** Every renaming of the vertices 0 to n - 1. */
+  const renamings = (count: number): number[][] => {
+    const found: number[][] = [],
+      turn = Array.from({ length: count }, (_, k) => k);
+    for (;;) {
+      found.push(turn.slice());
+      let k = count - 2;
+      while (k >= 0 && turn[k] > turn[k + 1]) k--;
+      if (k < 0) return found;
+      let m = count - 1;
+      while (turn[m] < turn[k]) m--;
+      [turn[k], turn[m]] = [turn[m], turn[k]];
+      turn.push(...turn.splice(k + 1).reverse());
+    }
+  };
+  /** A name for the graph that is the same for all its renamings: the least of the sorted edge lists written as strings over all renamings. */
+  const canonical = (edges: number[][], count: number): string =>
+    renamings(count)
+      .map((turn) =>
+        edges
+          .map(([a, b]) => [turn[a], turn[b]].sort((x, y) => x - y).join('-'))
+          .sort()
+          .join(' '),
+      )
+      .sort()[0];
+  /** Every graph of n vertices up to renaming, found by going through all the labelled graphs (all subsets of the pairs) and marking all the renamings of one that is not marked yet as seen: one edge list for each class. */
+  const classesOf = (count: number): number[][][] => {
+    const pairs = pairsOf(count),
+      indexOf = new Map(pairs.map(([a, b], k) => [`${a}-${b}`, k])),
+      tables = renamings(count).map((turn) =>
+        pairs.map(([a, b]) =>
+          indexOf.get([turn[a], turn[b]].sort((x, y) => x - y).join('-'))!,
+        ),
+      ),
+      seen = new Uint8Array(1 << pairs.length),
+      found: number[][][] = [];
+    for (let mask = 0; mask < 1 << pairs.length; mask++) {
+      if (seen[mask]) continue;
+      for (const table of tables) {
+        let image = 0;
+        for (let k = 0; k < pairs.length; k++)
+          if ((mask >> k) & 1) image |= 1 << table[k];
+        seen[image] = 1;
+      }
+      found.push(pairs.filter((_, k) => (mask >> k) & 1));
+    }
+    return found;
+  };
+  const isConnected = (edges: number[][], count: number): boolean => {
+    const reached = new Set([0]);
+    for (let again = true; again;) {
+      again = false;
+      for (const [a, b] of edges)
+        if (reached.has(a) !== reached.has(b)) {
+          reached.add(a);
+          reached.add(b);
+          again = true;
+        }
+    }
+    return reached.size === count;
+  };
+  /** The number of graphs of n vertices up to renaming by Pólya's counting: the mean over all renamings of 2 to the number of cycles that the renaming makes of the pairs. */
+  const polyaCount = (count: number): number => {
+    const pairs = pairsOf(count),
+      indexOf = new Map(pairs.map(([a, b], k) => [`${a}-${b}`, k]));
+    let total = 0;
+    for (const turn of renamings(count)) {
+      const next = pairs.map(([a, b]) =>
+        indexOf.get([turn[a], turn[b]].sort((x, y) => x - y).join('-'))!,
+      );
+      const seen = new Array<boolean>(pairs.length).fill(false);
+      let cycles = 0;
+      for (let k = 0; k < pairs.length; k++) {
+        if (seen[k]) continue;
+        cycles++;
+        for (let at = k; !seen[at]; at = next[at]) seen[at] = true;
+      }
+      total += 2 ** cycles;
+    }
+    return total / renamings(count).length;
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('graphatlas', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { high: 0.9626, lit: 0.01581, mean: 0.05392 }],
+      [1, { high: 0.9635, lit: 0.02858, mean: 0.06325 }],
+      [0xffffffff, { high: 0.9616, lit: 0.04311, mean: 0.08801 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('graphatlas', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0154);
+      expect(low).toBeLessThan(0.0156);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws every graph of the kind up to renaming exactly once, read back from the picture and compared with the classes found again here', () => {
+    for (let seed = 0; seed < 12; seed++) {
+      const g = geometry(seed),
+        read = readGraphs(seed),
+        drawn = read.filter((graph): graph is Graph => graph !== null),
+        names = drawn.map(({ edges }) => canonical(edges, g.count)),
+        wanted = classesOf(g.count)
+          .filter(
+            (edges) =>
+              (g.kind !== 1 || isConnected(edges, g.count)) &&
+              (g.kind !== 2 || edges.length === g.edgesWanted),
+          )
+          .map((edges) => canonical(edges, g.count));
+      // The degree of a vertex read from its dot is the number of the edges read at it.
+      for (const { edges, degrees } of drawn)
+        expect(degrees).toEqual(
+          g.corners.map(
+            (_, k) => edges.filter((edge) => edge.includes(k)).length,
+          ),
+        );
+      // No two graphs are alike and every class is there.
+      expect(new Set(names).size).toBe(drawn.length);
+      expect([...names].sort()).toEqual([...wanted].sort());
+      expect(read.slice(drawn.length).every((graph) => graph === null)).toBe(
+        true,
+      );
+      // The number of all the graphs by Pólya's counting.
+      if (g.kind === 0) expect(drawn.length).toBe(polyaCount(g.count));
+    }
+    // The numbers: 11 graphs of 4 vertices, 21 connected and 34 in all of 5, 112 connected and 156 in all of 6, and 24 of 6 with 7 edges.
+    expect(
+      [0, 1, 2, 3, 4, 5].map(
+        (seed) => readGraphs(seed).filter((graph) => graph !== null).length,
+      ),
+    ).toEqual([11, 21, 34, 112, 156, 24]);
+  });
+  it('shuffles the panels by group without changing the set of graphs', () => {
+    for (const seed of [0, 2, 5]) {
+      const names = (s: number) =>
+          readGraphs(s).map((graph) =>
+            graph === null
+              ? '-'
+              : graph.edges.map((edge) => edge.join('-')).join(' '),
+          ),
+        first = names(seed),
+        second = names(seed + 6),
+        third = names(seed + 12);
+      expect(first).not.toEqual(second);
+      expect(second).not.toEqual(third);
+      expect([...first].sort()).toEqual([...second].sort());
+      expect([...first].sort()).toEqual([...third].sort());
+    }
+  });
+  it('agrees with the ideal edges and dots away from their borders: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5]) {
+      const g = geometry(seed),
+        graphs = readGraphs(seed),
+        sample = createSurfaceSampler('graphatlas', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          col = Math.min(g.cols - 1, Math.floor(u * g.cols)),
+          row = Math.min(g.rows - 1, Math.floor(v * g.rows)),
+          graph = graphs[row * g.cols + col],
+          x = (u - col / g.cols - g.originX) / g.scale - g.extent,
+          y = (v - row / g.rows - g.originY) / g.scale - g.extent;
+        let dot = -1,
+          edge = false,
+          near = false;
+        if (graph !== null) {
+          g.corners.forEach((corner, vertex) => {
+            const distance = Math.hypot(x - corner[0], y - corner[1]);
+            if (Math.abs(distance - p.dotRadius) <= p.edgeSoft / 2 + 1e-9)
+              near = true;
+            if (distance < p.dotRadius) dot = vertex;
+          });
+          for (const [a, b] of graph.edges) {
+            const distance = segmentDistance(x, y, g.corners[a], g.corners[b]);
+            if (Math.abs(distance - p.edgeHalf) <= p.edgeSoft / 2 + 1e-9)
+              near = true;
+            if (distance < p.edgeHalf) edge = true;
+          }
+        }
+        if (near) continue;
+        compared++;
+        // A dot is over the edges.
+        const fraction = dot >= 0 ? graph!.degrees[dot] / (g.count - 1) : 0,
+          ink = dot >= 0 || edge ? 1 : 0,
+          tone =
+            dot >= 0
+              ? p.dotToneMin + (p.dotToneMax - p.dotToneMin) * fraction
+              : edge
+                ? p.toneEdge
+                : 0,
+          level =
+            dot >= 0
+              ? p.dotBase + p.dotSwing * fraction
+              : edge
+                ? p.edgeHeight
+                : 0;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(p.relief * p.cellHeight * level, 12);
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(5200);
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeGreaterThan(0.0438);
+    expect(unlike(first, litGrid(1))).toBeLessThan(0.044);
+    expect(unlike(first, litGrid(6))).toBeGreaterThan(0.0122);
+    expect(unlike(first, litGrid(6))).toBeLessThan(0.0123);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('graphatlas', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 sky graph maps on dark navy with raised lines and dots', () => {
+    const maps = generateProceduralMaps('graphatlas', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(16);
+    expect(red / (512 * 512)).toBeLessThan(16.8);
+    expect(green / (512 * 512)).toBeGreaterThan(24.8);
+    expect(green / (512 * 512)).toBeLessThan(25.7);
+    expect(blue / (512 * 512)).toBeGreaterThan(43.9);
+    expect(blue / (512 * 512)).toBeLessThan(44.8);
+    expect(maxTilt).toBeGreaterThan(0.107);
+    expect(maxTilt).toBeLessThan(0.1071);
     expect(invalid).toBe(0);
   });
 });

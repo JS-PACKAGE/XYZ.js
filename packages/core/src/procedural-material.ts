@@ -1148,6 +1148,7 @@ export type ProceduralMaterialKind =
   | 'lozengetilings'
   | 'polygondissections'
   | 'standardtableaux'
+  | 'graphatlas'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2544,6 +2545,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'lozengetilings',
   'polygondissections',
   'standardtableaux',
+  'graphatlas',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

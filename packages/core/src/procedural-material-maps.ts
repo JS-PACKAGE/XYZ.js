@@ -100,6 +100,9 @@ function sandpileIdentity(size: number): Uint8Array {
 }
 
 /** Immutable periodic lattice: architectural seed work is paid once per sampler. */
+/** The graphs of n vertices up to renaming the vertices (as numbers of the edges present), found once for each n by the graph atlas material. */
+const graphClassCache = new Map<number, number[]>();
+
 function cachedNoise(nx: number, ny: number, seed: number) {
   const values = new Float64Array(nx * ny);
   for (let y = 0; y < ny; y++)
@@ -54031,6 +54034,201 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'graphatlas': {
+        const p = proceduralMaterialPresets.graphatlas,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.vertices.length,
+          group = Math.floor(unsigned / p.vertices.length),
+          count: number = p.vertices[variant],
+          cols = p.cols[variant],
+          rows = p.rows[variant],
+          corners = Array.from({ length: count }, (_, k) => [
+            Math.cos(-Math.PI / 2 + (2 * Math.PI * k) / count),
+            Math.sin(-Math.PI / 2 + (2 * Math.PI * k) / count),
+          ]),
+          // The pair i < j is the bit j (j - 1) / 2 + i of the number of a graph, so a graph of fewer vertices is a graph of more with the same low bits.
+          bitOf = (i: number, j: number): number => (j * (j - 1)) / 2 + i,
+          // The graph with the same edges after the vertices are renamed by turn (the vertex k becomes turn[k]).
+          renamed = (
+            graph: number,
+            turn: number[],
+            vertices: number,
+          ): number => {
+            let result = 0;
+            for (let j = 1; j < vertices; j++)
+              for (let i = 0; i < j; i++)
+                if ((graph >> bitOf(i, j)) & 1) {
+                  const a = turn[i],
+                    b = turn[j];
+                  result |= 1 << bitOf(Math.min(a, b), Math.max(a, b));
+                }
+            return result;
+          },
+          turnsOf = (vertices: number): number[][] => {
+            const found: number[][] = [],
+              turn: number[] = [],
+              used = new Array<boolean>(vertices).fill(false),
+              place = (): void => {
+                if (turn.length === vertices) {
+                  found.push(turn.slice());
+                  return;
+                }
+                for (let k = 0; k < vertices; k++) {
+                  if (used[k]) continue;
+                  used[k] = true;
+                  turn.push(k);
+                  place();
+                  turn.pop();
+                  used[k] = false;
+                }
+              };
+            place();
+            return found;
+          },
+          // Every graph of count vertices up to renaming (kept in graphClassCache, as it takes a moment to find): graphs with one more vertex are made from those with one fewer by joining the new vertex to every subset of the old ones, and each is kept as the least number among its renamings.
+          classes = (() => {
+            const cached = graphClassCache.get(count);
+            if (cached) return cached;
+            let known = new Set<number>([0]);
+            for (let vertices = 2; vertices <= count; vertices++) {
+              const turns = turnsOf(vertices),
+                next = new Set<number>();
+              for (const graph of known)
+                for (let joined = 0; joined < 1 << (vertices - 1); joined++) {
+                  const candidate = graph | (joined << bitOf(0, vertices - 1));
+                  next.add(
+                    Math.min(
+                      ...turns.map((turn) =>
+                        renamed(candidate, turn, vertices),
+                      ),
+                    ),
+                  );
+                }
+              known = next;
+            }
+            const sorted = [...known].sort((a, b) => a - b);
+            graphClassCache.set(count, sorted);
+            return sorted;
+          })(),
+          // The edges of a graph and whether it is connected (every vertex reached from the first).
+          edgesOf = (graph: number): number[][] => {
+            const found: number[][] = [];
+            for (let j = 1; j < count; j++)
+              for (let i = 0; i < j; i++)
+                if ((graph >> bitOf(i, j)) & 1) found.push([i, j]);
+            return found;
+          },
+          connected = (edges: number[][]): boolean => {
+            const reached = new Set([0]);
+            for (let again = true; again;) {
+              again = false;
+              for (const [i, j] of edges)
+                if (reached.has(i) !== reached.has(j)) {
+                  reached.add(i);
+                  reached.add(j);
+                  again = true;
+                }
+            }
+            return reached.size === count;
+          },
+          panels = (() => {
+            const found = classes
+              .map(edgesOf)
+              .filter(
+                (edges) =>
+                  (p.kinds[variant] !== 1 || connected(edges)) &&
+                  (p.kinds[variant] !== 2 || edges.length === p.edges[variant]),
+              );
+            for (let k = found.length - 1; k > 0; k--) {
+              const other = Math.floor(
+                hash(k, 281, group ^ p.seedSalt) * (k + 1),
+              );
+              [found[k], found[other]] = [found[other], found[k]];
+            }
+            return found.map((edges) => {
+              const degrees = new Array<number>(count).fill(0);
+              for (const [i, j] of edges) {
+                degrees[i]++;
+                degrees[j]++;
+              }
+              return { edges, degrees };
+            });
+          })(),
+          extent = 1 + p.margin,
+          scale = Math.min(1 / (cols * 2 * extent), 1 / (rows * 2 * extent)),
+          originX = (1 / cols - scale * 2 * extent) / 2,
+          originY = (1 / rows - scale * 2 * extent) / 2,
+          // 1 inside the distance half, 0 outside, 1/2 at half, smoothed over edgeSoft.
+          band = (distance: number, half: number): number =>
+            smooth(clamp((half - distance) / p.edgeSoft + 0.5));
+        return () => {
+          const tileU = fract(u),
+            tileV = fract(v),
+            col = Math.min(cols - 1, Math.floor(tileU * cols)),
+            row = Math.min(rows - 1, Math.floor(tileV * rows)),
+            index = row * cols + col,
+            grain = grainField(u, v);
+          let free = 1,
+            toneSum = 0,
+            heightSum = 0;
+          if (index < panels.length) {
+            const x = (tileU - col / cols - originX) / scale - extent,
+              y = (tileV - row / rows - originY) / scale - extent,
+              { edges, degrees } = panels[index];
+            // The edges below, then the dots over them.
+            let edgeFree = 1;
+            for (const [i, j] of edges) {
+              const [ax, ay] = corners[i],
+                [bx, by] = corners[j],
+                dx = bx - ax,
+                dy = by - ay,
+                along = Math.max(
+                  0,
+                  Math.min(
+                    1,
+                    ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy),
+                  ),
+                );
+              edgeFree *=
+                1 -
+                band(
+                  Math.hypot(x - ax - along * dx, y - ay - along * dy),
+                  p.edgeHalf,
+                );
+            }
+            let dotFree = 1,
+              dotTone = 0,
+              dotHeight = 0;
+            for (let k = 0; k < count; k++) {
+              const mask = band(
+                Math.hypot(x - corners[k][0], y - corners[k][1]),
+                p.dotRadius,
+              );
+              if (mask === 0) continue;
+              const fraction = degrees[k] / (count - 1);
+              dotFree *= 1 - mask;
+              dotTone +=
+                mask *
+                (p.dotToneMin + (p.dotToneMax - p.dotToneMin) * fraction);
+              dotHeight += mask * (p.dotBase + p.dotSwing * fraction);
+            }
+            const edgeMask = 1 - edgeFree;
+            toneSum = dotTone + dotFree * edgeMask * p.toneEdge;
+            heightSum = dotHeight + dotFree * edgeMask * p.edgeHeight;
+            free = dotFree * edgeFree;
+          }
+          const ink = 1 - free;
+          color = p.toneGround * free + toneSum + p.grainTone * (grain - 0.5);
+          height = p.cellHeight * heightSum;
+          occlusion = 1 - p.gapOcclusion * (1 - ink);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -62980,6 +63178,7 @@ export function createSurfaceSampler(
     kind === 'lozengetilings' ||
     kind === 'polygondissections' ||
     kind === 'standardtableaux' ||
+    kind === 'graphatlas' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

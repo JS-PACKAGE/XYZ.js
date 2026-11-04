@@ -1211,6 +1211,7 @@ try {
     'lozengetilings',
     'polygondissections',
     'standardtableaux',
+    'graphatlas',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
