@@ -51942,6 +51942,125 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'contrastillusions': {
+        const p = proceduralMaterialPresets.contrastillusions,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant = Math.floor(
+            hash(0, 106, seed ^ p.seedSalt) * p.styles.length,
+          ),
+          style = p.styles[variant],
+          width = p.edgeWidth,
+          // A smooth step that is 0 well below the edge and 1 well above it (distance in tile lengths, positive on the inside).
+          step = (distance: number): number =>
+            smooth(clamp(0.5 + distance / (2 * width))),
+          // The value of a bar pattern of equal bars that alternate between low and high, smoothed at the edges.
+          bars = (
+            position: number,
+            count: number,
+            low: number,
+            high: number,
+          ): number => {
+            const scaled = position * count,
+              index = Math.floor(scaled),
+              nearest = Math.min(scaled - index, index + 1 - scaled) / count,
+              own = index % 2 === 0 ? low : high,
+              other = index % 2 === 0 ? high : low;
+            return other + (own - other) * step(nearest);
+          };
+        return () => {
+          const fu = fract(u),
+            fv = fract(v);
+          let value: number;
+          if (style === 0 || style === 1) {
+            const s = style === 0 ? p.stripes : p.ramp,
+              background =
+                style === 0
+                  ? bars(fu, s.count, p.stripes.low, p.stripes.high)
+                  : 0.5 + p.ramp.amplitude * Math.sin(2 * Math.PI * fu),
+              dx = fu - (Math.floor(fu * s.count) + 0.5) / s.count,
+              dy = fv - (Math.floor(fv * s.rows) + 0.5) / s.rows,
+              mask = step(s.half - Math.abs(dx)) * step(s.half - Math.abs(dy));
+            value = background + (p.targetValue - background) * mask;
+          } else if (style === 2) {
+            // The value of every column at this height is its bar colour or, where its patch is, the grey; the value is the blend of the column and its nearer neighbour across their edge.
+            const w = p.white,
+              scaled = fu * w.count,
+              index = Math.floor(scaled),
+              nearest = Math.min(scaled - index, index + 1 - scaled) / w.count,
+              neighbour =
+                scaled - index < index + 1 - scaled ? index - 1 : index + 1,
+              column = (k: number): number => {
+                const parity = ((k % 2) + 2) % 2,
+                  bar = parity === 0 ? w.low : w.high;
+                return (
+                  bar +
+                  (p.targetValue - bar) *
+                    step(w.half - Math.abs(fv - w.rows[parity]))
+                );
+              };
+            value =
+              column(neighbour) +
+              (column(index) - column(neighbour)) * step(nearest);
+          } else if (style === 3) {
+            // The sum of the ramps of all edges, with the distance to each taken round the tile.
+            value = 0.5;
+            for (let k = 0; k < p.cornsweetEdges; k++) {
+              const away = fu - k / p.cornsweetEdges,
+                distance = away - Math.round(away);
+              value +=
+                (k % 2 === 0 ? 1 : -1) *
+                p.cornsweetAmplitude *
+                Math.tanh(distance / width) *
+                Math.exp(-((distance / p.cornsweetDecay) ** 2));
+            }
+          } else if (style === 4) {
+            // Plateaus of the width 1 / (2 steps) that rise to the top and fall again; every edge between them is a smoothstep.
+            const cells = 2 * p.stairSteps,
+              levelOf = (cell: number): number => {
+                const index = cell < p.stairSteps ? cell : cells - 1 - cell;
+                return (
+                  p.stairLow +
+                  ((p.stairHigh - p.stairLow) * index) / (p.stairSteps - 1)
+                );
+              };
+            value = levelOf(0);
+            for (let m = 1; m < cells; m++)
+              value += (levelOf(m) - levelOf(m - 1)) * step(fu - m / cells);
+          } else {
+            const c = p.checker,
+              cell = Math.floor(fu * c.count) + Math.floor(fv * c.count),
+              ex = Math.min(
+                fu * c.count - Math.floor(fu * c.count),
+                1 - (fu * c.count - Math.floor(fu * c.count)),
+              ),
+              ey = Math.min(
+                fv * c.count - Math.floor(fv * c.count),
+                1 - (fv * c.count - Math.floor(fv * c.count)),
+              ),
+              other = cell % 2 === 0 ? c.light : c.dark,
+              own = cell % 2 === 0 ? c.dark : c.light,
+              board = other + (own - other) * step(Math.min(ex, ey) / c.count),
+              radius = Math.hypot(
+                (fu - c.centre[0]) / c.radii[0],
+                (fv - c.centre[1]) / c.radii[1],
+              ),
+              shadow = smooth(clamp((1 - radius) / c.penumbra));
+            value = board * (1 - (1 - c.dark / c.light) * shadow);
+          }
+          const grain = grainField(u, v);
+          color =
+            p.toneDark +
+            (p.toneLight - p.toneDark) * value +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * value;
+          occlusion = 1 - p.gapOcclusion * (1 - value);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -60871,6 +60990,7 @@ export function createSurfaceSampler(
     kind === 'gerstnerocean' ||
     kind === 'opticalillusions' ||
     kind === 'lineillusions' ||
+    kind === 'contrastillusions' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

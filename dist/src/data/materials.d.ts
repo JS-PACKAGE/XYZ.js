@@ -17218,6 +17218,56 @@ export declare const proceduralMaterialPresets: Readonly<{
         cellHeight: 0.8;
         gapOcclusion: 0.4;
     }>;
+    contrastillusions: Readonly<{
+        dark: readonly [10, 10, 12];
+        light: readonly [240, 238, 232];
+        roughness: 0.55;
+        relief: 0.0008;
+        seedSalt: 13769;
+        styles: readonly [0, 1, 2, 3, 4, 5];
+        targetValue: 0.5;
+        stripes: {
+            count: number;
+            rows: number;
+            half: number;
+            low: number;
+            high: number;
+        };
+        ramp: {
+            count: number;
+            rows: number;
+            half: number;
+            amplitude: number;
+        };
+        white: {
+            count: number;
+            low: number;
+            high: number;
+            rows: number[];
+            half: number;
+        };
+        cornsweetEdges: 4;
+        cornsweetAmplitude: 0.2;
+        cornsweetDecay: 0.03;
+        stairSteps: 8;
+        stairLow: 0.1;
+        stairHigh: 0.9;
+        checker: {
+            count: number;
+            dark: number;
+            light: number;
+            centre: number[];
+            radii: number[];
+            penumbra: number;
+        };
+        edgeWidth: 0.004;
+        grainCells: 128;
+        toneDark: 0.05;
+        toneLight: 0.92;
+        grainTone: 0.03;
+        cellHeight: 0.8;
+        gapOcclusion: 0.4;
+    }>;
     vermiculation: Readonly<{
         dark: readonly [60, 48, 36];
         light: readonly [220, 204, 172];
@@ -19008,6 +19058,7 @@ export declare const proceduralTileMeters: Readonly<{
     gerstnerocean: 0.5;
     opticalillusions: 0.5;
     lineillusions: 0.5;
+    contrastillusions: 0.5;
     dominotiling: 0.5;
     vermiculation: 0.4;
     kikko: 0.3;

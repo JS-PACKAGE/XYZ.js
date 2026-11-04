@@ -29380,6 +29380,71 @@ var proceduralMaterialPresets = Object.freeze({
 		cellHeight: .8,
 		gapOcclusion: .4
 	}),
+	contrastillusions: Object.freeze({
+		dark: [
+			10,
+			10,
+			12
+		],
+		light: [
+			240,
+			238,
+			232
+		],
+		roughness: .55,
+		relief: 8e-4,
+		seedSalt: 13769,
+		styles: [
+			0,
+			1,
+			2,
+			3,
+			4,
+			5
+		],
+		targetValue: .5,
+		stripes: {
+			count: 4,
+			rows: 4,
+			half: .06,
+			low: .15,
+			high: .85
+		},
+		ramp: {
+			count: 8,
+			rows: 3,
+			half: .04,
+			amplitude: .35
+		},
+		white: {
+			count: 8,
+			low: .05,
+			high: .95,
+			rows: [.25, .75],
+			half: .1
+		},
+		cornsweetEdges: 4,
+		cornsweetAmplitude: .2,
+		cornsweetDecay: .03,
+		stairSteps: 8,
+		stairLow: .1,
+		stairHigh: .9,
+		checker: {
+			count: 8,
+			dark: .3,
+			light: .62,
+			centre: [.5, .5],
+			radii: [.3, .18],
+			penumbra: .35
+		},
+		edgeWidth: .004,
+		grainCells: 128,
+		toneDark: .05,
+		toneLight: .92,
+		grainTone: .03,
+		cellHeight: .8,
+		gapOcclusion: .4
+	}),
 	vermiculation: Object.freeze({
 		dark: [
 			60,
@@ -31492,6 +31557,7 @@ var proceduralTileMeters = Object.freeze({
 	gerstnerocean: .5,
 	opticalillusions: .5,
 	lineillusions: .5,
+	contrastillusions: .5,
 	dominotiling: .5,
 	vermiculation: .4,
 	kikko: .3,

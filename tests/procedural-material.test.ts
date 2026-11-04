@@ -1154,6 +1154,7 @@ const kinds: ProceduralMaterialKind[] = [
   'gerstnerocean',
   'opticalillusions',
   'lineillusions',
+  'contrastillusions',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -196807,6 +196808,431 @@ describe('Line illusions as the Zollner, Ehrenstein, Muller-Lyer, Hering and Pon
     expect(blue / (512 * 512)).toBeLessThan(34.8);
     expect(maxTilt).toBeGreaterThan(0.0492);
     expect(maxTilt).toBeLessThan(0.0493);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Contrast illusions as the White, Cornsweet and checker shadow figures', () => {
+  const p = proceduralMaterialPresets.contrastillusions;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const tone = (value: number): number =>
+    p.toneDark + (p.toneLight - p.toneDark) * value;
+  /** The ideal pattern of the variant at the point (x, y) of the tile by predicates and closed forms, without the smoothing of the edges: its value (0 for the dark tone, 1 for the light one) and the distance in tile lengths to the nearest edge (or, for the checker shadow, 0 in the penumbra). */
+  const ideal = (
+    variant: number,
+    x: number,
+    y: number,
+  ): { value: number; distance: number } => {
+    const style = p.styles[variant];
+    const bars = (
+      position: number,
+      count: number,
+      low: number,
+      high: number,
+    ) => {
+      const index = Math.floor(position * count);
+      return {
+        value: index % 2 === 0 ? low : high,
+        distance: Math.min(
+          position - index / count,
+          (index + 1) / count - position,
+        ),
+      };
+    };
+    if (style === 0 || style === 1) {
+      const squares = style === 0 ? p.stripes : p.ramp,
+        background =
+          style === 0
+            ? bars(x, squares.count, p.stripes.low, p.stripes.high)
+            : {
+                value: 0.5 + p.ramp.amplitude * Math.sin(2 * Math.PI * x),
+                distance: 1,
+              },
+        dx = Math.abs(
+          x - (Math.floor(x * squares.count) + 0.5) / squares.count,
+        ),
+        dy = Math.abs(y - (Math.floor(y * squares.rows) + 0.5) / squares.rows),
+        inside = dx < squares.half && dy < squares.half,
+        corner = Math.hypot(
+          Math.max(dx - squares.half, 0),
+          Math.max(dy - squares.half, 0),
+        ),
+        toSquare = inside
+          ? Math.min(squares.half - dx, squares.half - dy)
+          : corner > 0
+            ? corner
+            : Math.min(
+                Math.abs(dx - squares.half),
+                Math.abs(dy - squares.half),
+              );
+      return {
+        value: inside ? p.targetValue : background.value,
+        distance: Math.min(background.distance, toSquare),
+      };
+    }
+    if (style === 2) {
+      const column = Math.floor(x * p.white.count),
+        bar = bars(x, p.white.count, p.white.low, p.white.high),
+        dy = Math.abs(y - p.white.rows[column % 2]);
+      return {
+        value: dy < p.white.half ? p.targetValue : bar.value,
+        distance: Math.min(bar.distance, Math.abs(dy - p.white.half)),
+      };
+    }
+    if (style === 3) {
+      let value = 0.5,
+        distance = 1;
+      for (let k = 0; k < p.cornsweetEdges; k++) {
+        const away = x - k / p.cornsweetEdges,
+          offset = away - Math.round(away);
+        value +=
+          (k % 2 === 0 ? 1 : -1) *
+          p.cornsweetAmplitude *
+          Math.sign(offset) *
+          Math.exp(-((offset / p.cornsweetDecay) ** 2));
+        distance = Math.min(distance, Math.abs(offset));
+      }
+      return { value, distance };
+    }
+    if (style === 4) {
+      const cells = 2 * p.stairSteps,
+        cell = Math.floor(x * cells),
+        index = cell < p.stairSteps ? cell : cells - 1 - cell;
+      return {
+        value:
+          p.stairLow +
+          ((p.stairHigh - p.stairLow) * index) / (p.stairSteps - 1),
+        distance: Math.min(x - cell / cells, (cell + 1) / cells - x),
+      };
+    }
+    const c = p.checker,
+      cell = Math.floor(x * c.count) + Math.floor(y * c.count),
+      fx = x * c.count - Math.floor(x * c.count),
+      fy = y * c.count - Math.floor(y * c.count),
+      radius = Math.hypot(
+        (x - c.centre[0]) / c.radii[0],
+        (y - c.centre[1]) / c.radii[1],
+      ),
+      board = cell % 2 === 0 ? c.dark : c.light;
+    if (radius > 1 - c.penumbra && radius < 1)
+      return { value: board, distance: 0 };
+    return {
+      value: board * (radius <= 1 - c.penumbra ? c.dark / c.light : 1),
+      distance: Math.min(fx, 1 - fx, fy, 1 - fy) / c.count,
+    };
+  };
+  /** Whether a point is far enough from the edges of the ideal pattern for the sampler's smoothing not to matter (the edges are smoothed over edgeWidth on each side, and the Cornsweet ramps are tanh(distance / edgeWidth), which is within 3e-7 of the sign from 8 edgeWidth on). */
+  const far = (variant: number, distance: number): boolean =>
+    distance > (p.styles[variant] === 3 ? 8 : 2) * p.edgeWidth;
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('contrastillusions', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('contrastillusions', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.1232);
+      expect(low).toBeLessThan(0.1658);
+      expect(high).toBeGreaterThan(0.603);
+      expect(high).toBeLessThan(0.848);
+      expect(dark / 65536).toBeGreaterThan(0.391);
+      expect(dark / 65536).toBeLessThan(0.5001);
+      expect(mean / 65536).toBeGreaterThan(0.4261);
+      expect(mean / 65536).toBeLessThan(0.4851);
+      expect(occlusionLow).toBeGreaterThan(0.639);
+      expect(occlusionLow).toBeLessThan(0.661);
+      expect(heightHigh).toBeGreaterThan(0.495);
+      expect(heightHigh).toBeLessThan(0.721);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (the simultaneous contrast on bands, the same on a ramp, the White illusion, the Cornsweet illusion, the Mach staircase and the checker shadow) is 1, 11, 3, 5, 2 and 0; the table was found with a probe, by comparing the tone of each of 40 seeds at up to 24 points away from the edges with the six variants, and is written here, so it is not an independent check of the seed's choice.
+  const seeds = [1, 11, 3, 5, 2, 0];
+  it('agrees with the ideal pattern of predicates and closed forms everywhere away from the edges', () => {
+    // At the 4000-point golden-ratio sequence's points of each variant that are far from the edges of the ideal pattern (3000 or so of them: 2761 to 3506 in the probe) the tone is that of the ideal value to within half the grain (0.01494 at the most in the probe, grainTone / 2 being 0.015) and the occlusion is 1 - gapOcclusion (1 - value) to 1e-6 (3.6e-9 at the most in the probe); this test uses 400 points of the sequence.
+    seeds.forEach((seed, variant) => {
+      const sample = createSurfaceSampler('contrastillusions', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 400; k++) {
+        const x = (k * 0.6180339887 + 0.07) % 1,
+          y = (k * 0.7548776662 + 0.21) % 1,
+          pattern = ideal(variant, x, y);
+        if (!far(variant, pattern.distance)) continue;
+        compared++;
+        sample(x, y, out);
+        expect(Math.abs(out.color - tone(pattern.value))).toBeLessThan(
+          p.grainTone / 2 + 1e-6,
+        );
+        expect(
+          Math.abs(out.occlusion - (1 - p.gapOcclusion * (1 - pattern.value))),
+        ).toBeLessThan(1e-6);
+      }
+      expect(compared).toBeGreaterThan(200);
+    });
+  });
+  it('gives the grey squares, patches and checks that look different one value on backgrounds that differ', () => {
+    // These are the illusions, so they are checked directly: all the 16 squares of the band variant, the 24 of the ramp variant and the 16 patches of the White variant have the tone of targetValue within half the grain (tolerance grainTone / 2 + 1e-6) while the backgrounds beside them (in the middle of a band, on the ramp just above a square, and the neighbouring bars) have different values; in the checker shadow, the dark square A of the cell (0, 0) outside the shadow and the light square B of the cell (3, 4) inside its core (the test checks that the radius is under 1 - penumbra there) both have the value of the dark squares, and the light squares outside it have the light value.
+    const out = empty(),
+      near = (value: number): number => tone(value),
+      half = p.grainTone / 2 + 1e-6,
+      stripes = createSurfaceSampler('contrastillusions', seeds[0]);
+    for (let column = 0; column < p.stripes.count; column++)
+      for (let row = 0; row < p.stripes.rows; row++) {
+        const x = (column + 0.5) / p.stripes.count,
+          y = (row + 0.5) / p.stripes.rows;
+        stripes(x, y, out);
+        expect(Math.abs(out.color - near(p.targetValue))).toBeLessThan(half);
+        stripes(x, y + 0.5 / p.stripes.rows, out);
+        expect(
+          Math.abs(
+            out.color - near(column % 2 === 0 ? p.stripes.low : p.stripes.high),
+          ),
+        ).toBeLessThan(half);
+      }
+    const ramp = createSurfaceSampler('contrastillusions', seeds[1]);
+    for (let column = 0; column < p.ramp.count; column++)
+      for (let row = 0; row < p.ramp.rows; row++) {
+        const x = (column + 0.5) / p.ramp.count,
+          y = (row + 0.5) / p.ramp.rows;
+        ramp(x, y, out);
+        expect(Math.abs(out.color - near(p.targetValue))).toBeLessThan(half);
+        ramp(x, y + 0.5 / p.ramp.rows, out);
+        expect(
+          Math.abs(
+            out.color -
+              near(0.5 + p.ramp.amplitude * Math.sin(2 * Math.PI * x)),
+          ),
+        ).toBeLessThan(half);
+      }
+    const white = createSurfaceSampler('contrastillusions', seeds[2]);
+    for (let column = 0; column < p.white.count; column++) {
+      const x = (column + 0.5) / p.white.count,
+        y = p.white.rows[column % 2],
+        neighbour = column % 2 === 0 ? p.white.high : p.white.low;
+      white(x, y, out);
+      expect(Math.abs(out.color - near(p.targetValue))).toBeLessThan(half);
+      // The bars on each side of a patch in the same rows are of the other colour, and above the patch the column is its own bar.
+      white(x + 1 / p.white.count, y, out);
+      expect(Math.abs(out.color - near(neighbour))).toBeLessThan(half);
+      white(x, y + 0.25, out);
+      expect(
+        Math.abs(
+          out.color - near(column % 2 === 0 ? p.white.low : p.white.high),
+        ),
+      ).toBeLessThan(half);
+    }
+    const checker = createSurfaceSampler('contrastillusions', seeds[5]),
+      c = p.checker,
+      cellCentre = (column: number, row: number): [number, number] => [
+        (column + 0.5) / c.count,
+        (row + 0.5) / c.count,
+      ],
+      radiusOf = ([x, y]: [number, number]): number =>
+        Math.hypot(
+          (x - c.centre[0]) / c.radii[0],
+          (y - c.centre[1]) / c.radii[1],
+        );
+    const squareA = cellCentre(0, 0),
+      squareB = cellCentre(3, 4);
+    expect(radiusOf(squareA)).toBeGreaterThan(1);
+    expect(radiusOf(squareB)).toBeLessThan(1 - c.penumbra);
+    expect((0 + 0) % 2).toBe(0);
+    expect((3 + 4) % 2).toBe(1);
+    checker(squareA[0], squareA[1], out);
+    expect(Math.abs(out.color - near(c.dark))).toBeLessThan(half);
+    checker(squareB[0], squareB[1], out);
+    expect(Math.abs(out.color - near(c.dark))).toBeLessThan(half);
+    const lightOutside = cellCentre(1, 0);
+    checker(lightOutside[0], lightOutside[1], out);
+    expect(Math.abs(out.color - near(c.light))).toBeLessThan(half);
+  });
+  it('puts the Cornsweet ramps at every edge, with the polarity turning over, and equal plateaus, and steps the staircase by equal amounts', () => {
+    // Just beside an edge k of the Cornsweet variant (0.008 away) the value is 0.5 plus or minus 0.2 tanh(2) exp(-(0.008 / 0.03)^2), the sign being that of (the polarity of the edge) times (the side), the polarity being + for the even edges and - for the odd; in the middle between two edges the value is 0.5 to 1e-6 (the Gaussian tails add up to 1.1e-8 there), so the two plateaus of one value are the same although the ramps make them look different. The Mach staircase has the plateau levels stairLow + (stairHigh - stairLow) index / (steps - 1) in the middle of each of its 16 plateaus, rising for 8 and falling for 8.
+    const cornsweet = createSurfaceSampler('contrastillusions', seeds[3]),
+      out = empty(),
+      amplitude =
+        p.cornsweetAmplitude *
+        Math.tanh(0.008 / p.edgeWidth) *
+        Math.exp(-((0.008 / p.cornsweetDecay) ** 2));
+    for (let edge = 0; edge < p.cornsweetEdges; edge++) {
+      const polarity = edge % 2 === 0 ? 1 : -1,
+        position = edge / p.cornsweetEdges;
+      cornsweet(position + 0.008, 0.3, out);
+      expect(
+        Math.abs(out.color - tone(0.5 + polarity * amplitude)),
+      ).toBeLessThan(p.grainTone / 2 + 1e-3);
+      cornsweet(position - 0.008 + (edge === 0 ? 1 : 0), 0.3, out);
+      expect(
+        Math.abs(out.color - tone(0.5 - polarity * amplitude)),
+      ).toBeLessThan(p.grainTone / 2 + 1e-3);
+      cornsweet(position + 0.5 / p.cornsweetEdges, 0.3, out);
+      expect(Math.abs(out.color - tone(0.5))).toBeLessThan(
+        p.grainTone / 2 + 1e-6,
+      );
+    }
+    const staircase = createSurfaceSampler('contrastillusions', seeds[4]),
+      cells = 2 * p.stairSteps;
+    for (let cell = 0; cell < cells; cell++) {
+      const index = cell < p.stairSteps ? cell : cells - 1 - cell;
+      staircase((cell + 0.5) / cells, 0.3, out);
+      expect(
+        Math.abs(
+          out.color -
+            tone(
+              p.stairLow +
+                ((p.stairHigh - p.stairLow) * index) / (p.stairSteps - 1),
+            ),
+        ),
+      ).toBeLessThan(p.grainTone / 2 + 1e-6);
+    }
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 2 pick different variants (the checker shadow and the Mach staircase).
+    const first = litGrid(0),
+      second = litGrid(2);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.5629);
+    expect(different / first.length).toBeLessThan(0.563);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('contrastillusions', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 neutral grey illusion maps with raised light areas and shaded dark ones', () => {
+    const maps = generateProceduralMaps('contrastillusions', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(121);
+    expect(red / (512 * 512)).toBeLessThan(122);
+    expect(green / (512 * 512)).toBeGreaterThan(120);
+    expect(green / (512 * 512)).toBeLessThan(121);
+    expect(blue / (512 * 512)).toBeGreaterThan(118.2);
+    expect(blue / (512 * 512)).toBeLessThan(119.2);
+    expect(maxTilt).toBeGreaterThan(0.0085);
+    expect(maxTilt).toBeLessThan(0.0086);
     expect(invalid).toBe(0);
   });
 });

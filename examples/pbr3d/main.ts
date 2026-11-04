@@ -1191,6 +1191,7 @@ try {
     'gerstnerocean',
     'opticalillusions',
     'lineillusions',
+    'contrastillusions',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
