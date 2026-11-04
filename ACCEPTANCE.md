@@ -14243,3 +14243,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：7項（色調範圍、每個圖類恰畫一次與數量與Pólya計數、組別只改順序、逐點比對、不同變體與組別與決定性、C1與UV週期、maps），`-t "Graph atlas as"`7項通過。變異檢查（做過28次）：25次被抓到（失敗項數1到7），3次未被抓到且為等價變異：(a)邊的位元編號改成稀疏的`j(j+1)/2＋i`（新頂點的邊仍是連續的位元，編號仍是一一對應，結果不變）；(b)縮放的列方向項改成`rows * extent`（欄數都大於列數，取最小值時永遠是欄的那一項）；(c)originX除以3（欄數都大於列數，originX恆為0，與前幾個kind的情形相同）。被抓到的包括：起始圖、頂點數迴圈邊界、子集數（3、4、4項）、代表取最大值（5項）、連通判斷（4、4項）、邊數條件（2項）、洗牌範圍（2項）、度數計數（4項）、邊距（7項）、originY（5項）、平滑起點（7項）、zero遮罩判斷（6項）、度數比例（5項）、點的遮罩合成（5項）、邊的色調與height（3、3項）、free（3項）、occlusion（1項）、地面色調（3項）、最後一格當空格（4項）、線寬與點半徑（4、5項）、投影分母（5項）、頂點位置的上下翻轉（5項）。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Graph atlas as|graphatlas|kinds|catalog|distinct|periodic"`定向測試**2606項通過／4645項未選**，輸出`GATES-OK`。
 - 未驗證：完整suite（`25bbf5e60`那一次的結果另記，不含graphatlas）、瀏覽器gallery（最近一次在`8c6b34ef0`，之後新增的四個kind尚未檢查）、跨瀏覽器與跨GPU；不push。
+
+## 2026-11-05 完整測試與瀏覽器gallery複驗（至標準楊表與圖譜）
+
+- 範圍：在`25bbf5e60`（新增標準楊表之後）重跑完整測試，並在`5ad691a9f`（新增圖譜之後）跑一次瀏覽器gallery。這段不新增材質，只記錄實跑結果。完整測試範圍包含`permutations`、`lozengetilings`、`polygondissections`與`standardtableaux`，不包含之後的`graphatlas`。
+- 完整測試（工具實跑，乾淨的detached worktree）：**179個測試檔、11,172項全部通過**（1583 s；期間我同時在做graphatlas的probe、測試與變異檢查，所以耗時不是乾淨的量測；沒有逾時失敗）。前一次完整複驗在`710bc29c7`（11,139項）；11,139 → 11,172共33項，與我預期的增量permutations 8項、lozengetilings 7項、polygondissections 7項、standardtableaux 7項（共29項）加上四個kind各一項的kinds清單測試（4項）相符，但我沒有逐項核對各測試的數量。沒有在無負載下重跑。
+- 瀏覽器gallery（工具實跑，無頭Chrome，vite從worktree提供`/examples/pbr3d/`）：WebGPU分頁與`?renderer=webgl2`分頁各自讀到「1148 procedural material presets」、選單1149個選項，選取lozengetilings、polygondissections、standardtableaux與graphatlas都成功（讀數更新），`errors().entries`都是空的，四個新kind的選項文字與標籤一致。**WebGPU分頁前兩次開啟失敗**（「Tab was killed: Browser tab worker recovery failed」），第3次成功；webgl2第1次就成功。我沒有診斷分頁被殺的原因（先前的紀錄中也出現過類似的不穩定），也沒有證據顯示與這些材質的程式有關，但也沒有排除。限制：只涵蓋「可選取、讀數更新、無console錯誤」，沒有目視畫面或像素比對；跨瀏覽器、跨GPU行為沒有驗證。
+- 未驗證：`graphatlas`尚未跑完整suite與gallery（只有定向測試與gates）；完整suite沒有在無負載下重跑；跨瀏覽器與跨GPU；不push。
