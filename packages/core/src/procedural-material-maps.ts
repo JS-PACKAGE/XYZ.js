@@ -204,6 +204,851 @@ function buildPeriodicVoronoiPlanes(
   return planes;
 }
 
+/**
+ * Kinds whose own field replaces the generic detail noise layers (the preset's pattern is the whole texture). A set, not a long chain of comparisons: the
+ * chain was over a thousand terms deep and the TypeScript parser of the linter overflowed its stack on it.
+ */
+const noDetailKinds: ReadonlySet<string> = new Set([
+  'flutedwood',
+  'subwaytiles',
+  'canewebbing',
+  'rammedearth',
+  'copperpatina',
+  'birdseyemaple',
+  'breezeblock',
+  'basketweavepavers',
+  'ripstop',
+  'octagondot',
+  'truchettiles',
+  'standingseam',
+  'damascus',
+  'windmillpavers',
+  'castiron',
+  'porphyry',
+  'linen',
+  'chippedenamel',
+  'perforatedleather',
+  'pigskinleather',
+  'argyle',
+  'chevronparquet',
+  'ginkgoleaf',
+  'pressedtin',
+  'sashiko',
+  'ashlar',
+  'gabion',
+  'gingham',
+  'mossypavers',
+  'bamboocrosscut',
+  'moire',
+  'oakleaf',
+  'rhombille',
+  'fossillimestone',
+  'seigaihatiles',
+  'tuftedleather',
+  'louveredmetal',
+  'herringbonebrick',
+  'shibori',
+  'scallopedslate',
+  'saltpan',
+  'dogbonepavers',
+  'palmendgrain',
+  'asanoha',
+  'lotusseedpod',
+  'crowncaps',
+  'cofferedconcrete',
+  'woodworm',
+  'calcadawaves',
+  'ikat',
+  'slottedwood',
+  'hollyleaf',
+  'englishbond',
+  'rebar',
+  'starfruit',
+  'diamondrustication',
+  'bargello',
+  'saffiano',
+  'cocoamat',
+  'suminagashi',
+  'vermiculite',
+  'cairotiles',
+  'guilloche',
+  'seaurchintest',
+  'crystallineglaze',
+  'shirring',
+  'sunburstveneer',
+  'rakedgravel',
+  'flintwall',
+  'frenchknots',
+  'artichoke',
+  'splitlockwashers',
+  'flemishbond',
+  'satinweave',
+  'lotusroot',
+  'cardboardedge',
+  'hexnuts',
+  'capnuts',
+  'flangenuts',
+  'orbicularjasper',
+  'acornbarnacles',
+  'circularpavers',
+  'snowflaketiles',
+  'sawblades',
+  'pistachios',
+  'polkadotfabric',
+  'cucumberslices',
+  'monsteraleaf',
+  'crossstitch',
+  'staranise',
+  'logcabinparquet',
+  'countersunkmetal',
+  'trilobitefossil',
+  'eyeletcotton',
+  'dendriticagate',
+  'ravioli',
+  'rollerchain',
+  'mapleleaf',
+  'smocking',
+  'quatrefoiltile',
+  'okraslice',
+  'eggcarton',
+  'greekkey',
+  'seedbeads',
+  'chainstitch',
+  'wingnuts',
+  'pomegranateslice',
+  'pawprinttiles',
+  'dovetailjoint',
+  'starsocketbolts',
+  'sanddollar',
+  'brogueleather',
+  'clovebuds',
+  'starcrosstiles',
+  'maplesamara',
+  'lenoweave',
+  'circlips',
+  'eclips',
+  'tuliptiles',
+  'gingerslice',
+  'fivebarplate',
+  'cinnamonswirl',
+  'wheatears',
+  'scalemail',
+  'trihexagonaltiles',
+  'burlwood',
+  'slottedmetal',
+  'peppercorns',
+  'castellatednuts',
+  'farfalle',
+  'cardamompods',
+  'brickarches',
+  'knottednet',
+  'fiddleheads',
+  'cowrieshells',
+  'cotterpins',
+  'seedstitch',
+  'garterstitch',
+  'mangosteenslice',
+  'pickettiles',
+  'squarewashers',
+  'eucalyptusleaf',
+  'twillweave',
+  'pinstripewool',
+  'chrysanthemumstone',
+  'snowflakeobsidian',
+  'sewingsnaps',
+  'lathplaster',
+  'ceramiccapacitors',
+  'fennelseeds',
+  'rj45femalefaces',
+  'rcafemalefaces',
+  'f05opticalfaces',
+  'minidin4femalefaces',
+  'dcbarreljackfaces',
+  'stfiberadapterfaces',
+  'mudcloth',
+  'to92packagefaces',
+  'xiangqiboard',
+  'cribbageboard',
+  'monopolyboard',
+  'scrabbleboard',
+  'duccirows',
+  'wireworldcircuit',
+  'cycliccellular',
+  'beattypartition',
+  'walshmatrix',
+  'paperfoldingruler',
+  'rudinshapirogrid',
+  'baumsweetgrid',
+  'binarynecklaces',
+  'catalantriangulations',
+  'eisensteinprimes',
+  'keplerorbit',
+  'pythagoreanproof',
+  'contributiongraph',
+  'arbelos',
+  'eulerlinetriangle',
+  'astroidladder',
+  'slopegraph',
+  'kolakoskisequence',
+  'crcdivision',
+  'lfsrstates',
+  'fareysequence',
+  'unionfindmerges',
+  'linearprobing',
+  'bloomfilter',
+  'gamblersruin',
+  'nimgame',
+  'wordlefeedback',
+  'funnelchart',
+  'lrucachetrace',
+  'knapsacktable',
+  'bfswavefront',
+  'bresenhamlines',
+  'mergesortruns',
+  'radixsortpasses',
+  'paretochart',
+  'vernierscale',
+  'kmpfailure',
+  'dijkstragrid',
+  'binarysearchsteps',
+  'quicksortsteps',
+  'ganttschedule',
+  'lorenzcurve',
+  'zordercurve',
+  'histogrambins',
+  'sankeyflows',
+  'bodeplots',
+  'huffmancodes',
+  'hashchains',
+  'editdistance',
+  'nearesttour',
+  'karnaughmap',
+  'bsttreeorder',
+  'kdtreesplits',
+  'spanningtree',
+  'ecdfplot',
+  'intervalpartition',
+  'waterfallchart',
+  'chorddiagrams',
+  'qamconstellation',
+  'countertimings',
+  'hofstadterq',
+  'semaphorefigures',
+  'fenwicktree',
+  'jacobisymbols',
+  'vicsekfractal',
+  'segmenttree',
+  'rankchevrons',
+  'windbarbs',
+  'compassrose',
+  'smithchart',
+  'mahjongdots',
+  'qrcodemodules',
+  'gaugedials',
+  'flagpatterns',
+  'intelhexrecords',
+  'equalizerbars',
+  'worleycells',
+  'errordiffusion',
+  'tetrominoes',
+  'candlestickcharts',
+  'paleygraphmatrix',
+  'superformulacells',
+  'tsquarefractal',
+  'marchingsquares',
+  'wangtiles',
+  'htreefractal',
+  'lsystemplant',
+  'quadtreecells',
+  'countingrods',
+  'braiddiagram',
+  'youngtableaux',
+  'euclidsquares',
+  'voronoicells',
+  'cliffordattractor',
+  'peanocurve',
+  'bitwisetable',
+  'golombrulers',
+  'henonattractor',
+  'digitalroottable',
+  'thuemorsegrid',
+  'recamanarcs',
+  'happynumberchains',
+  'lookandsayrows',
+  'kaprekarsteps',
+  'roundrobintable',
+  'roulettewheel',
+  'circleoffifths',
+  'periodictablecells',
+  'josephuscircle',
+  'gaussianprimes',
+  'timestablecircles',
+  'divisorcountbars',
+  'cobwebplots',
+  'sierpinskipascal',
+  'sacksspiral',
+  'dyckpaths',
+  'figuratenumbers',
+  'pythagoreantriples',
+  'hexdumprows',
+  'pairingtables',
+  'ferrersdiagrams',
+  'zeckendorfrows',
+  'cycloidcusps',
+  'sternbrocottree',
+  'projectilearcs',
+  'isbn10checks',
+  'runlengthrows',
+  'graphcoloring',
+  'bubblesortpasses',
+  'binaryheaptree',
+  'dicesumbars',
+  'substitutionwords',
+  'stemandleaf',
+  'boxplots',
+  'sorobanabacus',
+  'numberwords',
+  'dipolefieldlines',
+  'mobiusgrid',
+  'fordcircles',
+  'vectorfieldarrows',
+  'wordsquares',
+  'caesarcipher',
+  'baseconversion',
+  'primefactors',
+  'modularpowers',
+  'burningship',
+  'logisticbifurcation',
+  'bitwiselogic',
+  'gcdtable',
+  'percolationclusters',
+  'abeliansandpile',
+  'binaryaddition',
+  'roundingmodes',
+  'bellcurvebands',
+  'ieee754floats',
+  'vennregions',
+  'bezierconstruction',
+  'luhnnumbers',
+  'twosourceripples',
+  'cassiniovals',
+  'rosecurves',
+  'conicsections',
+  'cantorsetrows',
+  'mandelbrotbands',
+  'newtonbasins',
+  'kochsnowflake',
+  'matrixproducts',
+  'signedencodings',
+  'romannumerals',
+  'cayleytables',
+  'hammingcodewords',
+  'collatzsequences',
+  'delaunaytriangles',
+  'convexhullpoints',
+  'pascaltrianglenumbers',
+  'fouriersquarewaves',
+  'truthtablelogic',
+  'barchartbars',
+  'regressionscatter',
+  'piechartwedges',
+  'analogclocks',
+  'treemaprects',
+  'moonphases',
+  'multiplicationtable',
+  'draughtsposition',
+  'colormapregions',
+  'chinesecheckersboard',
+  'euclideanrhythms',
+  'hidatochain',
+  'mancalaboard',
+  'rushhourjam',
+  'numberlinkpaths',
+  'kenkencages',
+  'takuzugrid',
+  'akarilights',
+  'hitorishading',
+  'shikakurects',
+  'tentsandtrees',
+  'nurikabeislands',
+  'futoshikigrid',
+  'fillominoregions',
+  'stringartcurves',
+  'masyupearls',
+  'slitherlinkloop',
+  'hashibridges',
+  'kakuropuzzle',
+  'hexresourceboard',
+  'bowlingscoresheet',
+  'dewbeads',
+  'goboards',
+  'othelloboard',
+  'binaryclock',
+  'pianoroll',
+  'skyscraperpuzzles',
+  'knockoutbracket',
+  'primesieve',
+  'sortingnetworks',
+  'mayansums',
+  'latinsquares',
+  'hanoitowers',
+  'eightqueens',
+  'cantordust',
+  'dragoncurve',
+  'pascalmodulo',
+  'gameoflife',
+  'oghaminscription',
+  'kaleidoscope',
+  'slidingpuzzle',
+  'magicsquares',
+  'wordsearchgrid',
+  'mastermindboard',
+  'elementaryautomata',
+  'bluenoisemask',
+  'fibonaccisquares',
+  'doubleslitfringes',
+  'sundialplate',
+  'ledgersheet',
+  'louvershutter',
+  'chesterfieldtufting',
+  'polargraphpaper',
+  'tallymarks',
+  'quasicrystalwaves',
+  'tictactoegames',
+  'dartboardsectors',
+  'featherbarbs',
+  'amidakuji',
+  'code39barcodes',
+  'graycodediscs',
+  'knightstour',
+  'scrambledcubenet',
+  'weavingdraft',
+  'lightsoutboard',
+  'nonogrampuzzle',
+  'juliacells',
+  'spirographrosettes',
+  'sliderulescale',
+  'xylophonebars',
+  'pegsolitaire',
+  'bingocard',
+  'connectfourboard',
+  'ramennoodles',
+  'jigsawpuzzle',
+  'backgammonboard',
+  'zoneplates',
+  'lissajousgrid',
+  'mondriancomposition',
+  'hilbertcurve',
+  'battleshipgrid',
+  'tetrisstack',
+  'minesweeperboard',
+  'flipdotdisplay',
+  'crosswordgrid',
+  'fretboard',
+  'calendarpage',
+  'measuringtape',
+  'sudokugrid',
+  'sheetmusic',
+  'ecgpaper',
+  'datamatrixcodes',
+  'frostpolygons',
+  'sandripples',
+  'morsetape',
+  'ean13barcodes',
+  'kilimflatweave',
+  'tumblingblocks',
+  'azulejotiles',
+  'moirefringes',
+  'cinderblockwall',
+  'dicefaces',
+  'needlepoint',
+  'mandalaflower',
+  'kiwislices',
+  'hazardstripes',
+  'radarscope',
+  'digitalcamo',
+  'topographiccontours',
+  'garnetschist',
+  'celticplait',
+  'atomicboomerang',
+  'lawnstripes',
+  'asphaltshingle',
+  'expandedpolystyrene',
+  'octopussuckers',
+  'ammonitestone',
+  'amberresin',
+  'patchworkquilt',
+  'bayerdither',
+  'turingpattern',
+  'to220packagefaces',
+  'ftypefemalefaces',
+  'usbcfemalefaces',
+  'iecc6inlets',
+  'iecc8inlets',
+  'din5femalefaces',
+  'xlrfemalefaces',
+  'bncfemalefaces',
+  'iecc14inlets',
+  'dsubsocketfaces',
+  'topadjusttrimmers',
+  'crownprobetips',
+  'piezodiaphragms',
+  'castellatedboards',
+  'qfnlandpads',
+  'bgasolderballs',
+  'ballbearingfaces',
+  'baseballleather',
+  'toothbrushheads',
+  'bowtieinlay',
+  'redcabbagecut',
+  'slottedturners',
+  'triglidesliders',
+  'popcorn',
+  'dualinlinechips',
+  'tortoiseshellacetate',
+  'cathedralquilt',
+  'matelasse',
+  'silknoil',
+  'buckwheathulls',
+  'rutilatedquartz',
+  'peppermintcanes',
+  'rubbergrommets',
+  'chioggiabeetcuts',
+  'flatflexcables',
+  'celerycuts',
+  'tactileswitches',
+  'paisleybrocade',
+  'siliconepastrybrushes',
+  'graphicgranite',
+  'brasspadlocks',
+  'carrotcuts',
+  'bluepushpins',
+  'oatflakes',
+  'grosgrainribbons',
+  'azuritemalachite',
+  'openendspanners',
+  'lentilseeds',
+  'blueprintpaper',
+  'horsechestnutleaf',
+  'binderclips',
+  'charoite',
+  'chenilleyarn',
+  'ceramicfuses',
+  'hazelnutshells',
+  'yagasuricloth',
+  'balloonwhisks',
+  'orthocerasstone',
+  'rickracktrim',
+  'toroidalinductors',
+  'pennerigate',
+  'lepidolitemica',
+  'brassjinglebells',
+  'nutmeghalves',
+  'coaxialcablecuts',
+  'shippocloth',
+  'driedtamarindpods',
+  'conicalsampletubes',
+  'botryoidalcopper',
+  'pencilshavings',
+  'papayacuts',
+  'sewingthimbles',
+  'boullebrassinlay',
+  'diamondpanelparquet',
+  'dendriticfrost',
+  'bullionknots',
+  'orecchiette',
+  'solderlessbreadboard',
+  'kyaniteblades',
+  'wulfenite',
+  'staurolite',
+  'papertape',
+  'ulamspiral',
+  'sevensegment',
+  'perfectmaze',
+  'rule30',
+  'embossedbraille',
+  'ean13label',
+  'soroban',
+  'deltoidaltrihexagonaltiles',
+  'snubtrihexagonaltiles',
+  'floretpentagonaltiles',
+  'prismaticpentagonaltiles',
+  'apollonianmosaic',
+  'ichinghexagrams',
+  'pythagorastree',
+  'pentominotiles',
+  'langtonsant',
+  'vogelspiral',
+  'gosperinlay',
+  'pallasite',
+  'cuttlebone',
+  'watermelontourmaline',
+  'leafstomata',
+  'chitonshells',
+  'radiolariandiscs',
+  'diatomvalves',
+  'moorecurve',
+  'sierpinskicarpet',
+  'chladnifigure',
+  'kisrhombilletiles',
+  'truncatedtrihexagonaltiles',
+  'elongatedtriangulartiles',
+  'rhombitrihexagonaltiles',
+  'snubsquaretiles',
+  'starfish',
+  'fishscaleshingles',
+  'waffleweave',
+  'halite',
+  'calcite',
+  'azurite',
+  'celestine',
+  'barite',
+  'dowelpins',
+  'clevispins',
+  'gibheadkeys',
+  'woodruffkeys',
+  'parallelkeys',
+  'internaltoothwashers',
+  'driedchillies',
+  'utilityknifeblades',
+  'windmillparquet',
+  'bismuthhoppers',
+  'splitvanillapods',
+  'seamrippers',
+  'flakedarrowheads',
+  'dandelionseeds',
+  'shojipaperlattice',
+  'nyloncableties',
+  'weavingshuttles',
+  'tailorstapes',
+  'woodenclothespins',
+  'cinnamonbarkcoils',
+  'compactcassettefaces',
+  'kintsugiceramic',
+  'pleatedfilterpapers',
+  'splitcedarshakes',
+  'swavepavers',
+  'mushroomslices',
+  'insulatedringlugs',
+  'bananaslices',
+  'rosemarysprigs',
+  'pencilsharpeners',
+  'scissors',
+  'serpentinesprings',
+  'impellerfaces',
+  'chipresistors',
+  'memorycardbacks',
+  'gnocchi',
+  'rectangularsocketfaces',
+  'saffronthreads',
+  'fishhooks',
+  'violinfholes',
+  'palmiers',
+  'barbedwire',
+  'oxfordweave',
+  'lacewood',
+  'papyrus',
+  'larimar',
+  'paperbark',
+  'horseshoes',
+  'durianpeel',
+  'flystitch',
+  'abaloneshells',
+  'gyroidinfill',
+  'cloisonne',
+  'rambutanskin',
+  'rackgears',
+  'grosgrain',
+  'faille',
+  'bedfordcord',
+  'poplin',
+  'whipcord',
+  'gabardine',
+  'oilspotglaze',
+  'persimmonslice',
+  'kitkattiles',
+  'brakediscs',
+  'mulberrypaper',
+  'howlite',
+  'sodalite',
+  'ottoman',
+  'shackles',
+  'watercaltrops',
+  'fluorite',
+  'vanadinite',
+  'pyromorphite',
+  'redberyl',
+  'cavansite',
+  'wenge',
+  'parchment',
+  'cavalrytwill',
+  'screwhooks',
+  'nigellaseeds',
+  'phyllite',
+  'shantung',
+  'hempcrete',
+  'utilityblades',
+  'chrysocolla',
+  'hemimorphite',
+  'smithsonite',
+  'sichuanpepperhusks',
+  'huckaback',
+  'anorthosite',
+  'cubebberries',
+  'seraphinite',
+  'hexsocketheads',
+  'squaresocketheads',
+  'trianglesocketheads',
+  'twopinscrewheads',
+  'amazonite',
+  'mungbeans',
+  'blackeyedpeas',
+  'adzukibeans',
+  'anigre',
+  'makore',
+  'larvikite',
+  'squareholewashers',
+  'tigerwood',
+  'blackpalm',
+  'snakewood',
+  'safflowerseeds',
+  'thulite',
+  'unakite',
+  'eudialyte',
+  'lignumvitae',
+  'iroko',
+  'purpleheart',
+  'yellowheart',
+  'bloodwood',
+  'thomsonite',
+  'dalmatianstone',
+  'basswood',
+  'nickelsilver',
+  'hopsack',
+  'monkscloth',
+  'lyocell',
+  'sateen',
+  'surah',
+  'serge',
+  'habotai',
+  'batiste',
+  'ramie',
+  'tabwashers',
+  'sphericalwashers',
+  'wavewashers',
+  'cupwashers',
+  'pietersite',
+  'bronzite',
+  'castorbeans',
+  'europeanbeech',
+  'whiteoak',
+  'whiteash',
+  'kingwood',
+  'braziliantulipwood',
+  'macassarebony',
+  'zebrawood',
+  'bocote',
+  'datepits',
+  'sapele',
+  'chambray',
+  'ticking',
+  'cottondrill',
+  'nephrite',
+  'diorite',
+  'carawayseeds',
+  'springpinends',
+  'rhyolite',
+  'tonkabeans',
+  'pentalobescrewheads',
+  'tripointscrewheads',
+  'padauk',
+  'cottonflannel',
+  'pinolith',
+  'septarian',
+  'ooliticlimestone',
+  'ogeetiles',
+  'bittermelonskin',
+  'cocobolo',
+  'doubleedgerazorblades',
+  'chiastolite',
+  'dimity',
+  'juniperberries',
+  'gabbro',
+  'turnbuckles',
+  'rhodochrosite',
+  'bluelaceagate',
+  'bayleaf',
+  'pumpkinseeds',
+  'spurgears',
+  'diamondcheckertiles',
+  'appleslice',
+  'paperclips',
+  'rclips',
+  'linchpins',
+  'ivyleaf',
+  'ribknit',
+  'pillowtiles',
+  'coffeerings',
+  'cashews',
+  'hinges',
+  'coins',
+  'righttriangletiles',
+  'cherryblossom',
+  'punchcard',
+  'braidedcord',
+  'crossbeddedsandstone',
+  'grommetcanvas',
+  'fishscaletiles',
+  'hexkeys',
+  'driedfigslice',
+  'creamcrackers',
+  'doorkeys',
+  'dodecagontiles',
+  'ballchain',
+  'succulentrosettes',
+  'foldingfans',
+  'togglebuttons',
+  'greenpeapods',
+  'beltbuckles',
+  'hextruchettiles',
+  'scoredmango',
+  'waxseals',
+  'cottonbolls',
+  'carabiners',
+  'pencilends',
+  'corrugatedplasticedge',
+  'haircombs',
+  'blackberries',
+  'musselshells',
+  'safetypins',
+  'poppyseedpods',
+  'leatherbookspines',
+  'matchsticks',
+  'porcelaininsulators',
+  'dominoes',
+  'woodenspoons',
+  'chessrooks',
+  'threadspools',
+  'bellpepperslices',
+  'sharkteeth',
+  'grinderburrs',
+  'spaltedwood',
+  'canlids',
+  'crinoidossicles',
+  'pythagoreantiles',
+  'dinnerforks',
+  'mudtiretracks',
+  'tangramtiles',
+  'batterypositivecaps',
+  'passionfruitslice',
+  'screwterminalblocks',
+  'dragonfruitflesh',
+  'speakercones',
+  'septarianstone',
+  'axialresistors',
+  'tomatoslices',
+]);
+
 /** Internal CPU field sampler; coordinates are periodic in both directions. */
 export function createSurfaceSampler(
   kind: ProceduralMaterialKind,
@@ -74743,844 +75588,6 @@ export function createSurfaceSampler(
   // Constant for the sampler: which noise layers the preset's own field does not replace.
   const needsDetail = !(
     architectural ||
-    kind === 'flutedwood' ||
-    kind === 'subwaytiles' ||
-    kind === 'canewebbing' ||
-    kind === 'rammedearth' ||
-    kind === 'copperpatina' ||
-    kind === 'birdseyemaple' ||
-    kind === 'breezeblock' ||
-    kind === 'basketweavepavers' ||
-    kind === 'ripstop' ||
-    kind === 'octagondot' ||
-    kind === 'truchettiles' ||
-    kind === 'standingseam' ||
-    kind === 'damascus' ||
-    kind === 'windmillpavers' ||
-    kind === 'castiron' ||
-    kind === 'porphyry' ||
-    kind === 'linen' ||
-    kind === 'chippedenamel' ||
-    kind === 'perforatedleather' ||
-    kind === 'pigskinleather' ||
-    kind === 'argyle' ||
-    kind === 'chevronparquet' ||
-    kind === 'ginkgoleaf' ||
-    kind === 'pressedtin' ||
-    kind === 'sashiko' ||
-    kind === 'ashlar' ||
-    kind === 'gabion' ||
-    kind === 'gingham' ||
-    kind === 'mossypavers' ||
-    kind === 'bamboocrosscut' ||
-    kind === 'moire' ||
-    kind === 'oakleaf' ||
-    kind === 'rhombille' ||
-    kind === 'fossillimestone' ||
-    kind === 'seigaihatiles' ||
-    kind === 'tuftedleather' ||
-    kind === 'louveredmetal' ||
-    kind === 'herringbonebrick' ||
-    kind === 'shibori' ||
-    kind === 'scallopedslate' ||
-    kind === 'saltpan' ||
-    kind === 'dogbonepavers' ||
-    kind === 'palmendgrain' ||
-    kind === 'asanoha' ||
-    kind === 'lotusseedpod' ||
-    kind === 'crowncaps' ||
-    kind === 'cofferedconcrete' ||
-    kind === 'woodworm' ||
-    kind === 'calcadawaves' ||
-    kind === 'ikat' ||
-    kind === 'slottedwood' ||
-    kind === 'hollyleaf' ||
-    kind === 'englishbond' ||
-    kind === 'rebar' ||
-    kind === 'starfruit' ||
-    kind === 'diamondrustication' ||
-    kind === 'bargello' ||
-    kind === 'saffiano' ||
-    kind === 'cocoamat' ||
-    kind === 'suminagashi' ||
-    kind === 'vermiculite' ||
-    kind === 'cairotiles' ||
-    kind === 'guilloche' ||
-    kind === 'seaurchintest' ||
-    kind === 'crystallineglaze' ||
-    kind === 'shirring' ||
-    kind === 'sunburstveneer' ||
-    kind === 'rakedgravel' ||
-    kind === 'flintwall' ||
-    kind === 'frenchknots' ||
-    kind === 'artichoke' ||
-    kind === 'splitlockwashers' ||
-    kind === 'flemishbond' ||
-    kind === 'satinweave' ||
-    kind === 'lotusroot' ||
-    kind === 'cardboardedge' ||
-    kind === 'hexnuts' ||
-    kind === 'capnuts' ||
-    kind === 'flangenuts' ||
-    kind === 'orbicularjasper' ||
-    kind === 'acornbarnacles' ||
-    kind === 'circularpavers' ||
-    kind === 'snowflaketiles' ||
-    kind === 'sawblades' ||
-    kind === 'pistachios' ||
-    kind === 'polkadotfabric' ||
-    kind === 'cucumberslices' ||
-    kind === 'monsteraleaf' ||
-    kind === 'crossstitch' ||
-    kind === 'staranise' ||
-    kind === 'logcabinparquet' ||
-    kind === 'countersunkmetal' ||
-    kind === 'trilobitefossil' ||
-    kind === 'eyeletcotton' ||
-    kind === 'dendriticagate' ||
-    kind === 'ravioli' ||
-    kind === 'rollerchain' ||
-    kind === 'mapleleaf' ||
-    kind === 'smocking' ||
-    kind === 'quatrefoiltile' ||
-    kind === 'okraslice' ||
-    kind === 'eggcarton' ||
-    kind === 'greekkey' ||
-    kind === 'seedbeads' ||
-    kind === 'chainstitch' ||
-    kind === 'wingnuts' ||
-    kind === 'pomegranateslice' ||
-    kind === 'pawprinttiles' ||
-    kind === 'dovetailjoint' ||
-    kind === 'starsocketbolts' ||
-    kind === 'sanddollar' ||
-    kind === 'brogueleather' ||
-    kind === 'clovebuds' ||
-    kind === 'starcrosstiles' ||
-    kind === 'maplesamara' ||
-    kind === 'lenoweave' ||
-    kind === 'circlips' ||
-    kind === 'eclips' ||
-    kind === 'tuliptiles' ||
-    kind === 'gingerslice' ||
-    kind === 'fivebarplate' ||
-    kind === 'cinnamonswirl' ||
-    kind === 'wheatears' ||
-    kind === 'scalemail' ||
-    kind === 'trihexagonaltiles' ||
-    kind === 'burlwood' ||
-    kind === 'slottedmetal' ||
-    kind === 'peppercorns' ||
-    kind === 'castellatednuts' ||
-    kind === 'farfalle' ||
-    kind === 'cardamompods' ||
-    kind === 'brickarches' ||
-    kind === 'knottednet' ||
-    kind === 'fiddleheads' ||
-    kind === 'cowrieshells' ||
-    kind === 'cotterpins' ||
-    kind === 'seedstitch' ||
-    kind === 'garterstitch' ||
-    kind === 'mangosteenslice' ||
-    kind === 'pickettiles' ||
-    kind === 'squarewashers' ||
-    kind === 'eucalyptusleaf' ||
-    kind === 'twillweave' ||
-    kind === 'pinstripewool' ||
-    kind === 'chrysanthemumstone' ||
-    kind === 'snowflakeobsidian' ||
-    kind === 'sewingsnaps' ||
-    kind === 'lathplaster' ||
-    kind === 'ceramiccapacitors' ||
-    kind === 'fennelseeds' ||
-    kind === 'rj45femalefaces' ||
-    kind === 'rcafemalefaces' ||
-    kind === 'f05opticalfaces' ||
-    kind === 'minidin4femalefaces' ||
-    kind === 'dcbarreljackfaces' ||
-    kind === 'stfiberadapterfaces' ||
-    kind === 'mudcloth' ||
-    kind === 'to92packagefaces' ||
-    kind === 'xiangqiboard' ||
-    kind === 'cribbageboard' ||
-    kind === 'monopolyboard' ||
-    kind === 'scrabbleboard' ||
-    kind === 'duccirows' ||
-    kind === 'wireworldcircuit' ||
-    kind === 'cycliccellular' ||
-    kind === 'beattypartition' ||
-    kind === 'walshmatrix' ||
-    kind === 'paperfoldingruler' ||
-    kind === 'rudinshapirogrid' ||
-    kind === 'baumsweetgrid' ||
-    kind === 'binarynecklaces' ||
-    kind === 'catalantriangulations' ||
-    kind === 'eisensteinprimes' ||
-    kind === 'keplerorbit' ||
-    kind === 'pythagoreanproof' ||
-    kind === 'contributiongraph' ||
-    kind === 'arbelos' ||
-    kind === 'eulerlinetriangle' ||
-    kind === 'astroidladder' ||
-    kind === 'slopegraph' ||
-    kind === 'kolakoskisequence' ||
-    kind === 'crcdivision' ||
-    kind === 'lfsrstates' ||
-    kind === 'fareysequence' ||
-    kind === 'unionfindmerges' ||
-    kind === 'linearprobing' ||
-    kind === 'bloomfilter' ||
-    kind === 'gamblersruin' ||
-    kind === 'nimgame' ||
-    kind === 'wordlefeedback' ||
-    kind === 'funnelchart' ||
-    kind === 'lrucachetrace' ||
-    kind === 'knapsacktable' ||
-    kind === 'bfswavefront' ||
-    kind === 'bresenhamlines' ||
-    kind === 'mergesortruns' ||
-    kind === 'radixsortpasses' ||
-    kind === 'paretochart' ||
-    kind === 'vernierscale' ||
-    kind === 'kmpfailure' ||
-    kind === 'dijkstragrid' ||
-    kind === 'binarysearchsteps' ||
-    kind === 'quicksortsteps' ||
-    kind === 'ganttschedule' ||
-    kind === 'lorenzcurve' ||
-    kind === 'zordercurve' ||
-    kind === 'histogrambins' ||
-    kind === 'sankeyflows' ||
-    kind === 'bodeplots' ||
-    kind === 'huffmancodes' ||
-    kind === 'hashchains' ||
-    kind === 'editdistance' ||
-    kind === 'nearesttour' ||
-    kind === 'karnaughmap' ||
-    kind === 'bsttreeorder' ||
-    kind === 'kdtreesplits' ||
-    kind === 'spanningtree' ||
-    kind === 'ecdfplot' ||
-    kind === 'intervalpartition' ||
-    kind === 'waterfallchart' ||
-    kind === 'chorddiagrams' ||
-    kind === 'qamconstellation' ||
-    kind === 'countertimings' ||
-    kind === 'hofstadterq' ||
-    kind === 'semaphorefigures' ||
-    kind === 'fenwicktree' ||
-    kind === 'jacobisymbols' ||
-    kind === 'vicsekfractal' ||
-    kind === 'segmenttree' ||
-    kind === 'rankchevrons' ||
-    kind === 'windbarbs' ||
-    kind === 'compassrose' ||
-    kind === 'smithchart' ||
-    kind === 'mahjongdots' ||
-    kind === 'qrcodemodules' ||
-    kind === 'gaugedials' ||
-    kind === 'flagpatterns' ||
-    kind === 'intelhexrecords' ||
-    kind === 'equalizerbars' ||
-    kind === 'worleycells' ||
-    kind === 'errordiffusion' ||
-    kind === 'tetrominoes' ||
-    kind === 'candlestickcharts' ||
-    kind === 'paleygraphmatrix' ||
-    kind === 'superformulacells' ||
-    kind === 'tsquarefractal' ||
-    kind === 'marchingsquares' ||
-    kind === 'wangtiles' ||
-    kind === 'htreefractal' ||
-    kind === 'lsystemplant' ||
-    kind === 'quadtreecells' ||
-    kind === 'countingrods' ||
-    kind === 'braiddiagram' ||
-    kind === 'youngtableaux' ||
-    kind === 'euclidsquares' ||
-    kind === 'voronoicells' ||
-    kind === 'cliffordattractor' ||
-    kind === 'peanocurve' ||
-    kind === 'bitwisetable' ||
-    kind === 'golombrulers' ||
-    kind === 'henonattractor' ||
-    kind === 'digitalroottable' ||
-    kind === 'thuemorsegrid' ||
-    kind === 'recamanarcs' ||
-    kind === 'happynumberchains' ||
-    kind === 'lookandsayrows' ||
-    kind === 'kaprekarsteps' ||
-    kind === 'roundrobintable' ||
-    kind === 'roulettewheel' ||
-    kind === 'circleoffifths' ||
-    kind === 'periodictablecells' ||
-    kind === 'josephuscircle' ||
-    kind === 'gaussianprimes' ||
-    kind === 'timestablecircles' ||
-    kind === 'divisorcountbars' ||
-    kind === 'cobwebplots' ||
-    kind === 'sierpinskipascal' ||
-    kind === 'sacksspiral' ||
-    kind === 'dyckpaths' ||
-    kind === 'figuratenumbers' ||
-    kind === 'pythagoreantriples' ||
-    kind === 'hexdumprows' ||
-    kind === 'pairingtables' ||
-    kind === 'ferrersdiagrams' ||
-    kind === 'zeckendorfrows' ||
-    kind === 'cycloidcusps' ||
-    kind === 'sternbrocottree' ||
-    kind === 'projectilearcs' ||
-    kind === 'isbn10checks' ||
-    kind === 'runlengthrows' ||
-    kind === 'graphcoloring' ||
-    kind === 'bubblesortpasses' ||
-    kind === 'binaryheaptree' ||
-    kind === 'dicesumbars' ||
-    kind === 'substitutionwords' ||
-    kind === 'stemandleaf' ||
-    kind === 'boxplots' ||
-    kind === 'sorobanabacus' ||
-    kind === 'numberwords' ||
-    kind === 'dipolefieldlines' ||
-    kind === 'mobiusgrid' ||
-    kind === 'fordcircles' ||
-    kind === 'vectorfieldarrows' ||
-    kind === 'wordsquares' ||
-    kind === 'caesarcipher' ||
-    kind === 'baseconversion' ||
-    kind === 'primefactors' ||
-    kind === 'modularpowers' ||
-    kind === 'burningship' ||
-    kind === 'logisticbifurcation' ||
-    kind === 'bitwiselogic' ||
-    kind === 'gcdtable' ||
-    kind === 'percolationclusters' ||
-    kind === 'abeliansandpile' ||
-    kind === 'binaryaddition' ||
-    kind === 'roundingmodes' ||
-    kind === 'bellcurvebands' ||
-    kind === 'ieee754floats' ||
-    kind === 'vennregions' ||
-    kind === 'bezierconstruction' ||
-    kind === 'luhnnumbers' ||
-    kind === 'twosourceripples' ||
-    kind === 'cassiniovals' ||
-    kind === 'rosecurves' ||
-    kind === 'conicsections' ||
-    kind === 'cantorsetrows' ||
-    kind === 'mandelbrotbands' ||
-    kind === 'newtonbasins' ||
-    kind === 'kochsnowflake' ||
-    kind === 'matrixproducts' ||
-    kind === 'signedencodings' ||
-    kind === 'romannumerals' ||
-    kind === 'cayleytables' ||
-    kind === 'hammingcodewords' ||
-    kind === 'collatzsequences' ||
-    kind === 'delaunaytriangles' ||
-    kind === 'convexhullpoints' ||
-    kind === 'pascaltrianglenumbers' ||
-    kind === 'fouriersquarewaves' ||
-    kind === 'truthtablelogic' ||
-    kind === 'barchartbars' ||
-    kind === 'regressionscatter' ||
-    kind === 'piechartwedges' ||
-    kind === 'analogclocks' ||
-    kind === 'treemaprects' ||
-    kind === 'moonphases' ||
-    kind === 'multiplicationtable' ||
-    kind === 'draughtsposition' ||
-    kind === 'colormapregions' ||
-    kind === 'chinesecheckersboard' ||
-    kind === 'euclideanrhythms' ||
-    kind === 'hidatochain' ||
-    kind === 'mancalaboard' ||
-    kind === 'rushhourjam' ||
-    kind === 'numberlinkpaths' ||
-    kind === 'kenkencages' ||
-    kind === 'takuzugrid' ||
-    kind === 'akarilights' ||
-    kind === 'hitorishading' ||
-    kind === 'shikakurects' ||
-    kind === 'tentsandtrees' ||
-    kind === 'nurikabeislands' ||
-    kind === 'futoshikigrid' ||
-    kind === 'fillominoregions' ||
-    kind === 'stringartcurves' ||
-    kind === 'masyupearls' ||
-    kind === 'slitherlinkloop' ||
-    kind === 'hashibridges' ||
-    kind === 'kakuropuzzle' ||
-    kind === 'hexresourceboard' ||
-    kind === 'bowlingscoresheet' ||
-    kind === 'dewbeads' ||
-    kind === 'goboards' ||
-    kind === 'othelloboard' ||
-    kind === 'binaryclock' ||
-    kind === 'pianoroll' ||
-    kind === 'skyscraperpuzzles' ||
-    kind === 'knockoutbracket' ||
-    kind === 'primesieve' ||
-    kind === 'sortingnetworks' ||
-    kind === 'mayansums' ||
-    kind === 'latinsquares' ||
-    kind === 'hanoitowers' ||
-    kind === 'eightqueens' ||
-    kind === 'cantordust' ||
-    kind === 'dragoncurve' ||
-    kind === 'pascalmodulo' ||
-    kind === 'gameoflife' ||
-    kind === 'oghaminscription' ||
-    kind === 'kaleidoscope' ||
-    kind === 'slidingpuzzle' ||
-    kind === 'magicsquares' ||
-    kind === 'wordsearchgrid' ||
-    kind === 'mastermindboard' ||
-    kind === 'elementaryautomata' ||
-    kind === 'bluenoisemask' ||
-    kind === 'fibonaccisquares' ||
-    kind === 'doubleslitfringes' ||
-    kind === 'sundialplate' ||
-    kind === 'ledgersheet' ||
-    kind === 'louvershutter' ||
-    kind === 'chesterfieldtufting' ||
-    kind === 'polargraphpaper' ||
-    kind === 'tallymarks' ||
-    kind === 'quasicrystalwaves' ||
-    kind === 'tictactoegames' ||
-    kind === 'dartboardsectors' ||
-    kind === 'featherbarbs' ||
-    kind === 'amidakuji' ||
-    kind === 'code39barcodes' ||
-    kind === 'graycodediscs' ||
-    kind === 'knightstour' ||
-    kind === 'scrambledcubenet' ||
-    kind === 'weavingdraft' ||
-    kind === 'lightsoutboard' ||
-    kind === 'nonogrampuzzle' ||
-    kind === 'juliacells' ||
-    kind === 'spirographrosettes' ||
-    kind === 'sliderulescale' ||
-    kind === 'xylophonebars' ||
-    kind === 'pegsolitaire' ||
-    kind === 'bingocard' ||
-    kind === 'connectfourboard' ||
-    kind === 'ramennoodles' ||
-    kind === 'jigsawpuzzle' ||
-    kind === 'backgammonboard' ||
-    kind === 'zoneplates' ||
-    kind === 'lissajousgrid' ||
-    kind === 'mondriancomposition' ||
-    kind === 'hilbertcurve' ||
-    kind === 'battleshipgrid' ||
-    kind === 'tetrisstack' ||
-    kind === 'minesweeperboard' ||
-    kind === 'flipdotdisplay' ||
-    kind === 'crosswordgrid' ||
-    kind === 'fretboard' ||
-    kind === 'calendarpage' ||
-    kind === 'measuringtape' ||
-    kind === 'sudokugrid' ||
-    kind === 'sheetmusic' ||
-    kind === 'ecgpaper' ||
-    kind === 'datamatrixcodes' ||
-    kind === 'frostpolygons' ||
-    kind === 'sandripples' ||
-    kind === 'morsetape' ||
-    kind === 'ean13barcodes' ||
-    kind === 'kilimflatweave' ||
-    kind === 'tumblingblocks' ||
-    kind === 'azulejotiles' ||
-    kind === 'moirefringes' ||
-    kind === 'cinderblockwall' ||
-    kind === 'dicefaces' ||
-    kind === 'needlepoint' ||
-    kind === 'mandalaflower' ||
-    kind === 'kiwislices' ||
-    kind === 'hazardstripes' ||
-    kind === 'radarscope' ||
-    kind === 'digitalcamo' ||
-    kind === 'topographiccontours' ||
-    kind === 'garnetschist' ||
-    kind === 'celticplait' ||
-    kind === 'atomicboomerang' ||
-    kind === 'lawnstripes' ||
-    kind === 'asphaltshingle' ||
-    kind === 'expandedpolystyrene' ||
-    kind === 'octopussuckers' ||
-    kind === 'ammonitestone' ||
-    kind === 'amberresin' ||
-    kind === 'patchworkquilt' ||
-    kind === 'bayerdither' ||
-    kind === 'turingpattern' ||
-    kind === 'to220packagefaces' ||
-    kind === 'ftypefemalefaces' ||
-    kind === 'usbcfemalefaces' ||
-    kind === 'iecc6inlets' ||
-    kind === 'iecc8inlets' ||
-    kind === 'din5femalefaces' ||
-    kind === 'xlrfemalefaces' ||
-    kind === 'bncfemalefaces' ||
-    kind === 'iecc14inlets' ||
-    kind === 'dsubsocketfaces' ||
-    kind === 'topadjusttrimmers' ||
-    kind === 'crownprobetips' ||
-    kind === 'piezodiaphragms' ||
-    kind === 'castellatedboards' ||
-    kind === 'qfnlandpads' ||
-    kind === 'bgasolderballs' ||
-    kind === 'ballbearingfaces' ||
-    kind === 'baseballleather' ||
-    kind === 'toothbrushheads' ||
-    kind === 'bowtieinlay' ||
-    kind === 'redcabbagecut' ||
-    kind === 'slottedturners' ||
-    kind === 'triglidesliders' ||
-    kind === 'popcorn' ||
-    kind === 'dualinlinechips' ||
-    kind === 'tortoiseshellacetate' ||
-    kind === 'cathedralquilt' ||
-    kind === 'matelasse' ||
-    kind === 'silknoil' ||
-    kind === 'buckwheathulls' ||
-    kind === 'rutilatedquartz' ||
-    kind === 'peppermintcanes' ||
-    kind === 'rubbergrommets' ||
-    kind === 'chioggiabeetcuts' ||
-    kind === 'flatflexcables' ||
-    kind === 'celerycuts' ||
-    kind === 'tactileswitches' ||
-    kind === 'paisleybrocade' ||
-    kind === 'siliconepastrybrushes' ||
-    kind === 'graphicgranite' ||
-    kind === 'brasspadlocks' ||
-    kind === 'carrotcuts' ||
-    kind === 'bluepushpins' ||
-    kind === 'oatflakes' ||
-    kind === 'grosgrainribbons' ||
-    kind === 'azuritemalachite' ||
-    kind === 'openendspanners' ||
-    kind === 'lentilseeds' ||
-    kind === 'blueprintpaper' ||
-    kind === 'horsechestnutleaf' ||
-    kind === 'binderclips' ||
-    kind === 'charoite' ||
-    kind === 'chenilleyarn' ||
-    kind === 'ceramicfuses' ||
-    kind === 'hazelnutshells' ||
-    kind === 'yagasuricloth' ||
-    kind === 'balloonwhisks' ||
-    kind === 'orthocerasstone' ||
-    kind === 'rickracktrim' ||
-    kind === 'toroidalinductors' ||
-    kind === 'pennerigate' ||
-    kind === 'lepidolitemica' ||
-    kind === 'brassjinglebells' ||
-    kind === 'nutmeghalves' ||
-    kind === 'coaxialcablecuts' ||
-    kind === 'shippocloth' ||
-    kind === 'driedtamarindpods' ||
-    kind === 'conicalsampletubes' ||
-    kind === 'botryoidalcopper' ||
-    kind === 'pencilshavings' ||
-    kind === 'papayacuts' ||
-    kind === 'sewingthimbles' ||
-    kind === 'boullebrassinlay' ||
-    kind === 'diamondpanelparquet' ||
-    kind === 'dendriticfrost' ||
-    kind === 'bullionknots' ||
-    kind === 'orecchiette' ||
-    kind === 'solderlessbreadboard' ||
-    kind === 'kyaniteblades' ||
-    kind === 'wulfenite' ||
-    kind === 'staurolite' ||
-    kind === 'papertape' ||
-    kind === 'ulamspiral' ||
-    kind === 'sevensegment' ||
-    kind === 'perfectmaze' ||
-    kind === 'rule30' ||
-    kind === 'embossedbraille' ||
-    kind === 'ean13label' ||
-    kind === 'soroban' ||
-    kind === 'deltoidaltrihexagonaltiles' ||
-    kind === 'snubtrihexagonaltiles' ||
-    kind === 'floretpentagonaltiles' ||
-    kind === 'prismaticpentagonaltiles' ||
-    kind === 'apollonianmosaic' ||
-    kind === 'ichinghexagrams' ||
-    kind === 'pythagorastree' ||
-    kind === 'pentominotiles' ||
-    kind === 'langtonsant' ||
-    kind === 'vogelspiral' ||
-    kind === 'gosperinlay' ||
-    kind === 'pallasite' ||
-    kind === 'cuttlebone' ||
-    kind === 'watermelontourmaline' ||
-    kind === 'leafstomata' ||
-    kind === 'chitonshells' ||
-    kind === 'radiolariandiscs' ||
-    kind === 'diatomvalves' ||
-    kind === 'moorecurve' ||
-    kind === 'sierpinskicarpet' ||
-    kind === 'chladnifigure' ||
-    kind === 'kisrhombilletiles' ||
-    kind === 'truncatedtrihexagonaltiles' ||
-    kind === 'elongatedtriangulartiles' ||
-    kind === 'rhombitrihexagonaltiles' ||
-    kind === 'snubsquaretiles' ||
-    kind === 'starfish' ||
-    kind === 'fishscaleshingles' ||
-    kind === 'waffleweave' ||
-    kind === 'halite' ||
-    kind === 'calcite' ||
-    kind === 'azurite' ||
-    kind === 'celestine' ||
-    kind === 'barite' ||
-    kind === 'dowelpins' ||
-    kind === 'clevispins' ||
-    kind === 'gibheadkeys' ||
-    kind === 'woodruffkeys' ||
-    kind === 'parallelkeys' ||
-    kind === 'internaltoothwashers' ||
-    kind === 'driedchillies' ||
-    kind === 'utilityknifeblades' ||
-    kind === 'windmillparquet' ||
-    kind === 'bismuthhoppers' ||
-    kind === 'splitvanillapods' ||
-    kind === 'seamrippers' ||
-    kind === 'flakedarrowheads' ||
-    kind === 'dandelionseeds' ||
-    kind === 'shojipaperlattice' ||
-    kind === 'nyloncableties' ||
-    kind === 'weavingshuttles' ||
-    kind === 'tailorstapes' ||
-    kind === 'woodenclothespins' ||
-    kind === 'cinnamonbarkcoils' ||
-    kind === 'compactcassettefaces' ||
-    kind === 'kintsugiceramic' ||
-    kind === 'pleatedfilterpapers' ||
-    kind === 'splitcedarshakes' ||
-    kind === 'swavepavers' ||
-    kind === 'mushroomslices' ||
-    kind === 'insulatedringlugs' ||
-    kind === 'bananaslices' ||
-    kind === 'rosemarysprigs' ||
-    kind === 'pencilsharpeners' ||
-    kind === 'scissors' ||
-    kind === 'serpentinesprings' ||
-    kind === 'impellerfaces' ||
-    kind === 'chipresistors' ||
-    kind === 'memorycardbacks' ||
-    kind === 'gnocchi' ||
-    kind === 'rectangularsocketfaces' ||
-    kind === 'saffronthreads' ||
-    kind === 'fishhooks' ||
-    kind === 'violinfholes' ||
-    kind === 'palmiers' ||
-    kind === 'barbedwire' ||
-    kind === 'oxfordweave' ||
-    kind === 'lacewood' ||
-    kind === 'papyrus' ||
-    kind === 'larimar' ||
-    kind === 'paperbark' ||
-    kind === 'horseshoes' ||
-    kind === 'durianpeel' ||
-    kind === 'flystitch' ||
-    kind === 'abaloneshells' ||
-    kind === 'gyroidinfill' ||
-    kind === 'cloisonne' ||
-    kind === 'rambutanskin' ||
-    kind === 'rackgears' ||
-    kind === 'grosgrain' ||
-    kind === 'faille' ||
-    kind === 'bedfordcord' ||
-    kind === 'poplin' ||
-    kind === 'whipcord' ||
-    kind === 'gabardine' ||
-    kind === 'oilspotglaze' ||
-    kind === 'persimmonslice' ||
-    kind === 'kitkattiles' ||
-    kind === 'brakediscs' ||
-    kind === 'mulberrypaper' ||
-    kind === 'howlite' ||
-    kind === 'sodalite' ||
-    kind === 'ottoman' ||
-    kind === 'shackles' ||
-    kind === 'watercaltrops' ||
-    kind === 'fluorite' ||
-    kind === 'vanadinite' ||
-    kind === 'pyromorphite' ||
-    kind === 'redberyl' ||
-    kind === 'cavansite' ||
-    kind === 'wenge' ||
-    kind === 'parchment' ||
-    kind === 'cavalrytwill' ||
-    kind === 'screwhooks' ||
-    kind === 'nigellaseeds' ||
-    kind === 'phyllite' ||
-    kind === 'shantung' ||
-    kind === 'hempcrete' ||
-    kind === 'utilityblades' ||
-    kind === 'chrysocolla' ||
-    kind === 'hemimorphite' ||
-    kind === 'smithsonite' ||
-    kind === 'sichuanpepperhusks' ||
-    kind === 'huckaback' ||
-    kind === 'anorthosite' ||
-    kind === 'cubebberries' ||
-    kind === 'seraphinite' ||
-    kind === 'hexsocketheads' ||
-    kind === 'squaresocketheads' ||
-    kind === 'trianglesocketheads' ||
-    kind === 'twopinscrewheads' ||
-    kind === 'amazonite' ||
-    kind === 'mungbeans' ||
-    kind === 'blackeyedpeas' ||
-    kind === 'adzukibeans' ||
-    kind === 'anigre' ||
-    kind === 'makore' ||
-    kind === 'larvikite' ||
-    kind === 'squareholewashers' ||
-    kind === 'tigerwood' ||
-    kind === 'blackpalm' ||
-    kind === 'snakewood' ||
-    kind === 'safflowerseeds' ||
-    kind === 'thulite' ||
-    kind === 'unakite' ||
-    kind === 'eudialyte' ||
-    kind === 'lignumvitae' ||
-    kind === 'iroko' ||
-    kind === 'purpleheart' ||
-    kind === 'yellowheart' ||
-    kind === 'bloodwood' ||
-    kind === 'thomsonite' ||
-    kind === 'dalmatianstone' ||
-    kind === 'basswood' ||
-    kind === 'nickelsilver' ||
-    kind === 'hopsack' ||
-    kind === 'monkscloth' ||
-    kind === 'lyocell' ||
-    kind === 'sateen' ||
-    kind === 'surah' ||
-    kind === 'serge' ||
-    kind === 'habotai' ||
-    kind === 'batiste' ||
-    kind === 'ramie' ||
-    kind === 'tabwashers' ||
-    kind === 'sphericalwashers' ||
-    kind === 'wavewashers' ||
-    kind === 'cupwashers' ||
-    kind === 'pietersite' ||
-    kind === 'bronzite' ||
-    kind === 'castorbeans' ||
-    kind === 'europeanbeech' ||
-    kind === 'whiteoak' ||
-    kind === 'whiteash' ||
-    kind === 'kingwood' ||
-    kind === 'braziliantulipwood' ||
-    kind === 'macassarebony' ||
-    kind === 'zebrawood' ||
-    kind === 'bocote' ||
-    kind === 'datepits' ||
-    kind === 'sapele' ||
-    kind === 'chambray' ||
-    kind === 'ticking' ||
-    kind === 'cottondrill' ||
-    kind === 'nephrite' ||
-    kind === 'diorite' ||
-    kind === 'carawayseeds' ||
-    kind === 'springpinends' ||
-    kind === 'rhyolite' ||
-    kind === 'tonkabeans' ||
-    kind === 'pentalobescrewheads' ||
-    kind === 'tripointscrewheads' ||
-    kind === 'padauk' ||
-    kind === 'cottonflannel' ||
-    kind === 'pinolith' ||
-    kind === 'septarian' ||
-    kind === 'ooliticlimestone' ||
-    kind === 'ogeetiles' ||
-    kind === 'bittermelonskin' ||
-    kind === 'cocobolo' ||
-    kind === 'doubleedgerazorblades' ||
-    kind === 'chiastolite' ||
-    kind === 'dimity' ||
-    kind === 'juniperberries' ||
-    kind === 'gabbro' ||
-    kind === 'turnbuckles' ||
-    kind === 'rhodochrosite' ||
-    kind === 'bluelaceagate' ||
-    kind === 'bayleaf' ||
-    kind === 'pumpkinseeds' ||
-    kind === 'spurgears' ||
-    kind === 'diamondcheckertiles' ||
-    kind === 'appleslice' ||
-    kind === 'paperclips' ||
-    kind === 'rclips' ||
-    kind === 'linchpins' ||
-    kind === 'ivyleaf' ||
-    kind === 'ribknit' ||
-    kind === 'pillowtiles' ||
-    kind === 'coffeerings' ||
-    kind === 'cashews' ||
-    kind === 'hinges' ||
-    kind === 'coins' ||
-    kind === 'righttriangletiles' ||
-    kind === 'cherryblossom' ||
-    kind === 'punchcard' ||
-    kind === 'braidedcord' ||
-    kind === 'crossbeddedsandstone' ||
-    kind === 'grommetcanvas' ||
-    kind === 'fishscaletiles' ||
-    kind === 'hexkeys' ||
-    kind === 'driedfigslice' ||
-    kind === 'creamcrackers' ||
-    kind === 'doorkeys' ||
-    kind === 'dodecagontiles' ||
-    kind === 'ballchain' ||
-    kind === 'succulentrosettes' ||
-    kind === 'foldingfans' ||
-    kind === 'togglebuttons' ||
-    kind === 'greenpeapods' ||
-    kind === 'beltbuckles' ||
-    kind === 'hextruchettiles' ||
-    kind === 'scoredmango' ||
-    kind === 'waxseals' ||
-    kind === 'cottonbolls' ||
-    kind === 'carabiners' ||
-    kind === 'pencilends' ||
-    kind === 'corrugatedplasticedge' ||
-    kind === 'haircombs' ||
-    kind === 'blackberries' ||
-    kind === 'musselshells' ||
-    kind === 'safetypins' ||
-    kind === 'poppyseedpods' ||
-    kind === 'leatherbookspines' ||
-    kind === 'matchsticks' ||
-    kind === 'porcelaininsulators' ||
-    kind === 'dominoes' ||
-    kind === 'woodenspoons' ||
-    kind === 'chessrooks' ||
-    kind === 'threadspools' ||
-    kind === 'bellpepperslices' ||
-    kind === 'sharkteeth' ||
-    kind === 'grinderburrs' ||
-    kind === 'spaltedwood' ||
-    kind === 'canlids' ||
-    kind === 'crinoidossicles' ||
-    kind === 'pythagoreantiles' ||
-    kind === 'dinnerforks' ||
-    kind === 'mudtiretracks' ||
-    kind === 'tangramtiles' ||
-    kind === 'batterypositivecaps' ||
-    kind === 'passionfruitslice' ||
-    kind === 'screwterminalblocks' ||
-    kind === 'dragonfruitflesh' ||
-    kind === 'speakercones' ||
-    kind === 'septarianstone' ||
-    kind === 'axialresistors' ||
-    kind === 'tomatoslices' ||
     fabricated ||
     botanical ||
     packaging ||
@@ -75598,7 +75605,8 @@ export function createSurfaceSampler(
     animalSkin ||
     municipal ||
     fungal ||
-    rind
+    rind ||
+    noDetailKinds.has(kind)
   );
   const detailSeed = seed ^ 0xa3c59ac3,
     fineSeed = seed ^ 0x7f4a7c15;
