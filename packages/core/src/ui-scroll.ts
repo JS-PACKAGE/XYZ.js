@@ -280,7 +280,7 @@ export class UIVirtualList<T> extends UIScrollView {
   readonly overscan: number;
   private items: readonly T[] = [];
   private keys: UIVirtualListKey[] = [];
-  private readonly indices = new Map<UIVirtualListKey, number>();
+  private indices = new Map<UIVirtualListKey, number>();
   private readonly rows = new Map<UIVirtualListKey, Row>();
   private readonly pool: UIElement[] = [];
   private reconciling = false;
@@ -350,8 +350,7 @@ export class UIVirtualList<T> extends UIScrollView {
     const focusedKey = focused ? this.keyOf(focused) : undefined;
     this.items = [...items];
     this.keys = keys;
-    this.indices.clear();
-    for (const [key, index] of indices) this.indices.set(key, index);
+    this.indices = indices;
     for (const row of this.rows.values()) {
       const index = this.indices.get(row.key);
       if (index !== undefined) {
