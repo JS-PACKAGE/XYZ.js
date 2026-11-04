@@ -75389,3 +75389,472 @@ describe('netballcourt: a netball court seen from above with the markings of the
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('snookertable: a snooker table seen from above with the markings of the WPBSA rules, laid along or across by the seed with either end as the baulk end', () => {
+  const p = proceduralMaterialPresets.snookertable,
+    out = empty(),
+    m = p.metre,
+    toneAt = (
+      sample: Sampler,
+      x: number,
+      y: number,
+      across: boolean,
+      mirrored: boolean,
+    ): number => {
+      // A place in metres from the middle of the table (x along its length towards the top cushion) as a place on the picture.
+      const along = mirrored ? -x : x;
+      sample(
+        0.5 + (across ? y : along) * m,
+        0.5 + (across ? along : y) * m,
+        out,
+      );
+      return out.color;
+    };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    mix = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    // The probes are exact (the edges are straight or circular), so the tolerance is tiny.
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  // The facts of the table, in metres (the WPBSA rules, as given by a web search whose summary quotes them; they were not read in the rules themselves, and the rules give the pockets only as templates): the playing
+  // area 3.569 by 1.778, the baulk line 0.737 from the bottom cushion, the D of radius 0.292 about the middle of the baulk line, the black spot 0.324 from the top cushion, the pink spot halfway between the blue
+  // spot (the middle of the table) and the top cushion, the green and yellow spots at the ends of the D.
+  const rules = {
+      length: 3.569,
+      width: 1.778,
+      baulk: 0.737,
+      d: 0.292,
+      black: 0.324,
+    },
+    halfL = rules.length / 2,
+    halfW = rules.width / 2,
+    baulkAt = -halfL + rules.baulk,
+    blackAt = halfL - rules.black,
+    pinkAt = halfL / 2,
+    cushionEdge = p.cushion,
+    railEdge = p.cushion + p.rail,
+    w = p.lineWidth,
+    r = p.spotRadius;
+  type Kind = 'ground' | 'rail' | 'cushion' | 'cloth' | 'pocket' | 'mark';
+  // The piece of the picture a place is in (two pieces of mark next to each other are two pieces): the table with the bottom cushion at negative x.
+  const piece = (x: number, y: number): string => {
+    const ax = Math.abs(x),
+      ay = Math.abs(y);
+    if (
+      Math.hypot(ax - halfL, ay - halfW) <= p.cornerPocket ||
+      Math.hypot(x, ay - halfW - p.middleOffset) <= p.middlePocket
+    )
+      return 'pocket';
+    if (ax > halfL + railEdge || ay > halfW + railEdge) return 'ground';
+    if (ax > halfL + cushionEdge || ay > halfW + cushionEdge) return 'rail';
+    if (ax > halfL || ay > halfW) return 'cushion';
+    const fromBaulk = x - baulkAt,
+      toBaulk = Math.hypot(fromBaulk, y);
+    if (Math.abs(fromBaulk) <= w / 2) return 'mark baulk';
+    if (toBaulk <= r) return 'mark brown';
+    if (Math.hypot(fromBaulk, ay - rules.d) <= r)
+      return `mark side ${Math.sign(y)}`;
+    if (Math.hypot(x, y) <= r) return 'mark blue';
+    if (Math.hypot(x - pinkAt, y) <= r) return 'mark pink';
+    if (Math.hypot(x - blackAt, y) <= r) return 'mark black';
+    if (fromBaulk < 0 && toBaulk <= rules.d && toBaulk >= rules.d - w)
+      return 'mark d';
+    return 'cloth';
+  };
+  const classify = (x: number, y: number): Kind => {
+    const label = piece(x, y);
+    return label.startsWith('mark') ? 'mark' : (label as Kind);
+  };
+  type Surface = {
+    across: boolean;
+    mirrored: boolean;
+    surface: number;
+    shift: number;
+    tones: {
+      ground: number;
+      rail: number;
+      cushion: number;
+      cloth: number;
+      pocket: number;
+    };
+  };
+  const readSurface = (sample: Sampler): Surface => {
+    const options: Surface[] = [];
+    for (const across of [false, true])
+      for (const mirrored of [false, true]) {
+        const tone = (x: number, y: number): number =>
+            toneAt(sample, x, y, across, mirrored),
+          cloth = tone(0.5, 0.4),
+          cushion = tone(0.5, halfW + cushionEdge / 2),
+          rail = tone(0.5, halfW + cushionEdge + p.rail / 2),
+          ground = tone(0.5, 1.5),
+          pocket = tone(halfL, halfW),
+          black = tone(blackAt, 0);
+        p.surfaces.forEach((surface, index) => {
+          const shift = ground - surface.ground;
+          if (
+            Math.abs(shift) <= p.toneShift + 1e-9 &&
+            Math.abs(cloth - surface.cloth - shift) < 1e-6 &&
+            Math.abs(cushion - surface.cushion - shift) < 1e-6 &&
+            Math.abs(rail - surface.rail - shift) < 1e-6 &&
+            Math.abs(pocket - surface.pocket - shift) < 1e-6 &&
+            Math.abs(black - p.markTone) < 1e-6
+          )
+            options.push({
+              across,
+              mirrored,
+              surface: index,
+              shift,
+              tones: { ground, rail, cushion, cloth, pocket },
+            });
+        });
+      }
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+
+  it('has the rules of the table in the preset', () => {
+    expect(p.playLength).toBe(rules.length);
+    expect(p.playWidth).toBe(rules.width);
+    expect(p.baulkDistance).toBe(rules.baulk);
+    expect(p.dRadius).toBe(rules.d);
+    expect(p.blackDistance).toBe(rules.black);
+    // The tile holds the table with its rails and a floor beyond.
+    expect(2 * (halfL + railEdge)).toBeLessThan(1 / m);
+  });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws every place of the picture as the rules and the widths say, with its tone, height and roughness, either way and with either end as the baulk end (seed %i)',
+    { timeout: 120000 },
+    (seed) => {
+      const sample = createSurfaceSampler('snookertable', seed),
+        { across, mirrored, tones } = readSurface(sample),
+        expected: Record<Kind, { tone: number; height: number }> = {
+          ground: { tone: tones.ground, height: p.groundHeight },
+          rail: { tone: tones.rail, height: p.railHeight },
+          cushion: { tone: tones.cushion, height: p.cushionHeight },
+          cloth: { tone: tones.cloth, height: p.clothHeight },
+          pocket: { tone: tones.pocket, height: p.pocketHeight },
+          mark: { tone: p.markTone, height: p.markHeight },
+        },
+        counts: Record<Kind, number> = {
+          ground: 0,
+          rail: 0,
+          cushion: 0,
+          cloth: 0,
+          pocket: 0,
+          mark: 0,
+        },
+        clear = 0.003,
+        check = (x: number, y: number): void => {
+          const kind = classify(x, y);
+          if (
+            [
+              [clear, 0],
+              [-clear, 0],
+              [0, clear],
+              [0, -clear],
+              [clear, clear],
+              [-clear, -clear],
+              [clear, -clear],
+              [-clear, clear],
+            ].some(([dx, dy]) => piece(x + dx, y + dy) !== piece(x, y))
+          )
+            return;
+          counts[kind]++;
+          expect(toneAt(sample, x, y, across, mirrored)).toBeCloseTo(
+            expected[kind].tone,
+            6,
+          );
+          expect(out.height / p.relief).toBeCloseTo(expected[kind].height, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        };
+      // The whole tile (4.4 across) coarsely and the table with its rails finely.
+      for (let x = -2.2; x <= 2.2; x += 0.021)
+        for (let y = -2.2; y <= 2.2; y += 0.021) check(x, y);
+      for (let x = -2.0; x <= 2.0; x += 0.0053)
+        for (let y = -1.1; y <= 1.1; y += 0.0053) check(x, y);
+      expect(counts.mark).toBeGreaterThan(400);
+      expect(counts.cloth).toBeGreaterThan(100000);
+      expect(counts.pocket).toBeGreaterThan(500);
+      expect(counts.cushion).toBeGreaterThan(3000);
+      expect(counts.rail).toBeGreaterThan(10000);
+      expect(counts.ground).toBeGreaterThan(20000);
+    },
+  );
+
+  it('uses every surface, both ways and both baulk ends over 1000 seeds, about equally often, with the tones shifted over the whole range', () => {
+    const surfaces = new Map<number, number>(),
+      shifts: number[] = [];
+    let acrossCount = 0,
+      mirroredCount = 0;
+    for (let seed = 0; seed < 1000; seed++) {
+      const { across, mirrored, surface, shift } = readSurface(
+        createSurfaceSampler('snookertable', seed * 7 + 1),
+      );
+      shifts.push(shift);
+      surfaces.set(surface, (surfaces.get(surface) ?? 0) + 1);
+      acrossCount += Number(across);
+      mirroredCount += Number(mirrored);
+    }
+    expect(surfaces.size).toBe(p.surfaces.length);
+    for (const count of surfaces.values())
+      expect(Math.abs(count - 1000 / p.surfaces.length)).toBeLessThan(50);
+    expect(Math.abs(acrossCount / 1000 - 0.5)).toBeLessThan(0.05);
+    expect(Math.abs(mirroredCount / 1000 - 0.5)).toBeLessThan(0.05);
+    expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+    expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+    expect(
+      Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+    ).toBeLessThan(p.toneShift * 0.15);
+    for (let quarter = 0; quarter < 4; quarter++)
+      expect(
+        Math.abs(
+          shifts.filter(
+            (shift) =>
+              Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+          ).length - 250,
+        ),
+      ).toBeLessThan(50);
+  });
+
+  it('puts each edge of each marking where the rules put it: just inside it the mark, just outside it not (every way the table can lie)', () => {
+    const delta = 0.0004 / m,
+      ways = new Set<string>();
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]) {
+      const sample = createSurfaceSampler('snookertable', seed),
+        { across, mirrored, tones } = readSurface(sample),
+        isMark = (x: number, y: number): boolean =>
+          Math.abs(toneAt(sample, x, y, across, mirrored) - p.markTone) < 1e-6,
+        is = (x: number, y: number, tone: number): boolean =>
+          Math.abs(toneAt(sample, x, y, across, mirrored) - tone) < 1e-6;
+      ways.add(`${across} ${mirrored}`);
+      for (const sy of [1, -1]) {
+        const at = (x: number, y: number): boolean => isMark(x, sy * y),
+          // A place round the middle of the baulk line, at a radius and an angle from the line towards the bottom cushion.
+          round = (radius: number, degrees: number): [number, number] => [
+            baulkAt - radius * Math.cos((degrees * Math.PI) / 180),
+            sy * radius * Math.sin((degrees * Math.PI) / 180),
+          ];
+        // The baulk line, both edges, across the table and next to the cushions.
+        for (const y of [0.4, 0.6, 0.85, halfW - 0.002]) {
+          expect(at(baulkAt + w / 2 - delta, y)).toBe(true);
+          expect(at(baulkAt + w / 2 + delta, y)).toBe(false);
+          expect(at(baulkAt - w / 2 + delta, y)).toBe(true);
+          expect(at(baulkAt - w / 2 - delta, y)).toBe(false);
+        }
+        // The D: both edges of the ring at several angles (outer edge at the radius), and nothing of it on the other side of the baulk line.
+        for (const degrees of [5, 30, 60, 85]) {
+          expect(isMark(...round(rules.d - delta, degrees))).toBe(true);
+          expect(isMark(...round(rules.d + delta, degrees))).toBe(false);
+          expect(isMark(...round(rules.d - w + delta, degrees))).toBe(true);
+          expect(isMark(...round(rules.d - w - delta, degrees))).toBe(false);
+        }
+        expect(at(baulkAt + rules.d - w / 2, 0.01)).toBe(false);
+        expect(at(baulkAt + 0.2, 0.2)).toBe(false);
+        // The spots: both edges of each round it (on the baulk line only at the angles that are off the line and off the D), the brown on the baulk line, green and yellow at the ends of the D, the blue in the middle, the pink and the black.
+        const spots: [number, number, number[]][] = [
+          [baulkAt, 0, [0, 30, -30, 45, -45]],
+          [baulkAt, rules.d, [0, 30, -30, 45, -45]],
+          [0, 0, [0, 70, 140, 210, 280]],
+          [pinkAt, 0, [0, 70, 140, 210, 280]],
+          [blackAt, 0, [0, 70, 140, 210, 280]],
+        ];
+        for (const [x, y, angles] of spots)
+          for (const degrees of angles) {
+            const point = (radius: number): boolean =>
+              at(
+                x + radius * Math.cos((degrees * Math.PI) / 180),
+                y + radius * Math.sin((degrees * Math.PI) / 180),
+              );
+            expect(point(r - delta)).toBe(true);
+            expect(point(r + delta)).toBe(false);
+          }
+        // There is no other spot or line: nothing at the other places where one would be on a table with the other end as the baulk end.
+        expect(at(-baulkAt, 0)).toBe(false);
+        expect(at(-pinkAt, 0)).toBe(false);
+        expect(at(-blackAt, 0)).toBe(false);
+        // The cushion, the rail, the floor and the pockets: the edge of each where the rules (and my sizes) put it.
+        expect(is(0.5, sy * (halfW - delta), tones.cloth)).toBe(true);
+        expect(is(0.5, sy * (halfW + delta), tones.cushion)).toBe(true);
+        expect(is(0.5, sy * (halfW + cushionEdge - delta), tones.cushion)).toBe(
+          true,
+        );
+        expect(is(0.5, sy * (halfW + cushionEdge + delta), tones.rail)).toBe(
+          true,
+        );
+        expect(is(0.5, sy * (halfW + railEdge - delta), tones.rail)).toBe(true);
+        expect(is(0.5, sy * (halfW + railEdge + delta), tones.ground)).toBe(
+          true,
+        );
+        for (const sx of [1, -1]) {
+          expect(is(sx * (halfL - delta), 0.3, tones.cloth)).toBe(true);
+          expect(is(sx * (halfL + delta), 0.3, tones.cushion)).toBe(true);
+          expect(is(sx * (halfL + cushionEdge + delta), 0.3, tones.rail)).toBe(
+            true,
+          );
+          expect(is(sx * (halfL + railEdge + delta), 0.3, tones.ground)).toBe(
+            true,
+          );
+          // The corner pocket (radius 0.075 round the corner of the playing area), in a direction that comes out of the table.
+          expect(
+            is(sx * (halfL + p.cornerPocket - delta), sy * halfW, tones.pocket),
+          ).toBe(true);
+          expect(
+            is(sx * (halfL + p.cornerPocket + delta), sy * halfW, tones.rail),
+          ).toBe(true);
+        }
+        // The middle pocket (radius 0.055 round a place 0.02 beyond the cushion face).
+        expect(
+          is(
+            0,
+            sy * (halfW + p.middleOffset + p.middlePocket - delta),
+            tones.pocket,
+          ),
+        ).toBe(true);
+        expect(
+          is(
+            0,
+            sy * (halfW + p.middleOffset + p.middlePocket + delta),
+            tones.rail,
+          ),
+        ).toBe(true);
+        expect(
+          is(
+            p.middlePocket - delta,
+            sy * (halfW + p.middleOffset),
+            tones.pocket,
+          ),
+        ).toBe(true);
+        expect(
+          is(
+            p.middlePocket + delta,
+            sy * (halfW + p.middleOffset),
+            tones.cushion,
+          ),
+        ).toBe(true);
+      }
+    }
+    expect(ways.size).toBe(4);
+  });
+
+  it('softens the edge of the rail, of the cushion, of the cloth, of a pocket and of a mark over edgeSoft', () => {
+    const sample = createSurfaceSampler('snookertable', 2),
+      { across, mirrored, tones } = readSurface(sample),
+      quarter = (0.25 * p.edgeSoft) / m,
+      tone = (x: number, y: number): number =>
+        toneAt(sample, x, y, across, mirrored),
+      // A place round the middle of the baulk line, at a radius and an angle from the line towards the bottom cushion.
+      round = (radius: number, degrees: number): [number, number] => [
+        baulkAt - radius * Math.cos((degrees * Math.PI) / 180),
+        radius * Math.sin((degrees * Math.PI) / 180),
+      ];
+    // The floor, the rail, the cushion and the cloth, along the long side and along the end (a place without any mark).
+    for (const [edge, from, into, vertical] of [
+      [halfW + railEdge, tones.ground, tones.rail, true],
+      [halfW + cushionEdge, tones.rail, tones.cushion, true],
+      [halfW, tones.cushion, tones.cloth, true],
+      [halfL + railEdge, tones.ground, tones.rail, false],
+      [halfL + cushionEdge, tones.rail, tones.cushion, false],
+      [halfL, tones.cushion, tones.cloth, false],
+    ] as const) {
+      const at = (distance: number): number =>
+        vertical ? tone(0.5, distance) : tone(distance, 0.3);
+      // Just inside is the nearer to the middle of the table.
+      close(at(edge - quarter), mix(from, into, 0.75));
+      close(at(edge + quarter), mix(from, into, 0.25));
+    }
+    // A pocket, at the corner and in the middle (the place that is out of the table from them, on the rail).
+    close(
+      tone(halfL + p.cornerPocket - quarter, halfW),
+      mix(tones.rail, tones.pocket, 0.75),
+    );
+    close(
+      tone(halfL + p.cornerPocket + quarter, halfW),
+      mix(tones.rail, tones.pocket, 0.25),
+    );
+    close(
+      tone(0, halfW + p.middleOffset + p.middlePocket - quarter),
+      mix(tones.rail, tones.pocket, 0.75),
+    );
+    close(
+      tone(0, halfW + p.middleOffset + p.middlePocket + quarter),
+      mix(tones.rail, tones.pocket, 0.25),
+    );
+    // The baulk line over the cloth (both edges), and where it ends at the cushion (the cloth has its edge there).
+    close(
+      tone(baulkAt + w / 2 - quarter, 0.4),
+      mix(tones.cloth, p.markTone, 0.75),
+    );
+    close(
+      tone(baulkAt + w / 2 + quarter, 0.4),
+      mix(tones.cloth, p.markTone, 0.25),
+    );
+    close(
+      tone(baulkAt - w / 2 - quarter, 0.4),
+      mix(tones.cloth, p.markTone, 0.25),
+    );
+    close(
+      tone(baulkAt - w / 2 + quarter, 0.4),
+      mix(tones.cloth, p.markTone, 0.75),
+    );
+    close(tone(baulkAt, halfW - quarter), mix(tones.cushion, p.markTone, 0.75));
+    close(tone(baulkAt, halfW + quarter), mix(tones.cushion, p.markTone, 0.25));
+    // The D (both edges of the ring) and a spot (the black one).
+    close(
+      tone(...round(rules.d - quarter, 30)),
+      mix(tones.cloth, p.markTone, 0.75),
+    );
+    close(
+      tone(...round(rules.d + quarter, 30)),
+      mix(tones.cloth, p.markTone, 0.25),
+    );
+    close(
+      tone(...round(rules.d - w + quarter, 30)),
+      mix(tones.cloth, p.markTone, 0.75),
+    );
+    close(
+      tone(...round(rules.d - w - quarter, 30)),
+      mix(tones.cloth, p.markTone, 0.25),
+    );
+    close(tone(blackAt + r - quarter, 0), mix(tones.cloth, p.markTone, 0.75));
+    close(tone(blackAt + r + quarter, 0), mix(tones.cloth, p.markTone, 0.25));
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('snookertable', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('snookertable', 0),
+      b = createSurfaceSampler('snookertable', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

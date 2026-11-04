@@ -17863,6 +17863,73 @@ export const proceduralMaterialPresets = Object.freeze({
     lineHeight: 0.35,
     inkRoughness: 0.45,
   }),
+  snookertable: Object.freeze({
+    dark: [18, 52, 34] as const,
+    light: [236, 232, 214] as const,
+    roughness: 0.8,
+    relief: 0.004,
+    // A snooker table seen from above with the markings of the WPBSA rules, in metres (the length of the table along one axis): the playing area 3.569 by 1.778 inside the cushions, the baulk line 0.737 from
+    // the bottom cushion, the D (a semicircle of radius 0.292 about the middle of the baulk line, on the side of the bottom cushion), the six spots (brown in the middle of the baulk line, green and yellow at the
+    // ends of the D, blue in the middle of the table, pink halfway between the blue and the top cushion, black 0.324 from the top cushion), the cushions and the wooden rail round the playing area and the six
+    // pockets (four in the corners and two in the middle of the long sides), and the floor beyond. The sizes of the cushions (0.05), the rail (0.1) and the pockets (radius 0.075 at the corners of the playing
+    // area and 0.055 in the middle with its centre 0.02 beyond the cushion face: the rules give no sizes, only templates) are my choices; the line is 0.012 wide and the spots have a radius of 0.02, much larger
+    // than on a table, so that they show in a tile. The seed picks the surface (the tones of the floor, the rail, the cushions, the cloth and the pockets, all shifted together a little), which end is the
+    // baulk end, and lays the table along the picture or across it.
+    metre: 0.2272727,
+    playLength: 3.569,
+    playWidth: 1.778,
+    baulkDistance: 0.737,
+    dRadius: 0.292,
+    blackDistance: 0.324,
+    cushion: 0.05,
+    rail: 0.1,
+    cornerPocket: 0.075,
+    middlePocket: 0.055,
+    middleOffset: 0.02,
+    lineWidth: 0.012,
+    spotRadius: 0.02,
+    surfaces: Object.freeze([
+      Object.freeze({
+        ground: 0.2,
+        rail: 0.34,
+        cushion: 0.46,
+        cloth: 0.52,
+        pocket: 0.08,
+      }),
+      Object.freeze({
+        ground: 0.26,
+        rail: 0.5,
+        cushion: 0.38,
+        cloth: 0.44,
+        pocket: 0.12,
+      }),
+      Object.freeze({
+        ground: 0.14,
+        rail: 0.28,
+        cushion: 0.6,
+        cloth: 0.54,
+        pocket: 0.06,
+      }),
+      Object.freeze({
+        ground: 0.3,
+        rail: 0.56,
+        cushion: 0.34,
+        cloth: 0.4,
+        pocket: 0.1,
+      }),
+    ]),
+    // How much the five tones may all be shifted together (from -toneShift to toneShift) by the seed: the wear of the cloth.
+    toneShift: 0.04,
+    edgeSoft: 0.0006,
+    markTone: 0.94,
+    groundHeight: 0.15,
+    railHeight: 0.6,
+    cushionHeight: 0.45,
+    clothHeight: 0.3,
+    pocketHeight: 0.05,
+    markHeight: 0.32,
+    inkRoughness: 0.5,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -24355,6 +24422,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  snookertable: 1,
   netballcourt: 1,
   gridironfield: 1,
   squashcourt: 1,

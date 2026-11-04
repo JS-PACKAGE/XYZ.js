@@ -16419,6 +16419,60 @@ export declare const proceduralMaterialPresets: Readonly<{
         lineHeight: 0.35;
         inkRoughness: 0.45;
     }>;
+    snookertable: Readonly<{
+        dark: readonly [18, 52, 34];
+        light: readonly [236, 232, 214];
+        roughness: 0.8;
+        relief: 0.004;
+        metre: 0.2272727;
+        playLength: 3.569;
+        playWidth: 1.778;
+        baulkDistance: 0.737;
+        dRadius: 0.292;
+        blackDistance: 0.324;
+        cushion: 0.05;
+        rail: 0.1;
+        cornerPocket: 0.075;
+        middlePocket: 0.055;
+        middleOffset: 0.02;
+        lineWidth: 0.012;
+        spotRadius: 0.02;
+        surfaces: readonly (Readonly<{
+            ground: 0.2;
+            rail: 0.34;
+            cushion: 0.46;
+            cloth: 0.52;
+            pocket: 0.08;
+        }> | Readonly<{
+            ground: 0.26;
+            rail: 0.5;
+            cushion: 0.38;
+            cloth: 0.44;
+            pocket: 0.12;
+        }> | Readonly<{
+            ground: 0.14;
+            rail: 0.28;
+            cushion: 0.6;
+            cloth: 0.54;
+            pocket: 0.06;
+        }> | Readonly<{
+            ground: 0.3;
+            rail: 0.56;
+            cushion: 0.34;
+            cloth: 0.4;
+            pocket: 0.1;
+        }>)[];
+        toneShift: 0.04;
+        edgeSoft: 0.0006;
+        markTone: 0.94;
+        groundHeight: 0.15;
+        railHeight: 0.6;
+        cushionHeight: 0.45;
+        clothHeight: 0.3;
+        pocketHeight: 0.05;
+        markHeight: 0.32;
+        inkRoughness: 0.5;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -22904,6 +22958,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    snookertable: 1;
     netballcourt: 1;
     gridironfield: 1;
     squashcourt: 1;

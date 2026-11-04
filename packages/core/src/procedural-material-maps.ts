@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'snookertable',
   'netballcourt',
   'gridironfield',
   'squashcourt',
@@ -50880,6 +50881,94 @@ export function createSurfaceSampler(
               (p.lineHeight - p.courtHeight) * lined -
               elevation) *
             court;
+          color = clamp(shade);
+          height = clamp(elevation);
+          roughness = clamp(p.inkRoughness);
+          occlusion = 1;
+        };
+      }
+      case 'snookertable': {
+        const p = proceduralMaterialPresets.snookertable,
+          inverseSoft = 1 / p.edgeSoft,
+          norm = (x: number, y: number): number => Math.sqrt(x * x + y * y),
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(120, 1, seed ^ 0x200001) * p.surfaces.length)
+            ],
+          across = hash(120, 2, seed ^ 0x200002) < 0.5,
+          shift = (hash(120, 3, seed ^ 0x200003) * 2 - 1) * p.toneShift,
+          mirrored = hash(120, 4, seed ^ 0x200004) < 0.5,
+          halfLength = p.playLength / 2,
+          halfWidth = p.playWidth / 2,
+          line = p.lineWidth,
+          cushionEdge = p.cushion,
+          railEdge = p.cushion + p.rail,
+          // The place of the black spot along the table from the middle.
+          blackAt = halfLength - p.blackDistance,
+          // A disc of a radius about a place (given as its distance), and a ring a line wide inside a radius.
+          disc = (distance: number, radius: number): number =>
+            cover((radius - distance) * p.metre),
+          ring = (distance: number, radius: number): number =>
+            cover(
+              Math.min(distance - (radius - line), radius - distance) * p.metre,
+            );
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            // The place in metres from the middle of the table (x along its length), and along the table from the middle towards the top cushion.
+            x = ((across ? fv : fu) - 0.5) / p.metre,
+            y = ((across ? fu : fv) - 0.5) / p.metre,
+            along = mirrored ? -x : x,
+            ax = Math.abs(x),
+            ay = Math.abs(y),
+            rail = cover(
+              Math.min(halfLength + railEdge - ax, halfWidth + railEdge - ay) *
+                p.metre,
+            ),
+            cushion = cover(
+              Math.min(
+                halfLength + cushionEdge - ax,
+                halfWidth + cushionEdge - ay,
+              ) * p.metre,
+            ),
+            cloth = cover(Math.min(halfLength - ax, halfWidth - ay) * p.metre),
+            pocket = Math.max(
+              disc(norm(ax - halfLength, ay - halfWidth), p.cornerPocket),
+              disc(norm(x, ay - halfWidth - p.middleOffset), p.middlePocket),
+            ),
+            // The baulk line across the table, the D (the half of the ring on the side of the bottom cushion, ending in the middle of the baulk line, which hides its end) and the spots.
+            fromBaulk = along - (p.baulkDistance - halfLength),
+            marking = Math.max(
+              cover((line / 2 - Math.abs(fromBaulk)) * p.metre),
+              Math.min(
+                ring(norm(fromBaulk, y), p.dRadius),
+                cover(-fromBaulk * p.metre),
+              ),
+              disc(norm(fromBaulk, y), p.spotRadius),
+              disc(norm(fromBaulk, ay - p.dRadius), p.spotRadius),
+              disc(norm(along, y), p.spotRadius),
+              disc(norm(along - halfLength / 2, y), p.spotRadius),
+              disc(norm(along - blackAt, y), p.spotRadius),
+            );
+          // Cloth or mark over the cushion (the baulk line goes on over the edge of the cloth, so that it has the edge of the cloth there).
+          const clothTone = surface.cloth + shift;
+          let shade = surface.ground + shift,
+            elevation = p.groundHeight;
+          shade += (surface.rail + shift - shade) * rail;
+          elevation += (p.railHeight - elevation) * rail;
+          shade += (surface.cushion + shift - shade) * cushion;
+          elevation += (p.cushionHeight - elevation) * cushion;
+          shade +=
+            (clothTone + (p.markTone - clothTone) * marking - shade) * cloth;
+          elevation +=
+            (p.clothHeight +
+              (p.markHeight - p.clothHeight) * marking -
+              elevation) *
+            cloth;
+          shade += (surface.pocket + shift - shade) * pocket;
+          elevation += (p.pocketHeight - elevation) * pocket;
           color = clamp(shade);
           height = clamp(elevation);
           roughness = clamp(p.inkRoughness);

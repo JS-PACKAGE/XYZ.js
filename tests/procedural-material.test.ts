@@ -675,6 +675,7 @@ const kinds: ProceduralMaterialKind[] = [
   'stfiberadapterfaces',
   'to220packagefaces',
   'to92packagefaces',
+  'snookertable',
   'netballcourt',
   'gridironfield',
   'squashcourt',
