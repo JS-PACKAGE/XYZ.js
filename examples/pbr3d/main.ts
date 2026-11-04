@@ -1213,6 +1213,7 @@ try {
     'standardtableaux',
     'graphatlas',
     'rootedtrees',
+    'dominoboards',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

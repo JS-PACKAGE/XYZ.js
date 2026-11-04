@@ -54391,6 +54391,101 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'dominoboards': {
+        const p = proceduralMaterialPresets.dominoboards,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.boards.length,
+          group = Math.floor(unsigned / p.boards.length),
+          [width, height0] = p.boards[variant] as readonly number[],
+          cols = p.cols[variant],
+          rows = p.rows[variant],
+          // Every domino tiling of the board as a code for every cell (1 the left cell and 2 the right cell of a horizontal domino, 3 the upper cell and 4 the lower cell of a vertical one), found by covering the first free cell in the order of the rows with a domino to the right or down, in a shuffled order.
+          panels = (() => {
+            const found: Uint8Array[] = [],
+              board = new Uint8Array(width * height0),
+              cover = (from: number): void => {
+                let cell = from;
+                while (cell < board.length && board[cell] !== 0) cell++;
+                if (cell === board.length) {
+                  found.push(board.slice());
+                  return;
+                }
+                const i = cell % width;
+                if (i + 1 < width && board[cell + 1] === 0) {
+                  board[cell] = 1;
+                  board[cell + 1] = 2;
+                  cover(cell + 2);
+                  board[cell] = 0;
+                  board[cell + 1] = 0;
+                }
+                if (cell + width < board.length) {
+                  board[cell] = 3;
+                  board[cell + width] = 4;
+                  cover(cell + 1);
+                  board[cell] = 0;
+                  board[cell + width] = 0;
+                }
+              };
+            cover(0);
+            for (let k = found.length - 1; k > 0; k--) {
+              const other = Math.floor(
+                hash(k, 301, group ^ p.seedSalt) * (k + 1),
+              );
+              [found[k], found[other]] = [found[other], found[k]];
+            }
+            return found;
+          })(),
+          scale = Math.min(
+            1 / (cols * (width + 2 * p.margin)),
+            1 / (rows * (height0 + 2 * p.margin)),
+          ),
+          originX = (1 / cols - scale * (width + 2 * p.margin)) / 2,
+          originY = (1 / rows - scale * (height0 + 2 * p.margin)) / 2,
+          halfGap = p.gapWidth / 2,
+          // 1 on the cell side of a gap, 0 at the edge itself, at the distance fromEdge in cells.
+          edge = (fromEdge: number): number =>
+            smooth(clamp((fromEdge - halfGap) / p.edgeSoft));
+        return () => {
+          const tileU = fract(u),
+            tileV = fract(v),
+            col = Math.min(cols - 1, Math.floor(tileU * cols)),
+            row = Math.min(rows - 1, Math.floor(tileV * rows)),
+            index = row * cols + col,
+            grain = grainField(u, v);
+          let mask = 0,
+            kind = 0;
+          if (index < panels.length) {
+            const x = (tileU - col / cols - originX) / scale - p.margin,
+              y = (tileV - row / rows - originY) / scale - p.margin,
+              i = Math.floor(x),
+              j = Math.floor(y);
+            if (i >= 0 && j >= 0 && i < width && j < height0) {
+              const code = panels[index][j * width + i],
+                fx = x - i,
+                fy = y - j;
+              // A side of a cell has no gap where the other cell of its domino is.
+              mask =
+                (code === 2 ? 1 : edge(fx)) *
+                (code === 1 ? 1 : edge(1 - fx)) *
+                (code === 4 ? 1 : edge(fy)) *
+                (code === 3 ? 1 : edge(1 - fy));
+              kind = code <= 2 ? 0 : 1;
+            }
+          }
+          color =
+            p.toneGround * (1 - mask) +
+            p.tones[kind] * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * p.heights[kind];
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -63342,6 +63437,7 @@ export function createSurfaceSampler(
     kind === 'standardtableaux' ||
     kind === 'graphatlas' ||
     kind === 'rootedtrees' ||
+    kind === 'dominoboards' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

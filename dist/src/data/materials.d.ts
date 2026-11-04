@@ -17776,6 +17776,26 @@ export declare const proceduralMaterialPresets: Readonly<{
         cellHeight: 0.8;
         gapOcclusion: 0.45;
     }>;
+    dominoboards: Readonly<{
+        dark: readonly [28, 16, 12];
+        light: readonly [245, 196, 120];
+        roughness: 0.4;
+        relief: 0.0012;
+        seedSalt: 28221;
+        boards: readonly [readonly [6, 2], readonly [4, 3], readonly [4, 4], readonly [6, 3], readonly [5, 4], readonly [6, 4]];
+        cols: readonly [3, 3, 6, 5, 9, 14];
+        rows: readonly [5, 4, 6, 9, 11, 21];
+        margin: 0.5;
+        gapWidth: 0.16;
+        edgeSoft: 0.1;
+        grainCells: 128;
+        toneGround: 0.03;
+        tones: readonly [0.85, 0.45];
+        heights: readonly [1, 0.6];
+        grainTone: 0.03;
+        cellHeight: 0.8;
+        gapOcclusion: 0.45;
+    }>;
     vermiculation: Readonly<{
         dark: readonly [60, 48, 36];
         light: readonly [220, 204, 172];
@@ -19588,6 +19608,7 @@ export declare const proceduralTileMeters: Readonly<{
     standardtableaux: 0.5;
     graphatlas: 0.5;
     rootedtrees: 0.5;
+    dominoboards: 0.5;
     dominotiling: 0.5;
     vermiculation: 0.4;
     kikko: 0.3;

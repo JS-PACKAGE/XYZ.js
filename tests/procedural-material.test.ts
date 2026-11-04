@@ -1176,6 +1176,7 @@ const kinds: ProceduralMaterialKind[] = [
   'standardtableaux',
   'graphatlas',
   'rootedtrees',
+  'dominoboards',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -205232,6 +205233,410 @@ describe('Rooted trees as every tree of n nodes drawn once', () => {
     expect(blue / (512 * 512)).toBeLessThan(20.3);
     expect(maxTilt).toBeGreaterThan(0.107);
     expect(maxTilt).toBeLessThan(0.1071);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Domino boards as every tiling of a board drawn once', () => {
+  const p = proceduralMaterialPresets.dominoboards;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The layout of the panels of a variant (seed % 6): slots of 1 / cols by 1 / rows, each with the board (at its top left) and the margin around it, drawn at one scale and centred in the slot. */
+  const geometry = (seed: number) => {
+    const variant = seed % p.boards.length,
+      [width, height] = p.boards[variant] as readonly number[],
+      cols: number = p.cols[variant],
+      rows: number = p.rows[variant],
+      scale = Math.min(
+        1 / (cols * (width + 2 * p.margin)),
+        1 / (rows * (height + 2 * p.margin)),
+      );
+    return {
+      width,
+      height,
+      cols,
+      rows,
+      scale,
+      originX: (1 / cols - scale * (width + 2 * p.margin)) / 2,
+      originY: (1 / rows - scale * (height + 2 * p.margin)) / 2,
+    };
+  };
+  type Geometry = ReturnType<typeof geometry>;
+  /** The tiling of every panel slot of a seed read back from the picture (null for an empty slot): for every cell the direction of the cell it is joined to (e, w, s or n), where two cells are joined when there is no gap at the middle of the side between them; the height at the middle of a cell says whether it is part of a horizontal domino or a vertical one. */
+  const readTilings = (seed: number): (string[] | null)[] => {
+    const g = geometry(seed),
+      sample = createSurfaceSampler('dominoboards', seed),
+      out = empty(),
+      tilings: (string[] | null)[] = [];
+    for (let slot = 0; slot < g.cols * g.rows; slot++) {
+      const col = slot % g.cols,
+        row = Math.floor(slot / g.cols),
+        heightAt = (x: number, y: number): number => {
+          sample(
+            col / g.cols + g.originX + g.scale * (p.margin + x),
+            row / g.rows + g.originY + g.scale * (p.margin + y),
+            out,
+          );
+          return out.height / p.relief / p.cellHeight;
+        },
+        letters: string[] = [];
+      if (heightAt(0.5, 0.5) === 0) {
+        tilings.push(null);
+        continue;
+      }
+      for (let j = 0; j < g.height; j++)
+        for (let i = 0; i < g.width; i++) {
+          const middle = heightAt(i + 0.5, j + 0.5),
+            joined = [
+              [i + 1, j + 0.5, i + 1 < g.width, 'e'],
+              [i, j + 0.5, i > 0, 'w'],
+              [i + 0.5, j + 1, j + 1 < g.height, 's'],
+              [i + 0.5, j, j > 0, 'n'],
+            ].filter(
+              ([x, y, inside]) =>
+                inside && heightAt(x as number, y as number) > 0,
+            );
+          // Exactly one neighbour is joined, and the height says horizontal or vertical to match.
+          expect(joined.length).toBe(1);
+          const letter = joined[0][3] as string,
+            horizontal = letter === 'e' || letter === 'w';
+          expect(Math.abs(middle - p.heights[horizontal ? 0 : 1])).toBeLessThan(
+            1e-9,
+          );
+          letters.push(letter);
+        }
+      tilings.push(letters);
+    }
+    return tilings;
+  };
+  /** Every domino tiling of the board written again here by covering the last free cell (reading the cells from the end) with a domino to its left or above it: as the same letters for every cell. */
+  const allTilings = (g: Geometry): string[] => {
+    const cells = g.width * g.height,
+      partner = new Array<number>(cells).fill(-1),
+      found: string[] = [],
+      cover = (): void => {
+        let cell = cells - 1;
+        while (cell >= 0 && partner[cell] !== -1) cell--;
+        if (cell < 0) {
+          found.push(
+            partner
+              .map((other, k) =>
+                other === k + 1
+                  ? 'e'
+                  : other === k - 1
+                    ? 'w'
+                    : other === k + g.width
+                      ? 's'
+                      : 'n',
+              )
+              .join(''),
+          );
+          return;
+        }
+        if (cell % g.width > 0 && partner[cell - 1] === -1) {
+          partner[cell] = cell - 1;
+          partner[cell - 1] = cell;
+          cover();
+          partner[cell] = -1;
+          partner[cell - 1] = -1;
+        }
+        if (cell >= g.width) {
+          partner[cell] = cell - g.width;
+          partner[cell - g.width] = cell;
+          cover();
+          partner[cell] = -1;
+          partner[cell - g.width] = -1;
+        }
+      };
+    cover();
+    return found;
+  };
+  /** Kasteleyn's formula for the number of domino tilings of an m by n board: the product over all j up to m and k up to n of (4 cos^2(pi j / (m + 1)) + 4 cos^2(pi k / (n + 1))) to the power 1 / 4, here added as logarithms. */
+  const kasteleyn = (g: Geometry): number => {
+    let log = 0;
+    for (let j = 1; j <= g.height; j++)
+      for (let k = 1; k <= g.width; k++)
+        log +=
+          Math.log(
+            4 * Math.cos((Math.PI * j) / (g.height + 1)) ** 2 +
+              4 * Math.cos((Math.PI * k) / (g.width + 1)) ** 2,
+          ) / 4;
+    return Math.round(Math.exp(log));
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('dominoboards', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { high: 0.8643, lit: 0.11591, mean: 0.17236 }],
+      [1, { high: 0.8637, lit: 0.19307, mean: 0.24561 }],
+      [0xffffffff, { high: 0.8642, lit: 0.2094, mean: 0.26995 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('dominoboards', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0154);
+      expect(low).toBeLessThan(0.0157);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws every domino tiling of the board exactly once, read back from the picture and compared with a list written again here and with Kasteleyn’s formula', () => {
+    for (let seed = 0; seed < 12; seed++) {
+      const g = geometry(seed),
+        read = readTilings(seed),
+        drawn = read.filter((tiling): tiling is string[] => tiling !== null),
+        names = drawn.map((tiling) => tiling.join(''));
+      // The joining is mutual: the partner of the partner is the cell itself.
+      for (const tiling of drawn)
+        tiling.forEach((letter, k) => {
+          const other =
+              letter === 'e'
+                ? k + 1
+                : letter === 'w'
+                  ? k - 1
+                  : letter === 's'
+                    ? k + g.width
+                    : k - g.width,
+            back = tiling[other];
+          expect(back).toBe({ e: 'w', w: 'e', s: 'n', n: 's' }[letter]);
+        });
+      expect(new Set(names).size).toBe(drawn.length);
+      expect([...names].sort()).toEqual(allTilings(g).sort());
+      expect(drawn.length).toBe(kasteleyn(g));
+      expect(read.slice(drawn.length).every((tiling) => tiling === null)).toBe(
+        true,
+      );
+    }
+    // The numbers of tilings: 13, 11, 36, 41, 95 and 281.
+    expect(
+      [0, 1, 2, 3, 4, 5].map(
+        (seed) => readTilings(seed).filter((tiling) => tiling !== null).length,
+      ),
+    ).toEqual([13, 11, 36, 41, 95, 281]);
+  });
+  it('shuffles the panels by group without changing the set of tilings', () => {
+    for (const seed of [0, 1, 4]) {
+      const names = (s: number) =>
+          readTilings(s).map((tiling) =>
+            tiling === null ? '-' : tiling.join(''),
+          ),
+        first = names(seed),
+        second = names(seed + 6),
+        third = names(seed + 12);
+      expect(first).not.toEqual(second);
+      expect(second).not.toEqual(third);
+      expect([...first].sort()).toEqual([...second].sort());
+      expect([...first].sort()).toEqual([...third].sort());
+    }
+  });
+  it('agrees with the ideal cells and gaps away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5]) {
+      const g = geometry(seed),
+        tilings = readTilings(seed),
+        sample = createSurfaceSampler('dominoboards', seed),
+        out = empty(),
+        half = p.gapWidth / 2;
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          col = Math.min(g.cols - 1, Math.floor(u * g.cols)),
+          row = Math.min(g.rows - 1, Math.floor(v * g.rows)),
+          tiling = tilings[row * g.cols + col],
+          x = (u - col / g.cols - g.originX) / g.scale - p.margin,
+          y = (v - row / g.rows - g.originY) / g.scale - p.margin,
+          i = Math.floor(x),
+          j = Math.floor(y);
+        let ink = 0,
+          kind = 0,
+          near = false;
+        if (
+          tiling !== null &&
+          i >= 0 &&
+          j >= 0 &&
+          i < g.width &&
+          j < g.height
+        ) {
+          const letter = tiling[j * g.width + i],
+            // The distances to the four sides (west, east, north, south) and which of them has the other cell of the domino beyond it.
+            sides: [number, boolean][] = [
+              [x - i, letter === 'w'],
+              [i + 1 - x, letter === 'e'],
+              [y - j, letter === 'n'],
+              [j + 1 - y, letter === 's'],
+            ];
+          let gap = false;
+          for (const [distance, joined] of sides) {
+            if (joined) continue;
+            if (distance <= half) gap = true;
+            if (distance > half && distance < half + p.edgeSoft) near = true;
+          }
+          ink = gap ? 0 : 1;
+          kind = letter === 'e' || letter === 'w' ? 0 : 1;
+        }
+        if (near) continue;
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief * p.cellHeight * ink * p.heights[kind],
+          12,
+        );
+        expect(
+          Math.abs(
+            out.color - (p.toneGround * (1 - ink) + p.tones[kind] * ink),
+          ),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(4800);
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeGreaterThan(0.2471);
+    expect(unlike(first, litGrid(1))).toBeLessThan(0.2473);
+    expect(unlike(first, litGrid(6))).toBeGreaterThan(0.1266);
+    expect(unlike(first, litGrid(6))).toBeLessThan(0.1267);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('dominoboards', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 amber domino maps on dark brown with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('dominoboards', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(81);
+    expect(red / (512 * 512)).toBeLessThan(81.8);
+    expect(green / (512 * 512)).toBeGreaterThan(59.8);
+    expect(green / (512 * 512)).toBeLessThan(60.7);
+    expect(blue / (512 * 512)).toBeGreaterThan(38.1);
+    expect(blue / (512 * 512)).toBeLessThan(39);
+    expect(maxTilt).toBeGreaterThan(0.0399);
+    expect(maxTilt).toBeLessThan(0.0401);
     expect(invalid).toBe(0);
   });
 });

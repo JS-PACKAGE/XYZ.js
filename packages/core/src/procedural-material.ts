@@ -1150,6 +1150,7 @@ export type ProceduralMaterialKind =
   | 'standardtableaux'
   | 'graphatlas'
   | 'rootedtrees'
+  | 'dominoboards'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2548,6 +2549,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'standardtableaux',
   'graphatlas',
   'rootedtrees',
+  'dominoboards',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

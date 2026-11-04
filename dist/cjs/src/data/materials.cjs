@@ -31119,6 +31119,55 @@ var proceduralMaterialPresets = Object.freeze({
 		cellHeight: .8,
 		gapOcclusion: .45
 	}),
+	dominoboards: Object.freeze({
+		dark: [
+			28,
+			16,
+			12
+		],
+		light: [
+			245,
+			196,
+			120
+		],
+		roughness: .4,
+		relief: .0012,
+		seedSalt: 28221,
+		boards: [
+			[6, 2],
+			[4, 3],
+			[4, 4],
+			[6, 3],
+			[5, 4],
+			[6, 4]
+		],
+		cols: [
+			3,
+			3,
+			6,
+			5,
+			9,
+			14
+		],
+		rows: [
+			5,
+			4,
+			6,
+			9,
+			11,
+			21
+		],
+		margin: .5,
+		gapWidth: .16,
+		edgeSoft: .1,
+		grainCells: 128,
+		toneGround: .03,
+		tones: [.85, .45],
+		heights: [1, .6],
+		grainTone: .03,
+		cellHeight: .8,
+		gapOcclusion: .45
+	}),
 	vermiculation: Object.freeze({
 		dark: [
 			60,
@@ -33253,6 +33302,7 @@ var proceduralTileMeters = Object.freeze({
 	standardtableaux: .5,
 	graphatlas: .5,
 	rootedtrees: .5,
+	dominoboards: .5,
 	dominotiling: .5,
 	vermiculation: .4,
 	kikko: .3,
