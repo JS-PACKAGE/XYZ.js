@@ -43675,19 +43675,26 @@ export function createSurfaceSampler(
             Math.floor(hash(2, 29, seed ^ p.seedSalt) * p.bitCount),
           product = new Uint8Array(p.cells * p.cells),
           tones = new Float64Array(p.cells * p.cells);
-        for (let a = 1; a < p.cells; a++)
-          for (let b = 1; b < p.cells; b++) {
-            const seen = new Uint8Array(256);
-            for (let x = 0; x < a; x++)
+        const cells = p.cells,
+          seen = new Uint32Array(256);
+        // `seen` holds the id of the last cell that marked a value, so it is never cleared.
+        let stamp = 0;
+        // Nim multiplication is commutative and the rule for (a, b) is the rule for (b, a) with
+        // the operands swapped, so only b <= a is computed and mirrored.
+        for (let a = 1; a < cells; a++)
+          for (let b = 1; b <= a; b++) {
+            stamp++;
+            const rowA = a * cells;
+            for (let x = 0; x < a; x++) {
+              const rowX = x * cells,
+                left = product[rowX + b];
               for (let y = 0; y < b; y++)
-                seen[
-                  product[x * p.cells + b] ^
-                    product[a * p.cells + y] ^
-                    product[x * p.cells + y]
-                ] = 1;
+                seen[left ^ product[rowA + y] ^ product[rowX + y]] = stamp;
+            }
             let value = 0;
-            while (seen[value]) value++;
-            product[a * p.cells + b] = value;
+            while (seen[value] === stamp) value++;
+            product[rowA + b] = value;
+            product[b * cells + a] = value;
           }
         for (let i = 0; i < tones.length; i++)
           tones[i] = ((product[i] >> bit) & 1) * p.toneSpan;
