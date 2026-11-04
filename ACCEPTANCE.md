@@ -13997,3 +13997,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增5項專屬測試（與測試中另寫的線段暴力聯集逐點對照，含occlusion〔每變體200點，容差1e-9〕；Zöllner長線位置〔容差3e-4〕與斜線角度〔容差0.3°〕；Ehrenstein射線角度〔容差0.2°〕與空圓心；Müller-Lyer各列長度與翼的方向；Hering水平線筆直、24條射線的角度，以及Ponzo橫桿等長〔容差3e-4〕與斜線筆直）加沿用的色調範圍、seed差異與決定性、C1與UV週期、maps，共9項，`-t "Line illusions as"`9項通過。變異檢查（做過13次，含補測試後重做的1次）：Zöllner傾向不交替失敗3項；tick的dy用sin失敗4項；射線數除以rayCount + 1失敗3項；Ehrenstein起點半徑減半失敗3項；Müller-Lyer的轉向固定失敗2項；翼的方向反向失敗2項；Hering射線外端改內半徑失敗2項；Ponzo橫桿右端縮短失敗1項；桶範圍少加外半寬失敗3項；變體選擇的hash常數改失敗7項；去掉smooth失敗4項；補測試後occlusion公式改失敗1項；**沒抓到**的1項：Zöllner長線縮成[0, 1]，9項全數通過（見上，我推理為等價變異）。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Line illusions as|lineillusions|kinds|catalog|distinct|periodic"`定向測試**2566項通過／4512項未選**，輸出`GATES-OK`。
 - 未驗證：lineillusions尚未有完整suite的複驗紀錄（opticalillusions之前的完整suite正在`3336cb1e5`執行，結果另記）；lineillusions尚未做瀏覽器gallery檢查；不push。
+
+## 2026-11-04 完整測試與瀏覽器gallery複驗（至視覺錯覺）
+
+- 範圍：在`3336cb1e5`（新增視覺錯覺圖樣之後）重跑完整測試，並在`3336cb1e5`與`09d2b225c`（新增線條錯覺圖樣之後）各跑一次瀏覽器gallery。這段不新增材質，只記錄實跑結果。`islamicstars`（`601b2d77b`）、`gerstnerocean`（`ec5e8a17c`）與`opticalillusions`（`3336cb1e5`）包含在完整測試範圍內；`lineillusions`（`09d2b225c`）不在完整測試範圍內。
+- 完整測試（工具實跑，乾淨的detached worktree）：**179個測試檔、10,997項全部通過**（1712 s，期間同時跑著gates、變異檢查與預覽，所以耗時不是乾淨的量測）。前一次完整複驗在`3ab69faba`（10,972項）；10,972 → 10,997共25項，與我預期的增量islamicstars 8項、gerstnerocean 8項、opticalillusions 9項（各自的專屬與沿用測試加kinds清單的測試）相符，但我沒有逐項核對各測試的數量。
+- 瀏覽器gallery（工具實跑，無頭Chrome，vite從乾淨worktree提供`/examples/pbr3d/`，每次開啟前先殺掉舊的Chrome並等約20秒）：在`3336cb1e5`，WebGPU分頁與`?renderer=webgl2`分頁各自讀到「1126 procedural material presets」、選單1127個選項，選取opticalillusions、gerstnerocean與plain都成功，entries都是空的，opticalillusions的選項文字與標籤一致；在`09d2b225c`，兩個分頁各自讀到「1127 procedural material presets」、選單1128個選項，選取lineillusions、opticalillusions與plain都成功，entries都是空的，lineillusions的選項文字與標籤一致。限制：只涵蓋「可選取、讀數更新、無console錯誤」，沒有目視畫面或像素比對；跨瀏覽器、跨GPU行為沒有驗證。
+- 未驗證：`lineillusions`尚未跑完整suite（只有定向測試、gates與上述gallery）；跨瀏覽器與跨GPU；不push。
