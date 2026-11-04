@@ -52263,6 +52263,99 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'wireworldcircuits': {
+        const p = proceduralMaterialPresets.wireworldcircuits,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.steps.length,
+          group = Math.floor(unsigned / p.steps.length),
+          size = p.columns,
+          nodes = size / 2,
+          states = (() => {
+            let current = new Uint8Array(size * size),
+              next = new Uint8Array(size * size);
+            // The wires of the lattice of nodes: a wire to the right of the node (a, b) is the cell (2a + 1, 2b) and a wire below it the cell (2a, 2b + 1).
+            const wire = (a: number, b: number, down: number): boolean =>
+              hash(a, b, group ^ p.seedSalt ^ (down ? 0x5a5a : 0)) <
+              p.edgeProbability[variant];
+            for (let b = 0; b < nodes; b++)
+              for (let a = 0; a < nodes; a++) {
+                const right = wire(a, b, 0),
+                  below = wire(a, b, 1);
+                if (right) current[2 * b * size + 2 * a + 1] = 1;
+                if (below) current[(2 * b + 1) * size + 2 * a] = 1;
+                if (
+                  right ||
+                  below ||
+                  wire((a + nodes - 1) % nodes, b, 0) ||
+                  wire(a, (b + nodes - 1) % nodes, 1)
+                )
+                  current[2 * b * size + 2 * a] = 1;
+              }
+            // Electrons: a conductor starts as a head or as a tail with the given probabilities.
+            for (let j = 0; j < size; j++)
+              for (let i = 0; i < size; i++) {
+                if (current[j * size + i] === 0) continue;
+                const draw = hash(i, j, group ^ p.seedSalt ^ 0x3c3c);
+                if (draw < p.headStart) current[j * size + i] = 2;
+                else if (draw < p.headStart + p.tailStart)
+                  current[j * size + i] = 3;
+              }
+            for (let step = 0; step < p.steps[variant]; step++) {
+              for (let j = 0; j < size; j++)
+                for (let i = 0; i < size; i++) {
+                  const here = current[j * size + i];
+                  let after = here;
+                  if (here === 2) after = 3;
+                  else if (here === 3) after = 1;
+                  else if (here === 1) {
+                    let heads = 0;
+                    for (let dj = -1; dj <= 1; dj++)
+                      for (let di = -1; di <= 1; di++)
+                        if (
+                          (di !== 0 || dj !== 0) &&
+                          current[
+                            ((j + dj + size) % size) * size +
+                              ((i + di + size) % size)
+                          ] === 2
+                        )
+                          heads++;
+                    if (heads === 1 || heads === 2) after = 2;
+                  }
+                  next[j * size + i] = after;
+                }
+              [current, next] = [next, current];
+            }
+            return current;
+          })(),
+          levels = [0, 0.35, 1, 0.65] as const,
+          // The mask of a cell in one direction: 1 inside, 0 at the gap (the position in the cell 0 to 1).
+          inside = (position: number): number =>
+            smooth(
+              clamp(
+                (0.5 - Math.abs(position - 0.5) - p.gapWidth / 2) / p.edgeSoft,
+              ),
+            );
+        return () => {
+          const x = fract(u) * size,
+            y = fract(v) * size,
+            i = Math.floor(x),
+            j = Math.floor(y),
+            mask = inside(x - i) * inside(y - j),
+            level = levels[states[j * size + i]],
+            cell = p.toneEmpty + (p.toneHead - p.toneEmpty) * level,
+            grain = grainField(u, v);
+          color =
+            p.toneGap + (cell - p.toneGap) * mask + p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * level;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -61196,6 +61289,7 @@ export function createSurfaceSampler(
     kind === 'randomdotstereogram' ||
     kind === 'sizeillusions' ||
     kind === 'excitableautomata' ||
+    kind === 'wireworldcircuits' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

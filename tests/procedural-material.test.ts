@@ -1158,6 +1158,7 @@ const kinds: ProceduralMaterialKind[] = [
   'randomdotstereogram',
   'sizeillusions',
   'excitableautomata',
+  'wireworldcircuits',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -198248,6 +198249,318 @@ describe("Excitable automata as Brian's Brain and Greenberg-Hastings snapshots",
     expect(blue / (512 * 512)).toBeLessThan(34.3);
     expect(maxTilt).toBeGreaterThan(0.0517);
     expect(maxTilt).toBeLessThan(0.0518);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('WireWorld circuits as electrons running on random wires', () => {
+  const p = proceduralMaterialPresets.wireworldcircuits;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const n = p.columns;
+  /** The states of the cells of a seed (0 empty, 1 conductor, 2 head, 3 tail) read back from the picture at the centres of the cells: the height is cellHeight times the level, and the level is 0, 0.35, 1 and 0.65 for the four states. */
+  const readGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('wireworldcircuits', seed),
+      out = empty(),
+      grid: number[] = [];
+    for (let j = 0; j < n; j++)
+      for (let i = 0; i < n; i++) {
+        sample((i + 0.5) / n, (j + 0.5) / n, out);
+        const read = out.height / p.relief / p.cellHeight;
+        grid.push(read < 0.175 ? 0 : read < 0.5 ? 1 : read < 0.825 ? 3 : 2);
+      }
+    return grid;
+  };
+  /** The number of heads among the 8 neighbours of the cell k of a grid on the torus. */
+  const headsAround = (grid: number[], k: number): number => {
+    const i = k % n,
+      j = Math.floor(k / n);
+    let heads = 0;
+    for (let dj = -1; dj <= 1; dj++)
+      for (let di = -1; di <= 1; di++)
+        if (di !== 0 || dj !== 0)
+          heads += Number(
+            grid[((j + dj + n) % n) * n + ((i + di + n) % n)] === 2,
+          );
+    return heads;
+  };
+  /** One step of WireWorld on the torus, written again here from the definition: a head becomes a tail, a tail a conductor, a conductor with 1 or 2 heads around it a head, and an empty cell stays empty. */
+  const advance = (grid: number[]): number[] =>
+    grid.map((state, k) => {
+      if (state === 2) return 3;
+      if (state === 3) return 1;
+      if (state === 0) return 0;
+      const heads = headsAround(grid, k);
+      return heads === 1 || heads === 2 ? 2 : 1;
+    });
+  const count = (grid: number[], state: number): number =>
+    grid.filter((value) => value === state).length;
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('wireworldcircuits', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('wireworldcircuits', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0297);
+      expect(low).toBeLessThan(0.0302);
+      expect(high).toBeGreaterThan(0.9585);
+      expect(high).toBeLessThan(0.9638);
+      expect(lit / 65536).toBeGreaterThan(0.0066);
+      expect(lit / 65536).toBeLessThan(0.097);
+      expect(mean / 65536).toBeGreaterThan(0.1469);
+      expect(mean / 65536).toBeLessThan(0.2019);
+      expect(heightHigh).toBeGreaterThan(0.799);
+      expect(heightHigh).toBeLessThan(0.8001);
+      // The 256 by 256 grid never samples the middle of a gap, so the darkest occlusion is above the floor of the gaps.
+      expect(occlusionLow).toBeGreaterThan(0.8847);
+      expect(occlusionLow).toBeLessThan(0.8848);
+    }
+  });
+  it('is one step of WireWorld from seed 0 to 1 and from 3 to 4 and uses the rule of 1 or 2 heads', () => {
+    for (const [seed, heads, tails] of [
+      [0, 10, 10],
+      [3, 100, 100],
+    ]) {
+      const before = readGrid(seed),
+        after = readGrid(seed + 1);
+      expect(after).toEqual(advance(before));
+      // A grid without electrons would pass the check, so the grids must be alive and must move.
+      expect(count(before, 2)).toBeGreaterThan(heads);
+      expect(count(before, 3)).toBeGreaterThan(tails);
+      expect(before).not.toEqual(after);
+    }
+    // The denser circuit has junctions: conductors with 2 heads around them (they fire) and with 3 or more (they do not).
+    const grid = readGrid(3),
+      around = (state: number, atLeast: boolean) =>
+        grid.filter(
+          (value, k) =>
+            value === 1 &&
+            (atLeast
+              ? headsAround(grid, k) >= state
+              : headsAround(grid, k) === state),
+        ).length;
+    expect(around(2, false)).toBeGreaterThan(10);
+    expect(around(3, true)).toBeGreaterThan(2);
+  });
+  it('counts the steps from the start: 60 steps take 30 to 90 in both circuits', () => {
+    for (const [from, to] of [
+      [0, 2],
+      [3, 5],
+    ]) {
+      let grid = readGrid(from);
+      for (let step = 0; step < p.steps[to] - p.steps[from]; step++)
+        grid = advance(grid);
+      expect(grid).toEqual(readGrid(to));
+    }
+  });
+  it('lays wires only on the lattice and keeps the wires of the sparser circuit among those of the denser one', () => {
+    for (let seed = 0; seed < 6; seed++) {
+      const grid = readGrid(seed);
+      // Cells with an odd column and an odd row are the middles of the lattice squares and never hold a wire.
+      for (let k = 0; k < grid.length; k++)
+        if ((k % n) % 2 === 1 && Math.floor(k / n) % 2 === 1)
+          expect(grid[k]).toBe(0);
+    }
+    const sparse = readGrid(0),
+      steps = readGrid(1),
+      dense = readGrid(3),
+      other = readGrid(6);
+    // Seeds 0 and 1 are one circuit (only the electrons move) and the denser circuit of seed 3 has every wire of the sparser one and more.
+    expect(sparse.map((state) => Number(state !== 0))).toEqual(
+      steps.map((state) => Number(state !== 0)),
+    );
+    expect(sparse.every((state, k) => state === 0 || dense[k] !== 0)).toBe(
+      true,
+    );
+    expect(count(dense, 0)).toBeLessThan(count(sparse, 0));
+    expect(sparse.map((state) => Number(state !== 0))).not.toEqual(
+      other.map((state) => Number(state !== 0)),
+    );
+  });
+  it('draws a different start per group of six seeds and one per variant', () => {
+    const first = litGrid(0),
+      other = litGrid(6),
+      variant = litGrid(3);
+    const unlike = (a: number[], b: number[]) => {
+      let different = 0;
+      for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+      return different / a.length;
+    };
+    expect(unlike(first, other)).toBeGreaterThan(0.0309);
+    expect(unlike(first, other)).toBeLessThan(0.031);
+    expect(unlike(first, variant)).toBeGreaterThan(0.0594);
+    expect(unlike(first, variant)).toBeLessThan(0.0595);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('draws cells with gaps: the tone of the state inside, no ink and the gap tone and shading in the gaps', () => {
+    const edge = p.gapWidth / 2 + p.edgeSoft,
+      levels = [0, 0.35, 1, 0.65];
+    for (const seed of [0, 3, 4]) {
+      const sample = createSurfaceSampler('wireworldcircuits', seed),
+        out = empty(),
+        grid = readGrid(seed);
+      let inside = 0,
+        gaps = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          x = u * n,
+          y = v * n,
+          fx = x - Math.floor(x),
+          fy = y - Math.floor(y),
+          nearX = 0.5 - Math.abs(fx - 0.5),
+          nearY = 0.5 - Math.abs(fy - 0.5),
+          level = levels[grid[Math.floor(y) * n + Math.floor(x)]];
+        sample(u, v, out);
+        if (nearX > edge && nearY > edge) {
+          inside++;
+          const cell = p.toneEmpty + (p.toneHead - p.toneEmpty) * level;
+          expect(Math.abs(out.color - cell)).toBeLessThanOrEqual(
+            p.grainTone / 2 + 1e-9,
+          );
+          expect(out.height).toBeCloseTo(p.relief * p.cellHeight * level, 12);
+          expect(out.occlusion).toBeCloseTo(1, 9);
+        } else if (nearX < p.gapWidth / 2 || nearY < p.gapWidth / 2) {
+          gaps++;
+          expect(Math.abs(out.color - p.toneGap)).toBeLessThanOrEqual(
+            p.grainTone / 2 + 1e-9,
+          );
+          expect(out.height).toBe(0);
+          expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion, 9);
+        }
+      }
+      expect(inside).toBeGreaterThan(2900);
+      expect(gaps).toBeGreaterThan(1100);
+    }
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('wireworldcircuits', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 teal circuit maps with raised wires and shaded gaps', () => {
+    const maps = generateProceduralMaps('wireworldcircuits', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(22.5);
+    expect(red / (512 * 512)).toBeLessThan(23.5);
+    expect(green / (512 * 512)).toBeGreaterThan(39.1);
+    expect(green / (512 * 512)).toBeLessThan(40.1);
+    expect(blue / (512 * 512)).toBeGreaterThan(40.5);
+    expect(blue / (512 * 512)).toBeLessThan(41.5);
+    expect(maxTilt).toBeGreaterThan(0.0467);
+    expect(maxTilt).toBeLessThan(0.0468);
     expect(invalid).toBe(0);
   });
 });

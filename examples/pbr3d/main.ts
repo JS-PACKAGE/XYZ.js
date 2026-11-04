@@ -1195,6 +1195,7 @@ try {
     'randomdotstereogram',
     'sizeillusions',
     'excitableautomata',
+    'wireworldcircuits',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

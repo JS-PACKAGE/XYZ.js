@@ -1132,6 +1132,7 @@ export type ProceduralMaterialKind =
   | 'randomdotstereogram'
   | 'sizeillusions'
   | 'excitableautomata'
+  | 'wireworldcircuits'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2512,6 +2513,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'randomdotstereogram',
   'sizeillusions',
   'excitableautomata',
+  'wireworldcircuits',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
