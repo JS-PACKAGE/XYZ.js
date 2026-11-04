@@ -45862,6 +45862,189 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'pythagoreanproof': {
+        const p = proceduralMaterialPresets.pythagoreanproof,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x54001),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          triple =
+            p.triples[
+              Math.floor(hash(77, 1, seed ^ 0x54002) * p.triples.length)
+            ],
+          swapped = hash(77, 2, seed ^ 0x54003) < 0.5,
+          // The legs along the two axes from the right angle, then the long side.
+          legX = swapped ? triple[1] : triple[0],
+          legY = swapped ? triple[0] : triple[1],
+          hypotenuse = triple[2],
+          quarterTurns = Math.floor(hash(77, 3, seed ^ 0x54004) * 4),
+          mirrored = hash(77, 4, seed ^ 0x54005) < 0.5,
+          // Turn and mirror a point (or direction) given in units, right angle at the origin, legs along +x and +y.
+          turn = (x: number, y: number): [number, number] => {
+            let px = mirrored ? -x : x,
+              py = y;
+            for (let k = 0; k < quarterTurns; k++) [px, py] = [-py, px];
+            return [px, py];
+          },
+          // The three squares in units: a corner, two sides' directions (unit vectors) and the side. Outward means away from the triangle.
+          shapes = [
+            { corner: [0, 0], first: [1, 0], second: [0, -1], side: legX },
+            { corner: [0, 0], first: [0, 1], second: [-1, 0], side: legY },
+            {
+              corner: [legX, 0],
+              first: [-legX / hypotenuse, legY / hypotenuse],
+              second: [legY / hypotenuse, legX / hypotenuse],
+              side: hypotenuse,
+            },
+          ],
+          // The picture's bounding box in units, from the squares' corners.
+          corners: [number, number][] = shapes.flatMap((shape) =>
+            [
+              [0, 0],
+              [shape.side, 0],
+              [shape.side, shape.side],
+              [0, shape.side],
+            ].map(([s, t]): [number, number] =>
+              turn(
+                shape.corner[0] + s * shape.first[0] + t * shape.second[0],
+                shape.corner[1] + s * shape.first[1] + t * shape.second[1],
+              ),
+            ),
+          ),
+          minX = Math.min(...corners.map((corner) => corner[0])),
+          maxX = Math.max(...corners.map((corner) => corner[0])),
+          minY = Math.min(...corners.map((corner) => corner[1])),
+          maxY = Math.max(...corners.map((corner) => corner[1])),
+          unit = p.extent / Math.max(maxX - minX, maxY - minY),
+          middleX = (minX + maxX) / 2,
+          middleY = (minY + maxY) / 2,
+          place = (x: number, y: number): [number, number] => {
+            const [tx, ty] = turn(x, y);
+            return [
+              p.centerX + (tx - middleX) * unit,
+              p.centerY + (ty - middleY) * unit,
+            ];
+          },
+          // Each square in tile units: its corner, side directions (turned) and side.
+          squares = shapes.map((shape) => {
+            const [cx, cy] = place(shape.corner[0], shape.corner[1]),
+              [fx, fy] = turn(shape.first[0], shape.first[1]),
+              [sx, sy] = turn(shape.second[0], shape.second[1]);
+            return {
+              cx,
+              cy,
+              fx,
+              fy,
+              sx,
+              sy,
+              length: shape.side * unit,
+            };
+          }),
+          tones = [p.shortTone, p.otherShortTone, p.longTone],
+          heights = [p.shortHeight, p.otherShortHeight, p.longHeight],
+          // The triangle: its three corners in tile units.
+          right = place(0, 0),
+          footX = place(legX, 0),
+          footY = place(0, legY),
+          // The triangle's three sides, each as a point on it and the unit normal pointing inward.
+          edges = [
+            [right, footX, footY],
+            [footX, footY, right],
+            [footY, right, footX],
+          ].map(([from, to, other]) => {
+            const ex = to[0] - from[0],
+              ey = to[1] - from[1],
+              length = Math.hypot(ex, ey),
+              sign =
+                Math.sign(
+                  (other[0] - from[0]) * ey - (other[1] - from[1]) * ex,
+                ) / length;
+            return { x: from[0], y: from[1], nx: ey * sign, ny: -ex * sign };
+          }),
+          bound = p.extent / 2 + 0.02;
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          const paint = (amount: number, tone: number, level: number): void => {
+            if (amount <= 0) return;
+            shade += (tone - shade) * amount;
+            elevation += (level - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = Math.max(mask, amount);
+          };
+          if (
+            Math.abs(fu - p.centerX) < bound &&
+            Math.abs(fv - p.centerY) < bound
+          ) {
+            // How far inside each square the place is (negative outside).
+            let owner = 0,
+              best = -Infinity,
+              bestS = 0,
+              bestT = 0,
+              outline = 0;
+            squares.forEach((square, index) => {
+              const dx = fu - square.cx,
+                dy = fv - square.cy,
+                s = dx * square.fx + dy * square.fy,
+                t = dx * square.sx + dy * square.sy,
+                inside = Math.min(s, square.length - s, t, square.length - t);
+              outline = Math.max(
+                outline,
+                cover(p.outlineHalf - Math.abs(inside)),
+              );
+              if (inside > best) {
+                best = inside;
+                owner = index;
+                bestS = s;
+                bestT = t;
+              }
+            });
+            const triangleInside = Math.min(
+              ...edges.map(
+                (edge) => (fu - edge.x) * edge.nx + (fv - edge.y) * edge.ny,
+              ),
+            );
+            // The squares' fills (one place belongs to one square), the triangle's fill, then the grid inside the square the place is in.
+            paint(cover(best), tones[owner], heights[owner]);
+            paint(cover(triangleInside), p.triangleTone, p.triangleHeight);
+            if (best > 0) {
+              // The nearest grid line each way (the ones on the square's own sides are under its outline).
+              const lineS = Math.round(bestS / unit),
+                lineT = Math.round(bestT / unit);
+              paint(
+                Math.max(
+                  cover(p.gridHalf - Math.abs(bestS - lineS * unit)),
+                  cover(p.gridHalf - Math.abs(bestT - lineT * unit)),
+                ),
+                p.gridTone,
+                p.gridHeight,
+              );
+            }
+            // The outlines of the squares (the triangle's sides are sides of squares): combined, painted once.
+            paint(outline, p.outlineTone, p.outlineHeight);
+            // The corners of the triangle.
+            paint(
+              Math.max(
+                cover(p.dotRadius - Math.hypot(fu - right[0], fv - right[1])),
+                cover(p.dotRadius - Math.hypot(fu - footX[0], fv - footX[1])),
+                cover(p.dotRadius - Math.hypot(fu - footY[0], fv - footY[1])),
+              ),
+              p.dotTone,
+              p.dotHeight,
+            );
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -73391,6 +73574,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'pythagoreanproof' ||
     kind === 'contributiongraph' ||
     kind === 'arbelos' ||
     kind === 'eulerlinetriangle' ||

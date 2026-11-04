@@ -25295,6 +25295,69 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .8,
 		inkRoughness: .45
 	}),
+	pythagoreanproof: Object.freeze({
+		dark: [
+			34,
+			44,
+			74
+		],
+		light: [
+			246,
+			243,
+			232
+		],
+		roughness: .55,
+		relief: .004,
+		triples: Object.freeze([
+			Object.freeze([
+				3,
+				4,
+				5
+			]),
+			Object.freeze([
+				6,
+				8,
+				10
+			]),
+			Object.freeze([
+				5,
+				12,
+				13
+			]),
+			Object.freeze([
+				8,
+				15,
+				17
+			])
+		]),
+		extent: .84,
+		centerX: .5,
+		centerY: .5,
+		outlineHalf: .0018,
+		gridHalf: 7e-4,
+		dotRadius: .007,
+		edgeSoft: 6e-4,
+		grainCells: 192,
+		paperTone: .97,
+		shortTone: .82,
+		otherShortTone: .7,
+		longTone: .58,
+		triangleTone: .4,
+		gridTone: .46,
+		outlineTone: .24,
+		dotTone: .08,
+		grainTone: .03,
+		paperHeight: .2,
+		shortHeight: .35,
+		otherShortHeight: .45,
+		longHeight: .55,
+		triangleHeight: .65,
+		gridHeight: .5,
+		outlineHeight: .75,
+		dotHeight: .9,
+		paperRoughness: .8,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -33976,6 +34039,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	pythagoreanproof: 1,
 	contributiongraph: 1,
 	arbelos: 1,
 	eulerlinetriangle: 1,

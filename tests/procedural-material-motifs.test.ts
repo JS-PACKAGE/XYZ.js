@@ -57219,3 +57219,612 @@ describe('contributiongraph: five years of daily activity cells in week columns 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('pythagoreanproof: a right triangle with a square ruled into unit cells on each side', () => {
+  const p = proceduralMaterialPresets.pythagoreanproof,
+    out = empty();
+  type Point = [number, number];
+  type Quad = { corners: Point[]; cells: number };
+  type Figure = {
+    quads: Quad[];
+    triangle: Point[];
+    unit: number;
+    legX: number;
+    legY: number;
+    hypotenuse: number;
+  };
+  const toneAt = (sample: Sampler, u: number, v: number): number => {
+    sample(u, v, out);
+    return out.color;
+  };
+
+  // The figure as the theorem draws it, worked out from the triple and the way it is turned: the right angle at the origin, the legs along +x and +y, a square on each side
+  // on the side away from the triangle; then turned and mirrored, and scaled so that the larger of the picture's width and height is p.extent, and centred.
+  const figureOf = (
+    triple: readonly number[],
+    swapped: boolean,
+    turns: number,
+    mirrored: boolean,
+  ): Figure => {
+    const [a, b] = swapped ? [triple[1], triple[0]] : [triple[0], triple[1]],
+      c = triple[2],
+      turn = ([x, y]: Point): Point => {
+        let q: Point = [mirrored ? -x : x, y];
+        for (let k = 0; k < turns; k++) q = [-q[1], q[0]];
+        return q;
+      },
+      units: Point[][] = [
+        [
+          [0, 0],
+          [a, 0],
+          [a, -a],
+          [0, -a],
+        ],
+        [
+          [0, 0],
+          [0, b],
+          [-b, b],
+          [-b, 0],
+        ],
+        [
+          [a, 0],
+          [0, b],
+          [b, b + a],
+          [a + b, a],
+        ],
+      ],
+      all = units.flat().map(turn),
+      minX = Math.min(...all.map((q) => q[0])),
+      maxX = Math.max(...all.map((q) => q[0])),
+      minY = Math.min(...all.map((q) => q[1])),
+      maxY = Math.max(...all.map((q) => q[1])),
+      unit = p.extent / Math.max(maxX - minX, maxY - minY),
+      place = (q: Point): Point => {
+        const [x, y] = turn(q);
+        return [
+          p.centerX + (x - (minX + maxX) / 2) * unit,
+          p.centerY + (y - (minY + maxY) / 2) * unit,
+        ];
+      };
+    return {
+      quads: units.map((quad, i) => ({
+        corners: quad.map(place),
+        cells: [a, b, c][i],
+      })),
+      triangle: [
+        [0, 0],
+        [a, 0],
+        [0, b],
+      ].map((q) => place(q as Point)),
+      unit,
+      legX: a,
+      legY: b,
+      hypotenuse: c,
+    };
+  };
+  const allFigures = (): {
+    triple: readonly number[];
+    swapped: boolean;
+    turns: number;
+    mirrored: boolean;
+  }[] =>
+    p.triples.flatMap((triple) =>
+      [false, true].flatMap((swapped) =>
+        [0, 1, 2, 3].flatMap((turns) =>
+          [false, true].map((mirrored) => ({
+            triple,
+            swapped,
+            turns,
+            mirrored,
+          })),
+        ),
+      ),
+    );
+
+  // Read the picture: the three dark dots on the triangle's corners (a coarse scan over the picture, each then pinned to the middle of the dark pixels around it), and which
+  // of the figures the model can draw puts its three corners there; the figure must be exactly one (up to the ones that coincide).
+  const figureFor = (
+    seed: number,
+  ): { sample: Sampler; figure: Figure; dots: Point[] } => {
+    const sample = createSurfaceSampler('pythagoreanproof', seed),
+      coarse: Point[] = [];
+    for (let y = 0.03; y < 0.97; y += 0.004)
+      for (let x = 0.03; x < 0.97; x += 0.004) {
+        if (toneAt(sample, x, y) >= 0.18) continue;
+        const near = coarse.find(
+          ([cx, cy]) => Math.hypot(cx - x, cy - y) < 0.02,
+        );
+        if (!near) coarse.push([x, y]);
+      }
+    expect(coarse.length).toBe(3);
+    const dots = coarse.map(([cx, cy]): Point => {
+      let sumX = 0,
+        sumY = 0,
+        count = 0;
+      for (let y = cy - 0.012; y <= cy + 0.012; y += 0.0004)
+        for (let x = cx - 0.012; x <= cx + 0.012; x += 0.0004)
+          if (toneAt(sample, x, y) < 0.16) {
+            sumX += x;
+            sumY += y;
+            count++;
+          }
+      return [sumX / count, sumY / count];
+    });
+    // The figures whose three corners are where the dots are, and whose three squares have the fills they have in the picture at their first cells (this tells the short
+    // sides apart where the corners alone do not).
+    const fills = [p.shortTone, p.otherShortTone, p.longTone],
+      fits = allFigures()
+        .map((option) =>
+          figureOf(
+            option.triple,
+            option.swapped,
+            option.turns,
+            option.mirrored,
+          ),
+        )
+        .filter((figure) =>
+          figure.triangle.every((corner) =>
+            dots.some(
+              (dot) =>
+                Math.hypot(dot[0] - corner[0], dot[1] - corner[1]) < 0.0015,
+            ),
+          ),
+        )
+        .filter((figure) =>
+          figure.quads.every((quad, i) => {
+            const [v0, v1, , v3] = quad.corners;
+            return (
+              Math.abs(
+                toneAt(
+                  sample,
+                  v0[0] + (v1[0] - v0[0] + v3[0] - v0[0]) / (2 * quad.cells),
+                  v0[1] + (v1[1] - v0[1] + v3[1] - v0[1]) / (2 * quad.cells),
+                ) - fills[i],
+              ) < 1e-6
+            );
+          }),
+        );
+    expect(fits.length).toBeGreaterThan(0);
+    // The fits that remain are the same picture: the same corners in the same order.
+    for (const other of fits)
+      for (let i = 0; i < 3; i++)
+        expect(
+          Math.hypot(
+            other.triangle[i][0] - fits[0].triangle[i][0],
+            other.triangle[i][1] - fits[0].triangle[i][1],
+          ),
+        ).toBeLessThan(0.0015);
+    return { sample, figure: fits[0], dots };
+  };
+
+  // The cell along a square's side, counted from the picture: walk along the square's first side half a cell in, count the stretches that are the grid line's tone.
+  const cellsAlong = (sample: Sampler, quad: Quad, figure: Figure): number => {
+    const [v0, v1, , v3] = quad.corners,
+      length = Math.hypot(v1[0] - v0[0], v1[1] - v0[1]),
+      ex = (v1[0] - v0[0]) / length,
+      ey = (v1[1] - v0[1]) / length,
+      wx = (v3[0] - v0[0]) / length,
+      wy = (v3[1] - v0[1]) / length,
+      fill = toneAt(
+        sample,
+        v0[0] + (ex + wx) * 0.5 * figure.unit,
+        v0[1] + (ey + wy) * 0.5 * figure.unit,
+      ),
+      cut = (fill + p.gridTone) / 2;
+    let lines = 0,
+      inLine = false;
+    for (let s = 0.004; s < length - 0.004; s += 0.0004) {
+      const tone = toneAt(
+          sample,
+          v0[0] + ex * s + wx * 0.5 * figure.unit,
+          v0[1] + ey * s + wy * 0.5 * figure.unit,
+        ),
+        dip = tone < cut;
+      if (dip && !inLine) lines++;
+      inLine = dip;
+    }
+    return lines + 1;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws a right triangle with a square on each side whose cells, counted from the picture, have a x a plus b x b equal to c x c, and the sides measured between the dots in the same ratio (seed %i)',
+    (seed) => {
+      const { sample, figure, dots } = figureFor(seed),
+        counts = figure.quads.map((quad) => cellsAlong(sample, quad, figure)),
+        [a, b, c] = counts;
+      // The theorem, from what the picture shows: the cells of the two squares on the short sides together equal the cells of the square on the long side.
+      expect(a * a + b * b).toBe(c * c);
+      expect(counts).toEqual([figure.legX, figure.legY, figure.hypotenuse]);
+      expect(
+        p.triples.some(
+          (triple) =>
+            [triple[0], triple[1]].sort().join() === [a, b].sort().join() &&
+            triple[2] === c,
+        ),
+      ).toBe(true);
+      // The sides between the dots are in the ratio of the cell counts: one unit of length is the same for all three.
+      const sides = [
+        Math.hypot(
+          figure.triangle[1][0] - figure.triangle[0][0],
+          figure.triangle[1][1] - figure.triangle[0][1],
+        ),
+        Math.hypot(
+          figure.triangle[2][0] - figure.triangle[0][0],
+          figure.triangle[2][1] - figure.triangle[0][1],
+        ),
+        Math.hypot(
+          figure.triangle[2][0] - figure.triangle[1][0],
+          figure.triangle[2][1] - figure.triangle[1][1],
+        ),
+      ];
+      sides.forEach((side, i) =>
+        expect(Math.abs(side / counts[i] - figure.unit)).toBeLessThan(1e-9),
+      );
+      expect(dots.length).toBe(3);
+      // The right angle: the two short sides are at right angles (dot product of the sides from the right-angle dot).
+      const [o, x, y] = figure.triangle;
+      expect(
+        Math.abs((x[0] - o[0]) * (y[0] - o[0]) + (x[1] - o[1]) * (y[1] - o[1])),
+      ).toBeLessThan(1e-12);
+      // And the biggest picture is the stated extent.
+      const corners = figure.quads.flatMap((quad) => quad.corners),
+        width =
+          Math.max(...corners.map((q) => q[0])) -
+          Math.min(...corners.map((q) => q[0])),
+        height =
+          Math.max(...corners.map((q) => q[1])) -
+          Math.min(...corners.map((q) => q[1]));
+      expect(Math.max(width, height)).toBeCloseTo(p.extent, 9);
+    },
+  );
+
+  it('uses every triple, either short side first, and every way of turning and mirroring about equally often, over 100 seeds', () => {
+    const triples = new Map<string, number>(),
+      ways = new Map<string, number>();
+    let swapped = 0,
+      mirrored = 0;
+    for (let seed = 0; seed < 100; seed++) {
+      const { figure } = figureFor(seed * 53 + 9),
+        // How it is turned and mirrored, read from the dots: the right angle's dot and the two others, in the order the model puts them (the leg along x first).
+        [o, x, y] = figure.triangle,
+        cross = (x[0] - o[0]) * (y[1] - o[1]) - (x[1] - o[1]) * (y[0] - o[0]),
+        key =
+          [figure.legX, figure.legY].sort((m, n) => m - n).join('-') +
+          '-' +
+          figure.hypotenuse;
+      triples.set(key, (triples.get(key) ?? 0) + 1);
+      swapped += Number(figure.legX < figure.legY);
+      mirrored += Number(cross < 0);
+      const way = `${cross < 0}-${(Math.round(Math.atan2(x[1] - o[1], x[0] - o[0]) / (Math.PI / 2)) + 4) % 4}`;
+      ways.set(way, (ways.get(way) ?? 0) + 1);
+    }
+    expect(triples.size).toBe(p.triples.length);
+    for (const count of triples.values()) expect(count).toBeGreaterThan(12);
+    expect(swapped).toBeGreaterThan(35);
+    expect(swapped).toBeLessThan(65);
+    expect(mirrored).toBeGreaterThan(35);
+    expect(mirrored).toBeLessThan(65);
+    // All eight ways (mirrored or not, the first leg pointing one of four ways) occur.
+    expect(ways.size).toBe(8);
+    for (const count of ways.values()) expect(count).toBeGreaterThan(3);
+  });
+
+  it('draws the fills, the grid lines, the outlines, the triangle and the dots with their tones, heights, roughness and sizes', () => {
+    for (const seed of seeds) {
+      const { sample, figure } = figureFor(seed),
+        paperOk = (x: number, y: number): boolean =>
+          Math.abs(toneAt(sample, x, y) - p.paperTone) <=
+          p.grainTone / 2 + 1e-9,
+        fills = [p.shortTone, p.otherShortTone, p.longTone],
+        heights = [p.shortHeight, p.otherShortHeight, p.longHeight];
+      figure.quads.forEach((quad, index) => {
+        const [v0, v1, , v3] = quad.corners,
+          length = quad.cells * figure.unit,
+          ex = (v1[0] - v0[0]) / length,
+          ey = (v1[1] - v0[1]) / length,
+          wx = (v3[0] - v0[0]) / length,
+          wy = (v3[1] - v0[1]) / length,
+          at = (s: number, t: number): Point => [
+            v0[0] + ex * s + wx * t,
+            v0[1] + ey * s + wy * t,
+          ],
+          unit = figure.unit;
+        // A cell's middle (a unit along, a unit across, in a cell): the square's fill, height and roughness.
+        for (const [i, j] of [
+          [0, 0],
+          [quad.cells - 1, quad.cells - 1],
+          [Math.floor(quad.cells / 2), 0],
+        ]) {
+          const [x, y] = at((i + 0.5) * unit, (j + 0.5) * unit);
+          expect(toneAt(sample, x, y)).toBeCloseTo(fills[index], 6);
+          expect(out.height / p.relief).toBeCloseTo(heights[index], 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        }
+        // Every grid line between cells, at the middle of a cell along it: the line's tone, its thickness both sides, height.
+        for (let k = 1; k < quad.cells; k++) {
+          for (const [s, t, ds, dt] of [
+            [k * unit, 0.5 * unit, 1, 0],
+            [0.5 * unit, k * unit, 0, 1],
+          ]) {
+            const [x, y] = at(s, t),
+              [nx, ny] = [ex * ds + wx * dt, ey * ds + wy * dt];
+            expect(toneAt(sample, x, y)).toBeCloseTo(p.gridTone, 6);
+            expect(out.height / p.relief).toBeCloseTo(p.gridHeight, 6);
+            expect(
+              toneAt(
+                sample,
+                x + nx * (p.gridHalf - 0.0003),
+                y + ny * (p.gridHalf - 0.0003),
+              ),
+            ).toBeCloseTo(p.gridTone, 6);
+            expect(
+              toneAt(
+                sample,
+                x - nx * (p.gridHalf - 0.0003),
+                y - ny * (p.gridHalf - 0.0003),
+              ),
+            ).toBeCloseTo(p.gridTone, 6);
+            expect(
+              toneAt(
+                sample,
+                x + nx * (p.gridHalf + 0.0004),
+                y + ny * (p.gridHalf + 0.0004),
+              ),
+            ).toBeCloseTo(fills[index], 6);
+            expect(
+              toneAt(
+                sample,
+                x - nx * (p.gridHalf + 0.0004),
+                y - ny * (p.gridHalf + 0.0004),
+              ),
+            ).toBeCloseTo(fills[index], 6);
+          }
+        }
+        // The outline along each of the four sides (at the middle of the side): the outline's tone and height, and its thickness: right up to the half width on both sides.
+        for (const [s, t, nx, ny] of [
+          [length / 2, 0, wx, wy],
+          [length / 2, length, wx, wy],
+          [0, length / 2, ex, ey],
+          [length, length / 2, ex, ey],
+        ] as const) {
+          const [x, y] = at(s, t);
+          expect(toneAt(sample, x, y)).toBeCloseTo(p.outlineTone, 6);
+          expect(out.height / p.relief).toBeCloseTo(p.outlineHeight, 6);
+          expect(
+            toneAt(
+              sample,
+              x + nx * (p.outlineHalf - 0.0004),
+              y + ny * (p.outlineHalf - 0.0004),
+            ),
+          ).toBeCloseTo(p.outlineTone, 6);
+          expect(
+            toneAt(
+              sample,
+              x - nx * (p.outlineHalf - 0.0004),
+              y - ny * (p.outlineHalf - 0.0004),
+            ),
+          ).toBeCloseTo(p.outlineTone, 6);
+        }
+      });
+      // The triangle's fill at its middle and the outlines on the shared sides; paper beyond the outer sides of the squares (not the shared ones).
+      const centre: Point = [
+        (figure.triangle[0][0] +
+          figure.triangle[1][0] +
+          figure.triangle[2][0]) /
+          3,
+        (figure.triangle[0][1] +
+          figure.triangle[1][1] +
+          figure.triangle[2][1]) /
+          3,
+      ];
+      expect(toneAt(sample, centre[0], centre[1])).toBeCloseTo(
+        p.triangleTone,
+        6,
+      );
+      expect(out.height / p.relief).toBeCloseTo(p.triangleHeight, 6);
+      expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+      // The outer side of each square (the side opposite the triangle's): paper just beyond the outline.
+      for (const quad of figure.quads) {
+        const [v0, , v2, v3] = quad.corners,
+          mx = (v2[0] + v3[0]) / 2,
+          my = (v2[1] + v3[1]) / 2,
+          nx = (v3[0] - v0[0]) / Math.hypot(v3[0] - v0[0], v3[1] - v0[1]),
+          ny = (v3[1] - v0[1]) / Math.hypot(v3[0] - v0[0], v3[1] - v0[1]);
+        // The side across from the triangle's: v2 to v3 (the second axis points away from the triangle).
+        expect(
+          paperOk(
+            mx + nx * (p.outlineHalf + 0.0004),
+            my + ny * (p.outlineHalf + 0.0004),
+          ),
+        ).toBe(true);
+        expect(
+          toneAt(
+            sample,
+            mx + nx * (p.outlineHalf - 0.0004),
+            my + ny * (p.outlineHalf - 0.0004),
+          ),
+        ).toBeCloseTo(p.outlineTone, 6);
+      }
+      // The dots: tone, height, roughness at the corners; and the radius, measured from the right angle out into the empty quarter (between the two squares on the short sides).
+      const [right, legA, legB] = figure.triangle,
+        away: Point = [
+          (right[0] - legA[0]) /
+            Math.hypot(right[0] - legA[0], right[1] - legA[1]) +
+            (right[0] - legB[0]) /
+              Math.hypot(right[0] - legB[0], right[1] - legB[1]),
+          (right[1] - legA[1]) /
+            Math.hypot(right[0] - legA[0], right[1] - legA[1]) +
+            (right[1] - legB[1]) /
+              Math.hypot(right[0] - legB[0], right[1] - legB[1]),
+        ],
+        reach = Math.hypot(away[0], away[1]);
+      expect(
+        toneAt(
+          sample,
+          right[0] + (away[0] / reach) * (p.dotRadius - 0.0004),
+          right[1] + (away[1] / reach) * (p.dotRadius - 0.0004),
+        ),
+      ).toBeCloseTo(p.dotTone, 6);
+      expect(
+        paperOk(
+          right[0] + (away[0] / reach) * (p.dotRadius + 0.0004),
+          right[1] + (away[1] / reach) * (p.dotRadius + 0.0004),
+        ),
+      ).toBe(true);
+      for (const corner of figure.triangle) {
+        expect(toneAt(sample, corner[0], corner[1])).toBeCloseTo(p.dotTone, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.dotHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+      }
+    }
+  });
+
+  it('softens the edge of an outline, a grid line and a dot over edgeSoft', () => {
+    const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03);
+    for (const seed of seeds) {
+      const { sample, figure } = figureFor(seed),
+        fills = [p.shortTone, p.otherShortTone, p.longTone];
+      figure.quads.forEach((quad, index) => {
+        const [v0, v1, , v3] = quad.corners,
+          length = quad.cells * figure.unit,
+          ex = (v1[0] - v0[0]) / length,
+          ey = (v1[1] - v0[1]) / length,
+          wx = (v3[0] - v0[0]) / length,
+          wy = (v3[1] - v0[1]) / length,
+          at = (s: number, t: number): Point => [
+            v0[0] + ex * s + wx * t,
+            v0[1] + ey * s + wy * t,
+          ];
+        // The outline's outer edge over the paper, at the middle of the side across from the corner.
+        const [x, y] = at(
+          (Math.floor(quad.cells / 2) + 0.5) * figure.unit,
+          length,
+        );
+        close(
+          toneAt(
+            sample,
+            x + wx * (p.outlineHalf - quarter),
+            y + wy * (p.outlineHalf - quarter),
+          ),
+          mix(p.paperTone, p.outlineTone, 0.75),
+        );
+        close(
+          toneAt(
+            sample,
+            x + wx * (p.outlineHalf + quarter),
+            y + wy * (p.outlineHalf + quarter),
+          ),
+          mix(p.paperTone, p.outlineTone, 0.25),
+        );
+        // The outline's inner edge over the fill, there (inwards).
+        close(
+          toneAt(
+            sample,
+            x - wx * (p.outlineHalf - quarter),
+            y - wy * (p.outlineHalf - quarter),
+          ),
+          mix(fills[index], p.outlineTone, 0.75),
+        );
+        close(
+          toneAt(
+            sample,
+            x - wx * (p.outlineHalf + quarter),
+            y - wy * (p.outlineHalf + quarter),
+          ),
+          mix(fills[index], p.outlineTone, 0.25),
+        );
+        // A grid line's edge over the fill, the middle line across the first row of cells.
+        const k = Math.max(1, Math.floor(quad.cells / 2)),
+          [gx, gy] = at(k * figure.unit, 0.5 * figure.unit);
+        close(
+          toneAt(
+            sample,
+            gx + ex * (p.gridHalf - quarter),
+            gy + ey * (p.gridHalf - quarter),
+          ),
+          mix(fills[index], p.gridTone, 0.75),
+        );
+        close(
+          toneAt(
+            sample,
+            gx + ex * (p.gridHalf + quarter),
+            gy + ey * (p.gridHalf + quarter),
+          ),
+          mix(fills[index], p.gridTone, 0.25),
+        );
+      });
+      // The dot at the right angle: its edge over the paper in the empty quarter (away from both squares and the triangle).
+      const [o, a, b] = figure.triangle,
+        dx =
+          (o[0] - a[0]) / Math.hypot(o[0] - a[0], o[1] - a[1]) +
+          (o[0] - b[0]) / Math.hypot(o[0] - b[0], o[1] - b[1]),
+        dy =
+          (o[1] - a[1]) / Math.hypot(o[0] - a[0], o[1] - a[1]) +
+          (o[1] - b[1]) / Math.hypot(o[0] - b[0], o[1] - b[1]),
+        reach = Math.hypot(dx, dy);
+      // (Pointing from the legs' ends through the right angle: that is into the empty quarter, between the two squares on the short sides.)
+      for (const [offset, amount] of [
+        [-quarter, 0.75],
+        [quarter, 0.25],
+      ])
+        close(
+          toneAt(
+            sample,
+            o[0] + (dx / reach) * (p.dotRadius + offset),
+            o[1] + (dy / reach) * (p.dotRadius + offset),
+          ),
+          mix(p.paperTone, p.dotTone, amount),
+        );
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('pythagoreanproof', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('pythagoreanproof', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0021, 0.01),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('pythagoreanproof', 0),
+      b = createSurfaceSampler('pythagoreanproof', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.4801],
+        [0.5201, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
