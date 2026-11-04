@@ -14290,3 +14290,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：7項（色調範圍、每個函數恰畫一次與數量、組別只改順序、逐點比對、不同變體與組別與決定性、C1與UV週期、maps），`-t "Boolean functions as"`7項通過。變異檢查（做過22次）：20次被抓到（失敗項數1到6之間），2次未被抓到且為等價變異：(a)列方向的比例分母少乘一邊邊距（scale取兩個方向的最小值，欄方向較緊，列方向項不影響結果）；(b)originX除以3（欄數都不小於列數，originX恆為0）。被抓到的包括：單調比較改成≥與位元條件改成永不成立（5、4項）、自對偶的相反輸入與比較（各1項）、兩種限制被關閉（5、2項）、值只取0（5項）、洗牌範圍（1項）、欄方向比例（4項）、originY（5項）、半縫寬與平滑起點（4、4項）、範圍判斷（6項）、少乘一邊縫（4項）、轉置的表索引（2項）、地面色調、亮格色調、height、occlusion（4、4、3、1項）、最後一格當空格（5項）。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Boolean functions as|booleanfunctions|kinds|catalog|distinct|periodic"`定向測試**2614項通過／4669項未選**，輸出`GATES-OK`。
 - 未驗證：完整suite（最近一次在`25bbf5e60`，不含graphatlas、rootedtrees、dominoboards、latinsquares與booleanfunctions；latinsquares的完整suite在背景執行中）、瀏覽器gallery（最近一次在`5ad691a9f`，rootedtrees、dominoboards、latinsquares與booleanfunctions尚未檢查）、跨瀏覽器與跨GPU；不push。
+
+## 2026-11-05 完整測試與瀏覽器gallery複驗（至拉丁方陣與布林函數）
+
+- 範圍：在`dad539b81`（新增拉丁方陣之後）重跑完整測試，並在`ebfdea7cb`（新增布林函數之後）跑一次瀏覽器gallery。這段不新增材質，只記錄實跑結果。完整測試範圍包含`graphatlas`、`rootedtrees`、`dominoboards`與`latinsquares`，不包含之後的`booleanfunctions`（它只有定向測試與gates）。
+- 完整測試（工具實跑，乾淨的detached worktree）：**179個測試檔、11,204項全部通過**（1697 s；期間我同時在做booleanfunctions的probe、測試與變異檢查，所以耗時不是乾淨的量測；沒有逾時失敗）。前一次完整複驗在`25bbf5e60`（11,172項）；11,172 → 11,204共32項，與我預期的增量（graphatlas、rootedtrees、dominoboards、latinsquares各自7項新測試加上kinds清單測試各1項，共4×8＝32項）相符，但我沒有逐項核對各測試的數量。沒有在無負載下重跑。
+- 瀏覽器gallery（工具實跑，無頭Chrome，vite從worktree提供`/examples/pbr3d/`）：WebGPU分頁與`?renderer=webgl2`分頁各自讀到「1152 procedural material presets」、選單1153個選項，選取rootedtrees、dominoboards、latinsquares與booleanfunctions都成功（讀數更新，每個約40到50 s內），`errors().entries`都是空的。第一次呼叫`infoN`（讀目錄數）在兩個分頁各自逾時30 s（錯誤為「Browser code execution timed out after 30000ms」），等待幾秒後重呼叫成功（WebGPU分頁）；webgl2分頁的第一次`infoN`逾時，但選取四個kind成功，之後我沒有再重讀目錄數，所以webgl2分頁的「1152／1153」讀數沒有直接觀察到，只有WebGPU分頁讀到。這次兩個分頁開啟都沒有被殺。我沒有診斷`infoN`逾時的原因，也沒有檢查這四個新材質的選項文字與標籤。限制：只涵蓋「可選取、讀數更新、無console錯誤」，沒有檢查畫面內容、跨瀏覽器或跨GPU。
+- 未驗證：`booleanfunctions`尚未跑完整suite；完整suite沒有在無負載下重跑；跨瀏覽器與跨GPU；不push。
