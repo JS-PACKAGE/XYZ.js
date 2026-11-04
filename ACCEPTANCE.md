@@ -14067,3 +14067,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：7項（色調範圍、與判斷式理想圖形逐點、沿封閉的帶的上下交替與接續、鏡射與轉彎格數、不同變體與決定性、C1與UV週期、maps），`-t "Celtic interlace as"`7項通過。變異檢查（做過23次）：上下奇偶改成只看欄失敗1項（沒有查是哪一項）；奇偶反過來失敗1項（上述色調範圍）；sin²指數改4失敗2項；垂直帶階的正負號改失敗4項；取消間隙失敗5項；下方帶遮罩取錯失敗5項；水平帶中心偏移失敗5項；轉彎圓心互換兩次各失敗6項與5項；轉彎類型交換取消失敗3項；只取消垂直鏡射的交換失敗3項；轉彎類型的機率門檻改失敗2項；轉彎機率取第0個失敗3項；帶邊緣的0.5偏移取消失敗4項；階的色調映射改失敗4項；轉彎色階改失敗4項；轉彎height改失敗2項；occlusion公式取反失敗3項；地面色調不乘(1-ink)失敗3項；變體選擇改失敗5項；交叉的ink忽略下方帶失敗4項；轉彎的ink只取第一弧失敗5項；鏡射象限改失敗3項。**23次全部被抓到**，沒有未抓到的（其中奇偶反過來只被量測範圍抓到，見上）。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Celtic interlace as|celticinterlace|kinds|catalog|distinct|periodic"`定向測試**2576項通過／4551項未選**，輸出`GATES-OK`。
 - 未驗證：完整suite（目前在`703e2c759`執行，不含celticinterlace，結果另記）、瀏覽器gallery（excitableautomata、wireworldcircuits、celticinterlace尚未檢查）、跨瀏覽器與跨GPU；不push。
+
+## 2026-11-04 完整測試與瀏覽器gallery複驗（至WireWorld電路與凱爾特式交織）
+
+- 範圍：在`703e2c759`（新增WireWorld電路之後）重跑完整測試，並在`7b8c9ee0a`（新增凱爾特式交織之後）跑一次瀏覽器gallery。這段不新增材質，只記錄實跑結果。完整測試範圍包含`sizeillusions`、`excitableautomata`與`wireworldcircuits`，不包含`celticinterlace`。
+- 完整測試（工具實跑，乾淨的detached worktree）：**179個測試檔、11,048項，11,047項通過、1項失敗**（2038 s）。失敗的是既有的`Closed silver-colored washer rims …`測試（C1與UV週期那一項），訊息是`Test timed out in 30000ms`，不是斷言失敗；同一時段我在同一台機器上並行跑gates、變異檢查與瀏覽器工作，負載高。我隨後單獨重跑那組（`-t "Closed silver-colored washer rims"`）：5項全部通過、35 s。所以這次完整測試的結論是「除了一次在高負載下的逾時、單獨重跑通過之外沒有失敗」，不是乾淨的全綠；我沒有在無負載下重跑完整suite。前一次完整複驗在`be1be08f5`（11,023項）；11,023 → 11,048共25項，與我預期的增量sizeillusions 8項、excitableautomata 8項、wireworldcircuits 9項（各自的專屬與沿用測試加kinds清單的測試）相符，但我沒有逐項核對各測試的數量。
+- 更正：前面`excitableautomata`那一筆寫「變異檢查做過15次」，實際跑了16次（`wireworldcircuits`那一筆已更正），全部被抓到的結論不變。
+- 瀏覽器gallery（工具實跑，無頭Chrome，vite從乾淨worktree提供`/examples/pbr3d/`，每次開啟前先殺掉舊的Chrome並等約20秒）：在`7b8c9ee0a`，WebGPU分頁與`?renderer=webgl2`分頁各自讀到「1133 procedural material presets」、選單1134個選項，選取excitableautomata、wireworldcircuits、celticinterlace與plain都成功，entries都是空的，三個新kind的選項文字與標籤一致。限制：只涵蓋「可選取、讀數更新、無console錯誤」，沒有目視畫面或像素比對；跨瀏覽器、跨GPU行為沒有驗證。
+- 未驗證：`celticinterlace`尚未跑完整suite（只有定向測試、gates與上述gallery）；完整suite沒有在無負載下重跑；跨瀏覽器與跨GPU；不push。
