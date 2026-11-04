@@ -1187,6 +1187,7 @@ try {
     'lyapunovfractal',
     'zetalandscape',
     'fresneldiffraction',
+    'islamicstars',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

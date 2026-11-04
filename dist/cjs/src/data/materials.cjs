@@ -28816,6 +28816,56 @@ var proceduralMaterialPresets = Object.freeze({
 		cellHeight: .8,
 		gapOcclusion: .4
 	}),
+	islamicstars: Object.freeze({
+		dark: [
+			4,
+			26,
+			38
+		],
+		light: [
+			240,
+			214,
+			140
+		],
+		roughness: .38,
+		relief: 8e-4,
+		seedSalt: 7514,
+		tilings: [
+			0,
+			0,
+			0,
+			1,
+			1,
+			2
+		],
+		angles: [
+			45,
+			60,
+			75,
+			60,
+			30,
+			70
+		],
+		cells: [
+			2,
+			2,
+			2,
+			3,
+			3,
+			2
+		],
+		innerHalfWidth: .05,
+		outerHalfWidth: .09,
+		buckets: 32,
+		edgeSoft: .35,
+		grainCells: 128,
+		gapTone: .04,
+		toneFloor: .14,
+		toneSpan: .72,
+		grainTone: .03,
+		cellHeight: .8,
+		gapOcclusion: .4
+	}),
 	vermiculation: Object.freeze({
 		dark: [
 			60,
@@ -30924,6 +30974,7 @@ var proceduralTileMeters = Object.freeze({
 	lyapunovfractal: .5,
 	zetalandscape: .5,
 	fresneldiffraction: .5,
+	islamicstars: .5,
 	dominotiling: .5,
 	vermiculation: .4,
 	kikko: .3,

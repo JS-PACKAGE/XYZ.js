@@ -51461,6 +51461,162 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'islamicstars': {
+        const p = proceduralMaterialPresets.islamicstars,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant = Math.floor(
+            hash(0, 102, seed ^ p.seedSalt) * p.tilings.length,
+          ),
+          tiling = p.tilings[variant],
+          theta = (p.angles[variant] * Math.PI) / 180,
+          cells = p.cells[variant],
+          root3 = Math.sqrt(3),
+          // The period of the tiling (the side of the square lattice) in sides of the polygons.
+          period =
+            tiling === 0
+              ? 1 + Math.SQRT2
+              : tiling === 1
+                ? 1
+                : (root3 + 1) / Math.SQRT2,
+          side = cells * period,
+          inverseSoft = 1 / p.edgeSoft,
+          inner2 = p.innerHalfWidth * p.innerHalfWidth,
+          outer2 = p.outerHalfWidth * p.outerHalfWidth,
+          // The polygons of one period as [centre x, centre y, number of sides, angle of the normal of the first edge].
+          polygons: number[][] = (() => {
+            if (tiling === 0)
+              return [
+                [0, 0, 8, 0],
+                [period / 2, period / 2, 4, Math.PI / 4],
+              ];
+            if (tiling === 1) return [[0.5, 0.5, 4, 0]];
+            const list = [
+              [0, 0, 4, Math.PI / 12],
+              [period / 2, period / 2, 4, -Math.PI / 12],
+            ];
+            // The triangles of the snub square tiling are the ones across the edges of the squares (each is found from two of them).
+            const triangles: number[][] = [];
+            for (let q = 0; q < 2; q++)
+              for (let k = 0; k < 4; k++) {
+                const normal = list[q][3] + (k * Math.PI) / 2,
+                  reach = 0.5 + 1 / (2 * root3),
+                  x =
+                    (((list[q][0] + reach * Math.cos(normal)) % period) +
+                      period) %
+                    period,
+                  y =
+                    (((list[q][1] + reach * Math.sin(normal)) % period) +
+                      period) %
+                    period;
+                if (
+                  !triangles.some((t) => {
+                    const dx = Math.abs(t[0] - x),
+                      dy = Math.abs(t[1] - y);
+                    return (
+                      Math.min(dx, period - dx) < 1e-9 &&
+                      Math.min(dy, period - dy) < 1e-9
+                    );
+                  })
+                )
+                  triangles.push([x, y, 3, normal + Math.PI]);
+              }
+            return [...list, ...triangles];
+          })(),
+          // The segments [ax, ay, bx, by] of the star in every polygon, for the periods from -1 to cells (so that the ones across the edge of the tile are there), sorted into the buckets that their reach touches.
+          bucketSegments: number[][][] = Array.from(
+            { length: p.buckets * p.buckets },
+            () => [],
+          ),
+          bucketSize = side / p.buckets,
+          reach = p.outerHalfWidth;
+        for (let i = -1; i <= cells; i++)
+          for (let j = -1; j <= cells; j++)
+            for (const [cx, cy, n, phi0] of polygons) {
+              const apothem = 1 / (2 * Math.tan(Math.PI / n)),
+                starRadius =
+                  (apothem * Math.cos(theta)) / Math.cos(theta - Math.PI / n);
+              for (let k = 0; k < n; k++) {
+                const first = phi0 + (2 * Math.PI * k) / n,
+                  second = phi0 + (2 * Math.PI * (k + 1)) / n,
+                  between = first + Math.PI / n,
+                  ox = cx + i * period,
+                  oy = cy + j * period,
+                  midX = ox + apothem * Math.cos(first),
+                  midY = oy + apothem * Math.sin(first),
+                  nextX = ox + apothem * Math.cos(second),
+                  nextY = oy + apothem * Math.sin(second),
+                  starX = ox + starRadius * Math.cos(between),
+                  starY = oy + starRadius * Math.sin(between);
+                for (const segment of [
+                  [midX, midY, starX, starY],
+                  [starX, starY, nextX, nextY],
+                ]) {
+                  const [ax, ay, bx, by] = segment,
+                    x0 = Math.max(
+                      0,
+                      Math.floor((Math.min(ax, bx) - reach) / bucketSize),
+                    ),
+                    x1 = Math.min(
+                      p.buckets - 1,
+                      Math.floor((Math.max(ax, bx) + reach) / bucketSize),
+                    ),
+                    y0 = Math.max(
+                      0,
+                      Math.floor((Math.min(ay, by) - reach) / bucketSize),
+                    ),
+                    y1 = Math.min(
+                      p.buckets - 1,
+                      Math.floor((Math.max(ay, by) + reach) / bucketSize),
+                    );
+                  for (let by2 = y0; by2 <= y1; by2++)
+                    for (let bx2 = x0; bx2 <= x1; bx2++)
+                      bucketSegments[by2 * p.buckets + bx2].push(segment);
+                }
+              }
+            }
+        return () => {
+          const fu = fract(u),
+            fv = fract(v),
+            x = fu * side,
+            y = fv * side,
+            bucket =
+              bucketSegments[
+                Math.min(p.buckets - 1, Math.floor(fv * p.buckets)) *
+                  p.buckets +
+                  Math.min(p.buckets - 1, Math.floor(fu * p.buckets))
+              ];
+          // The union of the straps as 1 minus the product of 1 - strap (every strap is C1 in the position, as it depends on the squared distance), so there is no corner where straps cross.
+          let free = 1;
+          for (const [ax, ay, bx, by] of bucket) {
+            const dx = bx - ax,
+              dy = by - ay,
+              along = clamp(
+                ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy),
+              ),
+              ex = x - ax - along * dx,
+              ey = y - ay - along * dy,
+              distance2 = ex * ex + ey * ey;
+            if (distance2 < outer2)
+              free *=
+                1 - smooth(clamp((outer2 - distance2) / (outer2 - inner2)));
+          }
+          const ink = 1 - free,
+            mask = smooth(clamp(ink * inverseSoft)),
+            grain = grainField(u, v);
+          color =
+            p.gapTone +
+            (p.toneFloor - p.gapTone) * mask +
+            p.toneSpan * ink +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * ink;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -60386,6 +60542,7 @@ export function createSurfaceSampler(
     kind === 'lyapunovfractal' ||
     kind === 'zetalandscape' ||
     kind === 'fresneldiffraction' ||
+    kind === 'islamicstars' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

@@ -17929,6 +17929,30 @@ export const proceduralMaterialPresets = Object.freeze({
     cellHeight: 0.8,
     gapOcclusion: 0.4,
   }),
+  islamicstars: Object.freeze({
+    dark: [4, 26, 38] as const,
+    light: [240, 214, 140] as const,
+    roughness: 0.38,
+    relief: 0.0008,
+    seedSalt: 0x1d5a,
+    // Islamic star patterns by the polygons-in-contact method of Hankin (side of the polygons 1): in every polygon of a regular tiling two rays leave the midpoint of each edge at the contact angle (degrees, between the ray and the edge) towards the two neighbouring vertices and meet the rays of the neighbouring edges on the bisector of the vertex, which draws a star in the polygon; the six variants are given by the tiling (0 the octagons and squares 4.8.8, 1 the squares 4.4.4.4, 2 the snub square tiling 3.3.4.3.4), the contact angle and the number of periods of the tiling along each side of the tile.
+    tilings: [0, 0, 0, 1, 1, 2] as const,
+    angles: [45, 60, 75, 60, 30, 70] as const,
+    cells: [2, 2, 2, 3, 3, 2] as const,
+    // The strap is solid within innerHalfWidth of the lines and fades out at outerHalfWidth (in sides of the polygons).
+    innerHalfWidth: 0.05,
+    outerHalfWidth: 0.09,
+    // The segments are sorted into buckets by grid cells of the tile (the number of grid cells along each side).
+    buckets: 32,
+    edgeSoft: 0.35,
+    grainCells: 128,
+    gapTone: 0.04,
+    toneFloor: 0.14,
+    toneSpan: 0.72,
+    grainTone: 0.03,
+    cellHeight: 0.8,
+    gapOcclusion: 0.4,
+  }),
   vermiculation: Object.freeze({
     dark: [60, 48, 36] as const,
     light: [220, 204, 172] as const,
@@ -19716,6 +19740,7 @@ export const proceduralTileMeters = Object.freeze({
   lyapunovfractal: 0.5,
   zetalandscape: 0.5,
   fresneldiffraction: 0.5,
+  islamicstars: 0.5,
   dominotiling: 0.5,
   vermiculation: 0.4,
   kikko: 0.3,

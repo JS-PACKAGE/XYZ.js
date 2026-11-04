@@ -1150,6 +1150,7 @@ const kinds: ProceduralMaterialKind[] = [
   'lyapunovfractal',
   'zetalandscape',
   'fresneldiffraction',
+  'islamicstars',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -195266,6 +195267,393 @@ describe('Fresnel diffraction as the near field behind a straight edge, slits an
     expect(blue / (512 * 512)).toBeLessThan(143.2);
     expect(maxTilt).toBeGreaterThan(0.0055);
     expect(maxTilt).toBeLessThan(0.0057);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Islamic stars as polygons in contact on square-lattice tilings', () => {
+  const p = proceduralMaterialPresets.islamicstars;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const root3 = Math.sqrt(3);
+  /** The side of the square lattice of the tiling (the side of its polygons is 1): 4.8.8 is 1 + sqrt 2, 4.4.4.4 is 1 and the snub square tiling 3.3.4.3.4 is (sqrt 3 + 1) / sqrt 2. */
+  const periodOf = (tiling: number): number =>
+    tiling === 0 ? 1 + Math.SQRT2 : tiling === 1 ? 1 : (root3 + 1) / Math.SQRT2;
+  type Polygon = { cx: number; cy: number; n: number; first: number };
+  /** The polygons of the tiling of a variant for the periods -1 to cells (the tile is the periods 0 to cells - 1), first being the angle of the outward normal of the first edge; the triangles of the snub square tiling are the ones across the edges of the squares, found on the whole patch and told apart by their rounded centres. */
+  const polygonsOf = (variant: number): Polygon[] => {
+    const tiling = p.tilings[variant],
+      cells = p.cells[variant],
+      period = periodOf(tiling),
+      base: Polygon[] =
+        tiling === 0
+          ? [
+              { cx: 0, cy: 0, n: 8, first: 0 },
+              { cx: period / 2, cy: period / 2, n: 4, first: Math.PI / 4 },
+            ]
+          : tiling === 1
+            ? [{ cx: 0.5, cy: 0.5, n: 4, first: 0 }]
+            : [
+                { cx: 0, cy: 0, n: 4, first: Math.PI / 12 },
+                { cx: period / 2, cy: period / 2, n: 4, first: -Math.PI / 12 },
+              ],
+      all: Polygon[] = [];
+    for (let i = -1; i <= cells; i++)
+      for (let j = -1; j <= cells; j++)
+        for (const polygon of base)
+          all.push({
+            ...polygon,
+            cx: polygon.cx + i * period,
+            cy: polygon.cy + j * period,
+          });
+    if (tiling === 2) {
+      const seen = new Set<string>();
+      for (const square of [...all])
+        for (let k = 0; k < 4; k++) {
+          const normal = square.first + (k * Math.PI) / 2,
+            distance = 0.5 + 1 / (2 * root3),
+            cx = square.cx + distance * Math.cos(normal),
+            cy = square.cy + distance * Math.sin(normal),
+            key = `${cx.toFixed(6)},${cy.toFixed(6)}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            all.push({ cx, cy, n: 3, first: normal + Math.PI });
+          }
+        }
+    }
+    return all;
+  };
+  /** The segments [ax, ay, bx, by] of the stars: in every polygon the ray from the midpoint of edge k towards the vertex that it shares with edge k + 1 leaves at the contact angle to the edge, and it is cut where it meets the line from the centre through that vertex (the bisector, on which the ray from the next midpoint meets it by symmetry); the star is the chain midpoint, star point, next midpoint. */
+  const segmentsOf = (variant: number): number[][] => {
+    const theta = (p.angles[variant] * Math.PI) / 180,
+      segments: number[][] = [];
+    for (const polygon of polygonsOf(variant)) {
+      const apothem = 1 / (2 * Math.tan(Math.PI / polygon.n)),
+        midpoint = (k: number) => {
+          const angle = polygon.first + (2 * Math.PI * k) / polygon.n;
+          return {
+            angle,
+            x: polygon.cx + apothem * Math.cos(angle),
+            y: polygon.cy + apothem * Math.sin(angle),
+          };
+        };
+      for (let k = 0; k < polygon.n; k++) {
+        const here = midpoint(k),
+          next = midpoint(k + 1),
+          // The direction along the edge towards the shared vertex, turned inwards by theta.
+          rx =
+            Math.cos(theta) * Math.cos(here.angle + Math.PI / 2) -
+            Math.sin(theta) * Math.cos(here.angle),
+          ry =
+            Math.cos(theta) * Math.sin(here.angle + Math.PI / 2) -
+            Math.sin(theta) * Math.sin(here.angle),
+          bisector = here.angle + Math.PI / polygon.n,
+          ex = Math.cos(bisector),
+          ey = Math.sin(bisector),
+          // here + s r = centre + t e, solved for s by Cramer's rule.
+          s =
+            ((polygon.cx - here.x) * -ey - (polygon.cy - here.y) * -ex) /
+            (rx * -ey - ry * -ex),
+          starX = here.x + s * rx,
+          starY = here.y + s * ry;
+        segments.push(
+          [here.x, here.y, starX, starY],
+          [starX, starY, next.x, next.y],
+        );
+      }
+    }
+    return segments;
+  };
+  /** The union of the straps of all segments by brute force, 1 minus the product of 1 - smoothstep((outer^2 - d^2) / (outer^2 - inner^2)), at the point (x, y) of the tile in sides of the polygons. */
+  const strapInk = (segments: number[][], x: number, y: number): number => {
+    const inner2 = p.innerHalfWidth ** 2,
+      outer2 = p.outerHalfWidth ** 2;
+    let free = 1;
+    for (const [ax, ay, bx, by] of segments) {
+      const dx = bx - ax,
+        dy = by - ay,
+        along = Math.min(
+          1,
+          Math.max(0, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy)),
+        ),
+        ex = x - ax - along * dx,
+        ey = y - ay - along * dy,
+        distance2 = ex * ex + ey * ey;
+      if (distance2 < outer2) {
+        const t = Math.min(1, (outer2 - distance2) / (outer2 - inner2));
+        free *= 1 - t * t * (3 - 2 * t);
+      }
+    }
+    return 1 - free;
+  };
+  /** The strap ink at the point (x, y) of the tile in sides of the polygons, read back from the sampler: the height is cellHeight times the ink (the grain is not in the height). */
+  const inkAt = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    variant: number,
+    x: number,
+    y: number,
+  ): number => {
+    const side = p.cells[variant] * periodOf(p.tilings[variant]);
+    sample(x / side, y / side, out);
+    return out.height / p.relief / p.cellHeight;
+  };
+  /** The grid of 256 by 256 colours above 0.5 as a string of 0 and 1, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('islamicstars', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('islamicstars', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        dark = 0,
+        mean = 0,
+        occlusionLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          dark += Number(a.color > 0.5);
+          mean += a.color;
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness !== p.roughness ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.0255);
+      expect(low).toBeLessThan(0.0258);
+      expect(high).toBeGreaterThan(0.874);
+      expect(high).toBeLessThan(0.8744);
+      expect(dark / 65536).toBeGreaterThan(0.2548);
+      expect(dark / 65536).toBeLessThan(0.3807);
+      expect(mean / 65536).toBeGreaterThan(0.2466);
+      expect(mean / 65536).toBeLessThan(0.3536);
+      expect(occlusionLow).toBeGreaterThan(0.59);
+      expect(occlusionLow).toBeLessThan(0.61);
+      expect(heightHigh).toBeGreaterThan(0.799);
+      expect(heightHigh).toBeLessThan(0.8001);
+      expect(invalid).toBe(0);
+    }
+  });
+  // The first seed of each variant 0 to 5 (the tiling 4.8.8 at the contact angles 45, 60 and 75 degrees, the tiling 4.4.4.4 at 60 and 30 degrees and the snub square tiling at 70 degrees) is 0, 10, 2, 5, 1 and 9; the table was found with a probe, by comparing the ink of each of 40 seeds at 12 points with the six variants, and is written here, so it is not an independent check of the seed's choice.
+  const seeds = [0, 10, 2, 5, 1, 9];
+  it('agrees with a brute-force union of straps from the polygons of the tiling and rays that meet the bisectors', () => {
+    // The test builds the tiling itself (the triangles of the snub square tiling from the squares), finds each star point by intersecting the ray from the midpoint of an edge with the bisector of the vertex, and takes the union of the straps over every segment of the patch, where the sampler sorts a closed form of the star point into buckets. On 100 points of each variant (on a golden-ratio sequence) the ink differs by at most the tolerance 1e-9 (2.7e-14 at the most on 300 points in the probe); at the contact angle 45 degrees of the squares of 4.8.8 the two rays of a square lie on one line, which the bisector construction handles.
+    seeds.forEach((seed, variant) => {
+      const sample = createSurfaceSampler('islamicstars', seed),
+        out = empty(),
+        segments = segmentsOf(variant),
+        side = p.cells[variant] * periodOf(p.tilings[variant]);
+      let worst = 0;
+      for (let k = 0; k < 100; k++) {
+        const x = side * ((k * 0.6180339887 + 0.07) % 1),
+          y = side * ((k * 0.7548776662 + 0.21) % 1);
+        worst = Math.max(
+          worst,
+          Math.abs(
+            inkAt(sample, out, variant, x, y) - strapInk(segments, x, y),
+          ),
+        );
+      }
+      expect(worst).toBeLessThan(1e-9);
+    });
+  });
+  it('sends the four straps through the midpoint of an octagon edge at the contact angle', () => {
+    // Around the midpoint of an edge of an octagon of 4.8.8 the straps of the two octagons cross like an X: on a ring of radius 0.4 the arcs with ink above 0.99 are centred at the angles 90 - theta, 90 + theta, 270 - theta and 270 + theta from the direction of the edge normal (0.05 degrees is the ring step, and the probe found them exactly there for 45, 60 and 75 degrees).
+    for (let variant = 0; variant < 3; variant++) {
+      const sample = createSurfaceSampler('islamicstars', seeds[variant]),
+        out = empty(),
+        period = periodOf(0),
+        steps = 3600,
+        on: boolean[] = [];
+      for (let k = 0; k < steps; k++) {
+        const angle = (2 * Math.PI * k) / steps;
+        on.push(
+          inkAt(
+            sample,
+            out,
+            variant,
+            1.5 * period + 0.4 * Math.cos(angle),
+            period + 0.4 * Math.sin(angle),
+          ) > 0.99,
+        );
+      }
+      // The arcs of consecutive steps, joined across the step 0 where an arc spans it.
+      const centres: number[] = [];
+      let start = -1;
+      for (let k = 0; k < steps + steps; k++) {
+        if (on[k % steps] && start < 0) start = k;
+        if (start >= 0 && !on[k % steps]) {
+          if (start < steps)
+            centres.push(((((start + k - 1) / 2) * 360) / steps) % 360);
+          start = -1;
+        }
+      }
+      const theta = p.angles[variant],
+        expected = [90 - theta, 90 + theta, 270 - theta, 270 + theta].sort(
+          (a, b) => a - b,
+        );
+      expect(centres.length).toBe(4);
+      centres
+        .sort((a, b) => a - b)
+        .forEach((centre, index) =>
+          expect(Math.abs(centre - expected[index])).toBeLessThan(0.1),
+        );
+    }
+  });
+  it('has the four-fold rotation of the tiling about a polygon centre and the mirror of the square symmetries', () => {
+    // 4.8.8 and 4.4.4.4 have the symmetry p4m (rotation by 90 degrees about the centre of an octagon or a square and the mirror through it) and the snub square tiling the symmetry p4g (the rotation about the centre of a square, but no mirror through it), so the ink at (cx + dx, cy + dy) equals the ink at (cx - dy, cy + dx) for all six variants and the ink at (cx - dx, cy + dy) for the first five (1.9e-14 at the most for either in the probe on 100 points of each variant; the mirror of the snub variant differs by 1.0, the test does not require that).
+    seeds.forEach((seed, variant) => {
+      const sample = createSurfaceSampler('islamicstars', seed),
+        out = empty(),
+        tiling = p.tilings[variant],
+        period = periodOf(tiling),
+        centre = tiling === 1 ? 1.5 : period,
+        at = (x: number, y: number) => inkAt(sample, out, variant, x, y);
+      for (let k = 0; k < 100; k++) {
+        const dx = 0.9 * period * (((k * 0.6180339887 + 0.1) % 1) - 0.5),
+          dy = 0.9 * period * (((k * 0.7548776662 + 0.3) % 1) - 0.5),
+          here = at(centre + dx, centre + dy);
+        expect(Math.abs(here - at(centre - dy, centre + dx))).toBeLessThan(
+          1e-9,
+        );
+        if (variant < 5)
+          expect(Math.abs(here - at(centre - dx, centre + dy))).toBeLessThan(
+            1e-9,
+          );
+      }
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    // Seeds 0 and 10 pick different variants (the tiling 4.8.8 at the contact angles 45 and 60 degrees).
+    const first = litGrid(0),
+      second = litGrid(10);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.2459);
+    expect(different / first.length).toBeLessThan(0.246);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('islamicstars', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 gold strap maps on dark teal with raised straps and shaded gaps', () => {
+    const maps = generateProceduralMaps('islamicstars', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 150 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(86.9);
+    expect(red / (512 * 512)).toBeLessThan(87.9);
+    expect(green / (512 * 512)).toBeGreaterThan(91.9);
+    expect(green / (512 * 512)).toBeLessThan(92.9);
+    expect(blue / (512 * 512)).toBeGreaterThan(73.5);
+    expect(blue / (512 * 512)).toBeLessThan(74.5);
+    expect(maxTilt).toBeGreaterThan(0.0112);
+    expect(maxTilt).toBeLessThan(0.0113);
     expect(invalid).toBe(0);
   });
 });

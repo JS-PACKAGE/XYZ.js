@@ -17126,6 +17126,27 @@ export declare const proceduralMaterialPresets: Readonly<{
         cellHeight: 0.8;
         gapOcclusion: 0.4;
     }>;
+    islamicstars: Readonly<{
+        dark: readonly [4, 26, 38];
+        light: readonly [240, 214, 140];
+        roughness: 0.38;
+        relief: 0.0008;
+        seedSalt: 7514;
+        tilings: readonly [0, 0, 0, 1, 1, 2];
+        angles: readonly [45, 60, 75, 60, 30, 70];
+        cells: readonly [2, 2, 2, 3, 3, 2];
+        innerHalfWidth: 0.05;
+        outerHalfWidth: 0.09;
+        buckets: 32;
+        edgeSoft: 0.35;
+        grainCells: 128;
+        gapTone: 0.04;
+        toneFloor: 0.14;
+        toneSpan: 0.72;
+        grainTone: 0.03;
+        cellHeight: 0.8;
+        gapOcclusion: 0.4;
+    }>;
     vermiculation: Readonly<{
         dark: readonly [60, 48, 36];
         light: readonly [220, 204, 172];
@@ -18912,6 +18933,7 @@ export declare const proceduralTileMeters: Readonly<{
     lyapunovfractal: 0.5;
     zetalandscape: 0.5;
     fresneldiffraction: 0.5;
+    islamicstars: 0.5;
     dominotiling: 0.5;
     vermiculation: 0.4;
     kikko: 0.3;
