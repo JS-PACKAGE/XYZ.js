@@ -1196,6 +1196,7 @@ try {
     'sizeillusions',
     'excitableautomata',
     'wireworldcircuits',
+    'celticinterlace',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

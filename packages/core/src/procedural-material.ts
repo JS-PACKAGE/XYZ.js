@@ -1133,6 +1133,7 @@ export type ProceduralMaterialKind =
   | 'sizeillusions'
   | 'excitableautomata'
   | 'wireworldcircuits'
+  | 'celticinterlace'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2514,6 +2515,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'sizeillusions',
   'excitableautomata',
   'wireworldcircuits',
+  'celticinterlace',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

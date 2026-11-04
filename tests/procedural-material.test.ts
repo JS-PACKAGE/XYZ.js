@@ -1159,6 +1159,7 @@ const kinds: ProceduralMaterialKind[] = [
   'sizeillusions',
   'excitableautomata',
   'wireworldcircuits',
+  'celticinterlace',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -198561,6 +198562,378 @@ describe('WireWorld circuits as electrons running on random wires', () => {
     expect(blue / (512 * 512)).toBeLessThan(41.5);
     expect(maxTilt).toBeGreaterThan(0.0467);
     expect(maxTilt).toBeLessThan(0.0468);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Celtic interlace as strands that go over and under on a lattice of crossings and turns', () => {
+  const p = proceduralMaterialPresets.celticinterlace;
+  const seeds = [0, 6, 4, 1, 7, 3];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const n = p.cells;
+  const firstSeeds = seeds;
+  const toneOf = (level: number): number =>
+    p.toneUnder + ((p.toneOver - p.toneUnder) * (level + 1)) / 2;
+  /** The ink of the point (x, y) in tile lengths times the cells, read back from the sampler: the occlusion is 1 - gapOcclusion times (1 - ink). */
+  const inkAt = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    x: number,
+    y: number,
+  ): number => {
+    sample(x / n, y / n, out);
+    return 1 - (1 - out.occlusion) / p.gapOcclusion;
+  };
+  /** The tiles of a seed read back from the picture: the type (0 crossing, 1 turns round the north-east and south-west corners, 2 round the north-west and south-east corners) and, for a crossing, whether the horizontal strand is over (the vertical strand is cut short by the gap just before the horizontal one when it is under). */
+  const readTiles = (seed: number) => {
+    const sample = createSurfaceSampler('celticinterlace', seed),
+      out = empty(),
+      types: number[] = [],
+      horizontalOver: boolean[] = [];
+    for (let j = 0; j < n; j++)
+      for (let i = 0; i < n; i++) {
+        let type = 0;
+        if (inkAt(sample, out, i + 0.5, j + 0.5) < 0.5)
+          type = inkAt(sample, out, i + 0.646, j + 0.354) > 0.5 ? 1 : 2;
+        types.push(type);
+        horizontalOver.push(
+          type === 0 &&
+            inkAt(
+              sample,
+              out,
+              i + 0.5,
+              j + 0.5 - (p.strandWidth / 2 + p.gap / 2),
+            ) < 0.5,
+        );
+      }
+    return { types, horizontalOver };
+  };
+  /** The ideal ink (0 or 1), the strand level and the distance to the nearest edge of ink of a point (a, b) in the tile of the given type, by predicates. */
+  const ideal = (
+    type: number,
+    overHorizontal: boolean,
+    a: number,
+    b: number,
+  ) => {
+    const half = p.strandWidth / 2;
+    if (type === 0) {
+      const horizontal = Math.abs(b - 0.5),
+        vertical = Math.abs(a - 0.5),
+        overDistance = overHorizontal ? horizontal : vertical,
+        underDistance = overHorizontal ? vertical : horizontal,
+        overIn = overDistance < half,
+        horizontalLevel =
+          (overHorizontal ? 1 : -1) * Math.sin(Math.PI * a) ** 2,
+        verticalLevel = (overHorizontal ? -1 : 1) * Math.sin(Math.PI * b) ** 2;
+      return {
+        ink:
+          overIn || (underDistance < half && overDistance > half + p.gap)
+            ? 1
+            : 0,
+        level: (overIn ? overHorizontal : !overHorizontal)
+          ? horizontalLevel
+          : verticalLevel,
+        margin: Math.min(
+          Math.abs(horizontal - half),
+          Math.abs(vertical - half),
+          Math.abs(overDistance - (half + p.gap)),
+        ),
+      };
+    }
+    const corners =
+        type === 1
+          ? [
+              [1, 0],
+              [0, 1],
+            ]
+          : [
+              [0, 0],
+              [1, 1],
+            ],
+      distances = corners.map(([cx, cy]) =>
+        Math.abs(Math.hypot(a - cx, b - cy) - 0.5),
+      );
+    return {
+      ink: distances.some((d) => d < half) ? 1 : 0,
+      level: 0,
+      margin: Math.min(...distances.map((d) => Math.abs(d - half))),
+    };
+  };
+  /** The side (0 north, 1 east, 2 south, 3 west) by which a strand that came in at the side leaves a tile of the given type. */
+  const leaving = (type: number, side: number): number =>
+    type === 0
+      ? (side + 2) % 4
+      : type === 1
+        ? [1, 0, 3, 2][side]
+        : [3, 2, 1, 0][side];
+  /** The closed strands of the tiles by following them from tile to tile on the torus: for each its number of tile pieces and its crossing passes in order, true where the strand goes over. */
+  const strands = (types: number[], horizontalOver: boolean[]) => {
+    const moveX = [0, 1, 0, -1],
+      moveY = [-1, 0, 1, 0],
+      seen = new Set<number>(),
+      found: { pieces: number; passes: boolean[] }[] = [];
+    for (let start = 0; start < n * n * 4; start++) {
+      if (seen.has(start)) continue;
+      let cell = Math.floor(start / 4),
+        side = start % 4;
+      const passes: boolean[] = [];
+      let pieces = 0;
+      while (!seen.has(cell * 4 + side)) {
+        const exit = leaving(types[cell], side);
+        seen.add(cell * 4 + side);
+        seen.add(cell * 4 + exit);
+        pieces++;
+        // The strand goes horizontally through a crossing when it comes in from the west or the east.
+        if (types[cell] === 0)
+          passes.push((side === 1 || side === 3) === horizontalOver[cell]);
+        cell =
+          ((Math.floor(cell / n) + moveY[exit] + n) % n) * n +
+          (((cell % n) + moveX[exit] + n) % n);
+        side = (exit + 2) % 4;
+      }
+      found.push({ pieces, passes });
+    }
+    return found;
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('celticinterlace', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('celticinterlace', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0253);
+      expect(low).toBeLessThan(0.0256);
+      expect(high).toBeGreaterThan(0.9612);
+      expect(high).toBeLessThan(0.9616);
+      expect(lit / 65536).toBeGreaterThan(0.3968);
+      expect(lit / 65536).toBeLessThan(0.4019);
+      expect(mean / 65536).toBeGreaterThan(0.3554);
+      expect(mean / 65536).toBeLessThan(0.356);
+      expect(heightHigh).toBeGreaterThan(0.7969);
+      expect(heightHigh).toBeLessThan(0.797);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('agrees with the ideal interlace of predicates away from the edges of ink: ink, level, tone and occlusion', () => {
+    for (const seed of firstSeeds) {
+      const sample = createSurfaceSampler('celticinterlace', seed),
+        out = empty(),
+        { types, horizontalOver } = readTiles(seed);
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const x = ((k * 0.61803398875) % 1) * n,
+          y = ((k * 0.41421356237) % 1) * n,
+          i = Math.floor(x),
+          j = Math.floor(y),
+          cell = j * n + i,
+          want = ideal(types[cell], horizontalOver[cell], x - i, y - j);
+        if (want.margin <= p.edgeSoft / 2 + 1e-9) continue;
+        compared++;
+        sample(x / n, y / n, out);
+        expect(out.occlusion).toBeCloseTo(
+          1 - p.gapOcclusion * (1 - want.ink),
+          9,
+        );
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            want.ink *
+            (p.heightBase + p.heightSwing * want.level),
+          12,
+        );
+        expect(
+          Math.abs(
+            out.color -
+              (p.toneGround * (1 - want.ink) + want.ink * toneOf(want.level)),
+          ),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      expect(compared).toBeGreaterThan(4700);
+    }
+  });
+  it('goes over and under alternately along every closed strand, found by following the tiles of the picture', () => {
+    for (const [seed, loops] of [
+      [0, 3],
+      [6, 3],
+      [4, 11],
+      [1, 26],
+      [7, 28],
+      [3, 30],
+    ]) {
+      const { types, horizontalOver } = readTiles(seed),
+        found = strands(types, horizontalOver);
+      expect(found.length).toBe(loops);
+      // Every tile has two strand pieces and every crossing is passed twice.
+      expect(found.reduce((sum, strand) => sum + strand.pieces, 0)).toBe(
+        2 * n * n,
+      );
+      expect(found.reduce((sum, strand) => sum + strand.passes.length, 0)).toBe(
+        2 * types.filter((type) => type === 0).length,
+      );
+      for (const { passes } of found) {
+        expect(passes.length % 2).toBe(0);
+        for (let q = 0; q < passes.length; q++)
+          expect(passes[q]).not.toBe(passes[(q + 1) % passes.length]);
+      }
+    }
+  });
+  it('mirrors the tiles of the symmetric variants, swapping the two turn types, and draws the turn tiles with the set probabilities', () => {
+    const turns = [65, 126, 182, 80, 128, 172];
+    firstSeeds.forEach((seed, index) => {
+      const { types } = readTiles(seed);
+      expect(types.filter((type) => type > 0).length).toBe(turns[index]);
+      let breaks = 0;
+      for (let j = 0; j < n; j++)
+        for (let i = 0; i < n; i++) {
+          const type = types[j * n + i],
+            across = types[j * n + (n - 1 - i)],
+            below = types[(n - 1 - j) * n + i];
+          const swapped = type === 0 ? 0 : 3 - type;
+          breaks += Number(across !== swapped) + Number(below !== swapped);
+        }
+      // The first three variants are drawn tile by tile, the last three are symmetric.
+      if (index < 3) expect(breaks).toBeGreaterThan(150);
+      else expect(breaks).toBe(0);
+    });
+  });
+  it('draws a different view per variant and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      second = litGrid(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.0867);
+    expect(different / first.length).toBeLessThan(0.0868);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('celticinterlace', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 amber knotwork maps with raised strands and shaded ground', () => {
+    const maps = generateProceduralMaps('celticinterlace', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(105.1);
+    expect(red / (512 * 512)).toBeLessThan(106.1);
+    expect(green / (512 * 512)).toBeGreaterThan(84.1);
+    expect(green / (512 * 512)).toBeLessThan(85.1);
+    expect(blue / (512 * 512)).toBeGreaterThan(42.5);
+    expect(blue / (512 * 512)).toBeLessThan(43.5);
+    expect(maxTilt).toBeGreaterThan(0.0572);
+    expect(maxTilt).toBeLessThan(0.0573);
     expect(invalid).toBe(0);
   });
 });

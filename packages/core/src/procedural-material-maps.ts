@@ -52356,6 +52356,112 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'celticinterlace': {
+        const p = proceduralMaterialPresets.celticinterlace,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          variant = Math.min(
+            p.turnProbability.length - 1,
+            Math.floor(
+              hash(0, 121, seed ^ p.seedSalt) * p.turnProbability.length,
+            ),
+          ),
+          cells = p.cells,
+          // The type of every tile: 0 crossing, 1 turns round the north-east and south-west corners, 2 round the north-west and south-east corners.
+          tiles = (() => {
+            const types = new Uint8Array(cells * cells),
+              draw = (i: number, j: number): number =>
+                hash(i, j, seed ^ p.seedSalt ^ 0x77) <
+                p.turnProbability[variant]
+                  ? hash(i, j, seed ^ p.seedSalt ^ 0x99) < 0.5
+                    ? 1
+                    : 2
+                  : 0,
+              swap = (type: number): number => (type === 0 ? 0 : 3 - type);
+            for (let j = 0; j < cells; j++)
+              for (let i = 0; i < cells; i++) {
+                if (!p.mirrored[variant]) {
+                  types[j * cells + i] = draw(i, j);
+                  continue;
+                }
+                const qi = Math.min(i, cells - 1 - i),
+                  qj = Math.min(j, cells - 1 - j);
+                let type = draw(qi, qj);
+                if (i !== qi) type = swap(type);
+                if (j !== qj) type = swap(type);
+                types[j * cells + i] = type;
+              }
+            return types;
+          })(),
+          halfWidth = p.strandWidth / 2,
+          // 1 inside the distance half of a centre line, 0 outside, 1/2 at half, smoothed over edgeSoft.
+          band = (distance: number, half: number): number =>
+            smooth(clamp((half - distance) / p.edgeSoft + 0.5)),
+          toneOf = (level: number): number =>
+            p.toneUnder + ((p.toneOver - p.toneUnder) * (level + 1)) / 2;
+        return () => {
+          const x = fract(u) * cells,
+            y = fract(v) * cells,
+            i = Math.floor(x),
+            j = Math.floor(y),
+            a = x - i,
+            b = y - j,
+            type = tiles[j * cells + i],
+            grain = grainField(u, v);
+          let ink: number, strandTone: number, strandHeight: number;
+          if (type === 0) {
+            const horizontalOver = ((i + j) & 1) === 0,
+              horizontalDistance = Math.abs(b - 0.5),
+              verticalDistance = Math.abs(a - 0.5),
+              horizontalMask = band(horizontalDistance, halfWidth),
+              verticalMask = band(verticalDistance, halfWidth),
+              horizontalLevel =
+                (horizontalOver ? 1 : -1) * Math.sin(Math.PI * a) ** 2,
+              verticalLevel =
+                (horizontalOver ? -1 : 1) * Math.sin(Math.PI * b) ** 2,
+              overMask = horizontalOver ? horizontalMask : verticalMask,
+              overLevel = horizontalOver ? horizontalLevel : verticalLevel,
+              underLevel = horizontalOver ? verticalLevel : horizontalLevel,
+              overDistance = horizontalOver
+                ? horizontalDistance
+                : verticalDistance,
+              // The strand under is cut short of the edge of the strand over by the gap.
+              underWeight =
+                (1 - overMask) *
+                (horizontalOver ? verticalMask : horizontalMask) *
+                (1 - band(overDistance, halfWidth + p.gap));
+            ink = overMask + underWeight;
+            strandTone =
+              overMask * toneOf(overLevel) + underWeight * toneOf(underLevel);
+            strandHeight =
+              overMask * (p.heightBase + p.heightSwing * overLevel) +
+              underWeight * (p.heightBase + p.heightSwing * underLevel);
+          } else {
+            // Two quarter circles of radius 1/2 round opposite corners.
+            const first = type === 1 ? [1, 0] : [0, 0],
+              second = type === 1 ? [0, 1] : [1, 1],
+              firstMask = band(
+                Math.abs(Math.hypot(a - first[0], b - first[1]) - 0.5),
+                halfWidth,
+              ),
+              secondMask = band(
+                Math.abs(Math.hypot(a - second[0], b - second[1]) - 0.5),
+                halfWidth,
+              );
+            ink = 1 - (1 - firstMask) * (1 - secondMask);
+            strandTone = ink * toneOf(0);
+            strandHeight = ink * p.heightBase;
+          }
+          color =
+            p.toneGround * (1 - ink) + strandTone + p.grainTone * (grain - 0.5);
+          height = p.cellHeight * strandHeight;
+          occlusion = 1 - p.gapOcclusion * (1 - ink);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -61290,6 +61396,7 @@ export function createSurfaceSampler(
     kind === 'sizeillusions' ||
     kind === 'excitableautomata' ||
     kind === 'wireworldcircuits' ||
+    kind === 'celticinterlace' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
