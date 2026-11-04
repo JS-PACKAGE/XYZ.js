@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'baseballdiamond',
   'curlingrink',
   'cricketground',
   'highwaylanes',
@@ -50345,6 +50346,157 @@ export function createSurfaceSampler(
           shade =
             surface.boards + shift + (shade - surface.boards - shift) * ice;
           elevation = p.boardHeight + (elevation - p.boardHeight) * ice;
+          color = clamp(shade);
+          height = clamp(elevation);
+          roughness = clamp(p.inkRoughness);
+          occlusion = 1;
+        };
+      }
+      case 'baseballdiamond': {
+        const p = proceduralMaterialPresets.baseballdiamond,
+          inverseSoft = 1 / p.edgeSoft,
+          norm = (x: number, y: number): number => Math.sqrt(x * x + y * y),
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(114, 1, seed ^ 0x1a0001) * p.surfaces.length)
+            ],
+          turn = Math.floor(hash(114, 2, seed ^ 0x1a0002) * 4),
+          shift = (hash(114, 3, seed ^ 0x1a0003) * 2 - 1) * p.toneShift,
+          line = p.lineWidth,
+          halfPlate = p.plateWidth / 2,
+          halfBase = p.baseSize / 2,
+          // The batter's boxes (6 inches from the plate, centred on it along it) and the catcher's box (behind the batter's boxes).
+          boxCentreX = halfPlate + p.boxGap + p.boxWidth / 2,
+          boxCentreY = halfPlate,
+          catcherCentreY = boxCentreY - p.boxLength / 2 - p.catcherDepth / 2,
+          // How far inside a rectangle (the middle and the half sides) a place is, and its outline (within one line width of the edge, inside it).
+          inside = (
+            x: number,
+            y: number,
+            cx: number,
+            cy: number,
+            hx: number,
+            hy: number,
+          ): number => Math.min(hx - Math.abs(x - cx), hy - Math.abs(y - cy)),
+          outline = (distance: number): number =>
+            cover(Math.min(distance, line - distance) * p.foot);
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            // The place in feet from the middle of the tile, turned a quarter turn the number of times of the seed, as a place on the field (x across, y towards the pitcher from the point of home plate).
+            a = (fu - 0.5) / p.foot,
+            b = (fv - 0.5) / p.foot,
+            // The field is the same either side of its axis, so a turn and its mirror image are the same picture: only whether x is along a or along b matters.
+            x = turn % 2 === 0 ? a : b,
+            y =
+              (turn === 0 ? b : turn === 1 ? a : turn === 2 ? -b : -a) +
+              p.centreY,
+            ax = Math.abs(x),
+            // The places along the first base line and the third base line, and how far inside the foul lines (towards the field) a place is.
+            first = (x + y) * Math.SQRT1_2,
+            third = (y - x) * Math.SQRT1_2,
+            fair = (y - ax) * Math.SQRT1_2,
+            // The infield dirt: a circle round the front of the pitcher's plate inside the foul lines (it goes under the middle of the line), a circle round home plate, the mound; the grass of the infield inside the base paths.
+            skin = Math.min(
+              cover(
+                (p.infieldRadius - norm(x, y - p.pitcherDistance)) * p.foot,
+              ),
+              cover((fair - line / 2) * p.foot),
+            ),
+            circles = Math.max(
+              cover((p.plateCircle - norm(x, y)) * p.foot),
+              cover((p.moundRadius - norm(x, y - p.moundCentre)) * p.foot),
+            ),
+            grass = cover(
+              Math.min(
+                first - p.pathWidth,
+                p.baseDistance - p.pathWidth - first,
+                third - p.pathWidth,
+                p.baseDistance - p.pathWidth - third,
+              ) * p.foot,
+            ),
+            // The chalk: the foul lines from the point of home plate (in fair territory), home plate, the batter's boxes, the catcher's box, the pitcher's plate and the three bases (the second centred on its corner).
+            chalk = Math.max(
+              outline(fair),
+              cover(
+                Math.min((y - ax) * Math.SQRT1_2, p.plateWidth - y) * p.foot,
+              ),
+              outline(
+                inside(
+                  ax,
+                  y,
+                  boxCentreX,
+                  boxCentreY,
+                  p.boxWidth / 2,
+                  p.boxLength / 2,
+                ),
+              ),
+              outline(
+                inside(
+                  x,
+                  y,
+                  0,
+                  catcherCentreY,
+                  p.catcherWidth / 2,
+                  p.catcherDepth / 2,
+                ),
+              ),
+              cover(
+                inside(
+                  x,
+                  y,
+                  0,
+                  p.pitcherDistance + p.rubberDepth / 2,
+                  p.rubberWidth / 2,
+                  p.rubberDepth / 2,
+                ) * p.foot,
+              ),
+              cover(
+                inside(
+                  first,
+                  third,
+                  p.baseDistance - halfBase,
+                  halfBase,
+                  halfBase,
+                  halfBase,
+                ) * p.foot,
+              ),
+              cover(
+                inside(
+                  first,
+                  third,
+                  halfBase,
+                  p.baseDistance - halfBase,
+                  halfBase,
+                  halfBase,
+                ) * p.foot,
+              ),
+              cover(
+                inside(
+                  first,
+                  third,
+                  p.baseDistance,
+                  p.baseDistance,
+                  halfBase,
+                  halfBase,
+                ) * p.foot,
+              ),
+            ),
+            grassTone = surface.grass + shift,
+            infieldTone = surface.infield + shift,
+            dirtTone = surface.dirt + shift;
+          let shade = grassTone,
+            elevation = p.grassHeight;
+          shade += (dirtTone - shade) * skin;
+          elevation += (p.dirtHeight - elevation) * skin;
+          shade += (infieldTone - shade) * grass;
+          elevation += (p.infieldHeight - elevation) * grass;
+          shade += (dirtTone - shade) * circles;
+          elevation += (p.dirtHeight - elevation) * circles;
+          shade += (p.chalkTone - shade) * chalk;
+          elevation += (p.chalkHeight - elevation) * chalk;
           color = clamp(shade);
           height = clamp(elevation);
           roughness = clamp(p.inkRoughness);

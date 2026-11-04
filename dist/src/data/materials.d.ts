@@ -16154,6 +16154,56 @@ export declare const proceduralMaterialPresets: Readonly<{
         lineHeight: 0.36;
         inkRoughness: 0.3;
     }>;
+    baseballdiamond: Readonly<{
+        dark: readonly [38, 24, 12];
+        light: readonly [236, 240, 226];
+        roughness: 0.9;
+        relief: 0.004;
+        foot: number;
+        centreY: 55;
+        baseDistance: 90;
+        baseSize: 1.25;
+        plateWidth: number;
+        pitcherDistance: 60.5;
+        moundCentre: 59;
+        moundRadius: 9;
+        rubberWidth: 2;
+        rubberDepth: 0.5;
+        boxWidth: 4;
+        boxLength: 6;
+        boxGap: 0.5;
+        catcherWidth: number;
+        catcherDepth: 8;
+        infieldRadius: 95;
+        plateCircle: 13;
+        pathWidth: 3;
+        lineWidth: 0.5;
+        surfaces: readonly (Readonly<{
+            grass: 0.36;
+            infield: 0.42;
+            dirt: 0.56;
+        }> | Readonly<{
+            grass: 0.3;
+            infield: 0.36;
+            dirt: 0.46;
+        }> | Readonly<{
+            grass: 0.42;
+            infield: 0.46;
+            dirt: 0.62;
+        }> | Readonly<{
+            grass: 0.26;
+            infield: 0.34;
+            dirt: 0.4;
+        }>)[];
+        toneShift: 0.04;
+        edgeSoft: 0.0005;
+        chalkTone: 0.96;
+        grassHeight: 0.3;
+        infieldHeight: 0.32;
+        dirtHeight: 0.2;
+        chalkHeight: 0.4;
+        inkRoughness: 0.7;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -22639,6 +22689,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    baseballdiamond: 1;
     curlingrink: 1;
     cricketground: 1;
     highwaylanes: 1;

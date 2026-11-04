@@ -72924,3 +72924,542 @@ describe('curlingrink: ten curling sheets side by side seen from above with the 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('baseballdiamond: a baseball field seen from above with the layout of the official baseball rules, turned a quarter turn by the seed', () => {
+  const p = proceduralMaterialPresets.baseballdiamond,
+    out = empty(),
+    ft = p.foot,
+    toneAt = (sample: Sampler, x: number, y: number, turn: number): number => {
+      // A place on the field (feet; x across, y towards the pitcher from the point of home plate) as a place on the picture for a field turned a quarter turn the number of times of `turn`.
+      const yy = y - p.centreY,
+        [a, b] =
+          turn === 0
+            ? [x, yy]
+            : turn === 1
+              ? [yy, -x]
+              : turn === 2
+                ? [-x, -yy]
+                : [-yy, x];
+      sample(0.5 + a * ft, 0.5 + b * ft, out);
+      return out.color;
+    };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    mix = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    // The probes are exact (the edges are straight or circular), so the tolerance is tiny.
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  // The facts of the field, in feet (the official baseball rules, as given by a web search that quotes them; they were not read in the rules themselves): the diamond 90 feet square from the point of home plate, bases of 15
+  // inches, home plate 17 inches wide with sides of 8.5 inches and rear edges along the foul lines, the batter's boxes 4 by 6 feet and 6 inches from the plate, the catcher's box 43 inches wide and 8 feet deep behind
+  // them, the pitcher's plate 24 by 6 inches with its front edge 60.5 feet from the point, the mound 18 feet across centred 59 feet out, the infield circle of radius 95 round the front of the pitcher's plate.
+  const rules = {
+      base: 90,
+      baseSize: 1.25,
+      plate: 17 / 12,
+      pitcher: 60.5,
+      mound: 59,
+      moundRadius: 9,
+      rubber: 2,
+      box: 4,
+      boxLength: 6,
+      boxGap: 0.5,
+      catcher: 43 / 12,
+      catcherDepth: 8,
+      infield: 95,
+    },
+    halfPlate = rules.plate / 2,
+    halfBase = rules.baseSize / 2,
+    boxCentreX = halfPlate + rules.boxGap + rules.box / 2,
+    catcherCentreY = halfPlate - rules.boxLength / 2 - rules.catcherDepth / 2;
+  type Kind = 'grass' | 'infield' | 'dirt' | 'chalk';
+  // The part of the picture a place on the field is in, by the rules above and the widths in the preset (written separately from the sampler), with a label for the piece of chalk or dirt (two touching pieces are two pieces).
+  const piece = (x: number, y: number): string => {
+    const ax = Math.abs(x),
+      w = p.lineWidth,
+      first = (x + y) * Math.SQRT1_2,
+      third = (y - x) * Math.SQRT1_2,
+      fair = (y - ax) * Math.SQRT1_2,
+      within = (
+        cx: number,
+        cy: number,
+        hx: number,
+        hy: number,
+        px: number,
+        py: number,
+      ): boolean => Math.abs(px - cx) <= hx && Math.abs(py - cy) <= hy,
+      outline = (
+        cx: number,
+        cy: number,
+        hx: number,
+        hy: number,
+        px: number,
+        py: number,
+      ): boolean =>
+        within(cx, cy, hx, hy, px, py) &&
+        !within(cx, cy, hx - w, hy - w, px, py);
+    if (fair >= 0 && fair <= w && y >= 0) return 'chalk foul line';
+    if (y - ax >= 0 && y <= rules.plate && ax <= halfPlate)
+      return 'chalk plate';
+    if (
+      outline(
+        boxCentreX * Math.sign(x || 1),
+        halfPlate,
+        rules.box / 2,
+        rules.boxLength / 2,
+        x,
+        y,
+      )
+    )
+      return 'chalk box';
+    if (
+      outline(
+        0,
+        catcherCentreY,
+        rules.catcher / 2,
+        rules.catcherDepth / 2,
+        x,
+        y,
+      )
+    )
+      return 'chalk catcher';
+    if (within(0, rules.pitcher + 0.25, rules.rubber / 2, 0.25, x, y))
+      return 'chalk rubber';
+    if (
+      within(rules.base - halfBase, halfBase, halfBase, halfBase, first, third)
+    )
+      return 'chalk base first';
+    if (
+      within(halfBase, rules.base - halfBase, halfBase, halfBase, first, third)
+    )
+      return 'chalk base third';
+    if (within(rules.base, rules.base, halfBase, halfBase, first, third))
+      return 'chalk base second';
+    if (Math.hypot(x, y) <= p.plateCircle) return 'dirt plate circle';
+    if (Math.hypot(x, y - rules.mound) <= rules.moundRadius)
+      return 'dirt mound';
+    if (
+      first >= p.pathWidth &&
+      first <= rules.base - p.pathWidth &&
+      third >= p.pathWidth &&
+      third <= rules.base - p.pathWidth
+    )
+      return 'infield';
+    if (fair >= w / 2 && Math.hypot(x, y - rules.pitcher) <= rules.infield)
+      return 'dirt skin';
+    return 'grass';
+  };
+  const classify = (x: number, y: number): Kind => {
+    const label = piece(x, y);
+    return label.startsWith('chalk')
+      ? 'chalk'
+      : label.startsWith('dirt')
+        ? 'dirt'
+        : (label as Kind);
+  };
+  type Surface = {
+    turn: number;
+    surface: number;
+    shift: number;
+    tones: { grass: number; infield: number; dirt: number };
+  };
+  const readSurface = (sample: Sampler): Surface => {
+    const options: Surface[] = [];
+    for (const turn of [0, 1, 2, 3]) {
+      // Places away from the middle of the tile (the field is turned round it) that a turned field does not match: the grass behind home plate, the dirt of the circle round home plate, the grass of the infield.
+      const grass = toneAt(sample, 0, -30, turn),
+        infield = toneAt(sample, 40, 60, turn),
+        dirt = toneAt(sample, 5, -5, turn);
+      p.surfaces.forEach((surface, index) => {
+        const shift = grass - surface.grass;
+        if (
+          Math.abs(shift) <= p.toneShift + 1e-9 &&
+          Math.abs(infield - surface.infield - shift) < 1e-6 &&
+          Math.abs(dirt - surface.dirt - shift) < 1e-6
+        )
+          options.push({
+            turn,
+            surface: index,
+            shift,
+            tones: { grass, infield, dirt },
+          });
+      });
+    }
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+
+  it('has the rules of the field in the preset', () => {
+    expect(p.baseDistance).toBe(rules.base);
+    expect(p.baseSize).toBe(rules.baseSize);
+    expect(p.plateWidth).toBeCloseTo(rules.plate, 12);
+    expect(p.pitcherDistance).toBe(rules.pitcher);
+    expect(p.moundCentre).toBe(rules.mound);
+    expect(p.moundRadius).toBe(rules.moundRadius);
+    expect(p.rubberWidth).toBe(rules.rubber);
+    expect(p.rubberDepth).toBe(0.5);
+    expect(p.boxWidth).toBe(rules.box);
+    expect(p.boxLength).toBe(rules.boxLength);
+    expect(p.boxGap).toBe(rules.boxGap);
+    expect(p.catcherWidth).toBeCloseTo(rules.catcher, 12);
+    expect(p.catcherDepth).toBe(rules.catcherDepth);
+    expect(p.infieldRadius).toBe(rules.infield);
+  });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws every place of the picture as the rules and the widths say, with its tone, height and roughness, in whatever quarter turn (seed %i)',
+    { timeout: 120000 },
+    (seed) => {
+      const sample = createSurfaceSampler('baseballdiamond', seed),
+        { turn, tones } = readSurface(sample),
+        expected: Record<Kind, { tone: number; height: number }> = {
+          grass: { tone: tones.grass, height: p.grassHeight },
+          infield: { tone: tones.infield, height: p.infieldHeight },
+          dirt: { tone: tones.dirt, height: p.dirtHeight },
+          chalk: { tone: p.chalkTone, height: p.chalkHeight },
+        },
+        counts: Record<Kind, number> = {
+          grass: 0,
+          infield: 0,
+          dirt: 0,
+          chalk: 0,
+        },
+        clear = 0.06,
+        check = (x: number, y: number): void => {
+          const kind = classify(x, y);
+          if (
+            [
+              [clear, 0],
+              [-clear, 0],
+              [0, clear],
+              [0, -clear],
+              [clear, clear],
+              [-clear, -clear],
+              [clear, -clear],
+              [-clear, clear],
+            ].some(([dx, dy]) => piece(x + dx, y + dy) !== piece(x, y))
+          )
+            return;
+          counts[kind]++;
+          expect(toneAt(sample, x, y, turn)).toBeCloseTo(
+            expected[kind].tone,
+            6,
+          );
+          expect(out.height / p.relief).toBeCloseTo(expected[kind].height, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        };
+      // Home plate and the boxes finely (0.07 apart over 24 by 24 feet), the whole tile (220 across, from 55 feet behind the point to 165 in front, 110 either side) in steps of 0.5 and the bases finely.
+      for (let x = -12; x <= 12; x += 0.07)
+        for (let y = -12; y <= 12; y += 0.07) check(x, y);
+      for (let x = -110; x <= 110; x += 0.5)
+        for (let y = -55; y <= 165; y += 0.5) check(x, y);
+      expect(counts.chalk).toBeGreaterThan(1500);
+      expect(counts.dirt).toBeGreaterThan(30000);
+      expect(counts.infield).toBeGreaterThan(20000);
+      expect(counts.grass).toBeGreaterThan(80000);
+    },
+  );
+
+  it('uses every surface and all four turns over 300 seeds, about equally often, with the tones shifted over the whole range', () => {
+    const surfaces = new Map<number, number>(),
+      turns = new Map<number, number>(),
+      shifts: number[] = [];
+    for (let seed = 0; seed < 300; seed++) {
+      const { turn, surface, shift } = readSurface(
+        createSurfaceSampler('baseballdiamond', seed * 7 + 1),
+      );
+      shifts.push(shift);
+      surfaces.set(surface, (surfaces.get(surface) ?? 0) + 1);
+      turns.set(turn, (turns.get(turn) ?? 0) + 1);
+    }
+    expect(surfaces.size).toBe(p.surfaces.length);
+    expect(turns.size).toBe(4);
+    for (const count of surfaces.values())
+      expect(Math.abs(count - 300 / p.surfaces.length)).toBeLessThan(25);
+    for (const count of turns.values())
+      expect(Math.abs(count - 75)).toBeLessThan(25);
+    expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+    expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+    expect(
+      Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 300),
+    ).toBeLessThan(p.toneShift * 0.15);
+    for (let quarter = 0; quarter < 4; quarter++)
+      expect(
+        Math.abs(
+          shifts.filter(
+            (shift) =>
+              Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+          ).length - 75,
+        ),
+      ).toBeLessThan(25);
+  });
+
+  it('puts each edge of each marking where the rules put it, just inside and just outside by 0.0004 of a tile', () => {
+    const w = p.lineWidth,
+      delta = 0.0004 / ft,
+      s = Math.SQRT1_2;
+    for (const seed of [2, 5, 8]) {
+      const sample = createSurfaceSampler('baseballdiamond', seed),
+        { turn, tones } = readSurface(sample),
+        tone = (x: number, y: number): number => toneAt(sample, x, y, turn),
+        is = (x: number, y: number, expected: number): boolean =>
+          Math.abs(tone(x, y) - expected) < 1e-6,
+        // A place on the field from its places along the first base line (first) and the third base line (third).
+        at = (first: number, third: number): [number, number] => [
+          (first - third) * s,
+          (first + third) * s,
+        ];
+      for (const side of [1, -1]) {
+        // The foul line (in fair territory, 0.5 wide, its outer edge on the line itself): on the grass beyond the infield (150 along the line) and on the dirt (60 along it).
+        for (const [along, outside, inner] of [
+          [150, tones.grass, tones.grass],
+          [60, tones.grass, tones.dirt],
+        ] as [number, number, number][]) {
+          const [x, y] = [side * along * s, along * s],
+            // a step across the line, into fair territory: (-side * s, s)
+            across = (offset: number): [number, number] => [
+              x - side * offset * s,
+              y + offset * s,
+            ];
+          expect(is(...across(-delta), outside)).toBe(true);
+          expect(is(...across(delta), p.chalkTone)).toBe(true);
+          expect(is(...across(w - delta), p.chalkTone)).toBe(true);
+          expect(is(...across(w + delta), inner)).toBe(true);
+        }
+      }
+      // The bases (15 inches square; the first and the third inside the square with their outer edge on the foul line, the second centred on the corner), each edge: chalk inside, the dirt of the infield outside.
+      const baseEdges = (
+        centreFirst: number,
+        centreThird: number,
+        alongFirst: number,
+        alongThird: number,
+      ): void => {
+        // (alongFirst, alongThird) is a place along the edge, 0.4 off the middle of it so that the line of the other base does not meet the probe.
+        for (const [dFirst, dThird] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const edgeFirst = centreFirst + dFirst * halfBase,
+            edgeThird = centreThird + dThird * halfBase,
+            along = (offset: number): [number, number] =>
+              at(
+                dFirst !== 0 ? edgeFirst + dFirst * offset : alongFirst,
+                dThird !== 0 ? edgeThird + dThird * offset : alongThird,
+              );
+          expect(is(...along(-delta), p.chalkTone)).toBe(true);
+          // Outside: the dirt of the infield, but beyond the foul line (the outer edge of the first and of the third base) the grass.
+          const onFoulLine =
+            (centreThird === halfBase && dThird === -1) ||
+            (centreFirst === halfBase && dFirst === -1);
+          expect(
+            is(...along(delta), onFoulLine ? tones.grass : tones.dirt),
+          ).toBe(true);
+        }
+      };
+      baseEdges(rules.base - halfBase, halfBase, rules.base - halfBase, 0.9);
+      baseEdges(halfBase, rules.base - halfBase, 0.9, rules.base - halfBase);
+      baseEdges(rules.base, rules.base, rules.base + 0.2, rules.base + 0.2);
+      // Home plate (its front edge; the rear edges and the sides are under the foul lines), the batter's boxes (the outline 0.5 wide inside the edge of the box), the catcher's box.
+      expect(is(0, rules.plate - delta, p.chalkTone)).toBe(true);
+      expect(is(0, rules.plate + delta, tones.dirt)).toBe(true);
+      for (const side of [1, -1]) {
+        const edge = boxCentreX + rules.box / 2;
+        expect(is(side * (edge - delta), -1.5, p.chalkTone)).toBe(true);
+        expect(is(side * (edge + delta), -1.5, tones.dirt)).toBe(true);
+        expect(is(side * (edge - w + delta), -1.5, p.chalkTone)).toBe(true);
+        expect(is(side * (edge - w - delta), -1.5, tones.dirt)).toBe(true);
+        const bottom = halfPlate - rules.boxLength / 2;
+        expect(is(side * 3.5, bottom + delta, p.chalkTone)).toBe(true);
+        expect(is(side * 3.5, bottom - delta, tones.dirt)).toBe(true);
+        expect(is(side * 3.5, bottom + w - delta, p.chalkTone)).toBe(true);
+        expect(is(side * 3.5, bottom + w + delta, tones.dirt)).toBe(true);
+        expect(is(side * (rules.catcher / 2 - delta), -6, p.chalkTone)).toBe(
+          true,
+        );
+        expect(is(side * (rules.catcher / 2 + delta), -6, tones.dirt)).toBe(
+          true,
+        );
+        expect(
+          is(
+            side * (rules.rubber / 2 - delta),
+            rules.pitcher + 0.25,
+            p.chalkTone,
+          ),
+        ).toBe(true);
+        expect(
+          is(
+            side * (rules.rubber / 2 + delta),
+            rules.pitcher + 0.25,
+            tones.dirt,
+          ),
+        ).toBe(true);
+      }
+      expect(
+        is(0, catcherCentreY - rules.catcherDepth / 2 + delta, p.chalkTone),
+      ).toBe(true);
+      expect(
+        is(0, catcherCentreY - rules.catcherDepth / 2 - delta, tones.dirt),
+      ).toBe(true);
+      // The pitcher's plate (24 by 6 inches, its front edge 60.5 from the point) on the mound.
+      expect(is(0, rules.pitcher + delta, p.chalkTone)).toBe(true);
+      expect(is(0, rules.pitcher - delta, tones.dirt)).toBe(true);
+      expect(is(0, rules.pitcher + 0.5 - delta, p.chalkTone)).toBe(true);
+      expect(is(0, rules.pitcher + 0.5 + delta, tones.dirt)).toBe(true);
+      // The mound (radius 9 round a point 59 out; dirt inside it, the grass of the infield outside), the circle round home plate (radius 13) and the circle of radius 95 round the front of the pitcher's plate.
+      for (const degrees of [0, 30, 150, 180, 210, 330]) {
+        const round = (radius: number): [number, number] => [
+          radius * Math.cos((degrees * Math.PI) / 180),
+          rules.mound + radius * Math.sin((degrees * Math.PI) / 180),
+        ];
+        expect(is(...round(rules.moundRadius - delta), tones.dirt)).toBe(true);
+        expect(is(...round(rules.moundRadius + delta), tones.infield)).toBe(
+          true,
+        );
+      }
+      expect(is(0, -(p.plateCircle - delta), tones.dirt)).toBe(true);
+      expect(is(0, -(p.plateCircle + delta), tones.grass)).toBe(true);
+      expect(is(-(p.plateCircle - delta), 0, tones.dirt)).toBe(true);
+      expect(is(-(p.plateCircle + delta), 0, tones.grass)).toBe(true);
+      for (const degrees of [0, 20, -35]) {
+        const round = (radius: number): [number, number] => [
+          radius * Math.sin((degrees * Math.PI) / 180),
+          rules.pitcher + radius * Math.cos((degrees * Math.PI) / 180),
+        ];
+        expect(is(...round(rules.infield - delta), tones.dirt)).toBe(true);
+        expect(is(...round(rules.infield + delta), tones.grass)).toBe(true);
+      }
+      // The grass of the infield: inside the base paths, 3 feet from the lines of the diamond (each of its four edges).
+      for (const along of [30, 50]) {
+        expect(is(...at(p.pathWidth + delta, along), tones.infield)).toBe(true);
+        expect(is(...at(p.pathWidth - delta, along), tones.dirt)).toBe(true);
+        expect(
+          is(...at(rules.base - p.pathWidth - delta, along), tones.infield),
+        ).toBe(true);
+        expect(
+          is(...at(rules.base - p.pathWidth + delta, along), tones.dirt),
+        ).toBe(true);
+        expect(is(...at(along, p.pathWidth + delta), tones.infield)).toBe(true);
+        expect(is(...at(along, p.pathWidth - delta), tones.dirt)).toBe(true);
+        expect(
+          is(...at(along, rules.base - p.pathWidth - delta), tones.infield),
+        ).toBe(true);
+        expect(
+          is(...at(along, rules.base - p.pathWidth + delta), tones.dirt),
+        ).toBe(true);
+      }
+    }
+  });
+
+  it('softens the edges of the dirt, of the grass of the infield and of the chalk over edgeSoft', () => {
+    const sample = createSurfaceSampler('baseballdiamond', 2),
+      { turn, tones } = readSurface(sample),
+      quarter = (0.25 * p.edgeSoft) / ft,
+      w = p.lineWidth,
+      tone = (x: number, y: number): number => toneAt(sample, x, y, turn),
+      at = (first: number, third: number): [number, number] => [
+        (first - third) * Math.SQRT1_2,
+        (first + third) * Math.SQRT1_2,
+      ];
+    // The circle of 95 round the front of the pitcher's plate (dirt inside, grass outside), the circle round home plate, the mound.
+    close(
+      tone(0, rules.pitcher + rules.infield - quarter),
+      mix(tones.grass, tones.dirt, 0.75),
+    );
+    close(
+      tone(0, rules.pitcher + rules.infield + quarter),
+      mix(tones.grass, tones.dirt, 0.25),
+    );
+    close(
+      tone(0, -(p.plateCircle - quarter)),
+      mix(tones.grass, tones.dirt, 0.75),
+    );
+    close(
+      tone(0, -(p.plateCircle + quarter)),
+      mix(tones.grass, tones.dirt, 0.25),
+    );
+    close(
+      tone(rules.moundRadius - quarter, rules.mound),
+      mix(tones.infield, tones.dirt, 0.75),
+    );
+    close(
+      tone(rules.moundRadius + quarter, rules.mound),
+      mix(tones.infield, tones.dirt, 0.25),
+    );
+    // The grass of the infield over the dirt (the edge 3 feet from the line of the diamond).
+    close(
+      tone(...at(p.pathWidth + quarter, 40)),
+      mix(tones.dirt, tones.infield, 0.75),
+    );
+    close(
+      tone(...at(p.pathWidth - quarter, 40)),
+      mix(tones.dirt, tones.infield, 0.25),
+    );
+    // The foul line over the grass (outer edge) and the dirt (inner edge), the front of home plate, the pitcher's plate.
+    const [lineX, lineY] = at(150, 0);
+    close(
+      tone(lineX + quarter * Math.SQRT1_2, lineY - quarter * Math.SQRT1_2),
+      mix(tones.grass, p.chalkTone, 0.25),
+    );
+    close(
+      tone(lineX - quarter * Math.SQRT1_2, lineY + quarter * Math.SQRT1_2),
+      mix(tones.grass, p.chalkTone, 0.75),
+    );
+    const [dirtX, dirtY] = at(60, w);
+    close(
+      tone(dirtX + quarter * Math.SQRT1_2, dirtY - quarter * Math.SQRT1_2),
+      mix(tones.dirt, p.chalkTone, 0.75),
+    );
+    // The outer edge of the foul line over the dirt of the infield: the dirt goes under the middle of the line, so outside the line there is the grass (the line is as soft as it is over the grass).
+    const [outerX, outerY] = at(60, 0);
+    close(
+      tone(outerX - quarter * Math.SQRT1_2, outerY + quarter * Math.SQRT1_2),
+      mix(tones.grass, p.chalkTone, 0.75),
+    );
+    close(
+      tone(outerX + quarter * Math.SQRT1_2, outerY - quarter * Math.SQRT1_2),
+      mix(tones.grass, p.chalkTone, 0.25),
+    );
+    close(tone(0, rules.plate - quarter), mix(tones.dirt, p.chalkTone, 0.75));
+    close(tone(0, rules.plate + quarter), mix(tones.dirt, p.chalkTone, 0.25));
+    close(tone(0, rules.pitcher + quarter), mix(tones.dirt, p.chalkTone, 0.75));
+    close(tone(0, rules.pitcher - quarter), mix(tones.dirt, p.chalkTone, 0.25));
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('baseballdiamond', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('baseballdiamond', 0),
+      b = createSurfaceSampler('baseballdiamond', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

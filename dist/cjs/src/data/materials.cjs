@@ -27781,6 +27781,69 @@ var proceduralMaterialPresets = Object.freeze({
 		lineHeight: .36,
 		inkRoughness: .3
 	}),
+	baseballdiamond: Object.freeze({
+		dark: [
+			38,
+			24,
+			12
+		],
+		light: [
+			236,
+			240,
+			226
+		],
+		roughness: .9,
+		relief: .004,
+		foot: 1 / 220,
+		centreY: 55,
+		baseDistance: 90,
+		baseSize: 1.25,
+		plateWidth: 17 / 12,
+		pitcherDistance: 60.5,
+		moundCentre: 59,
+		moundRadius: 9,
+		rubberWidth: 2,
+		rubberDepth: .5,
+		boxWidth: 4,
+		boxLength: 6,
+		boxGap: .5,
+		catcherWidth: 43 / 12,
+		catcherDepth: 8,
+		infieldRadius: 95,
+		plateCircle: 13,
+		pathWidth: 3,
+		lineWidth: .5,
+		surfaces: Object.freeze([
+			Object.freeze({
+				grass: .36,
+				infield: .42,
+				dirt: .56
+			}),
+			Object.freeze({
+				grass: .3,
+				infield: .36,
+				dirt: .46
+			}),
+			Object.freeze({
+				grass: .42,
+				infield: .46,
+				dirt: .62
+			}),
+			Object.freeze({
+				grass: .26,
+				infield: .34,
+				dirt: .4
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 5e-4,
+		chalkTone: .96,
+		grassHeight: .3,
+		infieldHeight: .32,
+		dirtHeight: .2,
+		chalkHeight: .4,
+		inkRoughness: .7
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -36462,6 +36525,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	baseballdiamond: 1,
 	curlingrink: 1,
 	cricketground: 1,
 	highwaylanes: 1,

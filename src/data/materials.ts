@@ -17612,6 +17612,53 @@ export const proceduralMaterialPresets = Object.freeze({
     lineHeight: 0.36,
     inkRoughness: 0.3,
   }),
+  baseballdiamond: Object.freeze({
+    dark: [38, 24, 12] as const,
+    light: [236, 240, 226] as const,
+    roughness: 0.9,
+    relief: 0.004,
+    // A baseball field seen from above with the layout of the official baseball rules, in feet (home plate with its point at the origin and the pitcher on the axis, the tile 220 feet across and centred
+    // 55 feet in front of the point): the foul lines at 45 degrees from the point of home plate (the lines are in fair territory), the diamond 90 feet square with bases of 15 inches (the first and third lying
+    // in the square, the second centred on its corner), home plate (17 inches wide, sides of 8.5 inches), the batter's boxes (4 by 6 feet, 6 inches from the plate) and the catcher's box (43 inches wide, 8 feet
+    // deep, behind the batter's boxes), the pitcher's plate (24 by 6 inches, its front edge 60.5 feet from the point) on a mound of 18 feet across centred 59 feet out, the infield dirt (a circle of radius 95
+    // round the pitcher's plate within the foul lines, and a circle of radius 13 round home plate, which the rules do not give) and the grass of the infield (inside the base paths, 3 feet from the foul lines'
+    // square). Chalk lines are 0.5 wide (the rules give about 3 inches, two times). The seed picks the surface (the tones of the outfield grass, the infield grass and the dirt, all shifted together a little) and
+    // turns the field a quarter turn one of four ways.
+    foot: 1 / 220,
+    centreY: 55,
+    baseDistance: 90,
+    baseSize: 1.25,
+    plateWidth: 17 / 12,
+    pitcherDistance: 60.5,
+    moundCentre: 59,
+    moundRadius: 9,
+    rubberWidth: 2,
+    rubberDepth: 0.5,
+    boxWidth: 4,
+    boxLength: 6,
+    boxGap: 0.5,
+    catcherWidth: 43 / 12,
+    catcherDepth: 8,
+    infieldRadius: 95,
+    plateCircle: 13,
+    pathWidth: 3,
+    lineWidth: 0.5,
+    surfaces: Object.freeze([
+      Object.freeze({ grass: 0.36, infield: 0.42, dirt: 0.56 }),
+      Object.freeze({ grass: 0.3, infield: 0.36, dirt: 0.46 }),
+      Object.freeze({ grass: 0.42, infield: 0.46, dirt: 0.62 }),
+      Object.freeze({ grass: 0.26, infield: 0.34, dirt: 0.4 }),
+    ]),
+    // How much the three tones may all be shifted together (from -toneShift to toneShift) by the seed: the wear of the field.
+    toneShift: 0.04,
+    edgeSoft: 0.0005,
+    chalkTone: 0.96,
+    grassHeight: 0.3,
+    infieldHeight: 0.32,
+    dirtHeight: 0.2,
+    chalkHeight: 0.4,
+    inkRoughness: 0.7,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -24104,6 +24151,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  baseballdiamond: 1,
   curlingrink: 1,
   cricketground: 1,
   highwaylanes: 1,
