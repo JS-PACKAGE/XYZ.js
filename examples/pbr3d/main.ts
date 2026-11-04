@@ -1222,6 +1222,7 @@ try {
     'polysticks',
     'alternatingsignmatrices',
     'stilllifes',
+    'chorddiagrams',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

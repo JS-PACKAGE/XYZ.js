@@ -1159,6 +1159,7 @@ export type ProceduralMaterialKind =
   | 'polysticks'
   | 'alternatingsignmatrices'
   | 'stilllifes'
+  | 'chorddiagrams'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2566,6 +2567,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'polysticks',
   'alternatingsignmatrices',
   'stilllifes',
+  'chorddiagrams',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

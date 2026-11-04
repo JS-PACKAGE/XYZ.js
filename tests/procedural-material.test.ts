@@ -1185,6 +1185,7 @@ const kinds: ProceduralMaterialKind[] = [
   'polysticks',
   'alternatingsignmatrices',
   'stilllifes',
+  'chorddiagrams',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -208806,6 +208807,458 @@ describe('Still lifes as every still life of a box drawn once', () => {
     expect(blue / (512 * 512)).toBeLessThan(55.4);
     expect(maxTilt).toBeGreaterThan(0.0616);
     expect(maxTilt).toBeLessThan(0.0617);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Chord diagrams as every diagram of a kind drawn once', () => {
+  const p = proceduralMaterialPresets.chorddiagrams;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The layout of the panels of a variant (seed % 6): slots of 1 / cols by 1 / rows, each with the box of 2 by 2 units (the circle of radius 1 in it) and the margin around it, drawn at one scale and centred in the slot. */
+  const geometry = (seed: number) => {
+    const variant = seed % p.points.length,
+      count: number = p.points[variant],
+      cols: number = p.cols[variant],
+      rows: number = p.rows[variant],
+      scale = Math.min(
+        1 / (cols * (2 + 2 * p.margin)),
+        1 / (rows * (2 + 2 * p.margin)),
+      );
+    return {
+      count,
+      kind: p.kinds[variant] as number,
+      cols,
+      rows,
+      scale,
+      originX: (1 / cols - scale * (2 + 2 * p.margin)) / 2,
+      originY: (1 / rows - scale * (2 + 2 * p.margin)) / 2,
+      dots: Array.from({ length: count }, (_, k): [number, number] => [
+        1 + Math.sin((2 * Math.PI * k) / count),
+        1 - Math.cos((2 * Math.PI * k) / count),
+      ]),
+    };
+  };
+  type Geometry = ReturnType<typeof geometry>;
+  type Chord = [number, number];
+  /** Two chords cross when exactly one end of the second lies between the ends of the first. */
+  const crossing = ([a, b]: Chord, [c, d]: Chord): boolean =>
+    (c > a && c < b) !== (d > a && d < b) &&
+    c !== a &&
+    c !== b &&
+    d !== a &&
+    d !== b;
+  const crossings = (chords: Chord[]): number =>
+    chords.reduce(
+      (sum, chord, i) =>
+        sum +
+        chords.filter((other, j) => j > i && crossing(chord, other)).length,
+      0,
+    );
+  const chordName = (chords: Chord[]): string =>
+    chords
+      .map(([a, b]) => `${Math.min(a, b)}-${Math.max(a, b)}`)
+      .sort()
+      .join(' ');
+  /** The same diagram turned by a number of points. */
+  const turned = (chords: Chord[], by: number, count: number): Chord[] =>
+    chords.map(([a, b]) => [(a + by) % count, (b + by) % count]);
+  /** The least name of the diagram among all its turns: the name of its class. */
+  const classKey = (chords: Chord[], count: number): string =>
+    Array.from({ length: count }, (_, by) =>
+      chordName(turned(chords, by, count)),
+    ).sort()[0];
+  type Panel = { chords: Chord[]; levels: Set<number> };
+  /** The diagram of every panel slot of a seed read back from the picture (null for an empty slot): there is a chord between two points where there is ink at 15 places along it (from 15% to 85% of the way, as ink at a few places can come from other chords crossing it), every point has a dot, and the height on the chords must be that of the number of crossings of the diagram read. */
+  const readPanels = (seed: number): (Panel | null)[] => {
+    const g = geometry(seed),
+      sample = createSurfaceSampler('chorddiagrams', seed),
+      out = empty(),
+      panels: (Panel | null)[] = [],
+      inked = (slot: number, x: number, y: number): boolean => {
+        sample(
+          (slot % g.cols) / g.cols + g.originX + g.scale * (p.margin + x),
+          Math.floor(slot / g.cols) / g.rows +
+            g.originY +
+            g.scale * (p.margin + y),
+          out,
+        );
+        return 1 - (1 - out.occlusion) / p.gapOcclusion >= 0.5;
+      };
+    for (let slot = 0; slot < g.cols * g.rows; slot++) {
+      const chords: Chord[] = [],
+        levels = new Set<number>(),
+        dotsInked = g.dots.filter(([x, y]) => inked(slot, x, y)).length;
+      if (dotsInked === 0) {
+        panels.push(null);
+        continue;
+      }
+      expect(dotsInked).toBe(g.count);
+      for (let a = 0; a < g.count; a++)
+        for (let b = a + 1; b < g.count; b++) {
+          const at = (t: number): [number, number] => [
+            g.dots[a][0] + t * (g.dots[b][0] - g.dots[a][0]),
+            g.dots[a][1] + t * (g.dots[b][1] - g.dots[a][1]),
+          ];
+          if (
+            Array.from({ length: 15 }, (_, k) => 0.15 + 0.05 * k).every((t) =>
+              inked(slot, ...at(t)),
+            )
+          ) {
+            chords.push([a, b]);
+            levels.add(
+              Math.round(
+                (1000 * (out.height / p.relief / p.cellHeight - p.heightBase)) /
+                  p.heightSwing,
+              ),
+            );
+          }
+        }
+      panels.push({ chords, levels });
+    }
+    return panels;
+  };
+  /** Whether a diagram is of the kind: every point on exactly one chord, and for kind 1 no two chords crossing. */
+  const isOfKind = (g: Geometry, chords: Chord[]): boolean =>
+    chords.length === g.count / 2 &&
+    new Set(chords.flat()).size === g.count &&
+    (g.kind !== 1 || crossings(chords) === 0);
+  /** Every chord diagram by going through all the sets of count / 2 pairs of points that cover every point once (all the ways to choose pairs among the count (count - 1) / 2 possible ones), and for kind 2 one name for every class of turns. */
+  const diagramCache = new Map<number, Chord[][]>();
+  const everyDiagram = (count: number): Chord[][] => {
+    const cached = diagramCache.get(count);
+    if (cached !== undefined) return cached;
+    const pairs: Chord[] = [];
+    for (let a = 0; a < count; a++)
+      for (let b = a + 1; b < count; b++) pairs.push([a, b]);
+    const found: Chord[][] = [],
+      chosen: Chord[] = [],
+      choose = (from: number, taken: number): void => {
+        if (chosen.length === count / 2) {
+          found.push(chosen.map((chord) => [...chord] as Chord));
+          return;
+        }
+        for (let k = from; k < pairs.length; k++) {
+          const bits = (1 << pairs[k][0]) | (1 << pairs[k][1]);
+          if ((taken & bits) !== 0) continue;
+          chosen.push(pairs[k]);
+          choose(k + 1, taken | bits);
+          chosen.pop();
+        }
+      };
+    choose(0, 0);
+    diagramCache.set(count, found);
+    return found;
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('chorddiagrams', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { high: 0.9618, lit: 0.03278, mean: 0.06177, height: 0.8 }],
+      [1, { high: 0.9624, lit: 0.03798, mean: 0.06752, height: 0.8 }],
+      [0xffffffff, { high: 0.9612, lit: 0.03467, mean: 0.06416, height: 0.8 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('chorddiagrams', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0155);
+      expect(low).toBeLessThan(0.0158);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(want.height, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws every chord diagram of the kind exactly once, read back from the picture and compared with all the sets of pairs', () => {
+    for (let seed = 0; seed < 12; seed++) {
+      const g = geometry(seed),
+        read = readPanels(seed),
+        drawn = read.filter((panel): panel is Panel => panel !== null),
+        names = drawn.map(({ chords }) =>
+          g.kind === 2 ? classKey(chords, g.count) : chordName(chords),
+        ),
+        wanted = [
+          ...new Set(
+            everyDiagram(g.count)
+              .filter((chords) => g.kind !== 1 || crossings(chords) === 0)
+              .map((chords) =>
+                g.kind === 2 ? classKey(chords, g.count) : chordName(chords),
+              ),
+          ),
+        ];
+      for (const { chords, levels } of drawn) {
+        expect(isOfKind(g, chords)).toBe(true);
+        // The height of every chord is that of the number of crossings over the most there can be.
+        const most = ((g.count / 2) * (g.count / 2 - 1)) / 2;
+        expect([...levels]).toEqual([
+          Math.round((1000 * crossings(chords)) / most),
+        ]);
+      }
+      // No two panels show the same diagram (class) and none is missing.
+      expect(new Set(names).size).toBe(drawn.length);
+      expect([...wanted].sort()).toEqual([...names].sort());
+      expect(read.slice(drawn.length).every((panel) => panel === null)).toBe(
+        true,
+      );
+    }
+    // The numbers: 15 and 105 chord diagrams of 6 and 8 points, 14 and 42 without crossing of 8 and 10 points (Catalan numbers), 18 and 105 classes under turning of 8 and 10 points.
+    expect(
+      [0, 1, 2, 3, 4, 5].map(
+        (seed) => readPanels(seed).filter((panel) => panel !== null).length,
+      ),
+    ).toEqual([15, 105, 14, 18, 42, 105]);
+  }, 120000);
+  it('turns the diagrams of kind 2 and shuffles the panels by group without changing the set', () => {
+    const g = geometry(3),
+      drawn = readPanels(3).filter((panel): panel is Panel => panel !== null);
+    // Some of the diagrams are drawn turned, not as the least name of their class.
+    expect(
+      drawn.some(
+        ({ chords }) => chordName(chords) !== classKey(chords, g.count),
+      ),
+    ).toBe(true);
+    for (const seed of [1, 3, 4]) {
+      const count = geometry(seed).count,
+        names = (s: number) =>
+          readPanels(s).map((panel) =>
+            panel === null ? '-' : chordName(panel.chords),
+          ),
+        first = names(seed),
+        second = names(seed + 6),
+        third = names(seed + 12);
+      expect(first).not.toEqual(second);
+      expect(second).not.toEqual(third);
+      // For kind 2 the turn changes with the group too, so compare the names of the classes there.
+      const classes = (s: number) =>
+        readPanels(s)
+          .filter((panel) => panel !== null)
+          .map((panel) => classKey(panel.chords, count))
+          .sort();
+      expect(classes(seed)).toEqual(classes(seed + 6));
+      expect(classes(seed)).toEqual(classes(seed + 12));
+    }
+  });
+  it('agrees with the ideal chords and dots away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5]) {
+      const g = geometry(seed),
+        panels = readPanels(seed),
+        sample = createSurfaceSampler('chorddiagrams', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          col = Math.min(g.cols - 1, Math.floor(u * g.cols)),
+          row = Math.min(g.rows - 1, Math.floor(v * g.rows)),
+          panel = panels[row * g.cols + col],
+          x = (u - col / g.cols - g.originX) / g.scale - p.margin,
+          y = (v - row / g.rows - g.originY) / g.scale - p.margin;
+        let ink = 0,
+          level = 0,
+          near = false;
+        if (panel !== null) {
+          // The distance to the nearest chord (a segment) and to the nearest dot.
+          let nearestLine = Infinity;
+          for (const [a, b] of panel.chords) {
+            const [ax, ay] = g.dots[a],
+              [bx, by] = g.dots[b],
+              dx = bx - ax,
+              dy = by - ay,
+              along = Math.max(
+                0,
+                Math.min(
+                  1,
+                  ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy),
+                ),
+              );
+            nearestLine = Math.min(
+              nearestLine,
+              Math.hypot(x - ax - along * dx, y - ay - along * dy),
+            );
+          }
+          const nearestDot = Math.min(
+              ...g.dots.map(([dx, dy]) => Math.hypot(x - dx, y - dy)),
+            ),
+            // Each of the two shapes is surely in (1), surely out (0) or in its smoothing (undefined).
+            state = (distance: number, half: number): number | undefined =>
+              distance <= half - p.edgeSoft / 2
+                ? 1
+                : distance >= half + p.edgeSoft / 2
+                  ? 0
+                  : undefined,
+            parts = [
+              state(nearestLine, p.lineHalf),
+              state(nearestDot, p.dotRadius),
+            ];
+          if (parts.includes(1)) ink = 1;
+          else if (parts.every((part) => part === 0)) ink = 0;
+          else near = true;
+          level =
+            crossings(panel.chords) / (((g.count / 2) * (g.count / 2 - 1)) / 2);
+        }
+        if (near) continue;
+        compared++;
+        sample(u, v, out);
+        const tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.heightBase + p.heightSwing * level),
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(5400);
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeGreaterThan(0.068);
+    expect(unlike(first, litGrid(1))).toBeLessThan(0.0681);
+    expect(unlike(first, litGrid(6))).toBeGreaterThan(0.0496);
+    expect(unlike(first, litGrid(6))).toBeLessThan(0.0497);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('chorddiagrams', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 silver chord diagram maps on dark charcoal with raised lines and shaded gaps', () => {
+    const maps = generateProceduralMaps('chorddiagrams', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(27.7);
+    expect(red / (512 * 512)).toBeLessThan(28.7);
+    expect(green / (512 * 512)).toBeGreaterThan(28);
+    expect(green / (512 * 512)).toBeLessThan(29);
+    expect(blue / (512 * 512)).toBeGreaterThan(32.8);
+    expect(blue / (512 * 512)).toBeLessThan(33.8);
+    expect(maxTilt).toBeGreaterThan(0.107);
+    expect(maxTilt).toBeLessThan(0.1071);
     expect(invalid).toBe(0);
   });
 });

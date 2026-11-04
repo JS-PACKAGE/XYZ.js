@@ -55475,6 +55475,162 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'chorddiagrams': {
+        const p = proceduralMaterialPresets.chorddiagrams,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.points.length,
+          group = Math.floor(unsigned / p.points.length),
+          count: number = p.points[variant],
+          kind: number = p.kinds[variant],
+          cols = p.cols[variant],
+          rows = p.rows[variant],
+          pairs = count / 2,
+          // Two chords cross when their ends alternate round the circle.
+          crosses = (a: number[], b: number[]): boolean =>
+            (a[0] < b[0] && b[0] < a[1] && a[1] < b[1]) ||
+            (b[0] < a[0] && a[0] < b[1] && b[1] < a[1]),
+          // The point k on the circle of radius 1 whose box is 2 by 2: the first at the top, the others clockwise.
+          dots = Array.from({ length: count }, (_, k) => [
+            1 + Math.cos((2 * Math.PI * k) / count - Math.PI / 2),
+            1 + Math.sin((2 * Math.PI * k) / count - Math.PI / 2),
+          ]),
+          // A diagram as its chords (each with its lesser end first, as they are made) sorted, as a string.
+          name = (chords: number[][]): string =>
+            chords
+              .map(([a, b]) => `${a}-${b}`)
+              .sort()
+              .join(' '),
+          turn = (chords: number[][], by: number): number[][] =>
+            chords.map(([a, b]) => {
+              const x = (a + by) % count,
+                y = (b + by) % count;
+              return x < y ? [x, y] : [y, x];
+            }),
+          // Every chord diagram of the kind, found by joining the least point that is free to a later free one, for kind 1 without crossing a chord already there; for kind 2 one diagram is kept of each class under turning, the one with the least name.
+          shapes = (() => {
+            const found: number[][][] = [],
+              chords: number[][] = [],
+              used = new Array<boolean>(count).fill(false),
+              join = (): void => {
+                const first = used.indexOf(false);
+                if (first < 0) {
+                  found.push(chords.map((chord) => [...chord]));
+                  return;
+                }
+                used[first] = true;
+                for (let other = first + 1; other < count; other++) {
+                  if (used[other]) continue;
+                  const chord = [first, other];
+                  if (kind === 1 && chords.some((have) => crosses(have, chord)))
+                    continue;
+                  used[other] = true;
+                  chords.push(chord);
+                  join();
+                  chords.pop();
+                  used[other] = false;
+                }
+                used[first] = false;
+              };
+            join();
+            if (kind !== 2) return found;
+            const classes = new Map<string, number[][]>();
+            for (const diagram of found) {
+              const least = Array.from({ length: count }, (_, by) =>
+                name(turn(diagram, by)),
+              ).sort()[0];
+              if (!classes.has(least)) classes.set(least, diagram);
+            }
+            return [...classes.values()];
+          })(),
+          // The panels: shuffled, and for kind 2 turned by a multiple of a turn of the points; each as its chords from end to end in box units and the level.
+          panels = (() => {
+            const order = shapes.slice();
+            for (let k = order.length - 1; k > 0; k--) {
+              const other = Math.floor(
+                hash(k, 381, group ^ p.seedSalt) * (k + 1),
+              );
+              [order[k], order[other]] = [order[other], order[k]];
+            }
+            return order.map((diagram, k) => {
+              const placed =
+                  kind === 2
+                    ? turn(
+                        diagram,
+                        Math.floor(hash(k, 382, group ^ p.seedSalt) * count),
+                      )
+                    : diagram,
+                total = placed.reduce(
+                  (sum, chord, a) =>
+                    sum +
+                    placed.filter((other, b) => b > a && crosses(chord, other))
+                      .length,
+                  0,
+                );
+              return {
+                segments: placed.map(([a, b]) => [...dots[a], ...dots[b]]),
+                level: total / ((pairs * (pairs - 1)) / 2),
+              };
+            });
+          })(),
+          scale = Math.min(
+            1 / (cols * (2 + 2 * p.margin)),
+            1 / (rows * (2 + 2 * p.margin)),
+          ),
+          originX = (1 / cols - scale * (2 + 2 * p.margin)) / 2,
+          originY = (1 / rows - scale * (2 + 2 * p.margin)) / 2,
+          // 1 inside the distance half, 0 outside, 1/2 at half, smoothed over edgeSoft.
+          band = (distance: number, half: number): number =>
+            smooth(clamp((half - distance) / p.edgeSoft + 0.5));
+        return () => {
+          const tileU = fract(u),
+            tileV = fract(v),
+            col = Math.min(cols - 1, Math.floor(tileU * cols)),
+            row = Math.min(rows - 1, Math.floor(tileV * rows)),
+            index = row * cols + col,
+            grain = grainField(u, v);
+          let ink = 0,
+            level = 0;
+          if (index < panels.length) {
+            const x = (tileU - col / cols - originX) / scale - p.margin,
+              y = (tileV - row / rows - originY) / scale - p.margin;
+            let nearestLine = Infinity,
+              nearestDot = Infinity;
+            for (const [ax, ay, bx, by] of panels[index].segments) {
+              const dx = bx - ax,
+                dy = by - ay,
+                along = Math.max(
+                  0,
+                  Math.min(
+                    1,
+                    ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy),
+                  ),
+                );
+              nearestLine = Math.min(
+                nearestLine,
+                Math.hypot(x - ax - along * dx, y - ay - along * dy),
+              );
+            }
+            for (const [dx, dy] of dots)
+              nearestDot = Math.min(nearestDot, Math.hypot(x - dx, y - dy));
+            ink =
+              1 -
+              (1 - band(nearestLine, p.lineHalf)) *
+                (1 - band(nearestDot, p.dotRadius));
+            level = panels[index].level;
+          }
+          const tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+          color =
+            p.toneGround * (1 - ink) + tone * ink + p.grainTone * (grain - 0.5);
+          height = p.cellHeight * ink * (p.heightBase + p.heightSwing * level);
+          occlusion = 1 - p.gapOcclusion * (1 - ink);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -64435,6 +64591,7 @@ export function createSurfaceSampler(
     kind === 'polysticks' ||
     kind === 'alternatingsignmatrices' ||
     kind === 'stilllifes' ||
+    kind === 'chorddiagrams' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
