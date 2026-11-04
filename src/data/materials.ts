@@ -18993,6 +18993,30 @@ export const proceduralMaterialPresets = Object.freeze({
     cellHeight: 0.8,
     gapOcclusion: 0.45,
   }),
+  setpartitions: Object.freeze({
+    dark: [24, 10, 34] as const,
+    light: [255, 190, 120] as const,
+    roughness: 0.4,
+    relief: 0.0012,
+    seedSalt: 0x5b29,
+    // Every partition of a set of sizes[variant] elements into blocks of one kind drawn once in a small panel as its restricted growth string: the element number i (counting from 0) is the column i and its block the row j, where the blocks are numbered in the order of their first elements, one lit tile in every column. kinds[variant] 0 is all the partitions (the Bell numbers: 5 of 3 elements, 15 of 4, 52 of 5 and 203 of 6) and 1 the noncrossing ones, those with no elements a < b < c < d such that a and c are in one block and b and d in another (the Catalan numbers: 42 of 5 elements and 132 of 6). A lit tile has the tone and the height that follow the size of its block, a block of one element the lowest and one of all the elements the highest; the other cells show the ground. cols[variant] by rows[variant] panels fill the tile in an order shuffled by the seed, each drawn at one scale in both directions and centred in its slot with margin cells around the table. The seed is split in two: seed % 6 picks the variant and floor(seed / 6) the order of the panels, so seeds 0 to 5 are the six variants of one group.
+    sizes: [3, 4, 5, 5, 6, 6] as const,
+    kinds: [0, 0, 0, 1, 1, 0] as const,
+    cols: [3, 4, 8, 7, 12, 15] as const,
+    rows: [2, 4, 7, 6, 11, 14] as const,
+    margin: 0.5,
+    // A cell leaves a gap of gapWidth (a fraction of the cell) on all sides, smoothed over edgeSoft (a fraction of the cell).
+    gapWidth: 0.16,
+    edgeSoft: 0.1,
+    grainCells: 128,
+    toneGround: 0.03,
+    // The tone and the height (a fraction of cellHeight) of a lit tile, from the block of one element to the block of all of them.
+    tones: [0.3, 0.95] as const,
+    levels: [0.3, 1] as const,
+    grainTone: 0.03,
+    cellHeight: 0.8,
+    gapOcclusion: 0.45,
+  }),
   vermiculation: Object.freeze({
     dark: [60, 48, 36] as const,
     light: [220, 204, 172] as const,
@@ -20809,6 +20833,7 @@ export const proceduralTileMeters = Object.freeze({
   dominoboards: 0.5,
   latinsquares: 0.5,
   booleanfunctions: 0.5,
+  setpartitions: 0.5,
   dominotiling: 0.5,
   vermiculation: 0.4,
   kikko: 0.3,

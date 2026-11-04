@@ -54691,6 +54691,110 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'setpartitions': {
+        const p = proceduralMaterialPresets.setpartitions,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.sizes.length,
+          group = Math.floor(unsigned / p.sizes.length),
+          size: number = p.sizes[variant],
+          kind: number = p.kinds[variant],
+          cols = p.cols[variant],
+          rows = p.rows[variant],
+          // Every partition of the kind as its restricted growth string (the block number of every element, the blocks numbered in the order of their first elements), found element after element: an element joins a block that is there or opens the next one, and for the noncrossing kind it must not make a < b < c < d with a and c in one block and b and d in another.
+          panels = (() => {
+            const found: { block: Uint8Array; size: Uint8Array }[] = [],
+              block = new Uint8Array(size),
+              fill = (element: number, blocks: number): void => {
+                if (element === size) {
+                  const sizes = new Uint8Array(blocks);
+                  for (let i = 0; i < size; i++) sizes[block[i]]++;
+                  found.push({
+                    block: block.slice(),
+                    size: Uint8Array.from(block, (b) => sizes[b]),
+                  });
+                  return;
+                }
+                for (let value = 0; value <= blocks; value++) {
+                  if (kind === 1) {
+                    let crossing = false;
+                    for (let a = 0; a < element; a++)
+                      for (let b = a + 1; b < element; b++)
+                        for (let c = b + 1; c < element; c++)
+                          if (
+                            block[a] === block[c] &&
+                            block[a] !== value &&
+                            block[b] === value
+                          )
+                            crossing = true;
+                    if (crossing) continue;
+                  }
+                  block[element] = value;
+                  fill(element + 1, Math.max(blocks, value + 1));
+                }
+              };
+            fill(0, 0);
+            for (let k = found.length - 1; k > 0; k--) {
+              const other = Math.floor(
+                hash(k, 321, group ^ p.seedSalt) * (k + 1),
+              );
+              [found[k], found[other]] = [found[other], found[k]];
+            }
+            return found;
+          })(),
+          scale = Math.min(
+            1 / (cols * (size + 2 * p.margin)),
+            1 / (rows * (size + 2 * p.margin)),
+          ),
+          originX = (1 / cols - scale * (size + 2 * p.margin)) / 2,
+          originY = (1 / rows - scale * (size + 2 * p.margin)) / 2,
+          halfGap = p.gapWidth / 2,
+          // 1 on the cell side of a gap, 0 at the edge itself, at the distance fromEdge in cells.
+          edge = (fromEdge: number): number =>
+            smooth(clamp((fromEdge - halfGap) / p.edgeSoft));
+        return () => {
+          const tileU = fract(u),
+            tileV = fract(v),
+            col = Math.min(cols - 1, Math.floor(tileU * cols)),
+            row = Math.min(rows - 1, Math.floor(tileV * rows)),
+            index = row * cols + col,
+            grain = grainField(u, v);
+          let mask = 0,
+            fraction = 0;
+          if (index < panels.length) {
+            const x = (tileU - col / cols - originX) / scale - p.margin,
+              y = (tileV - row / rows - originY) / scale - p.margin,
+              i = Math.floor(x),
+              j = Math.floor(y);
+            if (
+              i >= 0 &&
+              j >= 0 &&
+              i < size &&
+              j < size &&
+              panels[index].block[i] === j
+            ) {
+              const fx = x - i,
+                fy = y - j;
+              mask = edge(fx) * edge(1 - fx) * edge(fy) * edge(1 - fy);
+              fraction = (panels[index].size[i] - 1) / (size - 1);
+            }
+          }
+          color =
+            p.toneGround * (1 - mask) +
+            (p.tones[0] + (p.tones[1] - p.tones[0]) * fraction) * mask +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.cellHeight *
+            mask *
+            (p.levels[0] + (p.levels[1] - p.levels[0]) * fraction);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -63645,6 +63749,7 @@ export function createSurfaceSampler(
     kind === 'dominoboards' ||
     kind === 'latinsquares' ||
     kind === 'booleanfunctions' ||
+    kind === 'setpartitions' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

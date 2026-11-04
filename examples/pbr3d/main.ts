@@ -1216,6 +1216,7 @@ try {
     'dominoboards',
     'latinsquares',
     'booleanfunctions',
+    'setpartitions',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

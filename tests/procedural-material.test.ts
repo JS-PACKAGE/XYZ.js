@@ -1179,6 +1179,7 @@ const kinds: ProceduralMaterialKind[] = [
   'dominoboards',
   'latinsquares',
   'booleanfunctions',
+  'setpartitions',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -206368,6 +206369,379 @@ describe('Boolean functions as every truth table of a kind drawn once', () => {
     expect(blue / (512 * 512)).toBeLessThan(42);
     expect(maxTilt).toBeGreaterThan(0.0616);
     expect(maxTilt).toBeLessThan(0.0618);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Set partitions as every partition of a kind drawn once', () => {
+  const p = proceduralMaterialPresets.setpartitions;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The layout of the panels of a variant (seed % 6): slots of 1 / cols by 1 / rows, each with the table (size by size cells, at its top left) and the margin around it, drawn at one scale and centred in the slot. */
+  const geometry = (seed: number) => {
+    const variant = seed % p.sizes.length,
+      size: number = p.sizes[variant],
+      cols: number = p.cols[variant],
+      rows: number = p.rows[variant],
+      scale = Math.min(
+        1 / (cols * (size + 2 * p.margin)),
+        1 / (rows * (size + 2 * p.margin)),
+      );
+    return {
+      size,
+      kind: p.kinds[variant] as number,
+      cols,
+      rows,
+      scale,
+      originX: (1 / cols - scale * (size + 2 * p.margin)) / 2,
+      originY: (1 / rows - scale * (size + 2 * p.margin)) / 2,
+    };
+  };
+  type Geometry = ReturnType<typeof geometry>;
+  /** The number of elements of the block of every element of a partition given as the block of every element. */
+  const blockSizes = (block: number[]): number[] =>
+    block.map((b) => block.filter((other) => other === b).length);
+  /** The partition of every panel slot of a seed read back from the picture (null for an empty slot): the block of the element i is the row of the one lit tile in the column i, and the height of that tile must be that of the size of the block. */
+  const readPartitions = (seed: number): (number[] | null)[] => {
+    const g = geometry(seed),
+      sample = createSurfaceSampler('setpartitions', seed),
+      out = empty(),
+      partitions: (number[] | null)[] = [];
+    for (let slot = 0; slot < g.cols * g.rows; slot++) {
+      const col = slot % g.cols,
+        row = Math.floor(slot / g.cols),
+        block: number[] = [],
+        levels: number[] = [];
+      for (let i = 0; i < g.size; i++) {
+        let lit = 0;
+        for (let j = 0; j < g.size; j++) {
+          sample(
+            col / g.cols + g.originX + g.scale * (p.margin + i + 0.5),
+            row / g.rows + g.originY + g.scale * (p.margin + j + 0.5),
+            out,
+          );
+          const level = out.height / p.relief / p.cellHeight;
+          if (level !== 0) {
+            lit++;
+            block[i] = j;
+            levels[i] = level;
+          }
+        }
+        expect(lit === 0 || lit === 1).toBe(true);
+      }
+      // An empty slot shows the ground at every cell.
+      if (block.filter((b) => b !== undefined).length === 0) {
+        partitions.push(null);
+        continue;
+      }
+      expect(block.length).toBe(g.size);
+      const sizes = blockSizes(block);
+      for (let i = 0; i < g.size; i++)
+        expect(levels[i]).toBeCloseTo(
+          p.levels[0] +
+            ((p.levels[1] - p.levels[0]) * (sizes[i] - 1)) / (g.size - 1),
+          9,
+        );
+      partitions.push(block);
+    }
+    return partitions;
+  };
+  /** Whether a partition (the block of every element) is of the kind, from the definitions: the blocks numbered in the order of their first elements, and for the noncrossing kind no a < b < c < d with a and c in one block and b and d in another. */
+  const isOfKind = (g: Geometry, block: number[]): boolean => {
+    let most = -1;
+    for (const b of block) {
+      if (b > most + 1) return false;
+      most = Math.max(most, b);
+    }
+    if (g.kind === 1)
+      for (let a = 0; a < block.length; a++)
+        for (let b = a + 1; b < block.length; b++)
+          for (let c = b + 1; c < block.length; c++)
+            for (let d = c + 1; d < block.length; d++)
+              if (
+                block[a] === block[c] &&
+                block[b] === block[d] &&
+                block[a] !== block[b]
+              )
+                return false;
+    return true;
+  };
+  /** Every partition of the kind by going through all the size^size maps from the elements to labels, numbering the labels in the order of their first elements and keeping the distinct ones of the kind. */
+  const allPartitions = (g: Geometry): string[] => {
+    const found = new Set<string>();
+    for (let code = 0; code < g.size ** g.size; code++) {
+      const label = Array.from(
+          { length: g.size },
+          (_, i) => Math.floor(code / g.size ** i) % g.size,
+        ),
+        order: number[] = [],
+        block = label.map((value) => {
+          if (!order.includes(value)) order.push(value);
+          return order.indexOf(value);
+        });
+      if (isOfKind(g, block)) found.add(block.join(''));
+    }
+    return [...found];
+  };
+  /** The grid of 256 by 256 colours above 0.2, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('setpartitions', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.2));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { high: 0.9635, lit: 0.05939, mean: 0.06026 }],
+      [1, { high: 0.9627, lit: 0.08196, mean: 0.06983 }],
+      [0xffffffff, { high: 0.9629, lit: 0.06757, mean: 0.05965 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('setpartitions', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.2);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0152);
+      expect(low).toBeLessThan(0.0157);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws every set partition of the kind exactly once, read back from the picture and compared with all the maps from the elements to labels', () => {
+    for (let seed = 0; seed < 12; seed++) {
+      const g = geometry(seed),
+        read = readPartitions(seed),
+        drawn = read.filter((block): block is number[] => block !== null),
+        names = drawn.map((block) => block.join(''));
+      for (const block of drawn) expect(isOfKind(g, block)).toBe(true);
+      expect(new Set(names).size).toBe(drawn.length);
+      expect([...names].sort()).toEqual(allPartitions(g).sort());
+      expect(read.slice(drawn.length).every((block) => block === null)).toBe(
+        true,
+      );
+    }
+    // The numbers: the Bell numbers 5, 15, 52 and 203 of 3, 4, 5 and 6 elements, and the Catalan numbers 42 and 132 of the noncrossing partitions of 5 and 6.
+    expect(
+      [0, 1, 2, 3, 4, 5].map(
+        (seed) => readPartitions(seed).filter((block) => block !== null).length,
+      ),
+    ).toEqual([5, 15, 52, 42, 132, 203]);
+  });
+  it('shuffles the panels by group without changing the set of partitions', () => {
+    for (const seed of [1, 2, 4]) {
+      const names = (s: number) =>
+          readPartitions(s).map((block) =>
+            block === null ? '-' : block.join(''),
+          ),
+        first = names(seed),
+        second = names(seed + 6),
+        third = names(seed + 12);
+      expect(first).not.toEqual(second);
+      expect(second).not.toEqual(third);
+      expect([...first].sort()).toEqual([...second].sort());
+      expect([...first].sort()).toEqual([...third].sort());
+    }
+  });
+  it('agrees with the ideal tiles and gaps away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5]) {
+      const g = geometry(seed),
+        partitions = readPartitions(seed),
+        sample = createSurfaceSampler('setpartitions', seed),
+        out = empty(),
+        half = p.gapWidth / 2;
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          col = Math.min(g.cols - 1, Math.floor(u * g.cols)),
+          row = Math.min(g.rows - 1, Math.floor(v * g.rows)),
+          block = partitions[row * g.cols + col],
+          x = (u - col / g.cols - g.originX) / g.scale - p.margin,
+          y = (v - row / g.rows - g.originY) / g.scale - p.margin,
+          i = Math.floor(x),
+          j = Math.floor(y);
+        let ink = 0,
+          fraction = 0,
+          near = false;
+        if (
+          block !== null &&
+          i >= 0 &&
+          j >= 0 &&
+          i < g.size &&
+          j < g.size &&
+          block[i] === j
+        ) {
+          const sides = [x - i, i + 1 - x, y - j, j + 1 - y];
+          if (
+            sides.some(
+              (distance) => distance > half && distance < half + p.edgeSoft,
+            )
+          )
+            near = true;
+          ink = sides.every((distance) => distance > half) ? 1 : 0;
+          fraction = (blockSizes(block)[i] - 1) / (g.size - 1);
+        }
+        if (near) continue;
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.levels[0] + (p.levels[1] - p.levels[0]) * fraction),
+          12,
+        );
+        expect(
+          Math.abs(
+            out.color -
+              (p.toneGround * (1 - ink) +
+                (p.tones[0] + (p.tones[1] - p.tones[0]) * fraction) * ink),
+          ),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(5550);
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeGreaterThan(0.1406);
+    expect(unlike(first, litGrid(1))).toBeLessThan(0.1407);
+    expect(unlike(first, litGrid(6))).toBeGreaterThan(0.051);
+    expect(unlike(first, litGrid(6))).toBeLessThan(0.0511);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('setpartitions', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 amber set partition maps on dark plum with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('setpartitions', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(39.7);
+    expect(red / (512 * 512)).toBeLessThan(40.6);
+    expect(green / (512 * 512)).toBeGreaterThan(22.1);
+    expect(green / (512 * 512)).toBeLessThan(23);
+    expect(blue / (512 * 512)).toBeGreaterThan(39.6);
+    expect(blue / (512 * 512)).toBeLessThan(40.5);
+    expect(maxTilt).toBeGreaterThan(0.0483);
+    expect(maxTilt).toBeLessThan(0.0485);
     expect(invalid).toBe(0);
   });
 });
