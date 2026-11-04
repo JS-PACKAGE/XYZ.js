@@ -53239,6 +53239,157 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'polyominoes': {
+        const p = proceduralMaterialPresets.polyominoes,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.sizes.length,
+          group = Math.floor(unsigned / p.sizes.length),
+          size = p.sizes[variant],
+          free = p.kinds[variant] === 0,
+          cols = p.cols[variant],
+          rows = p.rows[variant],
+          // The eight turns and flips of the cells (x, y) of a shape: bit 0 swaps x and y, bit 1 reverses x and bit 2 reverses y.
+          transform = (cells: number[][], turn: number): number[][] =>
+            cells.map(([x, y]) => {
+              let a = x,
+                b = y;
+              if (turn & 1) [a, b] = [b, a];
+              if (turn & 2) a = -a;
+              if (turn & 4) b = -b;
+              return [a, b];
+            }),
+          // The shape moved so that its least x and least y are 0, with its cells sorted, as a string.
+          normalize = (cells: number[][]): number[][] => {
+            const minX = Math.min(...cells.map(([x]) => x)),
+              minY = Math.min(...cells.map(([, y]) => y));
+            return cells
+              .map(([x, y]) => [x - minX, y - minY])
+              .sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+          },
+          key = (cells: number[][]): string =>
+            cells.map(([x, y]) => `${x},${y}`).join(';'),
+          // Every polyomino of size cells (free: one shape of each class of turns and flips; fixed: each shape moved to the corner) grown cell by cell, with the number of the eight turns and flips that map it onto itself.
+          shapes = (() => {
+            let current = new Map<string, number[][]>([['0,0', [[0, 0]]]]);
+            const classOf = (cells: number[][]): string =>
+              free
+                ? [...Array(8).keys()]
+                    .map((turn) => key(normalize(transform(cells, turn))))
+                    .sort()[0]
+                : key(normalize(cells));
+            for (let step = 1; step < size; step++) {
+              const next = new Map<string, number[][]>();
+              for (const cells of current.values()) {
+                const taken = new Set(cells.map(([x, y]) => `${x},${y}`));
+                for (const [x, y] of cells)
+                  for (const [dx, dy] of [
+                    [1, 0],
+                    [-1, 0],
+                    [0, 1],
+                    [0, -1],
+                  ]) {
+                    if (taken.has(`${x + dx},${y + dy}`)) continue;
+                    const grown = normalize([...cells, [x + dx, y + dy]]),
+                      name = classOf(grown);
+                    if (!next.has(name)) next.set(name, grown);
+                  }
+              }
+              current = next;
+            }
+            return [...current.values()].map((cells) => {
+              const own = key(normalize(cells));
+              let stabilizer = 0;
+              for (let turn = 0; turn < 8; turn++)
+                if (key(normalize(transform(cells, turn))) === own)
+                  stabilizer++;
+              return { cells, stabilizer };
+            });
+          })(),
+          // The panels: shuffled, and for free polyominoes turned by one of the eight turns and flips; as a grid of size by size with the shape at the top left.
+          panels = (() => {
+            const order = shapes.slice();
+            for (let k = order.length - 1; k > 0; k--) {
+              const other = Math.floor(
+                hash(k, 221, group ^ p.seedSalt) * (k + 1),
+              );
+              [order[k], order[other]] = [order[other], order[k]];
+            }
+            return order.map(({ cells, stabilizer }, k) => {
+              const placed = normalize(
+                  free
+                    ? transform(
+                        cells,
+                        Math.floor(hash(k, 222, group ^ p.seedSalt) * 8),
+                      )
+                    : cells,
+                ),
+                grid = new Uint8Array(size * size);
+              for (const [x, y] of placed) grid[y * size + x] = 1;
+              return { grid, level: Math.log2(stabilizer) / 3 };
+            });
+          })(),
+          scale = Math.min(
+            1 / (cols * (size + 2 * p.margin)),
+            1 / (rows * (size + 2 * p.margin)),
+          ),
+          originX = (1 / cols - scale * (size + 2 * p.margin)) / 2,
+          originY = (1 / rows - scale * (size + 2 * p.margin)) / 2,
+          halfGap = p.gapWidth / 2,
+          // 1 on the cell side of a gap, 0 at the edge itself, at the distance fromEdge in cells.
+          edge = (fromEdge: number): number =>
+            smooth(clamp((fromEdge - halfGap) / p.edgeSoft));
+        return () => {
+          const tileU = fract(u),
+            tileV = fract(v),
+            col = Math.min(cols - 1, Math.floor(tileU * cols)),
+            row = Math.min(rows - 1, Math.floor(tileV * rows)),
+            index = row * cols + col,
+            grain = grainField(u, v);
+          let mask = 0,
+            level = 0;
+          if (index < panels.length) {
+            const x = (tileU - col / cols - originX) / scale - p.margin,
+              y = (tileV - row / rows - originY) / scale - p.margin,
+              i = Math.floor(x),
+              j = Math.floor(y),
+              { grid } = panels[index];
+            if (
+              i >= 0 &&
+              j >= 0 &&
+              i < size &&
+              j < size &&
+              grid[j * size + i] === 1
+            ) {
+              const fx = x - i,
+                fy = y - j,
+                has = (a: number, b: number): boolean =>
+                  a >= 0 &&
+                  b >= 0 &&
+                  a < size &&
+                  b < size &&
+                  grid[b * size + a] === 1;
+              // A side of the cell has a gap when the cell across it is not of the polyomino.
+              mask =
+                (has(i - 1, j) ? 1 : edge(fx)) *
+                (has(i + 1, j) ? 1 : edge(1 - fx)) *
+                (has(i, j - 1) ? 1 : edge(fy)) *
+                (has(i, j + 1) ? 1 : edge(1 - fy));
+              level = panels[index].level;
+            }
+          }
+          const tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+          color =
+            p.toneGap + (tone - p.toneGap) * mask + p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -62182,6 +62333,7 @@ export function createSurfaceSampler(
     kind === 'youngdiagrams' ||
     kind === 'necklaces' ||
     kind === 'spanningtrees' ||
+    kind === 'polyominoes' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

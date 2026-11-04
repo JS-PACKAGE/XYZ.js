@@ -1142,6 +1142,7 @@ export type ProceduralMaterialKind =
   | 'youngdiagrams'
   | 'necklaces'
   | 'spanningtrees'
+  | 'polyominoes'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2532,6 +2533,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'youngdiagrams',
   'necklaces',
   'spanningtrees',
+  'polyominoes',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

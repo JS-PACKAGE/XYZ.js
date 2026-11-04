@@ -1168,6 +1168,7 @@ const kinds: ProceduralMaterialKind[] = [
   'youngdiagrams',
   'necklaces',
   'spanningtrees',
+  'polyominoes',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -201763,6 +201764,431 @@ describe('Spanning trees as every tree of a small graph drawn once', () => {
     expect(blue / (512 * 512)).toBeLessThan(50.2);
     expect(maxTilt).toBeGreaterThan(0.0964);
     expect(maxTilt).toBeLessThan(0.0965);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Polyominoes as every shape of n cells drawn once', () => {
+  const p = proceduralMaterialPresets.polyominoes;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The layout of the panels of a variant (seed % 6): slots of 1 / cols by 1 / rows, each with a box of size by size cells (the shape at its top left) and the margin around it, drawn at one scale and centred in the slot. */
+  const geometry = (seed: number) => {
+    const variant = seed % p.sizes.length,
+      size: number = p.sizes[variant],
+      cols: number = p.cols[variant],
+      rows: number = p.rows[variant],
+      span = size + 2 * p.margin,
+      scale = Math.min(1 / (cols * span), 1 / (rows * span));
+    return {
+      size,
+      cols,
+      rows,
+      free: p.kinds[variant] === 0,
+      scale,
+      originX: (1 / cols - scale * span) / 2,
+      originY: (1 / rows - scale * span) / 2,
+    };
+  };
+  type Cells = number[][];
+  const turned = (cells: Cells, turn: number): Cells =>
+    cells.map(([x, y]) => [
+      turn & 2 ? -(turn & 1 ? y : x) : turn & 1 ? y : x,
+      turn & 4 ? -(turn & 1 ? x : y) : turn & 1 ? x : y,
+    ]);
+  /** The cells moved to the corner and sorted, written as one string. */
+  const shapeKey = (cells: Cells): string => {
+    const minX = Math.min(...cells.map(([x]) => x)),
+      minY = Math.min(...cells.map(([, y]) => y));
+    return cells
+      .map(([x, y]) => `${x - minX},${y - minY}`)
+      .sort()
+      .join(' ');
+  };
+  /** The same for the least of the eight turns and flips: a name of the free polyomino. */
+  const freeKey = (cells: Cells): string =>
+    [0, 1, 2, 3, 4, 5, 6, 7]
+      .map((turn) => shapeKey(turned(cells, turn)))
+      .sort()[0];
+  /** How many of the eight turns and flips map the shape onto itself. */
+  const symmetries = (cells: Cells): number =>
+    [0, 1, 2, 3, 4, 5, 6, 7].filter(
+      (turn) => shapeKey(turned(cells, turn)) === shapeKey(cells),
+    ).length;
+  const connected = (cells: Cells): boolean => {
+    const names = new Set(cells.map(([x, y]) => `${x},${y}`)),
+      seen = new Set([`${cells[0][0]},${cells[0][1]}`]),
+      stack = [cells[0]];
+    while (stack.length > 0) {
+      const [x, y] = stack.pop()!;
+      for (const [dx, dy] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ]) {
+        const name = `${x + dx},${y + dy}`;
+        if (names.has(name) && !seen.has(name)) {
+          seen.add(name);
+          stack.push([x + dx, y + dy]);
+        }
+      }
+    }
+    return seen.size === cells.length;
+  };
+  /** Every fixed polyomino of n cells (shapes that differ by moving them only), grown from one cell by adding a neighbouring cell. */
+  const fixedShapes = (n: number): Cells[] => {
+    let shapes = new Map<string, Cells>([['0,0', [[0, 0]]]]);
+    for (let step = 1; step < n; step++) {
+      const grown = new Map<string, Cells>();
+      for (const cells of shapes.values()) {
+        const taken = new Set(cells.map(([x, y]) => `${x},${y}`));
+        for (const [x, y] of cells)
+          for (const [dx, dy] of [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ])
+            if (!taken.has(`${x + dx},${y + dy}`)) {
+              const next = [...cells, [x + dx, y + dy]];
+              grown.set(shapeKey(next), next);
+            }
+      }
+      shapes = grown;
+    }
+    return [...shapes.values()];
+  };
+  type Panel = { cells: Cells; levels: Set<number> };
+  /** The shape of every panel slot of a seed read back from the picture (null for an empty slot): a cell is part of the shape where the ink is at its centre, and the height gives the symmetry level (0 to 3 for 1, 2, 4 and 8 symmetries). */
+  const readPanels = (seed: number): (Panel | null)[] => {
+    const g = geometry(seed),
+      sample = createSurfaceSampler('polyominoes', seed),
+      out = empty(),
+      panels: (Panel | null)[] = [];
+    for (let slot = 0; slot < g.cols * g.rows; slot++) {
+      const col = slot % g.cols,
+        row = Math.floor(slot / g.cols),
+        cells: Cells = [],
+        levels = new Set<number>();
+      for (let j = 0; j < g.size; j++)
+        for (let i = 0; i < g.size; i++) {
+          sample(
+            col / g.cols + g.originX + g.scale * (p.margin + i + 0.5),
+            row / g.rows + g.originY + g.scale * (p.margin + j + 0.5),
+            out,
+          );
+          if (1 - (1 - out.occlusion) / p.gapOcclusion < 0.5) continue;
+          cells.push([i, j]);
+          levels.add(
+            Math.round(
+              (3 * (out.height / p.relief / p.cellHeight - p.heightBase)) /
+                p.heightSwing,
+            ),
+          );
+        }
+      panels.push(cells.length === 0 ? null : { cells, levels });
+    }
+    return panels;
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('polyominoes', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    // The top of the tone and height depends on the variant: no hexomino has all eight symmetries, so seed 1 has no cell of the highest level.
+    const expected = new Map([
+      [0, { high: 0.9632, lit: 0.04886, mean: 0.06982, height: 0.8 }],
+      [1, { high: 0.7779, lit: 0.02597, mean: 0.05903, height: 0.64 }],
+      [0xffffffff, { high: 0.9621, lit: 0.04672, mean: 0.07407, height: 0.8 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('polyominoes', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0153);
+      expect(low).toBeLessThan(0.0155);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(want.height, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws every free or fixed polyomino of the size exactly once, read back from the picture and compared with a list grown again here', () => {
+    for (let seed = 0; seed < 12; seed++) {
+      const g = geometry(seed),
+        read = readPanels(seed),
+        drawn = read.filter((panel): panel is Panel => panel !== null),
+        names = drawn.map(({ cells }) =>
+          g.free ? freeKey(cells) : shapeKey(cells),
+        ),
+        wanted = fixedShapes(g.size).map((cells) =>
+          g.free ? freeKey(cells) : shapeKey(cells),
+        );
+      for (const { cells } of drawn) {
+        expect(cells.length).toBe(g.size);
+        expect(connected(cells)).toBe(true);
+      }
+      // No two panels show the same shape and none is missing.
+      expect(new Set(names).size).toBe(drawn.length);
+      expect([...new Set(wanted)].sort()).toEqual([...names].sort());
+      // The empty slots are the last ones.
+      expect(read.slice(drawn.length).every((panel) => panel === null)).toBe(
+        true,
+      );
+    }
+    // The numbers are 5, 35 and 108 free polyominoes of 4, 6 and 7 cells and 19, 63 and 216 fixed ones of 4, 5 and 6 cells.
+    expect(
+      [0, 1, 2, 3, 4, 5].map(
+        (seed) => readPanels(seed).filter((panel) => panel !== null).length,
+      ),
+    ).toEqual([5, 35, 108, 19, 63, 216]);
+  });
+  it('shows free polyominoes turned or flipped and the symmetry level of every shape', () => {
+    for (let seed = 0; seed < 6; seed++) {
+      const g = geometry(seed),
+        drawn = readPanels(seed).filter(
+          (panel): panel is Panel => panel !== null,
+        );
+      // The level of a polyomino is the logarithm to base 2 of the number of turns and flips that map it onto itself: 1, 2, 4 and 8 symmetries give the levels 0, 1, 2 and 3.
+      for (const { cells, levels } of drawn)
+        expect([...levels]).toEqual([Math.log2(symmetries(cells))]);
+      // Free polyominoes are turned (and the shape stays in the corner of its box); fixed ones are drawn as they were grown, so some of the shapes are not in the first turn.
+      if (g.free)
+        expect(
+          drawn.some(({ cells }) => shapeKey(cells) !== freeKey(cells)),
+        ).toBe(true);
+    }
+    // Every symmetry level occurs among the fixed tetrominoes (the square has all eight), and no hexomino has the level 3, free or fixed.
+    const levels = (seed: number) =>
+      new Set(readPanels(seed).flatMap((panel) => [...(panel?.levels ?? [])]));
+    expect([...levels(3)].sort()).toEqual([0, 1, 2, 3]);
+    expect([...levels(5)].sort()).toEqual([0, 1, 2]);
+    expect([...levels(1)].sort()).toEqual([0, 1, 2]);
+  });
+  it('shuffles the panels by group without changing the set of shapes', () => {
+    for (const seed of [0, 1, 4]) {
+      const names = (s: number) =>
+          readPanels(s).map((panel) =>
+            panel === null ? '-' : shapeKey(panel.cells),
+          ),
+        first = names(seed),
+        second = names(seed + 6),
+        third = names(seed + 12);
+      expect(first).not.toEqual(second);
+      expect(second).not.toEqual(third);
+      // For free polyominoes the turn changes with the group too, so compare the names of the classes there.
+      const classes = (s: number) =>
+        readPanels(s)
+          .filter((panel) => panel !== null)
+          .map((panel) => freeKey(panel.cells))
+          .sort();
+      expect(classes(seed)).toEqual(classes(seed + 6));
+      expect(classes(seed)).toEqual(classes(seed + 12));
+    }
+  });
+  it('agrees with the ideal cells and gaps away from the gap edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5]) {
+      const g = geometry(seed),
+        panels = readPanels(seed),
+        sample = createSurfaceSampler('polyominoes', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          col = Math.min(g.cols - 1, Math.floor(u * g.cols)),
+          row = Math.min(g.rows - 1, Math.floor(v * g.rows)),
+          panel = panels[row * g.cols + col],
+          x = (u - col / g.cols - g.originX) / g.scale - p.margin,
+          y = (v - row / g.rows - g.originY) / g.scale - p.margin,
+          i = Math.floor(x),
+          j = Math.floor(y);
+        let ink = 0,
+          level = 0,
+          near = false;
+        if (
+          panel !== null &&
+          panel.cells.some(([a, b]) => a === i && b === j)
+        ) {
+          const has = (a: number, b: number) =>
+              panel.cells.some(([c, d]) => c === a && d === b),
+            // The distances to the four sides of the cell and whether a gap lies beyond each.
+            sides: [number, boolean][] = [
+              [x - i, !has(i - 1, j)],
+              [i + 1 - x, !has(i + 1, j)],
+              [y - j, !has(i, j - 1)],
+              [j + 1 - y, !has(i, j + 1)],
+            ];
+          let gap = false;
+          for (const [distance, open] of sides) {
+            if (!open) continue;
+            if (distance <= p.gapWidth / 2) gap = true;
+            if (distance < p.gapWidth / 2 + p.edgeSoft) near = true;
+          }
+          ink = gap ? 0 : 1;
+          level = Math.log2(symmetries(panel.cells)) / 3;
+        }
+        if (near) continue;
+        compared++;
+        sample(u, v, out);
+        const tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.heightBase + p.heightSwing * level),
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGap + (tone - p.toneGap) * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(5600);
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeGreaterThan(0.07);
+    expect(unlike(first, litGrid(1))).toBeLessThan(0.08);
+    expect(unlike(first, litGrid(6))).toBeGreaterThan(0.05);
+    expect(unlike(first, litGrid(6))).toBeLessThan(0.055);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('polyominoes', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 peach polyomino maps on dark navy with raised cells and shaded gaps', () => {
+    const maps = generateProceduralMaps('polyominoes', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(26);
+    expect(red / (512 * 512)).toBeLessThan(26.8);
+    expect(green / (512 * 512)).toBeGreaterThan(24.4);
+    expect(green / (512 * 512)).toBeLessThan(25.2);
+    expect(blue / (512 * 512)).toBeGreaterThan(38);
+    expect(blue / (512 * 512)).toBeLessThan(38.8);
+    expect(maxTilt).toBeGreaterThan(0.0627);
+    expect(maxTilt).toBeLessThan(0.0628);
     expect(invalid).toBe(0);
   });
 });

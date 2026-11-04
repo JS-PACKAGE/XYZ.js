@@ -1205,6 +1205,7 @@ try {
     'youngdiagrams',
     'necklaces',
     'spanningtrees',
+    'polyominoes',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
