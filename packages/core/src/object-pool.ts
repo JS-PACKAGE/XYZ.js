@@ -19,8 +19,8 @@ export class ObjectPoolExhaustedError extends Error {
 /** Lazy bounded pool. Callbacks may inspect the pool, but cannot mutate it reentrantly. */
 export class ObjectPool<T extends object> {
   readonly capacity: number;
-  private readonly owned = new Set<T>();
-  private readonly borrowed = new Set<T>();
+  private readonly owned = new Map<T, { borrowed: boolean }>();
+  private borrowed = 0;
   private readonly available: T[] = [];
   private busy = false;
   private disposed = false;
@@ -35,7 +35,7 @@ export class ObjectPool<T extends object> {
     return this.owned.size;
   }
   get borrowedCount(): number {
-    return this.borrowed.size;
+    return this.borrowed;
   }
   get availableCount(): number {
     return this.available.length;
@@ -61,20 +61,24 @@ export class ObjectPool<T extends object> {
           throw new TypeError('Pool factory must create an object.');
         if (this.owned.has(value))
           throw new Error('Pool factory returned an already owned object.');
-        this.owned.add(value);
+        this.owned.set(value, { borrowed: false });
       } finally {
         this.busy = false;
       }
     }
-    this.borrowed.add(value);
+    this.owned.get(value)!.borrowed = true;
+    this.borrowed++;
     return value;
   }
 
   /** Foreign or double releases throw. Failed reset evicts the object permanently. */
   release(value: T): void {
     this.assertMutable();
-    if (!this.borrowed.delete(value))
+    const state = this.owned.get(value);
+    if (!state?.borrowed)
       throw new Error('Object is not borrowed from this pool.');
+    state.borrowed = false;
+    this.borrowed--;
     this.busy = true;
     try {
       try {
@@ -103,10 +107,10 @@ export class ObjectPool<T extends object> {
     if (this.busy) throw new Error('Pool callbacks cannot mutate the pool.');
     if (this.disposed) return;
     this.disposed = true;
-    this.borrowed.clear();
+    this.borrowed = 0;
     this.available.length = 0;
     const errors: unknown[] = [];
-    for (const value of this.owned) {
+    for (const value of this.owned.keys()) {
       try {
         this.options.destroy?.(value);
       } catch (error) {
