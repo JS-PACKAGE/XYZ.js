@@ -15701,6 +15701,54 @@ export declare const proceduralMaterialPresets: Readonly<{
         pipLevel: 0.7;
         inkRoughness: 0.45;
     }>;
+    tenniscourt: Readonly<{
+        dark: readonly [24, 30, 22];
+        light: readonly [236, 236, 228];
+        roughness: 0.55;
+        relief: 0.004;
+        feet: 0.0075;
+        courtLength: 78;
+        courtWidth: 36;
+        singlesWidth: 27;
+        serviceDistance: 21;
+        runoffEnd: 21;
+        runoffSide: 12;
+        lineWidth: number;
+        centreMark: number;
+        centreMarkWidth: number;
+        netThickness: 0.4;
+        postOutside: 3;
+        postRadius: 0.5;
+        surfaces: readonly (Readonly<{
+            court: 0.42;
+            runoff: 0.3;
+            ground: 0.18;
+        }> | Readonly<{
+            court: 0.6;
+            runoff: 0.54;
+            ground: 0.38;
+        }> | Readonly<{
+            court: 0.46;
+            runoff: 0.4;
+            ground: 0.28;
+        }> | Readonly<{
+            court: 0.34;
+            runoff: 0.26;
+            ground: 0.14;
+        }>)[];
+        toneShift: 0.04;
+        edgeSoft: 0.0006;
+        lineTone: 0.96;
+        netTone: 0.12;
+        postTone: 0.06;
+        groundHeight: 0.15;
+        runoffHeight: 0.25;
+        courtHeight: 0.3;
+        lineHeight: 0.35;
+        netHeight: 0.8;
+        postHeight: 0.9;
+        inkRoughness: 0.45;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -22186,6 +22234,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    tenniscourt: 1;
     playingcardpips: 1;
     poolrack: 1;
     tablutboard: 1;

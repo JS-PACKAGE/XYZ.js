@@ -2409,6 +2409,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`tenniscourt`（網球場）使目前目錄1210→1211種，含plain的gallery為1212項。從正上方看的網球場，依規則的尺寸（以英尺計）畫出：全場78×36、單打邊線間27、發球線離網21、中央發球線、底線上的中央標記（4英吋長）、中間的球網與網柱（在雙打邊線外3英尺）；四周是底線後21英尺與邊線外12英尺的緩衝區，再外是場地外的地面；每條線是三分之一英尺寬，畫在它所標示的邊的內側。seed選一種球場表面（場地、緩衝區與地面的色調，四種之一，三個色調再一起偏移不超過`toneShift`，模擬舊化），並決定球場長邊沿著畫面或橫過畫面。這是作者設計的示意，沒有文字；測試端以另外寫的規則尺寸（含「preset的數值等於這些尺寸」的斷言）逐項檢查：場地、緩衝區與地面的色調／高度／粗糙度，色調偏移一致（三個色調同量偏移，300個seed涵蓋整個範圍、平均近0），每一條線（兩條底線、雙打與單打的四條邊線、兩條發球線、中央發球線）的位置、寬度（兩側各0.0004英尺的位置）與色調／高度，線的端點與不越界，中央標記的長與寬，球網的位置與寬度和網柱的位置與半徑，300個seed中四種表面與兩種方向各約相同，以及各邊緣的柔化（以較緊的容許值檢查）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

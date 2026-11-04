@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'tenniscourt',
   'playingcardpips',
   'poolrack',
   'tablutboard',
@@ -49325,6 +49326,140 @@ export function createSurfaceSampler(
             shade += (p.suits[suit].tone - shade) * pipCover;
             elevation += (p.pipLevel - elevation) * pipCover;
           }
+          color = clamp(shade);
+          height = clamp(elevation);
+          roughness = clamp(p.inkRoughness);
+          occlusion = 1;
+        };
+      }
+      case 'tenniscourt': {
+        const p = proceduralMaterialPresets.tenniscourt,
+          inverseSoft = 1 / p.edgeSoft,
+          norm = (x: number, y: number): number => Math.sqrt(x * x + y * y),
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(104, 1, seed ^ 0xff001) * p.surfaces.length)
+            ],
+          across = hash(104, 2, seed ^ 0xff002) < 0.5,
+          shift = (hash(104, 3, seed ^ 0xff003) * 2 - 1) * p.toneShift,
+          halfLength = p.courtLength / 2,
+          halfWidth = p.courtWidth / 2,
+          halfSingles = p.singlesWidth / 2,
+          halfLine = p.lineWidth / 2,
+          halfMark = p.centreMark / 2,
+          markReach = p.centreMarkWidth / 2,
+          halfNet = p.netThickness / 2,
+          netEnd = halfWidth + p.postOutside,
+          // How far inside a rectangle (its middle and half sides, in feet) a place is, in the distance on the picture.
+          rect = (
+            x: number,
+            y: number,
+            cx: number,
+            cy: number,
+            hx: number,
+            hy: number,
+          ): number =>
+            Math.min(hx - Math.abs(x - cx), hy - Math.abs(y - cy)) * p.feet;
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            // The place in feet from the middle of the court (x along its length).
+            x = ((across ? fv : fu) - 0.5) / p.feet,
+            y = ((across ? fu : fv) - 0.5) / p.feet,
+            runoff = cover(
+              rect(
+                x,
+                y,
+                0,
+                0,
+                halfLength + p.runoffEnd,
+                halfWidth + p.runoffSide,
+              ),
+            ),
+            court = cover(rect(x, y, 0, 0, halfLength, halfWidth));
+          // The lines: the baselines, the sidelines of doubles and of singles, the service lines, the centre service line and the centre marks, each inside the edge it marks.
+          let line = cover(rect(x, y, 0, 0, p.serviceDistance, halfLine));
+          for (const side of [-1, 1]) {
+            line = Math.max(
+              line,
+              cover(
+                rect(
+                  x,
+                  y,
+                  side * (halfLength - halfLine),
+                  0,
+                  halfLine,
+                  halfWidth,
+                ),
+              ),
+              cover(
+                rect(
+                  x,
+                  y,
+                  0,
+                  side * (halfWidth - halfLine),
+                  halfLength,
+                  halfLine,
+                ),
+              ),
+              cover(
+                rect(
+                  x,
+                  y,
+                  0,
+                  side * (halfSingles - halfLine),
+                  halfLength,
+                  halfLine,
+                ),
+              ),
+              cover(
+                rect(
+                  x,
+                  y,
+                  side * (p.serviceDistance - halfLine),
+                  0,
+                  halfLine,
+                  halfSingles,
+                ),
+              ),
+              cover(
+                rect(
+                  x,
+                  y,
+                  side * (halfLength - p.lineWidth - halfMark),
+                  0,
+                  halfMark,
+                  markReach,
+                ),
+              ),
+            );
+          }
+          // Court or line over the run-off, the line only where there is court (so that a line at the edge of the court has the edge of the court).
+          const lined = court > 0 ? Math.min(1, line / court) : 0;
+          let shade = surface.ground + shift,
+            elevation = p.groundHeight;
+          shade += (surface.runoff + shift - shade) * runoff;
+          elevation += (p.runoffHeight - elevation) * runoff;
+          const courtTone = surface.court + shift,
+            above = courtTone + (p.lineTone - courtTone) * lined;
+          shade += (above - shade) * court;
+          elevation +=
+            (p.courtHeight +
+              (p.lineHeight - p.courtHeight) * lined -
+              elevation) *
+            court;
+          // The net across the middle with its posts outside the doubles sidelines.
+          const net = cover(rect(x, y, 0, 0, halfNet, netEnd)),
+            posts = Math.max(
+              cover((p.postRadius - norm(x, y - netEnd)) * p.feet),
+              cover((p.postRadius - norm(x, y + netEnd)) * p.feet),
+            );
+          shade += (p.netTone - shade) * net;
+          elevation += (p.netHeight - elevation) * net;
+          shade += (p.postTone - shade) * posts;
+          elevation += (p.postHeight - elevation) * posts;
           color = clamp(shade);
           height = clamp(elevation);
           roughness = clamp(p.inkRoughness);

@@ -27198,6 +27198,67 @@ var proceduralMaterialPresets = Object.freeze({
 		pipLevel: .7,
 		inkRoughness: .45
 	}),
+	tenniscourt: Object.freeze({
+		dark: [
+			24,
+			30,
+			22
+		],
+		light: [
+			236,
+			236,
+			228
+		],
+		roughness: .55,
+		relief: .004,
+		feet: .0075,
+		courtLength: 78,
+		courtWidth: 36,
+		singlesWidth: 27,
+		serviceDistance: 21,
+		runoffEnd: 21,
+		runoffSide: 12,
+		lineWidth: 1 / 3,
+		centreMark: 1 / 3,
+		centreMarkWidth: 1 / 6,
+		netThickness: .4,
+		postOutside: 3,
+		postRadius: .5,
+		surfaces: Object.freeze([
+			Object.freeze({
+				court: .42,
+				runoff: .3,
+				ground: .18
+			}),
+			Object.freeze({
+				court: .6,
+				runoff: .54,
+				ground: .38
+			}),
+			Object.freeze({
+				court: .46,
+				runoff: .4,
+				ground: .28
+			}),
+			Object.freeze({
+				court: .34,
+				runoff: .26,
+				ground: .14
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		lineTone: .96,
+		netTone: .12,
+		postTone: .06,
+		groundHeight: .15,
+		runoffHeight: .25,
+		courtHeight: .3,
+		lineHeight: .35,
+		netHeight: .8,
+		postHeight: .9,
+		inkRoughness: .45
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -35879,6 +35940,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	tenniscourt: 1,
 	playingcardpips: 1,
 	poolrack: 1,
 	tablutboard: 1,
