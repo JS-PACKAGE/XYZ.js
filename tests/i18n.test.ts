@@ -47,6 +47,24 @@ it('flattens nested tables and walks the locale lineage then fallbacks', () => {
   expect(i18n.has('menu.nope')).toBe(false);
 });
 
+it('refreshes locale lookup order before notifications and sees message merges', () => {
+  const i18n = new I18n({
+    locale: 'en',
+    fallback: ['de-DE', 'en-US'],
+    messages,
+  });
+  expect(i18n.t('onlyDe')).toBe('onlyDe');
+  i18n.addMessages('de', { onlyDe: 'Deutsch' });
+  expect(i18n.t('onlyDe')).toBe('Deutsch');
+  i18n.addEventListener('localechange', () => {
+    expect(i18n.t('menu.start')).toBe('開始');
+    expect(i18n.t('onlyDe')).toBe('Deutsch');
+  });
+  i18n.setLocale('zh-Hant-TW');
+  i18n.addMessages('zh-Hant-TW', { menu: { start: '台灣' } });
+  expect(i18n.t('menu.start')).toBe('台灣');
+});
+
 it('interpolates parameters, escapes braces and rejects missing parameters', () => {
   const i18n = new I18n({ messages });
   expect(i18n.t('braces', { name: 'a' })).toBe('Use {x} for a');

@@ -115,6 +115,7 @@ function flatten(
 export class I18n extends EventTarget {
   private readonly tables = new Map<string, Map<string, I18nMessage>>();
   private readonly fallbacks: string[];
+  private lookupOrder: string[];
   private readonly missing: MissingKeyPolicy;
   private readonly bindings = new Set<() => void>();
   private readonly pluralRules = new Map<string, Intl.PluralRules>();
@@ -125,9 +126,10 @@ export class I18n extends EventTarget {
     super();
     this.current = canonical(options.locale ?? 'en');
     const fallback = options.fallback ?? [];
-    this.fallbacks = (typeof fallback === 'string' ? [fallback] : fallback).map(
-      canonical,
-    );
+    this.fallbacks = (typeof fallback === 'string' ? [fallback] : fallback)
+      .map(canonical)
+      .flatMap(lineage);
+    this.lookupOrder = [...lineage(this.current), ...this.fallbacks];
     this.missing = options.missing ?? 'key';
     for (const [locale, table] of Object.entries(options.messages ?? {}))
       this.addMessages(locale, table);
@@ -161,6 +163,7 @@ export class I18n extends EventTarget {
     if (tag === this.current) return;
     const previous = this.current;
     this.current = tag;
+    this.lookupOrder = [...lineage(tag), ...this.fallbacks];
     this.numberFormat = undefined;
     this.dispatchEvent(
       new CustomEvent<I18nLocaleChangeDetail>('localechange', {
@@ -269,11 +272,7 @@ export class I18n extends EventTarget {
   private lookup(
     key: string,
   ): { message: I18nMessage; locale: string } | undefined {
-    const order = [
-      ...lineage(this.current),
-      ...this.fallbacks.flatMap((tag) => lineage(tag)),
-    ];
-    for (const locale of order) {
+    for (const locale of this.lookupOrder) {
       const message = this.tables.get(locale)?.get(key);
       if (message !== undefined) return { message, locale };
     }
