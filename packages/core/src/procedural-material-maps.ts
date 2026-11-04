@@ -56536,13 +56536,16 @@ export function createSurfaceSampler(
           count = p.cells * p.cells,
           tones = new Float64Array(count);
         for (let n = 1; n <= count; n++) {
+          const one = 1 % n;
           let previous = 0,
-            current = 1 % n,
+            current = one,
             period = 0;
           do {
-            [previous, current] = [current, (previous + current) % n];
+            const next = (previous + current) % n;
+            previous = current;
+            current = next;
             period++;
-          } while (previous !== 0 || current !== 1 % n);
+          } while (previous !== 0 || current !== one);
           tones[n - 1] = p.toneSpan * (period / (6 * n)) ** p.toneExponent;
         }
         return () => {
