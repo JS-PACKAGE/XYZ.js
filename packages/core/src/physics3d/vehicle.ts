@@ -56,6 +56,7 @@ export class Vehicle3D {
   private brake = 0;
   private steering = 0;
   private disposed = false;
+  private delta = 0;
   constructor(
     readonly world: PhysicsWorld3D,
     options: VehicleOptions3D,
@@ -145,6 +146,12 @@ export class Vehicle3D {
     const body = this.chassis.body;
     if (!body || body.type !== 'dynamic' || !this.world.has(this.chassis))
       throw new Error('Vehicle chassis is no longer registered and dynamic.');
+    this.delta = dt;
+    this.world.withPoseSnapshot(this.updateWheels);
+  }
+  private readonly updateWheels = (): void => {
+    const dt = this.delta,
+      body = this.chassis.body!;
     const matrix = this.chassis.updateWorldMatrix(),
       e = matrix.elements;
     this.down.set(-e[4], -e[5], -e[6]).normalize();
@@ -225,7 +232,7 @@ export class Vehicle3D {
       }
       state.rotation += (longitudinal * dt) / w.radius;
     }
-  }
+  };
   destroy(): void {
     this.disposed = true;
   }
