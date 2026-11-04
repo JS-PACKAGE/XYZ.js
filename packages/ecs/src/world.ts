@@ -10,6 +10,7 @@ export interface System {
 interface SystemEntry {
   system: System;
   active: boolean;
+  next: SystemEntry | undefined;
 }
 
 /** Scene-local entities and components; iteration follows entity and system insertion order. */
@@ -21,11 +22,10 @@ export class World {
     Map<Entity, unknown>
   >();
   private readonly systems: SystemEntry[] = [];
-  // Initialization can reenter addSystem before the outer registration is published.
-  // Counts preserve those duplicate entries while keeping ordinary duplicate checks O(1).
-  private readonly systemCounts = new Map<System, number>();
+  // Reentrant initialization can publish the same system twice; link those entries in order.
+  private readonly systemEntries = new Map<System, SystemEntry>();
   private updating = false;
-  private systemsNeedCompaction = false;
+  private inactiveSystems = 0;
   private disposed = false;
   /** Bumped by every entity or component membership change; see query. */
   private revision = 0;
@@ -131,7 +131,7 @@ export class World {
 
   addSystem(system: System): void {
     this.assertAlive();
-    if (this.systemCounts.has(system)) {
+    if (this.systemEntries.has(system)) {
       throw new Error('System is already registered.');
     }
     try {
@@ -148,23 +148,27 @@ export class World {
       }
       throw error;
     }
-    this.systems.push({ system, active: true });
-    this.systemCounts.set(system, (this.systemCounts.get(system) ?? 0) + 1);
+    const entry: SystemEntry = { system, active: true, next: undefined };
+    this.systems.push(entry);
+    let previous = this.systemEntries.get(system);
+    if (previous) {
+      while (previous.next) previous = previous.next;
+      previous.next = entry;
+    } else this.systemEntries.set(system, entry);
   }
 
   removeSystem(system: System): boolean {
     this.assertAlive();
-    if (!this.systemCounts.has(system)) return false;
-    const entry = this.systems.find(
-      (candidate) => candidate.active && candidate.system === system,
-    );
+    const entry = this.systemEntries.get(system);
     if (!entry) return false;
     entry.active = false;
-    const remaining = this.systemCounts.get(system)! - 1;
-    if (remaining) this.systemCounts.set(system, remaining);
-    else this.systemCounts.delete(system);
-    this.systemsNeedCompaction = true;
-    if (!this.updating) this.compactSystems();
+    if (entry.next) this.systemEntries.set(system, entry.next);
+    else this.systemEntries.delete(system);
+    entry.next = undefined;
+    this.inactiveSystems++;
+    // Compact geometrically rather than copying every survivor after each removal.
+    if (!this.updating && this.inactiveSystems * 2 >= this.systems.length)
+      this.compactSystems();
     system.destroy?.(this);
     return true;
   }
@@ -200,7 +204,7 @@ export class World {
       }
     }
     this.systems.length = 0;
-    this.systemCounts.clear();
+    this.systemEntries.clear();
     this.components.clear();
     this.entities.clear();
     if (errors.length)
@@ -208,14 +212,14 @@ export class World {
   }
 
   private compactSystems(): void {
-    if (!this.systemsNeedCompaction) return;
+    if (this.inactiveSystems === 0) return;
     let write = 0;
     for (let read = 0; read < this.systems.length; read++) {
       const entry = this.systems[read];
       if (entry.active) this.systems[write++] = entry;
     }
     this.systems.length = write;
-    this.systemsNeedCompaction = false;
+    this.inactiveSystems = 0;
   }
 
   private assertAlive(): void {
