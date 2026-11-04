@@ -313,6 +313,8 @@ export class AssetLoader {
               throw new AssetError('Texture acquisition was cancelled.');
             const bytes = texture.width * texture.height * 4;
             let available = 0;
+            const candidates: [string, CachedTexture][] | undefined =
+              this.decodedBytes + bytes > this.decodedBudget ? [] : undefined;
             for (const [key, candidate] of this.cache) {
               if (candidate.texture?.destroyed)
                 this.removeTexture(key, candidate);
@@ -320,26 +322,24 @@ export class AssetLoader {
                 candidate.texture &&
                 !candidate.pinned &&
                 !candidate.references
-              )
+              ) {
                 available += candidate.bytes;
+                candidates?.push([key, candidate]);
+              }
             }
             if (this.decodedBytes + bytes - available > this.decodedBudget)
               throw new AssetError(
                 'Decoded texture budget is exhausted by borrowed resources.',
               );
-            while (this.decodedBytes + bytes > this.decodedBudget) {
-              let oldest: [string, CachedTexture] | undefined;
-              for (const candidate of this.cache)
-                if (
-                  candidate[1].texture &&
-                  !candidate[1].pinned &&
-                  !candidate[1].references &&
-                  (!oldest || candidate[1].seen < oldest[1].seen)
-                )
-                  oldest = candidate;
-              this.removeTexture(oldest![0], oldest![1]);
-              oldest![1].texture!.destroy();
-              this.evictions++;
+            if (this.decodedBytes + bytes > this.decodedBudget) {
+              // Sort once when a large admission must reclaim many small textures.
+              candidates!.sort((a, b) => a[1].seen - b[1].seen);
+              for (const [key, candidate] of candidates!) {
+                if (this.decodedBytes + bytes <= this.decodedBudget) break;
+                this.removeTexture(key, candidate);
+                candidate.texture!.destroy();
+                this.evictions++;
+              }
             }
             entry.texture = texture;
             entry.bytes = bytes;
