@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'basketballcourt',
   'hockeyrink',
   'soccerpitch',
   'athleticstrack',
@@ -49891,6 +49892,103 @@ export function createSurfaceSampler(
           elevation +=
             (p.iceHeight + (p.lineHeight - p.iceHeight) * lined - elevation) *
             ice;
+          color = clamp(shade);
+          height = clamp(elevation);
+          roughness = clamp(p.inkRoughness);
+          occlusion = 1;
+        };
+      }
+      case 'basketballcourt': {
+        const p = proceduralMaterialPresets.basketballcourt,
+          inverseSoft = 1 / p.edgeSoft,
+          norm = (x: number, y: number): number => Math.sqrt(x * x + y * y),
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(109, 1, seed ^ 0x150001) * p.surfaces.length)
+            ],
+          across = hash(109, 2, seed ^ 0x150002) < 0.5,
+          shift = (hash(109, 3, seed ^ 0x150003) * 2 - 1) * p.toneShift,
+          halfLength = p.courtLength / 2,
+          halfWidth = p.courtWidth / 2,
+          halfLane = p.laneWidth / 2,
+          freeThrowX = halfLength - p.laneLength,
+          rimX = halfLength - p.rimDistance,
+          backboardX = halfLength - p.backboardDistance,
+          // The corner lines: their outer edge 3 from the sideline and 0.4 wide inside it; the arc is cut in the middle of them, where they cover it.
+          cornerLine = halfWidth - p.cornerInset,
+          cornerMiddle = cornerLine - p.lineWidth / 2,
+          line = p.lineWidth,
+          // The ring of a circle of the given radius: within one line width of the edge, inside it.
+          ring = (distance: number, radius: number): number =>
+            cover(
+              Math.min(distance - (radius - line), radius - distance) * p.foot,
+            );
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            // The place in feet from the middle of the court (x along its length).
+            x = ((across ? fv : fu) - 0.5) / p.foot,
+            y = ((across ? fu : fv) - 0.5) / p.foot,
+            ax = Math.abs(x),
+            ay = Math.abs(y),
+            margin = cover(
+              Math.min(halfLength + p.margin - ax, halfWidth + p.margin - ay) *
+                p.foot,
+            ),
+            inside = Math.min(halfLength - ax, halfWidth - ay),
+            court = cover(inside * p.foot),
+            rimDistance = norm(ax - rimX, y),
+            // The lane: its outline within one line width of its edge, inside it (the middle of the lane and half sides).
+            laneInside = Math.min(
+              p.laneLength / 2 - Math.abs(ax - (halfLength - p.laneLength / 2)),
+              halfLane - ay,
+            );
+          // The outline of the court, the halfway line, the two centre circles, the lane, the free-throw circle on the side away from the basket, the backboard, the rim, the restricted area arc, the corner
+          // lines and the three-point arc: each painted once.
+          const marking = Math.max(
+            cover(Math.min(inside, line - inside) * p.foot),
+            cover((line / 2 - ax) * p.foot),
+            ring(norm(x, y), p.circleRadius),
+            ring(norm(x, y), p.innerCircleRadius),
+            cover(Math.min(laneInside, line - laneInside) * p.foot),
+            Math.min(
+              ring(norm(ax - freeThrowX, y), p.circleRadius),
+              cover((freeThrowX + line / 2 - ax) * p.foot),
+            ),
+            Math.min(
+              cover((line / 2 - Math.abs(ax - backboardX)) * p.foot),
+              cover((p.backboardWidth / 2 - ay) * p.foot),
+            ),
+            ring(rimDistance, p.rimRadius),
+            Math.min(
+              ring(rimDistance, p.restrictedRadius),
+              cover((rimX - ax) * p.foot),
+            ),
+            Math.min(
+              cover((line / 2 - Math.abs(ay - cornerMiddle)) * p.foot),
+              cover((p.threeRadius - rimDistance) * p.foot),
+            ),
+            Math.min(
+              ring(rimDistance, p.threeRadius),
+              cover((cornerMiddle - ay) * p.foot),
+            ),
+          );
+          // Court or line over the margin, the line only where there is court (so that a line at the edge of the court has the edge of the court).
+          const lined = court > 0 ? Math.min(1, marking / court) : 0,
+            courtTone = surface.court + shift;
+          let shade = surface.ground + shift,
+            elevation = p.groundHeight;
+          shade += (surface.margin + shift - shade) * margin;
+          elevation += (p.marginHeight - elevation) * margin;
+          shade +=
+            (courtTone + (p.lineTone - courtTone) * lined - shade) * court;
+          elevation +=
+            (p.courtHeight +
+              (p.lineHeight - p.courtHeight) * lined -
+              elevation) *
+            court;
           color = clamp(shade);
           height = clamp(elevation);
           roughness = clamp(p.inkRoughness);

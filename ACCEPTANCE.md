@@ -13935,3 +13935,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 突變檢查：第一輪54個突變（方向／表面／偏移、各個尺寸、圓角、各條線與圓與點的位置與寬度、軸互換、紅藍的交換、比例處理、高度與粗糙度），其中1個因錨點寫成宣告式而沒有套用；53個套用、51個被抓到、2個存活（上述比例處理，等價，已刪除）；刪除後新增的4個突變（紅藍交換與lined只取一邊）全被抓到。沒有留下存活的突變。
 - 實測：`tests/procedural-material-motifs.test.ts`三千五百七十八項（本材質十四項）全過，`tsc`、eslint通過。`tests/procedural-material.test.ts`以`-t "hockeyrink|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。效能：512單次取樣約99到128 ms（Bun單次量測，非效能認證）。
 - 真實dev server的pbr3d頁（WebGPU）選取`hockeyrink`：嚴格斷言的檢查（option為1216個、status含「1215 procedural material presets」、含該kind、`tab.errors()`為空、下拉選單選到的值為該kind）符合；第一次截圖出現「Protocol error (Page.captureScreenshot): Target closed」，重試一次後取得截圖且斷言再次符合；實看512預覽圖（seed 3、9）：深灰藍色地面上圓角的冰面與欄板，中央的圓與兩條藍線與中線，四個爭球圈與球門禁區，球場直放；每塊磚四個重複；25球的gallery畫面中球面是不太容易辨認的深色。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：籃球場（basketballcourt）
+
+- 目錄1215→1216，含plain的gallery為1217項。從正上方看的籃球場，依NBA球場尺寸（英尺）畫出邊線與底線、中線、中圈與內圈、禁區、罰球圈、籃板與籃框、合理衝撞區弧、三分線，四周的邊緣與地面；seed選四種表面之一（色調再一起偏移不超過`toneShift`）與方向；Metallic／mortar為0，預設tile 1 m、0.004 UV-relative relief、metallic factor 0。作者設計的示意，沒有文字、禁區上色與虛線；線寬0.4英尺（規則約0.17）。尺寸來自一次網路搜尋的摘要（與我原本的記憶一致，沒有直接讀NBA規則書原檔）。仍在獨立worktree分支`materials/more-textures`作業。
+- 完整套件：這一項沒有重跑；最近一次乾淨匯出的完整套件是`93e7940eb`（目錄1214種）：`tests/procedural-material.test.ts`與`tests/procedural-material-motifs.test.ts`**9402項通過、0失敗**（約1742秒）。之後的冰球場與本材質只跑定向測試。
+- 開發中發現的問題：(1) 取樣器：第一次寫的底角直線位置與寬度方向寫反（寫成在離邊線3英尺的外側，而規則是該線的外緣離邊線3英尺、線在其內側），在跑測試前檢查草稿時就改正了；預覽圖看起來是預期的球場。(2) 測試端的錯誤：整張圖比對的「線的數量」門檻抓得太高（1500，實際約1169），降為800；罰球線外緣的柔化探針取在y＝6，正好在罰球圈上（改為y＝3）。(3) 突變檢查：底角直線的弧截斷位置放寬一條線寬時沒有測試失敗，原因是我的測試沒有檢查「弧在底角直線外側不得再出現」；補了一個精確的探針（弧上、直線外緣之外0.1英尺處必須沒有線），這個突變與放寬半個線寬的另一個突變：前者被抓到；後者（截斷在直線的外緣而不是中央）輸出完全相同（在直線的帶內，直線自己的柔化外緣與弧的截斷邊相同），是等價突變，保留原本的截斷位置（線中央），不改。
+- 突變檢查：第一輪50個突變（方向／表面／偏移、各個尺寸、軸互換、各條線與圓與弧的位置與寬度、截斷位置、比例處理、高度與粗糙度）全數確認套用，49個被抓到、1個存活（上述）；第二輪2個突變：1個被抓到、1個等價。沒有留下非等價的存活突變。
+- 實測：`tests/procedural-material-motifs.test.ts`三千五百九十二項（本材質十四項）全過，`tsc`、eslint通過。`tests/procedural-material.test.ts`以`-t "basketballcourt|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。效能：512單次取樣約91到106 ms（Bun單次量測，非效能認證）。
+- 真實dev server的pbr3d頁（WebGPU）選取`basketballcourt`：嚴格斷言的檢查（option為1217個、status含「1216 procedural material presets」、含該kind、`tab.errors()`為空、下拉選單選到的值為該kind）第一次嘗試即符合；實看512預覽圖（seed 3、9）：深褐色地面上較淺的邊緣與球場，細線的邊線、中圈、兩端的禁區、罰球圈、籃框、合理衝撞區弧與三分線；seed 9的球場橫放；每塊磚四個重複；25球的gallery畫面中球面上是不太容易辨認的小標記。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

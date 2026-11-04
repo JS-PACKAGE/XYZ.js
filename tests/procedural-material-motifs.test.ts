@@ -70775,3 +70775,488 @@ describe('hockeyrink: an ice hockey rink seen from above with the markings of th
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('basketballcourt: a basketball court seen from above with the markings of the NBA, laid along or across by the seed', () => {
+  const p = proceduralMaterialPresets.basketballcourt,
+    out = empty(),
+    ft = p.foot,
+    toneAt = (
+      sample: Sampler,
+      x: number,
+      y: number,
+      across: boolean,
+    ): number => {
+      // A place in feet from the middle of the court (x along its length) as a place on the picture.
+      sample(0.5 + (across ? y : x) * ft, 0.5 + (across ? x : y) * ft, out);
+      return out.color;
+    };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    mix = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    // The probes are exact (the edges are straight or circular), so the tolerance is tiny.
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  // The facts of the court, in feet (the NBA rules, as given by a web search that quotes the NBA rule on court dimensions; they were not read in the NBA rulebook itself): 94 by 50, the lane 16 wide and 19 from the
+  // baseline (the free-throw line 15 from the backboard, which is 4 in from the baseline), the centre circle and the free-throw circle of radius 6, the rim centre 5 feet 3 inches from the baseline, the restricted
+  // area arc of radius 4, the three-point arc of 23 feet 9 inches round the rim and the corner lines 3 from the sidelines, the backboard 6 wide.
+  const rules = {
+      length: 94,
+      width: 50,
+      lane: 16,
+      laneLength: 19,
+      circle: 6,
+      backboard: 4,
+      backboardWidth: 6,
+      rim: 5.25,
+      restricted: 4,
+      three: 23.75,
+      corner: 3,
+    },
+    halfL = rules.length / 2,
+    halfW = rules.width / 2,
+    freeThrowX = halfL - rules.laneLength,
+    rimX = halfL - rules.rim,
+    backboardX = halfL - rules.backboard,
+    cornerMiddle = halfW - rules.corner - p.lineWidth / 2;
+  type Kind = 'ground' | 'margin' | 'court' | 'line';
+  // The part of the picture a place is in, by the rules above and the widths in the preset (written separately from the sampler).
+  const classify = (x: number, y: number): Kind => {
+    const ax = Math.abs(x),
+      ay = Math.abs(y),
+      w = p.lineWidth,
+      r = Math.hypot(x, y),
+      rim = Math.hypot(ax - rimX, y),
+      ring = (distance: number, radius: number): boolean =>
+        distance <= radius && distance >= radius - w;
+    if (ax > halfL + p.margin || ay > halfW + p.margin) return 'ground';
+    if (ax > halfL || ay > halfW) return 'margin';
+    if (ax >= halfL - w || ay >= halfW - w || ax <= w / 2) return 'line';
+    if (ring(r, rules.circle) || ring(r, p.innerCircleRadius)) return 'line';
+    if (
+      ax >= freeThrowX &&
+      ay <= rules.lane / 2 &&
+      (ax <= freeThrowX + w || ay >= rules.lane / 2 - w)
+    )
+      return 'line';
+    if (
+      ring(Math.hypot(ax - freeThrowX, y), rules.circle) &&
+      ax <= freeThrowX + w / 2
+    )
+      return 'line';
+    if (Math.abs(ax - backboardX) <= w / 2 && ay <= rules.backboardWidth / 2)
+      return 'line';
+    if (ring(rim, p.rimRadius)) return 'line';
+    if (ring(rim, rules.restricted) && ax <= rimX) return 'line';
+    if (Math.abs(ay - cornerMiddle) <= w / 2 && rim <= rules.three)
+      return 'line';
+    if (ring(rim, rules.three) && ay <= cornerMiddle) return 'line';
+    return 'court';
+  };
+  type Surface = {
+    across: boolean;
+    surface: number;
+    shift: number;
+    tones: { court: number; margin: number; ground: number };
+  };
+  const readSurface = (sample: Sampler): Surface => {
+    const options: Surface[] = [];
+    for (const across of [false, true]) {
+      const court = toneAt(sample, 15, 10, across),
+        margin = toneAt(sample, halfL + 3, 5, across),
+        ground = toneAt(sample, halfL + 8, 0, across);
+      p.surfaces.forEach((surface, index) => {
+        const shift = ground - surface.ground;
+        if (
+          Math.abs(shift) <= p.toneShift + 1e-9 &&
+          Math.abs(court - surface.court - shift) < 1e-6 &&
+          Math.abs(margin - surface.margin - shift) < 1e-6
+        )
+          options.push({
+            across,
+            surface: index,
+            shift,
+            tones: { court, margin, ground },
+          });
+      });
+    }
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+
+  it('has the rules of the court in the preset', () => {
+    expect(p.courtLength).toBe(rules.length);
+    expect(p.courtWidth).toBe(rules.width);
+    expect(p.laneWidth).toBe(rules.lane);
+    expect(p.laneLength).toBe(rules.laneLength);
+    expect(p.circleRadius).toBe(rules.circle);
+    expect(p.backboardDistance).toBe(rules.backboard);
+    expect(p.backboardWidth).toBe(rules.backboardWidth);
+    expect(p.rimDistance).toBe(rules.rim);
+    expect(p.restrictedRadius).toBe(rules.restricted);
+    expect(p.threeRadius).toBe(rules.three);
+    expect(p.cornerInset).toBe(rules.corner);
+  });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws every place of the picture as the rules and the widths say, with its tone, height and roughness, along the picture or across it (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('basketballcourt', seed),
+        { across, tones } = readSurface(sample),
+        expected: Record<Kind, { tone: number; height: number }> = {
+          ground: { tone: tones.ground, height: p.groundHeight },
+          margin: { tone: tones.margin, height: p.marginHeight },
+          court: { tone: tones.court, height: p.courtHeight },
+          line: { tone: p.lineTone, height: p.lineHeight },
+        },
+        counts: Record<Kind, number> = {
+          ground: 0,
+          margin: 0,
+          court: 0,
+          line: 0,
+        },
+        step = 0.29,
+        clear = 0.1;
+      // Every place of the picture (the court is 94 by 50, the picture 106 by 62 round it, a tile 117 across): the places within 0.1 of a change in the picture are skipped (the softened edges are checked below, exactly).
+      for (let x = -58; x <= 58; x += step)
+        for (let y = -58; y <= 58; y += step) {
+          const kind = classify(x, y);
+          if (
+            [
+              [clear, 0],
+              [-clear, 0],
+              [0, clear],
+              [0, -clear],
+              [clear, clear],
+              [-clear, -clear],
+              [clear, -clear],
+              [-clear, clear],
+            ].some(([dx, dy]) => classify(x + dx, y + dy) !== kind)
+          )
+            continue;
+          counts[kind]++;
+          expect(toneAt(sample, x, y, across)).toBeCloseTo(
+            expected[kind].tone,
+            6,
+          );
+          expect(out.height / p.relief).toBeCloseTo(expected[kind].height, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        }
+      expect(counts.line).toBeGreaterThan(800);
+      expect(counts.court).toBeGreaterThan(30000);
+      expect(counts.margin).toBeGreaterThan(2000);
+      expect(counts.ground).toBeGreaterThan(5000);
+    },
+  );
+
+  it('uses every surface and both ways over 300 seeds, about equally often, with the tones shifted over the whole range', () => {
+    const surfaces = new Map<number, number>(),
+      shifts: number[] = [];
+    let acrossCount = 0;
+    for (let seed = 0; seed < 300; seed++) {
+      const { across, surface, shift } = readSurface(
+        createSurfaceSampler('basketballcourt', seed * 7 + 1),
+      );
+      shifts.push(shift);
+      surfaces.set(surface, (surfaces.get(surface) ?? 0) + 1);
+      acrossCount += Number(across);
+    }
+    expect(surfaces.size).toBe(p.surfaces.length);
+    for (const count of surfaces.values())
+      expect(Math.abs(count - 300 / p.surfaces.length)).toBeLessThan(25);
+    expect(Math.abs(acrossCount / 300 - 0.5)).toBeLessThan(0.1);
+    expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+    expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+    expect(
+      Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 300),
+    ).toBeLessThan(p.toneShift * 0.15);
+    for (let quarter = 0; quarter < 4; quarter++)
+      expect(
+        Math.abs(
+          shifts.filter(
+            (shift) =>
+              Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+          ).length - 75,
+        ),
+      ).toBeLessThan(25);
+  });
+
+  it('puts each edge of each marking where the rules put it: just inside it the line, just outside it not (both ends, both sides)', () => {
+    const w = p.lineWidth,
+      delta = 0.0004 / ft,
+      round = (
+        cx: number,
+        cy: number,
+        distance: number,
+        degrees: number,
+      ): [number, number] => [
+        cx + distance * Math.cos((degrees * Math.PI) / 180),
+        cy + distance * Math.sin((degrees * Math.PI) / 180),
+      ];
+    for (const seed of [2, 5]) {
+      const sample = createSurfaceSampler('basketballcourt', seed),
+        { across } = readSurface(sample),
+        isLine = (x: number, y: number): boolean =>
+          Math.abs(toneAt(sample, x, y, across) - p.lineTone) < 1e-6,
+        // Both edges of a round line of a radius round a centre, at several angles: the line inside the radius, the court outside it and inside the inner edge.
+        ringEdges = (
+          cx: number,
+          cy: number,
+          radius: number,
+          angles: number[],
+        ): void => {
+          for (const degrees of angles) {
+            expect(isLine(...round(cx, cy, radius - delta, degrees))).toBe(
+              true,
+            );
+            expect(isLine(...round(cx, cy, radius + delta, degrees))).toBe(
+              false,
+            );
+            expect(isLine(...round(cx, cy, radius - w + delta, degrees))).toBe(
+              true,
+            );
+            expect(isLine(...round(cx, cy, radius - w - delta, degrees))).toBe(
+              false,
+            );
+          }
+        };
+      for (const sx of [1, -1]) {
+        // The directions towards the middle of the court (180 degrees when the end is at x > 0).
+        const towards = (degrees: number): number =>
+          sx === 1 ? 180 + degrees : -degrees;
+        for (const sy of [1, -1]) {
+          // The outline of the court, the lane (front line and side line).
+          expect(isLine(sx * 10, sy * (halfW - w + delta))).toBe(true);
+          expect(isLine(sx * 10, sy * (halfW - w - delta))).toBe(false);
+          expect(isLine(sx * 10, sy * (halfW - delta))).toBe(true);
+          expect(isLine(sx * 10, sy * (halfW + delta))).toBe(false);
+          expect(isLine(sx * (halfL - w + delta), sy * 12)).toBe(true);
+          expect(isLine(sx * (halfL - w - delta), sy * 12)).toBe(false);
+          expect(isLine(sx * (halfL - delta), sy * 12)).toBe(true);
+          expect(isLine(sx * (halfL + delta), sy * 12)).toBe(false);
+          expect(isLine(sx * 35, sy * (rules.lane / 2 - delta))).toBe(true);
+          expect(isLine(sx * 35, sy * (rules.lane / 2 + delta))).toBe(false);
+          expect(isLine(sx * 35, sy * (rules.lane / 2 - w + delta))).toBe(true);
+          expect(isLine(sx * 35, sy * (rules.lane / 2 - w - delta))).toBe(
+            false,
+          );
+          // The corner line: 3 from the sideline, 0.4 wide inside it, ending on the arc.
+          expect(isLine(sx * 44, sy * (halfW - rules.corner - delta))).toBe(
+            true,
+          );
+          expect(isLine(sx * 44, sy * (halfW - rules.corner + delta))).toBe(
+            false,
+          );
+          expect(isLine(sx * 44, sy * (halfW - rules.corner - w + delta))).toBe(
+            true,
+          );
+          expect(isLine(sx * 44, sy * (halfW - rules.corner - w - delta))).toBe(
+            false,
+          );
+          expect(isLine(sx * 33.5, sy * cornerMiddle)).toBe(true);
+          expect(isLine(sx * 31.5, sy * cornerMiddle)).toBe(false);
+          // The three-point arc does not go beyond the corner line (it is cut in the middle of it): just outside the line, on the circle, there is nothing.
+          expect(
+            isLine(
+              sx *
+                (rimX -
+                  Math.sqrt(
+                    (rules.three - w / 2) ** 2 -
+                      (halfW - rules.corner + 0.1) ** 2,
+                  )),
+              sy * (halfW - rules.corner + 0.1),
+            ),
+          ).toBe(false);
+        }
+        expect(isLine(sx * (freeThrowX + delta), 6)).toBe(true);
+        expect(isLine(sx * (freeThrowX - delta), 6)).toBe(false);
+        expect(isLine(sx * (freeThrowX + w - delta), 6)).toBe(true);
+        expect(isLine(sx * (freeThrowX + w + delta), 6)).toBe(false);
+        // The free-throw circle (on the side away from the basket only), the restricted area arc (towards the middle of the court only), the three-point arc (inside the corner lines).
+        ringEdges(
+          sx * freeThrowX,
+          0,
+          rules.circle,
+          [-70, -40, 40, 70].map(towards),
+        );
+        for (const degrees of [-70, 0, 70].map(towards))
+          expect(
+            isLine(
+              ...round(sx * freeThrowX, 0, rules.circle - w / 2, degrees + 180),
+            ),
+          ).toBe(false);
+        ringEdges(
+          sx * rimX,
+          0,
+          rules.restricted,
+          [-70, -30, 30, 70].map(towards),
+        );
+        expect(
+          isLine(
+            ...round(
+              sx * rimX,
+              0,
+              rules.restricted - w / 2,
+              sx === 1 ? 0 : 180,
+            ),
+          ),
+        ).toBe(false);
+        ringEdges(
+          sx * rimX,
+          0,
+          rules.three,
+          [-60, -30, 0, 30, 60].map(towards),
+        );
+        // The rim and the backboard (6 wide, 0.4 thick, its middle 4 from the baseline).
+        ringEdges(sx * rimX, 0, p.rimRadius, [0, 90, 180, 270]);
+        expect(isLine(sx * (backboardX + w / 2 - delta), 2.9)).toBe(true);
+        expect(isLine(sx * (backboardX + w / 2 + delta), 2.9)).toBe(false);
+        expect(isLine(sx * (backboardX - w / 2 + delta), -2.9)).toBe(true);
+        expect(isLine(sx * (backboardX - w / 2 - delta), -2.9)).toBe(false);
+        expect(isLine(sx * backboardX, rules.backboardWidth / 2 - delta)).toBe(
+          true,
+        );
+        expect(isLine(sx * backboardX, rules.backboardWidth / 2 + delta)).toBe(
+          false,
+        );
+      }
+      // The halfway line and the centre circles.
+      expect(isLine(w / 2 - delta, 15)).toBe(true);
+      expect(isLine(w / 2 + delta, 15)).toBe(false);
+      expect(isLine(-w / 2 + delta, 15)).toBe(true);
+      expect(isLine(-w / 2 - delta, 15)).toBe(false);
+      ringEdges(0, 0, rules.circle, [20, 60, 120, 160, 200, 240, 300, 340]);
+      ringEdges(
+        0,
+        0,
+        p.innerCircleRadius,
+        [20, 60, 120, 160, 200, 240, 300, 340],
+      );
+    }
+  });
+
+  it('softens the edge of the margin, of the court and of a line over edgeSoft', () => {
+    const sample = createSurfaceSampler('basketballcourt', 2),
+      { across, tones } = readSurface(sample),
+      quarter = (0.25 * p.edgeSoft) / ft,
+      w = p.lineWidth;
+    close(
+      toneAt(sample, 20, halfW + p.margin - quarter, across),
+      mix(tones.ground, tones.margin, 0.75),
+    );
+    close(
+      toneAt(sample, 20, halfW + p.margin + quarter, across),
+      mix(tones.ground, tones.margin, 0.25),
+    );
+    close(
+      toneAt(sample, halfL + p.margin - quarter, 10, across),
+      mix(tones.ground, tones.margin, 0.75),
+    );
+    // The outer edge of the sideline over the margin: the line is as soft as the court there.
+    close(
+      toneAt(sample, 20, halfW - quarter, across),
+      mix(tones.margin, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, 20, halfW + quarter, across),
+      mix(tones.margin, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, halfL - quarter, 10, across),
+      mix(tones.margin, p.lineTone, 0.75),
+    );
+    // The inner edge of the sideline, the halfway line, the lane, the centre circle and the three-point arc over the court.
+    close(
+      toneAt(sample, 20, halfW - w - quarter, across),
+      mix(tones.court, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, 20, halfW - w + quarter, across),
+      mix(tones.court, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, w / 2 - quarter, 15, across),
+      mix(tones.court, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, w / 2 + quarter, 15, across),
+      mix(tones.court, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, freeThrowX - quarter, 3, across),
+      mix(tones.court, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, 35, rules.lane / 2 + quarter, across),
+      mix(tones.court, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, rules.circle + quarter, 0, across),
+      mix(tones.court, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, rules.circle - quarter, 0, across),
+      mix(tones.court, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, rules.circle - w - quarter, 0, across),
+      mix(tones.court, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, rimX - rules.three - quarter, 0, across),
+      mix(tones.court, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, rimX - rules.three + quarter, 0, across),
+      mix(tones.court, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, rimX - rules.three + w + quarter, 0, across),
+      mix(tones.court, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, rimX - p.rimRadius - quarter, 0, across),
+      mix(tones.court, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, rimX - p.rimRadius + quarter, 0, across),
+      mix(tones.court, p.lineTone, 0.75),
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('basketballcourt', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('basketballcourt', 0),
+      b = createSurfaceSampler('basketballcourt', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

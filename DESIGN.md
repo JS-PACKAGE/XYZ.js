@@ -2429,6 +2429,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`basketballcourt`（籃球場）使目前目錄1215→1216種，含plain的gallery為1217項。從正上方看的籃球場，依NBA球場的尺寸（英尺）畫出：全場94×50、中線、半徑6的中圈與半徑2的內圈、兩端各一個禁區（寬16、離底線19）、以罰球線中央為圓心半徑6的罰球圈（只畫在遠離籃框的一側）、離底線4的籃板（寬6）、圓心離底線5.25的籃框（半徑0.75）與半徑4的合理衝撞區弧、半徑23.75的三分線與離邊線3英尺、止於弧上的兩條底角直線；四周是6英尺的邊緣與其外的地面；線屬於它所界定的區域。線寬0.4英尺（規則約0.17，即2英寸，放大2.5倍），才能在一塊貼圖中看得見；禁區沒有上色、罰球圈在禁區內的半圈沒有畫成虛線。尺寸來源是一次網路搜尋的摘要（引用NBA規則1的球場尺寸），與我原本的記憶一致，沒有直接讀NBA規則書原檔。seed選一種表面（球場、邊緣與地面的色調，四種之一，再一起偏移不超過`toneShift`）並決定球場沿著畫面或橫過畫面。這是作者設計的示意，沒有文字；測試端以另外寫的規則尺寸（含「preset的數值等於這些尺寸」的斷言）逐項檢查：對整張圖每隔0.29英尺的每一個位置（避開離任何邊0.1英尺以內），由另外寫的分類函式（地面／邊緣／場地／線）給出色調與高度，與取樣器逐一相同；各條線、圓與弧的每一個邊（兩端與兩側）在兩側各0.0004個貼圖單位處精確在線內或線外；三分線止於底角直線中央、不越過它；色調偏移一致且300個seed涵蓋整個範圍，300個seed中四種表面與兩種方向各約相同，以及各邊緣的柔化（1e-4的緊容許值）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
