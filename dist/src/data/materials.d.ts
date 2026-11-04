@@ -15652,6 +15652,55 @@ export declare const proceduralMaterialPresets: Readonly<{
         paperRoughness: 0.8;
         inkRoughness: 0.45;
     }>;
+    playingcardpips: Readonly<{
+        dark: readonly [20, 52, 36];
+        light: readonly [248, 244, 232];
+        roughness: 0.5;
+        relief: 0.004;
+        ranks: readonly (readonly (readonly number[])[])[];
+        suits: readonly (Readonly<{
+            tone: 0.55;
+            discs: readonly (readonly number[])[];
+            polygons: readonly (readonly (readonly number[])[])[];
+            anchor: readonly number[];
+        }> | Readonly<{
+            tone: 0.4;
+            discs: readonly (readonly number[])[];
+            polygons: readonly (readonly (readonly number[])[])[];
+            anchor: readonly number[];
+        }> | Readonly<{
+            tone: 0.08;
+            discs: readonly (readonly number[])[];
+            polygons: readonly (readonly (readonly number[])[])[];
+            anchor: readonly number[];
+        }> | Readonly<{
+            tone: 0.16;
+            discs: readonly (readonly number[])[];
+            polygons: readonly (readonly (readonly number[])[])[];
+            anchor: readonly number[];
+        }>)[];
+        columns: 5;
+        rows: 4;
+        cardWidth: 0.15;
+        cardLength: 0.21;
+        gapX: 0.03;
+        gapY: 0.02;
+        pipUnit: 0.0125;
+        columnX: 2.6;
+        levelStep: 1.3;
+        aceScale: 2.2;
+        lineHalf: 0.0012;
+        outlineInset: 0.006;
+        edgeSoft: 0.0006;
+        tableTone: 0.24;
+        cardTone: 0.95;
+        outlineTone: 0.62;
+        tableLevel: 0.2;
+        cardLevel: 0.5;
+        outlineLevel: 0.4;
+        pipLevel: 0.7;
+        inkRoughness: 0.45;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -22137,6 +22186,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    playingcardpips: 1;
     poolrack: 1;
     tablutboard: 1;
     arnoldcatmap: 1;

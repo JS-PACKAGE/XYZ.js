@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'playingcardpips',
   'poolrack',
   'tablutboard',
   'arnoldcatmap',
@@ -49201,6 +49202,132 @@ export function createSurfaceSampler(
           );
           height = clamp(elevation);
           roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
+      case 'playingcardpips': {
+        const p = proceduralMaterialPresets.playingcardpips,
+          inverseSoft = 1 / p.edgeSoft,
+          norm = (x: number, y: number): number => Math.sqrt(x * x + y * y),
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          firstRank = Math.floor(
+            hash(103, 1, seed ^ 0xee001) * (10 - p.columns + 1),
+          ),
+          // The suits down the rows: a shuffle of the four.
+          order = [0, 1, 2, 3],
+          cellWidth = p.cardWidth + p.gapX,
+          cellLength = p.cardLength + p.gapY,
+          gridWidth = p.columns * cellWidth - p.gapX,
+          gridLength = p.rows * cellLength - p.gapY,
+          left = 0.5 - gridWidth / 2,
+          top = 0.5 - gridLength / 2,
+          // The sides of each polygon of each suit as lines (inward unit normal and offset), for the distance inside.
+          sides = p.suits.map((suit) =>
+            suit.polygons.map((polygon) => {
+              const centre = [0, 0];
+              for (const [x, y] of polygon) {
+                centre[0] += x / polygon.length;
+                centre[1] += y / polygon.length;
+              }
+              return polygon.map(([ax, ay], index) => {
+                const [bx, by] = polygon[(index + 1) % polygon.length],
+                  length = norm(bx - ax, by - ay);
+                let nx = -(by - ay) / length,
+                  ny = (bx - ax) / length;
+                if (nx * (centre[0] - ax) + ny * (centre[1] - ay) < 0) {
+                  nx = -nx;
+                  ny = -ny;
+                }
+                return [nx, ny, nx * ax + ny * ay];
+              });
+            }),
+          ),
+          // How far inside the shape of a suit a point (in pip units from the pip's middle) is: positive inside, in pip units.
+          inside = (suit: number, x: number, y: number): number => {
+            let best = -Infinity;
+            for (const [cx, cy, radius] of p.suits[suit].discs)
+              best = Math.max(best, radius - norm(x - cx, y - cy));
+            for (const polygon of sides[suit]) {
+              let reach = Infinity;
+              for (const [nx, ny, offset] of polygon)
+                reach = Math.min(reach, nx * x + ny * y - offset);
+              best = Math.max(best, reach);
+            }
+            return best;
+          };
+        // Shuffle the suits (the rows).
+        for (let index = 3; index > 0; index--) {
+          const other = Math.floor(
+            hash(index, 9, seed ^ 0xee002) * (index + 1),
+          );
+          [order[index], order[other]] = [order[other], order[index]];
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          let shade = p.tableTone,
+            elevation = p.tableLevel;
+          // The card of this place in the grid (the nearest, clamped), and where in it.
+          const column = Math.min(
+              p.columns - 1,
+              Math.max(0, Math.floor((fu - left) / cellWidth)),
+            ),
+            row = Math.min(
+              p.rows - 1,
+              Math.max(0, Math.floor((fv - top) / cellLength)),
+            ),
+            lx = fu - left - column * cellWidth - p.cardWidth / 2,
+            ly = fv - top - row * cellLength - p.cardLength / 2,
+            face = cover(
+              Math.min(
+                p.cardWidth / 2 - Math.abs(lx),
+                p.cardLength / 2 - Math.abs(ly),
+              ),
+            );
+          if (face > 0) {
+            shade += (p.cardTone - shade) * face;
+            elevation += (p.cardLevel - elevation) * face;
+            // The outline, a line along the edge of the card.
+            const outline = cover(
+              p.lineHalf -
+                Math.abs(
+                  Math.min(
+                    p.cardWidth / 2 - Math.abs(lx),
+                    p.cardLength / 2 - Math.abs(ly),
+                  ) - p.outlineInset,
+                ),
+            );
+            shade += (p.outlineTone - shade) * outline;
+            elevation += (p.outlineLevel - elevation) * outline;
+            // The pips of the rank of the card (from the ace) of the suit of its row.
+            const suit = order[row],
+              rank = firstRank + column,
+              pips = p.ranks[rank];
+            let pipCover = 0;
+            for (const [pipColumn, level] of pips) {
+              const scale = rank === 0 ? p.aceScale : 1,
+                turned = level > 0 ? -1 : 1,
+                x =
+                  ((lx - pipColumn * p.columnX * p.pipUnit) /
+                    (p.pipUnit * scale)) *
+                  turned,
+                y =
+                  ((ly - level * p.levelStep * p.pipUnit) /
+                    (p.pipUnit * scale)) *
+                  turned;
+              if (Math.abs(x) < 1.2 && Math.abs(y) < 1.2)
+                pipCover = Math.max(
+                  pipCover,
+                  cover(inside(suit, x, y) * p.pipUnit * scale),
+                );
+            }
+            shade += (p.suits[suit].tone - shade) * pipCover;
+            elevation += (p.pipLevel - elevation) * pipCover;
+          }
+          color = clamp(shade);
+          height = clamp(elevation);
+          roughness = clamp(p.inkRoughness);
           occlusion = 1;
         };
       }

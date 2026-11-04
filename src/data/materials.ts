@@ -17035,6 +17035,179 @@ export const proceduralMaterialPresets = Object.freeze({
     paperRoughness: 0.8,
     inkRoughness: 0.45,
   }),
+  playingcardpips: Object.freeze({
+    dark: [20, 52, 36] as const,
+    light: [248, 244, 232] as const,
+    roughness: 0.5,
+    relief: 0.004,
+    // Playing cards laid out in rows of five: one row for each suit, the cards of a row the ranks from the ace to the ten, five in a row from the rank the seed picks. A card shows its rank with that many
+    // pips of its suit (the ace one large pip), in the places the usual cards have them: the places are columns left, middle and right (-1, 0, 1) and rows counted in steps of one up and down the card from
+    // its middle; the pips below the middle are upside down. A suit is a shape in pip units (+y down, the pip's middle at the origin) made of discs (middle and radius) and convex polygons (the corners
+    // in order), with a point inside it to read its tone at.
+    ranks: Object.freeze([
+      Object.freeze([Object.freeze([0, 0])]),
+      Object.freeze([Object.freeze([0, -3]), Object.freeze([0, 3])]),
+      Object.freeze([
+        Object.freeze([0, -3]),
+        Object.freeze([0, 0]),
+        Object.freeze([0, 3]),
+      ]),
+      Object.freeze([
+        Object.freeze([-1, -3]),
+        Object.freeze([1, -3]),
+        Object.freeze([-1, 3]),
+        Object.freeze([1, 3]),
+      ]),
+      Object.freeze([
+        Object.freeze([-1, -3]),
+        Object.freeze([1, -3]),
+        Object.freeze([0, 0]),
+        Object.freeze([-1, 3]),
+        Object.freeze([1, 3]),
+      ]),
+      Object.freeze([
+        Object.freeze([-1, -3]),
+        Object.freeze([1, -3]),
+        Object.freeze([-1, 0]),
+        Object.freeze([1, 0]),
+        Object.freeze([-1, 3]),
+        Object.freeze([1, 3]),
+      ]),
+      Object.freeze([
+        Object.freeze([-1, -3]),
+        Object.freeze([1, -3]),
+        Object.freeze([0, -1.5]),
+        Object.freeze([-1, 0]),
+        Object.freeze([1, 0]),
+        Object.freeze([-1, 3]),
+        Object.freeze([1, 3]),
+      ]),
+      Object.freeze([
+        Object.freeze([-1, -3]),
+        Object.freeze([1, -3]),
+        Object.freeze([0, -1.5]),
+        Object.freeze([-1, 0]),
+        Object.freeze([1, 0]),
+        Object.freeze([0, 1.5]),
+        Object.freeze([-1, 3]),
+        Object.freeze([1, 3]),
+      ]),
+      Object.freeze([
+        Object.freeze([-1, -3]),
+        Object.freeze([1, -3]),
+        Object.freeze([-1, -1]),
+        Object.freeze([1, -1]),
+        Object.freeze([0, 0]),
+        Object.freeze([-1, 1]),
+        Object.freeze([1, 1]),
+        Object.freeze([-1, 3]),
+        Object.freeze([1, 3]),
+      ]),
+      Object.freeze([
+        Object.freeze([-1, -3]),
+        Object.freeze([1, -3]),
+        Object.freeze([0, -2]),
+        Object.freeze([-1, -1]),
+        Object.freeze([1, -1]),
+        Object.freeze([-1, 1]),
+        Object.freeze([1, 1]),
+        Object.freeze([0, 2]),
+        Object.freeze([-1, 3]),
+        Object.freeze([1, 3]),
+      ]),
+    ]),
+    suits: Object.freeze([
+      // Diamonds.
+      Object.freeze({
+        tone: 0.55,
+        discs: Object.freeze([] as readonly (readonly number[])[]),
+        polygons: Object.freeze([
+          Object.freeze([
+            Object.freeze([0, -1]),
+            Object.freeze([0.7, 0]),
+            Object.freeze([0, 1]),
+            Object.freeze([-0.7, 0]),
+          ]),
+        ]),
+        anchor: Object.freeze([0, 0]),
+      }),
+      // Hearts.
+      Object.freeze({
+        tone: 0.4,
+        discs: Object.freeze([
+          Object.freeze([-0.5, -0.25, 0.5]),
+          Object.freeze([0.5, -0.25, 0.5]),
+        ]),
+        polygons: Object.freeze([
+          Object.freeze([
+            Object.freeze([-0.97, -0.05]),
+            Object.freeze([0.97, -0.05]),
+            Object.freeze([0, 1]),
+          ]),
+        ]),
+        anchor: Object.freeze([0, 0.2]),
+      }),
+      // Spades.
+      Object.freeze({
+        tone: 0.08,
+        discs: Object.freeze([
+          Object.freeze([-0.5, 0.25, 0.5]),
+          Object.freeze([0.5, 0.25, 0.5]),
+        ]),
+        polygons: Object.freeze([
+          Object.freeze([
+            Object.freeze([-0.97, 0.05]),
+            Object.freeze([0.97, 0.05]),
+            Object.freeze([0, -1]),
+          ]),
+          Object.freeze([
+            Object.freeze([-0.28, 1]),
+            Object.freeze([0.28, 1]),
+            Object.freeze([0, 0.35]),
+          ]),
+        ]),
+        anchor: Object.freeze([0, -0.2]),
+      }),
+      // Clubs.
+      Object.freeze({
+        tone: 0.16,
+        discs: Object.freeze([
+          Object.freeze([0, -0.5, 0.38]),
+          Object.freeze([-0.55, 0.2, 0.38]),
+          Object.freeze([0.55, 0.2, 0.38]),
+        ]),
+        polygons: Object.freeze([
+          Object.freeze([
+            Object.freeze([-0.26, 1]),
+            Object.freeze([0.26, 1]),
+            Object.freeze([0, -0.1]),
+          ]),
+        ]),
+        anchor: Object.freeze([0, 0.3]),
+      }),
+    ]),
+    columns: 5,
+    rows: 4,
+    cardWidth: 0.15,
+    cardLength: 0.21,
+    gapX: 0.03,
+    gapY: 0.02,
+    pipUnit: 0.0125,
+    columnX: 2.6,
+    levelStep: 1.3,
+    aceScale: 2.2,
+    lineHalf: 0.0012,
+    outlineInset: 0.006,
+    edgeSoft: 0.0006,
+    tableTone: 0.24,
+    cardTone: 0.95,
+    outlineTone: 0.62,
+    tableLevel: 0.2,
+    cardLevel: 0.5,
+    outlineLevel: 0.4,
+    pipLevel: 0.7,
+    inkRoughness: 0.45,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -23527,6 +23700,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  playingcardpips: 1,
   poolrack: 1,
   tablutboard: 1,
   arnoldcatmap: 1,

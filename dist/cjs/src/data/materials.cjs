@@ -27012,6 +27012,192 @@ var proceduralMaterialPresets = Object.freeze({
 		paperRoughness: .8,
 		inkRoughness: .45
 	}),
+	playingcardpips: Object.freeze({
+		dark: [
+			20,
+			52,
+			36
+		],
+		light: [
+			248,
+			244,
+			232
+		],
+		roughness: .5,
+		relief: .004,
+		ranks: Object.freeze([
+			Object.freeze([Object.freeze([0, 0])]),
+			Object.freeze([Object.freeze([0, -3]), Object.freeze([0, 3])]),
+			Object.freeze([
+				Object.freeze([0, -3]),
+				Object.freeze([0, 0]),
+				Object.freeze([0, 3])
+			]),
+			Object.freeze([
+				Object.freeze([-1, -3]),
+				Object.freeze([1, -3]),
+				Object.freeze([-1, 3]),
+				Object.freeze([1, 3])
+			]),
+			Object.freeze([
+				Object.freeze([-1, -3]),
+				Object.freeze([1, -3]),
+				Object.freeze([0, 0]),
+				Object.freeze([-1, 3]),
+				Object.freeze([1, 3])
+			]),
+			Object.freeze([
+				Object.freeze([-1, -3]),
+				Object.freeze([1, -3]),
+				Object.freeze([-1, 0]),
+				Object.freeze([1, 0]),
+				Object.freeze([-1, 3]),
+				Object.freeze([1, 3])
+			]),
+			Object.freeze([
+				Object.freeze([-1, -3]),
+				Object.freeze([1, -3]),
+				Object.freeze([0, -1.5]),
+				Object.freeze([-1, 0]),
+				Object.freeze([1, 0]),
+				Object.freeze([-1, 3]),
+				Object.freeze([1, 3])
+			]),
+			Object.freeze([
+				Object.freeze([-1, -3]),
+				Object.freeze([1, -3]),
+				Object.freeze([0, -1.5]),
+				Object.freeze([-1, 0]),
+				Object.freeze([1, 0]),
+				Object.freeze([0, 1.5]),
+				Object.freeze([-1, 3]),
+				Object.freeze([1, 3])
+			]),
+			Object.freeze([
+				Object.freeze([-1, -3]),
+				Object.freeze([1, -3]),
+				Object.freeze([-1, -1]),
+				Object.freeze([1, -1]),
+				Object.freeze([0, 0]),
+				Object.freeze([-1, 1]),
+				Object.freeze([1, 1]),
+				Object.freeze([-1, 3]),
+				Object.freeze([1, 3])
+			]),
+			Object.freeze([
+				Object.freeze([-1, -3]),
+				Object.freeze([1, -3]),
+				Object.freeze([0, -2]),
+				Object.freeze([-1, -1]),
+				Object.freeze([1, -1]),
+				Object.freeze([-1, 1]),
+				Object.freeze([1, 1]),
+				Object.freeze([0, 2]),
+				Object.freeze([-1, 3]),
+				Object.freeze([1, 3])
+			])
+		]),
+		suits: Object.freeze([
+			Object.freeze({
+				tone: .55,
+				discs: Object.freeze([]),
+				polygons: Object.freeze([Object.freeze([
+					Object.freeze([0, -1]),
+					Object.freeze([.7, 0]),
+					Object.freeze([0, 1]),
+					Object.freeze([-.7, 0])
+				])]),
+				anchor: Object.freeze([0, 0])
+			}),
+			Object.freeze({
+				tone: .4,
+				discs: Object.freeze([Object.freeze([
+					-.5,
+					-.25,
+					.5
+				]), Object.freeze([
+					.5,
+					-.25,
+					.5
+				])]),
+				polygons: Object.freeze([Object.freeze([
+					Object.freeze([-.97, -.05]),
+					Object.freeze([.97, -.05]),
+					Object.freeze([0, 1])
+				])]),
+				anchor: Object.freeze([0, .2])
+			}),
+			Object.freeze({
+				tone: .08,
+				discs: Object.freeze([Object.freeze([
+					-.5,
+					.25,
+					.5
+				]), Object.freeze([
+					.5,
+					.25,
+					.5
+				])]),
+				polygons: Object.freeze([Object.freeze([
+					Object.freeze([-.97, .05]),
+					Object.freeze([.97, .05]),
+					Object.freeze([0, -1])
+				]), Object.freeze([
+					Object.freeze([-.28, 1]),
+					Object.freeze([.28, 1]),
+					Object.freeze([0, .35])
+				])]),
+				anchor: Object.freeze([0, -.2])
+			}),
+			Object.freeze({
+				tone: .16,
+				discs: Object.freeze([
+					Object.freeze([
+						0,
+						-.5,
+						.38
+					]),
+					Object.freeze([
+						-.55,
+						.2,
+						.38
+					]),
+					Object.freeze([
+						.55,
+						.2,
+						.38
+					])
+				]),
+				polygons: Object.freeze([Object.freeze([
+					Object.freeze([-.26, 1]),
+					Object.freeze([.26, 1]),
+					Object.freeze([0, -.1])
+				])]),
+				anchor: Object.freeze([0, .3])
+			})
+		]),
+		columns: 5,
+		rows: 4,
+		cardWidth: .15,
+		cardLength: .21,
+		gapX: .03,
+		gapY: .02,
+		pipUnit: .0125,
+		columnX: 2.6,
+		levelStep: 1.3,
+		aceScale: 2.2,
+		lineHalf: .0012,
+		outlineInset: .006,
+		edgeSoft: 6e-4,
+		tableTone: .24,
+		cardTone: .95,
+		outlineTone: .62,
+		tableLevel: .2,
+		cardLevel: .5,
+		outlineLevel: .4,
+		pipLevel: .7,
+		inkRoughness: .45
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -35693,6 +35879,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	playingcardpips: 1,
 	poolrack: 1,
 	tablutboard: 1,
 	arnoldcatmap: 1,

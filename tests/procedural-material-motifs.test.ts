@@ -67935,3 +67935,492 @@ describe('poolrack: a pool table with the fifteen balls racked and the cue ball,
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('playingcardpips: playing cards with the pips of their ranks, a row for each suit, shuffled by the seed', () => {
+  const p = proceduralMaterialPresets.playingcardpips,
+    out = empty(),
+    u = p.pipUnit,
+    cellWidth = p.cardWidth + p.gapX,
+    cellLength = p.cardLength + p.gapY,
+    left = 0.5 - (p.columns * cellWidth - p.gapX) / 2,
+    top = 0.5 - (p.rows * cellLength - p.gapY) / 2,
+    toneAt = (sample: Sampler, x: number, y: number): number => {
+      sample(x, y, out);
+      return out.color;
+    },
+    // The middle of the card in a row and a column.
+    middle = (row: number, column: number): [number, number] => [
+      left + column * cellWidth + p.cardWidth / 2,
+      top + row * cellLength + p.cardLength / 2,
+    ];
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    mix = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(0.03),
+    same = (a: number, b: number): boolean => Math.abs(a - b) < 1e-6,
+    suitTones = p.suits.map((suit) => suit.tone);
+  // The pips of the usual cards, from the facts of playing cards: the ace one pip, the two and three down the middle, the four the corners, the five the corners and the middle, the six two columns of three,
+  // the seven the six and one between the top and the middle, the eight two between, the nine four to a column and the middle, the ten four to a column and two between (the rows of a column evenly
+  // spaced by a step, the pips between at the steps half way).
+  const levelsOf: Record<number, [number, number][]> = {
+    1: [[0, 0]],
+    2: [
+      [0, -3],
+      [0, 3],
+    ],
+    3: [
+      [0, -3],
+      [0, 0],
+      [0, 3],
+    ],
+    4: [
+      [-1, -3],
+      [1, -3],
+      [-1, 3],
+      [1, 3],
+    ],
+    5: [
+      [-1, -3],
+      [1, -3],
+      [0, 0],
+      [-1, 3],
+      [1, 3],
+    ],
+    6: [
+      [-1, -3],
+      [1, -3],
+      [-1, 0],
+      [1, 0],
+      [-1, 3],
+      [1, 3],
+    ],
+    7: [
+      [-1, -3],
+      [1, -3],
+      [0, -1.5],
+      [-1, 0],
+      [1, 0],
+      [-1, 3],
+      [1, 3],
+    ],
+    8: [
+      [-1, -3],
+      [1, -3],
+      [0, -1.5],
+      [-1, 0],
+      [1, 0],
+      [0, 1.5],
+      [-1, 3],
+      [1, 3],
+    ],
+    9: [
+      [-1, -3],
+      [1, -3],
+      [-1, -1],
+      [1, -1],
+      [0, 0],
+      [-1, 1],
+      [1, 1],
+      [-1, 3],
+      [1, 3],
+    ],
+    10: [
+      [-1, -3],
+      [1, -3],
+      [0, -2],
+      [-1, -1],
+      [1, -1],
+      [-1, 1],
+      [1, 1],
+      [0, 2],
+      [-1, 3],
+      [1, 3],
+    ],
+  };
+  const sites: [number, number][] = [];
+  for (const column of [-1, 0, 1])
+    for (const level of [-3, -2, -1.5, -1, 0, 1, 1.5, 2, 3])
+      sites.push([column, level]);
+  // A pip of a suit in pip units (+y down, the middle at the origin): inside the shape or not, by the discs and the polygons written out (a point is inside a convex polygon if it is on the same side of every side).
+  const insideShape = (suit: number, x: number, y: number): boolean => {
+    const shape = p.suits[suit];
+    if (
+      shape.discs.some(
+        ([cx, cy, radius]) => Math.hypot(x - cx, y - cy) < radius,
+      )
+    )
+      return true;
+    return shape.polygons.some((polygon) => {
+      const signs = polygon.map(([ax, ay], index) => {
+        const [bx, by] = polygon[(index + 1) % polygon.length];
+        return Math.sign((bx - ax) * (y - ay) - (by - ay) * (x - ax));
+      });
+      return (
+        signs.every((sign) => sign >= 0) || signs.every((sign) => sign <= 0)
+      );
+    });
+  };
+  // How near a point is to the edge of the shape (so that points too near it are not read): the least distance to a circle's edge or a polygon's sides.
+  const edgeDistance = (suit: number, x: number, y: number): number => {
+    const shape = p.suits[suit];
+    let least = Infinity;
+    for (const [cx, cy, radius] of shape.discs)
+      least = Math.min(least, Math.abs(Math.hypot(x - cx, y - cy) - radius));
+    for (const polygon of shape.polygons)
+      polygon.forEach(([ax, ay], index) => {
+        const [bx, by] = polygon[(index + 1) % polygon.length],
+          t = Math.max(
+            0,
+            Math.min(
+              1,
+              ((x - ax) * (bx - ax) + (y - ay) * (by - ay)) /
+                ((bx - ax) ** 2 + (by - ay) ** 2),
+            ),
+          );
+        least = Math.min(
+          least,
+          Math.hypot(x - (ax + t * (bx - ax)), y - (ay + t * (by - ay))),
+        );
+      });
+    return least;
+  };
+  type Card = { suit: number; rank: number };
+  const readCards = (seed: number): { sample: Sampler; cards: Card[][] } => {
+    const sample = createSurfaceSampler('playingcardpips', seed),
+      cards: Card[][] = [];
+    for (let row = 0; row < p.rows; row++) {
+      cards.push([]);
+      for (let column = 0; column < p.columns; column++) {
+        const [cx, cy] = middle(row, column),
+          present = new Map<string, number>();
+        for (const [pipColumn, level] of sites) {
+          // The place to read a pip at: its middle moved by the suit's point inside (turned for a pip below the middle; the ace's pip is larger), tried for each suit.
+          const turned = level > 0 ? -1 : 1;
+          for (let candidate = 0; candidate < 4; candidate++) {
+            const [ax, ay] = p.suits[candidate].anchor;
+            for (const size of pipColumn === 0 && level === 0
+              ? [1, p.aceScale]
+              : [1])
+              if (
+                same(
+                  toneAt(
+                    sample,
+                    cx + pipColumn * p.columnX * u + turned * ax * u * size,
+                    cy + level * p.levelStep * u + turned * ay * u * size,
+                  ),
+                  suitTones[candidate],
+                )
+              )
+                present.set(`${pipColumn}/${level}`, candidate);
+          }
+        }
+        // The rank whose pips are all there and where no other pip is anywhere clear of them (a place nearer than one and a half pip units to a pip of the rank may be part of the pip).
+        const ranks = Object.keys(levelsOf)
+          .map(Number)
+          .filter((rank) => {
+            const expected = levelsOf[rank];
+            if (!expected.every(([c, l]) => present.has(`${c}/${l}`)))
+              return false;
+            return sites.every(([c, l]) => {
+              const near = expected.some(
+                ([ec, el]) =>
+                  Math.hypot((c - ec) * p.columnX, (l - el) * p.levelStep) <
+                  (rank === 1 ? p.aceScale + 1.2 : 1.4),
+              );
+              return near || !present.has(`${c}/${l}`);
+            });
+          });
+        expect(ranks.length).toBe(1);
+        const suits = new Set(present.values());
+        expect(suits.size).toBe(1);
+        cards[row].push({ suit: [...suits][0], rank: ranks[0] });
+      }
+    }
+    return { sample, cards };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'lays out four suits in rows, each of five ranks in a row one after the other, from an ace to a ten, with the pips of their ranks (seed %i)',
+    (seed) => {
+      const { cards } = readCards(seed);
+      // A row is one suit, the four rows the four suits, the ranks of each row go up by one from the first, which is one of the first six ranks.
+      expect(new Set(cards.map((row) => row[0].suit)).size).toBe(4);
+      for (const row of cards) {
+        expect(row.every((card) => card.suit === row[0].suit)).toBe(true);
+        row.forEach((card, column) =>
+          expect(card.rank).toBe(row[0].rank + column),
+        );
+      }
+      for (const column of [0, 1, 2, 3, 4])
+        expect(
+          cards.every((row) => row[column].rank === cards[0][column].rank),
+        ).toBe(true);
+      expect(cards[0][0].rank).toBeGreaterThanOrEqual(1);
+      expect(cards[0][0].rank).toBeLessThanOrEqual(10 - p.columns + 1);
+    },
+  );
+
+  it('uses every first rank and every order of the suits over 300 seeds, about equally often', () => {
+    const first = new Map<number, number>(),
+      orders = new Set<string>(),
+      place = Array.from({ length: 4 }, () => new Array<number>(4).fill(0));
+    for (let seed = 0; seed < 300; seed++) {
+      const { cards } = readCards(seed * 7 + 1);
+      first.set(cards[0][0].rank, (first.get(cards[0][0].rank) ?? 0) + 1);
+      orders.add(cards.map((row) => row[0].suit).join(''));
+      cards.forEach((row, index) => (place[index][row[0].suit] += 1));
+    }
+    expect(first.size).toBe(10 - p.columns + 1);
+    for (const count of first.values())
+      expect(Math.abs(count - 300 / (10 - p.columns + 1))).toBeLessThan(22);
+    expect(orders.size).toBeGreaterThan(18);
+    for (const line of place)
+      for (const count of line) expect(Math.abs(count - 75)).toBeLessThan(25);
+  }, 120000);
+
+  it('draws every suit as its shape, upright above the middle of a card and upside down below it, with the tone of the suit', () => {
+    for (const seed of [2, 5]) {
+      const { sample, cards } = readCards(seed);
+      cards.forEach((line, row) => {
+        // The card with four pips or more nearest the left: its pips at the top left (upright) and the bottom left (upside down).
+        const column = line.findIndex((card) => card.rank >= 4),
+          suit = line[column].suit;
+        const [cx, cy] = middle(row, column);
+        for (const [level, turned] of [
+          [-3, 1],
+          [3, -1],
+        ]) {
+          const px = cx - p.columnX * u,
+            py = cy + level * p.levelStep * u;
+          let checked = 0;
+          for (let ix = -13; ix <= 13; ix++)
+            for (let iy = -13; iy <= 13; iy++) {
+              const x = ix * 0.1 + 0.013,
+                y = iy * 0.1 + 0.007;
+              // The shape's own coordinates of the place: turned half way round for the pip below the middle.
+              const sx = x * turned,
+                sy = y * turned;
+              if (edgeDistance(suit, sx, sy) < 0.08) continue;
+              const tone = toneAt(sample, px + x * u, py + y * u);
+              expect(tone).toBeCloseTo(
+                insideShape(suit, sx, sy) ? suitTones[suit] : p.cardTone,
+                6,
+              );
+              checked++;
+            }
+          expect(checked).toBeGreaterThan(300);
+          expect(out.height / p.relief).toBeGreaterThan(0);
+        }
+      });
+    }
+  });
+
+  it('draws the pip of the ace larger by the factor of the preset, as the shape and with the softening of its edge', () => {
+    let seed = 0;
+    while (readCards(seed).cards[0][0].rank !== 1) seed++;
+    const { sample, cards } = readCards(seed),
+      quarter = 0.25 * p.edgeSoft,
+      hypot = Math.hypot(1, 0.7),
+      edges: [number, number, number, number][] = [
+        [0.35, -0.5, 1 / hypot, -0.7 / hypot],
+        [-1, -0.25, -1, 0],
+        [-1, 0.25, -1, 0],
+        [0, -0.88, 0, -1],
+      ];
+    cards.forEach((line, row) => {
+      const suit = line[0].suit,
+        [mx, my] = middle(row, 0);
+      let checked = 0;
+      for (let ix = -13; ix <= 13; ix++)
+        for (let iy = -13; iy <= 13; iy++) {
+          const x = ix * 0.1 + 0.013,
+            y = iy * 0.1 + 0.007;
+          if (edgeDistance(suit, x, y) < 0.08) continue;
+          expect(
+            toneAt(sample, mx + x * u * p.aceScale, my + y * u * p.aceScale),
+          ).toBeCloseTo(
+            insideShape(suit, x, y) ? suitTones[suit] : p.cardTone,
+            6,
+          );
+          checked++;
+        }
+      expect(checked).toBeGreaterThan(300);
+      // The edge: where the cover is exact, a quarter of edgeSoft either side (in the distance on the card, which is the preset's factor larger than in pip units).
+      const [ex, ey, ox, oy] = edges[suit],
+        depth = quarter / (u * p.aceScale);
+      close(
+        toneAt(
+          sample,
+          mx + (ex - ox * depth) * u * p.aceScale,
+          my + (ey - oy * depth) * u * p.aceScale,
+        ),
+        mix(p.cardTone, suitTones[suit], 0.75),
+      );
+      close(
+        toneAt(
+          sample,
+          mx + (ex + ox * depth) * u * p.aceScale,
+          my + (ey + oy * depth) * u * p.aceScale,
+        ),
+        mix(p.cardTone, suitTones[suit], 0.25),
+      );
+    });
+  });
+
+  it('draws the cards with their size, the outline, the gaps and the table, with tones, heights and roughness, and the pips with their height', () => {
+    const { sample, cards } = readCards(2),
+      [cx, cy] = middle(1, 2);
+    expect(toneAt(sample, 0.01, 0.01)).toBeCloseTo(p.tableTone, 6);
+    expect(out.height / p.relief).toBeCloseTo(p.tableLevel, 6);
+    expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+    // The edges of a card: inside the card tone, outside (the gap) the table; the corners of the whole grid too.
+    for (const [dx, dy] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ]) {
+      const edge = dx !== 0 ? p.cardWidth / 2 : p.cardLength / 2,
+        along = dx !== 0 ? 0.04 : 0.02,
+        at = (distance: number): [number, number] => [
+          cx + dx * distance + dy * along,
+          cy + dy * distance + dx * along,
+        ];
+      expect(toneAt(sample, ...at(edge - 0.0004 - 0.012))).toBeCloseTo(
+        p.cardTone,
+        6,
+      );
+      expect(out.height / p.relief).toBeCloseTo(p.cardLevel, 6);
+      expect(toneAt(sample, ...at(edge + 0.0004))).toBeCloseTo(p.tableTone, 6);
+      expect(out.height / p.relief).toBeCloseTo(p.tableLevel, 6);
+      // The outline: a line a little inside the edge, its width.
+      expect(toneAt(sample, ...at(edge - p.outlineInset))).toBeCloseTo(
+        p.outlineTone,
+        6,
+      );
+      expect(out.height / p.relief).toBeCloseTo(p.outlineLevel, 6);
+      expect(
+        toneAt(sample, ...at(edge - p.outlineInset - p.lineHalf + 0.0004)),
+      ).toBeCloseTo(p.outlineTone, 6);
+      expect(
+        toneAt(sample, ...at(edge - p.outlineInset - p.lineHalf - 0.0004)),
+      ).toBeCloseTo(p.cardTone, 6);
+      expect(
+        toneAt(sample, ...at(edge - p.outlineInset + p.lineHalf + 0.0004)),
+      ).toBeCloseTo(p.cardTone, 6);
+    }
+    // The gap between two cards (the table), and the whole grid's size.
+    expect(toneAt(sample, cx + p.cardWidth / 2 + p.gapX / 2, cy)).toBeCloseTo(
+      p.tableTone,
+      6,
+    );
+    expect(toneAt(sample, cx, cy + p.cardLength / 2 + p.gapY / 2)).toBeCloseTo(
+      p.tableTone,
+      6,
+    );
+    expect(toneAt(sample, left - 0.01, 0.5)).toBeCloseTo(p.tableTone, 6);
+    expect(toneAt(sample, left + 0.01, top + 0.01)).toBeCloseTo(p.cardTone, 6);
+    // A pip: its tone and height, and that a pip of the ace is larger (about the factor of the preset).
+    const suit = cards[0][0].suit,
+      [ax, ay] = p.suits[suit].anchor;
+    const [px, py] = middle(0, 0);
+    expect(
+      toneAt(sample, px + ax * u * p.aceScale, py + ay * u * p.aceScale),
+    ).toBeCloseTo(suitTones[suit], 6);
+    expect(out.height / p.relief).toBeCloseTo(p.pipLevel, 6);
+    expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+  });
+
+  it('softens the edge of a card, of the outline and of a pip of every suit over edgeSoft', () => {
+    const { sample, cards } = readCards(2),
+      quarter = 0.25 * p.edgeSoft,
+      [cx, cy] = middle(1, 2);
+    close(
+      toneAt(sample, cx + p.cardWidth / 2 - quarter, cy + 0.04),
+      mix(p.tableTone, p.cardTone, 0.75),
+    );
+    close(
+      toneAt(sample, cx + p.cardWidth / 2 + quarter, cy + 0.04),
+      mix(p.tableTone, p.cardTone, 0.25),
+    );
+    close(
+      toneAt(
+        sample,
+        cx + p.cardWidth / 2 - p.outlineInset - p.lineHalf + quarter,
+        cy + 0.04,
+      ),
+      mix(p.cardTone, p.outlineTone, 0.75),
+    );
+    close(
+      toneAt(
+        sample,
+        cx + p.cardWidth / 2 - p.outlineInset - p.lineHalf - quarter,
+        cy + 0.04,
+      ),
+      mix(p.cardTone, p.outlineTone, 0.25),
+    );
+    // The edge of a pip where the cover is exact (the nearest side or circle alone decides): a point on the edge of each suit in pip units and the direction away from the shape.
+    const hypot = Math.hypot(1, 0.7),
+      edges: [number, number, number, number][] = [
+        [0.35, -0.5, 1 / hypot, -0.7 / hypot],
+        [-1, -0.25, -1, 0],
+        [-1, 0.25, -1, 0],
+        [0, -0.88, 0, -1],
+      ];
+    cards.forEach((line, row) => {
+      const column = line.findIndex((card) => card.rank >= 4),
+        suit = line[column].suit,
+        [mx, my] = middle(row, column),
+        px = mx - p.columnX * u,
+        py = my - 3 * p.levelStep * u,
+        [ex, ey, ox, oy] = edges[suit],
+        depth = quarter / u;
+      close(
+        toneAt(sample, px + (ex - ox * depth) * u, py + (ey - oy * depth) * u),
+        mix(p.cardTone, suitTones[suit], 0.75),
+      );
+      close(
+        toneAt(sample, px + (ex + ox * depth) * u, py + (ey + oy * depth) * u),
+        mix(p.cardTone, suitTones[suit], 0.25),
+      );
+    });
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('playingcardpips', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('playingcardpips', 0),
+      b = createSurfaceSampler('playingcardpips', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});
