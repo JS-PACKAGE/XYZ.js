@@ -15749,6 +15749,52 @@ export declare const proceduralMaterialPresets: Readonly<{
         postHeight: 0.9;
         inkRoughness: 0.45;
     }>;
+    badmintoncourt: Readonly<{
+        dark: readonly [18, 34, 30];
+        light: readonly [238, 240, 232];
+        roughness: 0.5;
+        relief: 0.004;
+        metre: 0.0517;
+        courtLength: 13.4;
+        courtWidth: 6.1;
+        singlesWidth: 5.18;
+        shortService: 1.98;
+        longServiceInside: 0.76;
+        runoffEnd: 2;
+        runoffSide: 1.5;
+        lineWidth: 0.04;
+        netThickness: 0.06;
+        postRadius: 0.06;
+        surfaces: readonly (Readonly<{
+            court: 0.46;
+            runoff: 0.34;
+            ground: 0.2;
+        }> | Readonly<{
+            court: 0.4;
+            runoff: 0.3;
+            ground: 0.22;
+        }> | Readonly<{
+            court: 0.52;
+            runoff: 0.44;
+            ground: 0.3;
+        }> | Readonly<{
+            court: 0.34;
+            runoff: 0.26;
+            ground: 0.12;
+        }>)[];
+        toneShift: 0.04;
+        edgeSoft: 0.0006;
+        lineTone: 0.96;
+        netTone: 0.12;
+        postTone: 0.06;
+        groundHeight: 0.15;
+        runoffHeight: 0.25;
+        courtHeight: 0.3;
+        lineHeight: 0.35;
+        netHeight: 0.8;
+        postHeight: 0.9;
+        inkRoughness: 0.45;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -22234,6 +22280,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    badmintoncourt: 1;
     tenniscourt: 1;
     playingcardpips: 1;
     poolrack: 1;

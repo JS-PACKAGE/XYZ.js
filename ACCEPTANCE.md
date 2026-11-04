@@ -13899,3 +13899,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 突變檢查（基準通過後）：第一輪42個突變，全數確認套用，35個被抓到；存活7個（中央標記的長度、距離換算乘1.1、中央發球線的長度、地面與緩衝區的高度、下方網柱的柔化寬度、粗糙度）；補了標記與發球線端點附近的探針、緊容許值、地面／緩衝區／場地的高度與粗糙度、兩個網柱的柔化後，這7個重跑全部被抓到；之後新增的色調偏移另做6個突變（偏移量減半、只有正值、範圍縮小、各個色調不加偏移），全部被抓到。沒有留下存活的突變。
 - 實測：`tests/procedural-material-motifs.test.ts`三千五百二十項（本材質十五項）全過，`tsc`、eslint通過。`tests/procedural-material.test.ts`以`-t "tenniscourt|every preset"`定向跑3項通過（修正偏移之後）。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。效能：512單次取樣約120到146 ms（Bun單次量測，非效能認證）。
 - 真實dev server的pbr3d頁（WebGPU）選取`tenniscourt`：嚴格斷言的檢查（option為1212個、status含「1211 procedural material presets」、含該kind、`tab.errors()`為空、下拉選單選到的值為該kind）第一次嘗試即符合，但截圖出現「Protocol error (Page.captureScreenshot): Target closed」，重試一次後取得截圖且斷言再次符合；實看512預覽圖（seed 3（球網還很細的版本）、6）：灰綠色地面上的灰色緩衝區與場地，白色的各條線，中間的深色球網與兩端的網柱；seed 6的球場是橫放；每塊磚四個重複；25球的gallery畫面中球面上是不太容易辨認的灰色。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：羽球場（badmintoncourt）
+
+- 目錄1211→1212，含plain的gallery為1213項。從正上方看的羽球場，依規則尺寸（公尺）畫出底線、單雙打邊線、短發球線、雙打長發球線、中線、球網與網柱，四周的緩衝區與地面；seed選四種表面之一（色調再一起偏移不超過`toneShift`）與方向；Metallic／mortar為0，預設tile 1 m、0.004 UV-relative relief、metallic factor 0。作者設計的示意，沒有文字。仍在獨立worktree分支`materials/more-textures`作業。
+- 完整套件：這一項沒有重跑；最近一次乾淨匯出的完整套件是`ce0ac3a65`（目錄1210種）：`tests/procedural-material.test.ts`與`tests/procedural-material-motifs.test.ts`**9339項通過、0失敗**（約1790秒）。之後的網球場（`9edb4a616`）與本材質只跑定向測試。
+- 設計說明：本材質沿用上一個網球場的結構（四種表面、色調偏移、方向、線與場地的比例處理使場地邊緣的線保持乾淨的邊），一開始就包含色調偏移，因為網球場的第一次`verify.sh`被既有泛型測試（seed 123與124的基底色彩須不同）抓到變化種類太少。開發中沒有再出現測試端的錯誤，基準測試第一次就全過；這次的規則（短發球線在遠離網的一側、其他線朝向場地中間）是我依「線屬於它所界定的區域」做的解讀，並寫在preset註解與測試註解中，沒有逐條核對官方規則書原文，這是尚未驗證的地方。
+- 突變檢查：40個突變（隨機方向／表面／偏移的各參數、各個尺寸除數與乘數、座標軸互換、各條線的位置偏移、線與場地的比例處理、各個色調／高度的交換、網與網柱的尺寸、粗糙度）全數確認套用，全數被抓到；沒有存活的突變。
+- 實測：`tests/procedural-material-motifs.test.ts`三千五百三十五項（本材質十五項）全過，`tsc`、eslint通過。`tests/procedural-material.test.ts`以`-t "badmintoncourt|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility（737 exports／2810 contracts）與distribution實際通過。效能：512單次取樣約100到123 ms（Bun單次量測，非效能認證）。
+- 真實dev server的pbr3d頁（WebGPU）選取`badmintoncourt`：嚴格斷言的檢查（option為1213個、status含「1212 procedural material presets」、含該kind、`tab.errors()`為空、下拉選單選到的值為該kind）第一次嘗試即符合；實看512預覽圖（seed 3、11）：灰綠色地面上較淺的緩衝區與場地，白色的各條線，中間的深色球網與兩端的網柱，球場橫放；每塊磚四個重複；25球的gallery畫面中球面上是不太容易辨認的小標記。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

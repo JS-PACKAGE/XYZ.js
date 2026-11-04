@@ -68808,3 +68808,394 @@ describe('tenniscourt: a tennis court seen from above with the markings of the r
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('badmintoncourt: a badminton court seen from above with the markings of the rules, laid along or across by the seed', () => {
+  const p = proceduralMaterialPresets.badmintoncourt,
+    out = empty(),
+    m = p.metre,
+    toneAt = (
+      sample: Sampler,
+      x: number,
+      y: number,
+      across: boolean,
+    ): number => {
+      // A place in metres from the middle of the court (x along its length) as a place on the picture.
+      sample(0.5 + (across ? y : x) * m, 0.5 + (across ? x : y) * m, out);
+      return out.color;
+    };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    mix = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(0.008);
+  // The facts of the court, in metres (the laws of badminton): 13.4 long and 6.1 wide for doubles, 5.18 wide for singles, the short service lines 1.98 from the net, the long service line of doubles 0.76 inside
+  // the baseline, lines 40 millimetres wide that are part of the area they bound, the net on the middle line with its posts on the doubles sidelines; run-off of 2 behind the baselines and 1.5 at the sides.
+  const rules = {
+    length: 13.4,
+    width: 6.1,
+    singles: 5.18,
+    short: 1.98,
+    longInside: 0.76,
+    line: 0.04,
+    endRunoff: 2,
+    sideRunoff: 1.5,
+  };
+  type Surface = {
+    across: boolean;
+    surface: number;
+    shift: number;
+    tones: { court: number; runoff: number; ground: number };
+  };
+  const readSurface = (sample: Sampler): Surface => {
+    const options: Surface[] = [];
+    for (const across of [false, true]) {
+      const court = toneAt(sample, 3, 1, across),
+        runoff = toneAt(sample, 7.5, 0, across),
+        ground = toneAt(sample, 0, 6, across);
+      p.surfaces.forEach((surface, index) => {
+        const shift = ground - surface.ground;
+        if (
+          Math.abs(shift) <= p.toneShift + 1e-9 &&
+          Math.abs(court - surface.court - shift) < 1e-6 &&
+          Math.abs(runoff - surface.runoff - shift) < 1e-6
+        )
+          options.push({
+            across,
+            surface: index,
+            shift,
+            tones: { court, runoff, ground },
+          });
+      });
+    }
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+
+  it('has the rules of the court in the preset', () => {
+    expect(p.courtLength).toBe(rules.length);
+    expect(p.courtWidth).toBe(rules.width);
+    expect(p.singlesWidth).toBe(rules.singles);
+    expect(p.shortService).toBe(rules.short);
+    expect(p.longServiceInside).toBe(rules.longInside);
+    expect(p.lineWidth).toBe(rules.line);
+    expect(p.runoffEnd).toBe(rules.endRunoff);
+    expect(p.runoffSide).toBe(rules.sideRunoff);
+  });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws the court, the run-off and the ground of a surface of the preset, along the picture or across it (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('badmintoncourt', seed),
+        { across, tones } = readSurface(sample);
+      for (const [x, y] of [
+        [3, 1],
+        [-3, -1],
+        [4.5, -2],
+        [-4.5, 2],
+        [0.5, 2.8],
+        [6.2, 0.2],
+      ]) {
+        expect(toneAt(sample, x, y, across)).toBeCloseTo(tones.court, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.courtHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+      }
+      for (const [x, y] of [
+        [7.5, 0],
+        [-7.5, 2],
+        [0, 3.8],
+        [4, -4.2],
+        [8, -4],
+      ]) {
+        expect(toneAt(sample, x, y, across)).toBeCloseTo(tones.runoff, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.runoffHeight, 6);
+      }
+      for (const [x, y] of [
+        [0, 6],
+        [9.5, 0],
+        [-9.5, 3],
+        [0, -5.5],
+      ]) {
+        expect(toneAt(sample, x, y, across)).toBeCloseTo(tones.ground, 6);
+        expect(out.height / p.relief).toBeCloseTo(p.groundHeight, 6);
+      }
+    },
+  );
+
+  it('uses every surface and both ways over 300 seeds, about equally often, with the tones shifted over the whole range', () => {
+    const surfaces = new Map<number, number>(),
+      shifts: number[] = [];
+    let acrossCount = 0;
+    for (let seed = 0; seed < 300; seed++) {
+      const { across, surface, shift } = readSurface(
+        createSurfaceSampler('badmintoncourt', seed * 7 + 1),
+      );
+      shifts.push(shift);
+      surfaces.set(surface, (surfaces.get(surface) ?? 0) + 1);
+      acrossCount += Number(across);
+    }
+    expect(surfaces.size).toBe(p.surfaces.length);
+    for (const count of surfaces.values())
+      expect(Math.abs(count - 300 / p.surfaces.length)).toBeLessThan(25);
+    expect(Math.abs(acrossCount / 300 - 0.5)).toBeLessThan(0.1);
+    expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+    expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+    expect(
+      Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 300),
+    ).toBeLessThan(p.toneShift * 0.15);
+    for (let quarter = 0; quarter < 4; quarter++)
+      expect(
+        Math.abs(
+          shifts.filter(
+            (shift) =>
+              Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+          ).length - 75,
+        ),
+      ).toBeLessThan(25);
+  });
+
+  it('draws the lines where the rules put them, each the width of a line inside the area it bounds, with their tone and height', () => {
+    const w = rules.line,
+      delta = 0.0004 / m,
+      halfL = rules.length / 2,
+      halfW = rules.width / 2,
+      halfS = rules.singles / 2,
+      longX = halfL - rules.longInside;
+    // Each line as the rectangle it fills, in metres from the middle of the court: the baselines, the sidelines of doubles and of singles, the short service lines (on the side of the service court away from the net),
+    // the long service lines of doubles (on the side towards the net) and the centre lines (centred on the middle, from the short service line to the baseline).
+    const lines: { x0: number; x1: number; y0: number; y1: number }[] = [
+      { x0: halfL - w, x1: halfL, y0: -halfW, y1: halfW },
+      { x0: -halfL, x1: -halfL + w, y0: -halfW, y1: halfW },
+      { x0: -halfL, x1: halfL, y0: halfW - w, y1: halfW },
+      { x0: -halfL, x1: halfL, y0: -halfW, y1: -halfW + w },
+      { x0: -halfL, x1: halfL, y0: halfS - w, y1: halfS },
+      { x0: -halfL, x1: halfL, y0: -halfS, y1: -halfS + w },
+      { x0: rules.short, x1: rules.short + w, y0: -halfW, y1: halfW },
+      { x0: -rules.short - w, x1: -rules.short, y0: -halfW, y1: halfW },
+      { x0: longX - w, x1: longX, y0: -halfW, y1: halfW },
+      { x0: -longX, x1: -longX + w, y0: -halfW, y1: halfW },
+      { x0: rules.short, x1: halfL, y0: -w / 2, y1: w / 2 },
+      { x0: -halfL, x1: -rules.short, y0: -w / 2, y1: w / 2 },
+    ];
+    for (const seed of [2, 5]) {
+      const sample = createSurfaceSampler('badmintoncourt', seed),
+        { across } = readSurface(sample);
+      for (const line of lines) {
+        const horizontal = line.x1 - line.x0 > line.y1 - line.y0;
+        // Places along the line clear of the crossings of the other lines (fractions chosen not to meet them) and of the net: the tone and height of a line; a little inside either edge the tone of a line, a little outside it not.
+        for (const fraction of [0.28, 0.73]) {
+          const mx = horizontal
+              ? line.x0 + fraction * (line.x1 - line.x0)
+              : (line.x0 + line.x1) / 2,
+            my = horizontal
+              ? (line.y0 + line.y1) / 2
+              : line.y0 + fraction * (line.y1 - line.y0);
+          expect(toneAt(sample, mx, my, across)).toBeCloseTo(p.lineTone, 6);
+          expect(out.height / p.relief).toBeCloseTo(p.lineHeight, 6);
+          const edges: [number, number, number, number][] = horizontal
+            ? [
+                [mx, line.y0 + delta, mx, line.y0 - delta],
+                [mx, line.y1 - delta, mx, line.y1 + delta],
+              ]
+            : [
+                [line.x0 + delta, my, line.x0 - delta, my],
+                [line.x1 - delta, my, line.x1 + delta, my],
+              ];
+          for (const [ix, iy, ox, oy] of edges) {
+            expect(toneAt(sample, ix, iy, across)).toBeCloseTo(p.lineTone, 6);
+            expect(
+              Math.abs(toneAt(sample, ox, oy, across) - p.lineTone),
+            ).toBeGreaterThan(0.1);
+          }
+        }
+      }
+      // The ends: the lines reach the doubles sidelines (corners are line); the centre line stops at the short service line (and at the baseline) and the service lines go over the whole width.
+      expect(toneAt(sample, halfL - 0.02, halfW - 0.02, across)).toBeCloseTo(
+        p.lineTone,
+        6,
+      );
+      expect(toneAt(sample, longX - 0.02, halfW - 0.02, across)).toBeCloseTo(
+        p.lineTone,
+        6,
+      );
+      expect(
+        toneAt(sample, rules.short + 0.02, -halfW + 0.02, across),
+      ).toBeCloseTo(p.lineTone, 6);
+      expect(toneAt(sample, rules.short - 0.1, 0, across)).not.toBeCloseTo(
+        p.lineTone,
+        1,
+      );
+      expect(toneAt(sample, -rules.short + 0.1, 0, across)).not.toBeCloseTo(
+        p.lineTone,
+        1,
+      );
+      expect(toneAt(sample, rules.short + 0.1, 0, across)).toBeCloseTo(
+        p.lineTone,
+        6,
+      );
+      expect(toneAt(sample, halfL - w - 0.1, 0, across)).toBeCloseTo(
+        p.lineTone,
+        6,
+      );
+      // There is no singles long service line apart from the baseline, and between the short service line and the net only the net.
+      expect(
+        toneAt(sample, halfL - rules.longInside - 0.3, 1, across),
+      ).not.toBeCloseTo(p.lineTone, 1);
+      expect(toneAt(sample, 1, 1, across)).not.toBeCloseTo(p.lineTone, 1);
+    }
+  });
+
+  it('draws the net across the middle between the posts on the doubles sidelines, over the lines and the court', () => {
+    const sample = createSurfaceSampler('badmintoncourt', 3),
+      { across, tones } = readSurface(sample),
+      halfW = rules.width / 2;
+    for (const y of [-2.8, -1.5, -0.4, 0.7, 1.9, 2.8]) {
+      expect(toneAt(sample, 0, y, across)).toBeCloseTo(p.netTone, 6);
+      expect(out.height / p.relief).toBeCloseTo(p.netHeight, 6);
+      expect(
+        toneAt(sample, p.netThickness / 2 - 0.0004 / m, y, across),
+      ).toBeCloseTo(p.netTone, 6);
+      expect(
+        Math.abs(
+          toneAt(sample, p.netThickness / 2 + 0.0004 / m, y, across) -
+            p.netTone,
+        ),
+      ).toBeGreaterThan(0.05);
+    }
+    for (const sign of [1, -1]) {
+      const y = sign * halfW;
+      expect(toneAt(sample, 0, y, across)).toBeCloseTo(p.postTone, 6);
+      expect(out.height / p.relief).toBeCloseTo(p.postHeight, 6);
+      for (const [ux, uy] of [
+        [1, 0],
+        [0, 1],
+        [-1, 0],
+        [0, -1],
+      ])
+        expect(
+          toneAt(
+            sample,
+            ux * (p.postRadius - 0.0004 / m),
+            y + uy * (p.postRadius - 0.0004 / m),
+            across,
+          ),
+        ).toBeCloseTo(p.postTone, 6);
+      expect(
+        toneAt(sample, 0, y + sign * (p.postRadius + 0.0004 / m), across),
+      ).toBeCloseTo(tones.runoff, 6);
+    }
+  });
+
+  it('softens the edge of the run-off, of the court, of a line, of the net and of a post over edgeSoft', () => {
+    const sample = createSurfaceSampler('badmintoncourt', 2),
+      { across, tones } = readSurface(sample),
+      quarter = (0.25 * p.edgeSoft) / m,
+      w = rules.line,
+      halfL = rules.length / 2,
+      halfW = rules.width / 2;
+    close(
+      toneAt(sample, 3, halfW + rules.sideRunoff - quarter, across),
+      mix(tones.ground, tones.runoff, 0.75),
+    );
+    close(
+      toneAt(sample, 3, halfW + rules.sideRunoff + quarter, across),
+      mix(tones.ground, tones.runoff, 0.25),
+    );
+    close(
+      toneAt(sample, halfL + rules.endRunoff - quarter, 1, across),
+      mix(tones.ground, tones.runoff, 0.75),
+    );
+    close(
+      toneAt(sample, halfL + rules.endRunoff + quarter, 1, across),
+      mix(tones.ground, tones.runoff, 0.25),
+    );
+    // The outer edge of the baseline and of the doubles sideline over the run-off.
+    close(
+      toneAt(sample, halfL - quarter, 1.5, across),
+      mix(tones.runoff, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, halfL + quarter, 1.5, across),
+      mix(tones.runoff, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, -3, halfW - quarter, across),
+      mix(tones.runoff, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, -3, halfW + quarter, across),
+      mix(tones.runoff, p.lineTone, 0.25),
+    );
+    // The inner edge of the singles sideline, of the short service line (on its near side) over the court, the net and a post.
+    close(
+      toneAt(sample, -3, rules.singles / 2 - w - quarter, across),
+      mix(tones.court, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, -3, rules.singles / 2 - w + quarter, across),
+      mix(tones.court, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, rules.short - quarter, 1.2, across),
+      mix(tones.court, p.lineTone, 0.25),
+    );
+    close(
+      toneAt(sample, rules.short + quarter, 1.2, across),
+      mix(tones.court, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, p.netThickness / 2 - quarter, 1, across),
+      mix(tones.court, p.netTone, 0.75),
+    );
+    close(
+      toneAt(sample, p.netThickness / 2 + quarter, 1, across),
+      mix(tones.court, p.netTone, 0.25),
+    );
+    for (const sign of [1, -1]) {
+      close(
+        toneAt(sample, 0, sign * (halfW + p.postRadius - quarter), across),
+        mix(tones.runoff, p.postTone, 0.75),
+      );
+      close(
+        toneAt(sample, 0, sign * (halfW + p.postRadius + quarter), across),
+        mix(tones.runoff, p.postTone, 0.25),
+      );
+    }
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('badmintoncourt', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('badmintoncourt', 0),
+      b = createSurfaceSampler('badmintoncourt', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

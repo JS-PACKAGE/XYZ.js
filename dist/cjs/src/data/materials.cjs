@@ -27259,6 +27259,65 @@ var proceduralMaterialPresets = Object.freeze({
 		postHeight: .9,
 		inkRoughness: .45
 	}),
+	badmintoncourt: Object.freeze({
+		dark: [
+			18,
+			34,
+			30
+		],
+		light: [
+			238,
+			240,
+			232
+		],
+		roughness: .5,
+		relief: .004,
+		metre: .0517,
+		courtLength: 13.4,
+		courtWidth: 6.1,
+		singlesWidth: 5.18,
+		shortService: 1.98,
+		longServiceInside: .76,
+		runoffEnd: 2,
+		runoffSide: 1.5,
+		lineWidth: .04,
+		netThickness: .06,
+		postRadius: .06,
+		surfaces: Object.freeze([
+			Object.freeze({
+				court: .46,
+				runoff: .34,
+				ground: .2
+			}),
+			Object.freeze({
+				court: .4,
+				runoff: .3,
+				ground: .22
+			}),
+			Object.freeze({
+				court: .52,
+				runoff: .44,
+				ground: .3
+			}),
+			Object.freeze({
+				court: .34,
+				runoff: .26,
+				ground: .12
+			})
+		]),
+		toneShift: .04,
+		edgeSoft: 6e-4,
+		lineTone: .96,
+		netTone: .12,
+		postTone: .06,
+		groundHeight: .15,
+		runoffHeight: .25,
+		courtHeight: .3,
+		lineHeight: .35,
+		netHeight: .8,
+		postHeight: .9,
+		inkRoughness: .45
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -35940,6 +35999,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	badmintoncourt: 1,
 	tenniscourt: 1,
 	playingcardpips: 1,
 	poolrack: 1,

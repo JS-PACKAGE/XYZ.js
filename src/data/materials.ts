@@ -17249,6 +17249,47 @@ export const proceduralMaterialPresets = Object.freeze({
     postHeight: 0.9,
     inkRoughness: 0.45,
   }),
+  badmintoncourt: Object.freeze({
+    dark: [18, 34, 30] as const,
+    light: [238, 240, 232] as const,
+    roughness: 0.5,
+    relief: 0.004,
+    // A badminton court seen from above with the markings of the rules, in metres (the length along one axis): the court 13.4 by 6.1 for doubles with the sidelines of singles 5.18 apart, the short service
+    // lines 1.98 from the net, the long service line of doubles 0.76 inside each baseline, the centre lines between the short service lines and the baselines, and the net on the middle line with its posts on the
+    // doubles sidelines; round it a run-off of 2 behind the baselines and 1.5 at the sides, and ground beyond. Lines are 0.04 wide, part of the area they bound (the short service line on the side of the service
+    // court away from the net, the others on the side towards the middle of the court). The seed picks the surface (the tones of the court, the run-off and the ground, all shifted together a little) and
+    // lays the court along the picture or across it.
+    metre: 0.0517,
+    courtLength: 13.4,
+    courtWidth: 6.1,
+    singlesWidth: 5.18,
+    shortService: 1.98,
+    longServiceInside: 0.76,
+    runoffEnd: 2,
+    runoffSide: 1.5,
+    lineWidth: 0.04,
+    netThickness: 0.06,
+    postRadius: 0.06,
+    surfaces: Object.freeze([
+      Object.freeze({ court: 0.46, runoff: 0.34, ground: 0.2 }),
+      Object.freeze({ court: 0.4, runoff: 0.3, ground: 0.22 }),
+      Object.freeze({ court: 0.52, runoff: 0.44, ground: 0.3 }),
+      Object.freeze({ court: 0.34, runoff: 0.26, ground: 0.12 }),
+    ]),
+    // How much the three surface tones may all be shifted together (from -toneShift to toneShift) by the seed: the wear of the court.
+    toneShift: 0.04,
+    edgeSoft: 0.0006,
+    lineTone: 0.96,
+    netTone: 0.12,
+    postTone: 0.06,
+    groundHeight: 0.15,
+    runoffHeight: 0.25,
+    courtHeight: 0.3,
+    lineHeight: 0.35,
+    netHeight: 0.8,
+    postHeight: 0.9,
+    inkRoughness: 0.45,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -23741,6 +23782,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  badmintoncourt: 1,
   tenniscourt: 1,
   playingcardpips: 1,
   poolrack: 1,
