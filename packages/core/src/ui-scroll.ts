@@ -282,6 +282,7 @@ export class UIVirtualList<T> extends UIScrollView {
   private keys: UIVirtualListKey[] = [];
   private indices = new Map<UIVirtualListKey, number>();
   private readonly rows = new Map<UIVirtualListKey, Row>();
+  private readonly rowNodes = new Map<GameObject, Row | null>();
   private readonly pool: UIElement[] = [];
   private reconciling = false;
   constructor(private readonly options: UIVirtualListOptions<T>) {
@@ -318,6 +319,25 @@ export class UIVirtualList<T> extends UIScrollView {
     return this.rows.get(key)?.node;
   }
   keyOf(node: GameObject): UIVirtualListKey | undefined {
+    let match: Row | undefined;
+    for (
+      let current: GameObject | undefined = node;
+      current;
+      current = current.parent
+    ) {
+      const row = this.rowNodes.get(current);
+      if (row === null) return this.firstRowKey(node);
+      if (!row) continue;
+      if (match) {
+        // Public reparenting can nest retained rows. Preserve rows' insertion order
+        // in that unusual case rather than choosing the nearest ancestor.
+        return this.firstRowKey(node);
+      }
+      match = row;
+    }
+    return match?.key;
+  }
+  private firstRowKey(node: GameObject): UIVirtualListKey | undefined {
     for (const row of this.rows.values())
       for (
         let current: GameObject | undefined = node;
@@ -449,6 +469,15 @@ export class UIVirtualList<T> extends UIScrollView {
         this.options.unbindRow?.(row.node, key);
         this.content.remove(row.node);
         this.rows.delete(key);
+        const shared = this.rowNodes.get(row.node) === null;
+        this.rowNodes.delete(row.node);
+        if (shared)
+          for (const remaining of this.rows.values())
+            if (remaining.node === row.node)
+              this.rowNodes.set(
+                row.node,
+                this.rowNodes.has(row.node) ? null : remaining,
+              );
         this.pool.push(row.node);
       }
       for (let index = first; index < last; index++) {
@@ -468,7 +497,9 @@ export class UIVirtualList<T> extends UIScrollView {
           node.destroy();
           throw error;
         }
-        this.rows.set(key, { node, key, index });
+        const row = { node, key, index };
+        this.rows.set(key, row);
+        this.rowNodes.set(node, this.rowNodes.has(node) ? null : row);
         this.content.add(node);
       }
       for (const row of this.rows.values()) {
@@ -500,6 +531,7 @@ export class UIVirtualList<T> extends UIScrollView {
     for (const row of this.rows.values())
       this.options.unbindRow?.(row.node, row.key);
     this.rows.clear();
+    this.rowNodes.clear();
     for (const node of this.pool) node.destroy();
     this.pool.length = 0;
     super.destroy();
