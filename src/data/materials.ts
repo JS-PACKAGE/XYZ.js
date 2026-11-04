@@ -18380,6 +18380,29 @@ export const proceduralMaterialPresets = Object.freeze({
     heightSwing: 0.5,
     gapOcclusion: 0.45,
   }),
+  magicsquares: Object.freeze({
+    dark: [10, 20, 28] as const,
+    light: [255, 214, 140] as const,
+    roughness: 0.4,
+    relief: 0.0012,
+    seedSalt: 0x5b29,
+    // Magic squares on a torus tile: orders[variant] cells on the side, built by methods[variant] (0 the Siamese method for an odd order, 1 the complement of the diagonals for an order divisible by 4, 2 the Strachey method for an order of 4m + 2). The seed is split in two: seed % 6 picks the variant and floor(seed / 6) one of the eight turns and flips of the square and whether every number n is replaced by order^2 + 1 - n, so seeds 0 to 5 are the six variants of one group. The tone and the height of a cell grow with its number.
+    orders: [5, 7, 9, 8, 12, 10] as const,
+    methods: [0, 0, 0, 1, 1, 2] as const,
+    // A cell leaves a gap of gapWidth (a fraction of the cell) smoothed over edgeSoft (a fraction of the cell).
+    gapWidth: 0.12,
+    edgeSoft: 0.08,
+    grainCells: 128,
+    toneGap: 0.03,
+    toneMin: 0.18,
+    toneMax: 0.95,
+    grainTone: 0.03,
+    cellHeight: 0.8,
+    // The height of a cell is cellHeight times (heightBase + heightSwing times (n - 1) / (order^2 - 1)).
+    heightBase: 0.35,
+    heightSwing: 0.65,
+    gapOcclusion: 0.45,
+  }),
   vermiculation: Object.freeze({
     dark: [60, 48, 36] as const,
     light: [220, 204, 172] as const,
@@ -20178,6 +20201,7 @@ export const proceduralTileMeters = Object.freeze({
   wireworldcircuits: 0.5,
   celticinterlace: 0.5,
   trominotiling: 0.5,
+  magicsquares: 0.5,
   dominotiling: 0.5,
   vermiculation: 0.4,
   kikko: 0.3,

@@ -1161,6 +1161,7 @@ const kinds: ProceduralMaterialKind[] = [
   'wireworldcircuits',
   'celticinterlace',
   'trominotiling',
+  'magicsquares',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -199301,6 +199302,325 @@ describe('Tromino tiling as a board with one cell missing tiled by L-shaped trom
     expect(blue / (512 * 512)).toBeLessThan(84.2);
     expect(maxTilt).toBeGreaterThan(0.107);
     expect(maxTilt).toBeLessThan(0.1071);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Magic squares as numbers whose rows, columns and diagonals have one sum', () => {
+  const p = proceduralMaterialPresets.magicsquares;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The order (cells on the side) of the tile of a seed: seed % 6 picks the variant. */
+  const orderOf = (seed: number): number => p.orders[seed % p.orders.length];
+  /** The number of every cell of a seed read back from the height at the middle of the cell: the height is cellHeight times (heightBase + heightSwing times (n - 1) / (order^2 - 1)). */
+  const readSquare = (seed: number): number[] => {
+    const n = orderOf(seed),
+      sample = createSurfaceSampler('magicsquares', seed),
+      out = empty(),
+      numbers: number[] = [];
+    for (let j = 0; j < n; j++)
+      for (let i = 0; i < n; i++) {
+        sample((i + 0.5) / n, (j + 0.5) / n, out);
+        const level =
+            (out.height / p.relief / p.cellHeight - p.heightBase) /
+            p.heightSwing,
+          exact = level * (n * n - 1) + 1;
+        // The reading must be an integer.
+        expect(Math.abs(exact - Math.round(exact))).toBeLessThan(1e-6);
+        numbers.push(Math.round(exact));
+      }
+    return numbers;
+  };
+  /** The sixteen squares made from one by the eight turns and flips and by complementing every number n to order^2 + 1 - n. */
+  const orbit = (square: number[], n: number): string[] => {
+    const squares: string[] = [];
+    for (let turn = 0; turn < 8; turn++)
+      for (const complement of [false, true]) {
+        const result: number[] = [];
+        for (let i = 0; i < n; i++)
+          for (let j = 0; j < n; j++) {
+            let r = i,
+              c = j;
+            if (turn & 1) [r, c] = [c, r];
+            if (turn & 2) r = n - 1 - r;
+            if (turn & 4) c = n - 1 - c;
+            const value = square[r * n + c];
+            result.push(complement ? n * n + 1 - value : value);
+          }
+        squares.push(result.join(','));
+      }
+    return squares;
+  };
+  /** The Siamese square of an odd order, written again here: 1 in the middle of the top row, then one up and one to the right, and one down when the cell is taken. */
+  const siamese = (n: number): number[] => {
+    const square = new Array<number>(n * n).fill(0);
+    let row = 0,
+      col = (n - 1) / 2;
+    for (let value = 1; value <= n * n; value++) {
+      square[row * n + col] = value;
+      const upRow = (row + n - 1) % n,
+        rightCol = (col + 1) % n;
+      if (square[upRow * n + rightCol] === 0) {
+        row = upRow;
+        col = rightCol;
+      } else row = (row + 1) % n;
+    }
+    return square;
+  };
+  /** The square of an order divisible by 4 made by counting row by row and complementing the numbers on the diagonals of every block of 4 by 4, written again here. */
+  const evenSquare = (n: number): number[] =>
+    Array.from({ length: n * n }, (_, k) => {
+      const row = Math.floor(k / n) % 4,
+        col = (k % n) % 4;
+      return row === col || row + col === 3 ? n * n - k : k + 1;
+    });
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('magicsquares', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('magicsquares', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0152);
+      expect(low).toBeLessThan(0.0159);
+      expect(high).toBeGreaterThan(0.9624);
+      expect(high).toBeLessThan(0.964);
+      expect(lit / 65536).toBeGreaterThan(0.349);
+      expect(lit / 65536).toBeLessThan(0.3548);
+      expect(mean / 65536).toBeGreaterThan(0.3723);
+      expect(mean / 65536).toBeLessThan(0.3726);
+      expect(heightHigh).toBeGreaterThan(0.799);
+      expect(heightHigh).toBeLessThan(0.8001);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('is a magic square: every number once and the same sum on every row, column and both diagonals', () => {
+    for (let seed = 0; seed < 18; seed++) {
+      const n = orderOf(seed),
+        square = readSquare(seed),
+        sum = (n * (n * n + 1)) / 2;
+      expect([...square].sort((a, b) => a - b)).toEqual(
+        Array.from({ length: n * n }, (_, k) => k + 1),
+      );
+      let diagonal = 0,
+        anti = 0;
+      for (let a = 0; a < n; a++) {
+        let row = 0,
+          col = 0;
+        for (let b = 0; b < n; b++) {
+          row += square[a * n + b];
+          col += square[b * n + a];
+        }
+        expect(row).toBe(sum);
+        expect(col).toBe(sum);
+        diagonal += square[a * n + a];
+        anti += square[a * n + (n - 1 - a)];
+      }
+      expect(diagonal).toBe(sum);
+      expect(anti).toBe(sum);
+      // The numbers opposite the middle add up to order^2 + 1 for the odd orders and the orders divisible by 4, but not for the order 10 (Strachey).
+      const associative = square.every(
+        (value, k) => value + square[n * n - 1 - k] === n * n + 1,
+      );
+      expect(associative).toBe(seed % 6 !== 5);
+    }
+  });
+  it('is the Siamese square or the diagonal-complement square, turned, flipped or complemented by the group of the seed', () => {
+    for (let group = 0; group < 8; group++)
+      for (const variant of [0, 1, 2, 3, 4]) {
+        const n = p.orders[variant],
+          square = readSquare(group * 6 + variant).join(','),
+          made = variant < 3 ? siamese(n) : evenSquare(n);
+        expect(orbit(made, n)).toContain(square);
+      }
+    // Different groups give different squares.
+    expect(
+      new Set(
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((group) =>
+          readSquare(group * 6).join(','),
+        ),
+      ).size,
+    ).toBeGreaterThan(4);
+  });
+  it('agrees with the ideal cells of predicates away from the gaps: ink, height, tone and occlusion', () => {
+    const half = p.gapWidth / 2;
+    for (const seed of [0, 1, 2, 3, 4, 5]) {
+      const n = orderOf(seed),
+        square = readSquare(seed),
+        sample = createSurfaceSampler('magicsquares', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const x = ((k * 0.61803398875) % 1) * n,
+          y = ((k * 0.41421356237) % 1) * n,
+          i = Math.floor(x),
+          j = Math.floor(y),
+          distances = [x - i, i + 1 - x, y - j, j + 1 - y];
+        // Away from the smoothed edges of the gaps (they run from half to half + edgeSoft from the edge of the cell).
+        if (
+          distances.some((d) => d > half - 1e-9 && d < half + p.edgeSoft + 1e-9)
+        )
+          continue;
+        compared++;
+        const ink = distances.every((d) => d >= half + p.edgeSoft) ? 1 : 0,
+          level = (square[j * n + i] - 1) / (n * n - 1),
+          tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+        sample(x / n, y / n, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.heightBase + p.heightSwing * level),
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGap + (tone - p.toneGap) * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      expect(compared).toBeGreaterThan(4200);
+    }
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeGreaterThan(0.3018);
+    expect(unlike(first, litGrid(1))).toBeLessThan(0.3019);
+    expect(unlike(first, litGrid(6))).toBeGreaterThan(0.0102);
+    expect(unlike(first, litGrid(6))).toBeLessThan(0.0104);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('magicsquares', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 gold-on-teal number cell maps with raised cells and shaded gaps', () => {
+    const maps = generateProceduralMaps('magicsquares', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(100.7);
+    expect(red / (512 * 512)).toBeLessThan(101.7);
+    expect(green / (512 * 512)).toBeGreaterThan(91.7);
+    expect(green / (512 * 512)).toBeLessThan(92.7);
+    expect(blue / (512 * 512)).toBeGreaterThan(69.2);
+    expect(blue / (512 * 512)).toBeLessThan(70.2);
+    expect(maxTilt).toBeGreaterThan(0.0149);
+    expect(maxTilt).toBeLessThan(0.015);
     expect(invalid).toBe(0);
   });
 });

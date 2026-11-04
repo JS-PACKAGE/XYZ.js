@@ -1135,6 +1135,7 @@ export type ProceduralMaterialKind =
   | 'wireworldcircuits'
   | 'celticinterlace'
   | 'trominotiling'
+  | 'magicsquares'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2518,6 +2519,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'wireworldcircuits',
   'celticinterlace',
   'trominotiling',
+  'magicsquares',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

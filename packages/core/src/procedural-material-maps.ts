@@ -52584,6 +52584,116 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'magicsquares': {
+        const p = proceduralMaterialPresets.magicsquares,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.orders.length,
+          group = Math.floor(unsigned / p.orders.length),
+          order = p.orders[variant],
+          count = order * order,
+          // The number (1 to order^2) of every cell, row by row.
+          numbers = (() => {
+            const base = (n: number, method: number): number[] => {
+              const grid = new Array<number>(n * n).fill(0);
+              if (method === 0) {
+                // Siamese method: 1 in the middle of the top row, then up and to the right, and below the last cell when that one is taken.
+                let row = 0,
+                  col = (n - 1) / 2;
+                for (let value = 1; value <= n * n; value++) {
+                  grid[row * n + col] = value;
+                  const nextRow = (row + n - 1) % n,
+                    nextCol = (col + 1) % n;
+                  if (grid[nextRow * n + nextCol] !== 0) row = (row + 1) % n;
+                  else {
+                    row = nextRow;
+                    col = nextCol;
+                  }
+                }
+              } else if (method === 1) {
+                // Count 1 to n^2 row by row and complement the cells of the diagonals of every 4 by 4 block.
+                for (let row = 0; row < n; row++)
+                  for (let col = 0; col < n; col++) {
+                    const value = row * n + col + 1,
+                      r = row % 4,
+                      c = col % 4;
+                    grid[row * n + col] =
+                      r === c || r + c === 3 ? n * n + 1 - value : value;
+                  }
+              } else {
+                // Strachey method: four odd magic squares of order n / 2 with the offsets 0, 2k^2 (top right), 3k^2 (bottom left) and k^2 (bottom right), then exchange the left m columns of the top left and the bottom left (the middle row one column further in) and the right m - 1 columns of the top right and the bottom right.
+                const k = n / 2,
+                  m = (k - 1) / 2,
+                  small = base(k, 0);
+                for (let row = 0; row < k; row++)
+                  for (let col = 0; col < k; col++) {
+                    const value = small[row * k + col];
+                    grid[row * n + col] = value;
+                    grid[row * n + col + k] = value + 2 * k * k;
+                    grid[(row + k) * n + col] = value + 3 * k * k;
+                    grid[(row + k) * n + col + k] = value + k * k;
+                  }
+                for (let row = 0; row < k; row++) {
+                  const shift = row === m ? 1 : 0;
+                  for (let col = 0; col < m; col++) {
+                    const a = row * n + col + shift,
+                      c = (row + k) * n + col + shift;
+                    [grid[a], grid[c]] = [grid[c], grid[a]];
+                  }
+                  for (let col = k - m + 1; col < k; col++) {
+                    const b = row * n + col + k,
+                      d = (row + k) * n + col + k;
+                    [grid[b], grid[d]] = [grid[d], grid[b]];
+                  }
+                }
+              }
+              return grid;
+            };
+            const square = base(order, p.methods[variant]),
+              turn = Math.floor(hash(0, 151, group ^ p.seedSalt) * 8),
+              complement = hash(1, 151, group ^ p.seedSalt) < 0.5,
+              result = new Array<number>(count).fill(0);
+            // One of the eight turns and flips: bit 0 transposes, bit 1 reverses the rows and bit 2 the columns.
+            for (let row = 0; row < order; row++)
+              for (let col = 0; col < order; col++) {
+                let r = row,
+                  c = col;
+                if (turn & 1) [r, c] = [c, r];
+                if (turn & 2) r = order - 1 - r;
+                if (turn & 4) c = order - 1 - c;
+                const value = square[r * order + c];
+                result[row * order + col] = complement
+                  ? count + 1 - value
+                  : value;
+              }
+            return result;
+          })(),
+          halfGap = p.gapWidth / 2,
+          // 1 inside the cell, 0 at its edge: the distance fromEdge in cells.
+          edge = (fromEdge: number): number =>
+            smooth(clamp((fromEdge - halfGap) / p.edgeSoft));
+        return () => {
+          const x = fract(u) * order,
+            y = fract(v) * order,
+            i = Math.floor(x),
+            j = Math.floor(y),
+            fx = x - i,
+            fy = y - j,
+            mask = edge(fx) * edge(1 - fx) * edge(fy) * edge(1 - fy),
+            level = (numbers[j * order + i] - 1) / (count - 1),
+            tone = p.toneMin + (p.toneMax - p.toneMin) * level,
+            grain = grainField(u, v);
+          color =
+            p.toneGap + (tone - p.toneGap) * mask + p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -61520,6 +61630,7 @@ export function createSurfaceSampler(
     kind === 'wireworldcircuits' ||
     kind === 'celticinterlace' ||
     kind === 'trominotiling' ||
+    kind === 'magicsquares' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

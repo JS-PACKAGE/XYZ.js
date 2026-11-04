@@ -1198,6 +1198,7 @@ try {
     'wireworldcircuits',
     'celticinterlace',
     'trominotiling',
+    'magicsquares',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
