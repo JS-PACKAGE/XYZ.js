@@ -15353,6 +15353,36 @@ export declare const proceduralMaterialPresets: Readonly<{
         paperRoughness: 0.8;
         inkRoughness: 0.45;
     }>;
+    cribbageboard: Readonly<{
+        dark: readonly [54, 30, 16];
+        light: readonly [214, 168, 112];
+        roughness: 0.55;
+        relief: 0.004;
+        lanes: 3;
+        holesPerRow: 60;
+        group: 5;
+        left: 0.0372;
+        pitch: 0.0136;
+        groupGap: 0.0112;
+        laneCentres: readonly number[];
+        rowOffset: 0.03;
+        holeRadius: 0.0042;
+        pegRadius: 0.0064;
+        maxLead: 24;
+        edgeSoft: 0.0005;
+        grainColumns: 5;
+        grainRows: 144;
+        woodTone: 0.7;
+        grainTone: 0.06;
+        holeTone: 0.06;
+        pegTones: readonly number[];
+        woodHeight: 0.5;
+        holeHeight: 0.05;
+        pegHeight: 0.95;
+        woodRoughness: 0.6;
+        holeRoughness: 0.9;
+        pegRoughness: 0.3;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -21838,6 +21868,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    cribbageboard: 1;
     monopolyboard: 1;
     scrabbleboard: 1;
     duccirows: 1;

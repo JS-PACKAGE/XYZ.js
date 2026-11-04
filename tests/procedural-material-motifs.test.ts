@@ -62864,3 +62864,465 @@ describe('monopolyboard: the Monopoly board, a ring of 40 spaces round a middle 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('cribbageboard: a cribbage board of three lanes of 120 holes in groups of five, each lane with a front and a back peg', () => {
+  const p = proceduralMaterialPresets.cribbageboard,
+    out = empty(),
+    toneAt = (sample: Sampler, u: number, v: number): number => {
+      sample(u, v, out);
+      return out.color;
+    };
+  const isWood = (tone: number): boolean =>
+    Math.abs(tone - p.woodTone) <= p.grainTone / 2 + 1e-9;
+  const rowY = (lane: number, row: number): number =>
+    p.laneCentres[lane] + (row - 0.5) * p.rowOffset;
+  // The runs of a row that are not wood, found by walking along the row in small steps: the centre and the width of each.
+  const scanRow = (
+    sample: Sampler,
+    y: number,
+  ): { centre: number; width: number }[] => {
+    const runs: { centre: number; width: number }[] = [],
+      step = 0.0002;
+    let start = -1;
+    for (let x = 0; x <= 1 + 1e-9; x += step) {
+      const value = toneAt(sample, x, y),
+        busy = !isWood(value);
+      if (busy && start < 0) {
+        start = x;
+      }
+      if (!busy && start >= 0) {
+        runs.push({
+          centre: (start + x - step) / 2,
+          width: x - step - start,
+        });
+        start = -1;
+      }
+    }
+    return runs;
+  };
+  // Where the pegs are, found at the middle of every hole of the lane (a peg is a tone of the lane's peg tone).
+  const readPegs = (sample: Sampler): { lane: number; number: number }[] => {
+    const found: { lane: number; number: number }[] = [];
+    for (let lane = 0; lane < p.lanes; lane++)
+      for (let row = 0; row < 2; row++) {
+        const runs = scanRow(sample, rowY(lane, row));
+        expect(runs.length).toBe(p.holesPerRow);
+        runs.forEach((run, hole) => {
+          const tone = toneAt(sample, run.centre, rowY(lane, row));
+          if (Math.abs(tone - p.holeTone) < 1e-6) return;
+          expect(tone).toBeCloseTo(p.pegTones[lane], 6);
+          found.push({
+            lane,
+            number: row === 0 ? hole : 2 * p.holesPerRow - 1 - hole,
+          });
+        });
+      }
+    return found;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'has three lanes of two rows of 60 holes in groups of five, and two pegs of its own colour in each lane, the back one behind the front (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('cribbageboard', seed);
+      for (let lane = 0; lane < p.lanes; lane++)
+        for (let row = 0; row < 2; row++) {
+          const runs = scanRow(sample, rowY(lane, row)),
+            centres = runs.map((run) => run.centre);
+          // 60 holes, 12 groups of 5: the spaces inside a group are all the same and those between the groups are all wider.
+          expect(runs.length).toBe(p.holesPerRow);
+          const gaps = centres.slice(1).map((centre, k) => centre - centres[k]);
+          gaps.forEach((gap, k) => {
+            const between = (k + 1) % p.group === 0;
+            expect(
+              Math.abs(gap - (between ? p.pitch + p.groupGap : p.pitch)),
+            ).toBeLessThan(0.0006);
+          });
+          // The row is centred in the board.
+          expect(Math.abs((centres[0] + centres[59]) / 2 - 0.5)).toBeLessThan(
+            0.0006,
+          );
+          // Every hole as wide as a hole or a peg.
+          for (const run of runs)
+            expect(run.width).toBeGreaterThan(2 * p.holeRadius - 0.001);
+        }
+      // The rows of a lane are one row offset apart and the lanes are in order.
+      expect(rowY(0, 1) - rowY(0, 0)).toBeCloseTo(p.rowOffset, 9);
+      // The pegs: two in each lane, the back one 1 to maxLead holes behind the front one (along the track, the second row coming back), the front in the lane's 1 to 119.
+      const pegs = readPegs(sample);
+      expect(pegs.length).toBe(2 * p.lanes);
+      for (let lane = 0; lane < p.lanes; lane++) {
+        const numbers = pegs
+          .filter((peg) => peg.lane === lane)
+          .map((peg) => peg.number)
+          .sort((a, b) => a - b);
+        expect(numbers.length).toBe(2);
+        expect(numbers[1]).toBeGreaterThanOrEqual(1);
+        expect(numbers[1]).toBeLessThanOrEqual(119);
+        expect(numbers[1] - numbers[0]).toBeGreaterThanOrEqual(1);
+        expect(numbers[1] - numbers[0]).toBeLessThanOrEqual(
+          Math.min(numbers[1], p.maxLead),
+        );
+      }
+    },
+  );
+
+  // The same pegs found quicker: the tone at each hole's place (from the board's spacing of the holes) is the peg tone of the lane or the hole's.
+  const holePlace = (hole: number): number =>
+    p.left + hole * p.pitch + Math.floor(hole / p.group) * p.groupGap;
+  const readPegsAt = (sample: Sampler): { lane: number; number: number }[] => {
+    const found: { lane: number; number: number }[] = [];
+    for (let lane = 0; lane < p.lanes; lane++)
+      for (let row = 0; row < 2; row++)
+        for (let hole = 0; hole < p.holesPerRow; hole++)
+          if (
+            Math.abs(
+              toneAt(sample, holePlace(hole), rowY(lane, row)) -
+                p.pegTones[lane],
+            ) < 1e-6
+          )
+            found.push({
+              lane,
+              number: row === 0 ? hole : 2 * p.holesPerRow - 1 - hole,
+            });
+    return found;
+  };
+
+  it('has pegs in every hole of the track over 400 seeds, the back peg as often at each lead, and the lead not tied to the place of the front peg', () => {
+    const fronts = new Set<number>(),
+      leads = new Map<number, number>(),
+      pairs: [number, number][] = [];
+    for (let seed = 0; seed < 400; seed++) {
+      const pegs = readPegsAt(
+        createSurfaceSampler('cribbageboard', seed * 5 + 3),
+      );
+      expect(pegs.length).toBe(2 * p.lanes);
+      for (let lane = 0; lane < p.lanes; lane++) {
+        const numbers = pegs
+            .filter((peg) => peg.lane === lane)
+            .map((peg) => peg.number)
+            .sort((a, b) => a - b),
+          lead = numbers[1] - numbers[0];
+        fronts.add(numbers[1]);
+        leads.set(lead, (leads.get(lead) ?? 0) + 1);
+        if (numbers[1] >= 40) pairs.push([numbers[1], lead]);
+      }
+    }
+    // Front pegs all over the track, 1 to 119 (both ends and the turn at the end of the first row).
+    for (const number of [1, 2, 59, 60, 61, 118, 119])
+      expect(fronts.has(number)).toBe(true);
+    // Every lead from 1 to maxLead, about as often (1200 lanes over maxLead leads: 50 each, and the high ones too).
+    expect([...leads.keys()].sort((a, b) => a - b)).toEqual(
+      Array.from({ length: p.maxLead }, (_, k) => k + 1),
+    );
+    for (const count of leads.values()) expect(count).toBeGreaterThan(20);
+    // The lead has nothing to do with where the front peg is (the correlation of the two over the pegs from 40 on is near 0).
+    const meanFront =
+        pairs.reduce((sum, [front]) => sum + front, 0) / pairs.length,
+      meanLead = pairs.reduce((sum, [, lead]) => sum + lead, 0) / pairs.length;
+    let covariance = 0,
+      varianceFront = 0,
+      varianceLead = 0;
+    for (const [front, lead] of pairs) {
+      covariance += (front - meanFront) * (lead - meanLead);
+      varianceFront += (front - meanFront) ** 2;
+      varianceLead += (lead - meanLead) ** 2;
+    }
+    expect(
+      Math.abs(covariance / Math.sqrt(varianceFront * varianceLead)),
+    ).toBeLessThan(0.12);
+  });
+
+  it('puts the pegs in many different holes over 60 seeds, in both rows and from the lowest to the highest', () => {
+    const fronts: number[] = [],
+      leads = new Set<number>(),
+      rows = new Set<number>();
+    for (let seed = 0; seed < 60; seed++) {
+      const pegs = readPegs(
+        createSurfaceSampler('cribbageboard', seed * 7 + 2),
+      );
+      for (let lane = 0; lane < p.lanes; lane++) {
+        const numbers = pegs
+          .filter((peg) => peg.lane === lane)
+          .map((peg) => peg.number)
+          .sort((a, b) => a - b);
+        fronts.push(numbers[1]);
+        leads.add(numbers[1] - numbers[0]);
+        rows.add(Math.floor(numbers[1] / p.holesPerRow));
+      }
+    }
+    expect(Math.min(...fronts)).toBeLessThan(15);
+    expect(Math.max(...fronts)).toBeGreaterThan(105);
+    expect(rows.size).toBe(2);
+    expect(
+      Math.abs(
+        fronts.reduce((sum, value) => sum + value, 0) / fronts.length - 60,
+      ),
+    ).toBeLessThan(10);
+    expect(leads.size).toBeGreaterThan(12);
+    expect(Math.max(...leads)).toBeGreaterThan(p.maxLead - 8);
+  });
+
+  it('draws a hole and a peg with their tones, heights, roughness and sizes', () => {
+    const sample = createSurfaceSampler('cribbageboard', 1),
+      pegs = readPegs(sample);
+    // A hole without a peg: the hole's tone, height and roughness at its middle, its radius (the tone just inside and just outside along the row and across it).
+    const emptyHole = (lane: number, row: number): [number, number] => {
+      const holes = scanRow(sample, rowY(lane, row)).map((run) => run.centre);
+      for (const x of holes)
+        if (Math.abs(toneAt(sample, x, rowY(lane, row)) - p.holeTone) < 1e-6)
+          return [x, rowY(lane, row)];
+      throw new Error('no empty hole');
+    };
+    const [hx, hy] = emptyHole(0, 0);
+    expect(toneAt(sample, hx, hy)).toBeCloseTo(p.holeTone, 6);
+    expect(out.height / p.relief).toBeCloseTo(p.holeHeight, 6);
+    expect(out.roughness).toBeCloseTo(p.holeRoughness, 6);
+    for (const [dx, dy] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ]) {
+      expect(
+        toneAt(
+          sample,
+          hx + dx * (p.holeRadius - 0.0003),
+          hy + dy * (p.holeRadius - 0.0003),
+        ),
+      ).toBeCloseTo(p.holeTone, 6);
+      expect(
+        isWood(
+          toneAt(
+            sample,
+            hx + dx * (p.holeRadius + 0.0003),
+            hy + dy * (p.holeRadius + 0.0003),
+          ),
+        ),
+      ).toBe(true);
+      expect(out.height / p.relief).toBeCloseTo(p.woodHeight, 6);
+      expect(out.roughness).toBeCloseTo(p.woodRoughness, 6);
+    }
+    // The holes at the start, the middle and the end of a group, in both rows of every lane (the first and last of a row too): empty ones show their radius all round, with the wood just outside.
+    for (let lane = 0; lane < p.lanes; lane++)
+      for (let row = 0; row < 2; row++)
+        for (const hole of [0, 1, 2, 4, 5, 9, 55, 58, 59]) {
+          const x = holePlace(hole),
+            y = rowY(lane, row);
+          if (Math.abs(toneAt(sample, x, y) - p.holeTone) > 1e-6) continue;
+          for (const [dx, dy] of [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ]) {
+            expect(
+              toneAt(
+                sample,
+                x + dx * (p.holeRadius - 0.0003),
+                y + dy * (p.holeRadius - 0.0003),
+              ),
+            ).toBeCloseTo(p.holeTone, 6);
+            expect(
+              isWood(
+                toneAt(
+                  sample,
+                  x + dx * (p.holeRadius + 0.0003),
+                  y + dy * (p.holeRadius + 0.0003),
+                ),
+              ),
+            ).toBe(true);
+          }
+        }
+    // A peg of each lane: the lane's tone, height and roughness at its middle, its radius (larger than the hole's) and the wood outside it.
+    for (let lane = 0; lane < p.lanes; lane++) {
+      const peg = pegs.find((candidate) => candidate.lane === lane) as {
+          lane: number;
+          number: number;
+        },
+        row = peg.number < p.holesPerRow ? 0 : 1,
+        hole = row === 0 ? peg.number : 2 * p.holesPerRow - 1 - peg.number,
+        x = p.left + hole * p.pitch + Math.floor(hole / p.group) * p.groupGap,
+        y = rowY(lane, row);
+      expect(toneAt(sample, x, y)).toBeCloseTo(p.pegTones[lane], 6);
+      expect(out.height / p.relief).toBeCloseTo(p.pegHeight, 6);
+      expect(out.roughness).toBeCloseTo(p.pegRoughness, 6);
+      for (const [dx, dy] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ]) {
+        expect(
+          toneAt(
+            sample,
+            x + dx * (p.pegRadius - 0.0003),
+            y + dy * (p.pegRadius - 0.0003),
+          ),
+        ).toBeCloseTo(p.pegTones[lane], 6);
+        expect(
+          isWood(
+            toneAt(
+              sample,
+              x + dx * (p.pegRadius + 0.0003),
+              y + dy * (p.pegRadius + 0.0003),
+            ),
+          ),
+        ).toBe(true);
+      }
+    }
+    // The wood between the lanes and the margins.
+    for (const [u, v] of [
+      [0.5, 0.38],
+      [0.5, 0.62],
+      [0.01, 0.5],
+      [0.99, 0.5],
+      [0.5, 0.01],
+      [0.5, 0.99],
+    ])
+      expect(isWood(toneAt(sample, u, v))).toBe(true);
+  });
+
+  it('softens the edge of a hole and of a peg over edgeSoft', () => {
+    const sample = createSurfaceSampler('cribbageboard', 1),
+      pegs = readPegs(sample),
+      smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      close = (actual: number, expected: number): void =>
+        expect(Math.abs(actual - expected)).toBeLessThan(0.03),
+      mix = (from: number, target: number, amount: number): number =>
+        from + (target - from) * smoothstep(amount),
+      holes = scanRow(sample, rowY(1, 0)).map((run) => run.centre),
+      hx = holes.find(
+        (x) => Math.abs(toneAt(sample, x, rowY(1, 0)) - p.holeTone) < 1e-6,
+      ) as number,
+      hy = rowY(1, 0);
+    // The hole's edge over the wood (the grain's variation of the wood is within the tolerance).
+    close(
+      toneAt(sample, hx + p.holeRadius - quarter, hy),
+      mix(p.woodTone, p.holeTone, 0.75),
+    );
+    close(
+      toneAt(sample, hx + p.holeRadius + quarter, hy),
+      mix(p.woodTone, p.holeTone, 0.25),
+    );
+    // The peg's edge over the hole it sits in: the hole is all round the peg's edge only up to the hole's radius, so beyond it the wood.
+    const peg = pegs.find((candidate) => candidate.lane === 1) as {
+        lane: number;
+        number: number;
+      },
+      row = peg.number < p.holesPerRow ? 0 : 1,
+      hole = row === 0 ? peg.number : 2 * p.holesPerRow - 1 - peg.number,
+      x = p.left + hole * p.pitch + Math.floor(hole / p.group) * p.groupGap,
+      y = rowY(1, row);
+    close(
+      toneAt(sample, x + p.pegRadius - quarter, y),
+      mix(p.woodTone, p.pegTones[1], 0.75),
+    );
+    close(
+      toneAt(sample, x + p.pegRadius + quarter, y),
+      mix(p.woodTone, p.pegTones[1], 0.25),
+    );
+    // Above and below the peg too: the soft edge reaches past the radius there as well.
+    for (const sign of [-1, 1]) {
+      close(
+        toneAt(sample, x, y + sign * (p.pegRadius + quarter)),
+        mix(p.woodTone, p.pegTones[1], 0.25),
+      );
+      close(
+        toneAt(sample, x, y + sign * (p.pegRadius - quarter)),
+        mix(p.woodTone, p.pegTones[1], 0.75),
+      );
+      close(
+        toneAt(sample, hx, hy + sign * (p.holeRadius + quarter)),
+        mix(p.woodTone, p.holeTone, 0.25),
+      );
+      close(
+        toneAt(sample, hx, hy + sign * (p.holeRadius - quarter)),
+        mix(p.woodTone, p.holeTone, 0.75),
+      );
+    }
+  });
+
+  it('fades the grain of the wood out over the edge of a hole, as much as the hole covers', () => {
+    const sample = createSurfaceSampler('cribbageboard', 1),
+      smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      amount = smoothstep(0.25),
+      residuals: number[] = [];
+    for (const [lane, row] of [
+      [0, 0],
+      [2, 1],
+    ])
+      for (let hole = 0; hole < p.holesPerRow; hole++) {
+        const centre =
+          p.left + hole * p.pitch + Math.floor(hole / p.group) * p.groupGap;
+        if (
+          Math.abs(toneAt(sample, centre, rowY(lane, row)) - p.holeTone) > 1e-6
+        )
+          continue;
+        for (const t of [-0.5, 0.5])
+          residuals.push(
+            toneAt(
+              sample,
+              centre + t * p.holeRadius,
+              rowY(lane, row) -
+                Math.sqrt(1 - t * t) * p.holeRadius -
+                0.25 * p.edgeSoft,
+            ) -
+              (p.woodTone + (p.holeTone - p.woodTone) * amount),
+          );
+      }
+    expect(residuals.length).toBeGreaterThan(100);
+    // The grain of the wood is the difference of the tone from the mix, scaled down by what is not covered; the residual stays within half the grain tone times that share and does vary.
+    const largest = Math.max(...residuals.map(Math.abs));
+    expect(largest).toBeGreaterThan(0.003);
+    expect(largest).toBeLessThanOrEqual(
+      0.5 * p.grainTone * (1 - amount) + 0.02,
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the wood, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('cribbageboard', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('cribbageboard', 0),
+      wood = Array.from({ length: 80 }, (_, i) =>
+        toneAt(sample, 0.0113 + i * 0.0113, 0.38),
+      );
+    expect(Math.max(...wood) - Math.min(...wood)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('cribbageboard', 0),
+      b = createSurfaceSampler('cribbageboard', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3501],
+        [0.2201, t],
+        [t, rowY(1, 0)],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

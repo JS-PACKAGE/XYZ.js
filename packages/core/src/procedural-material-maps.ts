@@ -47152,6 +47152,89 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'cribbageboard': {
+        const p = proceduralMaterialPresets.cribbageboard,
+          grainField = cachedNoise(p.grainColumns, p.grainRows, seed ^ 0x64001),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          rowsPerLane = 2,
+          groupPeriod = p.group * p.pitch + p.groupGap,
+          track = rowsPerLane * p.holesPerRow,
+          // Where each hole of a row is along it: the holes are in groups, with a wider gap between the groups.
+          holeX = Array.from(
+            { length: p.holesPerRow },
+            (_, hole) =>
+              p.left + hole * p.pitch + Math.floor(hole / p.group) * p.groupGap,
+          ),
+          // The hole each peg is in, as a number along the lane's track, then as the row of the lane and the place along that row.
+          pegs: { lane: number; row: number; hole: number }[] = [];
+        for (let lane = 0; lane < p.lanes; lane++) {
+          const front =
+              1 +
+              Math.floor(
+                hash(93, 1, seed ^ (0x64002 + lane * 131)) * (track - 1),
+              ),
+            lead =
+              1 +
+              Math.floor(
+                hash(93, 2, seed ^ (0x64003 + lane * 131)) *
+                  Math.min(front, p.maxLead),
+              );
+          for (const number of [front, front - lead])
+            pegs.push({
+              lane,
+              row: Math.floor(number / p.holesPerRow),
+              hole: number < p.holesPerRow ? number : track - 1 - number,
+            });
+        }
+        return () => {
+          let shade = p.woodTone,
+            elevation = p.woodHeight,
+            rough = p.woodRoughness,
+            mask = 0;
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v);
+          // The nearest row of holes: the lane by its centre, and which of its two rows by the side.
+          for (let lane = 0; lane < p.lanes; lane++)
+            for (let row = 0; row < rowsPerLane; row++) {
+              const rowY = p.laneCentres[lane] + (row - 0.5) * p.rowOffset,
+                dy = fv - rowY;
+              if (Math.abs(dy) > p.pegRadius + p.edgeSoft) continue;
+              // The holes of the group the pixel is in and the first of the next group: a hole is reached from no further (the groups are further apart than a peg is wide).
+              const first = Math.floor((fu - p.left) / groupPeriod) * p.group;
+              for (
+                let hole = Math.max(0, first);
+                hole <= Math.min(p.holesPerRow - 1, first + p.group);
+                hole++
+              ) {
+                const reach = Math.hypot(fu - holeX[hole], dy),
+                  hollow = cover(p.holeRadius - reach),
+                  top = pegs.some(
+                    (candidate) =>
+                      candidate.lane === lane &&
+                      candidate.row === row &&
+                      candidate.hole === hole,
+                  )
+                    ? cover(p.pegRadius - reach)
+                    : 0;
+                shade += (p.holeTone - shade) * hollow;
+                elevation += (p.holeHeight - elevation) * hollow;
+                rough += (p.holeRoughness - rough) * hollow;
+                shade += (p.pegTones[lane] - shade) * top;
+                elevation += (p.pegHeight - elevation) * top;
+                rough += (p.pegRoughness - rough) * top;
+                mask = Math.max(mask, hollow, top);
+              }
+            }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -74681,6 +74764,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'cribbageboard' ||
     kind === 'monopolyboard' ||
     kind === 'scrabbleboard' ||
     kind === 'duccirows' ||

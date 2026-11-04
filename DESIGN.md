@@ -2365,6 +2365,10 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`cribbageboard`（克里比奇計分板）使目前目錄1199→1200種，含plain的gallery為1201項。木紋的計分板：三條賽道，每條兩排各60個孔（第一排從左到右，第二排從右折回到左，共120個孔，編號從0起），孔五個一組、組與組之間間隔較寬；每條賽道有一對自己顏色的釘子，前釘在seed決定的孔（第1到119個孔），後釘在其後1到24個孔；釘子比孔大、孔比木頭深。這是作者設計的示意；測試端沿每一排以小步長掃描找出不是木頭色的區段，驗證：每排恰好60個孔、組內孔距相同、組間間距較寬（相差為一個組間隙）、整排置中；每條賽道恰好兩個釘子，後釘在前釘後面1到24個孔（第二排由右往左數）；400個seed中前釘在整條賽道的每個位置（包含兩端與轉彎處）、各個後距都出現且次數相近、後距與前釘的位置無關（相關係數接近0）。Metallic與mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
