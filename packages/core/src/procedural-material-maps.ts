@@ -46451,6 +46451,66 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'baumsweetgrid': {
+        const p = proceduralMaterialPresets.baumsweetgrid,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x5a001),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          offset =
+            p.offsets[
+              Math.floor(hash(83, 1, seed ^ 0x5a002) * p.offsets.length)
+            ],
+          cell = p.extent / p.side,
+          left = 0.5 - p.extent / 2,
+          // The number of odd runs of zeros in the binary form of each cell's n, counted along the rows from the offset (at most the last shade).
+          odds = new Uint8Array(p.side * p.side),
+          last = p.tones.length - 1;
+        for (let index = 0; index < odds.length; index++) {
+          let rest = offset + index,
+            count = 0;
+          while (rest > 0) {
+            if (rest & 1) rest >>= 1;
+            else {
+              let run = 0;
+              while (!(rest & 1)) {
+                run++;
+                rest >>= 1;
+              }
+              count += run & 1;
+            }
+          }
+          odds[index] = Math.min(count, last);
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            column = Math.floor((fu - left) / cell),
+            row = Math.floor((fv - left) / cell);
+          let shade = p.paperTone,
+            elevation = p.paperHeight,
+            rough = p.paperRoughness,
+            mask = 0;
+          if (column >= 0 && column < p.side && row >= 0 && row < p.side) {
+            const x = fu - left - (column + 0.5) * cell,
+              y = fv - left - (row + 0.5) * cell,
+              amount = cover(
+                cell / 2 - p.gapHalf - Math.max(Math.abs(x), Math.abs(y)),
+              ),
+              odd = odds[row * p.side + column];
+            shade += (p.tones[odd] - shade) * amount;
+            elevation += (p.heights[odd] - elevation) * amount;
+            rough += (p.inkRoughness - rough) * amount;
+            mask = amount;
+          }
+          color = clamp(
+            shade + p.grainTone * (grainField(u, v) - 0.5) * (1 - mask),
+          );
+          height = clamp(elevation);
+          roughness = clamp(rough);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -73980,6 +74040,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'baumsweetgrid' ||
     kind === 'binarynecklaces' ||
     kind === 'catalantriangulations' ||
     kind === 'eisensteinprimes' ||

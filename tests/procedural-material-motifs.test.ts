@@ -59733,3 +59733,231 @@ describe('binarynecklaces: every binary necklace of 6, 7 or 8 beads (up to turni
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('baumsweetgrid: the Baum-Sweet sequence in rows of a grid, each cell shaded by the number of odd runs of zeros in its number', () => {
+  const p = proceduralMaterialPresets.baumsweetgrid,
+    out = empty(),
+    cell = p.extent / p.side,
+    left = 0.5 - p.extent / 2,
+    toneAt = (sample: Sampler, u: number, v: number): number => {
+      sample(u, v, out);
+      return out.color;
+    };
+  // The number of runs of zeros of odd length in the binary form of n (n > 0), at most the last shade.
+  const oddRuns = (n: number): number =>
+    Math.min(
+      (n.toString(2).match(/0+/g) ?? []).filter((run) => run.length % 2 === 1)
+        .length,
+      p.tones.length - 1,
+    );
+  const centre = (column: number, row: number): [number, number] => [
+    left + (column + 0.5) * cell,
+    left + (row + 0.5) * cell,
+  ];
+  const shadeOf = (sample: Sampler, column: number, row: number): number => {
+    const tone = toneAt(sample, ...centre(column, row)),
+      shade = p.tones.reduce(
+        (best, candidate, k) =>
+          Math.abs(candidate - tone) < Math.abs(p.tones[best] - tone)
+            ? k
+            : best,
+        0,
+      );
+    expect(tone).toBeCloseTo(p.tones[shade], 6);
+    return shade;
+  };
+  const readGrid = (
+    seed: number,
+  ): { sample: Sampler; shades: number[]; offsets: number[] } => {
+    const sample = createSurfaceSampler('baumsweetgrid', seed),
+      shades: number[] = [];
+    for (let row = 0; row < p.side; row++)
+      for (let column = 0; column < p.side; column++)
+        shades.push(shadeOf(sample, column, row));
+    return {
+      sample,
+      shades,
+      offsets: p.offsets.filter((offset) =>
+        shades.every((shade, index) => shade === oddRuns(offset + index)),
+      ),
+    };
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shades each cell by the number of odd runs of zeros in the binary form of its number, counted along the rows from one of the offsets (seed %i)',
+    (seed) => {
+      const { shades, offsets } = readGrid(seed);
+      // Exactly one of the offsets gives every cell (a cell with no odd run is a number of the Baum-Sweet sequence).
+      expect(offsets.length).toBe(1);
+      expect(new Set(shades).size).toBe(p.tones.length);
+      expect(shades.filter((shade) => shade === 0).length).toBeGreaterThan(20);
+    },
+  );
+
+  it('uses every offset, over 60 seeds', () => {
+    const used = new Set<number>();
+    for (let seed = 0; seed < 60; seed++)
+      used.add(readGrid(seed * 17 + 3).offsets[0]);
+    expect([...used].sort((a, b) => a - b)).toEqual(
+      [...p.offsets].sort((a, b) => a - b),
+    );
+  });
+
+  it('draws each cell with its tone, height and roughness, as a square of its size with a gap and nothing outside the grid', () => {
+    const sample = createSurfaceSampler('baumsweetgrid', 5),
+      { shades } = readGrid(5),
+      half = cell / 2 - p.gapHalf,
+      paperOk = (u: number, v: number): boolean =>
+        Math.abs(toneAt(sample, u, v) - p.paperTone) <= p.grainTone / 2 + 1e-9;
+    for (let shade = 0; shade < p.tones.length; shade++) {
+      const index = shades.indexOf(shade),
+        column = index % p.side,
+        row = Math.floor(index / p.side),
+        [cx, cy] = centre(column, row);
+      expect(toneAt(sample, cx, cy)).toBeCloseTo(p.tones[shade], 6);
+      expect(out.height / p.relief).toBeCloseTo(p.heights[shade], 6);
+      expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+      for (const [dx, dy] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ]) {
+        expect(
+          toneAt(sample, cx + dx * (half - 0.0004), cy + dy * (half - 0.0004)),
+        ).toBeCloseTo(p.tones[shade], 6);
+        expect(
+          toneAt(
+            sample,
+            cx + dx * (half - 0.0004) + dy * (half - 0.0004),
+            cy + dy * (half - 0.0004) + dx * (half - 0.0004),
+          ),
+        ).toBeCloseTo(p.tones[shade], 6);
+        expect(
+          paperOk(cx + dx * (half + 0.0004), cy + dy * (half + 0.0004)),
+        ).toBe(true);
+        expect(out.height / p.relief).toBeCloseTo(p.paperHeight, 6);
+        expect(out.roughness).toBeCloseTo(p.paperRoughness, 6);
+      }
+    }
+    // The grid: its first and last cells at its corners, paper outside.
+    expect(shadeOf(sample, 0, 0)).toBe(shades[0]);
+    expect(
+      toneAt(sample, left + p.gapHalf + 0.0006, left + p.gapHalf + 0.0006),
+    ).toBeCloseTo(p.tones[shades[0]], 6);
+    const last = left + p.extent - p.gapHalf - 0.0006;
+    expect(toneAt(sample, last, last)).toBeCloseTo(
+      p.tones[shades[p.side * p.side - 1]],
+      6,
+    );
+    for (const [u, v] of [
+      [left - 0.004, 0.5],
+      [left + p.extent + 0.004, 0.5],
+      [0.5, left - 0.004],
+      [0.5, left + p.extent + 0.004],
+    ])
+      expect(paperOk(u, v)).toBe(true);
+  });
+
+  it('softens the edge of a cell over edgeSoft', () => {
+    const sample = createSurfaceSampler('baumsweetgrid', 5),
+      { shades } = readGrid(5),
+      smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      quarter = 0.25 * p.edgeSoft,
+      half = cell / 2 - p.gapHalf,
+      shade = shades[30 * p.side + 20],
+      [cx, cy] = centre(20, 30);
+    for (const [dx, dy] of [
+      [1, 0],
+      [0, 1],
+      [-1, 0],
+      [0, -1],
+    ]) {
+      const inner = toneAt(
+          sample,
+          cx + dx * (half - quarter),
+          cy + dy * (half - quarter),
+        ),
+        outer = toneAt(
+          sample,
+          cx + dx * (half + quarter),
+          cy + dy * (half + quarter),
+        ),
+        mixed = (amount: number): number =>
+          p.paperTone + (p.tones[shade] - p.paperTone) * smoothstep(amount);
+      expect(Math.abs(inner - mixed(0.75))).toBeLessThan(0.03);
+      expect(Math.abs(outer - mixed(0.25))).toBeLessThan(0.03);
+    }
+  });
+
+  it('fades the grain of the paper out over the edge of a cell, as much as the cell covers', () => {
+    const sample = createSurfaceSampler('baumsweetgrid', 5),
+      { shades } = readGrid(5),
+      smoothstep = (x: number): number => x * x * (3 - 2 * x),
+      half = cell / 2 - p.gapHalf,
+      quarter = 0.25 * p.edgeSoft,
+      amount = smoothstep(0.25),
+      residuals: number[] = [];
+    // Just outside the top edge of every cell of a row, where a quarter of the softening is covered: the tone is the mix of the paper and the cell and the grain of the paper times what is not covered.
+    for (let column = 0; column < p.side; column++)
+      for (const t of [-0.8, -0.3, 0.3, 0.8]) {
+        const [cx, cy] = centre(column, 12),
+          tone = toneAt(sample, cx + t * half, cy - half - quarter);
+        residuals.push(
+          tone -
+            (p.paperTone +
+              (p.tones[shades[12 * p.side + column]] - p.paperTone) * amount),
+        );
+      }
+    const largest = Math.max(...residuals.map(Math.abs));
+    expect(largest).toBeGreaterThan(0.003);
+    expect(largest).toBeLessThanOrEqual(
+      0.5 * p.grainTone * (1 - amount) + 1e-9,
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, has grain only on the paper, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('baumsweetgrid', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('baumsweetgrid', 0),
+      paper = Array.from({ length: 40 }, (_, i) =>
+        toneAt(sample, 0.0013 + i * 0.0021, 0.01),
+      );
+    expect(Math.max(...paper) - Math.min(...paper)).toBeGreaterThan(0.002);
+    const a = createSurfaceSampler('baumsweetgrid', 0),
+      b = createSurfaceSampler('baumsweetgrid', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3501],
+        [0.2201, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

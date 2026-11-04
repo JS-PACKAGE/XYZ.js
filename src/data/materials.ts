@@ -16173,6 +16173,30 @@ export const proceduralMaterialPresets = Object.freeze({
     paperRoughness: 0.8,
     inkRoughness: 0.4,
   }),
+  baumsweetgrid: Object.freeze({
+    dark: [24, 52, 54] as const,
+    light: [244, 240, 226] as const,
+    roughness: 0.55,
+    relief: 0.004,
+    // The Baum-Sweet sequence b(n): 1 when the binary form of n has no run of zeros of odd length (b(0) = 1), else 0. It is laid out in rows of a grid, side cells to a row,
+    // from n = offset (the seed picks the offset; none is a multiple of the row length, so that the rows differ), a cell shaded by its number of odd runs of zeros (none: b = 1, the darkest).
+    side: 64,
+    offsets: Object.freeze([
+      1234, 5000, 21847, 65537, 131000, 150001, 410000, 524333,
+    ]),
+    extent: 0.94,
+    gapHalf: 0.0012,
+    edgeSoft: 0.0006,
+    grainCells: 192,
+    paperTone: 0.97,
+    // The tone and height of a cell by its number of odd runs of zeros (0, 1, 2, 3 and 4 or more): 0 is the dark cell with b = 1.
+    tones: Object.freeze([0.12, 0.36, 0.52, 0.66, 0.8]),
+    grainTone: 0.03,
+    paperHeight: 0.2,
+    heights: Object.freeze([0.8, 0.68, 0.58, 0.5, 0.44]),
+    paperRoughness: 0.8,
+    inkRoughness: 0.45,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -22665,6 +22689,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  baumsweetgrid: 1,
   binarynecklaces: 1,
   catalantriangulations: 1,
   eisensteinprimes: 1,
