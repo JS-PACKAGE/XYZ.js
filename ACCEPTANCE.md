@@ -13927,3 +13927,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增2項專屬測試（規則運動處與另一種寫法的迭代一致且混沌處平均相同、對角線上穩定不動點與2週期的封閉式指數）加色調範圍、seed差異與決定性、UV週期（取代其他材質的C1檢查）、maps共4項，再加kinds清單新條目，`-t`選中的7項皆通過。變異檢查（做過六次）：導數寫成r(1 − x)，該describe 6項中5項失敗；映射改成r·x·(1.01 − x)，5項失敗；字母A、B對調a、b，只有2項失敗（逐點比對與seed差異；對角線那項不受影響，因為對角線上序列不起作用）；暖機去掉，5項失敗；視窗a範圍平移，5項失敗；防止ln 0的下限1e-12改成1e-6，6項皆通過——**沒被抓到**；六者皆已還原（`cmp`確認）。限制：seed對應的變體不是獨立oracle；混沌處只比平均；封閉式只涵蓋對角線的不動點與2週期；不是C1；沒有查文獻，也沒有對照任何參考圖。型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Lyapunov fractal as|lyapunovfractal|kinds|catalog|distinct|periodic"`定向測試**2553項通過／4472項未選**，輸出`GATES-OK`。
 - 未驗證：lyapunovfractal尚未有完整suite與瀏覽器gallery的複驗紀錄；`72f1223dd`（含talbotcarpet、diffractioncatastrophes、standardmap）的瀏覽器gallery已通過（1120種），完整suite在另一個worktree執行中，結果出來前不算數；不push。
+
+## 2026-11-04 完整測試與瀏覽器gallery複驗（至標準映射）
+
+- 範圍：在`72f1223dd`（新增標準映射之後；之後的`lyapunovfractal`不在此次複驗內）重跑完整測試與瀏覽器gallery。這段不新增材質，只記錄實跑結果。`talbotcarpet`（`3585adeb1`）、`diffractioncatastrophes`（`2d862539c`）與`standardmap`（`72f1223dd`）包含在這個範圍內。
+- 完整測試（工具實跑，乾淨的detached worktree）：**179個測試檔、10,947項全部通過**（1826 s，期間同時還跑著其他工作，所以耗時不是乾淨的量測）。前一次完整複驗在`64f4b8227`（10,922項）；10,922 → 10,947共25項，與talbotcarpet 9項、diffractioncatastrophes 8項、standardmap 8項的定向測試選取數相符。
+- 瀏覽器gallery（工具實跑，無頭Chrome，vite從乾淨worktree提供`/examples/pbr3d/`）：在`72f1223dd`，WebGPU分頁與`?renderer=webgl2`分頁各自讀到「1120 procedural material presets」、選單1121個選項；各自選取standardmap、diffractioncatastrophes、talbotcarpet、newtonfractal、vortexstreet，頁面讀數都更新（每個selection回傳true）；console錯誤項目兩個分頁的entries都是空的；另外各自讀回standardmap、diffractioncatastrophes與talbotcarpet的選項文字，與`index.html`標籤一致。限制：只涵蓋「可選取、讀數更新、無console錯誤」，沒有目視畫面或像素比對；跨瀏覽器、跨GPU行為沒有驗證。這回合的瀏覽器工具呼叫第一次就成功（使用了先前加的重試包裝）。
+- 未驗證：`lyapunovfractal`（`b07f3705d`）尚未跑完整suite與瀏覽器gallery；跨瀏覽器與跨GPU；不push。
