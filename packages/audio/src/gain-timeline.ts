@@ -153,9 +153,20 @@ export class GainTimeline {
   apply(param: AudioParam, now: number, offset = 0): void {
     param.cancelScheduledValues(now + offset);
     param.setValueAtTime(this.valueAt(now), now + offset);
+    const segments = this.segments;
+    let first = 0;
+    if (this.ordered) {
+      let high = segments.length;
+      while (first < high) {
+        const middle = (first + high) >>> 1;
+        if (segments[middle]!.end < now) first = middle + 1;
+        else high = middle;
+      }
+    }
     this.applying++;
     try {
-      for (const segment of this.segments) {
+      for (let i = first; i < segments.length; i++) {
+        const segment = segments[i]!;
         if (segment.end < now) continue;
         if (segment.start > now)
           param.setValueAtTime(segment.from, segment.start + offset);
