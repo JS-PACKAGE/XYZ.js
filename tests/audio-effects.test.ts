@@ -55,6 +55,24 @@ describe('audio gain automation', () => {
     expect(envelope.isRampingAt(1001)).toBe(false);
     expect(envelope.copy(1e20).valueAt(1e20)).toBe(0.25);
   });
+
+  it('finishes replaying the captured schedule when a parameter wrapper cancels reentrantly', () => {
+    const envelope = new GainTimeline(1);
+    envelope.ramp(0.5, 1, 1);
+    envelope.ramp(0.25, 3, 1);
+    const replayed: number[] = [];
+    const param = {
+      cancelScheduledValues() {},
+      setValueAtTime() {},
+      linearRampToValueAtTime(value: number) {
+        replayed.push(value);
+        envelope.cancel(0);
+      },
+    } as unknown as AudioParam;
+    envelope.apply(param, 0);
+    expect(replayed).toEqual([0.5, 0.25]);
+    expect(envelope.valueAt(4)).toBe(1);
+  });
 });
 
 describe('effect preparation ownership', () => {
