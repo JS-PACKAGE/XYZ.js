@@ -607,6 +607,7 @@ export class AnimationMixer {
     path: AnimationPath,
     create = true,
   ): void {
+    if (!create && this.overlays.size === 0) return;
     let paths = this.overlays.get(target);
     if (!create && !paths?.get(path)?.captured) return;
     if (!paths) this.overlays.set(target, (paths = new Map()));
@@ -617,6 +618,7 @@ export class AnimationMixer {
   }
   /** @internal Record owned writes before user callbacks can clear or replace their pose. */
   sealOverlay(target: AnimationTarget, path: AnimationPath): void {
+    if (this.overlays.size === 0) return;
     this.overlays.get(target)?.get(path)?.seal();
   }
   clipAction(clip: AnimationClip): AnimationAction {
