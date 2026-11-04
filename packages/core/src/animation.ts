@@ -115,7 +115,7 @@ export class KeyframeTrack {
       values = this.values,
       size = this.size;
     const last = times.length - 1;
-    // Playback samples nearly monotonic times: try the previous segment and its successor
+    // Playback samples nearly monotonic times in either direction: try adjacent segments
     // before searching. The answer (largest key at or before `time`, else 0) is unique.
     let low = this.cursor;
     if (low < last && times[low + 1] <= time) low++;
@@ -124,12 +124,15 @@ export class KeyframeTrack {
       (low > 0 && times[low] > time) ||
       (low < last && times[low + 1] <= time)
     ) {
-      low = 0;
-      let high = last;
-      while (low < high) {
-        const mid = Math.ceil((low + high) / 2);
-        if (times[mid] <= time) low = mid;
-        else high = mid - 1;
+      if (low > 0 && times[low] > time && times[low - 1] <= time) low--;
+      else {
+        low = 0;
+        let high = last;
+        while (low < high) {
+          const mid = Math.ceil((low + high) / 2);
+          if (times[mid] <= time) low = mid;
+          else high = mid - 1;
+        }
       }
     }
     this.cursor = low;
