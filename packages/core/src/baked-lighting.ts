@@ -163,7 +163,7 @@ class Context {
         d[0] = light.position.x - p[0];
         d[1] = light.position.y - p[1];
         d[2] = light.position.z - p[2];
-        const distance = Math.hypot(...d);
+        const distance = hypot3(d[0], d[1], d[2]);
         if (distance <= this.bias || (light.range && distance >= light.range))
           continue;
         for (let c = 0; c < 3; c++) d[c] /= distance;
@@ -652,7 +652,7 @@ export function bakeIrradianceVolume(
               d[0] = light.position.x - p[0];
               d[1] = light.position.y - p[1];
               d[2] = light.position.z - p[2];
-              const distance = Math.hypot(...d);
+              const distance = hypot3(d[0], d[1], d[2]);
               if (
                 distance <= ctx.bias ||
                 (light.range && distance >= light.range)
