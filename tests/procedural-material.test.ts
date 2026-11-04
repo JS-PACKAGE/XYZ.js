@@ -1187,6 +1187,7 @@ const kinds: ProceduralMaterialKind[] = [
   'stilllifes',
   'chorddiagrams',
   'gridsplits',
+  'hamiltonpaths',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -209639,6 +209640,425 @@ describe('Grid splits as every split of a board drawn once', () => {
     expect(blue / (512 * 512)).toBeLessThan(60);
     expect(maxTilt).toBeGreaterThan(0.107);
     expect(maxTilt).toBeLessThan(0.1071);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Hamiltonian paths as every path of a grid drawn once', () => {
+  const p = proceduralMaterialPresets.hamiltonpaths;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The layout of the panels of a variant (seed % 6): slots of 1 / cols by 1 / rows, each with the box of (width - 1) by (height - 1) units that holds the grid points (the point (x, y) at x, y) and the margin around it, drawn at one scale and centred in the slot. */
+  const geometry = (seed: number) => {
+    const variant = seed % p.widths.length,
+      width: number = p.widths[variant],
+      height: number = p.heights[variant],
+      cols: number = p.cols[variant],
+      rows: number = p.rows[variant],
+      scale = Math.min(
+        1 / (cols * (width - 1 + 2 * p.margin)),
+        1 / (rows * (height - 1 + 2 * p.margin)),
+      );
+    return {
+      width,
+      height,
+      cols,
+      rows,
+      scale,
+      originX: (1 / cols - scale * (width - 1 + 2 * p.margin)) / 2,
+      originY: (1 / rows - scale * (height - 1 + 2 * p.margin)) / 2,
+    };
+  };
+  type Geometry = ReturnType<typeof geometry>;
+  type Stick = [number, number, number, number];
+  type Panel = { sticks: Stick[]; levels: Set<number> };
+  /** The path of every panel slot of a seed read back from the picture (null for an empty slot): a unit edge of the grid is part of the path where there is ink at its middle, and the height there gives the level. */
+  const readPanels = (seed: number): (Panel | null)[] => {
+    const g = geometry(seed),
+      sample = createSurfaceSampler('hamiltonpaths', seed),
+      out = empty(),
+      panels: (Panel | null)[] = [];
+    for (let slot = 0; slot < g.cols * g.rows; slot++) {
+      const col = slot % g.cols,
+        row = Math.floor(slot / g.cols),
+        sticks: Stick[] = [],
+        levels = new Set<number>();
+      for (let y = 0; y < g.height; y++)
+        for (let x = 0; x < g.width; x++)
+          for (const [dx, dy] of [
+            [1, 0],
+            [0, 1],
+          ]) {
+            if (x + dx >= g.width || y + dy >= g.height) continue;
+            sample(
+              col / g.cols + g.originX + g.scale * (p.margin + x + dx / 2),
+              row / g.rows + g.originY + g.scale * (p.margin + y + dy / 2),
+              out,
+            );
+            if (1 - (1 - out.occlusion) / p.gapOcclusion < 0.5) continue;
+            sticks.push([x, y, x + dx, y + dy]);
+            levels.add(
+              Math.round(
+                (1e6 * (out.height / p.relief / p.cellHeight - p.heightBase)) /
+                  p.heightSwing,
+              ),
+            );
+          }
+      panels.push(sticks.length === 0 ? null : { sticks, levels });
+    }
+    return panels;
+  };
+  /** The points of a path in order, from its end with the lesser number (y times width plus x) to the other, or null when the sticks are not one path through every point of the grid. */
+  const walkPath = (g: Geometry, sticks: Stick[]): number[] | null => {
+    const next = new Map<number, number[]>();
+    for (const [x1, y1, x2, y2] of sticks) {
+      const a = y1 * g.width + x1,
+        b = y2 * g.width + x2;
+      next.set(a, [...(next.get(a) ?? []), b]);
+      next.set(b, [...(next.get(b) ?? []), a]);
+    }
+    const ends = [...next.entries()]
+      .filter(([, around]) => around.length === 1)
+      .map(([k]) => k);
+    if (
+      ends.length !== 2 ||
+      [...next.values()].some((around) => around.length > 2)
+    )
+      return null;
+    const walk = [Math.min(...ends)];
+    let before = -1;
+    while (walk.length < g.width * g.height) {
+      const here = walk[walk.length - 1],
+        onward = next.get(here)!.filter((k) => k !== before);
+      if (onward.length !== 1) return null;
+      before = here;
+      walk.push(onward[0]);
+    }
+    return walk.length === g.width * g.height && next.size === walk.length
+      ? walk
+      : null;
+  };
+  /** The number of turns of a walk (a change of direction between two steps). */
+  const turnsOf = (walk: number[]): number =>
+    walk.slice(2).filter((k, i) => k - walk[i + 1] !== walk[i + 1] - walk[i])
+      .length;
+  /** The number of Hamiltonian paths of the grid, walked either way, by counting over the sets of points visited and the point reached last. */
+  const countDirected = (g: Geometry): number => {
+    const n = g.width * g.height,
+      neighbours = Array.from({ length: n }, (_, k) => {
+        const x = k % g.width,
+          y = Math.floor(k / g.width);
+        return [
+          ...(x > 0 ? [k - 1] : []),
+          ...(x < g.width - 1 ? [k + 1] : []),
+          ...(y > 0 ? [k - g.width] : []),
+          ...(y < g.height - 1 ? [k + g.width] : []),
+        ];
+      }),
+      ways = new Float64Array(2 ** n * n);
+    for (let k = 0; k < n; k++) ways[(1 << k) * n + k] = 1;
+    for (let set = 1; set < 2 ** n; set++)
+      for (let last = 0; last < n; last++) {
+        const here = ways[set * n + last];
+        if (here === 0) continue;
+        for (const k of neighbours[last])
+          if (!((set >> k) & 1)) ways[(set | (1 << k)) * n + k] += here;
+      }
+    let total = 0;
+    for (let last = 0; last < n; last++) total += ways[(2 ** n - 1) * n + last];
+    return total;
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('hamiltonpaths', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { high: 0.9629, lit: 0.10997, mean: 0.12051, height: 0.8 }],
+      [1, { high: 0.8067, lit: 0.16144, mean: 0.14455, height: 0.66286 }],
+      [
+        0xffffffff,
+        { high: 0.8355, lit: 0.17827, mean: 0.16464, height: 0.68923 },
+      ],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('hamiltonpaths', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0153);
+      expect(low).toBeLessThan(0.0158);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(want.height, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws every Hamiltonian path of the grid exactly once, read back from the picture and counted with another method', () => {
+    for (let seed = 0; seed < 12; seed++) {
+      const g = geometry(seed),
+        read = readPanels(seed),
+        drawn = read.filter((panel): panel is Panel => panel !== null),
+        names: string[] = [];
+      for (const { sticks, levels } of drawn) {
+        // The sticks are one path through every point, and its height is that of its number of turns over the most there can be.
+        const walk = walkPath(g, sticks);
+        expect(walk).not.toBeNull();
+        expect(sticks.length).toBe(g.width * g.height - 1);
+        expect([...levels]).toEqual([
+          Math.round((1e6 * turnsOf(walk!)) / (g.width * g.height - 2)),
+        ]);
+        names.push(walk!.join('-'));
+      }
+      // No two panels show the same path, and as many as there are Hamiltonian paths (counted another way) are shown.
+      expect(new Set(names).size).toBe(drawn.length);
+      expect(drawn.length).toBe(countDirected(g) / 2);
+      expect(read.slice(drawn.length).every((panel) => panel === null)).toBe(
+        true,
+      );
+    }
+    // The numbers: 8, 20, 62, 132, 276 and 336 Hamiltonian paths of the grids 3 by 2, 3 by 3, 4 by 3, 5 by 3, 4 by 4 and 6 by 3 points.
+    expect(
+      [0, 1, 2, 3, 4, 5].map(
+        (seed) => readPanels(seed).filter((panel) => panel !== null).length,
+      ),
+    ).toEqual([8, 20, 62, 132, 276, 336]);
+  }, 120000);
+  it('shuffles the panels by group without changing the set of paths', () => {
+    for (const seed of [1, 2, 4]) {
+      const g = geometry(seed),
+        names = (s: number) =>
+          readPanels(s).map((panel) =>
+            panel === null ? '-' : walkPath(g, panel.sticks)!.join('-'),
+          ),
+        first = names(seed),
+        second = names(seed + 6),
+        third = names(seed + 12);
+      expect(first).not.toEqual(second);
+      expect(second).not.toEqual(third);
+      expect([...first].sort()).toEqual([...second].sort());
+      expect([...first].sort()).toEqual([...third].sort());
+    }
+  });
+  it('agrees with the ideal lines and end dots away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5]) {
+      const g = geometry(seed),
+        panels = readPanels(seed),
+        sample = createSurfaceSampler('hamiltonpaths', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          col = Math.min(g.cols - 1, Math.floor(u * g.cols)),
+          row = Math.min(g.rows - 1, Math.floor(v * g.rows)),
+          panel = panels[row * g.cols + col],
+          x = (u - col / g.cols - g.originX) / g.scale - p.margin,
+          y = (v - row / g.rows - g.originY) / g.scale - p.margin;
+        let ink = 0,
+          level = 0,
+          near = false;
+        if (panel !== null) {
+          // The distance to the nearest stick (a segment) and to the nearest end dot.
+          let nearestLine = Infinity;
+          for (const [ax, ay, bx, by] of panel.sticks) {
+            const along = Math.max(
+              0,
+              Math.min(1, (x - ax) * (bx - ax) + (y - ay) * (by - ay)),
+            );
+            nearestLine = Math.min(
+              nearestLine,
+              Math.hypot(
+                x - ax - along * (bx - ax),
+                y - ay - along * (by - ay),
+              ),
+            );
+          }
+          const walk = walkPath(g, panel.sticks)!,
+            ends = [walk[0], walk[walk.length - 1]].map(
+              (point): [number, number] => [
+                point % g.width,
+                Math.floor(point / g.width),
+              ],
+            ),
+            nearestDot = Math.min(
+              ...ends.map(([ex, ey]) => Math.hypot(x - ex, y - ey)),
+            ),
+            // Each of the two shapes is surely in (1), surely out (0) or in its smoothing (undefined).
+            state = (distance: number, half: number): number | undefined =>
+              distance <= half - p.edgeSoft / 2
+                ? 1
+                : distance >= half + p.edgeSoft / 2
+                  ? 0
+                  : undefined,
+            parts = [
+              state(nearestLine, p.lineHalf),
+              state(nearestDot, p.dotRadius),
+            ];
+          if (parts.includes(1)) ink = 1;
+          else if (parts.every((part) => part === 0)) ink = 0;
+          else near = true;
+          level = turnsOf(walk) / (g.width * g.height - 2);
+        }
+        if (near) continue;
+        compared++;
+        sample(u, v, out);
+        const tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.heightBase + p.heightSwing * level),
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(5100);
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeGreaterThan(0.2316);
+    expect(unlike(first, litGrid(1))).toBeLessThan(0.2318);
+    expect(unlike(first, litGrid(6))).toBeGreaterThan(0.0548);
+    expect(unlike(first, litGrid(6))).toBeLessThan(0.0549);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('hamiltonpaths', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 coral Hamiltonian path maps on dark brown with raised lines and shaded gaps', () => {
+    const maps = generateProceduralMaps('hamiltonpaths', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(59.8);
+    expect(red / (512 * 512)).toBeLessThan(60.8);
+    expect(green / (512 * 512)).toBeGreaterThan(28);
+    expect(green / (512 * 512)).toBeLessThan(29);
+    expect(blue / (512 * 512)).toBeGreaterThan(22);
+    expect(blue / (512 * 512)).toBeLessThan(23);
+    expect(maxTilt).toBeGreaterThan(0.0622);
+    expect(maxTilt).toBeLessThan(0.0623);
     expect(invalid).toBe(0);
   });
 });

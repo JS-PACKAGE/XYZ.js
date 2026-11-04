@@ -55798,6 +55798,138 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'hamiltonpaths': {
+        const p = proceduralMaterialPresets.hamiltonpaths,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.widths.length,
+          group = Math.floor(unsigned / p.widths.length),
+          width: number = p.widths[variant],
+          height0: number = p.heights[variant],
+          cols = p.cols[variant],
+          rows = p.rows[variant],
+          points = width * height0,
+          // Every Hamiltonian path, found by walking from every point to a point not visited yet; a path is kept once, walked from its end with the lesser number to the other (the first point is before the last), as its segments, its two ends and its number of turns over the most there can be.
+          paths = (() => {
+            const found: {
+                segments: number[][];
+                ends: number[];
+                level: number;
+              }[] = [],
+              visited = new Uint8Array(points),
+              walk: number[] = [],
+              step = (at: number): void => {
+                if (walk.length === points) {
+                  if (walk[0] < at) {
+                    let turns = 0;
+                    for (let k = 2; k < points; k++)
+                      if (walk[k] - walk[k - 1] !== walk[k - 1] - walk[k - 2])
+                        turns++;
+                    const at2 = (k: number): number[] => [
+                      walk[k] % width,
+                      Math.floor(walk[k] / width),
+                    ];
+                    found.push({
+                      segments: walk
+                        .slice(1)
+                        .map((_, k) => [...at2(k), ...at2(k + 1)]),
+                      ends: [...at2(0), ...at2(points - 1)],
+                      level: turns / (points - 2),
+                    });
+                  }
+                  return;
+                }
+                const x = at % width,
+                  y = Math.floor(at / width);
+                for (const next of [
+                  x > 0 ? at - 1 : -1,
+                  x < width - 1 ? at + 1 : -1,
+                  y > 0 ? at - width : -1,
+                  y < height0 - 1 ? at + width : -1,
+                ]) {
+                  if (next < 0 || visited[next] === 1) continue;
+                  visited[next] = 1;
+                  walk.push(next);
+                  step(next);
+                  walk.pop();
+                  visited[next] = 0;
+                }
+              };
+            for (let start = 0; start < points; start++) {
+              visited[start] = 1;
+              walk.push(start);
+              step(start);
+              walk.pop();
+              visited[start] = 0;
+            }
+            for (let k = found.length - 1; k > 0; k--) {
+              const other = Math.floor(
+                hash(k, 401, group ^ p.seedSalt) * (k + 1),
+              );
+              [found[k], found[other]] = [found[other], found[k]];
+            }
+            return found;
+          })(),
+          boxWidth = width - 1,
+          boxHeight = height0 - 1,
+          scale = Math.min(
+            1 / (cols * (boxWidth + 2 * p.margin)),
+            1 / (rows * (boxHeight + 2 * p.margin)),
+          ),
+          originX = (1 / cols - scale * (boxWidth + 2 * p.margin)) / 2,
+          originY = (1 / rows - scale * (boxHeight + 2 * p.margin)) / 2,
+          // 1 inside the distance half, 0 outside, 1/2 at half, smoothed over edgeSoft.
+          band = (distance: number, half: number): number =>
+            smooth(clamp((half - distance) / p.edgeSoft + 0.5));
+        return () => {
+          const tileU = fract(u),
+            tileV = fract(v),
+            col = Math.min(cols - 1, Math.floor(tileU * cols)),
+            row = Math.min(rows - 1, Math.floor(tileV * rows)),
+            index = row * cols + col,
+            grain = grainField(u, v);
+          let ink = 0,
+            level = 0;
+          if (index < paths.length) {
+            const x = (tileU - col / cols - originX) / scale - p.margin,
+              y = (tileV - row / rows - originY) / scale - p.margin;
+            let nearestLine = Infinity;
+            for (const [ax, ay, bx, by] of paths[index].segments) {
+              const along = Math.max(
+                0,
+                Math.min(1, (x - ax) * (bx - ax) + (y - ay) * (by - ay)),
+              );
+              nearestLine = Math.min(
+                nearestLine,
+                Math.hypot(
+                  x - ax - along * (bx - ax),
+                  y - ay - along * (by - ay),
+                ),
+              );
+            }
+            const { ends } = paths[index],
+              nearestDot = Math.min(
+                Math.hypot(x - ends[0], y - ends[1]),
+                Math.hypot(x - ends[2], y - ends[3]),
+              );
+            ink =
+              1 -
+              (1 - band(nearestLine, p.lineHalf)) *
+                (1 - band(nearestDot, p.dotRadius));
+            level = paths[index].level;
+          }
+          const tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+          color =
+            p.toneGround * (1 - ink) + tone * ink + p.grainTone * (grain - 0.5);
+          height = p.cellHeight * ink * (p.heightBase + p.heightSwing * level);
+          occlusion = 1 - p.gapOcclusion * (1 - ink);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -64763,6 +64895,7 @@ export function createSurfaceSampler(
     kind === 'stilllifes' ||
     kind === 'chorddiagrams' ||
     kind === 'gridsplits' ||
+    kind === 'hamiltonpaths' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

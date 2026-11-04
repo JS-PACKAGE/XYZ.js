@@ -1224,6 +1224,7 @@ try {
     'stilllifes',
     'chorddiagrams',
     'gridsplits',
+    'hamiltonpaths',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
