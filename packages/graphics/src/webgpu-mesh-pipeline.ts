@@ -3855,7 +3855,9 @@ export class WebGPUMeshPipeline {
       const { uniform, bits, sent } = mesh;
       bytes = materialSent
         ? // Only the matrix, shadow/skin flags, fade/tangent words and irradiance can differ.
-          uploadChangedSpan(queue, uniform, bits, sent, 0, 48) +
+          uploadChangedSpan(queue, uniform, bits, sent, 0, 16) +
+          uploadChangedSpan(queue, uniform, bits, sent, 34, 35) +
+          uploadChangedSpan(queue, uniform, bits, sent, 47, 48) +
           uploadChangedSpan(
             queue,
             uniform,
