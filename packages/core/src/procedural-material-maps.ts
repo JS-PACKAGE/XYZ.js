@@ -41384,18 +41384,27 @@ export function createSurfaceSampler(
             hash(cell % p.size, Math.floor(cell / p.size), seed ^ p.seedSalt) *
               p.states,
           );
+        const size = p.size,
+          last = size - 1,
+          successors = new Uint8Array(256);
+        for (let state = 0; state < 256; state++)
+          successors[state] = (state + 1) % p.states;
         for (let step = 0; step < p.steps; step++) {
-          for (let cell = 0; cell < count; cell++) {
-            const x = cell % p.size,
-              y = (cell - x) / p.size,
-              successor = (current[cell] + 1) % p.states;
-            next[cell] =
-              current[y * p.size + ((x + 1) % p.size)] === successor ||
-              current[y * p.size + ((x + p.size - 1) % p.size)] === successor ||
-              current[((y + 1) % p.size) * p.size + x] === successor ||
-              current[((y + p.size - 1) % p.size) * p.size + x] === successor
-                ? successor
-                : current[cell];
+          for (let y = 0; y < size; y++) {
+            const row = y * size,
+              above = (y === 0 ? last : y - 1) * size,
+              below = (y === last ? 0 : y + 1) * size;
+            for (let x = 0; x < size; x++) {
+              const cell = row + x,
+                successor = successors[current[cell]];
+              next[cell] =
+                current[row + (x === last ? 0 : x + 1)] === successor ||
+                current[row + (x === 0 ? last : x - 1)] === successor ||
+                current[below + x] === successor ||
+                current[above + x] === successor
+                  ? successor
+                  : current[cell];
+            }
           }
           [current, next] = [next, current];
         }
