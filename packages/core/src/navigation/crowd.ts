@@ -521,7 +521,7 @@ export class CrowdSolver {
     scratch.speed = speed;
     this.candidate(px, pz);
     this.candidate(0, 0);
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < count && scratch.best !== 0; i++) {
       const a = this.lines[i]!;
       const offset = a.b - a.nx * px - a.nz * pz;
       this.candidate(px + offset * a.nx, pz + offset * a.nz);
@@ -554,18 +554,18 @@ export class CrowdSolver {
 
   private candidate(x: number, z: number): void {
     const scratch = this.candidateScratch;
+    const error = (x - scratch.px) ** 2 + (z - scratch.pz) ** 2;
+    // Feasibility cannot improve a candidate that already loses the strict error tie.
+    if (!(error < scratch.best)) return;
     if (x * x + z * z > scratch.speed * scratch.speed + crowdLimits.epsilon)
       return;
     for (let i = 0; i < scratch.count; i++) {
       const line = this.lines[i]!;
       if (line.nx * x + line.nz * z < line.b - crowdLimits.epsilon) return;
     }
-    const error = (x - scratch.px) ** 2 + (z - scratch.pz) ** 2;
-    if (error < scratch.best) {
-      scratch.best = error;
-      scratch.x = x;
-      scratch.z = z;
-    }
+    scratch.best = error;
+    scratch.x = x;
+    scratch.z = z;
   }
 
   destroy(): void {
