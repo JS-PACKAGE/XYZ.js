@@ -17323,6 +17323,44 @@ export const proceduralMaterialPresets = Object.freeze({
     lineHeight: 0.35,
     inkRoughness: 0.5,
   }),
+  soccerpitch: Object.freeze({
+    dark: [20, 36, 20] as const,
+    light: [236, 242, 230] as const,
+    roughness: 0.75,
+    relief: 0.004,
+    // An association football pitch seen from above with the markings of the laws of the game, in metres (the length along one axis): the pitch 105 by 68, the halfway line, the centre circle of radius 9.15
+    // and the centre mark, at each end the penalty area (16.5 deep, 40.32 wide) and the goal area (5.5 deep, 18.32 wide), the penalty mark 11 from the goal line and the penalty arc of radius 9.15 round it
+    // outside the penalty area, and the quarter circles of radius 1 in the corners; round it a margin of 3 and ground beyond. Lines are part of the area they bound. They are 0.3 wide, two and a half times
+    // the 0.12 of the laws, and the marks 0.3 in radius, so that they show in a tile. The seed picks the surface (the tones of the pitch, the margin and the ground, all shifted together a little) and lays
+    // the pitch along the picture or across it.
+    metre: 0.0081,
+    pitchLength: 105,
+    pitchWidth: 68,
+    goalWidth: 7.32,
+    penaltyDepth: 16.5,
+    goalAreaDepth: 5.5,
+    penaltyMark: 11,
+    circleRadius: 9.15,
+    cornerRadius: 1,
+    margin: 3,
+    lineWidth: 0.3,
+    markRadius: 0.3,
+    surfaces: Object.freeze([
+      Object.freeze({ pitch: 0.4, margin: 0.3, ground: 0.2 }),
+      Object.freeze({ pitch: 0.34, margin: 0.42, ground: 0.24 }),
+      Object.freeze({ pitch: 0.46, margin: 0.36, ground: 0.16 }),
+      Object.freeze({ pitch: 0.3, margin: 0.22, ground: 0.12 }),
+    ]),
+    // How much the three tones may all be shifted together (from -toneShift to toneShift) by the seed: the wear of the grass.
+    toneShift: 0.04,
+    edgeSoft: 0.0006,
+    lineTone: 0.96,
+    groundHeight: 0.15,
+    marginHeight: 0.25,
+    pitchHeight: 0.3,
+    lineHeight: 0.35,
+    inkRoughness: 0.7,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -23815,6 +23853,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  soccerpitch: 1,
   athleticstrack: 1,
   badmintoncourt: 1,
   tenniscourt: 1,

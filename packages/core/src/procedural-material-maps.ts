@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'soccerpitch',
   'athleticstrack',
   'badmintoncourt',
   'tenniscourt',
@@ -49682,6 +49683,118 @@ export function createSurfaceSampler(
                 (infieldElevation - laneElevation) * infield -
                 outerElevation) *
                 inside;
+          color = clamp(shade);
+          height = clamp(elevation);
+          roughness = clamp(p.inkRoughness);
+          occlusion = 1;
+        };
+      }
+      case 'soccerpitch': {
+        const p = proceduralMaterialPresets.soccerpitch,
+          inverseSoft = 1 / p.edgeSoft,
+          norm = (x: number, y: number): number => Math.sqrt(x * x + y * y),
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(107, 1, seed ^ 0x130001) * p.surfaces.length)
+            ],
+          across = hash(107, 2, seed ^ 0x130002) < 0.5,
+          shift = (hash(107, 3, seed ^ 0x130003) * 2 - 1) * p.toneShift,
+          halfLength = p.pitchLength / 2,
+          halfWidth = p.pitchWidth / 2,
+          halfGoalArea = p.goalWidth / 2 + p.goalAreaDepth,
+          halfPenaltyArea = p.goalWidth / 2 + p.penaltyDepth,
+          line = p.lineWidth,
+          // How far inside the outline of a rectangle (its middle and half sides, in metres) a place is, as a distance on the picture; the outline is the part within one line width of the edge.
+          outline = (
+            x: number,
+            y: number,
+            cx: number,
+            hx: number,
+            hy: number,
+          ): number => {
+            const inside = Math.min(hx - Math.abs(x - cx), hy - Math.abs(y));
+            return cover(Math.min(inside, line - inside) * p.metre);
+          },
+          // The ring of a circle of the given radius: within one line width of the edge, inside it.
+          ring = (distance: number, radius: number): number =>
+            cover(
+              Math.min(distance - (radius - line), radius - distance) * p.metre,
+            );
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            // The place in metres from the middle of the pitch (x along its length).
+            x = ((across ? fv : fu) - 0.5) / p.metre,
+            y = ((across ? fu : fv) - 0.5) / p.metre,
+            margin = cover(
+              Math.min(
+                halfLength + p.margin - Math.abs(x),
+                halfWidth + p.margin - Math.abs(y),
+              ) * p.metre,
+            ),
+            inside = Math.min(
+              halfLength - Math.abs(x),
+              halfWidth - Math.abs(y),
+            ),
+            pitch = cover(inside * p.metre),
+            // The distance from the halfway line (both ends are alike).
+            ax = Math.abs(x),
+            markX = halfLength - p.penaltyMark;
+          // The outline of the pitch, the halfway line, the centre circle and mark, the penalty and goal areas of the end the place is near, the penalty mark and arc, the corner arcs: each painted once.
+          let marking = Math.max(
+            cover(Math.min(inside, line - inside) * p.metre),
+            cover((line / 2 - ax) * p.metre),
+            ring(norm(x, y), p.circleRadius),
+            cover((p.markRadius - norm(x, y)) * p.metre),
+            outline(
+              ax,
+              y,
+              halfLength - p.penaltyDepth / 2,
+              p.penaltyDepth / 2,
+              halfPenaltyArea,
+            ),
+            outline(
+              ax,
+              y,
+              halfLength - p.goalAreaDepth / 2,
+              p.goalAreaDepth / 2,
+              halfGoalArea,
+            ),
+            cover((p.markRadius - norm(ax - markX, y)) * p.metre),
+          );
+          // The penalty arc is drawn only outside the penalty area: it ends in the middle of the line of the area, where that is fully covered, so that neither edge of the line is changed.
+          if (ax < halfLength - p.penaltyDepth + line / 2)
+            marking = Math.max(
+              marking,
+              ring(norm(ax - markX, y), p.circleRadius),
+            );
+          // The corner arcs, only inside the pitch.
+          marking = Math.max(
+            marking,
+            Math.min(
+              pitch,
+              ring(
+                norm(ax - halfLength, Math.abs(y) - halfWidth),
+                p.cornerRadius,
+              ),
+            ),
+          );
+          // Pitch or line over the margin, the line only where there is pitch (so that a line at the edge of the pitch has the edge of the pitch).
+          const lined = pitch > 0 ? Math.min(1, marking / pitch) : 0,
+            pitchTone = surface.pitch + shift;
+          let shade = surface.ground + shift,
+            elevation = p.groundHeight;
+          shade += (surface.margin + shift - shade) * margin;
+          elevation += (p.marginHeight - elevation) * margin;
+          shade +=
+            (pitchTone + (p.lineTone - pitchTone) * lined - shade) * pitch;
+          elevation +=
+            (p.pitchHeight +
+              (p.lineHeight - p.pitchHeight) * lined -
+              elevation) *
+            pitch;
           color = clamp(shade);
           height = clamp(elevation);
           roughness = clamp(p.inkRoughness);

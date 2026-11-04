@@ -15838,6 +15838,49 @@ export declare const proceduralMaterialPresets: Readonly<{
         lineHeight: 0.35;
         inkRoughness: 0.5;
     }>;
+    soccerpitch: Readonly<{
+        dark: readonly [20, 36, 20];
+        light: readonly [236, 242, 230];
+        roughness: 0.75;
+        relief: 0.004;
+        metre: 0.0081;
+        pitchLength: 105;
+        pitchWidth: 68;
+        goalWidth: 7.32;
+        penaltyDepth: 16.5;
+        goalAreaDepth: 5.5;
+        penaltyMark: 11;
+        circleRadius: 9.15;
+        cornerRadius: 1;
+        margin: 3;
+        lineWidth: 0.3;
+        markRadius: 0.3;
+        surfaces: readonly (Readonly<{
+            pitch: 0.4;
+            margin: 0.3;
+            ground: 0.2;
+        }> | Readonly<{
+            pitch: 0.34;
+            margin: 0.42;
+            ground: 0.24;
+        }> | Readonly<{
+            pitch: 0.46;
+            margin: 0.36;
+            ground: 0.16;
+        }> | Readonly<{
+            pitch: 0.3;
+            margin: 0.22;
+            ground: 0.12;
+        }>)[];
+        toneShift: 0.04;
+        edgeSoft: 0.0006;
+        lineTone: 0.96;
+        groundHeight: 0.15;
+        marginHeight: 0.25;
+        pitchHeight: 0.3;
+        lineHeight: 0.35;
+        inkRoughness: 0.7;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -22323,6 +22366,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    soccerpitch: 1;
     athleticstrack: 1;
     badmintoncourt: 1;
     tenniscourt: 1;
