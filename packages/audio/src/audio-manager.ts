@@ -826,9 +826,13 @@ export class AudioManager {
         record.index = 0;
       }
     }
-    // Skip stale notes in logarithmic time even for long, non-looping tracks.
+    // Search only when the next note is stale; ordinary lookahead ticks keep their cursor.
     const cutoff = elapsed - record.cycle * period - LOOKAHEAD;
-    if (cutoff > 0) {
+    if (
+      cutoff > 0 &&
+      record.index < notes.length &&
+      notes[record.index].time < cutoff
+    ) {
       let low = record.index;
       let high = notes.length;
       while (low < high) {
