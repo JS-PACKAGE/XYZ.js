@@ -334,6 +334,38 @@ function allFinite(values: Float32Array): boolean {
     if (!Number.isFinite(values[i])) return false;
   return true;
 }
+
+/** Keep normalized component loops outside the large, unoptimized parse closure. */
+function normalizedAccessor(
+  source: Int8Array | Uint8Array | Int16Array | Uint16Array,
+  data: Float32Array,
+  count: number,
+  size: number,
+  step: number,
+  component: number,
+): void {
+  const divisor =
+    component === 5120
+      ? 127
+      : component === 5121
+        ? 255
+        : component === 5122
+          ? 32767
+          : 65535;
+  const signed = component === 5120 || component === 5122;
+  if (step === size) {
+    if (signed)
+      for (let i = 0; i < data.length; i++)
+        data[i] = Math.max(-1, source[i]! / divisor);
+    else for (let i = 0; i < data.length; i++) data[i] = source[i]! / divisor;
+  } else {
+    for (let i = 0; i < count; i++)
+      for (let j = 0; j < size; j++) {
+        const value = source[i * step + j]! / divisor;
+        data[i * size + j] = signed ? Math.max(-1, value) : value;
+      }
+  }
+}
 /** Encoded size of `text`; stops once it exceeds `limit` (the returned size is then over it). */
 function utf8Size(text: string, limit: number): number {
   let bytes = 0;
@@ -738,6 +770,25 @@ export class GLTFLoader {
               for (let i = 0; i < count; i++)
                 for (let j = 0; j < size; j++)
                   data[i * size + j] = source[i * step + j]!;
+          } else if (normalized && !matrixSize && littleEndian) {
+            const step = stride / width;
+            const Native = componentArrays[component] as
+              | Int8ArrayConstructor
+              | Uint8ArrayConstructor
+              | Int16ArrayConstructor
+              | Uint16ArrayConstructor;
+            normalizedAccessor(
+              new Native(
+                view.buffer,
+                view.offset + offset,
+                (count - 1) * step + size,
+              ),
+              data,
+              count,
+              size,
+              step,
+              component,
+            );
           } else {
             const raw = new DataView(view.buffer, view.offset, view.length);
             for (let i = 0; i < count; i++)
