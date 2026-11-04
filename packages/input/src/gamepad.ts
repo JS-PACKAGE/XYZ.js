@@ -505,10 +505,27 @@ export class GamepadState {
   }
 }
 
+const mappingMatchers = new WeakMap<
+  RegExp,
+  { source: string; flags: string; matcher: RegExp }
+>();
+
 function matches(pattern: string | RegExp, id: string): boolean {
-  return typeof pattern === 'string'
-    ? id.toLowerCase().includes(pattern.toLowerCase())
-    : new RegExp(pattern.source, pattern.flags.replace(/[gy]/g, '')).test(id);
+  if (typeof pattern === 'string')
+    return id.toLowerCase().includes(pattern.toLowerCase());
+  const source = pattern.source;
+  const flags = pattern.flags;
+  let cached = mappingMatchers.get(pattern);
+  // RegExp.compile() can mutate a registered expression; never cache stale semantics.
+  if (!cached || cached.source !== source || cached.flags !== flags) {
+    cached = {
+      source,
+      flags,
+      matcher: new RegExp(source, flags.replace(/[gy]/g, '')),
+    };
+    mappingMatchers.set(pattern, cached);
+  }
+  return cached.matcher.test(id);
 }
 
 function buttonSlot(name: GamepadButtonName): number {

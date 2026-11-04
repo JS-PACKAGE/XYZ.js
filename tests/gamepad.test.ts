@@ -273,6 +273,31 @@ describe('GamepadState mappings for non-standard pads', () => {
     expect(state.isDown('a')).toBe(true);
   });
 
+  it('reuses stateless regex matching without changing caller state or retaining stale patterns', () => {
+    const state = new GamepadState();
+    const pattern = /vendor/giy;
+    pattern.lastIndex = 9;
+    state.addMapping({ match: pattern, buttons: { a: 2 } });
+    const raw = generic({ 2: 1 }, []);
+    for (let i = 0; i < 3; i++) {
+      state.update([raw]);
+      expect(state.isDown('a')).toBe(true);
+      expect(pattern.lastIndex).toBe(9);
+    }
+    Object.defineProperty(pattern, 'source', {
+      value: 'other',
+      configurable: true,
+    });
+    state.update([raw]);
+    expect(state.connected).toBe(false);
+    Object.defineProperty(pattern, 'source', {
+      value: 'vendor',
+      configurable: true,
+    });
+    state.update([raw]);
+    expect(state.isDown('a')).toBe(true);
+  });
+
   it('rejects malformed mappings', () => {
     const state = new GamepadState();
     expect(() => state.addMapping({ match: '' })).toThrow(RangeError);
