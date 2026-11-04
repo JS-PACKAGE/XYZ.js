@@ -14111,3 +14111,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：7項（色調範圍、射影平面公理、循環與完美差集、逐點比對、不同階與組別與決定性、C1與UV週期、maps），`-t "Projective plane as"`7項通過。變異檢查（做過19次）：單位條件放寬失敗5項；差集不加位移失敗2項；差集不乘乘數失敗2項；列欄索引由差改和失敗3項；洗牌機率門檻改失敗1項；Fisher–Yates範圍改失敗2項；列欄的洗牌共用同一個排列與互換各失敗2項；點數少1失敗6項；差集固定用第0個失敗5項；變體選擇位移失敗5項；group取整個seed失敗2項；平滑偏移去掉0.5失敗4項；occlusion公式取反失敗3項；height乘0.9失敗3項；色調乘0.9失敗4項；圓心距離y偏移失敗7項（全部）；位移雜湊乘數改失敗2項。**19次全部被抓到**，沒有未抓到的。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Projective plane as|projectiveplane|kinds|catalog|distinct|periodic"`定向測試**2584項通過／4575項未選**，輸出`GATES-OK`。
 - 未驗證：完整suite（最近一次在`9e9e8ad90`，不含projectiveplane，結果另記）、瀏覽器gallery（projectiveplane尚未檢查）、跨瀏覽器與跨GPU；不push。
+
+## 2026-11-04 完整測試與瀏覽器gallery複驗（至Costas模糊函數）
+
+- 範圍：在`9e9e8ad90`（新增Costas模糊函數之後）重跑完整測試，並在同一個commit跑一次瀏覽器gallery。這段不新增材質，只記錄實跑結果。完整測試範圍包含`celticinterlace`、`trominotiling`、`magicsquares`與`costasambiguity`，不包含之後的`projectiveplane`（`1122cb00f`）。
+- 完整測試（工具實跑，乾淨的detached worktree）：**179個測試檔、11,080項全部通過**（2150 s；期間我同時跑著projectiveplane的probe、測試、變異檢查與預覽，所以耗時不是乾淨的量測；這次沒有逾時失敗）。前一次完整複驗在`703e2c759`（11,048項，其中1項在高負載下逾時、單獨重跑通過）；11,048 → 11,080共32項，與我預期的增量celticinterlace 8項、trominotiling 8項、magicsquares 8項、costasambiguity 8項（各自的專屬與沿用測試加kinds清單的測試）相符，但我沒有逐項核對各測試的數量。這次是全綠，但我沒有在無負載下重跑，也沒有重跑上次逾時的那一項以外的任何歷史失敗。
+- 瀏覽器gallery（工具實跑，無頭Chrome，vite從乾淨worktree提供`/examples/pbr3d/`，每次開啟前先殺掉舊的Chrome並等約20秒）：在`9e9e8ad90`的working tree狀態，WebGPU分頁與`?renderer=webgl2`分頁各自讀到「1136 procedural material presets」、選單1137個選項，選取trominotiling、magicsquares、costasambiguity與plain都成功，entries都是空的，三個新kind的選項文字與標籤一致。限制：只涵蓋「可選取、讀數更新、無console錯誤」，沒有目視畫面或像素比對；跨瀏覽器、跨GPU行為沒有驗證。（備註：gallery是在完整測試剛開始時跑的，vite從`/private/tmp/xyz-ct`提供，那時該worktree正是`9e9e8ad90`加上尚未提交的projectiveplane工作之前的乾淨狀態。）
+- 未驗證：`projectiveplane`尚未跑完整suite與gallery（只有定向測試與gates）；完整suite沒有在無負載下重跑；跨瀏覽器與跨GPU；不push。
