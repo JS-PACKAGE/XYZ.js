@@ -64,6 +64,27 @@ it('selects plural forms with Intl.PluralRules and formats numbers per locale', 
   expect(new I18n({ locale: 'de' }).formatNumber(1234.5)).toBe('1.234,5');
 });
 
+it('keeps cached plural and number formatting correct across locale changes', () => {
+  const i18n = new I18n({ locale: 'de', fallback: 'en', messages });
+  expect(i18n.t('apples', { count: 1234 })).toBe('1.234 apples');
+  expect(i18n.t('apples', { count: 1 })).toBe('1 apple');
+  i18n.addEventListener(
+    'localechange',
+    () => {
+      expect(i18n.formatNumber(1234)).toBe('1,234');
+    },
+    { once: true },
+  );
+  i18n.setLocale('en');
+  expect(i18n.t('apples', { count: 1234 })).toBe('1,234 apples');
+  const options: Intl.NumberFormatOptions = { minimumFractionDigits: 1 };
+  expect(i18n.formatNumber(2, options)).toBe('2.0');
+  options.minimumFractionDigits = 2;
+  expect(i18n.formatNumber(2, options)).toBe('2.00');
+  i18n.setLocale('de');
+  expect(i18n.t('apples', { count: 1234 })).toBe('1.234 apples');
+});
+
 it('applies the missing-key policy', () => {
   expect(new I18n().t('nope')).toBe('nope');
   expect(() => new I18n({ missing: 'error' }).t('nope')).toThrow(I18nError);

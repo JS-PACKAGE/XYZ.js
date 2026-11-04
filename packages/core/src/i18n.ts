@@ -117,6 +117,8 @@ export class I18n extends EventTarget {
   private readonly fallbacks: string[];
   private readonly missing: MissingKeyPolicy;
   private readonly bindings = new Set<() => void>();
+  private readonly pluralRules = new Map<string, Intl.PluralRules>();
+  private numberFormat: Intl.NumberFormat | undefined;
   private current: string;
 
   constructor(options: I18nOptions = {}) {
@@ -159,6 +161,7 @@ export class I18n extends EventTarget {
     if (tag === this.current) return;
     const previous = this.current;
     this.current = tag;
+    this.numberFormat = undefined;
     this.dispatchEvent(
       new CustomEvent<I18nLocaleChangeDetail>('localechange', {
         detail: { locale: tag, previous },
@@ -193,14 +196,22 @@ export class I18n extends EventTarget {
         throw new I18nError(
           `Plural message "${key}" requires a finite numeric "count" parameter.`,
         );
-      const category = new Intl.PluralRules(found.locale).select(count);
+      let rules = this.pluralRules.get(found.locale);
+      if (!rules) {
+        rules = new Intl.PluralRules(found.locale);
+        this.pluralRules.set(found.locale, rules);
+      }
+      const category = rules.select(count);
       template = found.message[category] ?? found.message.other;
     }
     return this.interpolate(key, template, params);
   }
 
   formatNumber(value: number, options?: Intl.NumberFormatOptions): string {
-    return new Intl.NumberFormat(this.current, options).format(value);
+    if (options !== undefined)
+      return new Intl.NumberFormat(this.current, options).format(value);
+    this.numberFormat ??= new Intl.NumberFormat(this.current);
+    return this.numberFormat.format(value);
   }
 
   formatDate(
