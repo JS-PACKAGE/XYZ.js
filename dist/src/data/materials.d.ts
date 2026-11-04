@@ -17931,6 +17931,27 @@ export declare const proceduralMaterialPresets: Readonly<{
         heightSwing: 0.6;
         gapOcclusion: 0.45;
     }>;
+    alternatingsignmatrices: Readonly<{
+        dark: readonly [20, 22, 4];
+        light: readonly [225, 245, 90];
+        roughness: 0.4;
+        relief: 0.0012;
+        seedSalt: 19591;
+        orders: readonly [3, 4, 5, 4, 5, 5];
+        kinds: readonly [0, 0, 0, 1, 2, 3];
+        cols: readonly [3, 7, 21, 5, 9, 15];
+        rows: readonly [3, 6, 21, 4, 8, 14];
+        margin: 0.5;
+        gapWidth: 0.16;
+        edgeSoft: 0.1;
+        grainCells: 128;
+        toneGround: 0.03;
+        tones: readonly [0.5, 0.95];
+        levels: readonly [0.45, 1];
+        grainTone: 0.03;
+        cellHeight: 0.8;
+        gapOcclusion: 0.45;
+    }>;
     vermiculation: Readonly<{
         dark: readonly [60, 48, 36];
         light: readonly [220, 204, 172];
@@ -19750,6 +19771,7 @@ export declare const proceduralTileMeters: Readonly<{
     compositions: 0.5;
     polyhexes: 0.5;
     polysticks: 0.5;
+    alternatingsignmatrices: 0.5;
     dominotiling: 0.5;
     vermiculation: 0.4;
     kikko: 0.3;

@@ -19094,6 +19094,30 @@ export const proceduralMaterialPresets = Object.freeze({
     heightSwing: 0.6,
     gapOcclusion: 0.45,
   }),
+  alternatingsignmatrices: Object.freeze({
+    dark: [20, 22, 4] as const,
+    light: [225, 245, 90] as const,
+    roughness: 0.4,
+    relief: 0.0012,
+    seedSalt: 0x4c87,
+    // Every alternating sign matrix of orders[variant] rows (a square of 0, 1 and -1 whose every row and column adds up to 1 and, read along it, has its entries that are not 0 alternate in sign, starting and ending with 1) of one kind drawn once in a small panel: kinds[variant] 0 is all of them (7 of 3 rows, 42 of 4 and 429 of 5), 1 those with a -1 in them, the others being the permutation matrices (18 of 4 rows), 2 those that equal their transpose (67 of 5) and 3 those with exactly one -1 (200 of 5). A cell is a flat tile only where it is 1 (tone and height high) or -1 (tone and height lower), and shows the ground where it is 0; a tile has a gap around it. cols[variant] by rows[variant] panels fill the tile in an order shuffled by the seed, each drawn at one scale in both directions and centred in its slot with margin cells around the matrix. The seed is split in two: seed % 6 picks the variant and floor(seed / 6) the order of the panels, so seeds 0 to 5 are the six variants of one group.
+    orders: [3, 4, 5, 4, 5, 5] as const,
+    kinds: [0, 0, 0, 1, 2, 3] as const,
+    cols: [3, 7, 21, 5, 9, 15] as const,
+    rows: [3, 6, 21, 4, 8, 14] as const,
+    margin: 0.5,
+    // A tile leaves a gap of gapWidth (a fraction of the cell) on all sides, smoothed over edgeSoft (a fraction of the cell).
+    gapWidth: 0.16,
+    edgeSoft: 0.1,
+    grainCells: 128,
+    toneGround: 0.03,
+    // The tone and the height (a fraction of cellHeight) of a -1 and of a 1.
+    tones: [0.5, 0.95] as const,
+    levels: [0.45, 1] as const,
+    grainTone: 0.03,
+    cellHeight: 0.8,
+    gapOcclusion: 0.45,
+  }),
   vermiculation: Object.freeze({
     dark: [60, 48, 36] as const,
     light: [220, 204, 172] as const,
@@ -20914,6 +20938,7 @@ export const proceduralTileMeters = Object.freeze({
   compositions: 0.5,
   polyhexes: 0.5,
   polysticks: 0.5,
+  alternatingsignmatrices: 0.5,
   dominotiling: 0.5,
   vermiculation: 0.4,
   kikko: 0.3,

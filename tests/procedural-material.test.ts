@@ -1183,6 +1183,7 @@ const kinds: ProceduralMaterialKind[] = [
   'compositions',
   'polyhexes',
   'polysticks',
+  'alternatingsignmatrices',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -208035,6 +208036,392 @@ describe('Polysticks as every shape of n sticks drawn once', () => {
     expect(blue / (512 * 512)).toBeLessThan(36.6);
     expect(maxTilt).toBeGreaterThan(0.1);
     expect(maxTilt).toBeLessThan(0.1001);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Alternating sign matrices as every matrix of a kind drawn once', () => {
+  const p = proceduralMaterialPresets.alternatingsignmatrices;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** The layout of the panels of a variant (seed % 6): slots of 1 / cols by 1 / rows, each with the matrix (order by order cells, at its top left) and the margin around it, drawn at one scale and centred in the slot. */
+  const geometry = (seed: number) => {
+    const variant = seed % p.orders.length,
+      order: number = p.orders[variant],
+      cols: number = p.cols[variant],
+      rows: number = p.rows[variant],
+      scale = Math.min(
+        1 / (cols * (order + 2 * p.margin)),
+        1 / (rows * (order + 2 * p.margin)),
+      );
+    return {
+      order,
+      kind: p.kinds[variant] as number,
+      cols,
+      rows,
+      scale,
+      originX: (1 / cols - scale * (order + 2 * p.margin)) / 2,
+      originY: (1 / rows - scale * (order + 2 * p.margin)) / 2,
+    };
+  };
+  type Geometry = ReturnType<typeof geometry>;
+  /** The matrix of every panel slot of a seed read back from the picture (null for an empty slot), as the rows of its entries: a cell is 0 where the height at its middle is 0, 1 where it is that of a 1 and -1 where it is that of a -1, and nothing else. */
+  const readMatrices = (seed: number): (number[][] | null)[] => {
+    const g = geometry(seed),
+      sample = createSurfaceSampler('alternatingsignmatrices', seed),
+      out = empty(),
+      matrices: (number[][] | null)[] = [];
+    for (let slot = 0; slot < g.cols * g.rows; slot++) {
+      const col = slot % g.cols,
+        row = Math.floor(slot / g.cols),
+        matrix: number[][] = [];
+      let tiles = 0;
+      for (let j = 0; j < g.order; j++) {
+        const line: number[] = [];
+        for (let i = 0; i < g.order; i++) {
+          sample(
+            col / g.cols + g.originX + g.scale * (p.margin + i + 0.5),
+            row / g.rows + g.originY + g.scale * (p.margin + j + 0.5),
+            out,
+          );
+          const level = out.height / p.relief / p.cellHeight;
+          if (level === 0) line.push(0);
+          else if (Math.abs(level - p.levels[1]) < 1e-9) line.push(1);
+          else {
+            expect(level).toBeCloseTo(p.levels[0], 9);
+            line.push(-1);
+          }
+          tiles += Number(level !== 0);
+        }
+        matrix.push(line);
+      }
+      matrices.push(tiles === 0 ? null : matrix);
+    }
+    return matrices;
+  };
+  /** Whether a matrix is an alternating sign matrix by the definition: along every row and every column the entries that are not 0 alternate in sign, start and end with 1 (so they add up to 1). */
+  const isAlternatingSign = (matrix: number[][]): boolean => {
+    const n = matrix.length,
+      lines = [
+        ...matrix,
+        ...Array.from({ length: n }, (_, c) => matrix.map((line) => line[c])),
+      ];
+    return lines.every((line) => {
+      const signs = line.filter((value) => value !== 0);
+      return (
+        signs.length % 2 === 1 &&
+        signs.every((value, k) => value === (k % 2 === 0 ? 1 : -1))
+      );
+    });
+  };
+  /** Whether a matrix is of the kind, from the definitions. */
+  const isOfKind = (g: Geometry, matrix: number[][]): boolean => {
+    const negatives = matrix.flat().filter((value) => value < 0).length;
+    if (g.kind === 1) return negatives > 0;
+    if (g.kind === 3) return negatives === 1;
+    if (g.kind === 2)
+      return matrix.every((line, a) =>
+        line.every((value, b) => value === matrix[b][a]),
+      );
+    return true;
+  };
+  /** Every alternating sign matrix of n rows by way of the monotone triangles: a triangle of rows of 1, 2, ..., n numbers from 1 to n, each row strictly increasing, the last row 1, 2, ..., n, and every number of a row between the numbers above and below it, and the row k of the matrix has a 1 in a column where the row k of the triangle has the column and the row k - 1 does not, and a -1 where the row k - 1 has the column and the row k does not. */
+  const monotoneMatrices = (n: number): number[][][] => {
+    const found: number[][][] = [],
+      climb = (triangle: number[][]): void => {
+        const below = triangle[0];
+        if (below.length === 0) {
+          // triangle[k] is the row of k numbers (the first is empty), and the row k + 1 of the matrix comes from the rows k + 1 and k.
+          found.push(
+            Array.from({ length: n }, (_, k) =>
+              Array.from({ length: n }, (_, c) => {
+                const now = triangle[k + 1].includes(c + 1) ? 1 : 0,
+                  before = triangle[k].includes(c + 1) ? 1 : 0;
+                return now - before;
+              }),
+            ),
+          );
+          return;
+        }
+        // Choose the row above: below.length - 1 numbers, strictly increasing, the i-th between the i-th and the (i + 1)-th below.
+        const choose = (above: number[]): void => {
+          const i = above.length;
+          if (i === below.length - 1) {
+            climb([above, ...triangle]);
+            return;
+          }
+          for (let value = below[i]; value <= below[i + 1]; value++)
+            if (i === 0 || value > above[i - 1]) choose([...above, value]);
+        };
+        choose([]);
+      };
+    climb([Array.from({ length: n }, (_, c) => c + 1)]);
+    return found;
+  };
+  /** The grid of 256 by 256 colours above 0.2, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('alternatingsignmatrices', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.2));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { high: 0.9637, lit: 0.09659, mean: 0.10855 }],
+      [1, { high: 0.964, lit: 0.10751, mean: 0.11182 }],
+      [0xffffffff, { high: 0.964, lit: 0.10934, mean: 0.11295 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('alternatingsignmatrices', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.2);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0151);
+      expect(low).toBeLessThan(0.0158);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws every alternating sign matrix of the kind exactly once, read back from the picture and compared with the monotone triangles', () => {
+    for (let seed = 0; seed < 12; seed++) {
+      const g = geometry(seed),
+        read = readMatrices(seed),
+        drawn = read.filter((matrix): matrix is number[][] => matrix !== null),
+        names = drawn.map((matrix) =>
+          matrix.map((line) => line.join(',')).join('/'),
+        ),
+        wanted = monotoneMatrices(g.order)
+          .filter((matrix) => isOfKind(g, matrix))
+          .map((matrix) => matrix.map((line) => line.join(',')).join('/'));
+      for (const matrix of drawn) {
+        expect(isAlternatingSign(matrix)).toBe(true);
+        expect(isOfKind(g, matrix)).toBe(true);
+      }
+      expect(new Set(names).size).toBe(drawn.length);
+      expect([...names].sort()).toEqual([...wanted].sort());
+      expect(read.slice(drawn.length).every((matrix) => matrix === null)).toBe(
+        true,
+      );
+    }
+    // The numbers: 7, 42 and 429 alternating sign matrices of 3, 4 and 5 rows, 18 of 4 rows with a -1 (the other 24 are the permutation matrices), 67 of 5 rows equal to their transpose and 200 of 5 rows with exactly one -1.
+    expect(
+      [0, 1, 2, 3, 4, 5].map(
+        (seed) => readMatrices(seed).filter((matrix) => matrix !== null).length,
+      ),
+    ).toEqual([7, 42, 429, 18, 67, 200]);
+  });
+  it('shuffles the panels by group without changing the set of matrices', () => {
+    for (const seed of [1, 3, 4]) {
+      const names = (s: number) =>
+          readMatrices(s).map((matrix) =>
+            matrix === null
+              ? '-'
+              : matrix.map((line) => line.join(',')).join('/'),
+          ),
+        first = names(seed),
+        second = names(seed + 6),
+        third = names(seed + 12);
+      expect(first).not.toEqual(second);
+      expect(second).not.toEqual(third);
+      expect([...first].sort()).toEqual([...second].sort());
+      expect([...first].sort()).toEqual([...third].sort());
+    }
+  });
+  it('agrees with the ideal tiles and gaps away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5]) {
+      const g = geometry(seed),
+        matrices = readMatrices(seed),
+        sample = createSurfaceSampler('alternatingsignmatrices', seed),
+        out = empty(),
+        half = p.gapWidth / 2;
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          col = Math.min(g.cols - 1, Math.floor(u * g.cols)),
+          row = Math.min(g.rows - 1, Math.floor(v * g.rows)),
+          matrix = matrices[row * g.cols + col],
+          x = (u - col / g.cols - g.originX) / g.scale - p.margin,
+          y = (v - row / g.rows - g.originY) / g.scale - p.margin,
+          i = Math.floor(x),
+          j = Math.floor(y);
+        let ink = 0,
+          sign = 1,
+          near = false;
+        if (
+          matrix !== null &&
+          i >= 0 &&
+          j >= 0 &&
+          i < g.order &&
+          j < g.order &&
+          matrix[j][i] !== 0
+        ) {
+          const sides = [x - i, i + 1 - x, y - j, j + 1 - y];
+          if (
+            sides.some(
+              (distance) => distance > half && distance < half + p.edgeSoft,
+            )
+          )
+            near = true;
+          ink = sides.every((distance) => distance > half) ? 1 : 0;
+          sign = (matrix[j][i] + 1) / 2;
+        }
+        if (near) continue;
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief * p.cellHeight * ink * p.levels[sign],
+          12,
+        );
+        expect(
+          Math.abs(
+            out.color - (p.toneGround * (1 - ink) + p.tones[sign] * ink),
+          ),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(5400);
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeGreaterThan(0.1821);
+    expect(unlike(first, litGrid(1))).toBeLessThan(0.1823);
+    expect(unlike(first, litGrid(6))).toBeGreaterThan(0.1163);
+    expect(unlike(first, litGrid(6))).toBeLessThan(0.1165);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('alternatingsignmatrices', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 lime alternating sign matrix maps on dark olive with raised tiles and shaded gaps', () => {
+    const maps = generateProceduralMaps('alternatingsignmatrices', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 135 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(42.3);
+    expect(red / (512 * 512)).toBeLessThan(43.3);
+    expect(green / (512 * 512)).toBeGreaterThan(46.3);
+    expect(green / (512 * 512)).toBeLessThan(47.3);
+    expect(blue / (512 * 512)).toBeGreaterThan(13.1);
+    expect(blue / (512 * 512)).toBeLessThan(14.1);
+    expect(maxTilt).toBeGreaterThan(0.0865);
+    expect(maxTilt).toBeLessThan(0.0866);
     expect(invalid).toBe(0);
   });
 });

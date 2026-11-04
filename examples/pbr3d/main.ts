@@ -1220,6 +1220,7 @@ try {
     'compositions',
     'polyhexes',
     'polysticks',
+    'alternatingsignmatrices',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

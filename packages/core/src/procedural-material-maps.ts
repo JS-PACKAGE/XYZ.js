@@ -55239,6 +55239,109 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'alternatingsignmatrices': {
+        const p = proceduralMaterialPresets.alternatingsignmatrices,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.orders.length,
+          group = Math.floor(unsigned / p.orders.length),
+          order: number = p.orders[variant],
+          kind: number = p.kinds[variant],
+          cols = p.cols[variant],
+          rows = p.rows[variant],
+          // Every alternating sign matrix of the kind, found row after row: the sums along a row and down a column, counted as far as they go, stay 0 or 1 (which is what makes the signs alternate) and every row ends at 1, so the columns, each at most 1 and adding up to the number of rows, all end at 1 too.
+          panels = (() => {
+            const found: Int8Array[] = [],
+              matrix = new Int8Array(order * order),
+              down = new Int8Array(order),
+              fillRow = (i: number, j: number, across: number): void => {
+                if (j === order) {
+                  if (across === 1) fill(i + 1);
+                  return;
+                }
+                for (let value = -1; value <= 1; value++) {
+                  const along = across + value,
+                    column = down[j] + value;
+                  if (along < 0 || along > 1 || column < 0 || column > 1)
+                    continue;
+                  matrix[i * order + j] = value;
+                  down[j] = column;
+                  fillRow(i, j + 1, along);
+                  down[j] -= value;
+                  matrix[i * order + j] = 0;
+                }
+              },
+              fill = (i: number): void => {
+                if (i === order) {
+                  const negatives = matrix.filter((value) => value < 0).length;
+                  if (kind === 1 && negatives === 0) return;
+                  if (kind === 3 && negatives !== 1) return;
+                  if (kind === 2)
+                    for (let a = 0; a < order; a++)
+                      for (let b = 0; b < a; b++)
+                        if (matrix[a * order + b] !== matrix[b * order + a])
+                          return;
+                  found.push(matrix.slice());
+                  return;
+                }
+                fillRow(i, 0, 0);
+              };
+            fill(0);
+            for (let k = found.length - 1; k > 0; k--) {
+              const other = Math.floor(
+                hash(k, 361, group ^ p.seedSalt) * (k + 1),
+              );
+              [found[k], found[other]] = [found[other], found[k]];
+            }
+            return found;
+          })(),
+          scale = Math.min(
+            1 / (cols * (order + 2 * p.margin)),
+            1 / (rows * (order + 2 * p.margin)),
+          ),
+          originX = (1 / cols - scale * (order + 2 * p.margin)) / 2,
+          originY = (1 / rows - scale * (order + 2 * p.margin)) / 2,
+          halfGap = p.gapWidth / 2,
+          // 1 on the cell side of a gap, 0 at the edge itself, at the distance fromEdge in cells.
+          edge = (fromEdge: number): number =>
+            smooth(clamp((fromEdge - halfGap) / p.edgeSoft));
+        return () => {
+          const tileU = fract(u),
+            tileV = fract(v),
+            col = Math.min(cols - 1, Math.floor(tileU * cols)),
+            row = Math.min(rows - 1, Math.floor(tileV * rows)),
+            index = row * cols + col,
+            grain = grainField(u, v);
+          let mask = 0,
+            sign = 1;
+          if (index < panels.length) {
+            const x = (tileU - col / cols - originX) / scale - p.margin,
+              y = (tileV - row / rows - originY) / scale - p.margin,
+              i = Math.floor(x),
+              j = Math.floor(y);
+            if (i >= 0 && j >= 0 && i < order && j < order) {
+              const value = panels[index][j * order + i];
+              if (value !== 0) {
+                const fx = x - i,
+                  fy = y - j;
+                mask = edge(fx) * edge(1 - fx) * edge(fy) * edge(1 - fy);
+                sign = (value + 1) / 2;
+              }
+            }
+          }
+          color =
+            p.toneGround * (1 - mask) +
+            p.tones[sign] * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * p.levels[sign];
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -64197,6 +64300,7 @@ export function createSurfaceSampler(
     kind === 'compositions' ||
     kind === 'polyhexes' ||
     kind === 'polysticks' ||
+    kind === 'alternatingsignmatrices' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
