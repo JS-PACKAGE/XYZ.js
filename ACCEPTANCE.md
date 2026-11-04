@@ -13859,3 +13859,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增3項專屬測試（徑向節點上是暗環、角向節點上是暗的錐與軸、對 x → −x 與 z → −z 的對稱）加色調範圍、seed差異與決定性、C1與週期、maps共4項，再加kinds清單新條目，`-t`選中的8項皆通過。變異檢查（做過三次）：拉蓋爾多項式係數的 (−1)ⁱ 符號拿掉，該describe 7項中4項失敗；勒讓德遞推的 (l + m − 1) 改成 (l + m)，只有角向節點測試失敗；ρ = 2r/n 的 n 改成 n + 0.2，4項失敗；三者皆已還原（`cmp`確認）。限制：seed對應的軌域是探針量出再寫入，不是獨立oracle；只切一個平面；徑向與角向密度的相對大小、視窗最大值歸一與0.4次方沒測；沒有查文獻；未對照任何參考圖。型別檢查與eslint乾淨。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Hydrogen orbitals as|hydrogenorbitals|kinds|catalog|distinct|periodic"`定向測試**2543項通過／4433項未選**，輸出`GATES-OK`。
 - 未驗證：raindropoptics、machcone與hydrogenorbitals尚未有完整suite的複驗紀錄（最近一次已記錄的完整suite與gallery在`d4b362d90`：179檔10,879項通過、1112種；`722193039`的完整suite正在另一個worktree執行，瀏覽器gallery在`722193039`已通過但尚未記錄；結果出來前不算數）；不push。
+
+## 2026-11-04 完整測試與瀏覽器gallery複驗（至馬赫錐）
+
+- 範圍：在`722193039`（新增馬赫錐之後；之後的`hydrogenorbitals`不在此次複驗內）重跑完整測試與瀏覽器gallery。這段不新增材質，只記錄實跑結果。
+- 完整測試（工具實跑，乾淨的detached worktree）：**179個測試檔、10,897項全部通過**（1652 s，同時還跑著其他工作，所以耗時不是乾淨的量測）。前一次完整複驗在`d4b362d90`（10,879項）；10,879 → 10,897共18項，與raindropoptics 9項、machcone 9項的定向測試選取數相符（各含kinds條目）。
+- 瀏覽器gallery（工具實跑，無頭Chrome，vite從乾淨worktree提供`/examples/pbr3d/`）：在`722193039`，WebGPU分頁與`?renderer=webgl2`分頁各自讀到「1114 procedural material presets」、選單1115個選項；各自選取machcone、raindropoptics、hofstadterbutterfly、jacobielliptic、kelvinwake，頁面讀數都更新（每個selection回傳true）；console錯誤項目兩個分頁都是0；讀回兩個新材質的選項文字與`index.html`標籤一致。限制：只涵蓋「可選取、讀數更新、無console錯誤」，沒有目視畫面或像素比對；跨瀏覽器、跨GPU行為沒有驗證。
+- 未驗證：`hydrogenorbitals`（`5517bc2fd`）尚未跑完整suite與瀏覽器gallery；跨瀏覽器與跨GPU；不push。
