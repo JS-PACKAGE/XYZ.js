@@ -181,11 +181,12 @@ export class SpriteFont {
   }
   getKerning(first: number | undefined, second: number): number {
     // Glyph ids are Unicode scalar values, so the numeric key is unique per pair.
-    return first === undefined
+    if (first === undefined) return 0;
+    const firstId = this.metrics[first]!.id,
+      secondId = this.metrics[second]!.id;
+    return this.kernings.size === 0
       ? 0
-      : (this.kernings.get(
-          this.metrics[first]!.id * CODE_POINTS + this.metrics[second]!.id,
-        ) ?? 0);
+      : (this.kernings.get(firstId * CODE_POINTS + secondId) ?? 0);
   }
   assertAvailable(): void {
     if (this.asset?.destroyed || this.pages.some((page) => page.destroyed))
