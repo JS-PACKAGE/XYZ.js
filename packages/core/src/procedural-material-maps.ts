@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'archerytarget',
   'snookertable',
   'netballcourt',
   'gridironfield',
@@ -50969,6 +50970,84 @@ export function createSurfaceSampler(
             cloth;
           shade += (surface.pocket + shift - shade) * pocket;
           elevation += (p.pocketHeight - elevation) * pocket;
+          color = clamp(shade);
+          height = clamp(elevation);
+          roughness = clamp(p.inkRoughness);
+          occlusion = 1;
+        };
+      }
+      case 'archerytarget': {
+        const p = proceduralMaterialPresets.archerytarget,
+          inverseSoft = 1 / p.edgeSoft,
+          norm = (x: number, y: number): number => Math.sqrt(x * x + y * y),
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(121, 1, seed ^ 0x210001) * p.surfaces.length)
+            ],
+          shift = (hash(121, 3, seed ^ 0x210003) * 2 - 1) * p.toneShift,
+          line = p.lineWidth,
+          zone = p.zoneWidth,
+          faceRadius = 10 * zone,
+          // A disc of a radius, and a ring of the line width inside a radius (a dividing line inside the zone of the higher score).
+          disc = (radius: number, from: number): number =>
+            cover((from - radius) * p.metre),
+          ring = (radius: number, from: number): number =>
+            cover(Math.min(radius - (from - line), from - radius) * p.metre);
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            // The place in metres from the middle of the face.
+            x = (fu - 0.5) / p.metre,
+            y = (fv - 0.5) / p.metre,
+            radius = norm(x, y),
+            // The colours, each from the middle out to the boundary with the next: the boundaries where a line is have their edge in the middle of it, which hides it, and between the light blue and the black and between the
+            // black and the white the colours meet at the boundary itself.
+            boss = disc(radius, p.bossRadius),
+            white = disc(radius, faceRadius - line / 2),
+            black = disc(radius, 8 * zone),
+            blue = disc(radius, 6 * zone),
+            red = disc(radius, 4 * zone - line / 2),
+            gold = disc(radius, 2 * zone - line / 2),
+            // The dividing lines (the outer edge of every second zone but the two that meet in a colour, and the edge of the face), the inner ten and the centre cross.
+            dark = Math.max(
+              ring(radius, zone),
+              ring(radius, 2 * zone),
+              ring(radius, 3 * zone),
+              ring(radius, 4 * zone),
+              ring(radius, 5 * zone),
+              ring(radius, 9 * zone),
+              ring(radius, faceRadius),
+              ring(radius, p.xRadius),
+              cover(
+                Math.min(
+                  p.crossWidth / 2 - Math.abs(x),
+                  p.crossArm - Math.abs(y),
+                ) * p.metre,
+              ),
+              cover(
+                Math.min(
+                  p.crossWidth / 2 - Math.abs(y),
+                  p.crossArm - Math.abs(x),
+                ) * p.metre,
+              ),
+            ),
+            pale = ring(radius, 7 * zone);
+          let shade = surface.ground + shift,
+            elevation = p.groundHeight;
+          shade += (surface.boss + shift - shade) * boss;
+          elevation += (p.bossHeight - elevation) * boss;
+          shade += (surface.white + shift - shade) * white;
+          shade += (surface.black + shift - shade) * black;
+          shade += (surface.blue + shift - shade) * blue;
+          shade += (surface.red + shift - shade) * red;
+          shade += (surface.gold + shift - shade) * gold;
+          elevation += (p.faceHeight - elevation) * white;
+          shade += (p.lineTone - shade) * dark;
+          elevation += (p.lineHeight - elevation) * dark;
+          shade += (p.paleLineTone - shade) * pale;
+          elevation += (p.lineHeight - elevation) * pale;
           color = clamp(shade);
           height = clamp(elevation);
           roughness = clamp(p.inkRoughness);

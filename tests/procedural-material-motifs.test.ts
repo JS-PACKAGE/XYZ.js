@@ -75858,3 +75858,337 @@ describe('snookertable: a snooker table seen from above with the markings of the
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('archerytarget: a World Archery target face of 122 across with its ten zones in five colours, the boss it is pinned to and the ground behind it', () => {
+  const p = proceduralMaterialPresets.archerytarget,
+    out = empty(),
+    m = p.metre,
+    toneAt = (sample: Sampler, x: number, y: number): number => {
+      // A place in metres from the middle of the face as a place on the picture.
+      sample(0.5 + x * m, 0.5 + y * m, out);
+      return out.color;
+    };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    mix = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    // The probes are exact (the edges are circular or straight), so the tolerance is tiny.
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  // The facts of the face, in metres (the World Archery target face, as given by a web search whose summary quotes the rules; they were not read in the rules themselves): 122 across, ten zones of 0.061, five colours
+  // of two zones (gold, red, light blue, black, white from the middle), the inner ten of 6.1 across, a dividing line inside the zone of the higher score, none between the light blue and the black or between the
+  // black and the white, the lines at most 0.002 wide, the centre cross at most 0.004 by 0.001.
+  const rules = {
+      face: 1.22,
+      zone: 0.061,
+      inner: 0.061,
+      line: 0.002,
+      cross: [0.004, 0.001],
+    },
+    zone = rules.zone,
+    faceR = rules.face / 2,
+    w = p.lineWidth,
+    colours = [
+      'gold',
+      'gold',
+      'red',
+      'red',
+      'blue',
+      'blue',
+      'black',
+      'black',
+      'white',
+      'white',
+    ] as const;
+  type Kind = 'ground' | 'boss' | (typeof colours)[number] | 'line' | 'pale';
+  // The piece of the picture a place is in (two pieces of line next to each other are two pieces).
+  const piece = (x: number, y: number): string => {
+    const r = Math.hypot(x, y);
+    if (r > p.bossRadius) return 'ground';
+    if (r > faceR) return 'boss';
+    for (const k of [1, 2, 3, 4, 5, 9, 10])
+      if (r <= k * zone && r >= k * zone - w) return `line ${k}`;
+    if (r <= rules.inner / 2 && r >= rules.inner / 2 - w) return 'line inner';
+    if (
+      (Math.abs(x) <= p.crossWidth / 2 && Math.abs(y) <= p.crossArm) ||
+      (Math.abs(y) <= p.crossWidth / 2 && Math.abs(x) <= p.crossArm)
+    )
+      return 'line cross';
+    if (r <= 7 * zone && r >= 7 * zone - w) return 'pale';
+    return colours[Math.floor(r / zone)];
+  };
+  const classify = (x: number, y: number): Kind => {
+    const label = piece(x, y);
+    return label.startsWith('line') ? 'line' : (label as Kind);
+  };
+  type Surface = {
+    surface: number;
+    shift: number;
+    tones: Record<'ground' | 'boss' | (typeof colours)[number], number>;
+  };
+  const readSurface = (sample: Sampler): Surface => {
+    const options: Surface[] = [],
+      tones = {
+        ground: toneAt(sample, 0.95, 0),
+        boss: toneAt(sample, 0.7, 0),
+        white: toneAt(sample, 0.52, 0),
+        black: toneAt(sample, 0.39, 0),
+        blue: toneAt(sample, 0.27, 0),
+        red: toneAt(sample, 0.15, 0),
+        gold: toneAt(sample, 0.09, 0),
+      };
+    p.surfaces.forEach((surface, index) => {
+      const shift = tones.ground - surface.ground;
+      if (
+        Math.abs(shift) <= p.toneShift + 1e-9 &&
+        (['boss', 'white', 'black', 'blue', 'red', 'gold'] as const).every(
+          (name) => Math.abs(tones[name] - surface[name] - shift) < 1e-6,
+        )
+      )
+        options.push({ surface: index, shift, tones });
+    });
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+
+  it('has the rules of the face in the preset, with the lines four times as wide as the rules and the cross a little larger', () => {
+    expect(p.zoneWidth).toBe(zone);
+    expect(10 * p.zoneWidth).toBeCloseTo(faceR, 12);
+    expect(p.xRadius).toBeCloseTo(rules.inner / 2, 12);
+    expect(p.lineWidth).toBeCloseTo(4 * rules.line, 12);
+    expect(p.crossWidth).toBeCloseTo(3 * rules.cross[1], 12);
+    // The cross has a half length of 0.01 (the rules: at most 0.004 long in all), well inside the inner ten.
+    expect(p.crossArm).toBeLessThan(p.xRadius - w);
+    expect(p.bossRadius).toBeGreaterThan(faceR);
+  });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws every place of the picture as the rules and the widths say, with its tone, height and roughness (seed %i)',
+    { timeout: 120000 },
+    (seed) => {
+      const sample = createSurfaceSampler('archerytarget', seed),
+        { tones } = readSurface(sample),
+        expected: Record<Kind, { tone: number; height: number }> = {
+          ground: { tone: tones.ground, height: p.groundHeight },
+          boss: { tone: tones.boss, height: p.bossHeight },
+          gold: { tone: tones.gold, height: p.faceHeight },
+          red: { tone: tones.red, height: p.faceHeight },
+          blue: { tone: tones.blue, height: p.faceHeight },
+          black: { tone: tones.black, height: p.faceHeight },
+          white: { tone: tones.white, height: p.faceHeight },
+          line: { tone: p.lineTone, height: p.lineHeight },
+          pale: { tone: p.paleLineTone, height: p.lineHeight },
+        },
+        counts: Record<Kind, number> = {
+          ground: 0,
+          boss: 0,
+          gold: 0,
+          red: 0,
+          blue: 0,
+          black: 0,
+          white: 0,
+          line: 0,
+          pale: 0,
+        },
+        step = 0.003,
+        clear = 0.0012;
+      // Every place of the picture (the tile is 2 across; the places within 0.0012 of a change in the picture are skipped: the softened edges are checked below, exactly).
+      for (let x = -1; x <= 1; x += step)
+        for (let y = -1; y <= 1; y += step) {
+          const kind = classify(x, y);
+          if (
+            [
+              [clear, 0],
+              [-clear, 0],
+              [0, clear],
+              [0, -clear],
+              [clear, clear],
+              [-clear, -clear],
+              [clear, -clear],
+              [-clear, clear],
+            ].some(([dx, dy]) => piece(x + dx, y + dy) !== piece(x, y))
+          )
+            continue;
+          counts[kind]++;
+          expect(toneAt(sample, x, y)).toBeCloseTo(expected[kind].tone, 6);
+          expect(out.height / p.relief).toBeCloseTo(expected[kind].height, 6);
+          expect(out.roughness).toBeCloseTo(p.inkRoughness, 6);
+        }
+      for (const kind of Object.keys(counts) as Kind[])
+        expect(counts[kind]).toBeGreaterThan(kind === 'pale' ? 30 : 100);
+    },
+  );
+
+  it('uses every surface over 1000 seeds, about equally often, with the tones shifted over the whole range', () => {
+    const surfaces = new Map<number, number>(),
+      shifts: number[] = [];
+    for (let seed = 0; seed < 1000; seed++) {
+      const { surface, shift } = readSurface(
+        createSurfaceSampler('archerytarget', seed * 7 + 1),
+      );
+      shifts.push(shift);
+      surfaces.set(surface, (surfaces.get(surface) ?? 0) + 1);
+    }
+    expect(surfaces.size).toBe(p.surfaces.length);
+    for (const count of surfaces.values())
+      expect(Math.abs(count - 1000 / p.surfaces.length)).toBeLessThan(50);
+    expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+    expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+    expect(
+      Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+    ).toBeLessThan(p.toneShift * 0.15);
+    for (let quarter = 0; quarter < 4; quarter++)
+      expect(
+        Math.abs(
+          shifts.filter(
+            (shift) =>
+              Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+          ).length - 250,
+        ),
+      ).toBeLessThan(50);
+  });
+
+  it('puts each edge where the rules put it: the dividing lines inside the zone of the higher score, the colours meeting without a line where the rules say', () => {
+    const delta = 0.0004 / m;
+    for (const seed of [2, 3]) {
+      const sample = createSurfaceSampler('archerytarget', seed),
+        { tones } = readSurface(sample),
+        is = (x: number, y: number, tone: number): boolean =>
+          Math.abs(toneAt(sample, x, y) - tone) < 1e-6;
+      for (const degrees of [10, 100, 200, 300]) {
+        const at = (radius: number, tone: number): boolean =>
+          is(
+            radius * Math.cos((degrees * Math.PI) / 180),
+            radius * Math.sin((degrees * Math.PI) / 180),
+            tone,
+          );
+        // Each dividing line, both edges (the outer edge on the boundary between the zones, the line inside the higher zone), over its colour.
+        for (const [k, inner, outer] of [
+          [1, tones.gold, tones.gold],
+          [2, tones.gold, tones.red],
+          [3, tones.red, tones.red],
+          [4, tones.red, tones.blue],
+          [5, tones.blue, tones.blue],
+          [9, tones.white, tones.white],
+          [10, tones.white, tones.boss],
+        ] as const) {
+          expect(at(k * zone - delta, p.lineTone)).toBe(true);
+          expect(at(k * zone + delta, outer)).toBe(true);
+          expect(at(k * zone - w + delta, p.lineTone)).toBe(true);
+          expect(at(k * zone - w - delta, inner)).toBe(true);
+        }
+        // The line between the two black zones is the pale one.
+        expect(at(7 * zone - delta, p.paleLineTone)).toBe(true);
+        expect(at(7 * zone + delta, tones.black)).toBe(true);
+        expect(at(7 * zone - w + delta, p.paleLineTone)).toBe(true);
+        expect(at(7 * zone - w - delta, tones.black)).toBe(true);
+        // The inner ten (a line round it, inside it), and no line where the light blue meets the black or the black meets the white.
+        expect(at(rules.inner / 2 - delta, p.lineTone)).toBe(true);
+        expect(at(rules.inner / 2 + delta, tones.gold)).toBe(true);
+        expect(at(rules.inner / 2 - w + delta, p.lineTone)).toBe(true);
+        expect(at(rules.inner / 2 - w - delta, tones.gold)).toBe(true);
+        expect(at(6 * zone - delta, tones.blue)).toBe(true);
+        expect(at(6 * zone + delta, tones.black)).toBe(true);
+        expect(at(8 * zone - delta, tones.black)).toBe(true);
+        expect(at(8 * zone + delta, tones.white)).toBe(true);
+        // The edge of the boss.
+        expect(at(p.bossRadius - delta, tones.boss)).toBe(true);
+        expect(at(p.bossRadius + delta, tones.ground)).toBe(true);
+      }
+      // The centre cross: both edges of both arms and the ends of them, over the gold.
+      for (const [along, across] of [
+        [1, 0],
+        [0, 1],
+      ])
+        for (const sign of [1, -1]) {
+          const at = (a: number, b: number, tone: number): boolean =>
+            is(
+              sign * (along * a + across * b),
+              sign * (along * b + across * a),
+              tone,
+            );
+          expect(at(0.005, p.crossWidth / 2 - delta, p.lineTone)).toBe(true);
+          expect(at(0.005, p.crossWidth / 2 + delta, tones.gold)).toBe(true);
+          expect(at(p.crossArm - delta, 0, p.lineTone)).toBe(true);
+          expect(at(p.crossArm + delta, 0, tones.gold)).toBe(true);
+        }
+      expect(is(0, 0, p.lineTone)).toBe(true);
+    }
+  });
+
+  it('softens the edge of the boss, of a colour, of a line and of the cross over edgeSoft', () => {
+    const sample = createSurfaceSampler('archerytarget', 2),
+      { tones } = readSurface(sample),
+      quarter = (0.25 * p.edgeSoft) / m,
+      tone = (radius: number): number => toneAt(sample, radius, 0);
+    close(tone(p.bossRadius - quarter), mix(tones.ground, tones.boss, 0.75));
+    close(tone(p.bossRadius + quarter), mix(tones.ground, tones.boss, 0.25));
+    // The boundary of the light blue and the black, and of the black and the white: the colours meet, nothing between.
+    close(tone(6 * zone - quarter), mix(tones.black, tones.blue, 0.75));
+    close(tone(6 * zone + quarter), mix(tones.black, tones.blue, 0.25));
+    close(tone(8 * zone - quarter), mix(tones.white, tones.black, 0.75));
+    close(tone(8 * zone + quarter), mix(tones.white, tones.black, 0.25));
+    // The line on the edge of the face: the white ends in the middle of it, so the outer half is over the boss and the inner half over the white.
+    close(tone(10 * zone - quarter), mix(tones.boss, p.lineTone, 0.75));
+    close(tone(10 * zone + quarter), mix(tones.boss, p.lineTone, 0.25));
+    close(tone(10 * zone - w + quarter), mix(tones.white, p.lineTone, 0.75));
+    close(tone(10 * zone - w - quarter), mix(tones.white, p.lineTone, 0.25));
+    // The line between the gold and the red, and between the red and the light blue (the edge of the colour is under the line, so outside it is the next colour and inside it the colour).
+    close(tone(2 * zone + quarter), mix(tones.red, p.lineTone, 0.25));
+    close(tone(2 * zone - w + quarter), mix(tones.gold, p.lineTone, 0.75));
+    close(tone(2 * zone - w - quarter), mix(tones.gold, p.lineTone, 0.25));
+    close(tone(4 * zone + quarter), mix(tones.blue, p.lineTone, 0.25));
+    close(tone(4 * zone - w - quarter), mix(tones.red, p.lineTone, 0.25));
+    // A line inside a colour, the pale line over the black, the inner ten.
+    close(tone(zone - quarter), mix(tones.gold, p.lineTone, 0.75));
+    close(tone(zone + quarter), mix(tones.gold, p.lineTone, 0.25));
+    close(tone(7 * zone + quarter), mix(tones.black, p.paleLineTone, 0.25));
+    close(tone(7 * zone - quarter), mix(tones.black, p.paleLineTone, 0.75));
+    close(tone(rules.inner / 2 + quarter), mix(tones.gold, p.lineTone, 0.25));
+    // An arm of the centre cross.
+    close(
+      toneAt(sample, 0.005, p.crossWidth / 2 - quarter),
+      mix(tones.gold, p.lineTone, 0.75),
+    );
+    close(
+      toneAt(sample, 0.005, p.crossWidth / 2 + quarter),
+      mix(tones.gold, p.lineTone, 0.25),
+    );
+  });
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('archerytarget', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('archerytarget', 0),
+      b = createSurfaceSampler('archerytarget', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

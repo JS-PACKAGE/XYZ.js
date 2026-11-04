@@ -16473,6 +16473,61 @@ export declare const proceduralMaterialPresets: Readonly<{
         markHeight: 0.32;
         inkRoughness: 0.5;
     }>;
+    archerytarget: Readonly<{
+        dark: readonly [16, 12, 10];
+        light: readonly [250, 246, 236];
+        roughness: 0.7;
+        relief: 0.004;
+        metre: 0.5;
+        zoneWidth: 0.061;
+        xRadius: 0.0305;
+        bossRadius: 0.8;
+        lineWidth: 0.008;
+        crossArm: 0.01;
+        crossWidth: 0.003;
+        surfaces: readonly (Readonly<{
+            white: 0.92;
+            black: 0.1;
+            blue: 0.38;
+            red: 0.52;
+            gold: 0.8;
+            boss: 0.6;
+            ground: 0.24;
+        }> | Readonly<{
+            white: 0.88;
+            black: 0.16;
+            blue: 0.56;
+            red: 0.34;
+            gold: 0.72;
+            boss: 0.46;
+            ground: 0.3;
+        }> | Readonly<{
+            white: 0.94;
+            black: 0.06;
+            blue: 0.3;
+            red: 0.62;
+            gold: 0.84;
+            boss: 0.54;
+            ground: 0.16;
+        }> | Readonly<{
+            white: 0.84;
+            black: 0.2;
+            blue: 0.62;
+            red: 0.44;
+            gold: 0.66;
+            boss: 0.7;
+            ground: 0.28;
+        }>)[];
+        toneShift: 0.04;
+        edgeSoft: 0.0006;
+        lineTone: 0.04;
+        paleLineTone: 0.96;
+        groundHeight: 0.15;
+        bossHeight: 0.3;
+        faceHeight: 0.36;
+        lineHeight: 0.4;
+        inkRoughness: 0.55;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -22958,6 +23013,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    archerytarget: 1;
     snookertable: 1;
     netballcourt: 1;
     gridironfield: 1;
