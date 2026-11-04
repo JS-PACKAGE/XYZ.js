@@ -335,6 +335,44 @@ function allFinite(values: Float32Array): boolean {
   return true;
 }
 
+/** Keep interleaved copies out of the large parse closure so V8 can optimize the loop. */
+function stridedAccessor(
+  source:
+    | Int8Array
+    | Uint8Array
+    | Int16Array
+    | Uint16Array
+    | Uint32Array
+    | Float32Array,
+  data: Float32Array,
+  count: number,
+  size: number,
+  step: number,
+): void {
+  if (size === 3) {
+    for (let i = 0, s = 0, d = 0; i < count; i++, s += step, d += 3) {
+      data[d] = source[s]!;
+      data[d + 1] = source[s + 1]!;
+      data[d + 2] = source[s + 2]!;
+    }
+  } else if (size === 2) {
+    for (let i = 0, s = 0, d = 0; i < count; i++, s += step, d += 2) {
+      data[d] = source[s]!;
+      data[d + 1] = source[s + 1]!;
+    }
+  } else if (size === 4) {
+    for (let i = 0, s = 0, d = 0; i < count; i++, s += step, d += 4) {
+      data[d] = source[s]!;
+      data[d + 1] = source[s + 1]!;
+      data[d + 2] = source[s + 2]!;
+      data[d + 3] = source[s + 3]!;
+    }
+  } else {
+    for (let i = 0; i < count; i++)
+      for (let j = 0; j < size; j++) data[i * size + j] = source[i * step + j]!;
+  }
+}
+
 /** Keep normalized component loops outside the large, unoptimized parse closure. */
 function normalizedAccessor(
   source: Int8Array | Uint8Array | Int16Array | Uint16Array,
@@ -766,10 +804,7 @@ export class GLTFLoader {
                 (count - 1) * step + size,
               );
             if (step === size) data.set(source);
-            else
-              for (let i = 0; i < count; i++)
-                for (let j = 0; j < size; j++)
-                  data[i * size + j] = source[i * step + j]!;
+            else stridedAccessor(source, data, count, size, step);
           } else if (normalized && !matrixSize && littleEndian) {
             const step = stride / width;
             const Native = componentArrays[component] as
