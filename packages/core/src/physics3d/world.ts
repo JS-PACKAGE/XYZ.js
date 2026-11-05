@@ -162,6 +162,8 @@ export class PhysicsWorld3D {
   private readonly pairLows: Entry3D[] = [];
   private readonly pairHighs: Entry3D[] = [];
   private readonly pairSequence: number[] = [];
+  /** Sort keys of the pairs, each packing (low order, high order, index) into one integer. */
+  private pairKeys = new Float64Array(0);
   private readonly comparePairs = (i: number, j: number): number =>
     this.pairLows[i]!.order - this.pairLows[j]!.order ||
     this.pairHighs[i]!.order - this.pairHighs[j]!.order;
@@ -1046,7 +1048,20 @@ export class PhysicsWorld3D {
         }
       }
     lows.length = highs.length = sequence.length = pairs;
-    sequence.sort(this.comparePairs);
+    // Orders are unique integers below nextOrder, so (low, high, index) packs into one exact
+    // double while it stays safe; sorting those natively visits the pairs in the stable
+    // comparator order (equal pairs keep their index order).
+    const span = this.nextOrder;
+    if (span * span * pairs < 2 ** 53) {
+      const keys = (this.pairKeys =
+        this.pairKeys.length < pairs
+          ? new Float64Array(pairs * 2)
+          : this.pairKeys);
+      for (let i = 0; i < pairs; i++)
+        keys[i] = (lows[i]!.order * span + highs[i]!.order) * pairs + i;
+      keys.subarray(0, pairs).sort();
+      for (let i = 0; i < pairs; i++) sequence[i] = keys[i]! % pairs;
+    } else sequence.sort(this.comparePairs);
     for (const pair of sequence) {
       const a = lows[pair]!,
         b = highs[pair]!;
