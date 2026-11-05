@@ -362,6 +362,16 @@ export class ContentScene<
     const entry = this.entries.get(id);
     if (!entry) return false;
     const removed = new Set<SceneObject>();
+    // Index once, preserving registry order when a root enqueues detached prefab members.
+    const members = new Map<SceneObject, SceneObject[]>();
+    for (const member of this.entries.values()) {
+      if (member.alias === undefined) continue;
+      const root = this.entries.get(member.rootId)?.node;
+      if (!root) continue;
+      let list = members.get(root);
+      if (!list) members.set(root, (list = []));
+      list.push(member.node);
+    }
     const pending = [entry.node];
     for (let index = 0; index < pending.length; index++) {
       const node = pending[index];
@@ -369,12 +379,7 @@ export class ContentScene<
       removed.add(node);
       for (const child of childrenOf(node)) pending.push(child);
       // Prefab members cannot outlive the factory root that reconstructs them.
-      for (const member of this.entries.values())
-        if (
-          member.alias !== undefined &&
-          this.entries.get(member.rootId)?.node === node
-        )
-          pending.push(member.node);
+      for (const member of members.get(node) ?? []) pending.push(member);
     }
     const removedIds = new Set(
       [...this.entries]
