@@ -588,6 +588,9 @@ export function bakeIrradianceVolume(
     hn = [0, 0, 0],
     direct = [0, 0, 0],
     b = new Float64Array(9);
+  // The environment is position-independent; resolve each sphere sample on its first miss.
+  const sky = new Float64Array(ctx.samples * 3),
+    skyReady = new Uint8Array(ctx.samples);
   for (let z = 0; z < nz; z++)
     for (let y = 0; y < ny; y++)
       for (let x = 0; x < nx; x++) {
@@ -616,9 +619,14 @@ export function bakeIrradianceVolume(
             for (let c = 0; c < 3; c++)
               rgb[c] = direct[c] * hit.triangle.mesh.material.color[c];
           } else if (environment) {
-            radiance(environment, d, rgb);
+            const sample = i * 3;
+            if (!skyReady[i]) {
+              radiance(environment, d, rgb);
+              sky.set(rgb, sample);
+              skyReady[i] = 1;
+            }
             for (let c = 0; c < 3; c++)
-              rgb[c] *= scene?.environmentIntensity ?? 1;
+              rgb[c] = sky[sample + c] * (scene?.environmentIntensity ?? 1);
           } else rgb.fill(scene?.ambientLight ?? 0);
           basis(d[0], d[1], d[2], b);
           for (let k = 0; k < terms; k++)
