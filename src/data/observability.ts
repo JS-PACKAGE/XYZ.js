@@ -80,33 +80,34 @@ export const productionWorkload = /* @__PURE__ */ Object.freeze({
 });
 
 /** Authored quality tiers; changing tier changes workload, not measured device identity. */
-export const productionQualityProfiles = /* @__PURE__ */ Object.freeze({
-  baseline: productionWorkload,
-  low: /* @__PURE__ */ Object.freeze({
-    ...productionWorkload,
-    width: 960,
-    height: 540,
-    sprites2D: 384,
-    transparentSprites2D: 64,
-    meshes3D: 128,
-    transparentMeshes3D: 32,
-    pointLights: 4,
-    spotLights: 2,
-    overlaySprites3D: 32,
-  }),
-  high: /* @__PURE__ */ Object.freeze({
-    ...productionWorkload,
-    width: 1920,
-    height: 1080,
-    sprites2D: 1536,
-    transparentSprites2D: 256,
-    meshes3D: 512,
-    transparentMeshes3D: 128,
-    pointLights: 16,
-    spotLights: 8,
-    overlaySprites3D: 128,
-  }),
-});
+export const productionQualityProfiles = /* @__PURE__ */ (() =>
+  Object.freeze({
+    baseline: productionWorkload,
+    low: /* @__PURE__ */ Object.freeze({
+      ...productionWorkload,
+      width: 960,
+      height: 540,
+      sprites2D: 384,
+      transparentSprites2D: 64,
+      meshes3D: 128,
+      transparentMeshes3D: 32,
+      pointLights: 4,
+      spotLights: 2,
+      overlaySprites3D: 32,
+    }),
+    high: /* @__PURE__ */ Object.freeze({
+      ...productionWorkload,
+      width: 1920,
+      height: 1080,
+      sprites2D: 1536,
+      transparentSprites2D: 256,
+      meshes3D: 512,
+      transparentMeshes3D: 128,
+      pointLights: 16,
+      spotLights: 8,
+      overlaySprites3D: 128,
+    }),
+  }))();
 
 /** Revision changes invalidate pinned profiles when authored work or phase semantics change. */
 export const productionRegressionWorkload = /* @__PURE__ */ Object.freeze({

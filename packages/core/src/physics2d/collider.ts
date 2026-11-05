@@ -139,7 +139,7 @@ export class Collider2D {
   }
 }
 
-export const Colliders = Object.freeze({
+export const Colliders = /* @__PURE__ */ Object.freeze({
   circle(radius: number, options?: ColliderOptions): Collider2D {
     return new Collider2D('circle', radius, [], options);
   },
