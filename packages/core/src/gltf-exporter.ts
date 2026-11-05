@@ -90,9 +90,19 @@ function reject(message: string): never {
   throw new AssetError(`glTF export: ${message}`);
 }
 function finite(values: ArrayLike<number>, label: string): void {
-  for (let i = 0; i < values.length; i++)
-    if (!Number.isFinite(values[i]) || !Number.isFinite(Math.fround(values[i])))
-      reject(`${label} contains a non-finite Float32 value.`);
+  // Float32 streams are already rounded; only their finiteness needs checking.
+  if (values instanceof Float32Array) {
+    for (let i = 0; i < values.length; i++)
+      if (!Number.isFinite(values[i]))
+        reject(`${label} contains a non-finite Float32 value.`);
+  } else {
+    for (let i = 0; i < values.length; i++)
+      if (
+        !Number.isFinite(values[i]) ||
+        !Number.isFinite(Math.fround(values[i]))
+      )
+        reject(`${label} contains a non-finite Float32 value.`);
+  }
 }
 function pose(
   value: {

@@ -397,6 +397,27 @@ describe('glTF exporter', () => {
     expect(header.getUint32(12, true) % 4).toBe(0);
   });
 
+  it('validates Float32 geometry and overflowing numeric transforms', async () => {
+    const geometry = triangle();
+    const mesh = new Mesh({
+      geometry,
+      material: new TextureMaterial({ texture: images() }),
+    });
+    for (const value of [NaN, Infinity, -Infinity]) {
+      geometry.vertices[0] = value;
+      await expect(exportGLTF(mesh, external)).rejects.toThrow(
+        'glTF export: accessor contains a non-finite Float32 value.',
+      );
+    }
+    geometry.vertices[0] = -0;
+    const result = await exportGLTF(mesh, external);
+    expect(Object.is(new Float32Array(result.buffers[0])[0], -0)).toBe(true);
+    mesh.position.x = Number.MAX_VALUE;
+    await expect(exportGLTF(mesh, external)).rejects.toThrow(
+      'glTF export: translation contains a non-finite Float32 value.',
+    );
+  });
+
   it('rejects unsupported or unrepresentable data instead of dropping it', async () => {
     const texture = images(),
       mesh = new Mesh({
