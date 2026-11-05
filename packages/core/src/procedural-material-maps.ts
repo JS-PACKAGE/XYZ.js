@@ -44019,6 +44019,9 @@ export function createSurfaceSampler(
           const r = hash(i, 0, seed ^ p.seedSalt);
           grid[i] = r < p.emptyShare ? 0 : r < (1 + p.emptyShare) / 2 ? 1 : 2;
         }
+        const empties: number[] = [];
+        for (let i = 0; i < grid.length; i++)
+          if (grid[i] === 0) empties.push(i);
         // Sweeps in cell order: an unhappy agent moves to the first empty cell, counted from a hashed
         // place in the list of empty cells, where it would be happy. The sweeps stop when nobody moves
         // or after p.sweeps sweeps.
@@ -44027,9 +44030,6 @@ export function createSurfaceSampler(
           for (let i = 0; i < grid.length; i++) {
             const kind = grid[i];
             if (kind === 0 || happy(i, kind, -1)) continue;
-            const empties: number[] = [];
-            for (let j = 0; j < grid.length; j++)
-              if (grid[j] === 0) empties.push(j);
             const start = Math.floor(
               hash(sweep * grid.length + i, 1, seed ^ p.seedSalt) *
                 empties.length,
@@ -44039,6 +44039,17 @@ export function createSurfaceSampler(
               if (happy(target, kind, i)) {
                 grid[i] = 0;
                 grid[target] = kind;
+                // Replace the destination with the vacated cell, retaining cell order.
+                let at = (k + start) % empties.length;
+                while (at > 0 && empties[at - 1] > i) {
+                  empties[at] = empties[at - 1];
+                  at--;
+                }
+                while (at + 1 < empties.length && empties[at + 1] < i) {
+                  empties[at] = empties[at + 1];
+                  at++;
+                }
+                empties[at] = i;
                 moved = true;
                 break;
               }
