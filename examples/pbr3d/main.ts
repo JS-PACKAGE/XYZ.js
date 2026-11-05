@@ -1230,6 +1230,7 @@ try {
     'debruijntorus',
     'mondrianpartitions',
     'langfordpairings',
+    'golombrulers',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

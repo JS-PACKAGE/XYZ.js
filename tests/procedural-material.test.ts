@@ -1193,6 +1193,7 @@ const kinds: ProceduralMaterialKind[] = [
   'debruijntorus',
   'mondrianpartitions',
   'langfordpairings',
+  'golombrulers',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -211899,6 +211900,321 @@ describe('Langford pairings as every sequence with its pairs the right number of
     expect(blue / (512 * 512)).toBeLessThan(91.6);
     expect(maxTilt).toBeGreaterThan(0.0535);
     expect(maxTilt).toBeLessThan(0.0536);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Golomb rulers as every difference of two marks different', () => {
+  const p = proceduralMaterialPresets.golombrulers;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** Every optimal Golomb ruler (the least length for the number of marks; both orientations; the lexicographic order), found by trying the marks in increasing order with a set of the differences used so far, for the lengths from the least possible up. */
+  const rulerCache = new Map<number, number[][]>();
+  const optimalRulers = (marks: number): number[][] => {
+    const cached = rulerCache.get(marks);
+    if (cached) return cached;
+    for (let length = (marks * (marks - 1)) / 2; ; length++) {
+      const found: number[][] = [],
+        chosen = [0],
+        differences = new Set<number>(),
+        extend = (): void => {
+          if (chosen.length === marks) {
+            if (chosen[marks - 1] === length) found.push(chosen.slice());
+            return;
+          }
+          const last = chosen[chosen.length - 1],
+            room = marks - chosen.length;
+          for (let x = last + 1; x <= length - (room - 1); x++) {
+            const mine = chosen.map((a) => x - a);
+            if (
+              mine.some((d) => differences.has(d)) ||
+              (chosen.length === marks - 1 && x !== length)
+            )
+              continue;
+            mine.forEach((d) => differences.add(d));
+            chosen.push(x);
+            extend();
+            chosen.pop();
+            mine.forEach((d) => differences.delete(d));
+          }
+        };
+      extend();
+      if (found.length > 0) {
+        found.sort((a, b) => {
+          for (let i = 0; i < marks; i++) if (a[i] !== b[i]) return a[i] - b[i];
+          return 0;
+        });
+        rulerCache.set(marks, found);
+        return found;
+      }
+    }
+  };
+  /** The marks of a ruler as the picture shows them: the dots of the grid are read back at the middle of every cell (ink: a height above 0), the marks are the cells of the main diagonal and the dots are exactly the cells whose row and column are both marks. */
+  const readRuler = (
+    seed: number,
+  ): { marks: number[]; dots: Set<string>; size: number } => {
+    const variant = seed % p.marks.length,
+      list: readonly (readonly number[])[] = p.rulers[variant],
+      size = list[0][list[0].length - 1] + 1,
+      sample = createSurfaceSampler('golombrulers', seed),
+      out = empty(),
+      dots = new Set<string>(),
+      marks: number[] = [];
+    for (let j = 0; j < size; j++)
+      for (let i = 0; i < size; i++) {
+        sample((i + 0.5) / size, (j + 0.5) / size, out);
+        if (out.height > 0) dots.add(`${i},${j}`);
+      }
+    for (let i = 0; i < size; i++) if (dots.has(`${i},${i}`)) marks.push(i);
+    let wrong = 0;
+    for (let j = 0; j < size; j++)
+      for (let i = 0; i < size; i++)
+        wrong += Number(
+          dots.has(`${i},${j}`) !== (marks.includes(i) && marks.includes(j)),
+        );
+    expect(wrong).toBe(0);
+    return { marks, dots, size };
+  };
+  /** The grid of 256 by 256 colours above 0.75 (the dots of the greatest differences), for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('golombrulers', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.75));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { high: 0.9632, lit: 0.03104, mean: 0.08827 }],
+      [1, { high: 0.9622, lit: 0.01106, mean: 0.06557 }],
+      [0xffffffff, { high: 0.9612, lit: 0.00645, mean: 0.04707 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('golombrulers', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.75);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0155);
+      expect(low).toBeLessThan(0.0157);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws a dot at every pair of marks of an optimal Golomb ruler, the ruler of the list picked by the group, read back at the middle of every cell and compared with a separate search for the least length (up to 9 marks)', () => {
+    // The groups go round the whole list (up to 10 rulers) for the 5, 6 and 7 marks and 4 groups for the others.
+    for (let variant = 0; variant < 5; variant++)
+      for (let group = 0; group < (variant < 3 ? 12 : 4); group++) {
+        const optimal = optimalRulers(p.marks[variant]),
+          { marks, size } = readRuler(variant + 6 * group);
+        // The list of the preset is every optimal ruler: as many as the separate search finds, and the group picks one of them.
+        expect(p.rulers[variant].length).toBe(optimal.length);
+        expect(size).toBe(optimal[0][p.marks[variant] - 1] + 1);
+        expect(marks).toEqual(optimal[group % optimal.length]);
+      }
+    // Ten marks (the search for them takes seconds, so it is not repeated here): a ruler of 10 marks and length 55 of the list, one per group.
+    for (let group = 0; group < 4; group++) {
+      const { marks, size } = readRuler(5 + 6 * group);
+      expect(marks.length).toBe(10);
+      expect(size).toBe(56);
+      expect(marks).toEqual([...p.rulers[5][group % p.rulers[5].length]]);
+    }
+  });
+  it('has a dot on a diagonal only for a difference of two marks and never two dots on one diagonal beside the main one: every difference is different', () => {
+    for (let seed = 0; seed < 12; seed++) {
+      const variant = seed % p.marks.length,
+        m: number = p.marks[variant],
+        { marks, dots, size } = readRuler(seed);
+      expect(marks.length).toBe(m);
+      expect(marks[0]).toBe(0);
+      expect(marks[m - 1]).toBe(size - 1);
+      const differences = new Set<number>();
+      for (let a = 0; a < m; a++)
+        for (let b = a + 1; b < m; b++) differences.add(marks[b] - marks[a]);
+      expect(differences.size).toBe((m * (m - 1)) / 2);
+      // On the diagonal j - i = d (d above 0) there is one dot if d is a difference, none if not.
+      for (let d = 1; d < size; d++) {
+        let on = 0;
+        for (let i = 0; i + d < size; i++)
+          on += Number(dots.has(`${i},${i + d}`));
+        expect(on).toBe(differences.has(d) ? 1 : 0);
+      }
+    }
+  });
+  it('agrees with the ideal dots away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 13, 21]) {
+      const ruler = readRuler(seed).marks,
+        length = ruler[ruler.length - 1],
+        size = length + 1,
+        sample = createSurfaceSampler('golombrulers', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          x = u * size,
+          y = v * size,
+          i = Math.floor(x),
+          j = Math.floor(y),
+          radial = Math.hypot(x - i - 0.5, y - j - 0.5),
+          lit = ruler.includes(i) && ruler.includes(j);
+        // The ink is 1 within the radius less half the smoothing, 0 beyond the radius plus half of it (and 0 in a cell without a dot), and not compared in between.
+        if (lit && Math.abs(radial - p.dotRadius) < p.edgeSoft / 2) continue;
+        const ink = lit && radial < p.dotRadius ? 1 : 0,
+          level = Math.abs(i - j) / length,
+          tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.heightBase + p.heightSwing * level),
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(5600);
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeCloseTo(0.0323333740234375, 8);
+    expect(unlike(first, litGrid(6))).toBeCloseTo(0.03753662109375, 8);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('golombrulers', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 gold Golomb ruler maps on dark brown with raised dots and shaded ground', () => {
+    const maps = generateProceduralMaps('golombrulers', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 125 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(35.2);
+    expect(red / (512 * 512)).toBeLessThan(36.3);
+    expect(green / (512 * 512)).toBeGreaterThan(26.9);
+    expect(green / (512 * 512)).toBeLessThan(28);
+    expect(blue / (512 * 512)).toBeGreaterThan(11.3);
+    expect(blue / (512 * 512)).toBeLessThan(12.3);
+    expect(maxTilt).toBeGreaterThan(0.0716);
+    expect(maxTilt).toBeLessThan(0.0717);
     expect(invalid).toBe(0);
   });
 });

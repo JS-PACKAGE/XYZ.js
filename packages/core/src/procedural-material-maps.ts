@@ -56318,6 +56318,49 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'golombrulers': {
+        const p = proceduralMaterialPresets.golombrulers,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.marks.length,
+          group = Math.floor(unsigned / p.marks.length),
+          list: readonly (readonly number[])[] = p.rulers[variant],
+          ruler: readonly number[] = list[group % list.length],
+          length: number = ruler[ruler.length - 1],
+          size = length + 1,
+          isMark = new Uint8Array(size);
+        for (const mark of ruler) isMark[mark] = 1;
+        return () => {
+          const x = fract(u) * size,
+            y = fract(v) * size,
+            i = Math.floor(x),
+            j = Math.floor(y),
+            lit = isMark[i] === 1 && isMark[j] === 1,
+            mask = lit
+              ? smooth(
+                  clamp(
+                    (p.dotRadius - hypot2(x - i - 0.5, y - j - 0.5)) /
+                      p.edgeSoft +
+                      0.5,
+                  ),
+                )
+              : 0,
+            level = Math.abs(i - j) / length,
+            tone = p.toneMin + (p.toneMax - p.toneMin) * level,
+            grain = grainField(u, v);
+          color =
+            p.toneGround * (1 - mask) +
+            tone * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -65285,6 +65328,7 @@ export function createSurfaceSampler(
     kind === 'debruijntorus' ||
     kind === 'mondrianpartitions' ||
     kind === 'langfordpairings' ||
+    kind === 'golombrulers' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
