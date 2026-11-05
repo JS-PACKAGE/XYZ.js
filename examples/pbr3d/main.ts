@@ -1240,6 +1240,7 @@ try {
     'beattysequences',
     'minesweeperboards',
     'finitefieldtables',
+    'pseudoprimeliars',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

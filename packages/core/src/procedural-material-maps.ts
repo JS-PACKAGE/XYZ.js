@@ -57211,6 +57211,125 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'pseudoprimeliars': {
+        const p = proceduralMaterialPresets.pseudoprimeliars,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          test: number = p.tests[unsigned % p.tests.length],
+          group = Math.floor(unsigned / p.tests.length),
+          start: number = p.starts[group % p.starts.length],
+          firstBase: number =
+            p.firstBases[
+              Math.floor(group / p.starts.length) % p.firstBases.length
+            ],
+          n: number = p.size,
+          gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b)),
+          // a^exponent mod m by repeated squaring (a below m, m below 10^4, so the products stay exact).
+          power = (a: number, exponent: number, m: number): number => {
+            let result = 1,
+              base = a,
+              rest = exponent;
+            while (rest > 0) {
+              if (rest % 2 === 1) result = (result * base) % m;
+              base = (base * base) % m;
+              rest = Math.floor(rest / 2);
+            }
+            return result;
+          },
+          // The Jacobi symbol (a / m) for odd m coprime to a by the reciprocity rules (it ends with m = 1).
+          jacobi = (a0: number, m0: number): number => {
+            let a = a0 % m0,
+              m = m0,
+              sign = 1;
+            while (a !== 0) {
+              while (a % 2 === 0) {
+                a /= 2;
+                if (m % 8 === 3 || m % 8 === 5) sign = -sign;
+              }
+              [a, m] = [m, a];
+              if (a % 4 === 3 && m % 4 === 3) sign = -sign;
+              a %= m;
+            }
+            return sign;
+          },
+          // m is above 1 (the windows start at 521).
+          isPrime = (m: number): boolean => {
+            for (let d = 2; d * d <= m; d++) if (m % d === 0) return false;
+            return true;
+          },
+          // Whether the base a passes the primality test of the variant for the odd number m.
+          passes = (a: number, m: number): boolean => {
+            if (test === 0) return power(a, m - 1, m) === 1;
+            const half = power(a, (m - 1) / 2, m);
+            if (test === 1) return half === 1 || half === m - 1;
+            if (test === 3) return half === (jacobi(a, m) === 1 ? 1 : m - 1);
+            let d = m - 1,
+              squarings = 0;
+            while (d % 2 === 0) {
+              d /= 2;
+              squarings++;
+            }
+            let x = power(a, d, m);
+            if (x === 1 || x === m - 1) return true;
+            for (let k = 1; k < squarings; k++) {
+              x = (x * x) % m;
+              if (x === m - 1) return true;
+            }
+            return false;
+          },
+          // The kind of every cell: 0 shares a factor, 1 witness, 2 liar with n prime, 3 liar with n composite; the cell (i, j) is the base firstBase + i and the number start + 2 j.
+          kinds = new Uint8Array(n * n);
+        for (let j = 0; j < n; j++) {
+          const m = start + 2 * j,
+            prime = isPrime(m);
+          for (let i = 0; i < n; i++) {
+            const a = firstBase + i;
+            kinds[j * n + i] =
+              gcd(a, m) > 1 ? 0 : !passes(a, m) ? 1 : prime ? 2 : 3;
+          }
+        }
+        const half = 0.5 - p.gap,
+          inner = half - p.corner,
+          tones = [
+            p.toneShared,
+            p.toneWitness,
+            p.tonePrimeLiar,
+            p.toneCompositeLiar,
+          ],
+          lifts = [
+            p.heightShared,
+            p.heightWitness,
+            p.heightPrimeLiar,
+            p.heightCompositeLiar,
+          ];
+        return () => {
+          const x = fract(u) * n,
+            y = fract(v) * n,
+            column = Math.floor(x),
+            row = Math.floor(y),
+            qx = Math.abs(x - column - 0.5) - inner,
+            qy = Math.abs(y - row - 0.5) - inner,
+            // The distance to the rounded square of the cell, negative inside.
+            distance =
+              hypot2(Math.max(qx, 0), Math.max(qy, 0)) +
+              Math.min(Math.max(qx, qy), 0) -
+              p.corner,
+            mask = smooth(clamp(0.5 - distance / p.edgeSoft)),
+            kind = kinds[row * n + column],
+            grain = grainField(u, v);
+          color =
+            p.toneGround * (1 - mask) +
+            tones[kind] * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * lifts[kind];
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -66190,6 +66309,7 @@ export function createSurfaceSampler(
     kind === 'beattysequences' ||
     kind === 'minesweeperboards' ||
     kind === 'finitefieldtables' ||
+    kind === 'pseudoprimeliars' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||
