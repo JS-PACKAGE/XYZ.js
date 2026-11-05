@@ -15,6 +15,12 @@ const filters: readonly string[] = [
   'COLOR',
 ];
 
+// The filter's signed byte exponent has only 256 exact binary scales.
+const exponentScales = /* @__PURE__ */ Float64Array.from(
+  { length: 256 },
+  (_, i) => 2 ** (i - 128),
+);
+
 function check(condition: boolean): asserts condition {
   if (!condition)
     throw new AssetError(
@@ -336,7 +342,11 @@ function applyFilter(
   if (filter === 'EXPONENTIAL') {
     for (let offset = 0; offset < bytes.length; offset += 4) {
       const value = view.getInt32(offset, true);
-      view.setFloat32(offset, ((value << 8) >> 8) * 2 ** (value >> 24), true);
+      view.setFloat32(
+        offset,
+        ((value << 8) >> 8) * exponentScales[(value >> 24) + 128],
+        true,
+      );
     }
     return;
   }
