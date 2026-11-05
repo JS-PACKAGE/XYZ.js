@@ -409,14 +409,14 @@ var UIFocusManager = class {
 	}
 	order(e) {
 		let t = this.orders.get(e), n = 0, matches = (e) => {
-			if (t.tree[n++] !== e) return !1;
-			let r = e.existingChildren;
-			if (r) {
-				for (let e of r) if (!matches(e)) return !1;
+			if (e) for (let r of e) {
+				if (t.tree[n++] !== r) return !1;
+				let e = r.existingChildren;
+				if (e && !matches(e)) return !1;
 			}
 			return !0;
 		};
-		if (t && matches(e) && n === t.tree.length) return t;
+		if (t && t.tree[n++] === e && matches(e.existingChildren) && n === t.tree.length) return t;
 		let r = {
 			tree: [],
 			nodes: [],

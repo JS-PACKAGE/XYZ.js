@@ -29,10 +29,10 @@ function lineage(e) {
 	return n;
 }
 function pluralForms(e) {
-	let t = Object.entries(e), r = Object.fromEntries(t).other;
-	if (typeof r == `string` && t.every(([e, t]) => n.includes(e) && typeof t == `string`)) return Object.freeze({
-		...Object.fromEntries(t),
-		other: r
+	let t = Object.entries(e), r = Object.fromEntries(t), i = r.other;
+	if (typeof i == `string` && t.every(([e, t]) => n.includes(e) && typeof t == `string`)) return Object.freeze({
+		...r,
+		other: i
 	});
 }
 function flatten(e, t, n) {
