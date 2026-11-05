@@ -17511,6 +17511,42 @@ export declare const proceduralMaterialPresets: Readonly<{
         groundRoughness: 0.7;
         inkRoughness: 0.4;
     }>;
+    octaneisomers: Readonly<{
+        dark: readonly [18, 30, 26];
+        light: readonly [232, 238, 224];
+        roughness: 0.5;
+        relief: 0.003;
+        columns: 3;
+        rows: 6;
+        bond: 0.044;
+        atomRadius: 0.0095;
+        bondHalf: 0.0042;
+        edgeSoft: 0.0006;
+        isomers: readonly [readonly [8], readonly [7, 2, 1], readonly [7, 3, 1], readonly [7, 4, 1], readonly [6, 2, 1, 2, 1], readonly [6, 2, 1, 3, 1], readonly [6, 2, 1, 4, 1], readonly [6, 2, 1, 5, 1], readonly [6, 3, 1, 3, 1], readonly [6, 3, 1, 4, 1], readonly [6, 3, 2], readonly [5, 2, 1, 2, 1, 3, 1], readonly [5, 2, 1, 2, 1, 4, 1], readonly [5, 2, 1, 3, 1, 3, 1], readonly [5, 2, 1, 3, 1, 4, 1], readonly [5, 2, 1, 3, 2], readonly [5, 3, 1, 3, 2], readonly [4, 2, 1, 2, 1, 3, 1, 3, 1]];
+        surfaces: readonly (Readonly<{
+            ground: 0.92;
+            bond: 0.5;
+            atom: 0.12;
+        }> | Readonly<{
+            ground: 0.12;
+            bond: 0.5;
+            atom: 0.9;
+        }> | Readonly<{
+            ground: 0.8;
+            bond: 0.35;
+            atom: 0.1;
+        }> | Readonly<{
+            ground: 0.2;
+            bond: 0.58;
+            atom: 0.9;
+        }>)[];
+        toneShift: 0.04;
+        groundHeight: 0.15;
+        bondHeight: 0.28;
+        atomHeight: 0.45;
+        groundRoughness: 0.7;
+        inkRoughness: 0.4;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -23996,6 +24032,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    octaneisomers: 1;
     linecodes: 1;
     spitransfers: 1;
     rm4sccbarcodes: 1;

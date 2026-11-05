@@ -88487,3 +88487,865 @@ describe('linecodes: one word of 30 bits drawn in seven line codes, one under th
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('octaneisomers: all 18 isomers of octane drawn as skeletal formulas in a grid of 3 columns by 6 rows, in an order shuffled by the seed, each mirrored across and along the picture at random', () => {
+  const p = proceduralMaterialPresets.octaneisomers,
+    out = empty(),
+    columns = p.columns,
+    rows = p.rows,
+    cellCount = columns * rows,
+    degrees = Math.PI / 180,
+    // The heights as the picture has them (the sampler gives the height times the relief), told apart halfway between the ground and the bond (ink) and halfway between the bond and the atom (atom).
+    inkLevel = (p.groundHeight + p.bondHeight) / 2,
+    atomLevel = (p.bondHeight + p.atomHeight) / 2;
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    blend = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4),
+    heightAt = (sample: Sampler, x: number, y: number): number => {
+      sample(x, y, out);
+      return out.height / p.relief;
+    },
+    toneAt = (sample: Sampler, x: number, y: number): number => {
+      sample(x, y, out);
+      return out.color;
+    };
+  type Point = [number, number];
+  type Molecule = { atoms: Point[]; bonds: [number, number][] };
+  // The 18 isomers by the names of the article on alkanes (read for this), in its order.
+  const articleNames = [
+    'octane',
+    '2-methylheptane',
+    '3-methylheptane',
+    '4-methylheptane',
+    '2,2-dimethylhexane',
+    '2,3-dimethylhexane',
+    '2,4-dimethylhexane',
+    '2,5-dimethylhexane',
+    '3,3-dimethylhexane',
+    '3,4-dimethylhexane',
+    '3-ethylhexane',
+    '2,2,3-trimethylpentane',
+    '2,2,4-trimethylpentane',
+    '2,3,3-trimethylpentane',
+    '2,3,4-trimethylpentane',
+    '3-ethyl-2-methylpentane',
+    '3-ethyl-3-methylpentane',
+    '2,2,3,3-tetramethylbutane',
+  ];
+  const stems: Record<string, number> = {
+      octane: 8,
+      heptane: 7,
+      hexane: 6,
+      pentane: 5,
+      butane: 4,
+    },
+    multiples: Record<string, number> = { di: 2, tri: 3, tetra: 4 };
+  const adjacencyOf = (
+    count: number,
+    bonds: readonly (readonly [number, number])[],
+  ): number[][] => {
+    const adjacency = Array.from({ length: count }, () => [] as number[]);
+    for (const [a, b] of bonds) {
+      adjacency[a].push(b);
+      adjacency[b].push(a);
+    }
+    return adjacency;
+  };
+  // A form of a tree that is the same for the same tree whatever the numbering of its atoms: the smallest of the nested bracket strings of the tree rooted at each atom (children sorted).
+  const canonical = (adjacency: number[][]): string => {
+    const rooted = (v: number, from: number): string =>
+      `(${adjacency[v]
+        .filter((w) => w !== from)
+        .map((w) => rooted(w, v))
+        .sort()
+        .join('')})`;
+    return adjacency.map((_, v) => rooted(v, -1)).sort()[0];
+  };
+  // The isomer of a name of the article: a chain of the stem and the methyl (one carbon) and ethyl (two carbons) groups at the places the name gives.
+  const fromName = (name: string): string => {
+    const stem = Object.keys(stems).find((s) => name.endsWith(s));
+    if (stem === undefined) throw new Error(`no stem in ${name}`);
+    const chain = stems[stem],
+      bonds: [number, number][] = [];
+    let count = chain;
+    for (let i = 1; i < chain; i++) bonds.push([i - 1, i]);
+    for (const [, places, multiple, kind] of name.matchAll(
+      /(\d+(?:,\d+)*)-(di|tri|tetra)?(methyl|ethyl)/g,
+    )) {
+      const at = places.split(',').map(Number);
+      if (at.length !== (multiple === undefined ? 1 : multiples[multiple]))
+        throw new Error(`wrong number of places in ${name}`);
+      for (const place of at) {
+        let previous = place - 1;
+        for (let carbon = 0; carbon < (kind === 'methyl' ? 1 : 2); carbon++) {
+          bonds.push([previous, count]);
+          previous = count++;
+        }
+      }
+    }
+    if (count !== 8) throw new Error(`${name} has ${count} carbons`);
+    return canonical(adjacencyOf(count, bonds));
+  };
+  const articleForms = articleNames.map(fromName);
+  // Every tree of 8 atoms (the Pruefer sequences of 6 numbers from 0 to 7 give all the labelled trees, 8 to the power of 6 of them): the forms of all and of those with at most 4 bonds at an atom (carbon has valence 4).
+  let enumerated: { all: number; alkanes: Set<string> } | undefined;
+  const enumerate = (): { all: number; alkanes: Set<string> } => {
+    if (enumerated !== undefined) return enumerated;
+    const alkanes = new Set<string>(),
+      all = new Set<string>();
+    for (let code = 0; code < 8 ** 6; code++) {
+      const sequence = Array.from(
+          { length: 6 },
+          (_, i) => Math.floor(code / 8 ** i) % 8,
+        ),
+        remaining = new Array<number>(8).fill(1),
+        bonds: [number, number][] = [];
+      for (const v of sequence) remaining[v]++;
+      for (const v of sequence) {
+        const leaf = remaining.indexOf(1);
+        bonds.push([leaf, v]);
+        remaining[leaf]--;
+        remaining[v]--;
+      }
+      const last = remaining.flatMap((d, i) => (d === 1 ? [i] : []));
+      bonds.push([last[0], last[1]]);
+      const adjacency = adjacencyOf(8, bonds),
+        form = canonical(adjacency);
+      all.add(form);
+      if (Math.max(...adjacency.map((a) => a.length)) <= 4) alkanes.add(form);
+    }
+    enumerated = { all: all.size, alkanes };
+    return enumerated;
+  };
+  // The rules of an alkane skeleton, checked on atoms and bonds as a picture gives them: 8 atoms, 7 bonds all of the length of a bond of the preset, a tree (connected) and at most 4 bonds at an atom. Gives the form of the tree, or null.
+  const checkMolecule = (
+    atoms: readonly Point[],
+    bonds: readonly (readonly [number, number])[],
+  ): string | null => {
+    if (atoms.length !== 8 || bonds.length !== 7) return null;
+    for (const [a, b] of bonds)
+      if (
+        Math.abs(
+          Math.hypot(atoms[a][0] - atoms[b][0], atoms[a][1] - atoms[b][1]) -
+            p.bond,
+        ) > 0.0035
+      )
+        return null;
+    const adjacency = adjacencyOf(8, bonds),
+      seen = new Set<number>([0]),
+      todo = [0];
+    for (let at = todo.pop(); at !== undefined; at = todo.pop())
+      for (const next of adjacency[at])
+        if (!seen.has(next)) {
+          seen.add(next);
+          todo.push(next);
+        }
+    if (seen.size !== 8) return null;
+    if (adjacency.some((a) => a.length > 4)) return null;
+    return canonical(adjacency);
+  };
+  // The drawing of an isomer of the preset as the description of it has it (the table gives the length of the parent chain and then the place and the length of each branch), in units of a bond: a zigzag, a branch on an even atom up and on an odd atom down, two branches 45 degrees to either side, the second carbon of an ethyl 60 degrees to the side with more room (the larger distance to the nearest other atom, the right on a tie).
+  const layout = (entry: readonly number[]): Molecule => {
+    const [chain, ...branches] = entry,
+      atoms: Point[] = [],
+      bonds: [number, number][] = [],
+      ethyls: [number, number][] = [];
+    for (let i = 0; i < chain; i++) {
+      atoms.push([i * Math.cos(30 * degrees), (i % 2) * 0.5]);
+      if (i > 0) bonds.push([i - 1, i]);
+    }
+    for (let i = 0; i < chain; i++) {
+      const lengths: number[] = [];
+      for (let k = 0; k < branches.length; k += 2)
+        if (branches[k] === i + 1) lengths.push(branches[k + 1]);
+      const up = (i % 2 === 0 ? 270 : 90) * degrees;
+      lengths.forEach((length, k) => {
+        const angle =
+          lengths.length === 1 ? up : up + (k === 0 ? -45 : 45) * degrees;
+        atoms.push([
+          atoms[i][0] + Math.cos(angle),
+          atoms[i][1] + Math.sin(angle),
+        ]);
+        bonds.push([i, atoms.length - 1]);
+        if (length === 2) ethyls.push([atoms.length - 1, angle]);
+      });
+    }
+    for (const [first, angle] of ethyls) {
+      const [right, left] = [angle + 60 * degrees, angle - 60 * degrees].map(
+        (turn) => {
+          const point: Point = [
+            atoms[first][0] + Math.cos(turn),
+            atoms[first][1] + Math.sin(turn),
+          ];
+          return {
+            point,
+            room: Math.min(
+              ...atoms
+                .filter((_, i) => i !== first)
+                .map(([x, y]) => Math.hypot(x - point[0], y - point[1])),
+            ),
+          };
+        },
+      );
+      const chosen =
+        right.room > left.room + 1e-9 ||
+        (right.room > left.room - 1e-9 && right.point[0] > atoms[first][0])
+          ? right
+          : left;
+      atoms.push(chosen.point);
+      bonds.push([first, atoms.length - 1]);
+    }
+    return { atoms, bonds };
+  };
+  const models = p.isomers.map((entry) => layout(entry)),
+    modelForms = models.map((m) => canonical(adjacencyOf(8, m.bonds))),
+    flips: [number, number][] = [
+      [1, 1],
+      [1, -1],
+      [-1, 1],
+      [-1, -1],
+    ];
+  // The atoms of a drawing in tile units: its box centred in the cell, mirrored, and scaled to the bond length.
+  const place = (
+    m: Molecule,
+    cell: number,
+    flipX: number,
+    flipY: number,
+  ): Point[] => {
+    const xs = m.atoms.map((a) => a[0]),
+      ys = m.atoms.map((a) => a[1]),
+      middleX = (Math.min(...xs) + Math.max(...xs)) / 2,
+      middleY = (Math.min(...ys) + Math.max(...ys)) / 2,
+      centreX = ((cell % columns) + 0.5) / columns,
+      centreY = (Math.floor(cell / columns) + 0.5) / rows;
+    return m.atoms.map(([x, y]) => [
+      centreX + flipX * (x - middleX) * p.bond,
+      centreY + flipY * (y - middleY) * p.bond,
+    ]);
+  };
+  const segmentDistance = (
+    x: number,
+    y: number,
+    a: Point,
+    b: Point,
+  ): number => {
+    const dx = b[0] - a[0],
+      dy = b[1] - a[1],
+      t = Math.max(
+        0,
+        Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / (dx * dx + dy * dy)),
+      );
+    return Math.hypot(x - a[0] - t * dx, y - a[1] - t * dy);
+  };
+  // How far inside a bond (half width minus the distance to the nearest bond) and inside an atom (radius minus the distance to the nearest atom) a place is, for a drawing; negative outside.
+  const insideOf = (
+    atoms: readonly Point[],
+    bonds: readonly (readonly [number, number])[],
+    x: number,
+    y: number,
+  ): { line: number; disc: number } => ({
+    line: Math.max(
+      ...bonds.map(
+        ([a, b]) => p.bondHalf - segmentDistance(x, y, atoms[a], atoms[b]),
+      ),
+    ),
+    disc: Math.max(
+      ...atoms.map(([ax, ay]) => p.atomRadius - Math.hypot(x - ax, y - ay)),
+    ),
+  });
+  const surfaceOf = (
+    ground: number,
+    bond: number,
+    atom: number,
+  ): { surface: number; shift: number } => {
+    let found = -1,
+      shift = 0;
+    p.surfaces.forEach((s, i) => {
+      const d = ground - s.ground;
+      if (
+        Math.abs(bond - s.bond - d) < 1e-6 &&
+        Math.abs(atom - s.atom - d) < 1e-6 &&
+        Math.abs(d) <= p.toneShift + 1e-9
+      ) {
+        found = i;
+        shift = d;
+      }
+    });
+    if (found < 0) throw new Error('the tones are those of no surface');
+    return { surface: found, shift };
+  };
+  // The picture of every cell read back: the atoms are the blobs of the tallest height (the centre of each), a bond is a pair of atoms with ink all the way between them and no other atom on the way.
+  const decodeCell = (
+    sample: Sampler,
+    cell: number,
+  ): { atoms: Point[]; bonds: [number, number][] } => {
+    const step = 0.0016,
+      nx = Math.round(1 / columns / step),
+      ny = Math.round(1 / rows / step),
+      x0 = (cell % columns) / columns,
+      y0 = Math.floor(cell / columns) / rows,
+      isAtom = new Uint8Array(nx * ny),
+      done = new Uint8Array(nx * ny),
+      atoms: Point[] = [];
+    for (let iy = 0; iy < ny; iy++)
+      for (let ix = 0; ix < nx; ix++)
+        isAtom[iy * nx + ix] = Number(
+          heightAt(sample, x0 + (ix + 0.5) * step, y0 + (iy + 0.5) * step) >
+            atomLevel,
+        );
+    for (let start = 0; start < nx * ny; start++) {
+      if (!isAtom[start] || done[start]) continue;
+      let sumX = 0,
+        sumY = 0,
+        size = 0;
+      const todo = [start];
+      done[start] = 1;
+      for (let at = todo.pop(); at !== undefined; at = todo.pop()) {
+        const ix = at % nx,
+          iy = Math.floor(at / nx);
+        sumX += ix + 0.5;
+        sumY += iy + 0.5;
+        size++;
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const jx = ix + dx,
+            jy = iy + dy;
+          if (jx < 0 || jy < 0 || jx >= nx || jy >= ny) continue;
+          const next = jy * nx + jx;
+          if (isAtom[next] && !done[next]) {
+            done[next] = 1;
+            todo.push(next);
+          }
+        }
+      }
+      atoms.push([x0 + (sumX / size) * step, y0 + (sumY / size) * step]);
+    }
+    const bonds: [number, number][] = [];
+    for (let a = 0; a < atoms.length; a++)
+      for (let b = a + 1; b < atoms.length; b++) {
+        const length = Math.hypot(
+            atoms[b][0] - atoms[a][0],
+            atoms[b][1] - atoms[a][1],
+          ),
+          from = p.atomRadius + 0.0015,
+          to = length - from;
+        let linked = to > from;
+        for (let along = from; linked && along <= to; along += 0.0008)
+          linked =
+            heightAt(
+              sample,
+              atoms[a][0] + ((atoms[b][0] - atoms[a][0]) * along) / length,
+              atoms[a][1] + ((atoms[b][1] - atoms[a][1]) * along) / length,
+            ) > inkLevel;
+        // A line of ink that runs through a third atom is two bonds (or more) that bend only a little, not one bond.
+        if (
+          linked &&
+          atoms.every(
+            (c, i) =>
+              i === a ||
+              i === b ||
+              segmentDistance(c[0], c[1], atoms[a], atoms[b]) > p.atomRadius,
+          )
+        )
+          bonds.push([a, b]);
+      }
+    return { atoms, bonds };
+  };
+  type Reading = {
+    surface: number;
+    shift: number;
+    tones: { ground: number; bond: number; atom: number };
+    // For each cell: which of the 18 names (by the article order), which drawing of the preset, the mirroring, whether the mirroring is the only one that fits, and the atoms.
+    cells: {
+      name: number;
+      model: number;
+      flipX: number;
+      flipY: number;
+      unique: boolean;
+      atoms: Point[];
+    }[];
+  };
+  const readTones = (sample: Sampler, cells: Reading['cells']): Reading => {
+    const first = cells[0],
+      bond = models[first.model].bonds[0],
+      tones = {
+        ground: toneAt(sample, 0.004, 0.004),
+        bond: toneAt(
+          sample,
+          (first.atoms[bond[0]][0] + first.atoms[bond[1]][0]) / 2,
+          (first.atoms[bond[0]][1] + first.atoms[bond[1]][1]) / 2,
+        ),
+        atom: toneAt(sample, first.atoms[0][0], first.atoms[0][1]),
+      };
+    return {
+      ...surfaceOf(tones.ground, tones.bond, tones.atom),
+      tones,
+      cells,
+    };
+  };
+  const readSurface = (sample: Sampler): Reading => {
+    const cells: Reading['cells'] = [];
+    for (let cell = 0; cell < cellCount; cell++) {
+      const decoded = decodeCell(sample, cell),
+        form = checkMolecule(decoded.atoms, decoded.bonds);
+      if (form === null)
+        throw new Error(
+          `cell ${cell} is not a skeleton of an alkane (${decoded.atoms.length} atoms, ${decoded.bonds.length} bonds: ${JSON.stringify(decoded.bonds)})`,
+        );
+      const name = articleForms.indexOf(form),
+        model = modelForms.indexOf(form);
+      if (name < 0 || model < 0)
+        throw new Error(`cell ${cell} is not an isomer of octane`);
+      const fitting = flips.filter(([flipX, flipY]) => {
+        const exact = place(models[model], cell, flipX, flipY);
+        return decoded.atoms.every(([x, y]) =>
+          exact.some(([ex, ey]) => Math.hypot(x - ex, y - ey) < 0.004),
+        );
+      });
+      if (fitting.length === 0)
+        throw new Error(`cell ${cell} is not drawn as the model draws it`);
+      cells.push({
+        name,
+        model,
+        flipX: fitting[0][0],
+        flipY: fitting[0][1],
+        unique: fitting.length === 1,
+        atoms: place(models[model], cell, fitting[0][0], fitting[0][1]),
+      });
+    }
+    return readTones(sample, cells);
+  };
+  // The cheap reading for many seeds: the drawing and the mirroring whose 8 atoms stand on atom height and whose 7 bond middles stand on bond height.
+  const readQuick = (sample: Sampler): Reading => {
+    const cells: Reading['cells'] = [];
+    for (let cell = 0; cell < cellCount; cell++) {
+      const found: Reading['cells'] = [];
+      models.forEach((m, model) => {
+        for (const [flipX, flipY] of flips) {
+          const atoms = place(m, cell, flipX, flipY);
+          if (
+            atoms.every(([x, y]) => heightAt(sample, x, y) > atomLevel) &&
+            m.bonds.every(([a, b]) => {
+              const h = heightAt(
+                sample,
+                (atoms[a][0] + atoms[b][0]) / 2,
+                (atoms[a][1] + atoms[b][1]) / 2,
+              );
+              return h > inkLevel && h < atomLevel;
+            })
+          )
+            found.push({
+              name: articleForms.indexOf(modelForms[model]),
+              model,
+              flipX,
+              flipY,
+              unique: false,
+              atoms,
+            });
+        }
+      });
+      if (found.length === 0) throw new Error(`nothing fits cell ${cell}`);
+      cells.push({ ...found[0], unique: found.length === 1 });
+    }
+    return readTones(sample, cells);
+  };
+
+  it('has the 18 isomers of the article, which are all the trees of 8 atoms with at most 4 bonds at an atom (there are 23 trees of 8 atoms), as the 18 different drawings of the preset', () => {
+    const { all, alkanes } = enumerate();
+    expect(articleNames.length).toBe(18);
+    expect(all).toBe(23);
+    expect(alkanes.size).toBe(18);
+    expect(new Set(articleForms).size).toBe(18);
+    expect(new Set(articleForms)).toEqual(alkanes);
+    expect(models.length).toBe(18);
+    expect(new Set(modelForms)).toEqual(alkanes);
+    for (const m of models)
+      expect(
+        checkMolecule(
+          m.atoms.map(([x, y]) => [x * p.bond, y * p.bond]),
+          m.bonds,
+        ),
+      ).not.toBeNull();
+  });
+
+  it('refuses what is not a skeleton of an alkane: a ring, a carbon with 5 bonds, a chain in two pieces, a bond of the wrong length and a missing atom', () => {
+    const chain = models[0],
+      scaled = (m: Molecule): Point[] =>
+        m.atoms.map(([x, y]) => [x * p.bond, y * p.bond]);
+    expect(checkMolecule(scaled(chain), chain.bonds)).not.toBeNull();
+    // The 8 atoms closed to a ring (8 bonds), and a bond fewer (6 bonds).
+    expect(checkMolecule(scaled(chain), [...chain.bonds, [0, 7]])).toBeNull();
+    expect(checkMolecule(scaled(chain), chain.bonds.slice(1))).toBeNull();
+    // 7 bonds that are a triangle and a chain of 5: not connected.
+    expect(
+      checkMolecule(scaled(chain), [
+        [0, 1],
+        [1, 2],
+        [2, 0],
+        [3, 4],
+        [4, 5],
+        [5, 6],
+        [6, 7],
+      ]),
+    ).toBeNull();
+    // A carbon with 5 bonds (a tree of 8 atoms with all the bonds of one length, so it is the valence that refuses it).
+    const pointed: Point[] = [[0, 0]];
+    for (let k = 0; k < 5; k++)
+      pointed.push([
+        p.bond * Math.cos(k * 72 * degrees),
+        p.bond * Math.sin(k * 72 * degrees),
+      ]);
+    pointed.push([
+      2 * p.bond * Math.cos(4 * 72 * degrees),
+      2 * p.bond * Math.sin(4 * 72 * degrees),
+    ]);
+    pointed.push([
+      3 * p.bond * Math.cos(4 * 72 * degrees),
+      3 * p.bond * Math.sin(4 * 72 * degrees),
+    ]);
+    expect(
+      checkMolecule(pointed, [
+        [0, 1],
+        [0, 2],
+        [0, 3],
+        [0, 4],
+        [0, 5],
+        [5, 6],
+        [6, 7],
+      ]),
+    ).toBeNull();
+    // A bond longer by 0.005 of a tile.
+    const stretched = scaled(chain);
+    stretched[7] = [stretched[7][0] + 0.005, stretched[7][1]];
+    expect(checkMolecule(stretched, chain.bonds)).toBeNull();
+    // Two isomers that differ are told apart, a renumbered one is the same.
+    expect(modelForms[0]).not.toBe(modelForms[1]);
+    expect(
+      canonical(
+        adjacencyOf(
+          8,
+          chain.bonds.map(([a, b]): [number, number] => [7 - a, 7 - b]),
+        ),
+      ),
+    ).toBe(modelForms[0]);
+  });
+
+  it('draws in a grid of 3 by 6 cells the 18 isomers, each exactly once, each a skeleton that follows the rules (8 atoms, 7 bonds of one length, a tree, at most 4 bonds at an atom) read back from the picture, inside its cell', () => {
+    const mirrors = new Set<string>();
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const sample = createSurfaceSampler('octaneisomers', seed),
+        reading = readSurface(sample);
+      expect(new Set(reading.cells.map((c) => c.name)).size).toBe(18);
+      reading.cells.forEach((c, cell) => {
+        mirrors.add(`${c.flipX} ${c.flipY}`);
+        for (const [x, y] of c.atoms) {
+          // Inside the cell, away from its sides by more than the atom and its soft edge.
+          const marginX = Math.min(
+              x - (cell % columns) / columns,
+              (cell % columns) / columns + 1 / columns - x,
+            ),
+            marginY = Math.min(
+              y - Math.floor(cell / columns) / rows,
+              Math.floor(cell / columns) / rows + 1 / rows - y,
+            );
+          expect(Math.min(marginX, marginY)).toBeGreaterThan(
+            p.atomRadius + p.edgeSoft + 0.001,
+          );
+        }
+      });
+      // The quick reading agrees with the full one wherever the mirroring is the only one that fits.
+      const quick = readQuick(sample);
+      reading.cells.forEach((c, cell) => {
+        expect(quick.cells[cell].name).toBe(c.name);
+        if (c.unique && quick.cells[cell].unique) {
+          expect(quick.cells[cell].flipX).toBe(c.flipX);
+          expect(quick.cells[cell].flipY).toBe(c.flipY);
+        }
+      });
+      expect(quick.surface).toBe(reading.surface);
+    }
+    expect(mirrors.size).toBe(4);
+  });
+
+  it(
+    'puts the tone, the height, the roughness and the occlusion of the model (ground, bond, atom) at every place of the picture away from the edges, for several seeds',
+    { timeout: 120000 },
+    () => {
+      for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
+        const sample = createSurfaceSampler('octaneisomers', seed),
+          reading = readQuick(sample),
+          o = empty();
+        let compared = 0;
+        for (let iy = 0; iy < 470; iy++)
+          for (let ix = 0; ix < 470; ix++) {
+            const x = (ix + 0.37) * 0.0021,
+              y = (iy + 0.61) * 0.0021,
+              cell = Math.floor(x * columns) + columns * Math.floor(y * rows),
+              { atoms, model } = reading.cells[cell],
+              { line, disc } = insideOf(atoms, models[model].bonds, x, y);
+            if (Math.abs(line) < 0.0008 || Math.abs(disc) < 0.0008) continue;
+            sample(x, y, o);
+            const label = disc > 0 ? 'atom' : line > 0 ? 'bond' : 'ground';
+            expect(o.color).toBeCloseTo(
+              {
+                ground: reading.tones.ground,
+                bond: reading.tones.bond,
+                atom: reading.tones.atom,
+              }[label],
+              6,
+            );
+            expect(o.height / p.relief).toBeCloseTo(
+              {
+                ground: p.groundHeight,
+                bond: p.bondHeight,
+                atom: p.atomHeight,
+              }[label],
+              6,
+            );
+            expect(o.roughness).toBeCloseTo(
+              label === 'ground' ? p.groundRoughness : p.inkRoughness,
+              6,
+            );
+            expect(o.occlusion).toBe(1);
+            compared++;
+          }
+        expect(compared).toBeGreaterThan(200000);
+      }
+    },
+  );
+
+  it('puts the edges of the bonds and of the atoms where the model puts them: just inside and just outside by 0.0004 of a tile, exactly, and softens them over edgeSoft (checked at a quarter of it, for the tone, the height and the roughness)', () => {
+    const delta = 0.0004,
+      soft = 0.25 * p.edgeSoft;
+    let bondProbes = 0,
+      atomProbes = 0;
+    for (const seed of [1, 2, 3, 4]) {
+      const sample = createSurfaceSampler('octaneisomers', seed),
+        { cells, tones } = readQuick(sample),
+        read = (x: number, y: number): [number, number, number] => {
+          sample(x, y, out);
+          return [out.color, out.height / p.relief, out.roughness];
+        },
+        // What the model says is at a place, for a cell: used to be sure that a probe stands where it is meant to.
+        labelAt = (cell: number, x: number, y: number): string => {
+          const { line, disc } = insideOf(
+            cells[cell].atoms,
+            models[cells[cell].model].bonds,
+            x,
+            y,
+          );
+          return disc > 0 ? 'atom' : line > 0 ? 'bond' : 'ground';
+        };
+      for (const cell of [0, 5, 8, 12, 17]) {
+        const { atoms, model } = cells[cell],
+          { bonds } = models[model];
+        for (const [a, b] of bonds) {
+          const length = Math.hypot(
+              atoms[b][0] - atoms[a][0],
+              atoms[b][1] - atoms[a][1],
+            ),
+            nx = -(atoms[b][1] - atoms[a][1]) / length,
+            ny = (atoms[b][0] - atoms[a][0]) / length,
+            mx = (atoms[a][0] + atoms[b][0]) / 2,
+            my = (atoms[a][1] + atoms[b][1]) / 2;
+          for (const side of [1, -1]) {
+            const at = (offset: number): [number, number] => [
+              mx + side * nx * offset,
+              my + side * ny * offset,
+            ];
+            expect(labelAt(cell, ...at(p.bondHalf - delta))).toBe('bond');
+            expect(labelAt(cell, ...at(p.bondHalf + delta))).toBe('ground');
+            const inner = read(...at(p.bondHalf - delta)),
+              outer = read(...at(p.bondHalf + delta)),
+              softIn = read(...at(p.bondHalf - soft)),
+              softOut = read(...at(p.bondHalf + soft));
+            close(inner[0], tones.bond);
+            close(outer[0], tones.ground);
+            close(softIn[0], blend(tones.ground, tones.bond, 0.75));
+            close(softOut[0], blend(tones.ground, tones.bond, 0.25));
+            close(inner[1], p.bondHeight);
+            close(outer[1], p.groundHeight);
+            close(softIn[1], blend(p.groundHeight, p.bondHeight, 0.75));
+            close(softOut[1], blend(p.groundHeight, p.bondHeight, 0.25));
+            close(softIn[2], blend(p.groundRoughness, p.inkRoughness, 0.75));
+            close(softOut[2], blend(p.groundRoughness, p.inkRoughness, 0.25));
+            bondProbes++;
+          }
+        }
+        for (const [ax, ay] of atoms) {
+          // A direction in which nothing but ground lies just outside the atom (no bond leaves in it).
+          let angle = -1;
+          for (let k = 0; k < 24 && angle < 0; k++) {
+            const turn = k * 15 * degrees,
+              probes = [-delta, delta, -soft, soft].map((offset) =>
+                labelAt(
+                  cell,
+                  ax + Math.cos(turn) * (p.atomRadius + offset),
+                  ay + Math.sin(turn) * (p.atomRadius + offset),
+                ),
+              );
+            if (
+              labelAt(
+                cell,
+                ax + Math.cos(turn) * (p.atomRadius + 0.0025),
+                ay + Math.sin(turn) * (p.atomRadius + 0.0025),
+              ) === 'ground' &&
+              probes[0] === 'atom' &&
+              probes[1] === 'ground'
+            )
+              angle = turn;
+          }
+          expect(angle).toBeGreaterThanOrEqual(0);
+          const at = (offset: number): [number, number] => [
+              ax + Math.cos(angle) * (p.atomRadius + offset),
+              ay + Math.sin(angle) * (p.atomRadius + offset),
+            ],
+            inner = read(...at(-delta)),
+            outer = read(...at(delta)),
+            softIn = read(...at(-soft)),
+            softOut = read(...at(soft));
+          close(inner[0], tones.atom);
+          close(outer[0], tones.ground);
+          close(softIn[0], blend(tones.ground, tones.atom, 0.75));
+          close(softOut[0], blend(tones.ground, tones.atom, 0.25));
+          close(inner[1], p.atomHeight);
+          close(outer[1], p.groundHeight);
+          close(softIn[1], blend(p.groundHeight, p.atomHeight, 0.75));
+          close(softOut[1], blend(p.groundHeight, p.atomHeight, 0.25));
+          close(softIn[2], blend(p.groundRoughness, p.inkRoughness, 0.75));
+          close(softOut[2], blend(p.groundRoughness, p.inkRoughness, 0.25));
+          atomProbes++;
+        }
+      }
+    }
+    // 7 bonds on 2 sides and 8 atoms in each of 5 cells of 4 seeds.
+    expect(bondProbes).toBe(4 * 5 * 7 * 2);
+    expect(atomProbes).toBe(4 * 5 * 8);
+  });
+
+  it('gives the ground, the bonds and the atoms their heights and roughnesses, and full occlusion', () => {
+    for (const seed of [1, 2, 3, 4]) {
+      const sample = createSurfaceSampler('octaneisomers', seed),
+        { cells } = readQuick(sample),
+        read = (x: number, y: number): [number, number, number] => {
+          sample(x, y, out);
+          return [out.height / p.relief, out.roughness, out.occlusion];
+        },
+        { atoms, model } = cells[9],
+        [a, b] = models[model].bonds[2],
+        ground = read(0.004 + 1 / columns, 0.004 + 1 / rows),
+        bond = read(
+          (atoms[a][0] + atoms[b][0]) / 2,
+          (atoms[a][1] + atoms[b][1]) / 2,
+        ),
+        atom = read(atoms[3][0], atoms[3][1]);
+      expect(ground[0]).toBeCloseTo(p.groundHeight, 6);
+      expect(bond[0]).toBeCloseTo(p.bondHeight, 6);
+      expect(atom[0]).toBeCloseTo(p.atomHeight, 6);
+      expect(ground[1]).toBeCloseTo(p.groundRoughness, 6);
+      expect([bond[1], atom[1]]).toEqual([p.inkRoughness, p.inkRoughness]);
+      expect([ground[2], bond[2], atom[2]]).toEqual([1, 1, 1]);
+    }
+  });
+
+  it(
+    'uses every surface about equally often over 1000 seeds, every isomer in every cell about equally often (each isomer exactly once in a picture), both mirrorings about half of the time, and the tones shifted over the whole range',
+    { timeout: 120000 },
+    () => {
+      const surfaces = new Map<number, number>(),
+        places = new Map<string, number>(),
+        shifts: number[] = [];
+      let mirrored = [0, 0],
+        counted = 0;
+      for (let seed = 0; seed < 1000; seed++) {
+        const reading = readQuick(
+          createSurfaceSampler('octaneisomers', seed * 7 + 1),
+        );
+        shifts.push(reading.shift);
+        surfaces.set(reading.surface, (surfaces.get(reading.surface) ?? 0) + 1);
+        expect(new Set(reading.cells.map((c) => c.name)).size).toBe(18);
+        reading.cells.forEach((c, cell) => {
+          places.set(
+            `${cell} ${c.name}`,
+            (places.get(`${cell} ${c.name}`) ?? 0) + 1,
+          );
+          if (c.unique) {
+            counted++;
+            mirrored = [
+              mirrored[0] + Number(c.flipX < 0),
+              mirrored[1] + Number(c.flipY < 0),
+            ];
+          }
+        });
+      }
+      expect(surfaces.size).toBe(p.surfaces.length);
+      for (const count of surfaces.values())
+        expect(Math.abs(count - 250)).toBeLessThan(50);
+      // A shuffle puts every isomer in every cell a eighteenth of the time (1000 / 18 = 56).
+      expect(places.size).toBe(18 * 18);
+      for (const count of places.values())
+        expect(Math.abs(count - 1000 / 18)).toBeLessThan(32);
+      // Cells where one mirroring fits only are those of the isomers that have no symmetry of the drawing.
+      expect(counted).toBeGreaterThan(5000);
+      expect(Math.abs(mirrored[0] / counted - 0.5)).toBeLessThan(0.03);
+      expect(Math.abs(mirrored[1] / counted - 0.5)).toBeLessThan(0.03);
+      expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+      expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+      expect(
+        Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+      ).toBeLessThan(p.toneShift * 0.15);
+      for (let quarter = 0; quarter < 4; quarter++)
+        expect(
+          Math.abs(
+            shifts.filter(
+              (shift) =>
+                Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+            ).length - 250,
+          ),
+        ).toBeLessThan(50);
+    },
+  );
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('octaneisomers', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('octaneisomers', 0),
+      b = createSurfaceSampler('octaneisomers', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

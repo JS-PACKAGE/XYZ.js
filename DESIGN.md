@@ -2581,6 +2581,9 @@
 
 預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`octaneisomers`（辛烷異構物）使目前目錄1253→1254種，含plain的gallery為1255項。辛烷（C8H18）的18種結構異構物各畫成一張骨架式（skeletal formula，省略氫）圖，排成3欄×6列，像化學課本的異構物對照表：每個異構物是一條主鏈加上甲基（1個碳）或乙基（2個碳）支鏈，原子是圓盤、鍵是細線。**異構物的名單取自維基百科「Alkane」條目的wiki原始碼（我讀了）**：C8有18種，由octane、三種methylheptane、六種dimethylhexane／ethylhexane、四種trimethylpentane、兩種ethylmethylpentane到2,2,3,3-tetramethylbutane；骨架式省略氫的畫法是我憑一般化學常識記得的，沒有查；**圖的畫法是我自己定的**（主鏈120度鋸齒、偶數位原子的支鏈朝上、奇數位朝下、同一原子兩支鏈各偏45度、乙基第二個碳選較寬鬆的一側轉60度）。18個格子的對應（洗牌）、每格左右與上下鏡像、與四種表面之一由seed決定（色調再一起偏移不超過`toneShift`）；Metallic／mortar為0。
+
+預設1 m nominal tile、0.004 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。不宣稱本段已完成三backend或跨瀏覽器驗證。
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

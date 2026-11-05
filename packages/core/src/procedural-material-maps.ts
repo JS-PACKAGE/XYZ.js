@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'octaneisomers',
   'linecodes',
   'spitransfers',
   'rm4sccbarcodes',
@@ -53846,6 +53847,169 @@ export function createSurfaceSampler(
           roughness = clamp(
             p.groundRoughness +
               (p.inkRoughness - p.groundRoughness) * Math.max(grid, trace),
+          );
+          occlusion = 1;
+        };
+      }
+      case 'octaneisomers': {
+        const p = proceduralMaterialPresets.octaneisomers,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(147, 1, seed ^ 0x3b0001) * p.surfaces.length)
+            ],
+          shift = (hash(147, 2, seed ^ 0x3b0002) * 2 - 1) * p.toneShift,
+          columns = p.columns,
+          count = columns * p.rows,
+          // Which isomer is in which cell (a shuffle of 0 to 17), and the atoms (8 for every cell: x and y) and the bonds (7: the two atoms) of the drawing in each cell, in tile units.
+          order = Array.from({ length: count }, (_, i) => i),
+          atoms = new Float64Array(count * 16),
+          bonds = new Uint8Array(count * 14),
+          degrees = Math.PI / 180;
+        for (let i = count - 1; i > 0; i--) {
+          const j = Math.min(
+              i,
+              Math.floor(hash(i, 50, seed ^ 0x3b0005) * (i + 1)),
+            ),
+            kept = order[i];
+          order[i] = order[j];
+          order[j] = kept;
+        }
+        for (let cell = 0; cell < count; cell++) {
+          const [chain, ...branches] = p.isomers[order[cell]],
+            xs: number[] = [],
+            ys: number[] = [];
+          let atom = 0;
+          const add = (x: number, y: number): number => {
+            xs.push(x);
+            ys.push(y);
+            return atom++;
+          };
+          for (let i = 0; i < chain; i++)
+            add(i * Math.cos(30 * degrees), (i % 2) * 0.5);
+          // The bonds of the parent chain and of the branches.
+          const from: number[] = [],
+            to: number[] = [];
+          for (let i = 1; i < chain; i++) {
+            from.push(i - 1);
+            to.push(i);
+          }
+          // The second carbon of an ethyl is placed after all the other atoms, turning 60 degrees to the side with more room (the larger distance to the nearest other atom; the right on a tie).
+          const ethyls: [number, number][] = [];
+          for (let i = 0; i < chain; i++) {
+            const here: number[] = [];
+            for (let k = 0; k < branches.length; k += 2)
+              if (branches[k] - 1 === i) here.push(branches[k + 1]);
+            const base = (i % 2 === 0 ? 270 : 90) * degrees;
+            here.forEach((length, k) => {
+              const direction =
+                  here.length === 1
+                    ? base
+                    : base + (k === 0 ? -45 : 45) * degrees,
+                first = add(
+                  xs[i] + Math.cos(direction),
+                  ys[i] + Math.sin(direction),
+                );
+              from.push(i);
+              to.push(first);
+              if (length === 2) ethyls.push([first, direction]);
+            });
+          }
+          for (const [first, direction] of ethyls) {
+            const room = (turn: number): number => {
+                const x = xs[first] + Math.cos(turn),
+                  y = ys[first] + Math.sin(turn);
+                let nearest = Infinity;
+                for (let i = 0; i < atom; i++)
+                  if (i !== first)
+                    nearest = Math.min(
+                      nearest,
+                      Math.hypot(xs[i] - x, ys[i] - y),
+                    );
+                return nearest;
+              },
+              right = direction + 60 * degrees,
+              left = direction - 60 * degrees,
+              roomRight = room(right),
+              roomLeft = room(left),
+              turn =
+                roomRight > roomLeft + 1e-9 ||
+                (roomRight > roomLeft - 1e-9 && Math.cos(right) > 0)
+                  ? right
+                  : left,
+              second = add(
+                xs[first] + Math.cos(turn),
+                ys[first] + Math.sin(turn),
+              );
+            from.push(first);
+            to.push(second);
+          }
+          // Centred on the middle of the box around the atoms, mirrored across and along the picture at random, scaled to the bond length and moved to the middle of the cell.
+          const middleX = (Math.min(...xs) + Math.max(...xs)) / 2,
+            middleY = (Math.min(...ys) + Math.max(...ys)) / 2,
+            flipX = hash(cell, 51, seed ^ 0x3b0005) < 0.5 ? -1 : 1,
+            flipY = hash(cell, 52, seed ^ 0x3b0005) < 0.5 ? -1 : 1,
+            centreX = ((cell % columns) + 0.5) / columns,
+            centreY = (Math.floor(cell / columns) + 0.5) / p.rows;
+          for (let i = 0; i < 8; i++) {
+            atoms[cell * 16 + 2 * i] =
+              centreX + flipX * (xs[i] - middleX) * p.bond;
+            atoms[cell * 16 + 2 * i + 1] =
+              centreY + flipY * (ys[i] - middleY) * p.bond;
+          }
+          for (let i = 0; i < 7; i++) {
+            bonds[cell * 14 + 2 * i] = from[i];
+            bonds[cell * 14 + 2 * i + 1] = to[i];
+          }
+        }
+        return () => {
+          const x = u - Math.floor(u),
+            y = v - Math.floor(v),
+            cell = Math.floor(x * columns) + columns * Math.floor(y * p.rows);
+          let line = -1,
+            disc = -1;
+          for (let i = 0; i < 7; i++) {
+            const ax = atoms[cell * 16 + 2 * bonds[cell * 14 + 2 * i]],
+              ay = atoms[cell * 16 + 2 * bonds[cell * 14 + 2 * i] + 1],
+              dx = atoms[cell * 16 + 2 * bonds[cell * 14 + 2 * i + 1]] - ax,
+              dy = atoms[cell * 16 + 2 * bonds[cell * 14 + 2 * i + 1] + 1] - ay,
+              t = Math.max(
+                0,
+                Math.min(
+                  1,
+                  ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy),
+                ),
+              );
+            line = Math.max(
+              line,
+              p.bondHalf - Math.hypot(x - ax - t * dx, y - ay - t * dy),
+            );
+          }
+          for (let i = 0; i < 8; i++)
+            disc = Math.max(
+              disc,
+              p.atomRadius -
+                Math.hypot(
+                  x - atoms[cell * 16 + 2 * i],
+                  y - atoms[cell * 16 + 2 * i + 1],
+                ),
+            );
+          const lineCover = cover(line),
+            discCover = cover(disc),
+            ground = surface.ground + shift,
+            lined = ground + (surface.bond + shift - ground) * lineCover,
+            heightLined =
+              p.groundHeight + (p.bondHeight - p.groundHeight) * lineCover;
+          color = clamp(lined + (surface.atom + shift - lined) * discCover);
+          height = clamp(
+            heightLined + (p.atomHeight - heightLined) * discCover,
+          );
+          roughness = clamp(
+            p.groundRoughness +
+              (p.inkRoughness - p.groundRoughness) *
+                Math.max(lineCover, discCover),
           );
           occlusion = 1;
         };

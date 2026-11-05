@@ -29653,6 +29653,180 @@ var proceduralMaterialPresets = Object.freeze({
 		groundRoughness: .7,
 		inkRoughness: .4
 	}),
+	octaneisomers: Object.freeze({
+		dark: [
+			18,
+			30,
+			26
+		],
+		light: [
+			232,
+			238,
+			224
+		],
+		roughness: .5,
+		relief: .003,
+		columns: 3,
+		rows: 6,
+		bond: .044,
+		atomRadius: .0095,
+		bondHalf: .0042,
+		edgeSoft: 6e-4,
+		isomers: [
+			[8],
+			[
+				7,
+				2,
+				1
+			],
+			[
+				7,
+				3,
+				1
+			],
+			[
+				7,
+				4,
+				1
+			],
+			[
+				6,
+				2,
+				1,
+				2,
+				1
+			],
+			[
+				6,
+				2,
+				1,
+				3,
+				1
+			],
+			[
+				6,
+				2,
+				1,
+				4,
+				1
+			],
+			[
+				6,
+				2,
+				1,
+				5,
+				1
+			],
+			[
+				6,
+				3,
+				1,
+				3,
+				1
+			],
+			[
+				6,
+				3,
+				1,
+				4,
+				1
+			],
+			[
+				6,
+				3,
+				2
+			],
+			[
+				5,
+				2,
+				1,
+				2,
+				1,
+				3,
+				1
+			],
+			[
+				5,
+				2,
+				1,
+				2,
+				1,
+				4,
+				1
+			],
+			[
+				5,
+				2,
+				1,
+				3,
+				1,
+				3,
+				1
+			],
+			[
+				5,
+				2,
+				1,
+				3,
+				1,
+				4,
+				1
+			],
+			[
+				5,
+				2,
+				1,
+				3,
+				2
+			],
+			[
+				5,
+				3,
+				1,
+				3,
+				2
+			],
+			[
+				4,
+				2,
+				1,
+				2,
+				1,
+				3,
+				1,
+				3,
+				1
+			]
+		],
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .92,
+				bond: .5,
+				atom: .12
+			}),
+			Object.freeze({
+				ground: .12,
+				bond: .5,
+				atom: .9
+			}),
+			Object.freeze({
+				ground: .8,
+				bond: .35,
+				atom: .1
+			}),
+			Object.freeze({
+				ground: .2,
+				bond: .58,
+				atom: .9
+			})
+		]),
+		toneShift: .04,
+		groundHeight: .15,
+		bondHeight: .28,
+		atomHeight: .45,
+		groundRoughness: .7,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -38334,6 +38508,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	octaneisomers: 1,
 	linecodes: 1,
 	spitransfers: 1,
 	rm4sccbarcodes: 1,

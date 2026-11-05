@@ -19211,6 +19211,58 @@ export const proceduralMaterialPresets = Object.freeze({
     groundRoughness: 0.7,
     inkRoughness: 0.4,
   }),
+  octaneisomers: Object.freeze({
+    dark: [18, 30, 26] as const,
+    light: [232, 238, 224] as const,
+    roughness: 0.5,
+    relief: 0.003,
+    // All 18 structural isomers of octane (C8H18), drawn as skeletal formulas in a grid of 3 columns by 6 rows (the Wikipedia article on alkanes, read for this, lists the 18 isomers by name: octane, the three methylheptanes, the
+    // dimethylhexanes, 3-ethylhexane, the trimethylpentanes, the two ethylmethylpentanes and 2,2,3,3-tetramethylbutane). Each isomer is a chain of atoms (its parent chain in the name) with branches: isomers lists them
+    // in the order of the article as the length of the parent chain followed by the position (counting from 1) and the length (1 methyl, 2 ethyl) of each branch. The drawing is mine: the parent chain is a zigzag of
+    // bonds of the length bond at 120 degrees (the atom i at i times the cosine of 30 degrees and, for an odd i, half a bond further down), a branch on an even atom goes straight up and on an odd atom straight down (away
+    // from the neighbours of the zigzag), two branches on one atom go 45 degrees to either side of that, and the second carbon of an ethyl turns by 60 degrees to the side with more room (the larger distance to the nearest other atom, the right on a tie); an atom is a disc of the radius
+    // atomRadius, a bond a line of the half width bondHalf, bonds under the atoms. The molecule is centred in its cell (3 columns, 6 rows). The seed shuffles which isomer is in which cell, mirrors each drawing
+    // across or along the picture at random, and picks a surface (the tones of the ground, of the bonds and of the atoms, all shifted together a little).
+    columns: 3,
+    rows: 6,
+    bond: 0.044,
+    atomRadius: 0.0095,
+    bondHalf: 0.0042,
+    edgeSoft: 0.0006,
+    isomers: [
+      [8],
+      [7, 2, 1],
+      [7, 3, 1],
+      [7, 4, 1],
+      [6, 2, 1, 2, 1],
+      [6, 2, 1, 3, 1],
+      [6, 2, 1, 4, 1],
+      [6, 2, 1, 5, 1],
+      [6, 3, 1, 3, 1],
+      [6, 3, 1, 4, 1],
+      [6, 3, 2],
+      [5, 2, 1, 2, 1, 3, 1],
+      [5, 2, 1, 2, 1, 4, 1],
+      [5, 2, 1, 3, 1, 3, 1],
+      [5, 2, 1, 3, 1, 4, 1],
+      [5, 2, 1, 3, 2],
+      [5, 3, 1, 3, 2],
+      [4, 2, 1, 2, 1, 3, 1, 3, 1],
+    ] as const,
+    surfaces: Object.freeze([
+      Object.freeze({ ground: 0.92, bond: 0.5, atom: 0.12 }),
+      Object.freeze({ ground: 0.12, bond: 0.5, atom: 0.9 }),
+      Object.freeze({ ground: 0.8, bond: 0.35, atom: 0.1 }),
+      Object.freeze({ ground: 0.2, bond: 0.58, atom: 0.9 }),
+    ]),
+    // How much the tones may all be shifted together (from -toneShift to toneShift) by the seed: the age of the print.
+    toneShift: 0.04,
+    groundHeight: 0.15,
+    bondHeight: 0.28,
+    atomHeight: 0.45,
+    groundRoughness: 0.7,
+    inkRoughness: 0.4,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -25703,6 +25755,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  octaneisomers: 1,
   linecodes: 1,
   spitransfers: 1,
   rm4sccbarcodes: 1,
