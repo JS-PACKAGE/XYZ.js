@@ -29288,6 +29288,68 @@ var proceduralMaterialPresets = Object.freeze({
 		groundRoughness: .7,
 		inkRoughness: .4
 	}),
+	postnetbarcodes: Object.freeze({
+		dark: [
+			24,
+			24,
+			30
+		],
+		light: [
+			238,
+			232,
+			216
+		],
+		roughness: .55,
+		relief: .003,
+		rows: 6,
+		slots: 64,
+		formats: Object.freeze([
+			5,
+			6,
+			9,
+			11
+		]),
+		codes: Object.freeze([
+			`11000`,
+			`00011`,
+			`00101`,
+			`00110`,
+			`01001`,
+			`01010`,
+			`01100`,
+			`10001`,
+			`10010`,
+			`10100`
+		]),
+		barHalf: .0031,
+		baseShare: .85,
+		tallShare: .55,
+		shortShare: .22,
+		edgeSoft: 6e-4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .92,
+				ink: .12
+			}),
+			Object.freeze({
+				ground: .12,
+				ink: .9
+			}),
+			Object.freeze({
+				ground: .78,
+				ink: .28
+			}),
+			Object.freeze({
+				ground: .22,
+				ink: .7
+			})
+		]),
+		toneShift: .04,
+		groundHeight: .15,
+		inkHeight: .4,
+		groundRoughness: .7,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -37969,6 +38031,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	postnetbarcodes: 1,
 	hamiltoniancycles: 1,
 	i2ctransactions: 1,
 	redblacktrees: 1,

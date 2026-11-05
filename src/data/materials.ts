@@ -18936,6 +18936,51 @@ export const proceduralMaterialPresets = Object.freeze({
     groundRoughness: 0.7,
     inkRoughness: 0.4,
   }),
+  postnetbarcodes: Object.freeze({
+    dark: [24, 24, 30] as const,
+    light: [238, 232, 216] as const,
+    roughness: 0.55,
+    relief: 0.003,
+    // Rows of POSTNET barcodes, the barcode of the United States Postal Service that was used on letters (the Wikipedia article on POSTNET, read for this: a full bar at the start and at the end, each digit as five bars of
+    // which two are full height and the rest half height, the places of the bars standing for the weights 7, 4, 2, 1 and 0 with zero as 11, and a check digit so that the sum of all the digits is a multiple of 10).
+    // codes lists the bars of the digits 0 to 9 as the table of the article has them (1 for a full bar). A row has one of the formats of the article, with 5, 6, 9 or 11 digits and the check digit (32, 37, 52 or 62 bars),
+    // digits of the seed, and starts at a place of the row of slots so that the first and the last slot of the row stay empty. The bars are on a baseline at baseShare of the height of a row, full bars rise by tallShare
+    // of the row and half bars by shortShare (the ratio 5 to 2, which is that of the real bars as I remember them, about 0.125 and 0.05 of an inch; the article I read does not give sizes, so the heights are my choice).
+    // A bar has the half width barHalf (of the tile). The seed picks the surface (the tones of the paper and of the ink, shifted together a little), whether the rows run along the picture or across it, and whether the
+    // bars rise from the baseline or hang from it.
+    rows: 6,
+    slots: 64,
+    formats: Object.freeze([5, 6, 9, 11]),
+    codes: Object.freeze([
+      '11000',
+      '00011',
+      '00101',
+      '00110',
+      '01001',
+      '01010',
+      '01100',
+      '10001',
+      '10010',
+      '10100',
+    ]),
+    barHalf: 0.0031,
+    baseShare: 0.85,
+    tallShare: 0.55,
+    shortShare: 0.22,
+    edgeSoft: 0.0006,
+    surfaces: Object.freeze([
+      Object.freeze({ ground: 0.92, ink: 0.12 }),
+      Object.freeze({ ground: 0.12, ink: 0.9 }),
+      Object.freeze({ ground: 0.78, ink: 0.28 }),
+      Object.freeze({ ground: 0.22, ink: 0.7 }),
+    ]),
+    // How much the tones may all be shifted together (from -toneShift to toneShift) by the seed: the age of the print.
+    toneShift: 0.04,
+    groundHeight: 0.15,
+    inkHeight: 0.4,
+    groundRoughness: 0.7,
+    inkRoughness: 0.4,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -25428,6 +25473,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  postnetbarcodes: 1,
   hamiltoniancycles: 1,
   i2ctransactions: 1,
   redblacktrees: 1,

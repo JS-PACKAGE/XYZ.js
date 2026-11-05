@@ -85329,3 +85329,482 @@ describe('hamiltoniancycles: a closed line through every vertex of a square grid
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('postnetbarcodes: rows of POSTNET barcodes (a full bar at each end, five bars for a digit with two full bars, a check digit that makes the sum of the digits a multiple of 10), along or across the picture, rising from the baseline or hanging from it, by the seed', () => {
+  const p = proceduralMaterialPresets.postnetbarcodes,
+    out = empty(),
+    rows = p.rows,
+    slots = p.slots,
+    half = p.barHalf;
+  const toneAt = (
+    sample: Sampler,
+    x: number,
+    y: number,
+    across: boolean,
+  ): number => {
+    // A place in tile units in the picture as it is drawn (the slots along x, the rows along y), as a place on the picture.
+    sample(across ? y : x, across ? x : y, out);
+    return out.color;
+  };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    blend = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  type Barcode = {
+    digits: number[];
+    format: number;
+    first: number;
+    length: number;
+  };
+  // The reader of a row of bars (0 none, 1 half height, 2 full height), written out here from the Wikipedia article on POSTNET: a full bar at each end, a digit as five bars of which exactly two are full with the weights 7, 4, 2, 1
+  // and 0 from left to right (a value of 11 for the full bars at the weights 7 and 4 is the digit 0), and the digits, with the last one the check digit, adding up to a multiple of 10. It gives null where the row breaks that.
+  const read = (bars: number[]): Barcode | null => {
+    const first = bars.findIndex((bar) => bar > 0),
+      last = bars.length - 1 - [...bars].reverse().findIndex((bar) => bar > 0);
+    if (first < 1 || last > slots - 2) return null;
+    const run = bars.slice(first, last + 1);
+    if (run.some((bar) => bar === 0)) return null;
+    if (run[0] !== 2 || run[run.length - 1] !== 2) return null;
+    const inner = run.slice(1, -1);
+    if (inner.length % 5 !== 0) return null;
+    const digits: number[] = [],
+      weights = [7, 4, 2, 1, 0];
+    for (let k = 0; k < inner.length; k += 5) {
+      const group = inner.slice(k, k + 5);
+      if (group.filter((bar) => bar === 2).length !== 2) return null;
+      const value = group.reduce(
+        (total, bar, i) => total + (bar === 2 ? weights[i] : 0),
+        0,
+      );
+      digits.push(value === 11 ? 0 : value);
+    }
+    if (digits.some((digit) => digit > 9)) return null;
+    if (digits.reduce((total, digit) => total + digit, 0) % 10 !== 0)
+      return null;
+    return { digits, format: digits.length - 1, first, length: run.length };
+  };
+  type Reading = {
+    across: boolean;
+    hanging: boolean;
+    surface: number;
+    shift: number;
+    tones: { ground: number; ink: number };
+    bars: number[][];
+    codes: Barcode[];
+  };
+  // The place of a row (in tile units along y) at a share of the way from the baseline side of the row.
+  const rowY = (row: number, share: number, hanging: boolean): number =>
+    (row + (hanging ? 1 - share : share)) / rows;
+  const tall = p.baseShare - p.tallShare,
+    short = p.baseShare - p.shortShare;
+  const readings = (sample: Sampler): Reading[] => {
+    const options: Reading[] = [];
+    for (const across of [false, true])
+      for (const hanging of [false, true]) {
+        const tone = (x: number, y: number): number =>
+            toneAt(sample, x, y, across),
+          ground = tone(0, 0);
+        p.surfaces.forEach((surface, index) => {
+          const shift = ground - surface.ground,
+            ink = surface.ink + shift;
+          if (Math.abs(shift) > p.toneShift + 1e-9) return;
+          const bars: number[][] = [];
+          let valid = true;
+          for (let row = 0; row < rows && valid; row++) {
+            const line: number[] = [];
+            for (let slot = 0; slot < slots && valid; slot++) {
+              const x = (slot + 0.5) / slots,
+                at = (share: number): number =>
+                  tone(x, rowY(row, share, hanging)),
+                isInk = (share: number): boolean =>
+                  Math.abs(at(share) - ink) < 1e-6,
+                isGround = (share: number): boolean =>
+                  Math.abs(at(share) - ground) < 1e-6,
+                shortInk = isInk(p.baseShare - p.shortShare / 2),
+                middleInk = isInk((tall + short) / 2),
+                tallInk = isInk(p.baseShare - p.tallShare / 2);
+              // Ground above the full bars and below the baseline; between the tops of the full and the half bars there is ink only in a full bar; where there is no bar there is no ink.
+              if (!isGround(tall - 0.1) || !isGround(p.baseShare + 0.07))
+                valid = false;
+              if (shortInk) {
+                if (tallInk !== middleInk) valid = false;
+                line.push(tallInk ? 2 : 1);
+              } else {
+                if (tallInk || middleInk) valid = false;
+                line.push(0);
+              }
+            }
+            bars.push(line);
+          }
+          if (!valid) return;
+          const codes: Barcode[] = [];
+          for (const line of bars) {
+            const code = read(line);
+            if (code === null) return;
+            codes.push(code);
+          }
+          options.push({
+            across,
+            hanging,
+            surface: index,
+            shift,
+            tones: { ground, ink },
+            bars,
+            codes,
+          });
+        });
+      }
+    return options;
+  };
+  const readSurface = (sample: Sampler): Reading => {
+    const options = readings(sample);
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+  // The model of the picture: ink inside a bar, else ground (in tile units, x along the slots, y along the rows).
+  const inked = (r: Reading, x: number, y: number): boolean => {
+    const gy = y * rows,
+      row = Math.floor(gy),
+      along = r.hanging ? 1 - (gy - row) : gy - row,
+      slot = Math.floor(x * slots),
+      bar = r.bars[row][slot];
+    if (bar === 0) return false;
+    return (
+      Math.abs(x - (slot + 0.5) / slots) <= half &&
+      along >= p.baseShare - (bar === 2 ? p.tallShare : p.shortShare) &&
+      along <= p.baseShare
+    );
+  };
+  const nearEdge = (
+    r: Reading,
+    x: number,
+    y: number,
+    within: number,
+  ): boolean => {
+    const gy = y * rows,
+      along = r.hanging ? 1 - (gy - Math.floor(gy)) : gy - Math.floor(gy),
+      dx = Math.abs(x - (Math.floor(x * slots) + 0.5) / slots);
+    return (
+      Math.abs(dx - half) < within ||
+      Math.abs(along - tall) / rows < within ||
+      Math.abs(along - short) / rows < within ||
+      Math.abs(along - p.baseShare) / rows < within
+    );
+  };
+
+  it('draws a full bar at each end, digits of five bars with two full bars and the weights 7, 4, 2, 1, 0, and a check digit so that the digits add up to a multiple of 10, in every row, in the four formats of 5, 6, 9 and 11 digits (32, 37, 52 and 62 bars), with the first and the last slot of a row empty', () => {
+    const formats = new Map<number, number>(),
+      seen = new Set<string>();
+    for (let seed = 0; seed < 100; seed++) {
+      const reading = readSurface(
+        createSurfaceSampler('postnetbarcodes', seed * 13 + 5),
+      );
+      for (const code of reading.codes) {
+        expect(p.formats).toContain(code.format);
+        expect(code.length).toBe(2 + 5 * (code.format + 1));
+        expect(code.first).toBeGreaterThanOrEqual(1);
+        expect(code.first + code.length - 1).toBeLessThanOrEqual(slots - 2);
+        formats.set(code.format, (formats.get(code.format) ?? 0) + 1);
+        seen.add(code.digits.join(''));
+      }
+    }
+    expect([...formats.keys()].sort((a, b) => a - b)).toEqual([5, 6, 9, 11]);
+    for (const count of formats.values())
+      expect(count).toBeGreaterThan(100 * rows * 0.15);
+    expect(seen.size).toBeGreaterThan(100 * rows * 0.99);
+  });
+
+  it('writes the digits as the table of the article has them: the bars of the digits 0 to 9 are 11000, 00011, 00101, 00110, 01001, 01010, 01100, 10001, 10010, 10100 with a full bar for 1, and the example 55555-1237 has the check digit 2', () => {
+    expect(p.codes).toEqual([
+      '11000',
+      '00011',
+      '00101',
+      '00110',
+      '01001',
+      '01010',
+      '01100',
+      '10001',
+      '10010',
+      '10100',
+    ]);
+    // The example of the article: the data 5555512372 as bars is read back with the same reader.
+    const example = [5, 5, 5, 5, 5, 1, 2, 3, 7, 2],
+      bars = new Array<number>(slots).fill(0);
+    let at = 1;
+    bars[at++] = 2;
+    for (const digit of example)
+      for (const bit of p.codes[digit]) bars[at++] = bit === '1' ? 2 : 1;
+    bars[at] = 2;
+    expect(read(bars)).toEqual({
+      digits: example,
+      format: 9,
+      first: 1,
+      length: 52,
+    });
+    // A broken row is refused: a digit with three full bars, the check digit changed to another digit, and a half bar for a frame bar.
+    const three = [...bars];
+    three[2] = 2;
+    three[3] = 2;
+    three[4] = 2;
+    expect(read(three)).toBeNull();
+    const changed = [...bars];
+    for (let j = 0; j < 5; j++)
+      changed[1 + 1 + 5 * 9 + j] = p.codes[3][j] === '1' ? 2 : 1;
+    expect(read(changed)).toBeNull();
+    const open = [...bars];
+    open[1] = 1;
+    expect(read(open)).toBeNull();
+  });
+
+  it(
+    'puts the tone, the height, the roughness and the occlusion of the model (paper, ink) at every place of the picture away from the edges, for several seeds along and across, rising and hanging',
+    { timeout: 120000 },
+    () => {
+      const seen = new Set<string>();
+      for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
+        const sample = createSurfaceSampler('postnetbarcodes', seed),
+          reading = readSurface(sample);
+        seen.add(`${reading.across}${reading.hanging}`);
+        const o = empty();
+        let compared = 0;
+        for (let iy = 0; iy < 470; iy++)
+          for (let ix = 0; ix < 470; ix++) {
+            const x = (ix + 0.37) * 0.0021,
+              y = (iy + 0.61) * 0.0021;
+            if (nearEdge(reading, x, y, 0.0008)) continue;
+            sample(reading.across ? y : x, reading.across ? x : y, o);
+            const ink = inked(reading, x, y);
+            expect(o.color).toBeCloseTo(
+              ink ? reading.tones.ink : reading.tones.ground,
+              6,
+            );
+            expect(o.height / p.relief).toBeCloseTo(
+              ink ? p.inkHeight : p.groundHeight,
+              6,
+            );
+            expect(o.roughness).toBeCloseTo(
+              ink ? p.inkRoughness : p.groundRoughness,
+              6,
+            );
+            expect(o.occlusion).toBe(1);
+            compared++;
+          }
+        expect(compared).toBeGreaterThan(120000);
+      }
+      expect(seen.size).toBe(4);
+    },
+  );
+
+  it('puts the sides, the tops and the bottoms of the bars where the model puts them: just inside and just outside by 0.0004 of a tile, exactly, and softens them over edgeSoft (checked at a quarter of it, for the tone, the height and the roughness)', () => {
+    const delta = 0.0004,
+      quarter = 0.25 * p.edgeSoft;
+    let tested = 0;
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const sample = createSurfaceSampler('postnetbarcodes', seed),
+        reading = readSurface(sample),
+        { across, hanging, tones } = reading,
+        tone = (x: number, y: number): number => toneAt(sample, x, y, across);
+      for (let row = 0; row < rows; row++) {
+        const line = reading.bars[row];
+        let count = 0;
+        for (let slot = 1; slot < slots - 1 && count < 8; slot++) {
+          if (line[slot] === 0) continue;
+          count++;
+          const x = (slot + 0.5) / slots,
+            top = line[slot] === 2 ? tall : short,
+            middle = rowY(row, (top + p.baseShare) / 2, hanging),
+            at = (share: number): number => rowY(row, share, hanging);
+          // The two sides at the middle of the bar, exactly and at a quarter of the soft width.
+          close(tone(x + half - delta, middle), tones.ink);
+          close(tone(x + half + delta, middle), tones.ground);
+          close(tone(x - half + delta, middle), tones.ink);
+          close(tone(x - half - delta, middle), tones.ground);
+          close(
+            tone(x + half - quarter, middle),
+            blend(tones.ground, tones.ink, 0.75),
+          );
+          close(
+            tone(x + half + quarter, middle),
+            blend(tones.ground, tones.ink, 0.25),
+          );
+          close(
+            tone(x - half + quarter, middle),
+            blend(tones.ground, tones.ink, 0.75),
+          );
+          close(
+            tone(x - half - quarter, middle),
+            blend(tones.ground, tones.ink, 0.25),
+          );
+          // The top and the bottom (the baseline) in the middle of the bar.
+          close(tone(x, at(top + delta * rows)), tones.ink);
+          close(tone(x, at(top - delta * rows)), tones.ground);
+          close(tone(x, at(p.baseShare - delta * rows)), tones.ink);
+          close(tone(x, at(p.baseShare + delta * rows)), tones.ground);
+          close(
+            tone(x, at(top + quarter * rows)),
+            blend(tones.ground, tones.ink, 0.75),
+          );
+          close(
+            tone(x, at(top - quarter * rows)),
+            blend(tones.ground, tones.ink, 0.25),
+          );
+          close(
+            tone(x, at(p.baseShare - quarter * rows)),
+            blend(tones.ground, tones.ink, 0.75),
+          );
+          close(
+            tone(x, at(p.baseShare + quarter * rows)),
+            blend(tones.ground, tones.ink, 0.25),
+          );
+          // The height and the roughness are softened the same way as the tone, at a quarter of the soft width inside and outside the side of the bar.
+          for (const [offset, amount] of [
+            [half - quarter, 0.75],
+            [half + quarter, 0.25],
+          ] as const) {
+            sample(
+              across ? middle : x + offset,
+              across ? x + offset : middle,
+              out,
+            );
+            expect(out.height / p.relief).toBeCloseTo(
+              blend(p.groundHeight, p.inkHeight, amount),
+              4,
+            );
+            expect(out.roughness).toBeCloseTo(
+              blend(p.groundRoughness, p.inkRoughness, amount),
+              4,
+            );
+          }
+          tested++;
+        }
+      }
+    }
+    expect(tested).toBeGreaterThan(250);
+  });
+
+  it('gives the paper and the ink their heights and roughnesses, and full occlusion', () => {
+    for (const seed of [1, 2, 3, 4]) {
+      const sample = createSurfaceSampler('postnetbarcodes', seed),
+        { across, hanging, bars } = readSurface(sample),
+        value = (x: number, y: number): [number, number, number] => {
+          sample(across ? y : x, across ? x : y, out);
+          return [out.height / p.relief, out.roughness, out.occlusion];
+        },
+        slot = bars[2].findIndex((bar) => bar === 2),
+        [paperHeight, paperRoughness, paperOcclusion] = value(0, 0.5 / rows),
+        [inkHeight, inkRoughness, inkOcclusion] = value(
+          (slot + 0.5) / slots,
+          rowY(2, p.baseShare - 0.01, hanging),
+        );
+      expect(paperHeight).toBeCloseTo(p.groundHeight, 6);
+      expect(inkHeight).toBeCloseTo(p.inkHeight, 6);
+      expect(paperRoughness).toBeCloseTo(p.groundRoughness, 6);
+      expect(inkRoughness).toBeCloseTo(p.inkRoughness, 6);
+      expect([paperOcclusion, inkOcclusion]).toEqual([1, 1]);
+    }
+  });
+
+  it(
+    'uses every surface, both ways round and both baselines over 1000 seeds, about equally often, with the four formats about equally often, the digits spread over 0 to 9, the barcodes starting at every place there is room for, and the tones shifted over the whole range',
+    { timeout: 120000 },
+    () => {
+      const surfaces = new Map<number, number>(),
+        formats = new Map<number, number>(),
+        starts = new Map<number, Set<number>>(),
+        digitCounts = new Array<number>(10).fill(0),
+        shifts: number[] = [];
+      let acrossCount = 0,
+        hangingCount = 0,
+        digitTotal = 0;
+      for (let seed = 0; seed < 1000; seed++) {
+        const reading = readSurface(
+          createSurfaceSampler('postnetbarcodes', seed * 7 + 1),
+        );
+        shifts.push(reading.shift);
+        surfaces.set(reading.surface, (surfaces.get(reading.surface) ?? 0) + 1);
+        acrossCount += Number(reading.across);
+        hangingCount += Number(reading.hanging);
+        for (const code of reading.codes) {
+          formats.set(code.format, (formats.get(code.format) ?? 0) + 1);
+          starts.set(
+            code.format,
+            (starts.get(code.format) ?? new Set<number>()).add(code.first),
+          );
+          for (const digit of code.digits.slice(0, -1)) {
+            digitCounts[digit]++;
+            digitTotal++;
+          }
+        }
+      }
+      expect(surfaces.size).toBe(p.surfaces.length);
+      for (const count of surfaces.values())
+        expect(Math.abs(count - 250)).toBeLessThan(50);
+      expect(Math.abs(acrossCount / 1000 - 0.5)).toBeLessThan(0.05);
+      expect(Math.abs(hangingCount / 1000 - 0.5)).toBeLessThan(0.05);
+      // 6000 rows over the four formats.
+      for (const format of p.formats)
+        expect(Math.abs((formats.get(format) ?? 0) - 1500)).toBeLessThan(150);
+      for (const format of p.formats)
+        expect([...(starts.get(format) ?? [])].sort((a, b) => a - b)).toEqual(
+          Array.from(
+            { length: slots - (2 + 5 * (format + 1)) - 1 },
+            (_, k) => k + 1,
+          ),
+        );
+      for (const count of digitCounts)
+        expect(Math.abs(count / digitTotal - 0.1)).toBeLessThan(0.01);
+      expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+      expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+      expect(
+        Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+      ).toBeLessThan(p.toneShift * 0.15);
+      for (let quarter = 0; quarter < 4; quarter++)
+        expect(
+          Math.abs(
+            shifts.filter(
+              (shift) =>
+                Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+            ).length - 250,
+          ),
+        ).toBeLessThan(50);
+    },
+  );
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('postnetbarcodes', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('postnetbarcodes', 0),
+      b = createSurfaceSampler('postnetbarcodes', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

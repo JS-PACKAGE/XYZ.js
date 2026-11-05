@@ -711,6 +711,7 @@ try {
     'dcbarreljackfaces',
     'stfiberadapterfaces',
     'to92packagefaces',
+    'postnetbarcodes',
     'hamiltoniancycles',
     'i2ctransactions',
     'redblacktrees',

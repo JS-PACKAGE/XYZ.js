@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'postnetbarcodes',
   'hamiltoniancycles',
   'i2ctransactions',
   'redblacktrees',
@@ -53220,6 +53221,85 @@ export function createSurfaceSampler(
             p.groundRoughness +
               (p.inkRoughness - p.groundRoughness) *
                 Math.max(lineCover, beadCover),
+          );
+          occlusion = 1;
+        };
+      }
+      case 'postnetbarcodes': {
+        const p = proceduralMaterialPresets.postnetbarcodes,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(141, 1, seed ^ 0x350001) * p.surfaces.length)
+            ],
+          across = hash(141, 2, seed ^ 0x350002) < 0.5,
+          hanging = hash(141, 3, seed ^ 0x350003) < 0.5,
+          shift = (hash(141, 4, seed ^ 0x350004) * 2 - 1) * p.toneShift,
+          rows = p.rows,
+          slots = p.slots,
+          // The bar in each slot of each row: 0 none, 1 half height, 2 full height.
+          bars = new Uint8Array(rows * slots);
+        for (let row = 0; row < rows; row++) {
+          const count =
+              p.formats[
+                Math.min(
+                  p.formats.length - 1,
+                  Math.floor(hash(row, 0, seed ^ 0x350005) * p.formats.length),
+                )
+              ],
+            digits: number[] = [];
+          let sum = 0;
+          for (let i = 0; i < count; i++) {
+            digits.push(
+              Math.min(9, Math.floor(hash(row, 1 + i, seed ^ 0x350005) * 10)),
+            );
+            sum += digits[i];
+          }
+          // The check digit makes the sum of all the digits a multiple of 10.
+          digits.push((10 - (sum % 10)) % 10);
+          const length = 2 + 5 * digits.length,
+            first =
+              1 +
+              Math.min(
+                slots - length - 2,
+                Math.floor(
+                  hash(row, 20, seed ^ 0x350005) * (slots - length - 1),
+                ),
+              );
+          bars[row * slots + first] = 2;
+          digits.forEach((digit, k) => {
+            for (let j = 0; j < 5; j++)
+              bars[row * slots + first + 1 + 5 * k + j] =
+                p.codes[digit][j] === '1' ? 2 : 1;
+          });
+          bars[row * slots + first + length - 1] = 2;
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            x = across ? fv : fu,
+            gy = (across ? fu : fv) * rows,
+            row = Math.floor(gy),
+            along = hanging ? 1 - (gy - row) : gy - row,
+            slot = Math.floor(x * slots),
+            bar = bars[row * slots + slot];
+          let inside = -1;
+          if (bar > 0)
+            inside = Math.min(
+              p.barHalf - Math.abs(x - (slot + 0.5) / slots),
+              (along -
+                (p.baseShare - (bar === 2 ? p.tallShare : p.shortShare))) /
+                rows,
+              (p.baseShare - along) / rows,
+            );
+          const ink = cover(inside),
+            ground = surface.ground + shift;
+          color = clamp(ground + (surface.ink + shift - ground) * ink);
+          height = clamp(p.groundHeight + (p.inkHeight - p.groundHeight) * ink);
+          roughness = clamp(
+            p.groundRoughness + (p.inkRoughness - p.groundRoughness) * ink,
           );
           occlusion = 1;
         };
