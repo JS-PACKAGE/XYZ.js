@@ -1166,6 +1166,7 @@ export type ProceduralMaterialKind =
   | 'kneser'
   | 'debruijntorus'
   | 'mondrianpartitions'
+  | 'langfordpairings'
   | 'dominotiling'
   | 'sandpileidentity'
   | 'multiplicativeorder'
@@ -2580,6 +2581,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'kneser',
   'debruijntorus',
   'mondrianpartitions',
+  'langfordpairings',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',

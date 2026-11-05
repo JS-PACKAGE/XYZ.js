@@ -19443,6 +19443,35 @@ export const proceduralMaterialPresets = Object.freeze({
     heightSwing: 0.6,
     gapOcclusion: 0.5,
   }),
+  langfordpairings: Object.freeze({
+    dark: [4, 22, 18] as const,
+    light: [150, 245, 215] as const,
+    roughness: 0.4,
+    relief: 0.0012,
+    seedSalt: 0x2f9d,
+    // Sequences of 2 orders[variant] places in which every number from 1 to orders[variant] stands twice, the two ends of the number k having k numbers between them (a Langford pairing, skolem[variant] 0: the places of the ends differ by k + 1) or being k places apart (a Skolem sequence, skolem[variant] 1). The panels are the sequences in the lexicographic order, every one of them (limit[variant] 0) or only the first limit[variant]; a panel is a row of 2 orders bars, the tone and the height of a bar following its number. The seed is split in two: seed % 6 picks the variant and floor(seed / 6) the group, whose bit 1 puts the panels in the reverse order and bit 2 reads every sequence from its last place (the reverse of a Langford pairing or a Skolem sequence is another one), so seeds 0 to 5 are the six variants in the lexicographic order.
+    orders: [3, 4, 4, 5, 7, 8] as const,
+    skolem: [0, 0, 1, 1, 0, 1] as const,
+    limit: [0, 0, 0, 0, 0, 64] as const,
+    // The panels in columns by rows over the tile (their number is the number of sequences shown).
+    columns: [1, 1, 2, 2, 4, 8] as const,
+    rows: [2, 2, 3, 5, 13, 8] as const,
+    // The margin on each side of a panel (a fraction of its width), the gap on each side of a bar (a fraction of its width, per variant), the gap above and below a bar (a fraction of the height of a panel) and the smoothing of the edges (a fraction of the same).
+    margin: 0.03,
+    gapX: [0.12, 0.12, 0.12, 0.12, 0.12, 0.2] as const,
+    gapY: 0.07,
+    edgeSoft: 0.04,
+    grainCells: 128,
+    toneGround: 0.03,
+    toneMin: 0.22,
+    toneMax: 0.95,
+    grainTone: 0.03,
+    cellHeight: 0.8,
+    // The height of a bar is cellHeight times (heightBase + heightSwing times its number level from 0 to 1).
+    heightBase: 0.35,
+    heightSwing: 0.65,
+    gapOcclusion: 0.5,
+  }),
   vermiculation: Object.freeze({
     dark: [60, 48, 36] as const,
     light: [220, 204, 172] as const,
@@ -21272,6 +21301,7 @@ export const proceduralTileMeters = Object.freeze({
   kneser: 0.5,
   debruijntorus: 0.5,
   mondrianpartitions: 0.5,
+  langfordpairings: 0.5,
   dominotiling: 0.5,
   vermiculation: 0.4,
   kikko: 0.3,

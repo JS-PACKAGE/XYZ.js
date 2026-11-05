@@ -1229,6 +1229,7 @@ try {
     'kneser',
     'debruijntorus',
     'mondrianpartitions',
+    'langfordpairings',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',

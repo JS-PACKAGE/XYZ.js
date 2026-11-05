@@ -56220,6 +56220,104 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'langfordpairings': {
+        const p = proceduralMaterialPresets.langfordpairings,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          variant = unsigned % p.orders.length,
+          group = Math.floor(unsigned / p.orders.length),
+          n: number = p.orders[variant],
+          skolem = p.skolem[variant] === 1,
+          columns: number = p.columns[variant],
+          rows: number = p.rows[variant],
+          gapX: number = p.gapX[variant],
+          length = 2 * n,
+          // Every sequence by the first empty place: it takes the pair of an unused number k, whose
+          // other end is k + 1 places on (a Langford pairing) or k places on (a Skolem sequence).
+          sequences = (() => {
+            const found: number[][] = [],
+              seq = new Array<number>(length).fill(0),
+              used = new Array<boolean>(n + 1).fill(false),
+              fill = (from: number): void => {
+                let at = from;
+                while (at < length && seq[at] !== 0) at++;
+                if (at === length) {
+                  found.push(seq.slice());
+                  return;
+                }
+                for (let k = 1; k <= n; k++) {
+                  const to = at + (skolem ? k : k + 1);
+                  if (used[k] || to >= length || seq[to] !== 0) continue;
+                  used[k] = true;
+                  seq[at] = k;
+                  seq[to] = k;
+                  fill(at + 1);
+                  seq[at] = 0;
+                  seq[to] = 0;
+                  used[k] = false;
+                }
+              };
+            fill(0);
+            found.sort((a, b) => {
+              for (let i = 0; i < length; i++)
+                if (a[i] !== b[i]) return a[i] - b[i];
+              return 0;
+            });
+            return p.limit[variant] > 0
+              ? found.slice(0, p.limit[variant])
+              : found;
+          })(),
+          panels = sequences.length,
+          reverseOrder = (group & 1) === 1,
+          mirror = (group & 2) === 2;
+        return () => {
+          const x = fract(u) * columns,
+            y = fract(v) * rows,
+            column = Math.floor(x),
+            row = Math.floor(y),
+            panelY = y - row,
+            bar = ((x - column - p.margin) / (1 - 2 * p.margin)) * length,
+            index = row * columns + column,
+            // The ink of a bar: across it, and from the top to the bottom of the panel.
+            across =
+              bar < 0 || bar >= length
+                ? 0
+                : smooth(
+                    clamp(
+                      (Math.min(
+                        bar - Math.floor(bar),
+                        1 - (bar - Math.floor(bar)),
+                      ) -
+                        gapX) /
+                        p.edgeSoft +
+                        0.5,
+                    ),
+                  ),
+            along = smooth(
+              clamp((Math.min(panelY, 1 - panelY) - p.gapY) / p.edgeSoft + 0.5),
+            ),
+            mask = across * along,
+            place = Math.min(length - 1, Math.max(0, Math.floor(bar))),
+            number =
+              sequences[reverseOrder ? panels - 1 - index : index][
+                mirror ? length - 1 - place : place
+              ],
+            level = (number - 1) / (n - 1),
+            tone = p.toneMin + (p.toneMax - p.toneMin) * level,
+            grain = grainField(u, v);
+          color =
+            p.toneGround * (1 - mask) +
+            tone * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * (p.heightBase + p.heightSwing * level);
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -65186,6 +65284,7 @@ export function createSurfaceSampler(
     kind === 'kneser' ||
     kind === 'debruijntorus' ||
     kind === 'mondrianpartitions' ||
+    kind === 'langfordpairings' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

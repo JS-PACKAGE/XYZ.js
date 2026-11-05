@@ -1192,6 +1192,7 @@ const kinds: ProceduralMaterialKind[] = [
   'kneser',
   'debruijntorus',
   'mondrianpartitions',
+  'langfordpairings',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -211576,6 +211577,328 @@ describe('Mondrian partitions as a square cut into rectangles no two alike', () 
     expect(blue / (512 * 512)).toBeLessThan(157.3);
     expect(maxTilt).toBeGreaterThan(0.0499);
     expect(maxTilt).toBeLessThan(0.05);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Langford pairings as every sequence with its pairs the right number of places apart', () => {
+  const p = proceduralMaterialPresets.langfordpairings;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  /** Every Langford pairing (the two ends of k are k + 1 places apart) or Skolem sequence (k places apart) of an order, found number by number from the greatest down, trying every place for the first end; in the lexicographic order. */
+  const allSequences = (n: number, skolem: boolean): number[][] => {
+    const length = 2 * n,
+      found: number[][] = [],
+      seq = new Array<number>(length).fill(0),
+      put = (k: number): void => {
+        if (k === 0) {
+          found.push(seq.slice());
+          return;
+        }
+        const distance = skolem ? k : k + 1;
+        for (let at = 0; at + distance < length; at++)
+          if (seq[at] === 0 && seq[at + distance] === 0) {
+            seq[at] = k;
+            seq[at + distance] = k;
+            put(k - 1);
+            seq[at] = 0;
+            seq[at + distance] = 0;
+          }
+      };
+    put(n);
+    return found.sort((a, b) => {
+      for (let i = 0; i < length; i++) if (a[i] !== b[i]) return a[i] - b[i];
+      return 0;
+    });
+  };
+  /** The sequences the picture of a seed should show, in the order of the panels: the first ones of the lexicographic order, in the reverse order for the bit 1 of the group and each one read from its last place for the bit 2. */
+  const expectedPanels = (seed: number): number[][] => {
+    const variant = seed % p.orders.length,
+      group = Math.floor(seed / p.orders.length);
+    let shown = allSequences(p.orders[variant], p.skolem[variant] === 1);
+    if (p.limit[variant] > 0) shown = shown.slice(0, p.limit[variant]);
+    if (group & 1) shown = shown.reverse();
+    if (group & 2) shown = shown.map((s) => s.slice().reverse());
+    return shown;
+  };
+  /** The sequences as the picture shows them, read back at the middle of every bar (the height gives the number), panel by panel, row by row. */
+  const readPanels = (seed: number): number[][] => {
+    const variant = seed % p.orders.length,
+      n: number = p.orders[variant],
+      columns: number = p.columns[variant],
+      rows: number = p.rows[variant],
+      sample = createSurfaceSampler('langfordpairings', seed),
+      out = empty(),
+      panels: number[][] = [];
+    for (let row = 0; row < rows; row++)
+      for (let column = 0; column < columns; column++) {
+        const sequence: number[] = [];
+        for (let i = 0; i < 2 * n; i++) {
+          sample(
+            (column + p.margin + ((1 - 2 * p.margin) * (i + 0.5)) / (2 * n)) /
+              columns,
+            (row + 0.5) / rows,
+            out,
+          );
+          const level =
+            (out.height / p.relief / p.cellHeight - p.heightBase) /
+            p.heightSwing;
+          const number = 1 + level * (n - 1);
+          expect(Math.abs(number - Math.round(number))).toBeLessThan(1e-6);
+          sequence.push(Math.round(number));
+        }
+        panels.push(sequence);
+      }
+    return panels;
+  };
+  /** The grid of 256 by 256 colours above 0.75 (the bars of the greatest numbers), for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('langfordpairings', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.75));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { high: 0.9641, lit: 0.19775, mean: 0.37111 }],
+      [1, { high: 0.9644, lit: 0.14502, mean: 0.37074 }],
+      [0xffffffff, { high: 0.9645, lit: 0.22203, mean: 0.3797 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('langfordpairings', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0,
+        occlusionLow = 1;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.75);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+        }
+      expect(low).toBeGreaterThan(0.0157);
+      expect(low).toBeLessThan(0.0158);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+      expect(occlusionLow).toBeCloseTo(1 - p.gapOcclusion, 9);
+    }
+  });
+  it('draws the sequences of the lexicographic order, read back at the middle of every bar, for every variant and every group of the order and the mirror', () => {
+    for (let seed = 0; seed < 24; seed++) {
+      const variant = seed % p.orders.length;
+      const panels = readPanels(seed);
+      expect(panels.length).toBe(p.columns[variant] * p.rows[variant]);
+      expect(panels).toEqual(expectedPanels(seed));
+    }
+  });
+  it('shows only sequences whose pairs are the right number of places apart, every one once, and every one of the order or the first 64 of the 504 Skolem sequences of order 8', () => {
+    const totals = [2, 2, 6, 10, 52, 504];
+    for (let seed = 0; seed < 24; seed++) {
+      const variant = seed % p.orders.length,
+        n: number = p.orders[variant],
+        skolem = p.skolem[variant] === 1,
+        panels = readPanels(seed);
+      for (const sequence of panels)
+        for (let k = 1; k <= n; k++) {
+          const places = sequence
+            .map((number, at) => (number === k ? at : -1))
+            .filter((at) => at >= 0);
+          expect(places.length).toBe(2);
+          expect(places[1] - places[0]).toBe(skolem ? k : k + 1);
+        }
+      expect(new Set(panels.map((s) => s.join(','))).size).toBe(panels.length);
+      if (p.limit[variant] === 0) {
+        // Every sequence of the kind: as many as the number of them, and the turned-round one of each is shown too.
+        expect(panels.length).toBe(totals[variant]);
+        const shown = new Set(panels.map((s) => s.join(',')));
+        for (const sequence of panels)
+          expect(shown.has(sequence.slice().reverse().join(','))).toBe(true);
+      } else {
+        expect(allSequences(n, skolem).length).toBe(totals[variant]);
+      }
+    }
+  });
+  it('agrees with the ideal bars away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5, 7, 14, 21]) {
+      const variant = seed % p.orders.length,
+        n: number = p.orders[variant],
+        columns: number = p.columns[variant],
+        rows: number = p.rows[variant],
+        gapX: number = p.gapX[variant],
+        panels = expectedPanels(seed),
+        sample = createSurfaceSampler('langfordpairings', seed),
+        out = empty();
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          x = u * columns,
+          y = v * rows,
+          column = Math.floor(x),
+          row = Math.floor(y),
+          bar = ((x - column - p.margin) / (1 - 2 * p.margin)) * 2 * n,
+          alongEdge = Math.min(y - row, 1 - (y - row)) - p.gapY;
+        let ink = 0,
+          number = 1;
+        if (bar >= 0 && bar < 2 * n) {
+          const acrossEdge =
+            Math.min(bar - Math.floor(bar), 1 - (bar - Math.floor(bar))) - gapX;
+          // The ink is 1 more than half the smoothing inside the gap on both axes, 0 more than half of it outside on either, and not compared in between.
+          if (Math.abs(acrossEdge) < p.edgeSoft / 2) continue;
+          if (Math.abs(alongEdge) < p.edgeSoft / 2) continue;
+          ink = acrossEdge > 0 && alongEdge > 0 ? 1 : 0;
+          number = panels[row * columns + column][Math.floor(bar)];
+        } else if (Math.abs(alongEdge) < p.edgeSoft / 2) {
+          continue;
+        }
+        const level = (number - 1) / (n - 1),
+          tone = p.toneMin + (p.toneMax - p.toneMin) * level;
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief *
+            p.cellHeight *
+            ink *
+            (p.heightBase + p.heightSwing * level),
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(5000);
+  });
+  it('draws a different view per variant and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeCloseTo(0.1318359375, 8);
+    expect(unlike(first, litGrid(6))).toBeCloseTo(0.3955078125, 8);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('langfordpairings', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 mint Langford pairing maps on dark green with raised bars and shaded gaps', () => {
+    const maps = generateProceduralMaps('langfordpairings', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 125 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(57.6);
+    expect(red / (512 * 512)).toBeLessThan(58.7);
+    expect(green / (512 * 512)).toBeGreaterThan(104.2);
+    expect(green / (512 * 512)).toBeLessThan(105.2);
+    expect(blue / (512 * 512)).toBeGreaterThan(90.6);
+    expect(blue / (512 * 512)).toBeLessThan(91.6);
+    expect(maxTilt).toBeGreaterThan(0.0535);
+    expect(maxTilt).toBeLessThan(0.0536);
     expect(invalid).toBe(0);
   });
 });
