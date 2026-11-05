@@ -423,55 +423,30 @@ export class Geometry {
     positive(radius, 'Sphere radius');
     segments(widthSegments, 3, 'Sphere widthSegments');
     segments(heightSegments, 2, 'Sphere heightSegments');
-    const count = (widthSegments + 1) * (heightSegments + 1);
-    // Keep authored doubles until the constructor performs its Float32 validation.
-    const positions = new Float64Array(count * 3);
-    const normals = new Float64Array(count * 3);
-    const uvs = new Float64Array(count * 2);
-    const indices = new Float64Array(widthSegments * (heightSegments - 1) * 6);
-    const sinPhi = new Float64Array(widthSegments + 1);
-    const cosPhi = new Float64Array(widthSegments + 1);
-    for (let x = 0; x <= widthSegments; x++) {
-      const phi = (2 * Math.PI * x) / widthSegments;
-      sinPhi[x] = Math.sin(phi);
-      cosPhi[x] = Math.cos(phi);
-    }
-    let vertex = 0;
+    const positions: number[] = [];
+    const normals: number[] = [];
+    const uvs: number[] = [];
+    const indices: number[] = [];
     for (let y = 0; y <= heightSegments; y++) {
       const theta = (Math.PI * y) / heightSegments;
       const sinTheta = Math.sin(theta);
       const cosTheta = Math.cos(theta);
       for (let x = 0; x <= widthSegments; x++) {
-        const nx = sinTheta * cosPhi[x];
-        const nz = sinTheta * sinPhi[x];
-        const position = vertex * 3;
-        positions[position] = radius * nx;
-        positions[position + 1] = radius * cosTheta;
-        positions[position + 2] = radius * nz;
-        normals[position] = nx;
-        normals[position + 1] = cosTheta;
-        normals[position + 2] = nz;
-        uvs[vertex * 2] = x / widthSegments;
-        uvs[vertex * 2 + 1] = y / heightSegments;
-        vertex++;
+        const phi = (2 * Math.PI * x) / widthSegments;
+        const nx = sinTheta * Math.cos(phi);
+        const nz = sinTheta * Math.sin(phi);
+        positions.push(radius * nx, radius * cosTheta, radius * nz);
+        normals.push(nx, cosTheta, nz);
+        uvs.push(x / widthSegments, y / heightSegments);
       }
     }
     const stride = widthSegments + 1;
-    let index = 0;
     for (let y = 0; y < heightSegments; y++) {
       for (let x = 0; x < widthSegments; x++) {
         const a = y * stride + x;
         const b = a + stride;
-        if (y > 0) {
-          indices[index++] = a;
-          indices[index++] = a + 1;
-          indices[index++] = b + 1;
-        }
-        if (y < heightSegments - 1) {
-          indices[index++] = a;
-          indices[index++] = b + 1;
-          indices[index++] = b;
-        }
+        if (y > 0) indices.push(a, a + 1, b + 1);
+        if (y < heightSegments - 1) indices.push(a, b + 1, b);
       }
     }
     return new Geometry({ positions, normals, uvs, indices });
