@@ -321,7 +321,10 @@ export class AnimationRetargeter {
             i,
             rotation,
           );
-          values.set(rotation, i);
+          values[i] = rotation[0];
+          values[i + 1] = rotation[1];
+          values[i + 2] = rotation[2];
+          values[i + 3] = rotation[3];
         } else if (track.path === 'scale') {
           const ratio = mapping.targetBind.scale / mapping.sourceBind.scale;
           for (let j = 0; j < 3; j++)
