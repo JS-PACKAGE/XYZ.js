@@ -32848,6 +32848,181 @@ var proceduralMaterialPresets = Object.freeze({
 		heightSwing: .6,
 		gapOcclusion: .5
 	}),
+	sortingtraces: Object.freeze({
+		dark: [
+			24,
+			4,
+			10
+		],
+		light: [
+			255,
+			140,
+			160
+		],
+		roughness: .45,
+		relief: .0012,
+		seedSalt: 14801,
+		size: 64,
+		gap: .09,
+		corner: .14,
+		edgeSoft: .07,
+		grainCells: 128,
+		toneGround: .03,
+		toneMin: .2,
+		toneMax: .95,
+		grainTone: .03,
+		cellHeight: .8,
+		heightBase: .3,
+		heightSwing: .7,
+		gapOcclusion: .5
+	}),
+	editdistance: Object.freeze({
+		dark: [
+			2,
+			20,
+			26
+		],
+		light: [
+			130,
+			235,
+			235
+		],
+		roughness: .4,
+		relief: .0012,
+		seedSalt: 24195,
+		pairs: [
+			[`intention`, `execution`],
+			[`recurrence`, `occurrence`],
+			[`ACGTTGCAAGCTTGAC`, `AGCTTGACCAGTTGCA`]
+		],
+		pair: [
+			0,
+			1,
+			2,
+			0,
+			1,
+			2
+		],
+		kinds: [
+			0,
+			0,
+			0,
+			1,
+			1,
+			1
+		],
+		gap: .12,
+		gapPath: .04,
+		corner: .14,
+		edgeSoft: .07,
+		grainCells: 128,
+		toneGround: .03,
+		toneMin: .2,
+		toneMax: .95,
+		grainTone: .03,
+		cellHeight: .8,
+		heightBase: .3,
+		heightSwing: .4,
+		gapOcclusion: .5
+	}),
+	euclideanrhythms: Object.freeze({
+		dark: [
+			30,
+			10,
+			4
+		],
+		light: [
+			255,
+			200,
+			110
+		],
+		roughness: .45,
+		relief: .0012,
+		seedSalt: 19051,
+		steps: [
+			8,
+			12,
+			16,
+			20,
+			24,
+			32
+		],
+		gap: .08,
+		corner: .16,
+		edgeSoft: .07,
+		grainCells: 128,
+		toneGround: .03,
+		toneRest: .12,
+		toneShort: .55,
+		toneLong: .95,
+		grainTone: .03,
+		cellHeight: .8,
+		heightRest: .18,
+		heightShort: .6,
+		heightLong: 1,
+		gapOcclusion: .5
+	}),
+	hanoistates: Object.freeze({
+		dark: [
+			10,
+			24,
+			6
+		],
+		light: [
+			200,
+			255,
+			120
+		],
+		roughness: .45,
+		relief: .0012,
+		seedSalt: 27969,
+		disks: [
+			2,
+			4,
+			6,
+			2,
+			4,
+			6
+		],
+		targets: [
+			2,
+			2,
+			2,
+			1,
+			1,
+			1
+		],
+		columns: [
+			2,
+			4,
+			8,
+			2,
+			4,
+			8
+		],
+		rows: [
+			2,
+			4,
+			8,
+			2,
+			4,
+			8
+		],
+		margin: .06,
+		barLeast: .3,
+		barMost: .8,
+		gapY: .1,
+		edgeSoft: .05,
+		grainCells: 128,
+		toneGround: .03,
+		toneMin: .25,
+		toneMax: .95,
+		grainTone: .03,
+		cellHeight: .8,
+		heightBase: .4,
+		heightSwing: .6,
+		gapOcclusion: .5
+	}),
 	vermiculation: Object.freeze({
 		dark: [
 			60,
@@ -35000,6 +35175,10 @@ var proceduralTileMeters = Object.freeze({
 	mondrianpartitions: .5,
 	langfordpairings: .5,
 	golombrulers: .5,
+	sortingtraces: .5,
+	editdistance: .5,
+	euclideanrhythms: .5,
+	hanoistates: .5,
 	dominotiling: .5,
 	vermiculation: .4,
 	kikko: .3,
