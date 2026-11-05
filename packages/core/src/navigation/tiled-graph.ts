@@ -205,7 +205,17 @@ export class NavigationTiledGraph3D {
       b = this.ids.get(to);
     if (a === undefined || b === undefined)
       throw new RangeError('Unknown tiled endpoint.');
-    return this.edges[a]!.find((edge) => edge.to === b)?.connection;
+    const edges = this.edges[a]!;
+    let low = 0,
+      high = edges.length - 1;
+    while (low <= high) {
+      const middle = (low + high) >>> 1,
+        edge = edges[middle]!;
+      if (edge.to < b) low = middle + 1;
+      else if (edge.to > b) high = middle - 1;
+      else return edge.connection;
+    }
+    return undefined;
   }
   setConnection(
     index: number,
