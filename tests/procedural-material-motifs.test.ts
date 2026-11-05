@@ -85808,3 +85808,504 @@ describe('postnetbarcodes: rows of POSTNET barcodes (a full bar at each end, fiv
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('itfbarcodes: rows of Interleaved 2 of 5 barcodes (a start code of four narrow lines, pairs of digits with the first digit in the five bars and the second in the five spaces, a stop code of a wide bar and two narrow lines), with the wide lines 2, 2.5 or 3 times the narrow ones by the seed, along or across the picture', () => {
+  const p = proceduralMaterialPresets.itfbarcodes,
+    out = empty(),
+    rows = p.rows,
+    module = p.module,
+    // Every line of the picture is a whole number of these (a quarter of a narrow line): the edges are at multiples of two of them.
+    quarter = module / 4,
+    quarters = Math.floor(1 / quarter);
+  const toneAt = (
+    sample: Sampler,
+    x: number,
+    y: number,
+    across: boolean,
+  ): number => {
+    // A place in tile units in the picture as it is drawn (the lines along x, the rows along y), as a place on the picture.
+    sample(across ? y : x, across ? x : y, out);
+    return out.color;
+  };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    blend = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  type Barcode = {
+    digits: number[];
+    wide: number;
+    start: number;
+    widths: number[];
+  };
+  // The reader of the lines of a barcode, written out here from the Wikipedia article on Interleaved 2 of 5: the widths in units of a quarter of a narrow line, bar first. Narrow lines are 4 and wide lines 8, 10 or 12 (2, 2.5 or 3 times).
+  // A start code of four narrow lines, groups of ten lines that are five bars and five spaces, each five with exactly two wide lines and the weights 1, 2, 4, 7, 0 (11 is 0), the first digit of a pair from the bars and the second
+  // from the spaces, and a stop code of a wide bar, a narrow space and a narrow bar. It gives null where the lines break that.
+  const decode = (lengths: number[]): Barcode | null => {
+    const wideLength = Math.max(...lengths),
+      wide = wideLength / 4;
+    if (!p.wides.includes(wide)) return null;
+    if (lengths.some((length) => length !== 4 && length !== wideLength))
+      return null;
+    if (lengths.length < 4 + 20 + 3 || (lengths.length - 7) % 10 !== 0)
+      return null;
+    if (lengths.slice(0, 4).some((length) => length !== 4)) return null;
+    const stop = lengths.slice(-3);
+    if (stop[0] !== wideLength || stop[1] !== 4 || stop[2] !== 4) return null;
+    const body = lengths.slice(4, -3),
+      weights = [1, 2, 4, 7, 0],
+      digits: number[] = [],
+      value = (group: number[]): number | null => {
+        if (group.filter((length) => length === wideLength).length !== 2)
+          return null;
+        const sum = group.reduce(
+          (total, length, i) =>
+            total + (length === wideLength ? weights[i] : 0),
+          0,
+        );
+        return sum === 11 ? 0 : sum;
+      };
+    for (let k = 0; k < body.length; k += 10) {
+      const first = value([0, 2, 4, 6, 8].map((i) => body[k + i])),
+        second = value([1, 3, 5, 7, 9].map((i) => body[k + i]));
+      if (first === null || second === null || first > 9 || second > 9)
+        return null;
+      digits.push(first, second);
+    }
+    return { digits, wide, start: 0, widths: lengths };
+  };
+  type Reading = {
+    across: boolean;
+    surface: number;
+    shift: number;
+    tones: { ground: number; ink: number };
+    codes: Barcode[];
+  };
+  // The edges (tile units) of the lines of a barcode of the digits, from the table of the article: the model of the picture, written from the digits, not from the sampler.
+  const edgesOf = (code: Barcode): number[] => {
+    const widths = [1, 1, 1, 1];
+    for (let k = 0; k < code.digits.length; k += 2) {
+      const bars = p.patterns[code.digits[k]],
+        spaces = p.patterns[code.digits[k + 1]];
+      for (let i = 0; i < 5; i++)
+        widths.push(
+          bars[i] === 'W' ? code.wide : 1,
+          spaces[i] === 'W' ? code.wide : 1,
+        );
+    }
+    widths.push(code.wide, 1, 1);
+    const edges = [code.start * module];
+    for (const width of widths)
+      edges.push(edges[edges.length - 1] + width * module);
+    return edges;
+  };
+  const readings = (sample: Sampler): Reading[] => {
+    const options: Reading[] = [];
+    for (const across of [false, true]) {
+      const tone = (x: number, y: number): number =>
+          toneAt(sample, x, y, across),
+        ground = tone(0, 0);
+      p.surfaces.forEach((surface, index) => {
+        const shift = ground - surface.ground,
+          ink = surface.ink + shift;
+        if (Math.abs(shift) > p.toneShift + 1e-9) return;
+        const codes: Barcode[] = [];
+        for (let row = 0; row < rows; row++) {
+          // The tone at the middle of the quarters along the middle of the row: exactly paper or ink.
+          const inked: boolean[] = [];
+          for (let q = 0; q < quarters; q++) {
+            const value = tone((q + 0.5) * quarter, (row + 0.5) / rows);
+            if (Math.abs(value - ink) < 1e-6) inked.push(true);
+            else if (Math.abs(value - ground) < 1e-6) inked.push(false);
+            else return;
+          }
+          const first = inked.indexOf(true),
+            last = inked.lastIndexOf(true);
+          if (first < 4 * p.quiet) return;
+          const lengths: number[] = [];
+          let run = 1;
+          for (let q = first + 1; q <= last; q++)
+            if (inked[q] === inked[q - 1]) run++;
+            else {
+              lengths.push(run);
+              run = 1;
+            }
+          lengths.push(run);
+          const code = decode(lengths);
+          if (code === null) return;
+          // The quiet zones: at least quiet narrow lines before and after (the edge after the last bar is at (last + 1) quarters).
+          if (
+            first % 4 !== 0 ||
+            (last + 1) * quarter > 1 - p.quiet * module + 1e-9
+          )
+            return;
+          code.start = first / 4;
+          codes.push(code);
+        }
+        options.push({
+          across,
+          surface: index,
+          shift,
+          tones: { ground, ink },
+          codes,
+        });
+      });
+    }
+    return options;
+  };
+  const readSurface = (sample: Sampler): Reading => {
+    const options = readings(sample);
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+  // The model of the picture: ink inside a bar between top and bottom (in tile units, x along the lines, y along the rows).
+  const inked = (r: Reading, x: number, y: number): boolean => {
+    const gy = y * rows,
+      row = Math.floor(gy),
+      along = gy - row,
+      edges = edgesOf(r.codes[row]);
+    if (along < p.top || along > p.bottom) return false;
+    for (let i = 0; i < edges.length - 1; i += 2)
+      if (x >= edges[i] && x <= edges[i + 1]) return true;
+    return false;
+  };
+  const nearEdge = (
+    r: Reading,
+    x: number,
+    y: number,
+    within: number,
+  ): boolean => {
+    const gy = y * rows,
+      row = Math.floor(gy),
+      along = gy - row;
+    if (
+      Math.abs(along - p.top) / rows < within ||
+      Math.abs(along - p.bottom) / rows < within
+    )
+      return true;
+    return edgesOf(r.codes[row]).some((edge) => Math.abs(x - edge) < within);
+  };
+
+  it('draws the start code, two to six pairs of digits (four to twelve digits) and the stop code in every row, with the wide lines 2, 2.5 and 3 times the narrow ones, at least ten narrow lines of quiet zone on both sides', () => {
+    const pairs = new Set<number>(),
+      wides = new Set<number>(),
+      seen = new Set<string>();
+    for (let seed = 0; seed < 100; seed++) {
+      const reading = readSurface(
+        createSurfaceSampler('itfbarcodes', seed * 13 + 5),
+      );
+      for (const code of reading.codes) {
+        expect(code.digits.length % 2).toBe(0);
+        expect(code.digits.length).toBeGreaterThanOrEqual(4);
+        expect(code.digits.length).toBeLessThanOrEqual(12);
+        expect(code.start).toBeGreaterThanOrEqual(p.quiet);
+        pairs.add(code.digits.length / 2);
+        wides.add(code.wide);
+        seen.add(`${code.wide} ${code.digits.join('')}`);
+      }
+    }
+    expect([...pairs].sort((a, b) => a - b)).toEqual([2, 3, 4, 5, 6]);
+    expect([...wides].sort((a, b) => a - b)).toEqual([2, 2.5, 3]);
+    expect(seen.size).toBeGreaterThan(100 * rows * 0.99);
+  });
+
+  it('writes the digits as the table of the article has them, with the example of its figure (the pair 12 as bars WnnnW and spaces nWnnW, the pair 95 as bars nWnWn and spaces WnWnn), and refuses a broken barcode', () => {
+    expect(p.patterns).toEqual([
+      'nnWWn',
+      'WnnnW',
+      'nWnnW',
+      'WWnnn',
+      'nnWnW',
+      'WnWnn',
+      'nWWnn',
+      'nnnWW',
+      'WnnWn',
+      'nWnWn',
+    ]);
+    // Lines in quarters of a narrow line for the digits 1 2 9 5 with the wide lines 2.5 times: the start code, the bars WnnnW and the spaces nWnnW interleaved, the bars nWnWn and the spaces WnWnn, the stop code.
+    const interleave = (bars: string, spaces: string): number[] =>
+      [...bars].flatMap((bar, i) => [
+        bar === 'W' ? 10 : 4,
+        spaces[i] === 'W' ? 10 : 4,
+      ]);
+    const lengths = [
+      4,
+      4,
+      4,
+      4,
+      ...interleave('WnnnW', 'nWnnW'),
+      ...interleave('nWnWn', 'WnWnn'),
+      10,
+      4,
+      4,
+    ];
+    expect(decode(lengths)).toEqual({
+      digits: [1, 2, 9, 5],
+      wide: 2.5,
+      start: 0,
+      widths: lengths,
+    });
+    // Refused: a start code with a wide line, a stop code that is not a wide bar, a digit with three wide lines, a width that is not narrow or wide, and an odd number of lines.
+    expect(decode([10, ...lengths.slice(1)])).toBeNull();
+    expect(decode([...lengths.slice(0, -3), 4, 4, 4])).toBeNull();
+    const three = [...lengths];
+    three[4] = 10;
+    three[6] = 10;
+    three[8] = 10;
+    expect(decode(three)).toBeNull();
+    expect(decode([...lengths.slice(0, 5), 6, ...lengths.slice(6)])).toBeNull();
+    expect(decode(lengths.slice(0, -1))).toBeNull();
+  });
+
+  it(
+    'puts the tone, the height, the roughness and the occlusion of the model (paper, ink) at every place of the picture away from the edges, for several seeds along and across',
+    { timeout: 120000 },
+    () => {
+      const seen = new Set<string>();
+      for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
+        const sample = createSurfaceSampler('itfbarcodes', seed),
+          reading = readSurface(sample);
+        seen.add(`${reading.across}`);
+        const o = empty();
+        let compared = 0;
+        for (let iy = 0; iy < 470; iy++)
+          for (let ix = 0; ix < 470; ix++) {
+            const x = (ix + 0.37) * 0.0021,
+              y = (iy + 0.61) * 0.0021;
+            if (nearEdge(reading, x, y, 0.0008)) continue;
+            sample(reading.across ? y : x, reading.across ? x : y, o);
+            const ink = inked(reading, x, y);
+            expect(o.color).toBeCloseTo(
+              ink ? reading.tones.ink : reading.tones.ground,
+              6,
+            );
+            expect(o.height / p.relief).toBeCloseTo(
+              ink ? p.inkHeight : p.groundHeight,
+              6,
+            );
+            expect(o.roughness).toBeCloseTo(
+              ink ? p.inkRoughness : p.groundRoughness,
+              6,
+            );
+            expect(o.occlusion).toBe(1);
+            compared++;
+          }
+        expect(compared).toBeGreaterThan(120000);
+      }
+      expect(seen.size).toBe(2);
+    },
+  );
+
+  it('puts the edges of the lines, and the top and the bottom of the bars, where the model puts them: just inside and just outside by 0.0004 of a tile, exactly, and softens them over edgeSoft (checked at a quarter of it, for the tone, the height and the roughness)', () => {
+    const delta = 0.0004,
+      soft = 0.25 * p.edgeSoft;
+    let tested = 0;
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const sample = createSurfaceSampler('itfbarcodes', seed),
+        reading = readSurface(sample),
+        { across, tones } = reading,
+        tone = (x: number, y: number): number => toneAt(sample, x, y, across);
+      for (let row = 0; row < rows; row++) {
+        const edges = edgesOf(reading.codes[row]),
+          middle = (row + 0.5) / rows;
+        // The first sixteen edges: a bar starts at an even edge and ends at an odd one.
+        for (let i = 0; i < 16; i++) {
+          const starts = i % 2 === 0,
+            [inside, outside] = starts ? [1, -1] : [-1, 1];
+          close(tone(edges[i] + inside * delta, middle), tones.ink);
+          close(tone(edges[i] + outside * delta, middle), tones.ground);
+          close(
+            tone(edges[i] + inside * soft, middle),
+            blend(tones.ground, tones.ink, 0.75),
+          );
+          close(
+            tone(edges[i] + outside * soft, middle),
+            blend(tones.ground, tones.ink, 0.25),
+          );
+          sample(
+            across ? middle : edges[i] + inside * soft,
+            across ? edges[i] + inside * soft : middle,
+            out,
+          );
+          expect(out.height / p.relief).toBeCloseTo(
+            blend(p.groundHeight, p.inkHeight, 0.75),
+            4,
+          );
+          expect(out.roughness).toBeCloseTo(
+            blend(p.groundRoughness, p.inkRoughness, 0.75),
+            4,
+          );
+          tested++;
+        }
+        // The last edge (the end of the stop code) the same way, which has no line after it.
+        const lastEdge = edges[edges.length - 1];
+        close(tone(lastEdge - delta, middle), tones.ink);
+        close(tone(lastEdge + delta, middle), tones.ground);
+        close(
+          tone(lastEdge - soft, middle),
+          blend(tones.ground, tones.ink, 0.75),
+        );
+        close(
+          tone(lastEdge + soft, middle),
+          blend(tones.ground, tones.ink, 0.25),
+        );
+        // The top and the bottom of a bar in the middle of its first line.
+        const x = (edges[0] + edges[1]) / 2;
+        close(tone(x, row / rows + (p.top * 1) / rows + delta), tones.ink);
+        close(tone(x, row / rows + p.top / rows - delta), tones.ground);
+        close(tone(x, row / rows + p.bottom / rows - delta), tones.ink);
+        close(tone(x, row / rows + p.bottom / rows + delta), tones.ground);
+        close(
+          tone(x, row / rows + p.top / rows + soft),
+          blend(tones.ground, tones.ink, 0.75),
+        );
+        close(
+          tone(x, row / rows + p.top / rows - soft),
+          blend(tones.ground, tones.ink, 0.25),
+        );
+        close(
+          tone(x, row / rows + p.bottom / rows - soft),
+          blend(tones.ground, tones.ink, 0.75),
+        );
+        close(
+          tone(x, row / rows + p.bottom / rows + soft),
+          blend(tones.ground, tones.ink, 0.25),
+        );
+      }
+    }
+    expect(tested).toBe(6 * rows * 16);
+  });
+
+  it('gives the paper and the ink their heights and roughnesses, and full occlusion', () => {
+    for (const seed of [1, 2, 3, 4]) {
+      const sample = createSurfaceSampler('itfbarcodes', seed),
+        reading = readSurface(sample),
+        { across } = reading,
+        edges = edgesOf(reading.codes[2]),
+        value = (x: number, y: number): [number, number, number] => {
+          sample(across ? y : x, across ? x : y, out);
+          return [out.height / p.relief, out.roughness, out.occlusion];
+        },
+        [paperHeight, paperRoughness, paperOcclusion] = value(0, 2.5 / rows),
+        [inkHeight, inkRoughness, inkOcclusion] = value(
+          (edges[0] + edges[1]) / 2,
+          2.5 / rows,
+        );
+      expect(paperHeight).toBeCloseTo(p.groundHeight, 6);
+      expect(inkHeight).toBeCloseTo(p.inkHeight, 6);
+      expect(paperRoughness).toBeCloseTo(p.groundRoughness, 6);
+      expect(inkRoughness).toBeCloseTo(p.inkRoughness, 6);
+      expect([paperOcclusion, inkOcclusion]).toEqual([1, 1]);
+    }
+  });
+
+  it(
+    'uses every surface and both ways round over 1000 seeds about equally often, with the three wide ratios and the five numbers of pairs about equally often, the digits spread over 0 to 9, the barcodes starting at every place there is room for, and the tones shifted over the whole range',
+    { timeout: 120000 },
+    () => {
+      const surfaces = new Map<number, number>(),
+        wides = new Map<number, number>(),
+        pairs = new Map<number, number>(),
+        starts = new Map<string, Set<number>>(),
+        digitCounts = new Array<number>(10).fill(0),
+        shifts: number[] = [];
+      let acrossCount = 0,
+        digitTotal = 0;
+      for (let seed = 0; seed < 1000; seed++) {
+        const reading = readSurface(
+          createSurfaceSampler('itfbarcodes', seed * 7 + 1),
+        );
+        shifts.push(reading.shift);
+        surfaces.set(reading.surface, (surfaces.get(reading.surface) ?? 0) + 1);
+        acrossCount += Number(reading.across);
+        for (const code of reading.codes) {
+          const count = code.digits.length / 2;
+          wides.set(code.wide, (wides.get(code.wide) ?? 0) + 1);
+          pairs.set(count, (pairs.get(count) ?? 0) + 1);
+          const key = `${count} ${code.wide}`;
+          starts.set(
+            key,
+            (starts.get(key) ?? new Set<number>()).add(code.start),
+          );
+          for (const digit of code.digits) {
+            digitCounts[digit]++;
+            digitTotal++;
+          }
+        }
+      }
+      expect(surfaces.size).toBe(p.surfaces.length);
+      for (const count of surfaces.values())
+        expect(Math.abs(count - 250)).toBeLessThan(50);
+      expect(Math.abs(acrossCount / 1000 - 0.5)).toBeLessThan(0.05);
+      // 6000 rows: a third for every wide ratio and a fifth for every number of pairs.
+      for (const count of wides.values())
+        expect(Math.abs(count - 2000)).toBeLessThan(150);
+      expect(wides.size).toBe(3);
+      for (const count of pairs.values())
+        expect(Math.abs(count - 1200)).toBeLessThan(150);
+      expect(pairs.size).toBe(5);
+      // Six pairs have the least room: the barcode is 4 + 6 * (6 + 4 wide) + wide + 2 narrow lines, in a row of 1 / module narrow lines with at least quiet on both sides.
+      for (const wide of p.wides) {
+        const total = 4 + 6 * (6 + 4 * wide) + wide + 2,
+          room = Math.floor(1 / module - total - 2 * p.quiet);
+        expect(
+          [...(starts.get(`6 ${wide}`) ?? [])].sort((a, b) => a - b),
+        ).toEqual(Array.from({ length: room + 1 }, (_, k) => p.quiet + k));
+      }
+      for (const count of digitCounts)
+        expect(Math.abs(count / digitTotal - 0.1)).toBeLessThan(0.01);
+      expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+      expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+      expect(
+        Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+      ).toBeLessThan(p.toneShift * 0.15);
+      for (let quarterOfRange = 0; quarterOfRange < 4; quarterOfRange++)
+        expect(
+          Math.abs(
+            shifts.filter(
+              (shift) =>
+                Math.floor(((shift / p.toneShift + 1) / 2) * 4) ===
+                quarterOfRange,
+            ).length - 250,
+          ),
+        ).toBeLessThan(50);
+    },
+  );
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('itfbarcodes', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('itfbarcodes', 0),
+      b = createSurfaceSampler('itfbarcodes', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

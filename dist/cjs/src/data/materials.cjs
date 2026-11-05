@@ -29350,6 +29350,68 @@ var proceduralMaterialPresets = Object.freeze({
 		groundRoughness: .7,
 		inkRoughness: .4
 	}),
+	itfbarcodes: Object.freeze({
+		dark: [
+			26,
+			26,
+			32
+		],
+		light: [
+			236,
+			230,
+			214
+		],
+		roughness: .55,
+		relief: .003,
+		rows: 6,
+		module: .0072,
+		quiet: 10,
+		minPairs: 2,
+		maxPairs: 6,
+		wides: Object.freeze([
+			2,
+			2.5,
+			3
+		]),
+		patterns: Object.freeze([
+			`nnWWn`,
+			`WnnnW`,
+			`nWnnW`,
+			`WWnnn`,
+			`nnWnW`,
+			`WnWnn`,
+			`nWWnn`,
+			`nnnWW`,
+			`WnnWn`,
+			`nWnWn`
+		]),
+		top: .14,
+		bottom: .86,
+		edgeSoft: 6e-4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .92,
+				ink: .12
+			}),
+			Object.freeze({
+				ground: .12,
+				ink: .9
+			}),
+			Object.freeze({
+				ground: .78,
+				ink: .28
+			}),
+			Object.freeze({
+				ground: .22,
+				ink: .7
+			})
+		]),
+		toneShift: .04,
+		groundHeight: .15,
+		inkHeight: .4,
+		groundRoughness: .7,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -38031,6 +38093,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	itfbarcodes: 1,
 	postnetbarcodes: 1,
 	hamiltoniancycles: 1,
 	i2ctransactions: 1,

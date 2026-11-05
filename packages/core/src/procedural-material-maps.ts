@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'itfbarcodes',
   'postnetbarcodes',
   'hamiltoniancycles',
   'i2ctransactions',
@@ -53294,6 +53295,124 @@ export function createSurfaceSampler(
                 rows,
               (p.baseShare - along) / rows,
             );
+          const ink = cover(inside),
+            ground = surface.ground + shift;
+          color = clamp(ground + (surface.ink + shift - ground) * ink);
+          height = clamp(p.groundHeight + (p.inkHeight - p.groundHeight) * ink);
+          roughness = clamp(
+            p.groundRoughness + (p.inkRoughness - p.groundRoughness) * ink,
+          );
+          occlusion = 1;
+        };
+      }
+      case 'itfbarcodes': {
+        const p = proceduralMaterialPresets.itfbarcodes,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(142, 1, seed ^ 0x360001) * p.surfaces.length)
+            ],
+          across = hash(142, 2, seed ^ 0x360002) < 0.5,
+          shift = (hash(142, 3, seed ^ 0x360003) * 2 - 1) * p.toneShift,
+          wide =
+            p.wides[
+              Math.min(
+                p.wides.length - 1,
+                Math.floor(hash(142, 4, seed ^ 0x360004) * p.wides.length),
+              )
+            ],
+          rows = p.rows,
+          // The most lines of a barcode (the start code, the pairs, the stop code) and the places of the edges of the lines of every row: from the first edge, a bar, a space, a bar and so on.
+          most = 4 + 10 * p.maxPairs + 3,
+          edges = new Float64Array(rows * (most + 1)),
+          counts = new Uint8Array(rows),
+          edgeAt = (r: number, i: number): number => r * (most + 1) + i;
+        for (let r = 0; r < rows; r++) {
+          const pairs =
+              p.minPairs +
+              Math.min(
+                p.maxPairs - p.minPairs,
+                Math.floor(
+                  hash(r, 0, seed ^ 0x360005) * (p.maxPairs - p.minPairs + 1),
+                ),
+              ),
+            widths = [1, 1, 1, 1];
+          for (let pair = 0; pair < pairs; pair++) {
+            const bars =
+                p.patterns[
+                  Math.min(
+                    9,
+                    Math.floor(hash(r, 1 + 2 * pair, seed ^ 0x360005) * 10),
+                  )
+                ],
+              spaces =
+                p.patterns[
+                  Math.min(
+                    9,
+                    Math.floor(hash(r, 2 + 2 * pair, seed ^ 0x360005) * 10),
+                  )
+                ];
+            for (let i = 0; i < 5; i++)
+              widths.push(
+                bars[i] === 'W' ? wide : 1,
+                spaces[i] === 'W' ? wide : 1,
+              );
+          }
+          widths.push(wide, 1, 1);
+          const total = widths.reduce((sum, w) => sum + w, 0),
+            room = Math.floor(1 / p.module - total - 2 * p.quiet),
+            start =
+              p.quiet +
+              Math.min(
+                room,
+                Math.floor(hash(r, 20, seed ^ 0x360005) * (room + 1)),
+              );
+          let at = start * p.module;
+          edges[edgeAt(r, 0)] = at;
+          widths.forEach((w, i) => {
+            at += w * p.module;
+            edges[edgeAt(r, i + 1)] = at;
+          });
+          counts[r] = widths.length;
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            x = across ? fv : fu,
+            gy = (across ? fu : fv) * rows,
+            r = Math.floor(gy),
+            along = gy - r,
+            n = counts[r];
+          const start = edges[edgeAt(r, 0)],
+            end = edges[edgeAt(r, n)];
+          let inside = -1;
+          // Within a soft width of the barcode or inside it: the distance sideways from the nearer edge of the line the place is in (found by halving), a bar (even lines) inside and a space outside; before the first edge and after the last one, outside.
+          if (x >= start - p.edgeSoft && x < end + p.edgeSoft) {
+            let sideways: number;
+            if (x < start) sideways = x - start;
+            else if (x >= end) sideways = end - x;
+            else {
+              let low = 0,
+                high = n;
+              while (high - low > 1) {
+                const middle = (low + high) >> 1;
+                if (edges[edgeAt(r, middle)] <= x) low = middle;
+                else high = middle;
+              }
+              const distance = Math.min(
+                x - edges[edgeAt(r, low)],
+                edges[edgeAt(r, low + 1)] - x,
+              );
+              sideways = low % 2 === 0 ? distance : -distance;
+            }
+            inside = Math.min(
+              sideways,
+              (along - p.top) / rows,
+              (p.bottom - along) / rows,
+            );
+          }
           const ink = cover(inside),
             ground = surface.ground + shift;
           color = clamp(ground + (surface.ink + shift - ground) * ink);

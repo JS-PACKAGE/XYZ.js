@@ -18981,6 +18981,52 @@ export const proceduralMaterialPresets = Object.freeze({
     groundRoughness: 0.7,
     inkRoughness: 0.4,
   }),
+  itfbarcodes: Object.freeze({
+    dark: [26, 26, 32] as const,
+    light: [236, 230, 214] as const,
+    roughness: 0.55,
+    relief: 0.003,
+    // Rows of Interleaved 2 of 5 (ITF) barcodes, the barcode on shipping cartons (the Wikipedia article on Interleaved 2 of 5, read for this: digits come in pairs, the first digit of a pair is the five bars and the second digit the
+    // five spaces between them, each digit is five narrow or wide lines of which two are wide, with the weights 1, 2, 4, 7 and 0 for the places and 11 standing for 0; a start code of four narrow lines (bar, space, bar, space), the
+    // pairs, and a stop code of a wide bar, a narrow space and a narrow bar; the wide lines are 2.0 to 3.0 times a narrow line; the number of digits is even). patterns lists the lines of the digits 0 to 9 as the table of the
+    // article has them (n narrow, W wide). A row has 2 to 6 pairs of digits of the seed (4 to 12 digits) and no check digit, a narrow line is module of the tile wide, and the barcode starts a whole number of modules from the
+    // start of the row, with a quiet zone of at least quiet modules on both sides (the row is as wide as 1 / module modules, so the picture repeats). The wide lines of a seed are all wide times the narrow one, one of wides
+    // (the article gives the range, the three values are my choice). The bars are from top to bottom of the share of a row, and the seed picks the surface (the tones of the paper and of the ink, shifted together a little)
+    // and whether the rows run along the picture or across it.
+    rows: 6,
+    module: 0.0072,
+    quiet: 10,
+    minPairs: 2,
+    maxPairs: 6,
+    wides: Object.freeze([2, 2.5, 3]),
+    patterns: Object.freeze([
+      'nnWWn',
+      'WnnnW',
+      'nWnnW',
+      'WWnnn',
+      'nnWnW',
+      'WnWnn',
+      'nWWnn',
+      'nnnWW',
+      'WnnWn',
+      'nWnWn',
+    ]),
+    top: 0.14,
+    bottom: 0.86,
+    edgeSoft: 0.0006,
+    surfaces: Object.freeze([
+      Object.freeze({ ground: 0.92, ink: 0.12 }),
+      Object.freeze({ ground: 0.12, ink: 0.9 }),
+      Object.freeze({ ground: 0.78, ink: 0.28 }),
+      Object.freeze({ ground: 0.22, ink: 0.7 }),
+    ]),
+    // How much the tones may all be shifted together (from -toneShift to toneShift) by the seed: the age of the print.
+    toneShift: 0.04,
+    groundHeight: 0.15,
+    inkHeight: 0.4,
+    groundRoughness: 0.7,
+    inkRoughness: 0.4,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -25473,6 +25519,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  itfbarcodes: 1,
   postnetbarcodes: 1,
   hamiltoniancycles: 1,
   i2ctransactions: 1,
