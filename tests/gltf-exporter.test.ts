@@ -346,7 +346,7 @@ describe('glTF exporter', () => {
         variants: [{ name: 'same' }, { name: 'same' }, { name: 'unmapped' }],
       },
     };
-    result.json.buffers[0].uri = `data:application/octet-stream;base64,${Buffer.from(result.buffers[0]).toString('base64')}`;
+    result.json.buffers[0].uri = `data:application/octet-stream;base64,${btoa(String.fromCharCode(...new Uint8Array(result.buffers[0])))}`;
     const asset = await new GLTFLoader().parse(JSON.stringify(result.json));
     try {
       const restored = meshes(asset.scene)[0];
