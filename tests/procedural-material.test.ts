@@ -1207,6 +1207,7 @@ const kinds: ProceduralMaterialKind[] = [
   'lightsoutpuzzles',
   'burrowswheeler',
   'huffmancodes',
+  'friezegroups',
   'dominotiling',
   'sandpileidentity',
   'multiplicativeorder',
@@ -216637,6 +216638,311 @@ describe('Huffman codes as Huffman and Shannon-Fano prefix codes', () => {
     expect(blue / (512 * 512)).toBeLessThan(36.2);
     expect(maxTilt).toBeGreaterThan(0.107);
     expect(maxTilt).toBeLessThan(0.1071);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Frieze groups as the seven frieze groups of strips with a glyph', () => {
+  const p = proceduralMaterialPresets.friezegroups;
+  const seeds = [0, 1, 2, 3, 4, 5];
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const n = 64;
+  /** The seven groups by name, with the period of their strips. */
+  const groups = ['p1', 'p11g', 'p1m1', 'p11m', 'p2', 'p2mg', 'p2mm'];
+  const periods = [8, 16, 8, 16, 16, 16, 16];
+  /** The grid of filled cells read back from the picture at the middle of every cell: grid[row][column] (the height gives filled from empty). */
+  const readGrid = (seed: number): number[][] => {
+    const sample = createSurfaceSampler('friezegroups', seed),
+      out = empty();
+    return Array.from({ length: n }, (_, row) =>
+      Array.from({ length: n }, (_, column) => {
+        sample((column + 0.5) / n, (row + 0.5) / n, out);
+        const high = out.height / p.relief / p.cellHeight;
+        expect(
+          Math.min(
+            Math.abs(high - p.heightEmpty),
+            Math.abs(high - p.heightFilled),
+          ),
+        ).toBeLessThan(1e-9);
+        return Math.abs(high - p.heightFilled) < 1e-9 ? 1 : 0;
+      }),
+    );
+  };
+  /** The symmetries of a strip of 8 rows (the horizontal mirror line between the rows 3 and 4) found by trying them: the smallest period, a horizontal mirror, a vertical mirror (about some column), a half-turn (about some point) and a glide reflection (with a shift that is not a multiple of the period). */
+  const symmetriesOf = (strip: number[][]) => {
+    const at = (y: number, x: number) => strip[y][((x % n) + n) % n];
+    const all = (rule: (y: number, x: number) => boolean) => {
+      for (let y = 0; y < 8; y++)
+        for (let x = 0; x < n; x++) if (!rule(y, x)) return false;
+      return true;
+    };
+    let period = 0;
+    for (let q = 1; q <= n && period === 0; q++)
+      if (n % q === 0 && all((y, x) => at(y, x + q) === at(y, x))) period = q;
+    const horizontal = all((y, x) => at(7 - y, x) === at(y, x));
+    let vertical = false,
+      halfTurn = false,
+      glide = false;
+    for (let c = 0; c < n; c++) {
+      vertical ||= all((y, x) => at(y, c - x) === at(y, x));
+      halfTurn ||= all((y, x) => at(7 - y, c - x) === at(y, x));
+    }
+    for (let shift = 1; shift < n; shift++)
+      if (shift % period !== 0)
+        glide ||= all((y, x) => at(7 - y, x + shift) === at(y, x));
+    return { period, horizontal, vertical, halfTurn, glide };
+  };
+  /** The name of the frieze group with those symmetries (a table of the seven possibilities). */
+  const nameOf = (s: ReturnType<typeof symmetriesOf>): string => {
+    const key = [s.horizontal, s.vertical, s.halfTurn, s.glide]
+      .map(Number)
+      .join('');
+    return (
+      {
+        '0000': 'p1',
+        '0001': 'p11g',
+        '1000': 'p1m1',
+        '0100': 'p11m',
+        '0010': 'p2',
+        '0111': 'p2mg',
+        '1110': 'p2mm',
+      }[key] ?? `unknown ${key}`
+    );
+  };
+  /** The grid of 256 by 256 colours above 0.5, for comparing two seeds. */
+  const litGrid = (seed: number): number[] => {
+    const sample = createSurfaceSampler('friezegroups', seed),
+      out = empty(),
+      lit: number[] = [];
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+        lit.push(Number(out.color > 0.5));
+      }
+    return lit;
+  };
+  it('keeps the tones bounded and in the expected ranges', () => {
+    const expected = new Map([
+      [0, { low: 0.06768, high: 0.9637, lit: 0.12891, mean: 0.19779 }],
+      [1, { low: 0.06718, high: 0.9642, lit: 0.15039, mean: 0.21472 }],
+      [0xffffffff, { low: 0.06711, high: 0.964, lit: 0.12891, mean: 0.19779 }],
+    ]);
+    for (const [seed, want] of expected) {
+      const sample = createSurfaceSampler('friezegroups', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lit = 0,
+        mean = 0,
+        heightHigh = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          for (const key of keys) expect(Number.isFinite(a[key])).toBe(true);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          lit += Number(a.color > 0.5);
+          mean += a.color;
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+        }
+      expect(low).toBeCloseTo(want.low, 4);
+      expect(high).toBeCloseTo(want.high, 3);
+      expect(lit / 65536).toBeCloseTo(want.lit, 4);
+      expect(mean / 65536).toBeCloseTo(want.mean, 4);
+      expect(heightHigh).toBeCloseTo(0.8, 3);
+    }
+  });
+  it('draws eight friezes whose symmetries are exactly those of the seven frieze groups, found from the picture by trying every translation, mirror, half-turn and glide: each group once and one more strip of the extra group, with the periods 8 or 16', () => {
+    for (let seed = 0; seed < 60; seed++) {
+      const grid = readGrid(seed),
+        names: string[] = [];
+      for (let strip = 0; strip < 8; strip++) {
+        const rows = grid.slice(strip * 8, strip * 8 + 8),
+          found = symmetriesOf(rows),
+          name = nameOf(found);
+        // The strip has something in it, and the period belongs to the group.
+        expect(rows.flat().some((cell) => cell === 1)).toBe(true);
+        expect(found.period).toBe(periods[groups.indexOf(name)]);
+        names.push(name);
+      }
+      const extra = groups[Math.floor(seed / 6) % 7];
+      expect([...names].sort()).toEqual([...groups, extra].sort());
+    }
+  });
+  it('builds every strip from the glyph of the seed: the strip of the group p1 holds the glyph and its translations by 8 and nothing else', () => {
+    for (let seed = 0; seed < 12; seed++) {
+      const grid = readGrid(seed),
+        glyph = p.glyphs[seed % 6];
+      for (let strip = 0; strip < 8; strip++) {
+        const rows = grid.slice(strip * 8, strip * 8 + 8);
+        if (nameOf(symmetriesOf(rows)) !== 'p1') continue;
+        for (let y = 0; y < 8; y++)
+          for (let x = 0; x < n; x++) {
+            const inGlyph =
+              y >= 1 && y <= 3 && x % 8 < 3 && glyph[y - 1][x % 8] === 'X';
+            expect(rows[y][x]).toBe(inGlyph ? 1 : 0);
+          }
+      }
+    }
+  });
+  it('agrees with the ideal rounded cells away from their edges: ink, height, tone and occlusion', () => {
+    const counts: number[] = [];
+    for (const seed of [0, 1, 2, 3, 4, 5, 6, 13, 22]) {
+      const grid = readGrid(seed),
+        sample = createSurfaceSampler('friezegroups', seed),
+        out = empty(),
+        half = 0.5 - p.gap,
+        inner = half - p.corner;
+      let compared = 0;
+      for (let k = 0; k < 6000; k++) {
+        const u = (k * 0.61803398875) % 1,
+          v = (k * 0.41421356237) % 1,
+          x = u * n,
+          y = v * n,
+          column = Math.floor(x),
+          row = Math.floor(y),
+          dx = Math.abs(x - column - 0.5),
+          dy = Math.abs(y - row - 0.5),
+          // The distance to the rounded square, by the straight sides or by the corner circle.
+          distance =
+            dx <= inner || dy <= inner
+              ? Math.max(dx, dy) - half
+              : Math.hypot(dx - inner, dy - inner) - p.corner;
+        // The ink is 1 inside the edge less half the smoothing, 0 beyond half of it, and not compared in between.
+        if (Math.abs(distance) < p.edgeSoft / 2) continue;
+        const ink = distance < 0 ? 1 : 0,
+          filled = grid[row][column] === 1,
+          tone = filled ? p.toneFilled : p.toneEmpty,
+          lift = filled ? p.heightFilled : p.heightEmpty;
+        compared++;
+        sample(u, v, out);
+        expect(out.occlusion).toBeCloseTo(1 - p.gapOcclusion * (1 - ink), 9);
+        expect(out.height).toBeCloseTo(
+          p.relief * p.cellHeight * ink * lift,
+          12,
+        );
+        expect(
+          Math.abs(out.color - (p.toneGround * (1 - ink) + tone * ink)),
+        ).toBeLessThanOrEqual(p.grainTone / 2 + 1e-9);
+      }
+      counts.push(compared);
+    }
+    for (const compared of counts) expect(compared).toBeGreaterThan(4600);
+  });
+  it('draws a different view per glyph and per group and is deterministic for one seed', () => {
+    const first = litGrid(0),
+      unlike = (a: number[], b: number[]) => {
+        let different = 0;
+        for (let i = 0; i < a.length; i++) different += Number(a[i] !== b[i]);
+        return different / a.length;
+      };
+    expect(unlike(first, litGrid(1))).toBeCloseTo(0.138671875, 8);
+    expect(unlike(first, litGrid(6))).toBeCloseTo(0.10546875, 8);
+    expect(unlike(first, litGrid(12))).toBeCloseTo(0.09375, 8);
+    expect(unlike(first, litGrid(24))).toBeCloseTo(0.09765625, 8);
+    expect(litGrid(0)).toEqual(first);
+  });
+  it('keeps the tile kernels, gaps and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('friezegroups', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [13, 129, 509])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.4913, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 mint frieze maps on dark green with raised cells and shaded gaps', () => {
+    const maps = generateProceduralMaps('friezegroups', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 125 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(26.2);
+    expect(red / (512 * 512)).toBeLessThan(26.4);
+    expect(green / (512 * 512)).toBeGreaterThan(53.5);
+    expect(green / (512 * 512)).toBeLessThan(53.7);
+    expect(blue / (512 * 512)).toBeGreaterThan(42.8);
+    expect(blue / (512 * 512)).toBeLessThan(43);
+    expect(maxTilt).toBeGreaterThan(0.0679);
+    expect(maxTilt).toBeLessThan(0.068);
     expect(invalid).toBe(0);
   });
 });

@@ -19911,6 +19911,37 @@ export const proceduralMaterialPresets = Object.freeze({
     heightOne: 1,
     gapOcclusion: 0.5,
   }),
+  friezegroups: Object.freeze({
+    dark: [4, 18, 14] as const,
+    light: [140, 235, 190] as const,
+    roughness: 0.45,
+    relief: 0.0012,
+    seedSalt: 0x5d13,
+    // Eight strips of 8 rows each across a 64 by 64 grid of cells, every strip a frieze: a small glyph without any symmetry (glyphs[variant], a 3 by 3 picture, the first at columns 0 to 2 and rows 1 to 3 of the strip) repeated by the symmetries of one of the 7 frieze groups. The strip has its horizontal mirror line between its rows 3 and 4. The groups are 0 p1 (translations by 8), 1 p11g (a glide reflection: mirror in the horizontal line and move by 8), 2 p1m1 (the horizontal mirror and translations by 8), 3 p11m (vertical mirror lines at the column 5, translations by 16), 4 p2 (half-turns about the column 5, translations by 16), 5 p2mg (the vertical mirror at the column 5 and the glide reflection) and 6 p2mm (both mirrors, translations by 16). The strips are the 7 groups and one more strip of the group extra, in an order shuffled by hash keys. The seed is split in two: seed % 6 picks the glyph and floor(seed / 6) the group, whose value changes the order and mod 7 picks the extra strip's group.
+    glyphs: [
+      ['XXX', 'XX.', 'X..'],
+      ['XX.', 'X.X', 'XXX'],
+      ['X..', 'XXX', 'XX.'],
+      ['XXX', 'X.X', 'X..'],
+      ['.X.', 'XXX', 'X..'],
+      ['XX.', '.XX', 'X.X'],
+    ] as const,
+    // The gap on each side of a cell, the rounding of a cell and the smoothing of its edge (fractions of a cell).
+    gap: 0.07,
+    corner: 0.16,
+    edgeSoft: 0.07,
+    grainCells: 128,
+    toneGround: 0.03,
+    // The tone of a cell that is empty and of a cell of the glyph.
+    toneEmpty: 0.1,
+    toneFilled: 0.95,
+    grainTone: 0.03,
+    cellHeight: 0.8,
+    // The heights of an empty and of a filled cell as fractions of cellHeight.
+    heightEmpty: 0.2,
+    heightFilled: 1,
+    gapOcclusion: 0.5,
+  }),
   vermiculation: Object.freeze({
     dark: [60, 48, 36] as const,
     light: [220, 204, 172] as const,
@@ -21755,6 +21786,7 @@ export const proceduralTileMeters = Object.freeze({
   lightsoutpuzzles: 0.5,
   burrowswheeler: 0.5,
   huffmancodes: 0.5,
+  friezegroups: 0.5,
   dominotiling: 0.5,
   vermiculation: 0.4,
   kikko: 0.3,

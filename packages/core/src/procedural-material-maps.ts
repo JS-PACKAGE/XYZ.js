@@ -57699,6 +57699,111 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'friezegroups': {
+        const p = proceduralMaterialPresets.friezegroups,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ p.seedSalt,
+          ),
+          unsigned = seed >>> 0,
+          glyph = p.glyphs[unsigned % p.glyphs.length],
+          group = Math.floor(unsigned / p.glyphs.length),
+          keySeed = seed ^ p.seedSalt,
+          n = 64,
+          // A symmetry of a strip: x -> flip * x + shift (mod n) and, when mirror is set, y -> 7 - y.
+          generators: Record<
+            string,
+            { flip: number; shift: number; mirror: boolean }
+          > = {
+            translate8: { flip: 1, shift: 8, mirror: false },
+            translate16: { flip: 1, shift: 16, mirror: false },
+            horizontal: { flip: 1, shift: 0, mirror: true },
+            glide: { flip: 1, shift: 8, mirror: true },
+            vertical: { flip: -1, shift: 10, mirror: false },
+            halfTurn: { flip: -1, shift: 10, mirror: true },
+          },
+          // The generators of the 7 frieze groups p1, p11g, p1m1, p11m, p2, p2mg, p2mm.
+          groupGenerators = [
+            ['translate8'],
+            ['glide'],
+            ['horizontal', 'translate8'],
+            ['vertical', 'translate16'],
+            ['halfTurn', 'translate16'],
+            ['vertical', 'glide'],
+            ['horizontal', 'vertical', 'translate16'],
+          ],
+          // The cells of a glyph at the start of a strip: columns 0 to 2, rows 1 to 3.
+          glyphCells: [number, number][] = [];
+        glyph.forEach((line, row) =>
+          [...line].forEach((c, column) => {
+            if (c === 'X') glyphCells.push([column, row + 1]);
+          }),
+        );
+        // The strip of a group: every cell the glyph reaches under the whole group, found by closing the generators.
+        const stripOf = (kind: number): Uint8Array => {
+          const strip = new Uint8Array(n * 8),
+            seen = new Set<string>(),
+            queue = [{ flip: 1, shift: 0, mirror: false }];
+          while (queue.length > 0) {
+            const g = queue.pop()!,
+              key = `${g.flip},${g.shift},${g.mirror}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            for (const name of groupGenerators[kind]) {
+              const h = generators[name];
+              // The generator h after g: x -> h.flip * (g.flip * x + g.shift) + h.shift.
+              queue.push({
+                flip: h.flip * g.flip,
+                shift: (((h.flip * g.shift + h.shift) % n) + n) % n,
+                mirror: h.mirror !== g.mirror,
+              });
+            }
+          }
+          for (const g of seen) {
+            const [flip, shift, mirror] = g.split(',');
+            for (const [x, y] of glyphCells) {
+              const column = (((Number(flip) * x + Number(shift)) % n) + n) % n,
+                row = mirror === 'true' ? 7 - y : y;
+              strip[row * n + column] = 1;
+            }
+          }
+          return strip;
+        };
+        // The 7 groups and one more strip of the group extra, in an order shuffled by hash keys.
+        const kinds = [0, 1, 2, 3, 4, 5, 6, group % 7]
+            .map((kind, index) => ({ kind, key: hash(index, 11, keySeed) }))
+            .sort((a, b) => a.key - b.key)
+            .map((entry) => entry.kind),
+          strips = Array.from({ length: 7 }, (_, kind) => stripOf(kind)),
+          half = 0.5 - p.gap,
+          inner = half - p.corner;
+        return () => {
+          const x = fract(u) * n,
+            y = fract(v) * n,
+            column = Math.floor(x),
+            row = Math.floor(y),
+            qx = Math.abs(x - column - 0.5) - inner,
+            qy = Math.abs(y - row - 0.5) - inner,
+            // The distance to the rounded square of the cell, negative inside.
+            distance =
+              hypot2(Math.max(qx, 0), Math.max(qy, 0)) +
+              Math.min(Math.max(qx, qy), 0) -
+              p.corner,
+            mask = smooth(clamp(0.5 - distance / p.edgeSoft)),
+            filled = strips[kinds[Math.floor(row / 8)]][(row % 8) * n + column],
+            tone = filled === 1 ? p.toneFilled : p.toneEmpty,
+            lift = filled === 1 ? p.heightFilled : p.heightEmpty,
+            grain = grainField(u, v);
+          color =
+            p.toneGround * (1 - mask) +
+            tone * mask +
+            p.grainTone * (grain - 0.5);
+          height = p.cellHeight * mask * lift;
+          occlusion = 1 - p.gapOcclusion * (1 - mask);
+          return;
+        };
+      }
       case 'totienttable': {
         const p = proceduralMaterialPresets.totienttable,
           grainField = cachedNoise(
@@ -66682,6 +66787,7 @@ export function createSurfaceSampler(
     kind === 'lightsoutpuzzles' ||
     kind === 'burrowswheeler' ||
     kind === 'huffmancodes' ||
+    kind === 'friezegroups' ||
     kind === 'dominotiling' ||
     kind === 'sandpileidentity' ||
     kind === 'multiplicativeorder' ||

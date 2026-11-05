@@ -1244,6 +1244,7 @@ try {
     'lightsoutpuzzles',
     'burrowswheeler',
     'huffmancodes',
+    'friezegroups',
     'dominotiling',
     'sandpileidentity',
     'multiplicativeorder',
