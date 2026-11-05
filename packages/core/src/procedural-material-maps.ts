@@ -367,6 +367,7 @@ const noDetailKinds: ReadonlySet<string> = new Set([
   'stfiberadapterfaces',
   'mudcloth',
   'to92packagefaces',
+  'i2ctransactions',
   'redblacktrees',
   'debruijnstrips',
   'starbattleboard',
@@ -52987,6 +52988,116 @@ export function createSurfaceSampler(
             p.groundRoughness +
               (p.inkRoughness - p.groundRoughness) *
                 Math.max(lineCover, outerCover),
+          );
+          occlusion = 1;
+        };
+      }
+      case 'i2ctransactions': {
+        const p = proceduralMaterialPresets.i2ctransactions,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          surface =
+            p.surfaces[
+              Math.floor(hash(139, 1, seed ^ 0x330001) * p.surfaces.length)
+            ],
+          across = hash(139, 2, seed ^ 0x330002) < 0.5,
+          inverted = hash(139, 3, seed ^ 0x330003) < 0.5,
+          shift = (hash(139, 4, seed ^ 0x330004) * 2 - 1) * p.toneShift,
+          rows = p.rows,
+          cells = p.cells,
+          // The level of SCL and of SDA in each cell (half of a clock) of each row.
+          scl = new Uint8Array(rows * cells).fill(1),
+          sda = new Uint8Array(rows * cells).fill(1);
+        for (let row = 0; row < rows; row++) {
+          const base = row * cells,
+            read = hash(row, 0, seed ^ 0x330005) < 0.5 ? 1 : 0,
+            count = 1 + Math.floor(hash(row, 1, seed ^ 0x330005) * 2),
+            address = 8 + Math.floor(hash(row, 2, seed ^ 0x330005) * 112),
+            // A START, the address byte and the acknowledge of the target, the data bytes with their acknowledge bits, and a STOP of three cells.
+            length = 4 + 18 * (1 + count),
+            bits: number[] = [];
+          for (let bit = 6; bit >= 0; bit--) bits.push((address >> bit) & 1);
+          bits.push(read, 0);
+          for (let byte = 0; byte < count; byte++) {
+            const value = Math.floor(
+              hash(row, 3 + byte, seed ^ 0x330005) * 256,
+            );
+            for (let bit = 7; bit >= 0; bit--) bits.push((value >> bit) & 1);
+            bits.push(read === 1 && byte === count - 1 ? 1 : 0);
+          }
+          let at =
+            base +
+            1 +
+            Math.min(
+              cells - length - 1,
+              Math.floor(hash(row, 9, seed ^ 0x330005) * (cells - length)),
+            );
+          sda[at++] = 0;
+          for (const bit of bits) {
+            scl[at] = 0;
+            sda[at] = bit;
+            sda[at + 1] = bit;
+            at += 2;
+          }
+          scl[at] = 0;
+          sda[at] = 0;
+          sda[at + 1] = 0;
+        }
+        return () => {
+          const fu = u - Math.floor(u),
+            fv = v - Math.floor(v),
+            x = across ? fv : fu,
+            gy = (across ? fu : fv) * rows,
+            row = Math.floor(gy),
+            along = gy - row,
+            cell = Math.floor(x * cells),
+            // The line of a signal in this cell, and the vertical lines at the two edges of the cell where it changes level.
+            levelAt = (levels: Uint8Array, at: number): number =>
+              levels[row * cells + ((at + cells) % cells)],
+            trace = (levels: Uint8Array, high: number, low: number): number => {
+              const heightOf = (at: number): number =>
+                (levelAt(levels, at) === 1) !== inverted ? high : low;
+              let covered = cover(
+                p.traceHalf - Math.abs(along - heightOf(cell)) / rows,
+              );
+              for (const edge of [cell, cell + 1])
+                if (heightOf(edge - 1) !== heightOf(edge))
+                  covered = Math.max(
+                    covered,
+                    cover(
+                      Math.min(
+                        p.traceHalf - Math.abs(x - edge / cells),
+                        (along - high) / rows + p.traceHalf,
+                        (low - along) / rows + p.traceHalf,
+                      ),
+                    ),
+                  );
+              return covered;
+            },
+            clockCover = trace(scl, p.sclHigh, p.sclLow),
+            dataCover = trace(sda, p.sdaHigh, p.sdaLow),
+            // The thin lines at each clock (every second edge of a cell), under the traces.
+            grid = cover(
+              p.gridHalf -
+                Math.abs(x * cells * 0.5 - Math.round(x * cells * 0.5)) /
+                  (cells * 0.5),
+            ),
+            ground = surface.ground + shift,
+            lined = ground + (surface.grid + shift - ground) * grid,
+            clocked = lined + (surface.scl + shift - lined) * clockCover,
+            both = clocked + (surface.sda + shift - clocked) * dataCover;
+          color = clamp(both);
+          const gridded =
+              p.groundHeight + (p.gridHeight - p.groundHeight) * grid,
+            heightClocked = gridded + (p.sclHeight - gridded) * clockCover;
+          height = clamp(
+            heightClocked + (p.sdaHeight - heightClocked) * dataCover,
+          );
+          roughness = clamp(
+            p.groundRoughness +
+              (p.inkRoughness - p.groundRoughness) *
+                Math.max(grid, clockCover, dataCover),
           );
           occlusion = 1;
         };

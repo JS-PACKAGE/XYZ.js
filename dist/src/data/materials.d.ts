@@ -17218,6 +17218,49 @@ export declare const proceduralMaterialPresets: Readonly<{
         groundRoughness: 0.7;
         inkRoughness: 0.4;
     }>;
+    i2ctransactions: Readonly<{
+        dark: readonly [14, 22, 26];
+        light: readonly [210, 232, 238];
+        roughness: 0.5;
+        relief: 0.003;
+        rows: 4;
+        cells: 64;
+        sclHigh: 0.1;
+        sclLow: 0.4;
+        sdaHigh: 0.6;
+        sdaLow: 0.9;
+        traceHalf: 0.0032;
+        gridHalf: 0.0007;
+        edgeSoft: 0.0006;
+        surfaces: readonly (Readonly<{
+            ground: 0.1;
+            grid: 0.22;
+            scl: 0.88;
+            sda: 0.58;
+        }> | Readonly<{
+            ground: 0.9;
+            grid: 0.72;
+            scl: 0.15;
+            sda: 0.5;
+        }> | Readonly<{
+            ground: 0.18;
+            grid: 0.34;
+            scl: 0.62;
+            sda: 0.9;
+        }> | Readonly<{
+            ground: 0.75;
+            grid: 0.55;
+            scl: 0.3;
+            sda: 0.06;
+        }>)[];
+        toneShift: 0.04;
+        groundHeight: 0.15;
+        gridHeight: 0.22;
+        sclHeight: 0.4;
+        sdaHeight: 0.46;
+        groundRoughness: 0.7;
+        inkRoughness: 0.4;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -23703,6 +23746,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    i2ctransactions: 1;
     redblacktrees: 1;
     debruijnstrips: 1;
     starbattleboard: 1;

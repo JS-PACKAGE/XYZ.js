@@ -84137,3 +84137,690 @@ describe('redblacktrees: a red-black tree of 31 keys drawn from the root down, r
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('i2ctransactions: the clock and the data line of an I2C bus as a logic analyser draws them, with a START, a 7-bit address, read or write, acknowledges, one or two data bytes and a STOP in every row, along or across the picture by the seed', () => {
+  const p = proceduralMaterialPresets.i2ctransactions,
+    out = empty(),
+    rows = p.rows,
+    cells = p.cells,
+    half = p.traceHalf;
+  const toneAt = (
+    sample: Sampler,
+    x: number,
+    y: number,
+    across: boolean,
+  ): number => {
+    // A place in tile units in the picture as it is drawn (the cells along x, the rows along y), as a place on the picture.
+    sample(across ? y : x, across ? x : y, out);
+    return out.color;
+  };
+  const smoothstep = (x: number): number => x * x * (3 - 2 * x),
+    blend = (from: number, target: number, amount: number): number =>
+      from + (target - from) * smoothstep(amount),
+    close = (actual: number, expected: number): void =>
+      expect(Math.abs(actual - expected)).toBeLessThan(1e-4);
+  type Message = {
+    address: number;
+    read: boolean;
+    data: number[];
+    start: number;
+    stop: number;
+  };
+  // The decoder of the two lines of a row, one level per cell (half of a clock), written out here from the Wikipedia article on I2C: START is SDA going from high to low with SCL high, STOP is SDA going from low to high
+  // with SCL high, every other change of SDA is while SCL is low, a bit is taken at the rise of SCL, the 7-bit address and the data are most significant bit first, the ninth bit of a byte is the acknowledge (0), and the pulse of
+  // SCL before the STOP is not a bit. It gives null where a row breaks any of that (one message in a row, a target that exists, an acknowledge of the controller after every byte read but the last, a 1 after the last).
+  const decode = (scl: number[], sda: number[]): Message | null => {
+    if (scl[0] !== 1 || sda[0] !== 1) return null;
+    let message: Message | null = null,
+      start = -1,
+      bits: number[] = [];
+    for (let i = 1; i < cells; i++) {
+      const clock = scl[i - 1] * 2 + scl[i],
+        moved = sda[i - 1] !== sda[i];
+      if (clock === 3 && moved) {
+        if (sda[i - 1] === 1) {
+          if (start >= 0 || message !== null) return null;
+          start = i;
+          bits = [];
+        } else {
+          if (start < 0 || bits.length % 9 !== 1 || bits.length < 19)
+            return null;
+          if (bits[bits.length - 1] !== 0) return null;
+          bits.pop();
+          const byteAt = (from: number): number =>
+              bits
+                .slice(from, from + 8)
+                .reduce((value, bit) => value * 2 + bit, 0),
+            data: number[] = [];
+          const read = bits[7] === 1;
+          if (bits[8] !== 0) return null;
+          for (let from = 9; from < bits.length; from += 9) {
+            data.push(byteAt(from));
+            const last = from + 9 === bits.length;
+            if (bits[from + 8] !== (read && last ? 1 : 0)) return null;
+          }
+          message = { address: byteAt(0) >> 1, read, data, start, stop: i };
+          start = -1;
+        }
+      } else if (clock === 1) {
+        // SCL rises: a bit, with SDA held.
+        if (start < 0 || moved) return null;
+        bits.push(sda[i]);
+      } else if (clock === 0) {
+        // SCL stays low for two cells: never, a bit is a pulse.
+        return null;
+      } else if (clock === 2 && start < 0) {
+        // SCL falls outside a message.
+        return null;
+      }
+    }
+    if (start >= 0 || message === null) return null;
+    return message;
+  };
+  // The line a level is drawn on: the share of the height of the row.
+  const lineAt = (
+    level: number,
+    inverted: boolean,
+    high: number,
+    low: number,
+  ): number => ((level === 1) !== inverted ? high : low);
+  type Reading = {
+    across: boolean;
+    inverted: boolean;
+    surface: number;
+    shift: number;
+    tones: { ground: number; grid: number; scl: number; sda: number };
+    scl: number[][];
+    sda: number[][];
+    messages: Message[];
+  };
+  const readings = (sample: Sampler): Reading[] => {
+    const options: Reading[] = [];
+    for (const across of [false, true]) {
+      const tone = (x: number, y: number): number =>
+          toneAt(sample, x, y, across),
+        ground = tone(0.5 / cells, 0),
+        grid = tone(2 / cells, 0);
+      p.surfaces.forEach((surface, index) => {
+        const shift = ground - surface.ground,
+          clockTone = surface.scl + shift,
+          dataTone = surface.sda + shift;
+        if (Math.abs(shift) > p.toneShift + 1e-9) return;
+        if (Math.abs(grid - (surface.grid + shift)) > 1e-6) return;
+        for (const inverted of [false, true]) {
+          const sclRows: number[][] = [],
+            sdaRows: number[][] = [];
+          let valid = true;
+          const read = (
+            row: number,
+            cell: number,
+            high: number,
+            low: number,
+            trace: number,
+          ): number => {
+            const x = (cell + 0.5) / cells,
+              upper = tone(x, (row + high) / rows),
+              lower = tone(x, (row + low) / rows),
+              drawnHigh = Math.abs(upper - trace) < 1e-6,
+              drawnLow = Math.abs(lower - trace) < 1e-6;
+            if (
+              drawnHigh === drawnLow ||
+              Math.abs((drawnHigh ? lower : upper) - ground) > 1e-6
+            )
+              valid = false;
+            return drawnHigh !== inverted ? 1 : 0;
+          };
+          for (let row = 0; row < rows && valid; row++) {
+            const clock: number[] = [],
+              data: number[] = [];
+            for (let cell = 0; cell < cells && valid; cell++) {
+              clock.push(read(row, cell, p.sclHigh, p.sclLow, clockTone));
+              data.push(read(row, cell, p.sdaHigh, p.sdaLow, dataTone));
+            }
+            sclRows.push(clock);
+            sdaRows.push(data);
+          }
+          if (!valid) continue;
+          // The edges of the cells: a vertical line of a signal where it changes level (in the middle of its height), the thin line of a clock at every second edge (in the middle of the row, where nothing else is drawn).
+          for (let row = 0; row < rows && valid; row++)
+            for (let edge = 0; edge < cells && valid; edge++) {
+              const x = edge / cells,
+                changed = (levels: number[]): boolean =>
+                  levels[(edge + cells - 1) % cells] !== levels[edge];
+              const clockLine = tone(
+                  x,
+                  (row + (p.sclHigh + p.sclLow) / 2) / rows,
+                ),
+                dataLine = tone(x, (row + (p.sdaHigh + p.sdaLow) / 2) / rows),
+                middle = tone(x, (row + 0.5) / rows);
+              if (
+                Math.abs(
+                  clockLine -
+                    (changed(sclRows[row])
+                      ? clockTone
+                      : edge % 2 === 0
+                        ? grid
+                        : ground),
+                ) > 1e-6
+              )
+                valid = false;
+              if (
+                Math.abs(
+                  dataLine -
+                    (changed(sdaRows[row])
+                      ? dataTone
+                      : edge % 2 === 0
+                        ? grid
+                        : ground),
+                ) > 1e-6
+              )
+                valid = false;
+              if (Math.abs(middle - (edge % 2 === 0 ? grid : ground)) > 1e-6)
+                valid = false;
+            }
+          if (!valid) continue;
+          const messages: Message[] = [];
+          for (let row = 0; row < rows; row++) {
+            const message = decode(sclRows[row], sdaRows[row]);
+            if (message === null) {
+              valid = false;
+              break;
+            }
+            messages.push(message);
+          }
+          if (valid)
+            options.push({
+              across,
+              inverted,
+              surface: index,
+              shift,
+              tones: { ground, grid, scl: clockTone, sda: dataTone },
+              scl: sclRows,
+              sda: sdaRows,
+              messages,
+            });
+        }
+      });
+    }
+    return options;
+  };
+  const readSurface = (sample: Sampler): Reading => {
+    const options = readings(sample);
+    expect(options.length).toBe(1);
+    return options[0];
+  };
+  type Piece = 'ground' | 'grid' | 'scl' | 'sda';
+  const signals = [
+    { key: 'scl', high: p.sclHigh, low: p.sclLow },
+    { key: 'sda', high: p.sdaHigh, low: p.sdaLow },
+  ] as const;
+  // The model of the picture: the piece that a place (in tile units, x along the cells) is in, from the levels of the rows.
+  const piece = (r: Reading, x: number, y: number): Piece => {
+    const gy = y * rows,
+      row = Math.floor(gy),
+      along = gy - row,
+      cell = Math.floor(x * cells);
+    for (const { key, high, low } of signals) {
+      const at = (c: number): number =>
+        lineAt(r[key][row][(c + cells) % cells], r.inverted, high, low);
+      if (Math.abs(along - at(cell)) / rows <= half) return key;
+      for (const edge of [cell, cell + 1])
+        if (
+          at(edge - 1) !== at(edge) &&
+          Math.abs(x - edge / cells) <= half &&
+          along >= high - half * rows &&
+          along <= low + half * rows
+        )
+          return key;
+    }
+    if (Math.abs(x - Math.round(x * 0.5 * cells) / (0.5 * cells)) <= p.gridHalf)
+      return 'grid';
+    return 'ground';
+  };
+  const toneOf = (r: Reading, label: Piece): number => r.tones[label],
+    heightOf = (label: Piece): number =>
+      ({
+        ground: p.groundHeight,
+        grid: p.gridHeight,
+        scl: p.sclHeight,
+        sda: p.sdaHeight,
+      })[label],
+    roughnessOf = (label: Piece): number =>
+      label === 'ground' ? p.groundRoughness : p.inkRoughness;
+  // Whether a place is within a distance of any edge of the drawing (the sides of the level lines, of the vertical lines and of the thin lines, and the ends of the vertical lines).
+  const nearEdge = (x: number, y: number, within: number): boolean => {
+    const gy = y * rows,
+      along = gy - Math.floor(gy),
+      dx = Math.abs(x - Math.round(x * cells) / cells),
+      dc = Math.abs(x - Math.round(x * 0.5 * cells) / (0.5 * cells));
+    for (const { high, low } of signals)
+      for (const level of [high, low])
+        if (Math.abs(Math.abs(along - level) / rows - half) < within)
+          return true;
+    for (const { high, low } of signals)
+      if (
+        Math.abs((along - high) / rows + half) < within ||
+        Math.abs((low - along) / rows + half) < within
+      )
+        return true;
+    return (
+      dx < within ||
+      Math.abs(dx - half) < within ||
+      Math.abs(dc - p.gridHalf) < within
+    );
+  };
+
+  it('draws a START, the address of a target that is not reserved with the read/write bit and the acknowledge, one or two bytes each with its acknowledge bit, and a STOP in every row, read back from the picture by a decoder written out separately, with the first and last cell of the row idle', () => {
+    let reads = 0,
+      writes = 0,
+      singles = 0,
+      doubles = 0;
+    const seen = new Set<string>();
+    for (let seed = 0; seed < 60; seed++) {
+      const reading = readSurface(
+        createSurfaceSampler('i2ctransactions', seed * 13 + 5),
+      );
+      for (const message of reading.messages) {
+        expect(message.address).toBeGreaterThanOrEqual(8);
+        expect(message.address).toBeLessThanOrEqual(119);
+        expect(message.data.length).toBeGreaterThanOrEqual(1);
+        expect(message.data.length).toBeLessThanOrEqual(2);
+        expect(message.start).toBeGreaterThanOrEqual(1);
+        expect(message.stop).toBeLessThanOrEqual(cells - 1);
+        // From the START cell to the STOP cell: 9 bits of two cells for the address byte and for each byte of data, and the two cells before the STOP and the START to the first bit.
+        expect(message.stop - message.start).toBe(
+          3 + 18 * (1 + message.data.length),
+        );
+        reads += Number(message.read);
+        writes += Number(!message.read);
+        singles += Number(message.data.length === 1);
+        doubles += Number(message.data.length === 2);
+        seen.add(JSON.stringify(message));
+      }
+    }
+    expect(reads).toBeGreaterThan(60 * rows * 0.35);
+    expect(writes).toBeGreaterThan(60 * rows * 0.35);
+    expect(singles).toBeGreaterThan(60 * rows * 0.35);
+    expect(doubles).toBeGreaterThan(60 * rows * 0.35);
+    expect(seen.size).toBeGreaterThan(60 * rows * 0.98);
+  });
+
+  it('is read by a decoder that complains where an I2C message is broken: an address that is not acknowledged, a data line that moves while the clock is high, a missing STOP and a read that is acknowledged after the last byte', () => {
+    const reading = readSurface(createSurfaceSampler('i2ctransactions', 3)),
+      row = 0,
+      message = reading.messages[row],
+      scl = reading.scl[row],
+      sda = reading.sda[row];
+    expect(decode(scl, sda)).toEqual(message);
+    const withSda = (change: (copy: number[]) => void): number[] => {
+      const copy = [...sda];
+      change(copy);
+      return copy;
+    };
+    // The acknowledge bit of the address: cell start + 1 + 2 * 8 + 1 is its clock-high cell.
+    const ack = message.start + 1 + 2 * 8 + 1;
+    expect(sda[ack]).toBe(0);
+    expect(
+      decode(
+        scl,
+        withSda((copy) => {
+          copy[ack - 1] = 1;
+          copy[ack] = 1;
+        }),
+      ),
+    ).toBeNull();
+    // The data line moves while the clock is high, in the middle of the address: a spurious STOP or START.
+    const first = message.start + 2;
+    expect(scl[first]).toBe(1);
+    expect(
+      decode(
+        scl,
+        withSda((copy) => {
+          copy[first] = 1 - copy[first - 1];
+        }),
+      ),
+    ).toBeNull();
+    // No STOP: the data line stays low to the end of the row.
+    expect(
+      decode(
+        scl,
+        withSda((copy) => {
+          copy.fill(0, message.stop);
+        }),
+      ),
+    ).toBeNull();
+    // The acknowledge after the last byte of a read (a 1) is a 0 and after a write a 1.
+    const lastAck = message.stop - 3;
+    expect(sda[lastAck]).toBe(message.read ? 1 : 0);
+    expect(
+      decode(
+        scl,
+        withSda((copy) => {
+          copy[lastAck] = 1 - copy[lastAck];
+          copy[lastAck - 1] = copy[lastAck];
+        }),
+      ),
+    ).toBeNull();
+  });
+
+  it(
+    'puts the tone, the height, the roughness and the occlusion of the model (ground, thin line of a clock, clock line, data line) at every place of the picture away from the edges, for several seeds along and across',
+    { timeout: 120000 },
+    () => {
+      const seen = new Set<string>();
+      for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
+        const sample = createSurfaceSampler('i2ctransactions', seed),
+          reading = readSurface(sample);
+        seen.add(`${reading.across}${reading.inverted}`);
+        const o = empty();
+        let compared = 0;
+        for (let iy = 0; iy < 470; iy++)
+          for (let ix = 0; ix < 470; ix++) {
+            const x = (ix + 0.37) * 0.0021,
+              y = (iy + 0.61) * 0.0021;
+            if (nearEdge(x, y, 0.0008)) continue;
+            sample(reading.across ? y : x, reading.across ? x : y, o);
+            const label = piece(reading, x, y);
+            expect(o.color).toBeCloseTo(toneOf(reading, label), 6);
+            expect(o.height / p.relief).toBeCloseTo(heightOf(label), 6);
+            expect(o.roughness).toBeCloseTo(roughnessOf(label), 6);
+            expect(o.occlusion).toBe(1);
+            compared++;
+          }
+        expect(compared).toBeGreaterThan(100000);
+      }
+      expect(seen.size).toBe(4);
+    },
+  );
+
+  it('puts the edges of the level lines, of the vertical lines at a change of level (the sides and both ends) and of the thin lines of the clocks where the model puts them: just inside and just outside by 0.0004 of a tile, exactly', () => {
+    const delta = 0.0004;
+    let vertical = 0;
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
+      const sample = createSurfaceSampler('i2ctransactions', seed),
+        reading = readSurface(sample),
+        { across, tones, inverted } = reading,
+        tone = (x: number, y: number): number => toneAt(sample, x, y, across);
+      for (let row = 0; row < rows; row++) {
+        for (const { key, high, low } of signals) {
+          const level = reading[key][row],
+            at = (b: number): number =>
+              lineAt(level[(b + cells) % cells], inverted, high, low),
+            trace = tones[key];
+          // The level line of a few cells.
+          for (const cell of [2, 17, 40]) {
+            const x = (cell + 0.5) / cells,
+              centre = (row + at(cell)) / rows;
+            close(tone(x, centre + half - delta), trace);
+            close(tone(x, centre + half + delta), tones.ground);
+            close(tone(x, centre - half + delta), trace);
+            close(tone(x, centre - half - delta), tones.ground);
+          }
+          // The vertical lines at the first three changes of level: the sides in the middle, and the two ends on the side of the cell where the end is not covered by the level line.
+          let changes = 0;
+          for (let edge = 1; edge < cells && changes < 3; edge++) {
+            if (at(edge - 1) === at(edge)) continue;
+            changes++;
+            vertical++;
+            const x = edge / cells,
+              middle = (row + (high + low) / 2) / rows,
+              lowSide = at(edge) === low ? 1 : -1;
+            close(tone(x + half - delta, middle), trace);
+            close(tone(x + half + delta, middle), tones.ground);
+            close(tone(x - half + delta, middle), trace);
+            close(tone(x - half - delta, middle), tones.ground);
+            const topEnd = (row + high) / rows - half,
+              bottomEnd = (row + low) / rows + half;
+            close(tone(x + lowSide * 0.002, topEnd + delta), trace);
+            close(tone(x + lowSide * 0.002, topEnd - delta), tones.ground);
+            close(tone(x - lowSide * 0.002, bottomEnd - delta), trace);
+            close(tone(x - lowSide * 0.002, bottomEnd + delta), tones.ground);
+          }
+        }
+        // The thin lines at the edges of a few clocks (at the boundary of the rows, where nothing else is drawn).
+        for (const clock of [1, 9, 17]) {
+          const x = (2 * clock) / cells;
+          close(tone(x + p.gridHalf - delta, row / rows), tones.grid);
+          close(tone(x + p.gridHalf + delta, row / rows), tones.ground);
+          close(tone(x - p.gridHalf + delta, row / rows), tones.grid);
+          close(tone(x - p.gridHalf - delta, row / rows), tones.ground);
+        }
+      }
+    }
+    expect(vertical).toBeGreaterThan(150);
+  });
+
+  it('gives the ground, the thin lines of the clocks, the clock line and the data line their heights and roughnesses, and full occlusion', () => {
+    for (const seed of [1, 2, 3, 4]) {
+      const sample = createSurfaceSampler('i2ctransactions', seed),
+        { across, scl, sda, inverted } = readSurface(sample),
+        read = (x: number, y: number): [number, number, number] => {
+          sample(across ? y : x, across ? x : y, out);
+          return [out.height / p.relief, out.roughness, out.occlusion];
+        };
+      const row = 2,
+        cell = 12,
+        clockAt =
+          (row + lineAt(scl[row][cell], inverted, p.sclHigh, p.sclLow)) / rows,
+        dataAt =
+          (row + lineAt(sda[row][cell], inverted, p.sdaHigh, p.sdaLow)) / rows;
+      const [groundHeight, groundRoughness, groundOcclusion] = read(
+          (cell + 0.5) / cells,
+          (row + 0.5) / rows,
+        ),
+        [gridHeight, gridRoughness, gridOcclusion] = read(
+          6 / cells,
+          row / rows,
+        ),
+        [clockHeight, clockRoughness, clockOcclusion] = read(
+          (cell + 0.5) / cells,
+          clockAt,
+        ),
+        [dataHeight, dataRoughness, dataOcclusion] = read(
+          (cell + 0.5) / cells,
+          dataAt,
+        );
+      expect(groundHeight).toBeCloseTo(p.groundHeight, 6);
+      expect(gridHeight).toBeCloseTo(p.gridHeight, 6);
+      expect(clockHeight).toBeCloseTo(p.sclHeight, 6);
+      expect(dataHeight).toBeCloseTo(p.sdaHeight, 6);
+      expect(groundRoughness).toBeCloseTo(p.groundRoughness, 6);
+      expect([gridRoughness, clockRoughness, dataRoughness]).toEqual([
+        p.inkRoughness,
+        p.inkRoughness,
+        p.inkRoughness,
+      ]);
+      expect([
+        groundOcclusion,
+        gridOcclusion,
+        clockOcclusion,
+        dataOcclusion,
+      ]).toEqual([1, 1, 1, 1]);
+    }
+  });
+
+  it('softens the level lines, the vertical lines and the thin lines of the clocks over edgeSoft', () => {
+    let tested = 0;
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const sample = createSurfaceSampler('i2ctransactions', seed),
+        { across, tones, scl, sda, inverted } = readSurface(sample),
+        tone = (x: number, y: number): number => toneAt(sample, x, y, across),
+        quarter = 0.25 * p.edgeSoft,
+        row = 3;
+      for (const { key, high, low } of signals) {
+        const level = key === 'scl' ? scl[row] : sda[row],
+          at = (b: number): number => lineAt(level[b], inverted, high, low),
+          trace = tones[key];
+        // The upper and lower edge of the level line of a cell.
+        const x = 20.5 / cells,
+          centre = (row + at(20)) / rows;
+        close(
+          tone(x, centre + half - quarter),
+          blend(tones.ground, trace, 0.75),
+        );
+        close(
+          tone(x, centre + half + quarter),
+          blend(tones.ground, trace, 0.25),
+        );
+        close(
+          tone(x, centre - half + quarter),
+          blend(tones.ground, trace, 0.75),
+        );
+        close(
+          tone(x, centre - half - quarter),
+          blend(tones.ground, trace, 0.25),
+        );
+        // The side of a vertical line at the first change of level in the row.
+        let first = 1;
+        while (at(first - 1) === at(first)) first++;
+        const middle = (row + (high + low) / 2) / rows;
+        close(
+          tone(first / cells + half - quarter, middle),
+          blend(tones.ground, trace, 0.75),
+        );
+        close(
+          tone(first / cells + half + quarter, middle),
+          blend(tones.ground, trace, 0.25),
+        );
+        close(
+          tone(first / cells - half + quarter, middle),
+          blend(tones.ground, trace, 0.75),
+        );
+        close(
+          tone(first / cells - half - quarter, middle),
+          blend(tones.ground, trace, 0.25),
+        );
+      }
+      const edge = 10 / cells;
+      close(
+        tone(edge + p.gridHalf - quarter, row / rows),
+        blend(tones.ground, tones.grid, 0.75),
+      );
+      close(
+        tone(edge + p.gridHalf + quarter, row / rows),
+        blend(tones.ground, tones.grid, 0.25),
+      );
+      close(
+        tone(edge - p.gridHalf + quarter, row / rows),
+        blend(tones.ground, tones.grid, 0.75),
+      );
+      close(
+        tone(edge - p.gridHalf - quarter, row / rows),
+        blend(tones.ground, tones.grid, 0.25),
+      );
+      tested++;
+    }
+    expect(tested).toBe(6);
+  });
+
+  it(
+    'uses every surface, both ways round and both polarities over 1000 seeds, about equally often, with the tones shifted over the whole range and the addresses and the bytes spread',
+    { timeout: 120000 },
+    () => {
+      const surfaces = new Map<number, number>(),
+        shifts: number[] = [],
+        addresses = [0, 0, 0, 0],
+        bitCounts = new Array<number>(8).fill(0),
+        starts = [new Set<number>(), new Set<number>()],
+        values = new Set<number>();
+      let acrossCount = 0,
+        invertedCount = 0,
+        reads = 0,
+        doubles = 0,
+        bytes = 0;
+      for (let seed = 0; seed < 1000; seed++) {
+        const reading = readSurface(
+          createSurfaceSampler('i2ctransactions', seed * 7 + 1),
+        );
+        shifts.push(reading.shift);
+        surfaces.set(reading.surface, (surfaces.get(reading.surface) ?? 0) + 1);
+        acrossCount += Number(reading.across);
+        invertedCount += Number(reading.inverted);
+        for (const message of reading.messages) {
+          addresses[Math.floor((message.address - 8) / 28)]++;
+          reads += Number(message.read);
+          doubles += Number(message.data.length === 2);
+          starts[message.data.length - 1].add(message.start);
+          for (const byte of message.data) {
+            bytes++;
+            values.add(byte);
+            for (let bit = 0; bit < 8; bit++)
+              bitCounts[bit] += (byte >> bit) & 1;
+          }
+        }
+      }
+      expect(surfaces.size).toBe(p.surfaces.length);
+      for (const count of surfaces.values())
+        expect(Math.abs(count - 1000 / p.surfaces.length)).toBeLessThan(50);
+      expect(Math.abs(acrossCount / 1000 - 0.5)).toBeLessThan(0.05);
+      expect(Math.abs(invertedCount / 1000 - 0.5)).toBeLessThan(0.05);
+      expect(Math.min(...shifts)).toBeLessThan(-p.toneShift * 0.9);
+      expect(Math.max(...shifts)).toBeGreaterThan(p.toneShift * 0.9);
+      expect(
+        Math.abs(shifts.reduce((total, shift) => total + shift, 0) / 1000),
+      ).toBeLessThan(p.toneShift * 0.15);
+      for (let quarter = 0; quarter < 4; quarter++)
+        expect(
+          Math.abs(
+            shifts.filter(
+              (shift) =>
+                Math.floor(((shift / p.toneShift + 1) / 2) * 4) === quarter,
+            ).length - 250,
+          ),
+        ).toBeLessThan(50);
+      // 4000 messages: the addresses 8 to 119 in four ranges of 28, reads and writes, one and two bytes, and every bit of the data about half ones.
+      for (const count of addresses)
+        expect(Math.abs(count - 1000)).toBeLessThan(150);
+      expect(Math.abs(reads / 4000 - 0.5)).toBeLessThan(0.05);
+      expect(Math.abs(doubles / 4000 - 0.5)).toBeLessThan(0.05);
+      for (const count of bitCounts)
+        expect(Math.abs(count / bytes - 0.5)).toBeLessThan(0.05);
+      // A message starts anywhere from the second cell of the row to where its STOP is in the last one, and all the bytes 0 to 255 turn up.
+      for (const count of [1, 2])
+        expect([...starts[count - 1]].sort((a, b) => a - b)).toEqual(
+          Array.from(
+            { length: cells - (4 + 18 * (1 + count)) },
+            (_, k) => k + 1,
+          ),
+        );
+      expect(values.size).toBe(256);
+    },
+  );
+
+  it('keeps all channels in range for 60 seeds, repeats seamlessly and differs between seeds', () => {
+    const o = empty();
+    let invalid = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const sample = createSurfaceSampler('i2ctransactions', seed * 7919);
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          sample((x + 0.5) / 96, (y + 0.5) / 96, o);
+          invalid += Number(o.metallic !== 0 || o.mortar !== 0);
+          for (const value of [
+            o.color,
+            o.height / p.relief,
+            o.roughness,
+            o.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+    }
+    expect(invalid).toBe(0);
+    const a = createSurfaceSampler('i2ctransactions', 0),
+      b = createSurfaceSampler('i2ctransactions', 1),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let ix = 0; ix < 64; ix++)
+      for (let iy = 0; iy < 64; iy++) {
+        const x = (ix + 0.37) / 64,
+          y = (iy + 0.61) / 64;
+        a(x, y, one);
+        a(x + 1, y + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(x, y, two);
+        different += Number(two.color !== one.color);
+      }
+    expect(different).toBeGreaterThan(50);
+  });
+});

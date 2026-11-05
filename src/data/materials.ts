@@ -18871,6 +18871,42 @@ export const proceduralMaterialPresets = Object.freeze({
     groundRoughness: 0.7,
     inkRoughness: 0.4,
   }),
+  i2ctransactions: Object.freeze({
+    dark: [14, 22, 26] as const,
+    light: [210, 232, 238] as const,
+    roughness: 0.5,
+    relief: 0.003,
+    // Rows of the two lines of an I2C bus (SCL on the top half of the row, SDA on the bottom half), as a logic analyser draws them: both lines are idle high; a message is a START (SDA goes low while SCL is high), the 7-bit
+    // address of the target with the read/write bit (0 write, 1 read) and the acknowledge bit of the target (0), one or two bytes each followed by an acknowledge bit (a write is acknowledged by the target, a read is
+    // acknowledged by the controller except for the last byte, which it does not: a 1), all most significant bit first, and a STOP (SDA goes high while SCL is high); a bit is a pulse of SCL (low for half of a clock, then high),
+    // with SDA held at the bit (the Wikipedia article on I2C, read for this; the transitions of SDA at the moment SCL falls are the idealised way a timing diagram draws them, not a rise and fall time and a hold time).
+    // The addresses are those that are not reserved (8 to 119); each byte is that of the seed. A row has cells half-clocks across the tile, the first of them idle, so the trace wraps, with thin lines at each clock.
+    // A level is a line at highShare or lowShare of the height of the row with the half width traceHalf (of the tile), and a change of level is a vertical line at the edge of the cell. The seed picks whether the high
+    // level is drawn high or low, a surface (the tones of the ground, of the clock lines, of SCL and of SDA, all shifted together a little) and lays the rows along the picture or across it.
+    rows: 4,
+    cells: 64,
+    sclHigh: 0.1,
+    sclLow: 0.4,
+    sdaHigh: 0.6,
+    sdaLow: 0.9,
+    traceHalf: 0.0032,
+    gridHalf: 0.0007,
+    edgeSoft: 0.0006,
+    surfaces: Object.freeze([
+      Object.freeze({ ground: 0.1, grid: 0.22, scl: 0.88, sda: 0.58 }),
+      Object.freeze({ ground: 0.9, grid: 0.72, scl: 0.15, sda: 0.5 }),
+      Object.freeze({ ground: 0.18, grid: 0.34, scl: 0.62, sda: 0.9 }),
+      Object.freeze({ ground: 0.75, grid: 0.55, scl: 0.3, sda: 0.06 }),
+    ]),
+    // How much the tones may all be shifted together (from -toneShift to toneShift) by the seed: the age of the print.
+    toneShift: 0.04,
+    groundHeight: 0.15,
+    gridHeight: 0.22,
+    sclHeight: 0.4,
+    sdaHeight: 0.46,
+    groundRoughness: 0.7,
+    inkRoughness: 0.4,
+  }),
   to92packagefaces: Object.freeze({
     dark: [8, 10, 13] as const,
     light: [239, 242, 244] as const,
@@ -25363,6 +25399,7 @@ export const proceduralTileMeters = Object.freeze({
   dcbarreljackfaces: 0.04,
   stfiberadapterfaces: 0.04,
   to92packagefaces: 0.08,
+  i2ctransactions: 1,
   redblacktrees: 1,
   debruijnstrips: 1,
   starbattleboard: 1,

@@ -711,6 +711,7 @@ try {
     'dcbarreljackfaces',
     'stfiberadapterfaces',
     'to92packagefaces',
+    'i2ctransactions',
     'redblacktrees',
     'debruijnstrips',
     'starbattleboard',

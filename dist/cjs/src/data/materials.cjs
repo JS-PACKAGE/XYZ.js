@@ -29182,6 +29182,62 @@ var proceduralMaterialPresets = Object.freeze({
 		groundRoughness: .7,
 		inkRoughness: .4
 	}),
+	i2ctransactions: Object.freeze({
+		dark: [
+			14,
+			22,
+			26
+		],
+		light: [
+			210,
+			232,
+			238
+		],
+		roughness: .5,
+		relief: .003,
+		rows: 4,
+		cells: 64,
+		sclHigh: .1,
+		sclLow: .4,
+		sdaHigh: .6,
+		sdaLow: .9,
+		traceHalf: .0032,
+		gridHalf: 7e-4,
+		edgeSoft: 6e-4,
+		surfaces: Object.freeze([
+			Object.freeze({
+				ground: .1,
+				grid: .22,
+				scl: .88,
+				sda: .58
+			}),
+			Object.freeze({
+				ground: .9,
+				grid: .72,
+				scl: .15,
+				sda: .5
+			}),
+			Object.freeze({
+				ground: .18,
+				grid: .34,
+				scl: .62,
+				sda: .9
+			}),
+			Object.freeze({
+				ground: .75,
+				grid: .55,
+				scl: .3,
+				sda: .06
+			})
+		]),
+		toneShift: .04,
+		groundHeight: .15,
+		gridHeight: .22,
+		sclHeight: .4,
+		sdaHeight: .46,
+		groundRoughness: .7,
+		inkRoughness: .4
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -37863,6 +37919,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	i2ctransactions: 1,
 	redblacktrees: 1,
 	debruijnstrips: 1,
 	starbattleboard: 1,
